@@ -36,7 +36,7 @@ def initial_setup():
                     r = requests.get(url)
                     with open('csv_files/cards.csv', 'wb') as outputfile:
                         outputfile.write(r.content)
-            df = pd.read_csv('cards.csv', dtype='unicode')
+            df = pd.read_csv('csv_files/cards.csv')
             df['colorIdentity'] = df['colorIdentity'].fillna('None')
 
             print('Checking for color identity sorted files.')

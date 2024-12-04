@@ -1,0 +1,97 @@
+name,colorIdentity,colors,manaCost,manaValue,type,keywords,power,toughness
+"Aminatou, the Fateshifter","B, U, W","B, U, W",{W}{U}{B},3.0,Legendary Planeswalker — Aminatou,,,
+Magister Sphinx,"B, U, W","B, U, W",{4}{W}{U}{B},7.0,Artifact Creature — Sphinx,Flying,5,5
+Tower Gargoyle,"B, U, W","B, U, W",{1}{W}{U}{B},4.0,Artifact Creature — Gargoyle,Flying,4,4
+"Varina, Lich Queen","B, U, W","B, U, W",{1}{W}{U}{B},4.0,Legendary Creature — Zombie Wizard,,4,4
+Zur the Enchanter,"B, U, W","B, U, W",{1}{W}{U}{B},4.0,Legendary Creature — Human Wizard,Flying,1,4
+Sen Triplets,"B, U, W","B, U, W",{2}{W}{U}{B},5.0,Legendary Artifact Creature — Human Wizard,,3,3
+Sharuum the Hegemon,"B, U, W","B, U, W",{3}{W}{U}{B},6.0,Legendary Artifact Creature — Sphinx,Flying,5,5
+Thopter Foundry,"B, U, W","B, U, W",{W/B}{U},2.0,Artifact,,,
+Inquisitor Greyfax,"B, U, W","B, U, W",{1}{W}{U}{B},4.0,Legendary Creature — Human Inquisitor,"Hunt for Heresy, Investigate, Unquestionable Wisdom, Vigilance",3,3
+Marneus Calgar,"B, U, W","B, U, W",{2}{W}{U}{B},5.0,Legendary Creature — Astartes Warrior,"Chapter Master, Double strike, Master Tactician",3,5
+Birth of the Imperium,"B, U, W","B, U, W",{2}{W}{U}{B},5.0,Enchantment — Saga,,,
+Deny the Witch,"B, U, W","B, U, W",{1}{W}{U}{B},4.0,Instant,,,
+The Flesh Is Weak,"B, U, W","B, U, W",{2}{W}{U}{B},5.0,Enchantment,,,
+Arcane Sanctum,"B, U, W",,,0.0,Land,,,
+Ratonhnhaké꞉ton,"B, U, W","B, U, W",{W}{U}{B},3.0,Legendary Creature — Human Assassin,,3,3
+Sefris of the Hidden Ways,"B, U, W","B, U, W",{W}{U}{B},3.0,Legendary Creature — Human Wizard,Venture into the dungeon,2,3
+Nihiloor,"B, U, W","B, U, W",{2}{W}{U}{B},5.0,Legendary Creature — Horror,,3,5
+Esper Battlemage,"B, U, W",U,{2}{U},3.0,Artifact Creature — Human Wizard,,2,2
+Resounding Wave,"B, U, W",U,{2}{U},3.0,Instant,Cycling,,
+Brilliant Ultimatum,"B, U, W","B, U, W",{W}{W}{U}{U}{U}{B}{B},7.0,Sorcery,,,
+Esper Charm,"B, U, W","B, U, W",{W}{U}{B},3.0,Instant,,,
+Punish Ignorance,"B, U, W","B, U, W",{W}{U}{U}{B},4.0,Instant,,,
+Sphinx Sovereign,"B, U, W","B, U, W",{4}{W}{U}{U}{B},8.0,Artifact Creature — Sphinx,Flying,6,6
+Windwright Mage,"B, U, W","B, U, W",{W}{U}{B},3.0,Artifact Creature — Human Wizard,Lifelink,2,2
+Obelisk of Esper,"B, U, W",,{3},3.0,Artifact,,,
+Wandering Mage,"B, U, W","B, U, W",{W}{U}{B},3.0,Creature — Human Cleric Wizard,,0,3
+Enigma Sphinx,"B, U, W","B, U, W",{4}{W}{U}{B},7.0,Artifact Creature — Sphinx,"Cascade, Flying",5,4
+Esper Sojourners,"B, U, W","B, U, W",{W}{U}{B},3.0,Artifact Creature — Vedalken Wizard,Cycling,2,3
+Etherwrought Page,"B, U, W","B, U, W",{1}{W}{U}{B},4.0,Artifact,Surveil,,
+Sphinx of the Steel Wind,"B, U, W","B, U, W",{5}{W}{U}{B},8.0,Artifact Creature — Sphinx,"First strike, Flying, Lifelink, Protection, Vigilance",6,6
+Arsenal Thresher,"B, U, W","B, U, W",{2}{W/B}{U},4.0,Artifact Creature — Construct,,2,2
+Esper Stormblade,"B, U, W","B, U, W",{W/B}{U},2.0,Artifact Creature — Vedalken Wizard,,2,1
+Chromium,"B, U, W","B, U, W",{2}{W}{W}{U}{U}{B}{B},8.0,Legendary Creature — Elder Dragon,"Flying, Rampage",7,7
+Dakkon Blackblade,"B, U, W","B, U, W",{2}{W}{U}{U}{B},6.0,Legendary Creature — Human Warrior,,*,*
+"Soundwave, Sonic Spy // Soundwave, Superior Captain","B, U, W","B, U, W",{1}{W}{U}{B},4.0,Legendary Artifact Creature — Robot,"Convert, More Than Meets the Eye",5,4
+"Urza, Chief Artificer","B, U, W","B, U, W",{3}{W}{U}{B},6.0,Legendary Creature — Human Artificer,Affinity,4,5
+"Tawnos, Solemn Survivor","B, U, W",U,{1}{U},2.0,Legendary Creature — Human Artificer,Mill,1,3
+Ethersworn Adjudicator,"B, U, W",U,{4}{U},5.0,Artifact Creature — Vedalken Knight,Flying,4,4
+"Alela, Artful Provocateur","B, U, W","B, U, W",{1}{W}{U}{B},4.0,Legendary Creature — Faerie Warlock,"Deathtouch, Flying, Lifelink",2,3
+Stormscape Battlemage,"B, U, W",U,{2}{U},3.0,Creature — Metathran Wizard,Kicker,2,2
+Dromar's Charm,"B, U, W","B, U, W",{W}{U}{B},3.0,Instant,,,
+"Oloro, Ageless Ascetic","B, U, W","B, U, W",{3}{W}{U}{B},6.0,Legendary Creature — Giant Soldier,,4,5
+"Sydri, Galvanic Genius","B, U, W","B, U, W",{W}{U}{B},3.0,Legendary Creature — Human Artificer,,2,2
+Trial // Error,"B, U, W","W, U",{W}{U},4.0,Instant,,,
+"Yennett, Cryptic Sovereign","B, U, W","B, U, W",{2}{W}{U}{B},5.0,Legendary Creature — Sphinx,"Flying, Menace, Vigilance",3,5
+"Bane, Lord of Darkness","B, U, W","B, U, W",{1}{W}{U}{B},4.0,Legendary Creature — God,,5,2
+"Nevinyrral, Urborg Tyrant","B, U, W","B, U, W",{3}{W}{U}{B},6.0,Legendary Creature — Zombie Wizard,"Hexproof, Hexproof from",3,6
+Scornful Aether-Lich,"B, U, W",U,{3}{U},4.0,Artifact Creature — Zombie Wizard,,2,4
+Sludge Strider,"B, U, W","B, U, W",{1}{W}{U}{B},4.0,Artifact Creature — Insect,,3,3
+The Multiplayer Nitpickers,"B, U, W","B, U, W",{W}{U}{B},0.0,Legendary Creature — Human Wizard,,4,3
+The Egotistical Velociraptor,"B, U, W","B, U, W",{2}{W}{U}{B},5.0,Legendary Creature — Dinosaur Boxer,Grumpy Co-play,6,6
+The Ever-Changing 'Dane,"B, U, W","B, U, W",{W}{U}{B},3.0,Legendary Creature — Shapeshifter,,3,3
+Dromar's Cavern,"B, U, W",,,0.0,Land — Lair,,,
+"Zur, Eternal Schemer","B, U, W","B, U, W",{W}{U}{B},3.0,Legendary Creature — Human Wizard,"Flying, Lifelink",1,4
+"Aminatou, Veil Piercer","B, U, W","B, U, W",{1}{W}{U}{B},4.0,Legendary Creature — Human Wizard,Surveil,2,4
+The Master of Keys,"B, U, W","B, U, W",{X}{W}{U}{B},3.0,Legendary Enchantment Creature — Horror,"Flying, Mill",3,3
+Wizards' School,"B, U, W",,,0.0,Land,,,
+Merieke Ri Berit,"B, U, W","B, U, W",{W}{U}{B},3.0,Legendary Creature — Human,,1,1
+Stormscape Apprentice,"B, U, W",U,{U},1.0,Creature — Human Wizard,,1,1
+Stormscape Master,"B, U, W",U,{2}{U}{U},4.0,Creature — Human Wizard,,2,2
+"Dromar, the Banisher","B, U, W","B, U, W",{3}{W}{U}{B},6.0,Legendary Creature — Dragon,Flying,6,6
+Dromar's Attendant,"B, U, W",,{5},5.0,Artifact Creature — Golem,,3,3
+Ancient Spring,"B, U, W",,,0.0,Land,,,
+Halfdane,"B, U, W","B, U, W",{1}{W}{U}{B},4.0,Legendary Creature — Shapeshifter,,3,3
+Lady Evangela,"B, U, W","B, U, W",{W}{U}{B},3.0,Legendary Creature — Human Cleric,,1,2
+Saruman of Many Colors,"B, U, W","B, U, W",{3}{W}{U}{B},6.0,Legendary Creature — Avatar Wizard,"Mill, Ward",5,4
+"Chromium, the Mutable","B, U, W","B, U, W",{4}{W}{U}{B},7.0,Legendary Creature — Elder Dragon,"Flash, Flying",7,7
+"Narod, the Beige Flower","B, U, W","B, U, W",{W}{U}{B},3.0,Legendary Creature — Plant Rogue,,0,5
+Processing Plant,"B, U, W",,,0.0,Land — Ulamog's Power-Plant,,,
+"Dakkon, Shadow Slayer","B, U, W","B, U, W",{W}{U}{B},3.0,Legendary Planeswalker — Dakkon,Surveil,,
+"Arna Kennerüd, Skycaptain","B, U, W","B, U, W",{2}{W}{U}{B},5.0,Legendary Creature — Human Knight,"Flying, Lifelink, Ward",4,4
+Contaminated Landscape,"B, U, W",,,0.0,Land,Cycling,,
+Shaper Guildmage,"B, U, W",U,{U},1.0,Creature — Human Wizard,,1,1
+Sidar Jabari of Zhalfir,"B, U, W","B, U, W",{1}{W}{U}{B},4.0,Legendary Creature — Human Knight,"Eminence, First strike, Flying",4,3
+Elenda and Azor,"B, U, W","B, U, W",{3}{W}{U}{B},6.0,Legendary Creature — Vampire Knight Sphinx,"Flying, Ward",6,6
+"Kamiz, Obscura Oculus","B, U, W","B, U, W",{1}{W}{U}{B},4.0,Legendary Creature — Octopus Rogue,Connive,2,4
+"Tivit, Seller of Secrets","B, U, W","B, U, W",{3}{W}{U}{B},6.0,Legendary Creature — Sphinx Rogue,"Council's dilemma, Flying, Investigate, Treasure, Ward",6,6
+Obscura Confluence,"B, U, W","B, U, W",{1}{W}{U}{B},4.0,Instant,Connive,,
+"Eriette, the Beguiler","B, U, W","B, U, W",{1}{W}{U}{B},4.0,Legendary Creature — Human Warlock,Lifelink,4,4
+Void Rend,"B, U, W","B, U, W",{W}{U}{B},3.0,Instant,,,
+Heroes of Kamigawa,"B, U, W","B, U, W",{1}{W}{U}{B},4.0,Legendary Planeswalker — Kaito Wanderer,,,
+"Ertai, the Corrupted","B, U, W","B, U, W",{2}{W}{U}{B},5.0,Legendary Creature — Phyrexian Human Wizard,,3,4
+Raffine's Tower,"B, U, W",,,0.0,Land — Plains Island Swamp,Cycling,,
+Obscura Ascendancy,"B, U, W","B, U, W",{W}{U}{B},3.0,Enchantment,,,
+Obscura Interceptor,"B, U, W","B, U, W",{1}{W}{U}{B},4.0,Creature — Octopus Wizard,"Connive, Flash, Lifelink",3,1
+"Raffine, Scheming Seer","B, U, W","B, U, W",{W}{U}{B},3.0,Legendary Creature — Sphinx Demon,"Connive, Flying, Ward",1,4
+"Toluz, Clever Conductor","B, U, W","B, U, W",{W/U}{U}{U/B},3.0,Legendary Creature — Human Rogue,Connive,3,1
+The Celestial Toymaker,"B, U, W","B, U, W",{W}{U}{B},3.0,Legendary Creature — Rogue Artificer,,2,4
+Obscura Initiate,"B, U, W",U,{2}{U},3.0,Creature — Bird Citizen,Flying,2,2
+Nimble Larcenist,"B, U, W","B, U, W",{W}{U}{B},3.0,Creature — Bird Rogue,Flying,2,1
+Obscura Charm,"B, U, W","B, U, W",{W}{U}{B},3.0,Instant,,,
+"Queza, Augur of Agonies","B, U, W","B, U, W",{1}{W}{U}{B},4.0,Legendary Creature — Octopus Advisor,,3,4
+"A-Queza, Augur of Agonies","B, U, W","B, U, W",{1}{W}{U}{B},4.0,Legendary Creature — Octopus Advisor,Vigilance,3,4
+Shattered Seraph,"B, U, W","B, U, W",{4}{W}{U}{B},7.0,Creature — Angel Rogue,Flying,4,4
+A-Shattered Seraph,"B, U, W","B, U, W",{4}{W}{U}{B},7.0,Creature — Angel Rogue,Flying,4,5
+Diviner of Fates,"B, U, W","B, U, W",{W}{U}{B},3.0,Creature — Octopus Wizard,"Connive, Seek",2,3

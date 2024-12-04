@@ -1,0 +1,388 @@
+name,colorIdentity,colors,manaCost,manaValue,type,keywords,power,toughness
+Llanowar Wastes,"B, G",,,0.0,Land,,,
+Bayou,"B, G",,,0.0,Land — Swamp Forest,,,
+Spider Spawning,"B, G",G,{4}{G},5.0,Sorcery,Flashback,,
+Assassin's Trophy,"B, G","B, G",{B}{G},2.0,Instant,,,
+Creakwood Liege,"B, G","B, G",{1}{B/G}{B/G}{B/G},4.0,Creature — Horror,,2,2
+Dreg Mangler,"B, G","B, G",{1}{B}{G},3.0,Creature — Plant Zombie,"Haste, Scavenge",3,3
+Glowspore Shaman,"B, G","B, G",{B}{G},2.0,Creature — Elf Shaman,Mill,3,1
+Grim Flayer,"B, G","B, G",{B}{G},2.0,Creature — Human Warrior,"Delirium, Surveil, Trample",2,2
+Lord of Extinction,"B, G","B, G",{3}{B}{G},5.0,Creature — Elemental,,*,*
+Lotleth Troll,"B, G","B, G",{B}{G},2.0,Creature — Zombie Troll,Trample,2,1
+"Skullbriar, the Walking Grave","B, G","B, G",{B}{G},2.0,Legendary Creature — Zombie Elemental,Haste,1,1
+Golgari Rot Farm,"B, G",,,0.0,Land,,,
+Deathreap Ritual,"B, G","B, G",{2}{B}{G},4.0,Enchantment,Morbid,,
+Maelstrom Pulse,"B, G","B, G",{1}{B}{G},3.0,Sorcery,,,
+"Mazirek, Kraul Death Priest","B, G","B, G",{3}{B}{G},5.0,Legendary Creature — Insect Shaman,Flying,2,2
+Twilight Mire,"B, G",,,0.0,Land,,,
+Baloth Null,"B, G","B, G",{4}{B}{G},6.0,Creature — Zombie Beast,,4,5
+Pernicious Deed,"B, G","B, G",{1}{B}{G},3.0,Enchantment,,,
+Aveline de Grandpré,"B, G",G,{2}{G}{G},4.0,Legendary Creature — Human Assassin,"Deathtouch, Disguise",3,3
+"Cleopatra, Exiled Pharaoh","B, G","B, G",{2}{B}{G},4.0,Legendary Creature — Human Noble,"Allies, Betrayal",2,4
+Nurturing Peatland,"B, G",,,0.0,Land,,,
+Winding Constrictor,"B, G","B, G",{B}{G},2.0,Creature — Snake,,2,3
+"Shessra, Death's Whisper","B, G","B, G",{2}{B}{G},4.0,Legendary Creature — Human Elf Warlock,,1,3
+"A-Shessra, Death's Whisper","B, G","B, G",{1}{B}{G},3.0,Legendary Creature — Human Elf Warlock,,1,4
+Skeletal Swarming,"B, G","B, G",{3}{B}{G},5.0,Enchantment,,,
+Decimator Beetle,"B, G","B, G",{3}{B}{G},5.0,Creature — Insect,,4,5
+"Hapatra, Vizier of Poisons","B, G","B, G",{B}{G},2.0,Legendary Creature — Human Cleric,,2,2
+Destined // Lead,"B, G",B,{1}{B},6.0,Instant,,,
+Foul Orchard,"B, G",,,0.0,Land,,,
+Driven // Despair,"B, G",G,{1}{G},4.0,Sorcery,,,
+Obelisk Spider,"B, G","B, G",{1}{B}{G},3.0,Creature — Spider,Reach,1,4
+Necrogenesis,"B, G","B, G",{B}{G},2.0,Enchantment,,,
+Quagmire Druid,"B, G",B,{2}{B},3.0,Creature — Zombie Druid,,2,2
+Strength of Night,"B, G",G,{2}{G},3.0,Instant,Kicker,,
+Consume Strength,"B, G","B, G",{1}{B}{G},3.0,Instant,,,
+Death Mutation,"B, G","B, G",{6}{B}{G},8.0,Sorcery,,,
+Ebony Treefolk,"B, G","B, G",{1}{B}{G},3.0,Creature — Treefolk,,3,3
+Llanowar Dead,"B, G","B, G",{B}{G},2.0,Creature — Zombie Elf,,2,2
+Spiritmonger,"B, G","B, G",{3}{B}{G},5.0,Creature — Beast,,6,6
+Life // Death,"B, G",G,{G},3.0,Sorcery,,,
+Marrow Chomper,"B, G","B, G",{3}{B}{G},5.0,Creature — Zombie Lizard,Devour,3,3
+Morbid Bloom,"B, G","B, G",{4}{B}{G},6.0,Sorcery,,,
+Putrid Leech,"B, G","B, G",{B}{G},2.0,Creature — Zombie Leech,,2,2
+Brood Butcher,"B, G",,{3}{B}{G},5.0,Creature — Eldrazi Drone,Devoid,3,3
+Catacomb Sifter,"B, G",,{1}{B}{G},3.0,Creature — Eldrazi Drone,"Devoid, Scry",2,3
+"Camellia, the Seedmiser","B, G","B, G",{1}{B}{G},3.0,Legendary Creature — Squirrel Warlock,"Forage, Menace",3,3
+Corpseberry Cultivator,"B, G","B, G",{1}{B/G}{B/G},3.0,Creature — Squirrel Warlock,Forage,2,3
+Vinereap Mentor,"B, G","B, G",{B}{G},2.0,Creature — Squirrel Druid,Food,3,2
+"Ygra, Eater of All","B, G","B, G",{3}{B}{G},5.0,Legendary Creature — Elemental Cat,Ward,6,6
+Hazel of the Rootbloom,"B, G","B, G",{2}{B}{G},4.0,Legendary Creature — Squirrel Druid,,3,5
+The Odd Acorn Gang,"B, G","B, G",{3}{B}{G},5.0,Legendary Creature — Squirrel Warrior,"Menace, Reach, Trample",5,5
+"Chatterfang, Squirrel General","B, G",G,{2}{G},3.0,Legendary Creature — Squirrel Warrior,Forestwalk,3,3
+The Gitrog Monster,"B, G","B, G",{3}{B}{G},5.0,Legendary Creature — Frog Horror,Deathtouch,6,6
+"Garruk, Cursed Huntsman","B, G","B, G",{4}{B}{G},6.0,Legendary Planeswalker — Garruk,,,
+Casualties of War,"B, G","B, G",{2}{B}{B}{G}{G},6.0,Sorcery,,,
+Tear Asunder,"B, G",G,{1}{G},2.0,Instant,Kicker,,
+Beledros Witherbloom,"B, G","B, G",{5}{B}{G},7.0,Legendary Creature — Elder Dragon,Flying,4,4
+Binding the Old Gods,"B, G","B, G",{2}{B}{G},4.0,Enchantment — Saga,,,
+Moldervine Reclamation,"B, G","B, G",{3}{B}{G},5.0,Enchantment,,,
+Poison-Tip Archer,"B, G","B, G",{2}{B}{G},4.0,Creature — Elf Archer,"Deathtouch, Reach",2,3
+Putrefy,"B, G","B, G",{1}{B}{G},3.0,Instant,,,
+Ravenous Squirrel,"B, G","B, G",{B/G},1.0,Creature — Squirrel,,1,1
+Skyfisher Spider,"B, G","B, G",{2}{B}{G},4.0,Creature — Spider,Reach,3,3
+Windgrace's Judgment,"B, G","B, G",{3}{B}{G},5.0,Instant,,,
+Golgari Signet,"B, G",,{2},2.0,Artifact,,,
+Talisman of Resilience,"B, G",,{2},2.0,Artifact,,,
+Grim Backwoods,"B, G",,,0.0,Land,,,
+Haunted Mire,"B, G",,,0.0,Land — Swamp Forest,,,
+Jungle Hollow,"B, G",,,0.0,Land,,,
+Necroblossom Snarl,"B, G",,,0.0,Land,,,
+Tainted Wood,"B, G",,,0.0,Land,,,
+Temple of Malady,"B, G",,,0.0,Land,Scry,,
+Viridescent Bog,"B, G",,,0.0,Land,,,
+Woodland Cemetery,"B, G",,,0.0,Land,,,
+Graverobber Spider,"B, G",G,{3}{G},4.0,Creature — Spider,Reach,2,4
+Deathbloom Ritualist,"B, G","B, G",{3}{B}{G},5.0,Creature — Elf Warlock,,3,5
+Golgari Guildmage,"B, G","B, G",{B/G}{B/G},2.0,Creature — Elf Shaman,,2,2
+Plague Boiler,"B, G",,{3},3.0,Artifact,,,
+Golgari Guildgate,"B, G",,,0.0,Land — Gate,,,
+Meren of Clan Nel Toth,"B, G","B, G",{2}{B}{G},4.0,Legendary Creature — Human Shaman,,3,4
+Golgari Charm,"B, G","B, G",{B}{G},2.0,Instant,,,
+Grisly Salvage,"B, G","B, G",{B}{G},2.0,Instant,,,
+"Jarad, Golgari Lich Lord","B, G","B, G",{B}{B}{G}{G},4.0,Legendary Creature — Zombie Elf,,2,2
+Korozda Guildmage,"B, G","B, G",{B}{G},2.0,Creature — Elf Shaman,,2,2
+Vulturous Zombie,"B, G","B, G",{3}{B}{G},5.0,Creature — Plant Zombie,Flying,3,3
+"Ikra Shidiqi, the Usurper","B, G","B, G",{3}{B}{G},5.0,Legendary Creature — Snake Wizard,"Menace, Partner",3,7
+"Reyhan, Last of the Abzan","B, G","B, G",{1}{B}{G},3.0,Legendary Creature — Human Warrior,Partner,0,0
+Corpsejack Menace,"B, G","B, G",{2}{B}{G},4.0,Creature — Fungus,,4,4
+Nath of the Gilt-Leaf,"B, G","B, G",{3}{B}{G},5.0,Legendary Creature — Elf Warrior,,4,4
+Worm Harvest,"B, G","B, G",{2}{B/G}{B/G}{B/G},5.0,Sorcery,Retrace,,
+Gaze of Granite,"B, G","B, G",{X}{B}{B}{G},3.0,Sorcery,,,
+"Grismold, the Dreadsower","B, G","B, G",{1}{B}{G},3.0,Legendary Creature — Troll Shaman,Trample,3,3
+Vraska the Unseen,"B, G","B, G",{3}{B}{G},5.0,Legendary Planeswalker — Vraska,,,
+Deadbridge Chant,"B, G","B, G",{4}{B}{G},6.0,Enchantment,Mill,,
+Deathsprout,"B, G","B, G",{1}{B}{B}{G},4.0,Instant,,,
+Find // Finality,"B, G","B, G",{B/G}{B/G},8.0,Sorcery,,,
+Nyx Weaver,"B, G","B, G",{1}{B}{G},3.0,Enchantment Creature — Spider,"Mill, Reach",2,3
+"Gyome, Master Chef","B, G","B, G",{2}{B}{G},4.0,Legendary Creature — Troll Warlock,"Food, Trample",5,3
+"Willowdusk, Essence Seer","B, G","B, G",{1}{B}{G},3.0,Legendary Creature — Dryad Druid,,3,3
+Revival Experiment,"B, G","B, G",{4}{B}{G},6.0,Sorcery,,,
+Gluttonous Troll,"B, G","B, G",{2}{B}{G},4.0,Creature — Troll,"Food, Trample",3,3
+Leyline Prowler,"B, G","B, G",{1}{B}{G},3.0,Creature — Nightmare Beast,"Deathtouch, Lifelink",2,3
+Sapling of Colfenor,"B, G","B, G",{3}{B/G}{B/G},5.0,Legendary Creature — Treefolk Shaman,Indestructible,2,5
+"Baba Lysaga, Night Witch","B, G","B, G",{1}{B}{G},3.0,Legendary Creature — Human Warlock,,3,3
+"Kagha, Shadow Archdruid","B, G","B, G",{2}{B}{G},4.0,Legendary Creature — Elf Druid,Mill,1,4
+Lounge,"B, G",,,0.0,Land,Investigate,,
+"Amzu, Swarm's Hunger","B, G","B, G",{3}{B}{G},5.0,Legendary Creature — Insect Shaman,"Flying, Menace",3,3
+Sludge Titan,"B, G","B, G",{4}{B/G}{B/G},6.0,Creature — Zombie Giant,"Mill, Trample",6,6
+Tribune of Rot,"B, G","B, G",{1}{B/G}{B/G},3.0,Creature — Elf Shaman,Mill,3,3
+Pitiless Gorgon,"B, G","B, G",{1}{B/G}{B/G},3.0,Creature — Gorgon,Deathtouch,2,2
+Status // Statue,"B, G","B, G",{B/G},5.0,Instant,,,
+Underrealm Lich,"B, G","B, G",{3}{B}{G},5.0,Creature — Zombie Elf Shaman,,4,3
+Overgrown Tomb,"B, G",,,0.0,Land — Swamp Forest,,,
+Desecrator Hag,"B, G","B, G",{2}{B/G}{B/G},4.0,Creature — Hag,,2,2
+"Svogthos, the Restless Tomb","B, G",,,0.0,Land,,,
+Golgari Death Swarm,"B, G","B, G",{3}{B}{G},5.0,Creature — Bat Fungus Horror,"Flying, Vigilance",4,4
+Graveyard Dig,"B, G","B, G",{1}{B/G},2.0,Sorcery,,,
+Pick Your Poison,"B, G","B, G",{3}{B}{G},5.0,Sorcery,,,
+Noxious Bayou,"B, G",,,0.0,Land,,,
+"Slimefoot, the Stowaway","B, G","B, G",{1}{B}{G},3.0,Legendary Creature — Fungus,,2,3
+Undergrowth Stadium,"B, G",,,0.0,Land,,,
+Culling Ritual,"B, G","B, G",{2}{B}{G},4.0,Sorcery,,,
+Abomination of Llanowar,"B, G","B, G",{1}{B}{G},3.0,Legendary Creature — Elf Horror,"Menace, Vigilance",*,*
+"Belbe, Corrupted Observer","B, G","B, G",{B}{G},2.0,Legendary Creature — Phyrexian Zombie Elf,,2,2
+Pharika's Mender,"B, G","B, G",{3}{B}{G},5.0,Creature — Gorgon,,4,3
+Reaper of the Wilds,"B, G","B, G",{2}{B}{G},4.0,Creature — Gorgon,Scry,4,5
+Autumn Willow and Baron Sengir,"B, G","B, G",{4}{B}{G},6.0,Legendary Creature — Avatar Vampire Noble,"Flying, Shroud",5,5
+Trash Panda,"B, G","B, G",{4}{B}{G},6.0,Creature — Raccoon Bear,"Food, Mill",5,5
+"Groaaaaag, Hungry Monster","B, G","B, G",{4}{B}{G},6.0,Legendary Creature — Ooze,,4,4
+Emrakul and Chatterfang,"B, G",,{8}{G}{G}{G},11.0,Legendary Creature — Eldrazi Squirrel,"Devoid, Flying, Forestwalk, Protection, Trample",15,15
+Diregraf Rebirth,"B, G","B, G",{3}{B}{G},5.0,Sorcery,Flashback,,
+Ghoulcaller's Harvest,"B, G","B, G",{B}{G},2.0,Sorcery,Flashback,,
+Grizzly Ghoul,"B, G","B, G",{2}{B}{G},4.0,Creature — Zombie Bear,Trample,4,3
+Old Stickfingers,"B, G","B, G",{X}{B}{G},2.0,Legendary Creature — Horror,,*,*
+Dig Up,"B, G",G,{G},1.0,Sorcery,Cleave,,
+Ancient Lumberknot,"B, G","B, G",{2}{B}{G},4.0,Creature — Treefolk,,1,4
+Old Rutstein,"B, G","B, G",{1}{B}{G},3.0,Legendary Creature — Human Peasant,"Mill, Treasure",1,4
+Deathcap Glade,"B, G",,,0.0,Land,,,
+Elves of Deep Shadow,"B, G",G,{G},1.0,Creature — Elf Druid,,1,1
+Shambling Shell,"B, G","B, G",{1}{B}{G},3.0,Creature — Plant Zombie,"Dredge, Mill",3,1
+Golgari Rotwurm,"B, G","B, G",{3}{B}{G},5.0,Creature — Zombie Wurm,,5,4
+Gleancrawler,"B, G","B, G",{3}{B/G}{B/G}{B/G},6.0,Creature — Insect Horror,Trample,6,6
+Doomgape,"B, G","B, G",{4}{B/G}{B/G}{B/G},7.0,Creature — Elemental,Trample,10,10
+Golgari Germination,"B, G","B, G",{1}{B}{G},3.0,Enchantment,,,
+Vigor Mortis,"B, G",B,{2}{B}{B},4.0,Sorcery,,,
+Stonefare Crocodile,"B, G",G,{2}{G},3.0,Creature — Crocodile,,3,2
+Drooling Groodion,"B, G","B, G",{3}{B}{B}{G},6.0,Creature — Beast,,4,3
+Treasured Find,"B, G","B, G",{B}{G},2.0,Sorcery,,,
+Drown in Filth,"B, G","B, G",{B}{G},2.0,Sorcery,Mill,,
+Korozda Gorgon,"B, G","B, G",{3}{B}{G},5.0,Creature — Gorgon,Deathtouch,2,5
+Rot Farm Skeleton,"B, G","B, G",{2}{B}{G},4.0,Creature — Plant Skeleton,Mill,4,1
+"Varolz, the Scar-Striped","B, G","B, G",{1}{B}{G},3.0,Legendary Creature — Troll Warrior,,2,2
+Down // Dirty,"B, G",B,{3}{B},7.0,Sorcery,Fuse,,
+Golgari Cluestone,"B, G",,{3},3.0,Artifact,,,
+Deadly Allure,"B, G",B,{B},1.0,Sorcery,Flashback,,
+Choking Miasma,"B, G",B,{1}{B}{B},3.0,Sorcery,Kicker,,
+Urborg Repossession,"B, G",B,{B},1.0,Sorcery,Kicker,,
+Bog Badger,"B, G",G,{2}{G},3.0,Creature — Badger,Kicker,3,3
+Bortuk Bonerattle,"B, G","B, G",{4}{B}{G},6.0,Legendary Creature — Troll Shaman,Domain,4,4
+"Nemata, Primeval Warden","B, G","B, G",{2}{B}{G},4.0,Legendary Creature — Treefolk,Reach,3,4
+"Uurg, Spawn of Turg","B, G","B, G",{B}{B}{G},3.0,Legendary Creature — Frog Beast,Surveil,*,5
+"A-Uurg, Spawn of Turg","B, G","B, G",{B}{B}{G},3.0,Legendary Creature — Frog Beast,Surveil,*,5
+Wormwood Treefolk,"B, G",G,{3}{G}{G},5.0,Creature — Treefolk,,4,4
+Dark Heart of the Wood,"B, G","B, G",{B}{G},2.0,Enchantment,,,
+"Rendmaw, Creaking Nest","B, G","B, G",{3}{B}{G},5.0,Legendary Artifact Creature — Scarecrow,"Goad, Menace, Reach",5,5
+"Winter, Cynical Opportunist","B, G","B, G",{2}{B}{G},4.0,Legendary Creature — Human Warlock,"Deathtouch, Delirium, Mill",2,5
+Convert to Slime,"B, G","B, G",{3}{B}{G},5.0,Sorcery,Delirium,,
+Deathcap Cultivator,"B, G",G,{1}{G},2.0,Creature — Human Druid,Delirium,2,1
+"Ishkanah, Grafwidow","B, G",G,{4}{G},5.0,Legendary Creature — Spider,"Delirium, Reach",3,5
+"Grist, the Hunger Tide","B, G","B, G",{1}{B}{G},3.0,Legendary Planeswalker — Grist,Mill,,
+Darkmoss Bridge,"B, G",,,0.0,Artifact Land,Indestructible,,
+Broodspinner,"B, G","B, G",{B}{G},2.0,Creature — Spider,"Reach, Surveil",2,3
+Drag to the Roots,"B, G","B, G",{2}{B}{G},4.0,Instant,Delirium,,
+The Swarmweaver,"B, G","B, G",{2}{B}{G},4.0,Legendary Artifact Creature — Scarecrow,Delirium,2,3
+Strangled Cemetery,"B, G",,,0.0,Land,,,
+Shaman of the Pack,"B, G","B, G",{1}{B}{G},3.0,Creature — Elf Shaman,,3,2
+Deathrite Shaman,"B, G","B, G",{B/G},1.0,Creature — Elf Shaman,,1,2
+Savvy Hunter,"B, G","B, G",{1}{B}{G},3.0,Creature — Human Warrior,Food,3,3
+Deathless Knight,"B, G","B, G",{B/G}{B/G}{B/G}{B/G},4.0,Creature — Skeleton Knight,Haste,4,2
+Blightsoil Druid,"B, G",B,{1}{B},2.0,Creature — Elf Druid,,1,2
+Mournwillow,"B, G","B, G",{1}{B}{G},3.0,Creature — Plant Skeleton,"Delirium, Haste",3,2
+Creakwood Ghoul,"B, G",B,{4}{B},5.0,Creature — Plant Zombie,,3,3
+Canker Abomination,"B, G","B, G",{2}{B/G}{B/G},4.0,Creature — Treefolk Horror,,6,6
+Cankerous Thirst,"B, G","B, G",{3}{B/G},4.0,Instant,,,
+Deity of Scars,"B, G","B, G",{B/G}{B/G}{B/G}{B/G}{B/G},5.0,Creature — Spirit Avatar,Trample,7,7
+Drain the Well,"B, G","B, G",{2}{B/G}{B/G},4.0,Sorcery,,,
+Gift of the Deity,"B, G","B, G",{4}{B/G},5.0,Enchantment — Aura,Enchant,,
+Hag Hedge-Mage,"B, G","B, G",{2}{B/G},3.0,Creature — Hag Shaman,,2,2
+Noxious Hatchling,"B, G","B, G",{3}{B/G},4.0,Creature — Elemental,Wither,6,6
+Odious Trow,"B, G","B, G",{B/G},1.0,Creature — Troll,,1,1
+Quillspike,"B, G","B, G",{2}{B/G},3.0,Creature — Beast,,1,1
+Rendclaw Trow,"B, G","B, G",{2}{B/G},3.0,Creature — Troll,"Persist, Wither",2,2
+Stalker Hag,"B, G","B, G",{B/G}{B/G}{B/G},3.0,Creature — Hag,"Forestwalk, Swampwalk",3,2
+Woodlurker Mimic,"B, G","B, G",{1}{B/G},2.0,Creature — Shapeshifter,,2,1
+Wardens of the Cycle,"B, G","B, G",{1}{B}{G}{G},4.0,Creature — Elf Warlock,Morbid,3,4
+"Lathril, Blade of the Elves","B, G","B, G",{2}{B}{G},4.0,Legendary Creature — Elf Noble,Menace,2,3
+Deadly Brew,"B, G","B, G",{B}{G},2.0,Sorcery,,,
+Grim Contest,"B, G","B, G",{1}{B}{G},3.0,Instant,,,
+"Izoni, Thousand-Eyed","B, G","B, G",{2}{B}{B}{G}{G},6.0,Legendary Creature — Elf Shaman,Undergrowth,2,3
+Abrupt Decay,"B, G","B, G",{B}{G},2.0,Instant,,,
+Grave-Shell Scarab,"B, G","B, G",{2}{B}{G}{G},5.0,Creature — Insect,"Dredge, Mill",4,4
+"Savra, Queen of the Golgari","B, G","B, G",{2}{B}{G},4.0,Legendary Creature — Elf Shaman,,2,2
+Sisters of Stone Death,"B, G","B, G",{4}{B}{B}{G}{G},8.0,Legendary Creature — Gorgon,,7,5
+Charnel Troll,"B, G","B, G",{1}{B}{G},3.0,Creature — Troll,Trample,4,4
+Erstwhile Trooper,"B, G","B, G",{1}{B}{G},3.0,Creature — Zombie Soldier,,2,2
+Golgari Findbroker,"B, G","B, G",{B}{B}{G}{G},4.0,Creature — Elf Shaman,,3,4
+Molderhulk,"B, G","B, G",{7}{B}{G},9.0,Creature — Fungus Zombie,Undergrowth,6,6
+Ochran Assassin,"B, G","B, G",{1}{B}{G},3.0,Creature — Elf Assassin,Deathtouch,1,1
+Rhizome Lurcher,"B, G","B, G",{2}{B}{G},4.0,Creature — Fungus Zombie,Undergrowth,2,2
+Swarm Guildmage,"B, G","B, G",{B}{G},2.0,Creature — Elf Shaman,,2,2
+Undercity Uprising,"B, G","B, G",{2}{B}{G},4.0,Sorcery,Fight,,
+"Vraska, Golgari Queen","B, G","B, G",{2}{B}{G},4.0,Legendary Planeswalker — Vraska,,,
+Golgari Locket,"B, G",,{3},3.0,Artifact,,,
+"Vraska, Regal Gorgon","B, G","B, G",{5}{B}{G},7.0,Legendary Planeswalker — Vraska,,,
+Attendant of Vraska,"B, G","B, G",{1}{B}{G},3.0,Creature — Zombie Soldier,,3,3
+Vraska's Stoneglare,"B, G","B, G",{4}{B}{G},6.0,Sorcery,,,
+"Sarevok, Mighty Usurper","B, G","B, G",{3}{B}{G},5.0,Legendary Creature — Human Knight,Trample,4,4
+"Shadowheart, Cleric of Twilight","B, G","B, G",{1}{B}{G},3.0,Legendary Creature — Human Elf Cleric,Deathtouch,4,4
+"Viconia, Disciple of Strength","B, G","B, G",{1}{B}{G},3.0,Legendary Creature — Elf Cleric,Conjure,3,4
+"Jaheira, Ruthless Harper","B, G","B, G",{1}{B}{G},3.0,Legendary Creature — Human Elf Druid,"Hexproof, Hexproof from",3,4
+"Lukamina, Scorpion Form","B, G","B, G",{2}{B}{G},4.0,Legendary Creature — Scorpion Druid,Deathtouch,4,4
+"Skanos, Black Dragon Vassal","B, G","B, G",{4}{B}{G},6.0,Legendary Creature — Dragon Ranger,Menace,5,5
+"Wilson, Fearsome Bear","B, G","B, G",{1}{B}{G},3.0,Legendary Creature — Bear Warrior,"Menace, Reach, Trample, Ward",4,4
+Back for More,"B, G","B, G",{4}{B}{G},6.0,Instant,Fight,,
+Boneyard Lurker,"B, G","B, G",{2}{B}{G},4.0,Creature — Nightmare Beast,Mutate,4,4
+"Chevill, Bane of Monsters","B, G","B, G",{B}{G},2.0,Legendary Creature — Human Rogue,Deathtouch,1,3
+Skull Prophet,"B, G","B, G",{B}{G},2.0,Creature — Human Druid,Mill,3,1
+Fiend Artisan,"B, G","B, G",{B/G}{B/G},2.0,Creature — Nightmare,,1,1
+"Umori, the Collector","B, G","B, G",{2}{B/G}{B/G},4.0,Legendary Creature — Ooze,Companion,4,5
+"Garruk Relentless // Garruk, the Veil-Cursed","B, G",G,{3}{G},4.0,Legendary Planeswalker — Garruk,Transform,,
+Drey Keeper,"B, G","B, G",{3}{B}{G},5.0,Creature — Elf Druid,,2,2
+Rotwidow Pack,"B, G","B, G",{2}{B}{G},4.0,Creature — Spider,Reach,2,4
+"Zask, Skittering Swarmlord","B, G",G,{3}{G}{G},5.0,Legendary Creature — Insect,Mill,5,5
+"Aphelia, Viper Whisperer","B, G",B,{1}{B},2.0,Legendary Creature — Gorgon Assassin,Deathtouch,1,3
+Tyvar Kell,"B, G",G,{2}{G}{G},4.0,Legendary Planeswalker — Tyvar,,,
+"Pharika, God of Affliction","B, G","B, G",{1}{B}{G},3.0,Legendary Enchantment Creature — God,Indestructible,5,5
+Elderfang Venom,"B, G","B, G",{2}{B}{G},4.0,Enchantment,,,
+Rhys the Exiled,"B, G",G,{2}{G},3.0,Legendary Creature — Elf Warrior,,3,2
+Twinblade Assassins,"B, G","B, G",{3}{B}{G},5.0,Creature — Elf Assassin,,5,4
+A-Tyvar Kell,"B, G",G,{2}{G}{G},4.0,Legendary Planeswalker — Tyvar,,,
+"Harald, King of Skemfar","B, G","B, G",{1}{B}{G},3.0,Legendary Creature — Elf Warrior,Menace,3,2
+"A-Harald, King of Skemfar","B, G","B, G",{1}{B}{G},3.0,Legendary Creature — Elf Warrior,Menace,3,2
+Harald Unites the Elves,"B, G","B, G",{2}{B}{G},4.0,Enchantment — Saga,Mill,,
+A-Harald Unites the Elves,"B, G","B, G",{2}{B}{G},4.0,Enchantment — Saga,Mill,,
+"Sarulf, Realm Eater","B, G","B, G",{1}{B}{G},3.0,Legendary Creature — Wolf,,3,3
+Darkbore Pathway // Slitherbore Pathway,"B, G",,,0.0,Land,,,
+Skemfar Elderhall,"B, G",,,0.0,Land,,,
+A-Skemfar Elderhall,"B, G",,,0.0,Land,,,
+Woodland Chasm,"B, G",,,0.0,Snow Land — Swamp Forest,,,
+Hazardous Conditions,"B, G","B, G",{2}{B}{G},4.0,Sorcery,,,
+Blooming Marsh,"B, G",,,0.0,Land,,,
+Kheru Dreadmaw,"B, G",B,{4}{B},5.0,Creature — Zombie Crocodile,Defender,4,4
+Archers' Parapet,"B, G",G,{1}{G},2.0,Creature — Wall,Defender,0,5
+Death Frenzy,"B, G","B, G",{3}{B}{G},5.0,Sorcery,,,
+Kin-Tree Invocation,"B, G","B, G",{B}{G},2.0,Sorcery,,,
+Rakshasa Deathdealer,"B, G","B, G",{B}{G},2.0,Creature — Demon,,2,2
+"Akawalli, the Seething Tower","B, G","B, G",{1}{B}{G},3.0,Legendary Creature — Fungus,Descend,3,3
+The Mycotyrant,"B, G","B, G",{1}{B}{G},3.0,Legendary Creature — Elder Fungus,Trample,*,*
+Squirming Emergence,"B, G","B, G",{1}{B}{G},3.0,Sorcery,Fathomless descent,,
+Gilt-Leaf Palace,"B, G",,,0.0,Land,,,
+"Pippin, Warden of Isengard","B, G","B, G",{B}{G},2.0,Legendary Creature — Halfling Advisor,"Food, Partner, Partner with",2,2
+Old Man Willow,"B, G","B, G",{2}{B}{G},4.0,Legendary Creature — Treefolk,,*,*
+Rise of the Witch-king,"B, G","B, G",{2}{B}{G},4.0,Sorcery,,,
+"Shelob, Child of Ungoliant","B, G","B, G",{4}{B}{G},6.0,Legendary Creature — Spider Demon,"Deathtouch, Food, Ward",8,8
+"Sméagol, Helpful Guide","B, G","B, G",{1}{B}{G},3.0,Legendary Creature — Halfling Horror,,4,2
+"Garruk, Apex Predator","B, G","B, G",{5}{B}{G},7.0,Legendary Planeswalker — Garruk,,,
+Infested Thrinax,"B, G","B, G",{3}{B}{G},5.0,Creature — Lizard,Flash,4,4
+Tyvar the Bellicose,"B, G","B, G",{2}{B}{G},4.0,Legendary Creature — Elf Warrior,,5,4
+"Hogaak, Arisen Necropolis","B, G","B, G",{5}{B/G}{B/G},7.0,Legendary Creature — Avatar,"Convoke, Delve, Trample",8,8
+"Fludge, Gunk Guardian","B, G","B, G",{3}{B}{G},5.0,Legendary Creature — Slug Ooze,,5,5
+"Glissa, the Traitor","B, G","B, G",{B}{G}{G},3.0,Legendary Creature — Phyrexian Zombie Elf,"Deathtouch, First strike",3,3
+Carth the Lion,"B, G","B, G",{2}{B}{G},4.0,Legendary Creature — Human Warrior,,3,5
+Cursed Wombat,"B, G","B, G",{B}{G},2.0,Creature — Nightmare Wombat,Adapt,2,3
+Expanding Ooze,"B, G","B, G",{1}{B}{G},3.0,Creature — Ooze,Adapt,3,3
+Wight of the Reliquary,"B, G","B, G",{B}{G},2.0,Creature — Zombie Knight,Vigilance,2,2
+"Grist, Voracious Larva // Grist, the Plague Swarm","B, G",G,{G},1.0,Legendary Creature — Insect,"Deathtouch, Transform",1,2
+Revitalizing Repast // Old-Growth Grove,"B, G","B, G",{B/G},1.0,Instant,,,
+Cadaverous Bloom,"B, G","B, G",{3}{B}{G},5.0,Enchantment,,,
+Grim Feast,"B, G","B, G",{1}{B}{G},3.0,Enchantment,,,
+Insidious Roots,"B, G","B, G",{B}{G},2.0,Enchantment,,,
+"Izoni, Center of the Web","B, G","B, G",{4}{B}{G},6.0,Legendary Creature — Elf Detective,"Collect evidence, Menace, Surveil",5,4
+Kraul Whipcracker,"B, G","B, G",{B}{G},2.0,Creature — Insect Assassin,Reach,3,2
+Rakish Scoundrel,"B, G","B, G",{2}{B}{G},4.0,Creature — Elf Rogue,"Deathtouch, Disguise",3,3
+Urgent Necropsy,"B, G","B, G",{2}{B}{G},4.0,Instant,,,
+Underground Mortuary,"B, G",,,0.0,Land — Swamp Forest,Surveil,,
+Blightreaper Thallid // Blightsower Thallid,"B, G",B,{1}{B},2.0,Creature — Fungus,Transform,2,2
+Herbology Instructor // Malady Invoker,"B, G",G,{1}{G},2.0,Creature — Treefolk Druid,Transform,1,3
+Elvish Vatkeeper,"B, G","B, G",{1}{B}{G},3.0,Creature — Phyrexian Elf,"Incubate, Transform",3,3
+"Glissa, Herald of Predation","B, G","B, G",{3}{B}{G},5.0,Legendary Creature — Phyrexian Zombie Elf,"Incubate, Transform",3,5
+Invasion of Lorwyn // Winnowing Forces,"B, G","B, G",{4}{B}{G},6.0,Battle — Siege,Transform,,
+Yargle and Multani,"B, G","B, G",{3}{B}{B}{G},6.0,Legendary Creature — Frog Spirit Elemental,,18,6
+"Dina, Soul Steeper","B, G","B, G",{B}{G},2.0,Legendary Creature — Dryad Druid,,1,3
+Grime Gorger,"B, G","B, G",{2}{B}{G},4.0,Creature — Horror,Menace,3,3
+Gloomshrieker,"B, G","B, G",{1}{B}{G},3.0,Enchantment Creature — Cat Beast,Menace,2,1
+Hissing Quagmire,"B, G",,,0.0,Land,,,
+Squandered Resources,"B, G","B, G",{B}{G},2.0,Enchantment,,,
+Glissa Sunslayer,"B, G","B, G",{1}{B}{G},3.0,Legendary Creature — Phyrexian Zombie Elf,"Deathtouch, First strike",3,3
+Necrogen Rotpriest,"B, G","B, G",{2}{B}{G},4.0,Creature — Phyrexian Zombie Cleric,Toxic,1,5
+"Tyvar, Jubilant Brawler","B, G","B, G",{1}{B}{G},3.0,Legendary Planeswalker — Tyvar,Mill,,
+Gnarlroot Trapper,"B, G",B,{B},1.0,Creature — Elf Druid,,1,1
+Badlands Revival,"B, G","B, G",{3}{B}{G},5.0,Sorcery,,,
+"The Gitrog, Ravenous Ride","B, G","B, G",{3}{B}{G},5.0,Legendary Creature — Frog Horror Mount,"Haste, Saddle, Trample",6,5
+Honest Rutstein,"B, G","B, G",{1}{B}{G},3.0,Legendary Creature — Human Warlock,,3,2
+Pillage the Bog,"B, G","B, G",{B}{G},2.0,Sorcery,Plot,,
+Vraska Joins Up,"B, G","B, G",{B}{G},2.0,Legendary Enchantment,,,
+"Vraska, the Silencer","B, G","B, G",{1}{B}{G},3.0,Legendary Creature — Gorgon Assassin,Deathtouch,3,3
+Festering Gulch,"B, G",,,0.0,Land — Desert,,,
+Jarad's Orders,"B, G","B, G",{2}{B}{G},4.0,Sorcery,,,
+Agent Frank Horrigan,"B, G","B, G",{5}{B}{G},7.0,Legendary Creature — Mutant Warrior,"Proliferate, Trample",8,6
+Alpha Deathclaw,"B, G","B, G",{4}{B}{G},6.0,Creature — Lizard Mutant,"Menace, Monstrosity, Trample",6,6
+Atomize,"B, G","B, G",{2}{B}{G},4.0,Instant,Proliferate,,
+Young Deathclaws,"B, G","B, G",{2}{B}{G},4.0,Creature — Lizard Mutant,Menace,4,2
+Darkheart Sliver,"B, G","B, G",{B}{G},2.0,Creature — Sliver,,2,2
+"Journey to Eternity // Atzal, Cave of Eternity","B, G","B, G",{1}{B}{G},3.0,Legendary Enchantment — Aura,"Enchant, Transform",,
+"Valentin, Dean of the Vein // Lisette, Dean of the Root","B, G",B,{B},1.0,Legendary Creature — Vampire Warlock,"Lifelink, Menace",1,1
+Witherbloom Apprentice,"B, G","B, G",{B}{G},2.0,Creature — Human Druid,Magecraft,2,2
+Garruk the Slayer,"B, G","B, G",,0.0,Legendary Planeswalker — Garruk,,,
+"Vraska, Swarm's Eminence","B, G","B, G",{2}{B/G}{B/G},4.0,Legendary Planeswalker — Vraska,,,
+"Polukranos, Unchained","B, G","B, G",{2}{B}{G},4.0,Legendary Creature — Zombie Hydra,"Escape, Fight",0,0
+"Grakmaw, Skyclave Ravager","B, G","B, G",{1}{B}{G},3.0,Legendary Creature — Hydra Horror,,0,0
+Nissa of Shadowed Boughs,"B, G","B, G",{2}{B}{G},4.0,Legendary Planeswalker — Nissa,Landfall,,
+Mortality Spear,"B, G","B, G",{2}{B}{G},4.0,Instant,,,
+Daemogoth Titan,"B, G","B, G",{B/G}{B/G}{B/G}{B/G},4.0,Creature — Demon,,11,10
+Witherbloom Command,"B, G","B, G",{B}{G},2.0,Sorcery,Mill,,
+Rushed Rebirth,"B, G","B, G",{B}{G},2.0,Instant,,,
+Pestilent Cauldron // Restorative Burst,"B, G",B,{2}{B},3.0,Artifact,Mill,,
+Harness Infinity,"B, G","B, G",{1}{B}{B}{B}{G}{G}{G},7.0,Instant,,,
+"Blex, Vexing Pest // Search for Blex","B, G",G,{2}{G},3.0,Legendary Creature — Pest,,3,2
+"Storrev, Devkarin Lich","B, G","B, G",{1}{B}{B}{G},4.0,Legendary Creature — Zombie Elf Wizard,Trample,5,4
+Faunsbane Troll,"B, G","B, G",{2}{B}{G},4.0,Creature — Troll,"Fight, Role token",4,4
+Mosswood Dreadknight // Dread Whispers,"B, G",G,{1}{G},2.0,Creature — Human Knight,Trample,3,2
+Restless Cottage,"B, G",,,0.0,Land,Food,,
+"Vraska, Relic Seeker","B, G","B, G",{4}{B}{G},6.0,Legendary Planeswalker — Vraska,Treasure,,
+Mortipede,"B, G",B,{3}{B},4.0,Creature — Insect,,4,1
+Rolling Spoil,"B, G",G,{2}{G}{G},4.0,Sorcery,,,
+Bloodbond March,"B, G","B, G",{2}{B}{G},4.0,Enchantment,,,
+Woodwraith Corrupter,"B, G","B, G",{3}{B}{B}{G},6.0,Creature — Elemental Horror,,3,6
+Woodwraith Strangler,"B, G","B, G",{2}{B}{G},4.0,Creature — Plant Zombie,,2,2
+Gaze of the Gorgon,"B, G","B, G",{3}{B/G},4.0,Instant,,,
+Compy Swarm,"B, G","B, G",{1}{B}{G},3.0,Creature — Dinosaur,,2,2
+Grim Giganotosaurus,"B, G","B, G",{5}{B}{G},7.0,Creature — Dinosaur,Monstrosity,10,10
+Jungle Creeper,"B, G","B, G",{1}{B}{G},3.0,Creature — Elemental,,3,3
+Rites of Reaping,"B, G","B, G",{4}{B}{G},6.0,Sorcery,,,
+Sluiceway Scorpion,"B, G","B, G",{2}{B}{G},4.0,Creature — Scorpion,"Deathtouch, Scavenge",2,2
+Trestle Troll,"B, G","B, G",{1}{B}{G},3.0,Creature — Troll,"Defender, Reach",1,4
+Golgari Longlegs,"B, G","B, G",{3}{B/G}{B/G},5.0,Creature — Insect,,5,4
+Slitherhead,"B, G","B, G",{B/G},1.0,Creature — Plant Zombie,Scavenge,1,1
+Golgari Keyrune,"B, G",,{3},3.0,Artifact,,,
+"Enkira, Hostile Scavenger","B, G","B, G",{3}{B}{G},5.0,Legendary Creature — Human Warrior,,3,3
+Autumnal Gloom // Ancient of the Equinox,"B, G",G,{2}{G},3.0,Enchantment,"Delirium, Mill, Transform",,
+Iname as One,"B, G","B, G",{8}{B}{B}{G}{G},12.0,Legendary Creature — Spirit,,8,8
+Blood Researcher,"B, G","B, G",{1}{B}{G},3.0,Creature — Vampire Druid,Menace,2,2
+Cram Session,"B, G","B, G",{1}{B/G},2.0,Sorcery,Learn,,
+Daemogoth Woe-Eater,"B, G","B, G",{1}{B}{B/G}{G},4.0,Creature — Demon,,7,6
+Infuse with Vitality,"B, G","B, G",{B}{G},2.0,Instant,,,
+Moldering Karok,"B, G","B, G",{2}{B}{G},4.0,Creature — Zombie Crocodile,"Lifelink, Trample",3,3
+Pest Summoning,"B, G","B, G",{1}{B/G}{B/G},3.0,Sorcery — Lesson,,,
+Tend the Pests,"B, G","B, G",{B}{G},2.0,Instant,,,
+Witherbloom Pledgemage,"B, G","B, G",{3}{B/G}{B/G},5.0,Creature — Treefolk Warlock,Magecraft,5,5
+Witherbloom Campus,"B, G",,,0.0,Land,Scry,,
+Acolyte of Affliction,"B, G","B, G",{2}{B}{G},4.0,Creature — Human Cleric,Mill,2,3
+Loathsome Catoblepas,"B, G",B,{5}{B},6.0,Creature — Beast,,3,3
+Vhati il-Dal,"B, G","B, G",{2}{B}{G},4.0,Legendary Creature — Human Warrior,,3,3
+Pine Barrens,"B, G",,,0.0,Land,,,
+Possessed Centaur,"B, G",G,{2}{G}{G},4.0,Creature — Centaur Horror,"Threshold, Trample",3,3
+Thelon of Havenwood,"B, G",G,{G}{G},2.0,Legendary Creature — Elf Druid,,2,2
+Wormwood Dryad,"B, G",G,{2}{G},3.0,Creature — Dryad,,3,1
+"Acornelia, Fashionable Filcher","B, G",B,{3}{B},4.0,Legendary Creature — Squirrel,,3,3
+The Most Dangerous Gamer,"B, G","B, G",{2}{B}{G},4.0,Legendary Creature — Human Gamer Guest,"Deathtouch, Open an Attraction",2,2
+"Spinnerette, Arachnobat","B, G","B, G",{3}{B}{G},5.0,Legendary Creature — Spider Performer,"Open an Attraction, Reach",2,4
+"Greta, Sweettooth Scourge","B, G","B, G",{1}{B}{G},3.0,Legendary Creature — Human Warrior,Food,3,3
+Gingerbread Hunter // Puny Snack,"B, G",G,{4}{G},5.0,Creature — Giant,Food,5,5
+"Euru, Acorn Scrounger","B, G","B, G",{2}{B}{G},4.0,Legendary Creature — Squirrel Soldier,"Conjure, Forage",3,3
+Assemble the Team,"B, G","B, G",{B}{G},2.0,Sorcery,,,
+Nantuko Slicer,"B, G",G,{2}{G}{G},4.0,Creature — Insect,"Conjure, Kicker",3,2
+Bloodsprout Talisman,"B, G","B, G",{B}{G},2.0,Artifact,,,
+"Slimefoot, Thallid Transplant","B, G","B, G",{B}{G},2.0,Legendary Creature — Fungus,,2,2
+Mycoid Resurrection,"B, G","B, G",{4}{B}{G},6.0,Sorcery,Fathomless descent,,
+"Ishkanah, Broodmother","B, G",G,{3}{G},4.0,Legendary Creature — Spider,Reach,3,5
+"Gitrog, Horror of Zhava","B, G","B, G",{2}{B}{G},4.0,Legendary Creature — Frog Horror,"Menace, Seek",6,6
+"Furgul, Quag Nurturer","B, G","B, G",{2}{B}{G},4.0,Legendary Creature — Elf Shaman,Conjure,2,4
+"Gyox, Brutal Carnivora","B, G","B, G",{1}{B}{G},3.0,Legendary Creature — Phyrexian Warlock,Conjure,2,4
+Mephidross Slime,"B, G","B, G",{1}{B}{G},3.0,Creature — Phyrexian Ooze,"Conjure, Trample",3,3
+Jet Collector,"B, G",G,{1}{G},2.0,Creature — Merfolk Scout,Conjure,2,2
+Third Little Pig,"B, G","B, G",{1}{B/G},2.0,Creature — Boar,Conjure,2,2
+Moss-Pit Skeleton,"B, G","B, G",{B}{G},2.0,Creature — Plant Skeleton,Kicker,2,2
+A-Moss-Pit Skeleton,"B, G","B, G",{B}{G},2.0,Creature — Plant Skeleton,Kicker,2,2

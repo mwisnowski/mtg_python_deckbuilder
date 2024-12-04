@@ -1,0 +1,9 @@
+name,colorIdentity,colors,manaCost,manaValue,type,keywords,power,toughness
+Kynaios and Tiro of Meletis,"G, R, U, W","G, R, U, W",{R}{G}{W}{U},4.0,Legendary Creature — Human Soldier,,2,8
+Anax and Cymede & Kynaios and Tiro,"G, R, U, W","G, R, U, W",{1}{R}{G}{W}{U},5.0,Legendary Creature — Human Soldier,"First strike, Heroic, Vigilance",3,8
+Ink-Treader Nephilim,"G, R, U, W","G, R, U, W",{R}{G}{W}{U},4.0,Creature — Nephilim,,3,3
+"Aragorn, the Uniter","G, R, U, W","G, R, U, W",{R}{G}{W}{U},4.0,Legendary Creature — Human Noble,Scry,5,5
+"Elusen, the Giving","G, R, U, W","G, R, U, W",{R}{G}{W}{U},4.0,Legendary Creature — Angel Advisor,"Flying, Haste, Lifelink, Treasure, Vigilance",4,4
+"Omnath, Locus of Creation","G, R, U, W","G, R, U, W",{R}{G}{W}{U},4.0,Legendary Creature — Elemental,Landfall,4,4
+The Fourteenth Doctor,"G, R, U, W","G, R, U, W",{R/G}{W}{U},3.0,Legendary Creature — Time Lord Doctor,,3,4
+"A-Omnath, Locus of Creation","G, R, U, W","G, R, U, W",{1}{R}{G}{W}{U},5.0,Legendary Creature — Elemental,Landfall,4,4

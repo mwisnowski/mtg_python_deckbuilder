@@ -1,0 +1,409 @@
+name,colorIdentity,colors,manaCost,manaValue,type,keywords,power,toughness
+Battlefield Forge,"R, W",,,0.0,Land,,,
+Plateau,"R, W",,,0.0,Land — Mountain Plains,,,
+"Aurelia, the Warleader","R, W","R, W",{2}{R}{R}{W}{W},6.0,Legendary Creature — Angel,"Flying, Haste, Vigilance",3,4
+Balefire Liege,"R, W","R, W",{2}{R/W}{R/W}{R/W},5.0,Creature — Spirit Horror,,2,4
+Figure of Destiny,"R, W","R, W",{R/W},1.0,Creature — Kithkin,,1,1
+Firesong and Sunspeaker,"R, W","R, W",{4}{R}{W},6.0,Legendary Creature — Minotaur Cleric,,4,6
+Heroic Reinforcements,"R, W","R, W",{2}{R}{W},4.0,Sorcery,,,
+Legion's Initiative,"R, W","R, W",{R}{W},2.0,Enchantment,,,
+Lightning Helix,"R, W","R, W",{R}{W},2.0,Instant,,,
+Martial Glory,"R, W","R, W",{R}{W},2.0,Instant,,,
+Tenth District Legionnaire,"R, W","R, W",{R}{W},2.0,Creature — Human Soldier,"Haste, Scry",2,2
+Boros Garrison,"R, W",,,0.0,Land,,,
+Swiftblade Vindicator,"R, W","R, W",{R}{W},2.0,Creature — Human Soldier,"Double strike, Trample, Vigilance",1,1
+Weapons Trainer,"R, W","R, W",{R}{W},2.0,Creature — Human Soldier Ally,,3,2
+Sunforger,"R, W",,{3},3.0,Artifact — Equipment,Equip,,
+Rugged Prairie,"R, W",,,0.0,Land,,,
+Boros Charm,"R, W","R, W",{R}{W},2.0,Instant,,,
+Brion Stoutarm,"R, W","R, W",{2}{R}{W},4.0,Legendary Creature — Giant Warrior,Lifelink,4,4
+"Gisela, Blade of Goldnight","R, W","R, W",{4}{R}{W}{W},7.0,Legendary Creature — Angel,"First strike, Flying",5,5
+Arbaaz Mir,"R, W","R, W",{R}{W},2.0,Legendary Creature — Human Assassin,,2,2
+Aya of Alexandria,"R, W","R, W",{2}{R}{W},4.0,Legendary Creature — Human Assassin,"Lifelink, Menace",4,3
+Bayek of Siwa,"R, W","R, W",{3}{R}{W},5.0,Legendary Creature — Human Assassin,"Disguise, Double strike",3,4
+"Ezio, Brash Novice","R, W","R, W",{1}{R/W},2.0,Legendary Creature — Human,,1,1
+"Kassandra, Eagle Bearer","R, W","R, W",{1}{R}{W},3.0,Legendary Creature — Human Assassin Warrior,Haste,2,2
+Reconstruct History,"R, W","R, W",{2}{R}{W},4.0,Sorcery,,,
+Sunbaked Canyon,"R, W",,,0.0,Land,,,
+"Eivor, Battle-Ready","R, W","R, W",{3}{R}{W},5.0,Legendary Creature — Human Assassin Warrior,"Haste, Vigilance",5,5
+Bureau Headmaster,"R, W","R, W",{R}{W},2.0,Creature — Human Assassin,,2,2
+Raven Clan War-Axe,"R, W","R, W",{1}{R}{W},3.0,Artifact — Equipment,Equip,,
+Stone Quarry,"R, W",,,0.0,Land,,,
+Renegade Wheelsmith,"R, W","R, W",{1}{R}{W},3.0,Creature — Dwarf Pilot,,3,2
+Adult Gold Dragon,"R, W","R, W",{3}{R}{W},5.0,Creature — Dragon,"Flying, Haste, Lifelink",4,3
+Bruenor Battlehammer,"R, W","R, W",{2}{R}{W},4.0,Legendary Creature — Dwarf Warrior,,5,3
+A-Bruenor Battlehammer,"R, W","R, W",{2}{R}{W},4.0,Legendary Creature — Dwarf Warrior,,5,4
+Fighter Class,"R, W","R, W",{R}{W},2.0,Enchantment — Class,,,
+Honored Crop-Captain,"R, W","R, W",{R}{W},2.0,Creature — Human Warrior,,3,2
+Onward // Victory,"R, W",R,{2}{R},6.0,Instant,,,
+Leave // Chance,"R, W",W,{1}{W},6.0,Instant,,,
+Ajani Vengeant,"R, W","R, W",{2}{R}{W},4.0,Legendary Planeswalker — Ajani,,,
+Bull Cerodon,"R, W","R, W",{4}{R}{W},6.0,Creature — Beast,"Haste, Vigilance",5,5
+Angelfire Crusader,"R, W",W,{3}{W},4.0,Creature — Human Soldier Knight,,2,3
+Orim's Thunder,"R, W",W,{2}{W},3.0,Instant,Kicker,,
+Desolation Giant,"R, W",R,{2}{R}{R},4.0,Creature — Giant,Kicker,3,3
+Captain's Maneuver,"R, W","R, W",{X}{R}{W},2.0,Instant,,,
+Flowstone Charger,"R, W","R, W",{2}{R}{W},4.0,Creature — Beast,,2,5
+Goblin Legionnaire,"R, W","R, W",{R}{W},2.0,Creature — Goblin Soldier,,2,2
+Goblin Trenches,"R, W","R, W",{1}{R}{W},3.0,Enchantment,,,
+Powerstone Minefield,"R, W","R, W",{2}{R}{W},4.0,Enchantment,,,
+Squee's Embrace,"R, W","R, W",{R}{W},2.0,Enchantment — Aura,Enchant,,
+Order // Chaos,"R, W",W,{3}{W},7.0,Instant,,,
+Cerodon Yearling,"R, W","R, W",{R}{W},2.0,Creature — Beast,"Haste, Vigilance",2,2
+Fight to the Death,"R, W","R, W",{R}{W},2.0,Instant,,,
+Glory of Warfare,"R, W","R, W",{2}{R}{W},4.0,Enchantment,,,
+Intimidation Bolt,"R, W","R, W",{1}{R}{W},3.0,Instant,,,
+Stun Sniper,"R, W","R, W",{R}{W},2.0,Creature — Human Archer,,1,1
+Slayers' Stronghold,"R, W",,,0.0,Land,,,
+Angelic Captain,"R, W","R, W",{3}{R}{W},5.0,Creature — Angel Ally,Flying,4,3
+"Munda, Ambush Leader","R, W","R, W",{2}{R}{W},4.0,Legendary Creature — Kor Ally,"Haste, Rally",3,4
+Resolute Blademaster,"R, W","R, W",{3}{R}{W},5.0,Creature — Human Soldier Ally,Rally,2,2
+"Mabel, Heir to Cragflame","R, W","R, W",{1}{R}{W},3.0,Legendary Creature — Mouse Soldier,,3,3
+Seedglaive Mentor,"R, W","R, W",{1}{R}{W},3.0,Creature — Mouse Soldier,"Haste, Valiant, Vigilance",3,2
+Veteran Guardmouse,"R, W","R, W",{3}{R/W},4.0,Creature — Mouse Soldier,"Scry, Valiant",3,4
+Boros Signet,"R, W",,{2},2.0,Artifact,,,
+Clifftop Retreat,"R, W",,,0.0,Land,,,
+Sunscorched Divide,"R, W",,,0.0,Land,,,
+Temple of Triumph,"R, W",,,0.0,Land,Scry,,
+Akroan Phalanx,"R, W",W,{3}{W},4.0,Creature — Human Soldier,Vigilance,3,3
+"Arcee, Sharpshooter // Arcee, Acrobatic Coupe","R, W","R, W",{1}{R}{W},3.0,Legendary Artifact Creature — Robot,"Convert, First strike, More Than Meets the Eye",2,2
+Fallaji Vanguard,"R, W","R, W",{2}{R}{W},4.0,Creature — Human Soldier,First strike,2,3
+Queen Kayla bin-Kroog,"R, W","R, W",{1}{R}{W},3.0,Legendary Creature — Human Noble,,2,3
+Boros Guildgate,"R, W",,,0.0,Land — Gate,,,
+"Anya, Merciless Angel","R, W","R, W",{3}{R}{W},5.0,Legendary Creature — Angel,Flying,4,4
+"Kalemne, Disciple of Iroas","R, W","R, W",{2}{R}{W},4.0,Legendary Creature — Giant Soldier,"Double strike, Vigilance",3,3
+Boros Cluestone,"R, W",,{3},3.0,Artifact,,,
+Ancient Amphitheater,"R, W",,,0.0,Land,,,
+Wind-Scarred Crag,"R, W",,,0.0,Land,,,
+"Akiri, Line-Slinger","R, W","R, W",{R}{W},2.0,Legendary Creature — Kor Soldier Ally,"First strike, Partner, Vigilance",0,3
+"Bruse Tarl, Boorish Herder","R, W","R, W",{2}{R}{W},4.0,Legendary Creature — Human Ally,Partner,3,3
+"Iroas, God of Victory","R, W","R, W",{2}{R}{W},4.0,Legendary Enchantment Creature — God,Indestructible,7,4
+"Jor Kadeen, the Prevailer","R, W","R, W",{3}{R}{W},5.0,Legendary Creature — Human Warrior,"First strike, Metalcraft",5,4
+"Gerrard, Weatherlight Hero","R, W","R, W",{2}{R}{W},4.0,Legendary Creature — Human Soldier,First strike,3,3
+"Adriana, Captain of the Guard","R, W","R, W",{3}{R}{W},5.0,Legendary Creature — Human Knight,Melee,4,4
+"Nahiri, the Harbinger","R, W","R, W",{2}{R}{W},4.0,Legendary Planeswalker — Nahiri,,,
+"Alibou, Ancient Witness","R, W","R, W",{3}{R}{W},5.0,Legendary Artifact Creature — Golem,Scry,4,5
+"Osgir, the Reconstructor","R, W","R, W",{2}{R}{W},4.0,Legendary Creature — Giant Artificer,Vigilance,4,4
+Wake the Past,"R, W","R, W",{5}{R}{W},7.0,Sorcery,,,
+Boros Locket,"R, W",,{3},3.0,Artifact,,,
+"Sunhome, Fortress of the Legion","R, W",,,0.0,Land,,,
+Commander Liara Portyr,"R, W","R, W",{3}{R}{W},5.0,Legendary Creature — Human Soldier,,5,3
+Duke Ulder Ravengard,"R, W","R, W",{4}{R}{W},6.0,Legendary Creature — Human Noble Soldier,,5,5
+Commander Mustard,"R, W","R, W",{3}{R}{W},5.0,Legendary Creature — Human Soldier,"Trample, Vigilance",5,5
+Hall,"R, W",,,0.0,Land,Investigate,,
+Aegis of the Legion,"R, W","R, W",{R}{W},2.0,Artifact — Equipment,Equip,,
+Boros Strike-Captain,"R, W","R, W",{1}{R/W}{R/W},3.0,Creature — Minotaur Soldier,Battalion,3,3
+Ordruun Mentor,"R, W","R, W",{2}{R/W},3.0,Creature — Minotaur Soldier,Mentor,3,2
+Towering Thunderfist,"R, W",R,{4}{R},5.0,Creature — Giant Soldier,,4,4
+Firemane Avenger,"R, W","R, W",{2}{R}{W},4.0,Creature — Angel,"Battalion, Flying",3,3
+Fresh-Faced Recruit,"R, W","R, W",{1}{R/W},2.0,Creature — Human Soldier,,2,1
+Integrity // Intervention,"R, W","W, R",{R/W},5.0,Instant,,,
+Sacred Foundry,"R, W",,,0.0,Land — Mountain Plains,,,
+"Basandra, Battle Seraph","R, W","R, W",{3}{R}{W},5.0,Legendary Creature — Angel,Flying,4,4
+Boros Guildmage,"R, W","R, W",{R/W}{R/W},2.0,Creature — Human Wizard,,2,2
+Duergar Hedge-Mage,"R, W","R, W",{2}{R/W},3.0,Creature — Dwarf Shaman,,2,2
+Master Warcraft,"R, W","R, W",{2}{R/W}{R/W},4.0,Instant,,,
+Start // Fire,"R, W",W,{2}{W},5.0,Instant,,,
+Aggressive Crag,"R, W",,,0.0,Land,,,
+"Akiri, Fearless Voyager","R, W","R, W",{1}{R}{W},3.0,Legendary Creature — Kor Warrior,,3,3
+Spectator Seating,"R, W",,,0.0,Land,,,
+Cloudshredder Sliver,"R, W","R, W",{R}{W},2.0,Creature — Sliver,,1,1
+Lavabelly Sliver,"R, W","R, W",{1}{R}{W},3.0,Creature — Sliver,,2,2
+Talisman of Conviction,"R, W",,{2},2.0,Artifact,,,
+Furycalm Snarl,"R, W",,,0.0,Land,,,
+"Bell Borca, Spectral Sergeant","R, W","R, W",{2}{R}{W},4.0,Legendary Creature — Spirit Soldier,,*,5
+"Reyav, Master Smith","R, W","R, W",{R}{W},2.0,Legendary Creature — Dwarf Artificer,,2,2
+"Wyleth, Soul of Steel","R, W","R, W",{1}{R}{W},3.0,Legendary Creature — Human Warrior,Trample,2,2
+Deflecting Palm,"R, W","R, W",{R}{W},2.0,Instant,,,
+Response // Resurgence,"R, W","W, R",{R/W}{R/W},7.0,Instant,,,
+"Tiana, Ship's Caretaker","R, W","R, W",{3}{R}{W},5.0,Legendary Creature — Angel Artificer,"First strike, Flying",3,3
+Wear // Tear,"R, W",R,{1}{R},3.0,Instant,Fuse,,
+Akroan Hoplite,"R, W","R, W",{R}{W},2.0,Creature — Human Soldier,,1,2
+Flamewright,"R, W","R, W",{R}{W},2.0,Creature — Human Artificer,,1,1
+Kranioceros,"R, W",R,{4}{R},5.0,Creature — Beast,,5,2
+The Keeper of Kaldra,"R, W","R, W",{1}{R}{W},3.0,Legendary Creature — Human Warrior,,3,3
+The Caffeinated Runner,"R, W","R, W",{1}{R}{W},0.0,Legendary Creature — Elemental Gamer,Food,3,2
+Princess Snowfall,"R, W","R, W",{4}{W}{R},6.0,Legendary Snow Creature — Human Noble,,4,4
+The Joiner of Cats,"R, W","R, W",{2}{R}{W},4.0,Legendary Creature — Human Warrior,,3,4
+The Sprinkler of Stardust,"R, W","R, W",{2}{R}{W},4.0,Legendary Creature — Human Warrior,,4,4
+The Judge of Height,"R, W","R, W",{3}{R}{W},0.0,Legendary Creature — Giant Wizard,Trample,0,6
+"Ano'thr, Equipment Commander","R, W","R, W",{R}{W},2.0,Legendary Creature — Kor Warrior,,2,2
+Brutal Cathar // Moonrage Brute,"R, W",W,{2}{W},3.0,Creature — Human Soldier Werewolf,Daybound,2,2
+Angelfire Ignition,"R, W","R, W",{1}{R}{W},3.0,Sorcery,Flashback,,
+"Rem Karolus, Stalwart Slayer","R, W","R, W",{1}{R}{W},3.0,Legendary Creature — Human Knight,"Flying, Haste",2,3
+Sacred Fire,"R, W","R, W",{R}{W},2.0,Instant,Flashback,,
+Sunrise Cavalier,"R, W","R, W",{1}{R}{W},3.0,Creature — Human Knight,"Haste, Trample",3,3
+Lantern Flare,"R, W",W,{1}{W},2.0,Instant,Cleave,,
+Markov Waltzer,"R, W","R, W",{2}{R}{W},4.0,Creature — Vampire,"Flying, Haste",1,3
+"Odric, Blood-Cursed","R, W","R, W",{1}{R}{W},3.0,Legendary Creature — Vampire Soldier,,3,3
+Sundown Pass,"R, W",,,0.0,Land,,,
+Spitemare,"R, W","R, W",{2}{R/W}{R/W},4.0,Creature — Elemental,,3,3
+Firemane Angel,"R, W","R, W",{3}{R}{W}{W},6.0,Creature — Angel,"First strike, Flying",4,3
+Searing Meditation,"R, W","R, W",{1}{R}{W},3.0,Enchantment,,,
+Truefire Paladin,"R, W","R, W",{R}{W},2.0,Creature — Human Knight,Vigilance,2,2
+Anax and Cymede,"R, W","R, W",{1}{R}{W},3.0,Legendary Creature — Human Soldier,"First strike, Heroic, Vigilance",3,2
+Nobilis of War,"R, W","R, W",{R/W}{R/W}{R/W}{R/W}{R/W},5.0,Creature — Spirit Avatar,Flying,3,4
+Flame-Kin Zealot,"R, W","R, W",{1}{R}{R}{W},4.0,Creature — Elemental Berserker,,2,2
+Blaze Commando,"R, W","R, W",{3}{R}{W},5.0,Creature — Minotaur Soldier,,5,3
+Boros Battleshaper,"R, W","R, W",{5}{R}{W},7.0,Creature — Minotaur Soldier,,5,5
+Gleam of Battle,"R, W","R, W",{4}{R}{W},6.0,Enchantment,,,
+"Tajic, Blade of the Legion","R, W","R, W",{2}{R}{W},4.0,Legendary Creature — Human Soldier,"Battalion, Indestructible",2,2
+Viashino Firstblade,"R, W","R, W",{1}{R}{W},3.0,Creature — Lizard Soldier,Haste,2,2
+Warleader's Helix,"R, W","R, W",{2}{R}{W},4.0,Instant,,,
+Burning Oil,"R, W",R,{1}{R},2.0,Instant,Flashback,,
+"Cadric, Soul Kindler","R, W","R, W",{2}{R}{W},4.0,Legendary Creature — Dwarf Wizard,,4,3
+Cleaving Skyrider,"R, W",W,{2}{W},3.0,Creature — Human Warrior,"Flash, Flying, Kicker",2,2
+Heroic Charge,"R, W",W,{2}{W}{W},4.0,Instant,Kicker,,
+Hurloon Battle Hymn,"R, W",R,{2}{R},3.0,Instant,Kicker,,
+Keldon Strike Team,"R, W",R,{2}{R},3.0,Creature — Human Warrior,Kicker,3,1
+"Astor, Bearer of Blades","R, W","R, W",{2}{R}{W},4.0,Legendary Creature — Human Warrior,,4,4
+"Baird, Argivian Recruiter","R, W","R, W",{R}{W},2.0,Legendary Creature — Human Soldier,,2,2
+"Tori D'Avenant, Fury Rider","R, W","R, W",{1}{R}{R}{W},4.0,Legendary Creature — Human Knight,"Trample, Vigilance",3,3
+Sacred Peaks,"R, W",,,0.0,Land — Mountain Plains,,,
+"Arabella, Abandoned Doll","R, W","R, W",{R}{W},2.0,Legendary Artifact Creature — Toy,,1,3
+The Jolly Balloon Man,"R, W","R, W",{1}{R}{W},3.0,Legendary Creature — Human Clown,Haste,1,4
+Midnight Mayhem,"R, W","R, W",{2}{R}{W},4.0,Sorcery,,,
+Raucous Carnival,"R, W",,,0.0,Land,,,
+Inspiring Veteran,"R, W","R, W",{R}{W},2.0,Creature — Human Knight,,2,2
+Outlaws' Merriment,"R, W","R, W",{1}{R}{W}{W},4.0,Enchantment,,,
+Fireborn Knight,"R, W","R, W",{R/W}{R/W}{R/W}{R/W},4.0,Creature — Human Knight,Double strike,2,3
+Rally the Peasants,"R, W",W,{2}{W},3.0,Instant,Flashback,,
+Ride Down,"R, W","R, W",{R}{W},2.0,Instant,,,
+Duergar Cave-Guard,"R, W",R,{3}{R},4.0,Creature — Dwarf Warrior,Wither,1,3
+Battlegate Mimic,"R, W","R, W",{1}{R/W},2.0,Creature — Shapeshifter,,2,1
+Belligerent Hatchling,"R, W","R, W",{3}{R/W},4.0,Creature — Elemental,First strike,6,6
+Double Cleave,"R, W","R, W",{1}{R/W},2.0,Instant,,,
+Duergar Assailant,"R, W","R, W",{R/W},1.0,Creature — Dwarf Soldier,,1,1
+Duergar Mine-Captain,"R, W","R, W",{2}{R/W},3.0,Creature — Dwarf Soldier,,2,1
+Fire at Will,"R, W","R, W",{R/W}{R/W}{R/W},3.0,Instant,,,
+Hearthfire Hobgoblin,"R, W","R, W",{R/W}{R/W}{R/W},3.0,Creature — Goblin Soldier,Double strike,2,2
+Hobgoblin Dragoon,"R, W","R, W",{2}{R/W},3.0,Creature — Goblin Knight,"First strike, Flying",1,2
+Moonhold,"R, W","R, W",{2}{R/W},3.0,Instant,,,
+Rise of the Hobgoblins,"R, W","R, W",{R/W}{R/W},2.0,Enchantment,,,
+Scourge of the Nobilis,"R, W","R, W",{2}{R/W},3.0,Enchantment — Aura,Enchant,,
+Waves of Aggression,"R, W","R, W",{3}{R/W}{R/W},5.0,Sorcery,Retrace,,
+Heroism,"R, W",W,{2}{W},3.0,Enchantment,,,
+War Flare,"R, W","R, W",{2}{R}{W},4.0,Instant,,,
+"Agrus Kos, Wojek Veteran","R, W","R, W",{3}{R}{W},5.0,Legendary Creature — Human Soldier,,3,3
+Boros Reckoner,"R, W","R, W",{R/W}{R/W}{R/W},3.0,Creature — Minotaur Wizard,,3,3
+Boros Swiftblade,"R, W","R, W",{R}{W},2.0,Creature — Human Soldier,Double strike,1,2
+Brightflame,"R, W","R, W",{X}{R}{R}{W}{W},4.0,Sorcery,Radiance,,
+"Razia, Boros Archangel","R, W","R, W",{4}{R}{R}{W}{W},8.0,Legendary Creature — Angel,"Flying, Haste, Vigilance",6,3
+Spark Trooper,"R, W","R, W",{1}{R}{R}{W},4.0,Creature — Elemental Soldier,"Haste, Lifelink, Trample",6,1
+Sunhome Guildmage,"R, W","R, W",{R}{W},2.0,Creature — Human Wizard,,2,2
+Boros Keyrune,"R, W",,{3},3.0,Artifact,,,
+"Aurelia, Exemplar of Justice","R, W","R, W",{2}{R}{W},4.0,Legendary Creature — Angel,"Flying, Mentor",2,5
+Boros Challenger,"R, W","R, W",{R}{W},2.0,Creature — Human Soldier,Mentor,2,3
+Chance for Glory,"R, W","R, W",{1}{R}{W},3.0,Instant,,,
+Deafening Clarion,"R, W","R, W",{1}{R}{W},3.0,Sorcery,,,
+Garrison Sergeant,"R, W","R, W",{3}{R}{W},5.0,Creature — Lizard Soldier,,3,3
+Hammer Dropper,"R, W","R, W",{2}{R}{W},4.0,Creature — Giant Soldier,Mentor,5,2
+Justice Strike,"R, W","R, W",{R}{W},2.0,Instant,,,
+Legion Guildmage,"R, W","R, W",{R}{W},2.0,Creature — Human Wizard,,2,2
+Skyknight Legionnaire,"R, W","R, W",{1}{R}{W},3.0,Creature — Human Knight,"Flying, Haste",2,2
+Swathcutter Giant,"R, W","R, W",{4}{R}{W},6.0,Creature — Giant Soldier,Vigilance,5,5
+"Tajic, Legion's Edge","R, W","R, W",{1}{R}{W},3.0,Legendary Creature — Human Soldier,"Haste, Mentor",3,2
+Truefire Captain,"R, W","R, W",{R}{R}{W}{W},4.0,Creature — Human Knight,Mentor,4,3
+Assemble the Legion,"R, W","R, W",{3}{R}{W},5.0,Enchantment,,,
+Aurelia's Fury,"R, W","R, W",{X}{R}{W},2.0,Instant,,,
+Fortress Cyclops,"R, W","R, W",{3}{R}{W},5.0,Creature — Cyclops Soldier,,3,3
+Foundry Champion,"R, W","R, W",{4}{R}{W},6.0,Creature — Elemental Soldier,,4,4
+Ordruun Veteran,"R, W","R, W",{2}{R}{W},4.0,Creature — Minotaur Soldier,Battalion,3,1
+Wojek Halberdiers,"R, W","R, W",{R}{W},2.0,Creature — Human Soldier,Battalion,3,2
+Arrows of Justice,"R, W","R, W",{2}{R/W},3.0,Instant,,,
+Shattering Blow,"R, W","R, W",{1}{R/W},2.0,Instant,,,
+Rustvale Bridge,"R, W",,,0.0,Artifact Land,Indestructible,,
+"Klement, Tempest Acolyte","R, W","R, W",{1}{R}{W},3.0,Legendary Creature — Tiefling Cleric,Double strike,2,3
+"Lae'zel, Wrathful Warrior","R, W","R, W",{3}{R}{W},5.0,Legendary Creature — Gith Warrior,Double strike,3,6
+"Lulu, Inspiring Hollyphant","R, W","R, W",{2}{R}{W},4.0,Legendary Creature — Elephant Angel,Flying,2,4
+"Rasaad, Warrior Monk","R, W","R, W",{2}{R}{W},4.0,Legendary Creature — Human Monk,,4,4
+"Ambergris, Agent of Law","R, W","R, W",{2}{R}{W},4.0,Legendary Creature — Dwarf Cleric,Haste,4,3
+"Gut, Zealous Fanatic","R, W","R, W",{4}{R}{R}{W},7.0,Legendary Creature — Goblin Shaman,,5,4
+"Karlach, Tiefling Zealot","R, W","R, W",{1}{R}{W},3.0,Legendary Creature — Tiefling Barbarian,"First strike, Haste",4,4
+Wyll of the Celestial Pact,"R, W","R, W",{3}{R}{R}{W},6.0,Legendary Creature — Human Warlock,,5,5
+Liara of the Flaming Fist,"R, W","R, W",{R}{W},2.0,Legendary Creature — Human Soldier,,2,2
+"Ulder Ravengard, Marshal","R, W","R, W",{1}{R}{W},3.0,Legendary Creature — Human Noble Soldier,Conjure,3,3
+Topdeck the Halls,"R, W","R, W",{3}{R}{W},5.0,Enchantment,Miracle,,
+Resolute Survivors,"R, W","R, W",{1}{R}{W},3.0,Creature — Human Warrior,Exert,3,3
+Regal Leosaur,"R, W","R, W",{R}{W},2.0,Creature — Dinosaur Cat,Mutate,2,2
+Savai Thundermane,"R, W","R, W",{R}{W},2.0,Creature — Elemental Cat,,3,2
+"Winota, Joiner of Forces","R, W","R, W",{2}{R}{W},4.0,Legendary Creature — Human Warrior,,4,4
+"A-Winota, Joiner of Forces","R, W","R, W",{2}{R}{W},4.0,Legendary Creature — Human Warrior,,4,4
+Zenith Flare,"R, W","R, W",{2}{R}{W},4.0,Instant,,,
+"Zirda, the Dawnwaker","R, W","R, W",{1}{R/W}{R/W},3.0,Legendary Creature — Elemental Fox,Companion,3,3
+Arcbound Shikari,"R, W","R, W",{1}{R}{W},3.0,Artifact Creature — Cat Soldier,"First strike, Modular",0,0
+"Zabaz, the Glimmerwasp","R, W",,{1},1.0,Legendary Artifact Creature — Insect,Modular,0,0
+"Agrus Kos, Eternal Soldier","R, W",W,{3}{W},4.0,Legendary Creature — Spirit Soldier,Vigilance,3,4
+Desperate Stand,"R, W","R, W",{R}{W},2.0,Sorcery,Strive,,
+Forging the Tyrite Sword,"R, W","R, W",{1}{R}{W},3.0,Enchantment — Saga,Treasure,,
+"Koll, the Forgemaster","R, W","R, W",{R}{W},2.0,Legendary Creature — Dwarf Warrior,,2,2
+Showdown of the Skalds,"R, W","R, W",{2}{R}{W},4.0,Enchantment — Saga,,,
+Alpine Meadow,"R, W",,,0.0,Snow Land — Mountain Plains,,,
+Axgard Armory,"R, W",,,0.0,Land,,,
+"Depala, Pilot Exemplar","R, W","R, W",{1}{R}{W},3.0,Legendary Creature — Dwarf Pilot,,3,3
+Veteran Motorist,"R, W","R, W",{R}{W},2.0,Creature — Dwarf Pilot,Scry,3,1
+Inspiring Vantage,"R, W",,,0.0,Land,,,
+Firehoof Cavalry,"R, W",W,{W},1.0,Creature — Human Berserker,,1,1
+Leaping Master,"R, W",R,{1}{R},2.0,Creature — Human Monk,,2,1
+Highspire Mantis,"R, W","R, W",{2}{R}{W},4.0,Creature — Insect,"Flying, Trample",3,3
+"Anim Pakal, Thousandth Moon","R, W","R, W",{1}{R}{W},3.0,Legendary Creature — Human Soldier,,1,2
+Caparocti Sunborn,"R, W","R, W",{2}{R}{W},4.0,Legendary Creature — Human Soldier,Discover,4,4
+Quintorius Kand,"R, W","R, W",{3}{R}{W},5.0,Legendary Planeswalker — Quintorius,Discover,,
+"Éomer, King of Rohan","R, W","R, W",{3}{R}{W},5.0,Legendary Creature — Human Noble,Double strike,2,2
+Forth Eorlingas!,"R, W","R, W",{X}{R}{W},2.0,Sorcery,,,
+Oath of Eorl,"R, W","R, W",{3}{R}{W},5.0,Enchantment — Saga,,,
+Riders of Rohan,"R, W","R, W",{3}{R}{W},5.0,Creature — Human Knight,Dash,4,4
+Taunt from the Rampart,"R, W","R, W",{3}{R}{W},5.0,Sorcery,Goad,,
+Rohirrim Chargers,"R, W","R, W",{2}{R}{W},4.0,Creature — Human Knight,Exert,4,4
+Olórin's Searing Light,"R, W","R, W",{2}{R}{W},4.0,Instant,Spell mastery,,
+"Éowyn, Fearless Knight","R, W","R, W",{2}{R}{W},4.0,Legendary Creature — Human Knight,Haste,3,4
+"Merry, Esquire of Rohan","R, W","R, W",{R}{W},2.0,Legendary Creature — Halfling Knight,Haste,2,2
+"Shadowfax, Lord of Horses","R, W","R, W",{3}{R}{W},5.0,Legendary Creature — Horse,,4,4
+"Théoden, King of Rohan","R, W","R, W",{1}{R}{W},3.0,Legendary Creature — Human Noble,,2,3
+Skyknight Vanguard,"R, W","R, W",{R}{W},2.0,Creature — Human Knight,Flying,1,2
+Alpine Houndmaster,"R, W","R, W",{R}{W},2.0,Creature — Human Warrior,,2,2
+Campus Renovation,"R, W","R, W",{3}{R}{W},5.0,Sorcery,,,
+"Nahiri, Forged in Fury","R, W","R, W",{4}{R}{W},6.0,Legendary Creature — Kor Artificer,Affinity,5,4
+Nahiri's Resolve,"R, W","R, W",{3}{R}{W},5.0,Enchantment,,,
+"Pia Nalaar, Consul of Revival","R, W","R, W",{R}{W},2.0,Legendary Creature — Human Artificer,,2,3
+"Comet, Stellar Pup","R, W","R, W",{2}{R}{W},4.0,Legendary Planeswalker — Comet,,,
+Mothers Yamazaki,"R, W","R, W",{2}{R}{W},4.0,Legendary Creature — Human Samurai,"Partner, Partner with",2,2
+Foundry Helix,"R, W","R, W",{1}{R}{W},3.0,Instant,,,
+General Ferrous Rokiric,"R, W","R, W",{1}{R}{W},3.0,Legendary Creature — Human Soldier,"Hexproof, Hexproof from",3,1
+Conduit Goblin,"R, W","R, W",{R}{W},2.0,Creature — Goblin Warrior,,2,2
+"Phlage, Titan of Fire's Fury","R, W","R, W",{1}{R}{W},3.0,Legendary Creature — Elder Giant,Escape,6,6
+Scurry of Gremlins,"R, W","R, W",{2}{R}{W},4.0,Enchantment,,,
+"Ajani, Nacatl Pariah // Ajani, Nacatl Avenger","R, W",W,{1}{W},2.0,Legendary Creature — Cat Warrior,Transform,1,2
+Legion Leadership // Legion Stronghold,"R, W","R, W",{1}{R/W},2.0,Instant,,,
+Energy Bolt,"R, W","R, W",{X}{R}{W},2.0,Sorcery,,,
+Reflect Damage,"R, W","R, W",{3}{R}{W},5.0,Instant,,,
+"Nelly Borca, Impulsive Accuser","R, W","R, W",{2}{R}{W},4.0,Legendary Creature — Human Detective,"Goad, Vigilance",2,4
+"Feather, Radiant Arbiter","R, W","R, W",{R}{W}{W},3.0,Legendary Creature — Angel,"Flying, Lifelink",4,3
+Take the Bait,"R, W","R, W",{2}{R}{W},4.0,Instant,Goad,,
+Needle Spires,"R, W",,,0.0,Land,,,
+"Agrus Kos, Spirit of Justice","R, W","R, W",{2}{R}{W},4.0,Legendary Creature — Spirit Detective,"Double strike, Suspect, Vigilance",2,4
+"Aurelia, the Law Above","R, W","R, W",{3}{R}{W},5.0,Legendary Creature — Angel,"Flying, Haste, Vigilance",4,4
+Dog Walker,"R, W","R, W",{R}{W},2.0,Creature — Human Citizen,"Disguise, Vigilance",3,1
+Meddling Youths,"R, W","R, W",{3}{R}{W},5.0,Creature — Human Detective,"Haste, Investigate",4,5
+Warleader's Call,"R, W","R, W",{1}{R}{W},3.0,Enchantment,,,
+Elegant Parlor,"R, W",,,0.0,Land — Mountain Plains,Surveil,,
+Thundersong Trumpeter,"R, W","R, W",{R}{W},2.0,Creature — Human Soldier,,2,1
+Wildfire Awakener,"R, W","R, W",{X}{1}{R}{W},3.0,Creature — Human Wizard,Convoke,3,2
+Sun-Blessed Guardian // Furnace-Blessed Conqueror,"R, W",W,{1}{W},2.0,Creature — Human Cleric,Transform,2,2
+Harried Artisan // Phyrexian Skyflayer,"R, W",R,{2}{R},3.0,Creature — Human Artificer,"Haste, Transform",2,3
+Djeru and Hazoret,"R, W","R, W",{2}{R}{R}{W},5.0,Legendary Creature — Human God,,5,4
+Invasion of Kylem // Valor's Reach Tag Team,"R, W","R, W",{2}{R}{W},4.0,Battle — Siege,Transform,,
+Mirror-Shield Hoplite,"R, W","R, W",{R}{W},2.0,Creature — Human Soldier,Vigilance,2,2
+"Quintorius, Loremaster","R, W","R, W",{3}{R}{W},5.0,Legendary Creature — Elephant Cleric,Vigilance,3,5
+Prosperous Partnership,"R, W","R, W",{1}{R}{W},3.0,Enchantment,Treasure,,
+Asari Captain,"R, W","R, W",{3}{R}{W},5.0,Creature — Human Samurai,Haste,4,3
+A-Asari Captain,"R, W","R, W",{1}{R}{W},3.0,Creature — Human Samurai,"Haste, Trample",2,1
+Eiganjo Uprising,"R, W","R, W",{X}{R}{W},2.0,Sorcery,,,
+"Raiyuu, Storm's Edge","R, W","R, W",{2}{R}{W},4.0,Legendary Creature — Human Samurai,First strike,3,3
+"A-Raiyuu, Storm's Edge","R, W","R, W",{2}{R}{W},4.0,Legendary Creature — Human Samurai,First strike,4,4
+"Risona, Asari Commander","R, W","R, W",{1}{R}{W},3.0,Legendary Creature — Human Samurai,Haste,3,3
+"Neyali, Suns' Vanguard","R, W","R, W",{2}{R}{W},4.0,Legendary Creature — Human Rebel,,3,3
+"Otharri, Suns' Glory","R, W","R, W",{3}{R}{W},5.0,Legendary Creature — Phoenix,"Flying, Haste, Lifelink",3,3
+Rip Apart,"R, W","R, W",{R}{W},2.0,Sorcery,,,
+Bladehold War-Whip,"R, W","R, W",{1}{R}{W},3.0,Artifact — Equipment,"Equip, For Mirrodin!",,
+"Jor Kadeen, First Goldwarden","R, W","R, W",{R}{W},2.0,Legendary Creature — Human Rebel,Trample,2,2
+"Nahiri, the Unforgiving","R, W","R, W",{1}{R}{R/W/P}{W},4.0,Legendary Planeswalker — Nahiri,Compleated,,
+Iroas's Champion,"R, W","R, W",{1}{R}{W},3.0,Creature — Human Soldier,Double strike,2,2
+Thrilling Discovery,"R, W","R, W",{R}{W},2.0,Sorcery,,,
+High Noon,"R, W",W,{1}{W},2.0,Enchantment,,,
+"Bruse Tarl, Roving Rancher","R, W","R, W",{2}{R}{W},4.0,Legendary Creature — Human Warrior,,4,3
+"Ertha Jo, Frontier Mentor","R, W","R, W",{2}{R}{W},4.0,Legendary Creature — Kor Advisor,,2,4
+Form a Posse,"R, W","R, W",{X}{R}{W},2.0,Sorcery,,,
+"Taii Wakeen, Perfect Shot","R, W","R, W",{R}{W},2.0,Legendary Creature — Human Mercenary,,2,3
+Abraded Bluffs,"R, W",,,0.0,Land — Desert,,,
+"Optimus Prime, Inspiring Leader","R, W","R, W",{3}{R}{W},5.0,Legendary Artifact Creature — Autobot,,4,5
+Armory Paladin,"R, W","R, W",{1}{R}{W},3.0,Creature — Human Knight,Trample,3,3
+"Cass, Hand of Vengeance","R, W","R, W",{2}{R}{W},4.0,Legendary Creature — Human Ranger,Vigilance,4,3
+"Craig Boone, Novac Guard","R, W","R, W",{1}{R}{W},3.0,Legendary Creature — Human Soldier,"Lifelink, One for My Baby, Reach",3,3
+"Desdemona, Freedom's Edge","R, W","R, W",{2}{R}{W},4.0,Legendary Creature — Human Rogue,Vigilance,3,4
+Inventory Management,"R, W","R, W",{R}{W},2.0,Instant,Split second,,
+"Moira Brown, Guide Author","R, W","R, W",{1}{R}{W},3.0,Legendary Creature — Human Citizen,,2,3
+Paladin Elizabeth Taggerdy,"R, W","R, W",{1}{R}{W},3.0,Legendary Creature — Human Knight,Battalion,3,2
+Sentinel Sarah Lyons,"R, W","R, W",{3}{R}{W},5.0,Legendary Creature — Human Knight,"Battalion, Haste",4,4
+"Three Dog, Galaxy News DJ","R, W","R, W",{1}{R}{W},3.0,Legendary Creature — Human Bard,,1,5
+Cautery Sliver,"R, W","R, W",{R}{W},2.0,Creature — Sliver,,2,2
+"Mila, Crafty Companion // Lukka, Wayward Bonder","R, W",W,{1}{W}{W},3.0,Legendary Creature — Fox,,2,3
+"Plargg, Dean of Chaos // Augusta, Dean of Order","R, W",R,{1}{R},2.0,Legendary Creature — Orc Shaman,,2,2
+"Quintorius, Field Historian","R, W","R, W",{3}{R}{W},5.0,Legendary Creature — Elephant Cleric,,2,4
+Needleverge Pathway // Pillarverge Pathway,"R, W",,,0.0,Land,,,
+"Path of Mettle // Metzali, Tower of Triumph","R, W","R, W",{R}{W},2.0,Legendary Enchantment,Transform,,
+"Nahiri, Storm of Stone","R, W","R, W",{2}{R/W}{R/W},4.0,Legendary Planeswalker — Nahiri,,,
+Haktos the Unscarred,"R, W","R, W",{R}{R}{W}{W},4.0,Legendary Creature — Human Warrior,,6,1
+"Nahiri, Heir of the Ancients","R, W","R, W",{2}{R}{W},4.0,Legendary Planeswalker — Nahiri,,,
+Venerable Warsinger,"R, W","R, W",{1}{R}{W},3.0,Creature — Spirit Cleric,"Trample, Vigilance",3,3
+Blade Historian,"R, W","R, W",{R/W}{R/W}{R/W}{R/W},4.0,Creature — Human Cleric,,2,3
+Radiant Scrollwielder,"R, W","R, W",{2}{R}{W},4.0,Creature — Dwarf Cleric,,2,4
+Lorehold Command,"R, W","R, W",{3}{R}{W},5.0,Instant,,,
+Flamescroll Celebrant // Revel in Silence,"R, W",R,{1}{R},2.0,Creature — Human Shaman,,2,1
+Hofri Ghostforge,"R, W","R, W",{3}{R}{W},5.0,Legendary Creature — Dwarf Cleric,,4,5
+Velomachus Lorehold,"R, W","R, W",{5}{R}{W},7.0,Legendary Creature — Elder Dragon,"Flying, Haste, Vigilance",5,5
+"Archangel Avacyn // Avacyn, the Purifier","R, W",W,{3}{W}{W},5.0,Legendary Creature — Angel,"Flash, Flying, Transform, Vigilance",4,4
+"Feather, the Redeemed","R, W","R, W",{R}{W}{W},3.0,Legendary Creature — Angel,Flying,3,4
+Solar Blaze,"R, W","R, W",{2}{R}{W},4.0,Sorcery,,,
+Heartflame Duelist // Heartflame Slash,"R, W",W,{1}{W},2.0,Creature — Human Knight,,3,1
+"Kellan, the Fae-Blooded // Birthright Boon","R, W",R,{2}{R},3.0,Legendary Creature — Human Faerie,Double strike,2,2
+Restless Bivouac,"R, W",,,0.0,Land,,,
+"Huatli, Warrior Poet","R, W","R, W",{3}{R}{W},5.0,Legendary Planeswalker — Huatli,,,
+Boros Fury-Shield,"R, W",W,{2}{W},3.0,Instant,,,
+Screeching Griffin,"R, W",W,{3}{W},4.0,Creature — Griffin,Flying,2,2
+Flash Conscription,"R, W",R,{5}{R},6.0,Instant,,,
+Ordruun Commando,"R, W",R,{3}{R},4.0,Creature — Minotaur Soldier,,4,1
+Rally the Righteous,"R, W","R, W",{1}{R}{W},3.0,Instant,Radiance,,
+Razia's Purification,"R, W","R, W",{4}{R}{W},6.0,Sorcery,,,
+Sunhome Enforcer,"R, W","R, W",{2}{R}{W},4.0,Creature — Giant Soldier,,2,4
+Boros Recruit,"R, W","R, W",{R/W},1.0,Creature — Goblin Soldier,First strike,1,1
+Swooping Pteranodon,"R, W","R, W",{3}{R}{W},5.0,Creature — Dinosaur,"Flying, Haste",3,3
+Relentless Raptor,"R, W","R, W",{R}{W},2.0,Creature — Dinosaur,Vigilance,3,3
+Town Gossipmonger // Incited Rabble,"R, W",W,{W},1.0,Creature — Human,Transform,1,1
+"Sophina, Spearsage Deserter","R, W","R, W",{2}{R}{W},4.0,Legendary Creature — Human Soldier,"Friends forever, Investigate, Menace",4,4
+"Vikya, Scorching Stalwart","R, W",W,{2}{W},3.0,Legendary Creature — Human Warrior,Training,2,4
+Aisha of Sparks and Smoke,"R, W",R,{1}{R}{R},3.0,Legendary Creature — Human Warrior,Prowess,4,2
+Pinkie Pie,"R, W","R, W",{R}{W},2.0,Legendary Creature — Pony,"Everypony's Invited, Treasure",2,2
+Nahiri's Machinations,"R, W",W,{1}{W},2.0,Enchantment,,,
+Lorehold Apprentice,"R, W","R, W",{R}{W},2.0,Creature — Human Cleric,Magecraft,2,2
+Lorehold Excavation,"R, W","R, W",{R}{W},2.0,Enchantment,Mill,,
+Lorehold Pledgemage,"R, W","R, W",{1}{R/W}{R/W},3.0,Creature — Kor Shaman,"First strike, Magecraft",2,2
+Make Your Mark,"R, W","R, W",{R/W},1.0,Instant,,,
+Relic Sloth,"R, W","R, W",{3}{R}{W},5.0,Creature — Sloth Beast,"Menace, Vigilance",4,4
+Returned Pastcaller,"R, W","R, W",{3}{R}{R/W}{W},6.0,Creature — Spirit Cleric,Flying,4,2
+Spirit Summoning,"R, W","R, W",{1}{R/W}{R/W},3.0,Sorcery — Lesson,,,
+Stonebound Mentor,"R, W","R, W",{1}{R}{W},3.0,Creature — Spirit Advisor,Scry,3,3
+Lorehold Campus,"R, W",,,0.0,Land,Scry,,
+Hero of the Nyxborn,"R, W","R, W",{1}{R}{W},3.0,Enchantment Creature — Human Soldier,,2,2
+Priest of Iroas,"R, W",R,{R},1.0,Creature — Human Cleric,,1,1
+Soltari Guerrillas,"R, W","R, W",{2}{R}{W},4.0,Creature — Soltari Soldier,Shadow,3,2
+Scabland,"R, W",,,0.0,Land,,,
+"Stet, Draconic Proofreader","R, W",R,{4}{R}{R},6.0,Legendary Creature — Dragon Bureaucrat,Flying,4,4
+Captain Rex Nebula,"R, W","R, W",{1}{R}{W},3.0,Legendary Creature — Human Pilot Employee,,2,2
+"Pietra, Crafter of Clowns","R, W","R, W",{1}{R}{W},3.0,Legendary Creature — Human Clown Artificer,Haste,3,2
+Suleiman's Legacy,"R, W","R, W",{R}{W},2.0,Enchantment,,,
+Heartwarming Redemption,"R, W","R, W",{2}{R}{W},4.0,Instant,,,
+The Day of the Doctor,"R, W","R, W",{3}{R}{W},5.0,Enchantment — Saga,,,
+Dinosaurs on a Spaceship,"R, W","R, W",{4}{R}{W},6.0,Creature — Dinosaur,"Suspend, Trample, Vigilance",7,7
+Gallifrey Falls // No More,"R, W",R,{4}{R}{R},9.0,Instant,Fuse,,
+"Jenny, Generated Anomaly","R, W","R, W",{2}{R}{W},4.0,Legendary Creature — Time Lord Soldier,"Double strike, Explore",2,3
+Judoon Enforcers,"R, W","R, W",{5}{R}{W},7.0,Creature — Alien Rhino Soldier,"Suspend, Trample",8,8
+The War Doctor,"R, W","R, W",{2}{R}{W},4.0,Legendary Creature — Time Lord Doctor,,3,5
+"Ash, Party Crasher","R, W","R, W",{R}{W},2.0,Legendary Creature — Human Peasant,"Celebration, Haste",2,2
+Imodane's Recruiter // Train Troops,"R, W",R,{2}{R},3.0,Creature — Human Knight,,2,2
+Sky Terror,"R, W","R, W",{R}{W},2.0,Creature — Dinosaur,"Flying, Menace",2,2
+"Huatli, Dinosaur Knight","R, W","R, W",{4}{R}{W},6.0,Legendary Planeswalker — Huatli,,,
+Sun-Blessed Mount,"R, W","R, W",{3}{R}{W},5.0,Creature — Dinosaur,,4,4
+Recruit Instructor,"R, W","R, W",{R}{W},2.0,Creature — Mouse Warrior,Valiant,1,1
+Protean War Engine,"R, W","R, W",{R}{W},2.0,Artifact — Vehicle,Crew,0,4
+"Tiana, Angelic Mechanic","R, W","R, W",{1}{R}{W},3.0,Legendary Creature — Angel Artificer,Flying,3,2
+Valiant Emberkin,"R, W","R, W",{1}{R}{W},3.0,Enchantment Creature — Mouse Glimmer,Haste,1,1
+Scalesoul Gnome,"R, W","R, W",{3}{R}{W},5.0,Artifact Creature — Gnome,"Conjure, Discover, Haste, Trample",3,5
+"Tajic, Legion's Valor","R, W","R, W",{2}{R}{W},4.0,Legendary Creature — Human Soldier,"Conjure, Haste, Indestructible",1,1
+Imperial Blademaster,"R, W","R, W",{1}{R}{W},3.0,Creature — Human Samurai,Double strike,2,3
+Bladehold Cleaver,"R, W","R, W",{2}{R}{W},4.0,Artifact — Equipment,"Equip, For Mirrodin!",,
+Ruby Collector,"R, W",W,{W},1.0,Creature — Human Detective,Conjure,1,1
+Jewel Mine Overseer,"R, W","R, W",{1}{R}{W},3.0,Creature — Human Noble,Conjure,3,3
+Kargan Warleader,"R, W","R, W",{1}{R}{W},3.0,Creature — Human Warrior,,3,3
+A-Kargan Warleader,"R, W","R, W",{1}{R}{W},3.0,Creature — Human Warrior,Ward,3,3
+"A-Nahiri, Heir of the Ancients","R, W","R, W",{2}{R}{W},4.0,Legendary Planeswalker — Nahiri,,,

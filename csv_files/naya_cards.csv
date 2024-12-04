@@ -1,0 +1,115 @@
+name,colorIdentity,colors,manaCost,manaValue,type,keywords,power,toughness
+"Atla Palani, Nest Tender","G, R, W","G, R, W",{1}{R}{G}{W},4.0,Legendary Creature — Human Shaman,,2,3
+Fiery Justice,"G, R, W","G, R, W",{R}{G}{W},3.0,Sorcery,,,
+Gloryscale Viashino,"G, R, W","G, R, W",{1}{R}{G}{W},4.0,Creature — Lizard Soldier,,3,3
+Mayael's Aria,"G, R, W","G, R, W",{R}{G}{W},3.0,Enchantment,,,
+"Uril, the Miststalker","G, R, W","G, R, W",{2}{R}{G}{W},5.0,Legendary Creature — Beast,Hexproof,5,5
+"Eivor, Wolf-Kissed","G, R, W","G, R, W",{3}{R}{G}{W},6.0,Legendary Creature — Human Assassin Warrior,"Haste, Mill, Trample",7,6
+"Havi, the All-Father","G, R, W","G, R, W",{3}{R}{G}{W},6.0,Legendary Creature — God Warrior,Sage Project,6,6
+"Sigurd, Jarl of Ravensthorpe","G, R, W","G, R, W",{R}{G}{W},3.0,Legendary Creature — Human Warrior,"Boast, Lifelink, Trample, Vigilance",3,3
+"Minsc, Beloved Ranger","G, R, W","G, R, W",{R}{G}{W},3.0,Legendary Creature — Human Ranger,,3,3
+"Samut, Voice of Dissent","G, R, W","G, R",{3}{R}{G},5.0,Legendary Creature — Human Warrior,"Double strike, Flash, Haste, Vigilance",3,4
+Druid of the Anima,"G, R, W",G,{1}{G},2.0,Creature — Elf Druid,,1,1
+Naya Battlemage,"G, R, W",G,{2}{G},3.0,Creature — Human Shaman,,2,2
+Resounding Roar,"G, R, W",G,{1}{G},2.0,Instant,Cycling,,
+Godsire,"G, R, W","G, R, W",{4}{R}{G}{G}{W},8.0,Creature — Beast,Vigilance,8,8
+Mayael the Anima,"G, R, W","G, R, W",{R}{G}{W},3.0,Legendary Creature — Elf Shaman,,2,3
+Naya Charm,"G, R, W","G, R, W",{R}{G}{W},3.0,Instant,,,
+Rakeclaw Gargantuan,"G, R, W","G, R, W",{2}{R}{G}{W},5.0,Creature — Beast,,5,3
+Realm Razer,"G, R, W","G, R, W",{3}{R}{G}{W},6.0,Creature — Beast,,4,2
+Titanic Ultimatum,"G, R, W","G, R, W",{R}{R}{G}{G}{G}{W}{W},7.0,Sorcery,,,
+Woolly Thoctar,"G, R, W","G, R, W",{R}{G}{W},3.0,Creature — Beast,,5,4
+Obelisk of Naya,"G, R, W",,{3},3.0,Artifact,,,
+Jungle Shrine,"G, R, W",,,0.0,Land,,,
+Winter's Night,"G, R, W","G, R, W",{R}{G}{W},3.0,World Enchantment,,,
+Naya Sojourners,"G, R, W","G, R, W",{2}{R}{G}{W},5.0,Creature — Elf Shaman,Cycling,5,3
+Retaliator Griffin,"G, R, W","G, R, W",{1}{R}{G}{W},4.0,Creature — Griffin,Flying,2,2
+Marisi's Twinclaws,"G, R, W","G, R, W",{2}{R/W}{G},4.0,Creature — Cat Warrior,Double strike,2,4
+Naya Hushblade,"G, R, W","G, R, W",{R/W}{G},2.0,Creature — Elf Rogue,,2,1
+Trace of Abundance,"G, R, W","G, R, W",{R/W}{G},2.0,Enchantment — Aura,Enchant,,
+Johan,"G, R, W","G, R, W",{3}{R}{G}{W},6.0,Legendary Creature — Human Wizard,,5,4
+Palladia-Mors,"G, R, W","G, R, W",{2}{R}{R}{G}{G}{W}{W},8.0,Legendary Creature — Elder Dragon,"Flying, Trample",7,7
+"Baylen, the Haymaker","G, R, W","G, R, W",{R}{G}{W},3.0,Legendary Creature — Rabbit Warrior,,4,3
+"Ultra Magnus, Tactician // Ultra Magnus, Armored Carrier","G, R, W","G, R, W",{4}{R}{G}{W},7.0,Legendary Artifact Creature — Robot,"Convert, More Than Meets the Eye, Ward",7,7
+"Gahiji, Honored One","G, R, W","G, R, W",{2}{R}{G}{W},5.0,Legendary Creature — Beast,,4,4
+"Marath, Will of the Wild","G, R, W","G, R, W",{R}{G}{W},3.0,Legendary Creature — Elemental Beast,,0,0
+"Ghired, Conclave Exile","G, R, W","G, R, W",{2}{R}{G}{W},5.0,Legendary Creature — Human Shaman,Populate,2,5
+"Marisi, Breaker of the Coil","G, R, W","G, R, W",{1}{R}{G}{W},4.0,Legendary Creature — Cat Warrior,Goad,5,4
+"Mazzy, Truesword Paladin","G, R, W","G, R, W",{1}{R}{G}{W},4.0,Legendary Creature — Halfling Knight,,3,4
+"Zacama, Primal Calamity","G, R, W","G, R, W",{6}{R}{G}{W},9.0,Legendary Creature — Elder Dinosaur,"Reach, Trample, Vigilance",9,9
+"Jared Carthalion, True Heir","G, R, W","G, R, W",{R}{G}{W},3.0,Legendary Creature — Human Warrior,,3,3
+Nacatl Hunt-Pride,"G, R, W",W,{5}{W},6.0,Creature — Cat Warrior,Vigilance,5,4
+Cylian Sunsinger,"G, R, W",G,{1}{G},2.0,Creature — Elf Shaman,,2,2
+Sacellum Archers,"G, R, W",G,{2}{G},3.0,Creature — Elf Archer,,2,3
+Knotvine Mystic,"G, R, W","G, R, W",{R}{G}{W},3.0,Creature — Elf Druid,,2,2
+Meglonoth,"G, R, W","G, R, W",{3}{R}{G}{W},6.0,Creature — Beast,"Trample, Vigilance",6,6
+Tamanoa,"G, R, W","G, R, W",{R}{G}{W},3.0,Creature — Spirit,,2,4
+The Master of Cuisine,"G, R, W","G, R, W",{R}{G}{W},3.0,Legendary Creature — Human Chef,"Food, Gelato, Pasta, Pizza, Scry",3,3
+The Wise Sable,"G, R, W","G, R, W",{4}{W}{R}{G},7.0,Legendary Creature — Elder Sable Judge,Judge Call!,5,5
+The Dogronmaster,"G, R, W","G, R, W",{2}{W}{R}{G},5.0,Legendary Creature — Dragon Dog,Flying,3,2
+Thornscape Apprentice,"G, R, W",G,{G},1.0,Creature — Human Wizard,,1,1
+Thornscape Battlemage,"G, R, W",G,{2}{G},3.0,Creature — Elf Wizard,Kicker,2,2
+"Rith, the Awakener","G, R, W","G, R, W",{3}{R}{G}{W},6.0,Legendary Creature — Dragon,Flying,6,6
+Rith's Charm,"G, R, W","G, R, W",{R}{G}{W},3.0,Instant,,,
+Pure // Simple,"G, R, W","R, G",{1}{R}{G},6.0,Sorcery,,,
+"Hazezon, Shaper of Sand","G, R, W","G, R, W",{R}{G}{W},3.0,Legendary Creature — Human Warrior,Desertwalk,3,3
+"Rienne, Angel of Rebirth","G, R, W","G, R, W",{2}{R}{G}{W},5.0,Legendary Creature — Angel,Flying,5,4
+Rith's Grove,"G, R, W",,,0.0,Land — Lair,,,
+"Rith, Liberated Primeval","G, R, W","G, R, W",{2}{R}{G}{W},5.0,Legendary Creature — Dragon,"Flying, Ward",5,5
+"Grimlock, Dinobot Leader // Grimlock, Ferocious King","G, R, W","G, R, W",{1}{R}{G}{W},4.0,Legendary Artifact Creature — Autobot,Convert,4,4
+An-Havva Township,"G, R, W",,,0.0,Land,,,
+Thornscape Master,"G, R, W",G,{2}{G}{G},4.0,Creature — Human Wizard,,2,2
+Rith's Attendant,"G, R, W",,{5},5.0,Artifact Creature — Golem,,3,3
+Tinder Farm,"G, R, W",,,0.0,Land,,,
+"Pantlaza, Sun-Favored","G, R, W","G, R, W",{2}{R}{G}{W},5.0,Legendary Creature — Dinosaur,Discover,4,4
+"Wayta, Trainer Prodigy","G, R, W","G, R, W",{R}{G}{W},3.0,Legendary Creature — Human Warrior,"Fight, Haste",1,5
+"Huatli, Poet of Unity // Roar of the Fifth People","G, R, W",G,{2}{G},3.0,Legendary Creature — Human Warrior Bard,Transform,2,3
+"Gishath, Sun's Avatar","G, R, W","G, R, W",{5}{R}{G}{W},8.0,Legendary Creature — Dinosaur Avatar,"Haste, Trample, Vigilance",7,6
+Hazezon Tamar,"G, R, W","G, R, W",{4}{R}{G}{W},7.0,Legendary Creature — Human Warrior,,2,4
+Jacques le Vert,"G, R, W","G, R, W",{1}{R}{G}{W},4.0,Legendary Creature — Human Warrior,,3,2
+"Aragorn, Hornburg Hero","G, R, W","G, R, W",{1}{R}{G}{W},4.0,Legendary Creature — Human Soldier,,4,4
+"Palladia-Mors, the Ruiner","G, R, W","G, R, W",{3}{R}{G}{W},6.0,Legendary Creature — Elder Dragon,"Flying, Trample, Vigilance",6,6
+"Rin and Seri, Inseparable","G, R, W","G, R, W",{1}{R}{G}{W},4.0,Legendary Creature — Dog Cat,,4,4
+"Rocco, Street Chef","G, R, W","G, R, W",{R}{G}{W},3.0,Legendary Creature — Elf Druid,Food,2,4
+"Rin and Seri, Inseparabler","G, R, W","G, R, W",{R/G}{G/W},2.0,Legendary Creature — Dog Cat Scientist,,3,2
+Omenpath to Naya,"G, R, W",,,0.0,Land — Omenpath,Vanishing,,
+Sheltering Landscape,"G, R, W",,,0.0,Land,Cycling,,
+Granger Guildmage,"G, R, W",G,{G},1.0,Creature — Human Wizard,,1,1
+"Kaust, Eyes of the Glade","G, R, W","G, R, W",{R/W}{G},2.0,Legendary Creature — Dryad Detective,,2,2
+"Duskana, the Rage Mother","G, R, W","G, R, W",{2}{R}{G}{W},5.0,Legendary Creature — Bear,,5,5
+"Voja, Jaws of the Conclave","G, R, W","G, R, W",{2}{R}{G}{W},5.0,Legendary Creature — Wolf,"Trample, Vigilance, Ward",5,5
+"Bright-Palm, Soul Awakener","G, R, W","G, R, W",{1}{R}{G}{W},4.0,Legendary Creature — Fox Shaman,Backup,4,3
+Shalai and Hallar,"G, R, W","G, R, W",{1}{R}{G}{W},4.0,Legendary Creature — Angel Elf,"Flying, Vigilance",3,3
+"Kitt Kanto, Mayhem Diva","G, R, W","G, R, W",{1}{R}{G}{W},4.0,Legendary Creature — Cat Bard Druid,Goad,3,3
+"Phabine, Boss's Confidant","G, R, W","G, R, W",{3}{R}{G}{W},6.0,Legendary Creature — Cat Advisor,Parley,3,6
+Cabaretti Confluence,"G, R, W","G, R, W",{3}{R}{G}{W},6.0,Sorcery,,,
+"Yuma, Proud Protector","G, R, W","G, R, W",{5}{R}{G}{W},8.0,Legendary Creature — Human Ranger,,6,6
+"Kirri, Talented Sprout","G, R, W","G, R, W",{1}{R}{G}{W},4.0,Legendary Creature — Plant Druid,,0,3
+"Annie Flash, the Veteran","G, R, W","G, R, W",{3}{R}{G}{W},6.0,Legendary Creature — Human Rogue,Flash,4,5
+Annie Joins Up,"G, R, W","G, R, W",{1}{R}{G}{W},4.0,Legendary Enchantment,,,
+"Ghired, Mirror of the Wilds","G, R, W","G, R, W",{R}{G}{W},3.0,Legendary Creature — Human Shaman,Haste,3,3
+"Dogmeat, Ever Loyal","G, R, W","G, R, W",{R}{G}{W},3.0,Legendary Creature — Dog,Mill,3,3
+"Preston Garvey, Minuteman","G, R, W","G, R, W",{2}{R}{G}{W},5.0,Legendary Creature — Human Soldier,,4,4
+Mirrorwood Treefolk,"G, R, W",G,{3}{G},4.0,Creature — Treefolk,,2,4
+Stone Kavu,"G, R, W",G,{4}{G},5.0,Creature — Kavu,,3,3
+Radiant Kavu,"G, R, W","G, R, W",{R}{G}{W},3.0,Creature — Kavu,,3,3
+Jetmir's Garden,"G, R, W",,,0.0,Land — Mountain Forest Plains,Cycling,,
+"Obuun, Mul Daya Ancestor","G, R, W","G, R, W",{1}{R}{G}{W},4.0,Legendary Creature — Elf Spirit,Landfall,3,3
+Cabaretti Ascendancy,"G, R, W","G, R, W",{R}{G}{W},3.0,Enchantment,,,
+Fleetfoot Dancer,"G, R, W","G, R, W",{1}{R}{G}{W},4.0,Creature — Elf Druid,"Haste, Lifelink, Trample",4,4
+Incandescent Aria,"G, R, W","G, R, W",{R}{G}{W},3.0,Sorcery,,,
+"Jetmir, Nexus of Revels","G, R, W","G, R, W",{1}{R}{G}{W},4.0,Legendary Creature — Cat Demon,,5,4
+"Jinnie Fay, Jetmir's Second","G, R, W","G, R, W",{R/G}{G}{G/W},3.0,Legendary Creature — Elf Druid,,3,3
+"Rin and Seri, Inseparable // Rin and Seri, Inseparable","G, R, W","G, R, W",{1}{R}{G}{W},4.0,Legendary Creature — Dog Cat,,4,4
+"Jetmir, Nexus of Revels // Jetmir, Nexus of Revels","G, R, W","G, R, W",{1}{R}{G}{W},4.0,Legendary Creature — Cat Demon,,5,4
+"Jinnie Fay, Jetmir's Second // Jinnie Fay, Jetmir's Second","G, R, W","G, R, W",{R/G}{G}{G/W},3.0,Legendary Creature — Elf Druid,,3,3
+Cabaretti Initiate,"G, R, W",G,{G},1.0,Creature — Raccoon Citizen,,1,2
+Brazen Upstart,"G, R, W","G, R, W",{R}{G}{W},3.0,Creature — Elf Shaman,Vigilance,4,2
+Cabaretti Charm,"G, R, W","G, R, W",{R}{G}{W},3.0,Instant,,,
+A-Cabaretti Charm,"G, R, W","G, R, W",{R}{G}{W},3.0,Instant,,,
+Rakish Revelers,"G, R, W","G, R, W",{2}{R}{G}{W},5.0,Creature — Elf Druid Rogue,,5,3
+A-Rakish Revelers,"G, R, W","G, R, W",{2}{R}{G}{W},5.0,Creature — Elf Druid Rogue,,5,3
+"Rocco, Cabaretti Caterer","G, R, W","G, R, W",{X}{R}{G}{W},3.0,Legendary Creature — Elf Druid,,3,1
+Skyshroud Elf,"G, R, W",G,{1}{G},2.0,Creature — Elf Druid,,1,1
+Emperor Apatzec Intli IV,"G, R, W","G, R, W",{R}{G}{W},3.0,Legendary Creature — Human Noble,Seek,3,4
+Back-Alley Gardener,"G, R, W","G, R, W",{R}{G}{W},3.0,Creature — Elf Druid,"Alliance, Seek",3,4

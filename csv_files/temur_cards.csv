@@ -1,0 +1,53 @@
+name,colorIdentity,colors,manaCost,manaValue,type,keywords,power,toughness
+"Animar, Soul of Elements","G, R, U","G, R, U",{G}{U}{R},3.0,Legendary Creature — Elemental,Protection,1,1
+Bear's Companion,"G, R, U","G, R, U",{2}{G}{U}{R},5.0,Creature — Human Warrior,,2,2
+Guided Passage,"G, R, U","G, R, U",{G}{U}{R},3.0,Sorcery,,,
+"Intet, the Dreamer","G, R, U","G, R, U",{3}{G}{U}{R},6.0,Legendary Creature — Dragon,Flying,6,6
+Riku of Two Reflections,"G, R, U","G, R, U",{2}{G}{U}{R},5.0,Legendary Creature — Human Wizard,,2,2
+The Swarmlord,"G, R, U","G, R, U",{3}{G}{U}{R},6.0,Legendary Creature — Tyranid,"Rapid Regeneration, Xenos Cunning",5,5
+Magus Lucea Kane,"G, R, U","G, R, U",{1}{G}{U}{R},4.0,Legendary Creature — Human Tyranid Wizard,"Psychic Stimulus, Spiritual Leader",1,1
+The First Tyrannic War,"G, R, U","G, R, U",{2}{G}{U}{R},5.0,Enchantment — Saga,,,
+Frontier Bivouac,"G, R, U",,,0.0,Land,,,
+Ceta Disciple,"G, R, U",U,{U},1.0,Creature — Merfolk Wizard,,1,1
+Cetavolver,"G, R, U",U,{1}{U},2.0,Creature — Volver,Kicker,1,1
+"Loot, the Key to Everything","G, R, U","G, R, U",{G}{U}{R},3.0,Legendary Creature — Beast Noble,Ward,1,2
+"Flubs, the Fool","G, R, U","G, R, U",{G}{U}{R},3.0,Legendary Creature — Frog Scout,,0,5
+"Kalamax, the Stormsire","G, R, U","G, R, U",{1}{G}{U}{R},4.0,Legendary Creature — Elemental Dinosaur,,4,4
+"Xyris, the Writhing Storm","G, R, U","G, R, U",{2}{G}{U}{R},5.0,Legendary Creature — Snake Leviathan,Flying,3,5
+Temur Charm,"G, R, U","G, R, U",{G}{U}{R},3.0,Instant,Fight,,
+"Miirym, Sentinel Wyrm","G, R, U","G, R, U",{3}{G}{U}{R},6.0,Legendary Creature — Dragon Spirit,"Flying, Ward",6,6
+Maelstrom Wanderer,"G, R, U","G, R, U",{5}{G}{U}{R},8.0,Legendary Creature — Elemental,Cascade,7,5
+"Averna, the Chaos Bloom","G, R, U","G, R, U",{G}{U}{R},3.0,Legendary Creature — Elemental Shaman,,4,2
+Riku and Riku,"G, R, U","G, R, U",{2}{R/G}{U},4.0,Legendary Creature — Human Wizard,Double strike,2,2
+Research // Development,"G, R, U","U, G",{G}{U},7.0,Instant,,,
+"Illuna, Apex of Wishes","G, R, U","G, R, U",{2}{G}{U}{R},5.0,Legendary Creature — Beast Elemental Dinosaur,"Flying, Mutate, Trample",6,6
+Surrak Dragonclaw,"G, R, U","G, R, U",{2}{G}{U}{R},5.0,Legendary Creature — Human Warrior,Flash,6,6
+Vodalian Mindsinger,"G, R, U",U,{1}{U}{U},3.0,Creature — Merfolk Wizard,Kicker,2,2
+Sarkhan Unbroken,"G, R, U","G, R, U",{2}{G}{U}{R},5.0,Legendary Planeswalker — Sarkhan,,,
+Shaman of the Great Hunt,"G, R, U",R,{3}{R},4.0,Creature — Orc Shaman,"Ferocious, Haste",4,2
+Yasova Dragonclaw,"G, R, U",G,{2}{G},3.0,Legendary Creature — Human Warrior,Trample,4,2
+Mythos of Illuna,"G, R, U",U,{2}{U}{U},4.0,Sorcery,Fight,,
+Genesis Ultimatum,"G, R, U","G, R, U",{G}{G}{U}{U}{U}{R}{R},7.0,Sorcery,,,
+Song of Creation,"G, R, U","G, R, U",{1}{G}{U}{R},4.0,Enchantment,,,
+Ketria Crystal,"G, R, U",,{3},3.0,Artifact,Cycling,,
+Ketria Triome,"G, R, U",,,0.0,Land — Forest Island Mountain,Cycling,,
+Rattleclaw Mystic,"G, R, U",G,{1}{G},2.0,Creature — Human Shaman,Morph,2,1
+Avalanche Tusker,"G, R, U","G, R, U",{2}{G}{U}{R},5.0,Creature — Elephant Warrior,,6,4
+Savage Knuckleblade,"G, R, U","G, R, U",{G}{U}{R},3.0,Creature — Ogre Warrior,,4,4
+Snowhorn Rider,"G, R, U","G, R, U",{3}{G}{U}{R},6.0,Creature — Human Warrior,"Morph, Trample",5,5
+Temur Ascendancy,"G, R, U","G, R, U",{G}{U}{R},3.0,Enchantment,,,
+Trap Essence,"G, R, U","G, R, U",{G}{U}{R},3.0,Instant,,,
+Temur Banner,"G, R, U",,{3},3.0,Artifact,,,
+"Omnath, Locus of the Roil","G, R, U","G, R, U",{1}{G}{U}{R},4.0,Legendary Creature — Elemental,Landfall,3,3
+Temur Elevator,"G, R, U",,,0.0,Land,Ascend,,
+Bountiful Landscape,"G, R, U",,,0.0,Land,Cycling,,
+Hustle // Bustle,"G, R, U","U, R",{U/R},7.0,Instant,,,
+"Gimbal, Gremlin Prodigy","G, R, U","G, R, U",{2}{G}{U}{R},5.0,Legendary Creature — Gremlin Artificer,,4,4
+Rashmi and Ragavan,"G, R, U","G, R, U",{1}{G}{U}{R},4.0,Legendary Creature — Elf Monkey,Treasure,2,4
+Borborygmos and Fblthp,"G, R, U","G, R, U",{2}{G}{U}{R},5.0,Legendary Creature — Cyclops Homunculus,,6,5
+Riku of Many Paths,"G, R, U","G, R, U",{G}{U}{R},3.0,Legendary Creature — Human Wizard,,3,3
+Beluna Grandsquall // Seek Thrills,"G, R, U","U, R, G",{G}{U}{R},3.0,Legendary Creature — Giant Noble,Trample,4,4
+"Lara Croft, Tomb Raider","G, R, U","G, R, U",{G}{U}{R},3.0,Legendary Creature — Human Ranger,"First strike, Raid, Reach, Treasure",3,4
+"Storm, Force of Nature","G, R, U","G, R, U",{1}{G}{U}{R},4.0,Legendary Creature — Mutant Hero,"Ceaseless Tempest, Flying, Vigilance",3,4
+Convention Maro,"G, R, U","G, R, U",{1}{G}{2/U}{2/R},6.0,Legendary Creature — Elemental Gamer,,3,3
+"Me, the Immortal","G, R, U","G, R, U",{2}{G}{U}{R},5.0,Legendary Creature — Human Rogue,,3,3

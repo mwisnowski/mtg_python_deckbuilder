@@ -1,0 +1,48 @@
+name,colorIdentity,colors,manaCost,manaValue,type,keywords,power,toughness
+Abzan Ascendancy,"B, G, W","B, G, W",{W}{B}{G},3.0,Enchantment,,,
+Abzan Charm,"B, G, W","B, G, W",{W}{B}{G},3.0,Instant,,,
+"Doran, the Siege Tower","B, G, W","B, G, W",{W}{B}{G},3.0,Legendary Creature — Treefolk Shaman,,0,5
+"Ghave, Guru of Spores","B, G, W","B, G, W",{2}{W}{B}{G},5.0,Legendary Creature — Fungus Shaman,,0,0
+"Karador, Ghost Chieftain","B, G, W","B, G, W",{5}{W}{B}{G},8.0,Legendary Creature — Centaur Spirit,,3,4
+"Teneb, the Harvester","B, G, W","B, G, W",{3}{W}{B}{G},6.0,Legendary Creature — Dragon,Flying,6,6
+Necra Disciple,"B, G, W",B,{B},1.0,Creature — Human Wizard,,1,1
+Necravolver,"B, G, W",B,{2}{B},3.0,Creature — Volver,Kicker,2,2
+Overgrown Estate,"B, G, W","B, G, W",{W}{B}{G},3.0,Enchantment,,,
+Duneblast,"B, G, W","B, G, W",{4}{W}{B}{G},7.0,Sorcery,,,
+Murmuring Bosk,"B, G, W",,,0.0,Land — Forest,,,
+Sandsteppe Citadel,"B, G, W",,,0.0,Land,,,
+"Kathril, Aspect Warper","B, G, W","B, G, W",{2}{W}{B}{G},5.0,Legendary Creature — Nightmare Insect,,3,3
+"Tayam, Luminous Enigma","B, G, W","B, G, W",{1}{W}{B}{G},4.0,Legendary Creature — Nightmare Beast,Mill,3,3
+"Myrkul, Lord of Bones","B, G, W","B, G, W",{4}{W}{B}{G},7.0,Legendary Creature — God,,7,5
+"Anikthea, Hand of Erebos","B, G, W","B, G, W",{2}{W}{B}{G},5.0,Legendary Enchantment Creature — Demigod,Menace,4,4
+"Narci, Fable Singer","B, G, W","B, G, W",{1}{W}{B}{G},4.0,Legendary Creature — Human Bard,Lifelink,3,3
+"Colfenor, the Last Yew","B, G, W","B, G, W",{3}{W}{B}{G},6.0,Legendary Creature — Treefolk Shaman,"Reach, Vigilance",3,7
+Siege Rhino,"B, G, W","B, G, W",{1}{W}{B}{G},4.0,Creature — Rhino,Trample,4,5
+Ready // Willing,"B, G, W","W, G",{1}{G}{W},6.0,Instant,Fuse,,
+Crime // Punishment,"B, G, W","W, B",{3}{W}{B},7.0,Sorcery,,,
+"Nethroi, Apex of Death","B, G, W","B, G, W",{2}{W}{B}{G},5.0,Legendary Creature — Cat Nightmare Beast,"Deathtouch, Lifelink, Mutate",5,5
+Stronghold Arena,"B, G, W",B,{1}{B},2.0,Enchantment,Kicker,,
+Daghatar the Adamant,"B, G, W",W,{3}{W},4.0,Legendary Creature — Human Warrior,Vigilance,0,0
+Warden of the First Tree,"B, G, W",G,{G},1.0,Creature — Human,,1,1
+Mythos of Nethroi,"B, G, W",B,{2}{B},3.0,Instant,,,
+Death's Oasis,"B, G, W","B, G, W",{W}{B}{G},3.0,Enchantment,Mill,,
+Eerie Ultimatum,"B, G, W","B, G, W",{W}{W}{B}{B}{B}{G}{G},7.0,Sorcery,,,
+Indatha Crystal,"B, G, W",,{3},3.0,Artifact,Cycling,,
+Indatha Triome,"B, G, W",,,0.0,Land — Plains Swamp Forest,Cycling,,
+Abzan Guide,"B, G, W","B, G, W",{3}{W}{B}{G},6.0,Creature — Human Warrior,"Lifelink, Morph",4,4
+"Anafenza, the Foremost","B, G, W","B, G, W",{W}{B}{G},3.0,Legendary Creature — Human Soldier,,4,4
+Armament Corps,"B, G, W","B, G, W",{2}{W}{B}{G},5.0,Creature — Human Soldier,,4,4
+Ivorytusk Fortress,"B, G, W","B, G, W",{2}{W}{B}{G},5.0,Creature — Elephant,,5,7
+Abzan Banner,"B, G, W",,{3},3.0,Artifact,,,
+"Bilbo, Birthday Celebrant","B, G, W","B, G, W",{W}{B}{G},3.0,Legendary Creature — Halfling Rogue,,2,3
+"Kethis, the Hidden Hand","B, G, W","B, G, W",{W}{B}{G},3.0,Legendary Creature — Elf Advisor,,3,4
+"Chea, Friend to Maybe Too Many","B, G, W","B, G, W",{1}{W}{B}{G},4.0,Legendary Creature — Human Wizard,,2,4
+Under-Construction Skyscraper,"B, G, W",,,0.0,Land,"Level Up, Scry",,
+The Necrobloom,"B, G, W","B, G, W",{1}{W}{B}{G},4.0,Legendary Creature — Plant,"Landfall, Mill",2,7
+Deceptive Landscape,"B, G, W",,,0.0,Land,Cycling,,
+Cease // Desist,"B, G, W","B, G",{1}{B/G},8.0,Instant,,,
+Thalia and The Gitrog Monster,"B, G, W","B, G, W",{1}{W}{B}{G},4.0,Legendary Creature — Human Frog Horror,"Deathtouch, First strike",4,4
+"Ixhel, Scion of Atraxa","B, G, W","B, G, W",{1}{W}{B}{G},4.0,Legendary Creature — Phyrexian Angel,"Corrupted, Flying, Toxic, Vigilance",2,5
+"Vishgraz, the Doomhive","B, G, W","B, G, W",{2}{W}{B}{G},5.0,Legendary Creature — Phyrexian Insect,"Menace, Toxic",3,3
+Darksteel Hydra,"B, G, W","B, G, W",{X}{W}{B}{G},3.0,Artifact Creature — Phyrexian Hydra,"Conjure, Indestructible",*,*
+Drover of the Swine,"B, G, W","B, G, W",{2}{W}{B}{G},5.0,Creature — Human Warlock,Conjure,5,5

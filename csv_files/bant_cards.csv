@@ -1,0 +1,95 @@
+name,colorIdentity,colors,manaCost,manaValue,type,keywords,power,toughness
+Bant Charm,"G, U, W","G, U, W",{G}{W}{U},3.0,Instant,,,
+Empyrial Archangel,"G, U, W","G, U, W",{4}{G}{W}{W}{U},8.0,Creature — Angel,"Flying, Shroud",5,8
+Rafiq of the Many,"G, U, W","G, U, W",{1}{G}{W}{U},4.0,Legendary Creature — Human Knight,Exalted,3,3
+Roon of the Hidden Realm,"G, U, W","G, U, W",{2}{G}{W}{U},5.0,Legendary Creature — Rhino Soldier,"Trample, Vigilance",4,4
+Noble Hierarch,"G, U, W",G,{G},1.0,Creature — Human Druid,Exalted,0,1
+"Shaun & Rebecca, Agents","G, U, W","G, U, W",{1}{G}{W}{U},4.0,Legendary Creature — Human Assassin Scientist,"Mill, Vigilance",4,4
+"Galea, Kindler of Hope","G, U, W","G, U, W",{1}{G}{W}{U},4.0,Legendary Creature — Elf Knight,Vigilance,4,4
+"Storvald, Frost Giant Jarl","G, U, W","G, U, W",{4}{G}{W}{U},7.0,Legendary Creature — Giant,Ward,7,7
+Seaside Citadel,"G, U, W",,,0.0,Land,,,
+Bant Battlemage,"G, U, W",W,{2}{W},3.0,Creature — Human Wizard,,2,2
+Resounding Silence,"G, U, W",W,{3}{W},4.0,Instant,Cycling,,
+Clarion Ultimatum,"G, U, W","G, U, W",{G}{G}{W}{W}{W}{U}{U},7.0,Sorcery,,,
+Rhox War Monk,"G, U, W","G, U, W",{G}{W}{U},3.0,Creature — Rhino Monk,Lifelink,3,4
+Stoic Angel,"G, U, W","G, U, W",{1}{G}{W}{U},4.0,Creature — Angel,"Flying, Vigilance",3,4
+Waveskimmer Aven,"G, U, W","G, U, W",{2}{G}{W}{U},5.0,Creature — Bird Soldier,"Exalted, Flying",2,4
+Obelisk of Bant,"G, U, W",,{3},3.0,Artifact,,,
+Phelddagrif,"G, U, W","G, U, W",{1}{G}{W}{U},4.0,Legendary Creature — Phelddagrif,,4,4
+Bant Sojourners,"G, U, W","G, U, W",{1}{G}{W}{U},4.0,Creature — Human Soldier,Cycling,2,4
+Finest Hour,"G, U, W","G, U, W",{2}{G}{W}{U},5.0,Enchantment,Exalted,,
+Flurry of Wings,"G, U, W","G, U, W",{G}{W}{U},3.0,Instant,,,
+"Jenara, Asura of War","G, U, W","G, U, W",{G}{W}{U},3.0,Legendary Creature — Angel,Flying,3,3
+Wargate,"G, U, W","G, U, W",{X}{G}{W}{U},3.0,Sorcery,,,
+Bant Sureblade,"G, U, W","G, U, W",{G/U}{W},2.0,Creature — Human Soldier,,2,1
+Crystallization,"G, U, W","G, U, W",{G/U}{W},2.0,Enchantment — Aura,Enchant,,
+Messenger Falcons,"G, U, W","G, U, W",{2}{G/U}{W},4.0,Creature — Bird,Flying,2,2
+Arcades Sabboth,"G, U, W","G, U, W",{2}{G}{G}{W}{W}{U}{U},8.0,Legendary Creature — Elder Dragon,Flying,7,7
+Rubinia Soulsinger,"G, U, W","G, U, W",{2}{G}{W}{U},5.0,Legendary Creature — Faerie,,2,3
+"Helga, Skittish Seer","G, U, W","G, U, W",{G}{W}{U},3.0,Legendary Creature — Frog Druid,,1,3
+Ms. Bumbleflower,"G, U, W","G, U, W",{1}{G}{W}{U},4.0,Legendary Creature — Rabbit Citizen,Vigilance,1,5
+Mr. Foxglove,"G, U, W","G, U, W",{2}{G}{W}{U},5.0,Legendary Creature — Fox Rogue,Lifelink,3,5
+"Derevi, Empyrial Tactician","G, U, W","G, U, W",{G}{W}{U},3.0,Legendary Creature — Bird Wizard,Flying,2,3
+"Tamiyo, Field Researcher","G, U, W","G, U, W",{1}{G}{W}{U},4.0,Legendary Planeswalker — Tamiyo,,,
+"Tocasia, Dig Site Mentor","G, U, W","G, U, W",{1}{G}{W}{U},4.0,Legendary Creature — Human Artificer,Surveil,4,3
+Aerie Mystics,"G, U, W",W,{4}{W},5.0,Creature — Bird Wizard,Flying,3,3
+Skyward Eye Prophets,"G, U, W","G, U, W",{3}{G}{W}{U},6.0,Creature — Human Wizard,Vigilance,3,3
+"Estrid, the Masked","G, U, W","G, U, W",{1}{G}{W}{U},4.0,Legendary Planeswalker — Estrid,Mill,,
+"Kestia, the Cultivator","G, U, W","G, U, W",{1}{G}{W}{U},4.0,Legendary Enchantment Creature — Nymph,Bestow,4,4
+Tuvasa the Sunlit,"G, U, W","G, U, W",{G}{W}{U},3.0,Legendary Creature — Merfolk Shaman,,1,1
+"Gorion, Wise Mentor","G, U, W","G, U, W",{G}{W}{U},3.0,Legendary Creature — Human Wizard,Vigilance,3,4
+"Amareth, the Lustrous","G, U, W","G, U, W",{3}{G}{W}{U},6.0,Legendary Creature — Dragon,Flying,6,6
+Giltspire Avenger,"G, U, W","G, U, W",{G}{W}{U},3.0,Creature — Human Soldier,Exalted,2,2
+Diamond Faerie,"G, U, W","G, U, W",{2}{G}{W}{U},5.0,Snow Creature — Faerie,Flying,3,3
+The Water Maro,"G, U, W","G, U, W",{1}{W}{U}{G},4.0,Legendary Creature — Elemental,,*,*
+The Scholar of Seas,"G, U, W","G, U, W",{1}{W}{U}{G},4.0,Legendary Creature — Merfolk Advisor,,2,2
+Sunscape Battlemage,"G, U, W",W,{2}{W},3.0,Creature — Human Wizard,Kicker,2,2
+"Treva, the Renewer","G, U, W","G, U, W",{3}{G}{W}{U},6.0,Legendary Creature — Dragon,Flying,6,6
+Treva's Charm,"G, U, W","G, U, W",{G}{W}{U},3.0,Instant,,,
+Beck // Call,"G, U, W","U, G",{G}{U},8.0,Sorcery,Fuse,,
+Supply // Demand,"G, U, W","W, G",{X}{G}{W},5.0,Sorcery,,,
+"Jedit Ojanen, Mercenary","G, U, W","U, W",{1}{W}{U},3.0,Legendary Creature — Cat Mercenary,,3,3
+Treva's Ruins,"G, U, W",,,0.0,Land — Lair,,,
+"Shanna, Purifying Blade","G, U, W","G, U, W",{G}{W}{U},3.0,Legendary Creature — Human Warrior,Lifelink,3,3
+"Chulane, Teller of Tales","G, U, W","G, U, W",{2}{G}{W}{U},5.0,Legendary Creature — Human Druid,Vigilance,2,4
+Aysen Abbey,"G, U, W",,,0.0,Land,,,
+Storm Spirit,"G, U, W","G, U, W",{3}{G}{W}{U},6.0,Creature — Elemental Spirit,Flying,3,3
+Sunscape Apprentice,"G, U, W",W,{W},1.0,Creature — Human Wizard,,1,1
+Sunscape Master,"G, U, W",W,{2}{W}{W},4.0,Creature — Human Wizard,,2,2
+Treva's Attendant,"G, U, W",,{5},5.0,Artifact Creature — Golem,,3,3
+Irrigation Ditch,"G, U, W",,,0.0,Land,,,
+Isu the Abominable,"G, U, W",U,{3}{U}{U},5.0,Legendary Snow Creature — Yeti,,5,5
+Angus Mackenzie,"G, U, W","G, U, W",{G}{W}{U},3.0,Legendary Creature — Human Cleric,,2,2
+Ragnar,"G, U, W","G, U, W",{G}{W}{U},3.0,Legendary Creature — Human Cleric,,2,2
+"Galadriel, Light of Valinor","G, U, W","G, U, W",{2}{G}{W}{U},5.0,Legendary Creature — Elf Noble,"Alliance, Scry",3,3
+"Arcades, the Strategist","G, U, W","G, U, W",{1}{G}{W}{U},4.0,Legendary Creature — Elder Dragon,"Flying, Vigilance",3,5
+Tranquil Landscape,"G, U, W",,,0.0,Land,Cycling,,
+Civic Guildmage,"G, U, W",W,{W},1.0,Creature — Human Wizard,,1,1
+"Morska, Undersea Sleuth","G, U, W","G, U, W",{G}{W}{U},3.0,Legendary Creature — Vedalken Fish Detective,Investigate,2,3
+"Sophia, Dogged Detective","G, U, W","G, U, W",{1}{G}{W}{U},4.0,Legendary Creature — Human Detective,"Food, Investigate",3,4
+Katilda and Lier,"G, U, W","G, U, W",{G}{W}{U},3.0,Legendary Creature — Human,,3,3
+"Perrie, the Pulverizer","G, U, W","G, U, W",{1}{G}{W}{U},4.0,Legendary Creature — Rhino Soldier,,3,3
+"Kros, Defense Contractor","G, U, W","G, U, W",{1}{G}{W}{U},4.0,Legendary Creature — Cat Advisor,Goad,2,4
+Brokers Confluence,"G, U, W","G, U, W",{2}{G}{W}{U},5.0,Instant,Proliferate,,
+Kellan Joins Up,"G, U, W","G, U, W",{G}{W}{U},3.0,Legendary Enchantment,Plot,,
+"Kellan, the Kid","G, U, W","G, U, W",{G}{W}{U},3.0,Legendary Creature — Human Faerie Rogue,"Flying, Lifelink",3,3
+Endless Detour,"G, U, W","G, U, W",{G}{W}{U},3.0,Instant,,,
+"Svega, the Unconventional","G, U, W","G, U, W",{1}{G}{W}{U},4.0,Legendary Planeswalker — Svega,Landfall,,
+Questing Phelddagrif,"G, U, W","G, U, W",{1}{G}{W}{U},4.0,Creature — Phelddagrif,,4,4
+Spara's Headquarters,"G, U, W",,,0.0,Land — Forest Plains Island,Cycling,,
+Brokers Ascendancy,"G, U, W","G, U, W",{G}{W}{U},3.0,Enchantment,,,
+"Falco Spara, Pactweaver","G, U, W","G, U, W",{1}{G}{W}{U},4.0,Legendary Creature — Bird Demon,"Flying, Trample",3,3
+"Rigo, Streetwise Mentor","G, U, W","G, U, W",{G/W}{W}{W/U},3.0,Legendary Creature — Cat Citizen,,2,2
+Soul of Emancipation,"G, U, W","G, U, W",{4}{G}{W}{U},7.0,Creature — Avatar,,5,7
+"Ellie and Alan, Paleontologists","G, U, W","G, U, W",{2}{G}{W}{U},5.0,Legendary Creature — Human Scientist,Discover,2,5
+Brokers Initiate,"G, U, W",W,{W},1.0,Creature — Cat Citizen,,0,4
+Brokers Charm,"G, U, W","G, U, W",{G}{W}{U},3.0,Instant,,,
+Disciplined Duelist,"G, U, W","G, U, W",{G}{W}{U},3.0,Creature — Human Citizen,Double strike,2,1
+"Lagrella, the Magpie","G, U, W","G, U, W",{G}{W}{U},3.0,Legendary Creature — Human Soldier,,2,3
+Spara's Adjudicators,"G, U, W","G, U, W",{2}{G}{W}{U},5.0,Creature — Cat Citizen,,4,4
+A-Spara's Adjudicators,"G, U, W","G, U, W",{2}{G}{W}{U},5.0,Creature — Cat Citizen,,4,4
+"Alistair, the Brigadier","G, U, W","G, U, W",{1}{G}{W}{U},4.0,Legendary Creature — Human Soldier,,3,3
+"Brenard, Ginger Sculptor","G, U, W","G, U, W",{1}{G}{W}{U},4.0,Legendary Creature — Human Artificer,Food,3,3
+"Tan Jolom, the Worldwalker","G, U, W","G, U, W",{1}{G}{W}{U},4.0,Legendary Creature — Spirit,,3,3
+"Vexyr, Ich-Tekik's Heir","G, U, W","G, U, W",{G}{W}{U},3.0,Legendary Creature — Phyrexian Artificer,Seek,3,4
+Spara's Bodyguard,"G, U, W","G, U, W",{G}{W}{U},3.0,Creature — Rhino Warrior,,3,3

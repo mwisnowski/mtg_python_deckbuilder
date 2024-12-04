@@ -1,0 +1,465 @@
+name,colorIdentity,colors,manaCost,manaValue,type,keywords,power,toughness
+Underground River,"B, U",,,0.0,Land,,,
+Underground Sea,"B, U",,,0.0,Land — Island Swamp,,,
+Forbidden Alchemy,"B, U",U,{2}{U},3.0,Instant,Flashback,,
+Agony Warp,"B, U","B, U",{U}{B},2.0,Instant,,,
+Dragonlord Silumgar,"B, U","B, U",{4}{U}{B},6.0,Legendary Creature — Elder Dragon,"Deathtouch, Flying",3,5
+Extract from Darkness,"B, U","B, U",{3}{U}{B},5.0,Sorcery,Mill,,
+Glen Elendra Liege,"B, U","B, U",{1}{U/B}{U/B}{U/B},4.0,Creature — Faerie Knight,Flying,2,3
+Glimpse the Unthinkable,"B, U","B, U",{U}{B},2.0,Sorcery,Mill,,
+Hostage Taker,"B, U","B, U",{2}{U}{B},4.0,Creature — Human Pirate,,2,3
+Prized Amalgam,"B, U","B, U",{1}{U}{B},3.0,Creature — Zombie,,3,3
+Psychic Symbiont,"B, U","B, U",{4}{U}{B},6.0,Creature — Nightmare Horror,Flying,3,3
+Dimir Aqueduct,"B, U",,,0.0,Land,,,
+Baleful Strix,"B, U","B, U",{U}{B},2.0,Artifact Creature — Bird,"Deathtouch, Flying",1,1
+The Scarab God,"B, U","B, U",{3}{U}{B},5.0,Legendary Creature — God,Scry,5,5
+Sphinx Summoner,"B, U","B, U",{3}{U}{B},5.0,Artifact Creature — Sphinx,Flying,3,3
+Time Sieve,"B, U","B, U",{U}{B},2.0,Artifact,,,
+Sunken Ruins,"B, U",,,0.0,Land,,,
+Callidus Assassin,"B, U","B, U",{4}{U}{B},6.0,Creature — Human Shapeshifter Assassin,"Flash, Polymorphine",3,3
+Cybernetica Datasmith,"B, U","B, U",{1}{U}{B},3.0,Artifact Creature — Human Artificer,"Field Reprogramming, Protection",0,1
+Inquisitor Eisenhorn,"B, U","B, U",{2}{U}{B},4.0,Legendary Creature — Human Inquisitor,Investigate,2,3
+Deny Reality,"B, U","B, U",{3}{U}{B},5.0,Sorcery,Cascade,,
+Talisman of Dominance,"B, U",,{2},2.0,Artifact,,,
+Choked Estuary,"B, U",,,0.0,Land,,,
+Darkwater Catacombs,"B, U",,,0.0,Land,,,
+Dismal Backwater,"B, U",,,0.0,Land,,,
+Sunken Hollow,"B, U",,,0.0,Land — Island Swamp,,,
+Salt Marsh,"B, U",,,0.0,Land,,,
+Returned Phalanx,"B, U",B,{1}{B},2.0,Creature — Zombie Soldier,Defender,3,3
+Notion Thief,"B, U","B, U",{2}{U}{B},4.0,Creature — Human Rogue,Flash,3,1
+Shadowmage Infiltrator,"B, U","B, U",{1}{U}{B},3.0,Creature — Human Wizard,Fear,1,3
+"Adéwalé, Breaker of Chains","B, U","B, U",{1}{U}{B},3.0,Legendary Creature — Human Assassin Pirate,,4,1
+Basim Ibn Ishaq,"B, U","B, U",{U}{B},2.0,Legendary Creature — Human Assassin,,2,2
+Lydia Frye,"B, U","B, U",{2}{U/B},3.0,Legendary Creature — Human Assassin,Surveil,3,2
+"Ezio, Blade of Vengeance","B, U","B, U",{3}{U}{B},5.0,Legendary Creature — Human Assassin,Deathtouch,5,5
+Achilles Davenport,"B, U","B, U",{2}{U}{B},4.0,Legendary Creature — Human Assassin,"Freerunning, Menace",3,3
+Auditore Ambush,"B, U","B, U",{2}{U}{B},4.0,Sorcery,,,
+Rooftop Bypass,"B, U","B, U",{1}{U}{B},3.0,Enchantment,,,
+Submerged Boneyard,"B, U",,,0.0,Land,,,
+Tezzeret the Schemer,"B, U","B, U",{2}{U}{B},4.0,Legendary Planeswalker — Tezzeret,,,
+Tezzeret's Touch,"B, U","B, U",{1}{U}{B},3.0,Enchantment — Aura,Enchant,,
+"Tezzeret, Master of Metal","B, U","B, U",{4}{U}{B},6.0,Legendary Planeswalker — Tezzeret,,,
+Tezzeret's Betrayal,"B, U","B, U",{3}{U}{B},5.0,Sorcery,,,
+Extract Brain,"B, U","B, U",{X}{U}{B},2.0,Sorcery,,,
+Obsessive Stitcher,"B, U","B, U",{1}{U}{B},3.0,Creature — Human Wizard,,0,3
+Krydle of Baldur's Gate,"B, U","B, U",{U}{B},2.0,Legendary Creature — Human Elf Rogue,"Mill, Scry",1,3
+A-Krydle of Baldur's Gate,"B, U","B, U",{U}{B},2.0,Legendary Creature — Human Elf Rogue,"Mill, Scry",1,3
+Rogue Class,"B, U","B, U",{U}{B},2.0,Enchantment — Class,,,
+"Xanathar, Guild Kingpin","B, U","B, U",{4}{U}{B},6.0,Legendary Creature — Beholder,,5,6
+Shadowstorm Vizier,"B, U","B, U",{U}{B},2.0,Creature — Human Cleric,Flying,1,3
+Rags // Riches,"B, U",B,{2}{B}{B},11.0,Sorcery,,,
+Fetid Pools,"B, U",,,0.0,Land — Island Swamp,Cycling,,
+Consign // Oblivion,"B, U",U,{1}{U},7.0,Instant,,,
+Etherium Astrolabe,"B, U",U,{2}{U},3.0,Artifact,Flash,,
+Vectis Silencers,"B, U",U,{2}{U},3.0,Artifact Creature — Human Rogue,,1,2
+Puppet Conjurer,"B, U",B,{1}{B},2.0,Artifact Creature — Human Wizard,,1,2
+Shore Snapper,"B, U",B,{2}{B},3.0,Creature — Beast,,2,2
+Thoughtcutter Agent,"B, U","B, U",{U}{B},2.0,Artifact Creature — Human Rogue,,1,1
+Tidehollow Strix,"B, U","B, U",{U}{B},2.0,Artifact Creature — Bird,"Deathtouch, Flying",2,1
+Phantasmal Fiend,"B, U",B,{3}{B},4.0,Creature — Illusion,,1,5
+Lim-Dûl's Vault,"B, U","B, U",{U}{B},2.0,Instant,,,
+Architects of Will,"B, U","B, U",{2}{U}{B},4.0,Artifact Creature — Human Wizard,Cycling,3,3
+Brainbite,"B, U","B, U",{2}{U}{B},4.0,Sorcery,,,
+Etherium Abomination,"B, U","B, U",{3}{U}{B},5.0,Artifact Creature — Horror,Unearth,4,3
+Illusory Demon,"B, U","B, U",{1}{U}{B},3.0,Creature — Demon Illusion,Flying,4,3
+Jhessian Zombies,"B, U","B, U",{4}{U}{B},6.0,Creature — Zombie,"Cycling, Fear, Islandcycling, Landcycling, Swampcycling",2,4
+Kathari Remnant,"B, U","B, U",{2}{U}{B},4.0,Creature — Bird Skeleton,"Cascade, Flying",0,1
+Lich Lord of Unx,"B, U","B, U",{1}{U}{B},3.0,Creature — Zombie Wizard,Mill,2,2
+Mask of Riddles,"B, U","B, U",{U}{B},2.0,Artifact — Equipment,Equip,,
+Mind Funeral,"B, U","B, U",{1}{U}{B},3.0,Sorcery,,,
+Mistvein Borderpost,"B, U","B, U",{1}{U}{B},3.0,Artifact,,,
+Nemesis of Reason,"B, U","B, U",{3}{U}{B},5.0,Creature — Leviathan Horror,Mill,3,7
+Soul Manipulation,"B, U","B, U",{1}{U}{B},3.0,Instant,,,
+Soulquake,"B, U","B, U",{3}{U}{U}{B}{B},7.0,Sorcery,,,
+Vedalken Ghoul,"B, U","B, U",{U}{B},2.0,Creature — Vedalken Zombie,,1,1
+Dimir Signet,"B, U",,{2},2.0,Artifact,,,
+Vampire Charmseeker,"B, U","B, U",{6}{U}{B},8.0,Creature — Vampire Wizard,"Assist, Flying",3,4
+Morphic Pool,"B, U",,,0.0,Land,,,
+Dinrova Horror,"B, U","B, U",{4}{U}{B},6.0,Creature — Horror,,4,4
+Evil Twin,"B, U","B, U",{2}{U}{B},4.0,Creature — Shapeshifter,,0,0
+Urborg Drake,"B, U","B, U",{1}{U}{B},3.0,Creature — Drake,Flying,2,3
+Nebuchadnezzar,"B, U","B, U",{3}{U}{B},5.0,Legendary Creature — Human Wizard,,3,3
+Sivitri Scarzam,"B, U","B, U",{5}{U}{B},7.0,Legendary Creature — Human,,6,4
+Fathom Feeder,"B, U",,{U}{B},2.0,Creature — Eldrazi Drone,"Deathtouch, Devoid, Ingest",1,1
+Sire of Stagnation,"B, U",,{4}{U}{B},6.0,Creature — Eldrazi,Devoid,5,7
+Ulamog's Nullifier,"B, U",,{2}{U}{B},4.0,Creature — Eldrazi Processor,"Devoid, Flash, Flying",2,3
+Mind Drill Assailant,"B, U","B, U",{2}{U/B}{U/B},4.0,Creature — Rat Warlock,"Surveil, Threshold",2,5
+Tidecaller Mentor,"B, U","B, U",{1}{U}{B},3.0,Creature — Rat Wizard,"Menace, Threshold",3,3
+"Vren, the Relentless","B, U","B, U",{2}{U}{B},4.0,Legendary Creature — Rat Rogue,Ward,3,4
+"Phenax, God of Deception","B, U","B, U",{3}{U}{B},5.0,Legendary Enchantment Creature — God,"Indestructible, Mill",4,7
+Siren of the Silent Song,"B, U","B, U",{1}{U}{B},3.0,Creature — Zombie Siren,"Flying, Inspired, Mill",2,1
+"Cyclonus, the Saboteur // Cyclonus, Cybertronian Fighter","B, U","B, U",{2}{U}{B},4.0,Legendary Artifact Creature — Robot,"Connive, Convert, Flying, More Than Meets the Eye",2,5
+"Silas Renn, Seeker Adept","B, U","B, U",{1}{U}{B},3.0,Legendary Artifact Creature — Human,"Deathtouch, Partner",2,2
+Mistvault Bridge,"B, U",,,0.0,Artifact Land,Indestructible,,
+River of Tears,"B, U",,,0.0,Land,,,
+Temple of Deceit,"B, U",,,0.0,Land,Scry,,
+Evangel of Synthesis,"B, U","B, U",{U}{B},2.0,Creature — Phyrexian Human Cleric,,2,3
+Diabolic Vision,"B, U","B, U",{U}{B},2.0,Sorcery,,,
+Spinal Embrace,"B, U","B, U",{3}{U}{U}{B},6.0,Instant,,,
+Dimir Guildgate,"B, U",,,0.0,Land — Gate,,,
+Jwar Isle Refuge,"B, U",,,0.0,Land,,,
+Ancient Excavation,"B, U","B, U",{2}{U}{B},4.0,Instant,"Basic landcycling, Cycling, Landcycling",,
+Consuming Aberration,"B, U","B, U",{3}{U}{B},5.0,Creature — Horror,,*,*
+Whispering Madness,"B, U","B, U",{2}{U}{B},4.0,Sorcery,Cipher,,
+Dreadship Reef,"B, U",,,0.0,Land,,,
+"Taigam, Sidisi's Hand","B, U","B, U",{3}{U}{B},5.0,Legendary Creature — Human Wizard,,3,4
+Havengul Lich,"B, U","B, U",{3}{U}{B},5.0,Creature — Zombie Wizard,,4,4
+Memory Plunder,"B, U","B, U",{U/B}{U/B}{U/B}{U/B},4.0,Instant,,,
+"Silumgar, the Drifting Death","B, U","B, U",{4}{U}{B},6.0,Legendary Creature — Dragon,"Flying, Hexproof",3,7
+Silumgar's Command,"B, U","B, U",{3}{U}{B},5.0,Instant,,,
+Vela the Night-Clad,"B, U","B, U",{4}{U}{B},6.0,Legendary Creature — Human Wizard,Intimidate,4,4
+"Yuriko, the Tiger's Shadow","B, U","B, U",{1}{U}{B},3.0,Legendary Creature — Human Ninja,Commander ninjutsu,1,3
+Duskmantle Seer,"B, U","B, U",{2}{U}{B},4.0,Creature — Vampire Wizard,Flying,4,4
+Silent-Blade Oni,"B, U","B, U",{3}{U}{U}{B}{B},7.0,Creature — Demon Ninja,Ninjutsu,6,5
+"Ukkima, Stalking Shadow","B, U","B, U",{1}{U}{B},3.0,Legendary Creature — Whale Wolf,"Partner, Partner with",2,2
+"Wydwen, the Biting Gale","B, U","B, U",{2}{U}{B},4.0,Legendary Creature — Faerie Wizard,"Flash, Flying",3,3
+Waterveil Cavern,"B, U",,,0.0,Land,,,
+"Jon Irenicus, Shattered One","B, U","B, U",{2}{U}{B},4.0,Legendary Creature — Elf Wizard,Goad,3,3
+"Rilsa Rael, Kingpin","B, U","B, U",{3}{U}{B},5.0,Legendary Creature — Human Rogue,Deathtouch,2,5
+"Tasha, the Witch Queen","B, U","B, U",{3}{U}{B},5.0,Legendary Planeswalker — Tasha,,,
+Captain N'ghathrod,"B, U","B, U",{3}{U}{B},5.0,Legendary Creature — Horror Pirate,Mill,3,6
+Drown in the Loch,"B, U","B, U",{U}{B},2.0,Instant,,,
+Dimir Keyrune,"B, U",,{3},3.0,Artifact,,,
+Creeping Tar Pit,"B, U",,,0.0,Land,,,
+Nephalia Drownyard,"B, U",,,0.0,Land,Mill,,
+Port of Karfell,"B, U",,,0.0,Land,Mill,,
+Tainted Isle,"B, U",,,0.0,Land,,,
+Secret Passage,"B, U",,,0.0,Land,Investigate,,
+Dimir Strandcatcher,"B, U","B, U",{2}{U/B}{U/B},4.0,Creature — Faerie Rogue,"Flying, Surveil",3,3
+Memory Vampire,"B, U","B, U",{4}{U}{B},6.0,Creature — Vampire Detective,"Collect evidence, Flying, Mill",4,4
+Undercover Butler,"B, U","B, U",{2}{U/B},3.0,Creature — Human Rogue,,2,3
+Ribbons of Night,"B, U",B,{4}{B},5.0,Sorcery,,,
+Roofstalker Wight,"B, U",B,{1}{B},2.0,Creature — Zombie,,2,1
+Dimir Guildmage,"B, U","B, U",{U/B}{U/B},2.0,Creature — Human Wizard,,2,2
+Discovery // Dispersal,"B, U","U, B",{1}{U/B},7.0,Sorcery,Surveil,,
+Thief of Sanity,"B, U","B, U",{1}{U}{B},3.0,Creature — Specter,Flying,2,2
+Whisper Agent,"B, U","B, U",{1}{U/B}{U/B},3.0,Creature — Human Rogue,"Flash, Surveil",3,2
+Watery Grave,"B, U",,,0.0,Land — Island Swamp,,,
+"Szadek, Lord of Secrets","B, U","B, U",{3}{U}{U}{B}{B},7.0,Legendary Creature — Vampire,"Flying, Mill",5,5
+"Wrexial, the Risen Deep","B, U","B, U",{3}{U}{U}{B},6.0,Legendary Creature — Kraken,"Islandwalk, Landwalk, Swampwalk",5,8
+"Zyym, Mesmeric Lord","B, U","B, U",{1}{U}{B}{B},4.0,Legendary Creature — Vampire Wizard,"Deathtouch, Flying",3,4
+Domesticated Watercourse,"B, U",,,0.0,Land,,,
+Hibernation Sliver,"B, U","B, U",{U}{B},2.0,Creature — Sliver,,2,2
+Araumi of the Dead Tide,"B, U","B, U",{1}{U}{B},3.0,Legendary Creature — Merfolk Wizard,,1,4
+"Nymris, Oona's Trickster","B, U","B, U",{3}{U}{B},5.0,Legendary Creature — Faerie Knight,"Flash, Flying",1,6
+Shipwreck Singer,"B, U","B, U",{U}{B},2.0,Creature — Siren,Flying,1,2
+Dimir Doppelganger,"B, U","B, U",{1}{U}{B},3.0,Creature — Shapeshifter,,0,2
+Countersquall,"B, U","B, U",{U}{B},2.0,Instant,,,
+Vectis Agents,"B, U","B, U",{3}{U}{B},5.0,Artifact Creature — Human Rogue,,4,3
+Zombie Outlander,"B, U","B, U",{U}{B},2.0,Creature — Zombie Scout,Protection,2,2
+Krovikan Whispers,"B, U",U,{3}{U},4.0,Enchantment — Aura,"Cumulative upkeep, Enchant",,
+Blizzard Specter,"B, U","B, U",{2}{U}{B},4.0,Snow Creature — Specter,Flying,2,3
+Frost Marsh,"B, U",,,0.0,Snow Land,,,
+Kallist Rhoka,"B, U","B, U",{3}{U}{B},5.0,Legendary Creature — Human Wizard,"Deathtouch, Prowess",2,2
+The Milling Runner,"B, U","B, U",{U/B}{U/B}{U/B},0.0,Legendary Creature — Cat Gamer,"Islandwalk, Landwalk, Mill, Swampwalk",1,2
+Riven Turnbull and Princess Lucrezia,"B, U","B, U",{5}{U}{B},7.0,Legendary Creature — Human Advisor Wizard,,10,11
+Takesies // Backsies,"B, U",U,{2}{U},4.0,Instant,Fuse,,
+Bladestitched Skaab,"B, U","B, U",{U}{B},2.0,Creature — Zombie Soldier,,2,3
+Corpse Cobble,"B, U","B, U",{U}{B},2.0,Instant,Flashback,,
+"Ludevic, Necrogenius // Olag, Ludevic's Hubris","B, U","B, U",{U}{B},2.0,Legendary Creature — Human Wizard,"Mill, Transform",2,3
+Siphon Insight,"B, U","B, U",{U}{B},2.0,Instant,Flashback,,
+Shipwreck Marsh,"B, U",,,0.0,Land,,,
+"Toxrill, the Corrosive","B, U",B,{5}{B}{B},7.0,Legendary Creature — Slug Horror,,7,7
+"Runo Stromkirk // Krothuss, Lord of the Deep","B, U","B, U",{1}{U}{B},3.0,Legendary Creature — Vampire Cleric,"Flying, Transform",1,4
+Skull Skaab,"B, U","B, U",{U}{B},2.0,Creature — Zombie,Exploit,2,2
+Dimir Cutpurse,"B, U","B, U",{1}{U}{B},3.0,Creature — Spirit,,2,2
+Moroii,"B, U","B, U",{2}{U}{B},4.0,Creature — Vampire,Flying,4,4
+Recoil,"B, U","B, U",{1}{U}{B},3.0,Instant,,,
+Undermine,"B, U","B, U",{U}{U}{B},3.0,Instant,,,
+Spite // Malice,"B, U",U,{3}{U},8.0,Instant,,,
+Diregraf Captain,"B, U","B, U",{1}{U}{B},3.0,Creature — Zombie Soldier,Deathtouch,2,2
+Haunter of Nightveil,"B, U","B, U",{3}{U}{B},5.0,Creature — Spirit,,3,4
+"Mirko Vosk, Mind Drinker","B, U","B, U",{3}{U}{B},5.0,Legendary Creature — Vampire,Flying,2,4
+Pilfered Plans,"B, U","B, U",{1}{U}{B},3.0,Sorcery,Mill,,
+Reap Intellect,"B, U","B, U",{X}{2}{U}{B},4.0,Sorcery,,,
+Warped Physique,"B, U","B, U",{U}{B},2.0,Instant,,,
+Woodlot Crawler,"B, U","B, U",{U}{B},2.0,Creature — Insect,"Forestwalk, Protection",2,1
+Far // Away,"B, U",U,{1}{U},5.0,Instant,Fuse,,
+Dimir Cluestone,"B, U",,{3},3.0,Artifact,,,
+Reap the Seagraf,"B, U",B,{2}{B},3.0,Sorcery,Flashback,,
+"Ramirez DePietro, Pillager","B, U","B, U",{2}{U}{B},4.0,Legendary Creature — Human Pirate,Treasure,4,3
+"Ramses, Assassin Lord","B, U","B, U",{2}{U}{B},4.0,Legendary Creature — Human Assassin,Deathtouch,4,4
+"Sivitri, Dragon Master","B, U","B, U",{2}{U}{B},4.0,Legendary Planeswalker — Sivitri,,,
+Phyrexian Espionage,"B, U",U,{2}{U},3.0,Sorcery,Kicker,,
+Rona's Vortex,"B, U",U,{U},1.0,Instant,Kicker,,
+Monstrous War-Leech,"B, U",B,{3}{B},4.0,Creature — Leech Horror,"Kicker, Mill",*,*
+Tribute to Urborg,"B, U",B,{1}{B},2.0,Instant,Kicker,,
+Ertai Resurrected,"B, U","B, U",{2}{U}{B},4.0,Legendary Creature — Phyrexian Human Wizard,Flash,3,2
+"Rona, Sheoldred's Faithful","B, U","B, U",{1}{U}{B}{B},4.0,Legendary Creature — Human Wizard,,3,4
+"Vohar, Vodalian Desecrator","B, U","B, U",{U}{B},2.0,Legendary Creature — Phyrexian Merfolk Wizard,,1,2
+Contaminated Aquifer,"B, U",,,0.0,Land — Island Swamp,,,
+"Rona, Disciple of Gix","B, U","B, U",{1}{U}{B},3.0,Legendary Creature — Human Artificer,,2,2
+Drowned,"B, U",U,{1}{U},2.0,Creature — Zombie,,1,1
+Phenomenon Investigators,"B, U","B, U",{2}{U}{B},4.0,Creature — Human Detective,,3,4
+Fear of Infinity,"B, U","B, U",{1}{U}{B},3.0,Enchantment Creature — Nightmare,"Eerie, Flying, Lifelink",2,2
+"Kaito, Bane of Nightmares","B, U","B, U",{2}{U}{B},4.0,Legendary Planeswalker — Kaito,"Ninjutsu, Surveil",,
+"Nashi, Searcher in the Dark","B, U","B, U",{U}{B},2.0,Legendary Creature — Rat Ninja Wizard,"Menace, Mill",2,2
+Skullsnap Nuisance,"B, U","B, U",{U}{B},2.0,Creature — Insect Skeleton,"Eerie, Flying, Surveil",1,4
+Gloomlake Verge,"B, U",,,0.0,Land,,,
+Murky Sewer,"B, U",,,0.0,Land,,,
+Necromaster Dragon,"B, U","B, U",{3}{U}{B},5.0,Creature — Dragon,"Flying, Mill",4,4
+Ruthless Deathfang,"B, U","B, U",{4}{U}{B},6.0,Creature — Dragon,Flying,4,4
+Silumgar Monument,"B, U",,{3},3.0,Artifact,,,
+Soul Ransom,"B, U","B, U",{2}{U}{B},4.0,Enchantment — Aura,Enchant,,
+Drowned Catacomb,"B, U",,,0.0,Land,,,
+Lochmere Serpent,"B, U","B, U",{4}{U}{B},6.0,Creature — Serpent,Flash,7,7
+Covetous Urge,"B, U","B, U",{U/B}{U/B}{U/B}{U/B},4.0,Sorcery,,,
+Gisa and Geralf,"B, U","B, U",{2}{U}{B},4.0,Legendary Creature — Human Wizard,Mill,4,4
+Lobotomy,"B, U","B, U",{2}{U}{B},4.0,Sorcery,,,
+Dimir Charm,"B, U","B, U",{U}{B},2.0,Instant,,,
+Dreadwing Scavenger,"B, U","B, U",{1}{U}{B},3.0,Creature — Nightmare Bird,"Flying, Threshold",2,2
+Mystical Teachings,"B, U",U,{3}{U},4.0,Instant,Flashback,,
+"Etrata, the Silencer","B, U","B, U",{2}{U}{B},4.0,Legendary Creature — Vampire Assassin,,3,5
+Call of the Nightwing,"B, U","B, U",{2}{U}{B},4.0,Sorcery,Cipher,,
+"Circu, Dimir Lobotomist","B, U","B, U",{2}{U}{B},4.0,Legendary Creature — Human Wizard,,2,3
+"Lazav, Dimir Mastermind","B, U","B, U",{U}{U}{B}{B},4.0,Legendary Creature — Shapeshifter,Hexproof,3,3
+Nightveil Specter,"B, U","B, U",{U/B}{U/B}{U/B},3.0,Creature — Specter,Flying,2,3
+Artful Takedown,"B, U","B, U",{2}{U}{B},4.0,Instant,,,
+Darkblade Agent,"B, U","B, U",{1}{U}{B},3.0,Creature — Human Assassin,,2,3
+Dimir Spybug,"B, U","B, U",{U}{B},2.0,Creature — Insect,"Flying, Menace",1,1
+Disinformation Campaign,"B, U","B, U",{1}{U}{B},3.0,Enchantment,,,
+House Guildmage,"B, U","B, U",{U}{B},2.0,Creature — Human Wizard,Surveil,2,2
+"Lazav, the Multifarious","B, U","B, U",{U}{B},2.0,Legendary Creature — Shapeshifter,Surveil,1,3
+Mnemonic Betrayal,"B, U","B, U",{1}{U}{B},3.0,Sorcery,,,
+Nightveil Predator,"B, U","B, U",{U}{U}{B}{B},4.0,Creature — Vampire,"Deathtouch, Flying, Hexproof",3,3
+Notion Rain,"B, U","B, U",{1}{U}{B},3.0,Sorcery,Surveil,,
+Thought Erasure,"B, U","B, U",{U}{B},2.0,Sorcery,Surveil,,
+Unmoored Ego,"B, U","B, U",{1}{U}{B},3.0,Sorcery,,,
+Connive // Concoct,"B, U","U, B",{2}{U/B}{U/B},9.0,Sorcery,,,
+Dimir Locket,"B, U",,{3},3.0,Artifact,,,
+Horror of the Dim,"B, U",B,{4}{B},5.0,Creature — Horror,,3,4
+Bane Alley Broker,"B, U","B, U",{1}{U}{B},3.0,Creature — Human Rogue,,0,3
+Duskmantle Guildmage,"B, U","B, U",{U}{B},2.0,Creature — Human Wizard,Mill,2,2
+Mind Grind,"B, U","B, U",{X}{U}{B},2.0,Sorcery,,,
+Mortus Strider,"B, U","B, U",{1}{U}{B},3.0,Creature — Skeleton,,1,1
+Paranoid Delusions,"B, U","B, U",{U}{B},2.0,Sorcery,"Cipher, Mill",,
+Psychic Strike,"B, U","B, U",{1}{U}{B},3.0,Instant,Mill,,
+Coerced Confession,"B, U","B, U",{4}{U/B},5.0,Sorcery,Mill,,
+Deathcult Rogue,"B, U","B, U",{1}{U/B}{U/B},3.0,Creature — Human Rogue,,2,2
+Ingenious Infiltrator,"B, U","B, U",{2}{U}{B},4.0,Creature — Vedalken Ninja,Ninjutsu,2,3
+"Alora, Cheerful Assassin","B, U","B, U",{3}{U}{B},5.0,Legendary Creature — Halfling Rogue Assassin,,4,4
+"Gale, Abyssal Conduit","B, U","B, U",{3}{U}{B},5.0,Legendary Creature — Human Wizard,,4,5
+"Imoen, Occult Trickster","B, U","B, U",{1}{U}{B},3.0,Legendary Creature — Human Rogue Wizard,,3,2
+"Vhal, Scholar of Mortality","B, U","B, U",{2}{U}{B},4.0,Legendary Creature — Human Wizard,,4,4
+"Sarevok, Deceitful Usurper","B, U","B, U",{3}{U}{B},5.0,Legendary Creature — Human Knight,,4,4
+"Shadowheart, Cleric of Trickery","B, U","B, U",{1}{U}{B},3.0,Legendary Creature — Human Elf Cleric,Deathtouch,4,4
+"Viconia, Disciple of Arcana","B, U","B, U",{1}{U}{B},3.0,Legendary Creature — Elf Cleric,Conjure,3,4
+"Jon Irenicus, the Exile","B, U","B, U",{2}{U}{B},4.0,Legendary Creature — Elf Wizard,Mill,3,5
+"Tasha, Unholy Archmage","B, U","B, U",{2}{U}{B},4.0,Legendary Planeswalker — Tasha,,,
+Last-Minute Chopping,"B, U","B, U",{1}{U}{B},3.0,Sorcery,,,
+Zuran Enchanter,"B, U",U,{1}{U},2.0,Creature — Human Wizard,,1,1
+Brine Shaman,"B, U",B,{1}{B},2.0,Creature — Human Cleric Shaman,,1,1
+Essence Vortex,"B, U","B, U",{1}{U}{B},3.0,Instant,,,
+Flooded Woodlands,"B, U","B, U",{2}{U}{B},4.0,Enchantment,,,
+Skeleton Ship,"B, U","B, U",{3}{U}{B},5.0,Legendary Creature — Skeleton,,0,3
+River Delta,"B, U",,,0.0,Land,,,
+Slitherwisp,"B, U","B, U",{U}{B}{B},3.0,Creature — Elemental Nightmare,Flash,3,2
+Cunning Nightbonder,"B, U","B, U",{U/B}{U/B},2.0,Creature — Human Rogue,Flash,2,2
+"Gyruda, Doom of Depths","B, U","B, U",{4}{U/B}{U/B},6.0,Legendary Creature — Demon Kraken,"Companion, Mill",6,6
+Metathran Zombie,"B, U",U,{1}{U},2.0,Creature — Metathran Zombie,,1,1
+Probe,"B, U",U,{2}{U},3.0,Sorcery,Kicker,,
+Vodalian Hypnotist,"B, U",U,{1}{U},2.0,Creature — Merfolk Wizard,,1,1
+Phyrexian Infiltrator,"B, U",B,{2}{B},3.0,Creature — Phyrexian Minion,,2,2
+Urborg Emissary,"B, U",B,{2}{B},3.0,Creature — Human Wizard,Kicker,3,1
+Urborg Phantom,"B, U",B,{2}{B},3.0,Creature — Spirit Minion,,3,1
+Barrin's Spite,"B, U","B, U",{2}{U}{B},4.0,Sorcery,,,
+Seer's Vision,"B, U","B, U",{2}{U}{B},4.0,Enchantment,,,
+Sleeper's Robe,"B, U","B, U",{U}{B},2.0,Enchantment — Aura,Enchant,,
+Slinking Serpent,"B, U","B, U",{2}{U}{B},4.0,Creature — Serpent,Forestwalk,2,3
+Stalking Assassin,"B, U","B, U",{1}{U}{B},3.0,Creature — Human Assassin,,1,1
+Vile Consumption,"B, U","B, U",{1}{U}{B},3.0,Enchantment,,,
+Vodalian Zombie,"B, U","B, U",{U}{B},2.0,Creature — Merfolk Zombie,Protection,2,2
+Drake-Skull Cameo,"B, U",,{3},3.0,Artifact,,,
+"Grimgrin, Corpse-Born","B, U","B, U",{3}{U}{B},5.0,Legendary Creature — Zombie Warrior,,5,5
+Lazotep Chancellor,"B, U","B, U",{U}{B},2.0,Creature — Zombie Wizard,Amass,1,3
+"Taeko, the Patient Avalanche","B, U",U,{3}{U},4.0,Legendary Creature — Turtle Ninja,Scry,4,5
+"Kels, Fight Fixer","B, U",B,{2}{B}{B},4.0,Legendary Creature — Azra Warlock,Menace,4,3
+Disciple of Deceit,"B, U","B, U",{U}{B},2.0,Creature — Human Rogue,Inspired,1,3
+King Narfi's Betrayal,"B, U","B, U",{1}{U}{B},3.0,Enchantment — Saga,Mill,,
+"Narfi, Betrayer King","B, U","B, U",{3}{U}{B},5.0,Legendary Snow Creature — Zombie Wizard,,4,3
+"A-Narfi, Betrayer King","B, U","B, U",{2}{U}{B},4.0,Legendary Snow Creature — Zombie Wizard,,4,3
+The Trickster-God's Heist,"B, U","B, U",{2}{U}{B},4.0,Enchantment — Saga,,,
+Ice Tunnel,"B, U",,,0.0,Snow Land — Island Swamp,,,
+Contraband Kingpin,"B, U","B, U",{U}{B},2.0,Creature — Aetherborn Rogue,"Lifelink, Scry",1,4
+The Ancient One,"B, U","B, U",{U}{B},2.0,Legendary Creature — Spirit God,"Descend, Mill",8,8
+"Uchbenbak, the Great Mistake","B, U","B, U",{3}{U}{B},5.0,Legendary Creature — Skeleton Horror,"Descend, Menace, Vigilance",6,4
+Wail of the Forgotten,"B, U","B, U",{U}{B},2.0,Sorcery,Descend,,
+Restless Reef,"B, U",,,0.0,Land,Mill,,
+Princess Lucrezia,"B, U","B, U",{3}{U}{U}{B},6.0,Legendary Creature — Human Wizard,,5,4
+Ramirez DePietro,"B, U","B, U",{3}{U}{B}{B},6.0,Legendary Creature — Human Pirate,First strike,4,3
+Ramses Overdark,"B, U","B, U",{2}{U}{U}{B}{B},6.0,Legendary Creature — Human Assassin,,4,3
+Riven Turnbull,"B, U","B, U",{5}{U}{B},7.0,Legendary Creature — Human Advisor,,5,7
+Ur-Drago,"B, U","B, U",{3}{U}{U}{B}{B},7.0,Legendary Creature — Elemental,First strike,4,4
+Secluded Glen,"B, U",,,0.0,Land,,,
+"Gríma, Saruman's Footman","B, U","B, U",{2}{U}{B},4.0,Legendary Creature — Human Advisor,,1,4
+Lord of the Nazgûl,"B, U","B, U",{3}{U}{B},5.0,Legendary Creature — Wraith Noble,Flying,4,3
+The Mouth of Sauron,"B, U","B, U",{3}{U}{B},5.0,Legendary Creature — Human Advisor,"Amass, Mill",3,4
+Ringsight,"B, U","B, U",{1}{U}{B},3.0,Sorcery,,,
+Sauron's Ransom,"B, U","B, U",{1}{U}{B},3.0,Instant,,,
+"Sharkey, Tyrant of the Shire","B, U","B, U",{2}{U}{B},4.0,Legendary Creature — Avatar Rogue,,2,4
+Harbor Bandit,"B, U",B,{2}{B},3.0,Creature — Human Rogue,,2,2
+Jorubai Murk Lurker,"B, U",U,{2}{U},3.0,Creature — Leech,,1,3
+Tomebound Lich,"B, U","B, U",{1}{U}{B},3.0,Creature — Zombie Wizard,"Deathtouch, Lifelink",1,3
+"Rusko, Clockmaker","B, U","B, U",{2}{U}{B},4.0,Legendary Creature — Human Artificer,Conjure,3,3
+"Glimpse, the Unthinkable","B, U","B, U",{2}{U}{B},4.0,Legendary Creature — Illusion Rogue,Shroud,4,5
+Stone Drake,"B, U","B, U",{3}{U}{B},5.0,Creature — Drake,Flying,4,4
+"Tezzeret, Agent of Bolas","B, U","B, U",{2}{U}{B},4.0,Legendary Planeswalker — Tezzeret,,,
+Twisted Reflection,"B, U",U,{1}{U},2.0,Instant,Entwine,,
+Fallen Shinobi,"B, U","B, U",{3}{U}{B},5.0,Creature — Zombie Ninja,Ninjutsu,5,4
+Dihada's Ploy,"B, U","B, U",{1}{U}{B},3.0,Instant,Jump-start,,
+Master of Death,"B, U","B, U",{1}{U}{B},3.0,Creature — Zombie Wizard,Surveil,3,1
+Horrid Shadowspinner,"B, U","B, U",{1}{U}{B},3.0,Creature — Horror,Lifelink,2,3
+Psychic Frog,"B, U","B, U",{U}{B},2.0,Creature — Frog,,1,2
+Sneaky Snacker,"B, U","B, U",{U}{B},2.0,Creature — Faerie Rogue,Flying,2,1
+Waterlogged Teachings // Inundated Archive,"B, U","B, U",{3}{U/B},4.0,Instant,,,
+"Wilhelt, the Rotcleaver","B, U","B, U",{2}{U}{B},4.0,Legendary Creature — Zombie Warrior,,3,3
+"Eloise, Nephalia Sleuth","B, U","B, U",{3}{U}{B},5.0,Legendary Creature — Human Rogue,"Investigate, Surveil",4,4
+Gleaming Overseer,"B, U","B, U",{1}{U}{B},3.0,Creature — Zombie Wizard,Amass,1,4
+Benthic Djinn,"B, U","B, U",{2}{U}{B},4.0,Creature — Djinn,"Islandwalk, Landwalk",5,3
+Haunting Apparition,"B, U","B, U",{1}{U}{B},3.0,Creature — Spirit,Flying,1+*,2
+Sealed Fate,"B, U","B, U",{X}{U}{B},2.0,Sorcery,,,
+Spatial Binding,"B, U","B, U",{U}{B},2.0,Enchantment,,,
+Unfulfilled Desires,"B, U","B, U",{1}{U}{B},3.0,Enchantment,,,
+"Mirko, Obsessive Theorist","B, U","B, U",{1}{U}{B},3.0,Legendary Creature — Vampire Detective,"Flying, Vigilance",1,3
+"Marvo, Deep Operative","B, U","B, U",{3}{U}{B},5.0,Legendary Creature — Octopus Rogue,Clash,1,8
+Counterpoint,"B, U","B, U",{3}{U}{B},5.0,Instant,,,
+Coerced to Kill,"B, U","B, U",{3}{U}{B},5.0,Enchantment — Aura,Enchant,,
+Curious Cadaver,"B, U","B, U",{2}{U}{B},4.0,Creature — Zombie Detective,Flying,3,1
+Drag the Canal,"B, U","B, U",{U}{B},2.0,Instant,"Investigate, Surveil",,
+"Etrata, Deadly Fugitive","B, U","B, U",{1}{U}{B},3.0,Legendary Creature — Vampire Assassin,"Cloak, Deathtouch",1,4
+Faerie Snoop,"B, U","B, U",{1}{U}{B},3.0,Creature — Faerie Detective,"Disguise, Flying",1,4
+"Lazav, Wearer of Faces","B, U","B, U",{U}{B},2.0,Legendary Creature — Shapeshifter Detective,Investigate,2,3
+Undercity Sewers,"B, U",,,0.0,Land — Island Swamp,Surveil,,
+"Oona, Queen of the Fae","B, U","B, U",{3}{U/B}{U/B}{U/B},6.0,Legendary Creature — Faerie Wizard,Flying,5,5
+"Rona, Herald of Invasion // Rona, Tolarian Obliterator","B, U",U,{1}{U},2.0,Legendary Creature — Human Wizard,Transform,1,3
+Aetherblade Agent // Gitaxian Mindstinger,"B, U",B,{1}{B},2.0,Creature — Human Rogue,"Deathtouch, Transform",1,1
+Halo Forager,"B, U","B, U",{1}{U}{B},3.0,Creature — Faerie Rogue,Flying,3,1
+Hidetsugu and Kairi,"B, U","B, U",{2}{U}{U}{B},5.0,Legendary Creature — Ogre Demon Dragon,Flying,5,4
+Invasion of Amonkhet // Lazotep Convert,"B, U","B, U",{1}{U}{B},3.0,Battle — Siege,"Mill, Transform",,
+"Atris, Oracle of Half-Truths","B, U","B, U",{2}{U}{B},4.0,Legendary Creature — Human Advisor,Menace,3,2
+"Oskar, Rubbish Reclaimer","B, U","B, U",{3}{U}{B},5.0,Legendary Creature — Human Wizard,,3,3
+Inkfathom Witch,"B, U","B, U",{1}{U/B},2.0,Creature — Merfolk Wizard,Fear,1,1
+Kaito Shizuki,"B, U","B, U",{1}{U}{B},3.0,Legendary Planeswalker — Kaito,,,
+"Kotose, the Silent Spider","B, U","B, U",{3}{U}{B},5.0,Legendary Creature — Human Ninja,,4,4
+Satoru Umezawa,"B, U","B, U",{1}{U}{B},3.0,Legendary Creature — Human Ninja,,2,4
+A-Satoru Umezawa,"B, U","B, U",{1}{U}{B},3.0,Legendary Creature — Human Ninja,,3,4
+Silver-Fur Master,"B, U","B, U",{U}{B},2.0,Creature — Rat Ninja,Ninjutsu,2,2
+A-Silver-Fur Master,"B, U","B, U",{U}{B},2.0,Creature — Rat Ninja,Ninjutsu,2,2
+Psychatog,"B, U","B, U",{1}{U}{B},3.0,Creature — Atog,,1,2
+Darkwater Egg,"B, U",,{1},1.0,Artifact,,,
+Mindmelter,"B, U",,{1}{U}{B},3.0,Creature — Eldrazi Drone,Devoid,2,2
+"Kaito, Dancing Shadow","B, U","B, U",{2}{U}{B},4.0,Legendary Planeswalker — Kaito,,,
+"Venser, Corpse Puppet","B, U","B, U",{U}{B},2.0,Legendary Creature — Phyrexian Zombie Wizard,"Lifelink, Proliferate, Toxic",1,3
+Voidwing Hybrid,"B, U","B, U",{U}{B},2.0,Creature — Phyrexian Bat,"Flying, Proliferate, Toxic",2,1
+Darkslick Shores,"B, U",,,0.0,Land,,,
+Possessed Skaab,"B, U","B, U",{3}{U}{B},5.0,Creature — Zombie,,3,2
+Intimidation Campaign,"B, U","B, U",{1}{U}{B},3.0,Enchantment,,,
+"Lazav, Familiar Stranger","B, U","B, U",{1}{U}{B},3.0,Legendary Creature — Shapeshifter,,1,4
+"Satoru, the Infiltrator","B, U","B, U",{U}{B},2.0,Legendary Creature — Human Ninja Rogue,Menace,2,3
+Soured Springs,"B, U",,,0.0,Land — Desert,,,
+Tyrant's Scorn,"B, U","B, U",{U}{B},2.0,Instant,,,
+Dimir Infiltrator,"B, U","B, U",{U}{B},2.0,Creature — Spirit,Transmute,1,3
+"Byode, Inverse Sun","B, U","B, U",{2}{U}{B},4.0,Legendary Universewalker — Byode,Mill,,
+"Ashiok, Nightmare Weaver","B, U","B, U",{1}{U}{B},3.0,Legendary Planeswalker — Ashiok,,,
+Contaminated Drink,"B, U","B, U",{X}{U}{B},2.0,Instant,,,
+Nightkin Ambusher,"B, U","B, U",{2}{U}{B},4.0,Creature — Mutant Warrior,Ward,4,4
+"Raul, Trouble Shooter","B, U","B, U",{1}{U}{B},3.0,Legendary Creature — Zombie Mutant Rogue,Mill,1,4
+Dralnu's Pet,"B, U",U,{1}{U}{U},3.0,Creature — Shapeshifter,Kicker,2,2
+Cavern Harpy,"B, U","B, U",{U}{B},2.0,Creature — Harpy Beast,Flying,2,1
+Doomsday Specter,"B, U","B, U",{2}{U}{B},4.0,Creature — Specter,Flying,2,3
+Malicious Advice,"B, U","B, U",{X}{U}{B},2.0,Instant,,,
+Marsh Crocodile,"B, U","B, U",{2}{U}{B},4.0,Creature — Crocodile,,4,4
+Urza's Guilt,"B, U","B, U",{2}{U}{B},4.0,Sorcery,,,
+"Sygg, River Cutthroat","B, U","B, U",{U/B}{U/B},2.0,Legendary Creature — Merfolk Rogue,,1,3
+Ghastlord of Fugue,"B, U","B, U",{U/B}{U/B}{U/B}{U/B}{U/B},5.0,Creature — Spirit Avatar,,4,4
+Inkfathom Infiltrator,"B, U","B, U",{U/B}{U/B},2.0,Creature — Merfolk Rogue,,2,1
+Clutch of the Undercity,"B, U","B, U",{1}{U}{U}{B},4.0,Instant,Transmute,,
+Clearwater Pathway // Murkwater Pathway,"B, U",,,0.0,Land,,,
+"Duskmantle, House of Shadow","B, U",,,0.0,Land,Mill,,
+Rootwater Depths,"B, U",,,0.0,Land,,,
+Elusive Tormentor // Insidious Mist,"B, U",B,{2}{B}{B},4.0,Creature — Vampire Wizard,Transform,4,4
+"Ashiok, Dream Render","B, U","B, U",{1}{U/B}{U/B},3.0,Legendary Planeswalker — Ashiok,Mill,,
+"Ashiok, Nightmare Muse","B, U","B, U",{3}{U}{B},5.0,Legendary Planeswalker — Ashiok,,,
+"Zareth San, the Trickster","B, U","B, U",{3}{U}{B},5.0,Legendary Creature — Merfolk Rogue,Flash,4,4
+"Anowon, the Ruin Thief","B, U","B, U",{2}{U}{B},4.0,Legendary Creature — Vampire Rogue,Mill,2,4
+Aven Heartstabber,"B, U","B, U",{U}{B},2.0,Creature — Bird Assassin,"Flying, Mill",1,1
+Enter the God-Eternals,"B, U","B, U",{2}{U}{U}{B},5.0,Sorcery,"Amass, Mill",,
+Soul Diviner,"B, U","B, U",{U}{B},2.0,Creature — Zombie Wizard,,2,3
+Likeness Looter,"B, U","B, U",{U}{B},2.0,Creature — Faerie Shapeshifter,Flying,1,1
+"Talion, the Kindly Lord","B, U","B, U",{2}{U}{B},4.0,Legendary Creature — Faerie Noble,Flying,3,4
+Cruel Somnophage // Can't Wake Up,"B, U",B,{1}{B},2.0,Creature — Nightmare,,*,*
+Induce Paranoia,"B, U",U,{2}{U}{U},4.0,Instant,Mill,,
+Tattered Drake,"B, U",U,{4}{U},5.0,Creature — Zombie Drake,Flying,2,2
+Consult the Necrosages,"B, U","B, U",{1}{U}{B},3.0,Sorcery,,,
+Mindleech Mass,"B, U","B, U",{5}{U}{B}{B},8.0,Creature — Horror,Trample,6,6
+Perplex,"B, U","B, U",{1}{U}{B},3.0,Instant,Transmute,,
+Psychic Drain,"B, U","B, U",{X}{U}{B},2.0,Sorcery,Mill,,
+Twisted Justice,"B, U","B, U",{4}{U}{B},6.0,Sorcery,,,
+Lurking Informant,"B, U","B, U",{1}{U/B},2.0,Creature — Human Rogue,,1,2
+Shadow of Doubt,"B, U","B, U",{U/B}{U/B},2.0,Instant,,,
+Bloodletter Quill,"B, U",,{3},3.0,Artifact,,,
+Deadeye Brawler,"B, U","B, U",{2}{U}{B},4.0,Creature — Human Pirate,"Ascend, Deathtouch",2,4
+Loch Korrigan,"B, U",B,{3}{B},4.0,Creature — Spirit,,1,1
+Cemetery Puca,"B, U","B, U",{1}{U/B}{U/B},3.0,Creature — Shapeshifter,,1,2
+Dire Undercurrents,"B, U","B, U",{3}{U/B}{U/B},5.0,Enchantment,,,
+Dream Salvage,"B, U","B, U",{U/B},1.0,Instant,,,
+Fate Transfer,"B, U","B, U",{1}{U/B},2.0,Instant,,,
+Gravelgill Axeshark,"B, U","B, U",{4}{U/B},5.0,Creature — Merfolk Soldier,Persist,3,3
+Gravelgill Duo,"B, U","B, U",{2}{U/B},3.0,Creature — Merfolk Rogue Warrior,,2,1
+Helm of the Ghastlord,"B, U","B, U",{3}{U/B},4.0,Enchantment — Aura,Enchant,,
+Memory Sluice,"B, U","B, U",{U/B},1.0,Sorcery,"Conspire, Mill",,
+Merrow Grimeblotter,"B, U","B, U",{3}{U/B},4.0,Creature — Merfolk Wizard,,2,2
+Oona's Gatewarden,"B, U","B, U",{U/B},1.0,Creature — Faerie Soldier,"Defender, Flying, Wither",2,1
+River's Grasp,"B, U","B, U",{3}{U/B},4.0,Sorcery,,,
+Scarscale Ritual,"B, U","B, U",{1}{U/B},2.0,Sorcery,,,
+Torpor Dust,"B, U","B, U",{2}{U/B},3.0,Enchantment — Aura,"Enchant, Flash",,
+Wanderbrine Rootcutters,"B, U","B, U",{2}{U/B}{U/B},4.0,Creature — Merfolk Rogue,,3,3
+Wasp Lancer,"B, U","B, U",{U/B}{U/B}{U/B},3.0,Creature — Faerie Soldier,Flying,3,2
+Drunau Corpse Trawler,"B, U",U,{3}{U},4.0,Creature — Zombie,,1,1
+"Grimgrin, Corpse-Born // Grimgrin, Corpse-Born","B, U","B, U",{3}{U}{B},5.0,Legendary Creature — Zombie Warrior,,5,5
+"Tezzeret, Master of the Bridge","B, U","B, U",{4}{U}{B},6.0,Legendary Planeswalker — Tezzeret,,,
+Snooping Newsie,"B, U","B, U",{U}{B},2.0,Creature — Human Rogue,Mill,2,2
+Syndicate Infiltrator,"B, U","B, U",{2}{U}{B},4.0,Creature — Vampire Wizard,Flying,3,3
+A-Syndicate Infiltrator,"B, U","B, U",{2}{U}{B},4.0,Creature — Vampire Wizard,"Flying, Ward",3,3
+Tainted Indulgence,"B, U","B, U",{U}{B},2.0,Instant,,,
+Waterfront District,"B, U",,,0.0,Land,,,
+Devourer of Memory,"B, U","B, U",{U}{B},2.0,Creature — Nightmare,Mill,2,1
+"Ashiok, Sculptor of Fears","B, U","B, U",{4}{U}{B},6.0,Legendary Planeswalker — Ashiok,Mill,,
+Ashiok's Forerunner,"B, U","B, U",{3}{U}{B},5.0,Creature — Human Wizard,Flash,3,3
+Psychic Intrusion,"B, U","B, U",{3}{U}{B},5.0,Sorcery,,,
+Balshan Collaborator,"B, U",U,{3}{U},4.0,Creature — Bird Soldier,Flying,2,2
+Possessed Aven,"B, U",U,{2}{U}{U},4.0,Creature — Bird Soldier Horror,"Flying, Threshold",3,3
+Dementia Sliver,"B, U","B, U",{3}{U}{B},5.0,Creature — Sliver,,3,3
+"Dralnu, Lich Lord","B, U","B, U",{3}{U}{B},5.0,Legendary Creature — Zombie Wizard,,3,3
+"Phoebe, Head of S.N.E.A.K.","B, U","B, U",{1}{U}{B},3.0,Legendary Creature — Human Spy,,2,3
+X,"B, U","B, U",{U}{B},2.0,Legendary Creature — Human Spy,,2,2
+"Dee Kay, Finder of the Lost","B, U","B, U",{1}{U}{B},3.0,Legendary Creature — Zombie Employee,Open an Attraction,1,4
+"Truss, Chief Engineer","B, U","B, U",{U}{B},2.0,Legendary Creature — Vedalken Rogue Employee,,1,3
+Breathstealer's Crypt,"B, U","B, U",{2}{U}{B},4.0,Enchantment,,,
+Mundungu,"B, U","B, U",{1}{U}{B},3.0,Creature — Human Wizard,,1,1
+"Umbris, Fear Manifest","B, U","B, U",{3}{U}{B},5.0,Legendary Creature — Nightmare Horror,,1,1
+A-Skull Skaab,"B, U","B, U",{U}{B},2.0,Creature — Zombie,Exploit,2,2
+Blink,"B, U","B, U",{2}{U}{B},4.0,Enchantment — Saga,"Investigate, Vigilance",,
+The Cyber-Controller,"B, U","B, U",{X}{U}{U}{B},3.0,Legendary Artifact Creature — Cyberman,Mill,3,3
+Great Intelligence's Plan,"B, U","B, U",{4}{U}{B},6.0,Sorcery,,,
+"The Master, Formed Anew","B, U","B, U",{U}{B},2.0,Legendary Creature — Time Lord Rogue,Body Thief,0,1
+"The Master, Mesmerist","B, U","B, U",{2}{U}{B},4.0,Legendary Creature — Time Lord Rogue,Goad,3,3
+"Rassilon, the War President","B, U","B, U",{3}{U}{B},5.0,Legendary Creature — Time Lord Noble,,3,4
+Weeping Angel,"B, U","B, U",{1}{U}{B},3.0,Artifact Creature — Alien Angel,"First strike, Flash, Vigilance",2,2
+"Tegwyll, Duke of Splendor","B, U","B, U",{1}{U}{B},3.0,Legendary Creature — Faerie Noble,"Deathtouch, Flying",2,3
+"Alela, Cunning Conqueror","B, U","B, U",{2}{U}{B},4.0,Legendary Creature — Faerie Warlock,"Flying, Goad",2,4
+"Obyra, Dreaming Duelist","B, U","B, U",{U}{B},2.0,Legendary Creature — Faerie Warrior,"Flash, Flying",2,2
+Spellscorn Coven // Take It Back,"B, U",B,{3}{B},4.0,Creature — Faerie Warlock,Flying,2,3
+Deadeye Plunderers,"B, U","B, U",{3}{U}{B},5.0,Creature — Human Pirate,Treasure,3,3
+Thought Rattle,"B, U","B, U",{U}{B},2.0,Sorcery,"Seek, Threshold",,
+Vesuvan Mist,"B, U",U,{1}{U},2.0,Instant,"Conjure, Kicker",,
+Thought-String Analyst,"B, U","B, U",{U}{B},2.0,Creature — Human Wizard,,2,2
+Glistening Extractor,"B, U","B, U",{2}{U}{B},4.0,Artifact,Seek,,
+Ichor Aberration,"B, U","B, U",{1}{U}{B},3.0,Creature — Phyrexian Horror,"Defender, Flying, Proliferate",3,3
+Cathartic Operation,"B, U","B, U",{3}{U}{B},5.0,Instant,Seek,,
+Weave the Nightmare,"B, U","B, U",{1}{U}{B},3.0,Instant,,,
+Bind to Secrecy,"B, U","B, U",{U}{B},2.0,Instant,Conjure,,
+Syndicate Recruiter,"B, U","B, U",{2}{U}{B},4.0,Creature — Vampire Rogue,"Conjure, Flying, Mill, Ward",4,5
+High Fae Prankster,"B, U","B, U",{2}{U}{B},4.0,Creature — Faerie Rogue,"Deathtouch, Flying",1,4
+Soaring Thought-Thief,"B, U","B, U",{U}{B},2.0,Creature — Human Rogue,"Flash, Flying, Mill",1,3

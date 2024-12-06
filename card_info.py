@@ -5,7 +5,6 @@ import pandas as pd # type: ignore
 
 from fuzzywuzzy import fuzz, process # type: ignore
 from IPython.display import display
-from tabulate import tabulate
 
 pd.set_option('display.max_colwidth', None)
 pd.set_option('display.expand_frame_repr', True) 

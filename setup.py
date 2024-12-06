@@ -43,6 +43,26 @@ def filter_by_color(df, column_name, value, new_csv_name):
     filtered_df = filtered_df[columns_to_keep]
     filtered_df.sort_values(by='name', key=lambda col: col.str.lower(), inplace=True)
     filtered_df.to_csv(new_csv_name, index=False)
+    
+def determine_legendary():
+    # Filter dataframe
+    df = pd.read_csv('csv_files/cards.csv', low_memory=False)
+    legendary_options = ['Legendary Creature', 'Legendary Artifact Creature', 'Legendary Enchantment Creature']
+    filtered_df = df[df['type'].str.contains('|'.join(legendary_options))]
+    """
+    Save the filtered dataframe to a new csv file, and narrow down/rearranges the columns it
+    keeps to increase readability/trim some extra data.
+    Additionally attempts to remove as many duplicates (including cards with reversible prints,
+    as well as taking out Arena-only cards.
+    """
+    filtered_df.sort_values('name')
+    filtered_df = filtered_df[filtered_df['layout'].str.contains('reversible_card') == False]
+    filtered_df = filtered_df[filtered_df['availability'].str.contains('arena') == False]
+    filtered_df.drop_duplicates(subset='name', keep='first', inplace=True)
+    columns_to_keep = ['name', 'edhrecRank','colorIdentity', 'colors', 'manaCost', 'manaValue', 'type', 'keywords', 'text', 'power', 'toughness']
+    filtered_df = filtered_df[columns_to_keep]
+    filtered_df.sort_values(by='name', key=lambda col: col.str.lower(), inplace=True)
+    filtered_df.to_csv('csv_files/legendary_cards.csv', index=False)
 
 def initial_setup():
     # Check if the overall cards.csv file exists
@@ -281,6 +301,15 @@ def initial_setup():
             except FileNotFoundError:
                 print('jeskai_cards.csv not found, creating it.')
                 filter_by_color(df, 'colorIdentity', 'R, U, W', 'csv_files/jeskai_cards.csv')
+        print('Checking for mardu_cards.csv.')
+        while True:
+            try:
+                with open('csv_files/mardu_cards.csv', 'r', encoding='utf-8'):
+                    print('mardu_cards.csv exists.\n')
+                    break
+            except FileNotFoundError:
+                print('mardu_cards.csv not found, creating it.')
+                filter_by_color(df, 'colorIdentity', 'B, R, W', 'csv_files/mardu_cards.csv')
         print('Checking for sultai_cards.csv.')
         while True:
             try:
@@ -612,12 +641,16 @@ def generate_staple_lists():
             df = df[columns_to_keep]
             df.sort_values(by='edhrecRank', key=lambda col: col, inplace=True)
             i = 1
-            while len(staples) < 20:
+            y = 0
+            while len(staples) < 20 and y < len(df):
                 for index, row in df.iterrows():
                     if row['edhrecRank'] == i:
                         if 'Land' not in row['type'] and row['name'] not in banned_cards:
                             staples.append(row['name'])
                 i += 1
+                y += 1
             with open(f'staples/{color}.txt', 'w') as f:
                 for items in staples:
                     f.write('%s\n' %items)
+                    
+determine_legendary()

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import inflect
 import inquirer.prompt # type: ignore
 import pandas as pd # type: ignore
 import pprint # type: ignore
@@ -15,6 +16,16 @@ from setup import determine_legendary
 pd.set_option('display.max_columns', None)
 pd.set_option('display.max_rows', None)
 pd.set_option('display.max_colwidth', 5)
+
+"""def pluralize_list(singular_list):
+    engine = inflect.engine()
+    plural_list = [engine.plural(creature_type) for creature_type in singular_list]
+    return plural_list
+
+singular_words = settings.creature_types
+plural_words = pluralize_list(singular_words)
+creature_type_list = settings.creature_types + plural_words"""
+#print(plural_words)
 
 # Basic deck builder, initial plan will just be for kindred support.
 # Would like to add logic for other themes, as well as automatically go
@@ -35,7 +46,7 @@ class DeckBuilder:
         self.color_identity = ''
         self.colors = []
         self.creature_types = []
-        self.info_tags = []
+        self.commander_tags = []
         self.commander_df = pd.DataFrame()
         
         # Library (99 cards total)
@@ -62,37 +73,37 @@ class DeckBuilder:
         # Cards that are what type
         # Lands
         self.land_cards = []
-        self.lands = len(self.land_cards)
+        
         # Creatures
         self.creature_cards = []
-        self.creatures = len(self.creature_cards)
         
         # Instants
         self.instant_cards = []
-        self.instants = len(self.creature_cards)
         
         # Sorceries
         self.sorcery_cards = []
-        self.sorceries = len(self.sorcery_cards)
         
         # Artifacts
         self.artifact_cards = []
-        self.artifacts = len(self.artifact_cards)
         
         # Enchantments
         self.enchantment_cards = []
-        self.enchantments = len(self.enchantment_cards)
         
         # Planeswalkers
         self.planeswalker_cards = []
-        self.planeswalkers = len(self.planeswalker_cards)
         
         # Battles
         self.battle_cards = []
-        self.battles = len(self.battle_cards)
         
     def determine_commander(self):
+        # Setup dataframe
+        try:
+            df = pd.read_csv('csv_files/legendary_cards.csv')
+        except FileNotFoundError:
+            determine_legendary()
+            df = pd.read_csv('csv_files/legendary_cards.csv')
         # Determine the commander of the deck
+        
         commander_chosen = False
         while not commander_chosen:
             print('Enter a card name to be your commander, note that at this time only cards that have the \'Creature\' type may be chosen')
@@ -106,37 +117,63 @@ class DeckBuilder:
             card_choice = answer['card_prompt']
             
             # Logic to find the card in the legendary_cards csv, then display it's information
-            try:
-                df = pd.read_csv('csv_files/legendary_cards.csv')
-            except FileNotFoundError:
-                determine_legendary()
-                df = pd.read_csv('csv_files/legendary_cards.csv')
-            fuzzy_card_choice = process.extractOne(card_choice, df['name'], scorer=fuzz.ratio)
-            fuzzy_card_choice = fuzzy_card_choice[0]
-            filtered_df = df[df['name'] == fuzzy_card_choice]
-            columns_to_keep = ['name', 'colorIdentity', 'colors', 'manaCost', 'manaValue', 'type', 'keywords', 'power', 'toughness', 'text']
-            filtered_df = filtered_df[columns_to_keep]
-            df_dict = filtered_df.to_dict('list')
-            print('Is this the card you chose?')
-            pprint.pprint(df_dict, sort_dicts=False)
-            self.commander_df = pd.DataFrame(df_dict)
-            
-            # Confirm if card entered was correct
-            correct_commander = [
-                inquirer.Confirm(
-                    'commander',
-                )
-            ]
-            confirm_commander = inquirer.prompt(correct_commander)
-            commander_confirmed = confirm_commander['commander']
-            # If correct, set it as the commander
-            if commander_confirmed:
-                commander_chosen = True
-                self.commander_info = df_dict
-                self.commander = self.commander_df.at[0, 'name']
-                #print(self.commander)
-            else:
-                commander_chosen = False
+            # If the card can't be found, or doesn't have enough of a match score, display a 
+            # list to choose from
+            print(card_choice)
+            fuzzy_chosen = False
+            while not fuzzy_chosen:
+                match, score, something = process.extractOne(card_choice, df['name'])
+                if score >= 90:
+                    fuzzy_card_choice = match
+                    print(fuzzy_card_choice)
+                    fuzzy_chosen = True
+                else:
+                    print('Multiple options found, which is correct?')
+                    fuzzy_card_choices = process.extract(card_choice, df['name'], limit=5)
+                    fuzzy_card_choices.append('Neither')
+                    print(fuzzy_card_choices)
+                    question = [
+                        inquirer.List('choices',
+                                    choices=fuzzy_card_choices,
+                                    carousel=True)
+                    ]
+                    answer = inquirer.prompt(question)
+                    fuzzy_card_choice = answer['choices']
+                    if fuzzy_card_choice != 'Neither':
+                        fuzzy_card_choice = fuzzy_card_choice[0]
+                        print(fuzzy_card_choice)
+                        fuzzy_chosen = True
+                        
+                    else:
+                        break
+                    
+                        
+                filtered_df = df[df['name'] == fuzzy_card_choice]
+                columns_to_keep = ['name', 'colorIdentity', 'colors', 'manaCost', 'manaValue', 'type', 'keywords', 'power', 'toughness', 'text']
+                filtered_df = filtered_df[columns_to_keep]
+                df_dict = filtered_df.to_dict('list')
+                print('Is this the card you chose?')
+                pprint.pprint(df_dict, sort_dicts=False)
+                self.commander_df = pd.DataFrame(df_dict)
+                
+                # Confirm if card entered was correct
+                correct_commander = [
+                    inquirer.Confirm(
+                        'commander',
+                    )
+                ]
+                confirm_commander = inquirer.prompt(correct_commander)
+                commander_confirmed = confirm_commander['commander']
+                # If correct, set it as the commander
+                if commander_confirmed:
+                    commander_chosen = True
+                    self.commander_info = df_dict
+                    self.commander = self.commander_df.at[0, 'name']
+                    break
+                    #print(self.commander)
+                else:
+                    commander_chosen = False
+                            
 
         # Send commander info to setup commander, including extracting info on colors, color identity,
         # creature types, and other information, like keywords, abilities, etc...
@@ -167,34 +204,41 @@ class DeckBuilder:
     
     def set_creature_types(self, df):
         # Set creature types
-        types = df.at[0, 'type']
-        print(types)
-        split_types = types.split()
-        for type in split_types:
-            if type not in settings.non_creature_types:
-                self.creature_types.append(type)
+        creature_types = df.at[0, 'type']
+        #print(creature_types)
+        split_types = creature_types.split()
+        for creature_type in split_types:
+            if creature_type not in settings.non_creature_types:
+                self.creature_types.append(creature_type)
+        for creature_type in self.creature_types:
+            self.commander_tags.append(creature_type)
                 
     def setup_deck_tags(self, df):
         # Determine card tags, such as counters theme
-        """keywords = df.at[0, 'keywords'].split()
-        for keyword in keywords:
-            settings.theme_tags.append(keyword.lower())
-        print(settings.theme_tags)"""
+        self.check_tags(df.at[0, 'text'].lower(), settings.theme_tags, threshold=80)
         
-        self.check_tags(df.at[0, 'text'], settings.theme_tags)
-        #print(card_tags)
+        # Determine any additional kindred tags that aren't in the main creature types
+        self.check_tags(df.at[0, 'text'].lower(), settings.creature_types, threshold=100)
         
-    def check_tags(self, string, word_list, threshold=80):
+    def check_tags(self, string, word_list, threshold):
         card_tags = []
+        print(string)
+        #print(word_list)
         for word in word_list:
             #print(word)
             if word == '+1/+1 counter' or word == '-1/-1 counter':
+                #print(word)
                 threshold += 20
-            if fuzz.partial_ratio(string.lower(), word.lower()) >= threshold:
+            if fuzz.partial_ratio(string, word.lower()) >= threshold:
+                print(word, threshold)
                 card_tags.append(word)
+                #print(word)
                 #return True
         #return False
-        self.commander_tags = card_tags
+        for tag in card_tags:
+            if tag not in self.commander_tags:
+                self.commander_tags.append(tag)
+        
         
     def determine_ideals(self):
         # "Free" slots that can be used for anything that isn't the ideals
@@ -380,12 +424,12 @@ class DeckBuilder:
         print(f'Adding the creatures to deck, a baseline based on the ideal creature count of {self.ideal_creature_count} will be used.')
 
 build_deck = DeckBuilder()
-"""build_deck.determine_commander()
+build_deck.determine_commander()
 print(f'Commander: {build_deck.commander}')
 print(f'Color Identity: {build_deck.color_identity}')
 print(f'Commander Colors: {build_deck.colors}')
 print(f'Commander Creature Types: {build_deck.creature_types}')
-print(f'Commander tags: {build_deck.commander_tags}')"""
-build_deck.determine_commander()
-build_deck.ideal_land_count = 35
-build_deck.add_lands()
+print(f'Commander tags: {build_deck.commander_tags}')
+#build_deck.determine_commander()
+#build_deck.ideal_land_count = 35
+#build_deck.add_lands()

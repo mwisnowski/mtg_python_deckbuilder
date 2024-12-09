@@ -1,13 +1,11 @@
 from __future__ import annotations
 
-import inflect
 import inquirer.prompt # type: ignore
 import pandas as pd # type: ignore
 import pprint # type: ignore
 import random
 
-from fuzzywuzzy import fuzz, process, utils # type: ignore
-from IPython.display import display
+from fuzzywuzzy import fuzz, process # type: ignore
 
 import settings
 

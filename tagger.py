@@ -17,13 +17,14 @@ colors = ['colorless', 'white', 'blue', 'black', 'green', 'red',
           'abzan', 'jeskai', 'mardu', 'sultai', 'temur',
           'dune', 'glint', 'ink', 'witch', 'yore', 'wubrg',
           'legendary']
-num_cards = ['a', 'two', '2', 'three', '3', 'four',' 4', 'five', '5', 'six', 
-             '6', 'seven', '7', 'eight', '8', 'nine', '9', 'ten', '10', 'X']
+num_to_search = ['a', 'two', '2', 'three', '3', 'four',' 4', 'five', '5', 'six', 
+             '6', 'seven', '7', 'eight', '8', 'nine', '9', 'ten', '10', 'X',
+             'one or more']
 triggered = ['when', 'whenever', 'at']
 artifact_tokens = ['Blood', 'Clue', 'Food', 'Gold', 'Incubator',
                    'Junk','Map','Powerstone', 'Treasure']
-enchanment_tokens = ['Cursed Role', 'Monster Role', 'Royal Role','Virtuous Role',
-                     'Wicked Role', 'Young Hero Role', 'Shard']
+enchantment_tokens = ['Cursed Role', 'Monster Role', 'Royal Role', 'Sorcerer Role',
+                      'Virtuous Role', 'Wicked Role', 'Young Hero Role', 'Shard']
 
 csv_directory = 'csv_files'
 
@@ -90,7 +91,7 @@ def tag_for_sacrifice_to_draw():
             # Basic logic for the cards
             if ('as an additional cost to cast this spell, sacrifice' in row['text'].lower()):
                 # Sacrific to draw
-                for num in num_cards:
+                for num in num_to_search:
                     if (f'draw {num} card' in row['text'].lower()):
                         if 'Sacrifice to Draw' not in theme_tags and 'Card Draw' not in theme_tags:
                             theme_tags.extend(['Sacrifice to Draw', 'Card Draw'])
@@ -124,7 +125,7 @@ def tag_for_pay_life_to_draw():
             # Basic logic for the cards
             if ('life: draw' in row['text'].lower()):
                 # Sacrific to draw
-                for num in num_cards:
+                for num in num_to_search:
                     if (f'draw {num} card' in row['text'].lower()):
                         kind_of_draw = ['Life to Draw', 'Card Draw']
                         for which_draw in kind_of_draw:
@@ -201,7 +202,7 @@ def tag_for_loot():
             # Looting logic
             if ('Cycling' in theme_tags or 'Connive' in theme_tags or 'blood token' in row['text'].lower()):
                 continue
-            for num in num_cards:
+            for num in num_to_search:
                 if (f'draw {num} card' in row['text'].lower()):
                     if ('then discard' in row['text'].lower()
                         or 'if you do, discard' in row['text'].lower()
@@ -338,7 +339,7 @@ def tag_for_conditional_draw():
                 or 'created a token' in row['text'].lower()
                 or 'draw a card for each' in row['text'].lower()
                 ):
-                    for num in num_cards:
+                    for num in num_to_search:
                         if (f'draw {num} card' in row['text'].lower()):
                             kind_of_draw = ['Conditional Draw', 'Card Draw']
                             for which_draw in kind_of_draw:
@@ -388,7 +389,7 @@ def tag_for_replacement_draw():
                     or f'{trigger} the beginning of your draw step' in row['text'].lower()
                     ):
                     if 'instead' in row['text'].lower():
-                        for num in num_cards:
+                        for num in num_to_search:
                             if (f'draw {num} card' in row['text'].lower()):
                                 kind_of_draw = ['Replacement Draw', 'Card Draw']
                                 for which_draw in kind_of_draw:
@@ -441,9 +442,10 @@ def tag_for_card_draw():
                 or 'Conditional Draw' in theme_tags
                 or 'Replacement Draw' in theme_tags
                 ):
-                theme_tags.extend(['Card Draw'])
+                if 'Card Draw' not in theme_tags:
+                    theme_tags.extend(['Card Draw'])
                 continue
-            for num in num_cards:
+            for num in num_to_search:
                 if (f'draw {num} card' in row['text'].lower()):
                     kind_of_draw = ['Unconditional Draw', 'Card Draw']
                     for which_draw in kind_of_draw:
@@ -527,14 +529,12 @@ def tag_for_artifact_tokens():
                     ):
                     if 'transmutation font' not in row['name'].lower():
                         if 'fabricate' not in row['text'].lower():
-                            print(row['name'])
                             tag_type = ['Artifact Tokens', 'Artifacts Matter']
                             for tag in tag_type:
                                 if tag not in theme_tags:
                                     theme_tags.extend([tag])
                                     df.at[index, 'themeTags'] = theme_tags
         print(f'\nCards in {color}_cards.csv that are non-predefined token generators have been tagged.\n')
-        keyboard.wait('space')
         print('Checking for predefined tokens (i.e. Treassure or Food) generators.')
         for index, row in df.iterrows():
             theme_tags = row['themeTags']
@@ -553,14 +553,12 @@ def tag_for_artifact_tokens():
                         if artifact_token == 'Junk':
                             if (row['name'] == 'Junkyard Genius'):
                                 continue
-                        print(row['name'])
                         tag_type = ['Artifact Tokens', f'{artifact_token} Tokens', 'Artifacts Matter']
                         for tag in tag_type:
                             if tag not in theme_tags:
                                 theme_tags.extend([tag])
                                 df.at[index, 'themeTags'] = theme_tags
         print(f'\nCards in {color}_cards.csv that are predefined token generators have been tagged.\n')
-        keyboard.wait('space')
         print(f'Cards in {color}_cards.csv that create or modify creation of Artifact tokens and don\'t have Fabricate have been tagged.\n')
         # Tag for artifact token creation
         print(f'Tagging cards in {color}_cards.csv have Fabricate.')
@@ -569,7 +567,6 @@ def tag_for_artifact_tokens():
             if pd.isna(row['text']):
                 continue
             if 'fabricate' in row['text'].lower():
-                print(row['name'])
                 tag_type = ['Artifact Tokens']
                 for tag in tag_type:
                     if tag not in theme_tags:
@@ -577,13 +574,155 @@ def tag_for_artifact_tokens():
                         df.at[index, 'themeTags'] = theme_tags
         print(f'\nCards in {color}_cards.csv that have Fabricate have been tagged.\n')
 
-        keyboard.wait('space')
         # Overwrite file with artifact tag added
         df.to_csv(f'csv_files/{color}_cards.csv', index=False)
         print(f'Artifact cards tagged in {color}_cards.csv.\n')
-        keyboard.wait('space')
 
-#kindred_tagging()
+def tag_for_enchantment():
+    # Iterate through each {color}_cards.csv file to find enchantment cards
+    # Also check for cards that care about enchantments
+    for color in colors:
+        print(f'Settings "Enchantment" type tags on {color}_cards.csv.')
+        # Setup dataframe
+        df = pd.read_csv(f'csv_files/{color}_cards.csv', converters={'themeTags': pd.eval})
+        
+        # Tag for enchantments
+        print(f'Tagging cards in {color}_cards.csv that have the "Enchantment" type.')
+        for index, row in df.iterrows():
+            theme_tags = row['themeTags']
+            if pd.isna(row['text']):
+                continue
+            if 'Enchantment' in row['type']:
+                tag_type = ['Enchantment', 'Enchantments Matter']
+                for tag in tag_type:
+                    if tag not in theme_tags:
+                        theme_tags.extend([tag])
+                        df.at[index, 'themeTags'] = theme_tags
+        # Overwrite file with enchantment tag added
+        df.to_csv(f'csv_files/{color}_cards.csv', index=False)
+        print(f'Cards with the "Enchantment" type in {color}_cards.csv have been tagged.\n')
+
+def tag_for_enchantment_tokens():
+    for color in colors:
+        print(f'Settings enchantment token tags on {color}_cards.csv.')
+        # Setup dataframe
+        df = pd.read_csv(f'csv_files/{color}_cards.csv', converters={'themeTags': pd.eval})
+        
+        # Tag for enchantment token creation
+        print(f'Tagging cards in {color}_cards.csv that create or modify creation of Enchantment tokens')
+        print('Checking for non-predefined token generators.')
+        for index, row in df.iterrows():
+            theme_tags = row['themeTags']
+            if pd.isna(row['text']):
+                continue
+            if ('create' in row['text'].lower()
+                or 'put' in row['text'].lower()
+                ):
+                if ('enchantment token' in row['text'].lower()
+                    or 'enchantment creature token' in row['text'].lower()
+                    or 'copy of target enchantment' in row['text'].lower()
+                    or 'copy of that enchantment' in row['text'].lower()
+                    or 'copy of enchanted enchantment' in row['text'].lower()
+                    or 'court of vantress' in row['name'].lower()
+                    or 'felhide spiritbinder' in row['name'].lower()
+                    or 'hammer of purphoros' in row['name'].lower()
+                    ):
+                    tag_type = ['Enchantment Tokens', 'Enchantments Matter']
+                    for tag in tag_type:
+                        if tag not in theme_tags:
+                            theme_tags.extend([tag])
+                            df.at[index, 'themeTags'] = theme_tags
+        print(f'\nCards in {color}_cards.csv that are non-predefined token generators have been tagged.\n')
+        print('Checking for predefined token (i.e. Roles or Shard) generators.')
+        for index, row in df.iterrows():
+            theme_tags = row['themeTags']
+            if pd.isna(row['text']):
+                continue
+            if ('create' in row['text'].lower()):
+                for enchantment_token in enchantment_tokens:
+                    if (f'{enchantment_token.lower()}' in row['text'].lower()):
+                        tag_type = ['Enchantment Tokens', f'{enchantment_token} Tokens', 'Enchantments Matter']
+                        for tag in tag_type:
+                            if tag not in theme_tags:
+                                theme_tags.extend([tag])
+                                df.at[index, 'themeTags'] = theme_tags
+        print(f'\nCards in {color}_cards.csv that are predefined token generators have been tagged.\n')
+        print(f'Cards in {color}_cards.csv that create or modify creation of Enchantment tokens have been tagged.\n')
+        
+        # Overwrite file with enchantment tag added
+        df.to_csv(f'csv_files/{color}_cards.csv', index=False)
+        print(f'Enchantment cards tagged in {color}_cards.csv.\n')
+
+def tag_for_tokens():
+    for color in colors:
+        print(f'Settings token tags on {color}_cards.csv.')
+        # Setup dataframe
+        df = pd.read_csv(f'csv_files/{color}_cards.csv', converters={'themeTags': pd.eval})
+        
+        # Tag for enchantment token creation
+        print(f'Tagging cards in {color}_cards.csv that create or modify creation of tokens')
+        print('Checking for creature token generators.')
+        for index, row in df.iterrows():
+            theme_tags = row['themeTags']
+            if pd.isna(row['text']):
+                continue
+            if ('agatha\'s soul cauldron' in row['name'].lower()
+                or 'fabricate' in row['text'].lower()
+                or 'modular' in row['text'].lower()
+                ):
+                continue
+            if ('create' in row['text'].lower()
+                or 'put' in row['text'].lower()
+                ):
+                for tokens in num_to_search:
+                    if (f'{tokens}' in row['text']
+                        and 'token' in row['text']):
+                        if ('creature' in row['text'].lower()):
+                            tag_type = ['Creature Tokens', 'Tokens Matter']
+                            for tag in tag_type:
+                                if tag not in theme_tags:
+                                    theme_tags.extend([tag])
+                                    df.at[index, 'themeTags'] = theme_tags
+        print(f'\nCards in {color}_cards.csv that are creature token generators have been tagged.\n')
+        print('Checking for token creation modifiers.')
+        for index, row in df.iterrows():
+            theme_tags = row['themeTags']
+            if pd.isna(row['text']):
+                continue
+            if ('staff of the storyteller' in row['name'].lower()
+                or 'cloakwood swarmkeeper' in row['name'].lower()
+                or 'neyali, sun\'s vanguard' in row['name'].lower()
+                ):
+                continue
+            if ('create one or more' in row['text']
+                or 'put one or more' in row['text']
+                or 'one or more tokens would enter' in row['text']
+                or 'one or more tokens would be created' in row['text']
+                or 'one or more tokens would be put' in row['text']
+                or 'one or more tokens you control' in row['text']
+                or 'one or more creature tokens' in row['text']
+                ):
+                if ('token' in row['text']):
+                    if ('instead' in row['text']
+                        or 'plus' in row['text']
+                        ):
+                        tag_type = ['Tokens', 'Token Modification', 'Tokens Matter']
+                        for tag in tag_type:
+                            if tag not in theme_tags:
+                                theme_tags.extend([tag])
+                                df.at[index, 'themeTags'] = theme_tags
+        print(f'\nCards in {color}_cards.csv that are token creation modifiers have been tagged.\n')
+        # Overwrite file with enchantment tag added
+        df.to_csv(f'csv_files/{color}_cards.csv', index=False)
+        print(f'Enchantment cards tagged in {color}_cards.csv.\n')
+
+        #keyboard.wait('space')
+
+kindred_tagging()
 setup_tags()
-#tag_for_artifact()
+tag_for_card_draw()
+tag_for_artifact()
 tag_for_artifact_tokens()
+tag_for_enchantment()
+tag_for_enchantment_tokens()
+tag_for_tokens()

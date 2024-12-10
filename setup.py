@@ -33,6 +33,9 @@ def filter_by_color(df, column_name, value, new_csv_name):
     filtered_df = filtered_df.loc[filtered_df['layout'] != 'reversible_card'] 
     filtered_df = filtered_df[filtered_df['availability'].str.contains('paper')]
     filtered_df = filtered_df.loc[filtered_df['promoTypes'] != 'playtest']
+    filtered_df = filtered_df.loc[filtered_df['securityStamp'] != 'heart']
+    filtered_df = filtered_df.loc[filtered_df['securityStamp'] != 'acorn']
+    
     card_types = ['Plane —', 'Conspiracy', 'Vanguard', 'Scheme', 'Phenomena', 'Stickers', 'Attraction']
     for card_type in card_types:
         filtered_df = filtered_df[~filtered_df['type'].str.contains(card_type)]
@@ -44,6 +47,7 @@ def filter_by_color(df, column_name, value, new_csv_name):
     filtered_df.to_csv(new_csv_name, index=False)
     
 def determine_legendary():
+    print('Generating legendary_cards.csv, containing all Legendary Creatures elligible to be commanders.')
     # Filter dataframe
     while True:
         try:
@@ -63,12 +67,21 @@ def determine_legendary():
     """
     filtered_df.sort_values('name')
     filtered_df = filtered_df.loc[filtered_df['layout'] != 'reversible_card'] 
-    filtered_df = filtered_df.loc[filtered_df['availability'] != 'arena']
-    filtered_df.drop_duplicates(subset='name', keep='first', inplace=True)
-    columns_to_keep = ['name', 'edhrecRank','colorIdentity', 'colors', 'manaCost', 'manaValue', 'type', 'keywords', 'text', 'power', 'toughness']
+    filtered_df = filtered_df[filtered_df['availability'].str.contains('paper')]
+    filtered_df = filtered_df.loc[filtered_df['promoTypes'] != 'playtest']
+    filtered_df = filtered_df.loc[filtered_df['securityStamp'] != 'heart']
+    filtered_df = filtered_df.loc[filtered_df['securityStamp'] != 'acorn']
+    
+    card_types = ['Plane —', 'Conspiracy', 'Vanguard', 'Scheme', 'Phenomena', 'Stickers', 'Attraction']
+    for card_type in card_types:
+        filtered_df = filtered_df[~filtered_df['type'].str.contains(card_type)]
+    filtered_df['faceName'] = filtered_df['faceName'].fillna(filtered_df['name'])
+    filtered_df.drop_duplicates(subset='faceName', keep='first', inplace=True)
+    columns_to_keep = ['name', 'faceName','edhrecRank','colorIdentity', 'colors', 'manaCost', 'manaValue', 'type', 'keywords', 'text', 'power', 'toughness']
     filtered_df = filtered_df[columns_to_keep]
     filtered_df.sort_values(by='name', key=lambda col: col.str.lower(), inplace=True)
     filtered_df.to_csv('csv_files/legendary_cards.csv', index=False)
+    print('legendary_cards.csv file generated.')
 
 def initial_setup():
     print('Checking for cards.csv file.\n')

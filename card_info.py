@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import inquirer.prompt # type: ignore
 import pandas as pd # type: ignore
+import pprint
 
 from fuzzywuzzy import fuzz, process # type: ignore
 from IPython.display import display
@@ -32,6 +33,12 @@ def get_card_info():
     columns_to_keep = ['name', 'colorIdentity', 'colors', 'manaCost', 'manaValue', 'type', 'keywords', 'power', 'toughness']
     filtered_df_no_text = filtered_df[columns_to_keep]
     filtered_df_no_text.dropna(how='all', axis=1, inplace=True)
+    df_dict = filtered_df.to_dict('list')
     
-    display(filtered_df_no_text.to_string())
-    display(filtered_df['text'].to_string())
+    pprint.pprint(df_dict, sort_dicts=False)
+    
+    
+    pprint.pprint(filtered_df_no_text)
+    pprint.pprint(filtered_df['text'])
+
+get_card_info()

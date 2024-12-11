@@ -17,9 +17,9 @@ colors = ['colorless', 'white', 'blue', 'black', 'green', 'red',
           'abzan', 'jeskai', 'mardu', 'sultai', 'temur',
           'dune', 'glint', 'ink', 'witch', 'yore', 'wubrg',
           'legendary']
-num_to_search = ['a', 'two', '2', 'three', '3', 'four',' 4', 'five', '5', 'six', 
-             '6', 'seven', '7', 'eight', '8', 'nine', '9', 'ten', '10', 'X',
-             'one or more']
+num_to_search = ['a', 'one', '1', 'two', '2', 'three', '3', 'four','4', 'five', '5',
+                 'six', '6', 'seven', '7', 'eight', '8', 'nine', '9', 'ten', '10',
+                 'x','one or more']
 triggered = ['when', 'whenever', 'at']
 artifact_tokens = ['Blood', 'Clue', 'Food', 'Gold', 'Incubator',
                    'Junk','Map','Powerstone', 'Treasure']
@@ -660,7 +660,7 @@ def tag_for_tokens():
         df = pd.read_csv(f'csv_files/{color}_cards.csv', converters={'themeTags': pd.eval})
         
         # Tag for enchantment token creation
-        print(f'Tagging cards in {color}_cards.csv that create or modify creation of tokens')
+        print(f'Tagging cards in {color}_cards.csv that create or modify creation of tokens.')
         print('Checking for creature token generators.')
         for index, row in df.iterrows():
             theme_tags = row['themeTags']
@@ -718,11 +718,125 @@ def tag_for_tokens():
 
         #keyboard.wait('space')
 
-kindred_tagging()
+def tag_for_life_matters():
+    for color in colors:
+        print(f'Settings token tags on {color}_cards.csv.')
+        # Setup dataframe
+        df = pd.read_csv(f'csv_files/{color}_cards.csv', converters={'themeTags': pd.eval})
+        
+        # Tag for enchantment token creation
+        print(f'Tagging cards in {color}_cards.csv that gain life or care about life gain.')
+        print('Checking for life gain cards.')
+        for index, row in df.iterrows():
+            theme_tags = row['themeTags']
+            if pd.isna(row['text']):
+                continue
+            if ('whenever you gain life' in row['text'].lower()
+                or 'if you would gain life' in row['text'].lower()
+                ):
+                continue
+            if ('food token' in row['text'].lower()):
+                tag_type = ['Food Tokens', 'Lifegain', 'Life Matters']
+                for tag in tag_type:
+                    if tag not in theme_tags:
+                        theme_tags.extend([tag])
+                        df.at[index, 'themeTags'] = theme_tags
+                continue
+            for life_gained in num_to_search:
+                if (f'gain {life_gained} life' in row['text'].lower()
+                    or f'gains {life_gained} life' in row['text'].lower()):
+                    tag_type = ['Lifegain', 'Life Matters']
+                    for tag in tag_type:
+                        if tag not in theme_tags:
+                            theme_tags.extend([tag])
+                            df.at[index, 'themeTags'] = theme_tags    
+            if ('gain life' in row['text'].lower()
+                or 'gains life' in row['text'].lower()
+                ):
+                tag_type = ['Lifegain', 'Life Matters']
+                for tag in tag_type:
+                    if tag not in theme_tags:
+                        theme_tags.extend([tag])
+                        df.at[index, 'themeTags'] = theme_tags
+            if ('lifelink' in row['text'].lower()
+                ):
+                tag_type = ['Lifelink', 'Lifegain', 'Life Matters']
+                for tag in tag_type:
+                    if tag not in theme_tags:
+                        theme_tags.extend([tag])
+                        df.at[index, 'themeTags'] = theme_tags
+            if ('deals damage' not in row['text'].lower()
+                ):
+                if ('loses life' in row['text'].lower()):
+                    if ('gain that much life' in row['text'].lower()
+                    ):
+                        tag_type = ['Lifelink', 'Lifegain', 'Life Matters']
+                        for tag in tag_type:
+                            if tag not in theme_tags:
+                                theme_tags.extend([tag])
+                                df.at[index, 'themeTags'] = theme_tags
+            if ('deals damage, you gain that much life' in row['text'].lower()
+                ):
+                tag_type = ['Lifegain', 'Life Matters']
+                for tag in tag_type:
+                    if tag not in theme_tags:
+                        theme_tags.extend([tag])
+                        df.at[index, 'themeTags'] = theme_tags
+        print(f'\nCards in {color}_cards.csv that gain life or grant lifelink have been tagged.\n')
+        
+        # Checking for life gain modifiers or trigger on life gain
+        print('Checking for life gain modifications or triggers.')
+        for index, row in df.iterrows():
+            theme_tags = row['themeTags']
+            if pd.isna(row['text']):
+                continue
+            if ('whenever you gain life' in row['text'].lower()
+                or 'if you would gain life' in row['text'].lower()
+                ):
+                tag_type = ['Lifegain', 'Lifegain Triggers', 'Life Matters']
+                for tag in tag_type:
+                    if tag not in theme_tags:
+                        theme_tags.extend([tag])
+                        df.at[index, 'themeTags'] = theme_tags
+        
+        print(f'\nCards in {color}_cards.csv that modify life gain or trigger on life gain have been tagged.\n')
+        
+        # Checking for life loss modifiers or trigger on life loss
+        print('Checking for life loss triggers.')
+        for index, row in df.iterrows():
+            theme_tags = row['themeTags']
+            if pd.isna(row['text']):
+                continue
+            if ('whenever you lose life' in row['text'].lower()
+                or 'you would lose life' in row['text'].lower()
+                or 'you lost life' in row['text'].lower()
+                or 'you\'ve lost life' in row['text'].lower()
+                or 'you gained and lost life' in row['text'].lower()
+                or 'you gained or lost life' in row['text'].lower()
+                or 'you gained and lost life this turn' in row['text'].lower()
+                or 'whenever you gain or lose life' in row['text'].lower()
+                ):
+                print(row['name'])
+                tag_type = ['Lifeloss', 'Lifeloss Triggers', 'Life Matters']
+                for tag in tag_type:
+                    if tag not in theme_tags:
+                        theme_tags.extend([tag])
+                        df.at[index, 'themeTags'] = theme_tags
+        
+        print(f'\nCards in {color}_cards.csv that modify life gain or trigger on life gain have been tagged.\n')
+        
+        # Overwrite file with Life tags added
+        df.to_csv(f'csv_files/{color}_cards.csv', index=False)
+        print(f'Life Matters cards tagged in {color}_cards.csv.\n')
+        
+    
+"""kindred_tagging()
 setup_tags()
 tag_for_card_draw()
 tag_for_artifact()
 tag_for_artifact_tokens()
 tag_for_enchantment()
 tag_for_enchantment_tokens()
-tag_for_tokens()
+tag_for_tokens()"""
+setup_tags()
+tag_for_life_matters()

@@ -634,6 +634,89 @@ def tag_for_artifact_tokens():
         df.to_csv(f'csv_files/{color}_cards.csv', index=False)
         print(f'Artifact cards tagged in {color}_cards.csv.\n')
 
+def tag_for_artifacts_matter():
+    for color in colors:
+        print(f'Settings artifact token tags on {color}_cards.csv.')
+        # Setup dataframe
+        df = pd.read_csv(f'csv_files/{color}_cards.csv', converters={'themeTags': pd.eval})
+        
+        # Tag for artifacts matter
+        print(f'Tagging cards in {color}_cards.csv that care about artifacts.\n')
+        print(f'Tagging cards in {color}_cards.csv that reduce spell cost depending on number of artifacts.')
+        for index, row in df.iterrows():
+            theme_tags = row['themeTags']
+            if pd.isna(row['text']):
+                continue
+            for num in num_to_search:
+                if (f'artifact spells you cast cost {{{num}}} less to cast' in row['text'].lower()
+                    or f'historic spells you cast cost {{{num}}} less to cast' in row['text'].lower()
+                    or f'this spell costs {{{num}}} less to cast' in row['text'].lower()
+                    or 'affinity for artifacts' in row['text'].lower()
+                    or 'artificer class' in row['name'].lower()
+                    ):
+                    tag_type = ['Artifacts Matter']
+                    for tag in tag_type:
+                        if tag not in theme_tags:
+                            theme_tags.extend([tag])
+                            df.at[index, 'themeTags'] = theme_tags
+        print(f'Cards in {color}_cards.csv that reduce spell cost depending on number of artifacts have been tagged.')
+        
+        print(f'Tagging cards in {color}_cards.csv that trigger on casting an artifact or one entering.')
+        for index, row in df.iterrows():
+            theme_tags = row['themeTags']
+            if pd.isna(row['text']):
+                continue
+            for num in num_to_search:
+                if ('whenever you cast an artifact' in row['text'].lower()
+                    or 'whenever you cast a noncreature' in row['text'].lower()
+                    or 'whenever a nontoken artifact' in row['text'].lower()
+                    or 'prowess' in row['text'].lower()
+                    or 'whenever one or more artifact' in row['text'].lower()
+                    or 'artifact you control' in row['text'].lower()
+                    or 'artifacts you control' in row['text'].lower()
+                    or 'artifact creature you control' in row['text'].lower()
+                    or 'artifact creatures you control' in row['text'].lower()
+                    or 'another target artifact' in row['text'].lower()
+                    or 'abilities of artifact' in row['text'].lower()
+                    or 'ability of artifact' in row['text'].lower()
+                    ):
+                    tag_type = ['Artifacts Matter']
+                    for tag in tag_type:
+                        if tag not in theme_tags:
+                            theme_tags.extend([tag])
+                            df.at[index, 'themeTags'] = theme_tags
+        print(f'Cards in {color}_cards.csv that trigger on casting an artifact or one entering have been tagged.')
+        
+        print(f'Tagging cards in {color}_cards.csv that care about other artifacts.')
+        for index, row in df.iterrows():
+            theme_tags = row['themeTags']
+            if pd.isna(row['text']):
+                continue
+            for num in num_to_search:
+                if ('whenever you cast an artifact' in row['text'].lower()
+                    or 'whenever you cast a noncreature' in row['text'].lower()
+                    or 'whenever a nontoken artifact' in row['text'].lower()
+                    or 'prowess' in row['text'].lower()
+                    or 'whenever one or more artifact' in row['text'].lower()
+                    or 'artifact you control' in row['text'].lower()
+                    or 'artifacts you control' in row['text'].lower()
+                    or 'artifact creature you control' in row['text'].lower()
+                    or 'artifact creatures you control' in row['text'].lower()
+                    or 'another target artifact' in row['text'].lower()
+                    or 'abilities of artifact' in row['text'].lower()
+                    or 'ability of artifact' in row['text'].lower()
+                    ):
+                    tag_type = ['Artifacts Matter']
+                    for tag in tag_type:
+                        if tag not in theme_tags:
+                            theme_tags.extend([tag])
+                            df.at[index, 'themeTags'] = theme_tags
+        print(f'Cards in {color}_cards.csv that care about other artifacts have been tagged.')
+                            
+        # Overwrite file with artifacts matter tag added
+        df.to_csv(f'csv_files/{color}_cards.csv', index=False)
+        print(f'Artifact cards tagged in {color}_cards.csv.\n')
+
 def tag_for_enchantment():
     # Iterate through each {color}_cards.csv file to find enchantment cards
     # Also check for cards that care about enchantments
@@ -884,7 +967,6 @@ def tag_for_life_matters():
         # Overwrite file with Life tags added
         df.to_csv(f'csv_files/{color}_cards.csv', index=False)
         print(f'Life Matters cards tagged in {color}_cards.csv.\n')
-        
     
 """kindred_tagging()
 setup_tags()
@@ -896,4 +978,6 @@ tag_for_enchantment_tokens()
 tag_for_tokens()
 setup_tags()
 tag_for_life_matters()"""
-kindred_tagging()
+#kindred_tagging()
+setup_tags()
+tag_for_artifacts_matter()

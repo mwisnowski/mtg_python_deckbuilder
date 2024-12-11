@@ -1,14 +1,15 @@
 from __future__ import annotations
 
-import inquirer.prompt # type: ignore
+#import inquirer.prompt # type: ignore
 import keyboard # type: ignore
 import pandas as pd # type: ignore
-import pprint # type: ignore
-import random
+#import pprint # type: ignore
+#import random
 
-from fuzzywuzzy import fuzz, process # type: ignore
+#from fuzzywuzzy import fuzz, process # type: ignore
 
 import settings
+import setup
 
 colors = ['colorless', 'white', 'blue', 'black', 'green', 'red',
           'azorius', 'orzhov', 'selesnya', 'boros', 'dimir',
@@ -30,34 +31,89 @@ csv_directory = 'csv_files'
 
 karnstruct = '0/0 colorless Construct'
 
+def pluralize(word):
+    if word.endswith('y'):
+        return word[:-1] + 'ies'
+    elif word.endswith(('s', 'sh', 'ch', 'x', 'z')):
+        return word + 'es'
+    elif word.endswith(('f')):
+        return word[:-1] + 'ves'
+    else:
+        return word + 's'
+
 # Determine any non-creature cards that have creature types mentioned
 def kindred_tagging():
     for color in colors:
-        print(f'Settings creature type tags on {color}_cards.csv.')
+        print(f'Settings creature type tags on {color}_cards.csv.\n')
         # Setup dataframe
-        df = pd.read_csv(f'csv_files/{color}_cards.csv')
-        df['creatureType'] = ''
+        try:
+            df = pd.read_csv(f'csv_files/{color}_cards.csv')
+        except FileNotFoundError:
+            setup.regenerate_csvs()
+        df['creatureTypes'] = [[] for _ in range(len(df))]
         
         # Set creature types
+        print(f'Checking for and setting creature types in {color}_cards.csv')
         for index, row in df.iterrows():
-            kindred_tags = []
             if 'Creature' in row['type']:
+                kindred_tags = []
                 creature_types = row['type']
                 split_types = creature_types.split()
                 for creature_type in split_types:
                     if creature_type not in settings.non_creature_types:
-                        kindred_tags.append(creature_type)
-                        df.at[index, 'creatureType'] = kindred_tags
+                        if creature_type not in kindred_tags:
+                            kindred_tags.append(creature_type)
+                            df.at[index, 'creatureTypes'] = kindred_tags
+        print(f'Creature types set in {color}_cards.csv.\n')
                         
         # Set outlaws
+        print(f'Checking for and setting Outlaw types in {color}_cards.csv')
         outlaws = ['Assassin', 'Mercenary', 'Pirate', 'Rogue', 'Warlock']
         for index, row in df.iterrows():
-            kindred_tags = row['creatureType']
-            creature_types = kindred_tags
-            for creature_type in creature_types:
-                if creature_type in outlaws:
-                    kindred_tags.append('Outlaw')
-                    df.at[index, 'creatureType'] = kindred_tags
+            if 'Creature' in row['type']:
+                kindred_tags = row['creatureTypes']
+                creature_types = kindred_tags
+                for creature_type in creature_types:
+                    if creature_type in outlaws:
+                        if 'Outlaw' not in kindred_tags:
+                            kindred_tags.append('Outlaw')
+                            df.at[index, 'creatureTypes'] = kindred_tags
+        print(f'Outlaw types set in {color}_cards.csv.\n')
+
+        # Check for creature types in text (i.e. how 'Voja, Jaws of the Conclave' cares about Elves)
+        print(f'Checking for and setting creature types found in the text of cards in {color}_cards.csv')
+        for index, row in df.iterrows():
+            
+            """if pd.isna(row['creatureTypes']):
+                row['creatureTypes'] = []"""
+            kindred_tags = row['creatureTypes']
+            if pd.isna(row['text']):
+                continue
+            for creature_type in settings.creature_types:
+                if ('Elite Inquisitor' in row['name']
+                    or 'Breaker of Armies' in row['name']
+                    or 'Cleopatra, Exiled Pharaoh' in row['name']
+                    or 'Nath\'s Buffoon' in row['name']):
+                    continue
+                if creature_type in row['name']:
+                    continue
+                if pluralize(f'{creature_type}') in row['name']:
+                    continue
+                if creature_type in row['text']:
+                    if creature_type not in row['name']:
+                        if creature_type not in kindred_tags:
+                            kindred_tags.append(creature_type)
+                            if creature_type in outlaws:
+                                kindred_tags.append(creature_type)
+                            df.at[index, 'creatureTypes'] = kindred_tags
+                if pluralize(f'{creature_type}') in row['text']:
+                    if pluralize(f'{creature_type}') not in row['name']:
+                        if creature_type not in kindred_tags:
+                            kindred_tags.append(creature_type)
+                            if creature_type in outlaws:
+                                kindred_tags.append(creature_type)
+                            df.at[index, 'creatureTypes'] = kindred_tags
+        print(f'Creature types from text set in {color}_cards.csv.\n')
         
         # Overwrite file with creature type tags
         df.to_csv(f'csv_files/{color}_cards.csv', index=False)
@@ -837,6 +893,7 @@ tag_for_artifact()
 tag_for_artifact_tokens()
 tag_for_enchantment()
 tag_for_enchantment_tokens()
-tag_for_tokens()"""
+tag_for_tokens()
 setup_tags()
-tag_for_life_matters()
+tag_for_life_matters()"""
+kindred_tagging()

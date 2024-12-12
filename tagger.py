@@ -11,7 +11,7 @@ import pandas as pd # type: ignore
 import settings
 import setup
 
-colors = ['colorless', 'white', 'blue', 'black', 'green', 'red',
+colors = ['colorless', 'white', 'blue', 'black', 'red', 'green',
           'azorius', 'orzhov', 'selesnya', 'boros', 'dimir',
           'simic', 'izzet', 'golgari', 'rakdos', 'gruul',
           'bant', 'esper', 'grixis', 'jund', 'naya',
@@ -145,6 +145,9 @@ def kindred_tagging():
                     continue
                 if creature_type in row['text']:
                     if creature_type not in row['name']:
+                        if creature_type == 'Mount':
+                            if 'Mountain' in row['text']:
+                                continue
                         if creature_type not in kindred_tags:
                             kindred_tags.append(creature_type)
                             if creature_type in outlaws:
@@ -1373,6 +1376,8 @@ def tag_for_wheels():
             theme_tags = row['themeTags']
             if pd.isna(row['text']):
                 continue
+            
+            # Define generalized wheel searches
             if ('an opponent draws a card' in row['text'].lower()
                 or 'whenever you draw a card' in row['text'].lower()
                 or 'draws their first second card' in row['text'].lower()
@@ -1410,6 +1415,7 @@ def tag_for_wheels():
                         theme_tags.extend([tag])
                         df.at[index, 'themeTags'] = theme_tags
             
+            # Define specific cards that care about or could wheel
             if ('raffine, scheming seer' in row['name'].lower()
                 or 'raffine, scheming seer' in row['name'].lower()
                 or 'kynaios and tiro of meletis' in row['name'].lower()
@@ -1443,6 +1449,8 @@ def tag_for_wheels():
                     if tag not in theme_tags:
                         theme_tags.extend([tag])
                         df.at[index, 'themeTags'] = theme_tags
+            
+            # Add general card draw cards to the wheel tag
             if 'Card Draw' in row['themeTags']:
                 tag_type = ['Card Draw', 'Wheels']
                 for tag in tag_type:
@@ -1453,16 +1461,217 @@ def tag_for_wheels():
         # Overwrite file with wheels tag added
         df.to_csv(f'csv_files/{color}_cards.csv', index=False)
         print(f'"Wheels" themed cards in {color}_cards.csv have been tagged.\n')
+
+def tag_for_lands_matter():
+    # Iterate through each {color}_cards.csv file to find wheel cards
+    # Also check for cards that care about wheeling
+    for color in colors:
+        print(f'Settings "Lands Matter" tags on {color}_cards.csv.')
+        # Setup dataframe
+        df = pd.read_csv(f'csv_files/{color}_cards.csv', converters={'themeTags': pd.eval})
+        
+        # Tag for voltron
+        print(f'Tagging cards in {color}_cards.csv that fit the "Lands Matter" theme.')
+        for index, row in df.iterrows():
+            theme_tags = row['themeTags']
+            if pd.isna(row['text']):
+                continue
+            
+            # Do generalized lands matter tags
+            if ('target land card' in row['text'].lower()
+                or 'landfall' in row['text'].lower()
+                or 'lands from your graveyard' in row['text'].lower()
+                or 'everything counter' in row['text'].lower()
+                or 'play a land' in row['text'].lower()
+                or 'land card in your graveyard' in row['text'].lower()
+                or 'land cards in your graveyard' in row['text'].lower()
+                or 'land card from your graveyard' in row['text'].lower()
+                or 'land cards from your graveyard' in row['text'].lower()
+                or 'one or more land cards' in row ['text'].lower()
+                or 'land card is put into your graveyard' in row['text'].lower()
+                or 'land enters' in row['text'].lower()
+                or 'desert card' in row['text'].lower()
+                or 'play an additional land' in row['text'].lower()
+                or 'play two additional lands' in row['text'].lower()
+                or 'number of lands you control' in row['text'].lower()
+                or 'put a land card' in row['text'].lower()
+                or 'target land' in row['text'].lower()
+                or 'flood counter' in row['text'].lower()
+                or 'search your library for a land card' in row['text'].lower()
+                or 'play lands from the top of your library' in row['text'].lower()
+                or 'lands you control' in row['text'].lower()
+                or 'search your library for a basic land card' in row['text'].lower()
+                or 'search your library for up to two basic land card' in row['text'].lower()
+                or 'search their library for a basic land card' in row['text'].lower()
+                or 'return all land cards' in row['text'].lower()
+                or 'sacrifice a land' in row['text'].lower()
+                or 'forest lands' in row['text'].lower()
+                or 'up to x land card' in row['text'].lower()
+                or 'forest dryad' in row['text'].lower()
+                or 'nonbasic land type' in row['text'].lower()
+                or 'plays a land' in row['text'].lower()
+                or 'copy of any land' in row['text'].lower()
+                or 'land cards' in row['text'].lower()
+                ):
+                tag_type = ['Lands Matter']
+                for tag in tag_type:
+                    if tag not in theme_tags:
+                        theme_tags.extend([tag])
+                        df.at[index, 'themeTags'] = theme_tags
+            
+            # Add domain tags
+            if ('domain' in row['text'].lower()
+                ):
+                tag_type = ['Domain', 'Lands Matter']
+                for tag in tag_type:
+                    if tag not in theme_tags:
+                        theme_tags.extend([tag])
+                        df.at[index, 'themeTags'] = theme_tags
+            
+            # Add Landfall tags
+            if ('landfall' in row['text'].lower()
+                ):
+                tag_type = ['Landfall', 'Lands Matter']
+                for tag in tag_type:
+                    if tag not in theme_tags:
+                        theme_tags.extend([tag])
+                        df.at[index, 'themeTags'] = theme_tags
+            
+            # Do specific cardname lands matter tags
+            if ('nine-fingers keene' in row['name'].lower()
+                or 'gitrog monster' in row['name'].lower()
+                or 'yarok, the desecrated' in row['name'].lower()
+                or 'archelos, lagoon mystic' in row['name'].lower()
+                or 'wonderscape sage' in row['name'].lower()
+                or 'coiling oracle' in row['name'].lower()
+                or 'realms uncharted' in row['name'].lower()
+                or 'archdruid\'s charm' in row['name'].lower()
+                or 'scapeshift' in row['name'].lower()
+                or 'eerie ultimatum' in row['name'].lower()
+                or 'nahiri\'s lithoforming' in row['name'].lower()
+                or 'catacylsmic prospecting' in row['name'].lower()
+                or 'reshape the earth' in row['name'].lower()
+                or 'open the way' in row['name'].lower()
+                or 'disorienting choice' in row['name'].lower()
+                or 'abundance' in row['name'].lower()
+                or 'mana reflection' in row['name'].lower()
+                ):
+                tag_type = ['Lands Matter']
+                for tag in tag_type:
+                    if tag not in theme_tags:
+                        theme_tags.extend([tag])
+                        df.at[index, 'themeTags'] = theme_tags
+            
+            # Tag Urza lands
+            if ('Land — Urza' in row['type']
+                ):
+                tag_type = ['Urzatron', 'Lands Matter']    
+                for tag in tag_type:
+                    if tag not in theme_tags:
+                        theme_tags.extend([tag])
+                        df.at[index, 'themeTags'] = theme_tags
+            
+            # Tag Snow lands
+            if ('Snow Land' in row['type']
+                ):
+                tag_type = ['Snow Matters', 'Lands Matter']    
+                for tag in tag_type:
+                    if tag not in theme_tags:
+                        theme_tags.extend([tag])
+                        df.at[index, 'themeTags'] = theme_tags
+            
+            # Define land types
+            land_types = ['plains', 'island', 'swamp', 'mountain', 'forest', 'wastes',
+                          'cave','desert', 'gate', 'lair', 'locus', 'sphere']
+            
+            # Search for cards that use the specific land types (i.e. fetches, reveal lands, etc...)
+            for land_type in land_types:
+                if (f'search your library for a {land_type}' in row['text'].lower()
+                    or f'search your library for up to two {land_type}' in row['text'].lower()
+                    or land_type.capitalize() in row['type']
+                    ):
+                    if ('azor\'s gateway' in row['name'].lower()
+                        ):
+                        continue
+                    if land_type not in ['plains', 'wastes' 'locus']:
+                        tag_type = [f'{land_type.capitalize()}s Matter', 'Lands Matter']
+                    else:
+                        tag_type = [f'{land_type.capitalize()} Matter', 'Lands Matter']
+                    for tag in tag_type:
+                        if tag not in theme_tags:
+                            theme_tags.extend([tag])
+                            df.at[index, 'themeTags'] = theme_tags
+                
+                # Tag the cards that don't have types that could be in card names and unrelated
+                # to their land type
+                if land_type not in ['gate', 'sphere', 'lair', 'locus', 'cave']:
+                    if (land_type in row['text'].lower()):
+                        if land_type not in ['plains', 'wastes']:
+                            tag_type = [f'{land_type.capitalize()}s Matter', 'Lands Matter']
+                        else:
+                            tag_type = [f'{land_type.capitalize()} Matter', 'Lands Matter']
+                        for tag in tag_type:
+                            if tag not in theme_tags:
+                                theme_tags.extend([tag])
+                                df.at[index, 'themeTags'] = theme_tags
+                
+                # Tag cards that do have types that could be in card names and unrelated to their
+                # land tap, with some refined logic to filter better filter out matches
+                if land_type in ['gate', 'sphere', 'lair', 'locus', 'cave']:
+                    if (f'or more {land_type.capitalize()}s' in row['text']
+                        or f'{land_type.capitalize()}s' in row['text']
+                        or f'a {land_type.capitalize()}' in row['text']
+                        or f'{land_type.capitalize()} you control' in row['text']
+                        ):
+                        if ('Sea Gate Oracle' in row['name']
+                            or 'Sea Gate Restoration'in row['name']
+                            or 'Sea Gate Stormcaller'in row['name']
+                            or 'Gimli of the Glittering Caves'in row['name']
+                            or 'Caves of Chaos Adventurer'in row['name']
+                            or 'Swamp Mosquito'in row['name']
+                            or 'Cave People'in row['name']
+                            or 'Afflicted Deserter'in row['name']
+                            or 'Watcher of the Spheres' in row['name']
+                            or 'Gates of Istfell' in row['name']
+                            or 'Caves of Koilos' in row['name']
+                            or 'Adarkar Wastes' in row['name']
+                            or 'Sophina, Spearsage Deserter' in row['name']
+                            or 'Llanowar Wastes' in row['name']
+                            or 'Mountain Titan' in row['name']
+                            or 'Karplusan Forest' in row['name']
+                            or 'Skyshroud Forest' in row['name']
+                            ):
+                            continue
+                        tag_type = [f'{land_type.capitalize()}s Matter', 'Lands Matter']
+                        for tag in tag_type:
+                            if tag not in theme_tags:
+                                theme_tags.extend([tag])
+                                df.at[index, 'themeTags'] = theme_tags
+            
+            # Define landwalk abilities
+            land_types = ['plains', 'island', 'swamp', 'mountain', 'forest', 'nonbasic land', 'land']
+            for land_type in land_types:
+                if (f'{land_type}walk' in row['text'].lower()):
+                    tag_type = [f'{land_type.capitalize()}walk']
+                    for tag in tag_type:
+                        if tag not in theme_tags:
+                            theme_tags.extend([tag])
+                            df.at[index, 'themeTags'] = theme_tags
+            
+        # Overwrite file with wheels tag added
+        df.to_csv(f'csv_files/{color}_cards.csv', index=False)
+        print(f'"Lands Matter" themed cards in {color}_cards.csv have been tagged.\n')
         
         
-"""kindred_tagging()
+kindred_tagging()
 setup_tags()
+add_creatures_to_tags()
 tag_for_artifacts_matter()
 tag_for_enchantments_matter()
 tag_for_card_draw()
 tag_for_tokens()
 tag_for_life_matters()
-tag_for_voltron()"""
-#add_creatures_to_tags()
+tag_for_voltron()
 tag_for_wheels()
+tag_for_lands_matter()
 sort_theme_tags()

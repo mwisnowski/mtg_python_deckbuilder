@@ -219,4 +219,4 @@ def setup():
         break
 
 #setup()
-regenerate_csvs
+#regenerate_csvs()

@@ -205,6 +205,8 @@ def sort_theme_tags():
         df = pd.read_csv(f'csv_files/{color}_cards.csv', converters={'themeTags': pd.eval})
         df['themeTags'] = df['themeTags'].apply(sorted)
         
+        columns_to_keep = ['name', 'faceName','edhrecRank', 'colorIdentity', 'colors', 'manaCost', 'manaValue', 'type', 'creatureTypes', 'text', 'power', 'toughness', 'keywords', 'themeTags']
+        df = df[columns_to_keep]
         df.to_csv(f'csv_files/{color}_cards.csv', index=sorted)
         print(f'Theme tags alphabetically sorted in {color}_cards.csv.\n')
 
@@ -1357,6 +1359,102 @@ def tag_for_voltron():
         df.to_csv(f'csv_files/{color}_cards.csv', index=False)
         print(f'"Voltron" themed cards in {color}_cards.csv have been tagged.\n')
 
+def tag_for_wheels():
+    # Iterate through each {color}_cards.csv file to find wheel cards
+    # Also check for cards that care about wheeling
+    for color in colors:
+        print(f'Settings "Wheels" tags on {color}_cards.csv.')
+        # Setup dataframe
+        df = pd.read_csv(f'csv_files/{color}_cards.csv', converters={'themeTags': pd.eval})
+        
+        # Tag for voltron
+        print(f'Tagging cards in {color}_cards.csv that fit the "Wheels" theme.')
+        for index, row in df.iterrows():
+            theme_tags = row['themeTags']
+            if pd.isna(row['text']):
+                continue
+            if ('an opponent draws a card' in row['text'].lower()
+                or 'whenever you draw a card' in row['text'].lower()
+                or 'draws their first second card' in row['text'].lower()
+                or 'draws their second second card' in row['text'].lower()
+                or 'draw your second card' in row['text'].lower()
+                or 'may draw a card' in row['text'].lower()
+                or 'you draw a card' in row['text'].lower()
+                or 'each card your opponents have drawn' in row['text'].lower()
+                or 'each player draws' in row['text'].lower()
+                or 'each draw a card' in row['text'].lower()
+                or 'draws an additional card' in row['text'].lower()
+                or 'draws two additional cards' in row['text'].lower()
+                or 'draws a card' in row['text'].lower()
+                or 'draw two cards instead' in row['text'].lower()
+                or 'draw that many cards' in row['text'].lower()
+                or 'discards their hand, then draws' in row['text'].lower()
+                or 'draws half that many cards' in row['text'].lower()
+                or 'draws cards' in row['text'].lower()
+                or 'threshold' in row['text'].lower()
+                or 'delirium' in row['text'].lower()
+                or 'descended' in row['text'].lower()
+                or 'maximum hand size' in row['text'].lower()
+                or 'no cards in it, you win the game instead' in row['text'].lower()
+                or 'each opponent draws a card' in row['text'].lower()
+                or 'has no cards in hand' in row['text'].lower()
+                or 'have no cards in hand' in row['text'].lower()
+                or 'opponent discards' in row['text'].lower()
+                or 'discards that card' in row['text'].lower()
+                or 'mills' in row['text'].lower()
+                or 'cards you\'ve drawn' in row['text'].lower()
+                ):
+                tag_type = ['Card Draw', 'Wheels']
+                for tag in tag_type:
+                    if tag not in theme_tags:
+                        theme_tags.extend([tag])
+                        df.at[index, 'themeTags'] = theme_tags
+            
+            if ('raffine, scheming seer' in row['name'].lower()
+                or 'raffine, scheming seer' in row['name'].lower()
+                or 'kynaios and tiro of meletis' in row['name'].lower()
+                or 'elenda and azor' in row['name'].lower()
+                or 'sauron, the dark lord' in row['name'].lower()
+                or 'dark deal' in row['name'].lower()
+                or 'whispering madness' in row['name'].lower()
+                or 'arcane denial' in row['name'].lower()
+                or 'glunch, the bestower' in row['name'].lower()
+                or 'mr. foxglove' in row['name'].lower()
+                or 'kiora the rising tide' in row['name'].lower()
+                or 'esper sentinel' in row['name'].lower()
+                or 'loran of the third path' in row['name'].lower()
+                or 'icewind elemental' in row['name'].lower()
+                or 'seizan, perverter of truth' in row['name'].lower()
+                or 'twenty-toed toad' in row['name'].lower()
+                or 'triskaidekaphile' in row['name'].lower()
+                or 'wedding ring' in row['name'].lower()
+                or 'bolas\'s citadel' in row['name'].lower()
+                or 'the one ring' in row['name'].lower()
+                or 'library of leng' in row['name'].lower()
+                or 'sensei\'s divining top' in row['name'].lower()
+                or 'elixir of immortality' in row['name'].lower()
+                or 'waste not' in row['name'].lower()
+                or 'forced fruition' in row['name'].lower()
+                or 'bloodchief ascension' in row['name'].lower()
+                or 'whirlwind of thought' in row['name'].lower()
+                ):
+                tag_type = ['Card Draw', 'Wheels']
+                for tag in tag_type:
+                    if tag not in theme_tags:
+                        theme_tags.extend([tag])
+                        df.at[index, 'themeTags'] = theme_tags
+            if 'Card Draw' in row['themeTags']:
+                tag_type = ['Card Draw', 'Wheels']
+                for tag in tag_type:
+                    if tag not in theme_tags:
+                        theme_tags.extend([tag])
+                        df.at[index, 'themeTags'] = theme_tags
+        
+        # Overwrite file with wheels tag added
+        df.to_csv(f'csv_files/{color}_cards.csv', index=False)
+        print(f'"Wheels" themed cards in {color}_cards.csv have been tagged.\n')
+        
+        
 """kindred_tagging()
 setup_tags()
 tag_for_artifacts_matter()
@@ -1365,5 +1463,6 @@ tag_for_card_draw()
 tag_for_tokens()
 tag_for_life_matters()
 tag_for_voltron()"""
-add_creatures_to_tags()
+#add_creatures_to_tags()
+tag_for_wheels()
 sort_theme_tags()

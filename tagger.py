@@ -26,6 +26,41 @@ artifact_tokens = ['Blood', 'Clue', 'Food', 'Gold', 'Incubator',
                    'Junk','Map','Powerstone', 'Treasure']
 enchantment_tokens = ['Cursed Role', 'Monster Role', 'Royal Role', 'Sorcerer Role',
                       'Virtuous Role', 'Wicked Role', 'Young Hero Role', 'Shard']
+counter_types = ['+0/+1', '+0/+2', '+1/+0', '+1/+2', '+2/+0', '+2/+2',
+                 '-0/-1', '-0/-2', '-1/-0', '-1/-2', '-2/-0', '-2/-2',
+                 'Acorn', 'Aegis', 'Age', 'Aim', 'Arrow', 'Arrowhead','Awakening',
+                 'Bait', 'Blaze', 'Blessing', 'Blight',' Blood', 'Bloddline',
+                 'Bloodstain', 'Book', 'Bounty', 'Brain', 'Bribery', 'Brick',
+                 'Burden', 'Cage', 'Carrion', 'Charge', 'Coin', 'Collection',
+                 'Component', 'Contested', 'Corruption', 'CRANK!', 'Credit',
+                 'Croak', 'Corpse', 'Crystal', 'Cube', 'Currency', 'Death',
+                 'Defense', 'Delay', 'Depletion', 'Descent', 'Despair', 'Devotion',
+                 'Divinity', 'Doom', 'Dream', 'Duty', 'Echo', 'Egg', 'Elixir',
+                 'Ember', 'Energy', 'Enlightened', 'Eon', 'Eruption', 'Everything',
+                 'Experience', 'Eyeball', 'Eyestalk', 'Fade', 'Fate', 'Feather',
+                 'Feeding', 'Fellowship', 'Fetch', 'Filibuster', 'Finality', 'Flame',
+                 'Flood', 'Foreshadow', 'Fungus', 'Fury', 'Fuse', 'Gem', 'Ghostform',
+                 'Glpyh', 'Gold', 'Growth', 'Hack', 'Harmony', 'Hatching', 'Hatchling',
+                 'Healing', 'Hit', 'Hope',' Hone', 'Hoofprint', 'Hour', 'Hourglass',
+                 'Hunger', 'Ice', 'Imposter', 'Incarnation', 'Incubation', 'Infection',
+                 'Influence', 'Ingenuity', 'Intel', 'Intervention', 'Invitation',
+                 'Isolation', 'Javelin', 'Judgment', 'Keyword', 'Ki', 'Kick',
+                 'Knickknack', 'Knowledge', 'Landmark', 'Level', 'Loot', 'Lore',
+                 'Loyalty', 'Luck', 'Magnet', 'Manabond', 'Manifestation', 'Mannequin',
+                 'Mask', 'Matrix', 'Memory', 'Midway', 'Mine', 'Mining', 'Mire',
+                 'Music', 'Muster', 'Necrodermis', 'Nest', 'Net', 'Night', 'Oil',
+                 'Omen', 'Ore', 'Page', 'Pain', 'Palliation', 'Paralyzing', 'Pause',
+                 'Petal', 'Petrification', 'Phyresis', 'Phylatery', 'Pin', 'Plague',
+                 'Plot', 'Point', 'Poison', 'Polyp', 'Possession', 'Pressure', 'Prey',
+                 'Pupa', 'Quest', 'Rad', 'Rejection', 'Reprieve', 'Rev', 'Revival',
+                 'Ribbon', 'Ritual', 'Rope', 'Rust', 'Scream', 'Scroll', 'Shell',
+                 'Shield', 'Silver', 'Shred', 'Sleep', 'Sleight', 'Slime', 'Slumber',
+                 'Soot', 'Soul', 'Spark', 'Spite', 'Spore', 'Stash', 'Storage',
+                 'Story', 'Strife', 'Study', 'Stun', 'Supply', 'Suspect', 'Takeover',
+                 'Task', 'Ticket', 'Tide', 'Time', 'Tower', 'Training', 'Trap',
+                 'Treasure', 'Unity', 'Unlock', 'Valor', 'Velocity', 'Verse',
+                 'Vitality', 'Void', 'Volatile', 'Vortex', 'Vow', 'Voyage', 'Wage',
+                 'Winch', 'Wind', 'Wish']
 
 csv_directory = 'csv_files'
 
@@ -41,6 +76,15 @@ def pluralize(word):
     else:
         return word + 's'
 
+def sort_list(list_to_sort):
+    if isinstance(list_to_sort, list):
+        print(list_to_sort)
+        list_to_sort = sorted(list_to_sort)
+        print(list_to_sort)
+        return list_to_sort
+    else:
+        return list_to_sort
+    
 # Determine any non-creature cards that have creature types mentioned
 def kindred_tagging():
     for color in colors:
@@ -134,7 +178,35 @@ def setup_tags():
         df.to_csv(f'csv_files/{color}_cards.csv', index=False)
         print(f'Theme/effect tag column created on {color}_cards.csv.\n')
     
-    #tag_for_card_draw()
+def add_creatures_to_tags():
+    for color in colors:
+        print(f'Adding creature types to theme tags in {color}_cards.csv.')
+        # Setup dataframe
+        df = pd.read_csv(f'csv_files/{color}_cards.csv', converters={'themeTags': pd.eval, 'creatureTypes': pd.eval})
+        
+        # Set sacrifice to draw tags
+        for index, row in df.iterrows():
+            theme_tags = row['themeTags']
+            kindred_tags = row['creatureTypes']
+            
+            
+            for kindred_tag in kindred_tags:
+                if kindred_tag not in theme_tags:
+                    theme_tags.extend([f'{kindred_tag} Kindred'])
+        
+        # Overwrite file with kindred tags added
+        df.to_csv(f'csv_files/{color}_cards.csv', index=False)
+        print(f'Adding creature types to theme tags in {color}_cards.csv.')
+
+def sort_theme_tags():
+    for color in colors:
+        print(f'Alphabetically sorting theme tags in {color}_cards.csv.')
+        # Setup dataframe
+        df = pd.read_csv(f'csv_files/{color}_cards.csv', converters={'themeTags': pd.eval})
+        df['themeTags'] = df['themeTags'].apply(sorted)
+        
+        df.to_csv(f'csv_files/{color}_cards.csv', index=sorted)
+        print(f'Theme tags alphabetically sorted in {color}_cards.csv.\n')
 
 def tag_for_sacrifice_to_draw():
     for color in colors:
@@ -734,6 +806,48 @@ def tag_for_artifacts_matter():
         df.to_csv(f'csv_files/{color}_cards.csv', index=False)
         print(f'Artifact matters cards tagged in {color}_cards.csv.\n')
 
+def tag_equipment():
+    # Iterate through each {color}_cards.csv file to find equipment cards
+    # Also check for cards that care about equipments
+    for color in colors:
+        print(f'Settings "Equipment" type tags on {color}_cards.csv.')
+        # Setup dataframe
+        df = pd.read_csv(f'csv_files/{color}_cards.csv', converters={'themeTags': pd.eval})
+        
+        # Tag for equipments
+        print(f'Tagging cards in {color}_cards.csv that have the "Equipment" type.')
+        for index, row in df.iterrows():
+            theme_tags = row['themeTags']
+            if pd.isna(row['text']):
+                continue
+            if 'Equipment' in row['type']:
+                tag_type = ['Equipment', 'Equipment Matters']
+                for tag in tag_type:
+                    if tag not in theme_tags:
+                        theme_tags.extend([tag])
+                        df.at[index, 'themeTags'] = theme_tags
+        
+        # Tag for cares about equipment
+        print(f'Tagging cards in {color}_cards.csv that care about equipment.')
+        for index, row in df.iterrows():
+            theme_tags = row['themeTags']
+            if pd.isna(row['text']):
+                continue
+            if ('equipment' in row['text'].lower()
+                or 'equipped' in row['text'].lower()
+                or 'modified' in row['text'].lower()
+                or 'alexios, deimos of kosmos' in row['name'].lower()
+                or 'kosei, penitent warlord' in row['name'].lower()
+                ):
+                tag_type = ['Equipment Matters', 'Voltron']
+                for tag in tag_type:
+                    if tag not in theme_tags:
+                        theme_tags.extend([tag])
+                        df.at[index, 'themeTags'] = theme_tags
+        # Overwrite file with equipment tag added
+        df.to_csv(f'csv_files/{color}_cards.csv', index=False)
+        print(f'Cards that care about equipment in {color}_cards.csv have been tagged.\n')
+
 def tag_for_enchantment():
     # Iterate through each {color}_cards.csv file to find enchantment cards
     # Also check for cards that care about enchantments
@@ -903,6 +1017,55 @@ def tag_for_enchantments_matter():
         # Overwrite file with enchantments matter tag added
         df.to_csv(f'csv_files/{color}_cards.csv', index=False)
         print(f'enchantment matters cards tagged in {color}_cards.csv.\n')
+
+def tag_auras():
+    # Iterate through each {color}_cards.csv file to find aura cards
+    # Also check for cards that care about auras
+    for color in colors:
+        print(f'Settings "Aura" type tags on {color}_cards.csv.')
+        # Setup dataframe
+        df = pd.read_csv(f'csv_files/{color}_cards.csv', converters={'themeTags': pd.eval})
+        
+        # Tag for auras
+        print(f'Tagging cards in {color}_cards.csv that have the "Aura" type.')
+        for index, row in df.iterrows():
+            theme_tags = row['themeTags']
+            if pd.isna(row['text']):
+                continue
+            if 'Aura' in row['type']:
+                tag_type = ['Auras', 'Auras Matter']
+                for tag in tag_type:
+                    if tag not in theme_tags:
+                        theme_tags.extend([tag])
+                        df.at[index, 'themeTags'] = theme_tags
+        
+        # Tag for cares about aura
+        print(f'Tagging cards in {color}_cards.csv that care about auras.')
+        for index, row in df.iterrows():
+            theme_tags = row['themeTags']
+            if pd.isna(row['text']):
+                continue
+            if ('aura' in row['text'].lower()
+                or 'equipped' in row['text'].lower()
+                or 'modified' in row['text'].lower()
+                or 'enchanted creature' in row['text'].lower()
+                or 'ivy, gleeful spellthief' in row['name'].lower()
+                or 'zur the enchanter' in row['name'].lower()
+                or 'killian, ink duelist' in row['name'].lower()
+                or 'sithis, harvest\'s hand' in row['name'].lower()
+                or 'tatsunari, toad rider' in row['name'].lower()
+                or 'gylwain, casting director' in row['name'].lower()
+                or 'calix, guided by fate' in row['name'].lower()
+                or 'alexios, deimos of kosmos' in row['name'].lower()
+                ):
+                tag_type = ['Auras Matter', 'Voltron']
+                for tag in tag_type:
+                    if tag not in theme_tags:
+                        theme_tags.extend([tag])
+                        df.at[index, 'themeTags'] = theme_tags
+        # Overwrite file with aura tag added
+        df.to_csv(f'csv_files/{color}_cards.csv', index=False)
+        print(f'Cards that care about aura in {color}_cards.csv have been tagged.\n')
 
 def tag_for_tokens():
     for color in colors:
@@ -1079,12 +1242,128 @@ def tag_for_life_matters():
         # Overwrite file with Life tags added
         df.to_csv(f'csv_files/{color}_cards.csv', index=False)
         print(f'Life Matters cards tagged in {color}_cards.csv.\n')
-    
 
-kindred_tagging()
+def tag_for_counters():
+    # Iterate through each {color}_cards.csv file to find cards that add counters
+    # Also check for cards that care about counters
+    for color in colors:
+        print(f'Settings "Counters Matter" tags on {color}_cards.csv.')
+        # Setup dataframe
+        df = pd.read_csv(f'csv_files/{color}_cards.csv', converters={'themeTags': pd.eval})
+        
+        # Tag for counters matter
+        print(f'Tagging cards in {color}_cards.csv that fit the "Counters Matter" theme.')
+        for index, row in df.iterrows():
+            theme_tags = row['themeTags']
+            if pd.isna(row['text']):
+                continue
+            
+            if ('proliferate' in row['text'].lower()
+                or 'hydra' in row['creatureTypes'].lower()
+                or 'one or more counters' in row['text'].lower()
+                or 'one or more +1/+1 counter' in row['text'].lower()
+                or 'ozolith' in row['name'].lower()
+                or 'proliferate' in row['text'].lower()
+                or 'banner of kinship' in row['name'].lower()
+                or 'if it had counters' in row['text'].lower()
+                or 'with counters on them' in row['text'].lower()
+                or 'damning verdict' in row['name'].lower()
+                ):
+                tag_type = ['Counters Matter']
+                for tag in tag_type:
+                    if tag not in theme_tags:
+                        theme_tags.extend([tag])
+                        df.at[index, 'themeTags'] = theme_tags
+            if ('+1/+1 counter' in row['text'].lower()
+                or 'proliferate' in row['text'].lower()
+                or 'hydra' in row['creatureTypes'].lower()
+                or 'one or more counters' in row['text'].lower()
+                or 'one or more +1/+1 counter' in row['text'].lower()
+                or 'shield counter' in row['text'].lower()
+                or 'ozolith' in row['name'].lower()
+                or 'proliferate' in row['text'].lower()
+                or 'if it had counters' in row['text'].lower()
+                or 'with counters on them' in row['text'].lower()
+                or 'damning verdict' in row['name'].lower()
+                ):
+                tag_type = ['+1/+1 Counters', 'Counters Matter', 'Voltron']
+                for tag in tag_type:
+                    if tag not in theme_tags:
+                        theme_tags.extend([tag])
+                        df.at[index, 'themeTags'] = theme_tags
+            if ('-1/-1 counter' in row['text'].lower()
+                or 'proliferate' in row['text'].lower()
+                or 'one or more counters' in row['text'].lower()
+                or 'proliferate' in row['text'].lower()
+                or 'if it had counters' in row['text'].lower()
+                or 'damning verdict' in row['name'].lower()
+                ):
+                tag_type = ['-1/-1 Counters', 'Counters Matter']
+                for tag in tag_type:
+                    if tag not in theme_tags:
+                        theme_tags.extend([tag])
+                        df.at[index, 'themeTags'] = theme_tags
+            for counter_type in counter_types:
+                if f'{counter_type} counter'.lower() in row['text'].lower():
+                    tag_type = [f'{counter_type} Counters', 'Counters Matter']
+                    for tag in tag_type:
+                        if tag not in theme_tags:
+                            theme_tags.extend([tag])
+                            df.at[index, 'themeTags'] = theme_tags
+        # Overwrite file with counters matter tag added
+        df.to_csv(f'csv_files/{color}_cards.csv', index=False)
+        print(f'"Counters Matter" themed cards in {color}_cards.csv have been tagged.\n')
+
+def tag_for_voltron():
+    tag_equipment()
+    tag_auras()
+    tag_for_counters()
+    # Iterate through each {color}_cards.csv file to find voltron cards
+    # Also check for cards that care about auras
+    for color in colors:
+        print(f'Settings "Voltron" tags on {color}_cards.csv.')
+        # Setup dataframe
+        df = pd.read_csv(f'csv_files/{color}_cards.csv', converters={'themeTags': pd.eval})
+        
+        # Tag for voltron
+        print(f'Tagging cards in {color}_cards.csv that fit the "Voltron" theme.')
+        for index, row in df.iterrows():
+            theme_tags = row['themeTags']
+            if pd.isna(row['text']):
+                continue
+            if 'Voltron' in row['themeTags']:
+                continue
+            if ('raised by giants' in row['name'].lower()
+                or 'feather, the redeemed' in row['name'].lower()
+                or 'narset, enlightened master' in row['name'].lower()
+                or 'zurgo helmsmasher' in row['name'].lower()
+                or 'rafiq of the many' in row['name'].lower()
+                or 'slicer, hired muscle' in row['name'].lower()
+                or 'yargle and multani' in row['name'].lower()
+                or 'kosei, penitent warlord' in row['name'].lower()
+                or 'rograkh, son of rohgahh' in row['name'].lower()
+                or 'wilson, refined grizzly' in row['name'].lower()
+                or 'skullbriar, the walking grave' in row['name'].lower()
+                or 'feather, the redeemed' in row['name'].lower()
+                or 'narset, enlightened master' in row['name'].lower()
+                or 'zurgo helmsmasher' in row['name'].lower()
+                ):
+                tag_type = ['Voltron']
+                for tag in tag_type:
+                    if tag not in theme_tags:
+                        theme_tags.extend([tag])
+                        df.at[index, 'themeTags'] = theme_tags
+        # Overwrite file with voltron tag added
+        df.to_csv(f'csv_files/{color}_cards.csv', index=False)
+        print(f'"Voltron" themed cards in {color}_cards.csv have been tagged.\n')
+
+"""kindred_tagging()
 setup_tags()
 tag_for_artifacts_matter()
 tag_for_enchantments_matter()
 tag_for_card_draw()
 tag_for_tokens()
 tag_for_life_matters()
+tag_for_voltron()"""
+add_creatures_to_tags()
+sort_theme_tags()

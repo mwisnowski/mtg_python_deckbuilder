@@ -4,7 +4,7 @@ import pandas as pd # type: ignore
 import requests # type: ignore
 import inquirer.prompt # type: ignore
 
-from settings import banned_cards
+from settings import banned_cards, csv_directory
 
 colors = ['colorless', 'white', 'blue', 'black', 'green', 'red',
           'azorius', 'orzhov', 'selesnya', 'boros', 'dimir',
@@ -12,6 +12,7 @@ colors = ['colorless', 'white', 'blue', 'black', 'green', 'red',
           'bant', 'esper', 'grixis', 'jund', 'naya',
           'abzan', 'jeskai', 'mardu', 'sultai', 'temur',
           'dune', 'glint', 'ink', 'witch', 'yore', 'wubrg']
+
 color_abrv = ['Colorless', 'W', 'U', 'B', 'G', 'R',
               'U, W', 'B, W', 'G, W', 'R, W', 'B, U',
               'G, U', 'R, U', 'B, G', 'B, R', 'G, R',
@@ -51,12 +52,20 @@ def determine_legendary():
     # Filter dataframe
     while True:
         try:
-            with open('csv_files/cards.csv', 'r', encoding='utf-8'):
+            with open(f'{csv_directory}/cards.csv', 'r', encoding='utf-8'):
+                print('cards.csv exists.')
                 break
         except FileNotFoundError:
-            initial_setup()
+            # If the cards.csv file does not exist or can't be found, pull it from mtgjson.com
+            print('cards.csv not found, downloading from mtgjson')
+            url = 'https://mtgjson.com/api/v5/csv/cards.csv'
+            r = requests.get(url)
+            with open(f'{csv_directory}/cards.csv', 'wb') as outputfile:
+                outputfile.write(r.content)
         
-    df = pd.read_csv('csv_files/cards.csv', low_memory=False)
+    # Load cards.csv file into pandas dataframe so it can be further broken down
+    df = pd.read_csv(f'{csv_directory}/cards.csv', low_memory=False)
+    
     legendary_options = ['Legendary Creature', 'Legendary Artifact Creature', 'Legendary Enchantment Creature']
     filtered_df = df[df['type'].str.contains('|'.join(legendary_options))]
     """
@@ -80,14 +89,14 @@ def determine_legendary():
     columns_to_keep = ['name', 'faceName','edhrecRank','colorIdentity', 'colors', 'manaCost', 'manaValue', 'type', 'keywords', 'text', 'power', 'toughness']
     filtered_df = filtered_df[columns_to_keep]
     filtered_df.sort_values(by='name', key=lambda col: col.str.lower(), inplace=True)
-    filtered_df.to_csv('csv_files/legendary_cards.csv', index=False)
+    filtered_df.to_csv(f'{csv_directory}/legendary_cards.csv', index=False)
     print('legendary_cards.csv file generated.')
 
 def initial_setup():
     print('Checking for cards.csv file.\n')
     while True:
         try:
-            with open('csv_files/cards.csv', 'r', encoding='utf-8'):
+            with open(f'{csv_directory}/cards.csv', 'r', encoding='utf-8'):
                 print('cards.csv exists.')
                 break
         except FileNotFoundError:
@@ -95,11 +104,11 @@ def initial_setup():
             print('cards.csv not found, downloading from mtgjson')
             url = 'https://mtgjson.com/api/v5/csv/cards.csv'
             r = requests.get(url)
-            with open('csv_files/cards.csv', 'wb') as outputfile:
+            with open(f'{csv_directory}/cards.csv', 'wb') as outputfile:
                 outputfile.write(r.content)
     
     # Load cards.csv file into pandas dataframe so it can be further broken down
-    df = pd.read_csv('csv_files/cards.csv', low_memory=False)
+    df = pd.read_csv(f'{csv_directory}/cards.csv', low_memory=False)
     
     # Set frames that have nothing for color identity to be 'Colorless' instead
     df['colorIdentity'] = df['colorIdentity'].fillna('Colorless')
@@ -111,19 +120,19 @@ def initial_setup():
     for i in range(len(colors), len(color_abrv)):
         print(f'Checking for {colors[i]}_cards.csv.')
         try:
-            with open(f'csv_files/{colors[i]}_cards.csv', 'r', encoding='utf-8'):
+            with open(f'{csv_directory}/{colors[i]}_cards.csv', 'r', encoding='utf-8'):
                 print(f'{colors[i]}_cards.csv exists.\n')
         except FileNotFoundError:
             print(f'{colors[i]}_cards.csv not found, creating one.\n')
-            filter_by_color(df, 'colorIdentity', color_abrv[i], f'csv_files/{colors[i]}_cards.csv')
+            filter_by_color(df, 'colorIdentity', color_abrv[i], f'{csv_directory}/{colors[i]}_cards.csv')
     
     # Once by-color lists have been made, Determine legendary creatures
     determine_legendary()
     
     # Once Legendary creatures are determined, generate staple lists
     # generate_staple_lists()
-    
-def regenerate_csvs():
+
+def regenerate_csvs_all():
     """
     Pull the original cards.csv file and remake the {color}_cards.csv files.
     This is useful if a new set has since come out to ensure the databases are up-to-date
@@ -133,6 +142,7 @@ def regenerate_csvs():
     r = requests.get(url)
     with open('csv_files/cards.csv', 'wb') as outputfile:
         outputfile.write(r.content)
+    
     # Load cards.csv file into pandas dataframe so it can be further broken down
     df = pd.read_csv('csv_files/cards.csv', low_memory=False)
     
@@ -147,6 +157,35 @@ def regenerate_csvs():
         print(f'Regenerating {colors[i]}_cards.csv.')
         filter_by_color(df, 'colorIdentity', color_abrv[i], f'csv_files/{colors[i]}_cards.csv')
         print(f'A new {colors[i]}_cards.csv file has been made.\n')
+
+    # Once files are regenerated, create a new legendary list
+    determine_legendary()
+    
+def regenerate_csv_by_color(color):
+    """
+    Pull the original cards.csv file and remake the {color}_cards.csv files
+    """
+    # Determine the color_abv to use
+    color_abrv_index = colors.index(color)
+    color_abv = color_abrv[color_abrv_index]
+    print('Downloading cards.csv from mtgjson')
+    url = 'https://mtgjson.com/api/v5/csv/cards.csv'
+    r = requests.get(url)
+    with open(f'{csv_directory}/cards.csv', 'wb') as outputfile:
+        outputfile.write(r.content)
+    # Load cards.csv file into pandas dataframe so it can be further broken down
+    df = pd.read_csv(f'{csv_directory}/cards.csv', low_memory=False)
+    
+    # Set frames that have nothing for color identity to be 'Colorless' instead
+    df['colorIdentity'] = df['colorIdentity'].fillna('Colorless')
+    
+    # Color identity sorted cards
+    print(f'Regenerating {color}_cards.csv file.\n')
+    
+    # Regenerate the file
+    print(f'Regenerating {color}_cards.csv.')
+    filter_by_color(df, 'colorIdentity', color_abv, f'{csv_directory}/{color}_cards.csv')
+    print(f'A new {color}_cards.csv file has been made.\n')
 
     # Once files are regenerated, create a new legendary list
     determine_legendary()
@@ -165,7 +204,7 @@ def generate_staple_lists():
         except FileNotFoundError:
             print(f'{color.capitalize()} staples file not found.')
             print(f'Generating {color} staples list.')
-            df = pd.read_csv(f'csv_files/{color}_cards.csv')
+            df = pd.read_csv(f'{csv_directory}/{color}_cards.csv')
             df['edhrecRank'] = pd.to_numeric(df['edhrecRank'], downcast='integer', errors='coerce')
             df = df.dropna(subset=['edhrecRank'])
             df['edhrecRank'] = df['edhrecRank'].astype(int)
@@ -211,7 +250,7 @@ def setup():
         
         # Regenerate CSV files
         while choice == 'Regenerate CSV Files':
-            regenerate_csvs()
+            regenerate_csvs_all()
             break    
             # Go back
         while choice == 'Back':
@@ -219,4 +258,4 @@ def setup():
         break
 
 #setup()
-#regenerate_csvs()
+#regenerate_csv_by_color('colorless')

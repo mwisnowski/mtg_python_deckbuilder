@@ -144,7 +144,39 @@ def add_creatures_to_tags():
         
         # Overwrite file with kindred tags added
         df.to_csv(f'{csv_directory}/{color}_cards.csv', index=False)
-        print(f'Adding creature types to theme tags in {color}_cards.csv.')
+        print(f'Creature types added to theme tags in {color}_cards.csv.')
+
+def tag_for_card_types():
+    # Iterate through each {color}_cards.csv file to find artifact cards
+    # Also check for cards that care about artifacts
+    for color in colors:
+        print(f'Settings card type tags on {color}_cards.csv.')
+        
+        # Setup dataframe
+        try:
+            df = pd.read_csv(f'{csv_directory}/{color}_cards.csv', converters={'themeTags': pd.eval, 'creatureTypes': pd.eval})
+        except FileNotFoundError:
+            print(f'{color}_cards.csv not found, regenerating it.')
+            regenerate_csv_by_color(color)
+        
+        card_types = ['Artifact', 'Creature', 'Enchantment', 'Land', 'Instant', 'Sorcery', 'Planeswalker', 'Battle']
+        
+        # Tag for artifacts
+        for card_type in card_types:
+            print(f'Tagging cards in {color}_cards.csv that have the "{card_type}" type.')
+            for index, row in df.iterrows():
+                theme_tags = row['themeTags']
+                if card_type in row['type']:
+                    tag_type = [card_type]
+                    if card_type in ['Artifact', 'Enchantment', 'Land']:
+                        tag_type.append(f'{card_type}s Matter')
+                    for tag in tag_type:
+                        if tag not in theme_tags:
+                            theme_tags.extend([tag])
+                            df.at[index, 'themeTags'] = theme_tags
+            print(f'Cards with the "{card_type}" type in {color}_cards.csv have been tagged.\n')
+        # Overwrite file with artifact tag added
+        df.to_csv(f'{csv_directory}/{color}_cards.csv', index=False)
 
 def sort_theme_tags():
     for color in colors:
@@ -254,6 +286,8 @@ def tag_for_connive():
         for index, row in df.iterrows():
             theme_tags = row['themeTags']
             if pd.isna(row['text']):
+                continue
+            if pd.isna(row['keywords']):
                 continue
             
             # Logic for Connive cards
@@ -792,7 +826,7 @@ def tag_for_artifact_tokens():
         print(f'Artifact cards tagged in {color}_cards.csv.\n')
 
 def tag_for_artifacts_matter():
-    tag_for_artifact()
+    #tag_for_artifact()
     tag_for_artifact_tokens()
     for color in colors:
         print(f'Settings artifact token tags on {color}_cards.csv.')
@@ -1039,7 +1073,7 @@ def tag_for_enchantment_tokens():
         print(f'Enchantment cards tagged in {color}_cards.csv.\n')
 
 def tag_for_enchantments_matter():
-    tag_for_enchantment()
+    #tag_for_enchantment()
     tag_for_enchantment_tokens()
     for color in colors:
         print(f'Settings enchantment token tags on {color}_cards.csv.')
@@ -1361,13 +1395,13 @@ def tag_for_life_matters():
                         df.at[index, 'themeTags'] = theme_tags
             
             # Tagging for creature types that commonly care about life gain
-            if ('angel' in row['creatureTypes'].lower()
-                or 'bat' in row['creatureTypes'].lower()
-                or 'cleric' in row['creatureTypes'].lower()
-                or 'vampire' in row['creatureTypes'].lower()
+            if ('Angel' in row['creatureTypes']
+                or 'Bat' in row['creatureTypes']
+                or 'Cleric' in row['creatureTypes']
+                or 'Vampire' in row['creatureTypes']
                 ):
                 tag_type = ['Lifegain', 'Life Matters']
-                for tag in tag:
+                for tag in tag_type:
                     if tag not in theme_tags:
                         theme_tags.extend([tag])
                         df.at[index, 'themeTags'] = theme_tags
@@ -1399,7 +1433,7 @@ def tag_for_life_matters():
             theme_tags = row['themeTags']
             if pd.isna(row['text']):
                 continue
-            if ('bat' in row['creatureTypes'].lower()
+            if ('Bat' in row['creatureTypes']
                 or 'you lost life' in row['text'].lower()
                 or 'you gained and lost life' in row['text'].lower()
                 or 'you gained or lost life' in row['text'].lower()
@@ -1409,7 +1443,6 @@ def tag_for_life_matters():
                 or 'whenever you gain or lose life' in row['text'].lower()
                 or 'whenever you lose life' in row['text'].lower()
                 ):
-                print(row['name'])
                 tag_type = ['Lifeloss', 'Lifeloss Triggers', 'Life Matters']
                 for tag in tag_type:
                     if tag not in theme_tags:
@@ -1473,7 +1506,7 @@ def tag_for_counters():
                 or 'with counters on them' in row['text'].lower()
                 
                 # Specific creature types
-                or 'hydra' in row['creatureTypes'].lower()
+                or 'Hydra' in row['creatureTypes']
                 
                 # Speficially named cards
                 or 'damning verdict' in row['name'].lower()
@@ -1935,46 +1968,132 @@ def tag_for_spellslinger():
               'Note: I am considering a cantrip to be a card that has a mana value of 0-2,\n'
               'does some effect, and draws cards.\n'
               'This also includes activated abilities, that when the combined mana value\n'
-              'and ability cost are less than 2 mana')
+              'and ability cost are less than 2 mana.\n')
         for index, row in df.iterrows():
             theme_tags = row['themeTags']
             if pd.isna(row['text']):
                 continue
+            
+            # Take out Lands and Equipment
             if ('Land' in row['type']
                 or 'Equipment' in row['type']):
                 continue
-            if 'Cycling' in row['text']:
+            
+            # Remove ones that have specific kewords
+            if pd.notna(row['keywords']):
+                if ('Channel' in row['keywords']
+                    or 'Cycling' in row['keywords']
+                    or 'Connive' in row['keywords']
+                    or 'Learn' in row['keywords']
+                    or 'Ravenous' in row['keywords']
+                    ):
+                    continue
+            
+            # Remove cards that loot or have loot effects
+            if ('Loot' in row['themeTags']
+                ):
                 continue
             
             # Exclude specific cards
-            if ('Barbed Sextant' in row['name']
-                or 'Candles of Leng' in row['name']
-                or 'Carnage Altar' in row['name']
-                or 'Conch Horn' in row['name']
-                or 'Cranial Archive' in row['name']
-                or 'Culling Dais' in row['name']
-                or 'Fountain of Renewal' in row['name']
-                or 'Jeweled Bird' in row['name']
-                #or 'Key to the City' in row['name']
-                or 'Lantern of the Lost' in row['name']
-                or 'Liar\'s Pendulum' in row['name']
-                or 'Mazemind Tome' in row['name']
-                or 'Mind Stone' in row['name']
-                or 'Mirror of Galadriel' in row['name']
-                or 'Pendulum of Pattern' in row['name']
-                or 'Ravenous Amulet' in row['name']
-                or 'Reckoner Bankbuster' in row['name']
-                or 'Scrying Glass' in row['name']
-                or 'Silent Gravestone' in row['name']
-                or 'Soldevi Sentry' in row['name']
-                or 'Spell Satchel' in row['name']
-                or 'Stone of Erech' in row['name']
-                or 'Sunset Pyramid' in row['name']
-                or 'Terrarion' in row['name']
-                or 'Terrarion' in row['name']
-                or 'deals combat damage to a player, you may draw a card' in row['text']
-                or 'deals combat damage to a player, draw a card' in row['text']
-                ):
+            if (# Specific cards
+                'Archivist of Oghma' == row['name']
+                or 'Argothian Enchantress' == row['name']
+                or 'Audacity' == row['name']
+                or 'Betrayal' == row['name']
+                or 'Bequeathal' == row['name']
+                or 'Blood Scrivener' == row['name']
+                or 'Brigone, Soldier of Meletis' == row['name']
+                or 'compost' == row['name']
+                or 'Concealing Curtains // Revealing Eye' == row['name']
+                or 'Cryptbreaker' == row['name']
+                or 'Curiosity' == row['name']
+                or 'Curse of Vengenace' == row['name']
+                or 'Cryptex' == row['name']
+                or 'Dakra Mystic' == row['name']
+                or 'Dawn of a New Age' == row['name']
+                or 'Dockside Chef' == row['name']
+                or 'Dreamcatcher' == row['name']
+                or 'Edgewall Innkeeper' == row['name']
+                or 'Eidolon of Philosphy' == row['name']
+                or 'Evolveld Sleeper' == row['name']
+                or 'Femeref Enchantress' == row['name']
+                or 'Finneas, Ace Archer' == row['name']
+                or 'Flumph' == row['name']
+                or 'Folk Hero' == row['name']
+                or 'Frodo, Adventurous Hobbit' == row['name']
+                or 'Goblin Artisans' == row['name']
+                or 'Goldberry, River-Daughter' == row['name']
+                or 'Gollum, Scheming Guide' == row['name']
+                or 'Hatching Plans' == row['name']
+                or 'Ideas Unbound' == row['name']
+                or 'Ingenius Prodigy' == row['name']
+                or 'Ior Ruin Expedition' == row['name']
+                or 'Jace\'s Erasure' == row['name']
+                or 'Keeper of the Mind' == row['name']
+                or 'Kor Spiritdancer' == row['name']
+                or 'Lodestone Bauble' == row['name']
+                or 'Puresteel Paladin' == row['name']
+                or 'Jeweled Bird' == row['name']
+                or 'Mindblade Render' == row['name']
+                or 'Multani\'s Presence' == row['name']
+                or 'Nahiri\'s Lithoforming' == row['name']
+                or 'Ordeal of Thassa' == row['name']
+                or 'Pollywog Prodigy' == row['name']
+                or 'Priest of Forgotten Gods' == row['name']
+                or 'RAvenous Squirrel' == row['name']
+                or 'Read the Runes' == row['name']
+                or 'Red Death, Shipwrecker' == row['name']
+                or 'Roil Cartographer' == row['name']
+                or 'Sage of Lat-Nam' == row['name']
+                or 'Saprazzan Heir' == row['name']
+                or 'Scion of Halaster' == row['name']
+                or 'See Beyond' == row['name']
+                or 'Selhoff Entomber' == row['name']
+                or 'Shielded Aether Thief' == row['name']
+                or 'Shore Keeper' == row['name']
+                or 'Silverquill Silencer' == row['name']
+                or 'Soldevi Sage' == row['name']
+                or 'Soldevi Sentry' == row['name']
+                or 'Spiritual Focus' == row['name']
+                or 'Sram, Senior Edificer' == row['name']
+                or 'Staff of the Storyteller' == row['name']
+                or 'Stirge' == row['name']
+                or 'Sylvan Echoes' == row['name']
+                or 'Sythis, Harvest\'s Hand' == row['name']
+                or 'Sygg, River Cutthroat' == row['name']
+                or 'Tenuous Truce' == row['name']
+                or 'Test of Talents' == row['name']
+                or 'Thalakos Seer' == row['name']
+                or 'Tribute to Horobi // Echo of Death\'s Wail' == row['name']
+                or 'Vampire Gourmand' == row['name']
+                or 'Vampiric Rites' == row['name']
+                or 'Vampirism' == row['name']
+                or 'Vessel of Paramnesia' == row['name']
+                or 'Witch\'s Cauldron' == row['name']
+                or 'Wall of Mulch' == row['name']
+                or 'Waste Not' == row['name']
+                or 'Well Rested' == row['name']
+                
+                # Matching text or triggers
+                or 'cast from exile, you draw a card' in row['text']
+                or 'commit a crime, draw a card' in row['text']
+                or 'deals damage to an opponent' in row['text'].lower()
+                or 'deals combat damage to a player' in row['text'].lower()
+                or 'deals combat damage to a player, you may draw a card' in row['text'].lower()
+                or 'deals combat damage to a player, draw a card' in row['text'].lower()
+                or 'deals combat damage to an opponent' in row['text'].lower()
+                or 'first time this turn, draw' in row['text'].lower()
+                or 'Gift a card' in row['text']
+                or 'give a gift' in row['text'].lower()
+                or 'then draw a card if it has' in row['text']
+                or 'target of a spell, draw' in row['text']
+                or 'target of a spell you control, draw' in row['text']
+                or 'unless that player pays' in row['text']
+                
+                # Matches relating to skipping draws
+                or 'draw step, instead you may skip' in row['text'].lower()
+                or 'skip that draw' in row['text'].lower()
+                ): 
                 continue
             
             
@@ -1986,28 +2105,72 @@ def tag_for_spellslinger():
                     if ('draw a card' in row['text'].lower()
                         or 'draw a card.' in row['text'].lower()
                         or 'draw two cards' in row['text'].lower()
+                        or 'draw three cards' in row['text'].lower()
                         or 'draw x cards' in row['text'].lower()
+                        or 'draws a card' in row['text'].lower()
                         ):
-                        if ('enters, you draw a card' in row['text']
+                        if ('enters, draw a card' in row['text']
+                            or 'enters, you draw a card' in row['text']
                             or 'enters, you may draw a card' in row['text']
+                            
+                            # Specific cards
+                            or 'Cling to Dust' == row['name']
+                            or 'Deduce' == row['name']
+                            or 'Everdream' == row['name']
+                            or 'Inverted Iceberg' == row['name']
+                            or 'Lunar Rejection' == row['name']
+                            or 'Open of the Sea' == row['name']
+                            or 'Pawpatch Formation' == row['name']
+                            or 'Scour All Possibilities' == row['name']
+                            or 'Sleight of Hand' == row['name']
+                            or 'Think Twice' == row['name']
+                            or 'Train of Thought' == row['name']
+                            or 'Whispers of the Muse' == row['name']
                             ):
-                            print(f'{row['name']}:  {row['text']}')
-                            keyboard.wait('space')
                             tag_type = ['Cantrips', 'Spellslinger', 'Spells Matter']
                             for tag in tag_type:
                                 if tag not in theme_tags:
                                     theme_tags.extend([tag])
                                     df.at[index, 'themeTags'] = theme_tags
                         elif ('{T}: Draw a card' in row['text']
-                            or '{T}: Draw a card' in row['text']
+                            or '{T}: Draw' in row['text']
+                            or 'another legendary creature, draw a card' in row['text'].lower()
+                            or 'artifact or land: draw' in row['text'].lower()
                             or 'Blood token' in row['text']
-                            or f'{1}, Sacrifice {row['name']}: Draw a card' in row['text']
+                            or 'creature you control, draw' in row['text'].lower()
+                            or 'creature\'s toughness' in row['text'].lower()
                             or 'Clue' in row['type']
-                            or 'you may pay {2}. If you do, draw a card' in row['text']
+                            or 'dies, draw' in row['text']
+                            or 'dies, choose one' in row['text']
+                            or 'dies, you draw a card' in row['text']
+                            or 'discard' in row['text'].lower()
+                            or 'discard a card' in row['text'].lower()
+                            or 'discard your hand' in row['text'].lower()
+                            or 'each player may draw' in row['text'].lower()
+                            or 'each other player' in row['text']
+                            or 'each opponent. draw' in row['text'].lower()
+                            or 'flip a coin' in row['text']
+                            or 'if a player would draw' in row['text'].lower()
+                            or 'if an opponent would draw' in row['text'].lower()
+                            or 'if you would draw' in row['text'].lower()
+                            or 'sacrifice a land: draw' in row['text'].lower()
+                            or 'each player may draw' in row['text'].lower()
+                            or 'opponent controls, draw' in row['text'].lower()
+                            or 'opponent controls, you may draw' in row['text'].lower()
+                            or 'or greater, draw a card' in row['text'].lower()
+                            or 'this turn, draw a card' in row['text'].lower()
+                            or 'turned face up, draw a card' in row['text'].lower()
+                            or 'upkeep, each player draws' in row['text'].lower()
+                            or 'you countrol: draw a card' in row['text'].lower()
+                            or 'you may pay' in row['text']
+                            or 'whenever an opponent draws a card' in row['text'].lower()
+                            or f'{{1}}, Sacrifice {row['name']}: Draw a card' in row['text']
+                            or f'{row['name']} dies' in row['text']
+                            or f'{row['name']} dies, draw a card' in row['text']
+                            or f'{row['name']} dies, you may draw a card' in row['text']
                             ):
                             continue
-                        else:
-                            if ('{1}' in row['text']
+                        elif ('{1}' in row['text']
                                 or '{2}' in row['text']
                                 or '{3}' in row['text']
                                 or '{4}' in row['text']
@@ -2015,44 +2178,41 @@ def tag_for_spellslinger():
                                 ):
                                 ability_costs = [1, 2, 3]
                                 for i in ability_costs:
-                                    if (f'{{{i}}}' in row['text']):
+                                    if (f'{{{i}}}' in row['text']
+                                        or f'pay {i} life: draw' in row['text'].lower()
+                                        ):
                                         if i + row['manaValue'] >= 3:
-                                            print(f'{row['name']}: {i + row['manaValue']}')
                                             continue     
                                         else:
-                                            print(f'{row['name']}:  {row['text']}')
-                                            keyboard.wait('space')
                                             tag_type = ['Cantrips', 'Spellslinger', 'Spells Matter']
                                             for tag in tag_type:
                                                 if tag not in theme_tags:
                                                     theme_tags.extend([tag])
                                                     df.at[index, 'themeTags'] = theme_tags
-                            else:
-                                print(f'{row['name']}:  {row['text']}')
-                                keyboard.wait('space')
-                                tag_type = ['Cantrips', 'Spellslinger', 'Spells Matter']
-                                for tag in tag_type:
-                                    if tag not in theme_tags:
-                                        theme_tags.extend([tag])
-                                        df.at[index, 'themeTags'] = theme_tags
-        print(f'Cantrip cards tagged in {color}_cards.csv for Storm cards.')
-        keyboard.wait('space')
+                        else:
+                            tag_type = ['Cantrips', 'Spellslinger', 'Spells Matter']
+                            for tag in tag_type:
+                                if tag not in theme_tags:
+                                    theme_tags.extend([tag])
+                                    df.at[index, 'themeTags'] = theme_tags
+        print(f'\nCantrip cards tagged in {color}_cards.csv.')
+        
         # Overwrite file with Spells Matter tag added
         df.to_csv(f'{csv_directory}/{color}_cards.csv', index=False)
-        print(f'"Lands Matter" themed cards in {color}_cards.csv have been tagged.\n')
+        print(f'"Spellslinger" themed cards in {color}_cards.csv have been tagged.\n')
                
 #kindred_tagging()
-#setup_tags()
-"""
+"""setup_tags()
 add_creatures_to_tags()
+tag_for_card_types()
 tag_for_artifacts_matter()
 tag_for_enchantments_matter()
 tag_for_card_draw()
 tag_for_tokens()
-tag_for_life_matters()
+tag_for_life_matters()"""
 tag_for_voltron()
 tag_for_wheels()
 tag_for_lands_matter()
-sort_theme_tags()
-"""
+
 tag_for_spellslinger()
+sort_theme_tags()

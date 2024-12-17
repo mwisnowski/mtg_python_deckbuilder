@@ -29,7 +29,7 @@ colors = ['colorless', 'white', 'blue', 'black', 'red', 'green',
           'bant', 'esper', 'grixis', 'jund', 'naya',
           'abzan', 'jeskai', 'mardu', 'sultai', 'temur',
           'dune', 'glint', 'ink', 'witch', 'yore', 'wubrg',
-          'legendary']
+          'commander']
 
 counter_types = ['+0/+1', '+0/+2', '+1/+0', '+1/+2', '+2/+0', '+2/+2',
                  '-0/-1', '-0/-2', '-1/-0', '-1/-2', '-2/-0', '-2/-2',

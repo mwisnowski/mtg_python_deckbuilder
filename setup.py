@@ -258,4 +258,4 @@ def setup():
         break
 
 #setup()
-#regenerate_csv_by_color('colorless')
+#regenerate_csv_by_color('white')

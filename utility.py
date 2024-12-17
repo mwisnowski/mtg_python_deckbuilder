@@ -10,9 +10,7 @@ def pluralize(word):
 
 def sort_list(list_to_sort):
     if isinstance(list_to_sort, list):
-        print(list_to_sort)
         list_to_sort = sorted(list_to_sort)
-        print(list_to_sort)
         return list_to_sort
     else:
         return list_to_sort

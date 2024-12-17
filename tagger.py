@@ -6,7 +6,7 @@ import pandas as pd # type: ignore
 import settings
 
 from settings import artifact_tokens, csv_directory, colors, counter_types, enchantment_tokens, num_to_search, triggers
-from setup import regenerate_csvs_all, regenerate_csv_by_color
+from setup import regenerate_csv_by_color
 from utility import pluralize, sort_list
 
 karnstruct = '0/0 colorless Construct'
@@ -62,66 +62,50 @@ def tag_by_color(df, color):
     print('====================\n')
     kindred_tagging(df, color)
     print('====================\n')
-    #keyboard.wait('space')
     create_theme_tags(df, color)
     print('====================\n')
     
-    """# Go through each type of tagging
-    #keyboard.wait('space')
+    # Go through each type of tagging
     add_creatures_to_tags(df, color)
     print('====================\n')
-    #keyboard.wait('space')
     tag_for_card_types(df, color)
     print('====================\n')
     tag_for_keywords(df, color)
     print('====================\n')
     
     # Tag for various effects
-    #keyboard.wait('space')
     tag_for_cost_reduction(df, color)
     print('====================\n')
-    #keyboard.wait('space')
     tag_for_card_draw(df, color)
     print('====================\n')
-    #keyboard.wait('space')
     tag_for_artifacts(df, color)
     print('====================\n')
-    #keyboard.wait('space')
     tag_for_enchantments(df, color)
     print('====================\n')
-    #keyboard.wait('space')
     tag_for_exile_matters(df, color)
     print('====================\n')
-    #keyboard.wait('space')
     tag_for_tokens(df, color)
     print('====================\n')
-    #keyboard.wait('space')
     tag_for_life_matters(df, color)
     print('====================\n')
-    #keyboard.wait('space')
     tag_for_counters(df, color)
     print('====================\n')
-    #keyboard.wait('space')
     tag_for_voltron(df, color)
     print('====================\n')
-    #keyboard.wait('space')
     tag_for_spellslinger(df, color)
     print('====================\n')
-    #keyboard.wait('space')
     tag_for_ramp(df, color)
     print('====================\n')
     tag_for_themes(df, color)
     print('====================\n')
     
-    """
-    tag_for_toughness(df, color)
     
     # Lastly, sort all theme tags for easier reading
     sort_theme_tags(df, color)
     df.to_csv(f'{csv_directory}/{color}_cards.csv', index=False)
     print(df)
     print(f'Tags are done being set on {color}_cards.csv')
-    keyboard.wait('space')
+    #keyboard.wait('space')
 
 ## Determine any non-creature cards that have creature types mentioned
 def kindred_tagging(df, color):
@@ -283,7 +267,8 @@ def tag_for_keywords(df, color):
         if pd.notna(row['keywords']):
             keywords = row['keywords']
             tag_type = []
-            for keyword in keywords:
+            split_keywords = keywords.split()
+            for keyword in split_keywords:
                 tag_type.extend([keyword])
                 for tag in tag_type:
                     if tag not in theme_tags:
@@ -305,7 +290,7 @@ def sort_theme_tags(df, color):
 ### Cost reductions
 ## General or based on type of card
 def tag_for_cost_reduction(df, color):
-    print(f'Tagging cards in {color}_cards.csv that reduce spell costs.:\n\n')
+    print(f'Tagging cards in {color}_cards.csv that reduce spell costs:\n\n')
     artifact_cost_reduction(df, color)
     print('==========\n')
     enchantment_cost_reduction(df, color)
@@ -2583,6 +2568,8 @@ def tag_for_spellslinger(df, color):
     tag_for_magecraft(df, color)
     print('==========\n')
     tag_for_cantrips(df, color)
+    print('==========\n')
+    tag_for_spell_copy(df, color)
     print(f'"Spellslinger" themed cards in {color}_cards.csv have been tagged.\n')
 
 ## Storm
@@ -2878,21 +2865,27 @@ def tag_for_spell_copy(df, color):
     for index, row in df.iterrows():
         theme_tags = row['themeTags']
         if pd.notna(row['text']):
-            if ('' in row['text'].lower()
+            if ('copy a spell' in row['text'].lower()
+                or 'copy it' in row['text'].lower()
+                or 'copy that spell' in row['text'].lower()
+                or 'copy target' in row['text'].lower()
+                or 'has casualty' in row['text'].lower()
+                or 'has conspire' in row['text'].lower()
                 ):
                 tag_type = ['Spell Copy']
                 for tag in tag_type:
                     if tag not in theme_tags:
                         theme_tags.extend([tag])
                         df.at[index, 'themeTags'] = theme_tags
-        if pd.notna(row['keywords']):
-            if ('' in row['keywords']
-                ):
-                tag_type = ['Spell Copy']
-                for tag in tag_type:
-                    if tag not in theme_tags:
-                        theme_tags.extend([tag])
-                        df.at[index, 'themeTags'] = theme_tags
+        if ('Magecraft' in theme_tags
+            or 'Storm' in theme_tags
+            or 'Spellslinger' in theme_tags
+            ):
+            tag_type = ['Spell Copy']
+            for tag in tag_type:
+                if tag not in theme_tags:
+                    theme_tags.extend([tag])
+                    df.at[index, 'themeTags'] = theme_tags
     
     print(f'"Spell Copy" cards in {color}_cards.csv have been tagged.\n')
 
@@ -3152,11 +3145,15 @@ def tag_for_themes(df, color):
     print('==========\n')
     tag_for_control(df, color)
     print('==========\n')
+    tag_for_energy(df, color)
+    print('==========\n')
     tag_for_infect(df, color)
     print('==========\n')
     search_for_legends(df, color)
     print('==========\n')
     tag_for_mill(df, color)
+    print('==========\n')
+    tag_for_monarch(df, color)
     print('==========\n')
     tag_for_planeswalkers(df, color)
     print('==========\n')
@@ -3164,15 +3161,19 @@ def tag_for_themes(df, color):
     print('==========\n')
     tag_for_stax(df, color)
     print('==========\n')
+    tag_for_theft(df, color)
+    print('==========\n')
     tag_for_toughness(df, color)
     print('==========\n')
     tag_for_topdeck(df, color)
     print('==========\n')
     tag_for_x_spells(df, color)
     
+    print(f'Other themes have been tagged in {color}_cards.csv.')
+    
 ## Aggro
 def tag_for_aggro(df, color):
-    print(f'Tagging cards in {color}_cards.csv that fit the "" theme.')
+    print(f'Tagging cards in {color}_cards.csv that fit the "Aggro" theme.')
     for index, row in df.iterrows():
         theme_tags = row['themeTags']
         if pd.notna(row['text']):
@@ -3220,7 +3221,7 @@ def tag_for_aggro(df, color):
                     theme_tags.extend([tag])
                     df.at[index, 'themeTags'] = theme_tags
     
-    print(f'"" cards in {color}_cards.csv have been tagged.\n')
+    print(f'"Aggro" cards in {color}_cards.csv have been tagged.\n')
 
 ## Aristocrats
 def search_for_aristocrats(df, color):
@@ -3364,7 +3365,6 @@ def tag_for_big_mana(df, color):
                 or 'value 6 or greater' in row['text'].lower()
                 or 'value 7 or greater' in row['text'].lower()
                 ):
-                print(row['name'])
                 tag_type = ['Big Mana']
                 for tag in tag_type:
                     if tag not in theme_tags:
@@ -3401,7 +3401,7 @@ def tag_for_big_mana(df, color):
                         df.at[index, 'themeTags'] = theme_tags
                         
         # Already tagged things
-        if ('Cost Reduction' in row['manaCost']
+        if ('Cost Reduction' in theme_tags
             ):
             tag_type = ['Big Mana']
             for tag in tag_type:
@@ -3483,6 +3483,7 @@ def tag_for_burn(df, color):
                 or 'opponent lost life' in row['text'].lower()
                 or 'opponent loses life' in row['text'].lower()
                 or 'player loses life' in row['text'].lower()
+                or 'unspent mana causes that player to lose that much life' in row['text'].lower()
                 or 'would deal an amount of noncombat damage' in row['text'].lower()
                 or 'would deal damage' in row['text'].lower()
                 or 'would deal noncombat damage' in row['text'].lower()
@@ -3533,7 +3534,7 @@ def tag_for_clones(df, color):
                 or '"legend rule" doesn\'t apply' in row['text'].lower()
                 or 'twice that many of those tokens' in row['text'].lower()
                 ):
-                tag_type = []
+                tag_type = ['Clones']
                 for tag in tag_type:
                     if tag not in theme_tags:
                         theme_tags.extend([tag])
@@ -3541,7 +3542,7 @@ def tag_for_clones(df, color):
         if pd.notna(row['keywords']):
             if ('Myriad' in row['keywords']
                 ):
-                tag_type = []
+                tag_type = ['Clones']
                 for tag in tag_type:
                     if tag not in theme_tags:
                         theme_tags.extend([tag])
@@ -3583,6 +3584,30 @@ def tag_for_control(df, color):
     
     print(f'"Control" cards in {color}_cards.csv have been tagged.\n')
 
+## Energy
+def tag_for_energy(df, color):
+    print(f'Tagging cards in {color}_cards.csv that fit the "Energy" theme.')
+    for index, row in df.iterrows():
+        theme_tags = row['themeTags']
+        if pd.notna(row['text']):
+            if ('{e}' in row['text'].lower()
+                ):
+                tag_type = ['Energy']
+                for tag in tag_type:
+                    if tag not in theme_tags:
+                        theme_tags.extend([tag])
+                        df.at[index, 'themeTags'] = theme_tags
+        if pd.notna(row['keywords']):
+            if ('' in row['keywords'].lower()
+                ):
+                tag_type = []
+                for tag in tag_type:
+                    if tag not in theme_tags:
+                        theme_tags.extend([tag])
+                        df.at[index, 'themeTags'] = theme_tags
+    
+    print(f'"Energy" cards in {color}_cards.csv have been tagged.\n')
+    
 ## Infect
 def tag_for_infect(df, color):
     print(f'Tagging cards in {color}_cards.csv that fit the "Infect" theme.')
@@ -3593,7 +3618,7 @@ def tag_for_infect(df, color):
                 or 'poison counter' in row['text'].lower()
                 or 'toxic 1' in row['text'].lower()
                 ):
-                tag_type = []
+                tag_type = ['Infect']
                 for tag in tag_type:
                     if tag not in theme_tags:
                         theme_tags.extend([tag])
@@ -3704,6 +3729,32 @@ def tag_for_mill(df, color):
     
     print(f'"Mill" cards in {color}_cards.csv have been tagged.\n')
 
+## Monarch
+def tag_for_monarch(df, color):
+    print(f'Tagging cards in {color}_cards.csv that fit the "Monarch" theme.')
+    for index, row in df.iterrows():
+        theme_tags = row['themeTags']
+        if pd.notna(row['text']):
+            if ('you are the monarch' in row['text'].lower()
+                or 'you become the monarch' in row['text'].lower()
+                or 'you can\'t become the monarch' in row['text'].lower()
+                ):
+                tag_type = ['Monarch']
+                for tag in tag_type:
+                    if tag not in theme_tags:
+                        theme_tags.extend([tag])
+                        df.at[index, 'themeTags'] = theme_tags
+        if pd.notna(row['keywords']):
+            if ('Monarch' in row['keywords'].lower()
+                ):
+                tag_type = ['Monarch']
+                for tag in tag_type:
+                    if tag not in theme_tags:
+                        theme_tags.extend([tag])
+                        df.at[index, 'themeTags'] = theme_tags
+    
+    print(f'"Monarch" cards in {color}_cards.csv have been tagged.\n')
+
 ## Planeswalkers
 def tag_for_planeswalkers(df, color):
     print(f'Tagging cards in {color}_cards.csv that fit the "Planeswalkers/Super Friends" theme.')
@@ -3800,7 +3851,7 @@ def tag_for_reanimate(df, color):
 
 ## Stax
 def tag_for_stax(df, color):
-    print(f'Tagging cards in {color}_cards.csv that fit the "" theme.')
+    print(f'Tagging cards in {color}_cards.csv that fit the "Stax" theme.')
     for index, row in df.iterrows():
         theme_tags = row['themeTags']
         if pd.notna(row['text']):
@@ -3833,7 +3884,7 @@ def tag_for_stax(df, color):
                 or 'you control your opponent' in row['text'].lower()
                 or 'you gain protection' in row['text'].lower()
                 ):
-                tag_type = []
+                tag_type = ['Stax']
                 for tag in tag_type:
                     if tag not in theme_tags:
                         theme_tags.extend([tag])
@@ -3841,14 +3892,53 @@ def tag_for_stax(df, color):
         
         if ('Control' in theme_tags
             ):
-            tag_type = []
+            tag_type = ['Stax']
             for tag in tag_type:
                 if tag not in theme_tags:
                     theme_tags.extend([tag])
                     df.at[index, 'themeTags'] = theme_tags
     
-    print(f'"" cards in {color}_cards.csv have been tagged.\n')
+    print(f'"Stax" cards in {color}_cards.csv have been tagged.\n')
 
+## Theft
+def tag_for_theft(df, color):
+    print(f'Tagging cards in {color}_cards.csv that fit the "Theft" theme.')
+    for index, row in df.iterrows():
+        theme_tags = row['themeTags']
+        if pd.notna(row['text']):
+            if ('cast a spell you don\'t own' in row['text'].lower()
+                or 'cast but don\'t own' in row['text'].lower()
+                or 'cost to cast this spell, sacrifice' in row['text'].lower()
+                or 'control but don\'t own' in row['text'].lower()
+                or 'exile top of target player\'s library' in row['text'].lower()
+                or 'exile top of each player\'s library' in row['text'].lower()
+                or 'gain control of' in row['text'].lower()
+                or 'target opponent\'s library' in row['text'].lower()
+                or 'that player\'s library' in row['text'].lower()
+                or 'you control enchanted creature' in row['text'].lower()
+                ):
+                tag_type = ['Theft']
+                for tag in tag_type:
+                    if tag not in theme_tags:
+                        theme_tags.extend([tag])
+                        df.at[index, 'themeTags'] = theme_tags
+        
+        if ('Adarkar Valkyrie' == row['name']
+            or 'Captain N\'gathrod' == row['name']
+            or 'Hostage Taker' == row['name']
+            or 'Siphon Insite' == row['name']
+            or 'Thief of Sanity' == row['name']
+            or 'Xanathar, Guild Kingpin' == row['name']
+            or 'Zara, Renegade Recruiter' == row['name']
+            ):
+            tag_type = ['Theft']
+            for tag in tag_type:
+                if tag not in theme_tags:
+                    theme_tags.extend([tag])
+                    df.at[index, 'themeTags'] = theme_tags
+    
+    print(f'"Theft" cards in {color}_cards.csv have been tagged.\n')
+    
 ## Toughness Matters
 def tag_for_toughness(df, color):
     print(f'Tagging cards in {color}_cards.csv that fit the "Toughness Matters" theme.')
@@ -3879,12 +3969,13 @@ def tag_for_toughness(df, color):
                         theme_tags.extend([tag])
                         df.at[index, 'themeTags'] = theme_tags
         
-        if row['toughness'] > row['power']:
-            tag_type = ['Toughness Matters']
-            for tag in tag_type:
-                if tag not in theme_tags:
-                    theme_tags.extend([tag])
-                    df.at[index, 'themeTags'] = theme_tags
+        if (isinstance(df.at[index, 'power'], int) and isinstance(df.at[index, 'toughness'], int)):
+            if row['toughness'] > row['power']:
+                tag_type = ['Toughness Matters']
+                for tag in tag_type:
+                    if tag not in theme_tags:
+                        theme_tags.extend([tag])
+                        df.at[index, 'themeTags'] = theme_tags
     
     print(f'"Toughness Matters" cards in {color}_cards.csv have been tagged.\n')
 
@@ -3924,28 +4015,38 @@ def tag_for_topdeck(df, color):
 ## X Spells
 def tag_for_x_spells(df, color):
     print(f'Tagging cards in {color}_cards.csv that fit the "X Spells" theme.')
+    df['manaCost'] = df['manaCost'].astype(str)
     for index, row in df.iterrows():
         theme_tags = row['themeTags']
         if pd.notna(row['text']):
-            if ('' in row['text'].lower()
+            if ('cost {x} less' in row['text'].lower()
+                or 'don\'t lose this' in row['text'].lower()
+                or 'don\'t lose unspent' in row['text'].lower()
+                or 'lose unused mana' in row['text'].lower()
+                or 'unused mana would empty' in row['text'].lower()
+                or 'with {x} in its' in row['text'].lower()
+                or 'you cast cost {1} less' in row['text'].lower()
+                or 'you cast cost {2} less' in row['text'].lower()
+                or 'you cast cost {3} less' in row['text'].lower()
+                or 'you cast cost {4} less' in row['text'].lower()
+                or 'you cast cost {5} less' in row['text'].lower()
                 ):
                 tag_type = ['X Spells']
                 for tag in tag_type:
                     if tag not in theme_tags:
                         theme_tags.extend([tag])
                         df.at[index, 'themeTags'] = theme_tags
-        if pd.notna(row['keywords']):
-            if ('' in row['keywords']
-                ):
-                tag_type = ['X Spells']
-                for tag in tag_type:
-                    if tag not in theme_tags:
-                        theme_tags.extend([tag])
-                        df.at[index, 'themeTags'] = theme_tags
+        if ('{X}' in row['manaCost']
+            ):
+            tag_type = ['X Spells']
+            for tag in tag_type:
+                if tag not in theme_tags:
+                    theme_tags.extend([tag])
+                    df.at[index, 'themeTags'] = theme_tags
     
     print(f'"X Spells" cards in {color}_cards.csv have been tagged.\n')
 
 
 #regenerate_csv_by_color('colorless')
-
-load_dataframe('colorless')
+for color in colors:
+    load_dataframe(color)

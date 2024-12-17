@@ -83,7 +83,7 @@ def determine_commanders():
             or 'Legendary Planeswalker' in row['type']):
             if 'Legendary Artifact Creature' not in row['type']:
                 if pd.notna(row['text']):
-                    if f'{row['name']} can be your commander' in row['text']:
+                    if f'{row['name']} can be your commander' not in row['text']:
                         rows_to_drop.append(index)
         for illegal_set in non_legel_sets:
             if illegal_set in row['printings']:
@@ -284,4 +284,4 @@ def setup():
 
 #regenerate_csvs_all()
 #regenerate_csv_by_color('white')
-#determine_commanders()
+determine_commanders()

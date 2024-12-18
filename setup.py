@@ -37,7 +37,7 @@ def filter_by_color(df, column_name, value, new_csv_name):
     filtered_df = filtered_df.loc[filtered_df['securityStamp'] != 'heart']
     filtered_df = filtered_df.loc[filtered_df['securityStamp'] != 'acorn']
     
-    card_types = ['Plane —', 'Conspiracy', 'Vanguard', 'Scheme', 'Phenomenon', 'Stickers', 'Attraction']
+    card_types = ['Plane —', 'Conspiracy', 'Vanguard', 'Scheme', 'Phenomenon', 'Stickers', 'Attraction', 'Hero']
     for card_type in card_types:
         filtered_df = filtered_df[~filtered_df['type'].str.contains(card_type)]
     filtered_df['faceName'] = filtered_df['faceName'].fillna(filtered_df['name'])

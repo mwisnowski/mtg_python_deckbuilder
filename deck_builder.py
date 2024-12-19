@@ -608,6 +608,7 @@ class DeckBuilder:
         #if self.land_cards < self.ideal_land_count:
         #    pass
         basic_lands = ['Plains', 'Island', 'Swamp', 'Forest', 'Mountain']
+        total_basics = 0
         for basic_land in basic_lands:
             num_basics = 0
             if basic_land in self.land_cards:
@@ -615,8 +616,10 @@ class DeckBuilder:
                     num_basics += 1
                     self.land_cards.remove(basic_land)
                 self.land_cards.append(f'{basic_land} x {num_basics}')
+                total_basics += num_basics
         #print(*self.land_cards, sep='\n')
-        #print(f'Total lands: {self.land_count}')
+        print(f'Total lands: {self.land_count}')
+        print(total_basics)
     
     def add_basics(self):
         self.land_count = 0

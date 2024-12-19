@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import keyboard # type: ignore
 import pandas as pd # type: ignore
 
 import settings
@@ -15,9 +14,9 @@ karnstruct = '0/0 colorless Construct'
 ## Load the dataframe
 def load_dataframe(color):
     # Setup an output file for card processing
-    f = open(f'tag_output/{color}_tagging.txt', 'w+')
+    """f = open(f'tag_output/{color}_tagging.txt', 'w+')
     f.write(f'Begin tagging {color}_cards.csv.\n')
-    f.close()
+    f.close()"""
     
     # Iterate through the defined {color}_cards.csv file to find spells matter cards
     print(f'Loading {color}_cards.csv as a pandas dataframe.\n')
@@ -59,7 +58,6 @@ def tag_by_color(df, color):
     #    create_theme_tags(df, color)
     #else:
     #    pass
-    """print('====================\n')
     kindred_tagging(df, color)
     print('====================\n')
     create_theme_tags(df, color)
@@ -97,20 +95,20 @@ def tag_by_color(df, color):
     tag_for_ramp(df, color)
     print('====================\n')
     tag_for_themes(df, color)
-    print('====================\n')"""
-    tag_for_board_wipes(df, color)
-    
+    print('====================\n')
+    tag_for_interaction(df, color)
     
     # Lastly, sort all theme tags for easier reading
     sort_theme_tags(df, color)
     df.to_csv(f'{csv_directory}/{color}_cards.csv', index=False)
-    print(df)
+    #print(df)
     print(f'Tags are done being set on {color}_cards.csv')
-    keyboard.wait('esc')
+    #keyboard.wait('esc')
 
 ## Determine any non-creature cards that have creature types mentioned
 def kindred_tagging(df, color):
-    print(f'Settings creature type tags on {color}_cards.csv:\n\n')
+    print(f'Settings creature type tags on {color}_cards.csv.\n')
+    print('===============\n')
     
     # Create new blank list column called 'creatureTypes
     df['creatureTypes'] = [[] for _ in range(len(df))]
@@ -219,10 +217,10 @@ def tag_for_card_types(df, color):
         for index, row in df.iterrows():
             theme_tags = row['themeTags']
             if card_type in row['type']:
-                tag_type = [card_type]
+                tag_type = []
                 
                 # Tagging for artifacts, enchantments, and lands matter
-                if card_type in ['Artifact', 'Enchantment', 'Land']:
+                if card_type in ['Artifact', 'Battle', 'Enchantment', 'Land']:
                     tag_type.extend([f'{card_type}s Matter'])
                 
                 # Tagging for spellslinger/spells matter
@@ -291,7 +289,8 @@ def sort_theme_tags(df, color):
 ### Cost reductions
 ## General or based on type of card
 def tag_for_cost_reduction(df, color):
-    print(f'Tagging cards in {color}_cards.csv that reduce spell costs:\n\n')
+    print(f'Tagging cards in {color}_cards.csv that reduce spell costs.\n')
+    print('===============\n')
     artifact_cost_reduction(df, color)
     print('==========\n')
     enchantment_cost_reduction(df, color)
@@ -461,8 +460,8 @@ def tag_for_affinity(df, color):
 ### Card draw/advantage
 ## General card draw/advantage
 def tag_for_card_draw(df, color):
-    print(f'Tagging cards that care about or give card draw in {color}_cards.csv:\n\n')
-    
+    print(f'Tagging cards that care about or give card draw in {color}_cards.csv.\n')
+    print('===============\n')
     tag_for_conditional_draw(df, color)
     print('==========\n')
     tag_for_loot(df, color)
@@ -585,8 +584,9 @@ def tag_for_conditional_draw(df, color):
 ## Loot effects, I.E. draw a card, discard a card. Or discard a card, draw a card
 def tag_for_loot(df, color):
     print(f'Checking for non-standard "Loot" effects in {color}_cards.csv.\n'
-          'A non-standard "Loot" effect would be effects like "Connive", "Cycling", or "Blood Tokens".\n\n')
+          'A non-standard "Loot" effect would be effects like "Connive", "Cycling", or "Blood Tokens".\n')
     # Non-standard loot effects
+    print('=====\n')
     tag_for_connive(df, color)
     print('=====\n')
     tag_for_cycling(df, color)
@@ -966,7 +966,8 @@ def tag_for_wheels(df, color):
 ### Artifacts
 def tag_for_artifacts(df, color):
     # Iterate through each {color}_cards.csv file to find cards that care about artifacts
-    print(f'Tagging Artifact-related cards in {color}_cards.csv:\n\n')
+    print(f'Tagging "Artifact"-related cards in {color}_cards.csv.\n\n')
+    print('===============\n')
     tag_for_artifact_tokens(df, color)
     print('==========\n')
     tag_equipment(df, color)
@@ -976,18 +977,18 @@ def tag_for_artifacts(df, color):
     tag_for_artifact_triggers(df, color)
     
     # Overwrite file with artifacts matter tag added
-    print(f'Artifact matters cards tagged in {color}_cards.csv.\n')
+    print(f'"Artifacts Matter" cards tagged in {color}_cards.csv.\n')
 
 ## Artifact Tokens
 def tag_for_artifact_tokens(df, color):
-    print(f'Setting Artifact Token tags on {color}_cards.csv:\n')
+    print(f'Setting Artifact Token tags on {color}_cards.csv.\n')
     
     # Tag for artifact token creation
     print(f'Tagging cards in {color}_cards.csv that create or modify creation of Artifact tokens and don\'t have Fabricate.')
     tag_for_generic_artifact_tokens(df, color)
     print('=====\n')
     tag_for_predefined_artifact_tokens(df, color)
-    
+    print('=====\n')
     print(f'Cards in {color}_cards.csv that create or modify creation of Artifact tokens and don\'t have Fabricate have been tagged.\n')
     
     print('=====\n')
@@ -1251,7 +1252,8 @@ def tag_vehicles(df, color):
 def tag_for_enchantments(df, color):
     # Iterate through each {color}_cards.csv file to find enchantment cards
     # Also check for cards that care about enchantments
-    print(f'Tagging "Enchantment" themed cards in {color}_cards.csv have been tagged.\n')
+    print(f'Tagging "Enchantment Matter" themed cards in {color}_cards.csv.\n')
+    print('===============\n')
     tag_for_enchantment_tokens(df, color)
     print('==========\n')
     tag_for_enchantments_matter(df, color)
@@ -1281,7 +1283,7 @@ def tag_for_enchantment_tokens(df, color):
     tag_for_generic_enchantment_tokens(df, color)
     print('=====\n')
     tag_for_predefined_enchantment_tokens(df, color)
-    
+    print('=====\n')
     print(f'Cards in {color}_cards.csv that create or modify creation of Enchantment tokens have been tagged.')
     
     # Overwrite file with enchantment tag added
@@ -1647,6 +1649,7 @@ def tag_shrines(df, color):
 ## Exile Matter effects, such as Impuse draw, foretell, etc...
 def tag_for_exile_matters(df, color):
     print(f'Checking {color}_cards.csv for "Exile Matters" cards\n')
+    print('===============\n')
     tag_for_cascade(df, color)
     print('==========\n')
     tag_for_discover(df, color)
@@ -1944,6 +1947,7 @@ def tag_for_suspend(df, color):
 def tag_for_tokens(df, color):
     # Tag for other token creation
     print(f'Tagging cards in {color}_cards.csv that create or modify creation of tokens.\n')
+    print('===============\n')
     print('Checking for creature token generators.')
     for index, row in df.iterrows():
         theme_tags = row['themeTags']
@@ -2012,7 +2016,8 @@ def tag_for_tokens(df, color):
 ### Life Matters
 def tag_for_life_matters(df, color):
     # Tag for Life gain cares cards
-    print(f'Tagging cards in {color}_cards.csv that gain life or care about life gain.')
+    print(f'Tagging cards in {color}_cards.csv that gain life or care about life gain.\n')
+    print('===============\n')
     print('Checking for life gain cards.')
     for index, row in df.iterrows():
         theme_tags = row['themeTags']
@@ -2281,6 +2286,7 @@ def tag_for_lands_matter(df, color):
     # that affect where you can play lands from. Also includes domain as it
     # cares about basic land types. And landwalk effects
     print(f'Tagging cards in {color}_cards.csv that fit the "Lands Matter" theme:')
+    print('===============\n')
     print(f'Tagging cards in {color}_cards.csv that have a generalized "Lands Matter" theme.')
     for index, row in df.iterrows():
         theme_tags = row['themeTags']
@@ -2534,7 +2540,8 @@ def tag_for_spellslinger(df, color):
     # Things like Storm, Magecraft, playing noncreature spells, or otherwise
     # Playing a lot of spells
     # Noncreature cast triggers
-    print(f'Checking {color}_cards.csv for "Spellslinger" cards:')
+    print(f'Checking {color}_cards.csv for "Spellslinger" cards.\n')
+    print('===============\n')
     print(f'Checking {color}_cards.csv for cards that care about casting spells.')
     for index, row in df.iterrows():
         theme_tags = row['themeTags']
@@ -2629,7 +2636,7 @@ def tag_for_cantrips(df, color):
     print('Note: I am considering a cantrip to be a card that has a mana value of 0-2,\n'
             'does some effect, and draws cards.\n\n'
             'This also includes activated abilities, that when the combined mana value\n'
-            'and ability cost are less than 2 mana.')
+            'and ability cost are less than 2 mana.\n')
     for index, row in df.iterrows():
         theme_tags = row['themeTags']
         # Take out Lands and Equipment
@@ -2894,6 +2901,7 @@ def tag_for_spell_copy(df, color):
 def tag_for_ramp(df, color):
     # Tag for ramp
     print(f'Tagging cards in {color}_cards.csv that are considerd Ramp.\n')
+    print('===============\n')
     mana_dorks(df, color)
     print('==========\n')
     mana_rocks(df, color)
@@ -3131,7 +3139,8 @@ def search_for_lands(df, color):
 
 ### Other Misc Themes
 def tag_for_themes(df, color):
-    print(f'Tagging other themes in {color}_cards.csv.')
+    print(f'Tagging other themes in {color}_cards.csv.\n')
+    print('===============\n')
     tag_for_aggro(df, color)
     print('==========\n')
     search_for_aristocrats(df, color)
@@ -3170,7 +3179,7 @@ def tag_for_themes(df, color):
     print('==========\n')
     tag_for_x_spells(df, color)
     
-    print(f'Other themes have been tagged in {color}_cards.csv.')
+    print(f'Other themes have been tagged in {color}_cards.csv.\n')
     
 ## Aggro
 def tag_for_aggro(df, color):
@@ -4050,10 +4059,25 @@ def tag_for_x_spells(df, color):
 ### Interaction
 ## Overall tag for interaction group
 def tag_for_interaction(df, color):
-    pass
+    print(f'Tagging Interaction cards in {color}_cards.csv.\n'
+          'Interaction is anything that, well, interacts with the board or stack.\n'
+          'This can be Counterspells, Board Wipes, Spot Removal, Combat Tricks, or Protections.\n')
+    print('===============\n')
+    tag_for_counterspells(df, color)
+    print('==========\n')
+    tag_for_board_wipes(df, color)
+    print('==========\n')
+    tag_for_combat_tricks(df, color)
+    print('==========\n')
+    tag_for_protection(df, color)
+    print('==========\n')
+    tag_for_removal(df, color)
+    print('==========\n')
+    
+    print(f'Interaction cards have been tagged in {color}_cards.csv.\n')
 
 ## Counter spells
-def tag_for_counterspell(df, color):
+def tag_for_counterspells(df, color):
     print(f'Tagging cards in {color}_cards.csv that are Counterspells or care about Counterspells.')
     for index, row in df.iterrows():
         theme_tags = row['themeTags']
@@ -4063,7 +4087,7 @@ def tag_for_counterspell(df, color):
                 or 'return target spell' in row['text'].lower()
                 or 'then return it to its owner' in row['text'].lower()
                 ):
-                tag_type = ['Counterspells', 'Spellslinger', 'Spells Matter']
+                tag_type = ['Counterspells', 'Interaction', 'Spellslinger', 'Spells Matter']
                 for tag in tag_type:
                     if tag not in theme_tags:
                         theme_tags.extend([tag])
@@ -4138,16 +4162,61 @@ def tag_for_board_wipes(df, color):
             or 'Chandra, Awakened Inferno' == row['name']
             or 'Draconic Intervention' == row['name']
             or 'Dwarven Catapult' == row['name']
-            or 'Electrickery' == row['name']
             or 'Evaporate' == row['name']
             or 'Exocrine' == row['name']
             or 'Fiery Cannonade' == row['name']
             or 'Flame Blitz' == row['name']
             or 'Forerunner of the Empire' == row['name']
+            or 'Rite of Ruin' == row['name']
+            or 'Ronin Cliffrider' == row['name']
+            or 'Sarkhan\'s Unsealing' == row['name']
+            or 'Sacalding Salamander' == row['name']
+            or 'Tectonic Break' == row['name']
+            or 'Thoughts of Ruin' == row['name']
+            or 'Thundercloud Shaman' == row['name']
+            or 'Thunder of Hooves' == row['name']
+            or 'Vampires\' Vengeance' == row['name']
+            or 'Vandalblast' == row['name']
+            or 'Thunder of Hooves' == row['name']
+            or 'Warp World' == row['name']
+            
+            # Green
+            or 'Ezuri\'s Predation' == row['name']
+            or 'Nylea\'s Intervention' == row['name']
+            or 'Spring Cleaning' == row['name']
+            or 'Nylea\'s Intervention' == row['name']
+            or 'Welcome to . . . // Jurassic Park' == row['name']
+            
+            # Azorius
+            or 'Urza, Planeswalker' == row['name']
+            
+            # Orzhov
+            or 'Magister of Worth' == row['name']
+            or 'Necromancer\'s Covenant' == row['name']
+            
+            # Rakdos
+            or 'Angrath, Minotaur Pirate' == row['name']
+            or 'Hidetsugu Consumes All' == row['name']
+            or 'Void' == row['name']
+            or 'Widespread Brutality' == row['name']
+            
+            # Golgari
+            or 'Hazardous Conditions' == row['name']
+            
+            # Izzet
+            or 'Battle of Frost and Fire' == row['name']
+            
+            # Simic
+            or 'The Bears of Littjara' == row['name']
+            
+            # Naya
+            or 'Incandescent Aria' == row['name']
+            
+            # Mardu
+            or 'Piru, the Volatile' == row['name']
             
             ):
-            print(row['name'])
-            tag_type = ['Board Wipes']
+            tag_type = ['Board Wipes', 'Interaction']
             for tag in tag_type:
                 if tag not in theme_tags:
                     theme_tags.extend([tag])
@@ -4169,6 +4238,7 @@ def tag_for_board_wipes(df, color):
                 or 'exiles the rest' in row['text'].lower()
                 or 'put all attacking creatures' in row['text'].lower()
                 or 'put all creatures' in row['text'].lower()
+                or 'put all enchantments' in row['text'].lower()
                 or 'return all' in row['text'].lower()
                 or 'return any number of' in row['text'].lower()
                 or 'return each' in row['text'].lower()
@@ -4284,12 +4354,69 @@ def tag_for_board_wipes(df, color):
                     or 'Barrel Down Sokenzan' == row['name']
                     or 'Explosive Singularity' == row['name']
                     or 'Expose the Culprit' == row['name']
+                    or 'Lukka, Coppercoat Outcast' == row['name']
+                    or 'March of Reckless Joy' == row['name']
+                    or 'Thieves\' Auction' == row['name']
+                    or 'Wild-Magic Sorcerer' == row['name']
+                    or 'Witchstalker Frenzy' == row['name']
+                    
+                    # Green Cards
+                    or 'Clear the Land' == row['name']
+                    or 'Dual Nature' == row['name']
+                    or 'Kamahl\'s Will' == row['name']
+                    or 'March of Burgeoning Life' == row['name']
+                    or 'Moonlight Hunt' == row['name']
+                    or 'Nissa\'s Judgment' == row['name']
+                    or 'Overlaid Terrain' == row['name']
+                    or 'Rambling Possum' == row['name']
+                    or 'Saproling Burst' == row['name']
+                    or 'Splintering Wind' == row['name']
+                    
+                    # Orzhov
+                    or 'Identity Crisis' == row['name']
+                    or 'Kaya\'s Guile' == row['name']
+                    or 'Kaya, Geist Hunter' == row['name']
+                    
+                    # Boros
+                    or 'Quintorius Kand' == row['name']
+                    or 'Suleiman\'s Legacy' == row['name']
+                    or 'Wildfire Awakener' == row['name']
+                    
+                    # Dimir
+                    or 'Ashiok' in row['name']
+                    or 'Dralnu, Lich Lord' == row['name']
+                    or 'Mnemonic Betrayal' == row['name']
+                    
+                    # Rakdos
+                    or 'Blood for the Blood God!' == row['name']
+                    or 'Mount Doom' == row['name']
+                    or 'Rakdos Charm' == row['name']
+                    
+                    # Golgari
+                    or 'Skemfar Elderhall' == row['name']
+                    or 'Winter, Cynical Opportunist' == row['name']
+                    
+                    # Izzet
+                    or 'Shaun, Father of Synths' == row['name']
+                    or 'The Apprentice\'s Folly' == row['name']
+                    
+                    # Esper
+                    or 'The Celestial Toymaker' == row['name']
+                    
+                    # Grixis
+                    or 'Missy' == row['name']
+                    or 'Nicol Bolas, the Ravager // Nicol Bolas, the Arisen' == row['name']
+                    
+                    # Naya
+                    or 'Hazezon Tamar' == row['name']
+                    
+                    # Mardu
+                    or 'Extus, Oriq Overlord // Awaken the Blood Avatar' == row['name']
                     
                     ):
                     continue
                 else:
-                    print(row['name'])
-                    tag_type = ['Board Wipes']
+                    tag_type = ['Board Wipes', 'Interaction']
                     for tag in tag_type:
                         if tag not in theme_tags:
                             theme_tags.extend([tag])
@@ -4299,12 +4426,18 @@ def tag_for_board_wipes(df, color):
             if pd.notna(row['text']):
                 for i in number_list:
                     # Deals damage from 1-100 or X
-                    if (f'deals {i} damage' in row['text'].lower()):
+                    if (f'deals {i}' in row['text'].lower()):
                         if ('blocking it' in row['text'].lower()
                             or 'is blocked' in row['text'].lower()
                             or 'other creature you control' in row['text'].lower()
                             ):
                             continue
+                        if ('target' in row['text'].lower() and 'overload' in row['text'].lower()):
+                            tag_type = ['Board Wipes', 'Burn', 'Interaction']
+                            for tag in tag_type:
+                                if tag not in theme_tags:
+                                    theme_tags.extend([tag])
+                                    df.at[index, 'themeTags'] = theme_tags
                         if ('and each creature' in row['text'].lower()
                             or 'each artifact creature' in row['text'].lower()
                             or 'each creature' in row['text'].lower()
@@ -4325,8 +4458,7 @@ def tag_for_board_wipes(df, color):
                             or 'to each creature' in row['text'].lower()
                             or 'to each other creature' in row['text'].lower()
                             ):
-                            print(row['name'])
-                            tag_type = ['Board Wipes', 'Burn']
+                            tag_type = ['Board Wipes', 'Burn', 'Interaction']
                             for tag in tag_type:
                                 if tag not in theme_tags:
                                     theme_tags.extend([tag])
@@ -4351,8 +4483,7 @@ def tag_for_board_wipes(df, color):
                         if ('you control get -1/-1' in row['text'].lower()
                             ):
                             continue
-                        print(row['name'])
-                        tag_type = ['Board Wipes']
+                        tag_type = ['Board Wipes', 'Interaction']
                         for tag in tag_type:
                             if tag not in theme_tags:
                                 theme_tags.extend([tag])
@@ -4384,33 +4515,293 @@ def tag_for_board_wipes(df, color):
                         or 'to each creature' in row['text'].lower()
                         or 'to each other creature' in row['text'].lower()
                         ):
-                        print(row['name'])
-                        tag_type = ['Board Wipes', 'Burn']
+                        tag_type = ['Board Wipes', 'Burn', 'Interaction']
                         for tag in tag_type:
                             if tag not in theme_tags:
                                 theme_tags.extend([tag])
                                 df.at[index, 'themeTags'] = theme_tags
+    
+    print(f'"Board Wipe" cards in {color}_cards.csv have been tagged.\n')
+
+## Combat Tricks
+def tag_for_combat_tricks(df, color):
+    print(f'Tagging cards in {color}_cards.csv for Combat Tricks.')
+    for index, row in df.iterrows():
+        theme_tags = row['themeTags']
+        number_list = list(range(0, 11))
+        number_list = list(map(str, number_list))
+        number_list.append('x')
+        if pd.notna(row['text']):
+            if 'remains tapped' in row['text']:
+                continue
+            if ('Assimilate Essence' == row['name']
+                or 'Mantle of Leadership' == row['name']
+                or 'Michiko\'s Reign of Truth // Portrait of Michiko' == row['name']):
+                continue
+            for number in number_list:
+                # Tap abilities
+                if (f'{{t}}: target creature gets +0/+{number}' in row['text'].lower()
+                    or f'{{t}}: target creature gets +{number}/+0' in row['text'].lower()
+                    or f'{{t}}: target creature gets +{number}/+{number}' in row['text'].lower()
+                    or f'{{t}}: target creature you control gets +{number}/+{number}' in row['text'].lower()
+                    ):
+                    # Exclude sorcery speed
+                    if ('only as a sorcery' in row['text'].lower()):
+                        continue
+                    tag_type = ['Combat Tricks', 'Interaction']
+                    for tag in tag_type:
+                        if tag not in theme_tags:
+                            theme_tags.extend([tag])
+                            df.at[index, 'themeTags'] = theme_tags
+                for number_2 in number_list:
+                    if (f'{{t}}: target creature gets +{number}/+{number_2}' in row['text'].lower()
+                        or f'{{t}}: target creature gets +{number}/+{number}' in row['text'].lower()
+                        ):
+                        if ('only as a sorcery' in row['text'].lower()):
+                        # Exclude sorcery speed
+                            continue
+                        tag_type = ['Combat Tricks', 'Interaction']
+                        for tag in tag_type:
+                            if tag not in theme_tags:
+                                theme_tags.extend([tag])
+                                df.at[index, 'themeTags'] = theme_tags
+                    
+                # Flash effects
+                if 'Flash' in theme_tags:
+                    if (f'chosen type get +{number}/+{number}' in row['text'].lower()
+                        or f'creature gets +{number}/+{number}' in row['text'].lower()
+                        or f'creatures get +{number}/+{number}' in row['text'].lower()
+                        or f'you control gets +{number}/+{number}' in row['text'].lower()
+                        ):
+                        tag_type = ['Combat Tricks', 'Interaction']
+                        for tag in tag_type:
+                            if tag not in theme_tags:
+                                theme_tags.extend([tag])
+                                df.at[index, 'themeTags'] = theme_tags
+                    for number_2 in number_list:
+                        if (f'chosen type get +{number}/+{number_2}' in row['text'].lower()
+                            or f'creature gets +{number}/+{number_2}' in row['text'].lower()
+                            or f'creatures get +{number}/+{number_2}' in row['text'].lower()
+                            or f'you control gets +{number}/+{number_2}' in row['text'].lower()
+                            ):
+                            tag_type = ['Combat Tricks', 'Interaction']
+                            for tag in tag_type:
+                                if tag not in theme_tags:
+                                    theme_tags.extend([tag])
+                                    df.at[index, 'themeTags'] = theme_tags
                                     
+                # Instant speed effects
+                if row['type'] == 'Instant':
+                    if (
+                        # Positive values
+                        f'chosen type get +{number}/+{number}' in row['text'].lower()
+                        or f'creature gets +{number}/+{number}' in row['text'].lower()
+                        or f'creatures get +{number}/+{number}' in row['text'].lower()
+                        or f'each get +{number}/+{number}' in row['text'].lower()
+                        or f'it gets +{number}/+{number}' in row['text'].lower()
+                        or f'you control gets +{number}/+{number}' in row['text'].lower()
+                        or f'you control get +{number}/+{number}' in row['text'].lower()
+                        
+                        # Negative values
+                        or f'chosen type get -{number}/-{number}' in row['text'].lower()
+                        or f'creature gets -{number}/-{number}' in row['text'].lower()
+                        or f'creatures get -{number}/-{number}' in row['text'].lower()
+                        or f'each get -{number}/-{number}' in row['text'].lower()
+                        or f'it gets -{number}/-{number}' in row['text'].lower()
+                        or f'you control gets -{number}/-{number}' in row['text'].lower()
+                        or f'you control get -{number}/-{number}' in row['text'].lower()
+                        
+                        # Mixed values
+                        or f'chosen type get +{number}/-{number}' in row['text'].lower()
+                        or f'creature gets +{number}/-{number}' in row['text'].lower()
+                        or f'creatures get +{number}/-{number}' in row['text'].lower()
+                        or f'each get +{number}/-{number}' in row['text'].lower()
+                        or f'it gets +{number}/-{number}' in row['text'].lower()
+                        or f'you control gets +{number}/-{number}' in row['text'].lower()
+                        or f'you control get +{number}/-{number}' in row['text'].lower()
+                        
+                        or f'chosen type get -{number}/+{number}' in row['text'].lower()
+                        or f'creature gets -{number}/+{number}' in row['text'].lower()
+                        or f'creatures get -{number}/+{number}' in row['text'].lower()
+                        or f'each get -{number}/+{number}' in row['text'].lower()
+                        or f'it gets -{number}/+{number}' in row['text'].lower()
+                        or f'you control gets -{number}/+{number}' in row['text'].lower()
+                        or f'you control get -{number}/+{number}' in row['text'].lower()
+                        ):
+                        tag_type = ['Combat Tricks', 'Interaction']
+                        for tag in tag_type:
+                            if tag not in theme_tags:
+                                theme_tags.extend([tag])
+                                df.at[index, 'themeTags'] = theme_tags
+                    for number_2 in number_list:
+                        if (
+                            # Positive Values
+                            f'chosen type get +{number}/+{number_2}' in row['text'].lower()
+                            or f'creature gets +{number}/+{number_2}' in row['text'].lower()
+                            or f'creatures get +{number}/+{number_2}' in row['text'].lower()
+                            or f'each get +{number}/+{number_2}' in row['text'].lower()
+                            or f'it gets +{number}/+{number_2}' in row['text'].lower()
+                            or f'you control gets +{number}/+{number_2}' in row['text'].lower()
+                            or f'you control get +{number}/+{number_2}' in row['text'].lower()
+                            
+                            # Negative values
+                            or f'chosen type get -{number}/-{number_2}' in row['text'].lower()
+                            or f'creature gets -{number}/-{number_2}' in row['text'].lower()
+                            or f'creatures get -{number}/-{number_2}' in row['text'].lower()
+                            or f'each get -{number}/-{number_2}' in row['text'].lower()
+                            or f'it gets -{number}/-{number_2}' in row['text'].lower()
+                            or f'you control gets -{number}/-{number_2}' in row['text'].lower()
+                            or f'you control get -{number}/-{number_2}' in row['text'].lower()
+                            
+                            # Mixed values
+                            or f'chosen type get +{number}/-{number_2}' in row['text'].lower()
+                            or f'creature gets +{number}/-{number_2}' in row['text'].lower()
+                            or f'creatures get +{number}/-{number_2}' in row['text'].lower()
+                            or f'each get +{number}/-{number_2}' in row['text'].lower()
+                            or f'it gets +{number}/-{number_2}' in row['text'].lower()
+                            or f'you control gets +{number}/-{number_2}' in row['text'].lower()
+                            or f'you control get +{number}/-{number_2}' in row['text'].lower()
+                            
+                            or f'chosen type get -{number}/+{number_2}' in row['text'].lower()
+                            or f'creature gets -{number}/+{number_2}' in row['text'].lower()
+                            or f'creatures get -{number}/+{number_2}' in row['text'].lower()
+                            or f'each get -{number}/+{number_2}' in row['text'].lower()
+                            or f'it gets -{number}/+{number_2}' in row['text'].lower()
+                            or f'you control gets -{number}/+{number_2}' in row['text'].lower()
+                            or f'you control get -{number}/+{number_2}' in row['text'].lower()
+                            ):
+                            tag_type = ['Combat Tricks', 'Interaction']
+                            for tag in tag_type:
+                                if tag not in theme_tags:
+                                    theme_tags.extend([tag])
+                                    df.at[index, 'themeTags'] = theme_tags
+            
+            if row['type'] == 'Instant':
+                if (
+                    '+1/+1 counter' in row['text'].lower()
+                    or 'bolster' in row['text'].lower()
+                    or 'double strike' in row['text'].lower()
+                    or 'first strike' in row['text'].lower()
+                    or 'has base power and toughness' in row['text'].lower()
+                    or 'untap all creatures' in row['text'].lower()
+                    or 'untap target creature' in row['text'].lower()
+                    or 'with base power and toughness' in row['text'].lower()
+                    ):
+                    tag_type = ['Combat Tricks', 'Interaction']
+                    for tag in tag_type:
+                        if tag not in theme_tags:
+                            theme_tags.extend([tag])
+                            df.at[index, 'themeTags'] = theme_tags
+            
+            if 'Flash' in theme_tags:
+                if (
+                    'bolster' in row['text'].lower()
+                    or 'untap all creatures' in row['text'].lower()
+                    or 'untap target creature' in row['text'].lower()
+                    ):
+                    tag_type = ['Combat Tricks', 'Interaction']
+                    for tag in tag_type:
+                        if tag not in theme_tags:
+                            theme_tags.extend([tag])
+                            df.at[index, 'themeTags'] = theme_tags
+                if 'Enchantment' in row['type']:
+                    if (
+                        '+1/+1 counter' in row['text'].lower()
+                        or 'double strike' in row['text'].lower()
+                        or 'first strike' in row['text'].lower()
+                        ):
+                        tag_type = ['Combat Tricks', 'Interaction']
+                        for tag in tag_type:
+                            if tag not in theme_tags:
+                                theme_tags.extend([tag])
+                                df.at[index, 'themeTags'] = theme_tags
         
-        
-        if pd.notna(row['keywords']):
-            if ('' in row['keywords']
-                or '' in row['keywords']
+    print(f'Combat Tricks in {color}_cards.csv have been tagged.\n')
+    
+## Protection/Safety spells
+def tag_for_protection(df, color):
+    print(f'Tagging cards in {color}_cards.csv that provide or have some form of protection (i.e. Protection, Indestructible, Hexproof, etc...).')
+    for index, row in df.iterrows():
+        theme_tags = row['themeTags']
+        named_exclusions = ['Out of Time', 'The War Doctor']
+        if (row['name'] in named_exclusions
+            ):
+            continue
+        if pd.notna(row['text']):
+            if ('has indestructible' in row['text'].lower()
+                or 'has indestructible' in row['text'].lower()
+                or 'has protection' in row['text'].lower()
+                or 'has shroud' in row['text'].lower()
+                or 'has ward' in row['text'].lower()
+                or 'have indestructible' in row['text'].lower()
+                or 'have indestructible' in row['text'].lower()
+                or 'have protection' in row['text'].lower()
+                or 'have shroud' in row['text'].lower()
+                or 'have ward' in row['text'].lower()
+                or 'hexproof from' in row['text'].lower()
+                or 'gain hexproof' in row['text'].lower()
+                or 'gain indestructible' in row['text'].lower()
+                or 'gain protection' in row['text'].lower()
+                or 'gain shroud' in row['text'].lower()
+                or 'gain ward' in row['text'].lower()
+                or 'gains hexproof' in row['text'].lower()
+                or 'gains indestructible' in row['text'].lower()
+                or 'gains protection' in row['text'].lower()
+                or 'gains shroud' in row['text'].lower()
+                or 'gains ward' in row['text'].lower()
+                or 'phases out' in row['text'].lower()
+                or 'protection from' in row['text'].lower()
                 ):
-                tag_type = ['']
+                tag_type = ['Interaction', 'Protection']
+                for tag in tag_type:
+                    if tag not in theme_tags:
+                        theme_tags.extend([tag])
+                        df.at[index, 'themeTags'] = theme_tags
+        if pd.notna(row['keywords']):
+            if ('Hexproof' in row['keywords']
+                or 'Indestructible' in row['keywords']
+                or 'Protection' in row['keywords']
+                or 'Shroud' in row['keywords']
+                or 'Ward' in row['keywords']
+                ):
+                tag_type = ['Interaction', 'Protection']
                 for tag in tag_type:
                     if tag not in theme_tags:
                         theme_tags.extend([tag])
                         df.at[index, 'themeTags'] = theme_tags
     
-    print(f'"Board Wipe" cards in {color}_cards.csv have been tagged.\n')
-
-## Protection/Safety spells
-
+    print(f'Protection cards in {color}_cards.csv have been tagged.\n')
 
 ## Spot removal
+def tag_for_removal(df, color):
+    print(f'Tagging cards in {color}_cards.csv that Do some form of spot Removal.')
+    for index, row in df.iterrows():
+        theme_tags = row['themeTags']
+        if pd.notna(row['text']):
+            if ('destroy target' in row['text'].lower()
+                or 'destroys target' in row['text'].lower()
+                or 'exile target' in row['text'].lower()
+                or 'exiles target' in row['text'].lower()
+                or 'sacrifices target' in row['text'].lower()
+                
+                ):
+                tag_type = ['Interaction', 'Removal']
+                for tag in tag_type:
+                    if tag not in theme_tags:
+                        theme_tags.extend([tag])
+                        df.at[index, 'themeTags'] = theme_tags
+        if pd.notna(row['keywords']):
+            if ('' in row['keywords'].lower()
+                ):
+                tag_type = []
+                for tag in tag_type:
+                    if tag not in theme_tags:
+                        theme_tags.extend([tag])
+                        df.at[index, 'themeTags'] = theme_tags
+    
+    print(f'Removal cards in {color}_cards.csv have been tagged.\n')
 
 
 #regenerate_csv_by_color('colorless')
 #for color in colors:
-load_dataframe('red')
+load_dataframe('commander')

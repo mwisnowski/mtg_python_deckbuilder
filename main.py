@@ -2,8 +2,8 @@ from __future__ import annotations
 
 #import os
 import inquirer.prompt # type: ignore
-import pandas as pd # type: ignore
-import requests # type: ignore
+#import pandas as pd # type: ignore
+#import requests # type: ignore
 #import scrython # type: ignore
 import sys
 

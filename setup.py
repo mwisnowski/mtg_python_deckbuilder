@@ -49,6 +49,60 @@ def filter_by_color(df, column_name, value, new_csv_name):
     
     filtered_df.to_csv(new_csv_name, index=False)
     
+def set_lands():
+    print('Generating land_cards.csv.')
+    # Filter dataframe
+    while True:
+        try:
+            with open(f'{csv_directory}/cards.csv', 'r', encoding='utf-8'):
+                print('cards.csv exists.')
+                break
+        except FileNotFoundError:
+            # If the cards.csv file does not exist or can't be found, pull it from mtgjson.com
+            print('cards.csv not found, downloading from mtgjson')
+            url = 'https://mtgjson.com/api/v5/csv/cards.csv'
+            r = requests.get(url)
+            with open(f'{csv_directory}/cards.csv', 'wb') as outputfile:
+                outputfile.write(r.content)
+        
+    # Load cards.csv file into pandas dataframe so it can be further broken down
+    df = pd.read_csv(f'{csv_directory}/cards.csv', low_memory=False)
+    
+    legendary_options = ['Land']
+    filtered_df = df[df['type'].str.contains('|'.join(legendary_options))]
+    """
+    Save the filtered dataframe to a new csv file, and narrow down/rearranges the columns it
+    keeps to increase readability/trim some extra data.
+    Additionally attempts to remove as many duplicates (including cards with reversible prints,
+    as well as taking out Arena-only cards.
+    """
+    rows_to_drop = []
+    non_legel_sets = ['PHTR', 'PH17', 'PH18' ,'PH19', 'PH20', 'PH21', 'UGL', 'UND', 'UNH', 'UST',]
+    for index, row in filtered_df.iterrows():
+        for illegal_set in non_legel_sets:
+            if illegal_set in row['printings']:
+                rows_to_drop.append(index)
+        
+    filtered_df = filtered_df.drop(rows_to_drop)
+    
+    filtered_df.sort_values('name')
+    filtered_df = filtered_df.loc[filtered_df['layout'] != 'reversible_card'] 
+    filtered_df = filtered_df[filtered_df['availability'].str.contains('paper')]
+    filtered_df = filtered_df.loc[filtered_df['promoTypes'] != 'playtest']
+    filtered_df = filtered_df.loc[filtered_df['securityStamp'] != 'heart']
+    filtered_df = filtered_df.loc[filtered_df['securityStamp'] != 'acorn']       
+    
+    card_types = ['Plane —', 'Conspiracy', 'Vanguard', 'Scheme', 'Phenomenon', 'Stickers', 'Attraction', 'Hero']
+    for card_type in card_types:
+        filtered_df = filtered_df[~filtered_df['type'].str.contains(card_type)]
+    filtered_df['faceName'] = filtered_df['faceName'].fillna(filtered_df['name'])
+    filtered_df.drop_duplicates(subset='faceName', keep='first', inplace=True)
+    columns_to_keep = ['name', 'faceName','edhrecRank','colorIdentity', 'colors', 'manaCost', 'manaValue', 'type', 'layout', 'text']
+    filtered_df = filtered_df[columns_to_keep]
+    filtered_df.sort_values(by='edhrecRank', inplace=True)
+    filtered_df.to_csv(f'{csv_directory}/land_cards.csv', index=False)
+    print('land_cards.csv file generated.')
+
 def determine_commanders():
     print('Generating commander_cards.csv, containing all cards elligible to be commanders.')
     # Filter dataframe
@@ -67,6 +121,9 @@ def determine_commanders():
         
     # Load cards.csv file into pandas dataframe so it can be further broken down
     df = pd.read_csv(f'{csv_directory}/cards.csv', low_memory=False)
+    
+    # Set frames that have nothing for color identity to be 'Colorless' instead
+    df['colorIdentity'] = df['colorIdentity'].fillna('Colorless')
     
     legendary_options = ['Legendary Creature','Legendary Artifact', 'Legendary Artifact Creature', 'Legendary Enchantment Creature', 'Legendary Planeswalker']
     filtered_df = df[df['type'].str.contains('|'.join(legendary_options))]
@@ -145,6 +202,9 @@ def initial_setup():
     
     # Once by-color lists have been made, Determine legendary creatures
     determine_commanders()
+
+    # Lastly, create a file with all lands, or cards that have a land on at least one face
+    set_lands()
     
     # Once Legendary creatures are determined, generate staple lists
     # generate_staple_lists()
@@ -186,6 +246,9 @@ def regenerate_csvs_all():
     # Once files are regenerated, create a new legendary list
     determine_commanders()
     
+    # Lastly, create a file with all lands, or cards that have a land on at least one face
+    set_lands()
+    
 def regenerate_csv_by_color(color):
     """
     Pull the original cards.csv file and remake the {color}_cards.csv files
@@ -214,6 +277,9 @@ def regenerate_csv_by_color(color):
 
     # Once files are regenerated, create a new legendary list
     determine_commanders()
+    
+    # Lastly, create a file with all lands, or cards that have a land on at least one face
+    set_lands()
 
 def generate_staple_lists():    
     for color in colors:
@@ -285,3 +351,4 @@ def setup():
 #regenerate_csvs_all()
 #regenerate_csv_by_color('white')
 #determine_commanders()
+#set_lands()

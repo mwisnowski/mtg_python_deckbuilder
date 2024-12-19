@@ -9,11 +9,11 @@ from fuzzywuzzy import fuzz, process # type: ignore
 
 import settings
 
-from setup import determine_legendary
+from setup import determine_commanders
 
 pd.set_option('display.max_columns', None)
 pd.set_option('display.max_rows', None)
-pd.set_option('display.max_colwidth', 5)
+pd.set_option('display.max_colwidth', 20)
 
 """def pluralize_list(singular_list):
     engine = inflect.engine()
@@ -96,12 +96,14 @@ class DeckBuilder:
     def determine_commander(self):
         # Setup dataframe
         try:
-            df = pd.read_csv('csv_files/legendary_cards.csv')
+            df = pd.read_csv('csv_files/commander_cards.csv', converters={'themeTags': pd.eval, 'creatureTypes': pd.eval})
         except FileNotFoundError:
-            determine_legendary()
-            df = pd.read_csv('csv_files/legendary_cards.csv')
+            determine_commanders()
+            df = pd.read_csv('csv_files/commander_cards.csv', converters={'themeTags': pd.eval, 'creatureTypes': pd.eval})
         # Determine the commander of the deck
-        
+        # Set frames that have nothing for color identity to be 'Colorless' instead
+        df['colorIdentity'] = df['colorIdentity'].fillna('Colorless')
+        df['colors'] = df['colors'].fillna('Colorless')
         commander_chosen = False
         while not commander_chosen:
             print('Enter a card name to be your commander, note that at this time only cards that have the \'Creature\' type may be chosen')
@@ -114,7 +116,7 @@ class DeckBuilder:
             answer = inquirer.prompt(question)
             card_choice = answer['card_prompt']
             
-            # Logic to find the card in the legendary_cards csv, then display it's information
+            # Logic to find the card in the commander_cards csv, then display it's information
             # If the card can't be found, or doesn't have enough of a match score, display a 
             # list to choose from
             print(card_choice)
@@ -147,8 +149,6 @@ class DeckBuilder:
                     
                         
                 filtered_df = df[df['name'] == fuzzy_card_choice]
-                columns_to_keep = ['name', 'colorIdentity', 'colors', 'manaCost', 'manaValue', 'type', 'keywords', 'power', 'toughness', 'text']
-                filtered_df = filtered_df[columns_to_keep]
                 df_dict = filtered_df.to_dict('list')
                 print('Is this the card you chose?')
                 pprint.pprint(df_dict, sort_dicts=False)
@@ -180,63 +180,302 @@ class DeckBuilder:
     def commander_setup(self):
         # Load commander info into a dataframe
         df = self.commander_df
-        self.commander_keywords = df.at[0, 'keywords']
+        
+        # Set type line
+        self.commander_type = str(df.at[0, 'type'])
+        
+        # Set text line
+        self.commander_text = str(df.at[0, 'text'])
+        
+        # Set Power
         self.commander_power = int(df.at[0, 'power'])
+        
+        # Set Toughness
         self.commander_toughness = int(df.at[0, 'toughness'])
-        self.commander_mana_cost = df.at[0, 'manaCost']
         
-        # Run the color setup
-        self.set_color_identity(df)
+        # Set Mana Cost
+        self.commander_mana_cost = str(df.at[0, 'manaCost'])
         
-        # Run the creature type setup
-        self.set_creature_types(df)
-        
-        # Setup deck theme tags
-        self.setup_deck_tags(df)
-    
-    def set_color_identity(self, df):
         # Set color identity
-        self.color_identity = df.at[0, 'colorIdentity'].split(', ')
+        self.color_identity = df.at[0, 'colorIdentity']
+        self.determine_color_identity()
+        
         # Set creature colors
         self.colors = df.at[0, 'colors'].split(', ')
-    
-    def set_creature_types(self, df):
+        
         # Set creature types
-        creature_types = df.at[0, 'type']
-        #print(creature_types)
-        split_types = creature_types.split()
-        for creature_type in split_types:
-            if creature_type not in settings.non_creature_types:
-                self.creature_types.append(creature_type)
-        for creature_type in self.creature_types:
-            self.commander_tags.append(creature_type)
-                
-    def setup_deck_tags(self, df):
-        # Determine card tags, such as counters theme
-        self.check_tags(df.at[0, 'text'].lower(), settings.theme_tags, threshold=80)
+        self.creature_types = str(df.at[0, 'creatureTypes'])
         
-        # Determine any additional kindred tags that aren't in the main creature types
-        self.check_tags(df.at[0, 'text'].lower(), settings.creature_types, threshold=100)
+        # Set deck theme tags
+        self.commander_tags = list(df.at[0, 'themeTags'])
         
-    def check_tags(self, string, word_list, threshold):
-        card_tags = []
-        print(string)
-        #print(word_list)
-        for word in word_list:
-            #print(word)
-            if word == '+1/+1 counter' or word == '-1/-1 counter':
-                #print(word)
-                threshold += 20
-            if fuzz.partial_ratio(string, word.lower()) >= threshold:
-                print(word, threshold)
-                card_tags.append(word)
-                #print(word)
-                #return True
-        #return False
-        for tag in card_tags:
-            if tag not in self.commander_tags:
-                self.commander_tags.append(tag)
+        self.determine_themes()
+        self.themes = [self.primary_theme]
+        if not self.secondary_theme:
+            pass
+        else:
+            self.themes.append(self.secondary_theme)
+        if not self.tertiary_theme:
+            pass
+        else:
+            self.themes.append(self.tertiary_theme)
         
+        self.commander_dict = {
+            'Commander Name': self.commander,
+            'Mana Cost': self.commander_mana_cost,
+            'Color Identity': self.color_identity,
+            'Colors': self.colors,
+            'Type': self.commander_type,
+            'Creature Types': self.creature_types,
+            'Text': self.commander_text,
+            'Power': self.commander_power,
+            'Toughness': self.commander_toughness,
+            'Themes': self.themes
+        }
+
+        # Begin Building the Deck
+        self.determine_ideals()
+        self.add_lands()
+        
+
+    def determine_color_identity(self):
+        # Determine the color identity for later
+        # Mono color
+        if self.color_identity == 'Colorless':
+            self.color_identity = 'Colorless'
+            self.files_to_load = ['colorless']
+            pass
+        elif self.color_identity == 'B':
+            self.color_identity = 'Black'
+            self.files_to_load = ['colorless', 'black']
+            pass
+        elif self.color_identity == 'G':
+            self.color_identity = 'Green'
+            self.files_to_load = ['colorless', 'green']
+            pass
+        elif self.color_identity == 'R':
+            self.color_identity = 'Red'
+            self.files_to_load = ['colorless', 'red']
+        elif self.color_identity == 'U':
+            self.color_identity = 'Blue'
+            self.files_to_load = ['colorless', 'blue']
+            pass
+            pass
+        elif self.color_identity == 'W':
+            self.color_identity = 'White'
+            self.files_to_load = ['colorless', 'white']
+            pass
+        
+        # Two-color
+        elif self.color_identity == 'B, G':
+            self.color_identity = 'Golgari: Black/Green'
+            self.files_to_load = ['colorless', 'black', 'green', 'golgari']
+            pass
+        elif self.color_identity == 'B, R':
+            self.color_identity = 'Rakdos: Black/Red'
+            self.files_to_load = ['colorless', 'black', 'red', 'rakdos']
+            pass
+        elif self.color_identity == 'B, U':
+            self.color_identity = 'Dimir: Black/Blue'
+            self.files_to_load = ['colorless', 'black', 'blue', 'dimir']
+            pass
+        elif self.color_identity == 'B, W':
+            self.color_identity = 'Orzhov: Black/White'
+            self.files_to_load = ['colorless', 'black', 'white', 'orzhov']
+            pass
+        elif self.color_identity == 'G, R':
+            self.color_identity = 'Gruul: Green/Red'
+            self.files_to_load = ['colorless', 'green', 'red', 'gruul']
+            pass
+        elif self.color_identity == 'G, U':
+            self.color_identity = 'Simic: Green/Blue'
+            self.files_to_load = ['colorless', 'green', 'blue', 'simic']
+            pass
+        elif self.color_identity == 'G, W':
+            self.color_identity = 'Selesnya: Green/White'
+            self.files_to_load = ['colorless', 'green', 'white', 'selesnya']
+            pass
+        elif self.color_identity == 'U, R':
+            self.color_identity = 'Izzet Blue/Red'
+            self.files_to_load = ['colorless', 'blue', 'red', 'azorius']
+            pass
+        elif self.color_identity == 'U, W':
+            self.color_identity = 'Azorius: Blue/White'
+            self.files_to_load = ['colorless', 'blue', 'white', 'azorius']
+            pass
+        elif self.color_identity == 'R, W':
+            self.color_identity = 'Boros: Red/White'
+            self.files_to_load = ['colorless', 'red', 'white', 'boros']
+            pass
+        
+        # Thri-color
+        elif self.color_identity == 'B, G, U':
+            self.color_identity = 'Sultai: Black/Blue/Green'
+            self.files_to_load = ['colorless', 'black', 'blue', 'green', 'dimir', 'golgari', 'simic', 'sultai']
+            pass
+        elif self.color_identity == 'B, G, R':
+            self.color_identity = 'Jund: Black/Green/Red'
+            self.files_to_load = ['colorless', 'black', 'green', 'red', 'golgari', 'rakdos', 'gruul', 'jund']
+            pass
+        elif self.color_identity == 'B, G, W':
+            self.color_identity = 'Abzan: Black/Green/White'
+            self.files_to_load = ['colorless', 'black', 'green', 'white', 'golgari', 'orzhov', 'selesnya', 'abzan']
+            pass
+        elif self.color_identity == 'B, R, U':
+            self.color_identity = 'Grixis: Black/Blue/Red'
+            self.files_to_load = ['colorless', 'black', 'blue', 'red', 'dimir', 'rakdos', 'izzet', 'grixis']
+            pass
+        elif self.color_identity == 'B, R, W':
+            self.color_identity = 'Mardu: Black/Red/White'
+            self.files_to_load = ['colorless', 'black', 'red', 'white', 'rakdos', 'orzhov', 'boros', 'mardu']
+            pass
+        elif self.color_identity == 'B, U, W':
+            self.color_identity = 'Esper: Black/Blue/White'
+            self.files_to_load = ['colorless', 'black', 'blue', 'white', 'dimir', 'orzhov', 'azorius', 'esper']
+            pass
+        elif self.color_identity == 'G, R, U':
+            self.color_identity = 'Temur: Blue/Green/Red'
+            self.files_to_load = ['colorless', 'green', 'red', 'blue', 'simir', 'izzet', 'gruul', 'temur']
+            pass
+        elif self.color_identity == 'G, R, W':
+            self.color_identity = 'Naya: Green/Red/White'
+            self.files_to_load = ['colorless', 'green', 'red', 'white', 'gruul', 'selesnya', 'boros', 'naya']
+            pass
+        elif self.color_identity == 'G, U, W':
+            self.color_identity = 'Bant: Blue/Green/White'
+            self.files_to_load = ['colorless', 'green', 'blue', 'white', 'simir', 'azorius', 'selesnya', 'bant']
+            pass
+        elif self.color_identity == 'U, R, W':
+            self.color_identity = 'Jeskai: Blue/Red/White'
+            self.files_to_load = ['colorless', 'blue', 'red', 'white', 'izzet', 'azorius', 'boros', 'jeskai']
+            pass
+        
+        # Quad-color
+        elif self.color_identity == 'B, G, R, U':
+            self.color_identity = 'Glint: Black/Blue/Green/Red'
+            self.files_to_load = ['colorless', 'black', 'blue', 'green', 'red', 'golgari', 'rakdos', 'dimir', 'gruul',
+                                  'simic', 'izzet', 'jund', 'sultai', 'grixis', 'temur', 'glint']
+            pass
+        elif self.color_identity == 'B, G, R, W':
+            self.color_identity = 'Dune: Black/Green/Red/White'
+            self.files_to_load = ['colorless', 'black', 'green', 'red', 'white', 'golgari', 'rakdos', 'orzhov', 'gruul',
+                                  'selesnya', 'boros', 'jund', 'abzan', 'mardu', 'naya', 'dune']
+            pass
+        elif self.color_identity == 'B, G, U, W':
+            self.color_identity = 'Witch: Black/Blue/Green/White'
+            self.files_to_load = ['colorless', 'black', 'blue', 'green', 'white', 'golgari', 'dimir', 'orzhov', 'simic',
+                                  'selesnya', 'azorius', 'sultai', 'abzan', 'esper', 'bant', 'glint']
+            pass
+        elif self.color_identity == 'B, R, U, W':
+            self.color_identity = 'Yore: Black/Blue/Red/White'
+            self.files_to_load = ['colorless', 'black', 'blue', 'red', 'white', 'rakdos', 'dimir', 'orzhov', 'izzet',
+                                  'boros', 'azorius', 'grixis', 'mardu', 'esper', 'mardu', 'glint']
+            pass
+        elif self.color_identity == 'G, R, U, W':
+            self.color_identity = 'Ink: Blue/Green/Red/White'
+            self.files_to_load = ['colorless', 'blue', 'green', 'red', 'white', 'gruul', 'simic', 'selesnya', 'izzet',
+                                  'boros', 'azorius', 'temur', 'naya', 'bant', 'jeskai', 'glint']
+            pass
+        elif self.color_identity == 'B, G, R, U, W':
+            self.color_identity = 'WUBRG: All colors'
+            self.files_to_load = ['colorless', 'black', 'green', 'red', 'blue', 'white', 'golgari', 'rakdos',' dimir',
+                                  'orzhov', 'gruul', 'simic', 'selesnya', 'izzet', 'boros', 'azorius', 'jund', 'sultai', 'abzan',
+                                  'grixis', 'mardu', 'esper', 'temur', 'naya', 'bant', 'jeska', 'glint', 'dune','witch', 'yore',
+                                  'ink', ]
+    
+    def determine_themes(self):
+        themes = self.commander_tags
+        print('Your commander deck will likely have a number of viable themes, but you\'ll want to narrow it down for focus.\n'
+                'This will go through the process of choosing up to three themes for the deck.')
+        while True:
+            # Choose a primary theme
+            print('Choose a primary theme for your commander deck.\n'
+                'This will be the "focus" of the deck, in a kindred deck this will typically be a creature type for example.\n')
+            question = [
+                inquirer.List('theme',
+                            choices=themes,
+                            carousel=True)
+            ]
+            answer = inquirer.prompt(question)
+            choice = answer['theme']
+            self.primary_theme = choice
+            themes.remove(choice)
+            themes.append('Stop Here')
+            
+            secondary_theme_chosen = False
+            tertiary_theme_chosen = False
+            
+            while not secondary_theme_chosen:
+                # Secondary theme
+                print('Choose a secondary theme for your commander deck.\n'
+                    'This will typically be a secondary focus, like card draw for Spellslinger, or +1/+1 counters for Aggro.')
+                question = [
+                    inquirer.List('theme',
+                                choices=themes,
+                                carousel=True)
+                ]
+                answer = inquirer.prompt(question)
+                choice = answer['theme']
+                while True:
+                    if choice == 'Stop Here':
+                        print('You\'ve only selected one theme, are you sure you want to stop?')
+                        confirm_themes = [
+                            inquirer.Confirm(
+                                'done',
+                            )
+                        ]
+                        answer = inquirer.prompt(confirm_themes)
+                        confirm_done = answer['done']
+                        if confirm_done:
+                            secondary_theme_chosen = True
+                            self.secondary_theme = False
+                            tertiary_theme_chosen = True
+                            self.tertiary_theme = False
+                            themes.remove(choice)
+                            break
+                        else:
+                            pass
+
+                    else:
+                        self.secondary_theme = choice
+                        themes.remove(choice)
+                        secondary_theme_chosen = True
+                        break
+            
+            while not tertiary_theme_chosen:
+                # Tertiary theme
+                print('Choose a secondary theme for your commander deck.\n'
+                    'This will typically be a tertiary focus, or just something else to do that your commander is good at.')
+                question = [
+                    inquirer.List('theme',
+                                choices=themes,
+                                carousel=True)
+                ]
+                answer = inquirer.prompt(question)
+                choice = answer['theme']
+                while True:
+                    if choice == 'Stop Here':
+                        print('You\'ve only selected two themes, are you sure you want to stop?')
+                        confirm_themes = [
+                            inquirer.Confirm(
+                                'done',
+                            )
+                        ]
+                        answer = inquirer.prompt(confirm_themes)
+                        confirm_done = answer['done']
+                        if confirm_done:
+                            tertiary_theme_chosen = True
+                            self.tertiary_theme = False
+                            themes.remove(choice)
+                            break
+                        else:
+                            pass
+
+                    else:
+                        self.tertiary_theme = choice
+                        tertiary_theme_chosen = True
+                        break
+            break
         
     def determine_ideals(self):
         # "Free" slots that can be used for anything that isn't the ideals
@@ -354,8 +593,35 @@ class DeckBuilder:
         # By default, ({self.ideal_land_count} - 5) basic lands will be added, distributed
         # across the commander color identity. These will be removed for utility lands, 
         # multi-color producing lands, fetches, and any MDFCs added later
-        print(f'Adding {self.ideal_land_count} - 5 basic lands.')
-        for color in self.color_identity:
+        self.land_count = 0
+        self.add_basics()
+        self.add_standard_non_basics()
+        
+        
+        
+                
+        
+        # If over ideal land count, remove random basics until ideal land count
+        while self.land_count > self.ideal_land_count:
+                self.remove_basic()
+        
+        #if self.land_cards < self.ideal_land_count:
+        #    pass
+        basic_lands = ['Plains', 'Island', 'Swamp', 'Forest', 'Mountain']
+        for basic_land in basic_lands:
+            num_basics = 0
+            if basic_land in self.land_cards:
+                while basic_land in self.land_cards:
+                    num_basics += 1
+                    self.land_cards.remove(basic_land)
+                self.land_cards.append(f'{basic_land} x {num_basics}')
+        #print(*self.land_cards, sep='\n')
+        #print(f'Total lands: {self.land_count}')
+    
+    def add_basics(self):
+        self.land_count = 0
+        print(f'Adding {self.ideal_land_count - 5} basic lands.')
+        for color in self.colors:
             if color == 'W':
                 basic = 'Plains'
             elif color == 'U':
@@ -369,36 +635,52 @@ class DeckBuilder:
             """if color =='':
                 basic = 'Wastes'"""
             num_basics = self.ideal_land_count - 5
-            for _ in range(num_basics // len(self.color_identity)):
+            for _ in range(num_basics // len(self.colors)):
                 self.land_cards.append(basic)
-        #print(self.land_cards)
-        
+                self.land_count += 1
+    
+    def add_standard_non_basics(self):
         # Add lands that are good in most any commander deck
-        print('Adding \'standard\' non-basics')
+        print('Adding "standard" non-basics')
+        generic_fetches = ['Evolving Wilds', 'Terramorphic Expanse', 'Shire Terrace', 'Escape Tunnel', 'Promising Vein']
         self.land_cards.append('Reliquary Tower')
-        if 'landfall' not in self.commander_tags:
+        self.land_count += 1
+        if 'Landfall' not in self.commander_tags:
             self.land_cards.append('Ash Barrens')
-        if len(self.color_identity) > 1:
+            self.land_count += 1
+        if len(self.colors) > 1:
+            # Adding command Tower
             self.land_cards.append('Command Tower')
+            self.land_count += 1
+            
+            # Adding Exotic Orchard
             self.land_cards.append('Exotic Orchard')
-            self.land_cards.append('Evolving Wilds')
-        if len(self.color_identity) <= 2:
+            self.land_count += 1
+            
+            # Adding Evolving Wilds and similar cards
+            for fetch in generic_fetches:
+                self.land_cards.append(fetch)
+                self.land_count += 1
+        if len(self.colors) <= 2:
             self.land_cards.append('War Room')
+            self.land_count += 1
         if self.commander_power >= 5:
             self.land_cards.append('Rogue\'s Passage')
-        
-        # If over ideal land count, remove random basics until ideal land count
-        while len(self.land_cards) > self.ideal_land_count:
-                self.remove_basic()
-        
-        #if self.land_cards < self.ideal_land_count:
-        #    pass
-        print(*self.land_cards, sep='\n')
-        print(len(self.land_cards))
-            
+            self.land_count += 1
+    
+    def add_kindred_lands(self):
+        print('Adding lands that care about the commander having a Kindred theme.')
+        print('Adding general Kindred lands.')
+        if 'Kindred' in ' '.join(self.themes):
+            kindred_lands = ['Cavern of Souls', 'Path of Ancestry', 'Three Tree City']
+            for land in kindred_lands:
+                if land not in self.land_cards:
+                    self.land_cards.append(land)
+                    self.land_count += 1
+    
     def remove_basic(self):
         basic_lands = []
-        for color in self.color_identity:
+        for color in self.colors:
             if color == 'W':
                 basic = 'Plains'
             elif color == 'U':
@@ -415,6 +697,7 @@ class DeckBuilder:
         basic_land = random.choice(basic_lands)
         #print(basic_land)
         self.land_cards.remove(basic_land)
+        self.land_count -= 1
         
     def add_creatures(self):
         # Begin the process to add creatures, the number added will depend on what the 
@@ -423,11 +706,20 @@ class DeckBuilder:
 
 build_deck = DeckBuilder()
 build_deck.determine_commander()
-print(f'Commander: {build_deck.commander}')
+"""print(f'Commander: {build_deck.commander}')
 print(f'Color Identity: {build_deck.color_identity}')
 print(f'Commander Colors: {build_deck.colors}')
 print(f'Commander Creature Types: {build_deck.creature_types}')
-print(f'Commander tags: {build_deck.commander_tags}')
+print(f'Commander Primary Theme: {build_deck.primary_theme}')
+if not build_deck.secondary_theme:
+    pass
+else:    
+    print(f'Commander Secondary Theme: {build_deck.secondary_theme}')
+if not build_deck.tertiary_theme:
+    pass
+else:
+    print(f'Commander Tertiary Theme: {build_deck.tertiary_theme}')"""
+pprint.pprint(build_deck.commander_dict, sort_dicts = False)
 #build_deck.determine_commander()
 #build_deck.ideal_land_count = 35
 #build_deck.add_lands()

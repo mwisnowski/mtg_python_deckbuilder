@@ -41,4 +41,4 @@ def get_card_info():
     pprint.pprint(filtered_df_no_text)
     pprint.pprint(filtered_df['text'])
 
-get_card_info()
+#get_card_info()

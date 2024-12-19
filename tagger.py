@@ -266,7 +266,7 @@ def tag_for_keywords(df, color):
         if pd.notna(row['keywords']):
             keywords = row['keywords']
             tag_type = []
-            split_keywords = keywords.split()
+            split_keywords = keywords.split(', ')
             for keyword in split_keywords:
                 tag_type.extend([keyword])
                 for tag in tag_type:
@@ -4803,5 +4803,5 @@ def tag_for_removal(df, color):
 
 
 #regenerate_csv_by_color('colorless')
-#for color in colors:
-load_dataframe('commander')
+for color in colors:
+    load_dataframe(color)

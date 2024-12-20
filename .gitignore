@@ -1,4 +1,6 @@
 *.csv
 *.txt
+*.json
+test.py
 .mypy_cache/
 __pycache__/

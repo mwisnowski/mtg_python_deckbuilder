@@ -1,7 +1,8 @@
 artifact_tokens = ['Blood', 'Clue', 'Food', 'Gold', 'Incubator',
                 'Junk','Map','Powerstone', 'Treasure']
 
-banned_cards = ['Ancestral Recall', 'Balance', 'Biorhythm', 'Black Lotus',
+banned_cards = [# in commander
+                'Ancestral Recall', 'Balance', 'Biorhythm', 'Black Lotus',
                 'Braids, Cabal Minion', 'Chaos Orb', 'Coalition Victory',
                 'Channel', 'Dockside Extortionist', 'Emrakul, the Aeons Torn',
                 'Erayo, Soratami Ascendant', 'Falling Star', 'Fastbond',
@@ -15,7 +16,12 @@ banned_cards = ['Ancestral Recall', 'Balance', 'Biorhythm', 'Black Lotus',
                 'Recurring Nightmare', 'Rofellos, Llanowar Emissary', 'Shahrazad',
                 'Sundering Titan', 'Sway of the Stars', 'Sylvan Primordial',
                 'Time Vault', 'Time Walk', 'Tinker', 'Tolarian Academy',
-                'Trade Secrets', 'Upheaval', 'Yawgmoth\'s Bargain']
+                'Trade Secrets', 'Upheaval', 'Yawgmoth\'s Bargain',
+                
+                # In constructed
+                'Invoke Prejudice', 'Cleanse', 'Stone-Throwing Devils', 'Pradesh Gypsies',
+                'Jihad', 'Imprison', 'Crusade'
+                ]
 
 board_wipe_tags = ['destroy all', 'destroy each', 'return all', 'return each', 'deals damage to each',
                 'exile all', 'exile each', 'creatures get -X/-X', 'sacrifices all', 'sacrifices each',

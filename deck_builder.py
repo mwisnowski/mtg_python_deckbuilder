@@ -11,20 +11,23 @@ from fuzzywuzzy import fuzz, process # type: ignore
 from settings import csv_directory
 from setup import determine_commanders, set_lands
 
+print('Would you like to leverage Scrython for pricing information?')
+question = [
+    inquirer.Confirm(
+        'scrython',
+        )
+    ]
+answer = inquirer.prompt(question)
+choice = answer['scrython']
+if choice:
+    use_scrython = True
+    import scrython # type:ignore
+else:
+    use_scrython = False
 
 pd.set_option('display.max_columns', None)
 pd.set_option('display.max_rows', None)
 pd.set_option('display.max_colwidth', 20)
-
-"""def pluralize_list(singular_list):
-    engine = inflect.engine()
-    plural_list = [engine.plural(creature_type) for creature_type in singular_list]
-    return plural_list
-
-singular_words = settings.creature_types
-plural_words = pluralize_list(singular_words)
-creature_type_list = settings.creature_types + plural_words"""
-#print(plural_words)
 
 # Basic deck builder, initial plan will just be for kindred support.
 # Would like to add logic for other themes, as well as automatically go
@@ -93,7 +96,14 @@ class DeckBuilder:
         
         # Battles
         self.battle_cards = []
-        
+    
+    def price_check(self, card_name):
+        card = scrython.cards.Named(fuzzy=f'{card_name}')
+        card_price = card.prices('usd')
+        #if card_price is None:
+        #    card_price = 0.0
+        return card_price
+            
     def determine_commander(self):
         # Setup dataframe
         try:
@@ -199,7 +209,6 @@ class DeckBuilder:
         
         # Set color identity
         self.color_identity = df.at[0, 'colorIdentity']
-        print(self.color_identity)
         self.color_identity_full = ''
         self.determine_color_identity()
         
@@ -400,11 +409,11 @@ class DeckBuilder:
     def determine_themes(self):
         themes = self.commander_tags
         print('Your commander deck will likely have a number of viable themes, but you\'ll want to narrow it down for focus.\n'
-                'This will go through the process of choosing up to three themes for the deck.')
+                'This will go through the process of choosing up to three themes for the deck.\n')
         while True:
             # Choose a primary theme
             print('Choose a primary theme for your commander deck.\n'
-                'This will be the "focus" of the deck, in a kindred deck this will typically be a creature type for example.\n')
+                'This will be the "focus" of the deck, in a kindred deck this will typically be a creature type for example.')
             question = [
                 inquirer.List('theme',
                             choices=themes,
@@ -432,7 +441,7 @@ class DeckBuilder:
                 choice = answer['theme']
                 while True:
                     if choice == 'Stop Here':
-                        print('You\'ve only selected one theme, are you sure you want to stop?')
+                        print('You\'ve only selected one theme, are you sure you want to stop?\n')
                         confirm_themes = [
                             inquirer.Confirm(
                                 'done',
@@ -458,7 +467,7 @@ class DeckBuilder:
             
             while not tertiary_theme_chosen:
                 # Tertiary theme
-                print('Choose a secondary theme for your commander deck.\n'
+                print('Choose a tertiary theme for your commander deck.\n'
                     'This will typically be a tertiary focus, or just something else to do that your commander is good at.')
                 question = [
                     inquirer.List('theme',
@@ -469,7 +478,7 @@ class DeckBuilder:
                 choice = answer['theme']
                 while True:
                     if choice == 'Stop Here':
-                        print('You\'ve only selected two themes, are you sure you want to stop?')
+                        print('You\'ve only selected two themes, are you sure you want to stop?\n')
                         confirm_themes = [
                             inquirer.Confirm(
                                 'done',
@@ -494,6 +503,67 @@ class DeckBuilder:
     def determine_ideals(self):
         # "Free" slots that can be used for anything that isn't the ideals
         self.free_slots = 99
+        
+        if use_scrython:
+            print('Would you like to set an intended max price of the deck?\n'
+                  'There will be some leeway of ~10%, with a couple alternative options provided.')
+            question = [
+                inquirer.Confirm(
+                    'scrython',
+                    )
+                ]
+            answer = inquirer.prompt(question)
+            choice = answer['scrython']
+            if choice:
+                self.set_max_deck_price = True
+                print('What would you like the max price to be?')
+                question = [
+                    inquirer.Text(
+                        'max_price',
+                        default='400'
+                        )
+                    ]
+                answer = inquirer.prompt(question)
+                self.max_deck_price = float(answer['max_price'])
+            else:
+                self.set_max_deck_price = False
+            
+            print('Would you like to set a max price per card?\n'
+                  'There will be some leeway of ~10% when choosing cards and you can choose to keep it or not.')
+            question = [
+                inquirer.Confirm(
+                    'scrython',
+                    )
+                ]
+            answer = inquirer.prompt(question)
+            choice = answer['scrython']
+            if choice:
+                self.set_max_card_price = True
+                print('What would you like the max price to be?')
+                question = [
+                    inquirer.Text(
+                        'max_price',
+                        default='20'
+                        )
+                    ]
+                answer = inquirer.prompt(question)
+                self.max_card_price = float(answer['max_price'])
+            else:
+                self.set_max_card_price = False
+        
+        # Determine ramp
+        print('How many pieces of ramp would you like to include?\n'
+              'You\'re gonna want a decent amount of ramp, both getting lands or mana rocks/dorks.\n'
+              'A good baseline is 8-12, scaling up with average CMC.')
+        question = [
+            inquirer.Text(
+                'ramp_prompt',
+                default='8'
+                )
+            ]
+        answer = inquirer.prompt(question)
+        self.ideal_ramp = int(answer['ramp_prompt'])
+        self.free_slots -= self.ideal_ramp
         
         # Determine ideal land count
         print('How many lands would you like to include?\n'
@@ -568,20 +638,6 @@ class DeckBuilder:
         self.ideal_card_advantage = int(answer['draw_prompt'])
         self.free_slots -= self.ideal_card_advantage
         
-        # Determine ramp
-        print('How many pieces of ramp would you like to include?\n'
-              'You\'re gonna want a decent amount of ramp, both getting lands or mana rocks/dorks.\n'
-              'A good baseline is 8-12, scaling up with average CMC.')
-        question = [
-            inquirer.Text(
-                'ramp_prompt',
-                default='8'
-                )
-            ]
-        answer = inquirer.prompt(question)
-        self.ideal_ramp = int(answer['ramp_prompt'])
-        self.free_slots -= self.ideal_ramp
-        
         # Determine how many protection spells
         print('How protection spells would you like to include?\n'
               'This can be individual protection, board protection, fogs, or similar effects.\n'
@@ -626,9 +682,23 @@ class DeckBuilder:
         
         if len(self.colors) >= 2:
             self.add_dual_lands()
+            keyboard.wait('space')
         
         if len(self.colors) >= 3:
             pass
+        
+        # Determine minimum basics to have
+        print('How many basic lands would you like to have at minimum?\n'
+              'This can vary widely depending on your commander, colors in color identity, and what you want to do.\n'
+              'Some decks may be fine with as low as 10, others may want 25.')
+        question = [
+            inquirer.Text(
+                'num_basics',
+                default='20'
+                )
+            ]
+        answer = inquirer.prompt(question)
+        self.ideal_protection = int(answer['protection_prompt'])
         
         self.add_misc_lands()
         
@@ -662,48 +732,79 @@ class DeckBuilder:
     
     def add_basics(self):
         self.land_count = 0
-        print(f'Adding {self.ideal_land_count - 5} basic lands.')
+        base_basics = self.ideal_land_count - 5  # Reserve 5 slots for utility lands
+        basics_per_color = base_basics // len(self.colors)
+        remaining_basics = base_basics % len(self.colors)
+        
+        color_to_basic = {
+            'W': 'Plains',
+            'U': 'Island', 
+            'B': 'Swamp',
+            'R': 'Mountain',
+            'G': 'Forest'
+        }
+        
+        if 'Snow' in self.commander_tags:
+            color_to_basic = {
+            'W': 'Snow-Covered Plains',
+            'U': 'Snow-Covered Island', 
+            'B': 'Snow-Covered Swamp',
+            'R': 'Snow-Covered Mountain',
+            'G': 'Snow-Covered Forest'
+            }
+        
+        print(f'Adding {base_basics} basic lands distributed across {len(self.colors)} colors')
+        
+        # Add equal distribution first
         for color in self.colors:
-            if color == 'W':
-                basic = 'Plains'
-            elif color == 'U':
-                basic = 'Island'
-            elif color == 'B':
-                basic = 'Swamp',
-            elif color == 'R':
-                basic = 'Mountain'
-            elif color == 'G':
-                basic = 'Forest'
-            """if color =='':
-                basic = 'Wastes'"""
-            num_basics = self.ideal_land_count - 5
-            for _ in range(num_basics // len(self.colors)):
-                self.land_cards.append(basic)
-                self.land_count += 1
-    
+            basic = color_to_basic.get(color)
+            if basic:
+                for _ in range(basics_per_color):
+                    self.land_cards.append(basic)
+                    self.land_count += 1
+        
+        # Distribute remaining basics based on color requirements
+        if remaining_basics > 0:
+            for color in self.colors[:remaining_basics]:
+                basic = color_to_basic.get(color)
+                if basic:
+                    self.land_cards.append(basic)
+                    self.land_count += 1
+
     def add_standard_non_basics(self):
         # Add lands that are good in most any commander deck
         print('Adding "standard" non-basics')
+        lands_to_remove = []
         self.land_cards.append('Reliquary Tower')
+        lands_to_remove.append('Reliquary Tower')
         self.land_count += 1
         if 'Landfall' not in self.commander_tags:
             self.land_cards.append('Ash Barrens')
+            lands_to_remove.append('Ash Barrens')
             self.land_count += 1
         if len(self.colors) > 1:
             # Adding command Tower
             self.land_cards.append('Command Tower')
+            lands_to_remove.append('Command Tower')
             self.land_count += 1
             
             # Adding Exotic Orchard
             self.land_cards.append('Exotic Orchard')
+            lands_to_remove.append('Exotic Orchard')
             self.land_count += 1
             
         if len(self.colors) <= 2:
             self.land_cards.append('War Room')
+            self.land_cards.append('War Room')
             self.land_count += 1
         if self.commander_power >= 5:
             self.land_cards.append('Rogue\'s Passage')
+            lands_to_remove.append('Rogue\'s Passage')
             self.land_count += 1
+        
+        for index, row in self.land_df.iterrows():
+            if row['name'] in lands_to_remove:
+                self.land_df = self.land_df.drop(index)
         
     def add_fetches(self):
         # Determine how many fetches in total
@@ -722,85 +823,216 @@ class DeckBuilder:
         
         generic_fetches = ['Evolving Wilds', 'Terramorphic Expanse', 'Shire Terrace', 'Escape Tunnel', 'Promising Vein','Myriad Landscape', 'Fabled Passage', 'Terminal Moraine']
         fetches = generic_fetches
+        fetches_to_remove = generic_fetches
         
-        # Adding in life fetches
-        print('Would you like to include the pricier fetch-lands (i.e. Prismatic Vista or the Onslaught/Zendikar fetches)?')
-        question = [
-            inquirer.Confirm(
-                            'yes',
-                            )
-                        ]
-        answer = inquirer.prompt(question)
-        choice = answer['yes']
-        if choice:
+        # Adding in expensive fetches
+        if (use_scrython and self.set_max_card_price):
+            if self.price_check('Prismatic Vista') is None:
+                fetches_to_remove.append('Prismatic Vista')
+                fetches.append('Prismatic Vista')
+        else:
+            fetches_to_remove.append('Prismatic Vista')
             fetches.append('Prismatic Vista')
-            if 'W' in self.colors:
-                white_fetches = ['Flooded Strand', 'Windswept Heath', 'Marsh Flats', 'Arid Mesa'] 
-                for fetch in white_fetches:
-                    if fetch not in fetches:
-                        fetches.append(fetch)
-                
-            if 'U' in self.colors:
-                blue_fetches = ['Flooded Strand', 'Polluted Delta', 'Scalding Tarn', 'Misty Rainforest']
-                for fetch in blue_fetches:
-                    if fetch not in fetches:
-                        fetches.append(fetch)
-                
-            if 'B' in self.colors:
-                black_fetches = ['Polluted Delta', 'Bloodstained Mire', 'Marsh Flats', 'Verdant Catacombs']
-                for fetch in black_fetches:
-                    if fetch not in fetches:
-                        fetches.append(fetch)
             
-            if 'R' in self.colors:
-                red_fetches = ['Bloodstained Mire', 'Wooded Foothills', 'Scalding Tarn', 'Arid Mesa']
-                for fetch in red_fetches:
+        # White Fetches
+        if 'W' in self.colors:
+            white_fetches = ['Flooded Strand', 'Windswept Heath', 'Marsh Flats', 'Arid Mesa'] 
+            for fetch in white_fetches:
+                if (use_scrython and self.set_max_card_price):
+                    if self.price_check(fetch) is None:
+                        fetches_to_remove.append(fetch)
+                        continue
+                    else:
+                        if float(self.price_check(fetch)) <= self.max_card_price:
+                            if fetch not in fetches:
+                                fetches_to_remove.append(fetch)
+                                fetches.append(fetch)
+                        else:
+                            continue
+                else:
                     if fetch not in fetches:
+                        fetches_to_remove.append(fetch)
                         fetches.append(fetch)
-                    
-            if 'G' in self.colors:
-                green_fetches = ['Wooded Foothills', 'Windswept Heath', 'Verdant Catacombs', 'Misty Rainforest']
-                for fetch in green_fetches:
+        
+        # Blue fetches
+        if 'U' in self.colors:
+            blue_fetches = ['Flooded Strand', 'Polluted Delta', 'Scalding Tarn', 'Misty Rainforest']
+            for fetch in blue_fetches:
+                if (use_scrython and self.set_max_card_price):
+                    if self.price_check(fetch) is None:
+                        fetches_to_remove.append(fetch)
+                        continue
+                    else:
+                        if float(self.price_check(fetch)) <= self.max_card_price:
+                            if fetch not in fetches:
+                                fetches_to_remove.append(fetch)
+                                fetches.append(fetch)
+                        else:
+                            continue
+                else:
                     if fetch not in fetches:
+                        fetches_to_remove.append(fetch)
+                        fetches.append(fetch)
+        
+        # Black fetches
+        if 'B' in self.colors:
+            black_fetches = ['Polluted Delta', 'Bloodstained Mire', 'Marsh Flats', 'Verdant Catacombs']
+            for fetch in black_fetches:
+                if (use_scrython and self.set_max_card_price):
+                    if self.price_check(fetch) is None:
+                        fetches_to_remove.append(fetch)
+                        continue
+                    else:
+                        if float(self.price_check(fetch)) <= self.max_card_price:
+                            if fetch not in fetches:
+                                fetches_to_remove.append(fetch)
+                                fetches.append(fetch)
+                        else:
+                            continue
+                else:
+                    if fetch not in fetches:
+                        fetches_to_remove.append(fetch)
+                        fetches.append(fetch)
+        
+        # REd fetches
+        if 'R' in self.colors:
+            red_fetches = ['Bloodstained Mire', 'Wooded Foothills', 'Scalding Tarn', 'Arid Mesa']
+            for fetch in red_fetches:
+                if (use_scrython and self.set_max_card_price):
+                    if self.price_check(fetch) is None:
+                        fetches_to_remove.append(fetch)
+                        continue
+                    else:
+                        if float(self.price_check(fetch)) <= self.max_card_price:
+                            if fetch not in fetches:
+                                fetches_to_remove.append(fetch)
+                                fetches.append(fetch)
+                        else:
+                            continue
+                else:
+                    if fetch not in fetches:
+                        fetches_to_remove.append(fetch)
+                        fetches.append(fetch)
+        
+        # Green fetches
+        if 'G' in self.colors:
+            green_fetches = ['Wooded Foothills', 'Windswept Heath', 'Verdant Catacombs', 'Misty Rainforest']
+            for fetch in green_fetches:
+                if (use_scrython and self.set_max_card_price):
+                    if self.price_check(fetch) is None:
+                        fetches_to_remove.append(fetch)
+                        continue
+                    else:
+                        if float(self.price_check(fetch)) <= self.max_card_price:
+                            if fetch not in fetches:
+                                fetches_to_remove.append(fetch)
+                                fetches.append(fetch)
+                        else:
+                            continue
+                else:
+                    if fetch not in fetches:
+                        fetches_to_remove.append(fetch)
                         fetches.append(fetch)
         
         # Adding in New Capenna Fetches
-        print('Would you like to include the cheaper, New Capenna fetches?')
-        question = [
-            inquirer.Confirm(
-                            'yes',
-                            )
-                        ]
-        answer = inquirer.prompt(question)
-        choice = answer['yes']
-        if choice:
-            if 'W' in self.colors:
-                white_fetches = ['Brokers Hideout', 'Obscura Storefront', 'Cabaretti Courtyard']
-                for fetch in white_fetches:
+        # White New Capenna fetches
+        if 'W' in self.colors:
+            white_fetches = ['Brokers Hideout', 'Obscura Storefront', 'Cabaretti Courtyard']
+            for fetch in white_fetches:
+                if (use_scrython and self.set_max_card_price):
+                    if self.price_check(fetch) is None:
+                        fetches_to_remove.append(fetch)
+                        continue
+                    else:
+                        if float(self.price_check(fetch)) <= self.max_card_price:
+                            if fetch not in fetches:
+                                fetches_to_remove.append(fetch)
+                                fetches.append(fetch)
+                        else:
+                            continue
+                else:
                     if fetch not in fetches:
+                        fetches_to_remove.append(fetch)
                         fetches.append(fetch)
-            if 'U' in self.colors:
-                blue_fetches = ['Brokers Hideout', 'Obscura Storefront', 'Maestros Theater']
-                for fetch in blue_fetches:
+        
+        # Blue New Capenna Fetches
+        if 'U' in self.colors:
+            blue_fetches = ['Brokers Hideout', 'Obscura Storefront', 'Maestros Theater']
+            for fetch in blue_fetches:
+                if (use_scrython and self.set_max_card_price):
+                    if self.price_check(fetch) is None:
+                        fetches_to_remove.append(fetch)
+                        continue
+                    else:
+                        if float(self.price_check(fetch)) <= self.max_card_price:
+                            if fetch not in fetches:
+                                fetches_to_remove.append(fetch)
+                                fetches.append(fetch)
+                        else:
+                            continue
+                else:
                     if fetch not in fetches:
+                        fetches_to_remove.append(fetch)
                         fetches.append(fetch)
-                
-            if 'B' in self.colors:
-                black_fetches = ['Obscura Storefront', 'Maestros Theater', 'Riveteers Overlook']
-                for fetch in black_fetches:
+        
+        # Black New Capenna Fetches
+        if 'B' in self.colors:
+            black_fetches = ['Obscura Storefront', 'Maestros Theater', 'Riveteers Overlook']
+            for fetch in black_fetches:
+                if (use_scrython and self.set_max_card_price):
+                    if self.price_check(fetch) is None:
+                        fetches_to_remove.append(fetch)
+                        continue
+                    else:
+                        if float(self.price_check(fetch)) <= self.max_card_price:
+                            if fetch not in fetches:
+                                fetches_to_remove.append(fetch)
+                                fetches.append(fetch)
+                        else:
+                            continue
+                else:
                     if fetch not in fetches:
+                        fetches_to_remove.append(fetch)
                         fetches.append(fetch)
-            
-            if 'R' in self.colors:
-                red_fetches = ['Maestros Theater', 'Riveteers Overlook', 'Cabaretti Courtyard']
-                for fetch in red_fetches:
+        
+        # Red New Capenna Fetches
+        if 'R' in self.colors:
+            red_fetches = ['Maestros Theater', 'Riveteers Overlook', 'Cabaretti Courtyard']
+            for fetch in red_fetches:
+                if (use_scrython and self.set_max_card_price):
+                    if self.price_check(fetch) is None:
+                        fetches_to_remove.append(fetch)
+                        continue
+                    else:
+                        if float(self.price_check(fetch)) <= self.max_card_price:
+                            if fetch not in fetches:
+                                fetches_to_remove.append(fetch)
+                                fetches.append(fetch)
+                        else:
+                            continue
+                else:
                     if fetch not in fetches:
+                        fetches_to_remove.append(fetch)
                         fetches.append(fetch)
-                    
-            if 'G' in self.colors:
-                green_fetches = ['Brokers Hideout', 'Riveteers Overlook', 'Cabaretti Courtyard']
-                for fetch in green_fetches:
+        
+        # Green New Capenna Fetches
+        if 'G' in self.colors:
+            green_fetches = ['Brokers Hideout', 'Riveteers Overlook', 'Cabaretti Courtyard']
+            for fetch in green_fetches:
+                if (use_scrython and self.set_max_card_price):
+                    if self.price_check(fetch) is None:
+                        fetches_to_remove.append(fetch)
+                        continue
+                    else:
+                        if float(self.price_check(fetch)) <= self.max_card_price:
+                            if fetch not in fetches:
+                                fetches_to_remove.append(fetch)
+                                fetches.append(fetch)
+                        else:
+                            continue
+                else:
                     if fetch not in fetches:
+                        fetches_to_remove.append(fetch)
                         fetches.append(fetch)
         
         fetches_chosen = False
@@ -841,85 +1073,213 @@ class DeckBuilder:
                 fetches_chosen = True
                 break
             break
+        
+        # Add fetches to deck
         for fetch in fetches_to_add:
             if fetch not in self.land_cards:
                 self.land_cards.append(fetch)
                 self.land_count += 1
+        
+        # Remove Fetches from land_df
+        for index, row in self.land_df.iterrows():
+            if row['name'] in fetches_to_remove:
+                self.land_df = self.land_df.drop(index)
             
     def add_kindred_lands(self):
         print('Adding lands that care about the commander having a Kindred theme.')
         print('Adding general Kindred lands.')
         kindred_lands = ['Path of Ancestry']
-        
-        print('Would you like to include the pricier Kindred lands (i.e. Cavern of Souls and Three Tree City)?')
-        question = [
-            inquirer.Confirm(
-                            'yes',
-                            )
-                        ]
-        answer = inquirer.prompt(question)
-        choice = answer['yes']
-        if choice:
-            kindred_lands.extend(['Three Tree City', 'Cavern of Souls'])
+        lands_to_remove = kindred_lands
+        if (use_scrython and self.set_max_card_price):
+            for land in ['Three Tree City', 'Cavern of Souls']:
+                if float(self.price_check(land)) <= self.max_card_price:
+                    kindred_lands.append(land)
+                    lands_to_remove.append(land)
+                else:
+                    lands_to_remove.append(land)
 
         for land in kindred_lands:
             if land not in self.land_cards:
                 self.land_cards.append(land)
                 self.land_count += 1
+        
+        for index, row in self.land_df.iterrows():
+            if row['name'] in lands_to_remove:
+                self.land_df = self.land_df.drop(land)
     
     def add_dual_lands(self):
         # Determine dual-color lands available 
         dual_options = []
-        if ('W' in self.colors and 'U' in self.colors):
-            for index, row in self.land_df.iterrows():
-                if 'Land — Plains Island' == row['type']:
-                    dual_options.append(row['name'])
+        for index, row in self.land_df.iterrows():
+            # Azorius Duals
+            if ('W' in self.colors and 'U' in self.colors):
+                if ('Land — Plains Island' == row['type']
+                    or 'Snow Land — Plains Island' == row['type']
+                    ):
                     self.land_df = self.land_df.drop(index)
-        if ('W' in self.colors and 'B' in self.colors):
-            for index, row in self.land_df.iterrows():
-                if 'Land — Plains Swamp' == row['type']:
-                    dual_options.append(row['name'])
+                    if (use_scrython and self.set_max_card_price):
+                        if self.price_check(row['name']) is None:
+                            continue
+                        else:
+                            if float(self.price_check(row['name'])) <= self.max_card_price:
+                                dual_options.append(row['name'])
+                            else:
+                                continue
+                    else:
+                        dual_options.append(row['name'])
+            
+            # Orzohv Duals
+            if ('W' in self.colors and 'B' in self.colors):
+                if ('Land — Plains Swamp' == row['type']
+                    or 'Snow Land — Plains Swamp' == row['type']
+                    ):
                     self.land_df = self.land_df.drop(index)
-        if ('U' in self.colors and 'B' in self.colors):
-            for index, row in self.land_df.iterrows():
-                if 'Land — Island Swamp' == row['type']:
-                    dual_options.append(row['name'])
+                    if (use_scrython and self.set_max_card_price):
+                        if self.price_check(row['name']) is None:
+                            continue
+                        else:
+                            if float(self.price_check(row['name'])) <= self.max_card_price:
+                                dual_options.append(row['name'])
+                            else:
+                                continue
+                    else:
+                        dual_options.append(row['name'])
+            
+            # Dimir Duals
+            if ('U' in self.colors and 'B' in self.colors):
+                if ('Land — Island Swamp' == row['type']
+                    or 'Snow Land — Island Swamp' == row['type']
+                    ):
                     self.land_df = self.land_df.drop(index)
-        if ('G' in self.colors and 'B' in self.colors):
-            for index, row in self.land_df.iterrows():
-                if 'Land — Forest Swamp' == row['type']:
-                    dual_options.append(row['name'])
+                    if (use_scrython and self.set_max_card_price):
+                        if self.price_check(row['name']) is None:
+                            continue
+                        else:
+                            if float(self.price_check(row['name'])) <= self.max_card_price:
+                                dual_options.append(row['name'])
+                            else:
+                                continue
+                    else:
+                        dual_options.append(row['name'])
+            
+            # Golgari Duals
+            if ('G' in self.colors and 'B' in self.colors):
+                if ('Land — Forest Swamp' == row['type']
+                    or 'Snow Land — Forest Swamp' == row['type']
+                    ):
                     self.land_df = self.land_df.drop(index)
-        if ('B' in self.colors and 'R' in self.colors):
-            for index, row in self.land_df.iterrows():
-                if 'Land — Swamp Mountain' == row['type']:
-                    dual_options.append(row['name'])
+                    if (use_scrython and self.set_max_card_price):
+                        if self.price_check(row['name']) is None:
+                            continue
+                        else:
+                            if float(self.price_check(row['name'])) <= self.max_card_price:
+                                dual_options.append(row['name'])
+                            else:
+                                continue
+                    else:
+                        dual_options.append(row['name'])
+            
+            # Rakdos Duals
+            if ('B' in self.colors and 'R' in self.colors):
+                if ('Land — Swamp Mountain' == row['type']
+                    or 'Snow Land — Swamp Mountain' == row['type']
+                    ):
                     self.land_df = self.land_df.drop(index)
-        if ('G' in self.colors and 'U' in self.colors):
-            for index, row in self.land_df.iterrows():
-                if 'Land — Forest Island' == row['type']:
-                    dual_options.append(row['name'])
+                    if (use_scrython and self.set_max_card_price):
+                        if self.price_check(row['name']) is None:
+                            continue
+                        else:
+                            if float(self.price_check(row['name'])) <= self.max_card_price:
+                                dual_options.append(row['name'])
+                            else:
+                                continue
+                    else:
+                        dual_options.append(row['name'])
+            
+            # Simic Duals
+            if ('G' in self.colors and 'U' in self.colors):
+                if ('Land — Forest Island' == row['type']
+                    or 'Snow Land — Forest Island' == row['type']
+                    ):
                     self.land_df = self.land_df.drop(index)
-        if ('R' in self.colors and 'G' in self.colors):
-            for index, row in self.land_df.iterrows():
-                if 'Land — Mountain Forest' == row['type']:
-                    dual_options.append(row['name'])
+                    if (use_scrython and self.set_max_card_price):
+                        if self.price_check(row['name']) is None:
+                            continue
+                        else:
+                            if float(self.price_check(row['name'])) <= self.max_card_price:
+                                dual_options.append(row['name'])
+                            else:
+                                continue
+                    else:
+                        dual_options.append(row['name'])
+            
+            # Gruul Duals
+            if ('R' in self.colors and 'G' in self.colors):
+                if ('Land — Mountain Forest' == row['type']
+                    or 'Snow Land — Mountain Forest' == row['type']
+                    ):
                     self.land_df = self.land_df.drop(index)
-        if ('U' in self.colors and 'R' in self.colors):
-            for index, row in self.land_df.iterrows():
-                if 'Land — Island Mountain' == row['type']:
-                    dual_options.append(row['name'])
+                    if (use_scrython and self.set_max_card_price):
+                        if self.price_check(row['name']) is None:
+                            continue
+                        else:
+                            if float(self.price_check(row['name'])) <= self.max_card_price:
+                                dual_options.append(row['name'])
+                            else:
+                                continue
+                    else:
+                        dual_options.append(row['name'])
+            
+            # Izzet Duals
+            if ('U' in self.colors and 'R' in self.colors):
+                if ('Land — Island Mountain' == row['type']
+                    or 'Snow Land — Island Mountain' == row['type']
+                    ):
                     self.land_df = self.land_df.drop(index)
-        if ('G' in self.colors and 'W' in self.colors):
-            for index, row in self.land_df.iterrows():
-                if 'Land — Forest Plains' == row['type']:
-                    dual_options.append(row['name'])
+                    if (use_scrython and self.set_max_card_price):
+                        if self.price_check(row['name']) is None:
+                            continue
+                        else:
+                            if float(self.price_check(row['name'])) <= self.max_card_price:
+                                dual_options.append(row['name'])
+                            else:
+                                continue
+                    else:
+                        dual_options.append(row['name'])
+            
+            # Selesnya Duals
+            if ('G' in self.colors and 'W' in self.colors):
+                if ('Land — Forest Plains' == row['type']
+                    or 'Snow Land — Forest Plains' == row['type']
+                    ):
                     self.land_df = self.land_df.drop(index)
-        if ('R' in self.colors and 'W' in self.colors):
-            for index, row in self.land_df.iterrows():
-                if 'Land — Mountain Plains' == row['type']:
-                    dual_options.append(row['name'])
+                    if (use_scrython and self.set_max_card_price):
+                        if self.price_check(row['name']) is None:
+                            continue
+                        else:
+                            if float(self.price_check(row['name'])) <= self.max_card_price:
+                                dual_options.append(row['name'])
+                            else:
+                                continue
+                    else:
+                        dual_options.append(row['name'])
+            
+            # Boros Duals
+            if ('R' in self.colors and 'W' in self.colors):
+                if ('Land — Mountain Plains' == row['type']
+                    or 'Snow Land — Mountain Plains' == row['type']
+                    ):
                     self.land_df = self.land_df.drop(index)
+                    if (use_scrython and self.set_max_card_price):
+                        if self.price_check(row['name']) is None:
+                            continue
+                        else:
+                            if float(self.price_check(row['name'])) <= self.max_card_price:
+                                dual_options.append(row['name'])
+                            else:
+                                continue
+                    else:
+                        dual_options.append(row['name'])
         
         # Determine if using the dual-type lands
         print('Would you like to include dual-type lands (i.e. lands that count as both a Plains and a Swamp for example)?')
@@ -934,20 +1294,6 @@ class DeckBuilder:
         
         # Add the Duals to a list
         while choice:
-            # Include OG duals
-            print('Would you like to include the OG dual lands (i.e. Tundra or Plateau)?')
-            og_question = [
-                inquirer.Confirm(
-                    'no',
-                )
-            ]
-            og_answer = inquirer.prompt(og_question)
-            include_ogs = og_answer['no']
-            og_duals = ['Tundra', 'Underground Sea', 'Badlands', 'Taiga', 'Savannah', 'Scrubland', 'Volcanic Island', 'Bayou', 'Plateau', 'Tropical Island']
-            if not include_ogs:
-                for land in og_duals:
-                    if land in dual_options:
-                        dual_options.remove(land)
             print('Here\'s all the dual-type lands in your commander\'s color identity:')
             print(*dual_options, sep='\n')
             print('\n')
@@ -959,15 +1305,20 @@ class DeckBuilder:
     
     def add_misc_lands(self):
         
-        print(self.color_identity)
+        # Add other remaining lands that match color identity
         rows_to_drop = []
         for index, row in self.land_df.iterrows():
             if row['colorIdentity'] not in self.color_identity_options:
                 rows_to_drop.append(index)
                 
         filtered_lands_df = self.land_df.drop(rows_to_drop)
+        
+        # Take the first 35 matches based on EDHRec popularity
         filtered_lands_df = filtered_lands_df.head(35)
-        print(filtered_lands_df[['name']])
+        
+        lands_to_add = []
+        
+        # Randomly grab 10 lands
         
     
     def remove_basic(self):
@@ -978,14 +1329,14 @@ class DeckBuilder:
             elif color == 'U':
                 basic = 'Island'
             elif color == 'B':
-                basic = 'Swamp',
+                basic = 'Swamp'
             elif color == 'R':
                 basic = 'Mountain'
             elif color == 'G':
                 basic = 'Forest'
             if basic not in basic_lands:
                 basic_lands.append(basic)
-                
+
         basic_land = random.choice(basic_lands)
         #print(basic_land)
         self.land_cards.remove(basic_land)

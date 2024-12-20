@@ -69,6 +69,7 @@ def set_lands():
     df = pd.read_csv(f'{csv_directory}/cards.csv', low_memory=False)
     
     legendary_options = ['Land']
+    df['colorIdentity'] = df['colorIdentity'].fillna('Colorless')
     filtered_df = df[df['type'].str.contains('|'.join(legendary_options))]
     """
     Save the filtered dataframe to a new csv file, and narrow down/rearranges the columns it

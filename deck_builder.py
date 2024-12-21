@@ -11,19 +11,15 @@ from fuzzywuzzy import fuzz, process # type: ignore
 from settings import csv_directory
 from setup import determine_commanders, set_lands
 
-print('Would you like to leverage Scrython for pricing information?')
-question = [
-    inquirer.Confirm(
-        'scrython',
-        )
-    ]
-answer = inquirer.prompt(question)
-choice = answer['scrython']
-if choice:
+try:
+    import scrython # type: ignore
     use_scrython = True
-    import scrython # type:ignore
-else:
+except ImportError:
+    scrython = None
     use_scrython = False
+    print("Scrython is not installed. Some pricing features will be unavailable.")
+
+print(use_scrython)
 
 pd.set_option('display.max_columns', None)
 pd.set_option('display.max_rows', None)
@@ -97,6 +93,52 @@ class DeckBuilder:
         # Battles
         self.battle_cards = []
     
+    def questionnaire(self, inq_type, inq_default='', inq_choices=[]):
+        if inq_type == 'Text':
+            question = [
+                inquirer.Text('text')
+            ]
+            result = inquirer.prompt(question)['text']
+            while len(result) <= 0:
+                question = [
+                    inquirer.Text('text',
+                                  message='Input cannot be empty')
+                ]
+                result = inquirer.prompt(question)['text']
+            return result
+        
+        elif inq_type == 'Number':
+            question = [
+                inquirer.Text('number',
+                              default=inq_default)
+                ]
+            result = int(inquirer.prompt(question)['number'])
+            while type(result) is not int:
+                question = [
+                    inquirer.Text('number',
+                                  default=inq_default)
+                    ]
+                result = inquirer.prompt(question)['number']
+            return result
+        
+        elif inq_type == 'Confirm':
+            question = [
+                inquirer.Confirm('confirm',
+                                 default=inq_default),
+            ]
+            result = inquirer.prompt(question)['confirm']
+            return result
+
+        elif inq_type == 'Choice':
+            question = [
+                inquirer.List('selection',
+                              choices=inq_choices)
+            ]
+            result = inquirer.prompt(question)['selection']
+            return result
+        
+        raise ValueError(f"Unsupported inq_type: {inq_type}")
+    
     def price_check(self, card_name):
         card = scrython.cards.Named(fuzzy=f'{card_name}')
         card_price = card.prices('usd')
@@ -118,14 +160,7 @@ class DeckBuilder:
         commander_chosen = False
         while not commander_chosen:
             print('Enter a card name to be your commander, note that at this time only cards that have the \'Creature\' type may be chosen')
-            question = [
-                inquirer.Text(
-                    'card_prompt',
-                    message=''
-                )
-            ]
-            answer = inquirer.prompt(question)
-            card_choice = answer['card_prompt']
+            card_choice = self.questionnaire('Text', '')
             
             # Logic to find the card in the commander_cards csv, then display it's information
             # If the card can't be found, or doesn't have enough of a match score, display a 
@@ -143,13 +178,7 @@ class DeckBuilder:
                     fuzzy_card_choices = process.extract(card_choice, df['name'], limit=5)
                     fuzzy_card_choices.append('Neither')
                     print(fuzzy_card_choices)
-                    question = [
-                        inquirer.List('choices',
-                                    choices=fuzzy_card_choices,
-                                    carousel=True)
-                    ]
-                    answer = inquirer.prompt(question)
-                    fuzzy_card_choice = answer['choices']
+                    fuzzy_card_choice = self.questionnaire('Choice', inq_choices=fuzzy_card_choices)
                     if fuzzy_card_choice != 'Neither':
                         fuzzy_card_choice = fuzzy_card_choice[0]
                         print(fuzzy_card_choice)
@@ -166,18 +195,13 @@ class DeckBuilder:
                 self.commander_df = pd.DataFrame(df_dict)
                 
                 # Confirm if card entered was correct
-                correct_commander = [
-                    inquirer.Confirm(
-                        'commander',
-                    )
-                ]
-                confirm_commander = inquirer.prompt(correct_commander)
-                commander_confirmed = confirm_commander['commander']
+                commander_confirmed = self.questionnaire('Confirm', True)
                 # If correct, set it as the commander
                 if commander_confirmed:
                     commander_chosen = True
                     self.commander_info = df_dict
                     self.commander = self.commander_df.at[0, 'name']
+                    self.price_check(self.commander)
                     break
                     #print(self.commander)
                 else:
@@ -414,13 +438,7 @@ class DeckBuilder:
             # Choose a primary theme
             print('Choose a primary theme for your commander deck.\n'
                 'This will be the "focus" of the deck, in a kindred deck this will typically be a creature type for example.')
-            question = [
-                inquirer.List('theme',
-                            choices=themes,
-                            carousel=True)
-            ]
-            answer = inquirer.prompt(question)
-            choice = answer['theme']
+            choice = self.questionnaire('Choice', inq_choices=themes)
             self.primary_theme = choice
             themes.remove(choice)
             themes.append('Stop Here')
@@ -432,23 +450,11 @@ class DeckBuilder:
                 # Secondary theme
                 print('Choose a secondary theme for your commander deck.\n'
                     'This will typically be a secondary focus, like card draw for Spellslinger, or +1/+1 counters for Aggro.')
-                question = [
-                    inquirer.List('theme',
-                                choices=themes,
-                                carousel=True)
-                ]
-                answer = inquirer.prompt(question)
-                choice = answer['theme']
+                choice = self.questionnaire('Choice', inq_choices=themes)
                 while True:
                     if choice == 'Stop Here':
                         print('You\'ve only selected one theme, are you sure you want to stop?\n')
-                        confirm_themes = [
-                            inquirer.Confirm(
-                                'done',
-                            )
-                        ]
-                        answer = inquirer.prompt(confirm_themes)
-                        confirm_done = answer['done']
+                        confirm_done = self.questionnaire('Confirm', 'False')
                         if confirm_done:
                             secondary_theme_chosen = True
                             self.secondary_theme = False
@@ -469,23 +475,11 @@ class DeckBuilder:
                 # Tertiary theme
                 print('Choose a tertiary theme for your commander deck.\n'
                     'This will typically be a tertiary focus, or just something else to do that your commander is good at.')
-                question = [
-                    inquirer.List('theme',
-                                choices=themes,
-                                carousel=True)
-                ]
-                answer = inquirer.prompt(question)
-                choice = answer['theme']
+                choice = self.questionnaire('Choice', inq_choices=themes)
                 while True:
                     if choice == 'Stop Here':
                         print('You\'ve only selected two themes, are you sure you want to stop?\n')
-                        confirm_themes = [
-                            inquirer.Confirm(
-                                'done',
-                            )
-                        ]
-                        answer = inquirer.prompt(confirm_themes)
-                        confirm_done = answer['done']
+                        confirm_done = self.questionnaire('Confirm', False)
                         if confirm_done:
                             tertiary_theme_chosen = True
                             self.tertiary_theme = False
@@ -507,47 +501,22 @@ class DeckBuilder:
         if use_scrython:
             print('Would you like to set an intended max price of the deck?\n'
                   'There will be some leeway of ~10%, with a couple alternative options provided.')
-            question = [
-                inquirer.Confirm(
-                    'scrython',
-                    )
-                ]
-            answer = inquirer.prompt(question)
-            choice = answer['scrython']
+            choice = self.questionnaire('Confirm', False)
             if choice:
                 self.set_max_deck_price = True
                 print('What would you like the max price to be?')
-                question = [
-                    inquirer.Text(
-                        'max_price',
-                        default='400'
-                        )
-                    ]
-                answer = inquirer.prompt(question)
-                self.max_deck_price = float(answer['max_price'])
+                self.max_deck_price = self.questionnaire('Number', '400')
             else:
                 self.set_max_deck_price = False
             
             print('Would you like to set a max price per card?\n'
                   'There will be some leeway of ~10% when choosing cards and you can choose to keep it or not.')
-            question = [
-                inquirer.Confirm(
-                    'scrython',
-                    )
-                ]
-            answer = inquirer.prompt(question)
-            choice = answer['scrython']
+            choice = self.questionnaire('Confirm', False)
             if choice:
                 self.set_max_card_price = True
                 print('What would you like the max price to be?')
-                question = [
-                    inquirer.Text(
-                        'max_price',
-                        default='20'
-                        )
-                    ]
-                answer = inquirer.prompt(question)
-                self.max_card_price = float(answer['max_price'])
+                answer = self.questionnaire('Number', '20')
+                self.max_card_price = answer
             else:
                 self.set_max_card_price = False
         
@@ -555,14 +524,8 @@ class DeckBuilder:
         print('How many pieces of ramp would you like to include?\n'
               'You\'re gonna want a decent amount of ramp, both getting lands or mana rocks/dorks.\n'
               'A good baseline is 8-12, scaling up with average CMC.')
-        question = [
-            inquirer.Text(
-                'ramp_prompt',
-                default='8'
-                )
-            ]
-        answer = inquirer.prompt(question)
-        self.ideal_ramp = int(answer['ramp_prompt'])
+        answer = self.questionnaire('Number', '8')
+        self.ideal_ramp = int(answer)
         self.free_slots -= self.ideal_ramp
         
         # Determine ideal land count
@@ -570,29 +533,25 @@ class DeckBuilder:
               'Before ramp is taken into account, 38-40 would be "normal" for a deck. I personally use 35.\n'
               'Broadly speaking, for every mana produced per 3 mana spent on ramp could reduce land count by 1.\n'
               'If you\'re playing landfall, probably consider 40 as baseline before ramp.')
-        question = [
-            inquirer.Text(
-                'land_prompt',
-                default='35'
-                )
-            ]
-        answer = inquirer.prompt(question)
-        self.ideal_land_count = int(answer['land_prompt'])
+        answer = self.questionnaire('Number', '35')
+        self.ideal_land_count = int(answer)
         self.free_slots -= self.ideal_land_count
+        
+        
+        # Determine minimum basics to have
+        print('How many basic lands would you like to have at minimum?\n'
+              'This can vary widely depending on your commander, colors in color identity, and what you want to do.\n'
+              'Some decks may be fine with as low as 10, others may want 25.')
+        answer = self.questionnaire('Number', '20')
+        self.min_basics = int(answer)
         
         # Determine ideal creature count
         print('How many creatures would you like to include?\n'
               'Something like 25-30 would be a good starting point.\n'
               'If you\'re going for a kindred theme, going past 30 is likely normal.\n'
               'Also be sure to take into account token generation, but remember you\'ll want enough to stay safe')
-        question = [
-            inquirer.Text(
-                'creature_prompt',
-                default='25'
-                )
-            ]
-        answer = inquirer.prompt(question)
-        self.ideal_creature_count = int(answer['creature_prompt'])
+        answer = self.questionnaire('Number', '25')
+        self.ideal_creature_count = int(answer)
         self.free_slots -= self.ideal_creature_count
         
         # Determine spot/targetted removal
@@ -600,42 +559,24 @@ class DeckBuilder:
               'A good starting point is about 8-12 pieces of spot removal.\n'
               'Counterspells can be consisdered proactive removal and protection.\n'
               'If you\'re going spellslinger, more would be a good idea as you might have less cretaures.')
-        question = [
-            inquirer.Text(
-                'removal_prompt',
-                default='10'
-                )
-            ]
-        answer = inquirer.prompt(question)
-        self.ideal_removal = int(answer['removal_prompt'])
+        answer = self.questionnaire('Number', '10')
+        self.ideal_removal = int(answer)
         self.free_slots -= self.ideal_removal
         
         # Determine board wipes
-        print('How many board wipesyou like to include?\n'
+        print('How many board wipes would you like to include?\n'
               'Somewhere around 2-3 is good to help eliminate threats, but also prevent the game from running long\n.'
               'This can include damaging wipes like \'Blasphemous Act\' or toughness reduction like \'Meathook Massacre\'.')
-        question = [
-            inquirer.Text(
-                'board_wipe_prompt',
-                default='2'
-                )
-            ]
-        answer = inquirer.prompt(question)
-        self.ideal_wipes = int(answer['board_wipe_prompt'])
+        answer = self.questionnaire('Number', '2')
+        self.ideal_wipes = int(answer)
         self.free_slots -= self.ideal_wipes
         
         # Determine card advantage
         print('How many pieces of card advantage would you like to include?\n'
               '10 pieces of card advantage is good, up to 14 is better.\n'
               'Try to have a majority of it be non-conditional, and only have a couple of \'Rhystic Study\' style effects.')
-        question = [
-            inquirer.Text(
-                'draw_prompt',
-                default='10'
-                )
-            ]
-        answer = inquirer.prompt(question)
-        self.ideal_card_advantage = int(answer['draw_prompt'])
+        answer = self.questionnaire('Number', '10')
+        self.ideal_card_advantage = int(answer)
         self.free_slots -= self.ideal_card_advantage
         
         # Determine how many protection spells
@@ -644,14 +585,8 @@ class DeckBuilder:
               'Things that grant indestructible, hexproof, phase out, or event just counterspells.\n'
               'This can be a widely variable ideal count, and can be as low as 5, and up past 15,\n'
               'it depends on your commander and how important your wincons are.')
-        question = [
-            inquirer.Text(
-                'protection_prompt',
-                default='8'
-                )
-            ]
-        answer = inquirer.prompt(question)
-        self.ideal_protection = int(answer['protection_prompt'])
+        answer = self.questionnaire('Number', '8')
+        self.ideal_protection = int(answer)
         self.free_slots -= self.ideal_protection
         
         print(f'Free slots that aren\'t part of the ideals: {self.free_slots}')
@@ -686,19 +621,6 @@ class DeckBuilder:
         
         if len(self.colors) >= 3:
             pass
-        
-        # Determine minimum basics to have
-        print('How many basic lands would you like to have at minimum?\n'
-              'This can vary widely depending on your commander, colors in color identity, and what you want to do.\n'
-              'Some decks may be fine with as low as 10, others may want 25.')
-        question = [
-            inquirer.Text(
-                'num_basics',
-                default='20'
-                )
-            ]
-        answer = inquirer.prompt(question)
-        self.ideal_protection = int(answer['protection_prompt'])
         
         self.add_misc_lands()
         
@@ -811,14 +733,9 @@ class DeckBuilder:
         print('How many fetch lands would you like to include?\n'
               'For most decks you\'ll likely be good with 3 or 4, just enough to thin the deck and help ensure the color availability.\n'
               'If you\'re doing Landfall, more fetches would be recommended just to get as many Landfall triggers per turn.')
-        question = [
-            inquirer.Text(
-                'fetch_prompt',
-                default='5'
-                )
-            ]
-        answer = inquirer.prompt(question)
-        desired_fetches = int(answer['fetch_prompt'])
+        answer = self.questionnaire('Number', '5')
+        
+        desired_fetches = int(answer)
         chosen_fetches = []
         
         generic_fetches = ['Evolving Wilds', 'Terramorphic Expanse', 'Shire Terrace', 'Escape Tunnel', 'Promising Vein','Myriad Landscape', 'Fabled Passage', 'Terminal Moraine']
@@ -826,13 +743,16 @@ class DeckBuilder:
         fetches_to_remove = generic_fetches
         
         # Adding in expensive fetches
-        if (use_scrython and self.set_max_card_price):
-            if self.price_check('Prismatic Vista') is None:
+        """if (use_scrython and self.set_max_card_price):
+            if self.price_check('Prismatic Vista') <= self.max_card_price:
                 fetches_to_remove.append('Prismatic Vista')
                 fetches.append('Prismatic Vista')
+            else:
+                fetches_to_remove.append('Prismatic Vista')
+                pass
         else:
             fetches_to_remove.append('Prismatic Vista')
-            fetches.append('Prismatic Vista')
+            fetches.append('Prismatic Vista')"""
             
         # White Fetches
         if 'W' in self.colors:
@@ -1046,14 +966,8 @@ class DeckBuilder:
             print('These are the fetch lands that have been found for you:')
             print(chosen_fetches)
             print('Do they look good for you?')
-            question = [
-                inquirer.Confirm(
-                                'yes',
-                                )
-                            ]
-            answer = inquirer.prompt(question)
-            choice = answer['yes']
-            if not choice:
+            answer = self.questionnaire('Confirm', True)
+            if not answer:
                 print('Reselecting fetches to use.')
                 chosen_fetches = []
             
@@ -1061,13 +975,7 @@ class DeckBuilder:
                 fetches_to_add = []
                 while len(fetches_to_add) < desired_fetches:
                     print(f'Please choose {desired_fetches} of them to add to your deck.')
-                    question = [
-                        inquirer.List('theme',
-                                    choices=chosen_fetches,
-                                    carousel=True)
-                    ]
-                    answer = inquirer.prompt(question)
-                    choice = answer['theme']
+                    choice = self.questionnaire('Choice', inq_choices=chosen_fetches)
                     fetches_to_add.append(choice)
                     chosen_fetches.remove(choice)
                 fetches_chosen = True
@@ -1283,13 +1191,7 @@ class DeckBuilder:
         
         # Determine if using the dual-type lands
         print('Would you like to include dual-type lands (i.e. lands that count as both a Plains and a Swamp for example)?')
-        question = [
-            inquirer.Confirm(
-                            'yes',
-                            )
-                        ]
-        answer = inquirer.prompt(question)
-        choice = answer['yes']
+        choice = self.questionnaire('Confirm', True)
         
         
         # Add the Duals to a list

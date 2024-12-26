@@ -45,9 +45,9 @@ def filter_by_color(df, column_name, value, new_csv_name):
         filtered_df = filtered_df[~filtered_df['type'].str.contains(card_type)]
     filtered_df['faceName'] = filtered_df['faceName'].fillna(filtered_df['name'])
     filtered_df.drop_duplicates(subset='faceName', keep='first', inplace=True)
-    columns_to_keep = ['name', 'faceName','edhrecRank','colorIdentity', 'colors', 'manaCost', 'manaValue', 'type', 'layout', 'text', 'power', 'toughness', 'keywords']
+    columns_to_keep = ['name', 'faceName','edhrecRank','colorIdentity', 'colors', 'manaCost', 'manaValue', 'type', 'layout', 'text', 'power', 'toughness', 'keywords', 'side']
     filtered_df = filtered_df[columns_to_keep]
-    filtered_df.sort_values(by='name', key=lambda col: col.str.lower(), inplace=True)
+    filtered_df.sort_values(by=['name', 'side'], key=lambda col: col.str.lower(), inplace=True)
         
     
     filtered_df.to_csv(new_csv_name, index=False)
@@ -170,10 +170,11 @@ def determine_commanders():
         filtered_df = filtered_df[~filtered_df['type'].str.contains(card_type)]
     filtered_df['faceName'] = filtered_df['faceName'].fillna(filtered_df['name'])
     filtered_df.drop_duplicates(subset='faceName', keep='first', inplace=True)
-    columns_to_keep = ['name', 'faceName','edhrecRank','colorIdentity', 'colors', 'manaCost', 'manaValue', 'type', 'layout', 'text', 'power', 'toughness', 'keywords']
+    columns_to_keep = ['name', 'faceName','edhrecRank','colorIdentity', 'colors', 'manaCost', 'manaValue', 'type', 'layout', 'text', 'power', 'toughness', 'keywords', 'side']
     filtered_df = filtered_df[columns_to_keep]
-    filtered_df.sort_values(by='name', key=lambda col: col.str.lower(), inplace=True)
+    filtered_df.sort_values(by=['name', 'side'], key=lambda col: col.str.lower(), inplace=True)
     filtered_df.to_csv(f'{csv_directory}/commander_cards.csv', index=False)
+    
     print('commander_cards.csv file generated.')
 
 def initial_setup():

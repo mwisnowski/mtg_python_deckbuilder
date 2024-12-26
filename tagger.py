@@ -179,7 +179,7 @@ def kindred_tagging(df, color):
     print(f'Creature types from text set in {color}_cards.csv.\n')
     
     # Overwrite file with creature type tags
-    columns_to_keep = ['name', 'faceName','edhrecRank', 'colorIdentity', 'colors', 'manaCost', 'manaValue', 'type', 'creatureTypes', 'text', 'power', 'toughness', 'keywords']
+    columns_to_keep = ['name', 'faceName','edhrecRank', 'colorIdentity', 'colors', 'manaCost', 'manaValue', 'type', 'creatureTypes', 'text', 'power', 'toughness', 'keywords', 'layout', 'side']
     df = df[columns_to_keep]
     df.to_csv(f'{csv_directory}/{color}_cards.csv', index=False)
     print(f'\nCreature types tagged on {color}_cards.csv.\n')
@@ -194,7 +194,7 @@ def create_theme_tags(df, color):
     df['themeTags'] = [[] for _ in range(len(df))]
     
     # Organize it's location
-    columns_to_keep = ['name', 'faceName','edhrecRank', 'colorIdentity', 'colors', 'manaCost', 'manaValue', 'type', 'creatureTypes', 'text', 'power', 'toughness', 'keywords', 'themeTags']
+    columns_to_keep = ['name', 'faceName','edhrecRank', 'colorIdentity', 'colors', 'manaCost', 'manaValue', 'type', 'creatureTypes', 'text', 'power', 'toughness', 'keywords', 'themeTags', 'layout', 'side']
     df = df[columns_to_keep]
     
     # Overwrite original file
@@ -265,7 +265,6 @@ def add_creatures_to_tags(df, color):
         if pd.isna(row['text']):
             continue
         theme_tags = row['themeTags']
-        #if all_kindred in row['text'].lower():
         for item in all_kindred:
             if item in row['text'].lower():
                 if 'Kindred Support' not in theme_tags:
@@ -298,7 +297,7 @@ def sort_theme_tags(df, color):
     
     df['themeTags'] = df['themeTags'].apply(sort_list)
     
-    columns_to_keep = ['name', 'faceName','edhrecRank', 'colorIdentity', 'colors', 'manaCost', 'manaValue', 'type', 'creatureTypes', 'text', 'power', 'toughness', 'keywords', 'themeTags']
+    columns_to_keep = ['name', 'faceName','edhrecRank', 'colorIdentity', 'colors', 'manaCost', 'manaValue', 'type', 'creatureTypes', 'text', 'power', 'toughness', 'keywords', 'themeTags', 'layout', 'side']
     df = df[columns_to_keep]
     print(f'Theme tags alphabetically sorted in {color}_cards.csv.\n')
 

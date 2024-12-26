@@ -1,10 +1,6 @@
 from __future__ import annotations
 
-#import os
 import inquirer.prompt # type: ignore
-#import pandas as pd # type: ignore
-#import requests # type: ignore
-#import scrython # type: ignore
 import sys
 
 from pathlib import Path
@@ -24,21 +20,29 @@ while True:
                           choices=['Setup', 'Build a Deck', 'Get Card Info', 'Quit'],
                           carousel=True)
         ]
-        answer = inquirer.prompt(question)
-        choice = answer['menu']
-    
+        try:
+            answer = inquirer.prompt(question)
+            if answer is None:
+                print("Operation cancelled. Returning to menu...")
+                choice = 'Menu'
+                continue
+            choice = answer['menu']
+        except (KeyError, TypeError):
+            print("Invalid input. Please try again.")
+            choice = 'Menu'
+
     # Run through initial setup
     while choice == 'Setup':
         setup.setup()
         choice = 'Menu'
-        break
-    
+        
+
     # Make a new deck
     while choice == 'Build a Deck':
         print('Deck building not yet implemented')
         choice = 'Menu'
-        break
-    
+        
+
     # Get a cards info
     while choice == 'Get Card Info':
         card_info.get_card_info()
@@ -46,16 +50,21 @@ while True:
             inquirer.Confirm('continue',
                              message='Would you like to look up another card?'
                              )
-            ]
-        answer = inquirer.prompt(question) 
-        new_card = answer['continue']
-        if new_card:
-            choice == 'Get Card Info'
-        else:
+        ]
+        try:
+            answer = inquirer.prompt(question)
+            if answer is None:
+                print("Operation cancelled. Returning to menu...")
+                choice = 'Menu'
+                continue
+            new_card = answer['continue']
+            if new_card:
+                choice = 'Get Card Info'  # Fixed == to = for assignment
+        except (KeyError, TypeError):
+            print("Invalid input. Returning to menu...")
             choice = 'Menu'
-            break
-    
+
     # Quit
     while choice == 'Quit':
         sys.exit()
-        break
+        

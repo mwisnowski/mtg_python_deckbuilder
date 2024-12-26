@@ -37,12 +37,15 @@ def filter_by_color(df, column_name, value, new_csv_name):
     filtered_df = filtered_df.loc[filtered_df['securityStamp'] != 'heart']
     filtered_df = filtered_df.loc[filtered_df['securityStamp'] != 'acorn']
     
+    for card in banned_cards:
+        filtered_df = filtered_df[~filtered_df['name'].str.contains(card)]
+    
     card_types = ['Plane —', 'Conspiracy', 'Vanguard', 'Scheme', 'Phenomenon', 'Stickers', 'Attraction', 'Hero', 'Contraption']
     for card_type in card_types:
         filtered_df = filtered_df[~filtered_df['type'].str.contains(card_type)]
     filtered_df['faceName'] = filtered_df['faceName'].fillna(filtered_df['name'])
     filtered_df.drop_duplicates(subset='faceName', keep='first', inplace=True)
-    columns_to_keep = ['name', 'faceName','edhrecRank','colorIdentity', 'colors', 'manaCost', 'manaValue', 'type', 'text', 'power', 'toughness', 'keywords']
+    columns_to_keep = ['name', 'faceName','edhrecRank','colorIdentity', 'colors', 'manaCost', 'manaValue', 'type', 'layout', 'text', 'power', 'toughness', 'keywords']
     filtered_df = filtered_df[columns_to_keep]
     filtered_df.sort_values(by='name', key=lambda col: col.str.lower(), inplace=True)
         
@@ -91,14 +94,17 @@ def set_lands():
     filtered_df = filtered_df[filtered_df['availability'].str.contains('paper')]
     filtered_df = filtered_df.loc[filtered_df['promoTypes'] != 'playtest']
     filtered_df = filtered_df.loc[filtered_df['securityStamp'] != 'heart']
-    filtered_df = filtered_df.loc[filtered_df['securityStamp'] != 'acorn']       
+    filtered_df = filtered_df.loc[filtered_df['securityStamp'] != 'acorn']
     
-    card_types = ['Plane —', 'Conspiracy', 'Vanguard', 'Scheme', 'Phenomenon', 'Stickers', 'Attraction', 'Hero']
+    for card in banned_cards:
+        filtered_df = filtered_df[~filtered_df['name'].str.contains(card)] 
+    
+    card_types = ['Plane —', 'Conspiracy', 'Vanguard', 'Scheme', 'Phenomenon', 'Stickers', 'Attraction', 'Hero', 'Contraption']
     for card_type in card_types:
         filtered_df = filtered_df[~filtered_df['type'].str.contains(card_type)]
     filtered_df['faceName'] = filtered_df['faceName'].fillna(filtered_df['name'])
     filtered_df.drop_duplicates(subset='faceName', keep='first', inplace=True)
-    columns_to_keep = ['name', 'faceName','edhrecRank','colorIdentity', 'colors', 'manaCost', 'manaValue', 'type', 'layout', 'text']
+    columns_to_keep = ['name', 'faceName','edhrecRank','colorIdentity', 'colors', 'manaCost', 'manaValue', 'type', 'layout', 'text', 'power', 'toughness', 'keywords']
     filtered_df = filtered_df[columns_to_keep]
     filtered_df.sort_values(by='edhrecRank', inplace=True)
     filtered_df.to_csv(f'{csv_directory}/land_cards.csv', index=False)
@@ -154,14 +160,17 @@ def determine_commanders():
     filtered_df = filtered_df[filtered_df['availability'].str.contains('paper')]
     filtered_df = filtered_df.loc[filtered_df['promoTypes'] != 'playtest']
     filtered_df = filtered_df.loc[filtered_df['securityStamp'] != 'heart']
-    filtered_df = filtered_df.loc[filtered_df['securityStamp'] != 'acorn']       
+    filtered_df = filtered_df.loc[filtered_df['securityStamp'] != 'acorn']
     
-    card_types = ['Plane —', 'Conspiracy', 'Vanguard', 'Scheme', 'Phenomena', 'Stickers', 'Attraction']
+    for card in banned_cards:
+        filtered_df = filtered_df[~filtered_df['name'].str.contains(card)]
+    
+    card_types = ['Plane —', 'Conspiracy', 'Vanguard', 'Scheme', 'Phenomenon', 'Stickers', 'Attraction', 'Hero', 'Contraption']
     for card_type in card_types:
         filtered_df = filtered_df[~filtered_df['type'].str.contains(card_type)]
     filtered_df['faceName'] = filtered_df['faceName'].fillna(filtered_df['name'])
     filtered_df.drop_duplicates(subset='faceName', keep='first', inplace=True)
-    columns_to_keep = ['name', 'faceName','edhrecRank','colorIdentity', 'colors', 'manaCost', 'manaValue', 'type', 'keywords', 'text', 'power', 'toughness']
+    columns_to_keep = ['name', 'faceName','edhrecRank','colorIdentity', 'colors', 'manaCost', 'manaValue', 'type', 'layout', 'text', 'power', 'toughness', 'keywords']
     filtered_df = filtered_df[columns_to_keep]
     filtered_df.sort_values(by='name', key=lambda col: col.str.lower(), inplace=True)
     filtered_df.to_csv(f'{csv_directory}/commander_cards.csv', index=False)
@@ -181,18 +190,18 @@ def initial_setup():
             r = requests.get(url)
             with open(f'{csv_directory}/cards.csv', 'wb') as outputfile:
                 outputfile.write(r.content)
-    
+
     # Load cards.csv file into pandas dataframe so it can be further broken down
     df = pd.read_csv(f'{csv_directory}/cards.csv', low_memory=False)
-    
+
     # Set frames that have nothing for color identity to be 'Colorless' instead
     df['colorIdentity'] = df['colorIdentity'].fillna('Colorless')
-    
+
     # Check for and create missing, individual color identity sorted CSVs
     print('Checking for color identity sorted files.\n')
-    
+
     # For loop to iterate through the colors
-    for i in range(len(colors), len(color_abrv)):
+    for i in range(min(len(colors), len(color_abrv))):
         print(f'Checking for {colors[i]}_cards.csv.')
         try:
             with open(f'{csv_directory}/{colors[i]}_cards.csv', 'r', encoding='utf-8'):
@@ -200,13 +209,13 @@ def initial_setup():
         except FileNotFoundError:
             print(f'{colors[i]}_cards.csv not found, creating one.\n')
             filter_by_color(df, 'colorIdentity', color_abrv[i], f'{csv_directory}/{colors[i]}_cards.csv')
-    
+
     # Once by-color lists have been made, Determine legendary creatures
     determine_commanders()
 
     # Lastly, create a file with all lands, or cards that have a land on at least one face
     set_lands()
-    
+
     # Once Legendary creatures are determined, generate staple lists
     # generate_staple_lists()
 
@@ -282,40 +291,6 @@ def regenerate_csv_by_color(color):
     # Lastly, create a file with all lands, or cards that have a land on at least one face
     set_lands()
 
-def generate_staple_lists():    
-    for color in colors:
-        staples = []
-        print(f'Checking for {color} staples file.')
-        try:
-            with open(f'staples/{color}.txt', 'r') as file:
-                staples = file.read().split('\n')
-                del staples[-1]
-                print(f'{color.capitalize()} staples:')
-                print('\n'.join(staples), '\n')
-                
-        except FileNotFoundError:
-            print(f'{color.capitalize()} staples file not found.')
-            print(f'Generating {color} staples list.')
-            df = pd.read_csv(f'{csv_directory}/{color}_cards.csv')
-            df['edhrecRank'] = pd.to_numeric(df['edhrecRank'], downcast='integer', errors='coerce')
-            df = df.dropna(subset=['edhrecRank'])
-            df['edhrecRank'] = df['edhrecRank'].astype(int)
-            columns_to_keep = ['name', 'edhrecRank', 'type']
-            df = df[columns_to_keep]
-            df.sort_values(by='edhrecRank', key=lambda col: col, inplace=True)
-            i = 1
-            y = 0
-            while len(staples) < 20 and y < len(df):
-                for index, row in df.iterrows():
-                    if row['edhrecRank'] == i:
-                        if 'Land' not in row['type'] and row['name'] not in banned_cards:
-                            staples.append(row['name'])
-                i += 1
-                y += 1
-            with open(f'staples/{color}.txt', 'w') as f:
-                for items in staples:
-                    f.write('%s\n' %items)
-
 def add_tags():
     pass
                     
@@ -349,7 +324,7 @@ def setup():
             break
         break
 
-#regenerate_csvs_all()
+regenerate_csvs_all()
 #regenerate_csv_by_color('white')
 #determine_commanders()
 #set_lands()

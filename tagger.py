@@ -2941,7 +2941,7 @@ def mana_dorks(df, color):
     for index, row in df.iterrows():
         theme_tags = row['themeTags']
         if pd.notna(row['text']):
-            if ('Creature' in row['type'].lower()
+            if ('Creature' in row['type']
                 ):
                 # Tap itself for mana
                 if ('{T}: Add' in row['text']):
@@ -3003,7 +3003,7 @@ def mana_rocks(df, color):
     for index, row in df.iterrows():
         theme_tags = row['themeTags']
         if pd.notna(row['text']):
-            if ('Artifact' in row['type'].lower()
+            if ('Artifact' in row['type']
                 ):
                 # Tap itself for mana
                 if ('{T}: Add' in row['text']):

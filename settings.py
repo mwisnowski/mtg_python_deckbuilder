@@ -23,9 +23,14 @@ banned_cards = [# in commander
                 'Jihad', 'Imprison', 'Crusade'
                 ]
 
+basic_lands = ['Plains', 'Island', 'Swamp', 'Mountain', 'Forest']
+
 board_wipe_tags = ['destroy all', 'destroy each', 'return all', 'return each', 'deals damage to each',
                 'exile all', 'exile each', 'creatures get -X/-X', 'sacrifices all', 'sacrifices each',
                 'sacrifices the rest']
+
+card_types = ['Artifact','Creature', 'Enchantment', 'Instant', 'Land', 'Planeswalker', 'Sorcery',
+              'Kindred', 'Dungeon', 'Battle']
 
 csv_directory = 'csv_files'
 
@@ -107,6 +112,10 @@ creature_types = ['Advisor', 'Aetherborn', 'Alien', 'Ally', 'Angel', 'Antelope',
 
 enchantment_tokens = ['Cursed Role', 'Monster Role', 'Royal Role', 'Sorcerer Role',
                 'Virtuous Role', 'Wicked Role', 'Young Hero Role', 'Shard']
+
+multiple_copy_cards = ['Dragon\'s Approach', 'Hare Apparent', 'Nazgûl', 'Persistent Petitioners',
+                       'Rat Colony','Relentless Rars', 'Seven Dwarves', 'Shadowborn Apostle',
+                       'Slime Against Humanity', 'Templar Knights']
 
 non_creature_types = ['Legendary', 'Creature', 'Enchantment', 'Artifact',
                 'Battle', 'Sorcery', 'Instant', 'Land', '-', '—',

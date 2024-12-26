@@ -2,29 +2,30 @@ from __future__ import annotations
 
 import inquirer.prompt # type: ignore
 import keyboard # type: ignore
+import numpy as np
 import pandas as pd # type: ignore
 import pprint # type: ignore
 import random
 import time
 
+from functools import lru_cache
 from fuzzywuzzy import fuzz, process # type: ignore
 
-from settings import csv_directory
+from settings import basic_lands, card_types, csv_directory, multiple_copy_cards
 from setup import determine_commanders, set_lands
 
 try:
     import scrython # type: ignore
     use_scrython = True
+    card_prices = {}
 except ImportError:
     scrython = None
     use_scrython = False
     print("Scrython is not installed. Some pricing features will be unavailable.")
 
-print(use_scrython)
-
 pd.set_option('display.max_columns', None)
 pd.set_option('display.max_rows', None)
-pd.set_option('display.max_colwidth', 20)
+pd.set_option('display.max_colwidth', 50)
 
 # Basic deck builder, initial plan will just be for kindred support.
 # Would like to add logic for other themes, as well as automatically go
@@ -37,10 +38,30 @@ pd.set_option('display.max_colwidth', 20)
 
 # Later plans to have card price taken into account will be added. Lands
 
+def new_line():
+    print('\n')
+
 class DeckBuilder:
     def __init__(self):
-        pass
-    
+        self.card_library = pd.DataFrame()
+        self.card_library['Card Name'] = pd.Series(dtype='str')
+        self.card_library['Card Type'] = pd.Series(dtype='str')
+        self.card_library['Mana Cost'] = pd.Series(dtype='str')
+        self.card_library['Mana Value'] = pd.Series(dtype='int')
+        
+        self.set_max_deck_price = False
+        self.set_max_card_price = False
+        
+        self.artifact_cards = 0
+        self.battle_cards = 0
+        self.creature_cards = 0
+        self.enchantment_cards = 0
+        self.instant_cards = 0
+        self.kindred_cards = 0
+        self.land_cards = 0
+        self.planeswalker_cards = 0
+        self.sorcery_cards = 0
+        
     def questionnaire(self, inq_type, inq_default='', inq_choices=[]):
         if inq_type == 'Text':
             question = [
@@ -80,21 +101,31 @@ class DeckBuilder:
         elif inq_type == 'Choice':
             question = [
                 inquirer.List('selection',
-                              choices=inq_choices)
+                              choices=inq_choices,
+                              carousel=True)
             ]
             result = inquirer.prompt(question)['selection']
             return result
         
         raise ValueError(f"Unsupported inq_type: {inq_type}")
     
+    @lru_cache(maxsize=128)
     def price_check(self, card_name):
-        card = scrython.cards.Named(fuzzy=f'{card_name}')
-        card_price = card.prices('usd')
-        if card_price is not None:
-            card_price = float(card_price)
-        return card_price
-            
-    
+        try:
+            time.sleep(0.1)
+            card = scrython.cards.Named(fuzzy=card_name)
+            card_price = card.prices('usd')
+            if card_price is not None and isinstance(card_price, (int, float, str)):
+                try:
+                    card_prices[card_name] = card_price
+                    return float(card_price)
+                except ValueError:
+                    print(f"Invalid price format for '{card_name}': {card_price}")
+            return 0.0
+        except Exception as e:
+            print(f"Error fetching price for '{card_name}': {e}")
+            return 0.0
+
     def determine_commander(self):
         # Setup dataframe
         try:
@@ -219,8 +250,20 @@ class DeckBuilder:
         }
 
         # Begin Building the Deck
+        self.add_card(self.commander, self.commander_type)
+        self.setup_dataframes()
         self.determine_ideals()
         self.add_lands()
+        self.add_ramp()
+        self.add_interaction()
+        self.add_card_advantage()
+        self.add_board_wipes()
+        self.add_creatures()
+        self.card_library.to_csv(f'{csv_directory}/test_deck_presort.csv', index=False)
+        self.organize_library()
+        self.concatenate_duplicates()
+        self.card_library.to_csv(f'{csv_directory}/test_deck_done.csv', index=False)
+        self.full_df.to_csv(f'{csv_directory}/test_all_after_done.csv', index=False)
         
     def determine_color_identity(self):
         # Determine the color identity for later
@@ -302,45 +345,55 @@ class DeckBuilder:
             self.files_to_load = ['colorless', 'red', 'white', 'boros']
             pass
         
-        # Thri-color
+        # Tri-color
         elif self.color_identity == 'B, G, U':
             self.color_identity_full = 'Sultai: Black/Blue/Green'
+            self.color_identity_options = ['B', 'G', 'U', 'B, G', 'B, U', 'G, U', 'B, G, U']
             self.files_to_load = ['colorless', 'black', 'blue', 'green', 'dimir', 'golgari', 'simic', 'sultai']
             pass
         elif self.color_identity == 'B, G, R':
             self.color_identity_full = 'Jund: Black/Green/Red'
+            self.color_identity_options = ['B', 'G', 'R', 'B, G', 'B, R', 'G, R', 'B, G, R']
             self.files_to_load = ['colorless', 'black', 'green', 'red', 'golgari', 'rakdos', 'gruul', 'jund']
             pass
         elif self.color_identity == 'B, G, W':
             self.color_identity_full = 'Abzan: Black/Green/White'
+            self.color_identity_options = ['B', 'G', 'W', 'B, G', 'B, W', 'G, W', 'B, G, W']
             self.files_to_load = ['colorless', 'black', 'green', 'white', 'golgari', 'orzhov', 'selesnya', 'abzan']
             pass
         elif self.color_identity == 'B, R, U':
             self.color_identity_full = 'Grixis: Black/Blue/Red'
+            self.color_identity_options = ['B', 'R', 'U', 'B, R', 'B, U', 'R, U', 'B, R, U']
             self.files_to_load = ['colorless', 'black', 'blue', 'red', 'dimir', 'rakdos', 'izzet', 'grixis']
             pass
         elif self.color_identity == 'B, R, W':
             self.color_identity_full = 'Mardu: Black/Red/White'
+            self.color_identity_options = ['B', 'R', 'W', 'B, R', 'B, W', 'R, W', 'B, R, W']
             self.files_to_load = ['colorless', 'black', 'red', 'white', 'rakdos', 'orzhov', 'boros', 'mardu']
             pass
         elif self.color_identity == 'B, U, W':
             self.color_identity_full = 'Esper: Black/Blue/White'
+            self.color_identity_options = ['B', 'U', 'W', 'B, R', 'B, W', 'R, W', 'B, R, W']
             self.files_to_load = ['colorless', 'black', 'blue', 'white', 'dimir', 'orzhov', 'azorius', 'esper']
             pass
         elif self.color_identity == 'G, R, U':
             self.color_identity_full = 'Temur: Blue/Green/Red'
+            self.color_identity_options = ['G', 'R', 'U', 'G, R', 'G, U', 'R, U', 'G, R, U']
             self.files_to_load = ['colorless', 'green', 'red', 'blue', 'simir', 'izzet', 'gruul', 'temur']
             pass
         elif self.color_identity == 'G, R, W':
             self.color_identity_full = 'Naya: Green/Red/White'
+            self.color_identity_options = ['G', 'R', 'W', 'G, R', 'G, W', 'R, W', 'G, R, W']
             self.files_to_load = ['colorless', 'green', 'red', 'white', 'gruul', 'selesnya', 'boros', 'naya']
             pass
         elif self.color_identity == 'G, U, W':
             self.color_identity_full = 'Bant: Blue/Green/White'
+            self.coloU_identity_options = ['G', 'U', 'W', 'G, U', 'G, W', 'U, W', 'G, U, W']
             self.files_to_load = ['colorless', 'green', 'blue', 'white', 'simir', 'azorius', 'selesnya', 'bant']
             pass
         elif self.color_identity == 'U, R, W':
             self.color_identity_full = 'Jeskai: Blue/Red/White'
+            self.color_identity_options = ['U', 'R', 'W', 'U, R', 'U, W', 'R, W', 'U, R, W']
             self.files_to_load = ['colorless', 'blue', 'red', 'white', 'izzet', 'azorius', 'boros', 'jeskai']
             pass
         
@@ -379,6 +432,53 @@ class DeckBuilder:
                                   'grixis', 'mardu', 'esper', 'temur', 'naya', 'bant', 'jeska', 'glint', 'dune','witch', 'yore',
                                   'ink']
     
+    def setup_dataframes(self):
+        all_df = []
+        for file in self.files_to_load:
+            df = pd.read_csv(f'{csv_directory}/{file}_cards.csv', converters={'themeTags': pd.eval, 'creatureTypes': pd.eval})
+            all_df.append(df)
+        self.full_df = pd.concat(all_df,ignore_index=True)
+        self.full_df = self.full_df[~self.full_df['type'].str.contains('Land')]
+        self.full_df.sort_values(by='edhrecRank', inplace=True)
+        self.full_df.to_csv(f'{csv_directory}/test_all.csv', index=False)
+        
+        self.artifact_df = self.full_df[self.full_df['type'].str.contains('Artifact')].copy()
+        self.artifact_df.sort_values(by='edhrecRank', inplace=True)
+        self.artifact_df.to_csv(f'{csv_directory}/test_artifacts.csv', index=False)
+        
+        self.battle_df = self.full_df[self.full_df['type'].str.contains('Battle')].copy()
+        self.battle_df.sort_values(by='edhrecRank', inplace=True)
+        self.battle_df.to_csv(f'{csv_directory}/test_battles.csv', index=False)
+        
+        self.creature_df = self.full_df[self.full_df['type'].str.contains('Creature')].copy()
+        self.creature_df.sort_values(by='edhrecRank', inplace=True)
+        self.creature_df.to_csv(f'{csv_directory}/test_creatures.csv', index=False)
+        
+        self.enchantment_df = self.full_df[self.full_df['type'].str.contains('Enchantment')].copy()
+        self.enchantment_df.sort_values(by='edhrecRank', inplace=True)
+        self.enchantment_df.to_csv(f'{csv_directory}/test_enchantments.csv', index=False)
+        
+        self.instant_df = self.full_df[self.full_df['type'].str.contains('Instant')].copy()
+        self.instant_df.sort_values(by='edhrecRank', inplace=True)
+        self.instant_df.to_csv(f'{csv_directory}/test_instants.csv', index=False)
+        
+        self.planeswalker_df = self.full_df[self.full_df['type'].str.contains('Planeswalker')].copy()
+        self.planeswalker_df.sort_values(by='edhrecRank', inplace=True)
+        self.planeswalker_df.to_csv(f'{csv_directory}/test_planeswalkers.csv', index=False)
+        
+        self.sorcery_df = self.full_df[self.full_df['type'].str.contains('Sorcery')].copy()
+        self.sorcery_df.sort_values(by='edhrecRank', inplace=True)
+        self.sorcery_df.to_csv(f'{csv_directory}/test_sorcerys.csv', index=False)
+        
+        self.land_df = pd.read_csv(f'{csv_directory}/land_cards.csv')
+        self.land_df = self.land_df[~self.land_df['layout'].str.contains('transform')]
+        rows_to_drop = []
+        for index, row in self.land_df.iterrows():
+            if row['colorIdentity'] not in self.color_identity_options:
+                rows_to_drop.append(index)
+                
+        self.land_df = self.land_df.drop(rows_to_drop)
+        
     def determine_themes(self):
         themes = self.commander_tags
         print('Your commander deck will likely have a number of viable themes, but you\'ll want to narrow it down for focus.\n'
@@ -389,6 +489,10 @@ class DeckBuilder:
                 'This will be the "focus" of the deck, in a kindred deck this will typically be a creature type for example.')
             choice = self.questionnaire('Choice', inq_choices=themes)
             self.primary_theme = choice
+            self.primary_weight = 0.9
+            self.weights = []
+            self.weights.extend([self.primary_weight])
+                        
             themes.remove(choice)
             themes.append('Stop Here')
             
@@ -418,6 +522,10 @@ class DeckBuilder:
                         self.secondary_theme = choice
                         themes.remove(choice)
                         secondary_theme_chosen = True
+                        self.primary_weight = 0.5
+                        self.secondary_weight = 0.4
+                        self.weights = []
+                        self.weights.extend([self.primary_weight, self.secondary_weight])
                         break
             
             while not tertiary_theme_chosen:
@@ -440,6 +548,11 @@ class DeckBuilder:
                     else:
                         self.tertiary_theme = choice
                         tertiary_theme_chosen = True
+                        self.primary_weight = 0.4
+                        self.secondary_weight = 0.3
+                        self.tertiary_weight = 0.2
+                        self.weights = []
+                        self.weights.extend([self.primary_weight, self.secondary_weight, self.tertiary_weight])
                         break
             break
         
@@ -456,8 +569,10 @@ class DeckBuilder:
                 self.deck_cost = 0.0
                 print('What would you like the max price to be?')
                 self.max_deck_price = float(self.questionnaire('Number', '400'))
+                new_line()
             else:
                 self.set_max_deck_price = False
+                new_line()
             
             print('Would you like to set a max price per card?\n'
                   'There will be some leeway of ~10% when choosing cards and you can choose to keep it or not.')
@@ -467,8 +582,11 @@ class DeckBuilder:
                 print('What would you like the max price to be?')
                 answer = float(self.questionnaire('Number', '20'))
                 self.max_card_price = answer
+                self.card_library['Card Price'] = pd.Series(dtype='float')
+                new_line()
             else:
                 self.set_max_card_price = False
+                new_line()
         
         # Determine ramp
         print('How many pieces of ramp would you like to include?\n'
@@ -477,6 +595,7 @@ class DeckBuilder:
         answer = self.questionnaire('Number', '8')
         self.ideal_ramp = int(answer)
         self.free_slots -= self.ideal_ramp
+        new_line()
         
         # Determine ideal land count
         print('How many lands would you like to include?\n'
@@ -486,7 +605,7 @@ class DeckBuilder:
         answer = self.questionnaire('Number', '35')
         self.ideal_land_count = int(answer)
         self.free_slots -= self.ideal_land_count
-        
+        new_line()
         
         # Determine minimum basics to have
         print('How many basic lands would you like to have at minimum?\n'
@@ -494,6 +613,7 @@ class DeckBuilder:
               'Some decks may be fine with as low as 10, others may want 25.')
         answer = self.questionnaire('Number', '20')
         self.min_basics = int(answer)
+        new_line()
         
         # Determine ideal creature count
         print('How many creatures would you like to include?\n'
@@ -503,6 +623,7 @@ class DeckBuilder:
         answer = self.questionnaire('Number', '25')
         self.ideal_creature_count = int(answer)
         self.free_slots -= self.ideal_creature_count
+        new_line()
         
         # Determine spot/targetted removal
         print('How many spot removal pieces would you like to include?\n'
@@ -512,7 +633,8 @@ class DeckBuilder:
         answer = self.questionnaire('Number', '10')
         self.ideal_removal = int(answer)
         self.free_slots -= self.ideal_removal
-        
+        new_line()
+
         # Determine board wipes
         print('How many board wipes would you like to include?\n'
               'Somewhere around 2-3 is good to help eliminate threats, but also prevent the game from running long\n.'
@@ -520,6 +642,7 @@ class DeckBuilder:
         answer = self.questionnaire('Number', '2')
         self.ideal_wipes = int(answer)
         self.free_slots -= self.ideal_wipes
+        new_line()
         
         # Determine card advantage
         print('How many pieces of card advantage would you like to include?\n'
@@ -528,6 +651,7 @@ class DeckBuilder:
         answer = self.questionnaire('Number', '10')
         self.ideal_card_advantage = int(answer)
         self.free_slots -= self.ideal_card_advantage
+        new_line()
         
         # Determine how many protection spells
         print('How protection spells would you like to include?\n'
@@ -538,9 +662,71 @@ class DeckBuilder:
         answer = self.questionnaire('Number', '8')
         self.ideal_protection = int(answer)
         self.free_slots -= self.ideal_protection
+        new_line()
         
         print(f'Free slots that aren\'t part of the ideals: {self.free_slots}')
         print('Keep in mind that many of the ideals can also cover multiple roles, but this will give a baseline POV.')
+    
+    def add_card(self, card, card_type, mana_cost, mana_value):
+        multiple_copies = basic_lands + multiple_copy_cards
+        if card not in pd.Series(self.card_library['Card Name']).values and card not in multiple_copies:
+            if use_scrython and self.set_max_card_price:
+                if card in card_prices:
+                    card_price = card_prices.get(card)
+                else:
+                    card_price = self.price_check(card)
+                if card_price is None:
+                    card_price = 0.0
+                self.card_library.loc[len(self.card_library)] = [card, card_type, mana_cost, mana_value, card_price]
+                if self.set_max_deck_price:
+                    self.deck_cost += card_price
+            else:
+                self.card_library.loc[len(self.card_library)] = [card, card_type, mana_cost, mana_value]
+        elif card in multiple_copies:
+            if use_scrython and self.set_max_card_price:
+                if card in card_prices:
+                    card_price = card_prices.get(card)
+                else:
+                    card_price = self.price_check(card)
+                if card_price is None:
+                    card_price = 0.0
+                self.card_library.loc[len(self.card_library)] = [card, card_type, mana_cost, mana_value, card_price]
+                if self.set_max_deck_price:
+                    self.deck_cost += card_price
+            else:
+                self.card_library.loc[len(self.card_library)] = [card, card_type, mana_cost, mana_value]
+    
+    def organize_library(self):
+        for card_type in card_types:
+            num_cards = len(self.card_library['Card Type'].str.contains(card_type))
+            if 'Artifact' in card_type:
+                self.artifact_cards += num_cards
+            if 'Battle' in card_type:
+                self.battle_cards += num_cards
+            if 'Creature' in card_type:
+                self.creature_cards += num_cards
+            if 'Enchantment' in card_type:
+                self.enchantment_cards += num_cards
+            if 'Instant' in card_type:
+                self.instant_cards += num_cards
+            if 'Kindred' in card_type:
+                self.kindred_cards += num_cards
+            if 'Land' in card_type:
+                self.land_cards += num_cards
+            if 'Planeswalker' in card_type:
+                self.planeswalker_cards += num_cards
+            if 'Sorcery' in card_type:
+                self.sorcery_cards += num_cards
+        
+    def concatenate_duplicates(self):
+        duplicate_lists = basic_lands + multiple_copy_cards
+        self.total_duplicates = 0
+        self.total_duplicates += len(self.card_library[self.card_library['Card Name'].isin(duplicate_lists)])
+        for duplicate in duplicate_lists:
+            num_duplicates = len(self.card_library[self.card_library['Card Name'] == duplicate])
+            self.card_library = self.card_library.drop_duplicates(subset=['Card Name'], keep='first')
+            self.card_library.loc[self.card_library['Card Name'] == duplicate, 'Card Name'] = f'{duplicate} x {num_duplicates}'
+            self.card_library = self.card_library.reset_index(drop=True)
     
     def drop_card(self, dataframe, index):
         try:
@@ -558,31 +744,28 @@ class DeckBuilder:
             except FileNotFoundError:
                 print('land_cards.csv not found, regenerating it.')
                 set_lands()
-        self.land_df = pd.read_csv(f'{csv_directory}/land_cards.csv')
         # Begin the process to add lands, the number will depend on ideal land count, ramp,
         # and if any utility lands may be helpful.
         # By default, ({self.ideal_land_count} - 5) basic lands will be added, distributed
         # across the commander color identity. These will be removed for utility lands, 
         # multi-color producing lands, fetches, and any MDFCs added later
-        self.land_cards = []
         self.land_count = 0
         self.total_basics = 0
         self.add_basics()
         self.check_basics()
         self.add_standard_non_basics()
-        print(self.staples)
         self.add_fetches()
         if 'Kindred' in ' '.join(self.themes):
             self.add_kindred_lands()
         if len(self.colors) >= 2:
             self.add_dual_lands()
-        if len(self.colors) >= 3:
-            pass
+        #if len(self.colors) >= 3:
+        #    pass
         
         self.add_misc_lands()
         
         for index, row in self.land_df.iterrows():
-            for land in self.land_cards:
+            for land in self.card_library:
                 if land in row['name']:
                     self.drop_card(self.land_df, index)
         
@@ -591,15 +774,14 @@ class DeckBuilder:
         # If over ideal land count, remove random basics until ideal land count
         self.check_basics()
         print('Checking total land count to ensure it\'s within ideal count.\n\n')
-        while self.land_count > self.ideal_land_count:
+        self.organize_library()
+        while self.land_cards > self.ideal_land_count:
             self.remove_basic()
         
-        #if self.land_cards < self.ideal_land_count:
+        #if self.card_library < self.ideal_land_count:
         #    pass
-        self.concatenate_basics()
-        print(*self.land_cards, sep='\n')
-        print(f'Total lands: {self.land_count}')
-        print(self.total_basics)
+        print(f'Total lands: {self.land_cards}')
+        #print(self.total_basics)
     
     def add_basics(self):
         self.land_count = 0
@@ -631,16 +813,14 @@ class DeckBuilder:
             basic = color_to_basic.get(color)
             if basic:
                 for _ in range(basics_per_color):
-                    self.land_cards.append(basic)
-                    self.land_count += 1
+                    self.add_card(basic, 'Basic Land', '-', 0)
         
         # Distribute remaining basics based on color requirements
         if remaining_basics > 0:
             for color in self.colors[:remaining_basics]:
                 basic = color_to_basic.get(color)
                 if basic:
-                    self.land_cards.append(basic)
-                    self.land_count += 1
+                    self.add_card(basic, 'Basic Land', '-', 0)
 
     def add_standard_non_basics(self):
         # Add lands that are good in most any commander deck
@@ -661,14 +841,9 @@ class DeckBuilder:
         if self.commander_power >= 5:
             self.staples.append('Rogue\'s Passage')
         
-        for land in self.staples:
-            if land not in self.land_cards:
-                self.land_cards.append(land)
-                self.land_count += 1
-                if use_scrython and self.set_max_deck_price:
-                    time.sleep(0.1)
-                    land_price = self.price_check(land)
-                    self.deck_cost += land_price
+        for card in self.staples:
+            if card not in self.card_library:
+                self.add_card(card, 'Land', '-', 0)
             else:
                 pass
                    
@@ -683,7 +858,7 @@ class DeckBuilder:
         print('How many fetch lands would you like to include?\n'
               'For most decks you\'ll likely be good with 3 or 4, just enough to thin the deck and help ensure the color availability.\n'
               'If you\'re doing Landfall, more fetches would be recommended just to get as many Landfall triggers per turn.')
-        answer = self.questionnaire('Number', '5')
+        answer = self.questionnaire('Number', '2')
         
         desired_fetches = int(answer)
         chosen_fetches = []
@@ -694,7 +869,7 @@ class DeckBuilder:
         
         # Adding in expensive fetches
         if (use_scrython and self.set_max_card_price):
-            if self.price_check('Prismatic Vista') <= self.max_card_price:
+            if self.price_check('Prismatic Vista') <= self.max_card_price * (random.randint(100, 110) / 100):
                 fetches_to_remove.append('Prismatic Vista')
                 fetches.append('Prismatic Vista')
             else:
@@ -725,48 +900,24 @@ class DeckBuilder:
             while len(chosen_fetches) < desired_fetches + 3:
                 fetch_choice = random.choice(fetches)
                 if use_scrython and self.set_max_card_price:
-                    time.sleep(0.1)
-                    if self.price_check(fetch_choice) <= self.max_card_price:
+                    if self.price_check(fetch_choice) <= self.max_card_price * (random.randint(100, 110) / 100):
                         chosen_fetches.append(fetch_choice)
                         fetches.remove(fetch_choice)
                 else:
                     chosen_fetches.append(fetch_choice)
                     fetches.remove(fetch_choice)
+
+            fetches_to_add = []
+            while len(fetches_to_add) < desired_fetches:
+                card = random.choice(fetches)
+                if card not in fetches_to_add:
+                    fetches_to_add.append(card)
+            fetches_chosen = True
         
-            print('These are the fetch lands that have been found for you:')
-            print(chosen_fetches)
-            print('Do they look good for you?')
-            answer = self.questionnaire('Confirm', True)
-            while not answer:
-                print('Reselecting fetches to use.')
-                chosen_fetches = []
-                break
-            
-            while answer:
-                fetches_to_add = []
-                while len(fetches_to_add) < desired_fetches:
-                    print(f'Please choose {desired_fetches} of them to add to your deck.')
-                    choice = self.questionnaire('Choice', inq_choices=chosen_fetches)
-                    fetches_to_add.append(choice)
-                    chosen_fetches.remove(choice)
-                fetches_chosen = True
-                break
+        for card in fetches_to_add:
+            self.add_card(card, 'Land')
             
         
-        # Add fetches to deck
-        for fetch in fetches_to_add:
-            if fetch not in self.land_cards:
-                if use_scrython and self.set_max_deck_price:
-                    time.sleep(0.1)
-                    self.land_cards.append(fetch)
-                    self.land_count += 1
-                    self.deck_cost += self.price_check(fetch)
-                else:
-                    pass
-            else:
-                self.land_cards.append(fetch)
-                self.land_count += 1
-                
         # Remove Fetches from land_df
         for index, row in self.land_df.iterrows():
             if row['name'] in fetches_to_remove:
@@ -775,13 +926,13 @@ class DeckBuilder:
     def add_kindred_lands(self):
         print('Adding lands that care about the commander having a Kindred theme.')
         print('Adding general Kindred lands.')
-        kindred_lands = ['Path of Ancestry']
-        lands_to_remove = kindred_lands
+        kindred_lands = {'Path of Ancestry': 'Land'}
+        lands_to_remove = list(kindred_lands.keys())
         if (use_scrython and self.set_max_card_price):
             for land in ['Three Tree City', 'Cavern of Souls']:
-                if float(self.price_check(land)) <= self.max_card_price:
-                    kindred_lands.append(land)
-                    lands_to_remove.append(land)
+                if float(self.price_check(land)) <= self.max_card_price * (random.randint(100, 110) / 100):
+                    kindred_lands[land] = 'Land'
+                    lands_to_remove
                 else:
                     lands_to_remove.append(land)
         print('Adding any kindred-specific lands.')
@@ -791,19 +942,18 @@ class DeckBuilder:
                 for index, row in self.land_df.iterrows():
                     if (kindred in row['text']) or (kindred in row['type']):
                         if use_scrython and self.set_max_card_price:
-                            if self.price_check(row['name']) <= self.max_card_price:
-                                kindred_lands.append(row['name'])
+                            if self.price_check(row['name']) <= self.max_card_price * (random.randint(100, 110) / 100):
+                                kindred_lands[row['name']] = row['type']
                                 self.drop_card(self.land_df, index)
                             else:
                                 self.drop_card(self.land_df, index)
                         else:
-                            kindred_lands.append(row['name'])
+                            kindred_lands[row['name']] = row['type']
                             self.drop_card(self.land_df, index)
         
-        for land in kindred_lands:
-            if land not in self.land_cards:
-                self.land_cards.append(land)
-                self.land_count += 1
+        for card in kindred_lands:
+            if card not in self.card_library:
+                self.add_card(card, kindred_lands[card], '-', 0)
                 
         for index, row in self.land_df.iterrows():
             if row['name'] in lands_to_remove:
@@ -825,19 +975,12 @@ class DeckBuilder:
                     ):
                     self.drop_card(self.land_df, index)
                     if (use_scrython and self.set_max_card_price):
-                        if self.price_check(row['name']) is None:
-                            self.drop_card(self.land_df, index)
-                            continue
+                        if float(self.price_check(row['name'])) <= self.max_card_price * (random.randint(100, 110) / 100):
+                            dual_options.append(row['name'])
                         else:
-                            if float(self.price_check(row['name'])) <= self.max_card_price:
-                                dual_options.append(row['name'])
-                                self.drop_card(self.land_df, index)
-                            else:
-                                self.drop_card(self.land_df, index)
-                                continue
+                            continue
                     else:
                         dual_options.append(row['name'])
-                        self.drop_card(self.land_df, index)
             
             # Orzohv Duals
             if ('W' in self.colors and 'B' in self.colors):
@@ -846,19 +989,12 @@ class DeckBuilder:
                     ):
                     self.drop_card(self.land_df, index)
                     if (use_scrython and self.set_max_card_price):
-                        if self.price_check(row['name']) is None:
-                            self.drop_card(self.land_df, index)
-                            continue
+                        if float(self.price_check(row['name'])) <= self.max_card_price * (random.randint(100, 110) / 100):
+                            dual_options.append(row['name'])
                         else:
-                            if float(self.price_check(row['name'])) <= self.max_card_price:
-                                dual_options.append(row['name'])
-                                self.drop_card(self.land_df, index)
-                            else:
-                                self.drop_card(self.land_df, index)
-                                continue
+                            continue
                     else:
                         dual_options.append(row['name'])
-                        self.drop_card(self.land_df, index)
             
             # Dimir Duals
             if ('U' in self.colors and 'B' in self.colors):
@@ -867,19 +1003,12 @@ class DeckBuilder:
                     ):
                     self.drop_card(self.land_df, index)
                     if (use_scrython and self.set_max_card_price):
-                        if self.price_check(row['name']) is None:
-                            self.drop_card(self.land_df, index)
-                            continue
+                        if float(self.price_check(row['name'])) <= self.max_card_price * (random.randint(100, 110) / 100):
+                            dual_options.append(row['name'])
                         else:
-                            if float(self.price_check(row['name'])) <= self.max_card_price:
-                                dual_options.append(row['name'])
-                                self.drop_card(self.land_df, index)
-                            else:
-                                self.drop_card(self.land_df, index)
-                                continue
+                            continue
                     else:
                         dual_options.append(row['name'])
-                        self.drop_card(self.land_df, index)
             
             # Golgari Duals
             if ('G' in self.colors and 'B' in self.colors):
@@ -888,19 +1017,12 @@ class DeckBuilder:
                     ):
                     self.drop_card(self.land_df, index)
                     if (use_scrython and self.set_max_card_price):
-                        if self.price_check(row['name']) is None:
-                            self.drop_card(self.land_df, index)
-                            continue
+                        if float(self.price_check(row['name'])) <= self.max_card_price * (random.randint(100, 110) / 100):
+                            dual_options.append(row['name'])
                         else:
-                            if float(self.price_check(row['name'])) <= self.max_card_price:
-                                dual_options.append(row['name'])
-                                self.drop_card(self.land_df, index)
-                            else:
-                                self.drop_card(self.land_df, index)
-                                continue
+                            continue
                     else:
                         dual_options.append(row['name'])
-                        self.drop_card(self.land_df, index)
             
             # Rakdos Duals
             if ('B' in self.colors and 'R' in self.colors):
@@ -909,19 +1031,12 @@ class DeckBuilder:
                     ):
                     self.drop_card(self.land_df, index)
                     if (use_scrython and self.set_max_card_price):
-                        if self.price_check(row['name']) is None:
-                            self.drop_card(self.land_df, index)
-                            continue
+                        if float(self.price_check(row['name'])) <= self.max_card_price * (random.randint(100, 110) / 100):
+                            dual_options.append(row['name'])
                         else:
-                            if float(self.price_check(row['name'])) <= self.max_card_price:
-                                dual_options.append(row['name'])
-                                self.drop_card(self.land_df, index)
-                            else:
-                                self.drop_card(self.land_df, index)
-                                continue
+                            continue
                     else:
                         dual_options.append(row['name'])
-                        self.drop_card(self.land_df, index)
             
             # Simic Duals
             if ('G' in self.colors and 'U' in self.colors):
@@ -930,19 +1045,12 @@ class DeckBuilder:
                     ):
                     self.drop_card(self.land_df, index)
                     if (use_scrython and self.set_max_card_price):
-                        if self.price_check(row['name']) is None:
-                            self.drop_card(self.land_df, index)
-                            continue
+                        if float(self.price_check(row['name'])) <= self.max_card_price * (random.randint(100, 110) / 100):
+                            dual_options.append(row['name'])
                         else:
-                            if float(self.price_check(row['name'])) <= self.max_card_price:
-                                dual_options.append(row['name'])
-                                self.drop_card(self.land_df, index)
-                            else:
-                                self.drop_card(self.land_df, index)
-                                continue
+                            continue
                     else:
                         dual_options.append(row['name'])
-                        self.drop_card(self.land_df, index)
             
             # Gruul Duals
             if ('R' in self.colors and 'G' in self.colors):
@@ -951,19 +1059,12 @@ class DeckBuilder:
                     ):
                     self.drop_card(self.land_df, index)
                     if (use_scrython and self.set_max_card_price):
-                        if self.price_check(row['name']) is None:
-                            self.drop_card(self.land_df, index)
-                            continue
+                        if float(self.price_check(row['name'])) <= self.max_card_price * (random.randint(100, 110) / 100):
+                            dual_options.append(row['name'])
                         else:
-                            if float(self.price_check(row['name'])) <= self.max_card_price:
-                                dual_options.append(row['name'])
-                                self.drop_card(self.land_df, index)
-                            else:
-                                self.drop_card(self.land_df, index)
-                                continue
+                            continue
                     else:
                         dual_options.append(row['name'])
-                        self.drop_card(self.land_df, index)
             
             # Izzet Duals
             if ('U' in self.colors and 'R' in self.colors):
@@ -972,19 +1073,12 @@ class DeckBuilder:
                     ):
                     self.drop_card(self.land_df, index)
                     if (use_scrython and self.set_max_card_price):
-                        if self.price_check(row['name']) is None:
-                            self.drop_card(self.land_df, index)
-                            continue
+                        if float(self.price_check(row['name'])) <= self.max_card_price * (random.randint(100, 110) / 100):
+                            dual_options.append(row['name'])
                         else:
-                            if float(self.price_check(row['name'])) <= self.max_card_price:
-                                dual_options.append(row['name'])
-                                self.drop_card(self.land_df, index)
-                            else:
-                                self.drop_card(self.land_df, index)
-                                continue
+                            continue
                     else:
                         dual_options.append(row['name'])
-                        self.drop_card(self.land_df, index)
             
             # Selesnya Duals
             if ('G' in self.colors and 'W' in self.colors):
@@ -993,19 +1087,12 @@ class DeckBuilder:
                     ):
                     self.drop_card(self.land_df, index)
                     if (use_scrython and self.set_max_card_price):
-                        if self.price_check(row['name']) is None:
-                            self.drop_card(self.land_df, index)
-                            continue
+                        if float(self.price_check(row['name'])) <= self.max_card_price * (random.randint(100, 110) / 100):
+                            dual_options.append(row['name'])
                         else:
-                            if float(self.price_check(row['name'])) <= self.max_card_price:
-                                dual_options.append(row['name'])
-                                self.drop_card(self.land_df, index)
-                            else:
-                                self.drop_card(self.land_df, index)
-                                continue
+                            continue
                     else:
                         dual_options.append(row['name'])
-                        self.drop_card(self.land_df, index)
             
             # Boros Duals
             if ('R' in self.colors and 'W' in self.colors):
@@ -1014,52 +1101,41 @@ class DeckBuilder:
                     ):
                     self.drop_card(self.land_df, index)
                     if (use_scrython and self.set_max_card_price):
-                        if self.price_check(row['name']) is None:
-                            self.drop_card(self.land_df, index)
-                            continue
+                        if float(self.price_check(row['name'])) <= self.max_card_price * (random.randint(100, 110) / 100):
+                            dual_options.append(row['name'])
                         else:
-                            if float(self.price_check(row['name'])) <= self.max_card_price:
-                                dual_options.append(row['name'])
-                                self.drop_card(self.land_df, index)
-                            else:
-                                self.drop_card(self.land_df, index)
-                                continue
+                            continue
                     else:
                         dual_options.append(row['name'])
-                        self.drop_card(self.land_df, index)
         
         # Add the Duals to a list
         while choice:
             print('Here\'s all the dual-type lands in your commander\'s color identity:')
             print(*dual_options, sep='\n')
             print('\n')
-            for land in dual_options:
-                if land not in self.land_cards:
-                    self.land_cards.append(land)
-                    self.land_count += 1
+            for card in dual_options:
+                if card not in self.card_library:
+                    if 'Snow Land' in card:
+                        self.add_card(card, 'Snow Land', '-', 0)
+                    else:
+                        self.add_card(card, 'Land', '-', 0)
             break
     
     def add_misc_lands(self):
         print('Adding additional misc. lands to the deck that fit the color identity.')
         # Add other remaining lands that match color identity
-        rows_to_drop = []
-        for index, row in self.land_df.iterrows():
-            if row['colorIdentity'] not in self.color_identity_options:
-                rows_to_drop.append(index)
-                
-        filtered_lands_df = self.land_df.drop(rows_to_drop)
         
         # Take the first 100 matches based on EDHRec popularity
         print('Grabbing the first 100 lands in your commander\'s color identity that aren\'t already in the deck.')
-        filtered_lands_df = filtered_lands_df.head(100)
+        self.land_df = self.land_df.head(100)
         
         lands_to_add = []
-        land_choices = []
+        land_choices = {}
         
-        for index, row in filtered_lands_df.iterrows():
+        for index, row in self.land_df.iterrows():
             if row['name'] not in land_choices:
-                if row['name'] not in self.land_cards:
-                    land_choices.append(filtered_lands_df.at[index, 'name'])
+                if row['name'] not in self.card_library:
+                    land_choices.update({self.land_df.at[index, 'name']: self.land_df.at[index, 'type']})
         
         # Randomly grab 15 lands
         lands_chosen = False
@@ -1067,49 +1143,32 @@ class DeckBuilder:
         print('Randomly choosing between 5-15 other lands to add.')
         while not lands_chosen:
             while len(lands_to_add) < random.randint(5, 15):
-                land_choice = random.choice(land_choices)
-                
-                if use_scrython and self.set_max_card_price:
-                    time.sleep(0.1)
-                    if self.price_check(land_choice) <= self.max_card_price:
-                        lands_to_add.extend(land_choice)
-                        land_choices.remove(land_choice)
-                else:
+                land_choice = random.choice(list(land_choices.keys()))
+                if land_choice not in lands_to_add:
                     lands_to_add.append(land_choice)
-                    land_choices.remove(land_choice)
             break
         
-        for land in lands_to_add:
-            if land not in self.land_cards:
-                self.land_cards.append(land)
-                self.land_count += 1               
+        for card in lands_to_add:
+            if card not in self.card_library:
+                self.add_card(card, 'Land', '-', 0)
             else:
                 pass
                 
     def check_basics(self):
         basic_lands = ['Plains', 'Island', 'Swamp', 'Forest', 'Mountain']
-        land_cards = self.land_cards.copy()
         self.total_basics = 0
-        for basic_land in basic_lands:
-            num_basics = 0
-            if basic_land in land_cards:
-                while basic_land in land_cards:
-                    num_basics += 1
-                    land_cards.remove(basic_land)
-                self.total_basics += num_basics
+        self.total_basics += len(self.card_library[self.card_library['Card Name'].isin(basic_lands)])
         print(f'Number of basic lands: {self.total_basics}')
     
     def concatenate_basics(self):
         basic_lands = ['Plains', 'Island', 'Swamp', 'Forest', 'Mountain']
         self.total_basics = 0
+        self.total_basics += len(self.card_library[self.card_library['Card Name'].isin(basic_lands)])
         for basic_land in basic_lands:
-            num_basics = 0
-            if basic_land in self.land_cards:
-                while basic_land in self.land_cards:
-                    num_basics += 1
-                    self.land_cards.remove(basic_land)
-                self.land_cards.append(f'{basic_land} x {num_basics}')
-                self.total_basics += num_basics
+            num_basics = len(self.card_library[self.card_library['Card Name'] == basic_land])
+            self.card_library.loc[self.card_library['Card Name'] == basic_land, 'Card Name'] = f'{basic_land} x {num_basics}'
+        self.card_library = self.card_library.drop_duplicates(subset=['Card Name'], keep='first')
+        self.card_library = self.card_library.reset_index(drop=True)
     
     def remove_basic(self):
         print('Land count over ideal count, removing a basic land.')
@@ -1130,15 +1189,34 @@ class DeckBuilder:
 
         basic_land = random.choice(basic_lands)
         try:
-            self.land_cards.remove(basic_land)
-            self.land_count -= 1
+            print(f'Removing a {basic_land}')
+            condition = self.card_library['Card Name'] == basic_land
+            index_to_drop = self.card_library[condition].index[0]
+            self.card_library = self.card_library.drop(index_to_drop)
+            self.card_library = self.card_library.reset_index(drop=True)
+            self.land_cards -= 1
             print(f'{basic_land} removed.')
             self.check_basics()
         except ValueError:
             basic_lands.remove(basic_land)
             basic_land = basic_lands[0]
-            self.land_cards.remove(basic_land)
-            self.land_count -= 1
+            print(f'Removing a {basic_land}')
+            condition = self.card_library['Card Name'] == basic_land
+            index_to_drop = self.card_library[condition].index[0]
+            self.card_library = self.card_library.drop(index_to_drop)
+            self.card_library = self.card_library.reset_index(drop=True)
+            self.land_cards -= 1
+            print(f'{basic_land} removed.')
+            self.check_basics()
+        except IndexError:
+            basic_lands.remove(basic_land)
+            basic_land = basic_lands[0]
+            print(f'Removing a {basic_land}')
+            condition = self.card_library['Card Name'] == basic_land
+            index_to_drop = self.card_library[condition].index[0]
+            self.card_library = self.card_library.drop(index_to_drop)
+            self.card_library = self.card_library.reset_index(drop=True)
+            self.land_cards -= 1
             print(f'{basic_land} removed.')
             self.check_basics()
         while self.total_basics < self.min_basics:
@@ -1146,7 +1224,7 @@ class DeckBuilder:
             basic_land = random.choice(basic_lands)
             self.remove_land()
             print(f'Adding a {basic_land} back in.')
-            self.land_cards.append(basic_land)
+            self.add_card(basic_land, 'Basic Land', '-', 0)
             self.check_basics()
 
     def remove_land(self):
@@ -1154,36 +1232,230 @@ class DeckBuilder:
         basic_lands = ['Plains', 'Island', 'Swamp', 'Mountain', 'Forest',
                        'Snow-Covered Plains', 'Snow-Covered Island', 'Snow-Covered Swamp',
                        'Snow-Covered Mountain', 'Snow-Covered Forest']
-        land = random.choice(self.land_cards)
-        while (land in basic_lands or land in self.staples):
-            land = random.choice(self.land_cards)
-        else:
-            self.land_cards.remove(land)
-            print(f'{land} removed.')
-        keyboard.wait('esc')
+        library_filter = self.card_library[self.card_library['Card Type'].str.contains('Land')]
+        library_filter = library_filter[~library_filter['Card Name'].isin((basic_lands + self.staples))]
+        card = np.random.choice(library_filter.index, 1, replace=False)
+        print(library_filter.loc[card, 'Card Name'].to_string(index=False))
+        #condition = self.card_library['Card Name'] == card
+        #index_to_drop = self.card_library[condition].index[0]
+        #self.card_library = self.card_library.drop(index_to_drop)
+        self.card_library = self.card_library.drop(card)
+        self.card_library = self.card_library.reset_index(drop=True)
+        print(f'{library_filter.loc[card, 'Card Name'].to_string(index=False)} removed.')
+
+    def weight_by_theme(self, dataframe, ideal_value):
+        # First grab the first 50/30/20 cards that match each theme
+        print(f'Grabbing the first {int(50 * self.primary_weight * 2)} cards that fit the {self.primary_theme} tag')
+        #if 'Kindred' in self.primary_theme:
+            #pass
+        self.primary_card_df = dataframe.copy()
+        for index, row in self.primary_card_df.iterrows():
+            if self.primary_theme not in row['themeTags']:
+                self.drop_card(self.primary_card_df, index)
+        
+        self.primary_card_df = self.primary_card_df.head(int(50 * self.primary_weight * 2))
+        
+        if self.secondary_theme:
+            #if 'Kindred' in self.secondary_theme:
+                #pass
+            print(f'Grabbing the first {int(30 * self.primary_weight * 2)} cards that fit the {self.secondary_theme} tag')
+            self.secondary_card_df = dataframe.copy()
+            for index, row in self.secondary_card_df.iterrows():
+                if self.secondary_theme not in row['themeTags']:
+                    self.drop_card(self.secondary_card_df, index)
+            
+            self.secondary_card_df = self.secondary_card_df.head(int(30 * self.primary_weight * 2))
+        
+        if self.tertiary_theme:
+            #if 'Kindred' in self.secondary_theme:
+                #pass
+            print(f'Grabbing the first {int(20 * self.primary_weight * 2)} cards that fit the {self.tertiary_theme} tag')
+            self.tertiary_card_df = dataframe.copy()
+            for index, row in self.tertiary_card_df.iterrows():
+                if self.tertiary_theme not in row['themeTags']:
+                    self.drop_card(self.tertiary_card_df, index)
+            
+            self.tertiary_card_df = self.tertiary_card_df.head(int(20 * self.primary_weight * 2))
+        
+        # then created random dfs that contain a weighted number of results
+        primary_cards_to_add = {}
+        primary_card_choices = {}
+        secondary_cards_to_add = {}
+        secondary_card_choices = {}
+        tertiary_cards_to_add = {}
+        tertiary_card_choices = {}
+        
+        for index, row in self.primary_card_df.iterrows():
+            if row['name'] not in primary_card_choices:
+                if row['name'] not in self.card_library:
+                    primary_card_choices.update({self.primary_card_df.at[index, 'name']: self.primary_card_df.at[index, 'type']})
+        if self.secondary_theme:
+            for index, row in self.secondary_card_df.iterrows():
+                if row['name'] not in secondary_card_choices:
+                    if row['name'] not in self.card_library:
+                        secondary_card_choices.update({self.secondary_card_df.at[index, 'name']: self.secondary_card_df.at[index, 'type']})
+        if self.tertiary_theme:
+            for index, row in self.tertiary_card_df.iterrows():
+                if row['name'] not in tertiary_card_choices:
+                    if row['name'] not in self.card_library:
+                        tertiary_card_choices.update({self.tertiary_card_df.at[index, 'name']: self.tertiary_card_df.at[index, 'type']})
+        
+        # Randomly choose matches up to a random number between 1.5 and 2x the ideal value multiplied by the theme weight
+        cards_chosen = False
+        print('Randomly choosing a weighted number of cards to add.')
+        while not cards_chosen:
+            while (len(primary_cards_to_add) < int(ideal_value * self.primary_weight) and (len(primary_card_choices) > 0)):
+                print(primary_card_choices)
+                card_choice = random.choice(list(primary_card_choices.keys()))
+                primary_card_choices.pop(card_choice, None)
+                if card_choice not in primary_cards_to_add:
+                    index = self.primary_card_df[self.primary_card_df['name'] == card_choice].index[0]
+                    primary_cards_to_add.update({self.primary_card_df.loc[index, 'name']: self.primary_card_df.at[index, 'type']})
+                    
+            if self.secondary_theme:
+                while (len(secondary_cards_to_add) < int(ideal_value * self.secondary_weight) and (len(secondary_card_choices) > 0)):
+                    print(secondary_card_choices)
+                    card_choice = random.choice(list(secondary_card_choices.keys()))
+                    if card_choice not in secondary_cards_to_add:
+                        index = self.secondary_card_df[self.secondary_card_df['name'] == card_choice].index[0]
+                        secondary_cards_to_add.update({self.secondary_card_df.loc[index, 'name']: self.secondary_card_df.at[index, 'type']})
+            if self.tertiary_theme:
+                while (len(tertiary_cards_to_add) < int(ideal_value * self.tertiary_weight) and (len(tertiary_card_choices) > 0)):
+                    print(tertiary_card_choices)
+                    card_choice = random.choice(list(tertiary_card_choices.keys()))
+                    if card_choice not in tertiary_cards_to_add:
+                        index = self.tertiary_card_df[self.tertiary_card_df['name'] == card_choice].index[0]
+                        tertiary_cards_to_add.update({self.tertiary_card_df.loc[index, 'name']: self.tertiary_card_df.at[index, 'type']})
+            cards_chosen = True
+        
+        card_options = {**primary_cards_to_add, **secondary_cards_to_add, **tertiary_cards_to_add}
+        
+        cards_to_add = pd.DataFrame(columns=[0, 1])
+        while (((len(cards_to_add) < ideal_value) and (len(card_options) > 0))):
+            random_card = random.choice(list(card_options.items()))
+            if random_card[0] in multiple_copy_cards:
+                if random_card[0] == 'Nazgûl':
+                    for _ in range(9):
+                        cards_to_add.loc[len(cards_to_add)] = random_card
+                elif random_card[0] == 'Seven Dwarves':
+                    for _ in range(7):
+                        cards_to_add.loc[len(cards_to_add)] = random_card
+                else:
+                    num_to_add = ideal_value - len(cards_to_add)
+                    random_num_to_add = random.randint((num_to_add - 15), num_to_add)
+                    for _ in range(random_num_to_add):
+                        cards_to_add.loc[len(cards_to_add)] = random_card
+            else:
+                if random_card not in cards_to_add:
+                    cards_to_add.loc[len(cards_to_add)] = random_card
+        cards_to_add.rename(columns={0: 'Card Name'}, inplace=True)
+        cards_to_add.rename(columns={1: 'Card Type'}, inplace=True)
+            
+        for index, row in cards_to_add.iterrows():
+            if row['Card Name'] in multiple_copy_cards:
+                if use_scrython and self.set_max_card_price:
+                    if self.price_check(row['Card Name']) <= self.max_card_price * (random.randint(100, 110) / 100):
+                        self.add_card(row['Card Name'], row['Card Type'], row['Mana Cost'], row['Mana Value'])
+                    else:
+                        pass
+                else:
+                        self.add_card(row['Card Name'], row['Card Type'])
+                        print(self.card_library.tail(2))
+                        keyboard.wait('space')
+            elif row['Card Name'] not in multiple_copy_cards:
+                if row['Card Name'] not in self.card_library:
+                    if use_scrython and self.set_max_card_price:
+                        if self.price_check(row['Card Name']) <= self.max_card_price * (random.randint(100, 110) / 100):
+                            self.add_card(row['Card Name'], row['Card Type'], row['Mana Cost'], row['Mana Value'])
+                        else:
+                            pass
+                    
+                    else:
+                            self.add_card(row['Card Name'], row['Card Type'], row['Mana Cost'], row['Mana Value'])
+                else:
+                    pass
+    
+    def add_by_tags(self, tag, ideal_value=1):
+        print(f'Grabbing the first {int(ideal_value * 3)} - {int(ideal_value * 4)} cards with the "{tag}" tag.')
+        self.tag_df = self.full_df.copy()
+        self.tag_df.sort_values(by='edhrecRank', inplace=True)
+        
+        for index, row in self.tag_df.iterrows():
+            if tag not in row['themeTags']:
+                self.drop_card(self.tag_df, index)
+        
+        self.tag_df = self.tag_df.head(int(ideal_value * random.randint(20, 30) / 10))
+        
+        tag_cards_to_add = self.tag_df.copy()
+        tag_cards_to_add.drop(tag_cards_to_add.index, inplace=True)
+        tag_card_choices = tag_cards_to_add.copy()
+        print(tag_card_choices)
+        for index, row in self.tag_df.iterrows():
+            if row['name'] in tag_card_choices['name']:
+                continue
+            else:
+                tag_card_choices.loc[len(tag_card_choices)] = row
+        
+        print(f'Randomly grabbing {self.ideal_ramp} {tag} cards.')
+        cards_chosen = False
+        while not cards_chosen:
+            while (len(tag_cards_to_add) < ideal_value * 2) and (len(tag_card_choices) > 0):
+                card = np.random.choice(tag_card_choices.index, 1, replace=False)
+                if tag_card_choices.loc[card, 'name'].to_string(index=False) in tag_cards_to_add['name']:
+                    continue
+                else:
+                    tag_cards_to_add = pd.concat([tag_cards_to_add, tag_card_choices.loc[card]], ignore_index=True)
+                tag_card_choices = tag_card_choices.drop(card)
+                tag_card_choices = tag_card_choices.reset_index(drop=True)
+            cards_chosen = True
+        card_options = {**tag_cards_to_add}
+        
+        cards_to_add = pd.DataFrame(columns=[0, 1])
+        while (((len(cards_to_add) < ideal_value) and (len(card_options) > 0))):
+            random_card = random.choice(list(card_options.keys()))
+            random_card_value = card_options[random_card]
+            for index, row in cards_to_add.iterrows():
+                if row[0] == random_card:
+                    continue
+                else:
+                    cards_to_add.loc[len(cards_to_add)] = [random_card, random_card_value]
+        cards_to_add.rename(columns={0: 'Card Name'}, inplace=True)
+        cards_to_add.rename(columns={1: 'Card Type'}, inplace=True)
+        for index, row in cards_to_add.iterrows():
+            if row['Card Name'] not in self.card_library:
+                if use_scrython and self.set_max_card_price:
+                    if self.price_check(row['Card Name']) <= self.max_card_price * (random.randint(100, 110) / 100):
+                        self.add_card(row['Card Name'], row['Card Type'], row['Mana Cost'], row['Mana Value'])
+                    else:
+                        pass
                 
+                else:
+                        self.add_card(row['Card Name'], row['Card Type'], row['Mana Cost'], row['Mana Value'])
+            else:
+                pass
+        self.tag_df.to_csv(f'{csv_directory}/test_{tag}.csv', index=False)
         
     def add_creatures(self):
         # Begin the process to add creatures, the number added will depend on what the 
         # deck plan is, the commander, creature types, etc...
-        print(f'Adding the creatures to deck, a baseline based on the ideal creature count of {self.ideal_creature_count} will be used.')
+        print(f'Adding creatures to deck, a baseline based on the ideal creature count of {self.ideal_creature_count} will be used.')
+        self.weight_by_theme(self.creature_df, self.ideal_creature_count)
+        
+    def add_ramp(self):
+        self.add_by_tags('Ramp', self.ideal_ramp)
+    
+    def add_interaction(self):
+        self.add_by_tags('Removal', self.ideal_removal)
+        self.add_by_tags('Protection', self.ideal_protection)
+        
+    def add_board_wipes(self):
+        self.add_by_tags('Board Wipes', self.ideal_wipes)
+        
+    def add_card_advantage(self):
+        self.add_by_tags('Card Draw', self.ideal_card_advantage)
+        
 
 build_deck = DeckBuilder()
 build_deck.determine_commander()
-"""print(f'Commander: {build_deck.commander}')
-print(f'Color Identity: {build_deck.color_identity}')
-print(f'Commander Colors: {build_deck.colors}')
-print(f'Commander Creature Types: {build_deck.creature_types}')
-print(f'Commander Primary Theme: {build_deck.primary_theme}')
-if not build_deck.secondary_theme:
-    pass
-else:    
-    print(f'Commander Secondary Theme: {build_deck.secondary_theme}')
-if not build_deck.tertiary_theme:
-    pass
-else:
-    print(f'Commander Tertiary Theme: {build_deck.tertiary_theme}')"""
 pprint.pprint(build_deck.commander_dict, sort_dicts = False)
-#build_deck.determine_commander()
-#build_deck.ideal_land_count = 35
-#build_deck.add_lands()
+pprint.pprint(build_deck.card_library, sort_dicts = False)

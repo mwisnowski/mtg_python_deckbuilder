@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import inquirer.prompt # type: ignore
 import keyboard # type: ignore
 import numpy as np
@@ -9,7 +10,7 @@ import random
 import time
 
 from functools import lru_cache
-from fuzzywuzzy import fuzz, process # type: ignore
+from fuzzywuzzy import process # type: ignore
 
 from settings import basic_lands, card_types, csv_directory, multiple_copy_cards
 from setup import determine_commanders, set_lands
@@ -17,11 +18,15 @@ from setup import determine_commanders, set_lands
 try:
     import scrython # type: ignore
     use_scrython = True
-    card_prices = {}
 except ImportError:
     scrython = None
     use_scrython = False
-    print("Scrython is not installed. Some pricing features will be unavailable.")
+    logging.warning("Scrython is not installed. Some pricing features will be unavailable.")
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
 
 pd.set_option('display.max_columns', None)
 pd.set_option('display.max_rows', None)
@@ -51,6 +56,7 @@ class DeckBuilder:
         
         self.set_max_deck_price = False
         self.set_max_card_price = False
+        self.card_prices = {} if use_scrython else None
         
         self.artifact_cards = 0
         self.battle_cards = 0
@@ -62,52 +68,73 @@ class DeckBuilder:
         self.planeswalker_cards = 0
         self.sorcery_cards = 0
         
-    def questionnaire(self, inq_type, inq_default='', inq_choices=[]):
-        if inq_type == 'Text':
-            question = [
-                inquirer.Text('text')
-            ]
+    def validate_text(self, result):
+        return bool(result and result.strip())
+    
+    def validate_number(self, result):
+        try:
+            return float(result)
+        except ValueError:
+            return None
+            
+    def validate_confirm(self, result):
+        return bool(result)
+        
+    def questionnaire(self, question_type, default_value='', choices_list=[]):
+        MAX_ATTEMPTS = 3
+        
+        if question_type == 'Text':
+            question = [inquirer.Text('text')]
             result = inquirer.prompt(question)['text']
-            while len(result) <= 0:
+            while not result.strip():
                 question = [
-                    inquirer.Text('text',
-                                  message='Input cannot be empty')
+                    inquirer.Text('text', message='Input cannot be empty')
                 ]
                 result = inquirer.prompt(question)['text']
             return result
-        
-        elif inq_type == 'Number':
+            
+        elif question_type == 'Number':
+            attempts = 0
             question = [
-                inquirer.Text('number',
-                              default=inq_default)
-                ]
-            result = float(inquirer.prompt(question)['number'])
-            while type(result) is not float:
-                question = [
-                    inquirer.Text('number',
-                                  default=inq_default)
-                    ]
-                result = inquirer.prompt(question)['number']
+                inquirer.Text('number', default=default_value)
+            ]
+            result = inquirer.prompt(question)['number']
+            
+            while attempts < MAX_ATTEMPTS:
+                try:
+                    result = float(result)
+                    break
+                except ValueError:
+                    attempts += 1
+                    if attempts < MAX_ATTEMPTS:
+                        question = [
+                            inquirer.Text('number', 
+                                message='Input must be a valid number',
+                                default=default_value)
+                        ]
+                        result = inquirer.prompt(question)['number']
+                    else:
+                        logging.error("Maximum input attempts reached for Number type.")
+                        raise ValueError("Invalid number input.")
             return result
-        
-        elif inq_type == 'Confirm':
+            
+        elif question_type == 'Confirm':
             question = [
-                inquirer.Confirm('confirm',
-                                 default=inq_default),
+                inquirer.Confirm('confirm', default=default_value)
             ]
             result = inquirer.prompt(question)['confirm']
-            return result
-
-        elif inq_type == 'Choice':
+            return self.validate_confirm(result)
+            
+        elif question_type == 'Choice':
             question = [
                 inquirer.List('selection',
-                              choices=inq_choices,
-                              carousel=True)
+                    choices=choices_list,
+                    carousel=True)
             ]
             result = inquirer.prompt(question)['selection']
             return result
-        
-        raise ValueError(f"Unsupported inq_type: {inq_type}")
+            
+        raise ValueError(f"Unsupported question type: {question_type}")
     
     @lru_cache(maxsize=128)
     def price_check(self, card_name):
@@ -117,7 +144,7 @@ class DeckBuilder:
             card_price = card.prices('usd')
             if card_price is not None and isinstance(card_price, (int, float, str)):
                 try:
-                    card_prices[card_name] = card_price
+                    self.card_prices[card_name] = card_price
                     return float(card_price)
                 except ValueError:
                     print(f"Invalid price format for '{card_name}': {card_price}")
@@ -215,6 +242,7 @@ class DeckBuilder:
         self.color_identity = df.at[0, 'colorIdentity']
         self.color_identity_full = ''
         self.determine_color_identity()
+        self.setup_dataframes()
         
         # Set creature colors
         self.colors = df.at[0, 'colors'].split(', ')
@@ -251,7 +279,6 @@ class DeckBuilder:
 
         # Begin Building the Deck
         self.add_card(self.commander, self.commander_type)
-        self.setup_dataframes()
         self.determine_ideals()
         self.add_lands()
         self.add_ramp()
@@ -379,7 +406,7 @@ class DeckBuilder:
         elif self.color_identity == 'G, R, U':
             self.color_identity_full = 'Temur: Blue/Green/Red'
             self.color_identity_options = ['G', 'R', 'U', 'G, R', 'G, U', 'R, U', 'G, R, U']
-            self.files_to_load = ['colorless', 'green', 'red', 'blue', 'simir', 'izzet', 'gruul', 'temur']
+            self.files_to_load = ['colorless', 'green', 'red', 'blue', 'simic', 'izzet', 'gruul', 'temur']
             pass
         elif self.color_identity == 'G, R, W':
             self.color_identity_full = 'Naya: Green/Red/White'
@@ -388,8 +415,8 @@ class DeckBuilder:
             pass
         elif self.color_identity == 'G, U, W':
             self.color_identity_full = 'Bant: Blue/Green/White'
-            self.coloU_identity_options = ['G', 'U', 'W', 'G, U', 'G, W', 'U, W', 'G, U, W']
-            self.files_to_load = ['colorless', 'green', 'blue', 'white', 'simir', 'azorius', 'selesnya', 'bant']
+            self.color_identity_options = ['G', 'U', 'W', 'G, U', 'G, W', 'U, W', 'G, U, W']
+            self.files_to_load = ['colorless', 'green', 'blue', 'white', 'simic', 'azorius', 'selesnya', 'bant']
             pass
         elif self.color_identity == 'U, R, W':
             self.color_identity_full = 'Jeskai: Blue/Red/White'
@@ -400,21 +427,28 @@ class DeckBuilder:
         # Quad-color
         elif self.color_identity == 'B, G, R, U':
             self.color_identity_full = 'Glint: Black/Blue/Green/Red'
+            self.color_identity_options = ['B', 'G', 'R', 'U', 'B, G', 'B, R', 'B, U', 'G, R', 'G, U', 'R, U', 'B, G, R', 'B, G, U', 'B, R, U', 'G, R, U' , 'B, G, R, U']
             self.files_to_load = ['colorless', 'black', 'blue', 'green', 'red', 'golgari', 'rakdos', 'dimir', 'gruul',
                                   'simic', 'izzet', 'jund', 'sultai', 'grixis', 'temur', 'glint']
             pass
         elif self.color_identity == 'B, G, R, W':
             self.color_identity_full = 'Dune: Black/Green/Red/White'
+            self.color_identity_options = ['B', 'G', 'R', 'W', 'B, G', 'B, R', 'B, W', 'G, R', 'G, W', 'R, W',
+                                           'B, G, R', 'B, G, W', 'B, R, W', 'G, R, W' , 'B, G, R, W']
             self.files_to_load = ['colorless', 'black', 'green', 'red', 'white', 'golgari', 'rakdos', 'orzhov', 'gruul',
                                   'selesnya', 'boros', 'jund', 'abzan', 'mardu', 'naya', 'dune']
             pass
         elif self.color_identity == 'B, G, U, W':
             self.color_identity_full = 'Witch: Black/Blue/Green/White'
+            self.color_identity_options = ['B', 'G', 'U', 'W', 'B, G', 'B, U', 'B, W', 'G, U', 'G, W', 'U, W',
+                                           'B, G, U', 'B, G, W', 'B, U, W', 'G, U, W' , 'B, G, U, W']
             self.files_to_load = ['colorless', 'black', 'blue', 'green', 'white', 'golgari', 'dimir', 'orzhov', 'simic',
                                   'selesnya', 'azorius', 'sultai', 'abzan', 'esper', 'bant', 'glint']
             pass
         elif self.color_identity == 'B, R, U, W':
             self.color_identity_full = 'Yore: Black/Blue/Red/White'
+            self.color_identity_options = ['B', 'R', 'U', 'W', 'B, R', 'B, U', 'B, W', 'R, U', 'R, W', 'U, W',
+                                           'B, R, U', 'B, R, W', 'B, U, W', 'R, U, W' , 'B, R, U, W']
             self.files_to_load = ['colorless', 'black', 'blue', 'red', 'white', 'rakdos', 'dimir', 'orzhov', 'izzet',
                                   'boros', 'azorius', 'grixis', 'mardu', 'esper', 'mardu', 'glint']
             pass
@@ -427,6 +461,10 @@ class DeckBuilder:
             pass
         elif self.color_identity == 'B, G, R, U, W':
             self.color_identity_full = 'WUBRG: All colors'
+            self.color_identity_options = ['B', 'G', 'R', 'U', 'W', 'B, G', 'B, R', 'B, U', 'B, W', 'G, R', 'G, U', 'G, W',
+                                           'R, U', 'R, W', 'U, W', 'B, G, R', 'B, G, U', 'B, G, W', 'B, R, U', 'B, R, W',
+                                           'B, U, W', 'G, R, U', 'G, R, W', 'B, U ,W', 'R, U, W', 'B, G, R, U', 'B, G, R, W',
+                                           'B, G, U, W', 'B, R, U, W', 'G, R, U, W', 'B, G, R, U, W']
             self.files_to_load = ['colorless', 'black', 'green', 'red', 'blue', 'white', 'golgari', 'rakdos',' dimir',
                                   'orzhov', 'gruul', 'simic', 'selesnya', 'izzet', 'boros', 'azorius', 'jund', 'sultai', 'abzan',
                                   'grixis', 'mardu', 'esper', 'temur', 'naya', 'bant', 'jeska', 'glint', 'dune','witch', 'yore',
@@ -438,7 +476,6 @@ class DeckBuilder:
             df = pd.read_csv(f'{csv_directory}/{file}_cards.csv', converters={'themeTags': pd.eval, 'creatureTypes': pd.eval})
             all_df.append(df)
         self.full_df = pd.concat(all_df,ignore_index=True)
-        self.full_df = self.full_df[~self.full_df['type'].str.contains('Land')]
         self.full_df.sort_values(by='edhrecRank', inplace=True)
         self.full_df.to_csv(f'{csv_directory}/test_all.csv', index=False)
         
@@ -470,14 +507,9 @@ class DeckBuilder:
         self.sorcery_df.sort_values(by='edhrecRank', inplace=True)
         self.sorcery_df.to_csv(f'{csv_directory}/test_sorcerys.csv', index=False)
         
-        self.land_df = pd.read_csv(f'{csv_directory}/land_cards.csv')
-        self.land_df = self.land_df[~self.land_df['layout'].str.contains('transform')]
-        rows_to_drop = []
-        for index, row in self.land_df.iterrows():
-            if row['colorIdentity'] not in self.color_identity_options:
-                rows_to_drop.append(index)
-                
-        self.land_df = self.land_df.drop(rows_to_drop)
+        self.land_df = self.full_df[self.full_df['type'].str.contains('Land')].copy()
+        self.land_df.sort_values(by='edhrecRank', inplace=True)
+        self.land_df.to_csv(f'{csv_directory}/test_lands.csv', index=False)
         
     def determine_themes(self):
         themes = self.commander_tags
@@ -671,8 +703,8 @@ class DeckBuilder:
         multiple_copies = basic_lands + multiple_copy_cards
         if card not in pd.Series(self.card_library['Card Name']).values and card not in multiple_copies:
             if use_scrython and self.set_max_card_price:
-                if card in card_prices:
-                    card_price = card_prices.get(card)
+                if card in self.card_prices:
+                    card_price = self.card_prices.get(card)
                 else:
                     card_price = self.price_check(card)
                 if card_price is None:
@@ -684,8 +716,8 @@ class DeckBuilder:
                 self.card_library.loc[len(self.card_library)] = [card, card_type, mana_cost, mana_value]
         elif card in multiple_copies:
             if use_scrython and self.set_max_card_price:
-                if card in card_prices:
-                    card_price = card_prices.get(card)
+                if card in self.card_prices:
+                    card_price = self.card_prices.get(card)
                 else:
                     card_price = self.price_check(card)
                 if card_price is None:
@@ -915,7 +947,7 @@ class DeckBuilder:
             fetches_chosen = True
         
         for card in fetches_to_add:
-            self.add_card(card, 'Land')
+            self.add_card(card, 'Land', '-', 0)
             
         
         # Remove Fetches from land_df
@@ -1241,7 +1273,7 @@ class DeckBuilder:
         #self.card_library = self.card_library.drop(index_to_drop)
         self.card_library = self.card_library.drop(card)
         self.card_library = self.card_library.reset_index(drop=True)
-        print(f'{library_filter.loc[card, 'Card Name'].to_string(index=False)} removed.')
+        print(f"{library_filter.loc[card, 'Card Name'].to_string(index=False)} removed.")
 
     def weight_by_theme(self, dataframe, ideal_value):
         # First grab the first 50/30/20 cards that match each theme
@@ -1359,7 +1391,7 @@ class DeckBuilder:
                     else:
                         pass
                 else:
-                        self.add_card(row['Card Name'], row['Card Type'])
+                        self.add_card(row['Card Name'], row['Card Type'], row['Mana Cost'], row['Mana Value'])
                         print(self.card_library.tail(2))
                         keyboard.wait('space')
             elif row['Card Name'] not in multiple_copy_cards:

@@ -325,7 +325,7 @@ def setup():
             break
         break
 
-regenerate_csvs_all()
+#regenerate_csvs_all()
 #regenerate_csv_by_color('white')
 #determine_commanders()
 #set_lands()

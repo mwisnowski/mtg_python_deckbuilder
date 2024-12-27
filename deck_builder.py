@@ -59,15 +59,7 @@ class DeckBuilder:
         self.set_max_card_price = False
         self.card_prices = {} if use_scrython else None
         
-        self.artifact_cards = 0
-        self.battle_cards = 0
-        self.creature_cards = 0
-        self.enchantment_cards = 0
-        self.instant_cards = 0
-        self.kindred_cards = 0
-        self.land_cards = 0
-        self.planeswalker_cards = 0
-        self.sorcery_cards = 0
+        
         
     def validate_text(self, result):
         return bool(result and result.strip())
@@ -283,12 +275,12 @@ class DeckBuilder:
         self.add_card(self.commander, self.commander_type, self.commander_mana_cost, self.commander_mana_value)
         self.setup_dataframes()
         self.determine_ideals()
+        self.add_creatures()
         self.add_lands()
         self.add_ramp()
         self.add_interaction()
         self.add_card_advantage()
         self.add_board_wipes()
-        self.add_creatures()
         self.card_library.to_csv(f'{csv_directory}/test_deck_presort.csv', index=False)
         self.organize_library()
         self.concatenate_duplicates()
@@ -527,7 +519,7 @@ class DeckBuilder:
                 'This will be the "focus" of the deck, in a kindred deck this will typically be a creature type for example.')
             choice = self.questionnaire('Choice', choices_list=themes)
             self.primary_theme = choice
-            self.primary_weight = 0.9
+            self.primary_weight = 1.0
             self.weights = []
             self.weights.extend([self.primary_weight])
                         
@@ -560,8 +552,8 @@ class DeckBuilder:
                         self.secondary_theme = choice
                         themes.remove(choice)
                         secondary_theme_chosen = True
-                        self.primary_weight = 0.5
-                        self.secondary_weight = 0.4
+                        self.primary_weight = 0.7
+                        self.secondary_weight = 0.3
                         self.weights = []
                         self.weights.extend([self.primary_weight, self.secondary_weight])
                         break
@@ -586,9 +578,9 @@ class DeckBuilder:
                     else:
                         self.tertiary_theme = choice
                         tertiary_theme_chosen = True
-                        self.primary_weight = 0.4
-                        self.secondary_weight = 0.3
-                        self.tertiary_weight = 0.2
+                        self.primary_weight = 0.65
+                        self.secondary_weight = 0.25
+                        self.tertiary_weight = 0.1
                         self.weights = []
                         self.weights.extend([self.primary_weight, self.secondary_weight, self.tertiary_weight])
                         break
@@ -735,21 +727,34 @@ class DeckBuilder:
                 self.card_library.loc[len(self.card_library)] = [card, card_type, mana_cost, mana_value]
     
     def organize_library(self):
+        self.artifact_cards = 0
+        self.battle_cards = 0
+        self.creature_cards = 0
+        self.enchantment_cards = 0
+        self.instant_cards = 0
+        self.kindred_cards = 0
+        self.land_cards = 0
+        self.planeswalker_cards = 0
+        self.sorcery_cards = 0
+        
         for card_type in card_types:
-            num_cards = len(self.card_library['Card Type'].str.contains(card_type))
-            if 'Artifact' in card_type:
+            num_cards = 0
+            type_df = self.card_library.copy()
+            type_df = type_df[type_df['Card Type'].apply(lambda x: card_type in x)]
+            num_cards += len(type_df)
+            if 'Artifact' == card_type:
                 self.artifact_cards += num_cards
-            if 'Battle' in card_type:
+            if 'Battle' == card_type:
                 self.battle_cards += num_cards
-            if 'Creature' in card_type:
+            if 'Creature' == card_type:
                 self.creature_cards += num_cards
-            if 'Enchantment' in card_type:
+            if 'Enchantment' == card_type:
                 self.enchantment_cards += num_cards
-            if 'Instant' in card_type:
+            if 'Instant' == card_type:
                 self.instant_cards += num_cards
-            if 'Kindred' in card_type:
+            if 'Kindred' == card_type:
                 self.kindred_cards += num_cards
-            if 'Land' in card_type:
+            if 'Land' == card_type:
                 self.land_cards += num_cards
             if 'Planeswalker' in card_type:
                 self.planeswalker_cards += num_cards
@@ -778,7 +783,6 @@ class DeckBuilder:
         # By default, ({self.ideal_land_count} - 5) basic lands will be added, distributed
         # across the commander color identity. These will be removed for utility lands, 
         # multi-color producing lands, fetches, and any MDFCs added later
-        self.land_count = 0
         self.total_basics = 0
         self.add_basics()
         self.check_basics()
@@ -789,7 +793,7 @@ class DeckBuilder:
         if len(self.colors) >= 2:
             self.add_dual_lands()
         #if len(self.colors) >= 3:
-        #    pass
+        #    self.add_triomes()
         
         self.add_misc_lands()
         
@@ -804,8 +808,11 @@ class DeckBuilder:
         self.check_basics()
         print('Checking total land count to ensure it\'s within ideal count.\n\n')
         self.organize_library()
-        while self.land_cards > self.ideal_land_count:
+        while self.land_cards > int(self.ideal_land_count):
+            print(f'Num land cards: {self.land_cards}\n'
+                  f'Ideal num land cards {self.ideal_land_count}')
             self.remove_basic()
+            self.organize_library()
         
         #if self.card_library < self.ideal_land_count:
         #    pass
@@ -813,8 +820,7 @@ class DeckBuilder:
         #print(self.total_basics)
     
     def add_basics(self):
-        self.land_count = 0
-        base_basics = self.ideal_land_count - 5  # Reserve 5 slots for utility lands
+        base_basics = self.ideal_land_count - 10  # Reserve 10 slots for non-basic lands
         basics_per_color = base_basics // len(self.colors)
         remaining_basics = base_basics % len(self.colors)
         
@@ -1139,15 +1145,25 @@ class DeckBuilder:
         
         # Add the Duals to a list
         while choice:
+            print(dual_options)
             print('Here\'s all the dual-type lands in your commander\'s color identity:')
             print(*dual_options, sep='\n')
             print('\n')
-            for card in dual_options:
+            print('Randomly choosing between 3-10 dual-type lands to add.')
+            lands_to_add = []
+            while True:
+                while (len(lands_to_add) < random.randint(3, 10) and len(dual_options) > 0):
+                    land_choice = random.choice(list(dual_options))
+                    if land_choice not in lands_to_add:
+                        lands_to_add.append(land_choice)
+                        dual_options.remove(land_choice)
+                break
+            
+            for card in lands_to_add:
                 if card not in self.card_library:
-                    if 'Snow Land' in card:
-                        self.add_card(card, 'Snow Land', '-', 0)
-                    else:
-                        self.add_card(card, 'Land', '-', 0)
+                    self.add_card(card, 'Land', '-', 0)
+                else:
+                    pass
             break
     
     def add_misc_lands(self):
@@ -1223,7 +1239,6 @@ class DeckBuilder:
             index_to_drop = self.card_library[condition].index[0]
             self.card_library = self.card_library.drop(index_to_drop)
             self.card_library = self.card_library.reset_index(drop=True)
-            self.land_cards -= 1
             print(f'{basic_land} removed.')
             self.check_basics()
         except ValueError:
@@ -1234,7 +1249,6 @@ class DeckBuilder:
             index_to_drop = self.card_library[condition].index[0]
             self.card_library = self.card_library.drop(index_to_drop)
             self.card_library = self.card_library.reset_index(drop=True)
-            self.land_cards -= 1
             print(f'{basic_land} removed.')
             self.check_basics()
         except IndexError:
@@ -1245,15 +1259,7 @@ class DeckBuilder:
             index_to_drop = self.card_library[condition].index[0]
             self.card_library = self.card_library.drop(index_to_drop)
             self.card_library = self.card_library.reset_index(drop=True)
-            self.land_cards -= 1
             print(f'{basic_land} removed.')
-            self.check_basics()
-        while self.total_basics < self.min_basics:
-            print(f'After removing a {basic_land}, there aren\'t enough basic lands to meet the ideals. Removing a nonbasic land.')
-            basic_land = random.choice(basic_lands)
-            self.remove_land()
-            print(f'Adding a {basic_land} back in.')
-            self.add_card(basic_land, 'Basic Land', '-', 0)
             self.check_basics()
 
     def remove_land(self):
@@ -1261,7 +1267,7 @@ class DeckBuilder:
         basic_lands = ['Plains', 'Island', 'Swamp', 'Mountain', 'Forest',
                        'Snow-Covered Plains', 'Snow-Covered Island', 'Snow-Covered Swamp',
                        'Snow-Covered Mountain', 'Snow-Covered Forest']
-        library_filter = self.card_library[self.card_library['Card Type'].str.contains('Land')]
+        library_filter = self.card_library[self.card_library['Card Type'].str.contains('Land')].copy()
         library_filter = library_filter[~library_filter['Card Name'].isin((basic_lands + self.staples))]
         card = np.random.choice(library_filter.index, 1, replace=False)
         print(library_filter.loc[card, 'Card Name'].to_string(index=False))
@@ -1269,140 +1275,60 @@ class DeckBuilder:
         #index_to_drop = self.card_library[condition].index[0]
         #self.card_library = self.card_library.drop(index_to_drop)
         self.card_library = self.card_library.drop(card)
-        self.card_library = self.card_library.reset_index(drop=True)
+        #self.card_library = self.card_library.reset_index(inplace=True)
         print(f"{library_filter.loc[card, 'Card Name'].to_string(index=False)} removed.")
 
-    def weight_by_theme(self, dataframe, ideal_value):
+    def weight_by_theme(self, tag, ideal_value=1):
         # First grab the first 50/30/20 cards that match each theme
         print(f'Grabbing the first {int(50 * self.primary_weight * 2)} cards that fit the {self.primary_theme} tag')
-        #if 'Kindred' in self.primary_theme:
-            #pass
-        self.primary_card_df = dataframe.copy()
-        for index, row in self.primary_card_df.iterrows():
-            if self.primary_theme not in row['themeTags']:
-                self.drop_card(self.primary_card_df, index)
+        """Add cards with specific tag up to ideal_value count"""
+        print(f'Finding {ideal_value} cards with the "{tag}" tag...')
+        if 'Kindred' in tag:
+            tags = [tag, 'Kindread Support']
+        else:
+            tags = [tag]
+        # Filter cards with the given tag
+        tag_df = self.creature_df.copy()
+        tag_df.sort_values(by='edhrecRank', inplace=True)
+        tag_df = tag_df[tag_df['themeTags'].apply(lambda x: any(tag in x for tag in tags))]
+        # Take top cards based on ideal value
+        pool_size = int(ideal_value)
+        tag_df = tag_df.head(pool_size)
         
-        self.primary_card_df = self.primary_card_df.head(int(50 * self.primary_weight * 2))
+        # Convert to list of card dictionaries
+        card_pool = []
+        for _, row in tag_df.iterrows():
+            card = {
+                'name': row['name'],
+                'type': row['type'],
+                'manaCost': row['manaCost'],
+                'manaValue': row['manaValue']
+            }
+            card_pool.append(card)
         
-        if self.secondary_theme:
-            #if 'Kindred' in self.secondary_theme:
-                #pass
-            print(f'Grabbing the first {int(30 * self.primary_weight * 2)} cards that fit the {self.secondary_theme} tag')
-            self.secondary_card_df = dataframe.copy()
-            for index, row in self.secondary_card_df.iterrows():
-                if self.secondary_theme not in row['themeTags']:
-                    self.drop_card(self.secondary_card_df, index)
+        # Randomly select cards up to ideal value
+        cards_to_add = []
+        while len(cards_to_add) < ideal_value and card_pool:
+            card = random.choice(card_pool)
+            card_pool.remove(card)
             
-            self.secondary_card_df = self.secondary_card_df.head(int(30 * self.primary_weight * 2))
-        
-        if self.tertiary_theme:
-            #if 'Kindred' in self.secondary_theme:
-                #pass
-            print(f'Grabbing the first {int(20 * self.primary_weight * 2)} cards that fit the {self.tertiary_theme} tag')
-            self.tertiary_card_df = dataframe.copy()
-            for index, row in self.tertiary_card_df.iterrows():
-                if self.tertiary_theme not in row['themeTags']:
-                    self.drop_card(self.tertiary_card_df, index)
-            
-            self.tertiary_card_df = self.tertiary_card_df.head(int(20 * self.primary_weight * 2))
-        
-        # then created random dfs that contain a weighted number of results
-        primary_cards_to_add = {}
-        primary_card_choices = {}
-        secondary_cards_to_add = {}
-        secondary_card_choices = {}
-        tertiary_cards_to_add = {}
-        tertiary_card_choices = {}
-        
-        for index, row in self.primary_card_df.iterrows():
-            if row['name'] not in primary_card_choices:
-                if row['name'] not in self.card_library:
-                    primary_card_choices.update({self.primary_card_df.at[index, 'name']: self.primary_card_df.at[index, 'type']})
-        if self.secondary_theme:
-            for index, row in self.secondary_card_df.iterrows():
-                if row['name'] not in secondary_card_choices:
-                    if row['name'] not in self.card_library:
-                        secondary_card_choices.update({self.secondary_card_df.at[index, 'name']: self.secondary_card_df.at[index, 'type']})
-        if self.tertiary_theme:
-            for index, row in self.tertiary_card_df.iterrows():
-                if row['name'] not in tertiary_card_choices:
-                    if row['name'] not in self.card_library:
-                        tertiary_card_choices.update({self.tertiary_card_df.at[index, 'name']: self.tertiary_card_df.at[index, 'type']})
-        
-        # Randomly choose matches up to a random number between 1.5 and 2x the ideal value multiplied by the theme weight
-        cards_chosen = False
-        print('Randomly choosing a weighted number of cards to add.')
-        while not cards_chosen:
-            while (len(primary_cards_to_add) < int(ideal_value * self.primary_weight) and (len(primary_card_choices) > 0)):
-                print(primary_card_choices)
-                card_choice = random.choice(list(primary_card_choices.keys()))
-                primary_card_choices.pop(card_choice, None)
-                if card_choice not in primary_cards_to_add:
-                    index = self.primary_card_df[self.primary_card_df['name'] == card_choice].index[0]
-                    primary_cards_to_add.update({self.primary_card_df.loc[index, 'name']: self.primary_card_df.at[index, 'type']})
+            # Check price constraints if enabled
+            if use_scrython and self.set_max_card_price:
+                price = self.price_check(card['name'])
+                if price > self.max_card_price * 1.1:
+                    continue
                     
-            if self.secondary_theme:
-                while (len(secondary_cards_to_add) < int(ideal_value * self.secondary_weight) and (len(secondary_card_choices) > 0)):
-                    print(secondary_card_choices)
-                    card_choice = random.choice(list(secondary_card_choices.keys()))
-                    if card_choice not in secondary_cards_to_add:
-                        index = self.secondary_card_df[self.secondary_card_df['name'] == card_choice].index[0]
-                        secondary_cards_to_add.update({self.secondary_card_df.loc[index, 'name']: self.secondary_card_df.at[index, 'type']})
-            if self.tertiary_theme:
-                while (len(tertiary_cards_to_add) < int(ideal_value * self.tertiary_weight) and (len(tertiary_card_choices) > 0)):
-                    print(tertiary_card_choices)
-                    card_choice = random.choice(list(tertiary_card_choices.keys()))
-                    if card_choice not in tertiary_cards_to_add:
-                        index = self.tertiary_card_df[self.tertiary_card_df['name'] == card_choice].index[0]
-                        tertiary_cards_to_add.update({self.tertiary_card_df.loc[index, 'name']: self.tertiary_card_df.at[index, 'type']})
-            cards_chosen = True
+            # Add card if not already in library
+            if card['name'] not in self.card_library['Card Name'].values:
+                cards_to_add.append(card)
         
-        card_options = {**primary_cards_to_add, **secondary_cards_to_add, **tertiary_cards_to_add}
+        # Add selected cards to library
+        for card in cards_to_add:
+            self.add_card(card['name'], card['type'], 
+                         card['manaCost'], card['manaValue'])
         
-        cards_to_add = pd.DataFrame(columns=[0, 1])
-        while (((len(cards_to_add) < ideal_value) and (len(card_options) > 0))):
-            random_card = random.choice(list(card_options.items()))
-            if random_card[0] in multiple_copy_cards:
-                if random_card[0] == 'Nazgûl':
-                    for _ in range(9):
-                        cards_to_add.loc[len(cards_to_add)] = random_card
-                elif random_card[0] == 'Seven Dwarves':
-                    for _ in range(7):
-                        cards_to_add.loc[len(cards_to_add)] = random_card
-                else:
-                    num_to_add = ideal_value - len(cards_to_add)
-                    random_num_to_add = random.randint((num_to_add - 15), num_to_add)
-                    for _ in range(random_num_to_add):
-                        cards_to_add.loc[len(cards_to_add)] = random_card
-            else:
-                if random_card not in cards_to_add:
-                    cards_to_add.loc[len(cards_to_add)] = random_card
-        cards_to_add.rename(columns={0: 'Card Name'}, inplace=True)
-        cards_to_add.rename(columns={1: 'Card Type'}, inplace=True)
-            
-        for index, row in cards_to_add.iterrows():
-            if row['Card Name'] in multiple_copy_cards:
-                if use_scrython and self.set_max_card_price:
-                    if self.price_check(row['Card Name']) <= self.max_card_price * (random.randint(100, 110) / 100):
-                        self.add_card(row['Card Name'], row['Card Type'], row['Mana Cost'], row['Mana Value'])
-                    else:
-                        pass
-                else:
-                        self.add_card(row['Card Name'], row['Card Type'], row['Mana Cost'], row['Mana Value'])
-                        print(self.card_library.tail(2))
-                        keyboard.wait('space')
-            elif row['Card Name'] not in multiple_copy_cards:
-                if row['Card Name'] not in self.card_library:
-                    if use_scrython and self.set_max_card_price:
-                        if self.price_check(row['Card Name']) <= self.max_card_price * (random.randint(100, 110) / 100):
-                            self.add_card(row['Card Name'], row['Card Type'], row['Mana Cost'], row['Mana Value'])
-                        else:
-                            pass
-                    
-                    else:
-                            self.add_card(row['Card Name'], row['Card Type'], row['Mana Cost'], row['Mana Value'])
-                else:
-                    pass
+        print(f'Added {len(cards_to_add)} {tag} cards')
+        tag_df.to_csv(f'{csv_directory}/test_{tag}.csv', index=False)
     
     def add_by_tags(self, tag, ideal_value=1):
         """Add cards with specific tag up to ideal_value count"""
@@ -1455,7 +1381,11 @@ class DeckBuilder:
         # Begin the process to add creatures, the number added will depend on what the 
         # deck plan is, the commander, creature types, etc...
         print(f'Adding creatures to deck, a baseline based on the ideal creature count of {self.ideal_creature_count} will be used.')
-        self.weight_by_theme(self.creature_df, self.ideal_creature_count)
+        self.weight_by_theme(self.primary_theme, math.ceil(self.ideal_creature_count * self.primary_weight))
+        if self.secondary_theme:
+            self.weight_by_theme(self.secondary_theme, math.ceil(self.ideal_creature_count * self.primary_weight))
+        if self.tertiary_theme:
+            self.weight_by_theme(self.tertiary_theme, math.ceil(self.ideal_creature_count * self.tertiary_weight))
         
     def add_ramp(self):
         self.add_by_tags('Mana Rock', math.ceil(self.ideal_ramp / 2))
@@ -1470,7 +1400,8 @@ class DeckBuilder:
         self.add_by_tags('Board Wipes', self.ideal_wipes)
         
     def add_card_advantage(self):
-        self.add_by_tags('Card Draw', self.ideal_card_advantage)
+        self.add_by_tags('Card Draw', math.ceil(self.ideal_card_advantage * 0.3))
+        self.add_by_tags('Unconditional Draw', math.ceil(self.ideal_card_advantage * 0.8))
         
 
 build_deck = DeckBuilder()

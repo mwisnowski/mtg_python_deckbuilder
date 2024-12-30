@@ -410,7 +410,7 @@ class DeckBuilder:
             self.color_identity_options = ['G', 'W', 'G, W']
             self.files_to_load = ['colorless', 'green', 'white', 'selesnya']
             pass
-        elif self.color_identity == 'U, R':
+        elif self.color_identity == 'R, U':
             self.color_identity_full = 'Izzet Blue/Red'
             self.color_identity_options = ['U', 'R', 'U, R']
             self.files_to_load = ['colorless', 'blue', 'red', 'azorius']
@@ -594,6 +594,7 @@ class DeckBuilder:
             secondary_theme_chosen = False
             tertiary_theme_chosen = False
             self.hidden_theme = False
+            print(weights)
 
             while not secondary_theme_chosen:
                 # Secondary theme
@@ -687,6 +688,8 @@ class DeckBuilder:
             else:
                 self.themes.append(self.tertiary_theme)
                 
+            print(self.themes)
+            print(self.colors)
             """
             Setting 'Hidden' themes for multiple-copy cards, such as 'Hare Apparent' or 'Shadowborn Apostle'.
             These are themes that will be prompted for under specific conditions, such as a matching Kindred theme or a matching color combination and Spellslinger theme for example.
@@ -695,7 +698,7 @@ class DeckBuilder:
             # Setting hidden theme for Kindred-specific themes
             hidden_themes = ['Advisor Kindred', 'Demon Kindred', 'Dwarf Kindred', 'Rabbit Kindred', 'Rat Kindred', 'Wraith Kindred']
             theme_cards = ['Persistent Petitioners', 'Shadowborn Apostle', 'Seven Dwarves', 'Hare Apparent', ['Rat Colony', 'Relentless Rats'], 'Nazgûl']
-            color = ['Blue', 'Black', 'Red', 'White', 'Black', 'Black']
+            color = ['B', 'B', 'R', 'W', 'B', 'B']
             for i in range(min(len(hidden_themes), len(theme_cards), len(color))):
                 if (hidden_themes[i] in self.themes
                     and hidden_themes[i] != 'Rat Kindred'
@@ -705,10 +708,11 @@ class DeckBuilder:
                     if choice:
                         self.hidden_theme = theme_cards[i]
                         self.themes.append(self.hidden_theme)
-                        weights['primary'] -= weights['primary'] / 2 # 0.3
-                        weights['secondary'] += weights['secondary'] / 2 # 0.2
-                        weights['tertiary'] += weights['tertiary'] / 2 # 0.1
+                        weights['primary'] = weights['primary'] / 3 # 0.3
+                        weights['secondary'] = weights['secondary'] / 3 # 0.2
+                        weights['tertiary'] = weights['tertiary'] / 3 # 0.1
                         weights['hidden'] = 1.0 - weights['primary'] - weights['secondary'] - weights['tertiary']
+                        print(weights)
                         self.primary_weight = weights['primary']
                         self.secondary_weight = weights['secondary']
                         self.tertiary_weight = weights['tertiary']
@@ -727,9 +731,9 @@ class DeckBuilder:
                         if choice:
                             self.hidden_theme = choice
                             self.themes.append(self.hidden_theme)
-                            weights['primary'] -= weights['primary'] / 2 # 0.3
-                            weights['secondary'] += weights['secondary'] / 2 # 0.2
-                            weights['tertiary'] += weights['tertiary'] / 2 # 0.1
+                            weights['primary'] = weights['primary'] / 3 # 0.3
+                            weights['secondary'] = weights['secondary'] / 3 # 0.2
+                            weights['tertiary'] = weights['tertiary'] / 3 # 0.1
                             weights['hidden'] = 1.0 - weights['primary'] - weights['secondary'] - weights['tertiary']
                             self.primary_weight = weights['primary']
                             self.secondary_weight = weights['secondary']
@@ -739,9 +743,9 @@ class DeckBuilder:
                         continue
             
             # Setting the hidden theme for non-Kindred themes
-            hidden_themes = ['Little Fellas', 'Mill', 'Spellslinger', 'Spellslinger']
-            theme_cards = ['Hare Apparent', 'Persistent Petitions', 'Dragon\'s Approach', 'Slime Against Humanity']
-            color = ['White', 'Blue', 'Red', 'Green']
+            hidden_themes = ['Little Fellas', 'Mill', 'Spellslinger', 'Spells Matter', 'Spellslinger', 'Spells Matter',]
+            theme_cards = ['Hare Apparent', 'Persistent Petitions', 'Dragon\'s Approach', 'Dragon\'s Approach', 'Slime Against Humanity', 'Slime Against Humanity']
+            color = ['W', 'B', 'R', 'R', 'G', 'G']
             for i in range(min(len(hidden_themes), len(theme_cards), len(color))):
                 if (hidden_themes[i] in self.themes
                     and color[i] in self.colors):
@@ -750,9 +754,9 @@ class DeckBuilder:
                     if choice:
                         self.hidden_theme = theme_cards[i]
                         self.themes.append(self.hidden_theme)
-                        weights['primary'] -= weights['primary'] / 2 # 0.3
-                        weights['secondary'] += weights['secondary'] / 2 # 0.2
-                        weights['tertiary'] += weights['tertiary'] / 2 # 0.1
+                        weights['primary'] = weights['primary'] / 3 # 0.3
+                        weights['secondary'] = weights['secondary'] / 3 # 0.2
+                        weights['tertiary'] = weights['tertiary'] / 3 # 0.1
                         weights['hidden'] = 1.0 - weights['primary'] - weights['secondary'] - weights['tertiary']
                         self.primary_weight = weights['primary']
                         self.secondary_weight = weights['secondary']
@@ -1616,7 +1620,7 @@ class DeckBuilder:
         ideal_value = math.ceil(ideal * weight * 0.9)
         print(f'Finding {ideal_value} cards with the "{tag}" tag...')
         if 'Kindred' in tag:
-            tags = [tag, 'Kindread Support']
+            tags = [tag, 'Kindred Support']
         else:
             tags = [tag]
         # Filter cards with the given tag
@@ -1626,6 +1630,7 @@ class DeckBuilder:
         # Take top cards based on ideal value
         pool_size = int(ideal_value * random.randint(15, 20) /10)
         tag_df = tag_df.head(pool_size)
+        print(tag_df)
         
         # Convert to list of card dictionaries
         card_pool = [
@@ -1661,8 +1666,7 @@ class DeckBuilder:
                         cards_to_add.append(card)
                 else:
                     num_to_add = ideal_value - len(cards_to_add)
-                    random_num_to_add = random.randint((num_to_add - 15), num_to_add)
-                    for _ in range(random_num_to_add):
+                    for _ in range(num_to_add):
                         cards_to_add.append(card)
             
             elif (card['name'] not in multiple_copy_cards
@@ -1764,7 +1768,7 @@ class DeckBuilder:
         
         try:
             if self.hidden_theme:
-                print(f'Processing primary theme: {self.hidden_theme}')
+                print(f'Processing Hidden theme: {self.hidden_theme}')
                 self.weight_by_theme(self.hidden_theme, self.ideal_creature_count, self.hidden_weight)
  
             print(f'Processing primary theme: {self.primary_theme}')

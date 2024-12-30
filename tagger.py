@@ -5,7 +5,7 @@ import pandas as pd # type: ignore
 
 import settings
 
-from settings import artifact_tokens, csv_directory, colors, counter_types, enchantment_tokens, num_to_search, triggers
+from settings import artifact_tokens, csv_directory, colors, counter_types, enchantment_tokens, multiple_copy_cards, num_to_search, triggers
 from setup import regenerate_csv_by_color
 from utility import pluralize, sort_list
 
@@ -3176,9 +3176,13 @@ def tag_for_themes(df, color):
     print('==========\n')
     search_for_legends(df, color)
     print('==========\n')
+    tag_for_little_guys(df, color)
+    print('==========\n')
     tag_for_mill(df, color)
     print('==========\n')
     tag_for_monarch(df, color)
+    print('==========\n')
+    tag_for_multiple_copies(df, color)
     print('==========\n')
     tag_for_planeswalkers(df, color)
     print('==========\n')
@@ -3703,6 +3707,32 @@ def search_for_legends(df, color):
     
     print(f'"Legends Matter" and "Historics Matter" cards in {color}_cards.csv have been tagged.\n')
 
+## Little Fellas
+def tag_for_little_guys(df, color):
+    print(f'Tagging cards in {color}_cards.csv that are or care about low-power (2 or less) creatures.')
+    for index, row in df.iterrows():
+        theme_tags = row['themeTags']
+        if pd.notna(row['power']):
+            if '*' in row['power']:
+                continue
+            if (int(row['power']) <= 2):
+                tag_type = ['Little Fellas']
+                for tag in tag_type:
+                    if tag not in theme_tags:
+                        theme_tags.extend([tag])
+                        df.at[index, 'themeTags'] = theme_tags
+        
+        if pd.notna(row['text']):
+            if ('power 2 or less' in row['text'].lower()
+                ):
+                tag_type = ['Little Fellas']
+                for tag in tag_type:
+                    if tag not in theme_tags:
+                        theme_tags.extend([tag])
+                        df.at[index, 'themeTags'] = theme_tags
+    
+    print(f'Low-power (2 or less) creature cards in {color}_cards.csv have been tagged.\n')
+
 ## Mill
 def tag_for_mill(df, color):
     print(f'Tagging cards in {color}_cards.csv that have a "Mill" theme.')
@@ -3779,6 +3809,21 @@ def tag_for_monarch(df, color):
                         df.at[index, 'themeTags'] = theme_tags
     
     print(f'"Monarch" cards in {color}_cards.csv have been tagged.\n')
+
+## Multi-copy cards
+def tag_for_multiple_copies(df, color):
+    print(f'Tagging cards in {color}_cards.csv that allow having multiple copies.')
+    for index, row in df.iterrows():
+        theme_tags = row['themeTags']
+        if (row['name'] in multiple_copy_cards
+            ):
+            tag_type = ['Multiple Copies', row['name']]
+            for tag in tag_type:
+                if tag not in theme_tags:
+                    theme_tags.extend([tag])
+                    df.at[index, 'themeTags'] = theme_tags
+    
+    print(f'"Multiple-copy" cards in {color}_cards.csv have been tagged.\n')
 
 ## Planeswalkers
 def tag_for_planeswalkers(df, color):

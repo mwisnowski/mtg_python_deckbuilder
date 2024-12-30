@@ -114,8 +114,8 @@ enchantment_tokens = ['Cursed Role', 'Monster Role', 'Royal Role', 'Sorcerer Rol
                 'Virtuous Role', 'Wicked Role', 'Young Hero Role', 'Shard']
 
 multiple_copy_cards = ['Dragon\'s Approach', 'Hare Apparent', 'Nazgûl', 'Persistent Petitioners',
-                       'Rat Colony','Relentless Rars', 'Seven Dwarves', 'Shadowborn Apostle',
-                       'Slime Against Humanity', 'Templar Knights']
+                       'Rat Colony', 'Relentless Rats', 'Seven Dwarves', 'Shadowborn Apostle',
+                       'Slime Against Humanity', 'Templar Knight']
 
 non_creature_types = ['Legendary', 'Creature', 'Enchantment', 'Artifact',
                 'Battle', 'Sorcery', 'Instant', 'Land', '-', '—',

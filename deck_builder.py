@@ -1040,8 +1040,8 @@ class DeckBuilder:
         logging.info('Checking total land count to ensure it\'s within ideal count.\n\n')
         self.organize_library()
         while self.land_cards > int(self.ideal_land_count):
-            logging.info(f'Num land cards: {self.land_cards}\n'
-                  f'Ideal num land cards {self.ideal_land_count}')
+            logging.info(f'Total lands: {self.land_cards}')
+            logging.info(f'Ideal lands: {self.ideal_land_count}')
             self.remove_basic()
             self.organize_library()
         
@@ -1098,7 +1098,7 @@ class DeckBuilder:
 
     def add_standard_non_basics(self):
         # Add lands that are good in most any commander deck
-        logging.info('Adding "standard" non-basics')
+        print('Adding "standard" non-basics')
         self.staples = ['Reliquary Tower']
         if 'Landfall' not in self.commander_tags:
             self.staples.append('Ash Barrens')
@@ -1210,7 +1210,7 @@ class DeckBuilder:
         self.land_df.to_csv(f'{csv_directory}/test_lands.csv', index=False)
     
     def add_kindred_lands(self):
-        logging.info('Adding lands that care about the commander having a Kindred theme.')
+        print('Adding lands that care about the commander having a Kindred theme.')
         logging.info('Adding general Kindred lands.')
 
         def create_land(name: str, land_type: str) -> dict:
@@ -1359,7 +1359,7 @@ class DeckBuilder:
             logging.info('Skipping adding Triome land cards.')
     
     def add_misc_lands(self):
-        logging.info('Adding additional misc. lands to the deck that fit the color identity.')
+        print('Adding additional misc. lands to the deck that fit the color identity.')
         # Add other remaining lands that match color identity
 
         logging.info('Grabbing lands in your commander\'s color identity that aren\'t already in the deck.')
@@ -1433,77 +1433,62 @@ class DeckBuilder:
                 logging.info(f"{land}: {count}")
         logging.info(f"Total basic lands: {self.total_basics}\n")
    
-    def remove_basic(self):
+    def remove_basic(self, max_attempts: int = 3):
         """
         Remove a basic land while maintaining color balance.
         Attempts to remove from colors with more basics first.
+        
+        Args:
+            max_attempts: Maximum number of removal attempts before falling back to non-basics
         """
         logging.info('Land count over ideal count, removing a basic land.')
-
-        # Map colors to basic land names
+        
         color_to_basic = {
-            'W': 'Plains',
-            'U': 'Island',
-            'B': 'Swamp',
-            'R': 'Mountain',
-            'G': 'Forest'
+            'W': 'Plains', 'U': 'Island', 'B': 'Swamp',
+            'R': 'Mountain', 'G': 'Forest'
         }
-
-        # Count basics of each type
-        basic_counts = {}
-        for color in self.colors:
-            basic = color_to_basic.get(color)
-            if basic:
-                count = len(self.card_library[self.card_library['Card Name'] == basic])
-                if count > 0:
-                    basic_counts[basic] = count
-
-        if not basic_counts:
-            logging.warning("No basic lands found to remove")
-            return
+        
+        # Get current basic land counts using vectorized operations
+        basic_counts = {
+            basic: len(self.card_library[self.card_library['Card Name'] == basic])
+            for color, basic in color_to_basic.items()
+            if color in self.colors
+        }
+        
         sum_basics = sum(basic_counts.values())
-
-        # Try to remove from color with most basics
-        basic_land = max(basic_counts.items(), key=lambda x: x[1])[0]
-        if sum_basics > self.min_basics:
+        attempts = 0
+        
+        while attempts < max_attempts and sum_basics > self.min_basics:
+            if not basic_counts:
+                logging.warning("No basic lands found to remove")
+                break
+                
+            basic_land = max(basic_counts.items(), key=lambda x: x[1])[0]
             try:
-                logging.info(f'Attempting to remove {basic_land}')
-                condition = self.card_library['Card Name'] == basic_land
-                index_to_drop = self.card_library[condition].index[0]
-
-                self.card_library = self.card_library.drop(index_to_drop)
-                self.card_library = self.card_library.reset_index(drop=True)
-
+                # Use boolean indexing for efficiency
+                mask = self.card_library['Card Name'] == basic_land
+                if not mask.any():
+                    basic_counts.pop(basic_land)
+                    continue
+                    
+                index_to_drop = self.card_library[mask].index[0]
+                self.card_library = self.card_library.drop(index_to_drop).reset_index(drop=True)
                 logging.info(f'{basic_land} removed successfully')
-                self.check_basics()
-
+                return
+                
             except (IndexError, KeyError) as e:
                 logging.error(f"Error removing {basic_land}: {e}")
-                # Iterative approach instead of recursion
-                while basic_counts:
-                    basic_counts.pop(basic_land, None)
-                    if not basic_counts:
-                        logging.error("Failed to remove any basic land")
-                        break
-                    
-                    basic_land = max(basic_counts.items(), key=lambda x: x[1])[0]
-                    try:
-                        condition = self.card_library['Card Name'] == basic_land
-                        index_to_drop = self.card_library[condition].index[0]
-                        self.card_library = self.card_library.drop(index_to_drop)
-                        self.card_library = self.card_library.reset_index(drop=True)
-                        logging.info(f'{basic_land} removed successfully')
-                        self.check_basics()
-                        break
-                    except (IndexError, KeyError):
-                        continue
-        else:
-            print(f'Not enough basic lands to keep the minimum of {self.min_basics}.')
-            self.remove_land()
+                basic_counts.pop(basic_land)
+            
+            attempts += 1
+            
+        # If we couldn't remove a basic land, try removing a non-basic
+        logging.warning("Could not remove basic land, attempting to remove non-basic")
+        self.remove_land()
     
     def remove_land(self):
         """Remove a random non-basic, non-staple land from the deck."""
-        print('Removing a random nonbasic land.')
+        logging.info('Removing a random nonbasic land.')
 
         # Define basic lands including snow-covered variants
         basic_lands = [
@@ -1520,25 +1505,25 @@ class DeckBuilder:
             ].copy()
 
             if len(library_filter) == 0:
-                print("No suitable non-basic lands found to remove.")
+                logging.warning("No suitable non-basic lands found to remove.")
                 return
 
             # Select random land to remove
             card_index = np.random.choice(library_filter.index)
             card_name = self.card_library.loc[card_index, 'Card Name']
 
-            print(f"Removing {card_name}")
+            logging.info(f"Removing {card_name}")
             self.card_library.drop(card_index, inplace=True)
             self.card_library.reset_index(drop=True, inplace=True)
-            print("Card removed successfully.")
+            logging.info("Card removed successfully.")
 
         except Exception as e:
             logging.error(f"Error removing land: {e}")
-            print("Failed to remove land card.")
+            logging.warning("Failed to remove land card.")
     
     def count_pips(self):
         """Count and display the number of colored mana symbols in casting costs."""
-        print('Analyzing color pip distribution...')
+        logging.info('Analyzing color pip distribution...')
         
         pip_counts = {
             'W': 0, 'U': 0, 'B': 0, 'R': 0, 'G': 0
@@ -1550,15 +1535,15 @@ class DeckBuilder:
         
         total_pips = sum(pip_counts.values())
         if total_pips == 0:
-            print("No colored mana symbols found in casting costs.")
+            logging.error("No colored mana symbols found in casting costs.")
             return
         
-        print("\nColor Pip Distribution:")
+        logging.info("\nColor Pip Distribution:")
         for color, count in pip_counts.items():
             if count > 0:
                 percentage = (count / total_pips) * 100
                 print(f"{color}: {count} pips ({percentage:.1f}%)")
-        print(f"Total colored pips: {total_pips}\n")
+        logging.info(f"Total colored pips: {total_pips}\n")
         
     def get_cmc(self):
         """Calculate average converted mana cost of non-land cards."""
@@ -1588,7 +1573,7 @@ class DeckBuilder:
         # First grab the first 50/30/20 cards that match each theme
         """Add cards with specific tag up to ideal_value count"""
         ideal_value = math.ceil(ideal * weight * 0.9)
-        logging.info(f'Finding {ideal_value} cards with the "{tag}" tag...')
+        print(f'Finding {ideal_value} cards with the "{tag}" tag...')
         if 'Kindred' in tag:
             tags = [tag, 'Kindred Support']
         else:
@@ -1644,7 +1629,7 @@ class DeckBuilder:
                 
             elif (card['name'] not in multiple_copy_cards
                   and card['name'] in self.card_library['Card Name'].values):
-                print(f"{card['name']} already in Library, skipping it.")
+                logging.warning(f"{card['name']} already in Library, skipping it.")
                 continue
         
         # Add selected cards to library
@@ -1660,7 +1645,7 @@ class DeckBuilder:
     
     def add_by_tags(self, tag, ideal_value=1, df=None):
         """Add cards with specific tag up to ideal_value count"""
-        logging.info(f'Finding {ideal_value} cards with the "{tag}" tag...')
+        print(f'Finding {ideal_value} cards with the "{tag}" tag...')
 
         # Filter cards with the given tag
         skip_creatures = self.creature_cards > self.ideal_creature_count * 1.1
@@ -1730,22 +1715,22 @@ class DeckBuilder:
         with error handling to ensure the deck building process continues even if
         a particular theme encounters issues.
         """
-        logging.info(f'Adding creatures to deck based on the ideal creature count of {self.ideal_creature_count}...')
+        print(f'Adding creatures to deck based on the ideal creature count of {self.ideal_creature_count}...')
         
         try:
             if self.hidden_theme:
-                logging.info(f'Processing Hidden theme: {self.hidden_theme}')
+                print(f'Processing Hidden theme: {self.hidden_theme}')
                 self.weight_by_theme(self.hidden_theme, self.ideal_creature_count, self.hidden_weight, self.creature_df)
             
-            logging.info(f'Processing primary theme: {self.primary_theme}')
+            print(f'Processing primary theme: {self.primary_theme}')
             self.weight_by_theme(self.primary_theme, self.ideal_creature_count, self.primary_weight, self.creature_df)
             
             if self.secondary_theme:
-                logging.info(f'Processing secondary theme: {self.secondary_theme}')
+                print(f'Processing secondary theme: {self.secondary_theme}')
                 self.weight_by_theme(self.secondary_theme, self.ideal_creature_count, self.secondary_weight, self.creature_df)
             
             if self.tertiary_theme:
-                logging.info(f'Processing tertiary theme: {self.tertiary_theme}')
+                print(f'Processing tertiary theme: {self.tertiary_theme}')
                 self.weight_by_theme(self.tertiary_theme, self.ideal_creature_count, self.tertiary_weight, self.creature_df)
                 
         except Exception as e:

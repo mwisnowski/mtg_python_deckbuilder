@@ -32,6 +32,18 @@ board_wipe_tags = ['destroy all', 'destroy each', 'return all', 'return each', '
 card_types = ['Artifact','Creature', 'Enchantment', 'Instant', 'Land', 'Planeswalker', 'Sorcery',
               'Kindred', 'Dungeon', 'Battle']
 
+# Mapping of card types to their corresponding theme tags
+TYPE_TAG_MAPPING = {
+    'Artifact': ['Artifacts Matter'],
+    'Battle': ['Battles Matter'],
+    #'Creature': [],
+    'Enchantment': ['Enchantments Matter'],
+    'Instant': ['Spells Matter', 'Spellslinger'],
+    'Land': ['Lands Matter'],
+    'Planeswalker': ['Superfriends'],
+    'Sorcery': ['Spells Matter', 'Spellslinger']
+}
+
 csv_directory = 'csv_files'
 
 colors = ['colorless', 'white', 'blue', 'black', 'red', 'green',
@@ -149,3 +161,31 @@ targetted_removal_tags = ['exile target', 'destroy target', 'return target', 'sh
                 'deals damage to target', 'loses all abilities']
 
 triggers = ['when', 'whenever', 'at']
+
+# Constants for DataFrame validation and processing
+REQUIRED_COLUMNS = [
+    'name', 'faceName', 'edhrecRank', 'colorIdentity', 'colors',
+    'manaCost', 'manaValue', 'type', 'creatureTypes', 'text',
+    'power', 'toughness', 'keywords', 'themeTags', 'layout', 'side'
+]
+
+DEFAULT_THEME_TAGS = [
+    'Aggro', 'Aristocrats', 'Artifacts Matter', 'Big Mana', 'Blink',
+    'Board Wipes', 'Burn', 'Cantrips', 'Card Draw', 'Clones',
+    'Combat Matters', 'Control', 'Counters Matter', 'Energy',
+    'Enter the Battlefield', 'Equipment', 'Exile Matters', 'Infect',
+    'Interaction', 'Lands Matter', 'Leave the Battlefield', 'Legends Matter',
+    'Life Matters', 'Mill', 'Monarch', 'Protection', 'Ramp', 'Reanimate',
+    'Removal', 'Sacrifice Matters', 'Spellslinger', 'Stax', 'Super Friends',
+    'Theft', 'Token Creation', 'Tokens Matter', 'Voltron', 'X Spells'
+]
+
+COLUMN_ORDER = [
+    'name', 'faceName', 'edhrecRank', 'colorIdentity', 'colors',
+    'manaCost', 'manaValue', 'type', 'creatureTypes', 'text',
+    'power', 'toughness', 'keywords', 'themeTags', 'layout', 'side'
+]
+
+# Constants for type detection and processing
+OUTLAW_TYPES = ['Assassin', 'Mercenary', 'Pirate', 'Rogue', 'Warlock']
+TYPE_DETECTION_BATCH_SIZE = 1000

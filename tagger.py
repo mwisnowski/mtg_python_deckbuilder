@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 import pandas as pd # type: ignore
 
@@ -9,32 +10,57 @@ from settings import artifact_tokens, csv_directory, colors, counter_types, ench
 from setup import regenerate_csv_by_color
 from utility import pluralize, sort_list
 
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
+
 ### Setup
 ## Load the dataframe
-def load_dataframe(color):
-    """Load and validate the card dataframe for a given color"""
+def load_dataframe(color: str) -> pd.DataFrame:
+    """
+    Load and validate the card dataframe for a given color.
+    
+    Args:
+        color (str): The color of cards to load ('white', 'blue', etc)
+    
+    Returns:
+        pd.DataFrame: The loaded and validated dataframe
+    
+    Raises:
+        FileNotFoundError: If CSV file doesn't exist and can't be regenerated
+        ValueError: If required columns are missing
+    """
     try:
         filepath = f'{csv_directory}/{color}_cards.csv'
         
         # Check if file exists, regenerate if needed
         if not os.path.exists(filepath):
-            print(f'{color}_cards.csv not found, regenerating it.')
+            logging.warning(f'{color}_cards.csv not found, regenerating it.')
             regenerate_csv_by_color(color)
+            if not os.path.exists(filepath):
+                raise FileNotFoundError(f"Failed to generate {filepath}")
         
         # Load initial dataframe for validation
         check_df = pd.read_csv(filepath)
         
         # Validate required columns
-        required_columns = ['creatureTypes', 'themeTags']
+        required_columns = ['creatureTypes', 'themeTags'] 
         missing_columns = [col for col in required_columns if col not in check_df.columns]
         
         # Handle missing columns
         if missing_columns:
-            print(f"Missing columns: {missing_columns}")
+            logging.warning(f"Missing columns: {missing_columns}")
             if 'creatureTypes' not in check_df.columns:
                 kindred_tagging(check_df, color)
             if 'themeTags' not in check_df.columns:
                 create_theme_tags(check_df, color)
+                
+            # Verify columns were added successfully
+            check_df = pd.read_csv(filepath)
+            still_missing = [col for col in required_columns if col not in check_df.columns]
+            if still_missing:
+                raise ValueError(f"Failed to add required columns: {still_missing}")
         
         # Load final dataframe with proper converters
         df = pd.read_csv(filepath, converters={'themeTags': pd.eval, 'creatureTypes': pd.eval})
@@ -43,11 +69,11 @@ def load_dataframe(color):
         tag_by_color(df, color)
         
     except FileNotFoundError as e:
-        print(f'Error: {e}')
+        logging.error(f'Error: {e}')
     except pd.errors.ParserError:
-        print('Error parsing the CSV file.')
+        logging.error('Error parsing the CSV file.')
     except Exception as e:
-        print(f'An unexpected error occurred: {e}')
+        logging.error(f'An unexpected error occurred: {e}')
 
 ## Tag cards on a color-by-color basis
 def tag_by_color(df, color):
@@ -109,14 +135,14 @@ def tag_by_color(df, color):
 
 ## Determine any non-creature cards that have creature types mentioned
 def kindred_tagging(df, color):
-    print(f'Settings creature type tags on {color}_cards.csv.\n')
+    logging.info(f'Settings creature type tags on {color}_cards.csv.\n')
     print('===============\n')
     
     # Create new blank list column called 'creatureTypes
     df['creatureTypes'] = [[] for _ in range(len(df))]
     
     # Set creature types
-    print(f'Checking for and setting creature types in {color}_cards.csv')
+    logging.info(f'Checking for and setting creature types in {color}_cards.csv')
     for index, row in df.iterrows():
         if 'Creature' in row['type']:
             kindred_tags = []
@@ -130,11 +156,11 @@ def kindred_tagging(df, color):
                             if creature_type == creature_types_individual:
                                 kindred_tags.append(creature_type)
                                 df.at[index, 'creatureTypes'] = kindred_tags
-    print(f'Creature types set in {color}_cards.csv.\n')
+    logging.info(f'Creature types set in {color}_cards.csv.\n')
     print('==========\n')
     
     # Set outlaws
-    print(f'Checking for and setting Outlaw types in {color}_cards.csv')
+    logging.info(f'Checking for and setting Outlaw types in {color}_cards.csv')
     outlaws = ['Assassin', 'Mercenary', 'Pirate', 'Rogue', 'Warlock']
     for index, row in df.iterrows():
         if 'Creature' in row['type']:
@@ -145,11 +171,11 @@ def kindred_tagging(df, color):
                     if 'Outlaw' not in kindred_tags:
                         kindred_tags.append('Outlaw')
                         df.at[index, 'creatureTypes'] = kindred_tags
-    print(f'Outlaw types set in {color}_cards.csv.\n')
+    logging.info(f'Outlaw types set in {color}_cards.csv.\n')
     print('==========\n')
     
     # Check for creature types in text (i.e. how 'Voja, Jaws of the Conclave' cares about Elves)
-    print(f'Checking for and setting creature types found in the text of cards in {color}_cards.csv')
+    logging.info(f'Checking for and setting creature types found in the text of cards in {color}_cards.csv')
     for index, row in df.iterrows():
         kindred_tags = row['creatureTypes']
         if pd.isna(row['text']):
@@ -176,42 +202,57 @@ def kindred_tagging(df, color):
                         if creature_type not in kindred_tags:
                             kindred_tags.append(creature_type)
                             df.at[index, 'creatureTypes'] = kindred_tags
-    print(f'Creature types from text set in {color}_cards.csv.\n')
+    logging.info(f'Creature types from text set in {color}_cards.csv.\n')
     
     # Overwrite file with creature type tags
     columns_to_keep = ['name', 'faceName','edhrecRank', 'colorIdentity', 'colors', 'manaCost', 'manaValue', 'type', 'creatureTypes', 'text', 'power', 'toughness', 'keywords', 'layout', 'side']
     df = df[columns_to_keep]
     df.to_csv(f'{csv_directory}/{color}_cards.csv', index=False)
-    print(f'\nCreature types tagged on {color}_cards.csv.\n')
-
-## Create theme tags (i.e.)
-def create_theme_tags(df, color):
-    # Create a blank column for theme/effect tags
-    # This will setup a basis for future tagging to automate deck building
-    print(f'Creating theme/effect tag column on {color}_cards.csv.')
+    logging.info(f'\nCreature types tagged on {color}_cards.csv.\n')
     
-    # Create new blank list column called 'themeTags
-    df['themeTags'] = [[] for _ in range(len(df))]
+def create_theme_tags(df: pd.DataFrame, color: str) -> None:
+    """
+    Initialize the themeTags column and reorganize dataframe columns.
     
-    # Organize it's location
-    columns_to_keep = ['name', 'faceName','edhrecRank', 'colorIdentity', 'colors', 'manaCost', 'manaValue', 'type', 'creatureTypes', 'text', 'power', 'toughness', 'keywords', 'themeTags', 'layout', 'side']
-    df = df[columns_to_keep]
+    Args:
+        df (pd.DataFrame): The card dataframe to process
+        color (str): The color being processed for logging
+    """
+    logging.info(f'Creating theme/effect tag column on {color}_cards.csv.')
     
-    # Overwrite original file
+    # Initialize themeTags column efficiently
+    df['themeTags'] = pd.Series([[] for _ in range(len(df))])
+    
+    # Define column order
+    columns_to_keep = [
+        'name', 'faceName', 'edhrecRank', 'colorIdentity', 'colors',
+        'manaCost', 'manaValue', 'type', 'creatureTypes', 'text',
+        'power', 'toughness', 'keywords', 'themeTags', 'layout', 'side'
+    ]
+    
+    # Reorder and select columns
+    try:
+        df = df[columns_to_keep]
+    except KeyError as e:
+        logging.warning(f"Warning: Missing expected column {e}")
+        # Continue with available columns
+        existing_cols = [col for col in columns_to_keep if col in df.columns]
+        df = df[existing_cols]
+    
+    # Save dataframe
     df.to_csv(f'{csv_directory}/{color}_cards.csv', index=False)
-    print(f'Theme/effect tag column created on {color}_cards.csv.\n')
-
-## Add card types to the tags
+    logging.info(f'Theme/effect tag column created on {color}_cards.csv.\n')
+    
 def tag_for_card_types(df, color):
     # Iterate through each {color}_cards.csv file to find artifact cards
     # Also check for cards that care about artifacts
-    print(f'Settings card type tags on {color}_cards.csv.\n\n')
+    logging.info(f'Settings card type tags on {color}_cards.csv.\n\n')
     # Define the card types
     card_types = ['Artifact', 'Creature', 'Enchantment', 'Land', 'Instant', 'Sorcery', 'Planeswalker', 'Battle']
     
     # Tag for artifacts
     for card_type in card_types:
-        print(f'Tagging cards in {color}_cards.csv that have the "{card_type}" type.')
+        logging.info(f'Tagging cards in {color}_cards.csv that have the "{card_type}" type.')
         for index, row in df.iterrows():
             theme_tags = row['themeTags']
             if card_type in row['type']:
@@ -234,10 +275,10 @@ def tag_for_card_types(df, color):
                     if tag not in theme_tags:
                         theme_tags.extend([tag])
                         df.at[index, 'themeTags'] = theme_tags
-        print(f'Cards with the "{card_type}" type in {color}_cards.csv have been tagged.\n')
+        logging.info(f'Cards with the "{card_type}" type in {color}_cards.csv have been tagged.\n')
         print('=====\n')
     # Overwrite file with artifact tag added
-    print(f'Card type tags set on {color}_cards.csv.\n')
+    logging.info(f'Card type tags set on {color}_cards.csv.\n')
 
 ## Add creature types to the theme tags
 def add_creatures_to_tags(df, color):

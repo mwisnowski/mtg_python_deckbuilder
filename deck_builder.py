@@ -429,7 +429,7 @@ class DeckBuilder:
                               ['colorless', 'black', 'green', 'red', 'blue', 'white', 'golgari', 'rakdos',
                                'dimir', 'orzhov', 'gruul', 'simic', 'selesnya', 'izzet', 'boros', 'azorius',
                                'jund', 'sultai', 'abzan', 'grixis', 'mardu', 'esper', 'temur', 'naya',
-                               'bant', 'jeska', 'glint', 'dune','witch', 'yore', 'ink', 'wubrg'])
+                               'bant', 'jeskai', 'glint', 'dune','witch', 'yore', 'ink', 'wubrg'])
         }
         
         try:
@@ -471,12 +471,50 @@ class DeckBuilder:
             logging.error(f"Error in determine_color_identity: {e}")
             raise
     
+    def read_csv(self, filename: str, converters: dict | None = None) -> pd.DataFrame:
+        """Read CSV file with error handling and logging.
+        
+        Args:
+            filename: Name of the CSV file without extension
+            converters: Dictionary of converters for specific columns
+        
+        Returns:
+            DataFrame from CSV file
+        """
+        try:
+            filepath = f'{csv_directory}/{filename}_cards.csv'
+            df = pd.read_csv(filepath, converters=converters or {'themeTags': pd.eval, 'creatureTypes': pd.eval})
+            logging.debug(f"Successfully read {filename}_cards.csv")
+            return df
+        except FileNotFoundError as e:
+            logging.error(f"File {filename}_cards.csv not found: {e}")
+            raise
+        except Exception as e:
+            logging.error(f"Error reading {filename}_cards.csv: {e}")
+            raise
+
+    def write_csv(self, df: pd.DataFrame, filename: str) -> None:
+        """Write DataFrame to CSV with error handling and logging.
+        
+        Args:
+            df: DataFrame to write
+            filename: Name of the CSV file without extension
+        """
+        try:
+            filepath = f'{csv_directory}/{filename}.csv'
+            df.to_csv(filepath, index=False)
+            logging.debug(f"Successfully wrote {filename}.csv")
+        except Exception as e:
+            logging.error(f"Error writing {filename}.csv: {e}")
+            raise
+
     def setup_dataframes(self):
+        """Initialize and setup all required DataFrames."""
         all_df = []
         for file in self.files_to_load:
-            df = pd.read_csv(f'{csv_directory}/{file}_cards.csv', converters={'themeTags': pd.eval, 'creatureTypes': pd.eval})
+            df = self.read_csv(file)
             all_df.append(df)
-        self.full_df = pd.concat(all_df,ignore_index=True)
+        self.full_df = pd.concat(all_df, ignore_index=True)
         self.full_df.sort_values(by='edhrecRank', inplace=True)
         
         self.land_df = self.full_df[self.full_df['type'].str.contains('Land')].copy()

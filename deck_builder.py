@@ -344,152 +344,132 @@ class DeckBuilder:
         self.card_library.to_csv(f'{csv_directory}/test_deck_done.csv', index=False)
         self.full_df.to_csv(f'{csv_directory}/test_all_after_done.csv', index=False)
     
-    def determine_color_identity(self):
-        # Determine the color identity for later
-        # Mono color
-        if self.color_identity == 'COLORLESS':
-            self.color_identity_full = 'Colorless'
+    def determine_color_identity(self) -> None:
+        """Determine the deck's color identity and set related attributes."""
+        # Single color mapping
+        mono_color_map = {
+            'COLORLESS': ('Colorless', ['colorless']),
+            'B': ('Black', ['colorless', 'black']),
+            'G': ('Green', ['colorless', 'green']),
+            'R': ('Red', ['colorless', 'red']),
+            'U': ('Blue', ['colorless', 'blue']),
+            'w': ('White', ['colorless', 'white'])
+        }
+        
+        # Two-color mapping
+        dual_color_map = {
+            'B, G': ('Golgari: Black/Green', ['B', 'G', 'B, G'], ['colorless', 'black', 'green', 'golgari']),
+            'B, R': ('Rakdos: Black/Red', ['B', 'R', 'B, R'], ['colorless', 'black', 'red', 'rakdos']),
+            'B, U': ('Dimir: Black/Blue', ['B', 'U', 'B, U'], ['colorless', 'black', 'blue', 'dimir']),
+            'B, W': ('Orzhov: Black/White', ['B', 'W', 'B, W'], ['colorless', 'black', 'white', 'orzhov']),
+            'G, R': ('Gruul: Green/Red', ['G', 'R', 'G, R'], ['colorless', 'green', 'red', 'gruul']),
+            'G, U': ('Simic: Green/Blue', ['G', 'U', 'G, U'], ['colorless', 'green', 'blue', 'simic']),
+            'G, W': ('Selesnya: Green/White', ['G', 'W', 'G, W'], ['colorless', 'green', 'white', 'selesnya']),
+            'R, U': ('Izzet: Blue/Red', ['U', 'R', 'U, R'], ['colorless', 'blue', 'red', 'izzet']),
+            'U, W': ('Azorius: Blue/White', ['U', 'W', 'U, W'], ['colorless', 'blue', 'white', 'azorius']),
+            'R, W': ('Boros: Red/White', ['R', 'W', 'R, W'], ['colorless', 'red', 'white', 'boros'])
+        }
+        
+        # Three-color mapping
+        tri_color_map = {
+            'B, G, U': ('Sultai: Black/Blue/Green', ['B', 'G', 'U', 'B, G', 'B, U', 'G, U', 'B, G, U'],
+                        ['colorless', 'black', 'blue', 'green', 'dimir', 'golgari', 'simic', 'sultai']),
+            'B, G, R': ('Jund: Black/Red/Green', ['B', 'G', 'R', 'B, G', 'B, R', 'G, R', 'B, G, R'],
+                        ['colorless', 'black', 'green', 'red', 'golgari', 'rakdos', 'gruul', 'jund']),
+            'B, G, W': ('Abzan: Black/Green/White', ['B', 'G', 'W', 'B, G', 'B, W', 'G, W', 'B, G, W'],
+                        ['colorless', 'black', 'green', 'white', 'golgari', 'orzhov', 'selesnya', 'abzan']),
+            'B, R, U': ('Grixis: Black/Blue/Red', ['B', 'R', 'U', 'B, R', 'B, U', 'R, U', 'B, R, U'],
+                        ['colorless', 'black', 'blue', 'red', 'dimir', 'rakdos', 'izzet', 'grixis']),
+            'B, R, W': ('Mardu: Black/Red/White', ['B', 'R', 'W', 'B, R', 'B, W', 'R, W', 'B, R, W'],
+                        ['colorless', 'black', 'red', 'white', 'rakdos', 'orzhov', 'boros', 'mardu']),
+            'B, U, W': ('Esper: Black/Blue/White', ['B', 'U', 'W', 'B, U', 'B, W', 'U, W', 'B, U, W'],
+                        ['colorless', 'black', 'blue', 'white', 'dimir', 'orzhov', 'azorius', 'esper']),
+            'G, R, U': ('Temur: Blue/Green/Red', ['G', 'R', 'U', 'G, R', 'G, U', 'R, U', 'G, R, U'],
+                        ['colorless', 'green', 'red', 'blue', 'simic', 'izzet', 'gruul', 'temur']),
+            'G, R, W': ('Naya: Green/Red/White', ['G', 'R', 'W', 'G, R', 'G, W', 'R, W', 'G, R, W'],
+                        ['green', 'red', 'white', 'gruul', 'selesnya', 'boros', 'naya']),
+            'G, U, W': ('Bant: Blue/Green/White', ['G', 'U', 'W', 'G, U', 'G, W', 'U, W', 'G, U, W'],
+                        ['colorless', 'green', 'blue', 'white', 'simic', 'azorius', 'selesnya', 'bant']),
+            'R, U, W': ('Jeskai: Blue/Red/White', ['R', 'U', 'W', 'R, U', 'U, W', 'R, W', 'R, U, W'],
+                        ['colorless', 'blue', 'red', 'white', 'izzet', 'azorius', 'boros', 'jeskai'])
+        }
+        
+        other_color_map ={
+            'B, G, R, U': ('Glint: Black/Blue/Green/Red',
+                           ['B', 'G', 'R', 'U', 'B, G', 'B, R', 'B, U','G, R', 'G, U', 'R, U', 'B, G, R',
+                            'B, G, U', 'B, R, U', 'G, R, U' , 'B, G, R, U'],
+                           ['colorless', 'black', 'blue', 'green', 'red', 'golgari', 'rakdos', 'dimir',
+                            'gruul','simic', 'izzet', 'jund', 'sultai', 'grixis', 'temur', 'glint']),
+            'B, G, R, W': ('Dune: Black/Green/Red/White',
+                           ['B', 'G', 'R', 'W', 'B, G', 'B, R', 'B, W', 'G, R', 'G, W', 'R, W', 'B, G, R',
+                            'B, G, W', 'B, R, W', 'G, R, W' , 'B, G, R, W'],
+                           ['colorless', 'black', 'green', 'red', 'white', 'golgari', 'rakdos', 'orzhov',
+                            'gruul', 'selesnya', 'boros', 'jund', 'abzan', 'mardu', 'naya', 'dune']),
+            'B, G, U, W': ('Witch: Black/Blue/Green/White',
+                           ['B', 'G', 'U', 'W', 'B, G', 'B, U', 'B, W', 'G, U', 'G, W', 'U, W', 'B, G, U',
+                            'B, G, W', 'B, U, W', 'G, U, W' , 'B, G, U, W'],
+                           ['colorless', 'black', 'blue', 'green', 'white', 'golgari', 'dimir', 'orzhov',
+                            'simic', 'selesnya', 'azorius', 'sultai', 'abzan', 'esper', 'bant', 'witch']),
+            'B, R, U, W': ('Yore: Black/Blue/Red/White',
+                           ['B', 'R', 'U', 'W', 'B, R', 'B, U', 'B, W', 'R, U', 'R, W', 'U, W', 'B, R, U',
+                            'B, R, W', 'B, U, W', 'R, U, W' , 'B, R, U, W'],
+                           ['colorless', 'black', 'blue', 'red', 'white', 'rakdos', 'dimir', 'orzhov',
+                            'izzet', 'boros', 'azorius', 'grixis', 'mardu', 'esper', 'mardu', 'yore']),
+            'G, R, U, W': ('Ink: Blue/Green/Red/White',
+                           ['G', 'R', 'U', 'W', 'G, R', 'G, U', 'G, W', 'R, U', 'R, W', 'U, W', 'G, R, U',
+                            'G, R, W', 'G, U, W', 'R, U, W', 'G, R, U, W'],
+                           ['colorless', 'blue', 'green', 'red', 'white', 'gruul', 'simic', 'selesnya',
+                            'izzet', 'boros', 'azorius', 'temur', 'naya', 'bant', 'jeskai', 'ink']),
+            'B, G, R, U, W': ('WUBRG: All colors',
+                              ['B', 'G', 'R', 'U', 'W', 'B, G', 'B, R', 'B, U', 'B, W', 'G, R', 'G, U',
+                               'G, W', 'R, U', 'R, W', 'U, W', 'B, G, R', 'B, G, U', 'B, G, W', 'B, R, U',
+                               'B, R, W', 'B, U, W', 'G, R, U', 'G, R, W', 'B, U ,W', 'R, U, W',
+                               'B, G, R, U', 'B, G, R, W', 'B, G, U, W', 'B, R, U, W', 'G, R, U, W',
+                               'B, G, R, U, W'],
+                              ['colorless', 'black', 'green', 'red', 'blue', 'white', 'golgari', 'rakdos',
+                               'dimir', 'orzhov', 'gruul', 'simic', 'selesnya', 'izzet', 'boros', 'azorius',
+                               'jund', 'sultai', 'abzan', 'grixis', 'mardu', 'esper', 'temur', 'naya',
+                               'bant', 'jeska', 'glint', 'dune','witch', 'yore', 'ink', 'wubrg'])
+        }
+        
+        try:
+            # Handle mono-color identities
+            if self.color_identity in mono_color_map:
+                self.color_identity_full, self.files_to_load = mono_color_map[self.color_identity]
+                return
+                
+            # Handle two-color identities
+            if self.color_identity in dual_color_map:
+                identity_info = dual_color_map[self.color_identity]
+                self.color_identity_full = identity_info[0]
+                self.color_identity_options = identity_info[1]
+                self.files_to_load = identity_info[2]
+                return
+            
+            # Handle three-color identities
+            if self.color_identity in tri_color_map:
+                identity_info = tri_color_map[self.color_identity]
+                self.color_identity_full = identity_info[0]
+                self.color_identity_options = identity_info[1]
+                self.files_to_load = identity_info[2]
+                return
+            
+            # Handle four-color/five-color identities
+            if self.color_identity in other_color_map:
+                identity_info = other_color_map[self.color_identity]
+                self.color_identity_full = identity_info[0]
+                self.color_identity_options = identity_info[1]
+                self.files_to_load = identity_info[2]
+                return
+                
+            # If we get here, it's an unknown color identity
+            logging.warning(f"Unknown color identity: {self.color_identity}")
+            self.color_identity_full = 'Unknown'
             self.files_to_load = ['colorless']
-        elif self.color_identity == 'B':
-            self.color_identity_full = 'Black'
-            self.files_to_load = ['colorless', 'black']
-        elif self.color_identity == 'G':
-            self.color_identity_full = 'Green'
-            self.files_to_load = ['colorless', 'green']
-        elif self.color_identity == 'R':
-            self.color_identity_full = 'Red'
-            self.files_to_load = ['colorless', 'red']
-        elif self.color_identity == 'U':
-            self.color_identity_full = 'Blue'
-            self.files_to_load = ['colorless', 'blue']
-        elif self.color_identity == 'W':
-            self.color_identity_full = 'White'
-            self.files_to_load = ['colorless', 'white']
-        
-        # Two-color
-        elif self.color_identity == 'B, G':
-            self.color_identity_full = 'Golgari: Black/Green'
-            self.color_identity_options = ['B', 'G', 'B, G']
-            self.files_to_load = ['colorless', 'black', 'green', 'golgari']
-        elif self.color_identity == 'B, R':
-            self.color_identity_full = 'Rakdos: Black/Red'
-            self.color_identity_options = ['B', 'R', 'B, R']
-            self.files_to_load = ['colorless', 'black', 'red', 'rakdos']
-        elif self.color_identity == 'B, U':
-            self.color_identity_full = 'Dimir: Black/Blue'
-            self.color_identity_options = ['B', 'U', 'B, U']
-            self.files_to_load = ['colorless', 'black', 'blue', 'dimir']
-        elif self.color_identity == 'B, W':
-            self.color_identity_full = 'Orzhov: Black/White'
-            self.color_identity_options = ['B', 'W', 'B, W']
-            self.files_to_load = ['colorless', 'black', 'white', 'orzhov']
-        elif self.color_identity == 'G, R':
-            self.color_identity_full = 'Gruul: Green/Red'
-            self.color_identity_options = ['G', 'R', 'G, R']
-            self.files_to_load = ['colorless', 'green', 'red', 'gruul']
-        elif self.color_identity == 'G, U':
-            self.color_identity_full = 'Simic: Green/Blue'
-            self.color_identity_options = ['G', 'U', 'G, U']
-            self.files_to_load = ['colorless', 'green', 'blue', 'simic']
-        elif self.color_identity == 'G, W':
-            self.color_identity_full = 'Selesnya: Green/White'
-            self.color_identity_options = ['G', 'W', 'G, W']
-            self.files_to_load = ['colorless', 'green', 'white', 'selesnya']
-        elif self.color_identity == 'R, U':
-            self.color_identity_full = 'Izzet Blue/Red'
-            self.color_identity_options = ['U', 'R', 'U, R']
-            self.files_to_load = ['colorless', 'blue', 'red', 'azorius']
-        elif self.color_identity == 'U, W':
-            self.color_identity_full = 'Azorius: Blue/White'
-            self.color_identity_options = ['U', 'W', 'U, W']
-            self.files_to_load = ['colorless', 'blue', 'white', 'azorius']
-        elif self.color_identity == 'R, W':
-            self.color_identity_full = 'Boros: Red/White'
-            self.color_identity_options = ['R', 'W', 'R, W']
-            self.files_to_load = ['colorless', 'red', 'white', 'boros']
-        
-        # Tri-color
-        elif self.color_identity == 'B, G, U':
-            self.color_identity_full = 'Sultai: Black/Blue/Green'
-            self.color_identity_options = ['B', 'G', 'U', 'B, G', 'B, U', 'G, U', 'B, G, U']
-            self.files_to_load = ['colorless', 'black', 'blue', 'green', 'dimir', 'golgari', 'simic', 'sultai']
-        elif self.color_identity == 'B, G, R':
-            self.color_identity_full = 'Jund: Black/Green/Red'
-            self.color_identity_options = ['B', 'G', 'R', 'B, G', 'B, R', 'G, R', 'B, G, R']
-            self.files_to_load = ['colorless', 'black', 'green', 'red', 'golgari', 'rakdos', 'gruul', 'jund']
-        elif self.color_identity == 'B, G, W':
-            self.color_identity_full = 'Abzan: Black/Green/White'
-            self.color_identity_options = ['B', 'G', 'W', 'B, G', 'B, W', 'G, W', 'B, G, W']
-            self.files_to_load = ['colorless', 'black', 'green', 'white', 'golgari', 'orzhov', 'selesnya', 'abzan']
-        elif self.color_identity == 'B, R, U':
-            self.color_identity_full = 'Grixis: Black/Blue/Red'
-            self.color_identity_options = ['B', 'R', 'U', 'B, R', 'B, U', 'R, U', 'B, R, U']
-            self.files_to_load = ['colorless', 'black', 'blue', 'red', 'dimir', 'rakdos', 'izzet', 'grixis']
-        elif self.color_identity == 'B, R, W':
-            self.color_identity_full = 'Mardu: Black/Red/White'
-            self.color_identity_options = ['B', 'R', 'W', 'B, R', 'B, W', 'R, W', 'B, R, W']
-            self.files_to_load = ['colorless', 'black', 'red', 'white', 'rakdos', 'orzhov', 'boros', 'mardu']
-        elif self.color_identity == 'B, U, W':
-            self.color_identity_full = 'Esper: Black/Blue/White'
-            self.color_identity_options = ['B', 'U', 'W', 'B, U', 'B, W', 'U, W', 'B, U, W']
-            self.files_to_load = ['colorless', 'black', 'blue', 'white', 'dimir', 'orzhov', 'azorius', 'esper']
-        elif self.color_identity == 'G, R, U':
-            self.color_identity_full = 'Temur: Blue/Green/Red'
-            self.color_identity_options = ['G', 'R', 'U', 'G, R', 'G, U', 'R, U', 'G, R, U']
-            self.files_to_load = ['colorless', 'green', 'red', 'blue', 'simic', 'izzet', 'gruul', 'temur']
-        elif self.color_identity == 'G, R, W':
-            self.color_identity_full = 'Naya: Green/Red/White'
-            self.color_identity_options = ['G', 'R', 'W', 'G, R', 'G, W', 'R, W', 'G, R, W']
-            self.files_to_load = ['colorless', 'green', 'red', 'white', 'gruul', 'selesnya', 'boros', 'naya']
-        elif self.color_identity == 'G, U, W':
-            self.color_identity_full = 'Bant: Blue/Green/White'
-            self.color_identity_options = ['G', 'U', 'W', 'G, U', 'G, W', 'U, W', 'G, U, W']
-            self.files_to_load = ['colorless', 'green', 'blue', 'white', 'simic', 'azorius', 'selesnya', 'bant']
-        elif self.color_identity == 'U, R, W':
-            self.color_identity_full = 'Jeskai: Blue/Red/White'
-            self.color_identity_options = ['U', 'R', 'W', 'U, R', 'U, W', 'R, W', 'U, R, W']
-            self.files_to_load = ['colorless', 'blue', 'red', 'white', 'izzet', 'azorius', 'boros', 'jeskai']
-        
-        # Quad-color
-        elif self.color_identity == 'B, G, R, U':
-            self.color_identity_full = 'Glint: Black/Blue/Green/Red'
-            self.color_identity_options = ['B', 'G', 'R', 'U', 'B, G', 'B, R', 'B, U', 'G, R', 'G, U', 'R, U', 'B, G, R', 'B, G, U', 'B, R, U', 'G, R, U' , 'B, G, R, U']
-            self.files_to_load = ['colorless', 'black', 'blue', 'green', 'red', 'golgari', 'rakdos', 'dimir', 'gruul',
-                                  'simic', 'izzet', 'jund', 'sultai', 'grixis', 'temur', 'glint']
-        elif self.color_identity == 'B, G, R, W':
-            self.color_identity_full = 'Dune: Black/Green/Red/White'
-            self.color_identity_options = ['B', 'G', 'R', 'W', 'B, G', 'B, R', 'B, W', 'G, R', 'G, W', 'R, W',
-                                           'B, G, R', 'B, G, W', 'B, R, W', 'G, R, W' , 'B, G, R, W']
-            self.files_to_load = ['colorless', 'black', 'green', 'red', 'white', 'golgari', 'rakdos', 'orzhov', 'gruul',
-                                  'selesnya', 'boros', 'jund', 'abzan', 'mardu', 'naya', 'dune']
-        elif self.color_identity == 'B, G, U, W':
-            self.color_identity_full = 'Witch: Black/Blue/Green/White'
-            self.color_identity_options = ['B', 'G', 'U', 'W', 'B, G', 'B, U', 'B, W', 'G, U', 'G, W', 'U, W',
-                                           'B, G, U', 'B, G, W', 'B, U, W', 'G, U, W' , 'B, G, U, W']
-            self.files_to_load = ['colorless', 'black', 'blue', 'green', 'white', 'golgari', 'dimir', 'orzhov', 'simic',
-                                  'selesnya', 'azorius', 'sultai', 'abzan', 'esper', 'bant', 'glint']
-        elif self.color_identity == 'B, R, U, W':
-            self.color_identity_full = 'Yore: Black/Blue/Red/White'
-            self.color_identity_options = ['B', 'R', 'U', 'W', 'B, R', 'B, U', 'B, W', 'R, U', 'R, W', 'U, W',
-                                           'B, R, U', 'B, R, W', 'B, U, W', 'R, U, W' , 'B, R, U, W']
-            self.files_to_load = ['colorless', 'black', 'blue', 'red', 'white', 'rakdos', 'dimir', 'orzhov', 'izzet',
-                                  'boros', 'azorius', 'grixis', 'mardu', 'esper', 'mardu', 'glint']
-        elif self.color_identity == 'G, R, U, W':
-            self.color_identity_full = 'Ink: Blue/Green/Red/White'
-            self.color_identity_options = ['G', 'R', 'U', 'W', 'G, R', 'G, U', 'G, W', 'R, U', 'R, W', 'U, W',
-                                           'G, R, U', 'G, R, W', 'G, U, W', 'R, U, W', 'G, R, U, W']
-            self.files_to_load = ['colorless', 'blue', 'green', 'red', 'white', 'gruul', 'simic', 'selesnya', 'izzet',
-                                  'boros', 'azorius', 'temur', 'naya', 'bant', 'jeskai', 'glint']
-        elif self.color_identity == 'B, G, R, U, W':
-            self.color_identity_full = 'WUBRG: All colors'
-            self.color_identity_options = ['B', 'G', 'R', 'U', 'W', 'B, G', 'B, R', 'B, U', 'B, W', 'G, R', 'G, U', 'G, W',
-                                           'R, U', 'R, W', 'U, W', 'B, G, R', 'B, G, U', 'B, G, W', 'B, R, U', 'B, R, W',
-                                           'B, U, W', 'G, R, U', 'G, R, W', 'B, U ,W', 'R, U, W', 'B, G, R, U', 'B, G, R, W',
-                                           'B, G, U, W', 'B, R, U, W', 'G, R, U, W', 'B, G, R, U, W']
-            self.files_to_load = ['colorless', 'black', 'green', 'red', 'blue', 'white', 'golgari', 'rakdos',' dimir',
-                                  'orzhov', 'gruul', 'simic', 'selesnya', 'izzet', 'boros', 'azorius', 'jund', 'sultai', 'abzan',
-                                  'grixis', 'mardu', 'esper', 'temur', 'naya', 'bant', 'jeska', 'glint', 'dune','witch', 'yore',
-                                  'ink']
+            
+        except Exception as e:
+            logging.error(f"Error in determine_color_identity: {e}")
+            raise
     
     def setup_dataframes(self):
         all_df = []
@@ -561,6 +541,7 @@ class DeckBuilder:
             weights = weights_default.copy()
             themes.remove(choice)
             themes.append('Stop Here')
+            self.primary_weight = weights['primary']
 
             secondary_theme_chosen = False
             tertiary_theme_chosen = False
@@ -592,14 +573,14 @@ class DeckBuilder:
                         secondary_theme_chosen = True
                         # Set weights for primary/secondary themes
                         if 'Kindred' in self.primary_theme and 'Kindred' not in self.secondary_theme:
-                            weights['primary'] -= 0.15 # 0.85
-                            weights['secondary'] += 0.15 # 0.15
+                            weights['primary'] -= 0.1 # 0.8
+                            weights['secondary'] += 0.1 # 0.1
                         elif 'Kindred' in self.primary_theme and 'Kindred' in self.secondary_theme:
+                            weights['primary'] -= 0.7 # 0.7
+                            weights['secondary'] += 0.3 # 0.3
+                        else:
                             weights['primary'] -= 0.4 # 0.6
                             weights['secondary'] += 0.4 # 0.4
-                        else:
-                            weights['primary'] -= 0.3 # 0.7
-                            weights['secondary'] += 0.3 # 0.3
                         self.primary_weight = weights['primary']
                         self.secondary_weight = weights['secondary']
                         break
@@ -632,8 +613,8 @@ class DeckBuilder:
                             weights['secondary'] += 0.1 # 0.1
                             weights['tertiary'] += 0.1 # 0.1
                         elif 'Kindred' in self.primary_theme and 'Kindred' in self.secondary_theme and 'Kindred' not in self.tertiary_theme:
-                            weights['primary'] -= 0.4 # 0.6
-                            weights['secondary'] += 0.3 # 0.3
+                            weights['primary'] -= 0.3 # 0.7
+                            weights['secondary'] += 0.2 # 0.2
                             weights['tertiary'] += 0.1 # 0.1
                         elif 'Kindred' in self.primary_theme and 'Kindred' in self.secondary_theme and 'Kindred' in self.tertiary_theme:
                             weights['primary'] -= 0.5 # 0.5
@@ -854,17 +835,17 @@ class DeckBuilder:
     
     def add_card(self, card: str, card_type: str, mana_cost: str, mana_value: int, is_commander: bool = False) -> None:
         """Add a card to the deck library with price checking if enabled.
-        
+
         Args:
             card (str): Name of the card to add
             card_type (str): Type of the card (e.g., 'Creature', 'Instant')
             mana_cost (str): Mana cost string representation
             mana_value (int): Converted mana cost/mana value
             is_commander (bool, optional): Whether this card is the commander. Defaults to False.
-        
+
         Returns:
             None
-        
+
         Raises:
             ValueError: If card price exceeds maximum allowed price when price checking is enabled
         """
@@ -877,10 +858,14 @@ class DeckBuilder:
         # Handle price checking
         card_price = 0.0
         if use_scrython and self.set_max_card_price:
-            card_price = self.card_prices.get(card) or self.price_check(card) or 0.0
-
+            # Get price from cache or API
+            if card in self.card_prices:
+                card_price = self.card_prices[card]
+            else:
+                card_price = self.price_check(card)
+                
             # Skip if card is too expensive
-            if card_price > self.max_card_price * 1.1:
+            if card_price is not None and card_price > self.max_card_price * 1.1:
                 logging.info(f"Skipping {card} - price {card_price} exceeds maximum")
                 return
 
@@ -941,26 +926,22 @@ class DeckBuilder:
             .reset_index(drop=True)
         )
 
-    def commander_to_top(self):
-        """Move commander card to the top of the library."""
+    def commander_to_top(self) -> None:
+        """Move commander card to the top of the library while preserving commander status."""
         try:
-            # Extract commander row
             commander_row = self.card_library[self.card_library['Commander']].copy()
             if commander_row.empty:
                 logging.warning("No commander found in library")
                 return
             
-            # Remove commander from main library
             self.card_library = self.card_library[~self.card_library['Commander']]
             
-            # Concatenate with commander at top
             self.card_library = pd.concat([commander_row, self.card_library], ignore_index=True)
-            self.card_library = self.card_library.drop(columns=['Commander'])
             
-            logging.info(f"Successfully moved commander '{commander_row['Card Name'].iloc[0]}' to top")
+            commander_name = commander_row['Card Name'].iloc[0]
+            logging.info(f"Successfully moved commander '{commander_name}' to top")
         except Exception as e:
-            logging.error(f"Error moving commander to top: {e}")
-            
+            logging.error(f"Error moving commander to top: {str(e)}")
     def concatenate_duplicates(self):
         """Handle duplicate cards in the library while maintaining data integrity."""
         duplicate_lists = basic_lands + multiple_copy_cards
@@ -1008,44 +989,62 @@ class DeckBuilder:
             logging.warning(f"Attempted to drop non-existent index {index}")
     def add_lands(self):
         """
-        Begin the process to add lands, the number will depend on ideal land count, ramp,
-        and if any utility lands may be helpful.
-        By default, ({self.ideal_land_count} - 5) basic lands will be added, distributed
-        across the commander color identity. These will be removed for utility lands, 
-        multi-color producing lands, fetches, and any MDFCs added later.
+        Add lands to the deck based on ideal count and deck requirements.
+        
+        The process follows these steps:
+        1. Add basic lands distributed by color identity
+        2. Add utility/staple lands
+        3. Add fetch lands if requested
+        4. Add theme-specific lands (e.g., Kindred)
+        5. Add multi-color lands based on color count
+        6. Add miscellaneous utility lands
+        7. Adjust total land count to match ideal count
         """
+        MAX_ADJUSTMENT_ATTEMPTS = 10
         self.total_basics = 0
-        self.add_basics()
-        self.check_basics()
-        self.add_standard_non_basics()
-        self.add_fetches()
-        if 'Kindred' in ' '.join(self.themes):
-            self.add_kindred_lands()
-        if len(self.colors) >= 2:
-            self.add_dual_lands()
-        if len(self.colors) >= 3:
-            self.add_triple_lands()
         
-        self.add_misc_lands()
-        
-        for index, row in self.land_df.iterrows():
-            for land in self.card_library:
-                if land in row['name']:
-                    self.drop_card(self.land_df, index)
-        
-        self.land_df.to_csv(f'{csv_directory}/test_lands.csv', index=False)
-        
-        # If over ideal land count, remove random basics until ideal land count
-        self.check_basics()
-        logging.info('Checking total land count to ensure it\'s within ideal count.\n\n')
-        self.organize_library()
-        while self.land_cards > int(self.ideal_land_count):
-            logging.info(f'Total lands: {self.land_cards}')
-            logging.info(f'Ideal lands: {self.ideal_land_count}')
-            self.remove_basic()
+        try:
+            # Add lands in sequence
+            self.add_basics()
+            self.check_basics()
+            self.add_standard_non_basics()
+            self.add_fetches()
+            
+            # Add theme and color-specific lands
+            if any('Kindred' in theme for theme in self.themes):
+                self.add_kindred_lands()
+            if len(self.colors) >= 2:
+                self.add_dual_lands()
+            if len(self.colors) >= 3:
+                self.add_triple_lands()
+            
+            self.add_misc_lands()
+            
+            # Clean up land database
+            mask = self.land_df['name'].isin(self.card_library['Card Name'])
+            self.land_df = self.land_df[~mask]
+            self.land_df.to_csv(f'{csv_directory}/test_lands.csv', index=False)
+            
+            # Adjust to ideal land count
+            self.check_basics()
+            logging.info('Adjusting total land count to match ideal count...')
             self.organize_library()
-        
-        logging.info(f'Total lands: {self.land_cards}')
+            
+            attempts = 0
+            while self.land_cards > int(self.ideal_land_count) and attempts < MAX_ADJUSTMENT_ATTEMPTS:
+                logging.info(f'Current lands: {self.land_cards}, Target: {self.ideal_land_count}')
+                self.remove_basic()
+                self.organize_library()
+                attempts += 1
+            
+            if attempts >= MAX_ADJUSTMENT_ATTEMPTS:
+                logging.warning(f"Could not reach ideal land count after {MAX_ADJUSTMENT_ATTEMPTS} attempts")
+            
+            logging.info(f'Final land count: {self.land_cards}')
+            
+        except Exception as e:
+            logging.error(f"Error during land addition: {e}")
+            raise
     
     def add_basics(self):
         base_basics = self.ideal_land_count - 10  # Reserve 10 slots for non-basic lands
@@ -1097,34 +1096,38 @@ class DeckBuilder:
         self.land_df.to_csv(f'{csv_directory}/test_lands.csv', index=False)
 
     def add_standard_non_basics(self):
-        # Add lands that are good in most any commander deck
-        print('Adding "standard" non-basics')
-        self.staples = ['Reliquary Tower']
-        if 'Landfall' not in self.commander_tags:
-            self.staples.append('Ash Barrens')
-        if len(self.colors) > 1:
-            # Adding command Tower
-            self.staples.append('Command Tower')
-            
-            # Adding Exotic Orchard
-            self.staples.append('Exotic Orchard')
-            
-        if len(self.colors) <= 2:
-            self.staples.append('War Room')
-            
-        if self.commander_power >= 5:
-            self.staples.append('Rogue\'s Passage')
+        """Add staple utility lands based on deck requirements."""
+        logging.info('Adding staple non-basic lands')
         
-        for card in self.staples:
-            if card not in self.card_library:
-                self.add_card(card, 'Land', None, 0)
-            else:
-                pass
+        # Define staple lands and their conditions
+        staple_lands = {
+            'Reliquary Tower': lambda: True,  # Always include
+            'Ash Barrens': lambda: 'Landfall' not in self.commander_tags,
+            'Command Tower': lambda: len(self.colors) > 1,
+            'Exotic Orchard': lambda: len(self.colors) > 1,
+            'War Room': lambda: len(self.colors) <= 2,
+            'Rogue\'s Passage': lambda: self.commander_power >= 5
+        }
         
-        lands_to_remove = self.staples
-        self.land_df = self.land_df[~self.land_df['name'].isin(lands_to_remove)]
-        self.land_df.to_csv(f'{csv_directory}/test_lands.csv', index=False)
-    
+        self.staples = []
+        try:
+            # Add lands that meet their conditions
+            for land, condition in staple_lands.items():
+                if condition():
+                    if land not in self.card_library['Card Name'].values:
+                        self.add_card(land, 'Land', None, 0)
+                        self.staples.append(land)
+                        logging.debug(f"Added staple land: {land}")
+            
+            # Update land database
+            self.land_df = self.land_df[~self.land_df['name'].isin(self.staples)]
+            self.land_df.to_csv(f'{csv_directory}/test_lands.csv', index=False)
+            
+            logging.info(f'Added {len(self.staples)} staple lands')
+            
+        except Exception as e:
+            logging.error(f"Error adding staple lands: {e}")
+            raise
     def add_fetches(self):
         # Determine how many fetches in total
         print('How many fetch lands would you like to include?\n'
@@ -1210,51 +1213,59 @@ class DeckBuilder:
         self.land_df.to_csv(f'{csv_directory}/test_lands.csv', index=False)
     
     def add_kindred_lands(self):
-        print('Adding lands that care about the commander having a Kindred theme.')
-        logging.info('Adding general Kindred lands.')
-
-        def create_land(name: str, land_type: str) -> dict:
-            """Helper function to create land card dictionaries"""
-            return {
-                'name': name,
-                'type': land_type,
-                'manaCost': None,
-                'manaValue': 0
-            }
+        """Add lands that support tribal/kindred themes."""
+        logging.info('Adding Kindred-themed lands')
         
-        kindred_lands = [
-            create_land('Path of Ancestry', 'Land'),
-            create_land('Three Tree City', 'Legendary Land'),
-            create_land('Cavern of Souls', 'Land')
+        # Standard Kindred support lands
+        KINDRED_STAPLES = [
+            {'name': 'Path of Ancestry', 'type': 'Land'},
+            {'name': 'Three Tree City', 'type': 'Legendary Land'},
+            {'name': 'Cavern of Souls', 'type': 'Land'}
         ]
-
-        for theme in self.themes:
-            if 'Kindred' in theme:
-                kindred = theme.replace(' Kindred', '')
-                logging.info(f'Adding any {kindred}-specific lands.')
-                for _, row in self.land_df.iterrows():
-                    card = {
-                        'name': row['name'],
-                        'type': row['type'],
-                        'manaCost': row['manaCost'],
-                        'manaValue': row['manaValue']
-                    }
-                    if pd.isna(row['text']):
-                        continue
-                    if pd.isna(row['type']):
-                        continue
-                    if (kindred in row['text']) or (kindred in row['type']):
-                        kindred_lands.append(card)
-
-        lands_to_remove = []
-        for card in kindred_lands:
-            self.add_card(card['name'], card['type'], 
-                        card['manaCost'], card['manaValue'])
-            lands_to_remove.append(card['name'])
-
-        self.land_df = self.land_df[~self.land_df['name'].isin(lands_to_remove)]
-        self.land_df.to_csv(f'{csv_directory}/test_lands.csv', index=False)
-    
+        
+        kindred_lands = KINDRED_STAPLES.copy()
+        lands_to_remove = set()
+        
+        try:
+            # Process each Kindred theme
+            for theme in self.themes:
+                if 'Kindred' in theme:
+                    creature_type = theme.replace(' Kindred', '')
+                    logging.info(f'Searching for {creature_type}-specific lands')
+                    
+                    # Filter lands by creature type
+                    type_specific = self.land_df[
+                        self.land_df['text'].notna() & 
+                        (self.land_df['text'].str.contains(creature_type, case=False) |
+                         self.land_df['type'].str.contains(creature_type, case=False))
+                    ]
+                    
+                    # Add matching lands to pool
+                    for _, row in type_specific.iterrows():
+                        kindred_lands.append({
+                            'name': row['name'],
+                            'type': row['type'],
+                            'manaCost': row['manaCost'],
+                            'manaValue': row['manaValue']
+                        })
+                        lands_to_remove.add(row['name'])
+            
+            # Add lands to deck
+            for card in kindred_lands:
+                if card['name'] not in self.card_library['Card Name'].values:
+                    self.add_card(card['name'], card['type'], 
+                                None, 0)
+                    lands_to_remove.add(card['name'])
+            
+            # Update land database
+            self.land_df = self.land_df[~self.land_df['name'].isin(lands_to_remove)]
+            self.land_df.to_csv(f'{csv_directory}/test_lands.csv', index=False)
+            
+            logging.info(f'Added {len(lands_to_remove)} Kindred-themed lands')
+            
+        except Exception as e:
+            logging.error(f"Error adding Kindred lands: {e}")
+            raise
     def add_dual_lands(self):
         # Determine dual-color lands available 
         
@@ -1359,53 +1370,68 @@ class DeckBuilder:
             logging.info('Skipping adding Triome land cards.')
     
     def add_misc_lands(self):
-        print('Adding additional misc. lands to the deck that fit the color identity.')
-        # Add other remaining lands that match color identity
-
-        logging.info('Grabbing lands in your commander\'s color identity that aren\'t already in the deck.')
-        # Create a copy of land DataFrame and limit rows if needed for performance
-        land_df_misc = self.land_df.copy()
-        land_df_misc = land_df_misc.head(100) if len(land_df_misc) > 100 else land_df_misc
-        logging.debug(f"Land DataFrame contents:\n{land_df_misc}")
-
-        card_pool = []
-        for _, row in land_df_misc.iterrows():
-            card = {
-                'name': row['name'],
-                'type': row['type'],
-                'manaCost': row['manaCost'],
-                'manaValue': row['manaValue']
-            }
-            if card['name'] not in self.card_library['Card Name'].values:
-                card_pool.append(card)
-        # Add cards to the deck library
-        cards_to_add = []
-
-        while len(cards_to_add) < random.randint(5, 15):
-            card = random.choice(card_pool)
-            card_pool.remove(card)
-            
-            # Check price constraints if enabled
-            if use_scrython and self.set_max_card_price:
-                price = self.price_check(card['name'])
-                if price > self.max_card_price * 1.1:
-                    continue
-            # Add card if not already in library
-            if (card['name'] not in self.card_library['Card Name'].values):
-                cards_to_add.append(card)
+        """Add additional utility lands that fit the deck's color identity."""
+        logging.info('Adding miscellaneous utility lands')
         
-        # Add selected cards to library
-        lands_to_remove = []
-        for card in cards_to_add:
-            self.add_card(card['name'], card['type'], 
-                         card['manaCost'], card['manaValue'])
-            lands_to_remove.append(card['name'])
-
-        self.land_df = self.land_df[~self.land_df['name'].isin(lands_to_remove)]
-        self.land_df.to_csv(f'{csv_directory}/test_lands.csv', index=False)
-
-        logging.info(f'Added {len(cards_to_add)} land cards.')
+        MIN_MISC_LANDS = 5
+        MAX_MISC_LANDS = 15
+        MAX_POOL_SIZE = 100
+        
+        try:
+            # Create filtered pool of candidate lands
+            land_pool = (self.land_df
+                        .head(MAX_POOL_SIZE)
+                        .copy()
+                        .reset_index(drop=True))
+            
+            # Convert to card dictionaries
+            card_pool = [
+                {
+                    'name': row['name'],
+                    'type': row['type'],
+                    'manaCost': row['manaCost'],
+                    'manaValue': row['manaValue']
+                }
+                for _, row in land_pool.iterrows()
+                if row['name'] not in self.card_library['Card Name'].values
+            ]
+            
+            if not card_pool:
+                logging.warning("No eligible misc lands found")
+                return
+            
+            # Randomly select lands within constraints
+            target_count = random.randint(MIN_MISC_LANDS, MAX_MISC_LANDS)
+            cards_to_add = []
+            
+            while card_pool and len(cards_to_add) < target_count:
+                card = random.choice(card_pool)
+                card_pool.remove(card)
                 
+                # Check price if enabled
+                if use_scrython and self.set_max_card_price:
+                    price = self.price_check(card['name'])
+                    if price > self.max_card_price * 1.1:
+                        continue
+                
+                cards_to_add.append(card)
+            
+            # Add selected lands
+            lands_to_remove = set()
+            for card in cards_to_add:
+                self.add_card(card['name'], card['type'],
+                            card['manaCost'], card['manaValue'])
+                lands_to_remove.add(card['name'])
+            
+            # Update land database
+            self.land_df = self.land_df[~self.land_df['name'].isin(lands_to_remove)]
+            self.land_df.to_csv(f'{csv_directory}/test_lands.csv', index=False)
+            
+            logging.info(f'Added {len(cards_to_add)} miscellaneous lands')
+            
+        except Exception as e:
+            logging.error(f"Error adding misc lands: {e}")
+            raise
     def check_basics(self):
         """Check and display counts of each basic land type."""
         basic_lands = {
@@ -1522,16 +1548,15 @@ class DeckBuilder:
             logging.warning("Failed to remove land card.")
     
     def count_pips(self):
-        """Count and display the number of colored mana symbols in casting costs."""
+        """Count and display the number of colored mana symbols in casting costs using vectorized operations."""
         logging.info('Analyzing color pip distribution...')
         
-        pip_counts = {
-            'W': 0, 'U': 0, 'B': 0, 'R': 0, 'G': 0
-        }
+        # Define colors to check
+        colors = ['W', 'U', 'B', 'R', 'G']
         
-        for cost in self.card_library['Mana Cost'].dropna():
-            for color in pip_counts:
-                pip_counts[color] += cost.count(color)
+        # Use vectorized string operations
+        mana_costs = self.card_library['Mana Cost'].dropna()
+        pip_counts = {color: mana_costs.str.count(color).sum() for color in colors}
         
         total_pips = sum(pip_counts.values())
         if total_pips == 0:

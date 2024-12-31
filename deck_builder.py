@@ -204,16 +204,15 @@ class DeckBuilder:
             # Logic to find the card in the commander_cards csv, then display it's information
             # If the card can't be found, or doesn't have enough of a match score, display a 
             # list to choose from
-            print(card_choice)
             fuzzy_chosen = False
             while not fuzzy_chosen:
-                match, score, something = process.extractOne(card_choice, df['name'])
+                match, score, _ = process.extractOne(card_choice, df['name'])
                 if score >= 90:
                     fuzzy_card_choice = match
                     print(fuzzy_card_choice)
                     fuzzy_chosen = True
                 else:
-                    print('Multiple options found, which is correct?')
+                    logging.warning('Multiple options found, which is correct?')
                     fuzzy_card_choices = process.extract(card_choice, df['name'], limit=5)
                     fuzzy_card_choices.append('Neither')
                     print(fuzzy_card_choices)
@@ -243,7 +242,6 @@ class DeckBuilder:
                     self.price_check(self.commander)
                     logging.info(f"Commander selected: {self.commander}")
                     break
-                    #print(self.commander)
                 else:
                     commander_chosen = False
 
@@ -320,23 +318,23 @@ class DeckBuilder:
         self.add_lands()
         self.add_creatures()
         self.add_ramp()
+        self.add_board_wipes()
         self.add_interaction()
         self.add_card_advantage()
-        self.add_board_wipes()
         if len(self.card_library) < 100:
             self.fill_out_deck()
         self.card_library.to_csv(f'{csv_directory}/test_deck_presort.csv', index=False)
         self.organize_library()
         self.card_library.to_csv(f'{csv_directory}/test_deck_preconcat.csv', index=False)
-        print(f'Creature cards (including commander): {self.creature_cards}')
-        print(f'Planeswalker cards: {self.planeswalker_cards}')
-        print(f'Battle cards: {self.battle_cards}')
-        print(f'Instant cards: {self.instant_cards}')
-        print(f'Sorcery cards: {self.sorcery_cards}')
-        print(f'Artifact cards: {self.artifact_cards}')
-        print(f'Enchantment cards: {self.enchantment_cards}')
-        print(f'Land cards cards: {self.land_cards}')
-        print(f'Number of cards in Library: {len(self.card_library)}')
+        logging.info(f'Creature cards (including commander): {self.creature_cards}')
+        logging.info(f'Planeswalker cards: {self.planeswalker_cards}')
+        logging.info(f'Battle cards: {self.battle_cards}')
+        logging.info(f'Instant cards: {self.instant_cards}')
+        logging.info(f'Sorcery cards: {self.sorcery_cards}')
+        logging.info(f'Artifact cards: {self.artifact_cards}')
+        logging.info(f'Enchantment cards: {self.enchantment_cards}')
+        logging.info(f'Land cards cards: {self.land_cards}')
+        logging.info(f'Number of cards in Library: {len(self.card_library)}')
         self.get_cmc()
         self.count_pips()
         self.concatenate_duplicates()
@@ -352,131 +350,105 @@ class DeckBuilder:
         if self.color_identity == 'COLORLESS':
             self.color_identity_full = 'Colorless'
             self.files_to_load = ['colorless']
-            pass
         elif self.color_identity == 'B':
             self.color_identity_full = 'Black'
             self.files_to_load = ['colorless', 'black']
-            pass
         elif self.color_identity == 'G':
             self.color_identity_full = 'Green'
             self.files_to_load = ['colorless', 'green']
-            pass
         elif self.color_identity == 'R':
             self.color_identity_full = 'Red'
             self.files_to_load = ['colorless', 'red']
         elif self.color_identity == 'U':
             self.color_identity_full = 'Blue'
             self.files_to_load = ['colorless', 'blue']
-            pass
-            pass
         elif self.color_identity == 'W':
             self.color_identity_full = 'White'
             self.files_to_load = ['colorless', 'white']
-            pass
         
         # Two-color
         elif self.color_identity == 'B, G':
             self.color_identity_full = 'Golgari: Black/Green'
             self.color_identity_options = ['B', 'G', 'B, G']
             self.files_to_load = ['colorless', 'black', 'green', 'golgari']
-            pass
         elif self.color_identity == 'B, R':
             self.color_identity_full = 'Rakdos: Black/Red'
             self.color_identity_options = ['B', 'R', 'B, R']
             self.files_to_load = ['colorless', 'black', 'red', 'rakdos']
-            pass
         elif self.color_identity == 'B, U':
             self.color_identity_full = 'Dimir: Black/Blue'
             self.color_identity_options = ['B', 'U', 'B, U']
             self.files_to_load = ['colorless', 'black', 'blue', 'dimir']
-            pass
         elif self.color_identity == 'B, W':
             self.color_identity_full = 'Orzhov: Black/White'
             self.color_identity_options = ['B', 'W', 'B, W']
             self.files_to_load = ['colorless', 'black', 'white', 'orzhov']
-            pass
         elif self.color_identity == 'G, R':
             self.color_identity_full = 'Gruul: Green/Red'
             self.color_identity_options = ['G', 'R', 'G, R']
             self.files_to_load = ['colorless', 'green', 'red', 'gruul']
-            pass
         elif self.color_identity == 'G, U':
             self.color_identity_full = 'Simic: Green/Blue'
             self.color_identity_options = ['G', 'U', 'G, U']
             self.files_to_load = ['colorless', 'green', 'blue', 'simic']
-            pass
         elif self.color_identity == 'G, W':
             self.color_identity_full = 'Selesnya: Green/White'
             self.color_identity_options = ['G', 'W', 'G, W']
             self.files_to_load = ['colorless', 'green', 'white', 'selesnya']
-            pass
         elif self.color_identity == 'R, U':
             self.color_identity_full = 'Izzet Blue/Red'
             self.color_identity_options = ['U', 'R', 'U, R']
             self.files_to_load = ['colorless', 'blue', 'red', 'azorius']
-            pass
         elif self.color_identity == 'U, W':
             self.color_identity_full = 'Azorius: Blue/White'
             self.color_identity_options = ['U', 'W', 'U, W']
             self.files_to_load = ['colorless', 'blue', 'white', 'azorius']
-            pass
         elif self.color_identity == 'R, W':
             self.color_identity_full = 'Boros: Red/White'
             self.color_identity_options = ['R', 'W', 'R, W']
             self.files_to_load = ['colorless', 'red', 'white', 'boros']
-            pass
         
         # Tri-color
         elif self.color_identity == 'B, G, U':
             self.color_identity_full = 'Sultai: Black/Blue/Green'
             self.color_identity_options = ['B', 'G', 'U', 'B, G', 'B, U', 'G, U', 'B, G, U']
             self.files_to_load = ['colorless', 'black', 'blue', 'green', 'dimir', 'golgari', 'simic', 'sultai']
-            pass
         elif self.color_identity == 'B, G, R':
             self.color_identity_full = 'Jund: Black/Green/Red'
             self.color_identity_options = ['B', 'G', 'R', 'B, G', 'B, R', 'G, R', 'B, G, R']
             self.files_to_load = ['colorless', 'black', 'green', 'red', 'golgari', 'rakdos', 'gruul', 'jund']
-            pass
         elif self.color_identity == 'B, G, W':
             self.color_identity_full = 'Abzan: Black/Green/White'
             self.color_identity_options = ['B', 'G', 'W', 'B, G', 'B, W', 'G, W', 'B, G, W']
             self.files_to_load = ['colorless', 'black', 'green', 'white', 'golgari', 'orzhov', 'selesnya', 'abzan']
-            pass
         elif self.color_identity == 'B, R, U':
             self.color_identity_full = 'Grixis: Black/Blue/Red'
             self.color_identity_options = ['B', 'R', 'U', 'B, R', 'B, U', 'R, U', 'B, R, U']
             self.files_to_load = ['colorless', 'black', 'blue', 'red', 'dimir', 'rakdos', 'izzet', 'grixis']
-            pass
         elif self.color_identity == 'B, R, W':
             self.color_identity_full = 'Mardu: Black/Red/White'
             self.color_identity_options = ['B', 'R', 'W', 'B, R', 'B, W', 'R, W', 'B, R, W']
             self.files_to_load = ['colorless', 'black', 'red', 'white', 'rakdos', 'orzhov', 'boros', 'mardu']
-            pass
         elif self.color_identity == 'B, U, W':
             self.color_identity_full = 'Esper: Black/Blue/White'
             self.color_identity_options = ['B', 'U', 'W', 'B, U', 'B, W', 'U, W', 'B, U, W']
             self.files_to_load = ['colorless', 'black', 'blue', 'white', 'dimir', 'orzhov', 'azorius', 'esper']
-            pass
         elif self.color_identity == 'G, R, U':
             self.color_identity_full = 'Temur: Blue/Green/Red'
             self.color_identity_options = ['G', 'R', 'U', 'G, R', 'G, U', 'R, U', 'G, R, U']
             self.files_to_load = ['colorless', 'green', 'red', 'blue', 'simic', 'izzet', 'gruul', 'temur']
-            pass
         elif self.color_identity == 'G, R, W':
             self.color_identity_full = 'Naya: Green/Red/White'
             self.color_identity_options = ['G', 'R', 'W', 'G, R', 'G, W', 'R, W', 'G, R, W']
             self.files_to_load = ['colorless', 'green', 'red', 'white', 'gruul', 'selesnya', 'boros', 'naya']
-            pass
         elif self.color_identity == 'G, U, W':
             self.color_identity_full = 'Bant: Blue/Green/White'
             self.color_identity_options = ['G', 'U', 'W', 'G, U', 'G, W', 'U, W', 'G, U, W']
             self.files_to_load = ['colorless', 'green', 'blue', 'white', 'simic', 'azorius', 'selesnya', 'bant']
-            pass
         elif self.color_identity == 'U, R, W':
             self.color_identity_full = 'Jeskai: Blue/Red/White'
             self.color_identity_options = ['U', 'R', 'W', 'U, R', 'U, W', 'R, W', 'U, R, W']
             self.files_to_load = ['colorless', 'blue', 'red', 'white', 'izzet', 'azorius', 'boros', 'jeskai']
-            pass
         
         # Quad-color
         elif self.color_identity == 'B, G, R, U':
@@ -484,35 +456,30 @@ class DeckBuilder:
             self.color_identity_options = ['B', 'G', 'R', 'U', 'B, G', 'B, R', 'B, U', 'G, R', 'G, U', 'R, U', 'B, G, R', 'B, G, U', 'B, R, U', 'G, R, U' , 'B, G, R, U']
             self.files_to_load = ['colorless', 'black', 'blue', 'green', 'red', 'golgari', 'rakdos', 'dimir', 'gruul',
                                   'simic', 'izzet', 'jund', 'sultai', 'grixis', 'temur', 'glint']
-            pass
         elif self.color_identity == 'B, G, R, W':
             self.color_identity_full = 'Dune: Black/Green/Red/White'
             self.color_identity_options = ['B', 'G', 'R', 'W', 'B, G', 'B, R', 'B, W', 'G, R', 'G, W', 'R, W',
                                            'B, G, R', 'B, G, W', 'B, R, W', 'G, R, W' , 'B, G, R, W']
             self.files_to_load = ['colorless', 'black', 'green', 'red', 'white', 'golgari', 'rakdos', 'orzhov', 'gruul',
                                   'selesnya', 'boros', 'jund', 'abzan', 'mardu', 'naya', 'dune']
-            pass
         elif self.color_identity == 'B, G, U, W':
             self.color_identity_full = 'Witch: Black/Blue/Green/White'
             self.color_identity_options = ['B', 'G', 'U', 'W', 'B, G', 'B, U', 'B, W', 'G, U', 'G, W', 'U, W',
                                            'B, G, U', 'B, G, W', 'B, U, W', 'G, U, W' , 'B, G, U, W']
             self.files_to_load = ['colorless', 'black', 'blue', 'green', 'white', 'golgari', 'dimir', 'orzhov', 'simic',
                                   'selesnya', 'azorius', 'sultai', 'abzan', 'esper', 'bant', 'glint']
-            pass
         elif self.color_identity == 'B, R, U, W':
             self.color_identity_full = 'Yore: Black/Blue/Red/White'
             self.color_identity_options = ['B', 'R', 'U', 'W', 'B, R', 'B, U', 'B, W', 'R, U', 'R, W', 'U, W',
                                            'B, R, U', 'B, R, W', 'B, U, W', 'R, U, W' , 'B, R, U, W']
             self.files_to_load = ['colorless', 'black', 'blue', 'red', 'white', 'rakdos', 'dimir', 'orzhov', 'izzet',
                                   'boros', 'azorius', 'grixis', 'mardu', 'esper', 'mardu', 'glint']
-            pass
         elif self.color_identity == 'G, R, U, W':
             self.color_identity_full = 'Ink: Blue/Green/Red/White'
             self.color_identity_options = ['G', 'R', 'U', 'W', 'G, R', 'G, U', 'G, W', 'R, U', 'R, W', 'U, W',
                                            'G, R, U', 'G, R, W', 'G, U, W', 'R, U, W', 'G, R, U, W']
             self.files_to_load = ['colorless', 'blue', 'green', 'red', 'white', 'gruul', 'simic', 'selesnya', 'izzet',
                                   'boros', 'azorius', 'temur', 'naya', 'bant', 'jeskai', 'glint']
-            pass
         elif self.color_identity == 'B, G, R, U, W':
             self.color_identity_full = 'WUBRG: All colors'
             self.color_identity_options = ['B', 'G', 'R', 'U', 'W', 'B, G', 'B, R', 'B, U', 'B, W', 'G, R', 'G, U', 'G, W',
@@ -555,6 +522,10 @@ class DeckBuilder:
         self.noncreature_df.sort_values(by='edhrecRank', inplace=True)
         self.noncreature_df.to_csv(f'{csv_directory}/test_noncreatures.csv', index=False)
         
+        self.noncreature_nonplaneswaker_df = self.noncreature_df[~self.noncreature_df['type'].str.contains('Planeswalker')].copy()
+        self.noncreature_nonplaneswaker_df.sort_values(by='edhrecRank', inplace=True)
+        self.noncreature_nonplaneswaker_df.to_csv(f'{csv_directory}/test_noncreatures.csv', index=False)
+        
         self.enchantment_df = self.full_df[self.full_df['type'].str.contains('Enchantment')].copy()
         self.enchantment_df.sort_values(by='edhrecRank', inplace=True)
         self.enchantment_df.to_csv(f'{csv_directory}/test_enchantments.csv', index=False)
@@ -587,14 +558,13 @@ class DeckBuilder:
                 'tertiary': 0.0,
                 'hidden': 0.0
                 }
-            weights = weights_default
+            weights = weights_default.copy()
             themes.remove(choice)
             themes.append('Stop Here')
 
             secondary_theme_chosen = False
             tertiary_theme_chosen = False
             self.hidden_theme = False
-            print(weights)
 
             while not secondary_theme_chosen:
                 # Secondary theme
@@ -603,7 +573,7 @@ class DeckBuilder:
                 choice = self.questionnaire('Choice', choices_list=themes)
                 while True:
                     if choice == 'Stop Here':
-                        print('You\'ve only selected one theme, are you sure you want to stop?\n')
+                        logging.warning('You\'ve only selected one theme, are you sure you want to stop?\n')
                         confirm_done = self.questionnaire('Confirm', False)
                         if confirm_done:
                             secondary_theme_chosen = True
@@ -616,20 +586,20 @@ class DeckBuilder:
                             pass
 
                     else:
-                        weights = weights_default # primary = 1.0, secondary = 0.0, tertiary = 0.0
+                        weights = weights_default.copy() # primary = 1.0, secondary = 0.0, tertiary = 0.0
                         self.secondary_theme = choice
                         themes.remove(choice)
                         secondary_theme_chosen = True
                         # Set weights for primary/secondary themes
                         if 'Kindred' in self.primary_theme and 'Kindred' not in self.secondary_theme:
-                            weights['primary'] -= 0.25 # 0.75
-                            weights['secondary'] += 0.25 # 0.25
+                            weights['primary'] -= 0.15 # 0.85
+                            weights['secondary'] += 0.15 # 0.15
                         elif 'Kindred' in self.primary_theme and 'Kindred' in self.secondary_theme:
-                            weights['primary'] -= 0.45 # 0.55
-                            weights['secondary'] += 0.45 # 0.45
-                        else:
                             weights['primary'] -= 0.4 # 0.6
                             weights['secondary'] += 0.4 # 0.4
+                        else:
+                            weights['primary'] -= 0.3 # 0.7
+                            weights['secondary'] += 0.3 # 0.3
                         self.primary_weight = weights['primary']
                         self.secondary_weight = weights['secondary']
                         break
@@ -641,7 +611,7 @@ class DeckBuilder:
                 choice = self.questionnaire('Choice', choices_list=themes)
                 while True:
                     if choice == 'Stop Here':
-                        print('You\'ve only selected two themes, are you sure you want to stop?\n')
+                        logging.warning('You\'ve only selected two themes, are you sure you want to stop?\n')
                         confirm_done = self.questionnaire('Confirm', False)
                         if confirm_done:
                             tertiary_theme_chosen = True
@@ -652,18 +622,18 @@ class DeckBuilder:
                             pass
 
                     else:
-                        weights = weights_default # primary = 1.0, secondary = 0.0, tertiary = 0.0
+                        weights = weights_default.copy() # primary = 1.0, secondary = 0.0, tertiary = 0.0
                         self.tertiary_theme = choice
                         tertiary_theme_chosen = True
                         
                         # Set weights for themes:
                         if 'Kindred' in self.primary_theme and 'Kindred' not in self.secondary_theme and 'Kindred' not in self.tertiary_theme:
-                            weights['primary'] -= 0.3 # 0.7
-                            weights['secondary'] += 0.2 # 0.2
+                            weights['primary'] -= 0.2 # 0.8
+                            weights['secondary'] += 0.1 # 0.1
                             weights['tertiary'] += 0.1 # 0.1
                         elif 'Kindred' in self.primary_theme and 'Kindred' in self.secondary_theme and 'Kindred' not in self.tertiary_theme:
-                            weights['primary'] -= 0.45 # 0.55
-                            weights['secondary'] += 0.35 # 0.35
+                            weights['primary'] -= 0.4 # 0.6
+                            weights['secondary'] += 0.3 # 0.3
                             weights['tertiary'] += 0.1 # 0.1
                         elif 'Kindred' in self.primary_theme and 'Kindred' in self.secondary_theme and 'Kindred' in self.tertiary_theme:
                             weights['primary'] -= 0.5 # 0.5
@@ -688,8 +658,6 @@ class DeckBuilder:
             else:
                 self.themes.append(self.tertiary_theme)
                 
-            print(self.themes)
-            print(self.colors)
             """
             Setting 'Hidden' themes for multiple-copy cards, such as 'Hare Apparent' or 'Shadowborn Apostle'.
             These are themes that will be prompted for under specific conditions, such as a matching Kindred theme or a matching color combination and Spellslinger theme for example.
@@ -703,16 +671,15 @@ class DeckBuilder:
                 if (hidden_themes[i] in self.themes
                     and hidden_themes[i] != 'Rat Kindred'
                     and color[i] in self.colors):
-                    print(f'Looks like you\'re making a {hidden_themes[i]} deck, would you like it to be a {theme_cards[i]} deck?')
+                    logging.info(f'Looks like you\'re making a {hidden_themes[i]} deck, would you like it to be a {theme_cards[i]} deck?')
                     choice = self.questionnaire('Confirm', False)
                     if choice:
                         self.hidden_theme = theme_cards[i]
                         self.themes.append(self.hidden_theme)
-                        weights['primary'] = weights['primary'] / 3 # 0.3
-                        weights['secondary'] = weights['secondary'] / 3 # 0.2
-                        weights['tertiary'] = weights['tertiary'] / 3 # 0.1
-                        weights['hidden'] = 1.0 - weights['primary'] - weights['secondary'] - weights['tertiary']
-                        print(weights)
+                        weights['primary'] = round(weights['primary'] / 3, 2)
+                        weights['secondary'] = round(weights['secondary'] / 2, 2)
+                        weights['tertiary'] = weights['tertiary'] 
+                        weights['hidden'] = round(1.0 - weights['primary'] - weights['secondary'] - weights['tertiary'], 2)
                         self.primary_weight = weights['primary']
                         self.secondary_weight = weights['secondary']
                         self.tertiary_weight = weights['tertiary']
@@ -723,7 +690,7 @@ class DeckBuilder:
                 elif (hidden_themes[i] in self.themes
                       and hidden_themes[i] == 'Rat Kindred'
                       and color[i] in self.colors):
-                    print(f'Looks like you\'re making a {hidden_themes[i]} deck, would you like it to be a {theme_cards[i][0]} or {theme_cards[i][1]} deck?')
+                    logging.info(f'Looks like you\'re making a {hidden_themes[i]} deck, would you like it to be a {theme_cards[i][0]} or {theme_cards[i][1]} deck?')
                     choice = self.questionnaire('Confirm', False)
                     if choice:
                         print('Which one?')
@@ -731,10 +698,10 @@ class DeckBuilder:
                         if choice:
                             self.hidden_theme = choice
                             self.themes.append(self.hidden_theme)
-                            weights['primary'] = weights['primary'] / 3 # 0.3
-                            weights['secondary'] = weights['secondary'] / 3 # 0.2
-                            weights['tertiary'] = weights['tertiary'] / 3 # 0.1
-                            weights['hidden'] = 1.0 - weights['primary'] - weights['secondary'] - weights['tertiary']
+                            weights['primary'] = round(weights['primary'] / 3, 2)
+                            weights['secondary'] = round(weights['secondary'] / 2, 2)
+                            weights['tertiary'] = weights['tertiary'] 
+                            weights['hidden'] = round(1.0 - weights['primary'] - weights['secondary'] - weights['tertiary'], 2)
                             self.primary_weight = weights['primary']
                             self.secondary_weight = weights['secondary']
                             self.tertiary_weight = weights['tertiary']
@@ -749,21 +716,22 @@ class DeckBuilder:
             for i in range(min(len(hidden_themes), len(theme_cards), len(color))):
                 if (hidden_themes[i] in self.themes
                     and color[i] in self.colors):
-                    print(f'Looks like you\'re making a {hidden_themes[i]} deck, would you like it to be a {theme_cards[i]} deck?')
+                    logging.info(f'Looks like you\'re making a {hidden_themes[i]} deck, would you like it to be a {theme_cards[i]} deck?')
                     choice = self.questionnaire('Confirm', False)
                     if choice:
                         self.hidden_theme = theme_cards[i]
                         self.themes.append(self.hidden_theme)
-                        weights['primary'] = weights['primary'] / 3 # 0.3
-                        weights['secondary'] = weights['secondary'] / 3 # 0.2
-                        weights['tertiary'] = weights['tertiary'] / 3 # 0.1
-                        weights['hidden'] = 1.0 - weights['primary'] - weights['secondary'] - weights['tertiary']
+                        weights['primary'] = round(weights['primary'] / 3, 2)
+                        weights['secondary'] = round(weights['secondary'] / 2, 2)
+                        weights['tertiary'] = weights['tertiary'] 
+                        weights['hidden'] = round(1.0 - weights['primary'] - weights['secondary'] - weights['tertiary'], 2)
                         self.primary_weight = weights['primary']
                         self.secondary_weight = weights['secondary']
                         self.tertiary_weight = weights['tertiary']
                         self.hidden_weight = weights['hidden']
                     else:
                         continue
+            
             break
     
     def determine_ideals(self):
@@ -931,8 +899,9 @@ class DeckBuilder:
         logging.debug(f"Added {card} to deck library")
     
     def organize_library(self):
-        # Initialize counters dictionary dynamically from card_types
-        card_counters = {card_type: 0 for card_type in card_types}
+        # Initialize counters dictionary dynamically from card_types including Kindred
+        all_types = card_types + ['Kindred'] if 'Kindred' not in card_types else card_types
+        card_counters = {card_type: 0 for card_type in all_types}
 
         # Count cards by type
         for card_type in card_types:
@@ -945,7 +914,7 @@ class DeckBuilder:
         self.creature_cards = card_counters['Creature']
         self.enchantment_cards = card_counters['Enchantment']
         self.instant_cards = card_counters['Instant']
-        self.theme_cards = card_counters['Kindred']
+        self.kindred_cards = card_counters.get('Kindred', 0)  # Use get() with default value
         self.land_cards = card_counters['Land']
         self.planeswalker_cards = card_counters['Planeswalker']
         self.sorcery_cards = card_counters['Sorcery']
@@ -1068,21 +1037,21 @@ class DeckBuilder:
         
         # If over ideal land count, remove random basics until ideal land count
         self.check_basics()
-        print('Checking total land count to ensure it\'s within ideal count.\n\n')
+        logging.info('Checking total land count to ensure it\'s within ideal count.\n\n')
         self.organize_library()
         while self.land_cards > int(self.ideal_land_count):
-            print(f'Num land cards: {self.land_cards}\n'
+            logging.info(f'Num land cards: {self.land_cards}\n'
                   f'Ideal num land cards {self.ideal_land_count}')
             self.remove_basic()
             self.organize_library()
         
-        print(f'Total lands: {self.land_cards}')
+        logging.info(f'Total lands: {self.land_cards}')
     
     def add_basics(self):
         base_basics = self.ideal_land_count - 10  # Reserve 10 slots for non-basic lands
         basics_per_color = base_basics // len(self.colors)
         remaining_basics = base_basics % len(self.colors)
-        
+
         color_to_basic = {
             'W': 'Plains',
             'U': 'Island', 
@@ -1091,7 +1060,7 @@ class DeckBuilder:
             'G': 'Forest',
             'COLORLESS': 'Wastes'
         }
-        
+
         if 'Snow' in self.commander_tags:
             color_to_basic = {
             'W': 'Snow-Covered Plains',
@@ -1101,34 +1070,35 @@ class DeckBuilder:
             'G': 'Snow-Covered Forest',
             'COLORLESS': 'Snow-Covered Wastes'
             }
-        
+
         print(f'Adding {base_basics} basic lands distributed across {len(self.colors)} colors')
-        
+
         # Add equal distribution first
         for color in self.colors:
             basic = color_to_basic.get(color)
             if basic:
+                # Add basics with explicit commander flag and track count
                 for _ in range(basics_per_color):
-                    self.add_card(basic, 'Basic Land', None, 0)
-        
+                    self.add_card(basic, 'Basic Land', None, 0, is_commander=False)
+
         # Distribute remaining basics based on color requirements
         if remaining_basics > 0:
             for color in self.colors[:remaining_basics]:
                 basic = color_to_basic.get(color)
                 if basic:
-                    self.add_card(basic, 'Basic Land', None, 0)
-        
+                    self.add_card(basic, 'Basic Land', None, 0, is_commander=False)
+
         lands_to_remove = []
         for key in color_to_basic:
             basic = color_to_basic.get(key)
             lands_to_remove.append(basic)
-            
+        
         self.land_df = self.land_df[~self.land_df['name'].isin(lands_to_remove)]
         self.land_df.to_csv(f'{csv_directory}/test_lands.csv', index=False)
 
     def add_standard_non_basics(self):
         # Add lands that are good in most any commander deck
-        print('Adding "standard" non-basics')
+        logging.info('Adding "standard" non-basics')
         self.staples = ['Reliquary Tower']
         if 'Landfall' not in self.commander_tags:
             self.staples.append('Ash Barrens')
@@ -1240,8 +1210,8 @@ class DeckBuilder:
         self.land_df.to_csv(f'{csv_directory}/test_lands.csv', index=False)
     
     def add_kindred_lands(self):
-        print('Adding lands that care about the commander having a Kindred theme.')
-        print('Adding general Kindred lands.')
+        logging.info('Adding lands that care about the commander having a Kindred theme.')
+        logging.info('Adding general Kindred lands.')
 
         def create_land(name: str, land_type: str) -> dict:
             """Helper function to create land card dictionaries"""
@@ -1261,7 +1231,7 @@ class DeckBuilder:
         for theme in self.themes:
             if 'Kindred' in theme:
                 kindred = theme.replace(' Kindred', '')
-                print(f'Adding any {kindred}-specific lands.')
+                logging.info(f'Adding any {kindred}-specific lands.')
                 for _, row in self.land_df.iterrows():
                     card = {
                         'name': row['name'],
@@ -1332,10 +1302,10 @@ class DeckBuilder:
             self.land_df = self.land_df[~self.land_df['name'].isin(lands_to_remove)]
             self.land_df.to_csv(f'{csv_directory}/test_lands.csv', index=False)
             
-            print(f'Added {len(card_pool)} Dual-type land cards.')
+            logging.info(f'Added {len(card_pool)} Dual-type land cards.')
             
         if not choice:
-            print('Skipping adding Dual-type land cards.')
+            logging.info('Skipping adding Dual-type land cards.')
     
     def add_triple_lands(self):
         # Determine if using Triome lands
@@ -1383,13 +1353,13 @@ class DeckBuilder:
             self.land_df = self.land_df[~self.land_df['name'].isin(lands_to_remove)]
             self.land_df.to_csv(f'{csv_directory}/test_lands.csv', index=False)
             
-            print(f'Added {len(card_pool)} Triome land cards.')
+            logging.info(f'Added {len(card_pool)} Triome land cards.')
             
         if not choice:
-            print('Skipping adding Triome land cards.')
+            logging.info('Skipping adding Triome land cards.')
     
     def add_misc_lands(self):
-        print('Adding additional misc. lands to the deck that fit the color identity.')
+        logging.info('Adding additional misc. lands to the deck that fit the color identity.')
         # Add other remaining lands that match color identity
 
         logging.info('Grabbing lands in your commander\'s color identity that aren\'t already in the deck.')
@@ -1434,7 +1404,7 @@ class DeckBuilder:
         self.land_df = self.land_df[~self.land_df['name'].isin(lands_to_remove)]
         self.land_df.to_csv(f'{csv_directory}/test_lands.csv', index=False)
 
-        print(f'Added {len(cards_to_add)} land cards.')
+        logging.info(f'Added {len(cards_to_add)} land cards.')
                 
     def check_basics(self):
         """Check and display counts of each basic land type."""
@@ -1457,11 +1427,11 @@ class DeckBuilder:
             basic_lands[land] = count
             self.total_basics += count
         
-        print("\nBasic Land Counts:")
+        logging.info("\nBasic Land Counts:")
         for land, count in basic_lands.items():
             if count > 0:
-                print(f"{land}: {count}")
-        print(f"Total basic lands: {self.total_basics}\n")
+                logging.info(f"{land}: {count}")
+        logging.info(f"Total basic lands: {self.total_basics}\n")
    
     def remove_basic(self):
         """
@@ -1614,23 +1584,22 @@ class DeckBuilder:
             logging.error(f"Error calculating CMC: {e}")
             self.cmc = 0.0
     
-    def weight_by_theme(self, tag, ideal=1, weight=1):
+    def weight_by_theme(self, tag, ideal=1, weight=1, df=None):
         # First grab the first 50/30/20 cards that match each theme
         """Add cards with specific tag up to ideal_value count"""
         ideal_value = math.ceil(ideal * weight * 0.9)
-        print(f'Finding {ideal_value} cards with the "{tag}" tag...')
+        logging.info(f'Finding {ideal_value} cards with the "{tag}" tag...')
         if 'Kindred' in tag:
             tags = [tag, 'Kindred Support']
         else:
             tags = [tag]
         # Filter cards with the given tag
-        tag_df = self.creature_df.copy()
+        tag_df = df.copy()
         tag_df.sort_values(by='edhrecRank', inplace=True)
         tag_df = tag_df[tag_df['themeTags'].apply(lambda x: any(tag in x for tag in tags))]
         # Take top cards based on ideal value
         pool_size = int(ideal_value * random.randint(15, 20) /10)
         tag_df = tag_df.head(pool_size)
-        print(tag_df)
         
         # Convert to list of card dictionaries
         card_pool = [
@@ -1686,19 +1655,16 @@ class DeckBuilder:
         card_pool_names = [item['name'] for item in card_pool]
         self.full_df = self.full_df[~self.full_df['name'].isin(card_pool_names)]
         self.noncreature_df = self.noncreature_df[~self.noncreature_df['name'].isin(card_pool_names)]
-        print(f'Added {len(cards_to_add)} {tag} cards')
+        logging.info(f'Added {len(cards_to_add)} {tag} cards')
         #tag_df.to_csv(f'{csv_directory}/test_{tag}.csv', index=False)
     
-    def add_by_tags(self, tag, ideal_value=1):
+    def add_by_tags(self, tag, ideal_value=1, df=None):
         """Add cards with specific tag up to ideal_value count"""
-        print(f'Finding {ideal_value} cards with the "{tag}" tag...')
+        logging.info(f'Finding {ideal_value} cards with the "{tag}" tag...')
 
         # Filter cards with the given tag
         skip_creatures = self.creature_cards > self.ideal_creature_count * 1.1
-        if skip_creatures:
-            tag_df = self.noncreature_df.copy()
-        else:
-            tag_df = self.full_df.copy()
+        tag_df = df.copy()
         tag_df.sort_values(by='edhrecRank', inplace=True)
         tag_df = tag_df[tag_df['themeTags'].apply(lambda x: tag in x)]
         # Take top cards based on ideal value
@@ -1749,7 +1715,7 @@ class DeckBuilder:
         card_pool_names = [item['name'] for item in card_pool]
         self.full_df = self.full_df[~self.full_df['name'].isin(card_pool_names)]
         self.noncreature_df = self.noncreature_df[~self.noncreature_df['name'].isin(card_pool_names)]
-        print(f'Added {len(cards_to_add)} {tag} cards')
+        logging.info(f'Added {len(cards_to_add)} {tag} cards')
         #tag_df.to_csv(f'{csv_directory}/test_{tag}.csv', index=False)
         
     def add_creatures(self):
@@ -1764,86 +1730,129 @@ class DeckBuilder:
         with error handling to ensure the deck building process continues even if
         a particular theme encounters issues.
         """
-        print(f'Adding creatures to deck based on the ideal creature count of {self.ideal_creature_count}...')
+        logging.info(f'Adding creatures to deck based on the ideal creature count of {self.ideal_creature_count}...')
         
         try:
             if self.hidden_theme:
-                print(f'Processing Hidden theme: {self.hidden_theme}')
-                self.weight_by_theme(self.hidden_theme, self.ideal_creature_count, self.hidden_weight)
- 
-            print(f'Processing primary theme: {self.primary_theme}')
-            self.weight_by_theme(self.primary_theme, self.ideal_creature_count, self.primary_weight)
+                logging.info(f'Processing Hidden theme: {self.hidden_theme}')
+                self.weight_by_theme(self.hidden_theme, self.ideal_creature_count, self.hidden_weight, self.creature_df)
+            
+            logging.info(f'Processing primary theme: {self.primary_theme}')
+            self.weight_by_theme(self.primary_theme, self.ideal_creature_count, self.primary_weight, self.creature_df)
             
             if self.secondary_theme:
-                print(f'Processing secondary theme: {self.secondary_theme}')
-                self.weight_by_theme(self.secondary_theme, self.ideal_creature_count, self.secondary_weight)
+                logging.info(f'Processing secondary theme: {self.secondary_theme}')
+                self.weight_by_theme(self.secondary_theme, self.ideal_creature_count, self.secondary_weight, self.creature_df)
             
             if self.tertiary_theme:
-                print(f'Processing tertiary theme: {self.tertiary_theme}')
-                self.weight_by_theme(self.tertiary_theme, self.ideal_creature_count, self.tertiary_weight)
+                logging.info(f'Processing tertiary theme: {self.tertiary_theme}')
+                self.weight_by_theme(self.tertiary_theme, self.ideal_creature_count, self.tertiary_weight, self.creature_df)
                 
         except Exception as e:
             logging.error(f"Error while adding creatures: {e}")
         finally:
             self.organize_library()
-            print(f'Creature addition complete. Total creatures (including commander): {self.creature_cards}')
+            logging.info(f'Creature addition complete. Total creatures (including commander): {self.creature_cards}')
     
     def add_ramp(self):
-        self.add_by_tags('Mana Rock', math.ceil(self.ideal_ramp / 4))
-        self.add_by_tags('Mana Dork', math.ceil(self.ideal_ramp / 3))
-        self.add_by_tags('Ramp', math.ceil(self.ideal_ramp / 2))
+        try:
+            self.add_by_tags('Mana Rock', math.ceil(self.ideal_ramp / 3), self.noncreature_df)
+            self.add_by_tags('Mana Dork', math.ceil(self.ideal_ramp / 4), self.creature_df)
+            self.add_by_tags('Ramp', math.ceil(self.ideal_ramp / 2), self.noncreature_df)
+        except Exception as e:
+            logging.error(f"Error while adding Ramp: {e}")
+        finally:
+            logging.info('Adding Ramp complete.')
     
     def add_interaction(self):
-        self.add_by_tags('Removal', self.ideal_removal)
-        self.add_by_tags('Protection', self.ideal_protection)
+        try:
+            self.add_by_tags('Removal', self.ideal_removal, self.noncreature_nonplaneswaker_df)
+            self.add_by_tags('Protection', self.ideal_protection, self.noncreature_nonplaneswaker_df)
+        except Exception as e:
+            logging.error(f"Error while adding Interaction: {e}")
+        finally:
+            logging.info('Adding Interaction complete.')
         
     def add_board_wipes(self):
-        self.add_by_tags('Board Wipes', self.ideal_wipes)
+        try:
+            self.add_by_tags('Board Wipes', self.ideal_wipes, self.full_df)
+        except Exception as e:
+            logging.error(f"Error while adding Board Wipes: {e}")
+        finally:
+            logging.info('Adding Board Wipes complete.')
         
     def add_card_advantage(self):
-        self.add_by_tags('Conditional Draw', math.ceil(self.ideal_card_advantage * 0.2))
-        self.add_by_tags('Unconditional Draw', math.ceil(self.ideal_card_advantage * 0.8))
+        try:
+            self.add_by_tags('Conditional Draw', math.ceil(self.ideal_card_advantage * 0.2), self.full_df)
+            self.add_by_tags('Unconditional Draw', math.ceil(self.ideal_card_advantage * 0.8), self.noncreature_nonplaneswaker_df)
+        except Exception as e:
+            logging.error(f"Error while adding Card Draw: {e}")
+        finally:
+            logging.info('Adding Card Draw complete.')
     
     def fill_out_deck(self):
         """Fill out the deck to 100 cards with theme-appropriate cards."""
-        print('Filling out the Library to 100 with cards fitting the themes.')
+        logging.info('Filling out the Library to 100 with cards fitting the themes.')
         
         cards_needed = 100 - len(self.card_library)
         if cards_needed <= 0:
             return
         
         logging.info(f"Need to add {cards_needed} more cards")
-        MAX_ATTEMPTS = max(20, cards_needed * 2)  # Scale attempts with cards needed
+        
+        # Define maximum attempts and timeout
+        MAX_ATTEMPTS = max(20, cards_needed * 2)
+        MAX_TIME = 60  # Maximum time in seconds
+        start_time = time.time()
         attempts = 0
         
         while len(self.card_library) < 100 and attempts < MAX_ATTEMPTS:
+            # Check timeout
+            if time.time() - start_time > MAX_TIME:
+                logging.error("Timeout reached while filling deck")
+                break
+                
             initial_count = len(self.card_library)
             remaining = 100 - len(self.card_library)
             
             # Adjust weights based on remaining cards needed
             weight_multiplier = remaining / cards_needed
             
-            if self.tertiary_theme:
-                self.add_by_tags(self.tertiary_theme, 
-                    math.ceil(self.tertiary_weight * 3 * weight_multiplier))
-            if self.secondary_theme:
-                self.add_by_tags(self.secondary_theme, 
-                    math.ceil(self.secondary_weight * weight_multiplier))
-            self.add_by_tags(self.primary_theme, 
-                math.ceil(self.primary_weight * weight_multiplier))
-            
-            if len(self.card_library) == initial_count:
+            try:
+                # Add cards from each theme with adjusted weights
+                if self.tertiary_theme:
+                    self.add_by_tags(self.tertiary_theme, 
+                        math.ceil(self.tertiary_weight * 10 * weight_multiplier),
+                        self.noncreature_df)
+                if self.secondary_theme:
+                    self.add_by_tags(self.secondary_theme, 
+                        math.ceil(self.secondary_weight * 3 * weight_multiplier),
+                        self.noncreature_df)
+                self.add_by_tags(self.primary_theme, 
+                    math.ceil(self.primary_weight * 2 * weight_multiplier),
+                    self.noncreature_df)
+                
+                # Check if we made progress
+                if len(self.card_library) == initial_count:
+                    attempts += 1
+                    if attempts % 5 == 0:
+                        logging.warning(f"Made {attempts} attempts, still need {100 - len(self.card_library)} cards")
+                        
+                # Break early if we're stuck
+                if attempts >= MAX_ATTEMPTS / 2 and len(self.card_library) < initial_count + (cards_needed / 4):
+                    logging.warning("Insufficient progress being made, breaking early")
+                    break
+                    
+            except Exception as e:
+                logging.error(f"Error while adding cards: {e}")
                 attempts += 1
-                if attempts % 5 == 0:  # Log progress every 5 failed attempts
-                    logging.warning(f"Made {attempts} attempts, still need {100 - len(self.card_library)} cards")
-            
+        
         final_count = len(self.card_library)
         if final_count < 100:
-            logging.warning(f"Could not reach 100 cards after {attempts} attempts. Current count: {final_count}")
-            print(f"\nWARNING: Deck is incomplete with {final_count} cards. Manual additions may be needed.")
+            message = f"\nWARNING: Deck is incomplete with {final_count} cards. Manual additions may be needed."
+            logging.warning(message)
         else:
             logging.info(f"Successfully filled deck to {final_count} cards in {attempts} attempts")
-
 def main():
     """Main entry point for deck builder application."""
     build_deck = DeckBuilder()
@@ -1852,5 +1861,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
-#pprint.pprint(build_deck.card_library['Card Name'], sort_dicts = False)

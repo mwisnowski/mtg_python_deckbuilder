@@ -162,6 +162,24 @@ targetted_removal_tags = ['exile target', 'destroy target', 'return target', 'sh
 
 triggers = ['when', 'whenever', 'at']
 
+# Constants for draw-related functionality
+DRAW_RELATED_TAGS = [
+    'Card Draw',          # General card draw effects
+    'Conditional Draw',   # Draw effects with conditions/triggers
+    'Cycling',           # Cycling and similar discard-to-draw effects
+    'Life to Draw',      # Draw effects that require paying life
+    'Loot',              # Draw + discard effects
+    'Replacement Draw',   # Effects that modify or replace draws
+    'Sacrifice to Draw', # Draw effects requiring sacrificing permanents
+    'Unconditional Draw' # Pure card draw without conditions
+]
+
+# Text patterns that exclude cards from being tagged as unconditional draw
+DRAW_EXCLUSION_PATTERNS = [
+    'annihilator',  # Eldrazi mechanic that can match 'draw' patterns
+    'ravenous',     # Keyword that can match 'draw' patterns
+]
+
 # Constants for DataFrame validation and processing
 REQUIRED_COLUMNS = [
     'name', 'faceName', 'edhrecRank', 'colorIdentity', 'colors',

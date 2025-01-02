@@ -35,61 +35,6 @@ def sort_list(items: Union[List, pd.Series]) -> Union[List, pd.Series]:
         return sorted(items) if isinstance(items, list) else items.sort_values()
     return items
 
-def create_regex_mask(df: pd.DataFrame, column: str, pattern: str) -> pd.Series:
-    """Create a boolean mask for rows where a column matches a regex pattern.
-
-    Args:
-        df: DataFrame to search
-        column: Column name to search in
-        pattern: Regex pattern to match
-
-    Returns:
-        Boolean Series indicating matching rows
-    """
-    return df[column].str.contains(pattern, case=False, na=False, regex=True)
-
-def combine_masks(masks: List[pd.Series], logical_operator: str = 'and') -> pd.Series:
-    """Combine multiple boolean masks with a logical operator.
-
-    Args:
-        masks: List of boolean Series masks to combine
-        logical_operator: Logical operator to use ('and' or 'or')
-
-    Returns:
-        Combined boolean mask
-    """
-    if not masks:
-        return pd.Series([], dtype=bool)
-        
-    result = masks[0]
-    for mask in masks[1:]:
-        if logical_operator == 'and':
-            result = result & mask
-        else:
-            result = result | mask
-    return result
-
-def safe_str_contains(series: pd.Series, patterns: Union[str, List[str]], regex: bool = False) -> pd.Series:
-    """Safely check if strings in a Series contain one or more patterns, handling NA values.
-
-    Args:
-        series: String Series to check
-        patterns: String or list of strings to look for
-        regex: Whether to treat patterns as regex expressions
-
-    Returns:
-        Boolean Series indicating which strings contain any of the patterns
-    """
-    if isinstance(patterns, str):
-        patterns = [patterns]
-    
-    if regex:
-        pattern = '|'.join(f'({p})' for p in patterns)
-        return series.fillna('').str.contains(pattern, case=False, na=False, regex=True)
-    else:
-        masks = [series.fillna('').str.contains(p, case=False, na=False, regex=False) for p in patterns]
-        return pd.concat(masks, axis=1).any(axis=1)
-
 def create_type_mask(df: pd.DataFrame, type_text: Union[str, List[str]], regex: bool = True) -> pd.Series:
     """Create a boolean mask for rows where type matches one or more patterns.
 
@@ -119,33 +64,6 @@ def create_type_mask(df: pd.DataFrame, type_text: Union[str, List[str]], regex: 
     else:
         masks = [df['type'].str.contains(p, case=False, na=False, regex=False) for p in type_text]
         return pd.concat(masks, axis=1).any(axis=1)
-
-def create_combined_type_mask(df: pd.DataFrame, type_patterns: Dict[str, List[str]], logical_operator: str = 'and') -> pd.Series:
-    """Create a combined boolean mask from multiple type patterns.
-
-    Args:
-        df: DataFrame to search
-        type_patterns: Dictionary mapping type categories to lists of patterns
-        logical_operator: How to combine masks ('and' or 'or')
-
-    Returns:
-        Combined boolean mask
-
-    Example:
-        patterns = {
-            'creature': ['Creature', 'Artifact Creature'],
-            'enchantment': ['Enchantment', 'Enchantment Creature']
-        }
-        mask = create_combined_type_mask(df, patterns, 'or')
-    """
-    if not type_patterns:
-        return pd.Series(True, index=df.index)
-
-    category_masks = []
-    for patterns in type_patterns.values():
-        category_masks.append(create_type_mask(df, patterns))
-
-    return combine_masks(category_masks, logical_operator)
 
 def extract_creature_types(type_text: str, creature_types: List[str], non_creature_types: List[str]) -> List[str]:
     """Extract creature types from a type text string.
@@ -200,18 +118,6 @@ def add_outlaw_type(types: List[str], outlaw_types: List[str]) -> List[str]:
         return types + ['Outlaw']
     return types
 
-def batch_update_types(df: pd.DataFrame, mask: pd.Series, new_types: List[str]) -> None:
-    """Update creature types for multiple rows efficiently.
-
-    Args:
-        df: DataFrame to update
-        mask: Boolean mask indicating which rows to update
-        new_types: List of types to add
-    """
-    df.loc[mask, 'creatureTypes'] = df.loc[mask, 'creatureTypes'].apply(
-        lambda x: sorted(list(set(x + new_types)))
-    )
-
 def create_tag_mask(df: pd.DataFrame, tag_patterns: Union[str, List[str]], column: str = 'themeTags') -> pd.Series:
     """Create a boolean mask for rows where tags match specified patterns.
 
@@ -222,6 +128,11 @@ def create_tag_mask(df: pd.DataFrame, tag_patterns: Union[str, List[str]], colum
 
     Returns:
         Boolean Series indicating matching rows
+
+    Examples:
+        # Match cards with draw-related tags
+        >>> mask = create_tag_mask(df, ['Card Draw', 'Conditional Draw'])
+        >>> mask = create_tag_mask(df, 'Unconditional Draw')
     """
     if isinstance(tag_patterns, str):
         tag_patterns = [tag_patterns]
@@ -266,17 +177,3 @@ def apply_tag_vectorized(df: pd.DataFrame, mask: pd.Series, tags: List[str]) -> 
     
     # Add new tags
     df.loc[mask, 'themeTags'] = current_tags.apply(lambda x: sorted(list(set(x + tags))))
-
-def log_performance_metrics(start_time: float, operation: str, df_size: int) -> None:
-    """Log performance metrics for an operation.
-
-    Args:
-        start_time: Start time from perf_counter()
-        operation: Description of the operation performed
-        df_size: Size of the DataFrame processed
-    """
-    duration = perf_counter() - start_time
-    logging.info(
-        f"{operation} completed in {duration:.2f}s for {df_size} rows "
-        f"({duration/df_size*1000:.2f}ms per row)"
-    )

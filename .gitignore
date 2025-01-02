@@ -1,6 +1,7 @@
 *.csv
-*.txt
 *.json
+*.log
+*.txt
 test.py
 .mypy_cache/
 __pycache__/

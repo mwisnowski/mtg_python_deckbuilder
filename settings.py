@@ -24,7 +24,135 @@ banned_cards = [# in commander
                 ]
 
 basic_lands = ['Plains', 'Island', 'Swamp', 'Mountain', 'Forest']
+basic_lands = ['Plains', 'Island', 'Swamp', 'Mountain', 'Forest']
 
+# Constants for lands matter functionality
+LANDS_MATTER_PATTERNS = {
+    'land_play': [
+        'play a land',
+        'play an additional land', 
+        'play two additional lands',
+        'play lands from',
+        'put a land card',
+        'put a basic land card'
+    ],
+    'land_search': [
+        'search your library for a basic land card',
+        'search your library for a land card',
+        'search your library for up to two basic land',
+        'search their library for a basic land card'
+    ],
+    'land_state': [
+        'land enters',
+        'land card is put into your graveyard',
+        'number of lands you control',
+        'one or more land cards',
+        'sacrifice a land',
+        'target land'
+    ]
+}
+
+DOMAIN_PATTERNS = {
+    'keyword': ['domain'],
+    'text': ['basic land types among lands you control']
+}
+
+LANDFALL_PATTERNS = {
+    'keyword': ['landfall'],
+    'triggers': [
+        'whenever a land enters the battlefield under your control',
+        'when a land enters the battlefield under your control'
+    ]
+}
+
+LANDWALK_PATTERNS = {
+    'basic': [
+        'plainswalker',
+        'islandwalk',
+        'swampwalk', 
+        'mountainwalk',
+        'forestwalk'
+    ],
+    'nonbasic': [
+        'nonbasic landwalk',
+        'landwalk'
+    ]
+}
+
+LAND_TYPES = [
+    # Basic lands
+    'Plains', 'Island', 'Swamp', 'Mountain', 'Forest',
+    # Special lands 
+    'Cave', 'Desert', 'Gate', 'Lair', 'Locus', 'Mine',
+    'Power-Plant', 'Sphere', 'Tower', 'Urza\'s'
+]
+
+LANDS_MATTER_SPECIFIC_CARDS = [
+    'Abundance',
+    'Archdruid\'s Charm', 
+    'Archelos, Lagoon Mystic',
+    'Catacylsmic Prospecting',
+    'Coiling Oracle',
+    'Disorienting Choice', 
+    'Eerie Ultimatum',
+    'Gitrog Monster',
+    'Mana Reflection',
+    'Nahiri\'s Lithoforming',
+    'Nine-fingers Keene',
+    'Open the Way',
+    'Realms Uncharted',
+    'Reshape the Earth',
+    'Scapeshift',
+    'Yarok, the Desecrated',
+    'Wonderscape Sage'
+]
+
+# Constants for big mana functionality
+BIG_MANA_TEXT_PATTERNS = [
+    'add {w}{u}{b}{r}{g}',
+    'card onto the battlefield',
+    'control with power [3-5] or greater',
+    'creature with power [3-5] or greater',
+    'double the power',
+    'from among them onto the battlefield',
+    'from among them without paying',
+    'hand onto the battlefield',
+    'mana, add one mana',
+    'mana, it produces twice',
+    'mana, it produces three',
+    'mana, its controller adds',
+    'pay {w}{u}{b}{r}{g}',
+    'spell with power 5 or greater',
+    'value [5-7] or greater',
+    'you may cast it without paying'
+]
+
+BIG_MANA_SPECIFIC_CARDS = [
+    'Akroma\'s Memorial',
+    'Apex Devastator',
+    'Apex of Power',
+    'Brass\'s Bounty',
+    'Cabal Coffers',
+    'Caged Sun',
+    'Doubling Cube',
+    'Forsaken Monument',
+    'Guardian Project',
+    'Mana Reflection',
+    'Nyxbloom Ancient',
+    'Omniscience',
+    'One with the Multiverse',
+    'Portal to Phyrexia',
+    'Vorinclex, Voice of Hunger'
+]
+
+BIG_MANA_KEYWORDS = [
+    'Cascade',
+    'Convoke',
+    'Discover',
+    'Emerge',
+    'Improvise',
+    'Surge'
+]
 board_wipe_tags = ['destroy all', 'destroy each', 'return all', 'return each', 'deals damage to each',
                 'exile all', 'exile each', 'creatures get -X/-X', 'sacrifices all', 'sacrifices each',
                 'sacrifices the rest']
@@ -38,6 +166,8 @@ TYPE_TAG_MAPPING = {
     'Battle': ['Battles Matter'],
     #'Creature': [],
     'Enchantment': ['Enchantments Matter'],
+    'Equipment': ['Equipment', 'Voltron'],
+    'Aura': ['Auras', 'Voltron'],
     'Instant': ['Spells Matter', 'Spellslinger'],
     'Land': ['Lands Matter'],
     'Planeswalker': ['Superfriends'],
@@ -54,7 +184,7 @@ colors = ['colorless', 'white', 'blue', 'black', 'red', 'green',
                 'dune', 'glint', 'ink', 'witch', 'yore', 'wubrg',
                 'commander']
 
-counter_types = ['+0/+1', '+0/+2', '+1/+0', '+1/+2', '+2/+0', '+2/+2',
+counter_types = [r'\+0/\+1', r'\+0/\+2', r'\+1/\+0', r'\+1/\+2', r'\+2/\+0', r'\+2/\+2',
                 '-0/-1', '-0/-2', '-1/-0', '-1/-2', '-2/-0', '-2/-2',
                 'Acorn', 'Aegis', 'Age', 'Aim', 'Arrow', 'Arrowhead','Awakening',
                 'Bait', 'Blaze', 'Blessing', 'Blight',' Blood', 'Bloddline',
@@ -255,3 +385,38 @@ EQUIPMENT_TEXT_PATTERNS = [
     'unequip',          # Equipment removal
 ]
 TYPE_DETECTION_BATCH_SIZE = 1000
+
+# Constants for Voltron strategy
+VOLTRON_COMMANDER_CARDS = [
+    'Akiri, Line-Slinger',
+    'Ardenn, Intrepid Archaeologist',
+    'Bruna, Light of Alabaster',
+    'Danitha Capashen, Paragon',
+    'Greven, Predator Captain',
+    'Halvar, God of Battle',
+    'Kaldra Compleat',
+    'Kemba, Kha Regent',
+    'Light-Paws, Emperor\'s Voice',
+    'Nahiri, the Lithomancer',
+    'Rafiq of the Many',
+    'Reyav, Master Smith',
+    'Rograkh, Son of Rohgahh',
+    'Sram, Senior Edificer',
+    'Syr Gwyn, Hero of Ashvale',
+    'Tiana, Ship\'s Caretaker',
+    'Uril, the Miststalker',
+    'Valduk, Keeper of the Flame',
+    'Wyleth, Soul of Steel'
+]
+
+VOLTRON_PATTERNS = [
+    'attach',
+    'aura you control',
+    'enchant creature',
+    'enchanted creature',
+    'equipped creature',
+    'equipment you control',
+    'fortify',
+    'living weapon',
+    'reconfigure'
+]

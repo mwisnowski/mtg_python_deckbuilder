@@ -207,3 +207,51 @@ COLUMN_ORDER = [
 # Constants for type detection and processing
 OUTLAW_TYPES = ['Assassin', 'Mercenary', 'Pirate', 'Rogue', 'Warlock']
 TYPE_DETECTION_BATCH_SIZE = 1000
+
+# Aura-related constants
+AURA_SPECIFIC_CARDS = [
+    'Ardenn, Intrepid Archaeologist',   # Aura movement
+    'Calix, Guided By Fate',            # Create duplicate Auras
+    'Gilwain, Casting Director',        # Creates role tokens
+    'Ivy, Gleeful Spellthief',          # Copies spells that have single target
+    'Killian, Ink Duelist',             # Targetted spell cost reduction
+]
+# Equipment-related constants
+EQUIPMENT_EXCLUSIONS = [
+    'Bruenor Battlehammer',         # Equipment cost reduction
+    'Nazahn, Revered Bladesmith',   # Equipment tutor
+    'Stonehewer Giant',             # Equipment tutor
+]
+
+EQUIPMENT_SPECIFIC_CARDS = [
+    'Ardenn, Intrepid Archaeologist',   # Equipment movement
+    'Armory Automaton',                 # Mass equip ability
+    'Brass Squire',                     # Free equip ability
+    'Danitha Capashen, Paragon',        # Equipment cost reduction
+    'Halvar, God of Battle',            # Equipment movement
+    'Kemba, Kha Regent',                # Equipment payoff
+    'Kosei, Penitent Warlord',          # Wants to be eequipped
+    'Puresteel Paladin',                # Equipment draw engine
+    'Reyav, Master Smith',              # Equipment combat boost
+    'Sram, Senior Edificer',            # Equipment card draw
+    'Valduk, Keeper of the Flame'       # Equipment token creation
+]
+
+EQUIPMENT_RELATED_TAGS = [
+    'Equipment',           # Base equipment tag
+    'Equipment Matters',   # Cards that care about equipment
+    'Voltron',             # Commander-focused equipment strategy
+    'Artifacts Matter',    # Equipment are artifacts
+    'Warriors Matter',     # Common equipment tribal synergy
+    'Knights Matter'       # Common equipment tribal synergy
+]
+
+EQUIPMENT_TEXT_PATTERNS = [
+    'attach',           # Equipment attachment
+    'equip',            # Equipment keyword
+    'equipped',         # Equipment state
+    'equipment',        # Equipment type
+    'unattach',         # Equipment removal
+    'unequip',          # Equipment removal
+]
+TYPE_DETECTION_BATCH_SIZE = 1000

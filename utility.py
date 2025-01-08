@@ -1,9 +1,12 @@
-from typing import Union, List
 import pandas as pd
 import re
 import logging
-from typing import Dict, Optional, Set
+
+from typing import Dict, List, Optional, Set, Union
 from time import perf_counter
+
+import settings
+
 def pluralize(word: str) -> str:
     """Convert a word to its plural form using basic English pluralization rules.
 
@@ -63,6 +66,96 @@ def create_type_mask(df: pd.DataFrame, type_text: Union[str, List[str]], regex: 
         return df['type'].str.contains(pattern, case=False, na=False, regex=True)
     else:
         masks = [df['type'].str.contains(p, case=False, na=False, regex=False) for p in type_text]
+        return pd.concat(masks, axis=1).any(axis=1)
+
+def create_text_mask(df: pd.DataFrame, type_text: Union[str, List[str]], regex: bool = True) -> pd.Series:
+    """Create a boolean mask for rows where text matches one or more patterns.
+
+    Args:
+        df: DataFrame to search
+        type_text: Type text pattern(s) to match. Can be a single string or list of strings.
+        regex: Whether to treat patterns as regex expressions (default: True)
+
+    Returns:
+        Boolean Series indicating matching rows
+
+    Raises:
+        ValueError: If type_text is empty or None
+        TypeError: If type_text is not a string or list of strings
+    """
+    if not type_text:
+        raise ValueError("type_text cannot be empty or None")
+
+    if isinstance(type_text, str):
+        type_text = [type_text]
+    elif not isinstance(type_text, list):
+        raise TypeError("type_text must be a string or list of strings")
+
+    if regex:
+        pattern = '|'.join(f'{p}' for p in type_text)
+        return df['text'].str.contains(pattern, case=False, na=False, regex=True)
+    else:
+        masks = [df['text'].str.contains(p, case=False, na=False, regex=False) for p in type_text]
+        return pd.concat(masks, axis=1).any(axis=1)
+
+def create_keyword_mask(df: pd.DataFrame, type_text: Union[str, List[str]], regex: bool = True) -> pd.Series:
+    """Create a boolean mask for rows where keyword text matches one or more patterns.
+
+    Args:
+        df: DataFrame to search
+        type_text: Type text pattern(s) to match. Can be a single string or list of strings.
+        regex: Whether to treat patterns as regex expressions (default: True)
+
+    Returns:
+        Boolean Series indicating matching rows
+
+    Raises:
+        ValueError: If type_text is empty or None
+        TypeError: If type_text is not a string or list of strings
+    """
+    if not type_text:
+        raise ValueError("type_text cannot be empty or None")
+
+    if isinstance(type_text, str):
+        type_text = [type_text]
+    elif not isinstance(type_text, list):
+        raise TypeError("type_text must be a string or list of strings")
+
+    if regex:
+        pattern = '|'.join(f'{p}' for p in type_text)
+        return df['keywords'].str.contains(pattern, case=False, na=False, regex=True)
+    else:
+        masks = [df['keywords'].str.contains(p, case=False, na=False, regex=False) for p in type_text]
+        return pd.concat(masks, axis=1).any(axis=1)
+
+def create_name_mask(df: pd.DataFrame, type_text: Union[str, List[str]], regex: bool = True) -> pd.Series:
+    """Create a boolean mask for rows where name matches one or more patterns.
+
+    Args:
+        df: DataFrame to search
+        type_text: Type text pattern(s) to match. Can be a single string or list of strings.
+        regex: Whether to treat patterns as regex expressions (default: True)
+
+    Returns:
+        Boolean Series indicating matching rows
+
+    Raises:
+        ValueError: If type_text is empty or None
+        TypeError: If type_text is not a string or list of strings
+    """
+    if not type_text:
+        raise ValueError("type_text cannot be empty or None")
+
+    if isinstance(type_text, str):
+        type_text = [type_text]
+    elif not isinstance(type_text, list):
+        raise TypeError("type_text must be a string or list of strings")
+
+    if regex:
+        pattern = '|'.join(f'{p}' for p in type_text)
+        return df['name'].str.contains(pattern, case=False, na=False, regex=True)
+    else:
+        masks = [df['name'].str.contains(p, case=False, na=False, regex=False) for p in type_text]
         return pd.concat(masks, axis=1).any(axis=1)
 
 def extract_creature_types(type_text: str, creature_types: List[str], non_creature_types: List[str]) -> List[str]:

@@ -8,8 +8,8 @@ import pandas as pd
 import requests
 from tqdm import tqdm
 
-from settings import (banned_cards, CSV_DIRECTORY,
-                     COLUMN_ORDER, EXCLUDED_CARD_TYPES)
+from settings import (banned_cards, CSV_DIRECTORY, COLUMN_ORDER,
+                      PRETAG_COLUMN_ORDER, EXCLUDED_CARD_TYPES)
 
 # Configure logging
 logging.basicConfig(
@@ -87,11 +87,12 @@ def download_cards_csv(url: str = 'https://mtgjson.com/api/v5/csv/cards.csv') ->
         logger.error(f"Failed to write cards.csv: {e}")
         raise
 
-def validate_card_dataframe(df: pd.DataFrame) -> bool:
+def validate_card_dataframe(df: pd.DataFrame, skip_availability_checks: bool = False) -> bool:
     """Validate DataFrame has required columns and structure.
 
     Args:
         df: DataFrame to validate
+        skip_availability_checks: Whether to skip availability and security checks (default: False)
 
     Returns:
         bool: True if valid, False otherwise
@@ -99,14 +100,40 @@ def validate_card_dataframe(df: pd.DataFrame) -> bool:
     Raises:
         ValueError: If required columns are missing
     """
-    missing_cols = set(COLUMN_ORDER) - set(df.columns)
-    if missing_cols:
-        logger.error(f"Missing required columns: {missing_cols}")
-        raise ValueError(f"DataFrame missing required columns: {missing_cols}")
+    if not skip_availability_checks:
+        missing_cols = set(COLUMN_ORDER) - set(df.columns)
+        if missing_cols:
+            logger.error(f"Missing required columns: {missing_cols}")
+            raise ValueError(f"DataFrame missing required columns: {missing_cols}")
+        logger.debug("Performing availability checks...")
+        # Check for required availability values
+        if not all(df['availability'].str.contains('paper', na=False)):
+            logger.error("Invalid availability values found")
+            return False
+
+        # Check for invalid layouts
+        if any(df['layout'] == 'reversible_card'):
+            logger.error("Invalid card layouts found")
+            return False
+
+        # Check for invalid promo types
+        if any(df['promoTypes'] == 'playtest'):
+            logger.error("Invalid promo types found")
+            return False
+
+        # Check for invalid security stamps
+        if any(df['securityStamp'].isin(['heart', 'acorn'])):
+            logger.error("Invalid security stamps found")
+            return False
+    else:
+        logger.debug("Skipping availability checks...")
+        missing_cols = set(PRETAG_COLUMN_ORDER) - set(df.columns)
+        if missing_cols:
+            logger.error(f"Missing required columns: {missing_cols}")
+            raise ValueError(f"DataFrame missing required columns: {missing_cols}")
 
     logger.info("DataFrame validation successful")
     return True
-
 def filter_banned_cards(df: pd.DataFrame) -> pd.DataFrame:
     """Filter out banned cards from DataFrame.
 
@@ -137,8 +164,15 @@ def filter_card_types(df: pd.DataFrame, excluded_types: List[str] = EXCLUDED_CAR
     return df
 
 def process_card_dataframe(df: pd.DataFrame, batch_size: int = 1000, columns_to_keep: Optional[List[str]] = None,
-                         include_commander_cols: bool = False) -> pd.DataFrame:
+                         include_commander_cols: bool = False, skip_availability_checks: bool = False) -> pd.DataFrame:
     """Process DataFrame with common operations in batches.
+
+    Args:
+        df: DataFrame to process
+        batch_size: Size of batches for processing
+        columns_to_keep: List of columns to keep (default: COLUMN_ORDER)
+        include_commander_cols: Whether to include commander-specific columns
+        skip_availability_checks: Whether to skip availability and security checks (default: False)
 
     Args:
         df: DataFrame to process
@@ -152,7 +186,7 @@ def process_card_dataframe(df: pd.DataFrame, batch_size: int = 1000, columns_to_
     logger.info("Processing card DataFrame...")
 
     if columns_to_keep is None:
-        columns_to_keep = COLUMN_ORDER.copy()
+        columns_to_keep = PRETAG_COLUMN_ORDER.copy()
         if include_commander_cols:
             commander_cols = ['printings', 'text', 'power', 'toughness', 'keywords']
             columns_to_keep.extend(col for col in commander_cols if col not in columns_to_keep)
@@ -170,16 +204,24 @@ def process_card_dataframe(df: pd.DataFrame, batch_size: int = 1000, columns_to_
         end_idx = min((i + 1) * batch_size, len(df))
         batch = df.iloc[start_idx:end_idx].copy()
 
-        # Common processing steps
-        batch = batch[batch['availability'].str.contains('paper', na=False)]
-        batch = batch.loc[batch['layout'] != 'reversible_card']
-        batch = batch.loc[batch['promoTypes'] != 'playtest']
-        batch = batch.loc[batch['securityStamp'] != 'heart']
-        batch = batch.loc[batch['securityStamp'] != 'acorn']
-
-        # Keep only specified columns
-        batch = batch[columns_to_keep]
-        processed_dfs.append(batch)
+        if not skip_availability_checks:
+            columns_to_keep = COLUMN_ORDER.copy()
+            logger.debug("Performing column checks...")
+            # Common processing steps
+            batch = batch[batch['availability'].str.contains('paper', na=False)]
+            batch = batch.loc[batch['layout'] != 'reversible_card']
+            batch = batch.loc[batch['promoTypes'] != 'playtest']
+            batch = batch.loc[batch['securityStamp'] != 'heart']
+            batch = batch.loc[batch['securityStamp'] != 'acorn']
+            # Keep only specified columns
+            batch = batch[columns_to_keep]
+            processed_dfs.append(batch)
+        else:
+            logger.debug("Skipping column checks...")
+    
+    # Keep only specified columns
+    batch = batch[columns_to_keep]
+    processed_dfs.append(batch)
 
     # Combine processed batches
     result = pd.concat(processed_dfs, ignore_index=True)
@@ -235,15 +277,12 @@ def filter_commander_cards(df: pd.DataFrame) -> pd.DataFrame:
     # Validate commander eligibility
     df = validate_commander_eligibility(df)
 
+    # Process with commander-specific columns and skip availability checks
+    df = process_card_dataframe(df, include_commander_cols=True, skip_availability_checks=True)
+
     # Apply commander-specific banned list and filters
     df = filter_banned_cards(df)
     df = filter_card_types(df)
-
-    # Remove un-set and playtest cards
-    df = df[df['availability'].str.contains('paper', na=False)]
-    df = df.loc[df['promoTypes'] != 'playtest']
-    df = df.loc[df['securityStamp'] != 'heart']
-    df = df.loc[df['securityStamp'] != 'acorn']
 
     logger.info("Commander card filtering complete")
     return df
@@ -265,8 +304,8 @@ def filter_card_dataframe(df: pd.DataFrame,
     # Filter DataFrame
     filtered_df = df[df[column_name] == value]
 
-    # Process filtered DataFrame
-    filtered_df = process_card_dataframe(filtered_df)
+    # Process filtered DataFrame - skip availability checks since they're already done
+    filtered_df = process_card_dataframe(filtered_df, skip_availability_checks=True)
 
     # Save to CSV
     filtered_df.to_csv(new_csv_name, index=False)

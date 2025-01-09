@@ -2,18 +2,17 @@ from __future__ import annotations
 
 import logging
 import os
-import pprint # type: ignore
 import re
-from typing import Dict, List, Optional, Set, Union
+from typing import Union
 
 import pandas as pd # type: ignore
 
 import settings
 import utility
-import setup_utility
 
-from settings import csv_directory, multiple_copy_cards, num_to_search, triggers
-from setup import regenerate_csv_by_color, regenerate_csvs_all
+from settings import CSV_DIRECTORY, multiple_copy_cards, num_to_search, triggers
+from setup import regenerate_csv_by_color
+
 
 # Constants for common tag groupings
 TAG_GROUPS = {
@@ -61,7 +60,7 @@ def load_dataframe(color: str):
         ValueError: If required columns are missing
     """
     try:
-        filepath = f'{csv_directory}/{color}_cards.csv'
+        filepath = f'{CSV_DIRECTORY}/{color}_cards.csv'
 
         # Check if file exists, regenerate if needed
         if not os.path.exists(filepath):
@@ -72,15 +71,7 @@ def load_dataframe(color: str):
 
         # Load initial dataframe for validation
         check_df = pd.read_csv(filepath)
-        
-        # Validate DataFrame structure
-        try:
-            setup_utility.validate_card_dataframe(check_df)
-        except ValueError as e:
-            logging.error(f'DataFrame validation failed: {e}')
-            raise
 
-        # Check for required columns
         # Validate required columns
         required_columns = ['creatureTypes', 'themeTags'] 
         missing_columns = [col for col in required_columns if col not in check_df.columns]
@@ -100,7 +91,7 @@ def load_dataframe(color: str):
                 raise ValueError(f"Failed to add required columns: {still_missing}")
 
         # Load final dataframe with proper converters
-        df = setup_utility.process_card_dataframe(pd.read_csv(filepath, converters={'themeTags': pd.eval, 'creatureTypes': pd.eval}))
+        df = pd.read_csv(filepath, converters={'themeTags': pd.eval, 'creatureTypes': pd.eval})
 
         # Process the dataframe
         tag_by_color(df, color)
@@ -171,11 +162,7 @@ def tag_by_color(df, color):
     
     # Lastly, sort all theme tags for easier reading
     sort_theme_tags(df, color)
-    try:
-        setup_utility.filter_card_dataframe(df, 'colorIdentity', color, f'{csv_directory}/{color}_cards.csv')
-    except Exception as e:
-        logging.error(f'Error saving {color}_cards.csv: {e}')
-        raise
+    df.to_csv(f'{CSV_DIRECTORY}/{color}_cards.csv', index=False)
     #print(df)
     print('\n====================\n')
     logging.info(f'Tags are done being set on {color}_cards.csv')
@@ -260,7 +247,7 @@ def kindred_tagging(df: pd.DataFrame, color: str) -> None:
                 'keywords', 'layout', 'side'
             ]
             df = df[columns_to_keep]
-            df.to_csv(f'{settings.csv_directory}/{color}_cards.csv', index=False)
+            df.to_csv(f'{settings.CSV_DIRECTORY}/{color}_cards.csv', index=False)
             total_time = pd.Timestamp.now() - start_time
             logging.info(f'Creature type tagging completed in {total_time.total_seconds():.2f}s')
 
@@ -298,7 +285,7 @@ def create_theme_tags(df: pd.DataFrame, color: str) -> None:
         raise TypeError("df must be a pandas DataFrame")
     if not isinstance(color, str):
         raise TypeError("color must be a string")
-    if color not in settings.colors:
+    if color not in settings.COLORS:
         raise ValueError(f"Invalid color: {color}")
 
     try:
@@ -325,7 +312,7 @@ def create_theme_tags(df: pd.DataFrame, color: str) -> None:
         
         # Save results
         try:
-            df.to_csv(f'{settings.csv_directory}/{color}_cards.csv', index=False)
+            df.to_csv(f'{settings.CSV_DIRECTORY}/{color}_cards.csv', index=False)
             total_time = pd.Timestamp.now() - start_time
             logging.info(f'Creature type tagging completed in {total_time.total_seconds():.2f}s')
 
@@ -6427,10 +6414,9 @@ def tag_for_removal(df: pd.DataFrame, color: str) -> None:
         logging.error(f'Error in tag_for_removal: {str(e)}')
         raise
 
-
-#start_time = pd.Timestamp.now()
-#regenerate_csvs_all()
-#for color in settings.colors:
-#    load_dataframe(color)
-#duration = (pd.Timestamp.now() - start_time).total_seconds()
-#logging.info(f'Tagged cards in {duration:.2f}s')
+def run_tagging():
+    start_time = pd.Timestamp.now()
+    for color in settings.COLORS:
+        load_dataframe(color)
+    duration = (pd.Timestamp.now() - start_time).total_seconds()
+    logging.info(f'Tagged cards in {duration:.2f}s')

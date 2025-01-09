@@ -8,6 +8,7 @@ from typing import NoReturn, Optional
 
 import setup
 import card_info
+import tagger
 
 # Configure logging
 logging.basicConfig(
@@ -23,9 +24,10 @@ logging.basicConfig(
 MENU_SETUP = 'Setup'
 MENU_BUILD_DECK = 'Build a Deck'
 MENU_CARD_INFO = 'Get Card Info'
+MAIN_TAG = 'Tag CSV Files'
 MENU_QUIT = 'Quit'
 
-MENU_CHOICES = [MENU_SETUP, MENU_BUILD_DECK, MENU_CARD_INFO, MENU_QUIT]
+MENU_CHOICES = [MENU_SETUP, MENU_BUILD_DECK, MENU_CARD_INFO, MAIN_TAG, MENU_QUIT]
 def get_menu_choice() -> Optional[str]:
     """Display the main menu and get user choice.
 
@@ -82,11 +84,14 @@ def run_menu() -> NoReturn:
             match choice:
                 case 'Setup':
                     setup.setup()
+                    tagger.run_tagging()
                 case 'Build a Deck':
                     logging.info("Deck building not yet implemented")
                     print('Deck building not yet implemented')
                 case 'Get Card Info':
                     handle_card_info()
+                case 'Tag CSV Files':
+                    tagger.run_tagging()
                 case 'Quit':
                     logging.info("Exiting application")
                     sys.exit(0)

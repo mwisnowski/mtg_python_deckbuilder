@@ -275,6 +275,7 @@ def setup() -> bool:
     This function provides a menu-driven interface to:
     1. Perform initial setup by downloading and processing card data
     2. Regenerate CSV files with updated card data
+    3. Perform all tagging processes on the color-sorted csv files
     
     The function handles errors gracefully and provides feedback through logging.
     

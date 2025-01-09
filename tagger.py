@@ -5641,72 +5641,173 @@ def tag_for_toughness(df: pd.DataFrame, color: str) -> None:
     except Exception as e:
         logging.error(f'Error in tag_for_toughness: {str(e)}')
         raise
+
 ## Topdeck
-def tag_for_topdeck(df, color):
-    print(f'Tagging cards in {color}_cards.csv that fit the "Topdeck" theme.')
-    for index, row in df.iterrows():
-        theme_tags = row['themeTags']
-        if pd.notna(row['text']):
-            if ('from the top' in row['text'].lower()
-                or 'look at the top' in row['text'].lower()
-                or 'reveal the top' in row['text'].lower()
-                or 'scries' in row['text'].lower()
-                or 'surveils' in row['text'].lower()
-                or 'top of your library' in row['text'].lower()
-                or 'you scry' in row['text'].lower()
-                or 'you surveil' in row['text'].lower()
-                ):
-                tag_type = ['Topdeck']
-                for tag in tag_type:
-                    if tag not in theme_tags:
-                        theme_tags.extend([tag])
-                        df.at[index, 'themeTags'] = theme_tags
-        if pd.notna(row['keywords']):
-            if ('Miracle' in row['keywords']
-                or 'Scry' in row['keywords']
-                or 'Surveil' in row['keywords']
-                ):
-                tag_type = ['Topdeck']
-                for tag in tag_type:
-                    if tag not in theme_tags:
-                        theme_tags.extend([tag])
-                        df.at[index, 'themeTags'] = theme_tags
-    
-    print(f'"Topdeck" cards in {color}_cards.csv have been tagged.\n')
+def create_topdeck_text_mask(df: pd.DataFrame) -> pd.Series:
+    """Create a boolean mask for cards with topdeck-related text patterns.
+
+    Args:
+        df: DataFrame to search
+
+    Returns:
+        Boolean Series indicating which cards have topdeck text patterns
+    """
+    return utility.create_text_mask(df, settings.TOPDECK_TEXT_PATTERNS)
+
+def create_topdeck_keyword_mask(df: pd.DataFrame) -> pd.Series:
+    """Create a boolean mask for cards with topdeck-related keywords.
+
+    Args:
+        df: DataFrame to search
+
+    Returns:
+        Boolean Series indicating which cards have topdeck keywords
+    """
+    return utility.create_keyword_mask(df, settings.TOPDECK_KEYWORDS)
+
+def create_topdeck_specific_mask(df: pd.DataFrame) -> pd.Series:
+    """Create a boolean mask for specific topdeck-related cards.
+
+    Args:
+        df: DataFrame to search
+
+    Returns:
+        Boolean Series indicating which cards are specific topdeck cards
+    """
+    return utility.create_name_mask(df, settings.TOPDECK_SPECIFIC_CARDS)
+
+def create_topdeck_exclusion_mask(df: pd.DataFrame) -> pd.Series:
+    """Create a boolean mask for cards that should be excluded from topdeck effects.
+
+    Args:
+        df: DataFrame to search
+
+    Returns:
+        Boolean Series indicating which cards should be excluded
+    """
+    return utility.create_text_mask(df, settings.TOPDECK_EXCLUSION_PATTERNS)
+
+def tag_for_topdeck(df: pd.DataFrame, color: str) -> None:
+    """Tag cards that manipulate the top of library using vectorized operations.
+
+    This function identifies and tags cards that interact with the top of the library including:
+    - Cards that look at or reveal top cards
+    - Cards with scry or surveil effects
+    - Cards with miracle or similar mechanics
+    - Cards that care about the order of the library
+
+    Args:
+        df: DataFrame containing card data
+        color: Color identifier for logging purposes
+
+    Raises:
+        ValueError: If required DataFrame columns are missing
+    """
+    start_time = pd.Timestamp.now()
+    logging.info(f'Starting topdeck effect tagging for {color}_cards.csv')
+
+    try:
+        # Validate required columns
+        required_cols = {'text', 'themeTags', 'keywords'}
+        utility.validate_dataframe_columns(df, required_cols)
+
+        # Create masks for different topdeck patterns
+        text_mask = create_topdeck_text_mask(df)
+        keyword_mask = create_topdeck_keyword_mask(df)
+        specific_mask = create_topdeck_specific_mask(df)
+        exclusion_mask = create_topdeck_exclusion_mask(df)
+
+        # Combine masks
+        final_mask = (text_mask | keyword_mask | specific_mask) & ~exclusion_mask
+
+        # Apply tags
+        utility.apply_tag_vectorized(df, final_mask, ['Topdeck'])
+
+        # Log results
+        duration = (pd.Timestamp.now() - start_time).total_seconds()
+        logging.info(f'Tagged {final_mask.sum()} cards with topdeck effects in {duration:.2f}s')
+
+    except Exception as e:
+        logging.error(f'Error in tag_for_topdeck: {str(e)}')
+        raise
 
 ## X Spells
-def tag_for_x_spells(df, color):
-    print(f'Tagging cards in {color}_cards.csv that fit the "X Spells" theme.')
-    df['manaCost'] = df['manaCost'].astype(str)
-    for index, row in df.iterrows():
-        theme_tags = row['themeTags']
-        if pd.notna(row['text']):
-            if ('cost {x} less' in row['text'].lower()
-                or 'don\'t lose this' in row['text'].lower()
-                or 'don\'t lose unspent' in row['text'].lower()
-                or 'lose unused mana' in row['text'].lower()
-                or 'unused mana would empty' in row['text'].lower()
-                or 'with {x} in its' in row['text'].lower()
-                or 'you cast cost {1} less' in row['text'].lower()
-                or 'you cast cost {2} less' in row['text'].lower()
-                or 'you cast cost {3} less' in row['text'].lower()
-                or 'you cast cost {4} less' in row['text'].lower()
-                or 'you cast cost {5} less' in row['text'].lower()
-                ):
-                tag_type = ['X Spells']
-                for tag in tag_type:
-                    if tag not in theme_tags:
-                        theme_tags.extend([tag])
-                        df.at[index, 'themeTags'] = theme_tags
-        if ('{X}' in row['manaCost']
-            ):
-            tag_type = ['X Spells']
-            for tag in tag_type:
-                if tag not in theme_tags:
-                    theme_tags.extend([tag])
-                    df.at[index, 'themeTags'] = theme_tags
-    
-    print(f'"X Spells" cards in {color}_cards.csv have been tagged.\n')
+def create_x_spells_text_mask(df: pd.DataFrame) -> pd.Series:
+    """Create a boolean mask for cards with X spell-related text patterns.
+
+    Args:
+        df: DataFrame to search
+
+    Returns:
+        Boolean Series indicating which cards have X spell text patterns
+    """
+    text_patterns = [
+        'cost {x} less',
+        'don\'t lose this',
+        'don\'t lose unspent',
+        'lose unused mana',
+        'unused mana would empty',
+        'with {x} in its',
+        'you cast cost {1} less',
+        'you cast cost {2} less',
+        'you cast cost {3} less',
+        'you cast cost {4} less',
+        'you cast cost {5} less'
+    ]
+    return utility.create_text_mask(df, text_patterns)
+
+def create_x_spells_mana_mask(df: pd.DataFrame) -> pd.Series:
+    """Create a boolean mask for cards with X in their mana cost.
+
+    Args:
+        df: DataFrame to search
+
+    Returns:
+        Boolean Series indicating which cards have X in mana cost
+    """
+    return df['manaCost'].fillna('').str.contains('{X}', case=True, regex=False)
+
+def tag_for_x_spells(df: pd.DataFrame, color: str) -> None:
+    """Tag cards that care about X spells using vectorized operations.
+
+    This function identifies and tags cards that:
+    - Have X in their mana cost
+    - Care about X spells or mana values
+    - Have cost reduction effects for X spells
+    - Preserve unspent mana
+
+    Args:
+        df: DataFrame containing card data
+        color: Color identifier for logging purposes
+
+    Raises:
+        ValueError: If required DataFrame columns are missing
+    """
+    start_time = pd.Timestamp.now()
+    logging.info(f'Starting X spells tagging for {color}_cards.csv')
+
+    try:
+        # Validate required columns
+        required_cols = {'text', 'themeTags', 'manaCost'}
+        utility.validate_dataframe_columns(df, required_cols)
+
+        # Create masks for different X spell patterns
+        text_mask = create_x_spells_text_mask(df)
+        mana_mask = create_x_spells_mana_mask(df)
+
+        # Combine masks
+        final_mask = text_mask | mana_mask
+
+        # Apply tags
+        utility.apply_tag_vectorized(df, final_mask, ['X Spells'])
+
+        # Log results
+        duration = (pd.Timestamp.now() - start_time).total_seconds()
+        logging.info(f'Tagged {final_mask.sum()} cards with X spell effects in {duration:.2f}s')
+
+    except Exception as e:
+        logging.error(f'Error in tag_for_x_spells: {str(e)}')
+        raise
 
 ### Interaction
 ## Overall tag for interaction group

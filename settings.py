@@ -107,9 +107,49 @@ LANDS_MATTER_SPECIFIC_CARDS = [
     'Wonderscape Sage'
 ]
 
+# Constants for topdeck manipulation
+TOPDECK_TEXT_PATTERNS = [
+    'from the top',
+    'look at the top',
+    'reveal the top', 
+    'scries',
+    'surveils',
+    'top of your library',
+    'you scry',
+    'you surveil'
+]
+
+TOPDECK_KEYWORDS = [
+    'Miracle',
+    'Scry',
+    'Surveil'
+]
+
+TOPDECK_SPECIFIC_CARDS = [
+    'Aminatou, the Fateshifter',
+    'Brainstorm',
+    'Counterbalance',
+    'Delver of Secrets',
+    'Jace, the Mind Sculptor',
+    'Lantern of Insight',
+    'Melek, Izzet Paragon',
+    'Mystic Forge',
+    'Sensei\'s Divining Top',
+    'Soothsaying',
+    'Temporal Mastery',
+    'Vampiric Tutor'
+]
+
+TOPDECK_EXCLUSION_PATTERNS = [
+    'from the top of target player\'s library',
+    'from the top of their library',
+    'look at the top card of target player\'s library',
+    'reveal the top card of target player\'s library'
+]
+
 # Constants for stax functionality
 STAX_TEXT_PATTERNS = [
-    'an opponent controls',
+    'an opponent controls'
     'can\'t attack',
     'can\'t be cast', 
     'can\'t be activated',

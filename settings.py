@@ -1,4 +1,13 @@
-artifact_tokens = ['Blood', 'Clue', 'Food', 'Gold', 'Incubator',
+from typing import List, Dict, Union, Final
+
+# Type aliases
+CardName = str
+CardType = str
+ThemeTag = str
+ColorIdentity = str
+
+# Token configuration
+artifact_tokens: List[str] = ['Blood', 'Clue', 'Food', 'Gold', 'Incubator',
                 'Junk','Map','Powerstone', 'Treasure']
 
 banned_cards = [# in commander
@@ -23,11 +32,19 @@ banned_cards = [# in commander
                 'Jihad', 'Imprison', 'Crusade'
                 ]
 
-basic_lands = ['Plains', 'Island', 'Swamp', 'Mountain', 'Forest']
-basic_lands = ['Plains', 'Island', 'Swamp', 'Mountain', 'Forest']
+# DataFrame processing configuration
+BATCH_SIZE: int = 1000  # Number of records to process at once
+CSV_DOWNLOAD_TIMEOUT: int = 30  # Timeout in seconds for CSV downloads
+PROGRESS_UPDATE_INTERVAL: int = 100  # Number of records between progress updates
+
+# DataFrame validation configuration
+MIN_EDHREC_RANK: int = 0
+MAX_EDHREC_RANK: int = 100000
+MIN_MANA_VALUE: int = 0
+MAX_MANA_VALUE: int = 20
 
 # Constants for lands matter functionality
-LANDS_MATTER_PATTERNS = {
+LANDS_MATTER_PATTERNS: Dict[str, List[str]] = {
     'land_play': [
         'play a land',
         'play an additional land', 
@@ -285,6 +302,7 @@ STAX_EXCLUSION_PATTERNS = [
     'from your library',
     'into your hand'
 ]
+
 # Constants for removal functionality
 REMOVAL_TEXT_PATTERNS = [
     'destroy target',
@@ -499,13 +517,32 @@ BOARD_WIPE_EXCLUSION_PATTERNS = [
     'target player\'s library',
     'that player\'s library'
 ]
+# Card type constants
+CARD_TYPES: Final[List[str]] = ['Artifact','Creature', 'Enchantment', 'Instant', 'Land', 'Planeswalker', 'Sorcery',
+                        'Kindred', 'Dungeon', 'Battle']
 
+BASIC_LANDS: Final[List[str]] = ['Plains', 'Island', 'Swamp', 'Mountain', 'Forest']
 
-card_types = ['Artifact','Creature', 'Enchantment', 'Instant', 'Land', 'Planeswalker', 'Sorcery',
-              'Kindred', 'Dungeon', 'Battle']
+# Color identity constants
+COLORS: Final[List[str]] = ['colorless', 'white', 'blue', 'black', 'red', 'green',
+                'azorius', 'orzhov', 'selesnya', 'boros', 'dimir',
+                'simic', 'izzet', 'golgari', 'rakdos', 'gruul',
+                'bant', 'esper', 'grixis', 'jund', 'naya',
+                'abzan', 'jeskai', 'mardu', 'sultai', 'temur',
+                'dune', 'glint', 'ink', 'witch', 'yore', 'wubrg',
+                'commander']
+
+COLOR_ABBREVIATIONS: Final[List[str]] = ['Colorless', 'W', 'U', 'B', 'R', 'G',
+                'U, W', 'B, W', 'G, W', 'R, W', 'B, U',
+                'G, U', 'R, U', 'B, G', 'B, R', 'G, R',
+                'G, U, W', 'B, U, W', 'B, R, U', 'B, G, R', 'G, R, W',
+                'B, G, W', 'R, U, W', 'B, R, W', 'B, G, U', 'G, R, U',
+                'B, G, R, W', 'B, G, R, U', 'G, R, U, W', 'B, G, U, W',
+                'B, R, U, W', 'B, G, R, U, W']
 
 # Mapping of card types to their corresponding theme tags
-TYPE_TAG_MAPPING = {
+# Mapping of card types to their corresponding theme tags
+TYPE_TAG_MAPPING: Dict[str, List[str]] = {
     'Artifact': ['Artifacts Matter'],
     'Battle': ['Battles Matter'],
     #'Creature': [],
@@ -517,18 +554,12 @@ TYPE_TAG_MAPPING = {
     'Planeswalker': ['Superfriends'],
     'Sorcery': ['Spells Matter', 'Spellslinger']
 }
+# File system configuration
+CSV_DIRECTORY: Final[str] = 'csv_files'
 
-csv_directory = 'csv_files'
+# Counter types and tokens
 
-colors = ['colorless', 'white', 'blue', 'black', 'red', 'green',
-                'azorius', 'orzhov', 'selesnya', 'boros', 'dimir',
-                'simic', 'izzet', 'golgari', 'rakdos', 'gruul',
-                'bant', 'esper', 'grixis', 'jund', 'naya',
-                'abzan', 'jeskai', 'mardu', 'sultai', 'temur',
-                'dune', 'glint', 'ink', 'witch', 'yore', 'wubrg',
-                'commander']
-
-counter_types = [r'\+0/\+1', r'\+0/\+2', r'\+1/\+0', r'\+1/\+2', r'\+2/\+0', r'\+2/\+2',
+counter_types: List[str] = [r'\+0/\+1', r'\+0/\+2', r'\+1/\+0', r'\+1/\+2', r'\+2/\+0', r'\+2/\+2',
                 '-0/-1', '-0/-2', '-1/-0', '-1/-2', '-2/-0', '-2/-2',
                 'Acorn', 'Aegis', 'Age', 'Aim', 'Arrow', 'Arrowhead','Awakening',
                 'Bait', 'Blaze', 'Blessing', 'Blight',' Blood', 'Bloddline',
@@ -564,7 +595,7 @@ counter_types = [r'\+0/\+1', r'\+0/\+2', r'\+1/\+0', r'\+1/\+2', r'\+2/\+0', r'\
                 'Vitality', 'Void', 'Volatile', 'Vortex', 'Vow', 'Voyage', 'Wage',
                 'Winch', 'Wind', 'Wish']
 
-creature_types = ['Advisor', 'Aetherborn', 'Alien', 'Ally', 'Angel', 'Antelope', 'Ape', 'Archer', 'Archon', 'Armadillo',
+creature_types: List[str] = ['Advisor', 'Aetherborn', 'Alien', 'Ally', 'Angel', 'Antelope', 'Ape', 'Archer', 'Archon', 'Armadillo',
                 'Army', 'Artificer', 'Assassin', 'Assembly-Worker', 'Astartes', 'Atog', 'Aurochs', 'Automaton',
                 'Avatar', 'Azra', 'Badger', 'Balloon', 'Barbarian', 'Bard', 'Basilisk', 'Bat', 'Bear', 'Beast', 'Beaver',
                 'Beeble', 'Beholder', 'Berserker', 'Bird', 'Blinkmoth', 'Boar', 'Brainiac', 'Bringer', 'Brushwagg',
@@ -596,14 +627,14 @@ creature_types = ['Advisor', 'Aetherborn', 'Alien', 'Ally', 'Angel', 'Antelope',
                 'Warlock', 'Warrior', 'Wasp', 'Weasel', 'Weird', 'Werewolf', 'Whale', 'Wizard', 'Wolf', 'Wolverine', 'Wombat',
                 'Worm', 'Wraith', 'Wurm', 'Yeti', 'Zombie', 'Zubera']
 
-enchantment_tokens = ['Cursed Role', 'Monster Role', 'Royal Role', 'Sorcerer Role',
+enchantment_tokens: List[str] = ['Cursed Role', 'Monster Role', 'Royal Role', 'Sorcerer Role',
                 'Virtuous Role', 'Wicked Role', 'Young Hero Role', 'Shard']
 
-multiple_copy_cards = ['Dragon\'s Approach', 'Hare Apparent', 'Nazgûl', 'Persistent Petitioners',
+multiple_copy_cards: List[str] = ['Dragon\'s Approach', 'Hare Apparent', 'Nazgûl', 'Persistent Petitioners',
                        'Rat Colony', 'Relentless Rats', 'Seven Dwarves', 'Shadowborn Apostle',
                        'Slime Against Humanity', 'Templar Knight']
 
-non_creature_types = ['Legendary', 'Creature', 'Enchantment', 'Artifact',
+non_creature_types: List[str] = ['Legendary', 'Creature', 'Enchantment', 'Artifact',
                 'Battle', 'Sorcery', 'Instant', 'Land', '-', '—',
                 'Blood', 'Clue', 'Food', 'Gold', 'Incubator',
                 'Junk', 'Map', 'Powerstone', 'Treasure',
@@ -617,11 +648,11 @@ non_creature_types = ['Legendary', 'Creature', 'Enchantment', 'Artifact',
                 'Cave', 'Desert', 'Gate', 'Lair', 'Locus', 'Mine',
                 'Power-Plant', 'Sphere', 'Tower', 'Urza\'s']
 
-num_to_search = ['a', 'an', 'one', '1', 'two', '2', 'three', '3', 'four','4', 'five', '5',
+num_to_search: List[str] = ['a', 'an', 'one', '1', 'two', '2', 'three', '3', 'four','4', 'five', '5',
                 'six', '6', 'seven', '7', 'eight', '8', 'nine', '9', 'ten', '10',
                 'x','one or more']
 
-theme_tags = ['+1/+1 counter', 'one or more counters', 'token', 'gain life', 'one or more creature tokens',
+theme_tags: List[str] = ['+1/+1 counter', 'one or more counters', 'token', 'gain life', 'one or more creature tokens',
                 'creature token', 'treasure', 'create token', 'draw a card', 'flash', 'choose a creature type',
                 'play land', 'artifact you control enters', 'enchantment you control enters', 'poison counter',
                 'from graveyard', 'mana value', 'from exile', 'mana of any color', 'attacks', 'total power',
@@ -631,10 +662,10 @@ theme_tags = ['+1/+1 counter', 'one or more counters', 'token', 'gain life', 'on
                 'control get +1/+1', 'control dies', 'experience counter', 'triggered ability', 'token',
                 'commit a crime']
 
-targetted_removal_tags = ['exile target', 'destroy target', 'return target', 'shuffles target', 'you control',
+targetted_removal_tags: List[str] = ['exile target', 'destroy target', 'return target', 'shuffles target', 'you control',
                 'deals damage to target', 'loses all abilities']
 
-triggers = ['when', 'whenever', 'at']
+triggers: List[str] = ['when', 'whenever', 'at']
 
 # Constants for draw-related functionality
 DRAW_RELATED_TAGS = [
@@ -674,9 +705,26 @@ DEFAULT_THEME_TAGS = [
 
 COLUMN_ORDER = [
     'name', 'faceName', 'edhrecRank', 'colorIdentity', 'colors',
+    'manaCost', 'manaValue', 'type', 'text', 'power', 'toughness',
+    'keywords', 'layout', 'side', 'availability', 'promoTypes',
+    'securityStamp'
+]
+
+PRETAG_COLUMN_ORDER = [
+    'name', 'faceName', 'edhrecRank', 'colorIdentity', 'colors',
+    'manaCost', 'manaValue', 'type', 'text', 'power', 'toughness',
+    'keywords', 'layout', 'side'
+]
+
+TAGGED_COLUMN_ORDER = [
+    'name', 'faceName', 'edhrecRank', 'colorIdentity', 'colors',
     'manaCost', 'manaValue', 'type', 'creatureTypes', 'text',
     'power', 'toughness', 'keywords', 'themeTags', 'layout', 'side'
 ]
+
+EXCLUDED_CARD_TYPES = ['Plane —', 'Conspiracy', 'Vanguard', 'Scheme',
+                       'Phenomenon', 'Stickers', 'Attraction', 'Hero',
+                       'Contraption']
 
 # Constants for type detection and processing
 OUTLAW_TYPES = ['Assassin', 'Mercenary', 'Pirate', 'Rogue', 'Warlock']

@@ -13,7 +13,8 @@ import time
 from functools import lru_cache
 from fuzzywuzzy import process # type: ignore
 
-from settings import basic_lands, card_types, csv_directory, multiple_copy_cards
+from settings import BASIC_LANDS, card_types, csv_directory, multiple_copy_cards
+import setup_utility
 from setup import determine_commanders
 
 try:
@@ -192,6 +193,9 @@ class DeckBuilder:
         except FileNotFoundError:
             determine_commanders()
             df = pd.read_csv('csv_files/commander_cards.csv', converters={'themeTags': pd.eval, 'creatureTypes': pd.eval})
+        except Exception as e:
+            logging.error(f"Error loading commander data: {e}")
+            raise
         # Determine the commander of the deck
         # Set frames that have nothing for color identity to be 'COLORLESS' instead
         df['colorIdentity'] = df['colorIdentity'].fillna('COLORLESS')
@@ -484,11 +488,13 @@ class DeckBuilder:
         try:
             filepath = f'{csv_directory}/{filename}_cards.csv'
             df = pd.read_csv(filepath, converters=converters or {'themeTags': pd.eval, 'creatureTypes': pd.eval})
-            logging.debug(f"Successfully read {filename}_cards.csv")
+            df = setup_utility.process_card_dataframe(df)
+            logging.debug(f"Successfully read and processed {filename}_cards.csv")
             return df
         except FileNotFoundError as e:
             logging.error(f"File {filename}_cards.csv not found: {e}")
-            raise
+            setup_utility.regenerate_csvs_all()
+            return self.read_csv(filename, converters)
         except Exception as e:
             logging.error(f"Error reading {filename}_cards.csv: {e}")
             raise
@@ -887,7 +893,7 @@ class DeckBuilder:
         Raises:
             ValueError: If card price exceeds maximum allowed price when price checking is enabled
         """
-        multiple_copies = basic_lands + multiple_copy_cards
+        multiple_copies = BASIC_LANDS + multiple_copy_cards
 
         # Skip if card already exists and isn't allowed multiple copies
         if card in pd.Series(self.card_library['Card Name']).values and card not in multiple_copies:
@@ -982,7 +988,7 @@ class DeckBuilder:
             logging.error(f"Error moving commander to top: {str(e)}")
     def concatenate_duplicates(self):
         """Handle duplicate cards in the library while maintaining data integrity."""
-        duplicate_lists = basic_lands + multiple_copy_cards
+        duplicate_lists = BASIC_LANDS + multiple_copy_cards
         
         # Create a count column for duplicates
         self.card_library['Card Count'] = 1

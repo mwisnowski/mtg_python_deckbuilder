@@ -10,10 +10,10 @@ import pandas as pd # type: ignore
 
 import settings
 import utility
+import setup_utility
 
 from settings import csv_directory, multiple_copy_cards, num_to_search, triggers
 from setup import regenerate_csv_by_color, regenerate_csvs_all
-
 
 # Constants for common tag groupings
 TAG_GROUPS = {
@@ -72,7 +72,15 @@ def load_dataframe(color: str):
 
         # Load initial dataframe for validation
         check_df = pd.read_csv(filepath)
+        
+        # Validate DataFrame structure
+        try:
+            setup_utility.validate_card_dataframe(check_df)
+        except ValueError as e:
+            logging.error(f'DataFrame validation failed: {e}')
+            raise
 
+        # Check for required columns
         # Validate required columns
         required_columns = ['creatureTypes', 'themeTags'] 
         missing_columns = [col for col in required_columns if col not in check_df.columns]
@@ -92,7 +100,7 @@ def load_dataframe(color: str):
                 raise ValueError(f"Failed to add required columns: {still_missing}")
 
         # Load final dataframe with proper converters
-        df = pd.read_csv(filepath, converters={'themeTags': pd.eval, 'creatureTypes': pd.eval})
+        df = setup_utility.process_card_dataframe(pd.read_csv(filepath, converters={'themeTags': pd.eval, 'creatureTypes': pd.eval}))
 
         # Process the dataframe
         tag_by_color(df, color)
@@ -163,7 +171,11 @@ def tag_by_color(df, color):
     
     # Lastly, sort all theme tags for easier reading
     sort_theme_tags(df, color)
-    df.to_csv(f'{csv_directory}/{color}_cards.csv', index=False)
+    try:
+        setup_utility.filter_card_dataframe(df, 'colorIdentity', color, f'{csv_directory}/{color}_cards.csv')
+    except Exception as e:
+        logging.error(f'Error saving {color}_cards.csv: {e}')
+        raise
     #print(df)
     print('\n====================\n')
     logging.info(f'Tags are done being set on {color}_cards.csv')

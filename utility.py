@@ -1,14 +1,13 @@
-import pandas as pd
+import pandas as pd # type: ignore
 import re
-import logging
-
-from typing import Dict, List, Optional, Set, Union
-from time import perf_counter
+import warnings
+from typing import List, Set, Union
 
 import settings
 
 def pluralize(word: str) -> str:
     """Convert a word to its plural form using basic English pluralization rules.
+    Used by tagger module for text operations.
 
     Args:
         word: The singular word to pluralize
@@ -27,6 +26,7 @@ def pluralize(word: str) -> str:
 
 def sort_list(items: Union[List, pd.Series]) -> Union[List, pd.Series]:
     """Sort a list or pandas Series in ascending order.
+    Used by tagger module for sorting tags.
 
     Args:
         items: List or Series to sort
@@ -40,6 +40,7 @@ def sort_list(items: Union[List, pd.Series]) -> Union[List, pd.Series]:
 
 def create_type_mask(df: pd.DataFrame, type_text: Union[str, List[str]], regex: bool = True) -> pd.Series:
     """Create a boolean mask for rows where type matches one or more patterns.
+    Core pattern matching function used by tagger module.
 
     Args:
         df: DataFrame to search
@@ -70,6 +71,7 @@ def create_type_mask(df: pd.DataFrame, type_text: Union[str, List[str]], regex: 
 
 def create_text_mask(df: pd.DataFrame, type_text: Union[str, List[str]], regex: bool = True, combine_with_or: bool = True) -> pd.Series:
     """Create a boolean mask for rows where text matches one or more patterns.
+    Core pattern matching function used by tagger module.
 
     Args:
         df: DataFrame to search
@@ -101,9 +103,9 @@ def create_text_mask(df: pd.DataFrame, type_text: Union[str, List[str]], regex: 
             return pd.concat(masks, axis=1).any(axis=1)
         else:
             return pd.concat(masks, axis=1).all(axis=1)
-
 def create_keyword_mask(df: pd.DataFrame, type_text: Union[str, List[str]], regex: bool = True) -> pd.Series:
     """Create a boolean mask for rows where keyword text matches one or more patterns.
+    Core pattern matching function used by tagger module.
 
     Args:
         df: DataFrame to search
@@ -260,6 +262,7 @@ def create_tag_mask(df: pd.DataFrame, tag_patterns: Union[str, List[str]], colum
 
 def validate_dataframe_columns(df: pd.DataFrame, required_columns: Set[str]) -> None:
     """Validate that DataFrame contains all required columns.
+    Core validation function used by tagger module.
 
     Args:
         df: DataFrame to validate
@@ -272,8 +275,16 @@ def validate_dataframe_columns(df: pd.DataFrame, required_columns: Set[str]) -> 
     if missing:
         raise ValueError(f"Missing required columns: {missing}")
     
+    # Add deprecation warning for setup.py usage
+    if 'setup.py' in __file__:
+        warnings.warn(
+            "This function will be moved to setup_utility.py in a future version.",
+            DeprecationWarning,
+            stacklevel=2
+        )
 def apply_tag_vectorized(df: pd.DataFrame, mask: pd.Series, tags: List[str]) -> None:
     """Apply tags to rows in a dataframe based on a boolean mask.
+    Core tagging function used by tagger module.
     
     Args:
         df: The dataframe to modify

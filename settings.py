@@ -107,6 +107,90 @@ LANDS_MATTER_SPECIFIC_CARDS = [
     'Wonderscape Sage'
 ]
 
+# Constants for stax functionality
+STAX_TEXT_PATTERNS = [
+    'an opponent controls',
+    'can\'t attack',
+    'can\'t be cast', 
+    'can\'t be activated',
+    'can\'t cast spells',
+    'can\'t enter',
+    'can\'t search',
+    'can\'t untap',
+    'don\'t untap',
+    'don\'t cause abilities',
+    'each other player\'s',
+    'each player\'s upkeep',
+    'opponent would search',
+    'opponents cast cost',
+    'opponents can\'t',
+    'opponents control',
+    'opponents control can\'t',
+    'opponents control enter tapped',
+    'spells cost {1} more',
+    'spells cost {2} more',
+    'spells cost {3} more',
+    'spells cost {4} more',
+    'spells cost {5} more',
+    'that player doesn\'t',
+    'unless that player pays',
+    'you control your opponent',
+    'you gain protection'
+]
+
+STAX_SPECIFIC_CARDS = [
+    'Archon of Emeria',
+    'Drannith Magistrate',
+    'Ethersworn Canonist', 
+    'Grand Arbiter Augustin IV',
+    'Hokori, Dust Drinker',
+    'Kataki, War\'s Wage',
+    'Lavinia, Azorius Renegade',
+    'Leovold, Emissary of Trest',
+    'Magus of the Moon',
+    'Narset, Parter of Veils',
+    'Opposition Agent',
+    'Rule of Law',
+    'Sanctum Prelate',
+    'Thalia, Guardian of Thraben',
+    'Winter Orb'
+]
+
+STAX_EXCLUSION_PATTERNS = [
+    'blocking enchanted',
+    'blocking it',
+    'blocked by',
+    'end the turn',
+    'from your graveyard',
+    'from your hand',
+    'from your library',
+    'into your hand'
+]
+
+# Constants for theft functionality
+THEFT_TEXT_PATTERNS = [
+    'cast a spell you don\'t own',
+    'cast but don\'t own',
+    'cost to cast this spell, sacrifice',
+    'control but don\'t own',
+    'exile top of target player\'s library',
+    'exile top of each player\'s library',
+    'gain control of',
+    'target opponent\'s library',
+    'that player\'s library',
+    'you control enchanted creature'
+]
+
+THEFT_SPECIFIC_CARDS = [
+    'Adarkar Valkyrie',
+    'Captain N\'gathrod',
+    'Hostage Taker',
+    'Siphon Insight',
+    'Thief of Sanity',
+    'Xanathar, Guild Kingpin',
+    'Zara, Renegade Recruiter'
+]
+
 # Constants for big mana functionality
 BIG_MANA_TEXT_PATTERNS = [
     'add {w}{u}{b}{r}{g}',

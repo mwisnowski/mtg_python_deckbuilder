@@ -1193,7 +1193,7 @@ def tag_for_artifact_tokens(df: pd.DataFrame, color: str) -> None:
                 ['Artifact Tokens', 'Artifacts Matter', 'Token Creation', 'Tokens Matter'])
 
             # Track token type counts
-            token_counts = {}
+            token_counts = {} # type: dict
 
             # Apply specific token type tags
             for idx, token_type in token_map.items():
@@ -3964,7 +3964,7 @@ def tag_for_themes(df: pd.DataFrame, color: str) -> None:
     print('\n==========\n')
     tag_for_infect(df, color)
     print('\n==========\n')
-    search_for_legends(df, color)
+    tag_for_legends_matter(df, color)
     print('\n==========\n')
     tag_for_little_guys(df, color)
     print('\n==========\n')
@@ -4250,615 +4250,1397 @@ def tag_for_big_mana(df: pd.DataFrame, color: str) -> None:
     except Exception as e:
         logging.error(f'Error in tag_for_big_mana: {str(e)}')
         raise
+
 ## Blink
-def tag_for_blink(df, color):
-    print(f'Tagging cards in {color}_cards.csv that fit the "Blink/Flicker" theme.\n'
-          'Cards here can generally also fit an ETB matters theme.')
-    for index, row in df.iterrows():
-        theme_tags = row['themeTags']
-        if pd.notna(row['text']):
-            if ('creature entering causes' in row['text'].lower()
-                or 'exile any number of other' in row['text'].lower()
-                or 'exile one or more cards from your hand' in row['text'].lower()
-                or 'permanent entering the battlefield' in row['text'].lower()
-                or 'permanent you control, then return' in row['text'].lower()
-                or 'permanent you control enters' in row['text'].lower()
-                or 'permanents you control, then return' in row['text'].lower()
-                or 'return it to the battlefield' in row['text'].lower()
-                or 'return that card to the battlefield' in row['text'].lower()
-                or 'return them to the battlefield' in row['text'].lower()
-                or 'return those cards to the battlefield' in row['text'].lower()
-                or 'triggered ability of a permanent' in row['text'].lower()
-                or 'whenever another creature enters' in row['text'].lower()
-                or 'whenever another nontoken creature enters' in row['text'].lower()
-                or f'when {row['name']} enters' in row['text'].lower()
-                or f'when {row['name']} leaves' in row['text'].lower()
-                or 'when this creature enters' in row['text'].lower()
-                or 'when this creature leaves' in row['text'].lower()
-                or 'whenever this creature enters' in row['text'].lower()
-                or 'whenever this creature leaves' in row['text'].lower()
-                or f'whenever {row['name']} enters' in row['text'].lower()
-                or f'whenever {row['name']} leaves' in row['text'].lower()
-                ):
-                tag_type = ['Blink', 'Enter the Battlefield', 'Leave the Battlefield']
-                for tag in tag_type:
-                    if tag not in theme_tags:
-                        theme_tags.extend([tag])
-                        df.at[index, 'themeTags'] = theme_tags
-    
-    print(f'"Blink/Flicker" cards in {color}_cards.csv have been tagged.\n')
-    
+def create_etb_mask(df: pd.DataFrame) -> pd.Series:
+    """Create a boolean mask for cards with enter-the-battlefield effects.
+
+    Args:
+        df: DataFrame to search
+
+    Returns:
+        Boolean Series indicating which cards have ETB effects
+    """
+    text_patterns = [
+        'creature entering causes',
+        'permanent entering the battlefield',
+        'permanent you control enters',
+        'whenever another creature enters',
+        'whenever another nontoken creature enters',
+        'when this creature enters',
+        'whenever this creature enters'
+    ]
+    return utility.create_text_mask(df, text_patterns)
+
+def create_ltb_mask(df: pd.DataFrame) -> pd.Series:
+    """Create a boolean mask for cards with leave-the-battlefield effects.
+
+    Args:
+        df: DataFrame to search
+
+    Returns:
+        Boolean Series indicating which cards have LTB effects
+    """
+    text_patterns = [
+        'when this creature leaves',
+        'whenever this creature leaves'
+    ]
+    return utility.create_text_mask(df, text_patterns)
+
+def create_blink_text_mask(df: pd.DataFrame) -> pd.Series:
+    """Create a boolean mask for cards with blink/flicker text patterns.
+
+    Args:
+        df: DataFrame to search
+
+    Returns:
+        Boolean Series indicating which cards have blink/flicker effects
+    """
+    text_patterns = [
+        'exile any number of other',
+        'exile one or more cards from your hand',
+        'permanent you control, then return',
+        'permanents you control, then return',
+        'return it to the battlefield',
+        'return that card to the battlefield',
+        'return them to the battlefield',
+        'return those cards to the battlefield',
+        'triggered ability of a permanent'
+    ]
+    return utility.create_text_mask(df, text_patterns)
+
+def tag_for_blink(df: pd.DataFrame, color: str) -> None:
+    """Tag cards that have blink/flicker effects using vectorized operations.
+
+    This function identifies and tags cards with blink/flicker effects including:
+    - Enter-the-battlefield (ETB) triggers
+    - Leave-the-battlefield (LTB) triggers
+    - Exile and return effects
+    - Permanent flicker effects
+
+    The function maintains proper tag hierarchy and ensures consistent application
+    of related tags like 'Blink', 'Enter the Battlefield', and 'Leave the Battlefield'.
+
+    Args:
+        df: DataFrame containing card data
+        color: Color identifier for logging purposes
+
+    Raises:
+        ValueError: If required DataFrame columns are missing
+        TypeError: If inputs are not of correct type
+    """
+    start_time = pd.Timestamp.now()
+    logging.info(f'Starting blink/flicker effect tagging for {color}_cards.csv')
+
+    try:
+        # Validate inputs
+        if not isinstance(df, pd.DataFrame):
+            raise TypeError("df must be a pandas DataFrame")
+        if not isinstance(color, str):
+            raise TypeError("color must be a string")
+
+        # Validate required columns
+        required_cols = {'text', 'themeTags', 'name'}
+        utility.validate_dataframe_columns(df, required_cols)
+
+        # Create masks for different blink patterns
+        etb_mask = create_etb_mask(df)
+        ltb_mask = create_ltb_mask(df)
+        blink_mask = create_blink_text_mask(df)
+
+        # Create name-based masks
+        name_patterns = df.apply(
+            lambda row: f'when {row["name"]} enters|whenever {row["name"]} enters|when {row["name"]} leaves|whenever {row["name"]} leaves',
+            axis=1
+        )
+        name_mask = df.apply(
+            lambda row: bool(re.search(name_patterns[row.name], row['text'], re.IGNORECASE)) if pd.notna(row['text']) else False,
+            axis=1
+        )
+
+        # Combine all masks
+        final_mask = etb_mask | ltb_mask | blink_mask | name_mask
+
+        # Apply tags
+        utility.apply_tag_vectorized(df, final_mask, ['Blink', 'Enter the Battlefield', 'Leave the Battlefield'])
+
+        # Log results
+        duration = (pd.Timestamp.now() - start_time).total_seconds()
+        logging.info(f'Tagged {final_mask.sum()} cards with blink/flicker effects in {duration:.2f}s')
+
+    except Exception as e:
+        logging.error(f'Error in tag_for_blink: {str(e)}')
+        raise
+
 ## Burn
-def tag_for_burn(df, color):
-    print(f'Tagging cards in {color}_cards.csv that fit the "Burn" theme.')
-    for index, row in df.iterrows():
-        theme_tags = row['themeTags']
-        damage_list = list(range(1, 101))
-        damage_list = list(map(str, damage_list))
-        damage_list.append('x')
-        if pd.notna(row['text']):
-            # Deals damage from 1-100 or X
-            for i in damage_list:
-                if (f'deals {i} damage' in row['text'].lower()
-                    or f'lose {i} life' in row['text'].lower()
-                    or f'loses {i} life' in row['text'].lower()
-                    ):
-                    tag_type = ['Burn']
-                    for tag in tag_type:
-                        if tag not in theme_tags:
-                            theme_tags.extend([tag])
-                            df.at[index, 'themeTags'] = theme_tags
-            
-            # Deals damage triggers
-            if (
-                'deals combat damage' in row['text'].lower()
-                or 'deals damage' in row['text'].lower()
-                or 'deals noncombat damage' in row['text'].lower()
-                or 'deals that much damage' in row['text'].lower()
-                or 'each 1 life' in row['text'].lower()
-                or 'excess damage' in row['text'].lower()
-                or 'excess noncombat damage' in row['text'].lower()
-                or 'loses that much life' in row['text'].lower()
-                or 'opponent lost life' in row['text'].lower()
-                or 'opponent loses life' in row['text'].lower()
-                or 'player loses life' in row['text'].lower()
-                or 'unspent mana causes that player to lose that much life' in row['text'].lower()
-                or 'would deal an amount of noncombat damage' in row['text'].lower()
-                or 'would deal damage' in row['text'].lower()
-                or 'would deal noncombat damage' in row['text'].lower()
-                or 'would lose life' in row['text'].lower()
-                ):
-                tag_type = ['Burn']
-                for tag in tag_type:
-                    if tag not in theme_tags:
-                        theme_tags.extend([tag])
-                        df.at[index, 'themeTags'] = theme_tags
-            
-            # Pingers
-            if ('deals 1 damage' in row['text'].lower()
-                or 'exactly 1 damage' in row['text'].lower()
-                or 'loses 1 life' in row['text'].lower()
-                ):
-                tag_type = ['Pingers']
-                for tag in tag_type:
-                    if tag not in theme_tags:
-                        theme_tags.extend([tag])
-                        df.at[index, 'themeTags'] = theme_tags
-            
-        # Keywords
-        if pd.notna(row['keywords']):
-            if ('Bloodthirst' in row['keywords'].lower()
-                or 'Spectacle' in row['keywords'].lower()
-                ):
-                tag_type = ['Burn']
-                for tag in tag_type:
-                    if tag not in theme_tags:
-                        theme_tags.extend([tag])
-                        df.at[index, 'themeTags'] = theme_tags
-    
-    print(f'"Burn" cards in {color}_cards.csv have been tagged.\n')
+def create_burn_damage_mask(df: pd.DataFrame) -> pd.Series:
+    """Create a boolean mask for cards with damage-dealing effects.
+
+    Args:
+        df: DataFrame to search
+
+    Returns:
+        Boolean Series indicating which cards have damage effects
+    """
+    # Create damage number patterns using list comprehension
+    damage_patterns = [f'deals {i} damage' for i in range(1, 101)] + ['deals x damage']
+    damage_mask = utility.create_text_mask(df, damage_patterns)
+
+    # Create general damage trigger patterns
+    trigger_patterns = [
+        'deals combat damage',
+        'deals damage',
+        'deals noncombat damage', 
+        'deals that much damage',
+        'excess damage',
+        'excess noncombat damage',
+        'would deal an amount of noncombat damage',
+        'would deal damage',
+        'would deal noncombat damage'
+    ]
+    trigger_mask = utility.create_text_mask(df, trigger_patterns)
+
+    # Create pinger patterns
+    pinger_patterns = ['deals 1 damage', 'exactly 1 damage']
+    pinger_mask = utility.create_text_mask(df, pinger_patterns)
+
+    return damage_mask | trigger_mask | pinger_mask
+
+def create_burn_life_loss_mask(df: pd.DataFrame) -> pd.Series:
+    """Create a boolean mask for cards with life loss effects.
+
+    Args:
+        df: DataFrame to search
+
+    Returns:
+        Boolean Series indicating which cards have life loss effects
+    """
+    # Create life loss number patterns
+    life_patterns = [f'lose {i} life' for i in range(1, 101)]
+    life_patterns.extend([f'loses {i} life' for i in range(1, 101)])
+    life_patterns.append('lose x life')
+    life_patterns.append('loses x life')
+    life_mask = utility.create_text_mask(df, life_patterns)
+
+    # Create general life loss trigger patterns 
+    trigger_patterns = [
+        'each 1 life',
+        'loses that much life',
+        'opponent lost life',
+        'opponent loses life', 
+        'player loses life',
+        'unspent mana causes that player to lose that much life',
+        'would lose life'
+    ]
+    trigger_mask = utility.create_text_mask(df, trigger_patterns)
+
+    return life_mask | trigger_mask
+
+def create_burn_keyword_mask(df: pd.DataFrame) -> pd.Series:
+    """Create a boolean mask for cards with burn-related keywords.
+
+    Args:
+        df: DataFrame to search
+
+    Returns:
+        Boolean Series indicating which cards have burn keywords
+    """
+    keyword_patterns = ['Bloodthirst', 'Spectacle']
+    return utility.create_keyword_mask(df, keyword_patterns)
+
+def create_burn_exclusion_mask(df: pd.DataFrame) -> pd.Series:
+    """Create a boolean mask for cards that should be excluded from burn effects.
+
+    Args:
+        df: DataFrame to search
+
+    Returns:
+        Boolean Series indicating which cards should be excluded
+    """
+    # Add specific exclusion patterns here if needed
+    return pd.Series(False, index=df.index)
+
+def tag_for_burn(df: pd.DataFrame, color: str) -> None:
+    """Tag cards that deal damage or cause life loss using vectorized operations.
+
+    This function identifies and tags cards with burn effects including:
+    - Direct damage dealing
+    - Life loss effects
+    - Burn-related keywords (Bloodthirst, Spectacle)
+    - Pinger effects (1 damage)
+
+    Args:
+        df: DataFrame containing card data
+        color: Color identifier for logging purposes
+
+    Raises:
+        ValueError: If required DataFrame columns are missing
+    """
+    start_time = pd.Timestamp.now()
+    logging.info(f'Starting burn effect tagging for {color}_cards.csv')
+
+    try:
+        # Validate required columns
+        required_cols = {'text', 'themeTags', 'keywords'}
+        utility.validate_dataframe_columns(df, required_cols)
+
+        # Create masks for different burn patterns
+        damage_mask = create_burn_damage_mask(df)
+        life_mask = create_burn_life_loss_mask(df)
+        keyword_mask = create_burn_keyword_mask(df)
+        exclusion_mask = create_burn_exclusion_mask(df)
+
+        # Combine masks
+        burn_mask = (damage_mask | life_mask | keyword_mask) & ~exclusion_mask
+        pinger_mask = utility.create_text_mask(df, ['deals 1 damage', 'exactly 1 damage', 'loses 1 life'])
+
+        # Apply tags
+        utility.apply_tag_vectorized(df, burn_mask, ['Burn'])
+        utility.apply_tag_vectorized(df, pinger_mask & ~exclusion_mask, ['Pingers'])
+
+        # Log results
+        duration = (pd.Timestamp.now() - start_time).total_seconds()
+        logging.info(f'Tagged {burn_mask.sum()} cards with burn effects in {duration:.2f}s')
+
+    except Exception as e:
+        logging.error(f'Error in tag_for_burn: {str(e)}')
+        raise
 
 ## Clones
-def tag_for_clones(df, color):
-    print(f'Tagging cards in {color}_cards.csv that fit the "Clones" theme.')
-    for index, row in df.iterrows():
-        theme_tags = row['themeTags']
-        if pd.notna(row['text']):
-            if ('a copy of a creature' in row['text'].lower()
-                or 'a copy of an aura' in row['text'].lower()
-                or 'a copy of a permanent' in row['text'].lower()
-                or 'a token that\'s a copy of' in row['text'].lower()
-                or 'as a copy of' in row['text'].lower()
-                or 'becomes a copy of' in row['text'].lower()
-                or '"legend rule" doesn\'t apply' in row['text'].lower()
-                or 'twice that many of those tokens' in row['text'].lower()
-                ):
-                tag_type = ['Clones']
-                for tag in tag_type:
-                    if tag not in theme_tags:
-                        theme_tags.extend([tag])
-                        df.at[index, 'themeTags'] = theme_tags
-        if pd.notna(row['keywords']):
-            if ('Myriad' in row['keywords']
-                ):
-                tag_type = ['Clones']
-                for tag in tag_type:
-                    if tag not in theme_tags:
-                        theme_tags.extend([tag])
-                        df.at[index, 'themeTags'] = theme_tags
-    
-    print(f'"Clones" cards in {color}_cards.csv have been tagged.\n')
+def create_clone_text_mask(df: pd.DataFrame) -> pd.Series:
+    """Create a boolean mask for cards with clone-related text patterns.
+
+    Args:
+        df: DataFrame to search
+
+    Returns:
+        Boolean Series indicating which cards have clone text patterns
+    """
+    text_patterns = [
+        'a copy of a creature',
+        'a copy of an aura',
+        'a copy of a permanent',
+        'a token that\'s a copy of',
+        'as a copy of',
+        'becomes a copy of',
+        '"legend rule" doesn\'t apply',
+        'twice that many of those tokens'
+    ]
+    return utility.create_text_mask(df, text_patterns)
+
+def create_clone_keyword_mask(df: pd.DataFrame) -> pd.Series:
+    """Create a boolean mask for cards with clone-related keywords.
+
+    Args:
+        df: DataFrame to search
+
+    Returns:
+        Boolean Series indicating which cards have clone keywords
+    """
+    return utility.create_keyword_mask(df, 'Myriad')
+
+def create_clone_exclusion_mask(df: pd.DataFrame) -> pd.Series:
+    """Create a boolean mask for cards that should be excluded from clone effects.
+
+    Args:
+        df: DataFrame to search
+
+    Returns:
+        Boolean Series indicating which cards should be excluded
+    """
+    # Add specific exclusion patterns here if needed
+    return pd.Series(False, index=df.index)
+
+def tag_for_clones(df: pd.DataFrame, color: str) -> None:
+    """Tag cards that create copies or have clone effects using vectorized operations.
+
+    This function identifies and tags cards that:
+    - Create copies of creatures or permanents
+    - Have copy-related keywords like Myriad
+    - Ignore the legend rule
+    - Double token creation
+
+    Args:
+        df: DataFrame containing card data
+        color: Color identifier for logging purposes
+
+    Raises:
+        ValueError: If required DataFrame columns are missing
+    """
+    start_time = pd.Timestamp.now()
+    logging.info(f'Starting clone effect tagging for {color}_cards.csv')
+
+    try:
+        # Validate required columns
+        required_cols = {'text', 'themeTags', 'keywords'}
+        utility.validate_dataframe_columns(df, required_cols)
+
+        # Create masks for different clone patterns
+        text_mask = create_clone_text_mask(df)
+        keyword_mask = create_clone_keyword_mask(df)
+        exclusion_mask = create_clone_exclusion_mask(df)
+
+        # Combine masks
+        final_mask = (text_mask | keyword_mask) & ~exclusion_mask
+
+        # Apply tags
+        utility.apply_tag_vectorized(df, final_mask, ['Clones'])
+
+        # Log results
+        duration = (pd.Timestamp.now() - start_time).total_seconds()
+        logging.info(f'Tagged {final_mask.sum()} cards with clone effects in {duration:.2f}s')
+
+    except Exception as e:
+        logging.error(f'Error in tag_for_clones: {str(e)}')
+        raise
 
 ## Control
-def tag_for_control(df, color):
-    print(f'Tagging cards in {color}_cards.csv that fit the "Control" theme.')
-    for index, row in df.iterrows():
-        theme_tags = row['themeTags']
-        if pd.notna(row['text']):
-            if ('a player casts' in row['text'].lower()
-                or 'can\'t attacok you' in row['text'].lower()
-                or 'cast your first spell during each opponent\'s turns' in row['text'].lower()
-                or 'choose new target' in row['text'].lower()
-                or 'choose target opponent' in row['text'].lower()
-                or 'counter target' in row['text'].lower()
-                or 'of an opponent\'s choice' in row['text'].lower()
-                or 'opponent cast' in row['text'].lower()
-                or 'return target' in row['text'].lower()
-                or 'tap an untapped creature' in row['text'].lower()
-                or 'your opponents cast' in row['text'].lower()
-                ):
-                tag_type = ['Control']
-                for tag in tag_type:
-                    if tag not in theme_tags:
-                        theme_tags.extend([tag])
-                        df.at[index, 'themeTags'] = theme_tags
-        if pd.notna(row['keywords']):
-            if ('Council\'s dilemma' in row['keywords']
-                ):
-                tag_type = ['Control']
-                for tag in tag_type:
-                    if tag not in theme_tags:
-                        theme_tags.extend([tag])
-                        df.at[index, 'themeTags'] = theme_tags
-    
-    print(f'"Control" cards in {color}_cards.csv have been tagged.\n')
+def create_control_text_mask(df: pd.DataFrame) -> pd.Series:
+    """Create a boolean mask for cards with control-related text patterns.
+
+    Args:
+        df: DataFrame to search
+
+    Returns:
+        Boolean Series indicating which cards have control text patterns
+    """
+    text_patterns = [
+        'a player casts',
+        'can\'t attack you',
+        'cast your first spell during each opponent\'s turn', 
+        'choose new target',
+        'choose target opponent',
+        'counter target',
+        'of an opponent\'s choice',
+        'opponent cast',
+        'return target',
+        'tap an untapped creature',
+        'your opponents cast'
+    ]
+    return utility.create_text_mask(df, text_patterns)
+
+def create_control_keyword_mask(df: pd.DataFrame) -> pd.Series:
+    """Create a boolean mask for cards with control-related keywords.
+
+    Args:
+        df: DataFrame to search
+
+    Returns:
+        Boolean Series indicating which cards have control keywords
+    """
+    keyword_patterns = ['Council\'s dilemma']
+    return utility.create_keyword_mask(df, keyword_patterns)
+
+def create_control_specific_cards_mask(df: pd.DataFrame) -> pd.Series:
+    """Create a boolean mask for specific control-related cards.
+
+    Args:
+        df: DataFrame to search
+
+    Returns:
+        Boolean Series indicating which cards are specific control cards
+    """
+    specific_cards = [
+        'Azor\'s Elocutors',
+        'Baral, Chief of Compliance',
+        'Dragonlord Ojutai',
+        'Grand Arbiter Augustin IV',
+        'Lavinia, Azorius Renegade',
+        'Talrand, Sky Summoner'
+    ]
+    return utility.create_name_mask(df, specific_cards)
+
+def tag_for_control(df: pd.DataFrame, color: str) -> None:
+    """Tag cards that fit the Control theme using vectorized operations.
+
+    This function identifies and tags cards that control the game through:
+    - Counter magic
+    - Bounce effects
+    - Tap effects
+    - Opponent restrictions
+    - Council's dilemma effects
+
+    Args:
+        df: DataFrame containing card data
+        color: Color identifier for logging purposes
+
+    Raises:
+        ValueError: If required DataFrame columns are missing
+    """
+    start_time = pd.Timestamp.now()
+    logging.info(f'Starting control effect tagging for {color}_cards.csv')
+
+    try:
+        # Validate required columns
+        required_cols = {'text', 'themeTags', 'keywords', 'name'}
+        utility.validate_dataframe_columns(df, required_cols)
+
+        # Create masks for different control patterns
+        text_mask = create_control_text_mask(df)
+        keyword_mask = create_control_keyword_mask(df)
+        specific_mask = create_control_specific_cards_mask(df)
+
+        # Combine masks
+        final_mask = text_mask | keyword_mask | specific_mask
+
+        # Apply tags
+        utility.apply_tag_vectorized(df, final_mask, ['Control'])
+
+        # Log results
+        duration = (pd.Timestamp.now() - start_time).total_seconds()
+        logging.info(f'Tagged {final_mask.sum()} cards with control effects in {duration:.2f}s')
+
+    except Exception as e:
+        logging.error(f'Error in tag_for_control: {str(e)}')
+        raise
 
 ## Energy
-def tag_for_energy(df, color):
-    print(f'Tagging cards in {color}_cards.csv that fit the "Energy" theme.')
-    for index, row in df.iterrows():
-        theme_tags = row['themeTags']
-        if pd.notna(row['text']):
-            if ('{e}' in row['text'].lower()
-                ):
-                tag_type = ['Energy']
-                for tag in tag_type:
-                    if tag not in theme_tags:
-                        theme_tags.extend([tag])
-                        df.at[index, 'themeTags'] = theme_tags
-        if pd.notna(row['keywords']):
-            if ('' in row['keywords'].lower()
-                ):
-                tag_type = []
-                for tag in tag_type:
-                    if tag not in theme_tags:
-                        theme_tags.extend([tag])
-                        df.at[index, 'themeTags'] = theme_tags
-    
-    print(f'"Energy" cards in {color}_cards.csv have been tagged.\n')
-    
+def tag_for_energy(df: pd.DataFrame, color: str) -> None:
+    """Tag cards that care about energy counters using vectorized operations.
+
+    This function identifies and tags cards that:
+    - Use energy counters ({E})
+    - Care about energy counters
+    - Generate or spend energy
+
+    Args:
+        df: DataFrame containing card data
+        color: Color identifier for logging purposes
+
+    Raises:
+        ValueError: If required DataFrame columns are missing
+    """
+    start_time = pd.Timestamp.now()
+    logging.info(f'Starting energy counter tagging for {color}_cards.csv')
+
+    try:
+        # Validate required columns
+        required_cols = {'text', 'themeTags'}
+        utility.validate_dataframe_columns(df, required_cols)
+
+        # Create mask for energy text
+        energy_mask = df['text'].str.contains('{e}', case=False, na=False)
+
+        # Apply tags
+        utility.apply_tag_vectorized(df, energy_mask, ['Energy'])
+
+        # Log results
+        duration = (pd.Timestamp.now() - start_time).total_seconds()
+        logging.info(f'Tagged {energy_mask.sum()} cards with energy effects in {duration:.2f}s')
+
+    except Exception as e:
+        logging.error(f'Error in tag_for_energy: {str(e)}')
+        raise
+
 ## Infect
-def tag_for_infect(df, color):
-    print(f'Tagging cards in {color}_cards.csv that fit the "Infect" theme.')
-    for index, row in df.iterrows():
-        theme_tags = row['themeTags']
-        if pd.notna(row['text']):
-            if ('one or more counter' in row['text'].lower()
-                or 'poison counter' in row['text'].lower()
-                or 'toxic 1' in row['text'].lower()
-                ):
-                tag_type = ['Infect']
-                for tag in tag_type:
-                    if tag not in theme_tags:
-                        theme_tags.extend([tag])
-                        df.at[index, 'themeTags'] = theme_tags
-        if pd.notna(row['keywords']):
-            if ('Infect' in row['keywords'].lower()
-                or 'Proliferate' in row['keywords'].lower()
-                or 'Toxic' in row['keywords'].lower()
-                ):
-                tag_type = ['Infect']
-                for tag in tag_type:
-                    if tag not in theme_tags:
-                        theme_tags.extend([tag])
-                        df.at[index, 'themeTags'] = theme_tags
-    
-    print(f'"Infect" cards in {color}_cards.csv have been tagged.\n')
+def create_infect_text_mask(df: pd.DataFrame) -> pd.Series:
+    """Create a boolean mask for cards with infect-related text patterns.
+
+    Args:
+        df: DataFrame to search
+
+    Returns:
+        Boolean Series indicating which cards have infect text patterns
+    """
+    text_patterns = [
+        'one or more counter',
+        'poison counter', 
+        'toxic [1-10]',
+    ]
+    return utility.create_text_mask(df, text_patterns)
+
+def create_infect_keyword_mask(df: pd.DataFrame) -> pd.Series:
+    """Create a boolean mask for cards with infect-related keywords.
+
+    Args:
+        df: DataFrame to search
+
+    Returns:
+        Boolean Series indicating which cards have infect keywords
+    """
+    keyword_patterns = [
+        'Infect',
+        'Proliferate', 
+        'Toxic',
+    ]
+    return utility.create_keyword_mask(df, keyword_patterns)
+
+def create_infect_exclusion_mask(df: pd.DataFrame) -> pd.Series:
+    """Create a boolean mask for cards that should be excluded from infect effects.
+
+    Args:
+        df: DataFrame to search
+
+    Returns:
+        Boolean Series indicating which cards should be excluded
+    """
+    # Add specific exclusion patterns here if needed
+    return pd.Series(False, index=df.index)
+
+def tag_for_infect(df: pd.DataFrame, color: str) -> None:
+    """Tag cards that have infect-related effects using vectorized operations.
+
+    This function identifies and tags cards with infect effects including:
+    - Infect keyword ability
+    - Toxic keyword ability 
+    - Proliferate mechanic
+    - Poison counter effects
+
+    Args:
+        df: DataFrame containing card data
+        color: Color identifier for logging purposes
+
+    Raises:
+        ValueError: If required DataFrame columns are missing
+    """
+    start_time = pd.Timestamp.now()
+    logging.info(f'Starting infect effect tagging for {color}_cards.csv')
+
+    try:
+        # Validate required columns
+        required_cols = {'text', 'themeTags', 'keywords'}
+        utility.validate_dataframe_columns(df, required_cols)
+
+        # Create masks for different infect patterns
+        text_mask = create_infect_text_mask(df)
+        keyword_mask = create_infect_keyword_mask(df)
+        exclusion_mask = create_infect_exclusion_mask(df)
+
+        # Combine masks
+        final_mask = (text_mask | keyword_mask) & ~exclusion_mask
+
+        # Apply tags
+        utility.apply_tag_vectorized(df, final_mask, ['Infect'])
+
+        # Log results
+        duration = (pd.Timestamp.now() - start_time).total_seconds()
+        logging.info(f'Tagged {final_mask.sum()} cards with infect effects in {duration:.2f}s')
+
+    except Exception as e:
+        logging.error(f'Error in tag_for_infect: {str(e)}')
+        raise
 
 ## Legends Matter
-def search_for_legends(df, color):
-    print(f'Tagging cards in {color}_cards.csv that fit a "Legends Matter" or "Historics Matter" theme.')
-    for index, row in df.iterrows():
-        theme_tags = row['themeTags']
-        if ('Legendary' in row['type']
-            ):
-            tag_type = ['Historics Matter', 'Legends Matter']
-            for tag in tag_type:
-                if tag not in theme_tags:
-                    theme_tags.extend([tag])
-                    df.at[index, 'themeTags'] = theme_tags
-        if pd.notna(row['text']):
-            if ('a legendary creature' in row['text'].lower()
-                or 'another legendary' in row['text'].lower()
-                or 'cast a historic' in row['text'].lower()
-                or 'cast a legendary' in row['text'].lower()
-                or 'cast legendary' in row['text'].lower()
-                or 'equip legendary' in row['text'].lower()
-                or 'historic cards' in row['text'].lower()
-                or 'historic creature' in row['text'].lower()
-                or 'historic permanent' in row['text'].lower()
-                or 'historic spells' in row['text'].lower()
-                or 'legendary creature you control' in row['text'].lower()
-                or 'legendary creatures you control' in row['text'].lower()
-                or 'legendary permanents' in row['text'].lower()
-                or 'legendary spells you' in row['text'].lower()
-                or 'number of legendary' in row['text'].lower()
-                or 'other legendary' in row['text'].lower()
-                or 'play a historic' in row['text'].lower()
-                or 'play a legendary' in row['text'].lower()
-                or 'target legendary' in row['text'].lower()
-                or 'the "legend rule" doesn\'t' in row['text'].lower()
-                ):
-                tag_type = ['Historics Matter', 'Legends Matter']
-                for tag in tag_type:
-                    if tag not in theme_tags:
-                        theme_tags.extend([tag])
-                        df.at[index, 'themeTags'] = theme_tags
-    
-    print(f'"Legends Matter" and "Historics Matter" cards in {color}_cards.csv have been tagged.\n')
+def create_legends_text_mask(df: pd.DataFrame) -> pd.Series:
+    """Create a boolean mask for cards with legendary/historic text patterns.
+
+    Args:
+        df: DataFrame to search
+
+    Returns:
+        Boolean Series indicating which cards have legendary/historic text patterns
+    """
+    text_patterns = [
+        'a legendary creature',
+        'another legendary',
+        'cast a historic',
+        'cast a legendary', 
+        'cast legendary',
+        'equip legendary',
+        'historic cards',
+        'historic creature',
+        'historic permanent',
+        'historic spells',
+        'legendary creature you control',
+        'legendary creatures you control',
+        'legendary permanents',
+        'legendary spells you',
+        'number of legendary',
+        'other legendary',
+        'play a historic',
+        'play a legendary',
+        'target legendary',
+        'the "legend rule" doesn\'t'
+    ]
+    return utility.create_text_mask(df, text_patterns)
+
+def create_legends_type_mask(df: pd.DataFrame) -> pd.Series:
+    """Create a boolean mask for cards with Legendary in their type line.
+
+    Args:
+        df: DataFrame to search
+
+    Returns:
+        Boolean Series indicating which cards are Legendary
+    """
+    return utility.create_type_mask(df, 'Legendary')
+
+def tag_for_legends_matter(df: pd.DataFrame, color: str) -> None:
+    """Tag cards that care about legendary permanents using vectorized operations.
+
+    This function identifies and tags cards that:
+    - Are legendary permanents
+    - Care about legendary permanents
+    - Care about historic spells/permanents
+    - Modify the legend rule
+
+    Args:
+        df: DataFrame containing card data
+        color: Color identifier for logging purposes
+
+    Raises:
+        ValueError: If required DataFrame columns are missing
+    """
+    start_time = pd.Timestamp.now()
+    logging.info(f'Starting legendary/historic tagging for {color}_cards.csv')
+
+    try:
+        # Validate required columns
+        required_cols = {'text', 'themeTags', 'type'}
+        utility.validate_dataframe_columns(df, required_cols)
+
+        # Create masks for different legendary patterns
+        text_mask = create_legends_text_mask(df)
+        type_mask = create_legends_type_mask(df)
+
+        # Combine masks
+        final_mask = text_mask | type_mask
+
+        # Apply tags
+        utility.apply_tag_vectorized(df, final_mask, ['Historics Matter', 'Legends Matter'])
+
+        # Log results
+        duration = (pd.Timestamp.now() - start_time).total_seconds()
+        logging.info(f'Tagged {final_mask.sum()} cards with legendary/historic effects in {duration:.2f}s')
+
+    except Exception as e:
+        logging.error(f'Error in tag_for_legends_matter: {str(e)}')
+        raise
 
 ## Little Fellas
-def tag_for_little_guys(df, color):
-    print(f'Tagging cards in {color}_cards.csv that are or care about low-power (2 or less) creatures.')
-    for index, row in df.iterrows():
-        theme_tags = row['themeTags']
-        if pd.notna(row['power']):
-            if '*' in row['power']:
-                continue
-            if (int(row['power']) <= 2):
-                tag_type = ['Little Fellas']
-                for tag in tag_type:
-                    if tag not in theme_tags:
-                        theme_tags.extend([tag])
-                        df.at[index, 'themeTags'] = theme_tags
-        
-        if pd.notna(row['text']):
-            if ('power 2 or less' in row['text'].lower()
-                ):
-                tag_type = ['Little Fellas']
-                for tag in tag_type:
-                    if tag not in theme_tags:
-                        theme_tags.extend([tag])
-                        df.at[index, 'themeTags'] = theme_tags
+def create_little_guys_power_mask(df: pd.DataFrame) -> pd.Series:
+    """Create a boolean mask for creatures with power 2 or less.
+
+    Args:
+        df: DataFrame to search
+
+    Returns:
+        Boolean Series indicating which cards have power 2 or less
+    """
+    # Create mask for valid power values
+    valid_power = pd.to_numeric(df['power'], errors='coerce')
     
-    print(f'Low-power (2 or less) creature cards in {color}_cards.csv have been tagged.\n')
+    # Create mask for power <= 2
+    return (valid_power <= 2) & pd.notna(valid_power)
+
+def tag_for_little_guys(df: pd.DataFrame, color: str) -> None:
+    """Tag cards that are or care about low-power creatures using vectorized operations.
+
+    This function identifies and tags:
+    - Creatures with power 2 or less
+    - Cards that care about creatures with low power
+    - Cards that reference power thresholds of 2 or less
+
+    The function handles edge cases like '*' in power values and maintains proper
+    tag hierarchy.
+
+    Args:
+        df: DataFrame containing card data
+        color: Color identifier for logging purposes
+
+    Raises:
+        ValueError: If required DataFrame columns are missing
+        TypeError: If inputs are not of correct type
+    """
+    start_time = pd.Timestamp.now()
+    logging.info(f'Starting low-power creature tagging for {color}_cards.csv')
+
+    try:
+        # Validate inputs
+        if not isinstance(df, pd.DataFrame):
+            raise TypeError("df must be a pandas DataFrame")
+        if not isinstance(color, str):
+            raise TypeError("color must be a string")
+
+        # Validate required columns
+        required_cols = {'power', 'text', 'themeTags'}
+        utility.validate_dataframe_columns(df, required_cols)
+
+        # Create masks for different patterns
+        power_mask = create_little_guys_power_mask(df)
+        text_mask = utility.create_text_mask(df, 'power 2 or less')
+
+        # Combine masks
+        final_mask = power_mask | text_mask
+
+        # Apply tags
+        utility.apply_tag_vectorized(df, final_mask, ['Little Fellas'])
+
+        # Log results
+        duration = (pd.Timestamp.now() - start_time).total_seconds()
+        logging.info(f'Tagged {final_mask.sum()} cards with Little Fellas in {duration:.2f}s')
+
+    except Exception as e:
+        logging.error(f'Error in tag_for_little_guys: {str(e)}')
+        raise
 
 ## Mill
-def tag_for_mill(df, color):
-    print(f'Tagging cards in {color}_cards.csv that have a "Mill" theme.')
-    for index, row in df.iterrows():
-        theme_tags = row['themeTags']
-        if ('Mill' in theme_tags):
-            continue
-        if pd.notna(row['text']):
-            if ('desended' in row['text'].lower()
-                or 'from a graveyard' in row['text'].lower()
-                or 'from your graveyard' in row['text'].lower()
-                or 'in your graveyard' in row['text'].lower()
-                or 'into his or her graveyard' in row['text'].lower()
-                or 'into their graveyard' in row['text'].lower()
-                or 'into your graveyard' in row['text'].lower()
-                or 'mills that many cards' in row['text'].lower()
-                or 'opponent\'s graveyard' in row['text'].lower()
-                or 'put into a graveyard' in row['text'].lower()
-                or 'put into an opponent\'s graveyard' in row['text'].lower()
-                or 'put into your graveyard' in row['text'].lower()
-                or 'rad counter' in row['text'].lower()
-                or 'Surveil' in row['text']
-                or 'would mill' in row['text'].lower()
-                ):
-                tag_type = ['Mill']
-                for tag in tag_type:
-                    if tag not in theme_tags:
-                        theme_tags.extend([tag])
-                        df.at[index, 'themeTags'] = theme_tags
-            for num in num_to_search:
-                if (f'mill {num}' in row['text'].lower()
-                    or f'mills {num}' in row['text'].lower()
-                    ):
-                    tag_type = ['Mill']
-                    for tag in tag_type:
-                        if tag not in theme_tags:
-                            theme_tags.extend([tag])
-                            df.at[index, 'themeTags'] = theme_tags
-        if pd.notna(row['keywords']):
-            if ('Descend' in row['keywords']
-                or 'Mill' in row['keywords']
-                or 'Surveil' in row['keywords']
-                ):
-                tag_type = ['Mill']
-                for tag in tag_type:
-                    if tag not in theme_tags:
-                        theme_tags.extend([tag])
-                        df.at[index, 'themeTags'] = theme_tags
-    
-    print(f'"Mill" cards in {color}_cards.csv have been tagged.\n')
+def create_mill_text_mask(df: pd.DataFrame) -> pd.Series:
+    """Create a boolean mask for cards with mill-related text patterns.
 
-## Monarch
-def tag_for_monarch(df, color):
-    print(f'Tagging cards in {color}_cards.csv that fit the "Monarch" theme.')
-    for index, row in df.iterrows():
-        theme_tags = row['themeTags']
-        if pd.notna(row['text']):
-            if ('you are the monarch' in row['text'].lower()
-                or 'you become the monarch' in row['text'].lower()
-                or 'you can\'t become the monarch' in row['text'].lower()
-                ):
-                tag_type = ['Monarch']
-                for tag in tag_type:
-                    if tag not in theme_tags:
-                        theme_tags.extend([tag])
-                        df.at[index, 'themeTags'] = theme_tags
-        if pd.notna(row['keywords']):
-            if ('Monarch' in row['keywords'].lower()
-                ):
-                tag_type = ['Monarch']
-                for tag in tag_type:
-                    if tag not in theme_tags:
-                        theme_tags.extend([tag])
-                        df.at[index, 'themeTags'] = theme_tags
-    
-    print(f'"Monarch" cards in {color}_cards.csv have been tagged.\n')
+    Args:
+        df: DataFrame to search
+
+    Returns:
+        Boolean Series indicating which cards have mill text patterns
+    """
+    # Create text pattern masks
+    text_patterns = [
+        'descended',
+        'from a graveyard',
+        'from your graveyard', 
+        'in your graveyard',
+        'into his or her graveyard',
+        'into their graveyard',
+        'into your graveyard',
+        'mills that many cards',
+        'opponent\'s graveyard',
+        'put into a graveyard',
+        'put into an opponent\'s graveyard', 
+        'put into your graveyard',
+        'rad counter',
+        'surveil',
+        'would mill'
+    ]
+    text_mask = utility.create_text_mask(df, text_patterns)
+
+    # Create mill number patterns
+    mill_patterns = [f'mill {num}' for num in settings.num_to_search]
+    mill_patterns.extend([f'mills {num}' for num in settings.num_to_search])
+    number_mask = utility.create_text_mask(df, mill_patterns)
+
+    return text_mask | number_mask
+
+def create_mill_keyword_mask(df: pd.DataFrame) -> pd.Series:
+    """Create a boolean mask for cards with mill-related keywords.
+
+    Args:
+        df: DataFrame to search
+
+    Returns:
+        Boolean Series indicating which cards have mill keywords
+    """
+    keyword_patterns = ['Descend', 'Mill', 'Surveil']
+    return utility.create_keyword_mask(df, keyword_patterns)
+
+def tag_for_mill(df: pd.DataFrame, color: str) -> None:
+    """Tag cards that mill cards or care about milling using vectorized operations.
+
+    This function identifies and tags cards with mill effects including:
+    - Direct mill effects (putting cards from library to graveyard)
+    - Mill-related keywords (Descend, Mill, Surveil)
+    - Cards that care about graveyards
+    - Cards that track milled cards
+
+    Args:
+        df: DataFrame containing card data
+        color: Color identifier for logging purposes
+
+    Raises:
+        ValueError: If required DataFrame columns are missing
+    """
+    start_time = pd.Timestamp.now()
+    logging.info(f'Starting mill effect tagging for {color}_cards.csv')
+
+    try:
+        # Validate required columns
+        required_cols = {'text', 'themeTags', 'keywords'}
+        utility.validate_dataframe_columns(df, required_cols)
+
+        # Create masks for different mill patterns
+        text_mask = create_mill_text_mask(df)
+        keyword_mask = create_mill_keyword_mask(df)
+
+        # Combine masks
+        final_mask = text_mask | keyword_mask
+
+        # Apply tags
+        utility.apply_tag_vectorized(df, final_mask, ['Mill'])
+
+        # Log results
+        duration = (pd.Timestamp.now() - start_time).total_seconds()
+        logging.info(f'Tagged {final_mask.sum()} cards with mill effects in {duration:.2f}s')
+
+    except Exception as e:
+        logging.error(f'Error in tag_for_mill: {str(e)}')
+        raise
+
+def tag_for_monarch(df: pd.DataFrame, color: str) -> None:
+    """Tag cards that care about the monarch mechanic using vectorized operations.
+
+    This function identifies and tags cards that interact with the monarch mechanic, including:
+    - Cards that make you become the monarch
+    - Cards that prevent becoming the monarch
+    - Cards with monarch-related triggers
+    - Cards with the monarch keyword
+
+    The function uses vectorized operations for performance and follows patterns
+    established in other tagging functions.
+
+    Args:
+        df: DataFrame containing card data with text and keyword columns
+        color: Color identifier for logging purposes (e.g. 'white', 'blue')
+
+    Raises:
+        ValueError: If required DataFrame columns are missing
+        TypeError: If inputs are not of correct type
+    """
+    start_time = pd.Timestamp.now()
+    logging.info(f'Starting monarch mechanic tagging for {color}_cards.csv')
+
+    try:
+        # Validate inputs
+        if not isinstance(df, pd.DataFrame):
+            raise TypeError("df must be a pandas DataFrame")
+        if not isinstance(color, str):
+            raise TypeError("color must be a string")
+
+        # Validate required columns
+        required_cols = {'text', 'themeTags', 'keywords'}
+        utility.validate_dataframe_columns(df, required_cols)
+
+        # Create text pattern mask
+        text_patterns = [
+            'becomes? the monarch',
+            'can\'t become the monarch',
+            'is the monarch',
+            'was the monarch', 
+            'you are the monarch',
+            'you become the monarch',
+            'you can\'t become the monarch',
+            'you\'re the monarch'
+        ]
+        text_mask = utility.create_text_mask(df, text_patterns)
+
+        # Create keyword mask
+        keyword_mask = utility.create_keyword_mask(df, 'Monarch')
+
+        # Combine masks
+        final_mask = text_mask | keyword_mask
+
+        # Apply tags
+        utility.apply_tag_vectorized(df, final_mask, ['Monarch'])
+
+        # Log results
+        duration = (pd.Timestamp.now() - start_time).total_seconds()
+        logging.info(f'Tagged {final_mask.sum()} cards with monarch effects in {duration:.2f}s')
+
+    except Exception as e:
+        logging.error(f'Error in tag_for_monarch: {str(e)}')
+        raise
 
 ## Multi-copy cards
-def tag_for_multiple_copies(df, color):
-    print(f'Tagging cards in {color}_cards.csv that allow having multiple copies.')
-    for index, row in df.iterrows():
-        theme_tags = row['themeTags']
-        if (row['name'] in multiple_copy_cards
-            ):
-            tag_type = ['Multiple Copies', row['name']]
-            for tag in tag_type:
-                if tag not in theme_tags:
-                    theme_tags.extend([tag])
-                    df.at[index, 'themeTags'] = theme_tags
-    
-    print(f'"Multiple-copy" cards in {color}_cards.csv have been tagged.\n')
+def tag_for_multiple_copies(df: pd.DataFrame, color: str) -> None:
+    """Tag cards that allow having multiple copies in a deck using vectorized operations.
+
+    This function identifies and tags cards that can have more than 4 copies in a deck,
+    like Seven Dwarves or Persistent Petitioners. It uses the multiple_copy_cards list
+    from settings to identify these cards.
+
+    Args:
+        df: DataFrame containing card data
+        color: Color identifier for logging purposes
+
+    Raises:
+        ValueError: If required DataFrame columns are missing
+        TypeError: If inputs are not of correct type
+    """
+    start_time = pd.Timestamp.now()
+    logging.info(f'Starting multiple copies tagging for {color}_cards.csv')
+
+    try:
+        # Validate inputs
+        if not isinstance(df, pd.DataFrame):
+            raise TypeError("df must be a pandas DataFrame")
+        if not isinstance(color, str):
+            raise TypeError("color must be a string")
+
+        # Validate required columns
+        required_cols = {'name', 'themeTags'}
+        utility.validate_dataframe_columns(df, required_cols)
+
+        # Create mask for multiple copy cards
+        multiple_copies_mask = utility.create_name_mask(df, multiple_copy_cards)
+
+        # Apply tags
+        if multiple_copies_mask.any():
+            # Get matching card names
+            matching_cards = df[multiple_copies_mask]['name'].unique()
+            
+            # Apply base tag
+            utility.apply_tag_vectorized(df, multiple_copies_mask, ['Multiple Copies'])
+            
+            # Apply individual card name tags
+            for card_name in matching_cards:
+                card_mask = df['name'] == card_name
+                utility.apply_tag_vectorized(df, card_mask, [card_name])
+
+            logging.info(f'Tagged {multiple_copies_mask.sum()} cards with multiple copies effects')
+
+        # Log completion
+        duration = (pd.Timestamp.now() - start_time).total_seconds()
+        logging.info(f'Completed multiple copies tagging in {duration:.2f}s')
+
+    except Exception as e:
+        logging.error(f'Error in tag_for_multiple_copies: {str(e)}')
+        raise
 
 ## Planeswalkers
-def tag_for_planeswalkers(df, color):
-    print(f'Tagging cards in {color}_cards.csv that fit the "Planeswalkers/Super Friends" theme.')
-    for index, row in df.iterrows():
-        theme_tags = row['themeTags']
-        if pd.notna(row['text']):
-            if ('a planeswalker' in row['text'].lower()
-                or 'affinity for planeswalker' in row['text'].lower()
-                or 'a noncreature' in row['text'].lower()
-                or 'enchant planeswalker' in row['text'].lower()
-                or 'historic permanent' in row['text'].lower()
-                or 'legendary permanent' in row['text'].lower()
-                or 'loyalty ability' in row['text'].lower()
-                or 'one or more counter' in row['text'].lower()
-                or 'planeswalker spells' in row['text'].lower()
-                or 'planeswalker type' in row['text'].lower()
-                ):
-                tag_type = ['Planeswalkers', 'Super Friends']
-                for tag in tag_type:
-                    if tag not in theme_tags:
-                        theme_tags.extend([tag])
-                        df.at[index, 'themeTags'] = theme_tags
-        if pd.notna(row['keywords']):
-            if ('Proliferate' in row['keywords']
-                ):
-                tag_type = ['Planeswalkers', 'Super Friends']
-                for tag in tag_type:
-                    if tag not in theme_tags:
-                        theme_tags.extend([tag])
-                        df.at[index, 'themeTags'] = theme_tags
-        
-        if 'Planeswalker' in row['type']:
-            tag_type = ['Planeswalkers', 'Super Friends']
-            for tag in tag_type:
-                if tag not in theme_tags:
-                    theme_tags.extend([tag])
-                    df.at[index, 'themeTags'] = theme_tags
-    
-    print(f'"Planeswalkers/Super Friends" cards in {color}_cards.csv have been tagged.\n')
+def create_planeswalker_text_mask(df: pd.DataFrame) -> pd.Series:
+    """Create a boolean mask for cards with planeswalker-related text patterns.
+
+    Args:
+        df: DataFrame to search
+
+    Returns:
+        Boolean Series indicating which cards have planeswalker text patterns
+    """
+    text_patterns = [
+        'a planeswalker',
+        'affinity for planeswalker',
+        'enchant planeswalker',
+        'historic permanent',
+        'legendary permanent', 
+        'loyalty ability',
+        'one or more counter',
+        'planeswalker spells',
+        'planeswalker type'
+    ]
+    return utility.create_text_mask(df, text_patterns)
+
+def create_planeswalker_type_mask(df: pd.DataFrame) -> pd.Series:
+    """Create a boolean mask for cards with Planeswalker type.
+
+    Args:
+        df: DataFrame to search
+
+    Returns:
+        Boolean Series indicating which cards are Planeswalkers
+    """
+    return utility.create_type_mask(df, 'Planeswalker')
+
+def create_planeswalker_keyword_mask(df: pd.DataFrame) -> pd.Series:
+    """Create a boolean mask for cards with planeswalker-related keywords.
+
+    Args:
+        df: DataFrame to search
+
+    Returns:
+        Boolean Series indicating which cards have planeswalker keywords
+    """
+    return utility.create_keyword_mask(df, 'Proliferate')
+
+def tag_for_planeswalkers(df: pd.DataFrame, color: str) -> None:
+    """Tag cards that care about planeswalkers using vectorized operations.
+
+    This function identifies and tags cards that:
+    - Are planeswalker cards
+    - Care about planeswalkers
+    - Have planeswalker-related keywords like Proliferate
+    - Interact with loyalty abilities
+
+    Args:
+        df: DataFrame containing card data
+        color: Color identifier for logging purposes
+
+    Raises:
+        ValueError: If required DataFrame columns are missing
+        TypeError: If inputs are not of correct type
+    """
+    start_time = pd.Timestamp.now()
+    logging.info(f'Starting planeswalker tagging for {color}_cards.csv')
+
+    try:
+        # Validate inputs
+        if not isinstance(df, pd.DataFrame):
+            raise TypeError("df must be a pandas DataFrame")
+        if not isinstance(color, str):
+            raise TypeError("color must be a string")
+
+        # Validate required columns
+        required_cols = {'text', 'themeTags', 'type', 'keywords'}
+        utility.validate_dataframe_columns(df, required_cols)
+
+        # Create masks for different planeswalker patterns
+        text_mask = create_planeswalker_text_mask(df)
+        type_mask = create_planeswalker_type_mask(df)
+        keyword_mask = create_planeswalker_keyword_mask(df)
+
+        # Combine masks
+        final_mask = text_mask | type_mask | keyword_mask
+
+        # Apply tags
+        utility.apply_tag_vectorized(df, final_mask, ['Planeswalkers', 'Super Friends'])
+
+        # Log results
+        duration = (pd.Timestamp.now() - start_time).total_seconds()
+        logging.info(f'Tagged {final_mask.sum()} cards with planeswalker effects in {duration:.2f}s')
+
+    except Exception as e:
+        logging.error(f'Error in tag_for_planeswalkers: {str(e)}')
+        raise
 
 ## Reanimator
-def tag_for_reanimate(df, color):
-    print(f'Tagging cards in {color}_cards.csv that fit the "Reanimate" theme.')
-    for index, row in df.iterrows():
-        theme_tags = row['themeTags']
-        if pd.notna(row['text']):
-            if ('descended' in row['text'].lower()
-                or 'discard your hand' in row['text'].lower()
-                or 'from a graveyard' in row['text'].lower()
-                or 'in a graveyard' in row['text'].lower()
-                or 'into a graveyard' in row['text'].lower()
-                or 'leave a graveyard' in row['text'].lower()
-                or 'from a graveyard' in row['text'].lower()
-                or 'in your graveyard' in row['text'].lower()
-                or 'into your graveyard' in row['text'].lower()
-                or 'leave your graveyard' in row['text'].lower()
-                ):
-                tag_type = ['Reanimate']
-                for tag in tag_type:
-                    if tag not in theme_tags:
-                        theme_tags.extend([tag])
-                        df.at[index, 'themeTags'] = theme_tags
-        if pd.notna(row['keywords']):
-            if ('Blitz' in row['keywords']
-                or 'Connive' in row['keywords']
-                or 'Descend' in row['keywords']
-                or 'Escape' in row['keywords']
-                or 'Flashback' in row['keywords']
-                or 'Mill' in row['keywords']
-                ):
-                tag_type = ['Reanimate']
-                for tag in tag_type:
-                    if tag not in theme_tags:
-                        theme_tags.extend([tag])
-                        df.at[index, 'themeTags'] = theme_tags
-        
-        if ('Loot' in theme_tags
-            ):
-            tag_type = ['Reanimate']
-            for tag in tag_type:
-                if tag not in theme_tags:
-                    theme_tags.extend([tag])
-                    df.at[index, 'themeTags'] = theme_tags
-        
-        if ('Zombie' in row['creatureTypes']
-            ):
-            tag_type = ['Reanimate']
-            for tag in tag_type:
-                if tag not in theme_tags:
-                    theme_tags.extend([tag])
-                    df.at[index, 'themeTags'] = theme_tags
-    
-    print(f'"Reanimate" cards in {color}_cards.csv have been tagged.\n')
+def create_reanimator_text_mask(df: pd.DataFrame) -> pd.Series:
+    """Create a boolean mask for cards with reanimator-related text patterns.
+
+    Args:
+        df: DataFrame to search
+
+    Returns:
+        Boolean Series indicating which cards have reanimator text patterns
+    """
+    text_patterns = [
+        'descended',
+        'discard your hand',
+        'from a graveyard',
+        'in a graveyard',
+        'into a graveyard', 
+        'leave a graveyard',
+        'in your graveyard',
+        'into your graveyard',
+        'leave your graveyard'
+    ]
+    return utility.create_text_mask(df, text_patterns)
+
+def create_reanimator_keyword_mask(df: pd.DataFrame) -> pd.Series:
+    """Create a boolean mask for cards with reanimator-related keywords.
+
+    Args:
+        df: DataFrame to search
+
+    Returns:
+        Boolean Series indicating which cards have reanimator keywords
+    """
+    keyword_patterns = [
+        'Blitz',
+        'Connive', 
+        'Descend',
+        'Escape',
+        'Flashback',
+        'Mill'
+    ]
+    return utility.create_keyword_mask(df, keyword_patterns)
+
+def create_reanimator_type_mask(df: pd.DataFrame) -> pd.Series:
+    """Create a boolean mask for cards with reanimator-related creature types.
+
+    Args:
+        df: DataFrame to search
+
+    Returns:
+        Boolean Series indicating which cards have reanimator creature types
+    """
+    return df['creatureTypes'].apply(lambda x: 'Zombie' in x if isinstance(x, list) else False)
+
+def tag_for_reanimate(df: pd.DataFrame, color: str) -> None:
+    """Tag cards that care about graveyard recursion using vectorized operations.
+
+    This function identifies and tags cards with reanimator effects including:
+    - Cards that interact with graveyards
+    - Cards with reanimator-related keywords (Blitz, Connive, etc)
+    - Cards that loot or mill
+    - Zombie tribal synergies
+
+    Args:
+        df: DataFrame containing card data
+        color: Color identifier for logging purposes
+
+    Raises:
+        ValueError: If required DataFrame columns are missing
+    """
+    start_time = pd.Timestamp.now()
+    logging.info(f'Starting reanimator effect tagging for {color}_cards.csv')
+
+    try:
+        # Validate required columns
+        required_cols = {'text', 'themeTags', 'keywords', 'creatureTypes'}
+        utility.validate_dataframe_columns(df, required_cols)
+
+        # Create masks for different reanimator patterns
+        text_mask = create_reanimator_text_mask(df)
+        keyword_mask = create_reanimator_keyword_mask(df)
+        type_mask = create_reanimator_type_mask(df)
+
+        # Combine masks
+        final_mask = text_mask | keyword_mask | type_mask
+
+        # Apply tags
+        utility.apply_tag_vectorized(df, final_mask, ['Reanimate'])
+
+        # Log results
+        duration = (pd.Timestamp.now() - start_time).total_seconds()
+        logging.info(f'Tagged {final_mask.sum()} cards with reanimator effects in {duration:.2f}s')
+
+    except Exception as e:
+        logging.error(f'Error in tag_for_reanimate: {str(e)}')
+        raise
 
 ## Stax
-def tag_for_stax(df, color):
-    print(f'Tagging cards in {color}_cards.csv that fit the "Stax" theme.')
-    for index, row in df.iterrows():
-        theme_tags = row['themeTags']
-        if pd.notna(row['text']):
-            if ('an opponent controls' in row['text'].lower()
-                or 'can attack you' in row['text'].lower()
-                or 'can\'t attack' in row['text'].lower()
-                or 'can\'t be cast' in row['text'].lower()
-                or 'can\'t be activated' in row['text'].lower()
-                or 'can\'t cast spells' in row['text'].lower()
-                or 'can\'t enter' in row['text'].lower()
-                or 'can\'t search' in row['text'].lower()
-                or 'can\'t untap' in row['text'].lower()
-                or 'don\'t untap' in row['text'].lower()
-                or 'don\'t cause abilities' in row['text'].lower()
-                or 'each other player\'s' in row['text'].lower()
-                or 'each player\'s upkeep' in row['text'].lower()
-                or 'opponent would search' in row['text'].lower()
-                or 'opponents cast cost' in row['text'].lower()
-                or 'opponents can\'t' in row['text'].lower()
-                or 'opponents control' in row['text'].lower()
-                or 'opponents control can\'t' in row['text'].lower()
-                or 'opponents control enter tapped' in row['text'].lower()
-                or 'spells cost {1} more' in row['text'].lower()
-                or 'spells cost {2} more' in row['text'].lower()
-                or 'spells cost {3} more' in row['text'].lower()
-                or 'spells cost {4} more' in row['text'].lower()
-                or 'spells cost {5} more' in row['text'].lower()
-                or 'that player doesn\'t' in row['text'].lower()
-                or 'unless that player pays' in row['text'].lower()
-                or 'you control your opponent' in row['text'].lower()
-                or 'you gain protection' in row['text'].lower()
-                ):
-                tag_type = ['Stax']
-                for tag in tag_type:
-                    if tag not in theme_tags:
-                        theme_tags.extend([tag])
-                        df.at[index, 'themeTags'] = theme_tags
-        
-        if ('Control' in theme_tags
-            ):
-            tag_type = ['Stax']
-            for tag in tag_type:
-                if tag not in theme_tags:
-                    theme_tags.extend([tag])
-                    df.at[index, 'themeTags'] = theme_tags
-    
-    print(f'"Stax" cards in {color}_cards.csv have been tagged.\n')
+def create_stax_text_mask(df: pd.DataFrame) -> pd.Series:
+    """Create a boolean mask for cards with stax-related text patterns.
+
+    Args:
+        df: DataFrame to search
+
+    Returns:
+        Boolean Series indicating which cards have stax text patterns
+    """
+    return utility.create_text_mask(df, settings.STAX_TEXT_PATTERNS)
+
+def create_stax_name_mask(df: pd.DataFrame) -> pd.Series:
+    """Create a boolean mask for cards used in stax strategies.
+
+    Args:
+        df: DataFrame to search
+
+    Returns:
+        Boolean Series indicating which cards have stax text patterns
+    """
+    return utility.create_text_mask(df, settings.STAX_SPECIFIC_CARDS)
+
+def create_stax_tag_mask(df: pd.DataFrame) -> pd.Series:
+    """Create a boolean mask for cards with stax-related tags.
+
+    Args:
+        df: DataFrame to search
+
+    Returns:
+        Boolean Series indicating which cards have stax tags
+    """
+    return utility.create_tag_mask(df, 'Control')
+
+def create_stax_exclusion_mask(df: pd.DataFrame) -> pd.Series:
+    """Create a boolean mask for cards that should be excluded from stax effects.
+
+    Args:
+        df: DataFrame to search
+
+    Returns:
+        Boolean Series indicating which cards should be excluded
+    """
+    # Add specific exclusion patterns here if needed
+    return utility.create_text_mask(df, settings.STAX_EXCLUSION_PATTERNS)
+
+def tag_for_stax(df: pd.DataFrame, color: str) -> None:
+    """Tag cards that fit the Stax theme using vectorized operations.
+
+    This function identifies and tags cards that restrict or tax opponents including:
+    - Cards that prevent actions (can't attack, can't cast, etc)
+    - Cards that tax actions (spells cost more)
+    - Cards that control opponents' resources
+    - Cards that create asymmetric effects
+
+    Args:
+        df: DataFrame containing card data
+        color: Color identifier for logging purposes
+
+    Raises:
+        ValueError: If required DataFrame columns are missing
+    """
+    start_time = pd.Timestamp.now()
+    logging.info(f'Starting stax effect tagging for {color}_cards.csv')
+
+    try:
+        # Validate required columns
+        required_cols = {'text', 'themeTags'}
+        utility.validate_dataframe_columns(df, required_cols)
+
+        # Create masks for different stax patterns
+        text_mask = create_stax_text_mask(df)
+        name_mask = create_stax_name_mask(df)
+        tag_mask = create_stax_tag_mask(df)
+        exclusion_mask = create_stax_exclusion_mask(df)
+
+        # Combine masks
+        final_mask = (text_mask | tag_mask | name_mask) & ~exclusion_mask
+
+        # Apply tags
+        utility.apply_tag_vectorized(df, final_mask, ['Stax'])
+
+        # Log results
+        duration = (pd.Timestamp.now() - start_time).total_seconds()
+        logging.info(f'Tagged {final_mask.sum()} cards with stax effects in {duration:.2f}s')
+
+    except Exception as e:
+        logging.error(f'Error in tag_for_stax: {str(e)}')
+        raise
 
 ## Theft
-def tag_for_theft(df, color):
-    print(f'Tagging cards in {color}_cards.csv that fit the "Theft" theme.')
-    for index, row in df.iterrows():
-        theme_tags = row['themeTags']
-        if pd.notna(row['text']):
-            if ('cast a spell you don\'t own' in row['text'].lower()
-                or 'cast but don\'t own' in row['text'].lower()
-                or 'cost to cast this spell, sacrifice' in row['text'].lower()
-                or 'control but don\'t own' in row['text'].lower()
-                or 'exile top of target player\'s library' in row['text'].lower()
-                or 'exile top of each player\'s library' in row['text'].lower()
-                or 'gain control of' in row['text'].lower()
-                or 'target opponent\'s library' in row['text'].lower()
-                or 'that player\'s library' in row['text'].lower()
-                or 'you control enchanted creature' in row['text'].lower()
-                ):
-                tag_type = ['Theft']
-                for tag in tag_type:
-                    if tag not in theme_tags:
-                        theme_tags.extend([tag])
-                        df.at[index, 'themeTags'] = theme_tags
-        
-        if ('Adarkar Valkyrie' == row['name']
-            or 'Captain N\'gathrod' == row['name']
-            or 'Hostage Taker' == row['name']
-            or 'Siphon Insite' == row['name']
-            or 'Thief of Sanity' == row['name']
-            or 'Xanathar, Guild Kingpin' == row['name']
-            or 'Zara, Renegade Recruiter' == row['name']
-            ):
-            tag_type = ['Theft']
-            for tag in tag_type:
-                if tag not in theme_tags:
-                    theme_tags.extend([tag])
-                    df.at[index, 'themeTags'] = theme_tags
-    
-    print(f'"Theft" cards in {color}_cards.csv have been tagged.\n')
+def create_theft_text_mask(df: pd.DataFrame) -> pd.Series:
+    """Create a boolean mask for cards with theft-related text patterns.
+
+    Args:
+        df: DataFrame to search
+
+    Returns:
+        Boolean Series indicating which cards have theft text patterns
+    """
+    return utility.create_text_mask(df, settings.THEFT_TEXT_PATTERNS)
+
+def create_theft_name_mask(df: pd.DataFrame) -> pd.Series:
+    """Create a boolean mask for specific theft-related cards.
+
+    Args:
+        df: DataFrame to search
+
+    Returns:
+        Boolean Series indicating which cards are specific theft cards
+    """
+    return utility.create_name_mask(df, settings.THEFT_SPECIFIC_CARDS)
+
+def tag_for_theft(df: pd.DataFrame, color: str) -> None:
+    """Tag cards that steal or use opponents' resources using vectorized operations.
+
+    This function identifies and tags cards that:
+    - Cast spells owned by other players
+    - Take control of permanents
+    - Use opponents' libraries
+    - Create theft-related effects
+
+    Args:
+        df: DataFrame containing card data
+        color: Color identifier for logging purposes
+
+    Raises:
+        ValueError: If required DataFrame columns are missing
+    """
+    start_time = pd.Timestamp.now()
+    logging.info(f'Starting theft effect tagging for {color}_cards.csv')
+
+    try:
+        # Validate required columns
+        required_cols = {'text', 'themeTags', 'name'}
+        utility.validate_dataframe_columns(df, required_cols)
+
+        # Create masks for different theft patterns
+        text_mask = create_theft_text_mask(df)
+        name_mask = create_theft_name_mask(df)
+
+        # Combine masks
+        final_mask = text_mask | name_mask
+
+        # Apply tags
+        utility.apply_tag_vectorized(df, final_mask, ['Theft'])
+
+        # Log results
+        duration = (pd.Timestamp.now() - start_time).total_seconds()
+        logging.info(f'Tagged {final_mask.sum()} cards with theft effects in {duration:.2f}s')
+
+    except Exception as e:
+        logging.error(f'Error in tag_for_theft: {str(e)}')
+        raise
     
 ## Toughness Matters
-def tag_for_toughness(df, color):
-    print(f'Tagging cards in {color}_cards.csv that fit the "Toughness Matters" theme.')
-    for index, row in df.iterrows():
-        theme_tags = row['themeTags']
-        if pd.notna(row['text']):
-            if (
-                'card\'s toughness' in row['text'].lower()
-                or 'creature\'s toughness' in row['text'].lower()
-                or 'damage equal to its toughness' in row['text'].lower()
-                or 'lesser toughness' in row['text'].lower()
-                or 'total toughness' in row['text'].lower()
-                or 'toughness greater' in row['text'].lower()
-                or 'with defender' in row['text'].lower()
-                ):
-                tag_type = ['Toughness Matters']
-                for tag in tag_type:
-                    if tag not in theme_tags:
-                        theme_tags.extend([tag])
-                        df.at[index, 'themeTags'] = theme_tags
-        
-        if pd.notna(row['keywords']):
-            if ('Defender' in row['keywords']
-                ):
-                tag_type = ['Toughness Matters']
-                for tag in tag_type:
-                    if tag not in theme_tags:
-                        theme_tags.extend([tag])
-                        df.at[index, 'themeTags'] = theme_tags
-        
-        if (isinstance(df.at[index, 'power'], int) and isinstance(df.at[index, 'toughness'], int)):
-            if row['toughness'] > row['power']:
-                tag_type = ['Toughness Matters']
-                for tag in tag_type:
-                    if tag not in theme_tags:
-                        theme_tags.extend([tag])
-                        df.at[index, 'themeTags'] = theme_tags
-    
-    print(f'"Toughness Matters" cards in {color}_cards.csv have been tagged.\n')
+def create_toughness_text_mask(df: pd.DataFrame) -> pd.Series:
+    """Create a boolean mask for cards with toughness-related text patterns.
 
+    Args:
+        df: DataFrame to search
+
+    Returns:
+        Boolean Series indicating which cards have toughness text patterns
+    """
+    text_patterns = [
+        'card\'s toughness',
+        'creature\'s toughness',
+        'damage equal to its toughness',
+        'lesser toughness',
+        'total toughness',
+        'toughness greater',
+        'with defender'
+    ]
+    return utility.create_text_mask(df, text_patterns)
+
+def create_toughness_keyword_mask(df: pd.DataFrame) -> pd.Series:
+    """Create a boolean mask for cards with toughness-related keywords.
+
+    Args:
+        df: DataFrame to search
+
+    Returns:
+        Boolean Series indicating which cards have toughness keywords
+    """
+    return utility.create_keyword_mask(df, 'Defender')
+
+def _is_valid_numeric_comparison(power: Union[int, str, None], toughness: Union[int, str, None]) -> bool:
+    """Check if power and toughness values allow valid numeric comparison.
+
+    Args:
+        power: Power value to check
+        toughness: Toughness value to check
+
+    Returns:
+        True if values can be compared numerically, False otherwise
+    """
+    try:
+        if power is None or toughness is None:
+            return False
+        power_val = int(power)
+        toughness_val = int(toughness)
+        return True
+    except (ValueError, TypeError):
+        return False
+
+def create_power_toughness_mask(df: pd.DataFrame) -> pd.Series:
+    """Create a boolean mask for cards where toughness exceeds power.
+
+    Args:
+        df: DataFrame to search
+
+    Returns:
+        Boolean Series indicating which cards have toughness > power
+    """
+    valid_comparison = df.apply(
+        lambda row: _is_valid_numeric_comparison(row['power'], row['toughness']),
+        axis=1
+    )
+    numeric_mask = valid_comparison & (pd.to_numeric(df['toughness'], errors='coerce') > 
+                                     pd.to_numeric(df['power'], errors='coerce'))
+    return numeric_mask
+
+def tag_for_toughness(df: pd.DataFrame, color: str) -> None:
+    """Tag cards that care about toughness using vectorized operations.
+
+    This function identifies and tags cards that:
+    - Reference toughness in their text
+    - Have the Defender keyword
+    - Have toughness greater than power
+    - Care about high toughness values
+
+    Args:
+        df: DataFrame containing card data
+        color: Color identifier for logging purposes
+
+    Raises:
+        ValueError: If required DataFrame columns are missing
+    """
+    start_time = pd.Timestamp.now()
+    logging.info(f'Starting toughness tagging for {color}_cards.csv')
+
+    try:
+        # Validate required columns
+        required_cols = {'text', 'themeTags', 'keywords', 'power', 'toughness'}
+        utility.validate_dataframe_columns(df, required_cols)
+
+        # Create masks for different toughness patterns
+        text_mask = create_toughness_text_mask(df)
+        keyword_mask = create_toughness_keyword_mask(df)
+        power_toughness_mask = create_power_toughness_mask(df)
+
+        # Combine masks
+        final_mask = text_mask | keyword_mask | power_toughness_mask
+
+        # Apply tags
+        utility.apply_tag_vectorized(df, final_mask, ['Toughness Matters'])
+
+        # Log results
+        duration = (pd.Timestamp.now() - start_time).total_seconds()
+        logging.info(f'Tagged {final_mask.sum()} cards with toughness effects in {duration:.2f}s')
+
+    except Exception as e:
+        logging.error(f'Error in tag_for_toughness: {str(e)}')
+        raise
 ## Topdeck
 def tag_for_topdeck(df, color):
     print(f'Tagging cards in {color}_cards.csv that fit the "Topdeck" theme.')

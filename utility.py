@@ -68,13 +68,14 @@ def create_type_mask(df: pd.DataFrame, type_text: Union[str, List[str]], regex: 
         masks = [df['type'].str.contains(p, case=False, na=False, regex=False) for p in type_text]
         return pd.concat(masks, axis=1).any(axis=1)
 
-def create_text_mask(df: pd.DataFrame, type_text: Union[str, List[str]], regex: bool = True) -> pd.Series:
+def create_text_mask(df: pd.DataFrame, type_text: Union[str, List[str]], regex: bool = True, combine_with_or: bool = True) -> pd.Series:
     """Create a boolean mask for rows where text matches one or more patterns.
 
     Args:
         df: DataFrame to search
         type_text: Type text pattern(s) to match. Can be a single string or list of strings.
         regex: Whether to treat patterns as regex expressions (default: True)
+        combine_with_or: Whether to combine multiple patterns with OR (True) or AND (False)
 
     Returns:
         Boolean Series indicating matching rows
@@ -96,7 +97,10 @@ def create_text_mask(df: pd.DataFrame, type_text: Union[str, List[str]], regex: 
         return df['text'].str.contains(pattern, case=False, na=False, regex=True)
     else:
         masks = [df['text'].str.contains(p, case=False, na=False, regex=False) for p in type_text]
-        return pd.concat(masks, axis=1).any(axis=1)
+        if combine_with_or:
+            return pd.concat(masks, axis=1).any(axis=1)
+        else:
+            return pd.concat(masks, axis=1).all(axis=1)
 
 def create_keyword_mask(df: pd.DataFrame, type_text: Union[str, List[str]], regex: bool = True) -> pd.Series:
     """Create a boolean mask for rows where keyword text matches one or more patterns.
@@ -107,12 +111,21 @@ def create_keyword_mask(df: pd.DataFrame, type_text: Union[str, List[str]], rege
         regex: Whether to treat patterns as regex expressions (default: True)
 
     Returns:
-        Boolean Series indicating matching rows
+        Boolean Series indicating matching rows. For rows with empty/null keywords,
+        returns False.
 
     Raises:
         ValueError: If type_text is empty or None
         TypeError: If type_text is not a string or list of strings
+        ValueError: If required 'keywords' column is missing from DataFrame
     """
+    # Validate required columns
+    validate_dataframe_columns(df, {'keywords'})
+
+    # Handle empty DataFrame case
+    if len(df) == 0:
+        return pd.Series([], dtype=bool)
+
     if not type_text:
         raise ValueError("type_text cannot be empty or None")
 
@@ -121,13 +134,18 @@ def create_keyword_mask(df: pd.DataFrame, type_text: Union[str, List[str]], rege
     elif not isinstance(type_text, list):
         raise TypeError("type_text must be a string or list of strings")
 
+    # Create default mask for null values
+    # Handle null values and convert to string
+    keywords = df['keywords'].fillna('')
+    # Convert non-string values to strings
+    keywords = keywords.astype(str)
+
     if regex:
         pattern = '|'.join(f'{p}' for p in type_text)
-        return df['keywords'].str.contains(pattern, case=False, na=False, regex=True)
+        return keywords.str.contains(pattern, case=False, na=False, regex=True)
     else:
-        masks = [df['keywords'].str.contains(p, case=False, na=False, regex=False) for p in type_text]
+        masks = [keywords.str.contains(p, case=False, na=False, regex=False) for p in type_text]
         return pd.concat(masks, axis=1).any(axis=1)
-
 def create_name_mask(df: pd.DataFrame, type_text: Union[str, List[str]], regex: bool = True) -> pd.Series:
     """Create a boolean mask for rows where name matches one or more patterns.
 
@@ -270,3 +288,60 @@ def apply_tag_vectorized(df: pd.DataFrame, mask: pd.Series, tags: List[str]) -> 
     
     # Add new tags
     df.loc[mask, 'themeTags'] = current_tags.apply(lambda x: sorted(list(set(x + tags))))
+def create_mass_effect_mask(df: pd.DataFrame, effect_type: str) -> pd.Series:
+    """Create a boolean mask for cards with mass removal effects of a specific type.
+
+    Args:
+        df: DataFrame to search
+        effect_type: Type of mass effect to match ('destruction', 'exile', 'bounce', 'sacrifice', 'damage')
+
+    Returns:
+        Boolean Series indicating which cards have mass effects of the specified type
+
+    Raises:
+        ValueError: If effect_type is not recognized
+    """
+    if effect_type not in settings.BOARD_WIPE_TEXT_PATTERNS:
+        raise ValueError(f"Unknown effect type: {effect_type}")
+
+    patterns = settings.BOARD_WIPE_TEXT_PATTERNS[effect_type]
+    return create_text_mask(df, patterns)
+def create_damage_pattern(number: Union[int, str]) -> str:
+    """Create a pattern for matching X damage effects.
+
+    Args:
+        number: Number or variable (X) for damage amount
+
+    Returns:
+        Pattern string for matching damage effects
+    """
+    return f'deals {number} damage'
+def create_mass_damage_mask(df: pd.DataFrame) -> pd.Series:
+    """Create a boolean mask for cards with mass damage effects.
+
+    Args:
+        df: DataFrame to search
+
+    Returns:
+        Boolean Series indicating which cards have mass damage effects
+    """
+    # Create patterns for numeric damage
+    number_patterns = [create_damage_pattern(i) for i in range(1, 21)]
+    
+    # Add X damage pattern
+    number_patterns.append(create_damage_pattern('X'))
+    
+    # Add patterns for damage targets
+    target_patterns = [
+        'to each creature',
+        'to all creatures',
+        'to each player',
+        'to each opponent',
+        'to everything'
+    ]
+    
+    # Create masks
+    damage_mask = create_text_mask(df, number_patterns)
+    target_mask = create_text_mask(df, target_patterns)
+    
+    return damage_mask & target_mask

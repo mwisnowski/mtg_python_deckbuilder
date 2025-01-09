@@ -148,6 +148,85 @@ TOPDECK_EXCLUSION_PATTERNS = [
 ]
 
 # Constants for stax functionality
+
+# Constants for aristocrats functionality
+ARISTOCRAT_TEXT_PATTERNS = [
+    'another creature dies',
+    'creature dies',
+    'creature dying',
+    'creature you control dies', 
+    'creature you own dies',
+    'dies this turn',
+    'dies, create',
+    'dies, draw',
+    'dies, each opponent',
+    'dies, exile',
+    'dies, put',
+    'dies, return',
+    'dies, sacrifice',
+    'dies, you',
+    'has blitz',
+    'have blitz',
+    'permanents were sacrificed',
+    'sacrifice a creature',
+    'sacrifice another',
+    'sacrifice another creature',
+    'sacrifice a nontoken',
+    'sacrifice a permanent',
+    'sacrifice another nontoken',
+    'sacrifice another permanent',
+    'sacrifice another token',
+    'sacrifices a creature',
+    'sacrifices another',
+    'sacrifices another creature',
+    'sacrifices another nontoken',
+    'sacrifices another permanent',
+    'sacrifices another token',
+    'sacrifices a nontoken',
+    'sacrifices a permanent',
+    'sacrifices a token',
+    'when this creature dies',
+    'whenever a food',
+    'whenever you sacrifice'
+]
+
+ARISTOCRAT_SPECIFIC_CARDS = [
+    'Ashnod, Flesh Mechanist',
+    'Blood Artist',
+    'Butcher of Malakir',
+    'Chatterfang, Squirrel General',
+    'Cruel Celebrant',
+    'Dictate of Erebos',
+    'Endrek Sahr, Master Breeder',
+    'Gisa, Glorious Resurrector',
+    'Grave Pact',
+    'Grim Haruspex',
+    'Judith, the Scourge Diva',
+    'Korvold, Fae-Cursed King',
+    'Mayhem Devil',
+    'Midnight Reaper',
+    'Mikaeus, the Unhallowed',
+    'Pitiless Plunderer',
+    'Poison-Tip Archer',
+    'Savra, Queen of the Golgari',
+    'Sheoldred, the Apocalypse',
+    'Syr Konrad, the Grim',
+    'Teysa Karlov',
+    'Viscera Seer',
+    'Yawgmoth, Thran Physician',
+    'Zulaport Cutthroat'
+]
+
+ARISTOCRAT_EXCLUSION_PATTERNS = [
+    'blocking enchanted',
+    'blocking it',
+    'blocked by',
+    'end the turn',
+    'from your graveyard',
+    'from your hand',
+    'from your library',
+    'into your hand'
+]
 STAX_TEXT_PATTERNS = [
     'an opponent controls'
     'can\'t attack',
@@ -205,6 +284,60 @@ STAX_EXCLUSION_PATTERNS = [
     'from your hand',
     'from your library',
     'into your hand'
+]
+# Constants for removal functionality
+REMOVAL_TEXT_PATTERNS = [
+    'destroy target',
+    'destroys target',
+    'exile target',
+    'exiles target',
+    'sacrifices target',
+    'return target.*to.*hand',
+    'returns target.*to.*hand'
+]
+
+REMOVAL_SPECIFIC_CARDS = [] # type: list
+
+REMOVAL_EXCLUSION_PATTERNS = [] # type: list
+
+REMOVAL_KEYWORDS = [] # type: list
+
+# Constants for counterspell functionality
+COUNTERSPELL_TEXT_PATTERNS = [
+    'control counters a',
+    'counter target',
+    'counter that spell',
+    'counter all',
+    'counter each',
+    'counter the next',
+    'counters a spell',
+    'counters target',
+    'return target spell',
+    'exile target spell',
+    'counter unless',
+    'unless its controller pays'
+]
+
+COUNTERSPELL_SPECIFIC_CARDS = [
+    'Arcane Denial',
+    'Counterspell',
+    "Dovin's Veto",
+    'Force of Will',
+    'Mana Drain',
+    'Mental Misstep',
+    'Mindbreak Trap',
+    'Mystic Confluence',
+    'Pact of Negation',
+    'Swan Song'
+]
+
+COUNTERSPELL_EXCLUSION_PATTERNS = [
+    'counter on',
+    'counter from',
+    'remove a counter',
+    'move a counter',
+    'distribute counter',
+    'proliferate'
 ]
 
 # Constants for theft functionality
@@ -277,9 +410,96 @@ BIG_MANA_KEYWORDS = [
     'Improvise',
     'Surge'
 ]
-board_wipe_tags = ['destroy all', 'destroy each', 'return all', 'return each', 'deals damage to each',
-                'exile all', 'exile each', 'creatures get -X/-X', 'sacrifices all', 'sacrifices each',
-                'sacrifices the rest']
+
+# Constants for board wipe effects
+BOARD_WIPE_TEXT_PATTERNS = {
+    'mass_destruction': [
+        'destroy all',
+        'destroy each',
+        'destroy the rest',
+        'destroys all',
+        'destroys each',
+        'destroys the rest'
+    ],
+    'mass_exile': [
+        'exile all',
+        'exile each',
+        'exile the rest',
+        'exiles all',
+        'exiles each',
+        'exiles the rest'
+    ],
+    'mass_bounce': [
+        'return all',
+        'return each',
+        'put all creatures',
+        'returns all',
+        'returns each',
+        'puts all creatures'
+    ],
+    'mass_sacrifice': [
+        'sacrifice all',
+        'sacrifice each',
+        'sacrifice the rest',
+        'sacrifices all',
+        'sacrifices each',
+        'sacrifices the rest'
+    ],
+    'mass_damage': [
+        'deals damage to each',
+        'deals damage to all',
+        'deals X damage to each',
+        'deals X damage to all',
+        'deals that much damage to each',
+        'deals that much damage to all'
+    ]
+}
+
+BOARD_WIPE_SPECIFIC_CARDS = [
+    'Akroma\'s Vengeance',
+    'All Is Dust',
+    'Austere Command',
+    'Blasphemous Act',
+    'Cleansing Nova',
+    'Cyclonic Rift',
+    'Damnation',
+    'Day of Judgment',
+    'Decree of Pain',
+    'Devastation Tide',
+    'Evacuation',
+    'Extinction Event',
+    'Farewell',
+    'Hour of Devastation',
+    'In Garruk\'s Wake',
+    'Living Death',
+    'Living End',
+    'Merciless Eviction',
+    'Nevinyrral\'s Disk',
+    'Oblivion Stone',
+    'Planar Cleansing',
+    'Ravnica at War',
+    'Shatter the Sky',
+    'Supreme Verdict',
+    'Terminus',
+    'Time Wipe',
+    'Toxic Deluge',
+    'Vanquish the Horde',
+    'Wrath of God'
+]
+
+BOARD_WIPE_EXCLUSION_PATTERNS = [
+    'blocking enchanted',
+    'blocking it',
+    'blocked by',
+    'end the turn',
+    'from your graveyard',
+    'from your hand',
+    'from your library',
+    'into your hand',
+    'target player\'s library',
+    'that player\'s library'
+]
+
 
 card_types = ['Artifact','Creature', 'Enchantment', 'Instant', 'Land', 'Planeswalker', 'Sorcery',
               'Kindred', 'Dungeon', 'Battle']

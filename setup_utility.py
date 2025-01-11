@@ -1,16 +1,20 @@
 from __future__ import annotations
 
+# Standard library imports
 import logging
 import os
-from typing import List, Optional, Union
 from datetime import datetime, timedelta
+from typing import List, Optional, Union
+
+# Third-party imports
 import pandas as pd
 import requests
 from tqdm import tqdm
 
+# Local imports
 from settings import (banned_cards, CSV_DIRECTORY, COLUMN_ORDER,
-                      PRETAG_COLUMN_ORDER, EXCLUDED_CARD_TYPES)
-
+                    PRETAG_COLUMN_ORDER, EXCLUDED_CARD_TYPES, TAGGED_COLUMN_ORDER)
+from type_definitions import CardLibraryDF
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -86,8 +90,7 @@ def download_cards_csv(url: str = 'https://mtgjson.com/api/v5/csv/cards.csv') ->
     except OSError as e:
         logger.error(f"Failed to write cards.csv: {e}")
         raise
-
-def validate_card_dataframe(df: pd.DataFrame, skip_availability_checks: bool = False) -> bool:
+def validate_card_dataframe(df: CardLibraryDF, skip_availability_checks: bool = False) -> bool:
     """Validate DataFrame has required columns and structure.
 
     Args:
@@ -127,14 +130,14 @@ def validate_card_dataframe(df: pd.DataFrame, skip_availability_checks: bool = F
             return False
     else:
         logger.debug("Skipping availability checks...")
-        missing_cols = set(PRETAG_COLUMN_ORDER) - set(df.columns)
+        missing_cols = set(TAGGED_COLUMN_ORDER) - set(df.columns)
         if missing_cols:
             logger.error(f"Missing required columns: {missing_cols}")
             raise ValueError(f"DataFrame missing required columns: {missing_cols}")
-
+    #print(df.columns)
     logger.info("DataFrame validation successful")
     return True
-def filter_banned_cards(df: pd.DataFrame) -> pd.DataFrame:
+def filter_banned_cards(df: CardLibraryDF) -> CardLibraryDF:
     """Filter out banned cards from DataFrame.
 
     Args:
@@ -148,7 +151,7 @@ def filter_banned_cards(df: pd.DataFrame) -> pd.DataFrame:
         df = df[~df['name'].str.contains(card, na=False)]
     return df
 
-def filter_card_types(df: pd.DataFrame, excluded_types: List[str] = EXCLUDED_CARD_TYPES) -> pd.DataFrame:
+def filter_card_types(df: CardLibraryDF, excluded_types: List[str] = EXCLUDED_CARD_TYPES) -> CardLibraryDF:
     """Filter cards by type.
 
     Args:
@@ -163,7 +166,7 @@ def filter_card_types(df: pd.DataFrame, excluded_types: List[str] = EXCLUDED_CAR
         df = df[~df['type'].str.contains(card_type, na=False)]
     return df
 
-def process_card_dataframe(df: pd.DataFrame, batch_size: int = 1000, columns_to_keep: Optional[List[str]] = None,
+def process_card_dataframe(df: CardLibraryDF, batch_size: int = 1000, columns_to_keep: Optional[List[str]] = None,
                          include_commander_cols: bool = False, skip_availability_checks: bool = False) -> pd.DataFrame:
     """Process DataFrame with common operations in batches.
 
@@ -181,12 +184,12 @@ def process_card_dataframe(df: pd.DataFrame, batch_size: int = 1000, columns_to_
         include_commander_cols: Whether to include commander-specific columns
 
     Returns:
-        Processed DataFrame
+        CardLibraryDF: Processed DataFrame with standardized structure
     """
     logger.info("Processing card DataFrame...")
 
     if columns_to_keep is None:
-        columns_to_keep = PRETAG_COLUMN_ORDER.copy()
+        columns_to_keep = TAGGED_COLUMN_ORDER.copy()
         if include_commander_cols:
             commander_cols = ['printings', 'text', 'power', 'toughness', 'keywords']
             columns_to_keep.extend(col for col in commander_cols if col not in columns_to_keep)
@@ -233,7 +236,7 @@ def process_card_dataframe(df: pd.DataFrame, batch_size: int = 1000, columns_to_
     logger.info("DataFrame processing completed")
     return result
 
-def validate_commander_eligibility(df: pd.DataFrame) -> pd.DataFrame:
+def validate_commander_eligibility(df: CardLibraryDF) -> CardLibraryDF:
     """Validate and filter cards based on commander eligibility requirements.
 
     Args:
@@ -263,7 +266,7 @@ def validate_commander_eligibility(df: pd.DataFrame) -> pd.DataFrame:
     logger.info("Commander eligibility validation complete")
     return df
 
-def filter_commander_cards(df: pd.DataFrame) -> pd.DataFrame:
+def filter_commander_cards(df: CardLibraryDF) -> CardLibraryDF:
     """Filter cards based on commander-specific requirements.
 
     Args:
@@ -287,10 +290,10 @@ def filter_commander_cards(df: pd.DataFrame) -> pd.DataFrame:
     logger.info("Commander card filtering complete")
     return df
 
-def filter_card_dataframe(df: pd.DataFrame,
-                         column_name: str,
-                         value: Union[str, List[str]],
-                         new_csv_name: str) -> None:
+def filter_card_dataframe(df: CardLibraryDF,
+                       column_name: str,
+                       value: Union[str, List[str]],
+                       new_csv_name: str) -> None:
     """Filter DataFrame and save to CSV.
 
     Args:

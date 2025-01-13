@@ -3,23 +3,18 @@ from __future__ import annotations
 import pandas as pd # type: ignore
 import requests # type: ignore
 import inquirer.prompt # type: ignore
+import logging
 
-from settings import banned_cards, csv_directory
+from settings import banned_cards, csv_directory, SETUP_COLORS, COLOR_ABRV, MTGJSON_API_URL
+from setup_utils import download_cards_csv, filter_dataframe, process_legendary_cards
 
-colors = ['colorless', 'white', 'blue', 'black', 'green', 'red',
-          'azorius', 'orzhov', 'selesnya', 'boros', 'dimir',
-          'simic', 'izzet', 'golgari', 'rakdos', 'gruul',
-          'bant', 'esper', 'grixis', 'jund', 'naya',
-          'abzan', 'jeskai', 'mardu', 'sultai', 'temur',
-          'dune', 'glint', 'ink', 'witch', 'yore', 'wubrg']
-
-color_abrv = ['Colorless', 'W', 'U', 'B', 'G', 'R',
-              'U, W', 'B, W', 'G, W', 'R, W', 'B, U',
-              'G, U', 'R, U', 'B, G', 'B, R', 'G, R',
-              'G, U, W', 'B, U, W', 'B, R, U', 'B, G, R', 'G, R, W',
-              'B, G, W', 'R, U, W', 'B, R, W', 'B, G, U', 'G, R, U',
-              'B, G, R, W', 'B, G, R, U', 'G, R, U, W', 'B, G, U, W',
-              'B, R, U, W', 'B, G, R, U, W']
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+logger = logging.getLogger(__name__)
 
 def filter_by_color(df, column_name, value, new_csv_name):
     # Filter dataframe
@@ -54,111 +49,77 @@ def filter_by_color(df, column_name, value, new_csv_name):
 
 def determine_commanders():
     print('Generating commander_cards.csv, containing all cards elligible to be commanders.')
-    # Filter dataframe
-    while True:
+    try:
+        # Check for cards.csv
+        cards_file = f'{csv_directory}/cards.csv'
         try:
-            with open(f'{csv_directory}/cards.csv', 'r', encoding='utf-8'):
+            with open(cards_file, 'r', encoding='utf-8'):
                 print('cards.csv exists.')
-                break
         except FileNotFoundError:
-            # If the cards.csv file does not exist or can't be found, pull it from mtgjson.com
             print('cards.csv not found, downloading from mtgjson')
-            url = 'https://mtgjson.com/api/v5/csv/cards.csv'
-            r = requests.get(url)
-            with open(f'{csv_directory}/cards.csv', 'wb') as outputfile:
-                outputfile.write(r.content)
+            download_cards_csv(MTGJSON_API_URL, cards_file)
+            
+        # Load and process cards data
+        df = pd.read_csv(cards_file, low_memory=False)
+        df['colorIdentity'] = df['colorIdentity'].fillna('Colorless')
         
-    # Load cards.csv file into pandas dataframe so it can be further broken down
-    df = pd.read_csv(f'{csv_directory}/cards.csv', low_memory=False)
-    
-    # Set frames that have nothing for color identity to be 'Colorless' instead
-    df['colorIdentity'] = df['colorIdentity'].fillna('Colorless')
-    
-    legendary_options = ['Legendary Creature','Legendary Artifact', 'Legendary Artifact Creature', 'Legendary Enchantment Creature', 'Legendary Planeswalker']
-    filtered_df = df[df['type'].str.contains('|'.join(legendary_options))]
-    """
-    Save the filtered dataframe to a new csv file, and narrow down/rearranges the columns it
-    keeps to increase readability/trim some extra data.
-    Additionally attempts to remove as many duplicates (including cards with reversible prints,
-    as well as taking out Arena-only cards.
-    """
-    rows_to_drop = []
-    non_legel_sets = ['PHTR', 'PH17', 'PH18' ,'PH19', 'PH20', 'PH21', 'UGL', 'UND', 'UNH', 'UST',]
-    for index, row in filtered_df.iterrows():
-        if ('Legendary Artifact' in row['type']
-            or 'Legendary Planeswalker' in row['type']):
-            if 'Legendary Artifact Creature' not in row['type']:
-                if pd.notna(row['text']):
-                    if f'{row['name']} can be your commander' not in row['text']:
-                        rows_to_drop.append(index)
-        for illegal_set in non_legel_sets:
-            if illegal_set in row['printings']:
-                rows_to_drop.append(index)
+        # Process legendary cards
+        filtered_df = process_legendary_cards(df)
         
-    filtered_df = filtered_df.drop(rows_to_drop)
+        # Apply standard filters
+        filtered_df = filter_dataframe(filtered_df, banned_cards)
+        
+        # Save commander cards
+        filtered_df.to_csv(f'{csv_directory}/commander_cards.csv', index=False)
+        print('commander_cards.csv file generated.')
+        
+    except Exception as e:
+        print(f'Error generating commander cards: {str(e)}')
+        raise
     
-    filtered_df.sort_values('name')
-    filtered_df = filtered_df.loc[filtered_df['layout'] != 'reversible_card'] 
-    filtered_df = filtered_df[filtered_df['availability'].str.contains('paper')]
-    filtered_df = filtered_df.loc[filtered_df['promoTypes'] != 'playtest']
-    filtered_df = filtered_df.loc[filtered_df['securityStamp'] != 'heart']
-    filtered_df = filtered_df.loc[filtered_df['securityStamp'] != 'acorn']
-    
-    for card in banned_cards:
-        filtered_df = filtered_df[~filtered_df['name'].str.contains(card)]
-    
-    card_types = ['Plane —', 'Conspiracy', 'Vanguard', 'Scheme', 'Phenomenon', 'Stickers', 'Attraction', 'Hero', 'Contraption']
-    for card_type in card_types:
-        filtered_df = filtered_df[~filtered_df['type'].str.contains(card_type)]
-    filtered_df['faceName'] = filtered_df['faceName'].fillna(filtered_df['name'])
-    filtered_df.drop_duplicates(subset='faceName', keep='first', inplace=True)
-    columns_to_keep = ['name', 'faceName','edhrecRank','colorIdentity', 'colors', 'manaCost', 'manaValue', 'type', 'layout', 'text', 'power', 'toughness', 'keywords', 'side']
-    filtered_df = filtered_df[columns_to_keep]
-    filtered_df.sort_values(by=['name', 'side'], key=lambda col: col.str.lower(), inplace=True)
-    filtered_df.to_csv(f'{csv_directory}/commander_cards.csv', index=False)
-    
-    print('commander_cards.csv file generated.')
-
 def initial_setup():
-    print('Checking for cards.csv file.\n')
-    while True:
+    """Perform initial setup by downloading card data and creating filtered CSV files.
+    
+    This function:
+    1. Downloads the latest card data from MTGJSON if needed
+    2. Creates color-filtered CSV files
+    3. Generates commander-eligible cards list
+    
+    Uses utility functions from setup_utils.py for file operations and data processing.
+    Implements proper error handling for file operations and data processing.
+    """
+    logger.info('Checking for cards.csv file')
+    
+    try:
+        cards_file = f'{csv_directory}/cards.csv'
         try:
-            with open(f'{csv_directory}/cards.csv', 'r', encoding='utf-8'):
-                print('cards.csv exists.')
-                break
+            with open(cards_file, 'r', encoding='utf-8'):
+                logger.info('cards.csv exists')
         except FileNotFoundError:
-            # If the cards.csv file does not exist or can't be found, pull it from mtgjson.com
-            print('cards.csv not found, downloading from mtgjson')
-            url = 'https://mtgjson.com/api/v5/csv/cards.csv'
-            r = requests.get(url)
-            with open(f'{csv_directory}/cards.csv', 'wb') as outputfile:
-                outputfile.write(r.content)
+            logger.info('cards.csv not found, downloading from mtgjson')
+            download_cards_csv(MTGJSON_API_URL, cards_file)
 
-    # Load cards.csv file into pandas dataframe so it can be further broken down
-    df = pd.read_csv(f'{csv_directory}/cards.csv', low_memory=False)
+        df = pd.read_csv(cards_file, low_memory=False)
+        df['colorIdentity'] = df['colorIdentity'].fillna('Colorless')
 
-    # Set frames that have nothing for color identity to be 'Colorless' instead
-    df['colorIdentity'] = df['colorIdentity'].fillna('Colorless')
+        logger.info('Checking for color identity sorted files')
+        
+        for i in range(min(len(SETUP_COLORS), len(COLOR_ABRV))):
+            logger.info(f'Checking for {SETUP_COLORS[i]}_cards.csv')
+            try:
+                with open(f'{csv_directory}/{SETUP_COLORS[i]}_cards.csv', 'r', encoding='utf-8'):
+                    logger.info(f'{SETUP_COLORS[i]}_cards.csv exists')
+            except FileNotFoundError:
+                logger.info(f'{SETUP_COLORS[i]}_cards.csv not found, creating one')
+                filter_by_color(df, 'colorIdentity', COLOR_ABRV[i], f'{csv_directory}/{SETUP_COLORS[i]}_cards.csv')
 
-    # Check for and create missing, individual color identity sorted CSVs
-    print('Checking for color identity sorted files.\n')
+        # Generate commander list
+        determine_commanders()
 
-    # For loop to iterate through the colors
-    for i in range(min(len(colors), len(color_abrv))):
-        print(f'Checking for {colors[i]}_cards.csv.')
-        try:
-            with open(f'{csv_directory}/{colors[i]}_cards.csv', 'r', encoding='utf-8'):
-                print(f'{colors[i]}_cards.csv exists.\n')
-        except FileNotFoundError:
-            print(f'{colors[i]}_cards.csv not found, creating one.\n')
-            filter_by_color(df, 'colorIdentity', color_abrv[i], f'{csv_directory}/{colors[i]}_cards.csv')
-
-    # Once by-color lists have been made, Determine legendary creatures
-    determine_commanders()
-
-    # Once Legendary creatures are determined, generate staple lists
-    # generate_staple_lists()
-
+    except Exception as e:
+        logger.error(f'Error during initial setup: {str(e)}')
+        raise
+    
 def regenerate_csvs_all():
     """
     Pull the original cards.csv file and remake the {color}_cards.csv files.
@@ -188,10 +149,10 @@ def regenerate_csvs_all():
     print('Regenerating color identity sorted files.\n')
     
     # For loop to iterate through the colors
-    for i in range(min(len(colors), len(color_abrv))):
-        print(f'Regenerating {colors[i]}_cards.csv.')
-        filter_by_color(df, 'colorIdentity', color_abrv[i], f'csv_files/{colors[i]}_cards.csv')
-        print(f'A new {colors[i]}_cards.csv file has been made.\n')
+    for i in range(min(len(SETUP_COLORS), len(COLOR_ABRV))):
+        print(f'Regenerating {SETUP_COLORS[i]}_cards.csv.')
+        filter_by_color(df, 'colorIdentity', COLOR_ABRV[i], f'csv_files/{SETUP_COLORS[i]}_cards.csv')
+        print(f'A new {SETUP_COLORS[i]}_cards.csv file has been made.\n')
 
     # Once files are regenerated, create a new legendary list
     determine_commanders()
@@ -201,8 +162,8 @@ def regenerate_csv_by_color(color):
     Pull the original cards.csv file and remake the {color}_cards.csv files
     """
     # Determine the color_abv to use
-    color_abrv_index = colors.index(color)
-    color_abv = color_abrv[color_abrv_index]
+    COLOR_ABRV_index = SETUP_COLORS.index(color)
+    color_abv = COLOR_ABRV[COLOR_ABRV_index]
     print('Downloading cards.csv from mtgjson')
     url = 'https://mtgjson.com/api/v5/csv/cards.csv'
     r = requests.get(url)
@@ -258,7 +219,4 @@ def setup():
             break
         break
 
-#regenerate_csvs_all()
-#regenerate_csv_by_color('white')
-#determine_commanders()
-#set_lands()
+initial_setup()

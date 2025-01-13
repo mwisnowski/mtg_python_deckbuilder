@@ -764,3 +764,63 @@ VOLTRON_PATTERNS = [
     'living weapon',
     'reconfigure'
 ]
+
+# Constants for setup and CSV processing
+MTGJSON_API_URL = 'https://mtgjson.com/api/v5/csv/cards.csv'
+
+LEGENDARY_OPTIONS = [
+    'Legendary Creature',
+    'Legendary Artifact',
+    'Legendary Artifact Creature', 
+    'Legendary Enchantment Creature',
+    'Legendary Planeswalker'
+]
+
+NON_LEGAL_SETS = [
+    'PHTR', 'PH17', 'PH18', 'PH19', 'PH20', 'PH21',
+    'UGL', 'UND', 'UNH', 'UST'
+]
+
+CARD_TYPES_TO_EXCLUDE = [
+    'Plane —',
+    'Conspiracy',
+    'Vanguard', 
+    'Scheme',
+    'Phenomenon',
+    'Stickers',
+    'Attraction',
+    'Hero',
+    'Contraption'
+]
+
+CSV_PROCESSING_COLUMNS = [
+    'name',
+    'faceName',
+    'edhrecRank',
+    'colorIdentity',
+    'colors',
+    'manaCost', 
+    'manaValue',
+    'type',
+    'layout',
+    'text',
+    'power',
+    'toughness', 
+    'keywords',
+    'side'
+]
+
+SETUP_COLORS = ['colorless', 'white', 'blue', 'black', 'green', 'red',
+          'azorius', 'orzhov', 'selesnya', 'boros', 'dimir',
+          'simic', 'izzet', 'golgari', 'rakdos', 'gruul',
+          'bant', 'esper', 'grixis', 'jund', 'naya',
+          'abzan', 'jeskai', 'mardu', 'sultai', 'temur',
+          'dune', 'glint', 'ink', 'witch', 'yore', 'wubrg']
+
+COLOR_ABRV = ['Colorless', 'W', 'U', 'B', 'G', 'R',
+              'U, W', 'B, W', 'G, W', 'R, W', 'B, U',
+              'G, U', 'R, U', 'B, G', 'B, R', 'G, R',
+              'G, U, W', 'B, U, W', 'B, R, U', 'B, G, R', 'G, R, W',
+              'B, G, W', 'R, U, W', 'B, R, W', 'B, G, U', 'G, R, U',
+              'B, G, R, W', 'B, G, R, U', 'G, R, U, W', 'B, G, U, W',
+              'B, R, U, W', 'B, G, R, U, W']

@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+from enum import Enum
+
 import pandas as pd # type: ignore
-import requests # type: ignore
 import inquirer.prompt # type: ignore
 import logging
 
 from settings import banned_cards, csv_directory, SETUP_COLORS, COLOR_ABRV, MTGJSON_API_URL
-from setup_utils import download_cards_csv, filter_dataframe, process_legendary_cards
+from setup_utils import download_cards_csv, filter_dataframe, process_legendary_cards, filter_by_color_identity
+from exceptions import CSVFileNotFoundError, MTGJSONDownloadError, DataFrameProcessingError, ColorFilterError, CommanderValidationError
 
 # Configure logging
 logging.basicConfig(
@@ -16,77 +18,38 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-def filter_by_color(df, column_name, value, new_csv_name):
-    # Filter dataframe
-    filtered_df = df[df[column_name] == value]
-    """
-    Save the filtered dataframe to a new csv file, and narrow down/rearranges the columns it
-    keeps to increase readability/trim some extra data.
-    Additionally attempts to remove as many duplicates (including cards with reversible prints,
-    as well as taking out Arena-only cards.
-    """
-    filtered_df.sort_values('name')
-    filtered_df = filtered_df.loc[filtered_df['layout'] != 'reversible_card'] 
-    filtered_df = filtered_df[filtered_df['availability'].str.contains('paper')]
-    filtered_df = filtered_df.loc[filtered_df['promoTypes'] != 'playtest']
-    filtered_df = filtered_df.loc[filtered_df['securityStamp'] != 'heart']
-    filtered_df = filtered_df.loc[filtered_df['securityStamp'] != 'acorn']
+def check_csv_exists(file_path: str) -> bool:
+    """Check if a CSV file exists at the specified path.
     
-    for card in banned_cards:
-        filtered_df = filtered_df[~filtered_df['name'].str.contains(card)]
-    
-    card_types = ['Plane —', 'Conspiracy', 'Vanguard', 'Scheme', 'Phenomenon', 'Stickers', 'Attraction', 'Hero', 'Contraption']
-    for card_type in card_types:
-        filtered_df = filtered_df[~filtered_df['type'].str.contains(card_type)]
-    filtered_df['faceName'] = filtered_df['faceName'].fillna(filtered_df['name'])
-    filtered_df.drop_duplicates(subset='faceName', keep='first', inplace=True)
-    columns_to_keep = ['name', 'faceName','edhrecRank','colorIdentity', 'colors', 'manaCost', 'manaValue', 'type', 'layout', 'text', 'power', 'toughness', 'keywords', 'side']
-    filtered_df = filtered_df[columns_to_keep]
-    filtered_df.sort_values(by=['name', 'side'], key=lambda col: col.str.lower(), inplace=True)
+    Args:
+        file_path: Path to the CSV file to check
         
-    
-    filtered_df.to_csv(new_csv_name, index=False)
-
-def determine_commanders():
-    print('Generating commander_cards.csv, containing all cards elligible to be commanders.')
+    Returns:
+        bool: True if file exists, False otherwise
+        
+    Raises:
+        CSVFileNotFoundError: If there are issues accessing the file path
+    """
     try:
-        # Check for cards.csv
-        cards_file = f'{csv_directory}/cards.csv'
-        try:
-            with open(cards_file, 'r', encoding='utf-8'):
-                print('cards.csv exists.')
-        except FileNotFoundError:
-            print('cards.csv not found, downloading from mtgjson')
-            download_cards_csv(MTGJSON_API_URL, cards_file)
-            
-        # Load and process cards data
-        df = pd.read_csv(cards_file, low_memory=False)
-        df['colorIdentity'] = df['colorIdentity'].fillna('Colorless')
-        
-        # Process legendary cards
-        filtered_df = process_legendary_cards(df)
-        
-        # Apply standard filters
-        filtered_df = filter_dataframe(filtered_df, banned_cards)
-        
-        # Save commander cards
-        filtered_df.to_csv(f'{csv_directory}/commander_cards.csv', index=False)
-        print('commander_cards.csv file generated.')
-        
+        with open(file_path, 'r', encoding='utf-8'):
+            return True
+    except FileNotFoundError:
+        return False
     except Exception as e:
-        print(f'Error generating commander cards: {str(e)}')
-        raise
-    
-def initial_setup():
+        raise CSVFileNotFoundError(f'Error checking CSV file: {str(e)}')
+
+def initial_setup() -> None:
     """Perform initial setup by downloading card data and creating filtered CSV files.
     
-    This function:
-    1. Downloads the latest card data from MTGJSON if needed
-    2. Creates color-filtered CSV files
-    3. Generates commander-eligible cards list
+    Downloads the latest card data from MTGJSON if needed, creates color-filtered CSV files,
+    and generates commander-eligible cards list. Uses utility functions from setup_utils.py
+    for file operations and data processing.
     
-    Uses utility functions from setup_utils.py for file operations and data processing.
-    Implements proper error handling for file operations and data processing.
+    Raises:
+        CSVFileNotFoundError: If required CSV files cannot be found
+        MTGJSONDownloadError: If card data download fails
+        DataFrameProcessingError: If data processing fails
+        ColorFilterError: If color filtering fails
     """
     logger.info('Checking for cards.csv file')
     
@@ -119,104 +82,218 @@ def initial_setup():
     except Exception as e:
         logger.error(f'Error during initial setup: {str(e)}')
         raise
-    
-def regenerate_csvs_all():
-    """
-    Pull the original cards.csv file and remake the {color}_cards.csv files.
-    This is useful if a new set has since come out to ensure the databases are up-to-date
-    """
-    print('Downloading cards.csv from mtgjson')
-    url = 'https://mtgjson.com/api/v5/csv/cards.csv'
-    r = requests.get(url)
-    with open('csv_files/cards.csv', 'wb') as outputfile:
-        outputfile.write(r.content)
-    
-    # Load cards.csv file into pandas dataframe so it can be further broken down
-    df = pd.read_csv('csv_files/cards.csv', low_memory=False)#, converters={'printings': pd.eval})
-    
-    # Set frames that have nothing for color identity to be 'Colorless' instead
-    df['colorIdentity'] = df['colorIdentity'].fillna('Colorless')
-    
-    rows_to_drop = []
-    non_legel_sets = ['PHTR', 'PH17', 'PH18' ,'PH19', 'PH20', 'PH21', 'UGL', 'UND', 'UNH', 'UST',]
-    for index, row in df.iterrows():
-        for illegal_set in non_legel_sets:
-            if illegal_set in row['printings']:
-                rows_to_drop.append(index)
-    df = df.drop(rows_to_drop)
-    
-    # Color identity sorted cards
-    print('Regenerating color identity sorted files.\n')
-    
-    # For loop to iterate through the colors
-    for i in range(min(len(SETUP_COLORS), len(COLOR_ABRV))):
-        print(f'Regenerating {SETUP_COLORS[i]}_cards.csv.')
-        filter_by_color(df, 'colorIdentity', COLOR_ABRV[i], f'csv_files/{SETUP_COLORS[i]}_cards.csv')
-        print(f'A new {SETUP_COLORS[i]}_cards.csv file has been made.\n')
 
+def filter_by_color(df: pd.DataFrame, column_name: str, value: str, new_csv_name: str) -> None:
+    """Filter DataFrame by color identity and save to CSV.
+    
+    Args:
+        df: DataFrame to filter
+        column_name: Column to filter on (should be 'colorIdentity')
+        value: Color identity value to filter for
+        new_csv_name: Path to save filtered CSV
+        
+    Raises:
+        ColorFilterError: If filtering fails
+        DataFrameProcessingError: If DataFrame processing fails
+        CSVFileNotFoundError: If CSV file operations fail
+    """
+    try:
+        # Check if target CSV already exists
+        if check_csv_exists(new_csv_name):
+            logger.info(f'{new_csv_name} already exists, will be overwritten')
+            
+        filtered_df = filter_by_color_identity(df, value)
+        filtered_df.to_csv(new_csv_name, index=False)
+        logger.info(f'Successfully created {new_csv_name}')
+    except (ColorFilterError, DataFrameProcessingError, CSVFileNotFoundError) as e:
+        logger.error(f'Failed to filter by color {value}: {str(e)}')
+        raise
+
+def determine_commanders() -> None:
+    """Generate commander_cards.csv containing all cards eligible to be commanders.
+    
+    This function processes the card database to identify and validate commander-eligible cards,
+    applying comprehensive validation steps and filtering criteria.
+    
+    Raises:
+        CSVFileNotFoundError: If cards.csv is missing and cannot be downloaded
+        MTGJSONDownloadError: If downloading cards data fails
+        CommanderValidationError: If commander validation fails
+        DataFrameProcessingError: If data processing operations fail
+    """
+    logger.info('Starting commander card generation process')
+    
+    try:
+        # Check for cards.csv with progress tracking
+        cards_file = f'{csv_directory}/cards.csv'
+        if not check_csv_exists(cards_file):
+            logger.info('cards.csv not found, initiating download')
+            download_cards_csv(MTGJSON_API_URL, cards_file)
+        else:
+            logger.info('cards.csv found, proceeding with processing')
+            
+        # Load and process cards data
+        logger.info('Loading card data from CSV')
+        df = pd.read_csv(cards_file, low_memory=False)
+        df['colorIdentity'] = df['colorIdentity'].fillna('Colorless')
+        
+        # Process legendary cards with validation
+        logger.info('Processing and validating legendary cards')
+        try:
+            filtered_df = process_legendary_cards(df)
+        except CommanderValidationError as e:
+            logger.error(f'Commander validation failed: {str(e)}')
+            raise
+        
+        # Apply standard filters
+        logger.info('Applying standard card filters')
+        filtered_df = filter_dataframe(filtered_df, banned_cards)
+        
+        # Save commander cards
+        logger.info('Saving validated commander cards')
+        filtered_df.to_csv(f'{csv_directory}/commander_cards.csv', index=False)
+        
+        logger.info('Commander card generation completed successfully')
+        
+    except (CSVFileNotFoundError, MTGJSONDownloadError) as e:
+        logger.error(f'File operation error: {str(e)}')
+        raise
+    except CommanderValidationError as e:
+        logger.error(f'Commander validation error: {str(e)}')
+        raise
+    except Exception as e:
+        logger.error(f'Unexpected error during commander generation: {str(e)}')
+        raise
+    
+def regenerate_csvs_all() -> None:
+    """Regenerate all color-filtered CSV files from latest card data.
+    
+    Downloads fresh card data and recreates all color-filtered CSV files.
+    Useful for updating the card database when new sets are released.
+    
+    Raises:
+        MTGJSONDownloadError: If card data download fails
+        DataFrameProcessingError: If data processing fails
+        ColorFilterError: If color filtering fails
+    """
+    try:
+        logger.info('Downloading latest card data from MTGJSON')
+        download_cards_csv(MTGJSON_API_URL, f'{csv_directory}/cards.csv')
+        
+        logger.info('Loading and processing card data')
+        df = pd.read_csv(f'{csv_directory}/cards.csv', low_memory=False)
+        df['colorIdentity'] = df['colorIdentity'].fillna('Colorless')
+        
+        logger.info('Regenerating color identity sorted files')
+        for i in range(min(len(SETUP_COLORS), len(COLOR_ABRV))):
+            color = SETUP_COLORS[i]
+            color_id = COLOR_ABRV[i]
+            logger.info(f'Processing {color} cards')
+            filter_by_color(df, 'colorIdentity', color_id, f'{csv_directory}/{color}_cards.csv')
+            
+        logger.info('Regenerating commander cards')
+        determine_commanders()
+        
+        logger.info('Card database regeneration complete')
+        
+    except Exception as e:
+        logger.error(f'Failed to regenerate card database: {str(e)}')
+        raise
     # Once files are regenerated, create a new legendary list
     determine_commanders()
 
-def regenerate_csv_by_color(color):
+def regenerate_csv_by_color(color: str) -> None:
+    """Regenerate CSV file for a specific color identity.
+    
+    Args:
+        color: Color name to regenerate CSV for (e.g. 'white', 'blue')
+        
+    Raises:
+        ValueError: If color is not valid
+        MTGJSONDownloadError: If card data download fails
+        DataFrameProcessingError: If data processing fails
+        ColorFilterError: If color filtering fails
     """
-    Pull the original cards.csv file and remake the {color}_cards.csv files
+    try:
+        if color not in SETUP_COLORS:
+            raise ValueError(f'Invalid color: {color}')
+            
+        color_abv = COLOR_ABRV[SETUP_COLORS.index(color)]
+        
+        logger.info(f'Downloading latest card data for {color} cards')
+        download_cards_csv(MTGJSON_API_URL, f'{csv_directory}/cards.csv')
+        
+        logger.info('Loading and processing card data')
+        df = pd.read_csv(f'{csv_directory}/cards.csv', low_memory=False)
+        df['colorIdentity'] = df['colorIdentity'].fillna('Colorless')
+        
+        logger.info(f'Regenerating {color} cards CSV')
+        filter_by_color(df, 'colorIdentity', color_abv, f'{csv_directory}/{color}_cards.csv')
+        
+        logger.info(f'Successfully regenerated {color} cards database')
+        
+    except Exception as e:
+        logger.error(f'Failed to regenerate {color} cards: {str(e)}')
+        raise
+
+class SetupOption(Enum):
+    """Enum for setup menu options."""
+    INITIAL_SETUP = 'Initial Setup'
+    REGENERATE_CSV = 'Regenerate CSV Files'
+    BACK = 'Back'
+
+def _display_setup_menu() -> SetupOption:
+    """Display the setup menu and return the selected option.
+    
+    Returns:
+        SetupOption: The selected menu option
     """
-    # Determine the color_abv to use
-    COLOR_ABRV_index = SETUP_COLORS.index(color)
-    color_abv = COLOR_ABRV[COLOR_ABRV_index]
-    print('Downloading cards.csv from mtgjson')
-    url = 'https://mtgjson.com/api/v5/csv/cards.csv'
-    r = requests.get(url)
-    with open(f'{csv_directory}/cards.csv', 'wb') as outputfile:
-        outputfile.write(r.content)
-    # Load cards.csv file into pandas dataframe so it can be further broken down
-    df = pd.read_csv(f'{csv_directory}/cards.csv', low_memory=False)
-    
-    # Set frames that have nothing for color identity to be 'Colorless' instead
-    df['colorIdentity'] = df['colorIdentity'].fillna('Colorless')
-    
-    # Color identity sorted cards
-    print(f'Regenerating {color}_cards.csv file.\n')
-    
-    # Regenerate the file
-    print(f'Regenerating {color}_cards.csv.')
-    filter_by_color(df, 'colorIdentity', color_abv, f'{csv_directory}/{color}_cards.csv')
-    print(f'A new {color}_cards.csv file has been made.\n')
+    question = [
+        inquirer.List('menu',
+                      choices=[option.value for option in SetupOption],
+                      carousel=True)
+    ]
+    answer = inquirer.prompt(question)
+    return SetupOption(answer['menu'])
 
-    # Once files are regenerated, create a new legendary list
-    determine_commanders()
-
-def add_tags():
-    pass
-                    
-def setup():
-    while True:
-        print('Which setup  operation would you like to perform?\n'
+def setup() -> bool:
+    """Run the setup process for the MTG Python Deckbuilder.
+    
+    This function provides a menu-driven interface to:
+    1. Perform initial setup by downloading and processing card data
+    2. Regenerate CSV files with updated card data
+    3. Perform all tagging processes on the color-sorted csv files
+    
+    The function handles errors gracefully and provides feedback through logging.
+    
+    Returns:
+        bool: True if setup completed successfully, False otherwise
+    """
+    try:
+        print('Which setup operation would you like to perform?\n'
               'If this is your first time setting up, do the initial setup.\n'
               'If you\'ve done the basic setup before, you can regenerate the CSV files\n')
         
-        choice = 'Menu'
-        while choice == 'Menu':
-            question = [
-                inquirer.List('menu',
-                              choices=['Initial Setup', 'Regenerate CSV Files', 'Back'],
-                              carousel=True)
-            ]
-            answer = inquirer.prompt(question)
-            choice = answer['menu']
+        choice = _display_setup_menu()
         
-        # Run through initial setup
-        while choice == 'Initial Setup':
+        if choice == SetupOption.INITIAL_SETUP:
+            logging.info('Starting initial setup')
             initial_setup()
-            break
-        
-        # Regenerate CSV files
-        while choice == 'Regenerate CSV Files':
+            logging.info('Initial setup completed successfully')
+            return True
+            
+        elif choice == SetupOption.REGENERATE_CSV:
+            logging.info('Starting CSV regeneration')
             regenerate_csvs_all()
-            break    
-            # Go back
-        while choice == 'Back':
-            break
-        break
-
-initial_setup()
+            logging.info('CSV regeneration completed successfully')
+            return True
+            
+        elif choice == SetupOption.BACK:
+            logging.info('Setup cancelled by user')
+            return False
+            
+    except Exception as e:
+        logging.error(f'Error during setup: {e}')
+        raise
+    
+    return False

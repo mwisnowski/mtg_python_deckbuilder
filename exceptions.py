@@ -83,3 +83,40 @@ class ColorFilterError(MTGSetupError):
         self.details = details
         error_info = f" - {details}" if details else ""
         super().__init__(f"{message} for color '{color}'{error_info}")
+
+
+class CommanderValidationError(MTGSetupError):
+    """Exception raised when commander validation fails.
+    
+    This exception is raised when there are issues validating commander cards,
+    such as non-legendary creatures, color identity mismatches, or banned cards.
+    
+    Args:
+        message: Explanation of the error
+        validation_type: Type of validation that failed (e.g., 'legendary_check', 'color_identity', 'banned_set')
+        details: Additional error details
+    
+    Examples:
+        >>> raise CommanderValidationError(
+        ...     "Card must be legendary",
+        ...     "legendary_check",
+        ...     "Lightning Bolt is not a legendary creature"
+        ... )
+        
+        >>> raise CommanderValidationError(
+        ...     "Commander color identity mismatch",
+        ...     "color_identity",
+        ...     "Omnath, Locus of Creation cannot be used in Golgari deck"
+        ... )
+        
+        >>> raise CommanderValidationError(
+        ...     "Commander banned in format",
+        ...     "banned_set",
+        ...     "Golos, Tireless Pilgrim is banned in Commander"
+        ... )
+    """
+    def __init__(self, message: str, validation_type: str, details: str = None) -> None:
+        self.validation_type = validation_type
+        self.details = details
+        error_info = f" - {details}" if details else ""
+        super().__init__(f"{message} [{validation_type}]{error_info}")

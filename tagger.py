@@ -6417,7 +6417,6 @@ def tag_for_removal(df: pd.DataFrame, color: str) -> None:
 
 
 #start_time = pd.Timestamp.now()
-#regenerate_csvs_all()
 #for color in settings.colors:
 #    load_dataframe(color)
 #duration = (pd.Timestamp.now() - start_time).total_seconds()

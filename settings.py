@@ -1,3 +1,9 @@
+"""Constants and configuration settings for the MTG Python Deckbuilder.
+
+This module contains all the constant values and configuration settings used throughout
+the application for card filtering, processing, and analysis. Constants are organized
+into logical sections with clear documentation.
+"""
 artifact_tokens = ['Blood', 'Clue', 'Food', 'Gold', 'Incubator',
                 'Junk','Map','Powerstone', 'Treasure']
 
@@ -793,21 +799,22 @@ CARD_TYPES_TO_EXCLUDE = [
     'Contraption'
 ]
 
+# Columns to keep when processing CSV files
 CSV_PROCESSING_COLUMNS = [
-    'name',
-    'faceName',
-    'edhrecRank',
-    'colorIdentity',
-    'colors',
-    'manaCost', 
-    'manaValue',
-    'type',
-    'layout',
-    'text',
-    'power',
-    'toughness', 
-    'keywords',
-    'side'
+    'name',        # Card name
+    'faceName',    # Name of specific face for multi-faced cards
+    'edhrecRank',  # Card's rank on EDHREC
+    'colorIdentity',  # Color identity for Commander format
+    'colors',      # Actual colors in card's mana cost
+    'manaCost',    # Mana cost string
+    'manaValue',   # Converted mana cost
+    'type',        # Card type line
+    'layout',      # Card layout (normal, split, etc)
+    'text',        # Card text/rules
+    'power',       # Power (for creatures)
+    'toughness',   # Toughness (for creatures)
+    'keywords',    # Card's keywords
+    'side'         # Side identifier for multi-faced cards
 ]
 
 SETUP_COLORS = ['colorless', 'white', 'blue', 'black', 'green', 'red',
@@ -824,3 +831,30 @@ COLOR_ABRV = ['Colorless', 'W', 'U', 'B', 'G', 'R',
               'B, G, W', 'R, U, W', 'B, R, W', 'B, G, U', 'G, R, U',
               'B, G, R, W', 'B, G, R, U', 'G, R, U, W', 'B, G, U, W',
               'B, R, U, W', 'B, G, R, U, W']
+
+# Configuration for handling null/NA values in DataFrame columns
+FILL_NA_COLUMNS = {
+    'colorIdentity': 'Colorless',  # Default color identity for cards without one
+    'faceName': None  # Use card's name column value when face name is not available
+}
+# Configuration for DataFrame sorting operations
+SORT_CONFIG = {
+    'columns': ['name', 'side'],  # Columns to sort by
+    'case_sensitive': False  # Ignore case when sorting
+}
+
+# Configuration for DataFrame filtering operations
+FILTER_CONFIG = {
+    'layout': {
+        'exclude': ['reversible_card']
+    },
+    'availability': {
+        'require': ['paper']
+    },
+    'promoTypes': {
+        'exclude': ['playtest']
+    },
+    'securityStamp': {
+        'exclude': ['Heart', 'Acorn']
+    }
+}

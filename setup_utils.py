@@ -1,12 +1,16 @@
 from __future__ import annotations
 
-import pandas as pd
-import requests
+# Standard library imports
 import logging
-from tqdm import tqdm
+import requests
 from pathlib import Path
-from typing import List, Optional, Union, Dict, Any
+from typing import List, Optional, Union, TypedDict
 
+# Third-party imports
+import pandas as pd
+from tqdm import tqdm
+
+# Local application imports
 from settings import (
     CSV_PROCESSING_COLUMNS,
     CARD_TYPES_TO_EXCLUDE,
@@ -14,26 +18,58 @@ from settings import (
     LEGENDARY_OPTIONS,
     FILL_NA_COLUMNS,
     SORT_CONFIG,
-    FILTER_CONFIG
+    FILTER_CONFIG,
 )
-from exceptions import CSVFileNotFoundError, MTGJSONDownloadError, DataFrameProcessingError, ColorFilterError, CommanderValidationError
-from settings import (
-    CSV_PROCESSING_COLUMNS,
-    CARD_TYPES_TO_EXCLUDE,
-    NON_LEGAL_SETS,
-    LEGENDARY_OPTIONS
+from exceptions import (
+    MTGJSONDownloadError,
+    DataFrameProcessingError,
+    ColorFilterError,
+    CommanderValidationError
 )
-from exceptions import CSVFileNotFoundError, MTGJSONDownloadError, DataFrameProcessingError
 
+"""MTG Python Deckbuilder setup utilities.
+
+This module provides utility functions for setting up and managing the MTG Python Deckbuilder
+application. It handles tasks such as downloading card data, filtering cards by various criteria,
+and processing legendary creatures for commander format.
+
+Key Features:
+    - Card data download from MTGJSON
+    - DataFrame filtering and processing
+    - Color identity filtering
+    - Commander validation
+    - CSV file management
+
+The module integrates with settings.py for configuration and exceptions.py for error handling.
+"""
+
+# Type definitions
+class FilterRule(TypedDict):
+    """Type definition for filter rules configuration."""
+    exclude: Optional[List[str]]
+    require: Optional[List[str]]
+
+class FilterConfig(TypedDict):
+    """Type definition for complete filter configuration."""
+    layout: FilterRule
+    availability: FilterRule
+    promoTypes: FilterRule
+    securityStamp: FilterRule
 def download_cards_csv(url: str, output_path: Union[str, Path]) -> None:
     """Download cards data from MTGJSON and save to CSV.
 
+    Downloads card data from the specified MTGJSON URL and saves it to a local CSV file.
+    Shows a progress bar during download using tqdm.
+
     Args:
-        url: URL to download cards data from
-        output_path: Path to save the downloaded CSV file
+        url: URL to download cards data from (typically MTGJSON API endpoint)
+        output_path: Path where the downloaded CSV file will be saved
 
     Raises:
-        MTGJSONDownloadError: If download fails or response is invalid
+        MTGJSONDownloadError: If download fails due to network issues or invalid response
+
+    Example:
+        >>> download_cards_csv('https://mtgjson.com/api/v5/cards.csv', 'cards.csv')
     """
     try:
         response = requests.get(url, stream=True)
@@ -47,35 +83,49 @@ def download_cards_csv(url: str, output_path: Union[str, Path]) -> None:
                     pbar.update(size)
             
     except requests.RequestException as e:
+        logging.error(f'Failed to download cards data from {url}')
         raise MTGJSONDownloadError(
             "Failed to download cards data",
             url,
             getattr(e.response, 'status_code', None) if hasattr(e, 'response') else None
         ) from e
-
 def check_csv_exists(filepath: Union[str, Path]) -> bool:
     """Check if a CSV file exists at the specified path.
 
+    Verifies the existence of a CSV file at the given path. This function is used
+    to determine if card data needs to be downloaded or if it already exists locally.
+
     Args:
-        filepath: Path to check for CSV file
+        filepath: Path to the CSV file to check
 
     Returns:
-        True if file exists, False otherwise
+        bool: True if the file exists, False otherwise
+
+    Example:
+        >>> if not check_csv_exists('cards.csv'):
+        ...     download_cards_csv(MTGJSON_API_URL, 'cards.csv')
     """
     return Path(filepath).is_file()
 
 def filter_dataframe(df: pd.DataFrame, banned_cards: List[str]) -> pd.DataFrame:
     """Apply standard filters to the cards DataFrame using configuration from settings.
 
+    Applies a series of filters to the cards DataFrame based on configuration from settings.py.
+    This includes handling null values, applying basic filters, removing illegal sets and banned cards,
+    and processing special card types.
+
     Args:
-        df: DataFrame to filter
-        banned_cards: List of banned card names to exclude
+        df: pandas DataFrame containing card data to filter
+        banned_cards: List of card names that are banned and should be excluded
 
     Returns:
-        Filtered DataFrame
+        pd.DataFrame: A new DataFrame containing only the cards that pass all filters
 
     Raises:
-        DataFrameProcessingError: If filtering operations fail
+        DataFrameProcessingError: If any filtering operation fails
+
+    Example:
+        >>> filtered_df = filter_dataframe(cards_df, ['Channel', 'Black Lotus'])
     """
     try:
         logging.info('Starting standard DataFrame filtering')
@@ -89,7 +139,8 @@ def filter_dataframe(df: pd.DataFrame, banned_cards: List[str]) -> pd.DataFrame:
         
         # Apply basic filters from configuration
         filtered_df = df.copy()
-        for field, rules in FILTER_CONFIG.items():
+        filter_config: FilterConfig = FILTER_CONFIG  # Type hint for configuration
+        for field, rules in filter_config.items():
             for rule_type, values in rules.items():
                 if rule_type == 'exclude':
                     for value in values:
@@ -126,12 +177,12 @@ def filter_dataframe(df: pd.DataFrame, banned_cards: List[str]) -> pd.DataFrame:
         return filtered_df
 
     except Exception as e:
+        logging.error(f'Failed to filter DataFrame: {str(e)}')
         raise DataFrameProcessingError(
             "Failed to filter DataFrame",
             "standard_filtering",
             str(e)
         ) from e
-
 def filter_by_color_identity(df: pd.DataFrame, color_identity: str) -> pd.DataFrame:
     """Filter DataFrame by color identity with additional color-specific processing.
 
@@ -152,15 +203,7 @@ def filter_by_color_identity(df: pd.DataFrame, color_identity: str) -> pd.DataFr
     """
     try:
         logging.info(f'Filtering cards for color identity: {color_identity}')
-        
-        # Define processing steps for progress tracking
-        steps = [
-            'Validating color identity',
-            'Applying base filtering',
-            'Filtering by color identity',
-            'Performing color-specific processing'
-        ]
-        
+
         # Validate color identity
         with tqdm(total=1, desc='Validating color identity') as pbar:
             if not isinstance(color_identity, str):
@@ -217,11 +260,6 @@ def process_legendary_cards(df: pd.DataFrame) -> pd.DataFrame:
     """
     try:
         logging.info('Starting commander validation process')
-        validation_steps = [
-            'Checking legendary status',
-            'Validating special cases',
-            'Verifying set legality'
-        ]
 
         filtered_df = df.copy()
         # Step 1: Check legendary status

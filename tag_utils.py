@@ -1,12 +1,28 @@
-import pandas as pd
+"""Utility module for tag manipulation and pattern matching in card data processing.
+
+This module provides a collection of functions for working with card tags, types, and text patterns
+in a card game context. It includes utilities for:
+
+- Creating boolean masks for filtering cards based on various criteria
+- Manipulating and extracting card types
+- Managing theme tags and card attributes
+- Pattern matching in card text and types
+- Mass effect detection (damage, removal, etc.)
+
+The module is designed to work with pandas DataFrames containing card data and provides
+vectorized operations for efficient processing of large card collections.
+"""
+from __future__ import annotations
+
+# Standard library imports
 import re
-import logging
+from typing import List, Set, Union, Any
 
-from typing import Dict, List, Optional, Set, Union
-from time import perf_counter
+# Third-party imports
+import pandas as pd
 
+# Local application imports
 import settings
-
 def pluralize(word: str) -> str:
     """Convert a word to its plural form using basic English pluralization rules.
 
@@ -25,7 +41,7 @@ def pluralize(word: str) -> str:
     else:
         return word + 's'
 
-def sort_list(items: Union[List, pd.Series]) -> Union[List, pd.Series]:
+def sort_list(items: Union[List[Any], pd.Series]) -> Union[List[Any], pd.Series]:
     """Sort a list or pandas Series in ascending order.
 
     Args:
@@ -38,7 +54,7 @@ def sort_list(items: Union[List, pd.Series]) -> Union[List, pd.Series]:
         return sorted(items) if isinstance(items, list) else items.sort_values()
     return items
 
-def create_type_mask(df: pd.DataFrame, type_text: Union[str, List[str]], regex: bool = True) -> pd.Series:
+def create_type_mask(df: pd.DataFrame, type_text: Union[str, List[str]], regex: bool = True) -> pd.Series[bool]:
     """Create a boolean mask for rows where type matches one or more patterns.
 
     Args:
@@ -68,7 +84,7 @@ def create_type_mask(df: pd.DataFrame, type_text: Union[str, List[str]], regex: 
         masks = [df['type'].str.contains(p, case=False, na=False, regex=False) for p in type_text]
         return pd.concat(masks, axis=1).any(axis=1)
 
-def create_text_mask(df: pd.DataFrame, type_text: Union[str, List[str]], regex: bool = True, combine_with_or: bool = True) -> pd.Series:
+def create_text_mask(df: pd.DataFrame, type_text: Union[str, List[str]], regex: bool = True, combine_with_or: bool = True) -> pd.Series[bool]:
     """Create a boolean mask for rows where text matches one or more patterns.
 
     Args:
@@ -102,7 +118,7 @@ def create_text_mask(df: pd.DataFrame, type_text: Union[str, List[str]], regex: 
         else:
             return pd.concat(masks, axis=1).all(axis=1)
 
-def create_keyword_mask(df: pd.DataFrame, type_text: Union[str, List[str]], regex: bool = True) -> pd.Series:
+def create_keyword_mask(df: pd.DataFrame, type_text: Union[str, List[str]], regex: bool = True) -> pd.Series[bool]:
     """Create a boolean mask for rows where keyword text matches one or more patterns.
 
     Args:
@@ -146,7 +162,8 @@ def create_keyword_mask(df: pd.DataFrame, type_text: Union[str, List[str]], rege
     else:
         masks = [keywords.str.contains(p, case=False, na=False, regex=False) for p in type_text]
         return pd.concat(masks, axis=1).any(axis=1)
-def create_name_mask(df: pd.DataFrame, type_text: Union[str, List[str]], regex: bool = True) -> pd.Series:
+
+def create_name_mask(df: pd.DataFrame, type_text: Union[str, List[str]], regex: bool = True) -> pd.Series[bool]:
     """Create a boolean mask for rows where name matches one or more patterns.
 
     Args:
@@ -229,7 +246,7 @@ def add_outlaw_type(types: List[str], outlaw_types: List[str]) -> List[str]:
         return types + ['Outlaw']
     return types
 
-def create_tag_mask(df: pd.DataFrame, tag_patterns: Union[str, List[str]], column: str = 'themeTags') -> pd.Series:
+def create_tag_mask(df: pd.DataFrame, tag_patterns: Union[str, List[str]], column: str = 'themeTags') -> pd.Series[bool]:
     """Create a boolean mask for rows where tags match specified patterns.
 
     Args:
@@ -272,7 +289,7 @@ def validate_dataframe_columns(df: pd.DataFrame, required_columns: Set[str]) -> 
     if missing:
         raise ValueError(f"Missing required columns: {missing}")
     
-def apply_tag_vectorized(df: pd.DataFrame, mask: pd.Series, tags: List[str]) -> None:
+def apply_tag_vectorized(df: pd.DataFrame, mask: pd.Series[bool], tags: Union[str, List[str]]) -> None:
     """Apply tags to rows in a dataframe based on a boolean mask.
     
     Args:
@@ -288,7 +305,8 @@ def apply_tag_vectorized(df: pd.DataFrame, mask: pd.Series, tags: List[str]) -> 
     
     # Add new tags
     df.loc[mask, 'themeTags'] = current_tags.apply(lambda x: sorted(list(set(x + tags))))
-def create_mass_effect_mask(df: pd.DataFrame, effect_type: str) -> pd.Series:
+
+def create_mass_effect_mask(df: pd.DataFrame, effect_type: str) -> pd.Series[bool]:
     """Create a boolean mask for cards with mass removal effects of a specific type.
 
     Args:
@@ -306,6 +324,7 @@ def create_mass_effect_mask(df: pd.DataFrame, effect_type: str) -> pd.Series:
 
     patterns = settings.BOARD_WIPE_TEXT_PATTERNS[effect_type]
     return create_text_mask(df, patterns)
+
 def create_damage_pattern(number: Union[int, str]) -> str:
     """Create a pattern for matching X damage effects.
 
@@ -316,7 +335,8 @@ def create_damage_pattern(number: Union[int, str]) -> str:
         Pattern string for matching damage effects
     """
     return f'deals {number} damage'
-def create_mass_damage_mask(df: pd.DataFrame) -> pd.Series:
+
+def create_mass_damage_mask(df: pd.DataFrame) -> pd.Series[bool]:
     """Create a boolean mask for cards with mass damage effects.
 
     Args:

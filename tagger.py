@@ -1,18 +1,20 @@
 from __future__ import annotations
 
+# Standard library imports
 import logging
 import os
-import pprint # type: ignore
 import re
-from typing import Dict, List, Optional, Set, Union
+from typing import Union
 
+# Third-party imports
 import pandas as pd # type: ignore
 
-import settings
-import utility
+import settings # type: ignore
+import tag_utility # type: ignore
 
+# Local application imports
 from settings import csv_directory, multiple_copy_cards, num_to_search, triggers
-from setup import regenerate_csv_by_color, regenerate_csvs_all
+from setup import regenerate_csv_by_color
 
 
 # Constants for common tag groupings
@@ -49,7 +51,7 @@ logging.basicConfig(
 
 ### Setup
 ## Load the dataframe
-def load_dataframe(color: str):
+def load_dataframe(color: str) -> None:
     """
     Load and validate the card dataframe for a given color.
 
@@ -108,7 +110,7 @@ def load_dataframe(color: str):
         raise
 
 ## Tag cards on a color-by-color basis
-def tag_by_color(df, color):
+def tag_by_color(df: pd.DataFrame, color: str) -> None:
     
     #load_dataframe()
     #answer = input('Would you like to regenerate the CSV file?\n')
@@ -185,11 +187,11 @@ def kindred_tagging(df: pd.DataFrame, color: str) -> None:
         df['creatureTypes'] = pd.Series([[] for _ in range(len(df))])
     
         # Detect creature types using mask
-        creature_mask = utility.create_type_mask(df, 'Creature')
+        creature_mask = tag_utility.create_type_mask(df, 'Creature')
         if creature_mask.any():
             creature_rows = df[creature_mask]
             for idx, row in creature_rows.iterrows():
-                types = utility.extract_creature_types(
+                types = tag_utility.extract_creature_types(
                     row['type'],
                     settings.creature_types,
                     settings.non_creature_types
@@ -205,7 +207,7 @@ def kindred_tagging(df: pd.DataFrame, color: str) -> None:
         # Process outlaw types
         outlaws = settings.OUTLAW_TYPES
         df['creatureTypes'] = df.apply(
-            lambda row: utility.add_outlaw_type(row['creatureTypes'], outlaws)
+            lambda row: tag_utility.add_outlaw_type(row['creatureTypes'], outlaws)
             if isinstance(row['creatureTypes'], list) else row['creatureTypes'],
             axis=1
         )
@@ -224,7 +226,7 @@ def kindred_tagging(df: pd.DataFrame, color: str) -> None:
 
         for idx, row in df.iterrows():
             if row['name'] not in ignore_list:
-                text_types = utility.find_types_in_text(
+                text_types = tag_utility.find_types_in_text(
                     row['text'],
                     row['name'], 
                     settings.creature_types
@@ -357,9 +359,9 @@ def tag_for_card_types(df: pd.DataFrame, color: str) -> None:
 
         # Process each card type
         for card_type, tags in type_tag_map.items():
-            mask = utility.create_type_mask(df, card_type)
+            mask = tag_utility.create_type_mask(df, card_type)
             if mask.any():
-                utility.apply_tag_vectorized(df, mask, tags)
+                tag_utility.apply_tag_vectorized(df, mask, tags)
                 logging.info('Tagged %d cards with %s type', mask.sum(), card_type)
 
         # Log completion
@@ -471,7 +473,7 @@ def tag_for_keywords(df: pd.DataFrame, color: str) -> None:
 def sort_theme_tags(df, color):
     logging.info(f'Alphabetically sorting theme tags in {color}_cards.csv.')
     
-    df['themeTags'] = df['themeTags'].apply(utility.sort_list)
+    df['themeTags'] = df['themeTags'].apply(tag_utility.sort_list)
     
     columns_to_keep = ['name', 'faceName','edhrecRank', 'colorIdentity', 'colors', 'manaCost', 'manaValue', 'type', 'creatureTypes', 'text', 'power', 'toughness', 'keywords', 'themeTags', 'layout', 'side']
     df = df[columns_to_keep]
@@ -496,7 +498,7 @@ def tag_for_cost_reduction(df: pd.DataFrame, color: str) -> None:
 
     try:
         # Create masks for different cost reduction patterns
-        cost_mask = utility.create_text_mask(df, PATTERN_GROUPS['cost_reduction'])
+        cost_mask = tag_utility.create_text_mask(df, PATTERN_GROUPS['cost_reduction'])
 
         # Add specific named cards
         named_cards = [
@@ -511,17 +513,17 @@ def tag_for_cost_reduction(df: pd.DataFrame, color: str) -> None:
             'Thryx, the Sudden Storm', 'Urza\'s Filter', 'Will, Scion of Peace',
             'Will Kenrith'
         ]
-        named_mask = utility.create_name_mask(df, named_cards)
+        named_mask = tag_utility.create_name_mask(df, named_cards)
 
         # Combine masks
         final_mask = cost_mask | named_mask
 
         # Apply tags
-        utility.apply_tag_vectorized(df, final_mask, ['Cost Reduction'])
+        tag_utility.apply_tag_vectorized(df, final_mask, ['Cost Reduction'])
 
         # Add spellslinger tags for noncreature spell cost reduction
-        spell_mask = final_mask & utility.create_text_mask(df, r"Sorcery|Instant|noncreature")
-        utility.apply_tag_vectorized(df, spell_mask, ['Spellslinger', 'Spells Matter'])
+        spell_mask = final_mask & tag_utility.create_text_mask(df, r"Sorcery|Instant|noncreature")
+        tag_utility.apply_tag_vectorized(df, spell_mask, ['Spellslinger', 'Spells Matter'])
 
         duration = (pd.Timestamp.now() - start_time).total_seconds()
         logging.info('Tagged %d cost reduction cards in %.2fs', final_mask.sum(), duration)
@@ -566,7 +568,7 @@ def tag_for_card_draw(df: pd.DataFrame, color: str) -> None:
 
         # Validate required columns
         required_cols = {'text', 'themeTags'}
-        utility.validate_dataframe_columns(df, required_cols)
+        tag_utility.validate_dataframe_columns(df, required_cols)
 
         # Process each type of draw effect
         tag_for_conditional_draw(df, color)
@@ -613,15 +615,15 @@ def create_unconditional_draw_mask(df: pd.DataFrame) -> pd.Series:
     """
     # Create pattern for draw effects using num_to_search
     draw_patterns = [f'draw {num} card' for num in num_to_search]
-    draw_mask = utility.create_text_mask(df, draw_patterns)
+    draw_mask = tag_utility.create_text_mask(df, draw_patterns)
 
     # Create exclusion mask for conditional effects
     excluded_tags = settings.DRAW_RELATED_TAGS
-    tag_mask = utility.create_tag_mask(df, excluded_tags)
+    tag_mask = tag_utility.create_tag_mask(df, excluded_tags)
 
     # Create text-based exclusions
     text_patterns = settings.DRAW_EXCLUSION_PATTERNS
-    text_mask = utility.create_text_mask(df, text_patterns)
+    text_mask = tag_utility.create_text_mask(df, text_patterns)
 
     return draw_mask & ~(tag_mask | text_mask)
 
@@ -644,7 +646,7 @@ def tag_for_unconditional_draw(df: pd.DataFrame, color: str) -> None:
         draw_mask = create_unconditional_draw_mask(df)
 
         # Apply tags
-        utility.apply_tag_vectorized(df, draw_mask, ['Unconditional Draw', 'Card Draw'])
+        tag_utility.apply_tag_vectorized(df, draw_mask, ['Unconditional Draw', 'Card Draw'])
 
         # Log results
         duration = (pd.Timestamp.now() - start_time).total_seconds()
@@ -666,15 +668,15 @@ def create_conditional_draw_exclusion_mask(df: pd.DataFrame) -> pd.Series:
     """
     # Create tag-based exclusions
     excluded_tags = settings.DRAW_RELATED_TAGS
-    tag_mask = utility.create_tag_mask(df, excluded_tags)
+    tag_mask = tag_utility.create_tag_mask(df, excluded_tags)
 
     # Create text-based exclusions
     text_patterns = settings.DRAW_EXCLUSION_PATTERNS + ['whenever you draw a card']
-    text_mask = utility.create_text_mask(df, text_patterns)
+    text_mask = tag_utility.create_text_mask(df, text_patterns)
 
     # Create name-based exclusions
     excluded_names = ['relic vial', 'vexing bauble']
-    name_mask = utility.create_name_mask(df, excluded_names)
+    name_mask = tag_utility.create_name_mask(df, excluded_names)
 
     return tag_mask | text_mask | name_mask
 
@@ -707,11 +709,11 @@ def create_conditional_draw_trigger_mask(df: pd.DataFrame) -> pd.Series:
         trigger_patterns.append(f'{trigger} .* attacks')
 
     # Create trigger mask
-    trigger_mask = utility.create_text_mask(df, trigger_patterns)
+    trigger_mask = tag_utility.create_text_mask(df, trigger_patterns)
 
     # Add other trigger patterns
     other_patterns = ['created a token', 'draw a card for each']
-    other_mask = utility.create_text_mask(df, other_patterns)
+    other_mask = tag_utility.create_text_mask(df, other_patterns)
 
     return trigger_mask | other_mask
 
@@ -773,13 +775,13 @@ def tag_for_conditional_draw(df: pd.DataFrame, color: str) -> None:
             'draw a card for each'
         ])
 
-        draw_mask = utility.create_text_mask(df, draw_patterns)
+        draw_mask = tag_utility.create_text_mask(df, draw_patterns)
 
         # Combine masks
         final_mask = trigger_mask & draw_mask & ~exclusion_mask
 
         # Apply tags
-        utility.apply_tag_vectorized(df, final_mask, ['Conditional Draw', 'Card Draw'])
+        tag_utility.apply_tag_vectorized(df, final_mask, ['Conditional Draw', 'Card Draw'])
 
         duration = (pd.Timestamp.now() - start_time).total_seconds()
         logging.info(f'Tagged {final_mask.sum()} cards with conditional draw effects in {duration:.2f}s')
@@ -799,7 +801,7 @@ def create_loot_mask(df: pd.DataFrame) -> pd.Series:
         Boolean Series indicating which cards have loot effects
     """
     # Exclude cards that already have other loot-like effects
-    has_other_loot = utility.create_tag_mask(df, ['Cycling', 'Connive']) | df['text'].str.contains('blood token', case=False, na=False)
+    has_other_loot = tag_utility.create_tag_mask(df, ['Cycling', 'Connive']) | df['text'].str.contains('blood token', case=False, na=False)
     
     # Match draw + discard patterns
     draw_patterns = [f'draw {num} card' for num in num_to_search]
@@ -810,8 +812,8 @@ def create_loot_mask(df: pd.DataFrame) -> pd.Series:
         'then discard'
     ]
     
-    has_draw = utility.create_text_mask(df, draw_patterns)
-    has_discard = utility.create_text_mask(df, discard_patterns)
+    has_draw = tag_utility.create_text_mask(df, draw_patterns)
+    has_discard = tag_utility.create_text_mask(df, discard_patterns)
     
     return ~has_other_loot & has_draw & has_discard
 
@@ -824,8 +826,8 @@ def create_connive_mask(df: pd.DataFrame) -> pd.Series:
     Returns:
         Boolean Series indicating which cards have connive effects
     """
-    has_keyword = utility.create_keyword_mask(df, 'Connive')
-    has_text = utility.create_text_mask(df, 'connives?')
+    has_keyword = tag_utility.create_keyword_mask(df, 'Connive')
+    has_text = tag_utility.create_text_mask(df, 'connives?')
     return has_keyword | has_text
 
 def create_cycling_mask(df: pd.DataFrame) -> pd.Series:
@@ -837,8 +839,8 @@ def create_cycling_mask(df: pd.DataFrame) -> pd.Series:
     Returns:
         Boolean Series indicating which cards have cycling effects
     """
-    has_keyword = utility.create_keyword_mask(df, 'Cycling')
-    has_text = utility.create_text_mask(df, 'cycling')
+    has_keyword = tag_utility.create_keyword_mask(df, 'Cycling')
+    has_text = tag_utility.create_text_mask(df, 'cycling')
     return has_keyword | has_text
 
 def create_blood_mask(df: pd.DataFrame) -> pd.Series:
@@ -850,7 +852,7 @@ def create_blood_mask(df: pd.DataFrame) -> pd.Series:
     Returns:
         Boolean Series indicating which cards have blood token effects
     """
-    return utility.create_text_mask(df, 'blood token')
+    return tag_utility.create_text_mask(df, 'blood token')
 
 def tag_for_loot_effects(df: pd.DataFrame, color: str) -> None:
     """Tag cards with loot-like effects using vectorized operations.
@@ -875,19 +877,19 @@ def tag_for_loot_effects(df: pd.DataFrame, color: str) -> None:
 
     # Apply tags based on masks
     if loot_mask.any():
-        utility.apply_tag_vectorized(df, loot_mask, ['Loot', 'Card Draw'])
+        tag_utility.apply_tag_vectorized(df, loot_mask, ['Loot', 'Card Draw'])
         logging.info(f'Tagged {loot_mask.sum()} cards with standard loot effects')
 
     if connive_mask.any():
-        utility.apply_tag_vectorized(df, connive_mask, ['Connive', 'Loot', 'Card Draw'])
+        tag_utility.apply_tag_vectorized(df, connive_mask, ['Connive', 'Loot', 'Card Draw'])
         logging.info(f'Tagged {connive_mask.sum()} cards with connive effects')
 
     if cycling_mask.any():
-        utility.apply_tag_vectorized(df, cycling_mask, ['Cycling', 'Loot', 'Card Draw'])
+        tag_utility.apply_tag_vectorized(df, cycling_mask, ['Cycling', 'Loot', 'Card Draw'])
         logging.info(f'Tagged {cycling_mask.sum()} cards with cycling effects')
 
     if blood_mask.any():
-        utility.apply_tag_vectorized(df, blood_mask, ['Blood Tokens', 'Loot', 'Card Draw'])
+        tag_utility.apply_tag_vectorized(df, blood_mask, ['Blood Tokens', 'Loot', 'Card Draw'])
         logging.info(f'Tagged {blood_mask.sum()} cards with blood token effects')
 
     logging.info('Completed tagging loot-like effects')
@@ -915,12 +917,12 @@ def tag_for_cost_draw(df: pd.DataFrame, color: str) -> None:
 
     # Apply life draw tags
     if life_mask.any():
-        utility.apply_tag_vectorized(df, life_mask, ['Life to Draw', 'Card Draw'])
+        tag_utility.apply_tag_vectorized(df, life_mask, ['Life to Draw', 'Card Draw'])
         logging.info('Tagged %d cards with life payment draw effects', life_mask.sum())
 
     # Apply sacrifice draw tags
     if sac_mask.any():
-        utility.apply_tag_vectorized(df, sac_mask, ['Sacrifice to Draw', 'Card Draw'])
+        tag_utility.apply_tag_vectorized(df, sac_mask, ['Sacrifice to Draw', 'Card Draw'])
         logging.info('Tagged %d cards with sacrifice draw effects', sac_mask.sum())
 
     logging.info('Completed tagging cost-based draw effects')
@@ -956,14 +958,14 @@ def create_replacement_draw_mask(df: pd.DataFrame) -> pd.Series:
     all_patterns = '|'.join(trigger_patterns + replacement_patterns)
     
     # Create base mask for replacement effects
-    base_mask = utility.create_text_mask(df, all_patterns)
+    base_mask = tag_utility.create_text_mask(df, all_patterns)
 
     # Add mask for specific card numbers
     number_patterns = [f'draw {num} card' for num in num_to_search]
-    number_mask = utility.create_text_mask(df, number_patterns)
+    number_mask = tag_utility.create_text_mask(df, number_patterns)
 
     # Add mask for non-specific numbers
-    nonspecific_mask = utility.create_text_mask(df, 'draw that many plus|draws that many plus') # df['text'].str.contains('draw that many plus|draws that many plus', case=False, na=False)
+    nonspecific_mask = tag_utility.create_text_mask(df, 'draw that many plus|draws that many plus') # df['text'].str.contains('draw that many plus|draws that many plus', case=False, na=False)
 
     return base_mask & (number_mask | nonspecific_mask)
 
@@ -978,11 +980,11 @@ def create_replacement_draw_exclusion_mask(df: pd.DataFrame) -> pd.Series:
     """
     # Create tag-based exclusions
     excluded_tags = settings.DRAW_RELATED_TAGS
-    tag_mask = utility.create_tag_mask(df, excluded_tags)
+    tag_mask = tag_utility.create_tag_mask(df, excluded_tags)
 
     # Create text-based exclusions
     text_patterns = settings.DRAW_EXCLUSION_PATTERNS + ['skips that turn instead']
-    text_mask = utility.create_text_mask(df, text_patterns)
+    text_mask = tag_utility.create_text_mask(df, text_patterns)
 
     return tag_mask | text_mask
 
@@ -1012,13 +1014,13 @@ def tag_for_replacement_draw(df: pd.DataFrame, color: str) -> None:
         exclusion_mask = create_replacement_draw_exclusion_mask(df)
 
         # Add specific card names
-        specific_cards_mask = utility.create_name_mask(df, 'sylvan library')
+        specific_cards_mask = tag_utility.create_name_mask(df, 'sylvan library')
 
         # Combine masks
         final_mask = (replacement_mask & ~exclusion_mask) | specific_cards_mask
 
         # Apply tags
-        utility.apply_tag_vectorized(df, final_mask, ['Replacement Draw', 'Card Draw'])
+        tag_utility.apply_tag_vectorized(df, final_mask, ['Replacement Draw', 'Card Draw'])
 
         logging.info(f'Tagged {final_mask.sum()} cards with replacement draw effects')
 
@@ -1082,19 +1084,19 @@ def tag_for_wheels(df: pd.DataFrame, color: str) -> None:
             'waste not', 'wedding ring', 'whispering madness'
         ]
         
-        text_mask = utility.create_text_mask(df, wheel_patterns)
-        name_mask = utility.create_name_mask(df, wheel_cards)
+        text_mask = tag_utility.create_text_mask(df, wheel_patterns)
+        name_mask = tag_utility.create_name_mask(df, wheel_cards)
 
         # Combine masks
         final_mask = text_mask | name_mask
 
         # Apply tags
-        utility.apply_tag_vectorized(df, final_mask, ['Card Draw', 'Wheels'])
+        tag_utility.apply_tag_vectorized(df, final_mask, ['Card Draw', 'Wheels'])
 
         # Add Draw Triggers tag for cards with trigger words
         trigger_pattern = '|'.join(triggers)
         trigger_mask = final_mask & df['text'].str.contains(trigger_pattern, case=False, na=False)
-        utility.apply_tag_vectorized(df, trigger_mask, ['Draw Triggers'])
+        tag_utility.apply_tag_vectorized(df, trigger_mask, ['Draw Triggers'])
 
         logging.info(f'Tagged {final_mask.sum()} cards with "Wheel" effects')
 
@@ -1137,7 +1139,7 @@ def tag_for_artifacts(df: pd.DataFrame, color: str) -> None:
 
         # Validate required columns
         required_cols = {'text', 'themeTags'}
-        utility.validate_dataframe_columns(df, required_cols)
+        tag_utility.validate_dataframe_columns(df, required_cols)
 
         # Process each type of draw effect
         tag_for_artifact_tokens(df, color)
@@ -1183,7 +1185,7 @@ def tag_for_artifact_tokens(df: pd.DataFrame, color: str) -> None:
         # Tag generic artifact tokens
         generic_mask = create_generic_artifact_mask(df)
         if generic_mask.any():
-            utility.apply_tag_vectorized(df, generic_mask, 
+            tag_utility.apply_tag_vectorized(df, generic_mask, 
                 ['Artifact Tokens', 'Artifacts Matter', 'Token Creation', 'Tokens Matter'])
             logging.info('Tagged %d cards with generic artifact token effects', generic_mask.sum())
 
@@ -1191,7 +1193,7 @@ def tag_for_artifact_tokens(df: pd.DataFrame, color: str) -> None:
         predefined_mask, token_map = create_predefined_artifact_mask(df)
         if predefined_mask.any():
             # Apply base artifact token tags
-            utility.apply_tag_vectorized(df, predefined_mask,
+            tag_utility.apply_tag_vectorized(df, predefined_mask,
                 ['Artifact Tokens', 'Artifacts Matter', 'Token Creation', 'Tokens Matter'])
 
             # Track token type counts
@@ -1200,7 +1202,7 @@ def tag_for_artifact_tokens(df: pd.DataFrame, color: str) -> None:
             # Apply specific token type tags
             for idx, token_type in token_map.items():
                 specific_tag = f'{token_type} Token'
-                utility.apply_tag_vectorized(df.loc[idx:idx], pd.Series([True], index=[idx]), [specific_tag])
+                tag_utility.apply_tag_vectorized(df.loc[idx:idx], pd.Series([True], index=[idx]), [specific_tag])
                 token_counts[token_type] = token_counts.get(token_type, 0) + 1
 
             # Log results with token type counts
@@ -1211,7 +1213,7 @@ def tag_for_artifact_tokens(df: pd.DataFrame, color: str) -> None:
         # Tag fabricate cards
         fabricate_mask = create_fabricate_mask(df)
         if fabricate_mask.any():
-            utility.apply_tag_vectorized(df, fabricate_mask,
+            tag_utility.apply_tag_vectorized(df, fabricate_mask,
                 ['Artifact Tokens', 'Artifacts Matter', 'Token Creation', 'Tokens Matter'])
             logging.info('Tagged %d cards with Fabricate', fabricate_mask.sum())
 
@@ -1239,11 +1241,11 @@ def create_generic_artifact_mask(df: pd.DataFrame) -> pd.Series:
         'sandsteppe war riders',
         'transmutation font'
     ]
-    name_exclusions = utility.create_name_mask(df, excluded_cards)
+    name_exclusions = tag_utility.create_name_mask(df, excluded_cards)
 
     # Create text pattern matches
     create_pattern = r'create|put'
-    has_create = utility.create_text_mask(df, create_pattern)
+    has_create = tag_utility.create_text_mask(df, create_pattern)
 
     token_patterns = [
         'artifact creature token',
@@ -1253,7 +1255,7 @@ def create_generic_artifact_mask(df: pd.DataFrame) -> pd.Series:
         'copy of target artifact',
         'copy of that artifact'
     ]
-    has_token = utility.create_text_mask(df, token_patterns)
+    has_token = tag_utility.create_text_mask(df, token_patterns)
 
     # Named cards that create artifact tokens
     named_cards = [
@@ -1264,10 +1266,10 @@ def create_generic_artifact_mask(df: pd.DataFrame) -> pd.Series:
         'season of weaving', 'shaun, father of synths', 'sophia, dogged detective',
         'vaultborn tyrant', 'wedding ring'
     ]
-    named_matches = utility.create_name_mask(df, named_cards)
+    named_matches = tag_utility.create_name_mask(df, named_cards)
 
     # Exclude fabricate cards
-    has_fabricate = utility.create_text_mask(df, 'fabricate')
+    has_fabricate = tag_utility.create_text_mask(df, 'fabricate')
 
     return (has_create & has_token & ~name_exclusions & ~has_fabricate) | named_matches
 
@@ -1284,7 +1286,7 @@ def create_predefined_artifact_mask(df: pd.DataFrame) -> tuple[pd.Series, dict[i
     """
     # Create base mask for 'create' text
     create_pattern = r'create|put'
-    has_create = utility.create_text_mask(df, create_pattern)
+    has_create = tag_utility.create_text_mask(df, create_pattern)
 
     # Initialize token mapping dictionary
     token_map = {}
@@ -1293,7 +1295,7 @@ def create_predefined_artifact_mask(df: pd.DataFrame) -> tuple[pd.Series, dict[i
     token_masks = []
     
     for token in settings.artifact_tokens:
-        token_mask = utility.create_text_mask(df, token.lower())
+        token_mask = tag_utility.create_text_mask(df, token.lower())
 
         # Handle exclusions
         if token == 'Blood':
@@ -1324,7 +1326,7 @@ def create_fabricate_mask(df: pd.DataFrame) -> pd.Series:
     Returns:
         Boolean Series indicating which cards have fabricate
     """
-    return utility.create_text_mask(df, 'fabricate')
+    return tag_utility.create_text_mask(df, 'fabricate')
 
 ## Artifact Triggers
 def create_artifact_triggers_mask(df: pd.DataFrame) -> pd.Series:
@@ -1408,7 +1410,7 @@ def tag_for_artifact_triggers(df: pd.DataFrame, color: str) -> None:
         triggers_mask = create_artifact_triggers_mask(df)
 
         # Apply tags
-        utility.apply_tag_vectorized(df, triggers_mask, ['Artifacts Matter'])
+        tag_utility.apply_tag_vectorized(df, triggers_mask, ['Artifacts Matter'])
 
         # Log results
         duration = (pd.Timestamp.now() - start_time).total_seconds()
@@ -1434,7 +1436,7 @@ def create_equipment_mask(df: pd.DataFrame) -> pd.Series:
         Boolean Series indicating which cards are Equipment
     """
     # Create type-based mask
-    type_mask = utility.create_type_mask(df, 'Equipment')
+    type_mask = tag_utility.create_type_mask(df, 'Equipment')
 
     return type_mask
 
@@ -1464,15 +1466,15 @@ def create_equipment_cares_mask(df: pd.DataFrame) -> pd.Series:
         'modified',
         'reconfigure'
     ]
-    text_mask = utility.create_text_mask(df, text_patterns)
+    text_mask = tag_utility.create_text_mask(df, text_patterns)
 
     # Create keyword mask
     keyword_patterns = ['Modified', 'Equip', 'Reconfigure']
-    keyword_mask = utility.create_keyword_mask(df, keyword_patterns)
+    keyword_mask = tag_utility.create_keyword_mask(df, keyword_patterns)
 
     # Create specific cards mask
     specific_cards = settings.EQUIPMENT_SPECIFIC_CARDS
-    name_mask = utility.create_name_mask(df, specific_cards)
+    name_mask = tag_utility.create_name_mask(df, specific_cards)
 
     return text_mask | keyword_mask | name_mask
 
@@ -1499,13 +1501,13 @@ def tag_equipment(df: pd.DataFrame, color: str) -> None:
         # Create equipment mask
         equipment_mask = create_equipment_mask(df)
         if equipment_mask.any():
-            utility.apply_tag_vectorized(df, equipment_mask, ['Equipment', 'Equipment Matters', 'Voltron'])
+            tag_utility.apply_tag_vectorized(df, equipment_mask, ['Equipment', 'Equipment Matters', 'Voltron'])
             logging.info('Tagged %d Equipment cards', equipment_mask.sum())
 
         # Create equipment cares mask
         cares_mask = create_equipment_cares_mask(df)
         if cares_mask.any():
-            utility.apply_tag_vectorized(df, cares_mask, 
+            tag_utility.apply_tag_vectorized(df, cares_mask, 
                 ['Artifacts Matter', 'Equipment Matters', 'Voltron'])
             logging.info('Tagged %d cards that care about Equipment', cares_mask.sum())
 
@@ -1532,13 +1534,13 @@ def create_vehicle_mask(df: pd.DataFrame) -> pd.Series:
         Boolean Series indicating which cards are Vehicles or care about them
     """
     # Create type-based mask
-    type_mask = utility.create_type_mask(df, ['Vehicle', 'Pilot'])
+    type_mask = tag_utility.create_type_mask(df, ['Vehicle', 'Pilot'])
 
     # Create text-based mask
     text_patterns = [
         'vehicle', 'crew', 'pilot',
     ]
-    text_mask = utility.create_text_mask(df, text_patterns)
+    text_mask = tag_utility.create_text_mask(df, text_patterns)
 
     return type_mask | text_mask
 
@@ -1565,7 +1567,7 @@ def tag_vehicles(df: pd.DataFrame, color: str) -> None:
         # Create vehicle mask
         vehicle_mask = create_vehicle_mask(df)
         if vehicle_mask.any():
-            utility.apply_tag_vectorized(df, vehicle_mask, 
+            tag_utility.apply_tag_vectorized(df, vehicle_mask, 
                 ['Artifacts Matter', 'Vehicles'])
             logging.info('Tagged %d Vehicle-related cards', vehicle_mask.sum())
 
@@ -1615,7 +1617,7 @@ def tag_for_enchantments(df: pd.DataFrame, color: str) -> None:
 
         # Validate required columns
         required_cols = {'text', 'themeTags'}
-        utility.validate_dataframe_columns(df, required_cols)
+        tag_utility.validate_dataframe_columns(df, required_cols)
 
         # Process each type of enchantment effect
         tag_for_enchantment_tokens(df, color)
@@ -1681,14 +1683,14 @@ def tag_for_enchantment_tokens(df: pd.DataFrame, color: str) -> None:
         # Tag generic artifact tokens
         generic_mask = create_generic_enchantment_mask(df)
         if generic_mask.any():
-            utility.apply_tag_vectorized(df, generic_mask, 
+            tag_utility.apply_tag_vectorized(df, generic_mask, 
                 ['Enchantment Tokens', 'Enchantments Matter', 'Token Creation', 'Tokens Matter'])
             logging.info('Tagged %d cards with generic enchantment token effects', generic_mask.sum())
 
         # Tag predefined artifact tokens
         predefined_mask = create_predefined_enchantment_mask(df)
         if predefined_mask.any():
-            utility.apply_tag_vectorized(df, predefined_mask,
+            tag_utility.apply_tag_vectorized(df, predefined_mask,
                 ['Enchantment Tokens', 'Enchantments Matter', 'Token Creation', 'Tokens Matter'])
             logging.info('Tagged %d cards with predefined enchantment tokens', predefined_mask.sum())
 
@@ -1710,7 +1712,7 @@ def create_generic_enchantment_mask(df: pd.DataFrame) -> pd.Series:
     """
     # Create text pattern matches
     create_pattern = r'create|put'
-    has_create = utility.create_text_mask(df, create_pattern)
+    has_create = tag_utility.create_text_mask(df, create_pattern)
     
     token_patterns = [
         'copy of enchanted enchantment',
@@ -1719,7 +1721,7 @@ def create_generic_enchantment_mask(df: pd.DataFrame) -> pd.Series:
         'enchantment creature token',
         'enchantment token'
     ]
-    has_token = utility.create_text_mask(df, token_patterns)
+    has_token = tag_utility.create_text_mask(df, token_patterns)
     
     # Named cards that create enchantment tokens
     named_cards = [
@@ -1727,7 +1729,7 @@ def create_generic_enchantment_mask(df: pd.DataFrame) -> pd.Series:
         'fellhide spiritbinder',
         'hammer of purphoros'
     ]
-    named_matches = utility.create_name_mask(df, named_cards)
+    named_matches = tag_utility.create_name_mask(df, named_cards)
     
     return (has_create & has_token) | named_matches
 
@@ -1746,7 +1748,7 @@ def create_predefined_enchantment_mask(df: pd.DataFrame) -> pd.Series:
     # Create masks for each token type
     token_masks = []
     for token in settings.enchantment_tokens:
-        token_mask = utility.create_text_mask(df, token.lower())
+        token_mask = tag_utility.create_text_mask(df, token.lower())
         
         token_masks.append(token_mask)
         
@@ -1809,16 +1811,16 @@ def tag_for_enchantments_matter(df: pd.DataFrame, color: str) -> None:
             ability_patterns + state_patterns + type_patterns +
             casting_patterns + counting_patterns + search_patterns + trigger_patterns
         )
-        triggers_mask = utility.create_text_mask(df, all_patterns)
+        triggers_mask = tag_utility.create_text_mask(df, all_patterns)
 
         # Create exclusion mask
-        exclusion_mask = utility.create_name_mask(df, 'luxa river shrine')
+        exclusion_mask = tag_utility.create_name_mask(df, 'luxa river shrine')
 
         # Combine masks
         final_mask = triggers_mask & ~exclusion_mask
 
         # Apply tags
-        utility.apply_tag_vectorized(df, final_mask, ['Enchantments Matter'])
+        tag_utility.apply_tag_vectorized(df, final_mask, ['Enchantments Matter'])
 
         # Log results
         duration = (pd.Timestamp.now() - start_time).total_seconds()
@@ -1852,9 +1854,9 @@ def tag_auras(df: pd.DataFrame, color: str) -> None:
     
     try:
         # Create Aura mask
-        aura_mask = utility.create_type_mask(df, 'Aura')
+        aura_mask = tag_utility.create_type_mask(df, 'Aura')
         if aura_mask.any():
-            utility.apply_tag_vectorized(df, aura_mask,
+            tag_utility.apply_tag_vectorized(df, aura_mask,
                 ['Auras', 'Enchantments Matter', 'Voltron'])
             logging.info('Tagged %d Aura cards', aura_mask.sum())
             
@@ -1865,9 +1867,9 @@ def tag_auras(df: pd.DataFrame, color: str) -> None:
             'aura you control enters',
             'enchanted'
         ]
-        cares_mask = utility.create_text_mask(df, text_patterns) | utility.create_name_mask(df, settings.AURA_SPECIFIC_CARDS)
+        cares_mask = tag_utility.create_text_mask(df, text_patterns) | tag_utility.create_name_mask(df, settings.AURA_SPECIFIC_CARDS)
         if cares_mask.any():
-            utility.apply_tag_vectorized(df, cares_mask,
+            tag_utility.apply_tag_vectorized(df, cares_mask,
                 ['Auras', 'Enchantments Matter', 'Voltron'])
             logging.info('Tagged %d cards that care about Auras', cares_mask.sum())
         
@@ -1891,10 +1893,10 @@ def tag_constellation(df: pd.DataFrame, color: str) -> None:
 
     try:
         # Create mask for constellation keyword
-        constellation_mask = utility.create_keyword_mask(df, 'Constellation')
+        constellation_mask = tag_utility.create_keyword_mask(df, 'Constellation')
 
         # Apply tags
-        utility.apply_tag_vectorized(df, constellation_mask, ['Constellation', 'Enchantments Matter'])
+        tag_utility.apply_tag_vectorized(df, constellation_mask, ['Constellation', 'Enchantments Matter'])
 
         # Log results
         duration = (pd.Timestamp.now() - start_time).total_seconds()
@@ -1922,9 +1924,9 @@ def tag_sagas(df: pd.DataFrame, color: str) -> None:
 
     try:
         # Create mask for Saga type
-        saga_mask = utility.create_type_mask(df, 'Saga')
+        saga_mask = tag_utility.create_type_mask(df, 'Saga')
         if saga_mask.any():
-            utility.apply_tag_vectorized(df, saga_mask,
+            tag_utility.apply_tag_vectorized(df, saga_mask,
                 ['Enchantments Matter', 'Sagas Matter'])
             logging.info('Tagged %d Saga cards', saga_mask.sum())
         
@@ -1935,9 +1937,9 @@ def tag_sagas(df: pd.DataFrame, color: str) -> None:
             'final chapter',
             'lore counter'
         ]
-        cares_mask = utility.create_text_mask(df, text_patterns) # create_saga_cares_mask(df)
+        cares_mask = tag_utility.create_text_mask(df, text_patterns) # create_saga_cares_mask(df)
         if cares_mask.any():
-            utility.apply_tag_vectorized(df, cares_mask,
+            tag_utility.apply_tag_vectorized(df, cares_mask,
                 ['Enchantments Matter', 'Sagas Matter'])
             logging.info('Tagged %d cards that care about Sagas', cares_mask.sum())
         
@@ -1966,16 +1968,16 @@ def tag_cases(df: pd.DataFrame, color: str) -> None:
 
     try:
         # Create mask for Case type
-        saga_mask = utility.create_type_mask(df, 'Case')
+        saga_mask = tag_utility.create_type_mask(df, 'Case')
         if saga_mask.any():
-            utility.apply_tag_vectorized(df, saga_mask,
+            tag_utility.apply_tag_vectorized(df, saga_mask,
                 ['Enchantments Matter', 'Cases Matter'])
             logging.info('Tagged %d Saga cards', saga_mask.sum())
         
         # Create Case cares_mask
-        cares_mask = utility.create_text_mask(df, 'solve a case')
+        cares_mask = tag_utility.create_text_mask(df, 'solve a case')
         if cares_mask.any():
-            utility.apply_tag_vectorized(df, cares_mask,
+            tag_utility.apply_tag_vectorized(df, cares_mask,
                 ['Enchantments Matter', 'Cases Matter'])
             logging.info('Tagged %d cards that care about Cases', cares_mask.sum())
         
@@ -2004,22 +2006,22 @@ def tag_rooms(df: pd.DataFrame, color: str) -> None:
 
     try:
         # Create mask for Room type
-        room_mask = utility.create_type_mask(df, 'Room')
+        room_mask = tag_utility.create_type_mask(df, 'Room')
         if room_mask.any():
-            utility.apply_tag_vectorized(df, room_mask,
+            tag_utility.apply_tag_vectorized(df, room_mask,
                 ['Enchantments Matter', 'Rooms Matter'])
             logging.info('Tagged %d Room cards', room_mask.sum())
         
         # Create keyword mask for rooms
-        keyword_mask = utility.create_keyword_mask(df, 'Eerie')
+        keyword_mask = tag_utility.create_keyword_mask(df, 'Eerie')
         if keyword_mask.any():
-            utility.apply_tag_vectorized(df, keyword_mask,
+            tag_utility.apply_tag_vectorized(df, keyword_mask,
                 ['Enchantments Matter', 'Rooms Matter'])
         
         # Create rooms care mask
-        cares_mask = utility.create_text_mask(df, 'target room')
+        cares_mask = tag_utility.create_text_mask(df, 'target room')
         if cares_mask.any():
-            utility.apply_tag_vectorized(df, cares_mask,
+            tag_utility.apply_tag_vectorized(df, cares_mask,
                 ['Enchantments Matter', 'Rooms Matter'])
         logging.info('Tagged %d cards that care about Rooms', cares_mask.sum())
         
@@ -2048,9 +2050,9 @@ def tag_classes(df: pd.DataFrame, color: str) -> None:
 
     try:
         # Create mask for class type
-        class_mask = utility.create_type_mask(df, 'Class')
+        class_mask = tag_utility.create_type_mask(df, 'Class')
         if class_mask.any():
-            utility.apply_tag_vectorized(df, class_mask,
+            tag_utility.apply_tag_vectorized(df, class_mask,
                 ['Enchantments Matter', 'Classes Matter'])
             logging.info('Tagged %d Class cards', class_mask.sum())
         
@@ -2079,16 +2081,16 @@ def tag_backgrounds(df: pd.DataFrame, color: str) -> None:
 
     try:
         # Create mask for background type
-        class_mask = utility.create_type_mask(df, 'Background')
+        class_mask = tag_utility.create_type_mask(df, 'Background')
         if class_mask.any():
-            utility.apply_tag_vectorized(df, class_mask,
+            tag_utility.apply_tag_vectorized(df, class_mask,
                 ['Enchantments Matter', 'Backgrounds Matter'])
             logging.info('Tagged %d Background cards', class_mask.sum())
         
         # Create mask for Choose a Background
-        cares_mask = utility.create_text_mask(df, 'Background')
+        cares_mask = tag_utility.create_text_mask(df, 'Background')
         if cares_mask.any():
-            utility.apply_tag_vectorized(df, cares_mask,
+            tag_utility.apply_tag_vectorized(df, cares_mask,
                 ['Enchantments Matter', 'Backgroundss Matter'])
             logging.info('Tagged %d cards that have Choose a Background', cares_mask.sum())
         
@@ -2117,9 +2119,9 @@ def tag_shrines(df: pd.DataFrame, color: str) -> None:
 
     try:
         # Create mask for shrine type
-        class_mask = utility.create_type_mask(df, 'Shrine')
+        class_mask = tag_utility.create_type_mask(df, 'Shrine')
         if class_mask.any():
-            utility.apply_tag_vectorized(df, class_mask,
+            tag_utility.apply_tag_vectorized(df, class_mask,
                 ['Enchantments Matter', 'Shrines Matter'])
             logging.info('Tagged %d Shrine cards', class_mask.sum())
         
@@ -2169,7 +2171,7 @@ def tag_for_exile_matters(df: pd.DataFrame, color: str) -> None:
 
         # Validate required columns
         required_cols = {'text', 'themeTags'}
-        utility.validate_dataframe_columns(df, required_cols)
+        tag_utility.validate_dataframe_columns(df, required_cols)
 
         # Process each type of Exile matters effect
         tag_for_general_exile_matters(df, color)
@@ -2252,9 +2254,9 @@ def tag_for_general_exile_matters(df: pd.DataFrame, color: str) -> None:
             'put into exile',
             'remains exiled'
             ]
-        text_mask = utility.create_text_mask(df, text_patterns)
+        text_mask = tag_utility.create_text_mask(df, text_patterns)
         if text_mask.any():
-            utility.apply_tag_vectorized(df, text_mask, ['Exile Matters'])
+            tag_utility.apply_tag_vectorized(df, text_mask, ['Exile Matters'])
             logging.info('Tagged %d Exile Matters cards', text_mask.sum())
         
         duration = (pd.Timestamp.now() - start_time).total_seconds()
@@ -2287,14 +2289,14 @@ def tag_for_cascade(df: pd.DataFrame, color: str) -> None:
             'have "cascade',
             'with cascade',
         ]
-        text_mask = utility.create_text_mask(df, text_patterns)
+        text_mask = tag_utility.create_text_mask(df, text_patterns)
         if text_mask.any():
-            utility.apply_tag_vectorized(df, text_mask, ['Cascade', 'Exile Matters'])
+            tag_utility.apply_tag_vectorized(df, text_mask, ['Cascade', 'Exile Matters'])
             logging.info('Tagged %d cards relating to Cascade', text_mask.sum())
         
-        keyword_mask = utility.create_keyword_mask(df, 'Cascade')
+        keyword_mask = tag_utility.create_keyword_mask(df, 'Cascade')
         if keyword_mask.any():
-            utility.apply_tag_vectorized(df, text_mask, ['Cascade', 'Exile Matters'])
+            tag_utility.apply_tag_vectorized(df, text_mask, ['Cascade', 'Exile Matters'])
             logging.info('Tagged %d cards that have Cascade', keyword_mask.sum())
     
         duration = (pd.Timestamp.now() - start_time).total_seconds()
@@ -2317,10 +2319,10 @@ def tag_for_discover(df: pd.DataFrame, color: str) -> None:
 
     try:
         # Create mask for Discover keyword
-        keyword_mask = utility.create_keyword_mask(df, 'Discover')
+        keyword_mask = tag_utility.create_keyword_mask(df, 'Discover')
 
         # Apply tags
-        utility.apply_tag_vectorized(df, keyword_mask, ['Discover', 'Exile Matters'])
+        tag_utility.apply_tag_vectorized(df, keyword_mask, ['Discover', 'Exile Matters'])
 
         # Log results
         duration = (pd.Timestamp.now() - start_time).total_seconds()
@@ -2345,14 +2347,14 @@ def tag_for_foretell(df: pd.DataFrame, color: str) -> None:
 
     try:
         # Create mask for Foretell keyword
-        keyword_mask = utility.create_keyword_mask(df, 'Foretell')
+        keyword_mask = tag_utility.create_keyword_mask(df, 'Foretell')
 
         # Create mask for Foretell text
-        text_mask = utility.create_text_mask(df, 'Foretell')
+        text_mask = tag_utility.create_text_mask(df, 'Foretell')
 
         final_mask = keyword_mask | text_mask
         # Apply tags
-        utility.apply_tag_vectorized(df, final_mask,  ['Foretell', 'Exile Matters'])
+        tag_utility.apply_tag_vectorized(df, final_mask,  ['Foretell', 'Exile Matters'])
 
         # Log results
         duration = (pd.Timestamp.now() - start_time).total_seconds()
@@ -2377,14 +2379,14 @@ def tag_for_imprint(df: pd.DataFrame, color: str) -> None:
 
     try:
         # Create mask for Imprint keyword
-        keyword_mask = utility.create_keyword_mask(df, 'Imprint')
+        keyword_mask = tag_utility.create_keyword_mask(df, 'Imprint')
 
         # Create mask for Imprint text
-        text_mask = utility.create_text_mask(df, 'Imprint')
+        text_mask = tag_utility.create_text_mask(df, 'Imprint')
 
         final_mask = keyword_mask | text_mask
         # Apply tags
-        utility.apply_tag_vectorized(df, final_mask,  ['Imprint', 'Exile Matters'])
+        tag_utility.apply_tag_vectorized(df, final_mask,  ['Imprint', 'Exile Matters'])
 
         # Log results
         duration = (pd.Timestamp.now() - start_time).total_seconds()
@@ -2443,14 +2445,14 @@ def create_impulse_mask(df: pd.DataFrame) -> pd.Series:
         ]
  
     # Create masks
-    tag_mask = utility.create_tag_mask(df, 'Imprint')
-    exile_mask = utility.create_text_mask(df, exile_patterns)
-    play_mask = utility.create_text_mask(df, play_patterns)
-    named_mask = utility.create_name_mask(df, impulse_cards)
-    junk_mask = utility.create_text_mask(df, 'junk token')
-    first_exclusion_mask = utility.create_text_mask(df, exclusion_patterns)
+    tag_mask = tag_utility.create_tag_mask(df, 'Imprint')
+    exile_mask = tag_utility.create_text_mask(df, exile_patterns)
+    play_mask = tag_utility.create_text_mask(df, play_patterns)
+    named_mask = tag_utility.create_name_mask(df, impulse_cards)
+    junk_mask = tag_utility.create_text_mask(df, 'junk token')
+    first_exclusion_mask = tag_utility.create_text_mask(df, exclusion_patterns)
     planeswalker_mask = df['type'].str.contains('Planeswalker', case=False, na=False)
-    second_exclusion_mask = utility.create_text_mask(df, secondary_exclusion_patterns)
+    second_exclusion_mask = tag_utility.create_text_mask(df, secondary_exclusion_patterns)
     exclusion_mask = (~first_exclusion_mask & ~planeswalker_mask) & second_exclusion_mask
 
     # Combine masks
@@ -2480,11 +2482,11 @@ def tag_for_impulse(df: pd.DataFrame, color: str) -> None:
         impulse_mask = create_impulse_mask(df)
 
         # Apply tags
-        utility.apply_tag_vectorized(df, impulse_mask, ['Exile Matters', 'Impulse'])
+        tag_utility.apply_tag_vectorized(df, impulse_mask, ['Exile Matters', 'Impulse'])
 
         # Add Junk Tokens tag where applicable
-        junk_mask = impulse_mask & utility.create_text_mask(df, 'junk token')
-        utility.apply_tag_vectorized(df, junk_mask, ['Junk Tokens'])
+        junk_mask = impulse_mask & tag_utility.create_text_mask(df, 'junk token')
+        tag_utility.apply_tag_vectorized(df, junk_mask, ['Junk Tokens'])
 
         # Log results
         duration = (pd.Timestamp.now() - start_time).total_seconds()
@@ -2508,14 +2510,14 @@ def tag_for_plot(df: pd.DataFrame, color: str) -> None:
 
     try:
         # Create mask for Plot keyword
-        keyword_mask = utility.create_keyword_mask(df, 'Plot')
+        keyword_mask = tag_utility.create_keyword_mask(df, 'Plot')
 
         # Create mask for Plot keyword
-        text_mask = utility.create_text_mask(df, 'Plot')
+        text_mask = tag_utility.create_text_mask(df, 'Plot')
 
         final_mask = keyword_mask | text_mask
         # Apply tags
-        utility.apply_tag_vectorized(df, final_mask,  ['Plot', 'Exile Matters'])
+        tag_utility.apply_tag_vectorized(df, final_mask,  ['Plot', 'Exile Matters'])
 
         # Log results
         duration = (pd.Timestamp.now() - start_time).total_seconds()
@@ -2540,14 +2542,14 @@ def tag_for_suspend(df: pd.DataFrame, color: str) -> None:
 
     try:
         # Create mask for Suspend keyword
-        keyword_mask = utility.create_keyword_mask(df, 'Suspend')
+        keyword_mask = tag_utility.create_keyword_mask(df, 'Suspend')
 
         # Create mask for Suspend keyword
-        text_mask = utility.create_text_mask(df, 'Suspend')
+        text_mask = tag_utility.create_text_mask(df, 'Suspend')
 
         final_mask = keyword_mask | text_mask
         # Apply tags
-        utility.apply_tag_vectorized(df, final_mask,  ['Suspend', 'Exile Matters'])
+        tag_utility.apply_tag_vectorized(df, final_mask,  ['Suspend', 'Exile Matters'])
 
         # Log results
         duration = (pd.Timestamp.now() - start_time).total_seconds()
@@ -2571,7 +2573,7 @@ def create_creature_token_mask(df: pd.DataFrame) -> pd.Series:
     """
     # Create base pattern for token creation
     create_pattern = r'create|put'
-    has_create = utility.create_text_mask(df, create_pattern)
+    has_create = tag_utility.create_text_mask(df, create_pattern)
 
     # Create pattern for creature tokens
     token_patterns = [
@@ -2579,15 +2581,15 @@ def create_creature_token_mask(df: pd.DataFrame) -> pd.Series:
         'creature token',
         'enchantment creature token'
     ]
-    has_token = utility.create_text_mask(df, token_patterns)
+    has_token = tag_utility.create_text_mask(df, token_patterns)
 
     # Create exclusion mask
     exclusion_patterns = ['fabricate', 'modular']
-    exclusion_mask = utility.create_text_mask(df, exclusion_patterns)
+    exclusion_mask = tag_utility.create_text_mask(df, exclusion_patterns)
 
     # Create name exclusion mask
     excluded_cards = ['agatha\'s soul cauldron']
-    name_exclusions = utility.create_name_mask(df, excluded_cards)
+    name_exclusions = tag_utility.create_name_mask(df, excluded_cards)
 
     return has_create & has_token & ~exclusion_mask & ~name_exclusions
 
@@ -2610,11 +2612,11 @@ def create_token_modifier_mask(df: pd.DataFrame) -> pd.Series:
         'one or more tokens you control',
         'put one or more'
     ]
-    has_modifier = utility.create_text_mask(df, modifier_patterns)
+    has_modifier = tag_utility.create_text_mask(df, modifier_patterns)
 
     # Create patterns for token effects
     effect_patterns = ['instead', 'plus']
-    has_effect = utility.create_text_mask(df, effect_patterns)
+    has_effect = tag_utility.create_text_mask(df, effect_patterns)
 
     # Create name exclusion mask
     excluded_cards = [
@@ -2622,7 +2624,7 @@ def create_token_modifier_mask(df: pd.DataFrame) -> pd.Series:
         'neyali, sun\'s vanguard',
         'staff of the storyteller'
     ]
-    name_exclusions = utility.create_name_mask(df, excluded_cards)
+    name_exclusions = tag_utility.create_name_mask(df, excluded_cards)
 
     return has_modifier & has_effect & ~name_exclusions
 
@@ -2648,19 +2650,19 @@ def tag_for_tokens(df: pd.DataFrame, color: str) -> None:
     try:
         # Validate required columns
         required_cols = {'text', 'themeTags'}
-        utility.validate_dataframe_columns(df, required_cols)
+        tag_utility.validate_dataframe_columns(df, required_cols)
 
         # Create creature token mask
         creature_mask = create_creature_token_mask(df)
         if creature_mask.any():
-            utility.apply_tag_vectorized(df, creature_mask, 
+            tag_utility.apply_tag_vectorized(df, creature_mask, 
                 ['Creature Tokens', 'Token Creation', 'Tokens Matter'])
             logging.info('Tagged %d cards that create creature tokens', creature_mask.sum())
 
         # Create token modifier mask
         modifier_mask = create_token_modifier_mask(df)
         if modifier_mask.any():
-            utility.apply_tag_vectorized(df, modifier_mask,
+            tag_utility.apply_tag_vectorized(df, modifier_mask,
                 ['Token Modification', 'Token Creation', 'Tokens Matter'])
             logging.info('Tagged %d cards that modify token creation', modifier_mask.sum())
 
@@ -2703,7 +2705,7 @@ def tag_for_life_matters(df: pd.DataFrame, color: str) -> None:
 
         # Validate required columns
         required_cols = {'text', 'themeTags', 'type', 'creatureTypes'}
-        utility.validate_dataframe_columns(df, required_cols)
+        tag_utility.validate_dataframe_columns(df, required_cols)
 
         # Process each type of life effect
         tag_for_lifegain(df, color)
@@ -2750,21 +2752,21 @@ def tag_for_lifegain(df: pd.DataFrame, color: str) -> None:
         gain_patterns.extend([f'gains {num} life' for num in settings.num_to_search])
         gain_patterns.extend(['gain life', 'gains life'])
         
-        gain_mask = utility.create_text_mask(df, gain_patterns)
+        gain_mask = tag_utility.create_text_mask(df, gain_patterns)
 
         # Exclude replacement effects
-        replacement_mask = utility.create_text_mask(df, ['if you would gain life', 'whenever you gain life'])
+        replacement_mask = tag_utility.create_text_mask(df, ['if you would gain life', 'whenever you gain life'])
         
         # Apply lifegain tags
         final_mask = gain_mask & ~replacement_mask
         if final_mask.any():
-            utility.apply_tag_vectorized(df, final_mask, ['Lifegain', 'Life Matters'])
+            tag_utility.apply_tag_vectorized(df, final_mask, ['Lifegain', 'Life Matters'])
             logging.info(f'Tagged {final_mask.sum()} cards with lifegain effects')
 
         # Tag lifegain triggers
-        trigger_mask = utility.create_text_mask(df, ['if you would gain life', 'whenever you gain life'])
+        trigger_mask = tag_utility.create_text_mask(df, ['if you would gain life', 'whenever you gain life'])
         if trigger_mask.any():
-            utility.apply_tag_vectorized(df, trigger_mask, ['Lifegain', 'Lifegain Triggers', 'Life Matters'])
+            tag_utility.apply_tag_vectorized(df, trigger_mask, ['Lifegain', 'Lifegain Triggers', 'Life Matters'])
             logging.info(f'Tagged {trigger_mask.sum()} cards with lifegain triggers')
 
         duration = (pd.Timestamp.now() - start_time).total_seconds()
@@ -2786,14 +2788,14 @@ def tag_for_lifelink(df: pd.DataFrame, color: str) -> None:
 
     try:
         # Create masks for different lifelink patterns
-        lifelink_mask = utility.create_text_mask(df, 'lifelink')
-        lifelike_mask = utility.create_text_mask(df, [
+        lifelink_mask = tag_utility.create_text_mask(df, 'lifelink')
+        lifelike_mask = tag_utility.create_text_mask(df, [
             'deals damage, you gain that much life',
             'loses life.*gain that much life'
         ])
 
         # Exclude combat damage references for life loss conversion
-        damage_mask = utility.create_text_mask(df, 'deals damage')
+        damage_mask = tag_utility.create_text_mask(df, 'deals damage')
         life_loss_mask = lifelike_mask & ~damage_mask
 
         # Combine masks
@@ -2801,7 +2803,7 @@ def tag_for_lifelink(df: pd.DataFrame, color: str) -> None:
 
         # Apply tags
         if final_mask.any():
-            utility.apply_tag_vectorized(df, final_mask, ['Lifelink', 'Lifegain', 'Life Matters'])
+            tag_utility.apply_tag_vectorized(df, final_mask, ['Lifelink', 'Lifegain', 'Life Matters'])
             logging.info(f'Tagged {final_mask.sum()} cards with lifelink effects')
 
         duration = (pd.Timestamp.now() - start_time).total_seconds()
@@ -2833,11 +2835,11 @@ def tag_for_life_loss(df: pd.DataFrame, color: str) -> None:
             'whenever you gain or lose life',
             'whenever you lose life'
         ]
-        text_mask = utility.create_text_mask(df, text_patterns)
+        text_mask = tag_utility.create_text_mask(df, text_patterns)
 
         # Apply tags
         if text_mask.any():
-            utility.apply_tag_vectorized(df, text_mask, ['Lifeloss', 'Lifeloss Triggers', 'Life Matters'])
+            tag_utility.apply_tag_vectorized(df, text_mask, ['Lifeloss', 'Lifeloss Triggers', 'Life Matters'])
             logging.info(f'Tagged {text_mask.sum()} cards with life loss effects')
 
         duration = (pd.Timestamp.now() - start_time).total_seconds()
@@ -2859,15 +2861,15 @@ def tag_for_food(df: pd.DataFrame, color: str) -> None:
 
     try:
         # Create masks for Food tokens
-        text_mask = utility.create_text_mask(df, 'food')
-        type_mask = utility.create_type_mask(df, 'food')
+        text_mask = tag_utility.create_text_mask(df, 'food')
+        type_mask = tag_utility.create_type_mask(df, 'food')
 
         # Combine masks
         final_mask = text_mask | type_mask
 
         # Apply tags
         if final_mask.any():
-            utility.apply_tag_vectorized(df, final_mask, ['Food', 'Lifegain', 'Life Matters'])
+            tag_utility.apply_tag_vectorized(df, final_mask, ['Food', 'Lifegain', 'Life Matters'])
             logging.info(f'Tagged {final_mask.sum()} cards with Food effects')
 
         duration = (pd.Timestamp.now() - start_time).total_seconds()
@@ -2894,7 +2896,7 @@ def tag_for_life_kindred(df: pd.DataFrame, color: str) -> None:
 
         # Apply tags
         if kindred_mask.any():
-            utility.apply_tag_vectorized(df, kindred_mask, ['Lifegain', 'Life Matters'])
+            tag_utility.apply_tag_vectorized(df, kindred_mask, ['Lifegain', 'Life Matters'])
             logging.info(f'Tagged {kindred_mask.sum()} cards with life-related kindred effects')
 
         duration = (pd.Timestamp.now() - start_time).total_seconds()
@@ -2938,7 +2940,7 @@ def tag_for_counters(df: pd.DataFrame, color: str) -> None:
 
         # Validate required columns
         required_cols = {'text', 'themeTags', 'name', 'creatureTypes'}
-        utility.validate_dataframe_columns(df, required_cols)
+        tag_utility.validate_dataframe_columns(df, required_cols)
 
         # Process each type of counter effect
         tag_for_general_counters(df, color)
@@ -2986,7 +2988,7 @@ def tag_for_general_counters(df: pd.DataFrame, color: str) -> None:
             'remove a counter',
             'with counters on them'
         ]
-        text_mask = utility.create_text_mask(df, text_patterns)
+        text_mask = tag_utility.create_text_mask(df, text_patterns)
 
         # Create mask for specific cards
         specific_cards = [
@@ -2994,13 +2996,13 @@ def tag_for_general_counters(df: pd.DataFrame, color: str) -> None:
             'damning verdict',
             'ozolith'
         ]
-        name_mask = utility.create_name_mask(df, specific_cards)
+        name_mask = tag_utility.create_name_mask(df, specific_cards)
 
         # Combine masks
         final_mask = text_mask | name_mask
 
         # Apply tags
-        utility.apply_tag_vectorized(df, final_mask, ['Counters Matter'])
+        tag_utility.apply_tag_vectorized(df, final_mask, ['Counters Matter'])
 
         # Log results
         duration = (pd.Timestamp.now() - start_time).total_seconds()
@@ -3031,7 +3033,7 @@ def tag_for_plus_counters(df: pd.DataFrame, color: str) -> None:
             r'undying',
             r'with counters on them'
         ]
-        text_mask = utility.create_text_mask(df, text_patterns)
+        text_mask = tag_utility.create_text_mask(df, text_patterns)
         # Create creature type mask
         type_mask = df['creatureTypes'].apply(lambda x: 'Hydra' in x if isinstance(x, list) else False)
 
@@ -3039,7 +3041,7 @@ def tag_for_plus_counters(df: pd.DataFrame, color: str) -> None:
         final_mask = text_mask | type_mask
 
         # Apply tags
-        utility.apply_tag_vectorized(df, final_mask, ['+1/+1 Counters', 'Counters Matter', 'Voltron'])
+        tag_utility.apply_tag_vectorized(df, final_mask, ['+1/+1 Counters', 'Counters Matter', 'Voltron'])
 
         # Log results
         duration = (pd.Timestamp.now() - start_time).total_seconds()
@@ -3071,10 +3073,10 @@ def tag_for_minus_counters(df: pd.DataFrame, color: str) -> None:
             'proliferate',
             'wither'
         ]
-        text_mask = utility.create_text_mask(df, text_patterns)
+        text_mask = tag_utility.create_text_mask(df, text_patterns)
         
         # Apply tags
-        utility.apply_tag_vectorized(df, text_mask, ['-1/-1 Counters', 'Counters Matter'])
+        tag_utility.apply_tag_vectorized(df, text_mask, ['-1/-1 Counters', 'Counters Matter'])
 
         # Log results
         duration = (pd.Timestamp.now() - start_time).total_seconds()
@@ -3100,12 +3102,12 @@ def tag_for_special_counters(df: pd.DataFrame, color: str) -> None:
         for counter_type in settings.counter_types:
             # Create pattern for this counter type
             pattern = f'{counter_type} counter'
-            mask = utility.create_text_mask(df, pattern)
+            mask = tag_utility.create_text_mask(df, pattern)
 
             if mask.any():
                 # Apply tags
                 tags = [f'{counter_type} Counters', 'Counters Matter']
-                utility.apply_tag_vectorized(df, mask, tags)
+                tag_utility.apply_tag_vectorized(df, mask, tags)
                 counter_counts[counter_type] = mask.sum()
 
         # Log results
@@ -3130,7 +3132,7 @@ def create_voltron_commander_mask(df: pd.DataFrame) -> pd.Series:
     Returns:
         Boolean Series indicating which cards are Voltron commanders
     """
-    return utility.create_name_mask(df, settings.VOLTRON_COMMANDER_CARDS)
+    return tag_utility.create_name_mask(df, settings.VOLTRON_COMMANDER_CARDS)
 
 def create_voltron_support_mask(df: pd.DataFrame) -> pd.Series:
     """Create a boolean mask for cards that support Voltron strategies.
@@ -3141,7 +3143,7 @@ def create_voltron_support_mask(df: pd.DataFrame) -> pd.Series:
     Returns:
         Boolean Series indicating which cards support Voltron strategies
     """
-    return utility.create_text_mask(df, settings.VOLTRON_PATTERNS)
+    return tag_utility.create_text_mask(df, settings.VOLTRON_PATTERNS)
 
 def create_voltron_equipment_mask(df: pd.DataFrame) -> pd.Series:
     """Create a boolean mask for Equipment-based Voltron cards.
@@ -3152,7 +3154,7 @@ def create_voltron_equipment_mask(df: pd.DataFrame) -> pd.Series:
     Returns:
         Boolean Series indicating which cards are Equipment-based Voltron cards
     """
-    return utility.create_type_mask(df, 'Equipment')
+    return tag_utility.create_type_mask(df, 'Equipment')
 
 def create_voltron_aura_mask(df: pd.DataFrame) -> pd.Series:
     """Create a boolean mask for Aura-based Voltron cards.
@@ -3163,7 +3165,7 @@ def create_voltron_aura_mask(df: pd.DataFrame) -> pd.Series:
     Returns:
         Boolean Series indicating which cards are Aura-based Voltron cards
     """
-    return utility.create_type_mask(df, 'Aura')
+    return tag_utility.create_type_mask(df, 'Aura')
 
 def tag_for_voltron(df: pd.DataFrame, color: str) -> None:
     """Tag cards that fit the Voltron strategy.
@@ -3197,7 +3199,7 @@ def tag_for_voltron(df: pd.DataFrame, color: str) -> None:
 
         # Validate required columns
         required_cols = {'text', 'themeTags', 'type', 'name'}
-        utility.validate_dataframe_columns(df, required_cols)
+        tag_utility.validate_dataframe_columns(df, required_cols)
 
         # Create masks for different Voltron aspects
         commander_mask = create_voltron_commander_mask(df)
@@ -3209,7 +3211,7 @@ def tag_for_voltron(df: pd.DataFrame, color: str) -> None:
         final_mask = commander_mask | support_mask | equipment_mask | aura_mask
 
         # Apply tags
-        utility.apply_tag_vectorized(df, final_mask, ['Voltron'])
+        tag_utility.apply_tag_vectorized(df, final_mask, ['Voltron'])
 
         # Log results
         duration = (pd.Timestamp.now() - start_time).total_seconds()
@@ -3236,12 +3238,12 @@ def create_lands_matter_mask(df: pd.DataFrame) -> pd.Series:
         Boolean Series indicating which cards have lands matter effects
     """
     # Create mask for named cards
-    name_mask = utility.create_name_mask(df, settings.LANDS_MATTER_SPECIFIC_CARDS)
+    name_mask = tag_utility.create_name_mask(df, settings.LANDS_MATTER_SPECIFIC_CARDS)
 
     # Create text pattern masks
-    play_mask = utility.create_text_mask(df, settings.LANDS_MATTER_PATTERNS['land_play'])
-    search_mask = utility.create_text_mask(df, settings.LANDS_MATTER_PATTERNS['land_search']) 
-    state_mask = utility.create_text_mask(df, settings.LANDS_MATTER_PATTERNS['land_state'])
+    play_mask = tag_utility.create_text_mask(df, settings.LANDS_MATTER_PATTERNS['land_play'])
+    search_mask = tag_utility.create_text_mask(df, settings.LANDS_MATTER_PATTERNS['land_search']) 
+    state_mask = tag_utility.create_text_mask(df, settings.LANDS_MATTER_PATTERNS['land_state'])
 
     # Combine all masks
     return name_mask | play_mask | search_mask | state_mask
@@ -3255,8 +3257,8 @@ def create_domain_mask(df: pd.DataFrame) -> pd.Series:
     Returns:
         Boolean Series indicating which cards have domain effects
     """
-    keyword_mask = utility.create_keyword_mask(df, settings.DOMAIN_PATTERNS['keyword'])
-    text_mask = utility.create_text_mask(df, settings.DOMAIN_PATTERNS['text'])
+    keyword_mask = tag_utility.create_keyword_mask(df, settings.DOMAIN_PATTERNS['keyword'])
+    text_mask = tag_utility.create_text_mask(df, settings.DOMAIN_PATTERNS['text'])
     return keyword_mask | text_mask
 
 def create_landfall_mask(df: pd.DataFrame) -> pd.Series:
@@ -3268,8 +3270,8 @@ def create_landfall_mask(df: pd.DataFrame) -> pd.Series:
     Returns:
         Boolean Series indicating which cards have landfall effects
     """
-    keyword_mask = utility.create_keyword_mask(df, settings.LANDFALL_PATTERNS['keyword'])
-    trigger_mask = utility.create_text_mask(df, settings.LANDFALL_PATTERNS['triggers'])
+    keyword_mask = tag_utility.create_keyword_mask(df, settings.LANDFALL_PATTERNS['keyword'])
+    trigger_mask = tag_utility.create_text_mask(df, settings.LANDFALL_PATTERNS['triggers'])
     return keyword_mask | trigger_mask
 
 def create_landwalk_mask(df: pd.DataFrame) -> pd.Series:
@@ -3281,8 +3283,8 @@ def create_landwalk_mask(df: pd.DataFrame) -> pd.Series:
     Returns:
         Boolean Series indicating which cards have landwalk abilities
     """
-    basic_mask = utility.create_text_mask(df, settings.LANDWALK_PATTERNS['basic'])
-    nonbasic_mask = utility.create_text_mask(df, settings.LANDWALK_PATTERNS['nonbasic'])
+    basic_mask = tag_utility.create_text_mask(df, settings.LANDWALK_PATTERNS['basic'])
+    nonbasic_mask = tag_utility.create_text_mask(df, settings.LANDWALK_PATTERNS['nonbasic'])
     return basic_mask | nonbasic_mask
 
 def create_land_types_mask(df: pd.DataFrame) -> pd.Series:
@@ -3295,7 +3297,7 @@ def create_land_types_mask(df: pd.DataFrame) -> pd.Series:
         Boolean Series indicating which cards care about specific land types
     """
     # Create type-based mask
-    type_mask = utility.create_type_mask(df, settings.LAND_TYPES)
+    type_mask = tag_utility.create_type_mask(df, settings.LAND_TYPES)
 
     # Create text pattern masks for each land type
     text_masks = []
@@ -3305,7 +3307,7 @@ def create_land_types_mask(df: pd.DataFrame) -> pd.Series:
             f'search your library for up to two {land_type.lower()}',
             f'{land_type} you control'
         ]
-        text_masks.append(utility.create_text_mask(df, patterns))
+        text_masks.append(tag_utility.create_text_mask(df, patterns))
 
     # Combine all masks
     return type_mask | pd.concat(text_masks, axis=1).any(axis=1)
@@ -3334,7 +3336,7 @@ def tag_for_lands_matter(df: pd.DataFrame, color: str) -> None:
     try:
         # Validate required columns
         required_cols = {'text', 'themeTags', 'type', 'name'}
-        utility.validate_dataframe_columns(df, required_cols)
+        tag_utility.validate_dataframe_columns(df, required_cols)
 
         # Create masks for different land effects
         lands_mask = create_lands_matter_mask(df)
@@ -3345,23 +3347,23 @@ def tag_for_lands_matter(df: pd.DataFrame, color: str) -> None:
 
         # Apply tags based on masks
         if lands_mask.any():
-            utility.apply_tag_vectorized(df, lands_mask, ['Lands Matter'])
+            tag_utility.apply_tag_vectorized(df, lands_mask, ['Lands Matter'])
             logging.info(f'Tagged {lands_mask.sum()} cards with general lands matter effects')
 
         if domain_mask.any():
-            utility.apply_tag_vectorized(df, domain_mask, ['Domain', 'Lands Matter'])
+            tag_utility.apply_tag_vectorized(df, domain_mask, ['Domain', 'Lands Matter'])
             logging.info(f'Tagged {domain_mask.sum()} cards with domain effects')
 
         if landfall_mask.any():
-            utility.apply_tag_vectorized(df, landfall_mask, ['Landfall', 'Lands Matter'])
+            tag_utility.apply_tag_vectorized(df, landfall_mask, ['Landfall', 'Lands Matter'])
             logging.info(f'Tagged {landfall_mask.sum()} cards with landfall effects')
 
         if landwalk_mask.any():
-            utility.apply_tag_vectorized(df, landwalk_mask, ['Landwalk', 'Lands Matter'])
+            tag_utility.apply_tag_vectorized(df, landwalk_mask, ['Landwalk', 'Lands Matter'])
             logging.info(f'Tagged {landwalk_mask.sum()} cards with landwalk abilities')
 
         if types_mask.any():
-            utility.apply_tag_vectorized(df, types_mask, ['Land Types Matter', 'Lands Matter'])
+            tag_utility.apply_tag_vectorized(df, types_mask, ['Land Types Matter', 'Lands Matter'])
             logging.info(f'Tagged {types_mask.sum()} cards with specific land type effects')
 
         duration = (pd.Timestamp.now() - start_time).total_seconds()
@@ -3405,7 +3407,7 @@ def create_spellslinger_text_mask(df: pd.DataFrame) -> pd.Series:
         'you cast an instant',
         'you cast a spell'
     ]
-    return utility.create_text_mask(df, text_patterns)
+    return tag_utility.create_text_mask(df, text_patterns)
 
 def create_spellslinger_keyword_mask(df: pd.DataFrame) -> pd.Series:
     """Create a boolean mask for cards with spellslinger-related keywords.
@@ -3428,7 +3430,7 @@ def create_spellslinger_keyword_mask(df: pd.DataFrame) -> pd.Series:
         'Prowess',
         'Surge'
     ]
-    return utility.create_keyword_mask(df, keyword_patterns)
+    return tag_utility.create_keyword_mask(df, keyword_patterns)
 
 def create_spellslinger_type_mask(df: pd.DataFrame) -> pd.Series:
     """Create a boolean mask for instant/sorcery type cards.
@@ -3439,7 +3441,7 @@ def create_spellslinger_type_mask(df: pd.DataFrame) -> pd.Series:
     Returns:
         Boolean Series indicating which cards are instants or sorceries
     """
-    return utility.create_type_mask(df, ['Instant', 'Sorcery'])
+    return tag_utility.create_type_mask(df, ['Instant', 'Sorcery'])
 
 def create_spellslinger_exclusion_mask(df: pd.DataFrame) -> pd.Series:
     """Create a boolean mask for cards that should be excluded from spellslinger tagging.
@@ -3455,7 +3457,7 @@ def create_spellslinger_exclusion_mask(df: pd.DataFrame) -> pd.Series:
         'Possibility Storm',
         'Wild-Magic Sorcerer'
     ]
-    return utility.create_name_mask(df, excluded_names)
+    return tag_utility.create_name_mask(df, excluded_names)
 
 def tag_for_spellslinger(df: pd.DataFrame, color: str) -> None:
     """Tag cards that care about casting spells using vectorized operations.
@@ -3483,7 +3485,7 @@ def tag_for_spellslinger(df: pd.DataFrame, color: str) -> None:
     try:
         # Validate required columns
         required_cols = {'text', 'themeTags', 'type', 'keywords'}
-        utility.validate_dataframe_columns(df, required_cols)
+        tag_utility.validate_dataframe_columns(df, required_cols)
 
         # Create masks for different spellslinger patterns
         text_mask = create_spellslinger_text_mask(df)
@@ -3495,7 +3497,7 @@ def tag_for_spellslinger(df: pd.DataFrame, color: str) -> None:
         final_mask = (text_mask | keyword_mask | type_mask) & ~exclusion_mask
 
         # Apply tags
-        utility.apply_tag_vectorized(df, final_mask, ['Spellslinger', 'Spells Matter'])
+        tag_utility.apply_tag_vectorized(df, final_mask, ['Spellslinger', 'Spells Matter'])
         logging.info(f'Tagged {final_mask.sum()} general Spellslinger cards')
         
         # Run non-generalized tags
@@ -3522,7 +3524,7 @@ def create_storm_mask(df: pd.DataFrame) -> pd.Series:
         Boolean Series indicating which cards have storm effects
     """
     # Create keyword mask
-    keyword_mask = utility.create_keyword_mask(df, 'Storm')
+    keyword_mask = tag_utility.create_keyword_mask(df, 'Storm')
 
     # Create text mask
     text_patterns = [
@@ -3530,7 +3532,7 @@ def create_storm_mask(df: pd.DataFrame) -> pd.Series:
         'has storm',
         'have storm'
     ]
-    text_mask = utility.create_text_mask(df, text_patterns)
+    text_mask = tag_utility.create_text_mask(df, text_patterns)
 
     return keyword_mask | text_mask
 
@@ -3551,13 +3553,13 @@ def tag_for_storm(df: pd.DataFrame, color: str) -> None:
     try:
         # Validate required columns
         required_cols = {'text', 'themeTags', 'keywords'}
-        utility.validate_dataframe_columns(df, required_cols)
+        tag_utility.validate_dataframe_columns(df, required_cols)
 
         # Create storm mask
         storm_mask = create_storm_mask(df)
 
         # Apply tags
-        utility.apply_tag_vectorized(df, storm_mask, ['Storm', 'Spellslinger', 'Spells Matter'])
+        tag_utility.apply_tag_vectorized(df, storm_mask, ['Storm', 'Spellslinger', 'Spells Matter'])
 
         # Log results
         storm_count = storm_mask.sum()
@@ -3584,8 +3586,8 @@ def tag_for_cantrips(df: pd.DataFrame, color: str) -> None:
         df['manaValue'] = pd.to_numeric(df['manaValue'], errors='coerce')
 
         # Create exclusion masks
-        excluded_types = utility.create_type_mask(df, 'Land|Equipment')
-        excluded_keywords = utility.create_keyword_mask(df, ['Channel', 'Cycling', 'Connive', 'Learn', 'Ravenous'])
+        excluded_types = tag_utility.create_type_mask(df, 'Land|Equipment')
+        excluded_keywords = tag_utility.create_keyword_mask(df, ['Channel', 'Cycling', 'Connive', 'Learn', 'Ravenous'])
         has_loot = df['themeTags'].apply(lambda x: 'Loot' in x)
 
         # Define name exclusions
@@ -3607,7 +3609,7 @@ def tag_for_cantrips(df: pd.DataFrame, color: str) -> None:
         excluded_names = df['name'].isin(EXCLUDED_NAMES)
 
         # Create cantrip condition masks
-        has_draw = utility.create_text_mask(df, PATTERN_GROUPS['draw'])
+        has_draw = tag_utility.create_text_mask(df, PATTERN_GROUPS['draw'])
         low_cost = df['manaValue'].fillna(float('inf')) <= 2
 
         # Combine conditions
@@ -3621,7 +3623,7 @@ def tag_for_cantrips(df: pd.DataFrame, color: str) -> None:
         )
 
         # Apply tags
-        utility.apply_tag_vectorized(df, cantrip_mask, TAG_GROUPS['Cantrips'])
+        tag_utility.apply_tag_vectorized(df, cantrip_mask, TAG_GROUPS['Cantrips'])
 
         # Log results
         cantrip_count = cantrip_mask.sum()
@@ -3641,7 +3643,7 @@ def create_magecraft_mask(df: pd.DataFrame) -> pd.Series:
     Returns:
         Boolean Series indicating which cards have magecraft effects
     """
-    return utility.create_keyword_mask(df, 'Magecraft')
+    return tag_utility.create_keyword_mask(df, 'Magecraft')
 
 def tag_for_magecraft(df: pd.DataFrame, color: str) -> None:
     """Tag cards with magecraft using vectorized operations.
@@ -3656,13 +3658,13 @@ def tag_for_magecraft(df: pd.DataFrame, color: str) -> None:
     try:
         # Validate required columns
         required_cols = {'themeTags', 'keywords'}
-        utility.validate_dataframe_columns(df, required_cols)
+        tag_utility.validate_dataframe_columns(df, required_cols)
 
         # Create magecraft mask
         magecraft_mask = create_magecraft_mask(df)
 
         # Apply tags
-        utility.apply_tag_vectorized(df, magecraft_mask, ['Magecraft', 'Spellslinger', 'Spells Matter'])
+        tag_utility.apply_tag_vectorized(df, magecraft_mask, ['Magecraft', 'Spellslinger', 'Spells Matter'])
 
         # Log results
         magecraft_count = magecraft_mask.sum()
@@ -3697,7 +3699,7 @@ def create_spell_copy_text_mask(df: pd.DataFrame) -> pd.Series:
         'create a copy',
         'creates a copy'
     ]
-    return utility.create_text_mask(df, text_patterns)
+    return tag_utility.create_text_mask(df, text_patterns)
 
 def create_spell_copy_keyword_mask(df: pd.DataFrame) -> pd.Series:
     """Create a boolean mask for cards with spell copy related keywords.
@@ -3720,7 +3722,7 @@ def create_spell_copy_keyword_mask(df: pd.DataFrame) -> pd.Series:
         'Replicate',
         'Storm'
     ]
-    return utility.create_keyword_mask(df, keyword_patterns)
+    return tag_utility.create_keyword_mask(df, keyword_patterns)
 
 def tag_for_spell_copy(df: pd.DataFrame, color: str) -> None:
     """Tag cards that copy spells using vectorized operations.
@@ -3740,7 +3742,7 @@ def tag_for_spell_copy(df: pd.DataFrame, color: str) -> None:
     try:
         # Validate required columns
         required_cols = {'text', 'themeTags', 'keywords'}
-        utility.validate_dataframe_columns(df, required_cols)
+        tag_utility.validate_dataframe_columns(df, required_cols)
 
         # Create masks for different spell copy patterns
         text_mask = create_spell_copy_text_mask(df)
@@ -3750,7 +3752,7 @@ def tag_for_spell_copy(df: pd.DataFrame, color: str) -> None:
         final_mask = text_mask | keyword_mask
 
         # Apply tags
-        utility.apply_tag_vectorized(df, final_mask, ['Spell Copy', 'Spellslinger', 'Spells Matter'])
+        tag_utility.apply_tag_vectorized(df, final_mask, ['Spell Copy', 'Spellslinger', 'Spells Matter'])
 
         # Log results
         spellcopy_count = final_mask.sum()
@@ -3771,19 +3773,19 @@ def create_mana_dork_mask(df: pd.DataFrame) -> pd.Series:
         Boolean Series indicating which cards are mana dorks
     """
     # Create base creature mask
-    creature_mask = utility.create_type_mask(df, 'Creature')
+    creature_mask = tag_utility.create_type_mask(df, 'Creature')
 
     # Create text pattern masks
-    tap_mask = utility.create_text_mask(df, ['{T}: Add', '{T}: Untap'])
-    sac_mask = utility.create_text_mask(df, ['creature: add', 'control: add'])
+    tap_mask = tag_utility.create_text_mask(df, ['{T}: Add', '{T}: Untap'])
+    sac_mask = tag_utility.create_text_mask(df, ['creature: add', 'control: add'])
 
     # Create mana symbol mask
     mana_patterns = [f'add {{{c}}}' for c in ['C', 'W', 'U', 'B', 'R', 'G']]
-    mana_mask = utility.create_text_mask(df, mana_patterns)
+    mana_mask = tag_utility.create_text_mask(df, mana_patterns)
 
     # Create specific cards mask
     specific_cards = ['Awaken the Woods', 'Forest Dryad']
-    name_mask = utility.create_name_mask(df, specific_cards)
+    name_mask = tag_utility.create_name_mask(df, specific_cards)
 
     return creature_mask & (tap_mask | sac_mask | mana_mask) | name_mask
 
@@ -3797,19 +3799,19 @@ def create_mana_rock_mask(df: pd.DataFrame) -> pd.Series:
         Boolean Series indicating which cards are mana rocks
     """
     # Create base artifact mask
-    artifact_mask = utility.create_type_mask(df, 'Artifact')
+    artifact_mask = tag_utility.create_type_mask(df, 'Artifact')
 
     # Create text pattern masks
-    tap_mask = utility.create_text_mask(df, ['{T}: Add', '{T}: Untap'])
-    sac_mask = utility.create_text_mask(df, ['creature: add', 'control: add'])
+    tap_mask = tag_utility.create_text_mask(df, ['{T}: Add', '{T}: Untap'])
+    sac_mask = tag_utility.create_text_mask(df, ['creature: add', 'control: add'])
 
     # Create mana symbol mask
     mana_patterns = [f'add {{{c}}}' for c in ['C', 'W', 'U', 'B', 'R', 'G']]
-    mana_mask = utility.create_text_mask(df, mana_patterns)
+    mana_mask = tag_utility.create_text_mask(df, mana_patterns)
 
     # Create token mask
-    token_mask = utility.create_tag_mask(df, ['Powerstone Tokens', 'Treasure Tokens', 'Gold Tokens']) | \
-                 utility.create_text_mask(df, 'token named meteorite')
+    token_mask = tag_utility.create_tag_mask(df, ['Powerstone Tokens', 'Treasure Tokens', 'Gold Tokens']) | \
+                 tag_utility.create_text_mask(df, 'token named meteorite')
 
     return (artifact_mask & (tap_mask | sac_mask | mana_mask)) | token_mask
 
@@ -3833,7 +3835,7 @@ def create_extra_lands_mask(df: pd.DataFrame) -> pd.Series:
         'return target land'
     ]
 
-    return utility.create_text_mask(df, text_patterns)
+    return tag_utility.create_text_mask(df, text_patterns)
 
 def create_land_search_mask(df: pd.DataFrame) -> pd.Series:
     """Create a boolean mask for cards that search for lands.
@@ -3862,7 +3864,7 @@ def create_land_search_mask(df: pd.DataFrame) -> pd.Series:
             f'search your library for an {land_type.lower()}'
         ])
 
-    return utility.create_text_mask(df, search_patterns)
+    return tag_utility.create_text_mask(df, search_patterns)
 
 def tag_for_ramp(df: pd.DataFrame, color: str) -> None:
     """Tag cards that provide mana acceleration using vectorized operations.
@@ -3893,19 +3895,19 @@ def tag_for_ramp(df: pd.DataFrame, color: str) -> None:
 
         # Apply tags for each category
         if dork_mask.any():
-            utility.apply_tag_vectorized(df, dork_mask, ['Mana Dork', 'Ramp'])
+            tag_utility.apply_tag_vectorized(df, dork_mask, ['Mana Dork', 'Ramp'])
             logging.info(f'Tagged {dork_mask.sum()} mana dork cards')
 
         if rock_mask.any():
-            utility.apply_tag_vectorized(df, rock_mask, ['Mana Rock', 'Ramp'])
+            tag_utility.apply_tag_vectorized(df, rock_mask, ['Mana Rock', 'Ramp'])
             logging.info(f'Tagged {rock_mask.sum()} mana rock cards')
 
         if lands_mask.any():
-            utility.apply_tag_vectorized(df, lands_mask, ['Lands Matter', 'Ramp'])
+            tag_utility.apply_tag_vectorized(df, lands_mask, ['Lands Matter', 'Ramp'])
             logging.info(f'Tagged {lands_mask.sum()} extra lands cards')
 
         if search_mask.any():
-            utility.apply_tag_vectorized(df, search_mask, ['Lands Matter', 'Ramp'])
+            tag_utility.apply_tag_vectorized(df, search_mask, ['Lands Matter', 'Ramp'])
             logging.info(f'Tagged {search_mask.sum()} land search cards')
 
         # Log completion
@@ -4022,7 +4024,7 @@ def create_aggro_text_mask(df: pd.DataFrame) -> pd.Series:
         'you control deals combat',
         'untap all attacking creatures'
     ]
-    return utility.create_text_mask(df, text_patterns)
+    return tag_utility.create_text_mask(df, text_patterns)
 
 def create_aggro_keyword_mask(df: pd.DataFrame) -> pd.Series:
     """Create a boolean mask for cards with aggro-related keywords.
@@ -4048,7 +4050,7 @@ def create_aggro_keyword_mask(df: pd.DataFrame) -> pd.Series:
         'Spectacle',
         'Trample'
     ]
-    return utility.create_keyword_mask(df, keyword_patterns)
+    return tag_utility.create_keyword_mask(df, keyword_patterns)
 
 def create_aggro_theme_mask(df: pd.DataFrame) -> pd.Series:
     """Create a boolean mask for cards with aggro-related themes.
@@ -4059,7 +4061,7 @@ def create_aggro_theme_mask(df: pd.DataFrame) -> pd.Series:
     Returns:
         Boolean Series indicating which cards have aggro themes
     """
-    return utility.create_tag_mask(df, ['Voltron'])
+    return tag_utility.create_tag_mask(df, ['Voltron'])
 
 def tag_for_aggro(df: pd.DataFrame, color: str) -> None:
     """Tag cards that fit the Aggro theme using vectorized operations.
@@ -4090,7 +4092,7 @@ def tag_for_aggro(df: pd.DataFrame, color: str) -> None:
 
         # Validate required columns
         required_cols = {'text', 'themeTags', 'keywords'}
-        utility.validate_dataframe_columns(df, required_cols)
+        tag_utility.validate_dataframe_columns(df, required_cols)
 
         # Create masks for different aggro aspects
         text_mask = create_aggro_text_mask(df)
@@ -4101,7 +4103,7 @@ def tag_for_aggro(df: pd.DataFrame, color: str) -> None:
         final_mask = text_mask | keyword_mask | theme_mask
 
         # Apply tags
-        utility.apply_tag_vectorized(df, final_mask, ['Aggro', 'Combat Matters'])
+        tag_utility.apply_tag_vectorized(df, final_mask, ['Aggro', 'Combat Matters'])
 
         # Log results
         duration = (pd.Timestamp.now() - start_time).total_seconds()
@@ -4122,7 +4124,7 @@ def create_aristocrat_text_mask(df: pd.DataFrame) -> pd.Series:
     Returns:
         Boolean Series indicating which cards have aristocrat text patterns
     """
-    return utility.create_text_mask(df, settings.ARISTOCRAT_TEXT_PATTERNS)
+    return tag_utility.create_text_mask(df, settings.ARISTOCRAT_TEXT_PATTERNS)
 
 def create_aristocrat_name_mask(df: pd.DataFrame) -> pd.Series:
     """Create a boolean mask for specific aristocrat-related cards.
@@ -4133,7 +4135,7 @@ def create_aristocrat_name_mask(df: pd.DataFrame) -> pd.Series:
     Returns:
         Boolean Series indicating which cards are specific aristocrat cards
     """
-    return utility.create_name_mask(df, settings.ARISTOCRAT_SPECIFIC_CARDS)
+    return tag_utility.create_name_mask(df, settings.ARISTOCRAT_SPECIFIC_CARDS)
 
 def create_aristocrat_self_sacrifice_mask(df: pd.DataFrame) -> pd.Series:
     """Create a boolean mask for creatures with self-sacrifice effects.
@@ -4145,7 +4147,7 @@ def create_aristocrat_self_sacrifice_mask(df: pd.DataFrame) -> pd.Series:
         Boolean Series indicating which creatures have self-sacrifice effects
     """
     # Create base creature mask
-    creature_mask = utility.create_type_mask(df, 'Creature')
+    creature_mask = tag_utility.create_type_mask(df, 'Creature')
     
     # Create name-based patterns
     def check_self_sacrifice(row):
@@ -4167,7 +4169,7 @@ def create_aristocrat_keyword_mask(df: pd.DataFrame) -> pd.Series:
     Returns:
         Boolean Series indicating which cards have aristocrat keywords
     """
-    return utility.create_keyword_mask(df, 'Blitz')
+    return tag_utility.create_keyword_mask(df, 'Blitz')
 
 def create_aristocrat_exclusion_mask(df: pd.DataFrame) -> pd.Series:
     """Create a boolean mask for cards that should be excluded from aristocrat effects.
@@ -4178,7 +4180,7 @@ def create_aristocrat_exclusion_mask(df: pd.DataFrame) -> pd.Series:
     Returns:
         Boolean Series indicating which cards should be excluded
     """
-    return utility.create_text_mask(df, settings.ARISTOCRAT_EXCLUSION_PATTERNS)
+    return tag_utility.create_text_mask(df, settings.ARISTOCRAT_EXCLUSION_PATTERNS)
 
 def tag_for_aristocrats(df: pd.DataFrame, color: str) -> None:
     """Tag cards that fit the Aristocrats or Sacrifice Matters themes using vectorized operations.
@@ -4210,7 +4212,7 @@ def tag_for_aristocrats(df: pd.DataFrame, color: str) -> None:
     try:
         # Validate required columns
         required_cols = {'text', 'themeTags', 'name', 'type', 'keywords'}
-        utility.validate_dataframe_columns(df, required_cols)
+        tag_utility.validate_dataframe_columns(df, required_cols)
 
         # Create masks for different aristocrat patterns
         text_mask = create_aristocrat_text_mask(df)
@@ -4223,7 +4225,7 @@ def tag_for_aristocrats(df: pd.DataFrame, color: str) -> None:
         final_mask = (text_mask | name_mask | self_sacrifice_mask | keyword_mask) & ~exclusion_mask
 
         # Apply tags
-        utility.apply_tag_vectorized(df, final_mask, ['Aristocrats', 'Sacrifice Matters'])
+        tag_utility.apply_tag_vectorized(df, final_mask, ['Aristocrats', 'Sacrifice Matters'])
 
         # Log results
         duration = (pd.Timestamp.now() - start_time).total_seconds()
@@ -4282,20 +4284,20 @@ def tag_for_big_mana(df: pd.DataFrame, color: str) -> None:
 
         # Validate required columns
         required_cols = {'text', 'themeTags', 'manaValue', 'manaCost', 'keywords'}
-        utility.validate_dataframe_columns(df, required_cols)
+        tag_utility.validate_dataframe_columns(df, required_cols)
 
         # Create masks for different big mana patterns
-        text_mask = utility.create_text_mask(df, settings.BIG_MANA_TEXT_PATTERNS)
-        keyword_mask = utility.create_keyword_mask(df, settings.BIG_MANA_KEYWORDS)
+        text_mask = tag_utility.create_text_mask(df, settings.BIG_MANA_TEXT_PATTERNS)
+        keyword_mask = tag_utility.create_keyword_mask(df, settings.BIG_MANA_KEYWORDS)
         cost_mask = create_big_mana_cost_mask(df)
-        specific_mask = utility.create_name_mask(df, settings.BIG_MANA_SPECIFIC_CARDS)
-        tag_mask = utility.create_tag_mask(df, 'Cost Reduction')
+        specific_mask = tag_utility.create_name_mask(df, settings.BIG_MANA_SPECIFIC_CARDS)
+        tag_mask = tag_utility.create_tag_mask(df, 'Cost Reduction')
 
         # Combine all masks
         final_mask = text_mask | keyword_mask | cost_mask | specific_mask | tag_mask
 
         # Apply tags
-        utility.apply_tag_vectorized(df, final_mask, ['Big Mana'])
+        tag_utility.apply_tag_vectorized(df, final_mask, ['Big Mana'])
 
         # Log results
         duration = (pd.Timestamp.now() - start_time).total_seconds()
@@ -4324,7 +4326,7 @@ def create_etb_mask(df: pd.DataFrame) -> pd.Series:
         'when this creature enters',
         'whenever this creature enters'
     ]
-    return utility.create_text_mask(df, text_patterns)
+    return tag_utility.create_text_mask(df, text_patterns)
 
 def create_ltb_mask(df: pd.DataFrame) -> pd.Series:
     """Create a boolean mask for cards with leave-the-battlefield effects.
@@ -4339,7 +4341,7 @@ def create_ltb_mask(df: pd.DataFrame) -> pd.Series:
         'when this creature leaves',
         'whenever this creature leaves'
     ]
-    return utility.create_text_mask(df, text_patterns)
+    return tag_utility.create_text_mask(df, text_patterns)
 
 def create_blink_text_mask(df: pd.DataFrame) -> pd.Series:
     """Create a boolean mask for cards with blink/flicker text patterns.
@@ -4361,7 +4363,7 @@ def create_blink_text_mask(df: pd.DataFrame) -> pd.Series:
         'return those cards to the battlefield',
         'triggered ability of a permanent'
     ]
-    return utility.create_text_mask(df, text_patterns)
+    return tag_utility.create_text_mask(df, text_patterns)
 
 def tag_for_blink(df: pd.DataFrame, color: str) -> None:
     """Tag cards that have blink/flicker effects using vectorized operations.
@@ -4395,7 +4397,7 @@ def tag_for_blink(df: pd.DataFrame, color: str) -> None:
 
         # Validate required columns
         required_cols = {'text', 'themeTags', 'name'}
-        utility.validate_dataframe_columns(df, required_cols)
+        tag_utility.validate_dataframe_columns(df, required_cols)
 
         # Create masks for different blink patterns
         etb_mask = create_etb_mask(df)
@@ -4416,7 +4418,7 @@ def tag_for_blink(df: pd.DataFrame, color: str) -> None:
         final_mask = etb_mask | ltb_mask | blink_mask | name_mask
 
         # Apply tags
-        utility.apply_tag_vectorized(df, final_mask, ['Blink', 'Enter the Battlefield', 'Leave the Battlefield'])
+        tag_utility.apply_tag_vectorized(df, final_mask, ['Blink', 'Enter the Battlefield', 'Leave the Battlefield'])
 
         # Log results
         duration = (pd.Timestamp.now() - start_time).total_seconds()
@@ -4438,7 +4440,7 @@ def create_burn_damage_mask(df: pd.DataFrame) -> pd.Series:
     """
     # Create damage number patterns using list comprehension
     damage_patterns = [f'deals {i} damage' for i in range(1, 101)] + ['deals x damage']
-    damage_mask = utility.create_text_mask(df, damage_patterns)
+    damage_mask = tag_utility.create_text_mask(df, damage_patterns)
 
     # Create general damage trigger patterns
     trigger_patterns = [
@@ -4452,11 +4454,11 @@ def create_burn_damage_mask(df: pd.DataFrame) -> pd.Series:
         'would deal damage',
         'would deal noncombat damage'
     ]
-    trigger_mask = utility.create_text_mask(df, trigger_patterns)
+    trigger_mask = tag_utility.create_text_mask(df, trigger_patterns)
 
     # Create pinger patterns
     pinger_patterns = ['deals 1 damage', 'exactly 1 damage']
-    pinger_mask = utility.create_text_mask(df, pinger_patterns)
+    pinger_mask = tag_utility.create_text_mask(df, pinger_patterns)
 
     return damage_mask | trigger_mask | pinger_mask
 
@@ -4474,7 +4476,7 @@ def create_burn_life_loss_mask(df: pd.DataFrame) -> pd.Series:
     life_patterns.extend([f'loses {i} life' for i in range(1, 101)])
     life_patterns.append('lose x life')
     life_patterns.append('loses x life')
-    life_mask = utility.create_text_mask(df, life_patterns)
+    life_mask = tag_utility.create_text_mask(df, life_patterns)
 
     # Create general life loss trigger patterns 
     trigger_patterns = [
@@ -4486,7 +4488,7 @@ def create_burn_life_loss_mask(df: pd.DataFrame) -> pd.Series:
         'unspent mana causes that player to lose that much life',
         'would lose life'
     ]
-    trigger_mask = utility.create_text_mask(df, trigger_patterns)
+    trigger_mask = tag_utility.create_text_mask(df, trigger_patterns)
 
     return life_mask | trigger_mask
 
@@ -4500,7 +4502,7 @@ def create_burn_keyword_mask(df: pd.DataFrame) -> pd.Series:
         Boolean Series indicating which cards have burn keywords
     """
     keyword_patterns = ['Bloodthirst', 'Spectacle']
-    return utility.create_keyword_mask(df, keyword_patterns)
+    return tag_utility.create_keyword_mask(df, keyword_patterns)
 
 def create_burn_exclusion_mask(df: pd.DataFrame) -> pd.Series:
     """Create a boolean mask for cards that should be excluded from burn effects.
@@ -4536,7 +4538,7 @@ def tag_for_burn(df: pd.DataFrame, color: str) -> None:
     try:
         # Validate required columns
         required_cols = {'text', 'themeTags', 'keywords'}
-        utility.validate_dataframe_columns(df, required_cols)
+        tag_utility.validate_dataframe_columns(df, required_cols)
 
         # Create masks for different burn patterns
         damage_mask = create_burn_damage_mask(df)
@@ -4546,11 +4548,11 @@ def tag_for_burn(df: pd.DataFrame, color: str) -> None:
 
         # Combine masks
         burn_mask = (damage_mask | life_mask | keyword_mask) & ~exclusion_mask
-        pinger_mask = utility.create_text_mask(df, ['deals 1 damage', 'exactly 1 damage', 'loses 1 life'])
+        pinger_mask = tag_utility.create_text_mask(df, ['deals 1 damage', 'exactly 1 damage', 'loses 1 life'])
 
         # Apply tags
-        utility.apply_tag_vectorized(df, burn_mask, ['Burn'])
-        utility.apply_tag_vectorized(df, pinger_mask & ~exclusion_mask, ['Pingers'])
+        tag_utility.apply_tag_vectorized(df, burn_mask, ['Burn'])
+        tag_utility.apply_tag_vectorized(df, pinger_mask & ~exclusion_mask, ['Pingers'])
 
         # Log results
         duration = (pd.Timestamp.now() - start_time).total_seconds()
@@ -4580,7 +4582,7 @@ def create_clone_text_mask(df: pd.DataFrame) -> pd.Series:
         '"legend rule" doesn\'t apply',
         'twice that many of those tokens'
     ]
-    return utility.create_text_mask(df, text_patterns)
+    return tag_utility.create_text_mask(df, text_patterns)
 
 def create_clone_keyword_mask(df: pd.DataFrame) -> pd.Series:
     """Create a boolean mask for cards with clone-related keywords.
@@ -4591,7 +4593,7 @@ def create_clone_keyword_mask(df: pd.DataFrame) -> pd.Series:
     Returns:
         Boolean Series indicating which cards have clone keywords
     """
-    return utility.create_keyword_mask(df, 'Myriad')
+    return tag_utility.create_keyword_mask(df, 'Myriad')
 
 def create_clone_exclusion_mask(df: pd.DataFrame) -> pd.Series:
     """Create a boolean mask for cards that should be excluded from clone effects.
@@ -4627,7 +4629,7 @@ def tag_for_clones(df: pd.DataFrame, color: str) -> None:
     try:
         # Validate required columns
         required_cols = {'text', 'themeTags', 'keywords'}
-        utility.validate_dataframe_columns(df, required_cols)
+        tag_utility.validate_dataframe_columns(df, required_cols)
 
         # Create masks for different clone patterns
         text_mask = create_clone_text_mask(df)
@@ -4638,7 +4640,7 @@ def tag_for_clones(df: pd.DataFrame, color: str) -> None:
         final_mask = (text_mask | keyword_mask) & ~exclusion_mask
 
         # Apply tags
-        utility.apply_tag_vectorized(df, final_mask, ['Clones'])
+        tag_utility.apply_tag_vectorized(df, final_mask, ['Clones'])
 
         # Log results
         duration = (pd.Timestamp.now() - start_time).total_seconds()
@@ -4671,7 +4673,7 @@ def create_control_text_mask(df: pd.DataFrame) -> pd.Series:
         'tap an untapped creature',
         'your opponents cast'
     ]
-    return utility.create_text_mask(df, text_patterns)
+    return tag_utility.create_text_mask(df, text_patterns)
 
 def create_control_keyword_mask(df: pd.DataFrame) -> pd.Series:
     """Create a boolean mask for cards with control-related keywords.
@@ -4683,7 +4685,7 @@ def create_control_keyword_mask(df: pd.DataFrame) -> pd.Series:
         Boolean Series indicating which cards have control keywords
     """
     keyword_patterns = ['Council\'s dilemma']
-    return utility.create_keyword_mask(df, keyword_patterns)
+    return tag_utility.create_keyword_mask(df, keyword_patterns)
 
 def create_control_specific_cards_mask(df: pd.DataFrame) -> pd.Series:
     """Create a boolean mask for specific control-related cards.
@@ -4702,7 +4704,7 @@ def create_control_specific_cards_mask(df: pd.DataFrame) -> pd.Series:
         'Lavinia, Azorius Renegade',
         'Talrand, Sky Summoner'
     ]
-    return utility.create_name_mask(df, specific_cards)
+    return tag_utility.create_name_mask(df, specific_cards)
 
 def tag_for_control(df: pd.DataFrame, color: str) -> None:
     """Tag cards that fit the Control theme using vectorized operations.
@@ -4727,7 +4729,7 @@ def tag_for_control(df: pd.DataFrame, color: str) -> None:
     try:
         # Validate required columns
         required_cols = {'text', 'themeTags', 'keywords', 'name'}
-        utility.validate_dataframe_columns(df, required_cols)
+        tag_utility.validate_dataframe_columns(df, required_cols)
 
         # Create masks for different control patterns
         text_mask = create_control_text_mask(df)
@@ -4738,7 +4740,7 @@ def tag_for_control(df: pd.DataFrame, color: str) -> None:
         final_mask = text_mask | keyword_mask | specific_mask
 
         # Apply tags
-        utility.apply_tag_vectorized(df, final_mask, ['Control'])
+        tag_utility.apply_tag_vectorized(df, final_mask, ['Control'])
 
         # Log results
         duration = (pd.Timestamp.now() - start_time).total_seconds()
@@ -4770,13 +4772,13 @@ def tag_for_energy(df: pd.DataFrame, color: str) -> None:
     try:
         # Validate required columns
         required_cols = {'text', 'themeTags'}
-        utility.validate_dataframe_columns(df, required_cols)
+        tag_utility.validate_dataframe_columns(df, required_cols)
 
         # Create mask for energy text
         energy_mask = df['text'].str.contains('{e}', case=False, na=False)
 
         # Apply tags
-        utility.apply_tag_vectorized(df, energy_mask, ['Energy'])
+        tag_utility.apply_tag_vectorized(df, energy_mask, ['Energy'])
 
         # Log results
         duration = (pd.Timestamp.now() - start_time).total_seconds()
@@ -4801,7 +4803,7 @@ def create_infect_text_mask(df: pd.DataFrame) -> pd.Series:
         'poison counter', 
         'toxic [1-10]',
     ]
-    return utility.create_text_mask(df, text_patterns)
+    return tag_utility.create_text_mask(df, text_patterns)
 
 def create_infect_keyword_mask(df: pd.DataFrame) -> pd.Series:
     """Create a boolean mask for cards with infect-related keywords.
@@ -4817,7 +4819,7 @@ def create_infect_keyword_mask(df: pd.DataFrame) -> pd.Series:
         'Proliferate', 
         'Toxic',
     ]
-    return utility.create_keyword_mask(df, keyword_patterns)
+    return tag_utility.create_keyword_mask(df, keyword_patterns)
 
 def create_infect_exclusion_mask(df: pd.DataFrame) -> pd.Series:
     """Create a boolean mask for cards that should be excluded from infect effects.
@@ -4853,7 +4855,7 @@ def tag_for_infect(df: pd.DataFrame, color: str) -> None:
     try:
         # Validate required columns
         required_cols = {'text', 'themeTags', 'keywords'}
-        utility.validate_dataframe_columns(df, required_cols)
+        tag_utility.validate_dataframe_columns(df, required_cols)
 
         # Create masks for different infect patterns
         text_mask = create_infect_text_mask(df)
@@ -4864,7 +4866,7 @@ def tag_for_infect(df: pd.DataFrame, color: str) -> None:
         final_mask = (text_mask | keyword_mask) & ~exclusion_mask
 
         # Apply tags
-        utility.apply_tag_vectorized(df, final_mask, ['Infect'])
+        tag_utility.apply_tag_vectorized(df, final_mask, ['Infect'])
 
         # Log results
         duration = (pd.Timestamp.now() - start_time).total_seconds()
@@ -4906,7 +4908,7 @@ def create_legends_text_mask(df: pd.DataFrame) -> pd.Series:
         'target legendary',
         'the "legend rule" doesn\'t'
     ]
-    return utility.create_text_mask(df, text_patterns)
+    return tag_utility.create_text_mask(df, text_patterns)
 
 def create_legends_type_mask(df: pd.DataFrame) -> pd.Series:
     """Create a boolean mask for cards with Legendary in their type line.
@@ -4917,7 +4919,7 @@ def create_legends_type_mask(df: pd.DataFrame) -> pd.Series:
     Returns:
         Boolean Series indicating which cards are Legendary
     """
-    return utility.create_type_mask(df, 'Legendary')
+    return tag_utility.create_type_mask(df, 'Legendary')
 
 def tag_for_legends_matter(df: pd.DataFrame, color: str) -> None:
     """Tag cards that care about legendary permanents using vectorized operations.
@@ -4941,7 +4943,7 @@ def tag_for_legends_matter(df: pd.DataFrame, color: str) -> None:
     try:
         # Validate required columns
         required_cols = {'text', 'themeTags', 'type'}
-        utility.validate_dataframe_columns(df, required_cols)
+        tag_utility.validate_dataframe_columns(df, required_cols)
 
         # Create masks for different legendary patterns
         text_mask = create_legends_text_mask(df)
@@ -4951,7 +4953,7 @@ def tag_for_legends_matter(df: pd.DataFrame, color: str) -> None:
         final_mask = text_mask | type_mask
 
         # Apply tags
-        utility.apply_tag_vectorized(df, final_mask, ['Historics Matter', 'Legends Matter'])
+        tag_utility.apply_tag_vectorized(df, final_mask, ['Historics Matter', 'Legends Matter'])
 
         # Log results
         duration = (pd.Timestamp.now() - start_time).total_seconds()
@@ -5008,17 +5010,17 @@ def tag_for_little_guys(df: pd.DataFrame, color: str) -> None:
 
         # Validate required columns
         required_cols = {'power', 'text', 'themeTags'}
-        utility.validate_dataframe_columns(df, required_cols)
+        tag_utility.validate_dataframe_columns(df, required_cols)
 
         # Create masks for different patterns
         power_mask = create_little_guys_power_mask(df)
-        text_mask = utility.create_text_mask(df, 'power 2 or less')
+        text_mask = tag_utility.create_text_mask(df, 'power 2 or less')
 
         # Combine masks
         final_mask = power_mask | text_mask
 
         # Apply tags
-        utility.apply_tag_vectorized(df, final_mask, ['Little Fellas'])
+        tag_utility.apply_tag_vectorized(df, final_mask, ['Little Fellas'])
 
         # Log results
         duration = (pd.Timestamp.now() - start_time).total_seconds()
@@ -5056,12 +5058,12 @@ def create_mill_text_mask(df: pd.DataFrame) -> pd.Series:
         'surveil',
         'would mill'
     ]
-    text_mask = utility.create_text_mask(df, text_patterns)
+    text_mask = tag_utility.create_text_mask(df, text_patterns)
 
     # Create mill number patterns
     mill_patterns = [f'mill {num}' for num in settings.num_to_search]
     mill_patterns.extend([f'mills {num}' for num in settings.num_to_search])
-    number_mask = utility.create_text_mask(df, mill_patterns)
+    number_mask = tag_utility.create_text_mask(df, mill_patterns)
 
     return text_mask | number_mask
 
@@ -5075,7 +5077,7 @@ def create_mill_keyword_mask(df: pd.DataFrame) -> pd.Series:
         Boolean Series indicating which cards have mill keywords
     """
     keyword_patterns = ['Descend', 'Mill', 'Surveil']
-    return utility.create_keyword_mask(df, keyword_patterns)
+    return tag_utility.create_keyword_mask(df, keyword_patterns)
 
 def tag_for_mill(df: pd.DataFrame, color: str) -> None:
     """Tag cards that mill cards or care about milling using vectorized operations.
@@ -5099,7 +5101,7 @@ def tag_for_mill(df: pd.DataFrame, color: str) -> None:
     try:
         # Validate required columns
         required_cols = {'text', 'themeTags', 'keywords'}
-        utility.validate_dataframe_columns(df, required_cols)
+        tag_utility.validate_dataframe_columns(df, required_cols)
 
         # Create masks for different mill patterns
         text_mask = create_mill_text_mask(df)
@@ -5109,7 +5111,7 @@ def tag_for_mill(df: pd.DataFrame, color: str) -> None:
         final_mask = text_mask | keyword_mask
 
         # Apply tags
-        utility.apply_tag_vectorized(df, final_mask, ['Mill'])
+        tag_utility.apply_tag_vectorized(df, final_mask, ['Mill'])
 
         # Log results
         duration = (pd.Timestamp.now() - start_time).total_seconds()
@@ -5151,7 +5153,7 @@ def tag_for_monarch(df: pd.DataFrame, color: str) -> None:
 
         # Validate required columns
         required_cols = {'text', 'themeTags', 'keywords'}
-        utility.validate_dataframe_columns(df, required_cols)
+        tag_utility.validate_dataframe_columns(df, required_cols)
 
         # Create text pattern mask
         text_patterns = [
@@ -5164,16 +5166,16 @@ def tag_for_monarch(df: pd.DataFrame, color: str) -> None:
             'you can\'t become the monarch',
             'you\'re the monarch'
         ]
-        text_mask = utility.create_text_mask(df, text_patterns)
+        text_mask = tag_utility.create_text_mask(df, text_patterns)
 
         # Create keyword mask
-        keyword_mask = utility.create_keyword_mask(df, 'Monarch')
+        keyword_mask = tag_utility.create_keyword_mask(df, 'Monarch')
 
         # Combine masks
         final_mask = text_mask | keyword_mask
 
         # Apply tags
-        utility.apply_tag_vectorized(df, final_mask, ['Monarch'])
+        tag_utility.apply_tag_vectorized(df, final_mask, ['Monarch'])
 
         # Log results
         duration = (pd.Timestamp.now() - start_time).total_seconds()
@@ -5211,10 +5213,10 @@ def tag_for_multiple_copies(df: pd.DataFrame, color: str) -> None:
 
         # Validate required columns
         required_cols = {'name', 'themeTags'}
-        utility.validate_dataframe_columns(df, required_cols)
+        tag_utility.validate_dataframe_columns(df, required_cols)
 
         # Create mask for multiple copy cards
-        multiple_copies_mask = utility.create_name_mask(df, multiple_copy_cards)
+        multiple_copies_mask = tag_utility.create_name_mask(df, multiple_copy_cards)
 
         # Apply tags
         if multiple_copies_mask.any():
@@ -5222,12 +5224,12 @@ def tag_for_multiple_copies(df: pd.DataFrame, color: str) -> None:
             matching_cards = df[multiple_copies_mask]['name'].unique()
             
             # Apply base tag
-            utility.apply_tag_vectorized(df, multiple_copies_mask, ['Multiple Copies'])
+            tag_utility.apply_tag_vectorized(df, multiple_copies_mask, ['Multiple Copies'])
             
             # Apply individual card name tags
             for card_name in matching_cards:
                 card_mask = df['name'] == card_name
-                utility.apply_tag_vectorized(df, card_mask, [card_name])
+                tag_utility.apply_tag_vectorized(df, card_mask, [card_name])
 
             logging.info(f'Tagged {multiple_copies_mask.sum()} cards with multiple copies effects')
 
@@ -5260,7 +5262,7 @@ def create_planeswalker_text_mask(df: pd.DataFrame) -> pd.Series:
         'planeswalker spells',
         'planeswalker type'
     ]
-    return utility.create_text_mask(df, text_patterns)
+    return tag_utility.create_text_mask(df, text_patterns)
 
 def create_planeswalker_type_mask(df: pd.DataFrame) -> pd.Series:
     """Create a boolean mask for cards with Planeswalker type.
@@ -5271,7 +5273,7 @@ def create_planeswalker_type_mask(df: pd.DataFrame) -> pd.Series:
     Returns:
         Boolean Series indicating which cards are Planeswalkers
     """
-    return utility.create_type_mask(df, 'Planeswalker')
+    return tag_utility.create_type_mask(df, 'Planeswalker')
 
 def create_planeswalker_keyword_mask(df: pd.DataFrame) -> pd.Series:
     """Create a boolean mask for cards with planeswalker-related keywords.
@@ -5282,7 +5284,7 @@ def create_planeswalker_keyword_mask(df: pd.DataFrame) -> pd.Series:
     Returns:
         Boolean Series indicating which cards have planeswalker keywords
     """
-    return utility.create_keyword_mask(df, 'Proliferate')
+    return tag_utility.create_keyword_mask(df, 'Proliferate')
 
 def tag_for_planeswalkers(df: pd.DataFrame, color: str) -> None:
     """Tag cards that care about planeswalkers using vectorized operations.
@@ -5313,7 +5315,7 @@ def tag_for_planeswalkers(df: pd.DataFrame, color: str) -> None:
 
         # Validate required columns
         required_cols = {'text', 'themeTags', 'type', 'keywords'}
-        utility.validate_dataframe_columns(df, required_cols)
+        tag_utility.validate_dataframe_columns(df, required_cols)
 
         # Create masks for different planeswalker patterns
         text_mask = create_planeswalker_text_mask(df)
@@ -5324,7 +5326,7 @@ def tag_for_planeswalkers(df: pd.DataFrame, color: str) -> None:
         final_mask = text_mask | type_mask | keyword_mask
 
         # Apply tags
-        utility.apply_tag_vectorized(df, final_mask, ['Planeswalkers', 'Super Friends'])
+        tag_utility.apply_tag_vectorized(df, final_mask, ['Planeswalkers', 'Super Friends'])
 
         # Log results
         duration = (pd.Timestamp.now() - start_time).total_seconds()
@@ -5355,7 +5357,7 @@ def create_reanimator_text_mask(df: pd.DataFrame) -> pd.Series:
         'into your graveyard',
         'leave your graveyard'
     ]
-    return utility.create_text_mask(df, text_patterns)
+    return tag_utility.create_text_mask(df, text_patterns)
 
 def create_reanimator_keyword_mask(df: pd.DataFrame) -> pd.Series:
     """Create a boolean mask for cards with reanimator-related keywords.
@@ -5374,7 +5376,7 @@ def create_reanimator_keyword_mask(df: pd.DataFrame) -> pd.Series:
         'Flashback',
         'Mill'
     ]
-    return utility.create_keyword_mask(df, keyword_patterns)
+    return tag_utility.create_keyword_mask(df, keyword_patterns)
 
 def create_reanimator_type_mask(df: pd.DataFrame) -> pd.Series:
     """Create a boolean mask for cards with reanimator-related creature types.
@@ -5409,7 +5411,7 @@ def tag_for_reanimate(df: pd.DataFrame, color: str) -> None:
     try:
         # Validate required columns
         required_cols = {'text', 'themeTags', 'keywords', 'creatureTypes'}
-        utility.validate_dataframe_columns(df, required_cols)
+        tag_utility.validate_dataframe_columns(df, required_cols)
 
         # Create masks for different reanimator patterns
         text_mask = create_reanimator_text_mask(df)
@@ -5420,7 +5422,7 @@ def tag_for_reanimate(df: pd.DataFrame, color: str) -> None:
         final_mask = text_mask | keyword_mask | type_mask
 
         # Apply tags
-        utility.apply_tag_vectorized(df, final_mask, ['Reanimate'])
+        tag_utility.apply_tag_vectorized(df, final_mask, ['Reanimate'])
 
         # Log results
         duration = (pd.Timestamp.now() - start_time).total_seconds()
@@ -5440,7 +5442,7 @@ def create_stax_text_mask(df: pd.DataFrame) -> pd.Series:
     Returns:
         Boolean Series indicating which cards have stax text patterns
     """
-    return utility.create_text_mask(df, settings.STAX_TEXT_PATTERNS)
+    return tag_utility.create_text_mask(df, settings.STAX_TEXT_PATTERNS)
 
 def create_stax_name_mask(df: pd.DataFrame) -> pd.Series:
     """Create a boolean mask for cards used in stax strategies.
@@ -5451,7 +5453,7 @@ def create_stax_name_mask(df: pd.DataFrame) -> pd.Series:
     Returns:
         Boolean Series indicating which cards have stax text patterns
     """
-    return utility.create_text_mask(df, settings.STAX_SPECIFIC_CARDS)
+    return tag_utility.create_text_mask(df, settings.STAX_SPECIFIC_CARDS)
 
 def create_stax_tag_mask(df: pd.DataFrame) -> pd.Series:
     """Create a boolean mask for cards with stax-related tags.
@@ -5462,7 +5464,7 @@ def create_stax_tag_mask(df: pd.DataFrame) -> pd.Series:
     Returns:
         Boolean Series indicating which cards have stax tags
     """
-    return utility.create_tag_mask(df, 'Control')
+    return tag_utility.create_tag_mask(df, 'Control')
 
 def create_stax_exclusion_mask(df: pd.DataFrame) -> pd.Series:
     """Create a boolean mask for cards that should be excluded from stax effects.
@@ -5474,7 +5476,7 @@ def create_stax_exclusion_mask(df: pd.DataFrame) -> pd.Series:
         Boolean Series indicating which cards should be excluded
     """
     # Add specific exclusion patterns here if needed
-    return utility.create_text_mask(df, settings.STAX_EXCLUSION_PATTERNS)
+    return tag_utility.create_text_mask(df, settings.STAX_EXCLUSION_PATTERNS)
 
 def tag_for_stax(df: pd.DataFrame, color: str) -> None:
     """Tag cards that fit the Stax theme using vectorized operations.
@@ -5498,7 +5500,7 @@ def tag_for_stax(df: pd.DataFrame, color: str) -> None:
     try:
         # Validate required columns
         required_cols = {'text', 'themeTags'}
-        utility.validate_dataframe_columns(df, required_cols)
+        tag_utility.validate_dataframe_columns(df, required_cols)
 
         # Create masks for different stax patterns
         text_mask = create_stax_text_mask(df)
@@ -5510,7 +5512,7 @@ def tag_for_stax(df: pd.DataFrame, color: str) -> None:
         final_mask = (text_mask | tag_mask | name_mask) & ~exclusion_mask
 
         # Apply tags
-        utility.apply_tag_vectorized(df, final_mask, ['Stax'])
+        tag_utility.apply_tag_vectorized(df, final_mask, ['Stax'])
 
         # Log results
         duration = (pd.Timestamp.now() - start_time).total_seconds()
@@ -5530,7 +5532,7 @@ def create_theft_text_mask(df: pd.DataFrame) -> pd.Series:
     Returns:
         Boolean Series indicating which cards have theft text patterns
     """
-    return utility.create_text_mask(df, settings.THEFT_TEXT_PATTERNS)
+    return tag_utility.create_text_mask(df, settings.THEFT_TEXT_PATTERNS)
 
 def create_theft_name_mask(df: pd.DataFrame) -> pd.Series:
     """Create a boolean mask for specific theft-related cards.
@@ -5541,7 +5543,7 @@ def create_theft_name_mask(df: pd.DataFrame) -> pd.Series:
     Returns:
         Boolean Series indicating which cards are specific theft cards
     """
-    return utility.create_name_mask(df, settings.THEFT_SPECIFIC_CARDS)
+    return tag_utility.create_name_mask(df, settings.THEFT_SPECIFIC_CARDS)
 
 def tag_for_theft(df: pd.DataFrame, color: str) -> None:
     """Tag cards that steal or use opponents' resources using vectorized operations.
@@ -5565,7 +5567,7 @@ def tag_for_theft(df: pd.DataFrame, color: str) -> None:
     try:
         # Validate required columns
         required_cols = {'text', 'themeTags', 'name'}
-        utility.validate_dataframe_columns(df, required_cols)
+        tag_utility.validate_dataframe_columns(df, required_cols)
 
         # Create masks for different theft patterns
         text_mask = create_theft_text_mask(df)
@@ -5575,7 +5577,7 @@ def tag_for_theft(df: pd.DataFrame, color: str) -> None:
         final_mask = text_mask | name_mask
 
         # Apply tags
-        utility.apply_tag_vectorized(df, final_mask, ['Theft'])
+        tag_utility.apply_tag_vectorized(df, final_mask, ['Theft'])
 
         # Log results
         duration = (pd.Timestamp.now() - start_time).total_seconds()
@@ -5604,7 +5606,7 @@ def create_toughness_text_mask(df: pd.DataFrame) -> pd.Series:
         'toughness greater',
         'with defender'
     ]
-    return utility.create_text_mask(df, text_patterns)
+    return tag_utility.create_text_mask(df, text_patterns)
 
 def create_toughness_keyword_mask(df: pd.DataFrame) -> pd.Series:
     """Create a boolean mask for cards with toughness-related keywords.
@@ -5615,7 +5617,7 @@ def create_toughness_keyword_mask(df: pd.DataFrame) -> pd.Series:
     Returns:
         Boolean Series indicating which cards have toughness keywords
     """
-    return utility.create_keyword_mask(df, 'Defender')
+    return tag_utility.create_keyword_mask(df, 'Defender')
 
 def _is_valid_numeric_comparison(power: Union[int, str, None], toughness: Union[int, str, None]) -> bool:
     """Check if power and toughness values allow valid numeric comparison.
@@ -5630,8 +5632,6 @@ def _is_valid_numeric_comparison(power: Union[int, str, None], toughness: Union[
     try:
         if power is None or toughness is None:
             return False
-        power_val = int(power)
-        toughness_val = int(toughness)
         return True
     except (ValueError, TypeError):
         return False
@@ -5675,7 +5675,7 @@ def tag_for_toughness(df: pd.DataFrame, color: str) -> None:
     try:
         # Validate required columns
         required_cols = {'text', 'themeTags', 'keywords', 'power', 'toughness'}
-        utility.validate_dataframe_columns(df, required_cols)
+        tag_utility.validate_dataframe_columns(df, required_cols)
 
         # Create masks for different toughness patterns
         text_mask = create_toughness_text_mask(df)
@@ -5686,7 +5686,7 @@ def tag_for_toughness(df: pd.DataFrame, color: str) -> None:
         final_mask = text_mask | keyword_mask | power_toughness_mask
 
         # Apply tags
-        utility.apply_tag_vectorized(df, final_mask, ['Toughness Matters'])
+        tag_utility.apply_tag_vectorized(df, final_mask, ['Toughness Matters'])
 
         # Log results
         duration = (pd.Timestamp.now() - start_time).total_seconds()
@@ -5706,7 +5706,7 @@ def create_topdeck_text_mask(df: pd.DataFrame) -> pd.Series:
     Returns:
         Boolean Series indicating which cards have topdeck text patterns
     """
-    return utility.create_text_mask(df, settings.TOPDECK_TEXT_PATTERNS)
+    return tag_utility.create_text_mask(df, settings.TOPDECK_TEXT_PATTERNS)
 
 def create_topdeck_keyword_mask(df: pd.DataFrame) -> pd.Series:
     """Create a boolean mask for cards with topdeck-related keywords.
@@ -5717,7 +5717,7 @@ def create_topdeck_keyword_mask(df: pd.DataFrame) -> pd.Series:
     Returns:
         Boolean Series indicating which cards have topdeck keywords
     """
-    return utility.create_keyword_mask(df, settings.TOPDECK_KEYWORDS)
+    return tag_utility.create_keyword_mask(df, settings.TOPDECK_KEYWORDS)
 
 def create_topdeck_specific_mask(df: pd.DataFrame) -> pd.Series:
     """Create a boolean mask for specific topdeck-related cards.
@@ -5728,7 +5728,7 @@ def create_topdeck_specific_mask(df: pd.DataFrame) -> pd.Series:
     Returns:
         Boolean Series indicating which cards are specific topdeck cards
     """
-    return utility.create_name_mask(df, settings.TOPDECK_SPECIFIC_CARDS)
+    return tag_utility.create_name_mask(df, settings.TOPDECK_SPECIFIC_CARDS)
 
 def create_topdeck_exclusion_mask(df: pd.DataFrame) -> pd.Series:
     """Create a boolean mask for cards that should be excluded from topdeck effects.
@@ -5739,7 +5739,7 @@ def create_topdeck_exclusion_mask(df: pd.DataFrame) -> pd.Series:
     Returns:
         Boolean Series indicating which cards should be excluded
     """
-    return utility.create_text_mask(df, settings.TOPDECK_EXCLUSION_PATTERNS)
+    return tag_utility.create_text_mask(df, settings.TOPDECK_EXCLUSION_PATTERNS)
 
 def tag_for_topdeck(df: pd.DataFrame, color: str) -> None:
     """Tag cards that manipulate the top of library using vectorized operations.
@@ -5763,7 +5763,7 @@ def tag_for_topdeck(df: pd.DataFrame, color: str) -> None:
     try:
         # Validate required columns
         required_cols = {'text', 'themeTags', 'keywords'}
-        utility.validate_dataframe_columns(df, required_cols)
+        tag_utility.validate_dataframe_columns(df, required_cols)
 
         # Create masks for different topdeck patterns
         text_mask = create_topdeck_text_mask(df)
@@ -5775,7 +5775,7 @@ def tag_for_topdeck(df: pd.DataFrame, color: str) -> None:
         final_mask = (text_mask | keyword_mask | specific_mask) & ~exclusion_mask
 
         # Apply tags
-        utility.apply_tag_vectorized(df, final_mask, ['Topdeck'])
+        tag_utility.apply_tag_vectorized(df, final_mask, ['Topdeck'])
 
         # Log results
         duration = (pd.Timestamp.now() - start_time).total_seconds()
@@ -5808,7 +5808,7 @@ def create_x_spells_text_mask(df: pd.DataFrame) -> pd.Series:
         'you cast cost {4} less',
         'you cast cost {5} less'
     ]
-    return utility.create_text_mask(df, text_patterns)
+    return tag_utility.create_text_mask(df, text_patterns)
 
 def create_x_spells_mana_mask(df: pd.DataFrame) -> pd.Series:
     """Create a boolean mask for cards with X in their mana cost.
@@ -5843,7 +5843,7 @@ def tag_for_x_spells(df: pd.DataFrame, color: str) -> None:
     try:
         # Validate required columns
         required_cols = {'text', 'themeTags', 'manaCost'}
-        utility.validate_dataframe_columns(df, required_cols)
+        tag_utility.validate_dataframe_columns(df, required_cols)
 
         # Create masks for different X spell patterns
         text_mask = create_x_spells_text_mask(df)
@@ -5853,7 +5853,7 @@ def tag_for_x_spells(df: pd.DataFrame, color: str) -> None:
         final_mask = text_mask | mana_mask
 
         # Apply tags
-        utility.apply_tag_vectorized(df, final_mask, ['X Spells'])
+        tag_utility.apply_tag_vectorized(df, final_mask, ['X Spells'])
 
         # Log results
         duration = (pd.Timestamp.now() - start_time).total_seconds()
@@ -5899,7 +5899,7 @@ def tag_for_interaction(df: pd.DataFrame, color: str) -> None:
 
         # Validate required columns
         required_cols = {'text', 'themeTags', 'name', 'type', 'keywords'}
-        utility.validate_dataframe_columns(df, required_cols)
+        tag_utility.validate_dataframe_columns(df, required_cols)
 
         # Process each type of interaction
         sub_start = pd.Timestamp.now()
@@ -5945,7 +5945,7 @@ def create_counterspell_text_mask(df: pd.DataFrame) -> pd.Series:
     Returns:
         Boolean Series indicating which cards have counterspell text patterns
     """
-    return utility.create_text_mask(df, settings.COUNTERSPELL_TEXT_PATTERNS)
+    return tag_utility.create_text_mask(df, settings.COUNTERSPELL_TEXT_PATTERNS)
 
 def create_counterspell_specific_mask(df: pd.DataFrame) -> pd.Series:
     """Create a boolean mask for specific counterspell cards.
@@ -5956,7 +5956,7 @@ def create_counterspell_specific_mask(df: pd.DataFrame) -> pd.Series:
     Returns:
         Boolean Series indicating which cards are specific counterspell cards
     """
-    return utility.create_name_mask(df, settings.COUNTERSPELL_SPECIFIC_CARDS)
+    return tag_utility.create_name_mask(df, settings.COUNTERSPELL_SPECIFIC_CARDS)
 
 def create_counterspell_exclusion_mask(df: pd.DataFrame) -> pd.Series:
     """Create a boolean mask for cards that should be excluded from counterspell effects.
@@ -5967,7 +5967,7 @@ def create_counterspell_exclusion_mask(df: pd.DataFrame) -> pd.Series:
     Returns:
         Boolean Series indicating which cards should be excluded
     """
-    return utility.create_text_mask(df, settings.COUNTERSPELL_EXCLUSION_PATTERNS)
+    return tag_utility.create_text_mask(df, settings.COUNTERSPELL_EXCLUSION_PATTERNS)
 
 def tag_for_counterspells(df: pd.DataFrame, color: str) -> None:
     """Tag cards that counter spells using vectorized operations.
@@ -5991,7 +5991,7 @@ def tag_for_counterspells(df: pd.DataFrame, color: str) -> None:
     try:
         # Validate required columns
         required_cols = {'text', 'themeTags', 'name'}
-        utility.validate_dataframe_columns(df, required_cols)
+        tag_utility.validate_dataframe_columns(df, required_cols)
 
         # Create masks for different counterspell patterns
         text_mask = create_counterspell_text_mask(df)
@@ -6002,7 +6002,7 @@ def tag_for_counterspells(df: pd.DataFrame, color: str) -> None:
         final_mask = (text_mask | specific_mask) & ~exclusion_mask
 
         # Apply tags
-        utility.apply_tag_vectorized(df, final_mask, ['Counterspells', 'Interaction', 'Spellslinger', 'Spells Matter'])
+        tag_utility.apply_tag_vectorized(df, final_mask, ['Counterspells', 'Interaction', 'Spellslinger', 'Spells Matter'])
 
         # Log results
         duration = (pd.Timestamp.now() - start_time).total_seconds()
@@ -6046,20 +6046,20 @@ def tag_for_board_wipes(df: pd.DataFrame, color: str) -> None:
 
         # Validate required columns
         required_cols = {'text', 'themeTags', 'name'}
-        utility.validate_dataframe_columns(df, required_cols)
+        tag_utility.validate_dataframe_columns(df, required_cols)
 
         # Create masks for different board wipe types
-        destroy_mask = utility.create_mass_effect_mask(df, 'mass_destruction')
-        exile_mask = utility.create_mass_effect_mask(df, 'mass_exile')
-        bounce_mask = utility.create_mass_effect_mask(df, 'mass_bounce')
-        sacrifice_mask = utility.create_mass_effect_mask(df, 'mass_sacrifice')
-        damage_mask = utility.create_mass_damage_mask(df)
+        destroy_mask = tag_utility.create_mass_effect_mask(df, 'mass_destruction')
+        exile_mask = tag_utility.create_mass_effect_mask(df, 'mass_exile')
+        bounce_mask = tag_utility.create_mass_effect_mask(df, 'mass_bounce')
+        sacrifice_mask = tag_utility.create_mass_effect_mask(df, 'mass_sacrifice')
+        damage_mask = tag_utility.create_mass_damage_mask(df)
 
         # Create exclusion mask
-        exclusion_mask = utility.create_text_mask(df, settings.BOARD_WIPE_EXCLUSION_PATTERNS)
+        exclusion_mask = tag_utility.create_text_mask(df, settings.BOARD_WIPE_EXCLUSION_PATTERNS)
 
         # Create specific cards mask
-        specific_mask = utility.create_name_mask(df, settings.BOARD_WIPE_SPECIFIC_CARDS)
+        specific_mask = tag_utility.create_name_mask(df, settings.BOARD_WIPE_SPECIFIC_CARDS)
 
         # Combine all masks
         final_mask = (
@@ -6068,7 +6068,7 @@ def tag_for_board_wipes(df: pd.DataFrame, color: str) -> None:
         ) & ~exclusion_mask
 
         # Apply tags
-        utility.apply_tag_vectorized(df, final_mask, ['Board Wipes', 'Interaction'])
+        tag_utility.apply_tag_vectorized(df, final_mask, ['Board Wipes', 'Interaction'])
 
         # Log results
         duration = (pd.Timestamp.now() - start_time).total_seconds()
@@ -6128,7 +6128,7 @@ def create_combat_tricks_text_mask(df: pd.DataFrame) -> pd.Series:
 
     # Combine all patterns
     all_patterns = buff_patterns + other_patterns
-    return utility.create_text_mask(df, all_patterns)
+    return tag_utility.create_text_mask(df, all_patterns)
 
 def create_combat_tricks_type_mask(df: pd.DataFrame) -> pd.Series:
     """Create a boolean mask for instant-speed combat tricks.
@@ -6139,7 +6139,7 @@ def create_combat_tricks_type_mask(df: pd.DataFrame) -> pd.Series:
     Returns:
         Boolean Series indicating which cards are instant-speed combat tricks
     """
-    return utility.create_type_mask(df, 'Instant')
+    return tag_utility.create_type_mask(df, 'Instant')
 
 def create_combat_tricks_flash_mask(df: pd.DataFrame) -> pd.Series:
     """Create a boolean mask for flash-based combat tricks.
@@ -6150,7 +6150,7 @@ def create_combat_tricks_flash_mask(df: pd.DataFrame) -> pd.Series:
     Returns:
         Boolean Series indicating which cards have flash-based combat tricks
     """
-    return utility.create_keyword_mask(df, 'Flash')
+    return tag_utility.create_keyword_mask(df, 'Flash')
 
 def create_combat_tricks_exclusion_mask(df: pd.DataFrame) -> pd.Series:
     """Create a boolean mask for cards that should be excluded from combat tricks.
@@ -6167,14 +6167,14 @@ def create_combat_tricks_exclusion_mask(df: pd.DataFrame) -> pd.Series:
         'Mantle of Leadership',
         'Michiko\'s Reign of Truth // Portrait of Michiko'
     ]
-    name_mask = utility.create_name_mask(df, excluded_cards)
+    name_mask = tag_utility.create_name_mask(df, excluded_cards)
 
     # Text patterns to exclude
     text_patterns = [
         'remains tapped',
         'only as a sorcery'
     ]
-    text_mask = utility.create_text_mask(df, text_patterns)
+    text_mask = tag_utility.create_text_mask(df, text_patterns)
 
     return name_mask | text_mask
 
@@ -6207,7 +6207,7 @@ def tag_for_combat_tricks(df: pd.DataFrame, color: str) -> None:
 
         # Validate required columns
         required_cols = {'text', 'themeTags', 'type', 'keywords'}
-        utility.validate_dataframe_columns(df, required_cols)
+        tag_utility.validate_dataframe_columns(df, required_cols)
 
         # Create masks for different combat trick patterns
         text_mask = create_combat_tricks_text_mask(df)
@@ -6217,10 +6217,10 @@ def tag_for_combat_tricks(df: pd.DataFrame, color: str) -> None:
 
         # Combine masks
         final_mask = ((text_mask & (type_mask | flash_mask)) | 
-                     (flash_mask & utility.create_type_mask(df, 'Enchantment'))) & ~exclusion_mask
+                     (flash_mask & tag_utility.create_type_mask(df, 'Enchantment'))) & ~exclusion_mask
 
         # Apply tags
-        utility.apply_tag_vectorized(df, final_mask, ['Combat Tricks', 'Interaction'])
+        tag_utility.apply_tag_vectorized(df, final_mask, ['Combat Tricks', 'Interaction'])
 
         # Log results
         duration = (pd.Timestamp.now() - start_time).total_seconds()
@@ -6263,7 +6263,7 @@ def create_protection_text_mask(df: pd.DataFrame) -> pd.Series:
         'phases out',
         'protection from'
     ]
-    return utility.create_text_mask(df, text_patterns)
+    return tag_utility.create_text_mask(df, text_patterns)
 
 def create_protection_keyword_mask(df: pd.DataFrame) -> pd.Series:
     """Create a boolean mask for cards with protection-related keywords.
@@ -6281,7 +6281,7 @@ def create_protection_keyword_mask(df: pd.DataFrame) -> pd.Series:
         'Shroud',
         'Ward'
     ]
-    return utility.create_keyword_mask(df, keyword_patterns)
+    return tag_utility.create_keyword_mask(df, keyword_patterns)
 
 def create_protection_exclusion_mask(df: pd.DataFrame) -> pd.Series:
     """Create a boolean mask for cards that should be excluded from protection effects.
@@ -6296,7 +6296,7 @@ def create_protection_exclusion_mask(df: pd.DataFrame) -> pd.Series:
         'Out of Time',
         'The War Doctor'
     ]
-    return utility.create_name_mask(df, excluded_cards)
+    return tag_utility.create_name_mask(df, excluded_cards)
 
 def tag_for_protection(df: pd.DataFrame, color: str) -> None:
     """Tag cards that provide or have protection effects using vectorized operations.
@@ -6331,7 +6331,7 @@ def tag_for_protection(df: pd.DataFrame, color: str) -> None:
 
         # Validate required columns
         required_cols = {'text', 'themeTags', 'keywords'}
-        utility.validate_dataframe_columns(df, required_cols)
+        tag_utility.validate_dataframe_columns(df, required_cols)
 
         # Create masks for different protection patterns
         text_mask = create_protection_text_mask(df)
@@ -6342,7 +6342,7 @@ def tag_for_protection(df: pd.DataFrame, color: str) -> None:
         final_mask = (text_mask | keyword_mask) & ~exclusion_mask
 
         # Apply tags
-        utility.apply_tag_vectorized(df, final_mask, ['Protection', 'Interaction'])
+        tag_utility.apply_tag_vectorized(df, final_mask, ['Protection', 'Interaction'])
 
         # Log results
         duration = (pd.Timestamp.now() - start_time).total_seconds()
@@ -6362,7 +6362,7 @@ def create_removal_text_mask(df: pd.DataFrame) -> pd.Series:
     Returns:
         Boolean Series indicating which cards have removal text patterns
     """
-    return utility.create_text_mask(df, settings.REMOVAL_TEXT_PATTERNS)
+    return tag_utility.create_text_mask(df, settings.REMOVAL_TEXT_PATTERNS)
 
 def tag_for_removal(df: pd.DataFrame, color: str) -> None:
     """Tag cards that provide spot removal using vectorized operations.
@@ -6396,7 +6396,7 @@ def tag_for_removal(df: pd.DataFrame, color: str) -> None:
 
         # Validate required columns
         required_cols = {'text', 'themeTags', 'keywords'}
-        utility.validate_dataframe_columns(df, required_cols)
+        tag_utility.validate_dataframe_columns(df, required_cols)
 
         # Create masks for different removal patterns
         text_mask = create_removal_text_mask(df)
@@ -6405,7 +6405,7 @@ def tag_for_removal(df: pd.DataFrame, color: str) -> None:
         final_mask = text_mask
 
         # Apply tags
-        utility.apply_tag_vectorized(df, final_mask, ['Removal', 'Interaction'])
+        tag_utility.apply_tag_vectorized(df, final_mask, ['Removal', 'Interaction'])
 
         # Log results
         duration = (pd.Timestamp.now() - start_time).total_seconds()
@@ -6414,10 +6414,3 @@ def tag_for_removal(df: pd.DataFrame, color: str) -> None:
     except Exception as e:
         logging.error(f'Error in tag_for_removal: {str(e)}')
         raise
-
-
-#start_time = pd.Timestamp.now()
-#for color in settings.colors:
-#    load_dataframe(color)
-#duration = (pd.Timestamp.now() - start_time).total_seconds()
-#logging.info(f'Tagged cards in {duration:.2f}s')

@@ -3,8 +3,14 @@
 This module contains all the constant values and configuration settings used throughout
 the application for card filtering, processing, and analysis. Constants are organized
 into logical sections with clear documentation.
+
+All constants are properly typed according to PEP 484 standards to ensure type safety
+and enable static type checking with mypy.
 """
-artifact_tokens = ['Blood', 'Clue', 'Food', 'Gold', 'Incubator',
+
+from typing import Dict, List, Optional
+
+artifact_tokens: List[str] = ['Blood', 'Clue', 'Food', 'Gold', 'Incubator',
                 'Junk','Map','Powerstone', 'Treasure']
 
 banned_cards = [# in commander
@@ -33,7 +39,7 @@ basic_lands = ['Plains', 'Island', 'Swamp', 'Mountain', 'Forest']
 basic_lands = ['Plains', 'Island', 'Swamp', 'Mountain', 'Forest']
 
 # Constants for lands matter functionality
-LANDS_MATTER_PATTERNS = {
+LANDS_MATTER_PATTERNS: Dict[str, List[str]] = {
     'land_play': [
         'play a land',
         'play an additional land', 
@@ -661,7 +667,7 @@ DRAW_EXCLUSION_PATTERNS = [
 ]
 
 # Constants for DataFrame validation and processing
-REQUIRED_COLUMNS = [
+REQUIRED_COLUMNS: List[str] = [
     'name', 'faceName', 'edhrecRank', 'colorIdentity', 'colors',
     'manaCost', 'manaValue', 'type', 'creatureTypes', 'text',
     'power', 'toughness', 'keywords', 'themeTags', 'layout', 'side'
@@ -833,7 +839,7 @@ COLOR_ABRV = ['Colorless', 'W', 'U', 'B', 'G', 'R',
               'B, R, U, W', 'B, G, R, U, W']
 
 # Configuration for handling null/NA values in DataFrame columns
-FILL_NA_COLUMNS = {
+FILL_NA_COLUMNS: Dict[str, Optional[str]] = {
     'colorIdentity': 'Colorless',  # Default color identity for cards without one
     'faceName': None  # Use card's name column value when face name is not available
 }
@@ -844,7 +850,7 @@ SORT_CONFIG = {
 }
 
 # Configuration for DataFrame filtering operations
-FILTER_CONFIG = {
+FILTER_CONFIG: Dict[str, Dict[str, List[str]]] = {
     'layout': {
         'exclude': ['reversible_card']
     },

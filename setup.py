@@ -1,15 +1,26 @@
 from __future__ import annotations
 
-from enum import Enum
-
-import pandas as pd # type: ignore
-import inquirer.prompt # type: ignore
+# Standard library imports
 import logging
+from enum import Enum
+from pathlib import Path
+from typing import Union, List, Dict, Any
 
-from settings import banned_cards, csv_directory, SETUP_COLORS, COLOR_ABRV, MTGJSON_API_URL
-from setup_utils import download_cards_csv, filter_dataframe, process_legendary_cards, filter_by_color_identity
-from exceptions import CSVFileNotFoundError, MTGJSONDownloadError, DataFrameProcessingError, ColorFilterError, CommanderValidationError
+# Third-party imports
+import pandas as pd
+import inquirer
 
+# Local application imports
+from settings import (
+    banned_cards, csv_directory, SETUP_COLORS, COLOR_ABRV, MTGJSON_API_URL
+)
+from setup_utils import (
+    download_cards_csv, filter_dataframe, process_legendary_cards, filter_by_color_identity
+)
+from exceptions import (
+    CSVFileNotFoundError, MTGJSONDownloadError, DataFrameProcessingError,
+    ColorFilterError, CommanderValidationError
+)
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -18,7 +29,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-def check_csv_exists(file_path: str) -> bool:
+def check_csv_exists(file_path: Union[str, Path]) -> bool:
     """Check if a CSV file exists at the specified path.
     
     Args:
@@ -83,7 +94,7 @@ def initial_setup() -> None:
         logger.error(f'Error during initial setup: {str(e)}')
         raise
 
-def filter_by_color(df: pd.DataFrame, column_name: str, value: str, new_csv_name: str) -> None:
+def filter_by_color(df: pd.DataFrame, column_name: str, value: str, new_csv_name: Union[str, Path]) -> None:
     """Filter DataFrame by color identity and save to CSV.
     
     Args:
@@ -248,11 +259,11 @@ def _display_setup_menu() -> SetupOption:
     Returns:
         SetupOption: The selected menu option
     """
-    question = [
-        inquirer.List('menu',
-                      choices=[option.value for option in SetupOption],
-                      carousel=True)
-    ]
+    question: List[Dict[str, Any]] = [
+        inquirer.List(
+            'menu',
+            choices=[option.value for option in SetupOption],
+            carousel=True)]
     answer = inquirer.prompt(question)
     return SetupOption(answer['menu'])
 

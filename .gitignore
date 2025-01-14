@@ -2,6 +2,7 @@
 *.json
 *.log
 *.txt
+!requirements.txt
 test.py
 .mypy_cache/
 __pycache__/

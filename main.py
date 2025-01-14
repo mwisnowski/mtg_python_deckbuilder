@@ -3,6 +3,7 @@ from __future__ import annotations
 # Standard library imports
 import sys
 import logging
+import os
 from pathlib import Path
 from typing import NoReturn, Optional
 
@@ -21,15 +22,19 @@ MTG Python Deckbuilder. It handles menu display, user input processing, and
 routing to different application features like setup, deck building, card info
 lookup and CSV file tagging.
 """
-# Configure logging
+# Create logs directory if it doesn't exist
+if not os.path.exists('logs'):
+    os.makedirs('logs')
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[
         logging.StreamHandler(),
-        logging.FileHandler('main.log', mode='w')
+        logging.FileHandler('logs/main.log', mode='a', encoding='utf-8')
     ]
 )
+logger = logging.getLogger(__name__)
 
 # Menu constants
 MENU_SETUP = 'Setup'
@@ -62,8 +67,9 @@ def get_menu_choice() -> Optional[str]:
         answer = inquirer.prompt(question) # type: ignore
         return answer['menu'] if answer else None
     except (KeyError, TypeError) as e:
-        logging.error(f"Error getting menu choice: {e}")
+        logger.error(f"Error getting menu choice: {e}")
         return None
+
 def handle_card_info() -> None:
     """Handle the card info menu option with proper error handling.
 
@@ -91,12 +97,13 @@ def handle_card_info() -> None:
                 if not answer or not answer['continue']:
                     break
             except (KeyError, TypeError) as e:
-                logging.error(f"Error in card info continuation prompt: {e}")
+                logger.error(f"Error in card info continuation prompt: {e}")
                 break
     except Exception as e:
-        logging.error(f"Error in card info handling: {e}")
+        logger.error(f"Error in card info handling: {e}")
+
 def run_menu() -> NoReturn:
-    """Main menu loop with improved error handling and logging.
+    """Main menu loop with improved error handling and logger.
 
     Provides the main application loop that displays the menu and handles user selections.
     Creates required directories, processes menu choices, and handles errors gracefully.
@@ -117,7 +124,7 @@ def run_menu() -> NoReturn:
         4. Tag CSV Files
         5. Quit
     """
-    logging.info("Starting MTG Python Deckbuilder")
+    logger.info("Starting MTG Python Deckbuilder")
     Path('csv_files').mkdir(parents=True, exist_ok=True)
 
     while True:
@@ -126,29 +133,30 @@ def run_menu() -> NoReturn:
             choice = get_menu_choice()
 
             if choice is None:
-                logging.info("Menu operation cancelled")
+                logger.info("Menu operation cancelled")
                 continue
 
-            logging.info(f"User selected: {choice}")
+            logger.info(f"User selected: {choice}")
 
             match choice:
                 case 'Setup':
                     setup.setup()
                     tagger.run_tagging()
                 case 'Build a Deck':
-                    logging.info("Deck building not yet implemented")
+                    logger.info("Deck building not yet implemented")
                     print('Deck building not yet implemented')
                 case 'Get Card Info':
                     handle_card_info()
                 case 'Tag CSV Files':
                     tagger.run_tagging()
                 case 'Quit':
-                    logging.info("Exiting application")
+                    logger.info("Exiting application")
                     sys.exit(0)
                 case _:
-                    logging.warning(f"Invalid menu choice: {choice}")
+                    logger.warning(f"Invalid menu choice: {choice}")
 
         except Exception as e:
-            logging.error(f"Unexpected error in main menu: {e}")
+            logger.error(f"Unexpected error in main menu: {e}")
+
 if __name__ == "__main__":
     run_menu()

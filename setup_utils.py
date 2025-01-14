@@ -1,7 +1,24 @@
+"""MTG Python Deckbuilder setup utilities.
+
+This module provides utility functions for setting up and managing the MTG Python Deckbuilder
+application. It handles tasks such as downloading card data, filtering cards by various criteria,
+and processing legendary creatures for commander format.
+
+Key Features:
+    - Card data download from MTGJSON
+    - DataFrame filtering and processing
+    - Color identity filtering
+    - Commander validation
+    - CSV file management
+
+The module integrates with settings.py for configuration and exceptions.py for error handling.
+"""
+
 from __future__ import annotations
 
 # Standard library imports
 import logging
+import os
 import requests
 from pathlib import Path
 from typing import List, Optional, Union, TypedDict
@@ -27,21 +44,19 @@ from exceptions import (
     CommanderValidationError
 )
 
-"""MTG Python Deckbuilder setup utilities.
+# Create logs directory if it doesn't exist
+if not os.path.exists('logs'):
+    os.makedirs('logs')
 
-This module provides utility functions for setting up and managing the MTG Python Deckbuilder
-application. It handles tasks such as downloading card data, filtering cards by various criteria,
-and processing legendary creatures for commander format.
-
-Key Features:
-    - Card data download from MTGJSON
-    - DataFrame filtering and processing
-    - Color identity filtering
-    - Commander validation
-    - CSV file management
-
-The module integrates with settings.py for configuration and exceptions.py for error handling.
-"""
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(),
+        logging.FileHandler('logs/setup_utils.log', mode='a', encoding='utf-8')
+    ]
+)
+logger = logging.getLogger(__name__)
 
 # Type definitions
 class FilterRule(TypedDict):
@@ -83,7 +98,7 @@ def download_cards_csv(url: str, output_path: Union[str, Path]) -> None:
                     pbar.update(size)
             
     except requests.RequestException as e:
-        logging.error(f'Failed to download cards data from {url}')
+        logger.error(f'Failed to download cards data from {url}')
         raise MTGJSONDownloadError(
             "Failed to download cards data",
             url,
@@ -128,14 +143,14 @@ def filter_dataframe(df: pd.DataFrame, banned_cards: List[str]) -> pd.DataFrame:
         >>> filtered_df = filter_dataframe(cards_df, ['Channel', 'Black Lotus'])
     """
     try:
-        logging.info('Starting standard DataFrame filtering')
+        logger.info('Starting standard DataFrame filtering')
         
         # Fill null values according to configuration
         for col, fill_value in FILL_NA_COLUMNS.items():
             if col == 'faceName':
                 fill_value = df['name']
             df[col] = df[col].fillna(fill_value)
-            logging.debug(f'Filled NA values in {col} with {fill_value}')
+            logger.debug(f'Filled NA values in {col} with {fill_value}')
         
         # Apply basic filters from configuration
         filtered_df = df.copy()
@@ -148,22 +163,22 @@ def filter_dataframe(df: pd.DataFrame, banned_cards: List[str]) -> pd.DataFrame:
                 elif rule_type == 'require':
                     for value in values:
                         filtered_df = filtered_df[filtered_df[field].str.contains(value, na=False)]
-                logging.debug(f'Applied {rule_type} filter for {field}: {values}')
+                logger.debug(f'Applied {rule_type} filter for {field}: {values}')
         
         # Remove illegal sets
         for set_code in NON_LEGAL_SETS:
             filtered_df = filtered_df[~filtered_df['printings'].str.contains(set_code, na=False)]
-        logging.debug('Removed illegal sets')
+        logger.debug('Removed illegal sets')
 
         # Remove banned cards
         for card in banned_cards:
             filtered_df = filtered_df[~filtered_df['name'].str.contains(card, na=False)]
-        logging.debug('Removed banned cards')
+        logger.debug('Removed banned cards')
 
         # Remove special card types
         for card_type in CARD_TYPES_TO_EXCLUDE:
             filtered_df = filtered_df[~filtered_df['type'].str.contains(card_type, na=False)]
-        logging.debug('Removed special card types')
+        logger.debug('Removed special card types')
 
         # Select columns, sort, and drop duplicates
         filtered_df = filtered_df[CSV_PROCESSING_COLUMNS]
@@ -172,12 +187,12 @@ def filter_dataframe(df: pd.DataFrame, banned_cards: List[str]) -> pd.DataFrame:
             key=lambda col: col.str.lower() if not SORT_CONFIG['case_sensitive'] else col
         )
         filtered_df = filtered_df.drop_duplicates(subset='faceName', keep='first')
-        logging.info('Completed standard DataFrame filtering')
+        logger.info('Completed standard DataFrame filtering')
         
         return filtered_df
 
     except Exception as e:
-        logging.error(f'Failed to filter DataFrame: {str(e)}')
+        logger.error(f'Failed to filter DataFrame: {str(e)}')
         raise DataFrameProcessingError(
             "Failed to filter DataFrame",
             "standard_filtering",
@@ -202,7 +217,7 @@ def filter_by_color_identity(df: pd.DataFrame, color_identity: str) -> pd.DataFr
         DataFrameProcessingError: If general filtering operations fail
     """
     try:
-        logging.info(f'Filtering cards for color identity: {color_identity}')
+        logger.info(f'Filtering cards for color identity: {color_identity}')
 
         # Validate color identity
         with tqdm(total=1, desc='Validating color identity') as pbar:
@@ -222,14 +237,14 @@ def filter_by_color_identity(df: pd.DataFrame, color_identity: str) -> pd.DataFr
         # Filter by color identity
         with tqdm(total=1, desc='Filtering by color identity') as pbar:
             filtered_df = filtered_df[filtered_df['colorIdentity'] == color_identity]
-            logging.debug(f'Applied color identity filter: {color_identity}')
+            logger.debug(f'Applied color identity filter: {color_identity}')
             pbar.update(1)
             
         # Additional color-specific processing
         with tqdm(total=1, desc='Performing color-specific processing') as pbar:
             # Placeholder for future color-specific processing
             pbar.update(1)
-        logging.info(f'Completed color identity filtering for {color_identity}')
+        logger.info(f'Completed color identity filtering for {color_identity}')
         return filtered_df
         
     except DataFrameProcessingError as e:
@@ -259,7 +274,7 @@ def process_legendary_cards(df: pd.DataFrame) -> pd.DataFrame:
         DataFrameProcessingError: If general processing fails
     """
     try:
-        logging.info('Starting commander validation process')
+        logger.info('Starting commander validation process')
 
         filtered_df = df.copy()
         # Step 1: Check legendary status
@@ -273,7 +288,7 @@ def process_legendary_cards(df: pd.DataFrame) -> pd.DataFrame:
                         "DataFrame contains no cards matching legendary criteria"
                     )
                 filtered_df = filtered_df[mask].copy()
-                logging.debug(f'Found {len(filtered_df)} legendary cards')
+                logger.debug(f'Found {len(filtered_df)} legendary cards')
                 pbar.update(1)
         except Exception as e:
             raise CommanderValidationError(
@@ -288,7 +303,7 @@ def process_legendary_cards(df: pd.DataFrame) -> pd.DataFrame:
                 special_cases = df['text'].str.contains('can be your commander', na=False)
                 special_commanders = df[special_cases].copy()
                 filtered_df = pd.concat([filtered_df, special_commanders]).drop_duplicates()
-                logging.debug(f'Added {len(special_commanders)} special commander cards')
+                logger.debug(f'Added {len(special_commanders)} special commander cards')
                 pbar.update(1)
         except Exception as e:
             raise CommanderValidationError(
@@ -306,7 +321,7 @@ def process_legendary_cards(df: pd.DataFrame) -> pd.DataFrame:
                         ~filtered_df['printings'].str.contains(set_code, na=False)
                     ]
                 removed_count = initial_count - len(filtered_df)
-                logging.debug(f'Removed {removed_count} cards from illegal sets')
+                logger.debug(f'Removed {removed_count} cards from illegal sets')
                 pbar.update(1)
         except Exception as e:
             raise CommanderValidationError(
@@ -314,7 +329,7 @@ def process_legendary_cards(df: pd.DataFrame) -> pd.DataFrame:
                 "set_legality",
                 str(e)
             ) from e
-        logging.info(f'Commander validation complete. {len(filtered_df)} valid commanders found')
+        logger.info(f'Commander validation complete. {len(filtered_df)} valid commanders found')
         return filtered_df
 
     except CommanderValidationError:

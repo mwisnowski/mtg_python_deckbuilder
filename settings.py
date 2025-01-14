@@ -10,6 +10,23 @@ and enable static type checking with mypy.
 
 from typing import Dict, List, Optional
 
+# Constants for input validation
+INPUT_VALIDATION = {
+    'max_attempts': 3,
+    'default_text_message': 'Please enter a valid text response.',
+    'default_number_message': 'Please enter a valid number.',
+    'default_confirm_message': 'Please enter Y/N or Yes/No.',
+    'default_choice_message': 'Please select a valid option from the list.'
+}
+
+QUESTION_TYPES = [
+    'Text',
+    'Number', 
+    'Confirm',
+    'Choice'
+]
+
+# Card type constants
 artifact_tokens: List[str] = ['Blood', 'Clue', 'Food', 'Gold', 'Incubator',
                 'Junk','Map','Powerstone', 'Treasure']
 
@@ -777,6 +794,20 @@ VOLTRON_PATTERNS = [
     'reconfigure'
 ]
 
+# Constants for price checking functionality
+PRICE_CHECK_CONFIG: Dict[str, float] = {
+    # Maximum number of retry attempts for price checking requests
+    'max_retries': 3,
+    
+    # Timeout in seconds for price checking requests
+    'timeout': 0.1,
+    
+    # Maximum size of the price check cache
+    'cache_size': 128,
+    
+    # Price tolerance factor (e.g., 1.1 means accept prices within 10% difference)
+    'price_tolerance': 1.1
+}
 # Constants for setup and CSV processing
 MTGJSON_API_URL = 'https://mtgjson.com/api/v5/csv/cards.csv'
 

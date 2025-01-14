@@ -4,6 +4,7 @@ from __future__ import annotations
 import logging
 from enum import Enum
 from pathlib import Path
+import os
 from typing import Union, List, Dict, Any
 
 # Third-party imports
@@ -21,11 +22,17 @@ from exceptions import (
     CSVFileNotFoundError, MTGJSONDownloadError, DataFrameProcessingError,
     ColorFilterError, CommanderValidationError
 )
-# Configure logging
+# Create logs directory if it doesn't exist
+if not os.path.exists('logs'):
+    os.makedirs('logs')
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S'
+    handlers=[
+        logging.StreamHandler(),
+        logging.FileHandler('logs/setup.log', mode='w', encoding='utf-8')
+    ]
 )
 logger = logging.getLogger(__name__)
 
@@ -288,23 +295,23 @@ def setup() -> bool:
         choice = _display_setup_menu()
         
         if choice == SetupOption.INITIAL_SETUP:
-            logging.info('Starting initial setup')
+            logger.info('Starting initial setup')
             initial_setup()
-            logging.info('Initial setup completed successfully')
+            logger.info('Initial setup completed successfully')
             return True
             
         elif choice == SetupOption.REGENERATE_CSV:
-            logging.info('Starting CSV regeneration')
+            logger.info('Starting CSV regeneration')
             regenerate_csvs_all()
-            logging.info('CSV regeneration completed successfully')
+            logger.info('CSV regeneration completed successfully')
             return True
             
         elif choice == SetupOption.BACK:
-            logging.info('Setup cancelled by user')
+            logger.info('Setup cancelled by user')
             return False
             
     except Exception as e:
-        logging.error(f'Error during setup: {e}')
+        logger.error(f'Error during setup: {e}')
         raise
     
     return False

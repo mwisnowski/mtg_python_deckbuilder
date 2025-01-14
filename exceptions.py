@@ -120,3 +120,77 @@ class CommanderValidationError(MTGSetupError):
         self.details = details
         error_info = f" - {details}" if details else ""
         super().__init__(f"{message} [{validation_type}]{error_info}")
+
+
+class InputValidationError(MTGSetupError):
+    """Exception raised when input validation fails.
+    
+    This exception is raised when there are issues validating user input,
+    such as invalid text formats, number ranges, or confirmation responses.
+    
+    Args:
+        message: Explanation of the error
+        input_type: Type of input validation that failed (e.g., 'text', 'number', 'confirm')
+        details: Additional error details
+    
+    Examples:
+        >>> raise InputValidationError(
+        ...     "Invalid number input",
+        ...     "number",
+        ...     "Value must be between 1 and 100"
+        ... )
+        
+        >>> raise InputValidationError(
+        ...     "Invalid confirmation response",
+        ...     "confirm",
+        ...     "Please enter 'y' or 'n'"
+        ... )
+        
+        >>> raise InputValidationError(
+        ...     "Invalid text format",
+        ...     "text",
+        ...     "Input contains invalid characters"
+        ... )
+    """
+    def __init__(self, message: str, input_type: str, details: str = None) -> None:
+        self.input_type = input_type
+        self.details = details
+        error_info = f" - {details}" if details else ""
+        super().__init__(f"{message} [{input_type}]{error_info}")
+
+
+class PriceCheckError(MTGSetupError):
+    """Exception raised when price checking operations fail.
+    
+    This exception is raised when there are issues retrieving or processing
+    card prices, such as API failures, invalid responses, or parsing errors.
+    
+    Args:
+        message: Explanation of the error
+        card_name: Name of the card that caused the error
+        details: Additional error details
+    
+    Examples:
+        >>> raise PriceCheckError(
+        ...     "Failed to retrieve price",
+        ...     "Black Lotus",
+        ...     "API request timeout"
+        ... )
+        
+        >>> raise PriceCheckError(
+        ...     "Invalid price data format",
+        ...     "Lightning Bolt",
+        ...     "Unexpected response structure"
+        ... )
+        
+        >>> raise PriceCheckError(
+        ...     "Price data unavailable",
+        ...     "Underground Sea",
+        ...     "No price information found"
+        ... )
+    """
+    def __init__(self, message: str, card_name: str, details: str = None) -> None:
+        self.card_name = card_name
+        self.details = details
+        error_info = f" - {details}" if details else ""
+        super().__init__(f"{message} for card '{card_name}'{error_info}")

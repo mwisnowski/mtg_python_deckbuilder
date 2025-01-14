@@ -1,38 +1,3 @@
-from __future__ import annotations
-
-import logging
-import inquirer.prompt # type: ignore
-import keyboard # type: ignore
-import math
-import numpy as np
-import pandas as pd # type: ignore
-import pprint # type: ignore
-import random
-import time
-
-from functools import lru_cache
-from fuzzywuzzy import process # type: ignore
-
-from settings import basic_lands, card_types, csv_directory, multiple_copy_cards
-from setup import determine_commanders
-
-try:
-    import scrython # type: ignore
-    use_scrython = True
-except ImportError:
-    scrython = None
-    use_scrython = False
-    logging.warning("Scrython is not installed. Some pricing features will be unavailable.")
-
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
-)
-
-pd.set_option('display.max_columns', None)
-pd.set_option('display.max_rows', None)
-pd.set_option('display.max_colwidth', 50)
-
 """
 Basic deck builder, primarily intended for building Kindred decks.
 Logic for other themes (such as Spellslinger or Wheels), is added.
@@ -45,6 +10,52 @@ adjust from there.
 Land spread will ideally be handled based on pips and some adjustment
 is planned based on mana curve and ramp added.
 """
+
+from __future__ import annotations
+from input_handler import InputHandler
+from price_check import check_price
+
+import logging
+import math
+import numpy as np
+import pandas as pd # type: ignore
+import pprint # type: ignore
+import random
+import time
+import os
+
+from fuzzywuzzy import process # type: ignore
+
+from exceptions import PriceCheckError
+from settings import basic_lands, card_types, csv_directory, multiple_copy_cards
+from setup import determine_commanders
+
+# Create logs directory if it doesn't exist
+if not os.path.exists('logs'):
+    os.makedirs('logs')
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(),
+        logging.FileHandler('logs/deck_builder.log', mode='w', encoding='utf-8')
+    ]
+)
+logger = logging.getLogger(__name__)
+
+try:
+    import scrython # type: ignore
+    use_scrython = True
+except ImportError:
+    scrython = None
+    use_scrython = False
+    logger.warning("Scrython is not installed. Some pricing features will be unavailable.")
+
+
+pd.set_option('display.max_columns', None)
+pd.set_option('display.max_rows', None)
+pd.set_option('display.max_colwidth', 50)
 
 def new_line(num_lines: int = 1) -> None:
     """Print specified number of newlines for formatting output.
@@ -60,7 +71,6 @@ def new_line(num_lines: int = 1) -> None:
     print('\n' * num_lines)
 
 class DeckBuilder:
-
     def __init__(self):
         self.card_library = pd.DataFrame()
         self.card_library['Card Name'] = pd.Series(dtype='str')
@@ -69,122 +79,16 @@ class DeckBuilder:
         self.card_library['Mana Value'] = pd.Series(dtype='int')
         self.card_library['Commander'] = pd.Series(dtype='bool')
         
+        self.input_handler = InputHandler()
         self.set_max_deck_price = False
         self.set_max_card_price = False
-        self.card_prices = {} if use_scrython else None
+        self.card_prices = {}
         
     def pause_with_message(self, message="Press Enter to continue..."):
         """Helper function to pause execution with a message."""
         print(f"\n{message}")
         input()
-        
-    def validate_text(self, result: str) -> bool:
-        """Validate text input is not empty.
-        
-        Args:
-            result (str): Text input to validate
-        
-        Returns:
-            bool: True if text is not empty after stripping whitespace
-        """
-        return bool(result and result.strip())
-    
-    def validate_number(self, result: str) -> float | None:
-        """Validate and convert string input to float.
-        
-        Args:
-            result (str): Number input to validate
-        
-        Returns:
-            float | None: Converted float value or None if invalid
-        """
-        try:
-            return float(result)
-        except (ValueError, TypeError):
-            return None
-    def validate_confirm(self, result):
-        return bool(result)
-        
-    def questionnaire(self, question_type, default_value='', choices_list=[]):
-        MAX_ATTEMPTS = 3
-        
-        if question_type == 'Text':
-            question = [inquirer.Text('text')]
-            result = inquirer.prompt(question)['text']
-            while not result.strip():
-                question = [
-                    inquirer.Text('text', message='Input cannot be empty')
-                ]
-                result = inquirer.prompt(question)['text']
-            return result
-            
-        elif question_type == 'Number':
-            attempts = 0
-            question = [
-                inquirer.Text('number', default=default_value)
-            ]
-            result = inquirer.prompt(question)['number']
-            
-            while attempts < MAX_ATTEMPTS:
-                try:
-                    result = float(result)
-                    break
-                except ValueError:
-                    attempts += 1
-                    if attempts < MAX_ATTEMPTS:
-                        question = [
-                            inquirer.Text('number', 
-                                message='Input must be a valid number',
-                                default=default_value)
-                        ]
-                        result = inquirer.prompt(question)['number']
-                    else:
-                        logging.error("Maximum input attempts reached for Number type.")
-                        raise ValueError("Invalid number input.")
-            return result
-            
-        elif question_type == 'Confirm':
-            question = [
-                inquirer.Confirm('confirm', default=default_value)
-            ]
-            result = inquirer.prompt(question)['confirm']
-            return self.validate_confirm(result)
-            
-        elif question_type == 'Choice':
-            question = [
-                inquirer.List('selection',
-                    choices=choices_list,
-                    carousel=True)
-            ]
-            result = inquirer.prompt(question)['selection']
-            return result
-            
-        raise ValueError(f"Unsupported question type: {question_type}")
-    
-    @lru_cache(maxsize=128)
-    def price_check(self, card_name):
-        try:
-            time.sleep(0.1)
-            card = scrython.cards.Named(fuzzy=card_name)
-            card_price = card.prices('usd')
-            if card_price is not None and isinstance(card_price, (int, float)):
-                try:
-                    self.card_prices[card_name] = card_price
-                    return float(card_price)
-                except ValueError:
-                    logging.error(f"Invalid price format for '{card_name}': {card_price}")
-                    return 0.0
-            return 0.0
-        except (scrython.foundation.ScryfallError, scrython.foundation.ScryfallRequestError) as e:
-            logging.error(f"Scryfall API error for '{card_name}': {e}")
-            return 0.0
-        except TimeoutError:
-            logging.error(f"Request timed out while fetching price for '{card_name}'")
-            return 0.0
-        except Exception as e:
-            logging.error(f"Unexpected error fetching price for '{card_name}': {e}")
-            return 0.0
-        
+     
     def determine_commander(self):
         # Setup dataframe
         try:
@@ -199,8 +103,7 @@ class DeckBuilder:
         commander_chosen = False
         while not commander_chosen:
             print('Enter a card name to be your commander, note that at this time only cards that have the \'Creature\' type may be chosen')
-            card_choice = self.questionnaire('Text', '')
-
+            card_choice = self.input_handler.questionnaire('Text', '')
             # Logic to find the card in the commander_cards csv, then display it's information
             # If the card can't be found, or doesn't have enough of a match score, display a 
             # list to choose from
@@ -212,11 +115,11 @@ class DeckBuilder:
                     print(fuzzy_card_choice)
                     fuzzy_chosen = True
                 else:
-                    logging.warning('Multiple options found, which is correct?')
+                    logger.warning('Multiple options found, which is correct?')
                     fuzzy_card_choices = process.extract(card_choice, df['name'], limit=5)
                     fuzzy_card_choices.append('Neither')
                     print(fuzzy_card_choices)
-                    fuzzy_card_choice = self.questionnaire('Choice', choices_list=fuzzy_card_choices)
+                    fuzzy_card_choice = self.input_handler.questionnaire('Choice', choices_list=fuzzy_card_choices)
                     if isinstance(fuzzy_card_choice, tuple):
                         fuzzy_card_choice = fuzzy_card_choice[0]
                     if fuzzy_card_choice != 'Neither':
@@ -233,14 +136,13 @@ class DeckBuilder:
                 self.commander_df = pd.DataFrame(df_dict)
 
                 # Confirm if card entered was correct
-                commander_confirmed = self.questionnaire('Confirm', True)
+                commander_confirmed = self.input_handler.questionnaire('Confirm', True)
                 # If correct, set it as the commander
                 if commander_confirmed:
                     commander_chosen = True
                     self.commander_info = df_dict
                     self.commander = self.commander_df.at[0, 'name']
-                    self.price_check(self.commander)
-                    logging.info(f"Commander selected: {self.commander}")
+                    logger.info(f"Commander selected: {self.commander}")
                     break
                 else:
                     commander_chosen = False
@@ -277,7 +179,7 @@ class DeckBuilder:
             self.color_identity_full = ''
             self.determine_color_identity()
         except Exception as e:
-            logging.error(f"Failed to set color identity: {e}")
+            logger.error(f"Failed to set color identity: {e}")
             raise ValueError("Could not determine color identity") from e
 
         # Set creature colors
@@ -326,15 +228,15 @@ class DeckBuilder:
         self.card_library.to_csv(f'{csv_directory}/test_deck_presort.csv', index=False)
         self.organize_library()
         self.card_library.to_csv(f'{csv_directory}/test_deck_preconcat.csv', index=False)
-        logging.info(f'Creature cards (including commander): {self.creature_cards}')
-        logging.info(f'Planeswalker cards: {self.planeswalker_cards}')
-        logging.info(f'Battle cards: {self.battle_cards}')
-        logging.info(f'Instant cards: {self.instant_cards}')
-        logging.info(f'Sorcery cards: {self.sorcery_cards}')
-        logging.info(f'Artifact cards: {self.artifact_cards}')
-        logging.info(f'Enchantment cards: {self.enchantment_cards}')
-        logging.info(f'Land cards cards: {self.land_cards}')
-        logging.info(f'Number of cards in Library: {len(self.card_library)}')
+        logger.info(f'Creature cards (including commander): {self.creature_cards}')
+        logger.info(f'Planeswalker cards: {self.planeswalker_cards}')
+        logger.info(f'Battle cards: {self.battle_cards}')
+        logger.info(f'Instant cards: {self.instant_cards}')
+        logger.info(f'Sorcery cards: {self.sorcery_cards}')
+        logger.info(f'Artifact cards: {self.artifact_cards}')
+        logger.info(f'Enchantment cards: {self.enchantment_cards}')
+        logger.info(f'Land cards cards: {self.land_cards}')
+        logger.info(f'Number of cards in Library: {len(self.card_library)}')
         self.get_cmc()
         self.count_pips()
         self.concatenate_duplicates()
@@ -463,16 +365,16 @@ class DeckBuilder:
                 return
                 
             # If we get here, it's an unknown color identity
-            logging.warning(f"Unknown color identity: {self.color_identity}")
+            logger.warning(f"Unknown color identity: {self.color_identity}")
             self.color_identity_full = 'Unknown'
             self.files_to_load = ['colorless']
             
         except Exception as e:
-            logging.error(f"Error in determine_color_identity: {e}")
+            logger.error(f"Error in determine_color_identity: {e}")
             raise
     
     def read_csv(self, filename: str, converters: dict | None = None) -> pd.DataFrame:
-        """Read CSV file with error handling and logging.
+        """Read CSV file with error handling and logger.
         
         Args:
             filename: Name of the CSV file without extension
@@ -484,17 +386,17 @@ class DeckBuilder:
         try:
             filepath = f'{csv_directory}/{filename}_cards.csv'
             df = pd.read_csv(filepath, converters=converters or {'themeTags': pd.eval, 'creatureTypes': pd.eval})
-            logging.debug(f"Successfully read {filename}_cards.csv")
+            logger.debug(f"Successfully read {filename}_cards.csv")
             return df
         except FileNotFoundError as e:
-            logging.error(f"File {filename}_cards.csv not found: {e}")
+            logger.error(f"File {filename}_cards.csv not found: {e}")
             raise
         except Exception as e:
-            logging.error(f"Error reading {filename}_cards.csv: {e}")
+            logger.error(f"Error reading {filename}_cards.csv: {e}")
             raise
 
     def write_csv(self, df: pd.DataFrame, filename: str) -> None:
-        """Write DataFrame to CSV with error handling and logging.
+        """Write DataFrame to CSV with error handling and logger.
         
         Args:
             df: DataFrame to write
@@ -503,9 +405,9 @@ class DeckBuilder:
         try:
             filepath = f'{csv_directory}/{filename}.csv'
             df.to_csv(filepath, index=False)
-            logging.debug(f"Successfully wrote {filename}.csv")
+            logger.debug(f"Successfully wrote {filename}.csv")
         except Exception as e:
-            logging.error(f"Error writing {filename}.csv: {e}")
+            logger.error(f"Error writing {filename}.csv: {e}")
             raise
 
     def setup_dataframes(self):
@@ -568,7 +470,7 @@ class DeckBuilder:
             # Choose a primary theme
             print('Choose a primary theme for your commander deck.\n'
                 'This will be the "focus" of the deck, in a kindred deck this will typically be a creature type for example.')
-            choice = self.questionnaire('Choice', choices_list=themes)
+            choice = self.input_handler.questionnaire('Choice', choices_list=themes)
             self.primary_theme = choice
             weights_default = {
                 'primary': 1.0,
@@ -589,11 +491,11 @@ class DeckBuilder:
                 # Secondary theme
                 print('Choose a secondary theme for your commander deck.\n'
                     'This will typically be a secondary focus, like card draw for Spellslinger, or +1/+1 counters for Aggro.')
-                choice = self.questionnaire('Choice', choices_list=themes)
+                choice = self.input_handler.questionnaire('Choice', choices_list=themes)
                 while True:
                     if choice == 'Stop Here':
-                        logging.warning('You\'ve only selected one theme, are you sure you want to stop?\n')
-                        confirm_done = self.questionnaire('Confirm', False)
+                        logger.warning('You\'ve only selected one theme, are you sure you want to stop?\n')
+                        confirm_done = self.input_handler.questionnaire('Confirm', False)
                         if confirm_done:
                             secondary_theme_chosen = True
                             self.secondary_theme = False
@@ -627,11 +529,11 @@ class DeckBuilder:
                 # Tertiary theme
                 print('Choose a tertiary theme for your commander deck.\n'
                     'This will typically be a tertiary focus, or just something else to do that your commander is good at.')
-                choice = self.questionnaire('Choice', choices_list=themes)
+                choice = self.input_handler.questionnaire('Choice', choices_list=themes)
                 while True:
                     if choice == 'Stop Here':
-                        logging.warning('You\'ve only selected two themes, are you sure you want to stop?\n')
-                        confirm_done = self.questionnaire('Confirm', False)
+                        logger.warning('You\'ve only selected two themes, are you sure you want to stop?\n')
+                        confirm_done = self.input_handler.questionnaire('Confirm', False)
                         if confirm_done:
                             tertiary_theme_chosen = True
                             self.tertiary_theme = False
@@ -690,8 +592,8 @@ class DeckBuilder:
                 if (hidden_themes[i] in self.themes
                     and hidden_themes[i] != 'Rat Kindred'
                     and color[i] in self.colors):
-                    logging.info(f'Looks like you\'re making a {hidden_themes[i]} deck, would you like it to be a {theme_cards[i]} deck?')
-                    choice = self.questionnaire('Confirm', False)
+                    logger.info(f'Looks like you\'re making a {hidden_themes[i]} deck, would you like it to be a {theme_cards[i]} deck?')
+                    choice = self.input_handler.questionnaire('Confirm', False)
                     if choice:
                         self.hidden_theme = theme_cards[i]
                         self.themes.append(self.hidden_theme)
@@ -709,11 +611,12 @@ class DeckBuilder:
                 elif (hidden_themes[i] in self.themes
                       and hidden_themes[i] == 'Rat Kindred'
                       and color[i] in self.colors):
-                    logging.info(f'Looks like you\'re making a {hidden_themes[i]} deck, would you like it to be a {theme_cards[i][0]} or {theme_cards[i][1]} deck?')
-                    choice = self.questionnaire('Confirm', False)
+                    logger.info(f'Looks like you\'re making a {hidden_themes[i]} deck, would you like it to be a {theme_cards[i][0]} or {theme_cards[i][1]} deck?')
+                    choice = self.input_handler.questionnaire('Confirm', False)
+                    choice = self.input_handler.questionnaire('Confirm', False)
                     if choice:
                         print('Which one?')
-                        choice = self.questionnaire('Choice', choices_list=theme_cards[i])
+                        choice = self.input_handler.questionnaire('Choice', choices_list=theme_cards[i])
                         if choice:
                             self.hidden_theme = choice
                             self.themes.append(self.hidden_theme)
@@ -735,8 +638,8 @@ class DeckBuilder:
             for i in range(min(len(hidden_themes), len(theme_cards), len(color))):
                 if (hidden_themes[i] in self.themes
                     and color[i] in self.colors):
-                    logging.info(f'Looks like you\'re making a {hidden_themes[i]} deck, would you like it to be a {theme_cards[i]} deck?')
-                    choice = self.questionnaire('Confirm', False)
+                    logger.info(f'Looks like you\'re making a {hidden_themes[i]} deck, would you like it to be a {theme_cards[i]} deck?')
+                    choice = self.input_handler.questionnaire('Confirm', False)
                     if choice:
                         self.hidden_theme = theme_cards[i]
                         self.themes.append(self.hidden_theme)
@@ -760,12 +663,12 @@ class DeckBuilder:
         if use_scrython:
             print('Would you like to set an intended max price of the deck?\n'
                   'There will be some leeway of ~10%, with a couple alternative options provided.')
-            choice = self.questionnaire('Confirm', False)
+            choice = self.input_handler.questionnaire('Confirm', False)
             if choice:
                 self.set_max_deck_price = True
                 self.deck_cost = 0.0
                 print('What would you like the max price to be?')
-                self.max_deck_price = float(self.questionnaire('Number', 400))
+                self.max_deck_price = float(self.input_handler.questionnaire('Number', 400))
                 new_line()
             else:
                 self.set_max_deck_price = False
@@ -773,11 +676,11 @@ class DeckBuilder:
             
             print('Would you like to set a max price per card?\n'
                   'There will be some leeway of ~10% when choosing cards and you can choose to keep it or not.')
-            choice = self.questionnaire('Confirm', False)
+            choice = self.input_handler.questionnaire('Confirm', False)
             if choice:
                 self.set_max_card_price = True
                 print('What would you like the max price to be?')
-                answer = float(self.questionnaire('Number', 20))
+                answer = float(self.input_handler.questionnaire('Number', 20))
                 self.max_card_price = answer
                 self.card_library['Card Price'] = pd.Series(dtype='float')
                 new_line()
@@ -790,7 +693,7 @@ class DeckBuilder:
               'This includes mana rocks, mana dorks, and land ramp spells.\n'
               'A good baseline is 8-12 pieces, scaling up with higher average CMC\n'
               'Default: 8')
-        answer = self.questionnaire('Number', 8)
+        answer = self.input_handler.questionnaire('Number', 8)
         self.ideal_ramp = int(answer)
         self.free_slots -= self.ideal_ramp
         new_line()
@@ -801,7 +704,7 @@ class DeckBuilder:
               "For landfall decks, consider starting at 40 lands before ramp.\n"
               'As a guideline, each mana source from ramp can reduce land count by ~1.\n'
               'Default: 35')
-        answer = self.questionnaire('Number', 35)
+        answer = self.input_handler.questionnaire('Number', 35)
         self.ideal_land_count = int(answer)
         self.free_slots -= self.ideal_land_count
         new_line()
@@ -811,7 +714,8 @@ class DeckBuilder:
               'This can vary widely depending on your commander, colors in color identity, and what you want to do.\n'
               'Some decks may be fine with as low as 10, others may want 25.\n'
               'Default: 20')
-        answer = self.questionnaire('Number', 20)
+        answer = self.input_handler.questionnaire('Number', 20)
+        answer = self.input_handler.questionnaire('Number', 20)
         self.min_basics = int(answer)
         new_line()
         
@@ -821,7 +725,7 @@ class DeckBuilder:
               "If you're going for a kindred theme, going past 30 is likely normal.\n"
               "Also be sure to take into account token generation, but remember you'll want enough to stay safe\n"
               'Default: 25')
-        answer = self.questionnaire('Number', 25)
+        answer = self.input_handler.questionnaire('Number', 25)
         self.ideal_creature_count = int(answer)
         self.free_slots -= self.ideal_creature_count
         new_line()
@@ -832,7 +736,7 @@ class DeckBuilder:
               'Counterspells can be considered proactive removal and protection.\n'
               'If you\'re going spellslinger, more would be a good idea as you might have less cretaures.\n'
               'Default: 10')
-        answer = self.questionnaire('Number', 10)
+        answer = self.input_handler.questionnaire('Number', 10)
         self.ideal_removal = int(answer)
         self.free_slots -= self.ideal_removal
         new_line()
@@ -842,7 +746,7 @@ class DeckBuilder:
               'Somewhere around 2-3 is good to help eliminate threats, but also prevent the game from running long\n.'
               'This can include damaging wipes like "Blasphemous Act" or toughness reduction like "Meathook Massacre".\n'
               'Default: 2')
-        answer = self.questionnaire('Number', 2)
+        answer = self.input_handler.questionnaire('Number', 2)
         self.ideal_wipes = int(answer)
         self.free_slots -= self.ideal_wipes
         new_line()
@@ -852,7 +756,7 @@ class DeckBuilder:
               '10 pieces of card advantage is good, up to 14 is better.\n'
               'Try to have a majority of it be non-conditional, and only have a couple of "Rhystic Study" style effects.\n'
               'Default: 10')
-        answer = self.questionnaire('Number', 10)
+        answer = self.input_handler.questionnaire('Number', 10)
         self.ideal_card_advantage = int(answer)
         self.free_slots -= self.ideal_card_advantage
         new_line()
@@ -863,7 +767,8 @@ class DeckBuilder:
               'Things that grant indestructible, hexproof, phase out, or even just counterspells.\n'
               'It\'s recommended to have 5 to 15, depending on your commander and preferred strategy.\n'
               'Default: 8')
-        answer = self.questionnaire('Number', 8)
+        answer = self.input_handler.questionnaire('Number', 8)
+        answer = self.input_handler.questionnaire('Number', 8)
         self.ideal_protection = int(answer)
         self.free_slots -= self.ideal_protection
         new_line()
@@ -896,15 +801,14 @@ class DeckBuilder:
         # Handle price checking
         card_price = 0.0
         if use_scrython and self.set_max_card_price:
-            # Get price from cache or API
-            if card in self.card_prices:
-                card_price = self.card_prices[card]
-            else:
-                card_price = self.price_check(card)
-                
-            # Skip if card is too expensive
-            if card_price is not None and card_price > self.max_card_price * 1.1:
-                logging.info(f"Skipping {card} - price {card_price} exceeds maximum")
+            try:
+                card_price = check_price(card)
+                # Skip if card is too expensive
+                if card_price > self.max_card_price * 1.1:
+                    logger.info(f"Skipping {card} - price {card_price} exceeds maximum")
+                    return
+            except PriceCheckError as e:
+                logger.error(f"Error checking price for {card}: {e}")
                 return
 
         # Create card entry
@@ -919,7 +823,7 @@ class DeckBuilder:
         if self.set_max_deck_price:
             self.deck_cost += card_price
 
-        logging.debug(f"Added {card} to deck library")
+        logger.debug(f"Added {card} to deck library")
     
     def organize_library(self):
         # Initialize counters dictionary dynamically from card_types including Kindred
@@ -969,7 +873,7 @@ class DeckBuilder:
         try:
             commander_row = self.card_library[self.card_library['Commander']].copy()
             if commander_row.empty:
-                logging.warning("No commander found in library")
+                logger.warning("No commander found in library")
                 return
             
             self.card_library = self.card_library[~self.card_library['Commander']]
@@ -977,9 +881,9 @@ class DeckBuilder:
             self.card_library = pd.concat([commander_row, self.card_library], ignore_index=True)
             
             commander_name = commander_row['Card Name'].iloc[0]
-            logging.info(f"Successfully moved commander '{commander_name}' to top")
+            logger.info(f"Successfully moved commander '{commander_name}' to top")
         except Exception as e:
-            logging.error(f"Error moving commander to top: {str(e)}")
+            logger.error(f"Error moving commander to top: {str(e)}")
     def concatenate_duplicates(self):
         """Handle duplicate cards in the library while maintaining data integrity."""
         duplicate_lists = basic_lands + multiple_copy_cards
@@ -992,7 +896,7 @@ class DeckBuilder:
             count = mask.sum()
             
             if count > 0:
-                logging.info(f'Found {count} copies of {duplicate}')
+                logger.info(f'Found {count} copies of {duplicate}')
                 
                 # Keep first occurrence with updated count
                 first_idx = mask.idxmax()
@@ -1024,7 +928,7 @@ class DeckBuilder:
         try:
             dataframe.drop(index, inplace=True)
         except KeyError:
-            logging.warning(f"Attempted to drop non-existent index {index}")
+            logger.warning(f"Attempted to drop non-existent index {index}")
     def add_lands(self):
         """
         Add lands to the deck based on ideal count and deck requirements.
@@ -1065,23 +969,23 @@ class DeckBuilder:
             
             # Adjust to ideal land count
             self.check_basics()
-            logging.info('Adjusting total land count to match ideal count...')
+            logger.info('Adjusting total land count to match ideal count...')
             self.organize_library()
             
             attempts = 0
             while self.land_cards > int(self.ideal_land_count) and attempts < MAX_ADJUSTMENT_ATTEMPTS:
-                logging.info(f'Current lands: {self.land_cards}, Target: {self.ideal_land_count}')
+                logger.info(f'Current lands: {self.land_cards}, Target: {self.ideal_land_count}')
                 self.remove_basic()
                 self.organize_library()
                 attempts += 1
             
             if attempts >= MAX_ADJUSTMENT_ATTEMPTS:
-                logging.warning(f"Could not reach ideal land count after {MAX_ADJUSTMENT_ATTEMPTS} attempts")
+                logger.warning(f"Could not reach ideal land count after {MAX_ADJUSTMENT_ATTEMPTS} attempts")
             
-            logging.info(f'Final land count: {self.land_cards}')
+            logger.info(f'Final land count: {self.land_cards}')
             
         except Exception as e:
-            logging.error(f"Error during land addition: {e}")
+            logger.error(f"Error during land addition: {e}")
             raise
     
     def add_basics(self):
@@ -1135,7 +1039,7 @@ class DeckBuilder:
 
     def add_standard_non_basics(self):
         """Add staple utility lands based on deck requirements."""
-        logging.info('Adding staple non-basic lands')
+        logger.info('Adding staple non-basic lands')
         
         # Define staple lands and their conditions
         staple_lands = {
@@ -1155,23 +1059,23 @@ class DeckBuilder:
                     if land not in self.card_library['Card Name'].values:
                         self.add_card(land, 'Land', None, 0)
                         self.staples.append(land)
-                        logging.debug(f"Added staple land: {land}")
+                        logger.debug(f"Added staple land: {land}")
             
             # Update land database
             self.land_df = self.land_df[~self.land_df['name'].isin(self.staples)]
             self.land_df.to_csv(f'{csv_directory}/test_lands.csv', index=False)
             
-            logging.info(f'Added {len(self.staples)} staple lands')
+            logger.info(f'Added {len(self.staples)} staple lands')
             
         except Exception as e:
-            logging.error(f"Error adding staple lands: {e}")
+            logger.error(f"Error adding staple lands: {e}")
             raise
     def add_fetches(self):
         # Determine how many fetches in total
         print('How many fetch lands would you like to include?\n'
               'For most decks you\'ll likely be good with 3 or 4, just enough to thin the deck and help ensure the color availability.\n'
               'If you\'re doing Landfall, more fetches would be recommended just to get as many Landfall triggers per turn.')
-        answer = self.questionnaire('Number', 2)
+        answer = self.input_handler.questionnaire('Number', 2)
         MAX_ATTEMPTS = 50  # Maximum attempts to prevent infinite loops
         attempt_count = 0
         desired_fetches = int(answer)
@@ -1242,7 +1146,7 @@ class DeckBuilder:
                 fetches_to_add.append(fetch)
 
         if attempt_count >= MAX_ATTEMPTS:
-            logging.warning(f"Reached maximum attempts ({MAX_ATTEMPTS}) while selecting fetch lands")
+            logger.warning(f"Reached maximum attempts ({MAX_ATTEMPTS}) while selecting fetch lands")
 
         for card in fetches_to_add:
             self.add_card(card, 'Land', None, 0)
@@ -1252,7 +1156,7 @@ class DeckBuilder:
     
     def add_kindred_lands(self):
         """Add lands that support tribal/kindred themes."""
-        logging.info('Adding Kindred-themed lands')
+        logger.info('Adding Kindred-themed lands')
         
         # Standard Kindred support lands
         KINDRED_STAPLES = [
@@ -1269,7 +1173,7 @@ class DeckBuilder:
             for theme in self.themes:
                 if 'Kindred' in theme:
                     creature_type = theme.replace(' Kindred', '')
-                    logging.info(f'Searching for {creature_type}-specific lands')
+                    logger.info(f'Searching for {creature_type}-specific lands')
                     
                     # Filter lands by creature type
                     type_specific = self.land_df[
@@ -1299,17 +1203,18 @@ class DeckBuilder:
             self.land_df = self.land_df[~self.land_df['name'].isin(lands_to_remove)]
             self.land_df.to_csv(f'{csv_directory}/test_lands.csv', index=False)
             
-            logging.info(f'Added {len(lands_to_remove)} Kindred-themed lands')
+            logger.info(f'Added {len(lands_to_remove)} Kindred-themed lands')
             
         except Exception as e:
-            logging.error(f"Error adding Kindred lands: {e}")
+            logger.error(f"Error adding Kindred lands: {e}")
             raise
     def add_dual_lands(self):
         # Determine dual-color lands available 
         
         # Determine if using the dual-type lands
         print('Would you like to include Dual-type lands (i.e. lands that count as both a Plains and a Swamp for example)?')
-        choice = self.questionnaire('Confirm', True)
+        choice = self.input_handler.questionnaire('Confirm', True)
+        choice = self.input_handler.questionnaire('Confirm', True)
         color_filter = []
         color_dict = {
             'azorius': 'Plains Island',
@@ -1351,15 +1256,15 @@ class DeckBuilder:
             self.land_df = self.land_df[~self.land_df['name'].isin(lands_to_remove)]
             self.land_df.to_csv(f'{csv_directory}/test_lands.csv', index=False)
             
-            logging.info(f'Added {len(card_pool)} Dual-type land cards.')
+            logger.info(f'Added {len(card_pool)} Dual-type land cards.')
             
         if not choice:
-            logging.info('Skipping adding Dual-type land cards.')
+            logger.info('Skipping adding Dual-type land cards.')
     
     def add_triple_lands(self):
         # Determine if using Triome lands
         print('Would you like to include triome lands (i.e. lands that count as a Mountain, Forest, and Plains for example)?')
-        choice = self.questionnaire('Confirm', True)
+        choice = self.input_handler.questionnaire('Confirm', True)
         
         color_filter = []
         color_dict = {
@@ -1402,14 +1307,14 @@ class DeckBuilder:
             self.land_df = self.land_df[~self.land_df['name'].isin(lands_to_remove)]
             self.land_df.to_csv(f'{csv_directory}/test_lands.csv', index=False)
             
-            logging.info(f'Added {len(card_pool)} Triome land cards.')
+            logger.info(f'Added {len(card_pool)} Triome land cards.')
             
         if not choice:
-            logging.info('Skipping adding Triome land cards.')
+            logger.info('Skipping adding Triome land cards.')
     
     def add_misc_lands(self):
         """Add additional utility lands that fit the deck's color identity."""
-        logging.info('Adding miscellaneous utility lands')
+        logger.info('Adding miscellaneous utility lands')
         
         MIN_MISC_LANDS = 5
         MAX_MISC_LANDS = 15
@@ -1435,7 +1340,7 @@ class DeckBuilder:
             ]
             
             if not card_pool:
-                logging.warning("No eligible misc lands found")
+                logger.warning("No eligible misc lands found")
                 return
             
             # Randomly select lands within constraints
@@ -1465,10 +1370,10 @@ class DeckBuilder:
             self.land_df = self.land_df[~self.land_df['name'].isin(lands_to_remove)]
             self.land_df.to_csv(f'{csv_directory}/test_lands.csv', index=False)
             
-            logging.info(f'Added {len(cards_to_add)} miscellaneous lands')
+            logger.info(f'Added {len(cards_to_add)} miscellaneous lands')
             
         except Exception as e:
-            logging.error(f"Error adding misc lands: {e}")
+            logger.error(f"Error adding misc lands: {e}")
             raise
     def check_basics(self):
         """Check and display counts of each basic land type."""
@@ -1491,11 +1396,11 @@ class DeckBuilder:
             basic_lands[land] = count
             self.total_basics += count
         
-        logging.info("\nBasic Land Counts:")
+        logger.info("\nBasic Land Counts:")
         for land, count in basic_lands.items():
             if count > 0:
-                logging.info(f"{land}: {count}")
-        logging.info(f"Total basic lands: {self.total_basics}\n")
+                logger.info(f"{land}: {count}")
+        logger.info(f"Total basic lands: {self.total_basics}\n")
    
     def remove_basic(self, max_attempts: int = 3):
         """
@@ -1505,7 +1410,7 @@ class DeckBuilder:
         Args:
             max_attempts: Maximum number of removal attempts before falling back to non-basics
         """
-        logging.info('Land count over ideal count, removing a basic land.')
+        logger.info('Land count over ideal count, removing a basic land.')
         
         color_to_basic = {
             'W': 'Plains', 'U': 'Island', 'B': 'Swamp',
@@ -1524,7 +1429,7 @@ class DeckBuilder:
         
         while attempts < max_attempts and sum_basics > self.min_basics:
             if not basic_counts:
-                logging.warning("No basic lands found to remove")
+                logger.warning("No basic lands found to remove")
                 break
                 
             basic_land = max(basic_counts.items(), key=lambda x: x[1])[0]
@@ -1537,22 +1442,22 @@ class DeckBuilder:
                     
                 index_to_drop = self.card_library[mask].index[0]
                 self.card_library = self.card_library.drop(index_to_drop).reset_index(drop=True)
-                logging.info(f'{basic_land} removed successfully')
+                logger.info(f'{basic_land} removed successfully')
                 return
                 
             except (IndexError, KeyError) as e:
-                logging.error(f"Error removing {basic_land}: {e}")
+                logger.error(f"Error removing {basic_land}: {e}")
                 basic_counts.pop(basic_land)
             
             attempts += 1
             
         # If we couldn't remove a basic land, try removing a non-basic
-        logging.warning("Could not remove basic land, attempting to remove non-basic")
+        logger.warning("Could not remove basic land, attempting to remove non-basic")
         self.remove_land()
     
     def remove_land(self):
         """Remove a random non-basic, non-staple land from the deck."""
-        logging.info('Removing a random nonbasic land.')
+        logger.info('Removing a random nonbasic land.')
 
         # Define basic lands including snow-covered variants
         basic_lands = [
@@ -1569,25 +1474,25 @@ class DeckBuilder:
             ].copy()
 
             if len(library_filter) == 0:
-                logging.warning("No suitable non-basic lands found to remove.")
+                logger.warning("No suitable non-basic lands found to remove.")
                 return
 
             # Select random land to remove
             card_index = np.random.choice(library_filter.index)
             card_name = self.card_library.loc[card_index, 'Card Name']
 
-            logging.info(f"Removing {card_name}")
+            logger.info(f"Removing {card_name}")
             self.card_library.drop(card_index, inplace=True)
             self.card_library.reset_index(drop=True, inplace=True)
-            logging.info("Card removed successfully.")
+            logger.info("Card removed successfully.")
 
         except Exception as e:
-            logging.error(f"Error removing land: {e}")
-            logging.warning("Failed to remove land card.")
+            logger.error(f"Error removing land: {e}")
+            logger.warning("Failed to remove land card.")
     
     def count_pips(self):
         """Count and display the number of colored mana symbols in casting costs using vectorized operations."""
-        logging.info('Analyzing color pip distribution...')
+        logger.info('Analyzing color pip distribution...')
         
         # Define colors to check
         colors = ['W', 'U', 'B', 'R', 'G']
@@ -1598,19 +1503,19 @@ class DeckBuilder:
         
         total_pips = sum(pip_counts.values())
         if total_pips == 0:
-            logging.error("No colored mana symbols found in casting costs.")
+            logger.error("No colored mana symbols found in casting costs.")
             return
         
-        logging.info("\nColor Pip Distribution:")
+        logger.info("\nColor Pip Distribution:")
         for color, count in pip_counts.items():
             if count > 0:
                 percentage = (count / total_pips) * 100
                 print(f"{color}: {count} pips ({percentage:.1f}%)")
-        logging.info(f"Total colored pips: {total_pips}\n")
+        logger.info(f"Total colored pips: {total_pips}\n")
         
     def get_cmc(self):
         """Calculate average converted mana cost of non-land cards."""
-        logging.info('Calculating average mana value of non-land cards.')
+        logger.info('Calculating average mana value of non-land cards.')
         
         try:
             # Filter non-land cards
@@ -1619,17 +1524,17 @@ class DeckBuilder:
             ].copy()
             
             if non_land.empty:
-                logging.warning("No non-land cards found")
+                logger.warning("No non-land cards found")
                 self.cmc = 0.0
             else:
                 total_cmc = non_land['Mana Value'].sum()
                 self.cmc = round(total_cmc / len(non_land), 2)
             
             self.commander_dict.update({'CMC': float(self.cmc)})
-            logging.info(f"Average CMC: {self.cmc}")
+            logger.info(f"Average CMC: {self.cmc}")
             
         except Exception as e:
-            logging.error(f"Error calculating CMC: {e}")
+            logger.error(f"Error calculating CMC: {e}")
             self.cmc = 0.0
     
     def weight_by_theme(self, tag, ideal=1, weight=1, df=None):
@@ -1692,7 +1597,7 @@ class DeckBuilder:
                 
             elif (card['name'] not in multiple_copy_cards
                   and card['name'] in self.card_library['Card Name'].values):
-                logging.warning(f"{card['name']} already in Library, skipping it.")
+                logger.warning(f"{card['name']} already in Library, skipping it.")
                 continue
         
         # Add selected cards to library
@@ -1703,7 +1608,7 @@ class DeckBuilder:
         card_pool_names = [item['name'] for item in card_pool]
         self.full_df = self.full_df[~self.full_df['name'].isin(card_pool_names)]
         self.noncreature_df = self.noncreature_df[~self.noncreature_df['name'].isin(card_pool_names)]
-        logging.info(f'Added {len(cards_to_add)} {tag} cards')
+        logger.info(f'Added {len(cards_to_add)} {tag} cards')
         #tag_df.to_csv(f'{csv_directory}/test_{tag}.csv', index=False)
     
     def add_by_tags(self, tag, ideal_value=1, df=None):
@@ -1763,7 +1668,7 @@ class DeckBuilder:
         card_pool_names = [item['name'] for item in card_pool]
         self.full_df = self.full_df[~self.full_df['name'].isin(card_pool_names)]
         self.noncreature_df = self.noncreature_df[~self.noncreature_df['name'].isin(card_pool_names)]
-        logging.info(f'Added {len(cards_to_add)} {tag} cards')
+        logger.info(f'Added {len(cards_to_add)} {tag} cards')
         #tag_df.to_csv(f'{csv_directory}/test_{tag}.csv', index=False)
         
     def add_creatures(self):
@@ -1797,10 +1702,10 @@ class DeckBuilder:
                 self.weight_by_theme(self.tertiary_theme, self.ideal_creature_count, self.tertiary_weight, self.creature_df)
                 
         except Exception as e:
-            logging.error(f"Error while adding creatures: {e}")
+            logger.error(f"Error while adding creatures: {e}")
         finally:
             self.organize_library()
-            logging.info(f'Creature addition complete. Total creatures (including commander): {self.creature_cards}')
+            logger.info(f'Creature addition complete. Total creatures (including commander): {self.creature_cards}')
     
     def add_ramp(self):
         try:
@@ -1808,45 +1713,45 @@ class DeckBuilder:
             self.add_by_tags('Mana Dork', math.ceil(self.ideal_ramp / 4), self.creature_df)
             self.add_by_tags('Ramp', math.ceil(self.ideal_ramp / 2), self.noncreature_df)
         except Exception as e:
-            logging.error(f"Error while adding Ramp: {e}")
+            logger.error(f"Error while adding Ramp: {e}")
         finally:
-            logging.info('Adding Ramp complete.')
+            logger.info('Adding Ramp complete.')
     
     def add_interaction(self):
         try:
             self.add_by_tags('Removal', self.ideal_removal, self.noncreature_nonplaneswaker_df)
             self.add_by_tags('Protection', self.ideal_protection, self.noncreature_nonplaneswaker_df)
         except Exception as e:
-            logging.error(f"Error while adding Interaction: {e}")
+            logger.error(f"Error while adding Interaction: {e}")
         finally:
-            logging.info('Adding Interaction complete.')
+            logger.info('Adding Interaction complete.')
         
     def add_board_wipes(self):
         try:
             self.add_by_tags('Board Wipes', self.ideal_wipes, self.full_df)
         except Exception as e:
-            logging.error(f"Error while adding Board Wipes: {e}")
+            logger.error(f"Error while adding Board Wipes: {e}")
         finally:
-            logging.info('Adding Board Wipes complete.')
+            logger.info('Adding Board Wipes complete.')
         
     def add_card_advantage(self):
         try:
             self.add_by_tags('Conditional Draw', math.ceil(self.ideal_card_advantage * 0.2), self.full_df)
             self.add_by_tags('Unconditional Draw', math.ceil(self.ideal_card_advantage * 0.8), self.noncreature_nonplaneswaker_df)
         except Exception as e:
-            logging.error(f"Error while adding Card Draw: {e}")
+            logger.error(f"Error while adding Card Draw: {e}")
         finally:
-            logging.info('Adding Card Draw complete.')
+            logger.info('Adding Card Draw complete.')
     
     def fill_out_deck(self):
         """Fill out the deck to 100 cards with theme-appropriate cards."""
-        logging.info('Filling out the Library to 100 with cards fitting the themes.')
+        logger.info('Filling out the Library to 100 with cards fitting the themes.')
         
         cards_needed = 100 - len(self.card_library)
         if cards_needed <= 0:
             return
         
-        logging.info(f"Need to add {cards_needed} more cards")
+        logger.info(f"Need to add {cards_needed} more cards")
         
         # Define maximum attempts and timeout
         MAX_ATTEMPTS = max(20, cards_needed * 2)
@@ -1857,7 +1762,7 @@ class DeckBuilder:
         while len(self.card_library) < 100 and attempts < MAX_ATTEMPTS:
             # Check timeout
             if time.time() - start_time > MAX_TIME:
-                logging.error("Timeout reached while filling deck")
+                logger.error("Timeout reached while filling deck")
                 break
                 
             initial_count = len(self.card_library)
@@ -1884,23 +1789,23 @@ class DeckBuilder:
                 if len(self.card_library) == initial_count:
                     attempts += 1
                     if attempts % 5 == 0:
-                        logging.warning(f"Made {attempts} attempts, still need {100 - len(self.card_library)} cards")
+                        logger.warning(f"Made {attempts} attempts, still need {100 - len(self.card_library)} cards")
                         
                 # Break early if we're stuck
                 if attempts >= MAX_ATTEMPTS / 2 and len(self.card_library) < initial_count + (cards_needed / 4):
-                    logging.warning("Insufficient progress being made, breaking early")
+                    logger.warning("Insufficient progress being made, breaking early")
                     break
                     
             except Exception as e:
-                logging.error(f"Error while adding cards: {e}")
+                logger.error(f"Error while adding cards: {e}")
                 attempts += 1
         
         final_count = len(self.card_library)
         if final_count < 100:
             message = f"\nWARNING: Deck is incomplete with {final_count} cards. Manual additions may be needed."
-            logging.warning(message)
+            logger.warning(message)
         else:
-            logging.info(f"Successfully filled deck to {final_count} cards in {attempts} attempts")
+            logger.info(f"Successfully filled deck to {final_count} cards in {attempts} attempts")
 def main():
     """Main entry point for deck builder application."""
     build_deck = DeckBuilder()

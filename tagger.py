@@ -13,7 +13,7 @@ import settings # type: ignore
 import tag_utils # type: ignore
 
 # Local application imports
-from settings import csv_directory, multiple_copy_cards, num_to_search, triggers
+from settings import CSV_DIRECTORY, multiple_copy_cards, num_to_search, triggers
 from setup import regenerate_csv_by_color
 
 
@@ -68,7 +68,7 @@ def load_dataframe(color: str) -> None:
         ValueError: If required columns are missing
     """
     try:
-        filepath = f'{csv_directory}/{color}_cards.csv'
+        filepath = f'{CSV_DIRECTORY}/{color}_cards.csv'
 
         # Check if file exists, regenerate if needed
         if not os.path.exists(filepath):
@@ -170,7 +170,7 @@ def tag_by_color(df: pd.DataFrame, color: str) -> None:
     
     # Lastly, sort all theme tags for easier reading
     sort_theme_tags(df, color)
-    df.to_csv(f'{csv_directory}/{color}_cards.csv', index=False)
+    df.to_csv(f'{CSV_DIRECTORY}/{color}_cards.csv', index=False)
     #print(df)
     print('\n====================\n')
     logger.info(f'Tags are done being set on {color}_cards.csv')
@@ -255,7 +255,7 @@ def kindred_tagging(df: pd.DataFrame, color: str) -> None:
                 'keywords', 'layout', 'side'
             ]
             df = df[columns_to_keep]
-            df.to_csv(f'{settings.csv_directory}/{color}_cards.csv', index=False)
+            df.to_csv(f'{settings.CSV_DIRECTORY}/{color}_cards.csv', index=False)
             total_time = pd.Timestamp.now() - start_time
             logger.info(f'Creature type tagging completed in {total_time.total_seconds():.2f}s')
 
@@ -320,7 +320,7 @@ def create_theme_tags(df: pd.DataFrame, color: str) -> None:
         
         # Save results
         try:
-            df.to_csv(f'{settings.csv_directory}/{color}_cards.csv', index=False)
+            df.to_csv(f'{settings.CSV_DIRECTORY}/{color}_cards.csv', index=False)
             total_time = pd.Timestamp.now() - start_time
             logger.info(f'Creature type tagging completed in {total_time.total_seconds():.2f}s')
 
@@ -6426,5 +6426,3 @@ def run_tagging():
         load_dataframe(color)
     duration = (pd.Timestamp.now() - start_time).total_seconds()
     logger.info(f'Tagged cards in {duration:.2f}s')
-    
-run_tagging()

@@ -36,6 +36,10 @@ from settings import (
     FILL_NA_COLUMNS,
     SORT_CONFIG,
     FILTER_CONFIG,
+    COLUMN_ORDER,
+    PRETAG_COLUMN_ORDER,
+    EXCLUDED_CARD_TYPES,
+    TAGGED_COLUMN_ORDER
 )
 from exceptions import (
     MTGJSONDownloadError,
@@ -43,6 +47,7 @@ from exceptions import (
     ColorFilterError,
     CommanderValidationError
 )
+from type_definitions import CardLibraryDF
 
 # Create logs directory if it doesn't exist
 if not os.path.exists('logs'):
@@ -340,3 +345,73 @@ def process_legendary_cards(df: pd.DataFrame) -> pd.DataFrame:
             "commander_processing",
             str(e)
         ) from e
+
+def process_card_dataframe(df: CardLibraryDF, batch_size: int = 1000, columns_to_keep: Optional[List[str]] = None,
+                         include_commander_cols: bool = False, skip_availability_checks: bool = False) -> pd.DataFrame:
+    """Process DataFrame with common operations in batches.
+
+    Args:
+        df: DataFrame to process
+        batch_size: Size of batches for processing
+        columns_to_keep: List of columns to keep (default: COLUMN_ORDER)
+        include_commander_cols: Whether to include commander-specific columns
+        skip_availability_checks: Whether to skip availability and security checks (default: False)
+
+    Args:
+        df: DataFrame to process
+        batch_size: Size of batches for processing
+        columns_to_keep: List of columns to keep (default: COLUMN_ORDER)
+        include_commander_cols: Whether to include commander-specific columns
+
+    Returns:
+        CardLibraryDF: Processed DataFrame with standardized structure
+    """
+    logger.info("Processing card DataFrame...")
+
+    if columns_to_keep is None:
+        columns_to_keep = TAGGED_COLUMN_ORDER.copy()
+        if include_commander_cols:
+            commander_cols = ['printings', 'text', 'power', 'toughness', 'keywords']
+            columns_to_keep.extend(col for col in commander_cols if col not in columns_to_keep)
+
+    # Fill NA values
+    df.loc[:, 'colorIdentity'] = df['colorIdentity'].fillna('Colorless')
+    df.loc[:, 'faceName'] = df['faceName'].fillna(df['name'])
+
+    # Process in batches
+    total_batches = len(df) // batch_size + 1
+    processed_dfs = []
+
+    for i in tqdm(range(total_batches), desc="Processing batches"):
+        start_idx = i * batch_size
+        end_idx = min((i + 1) * batch_size, len(df))
+        batch = df.iloc[start_idx:end_idx].copy()
+
+        if not skip_availability_checks:
+            columns_to_keep = COLUMN_ORDER.copy()
+            logger.debug("Performing column checks...")
+            # Common processing steps
+            batch = batch[batch['availability'].str.contains('paper', na=False)]
+            batch = batch.loc[batch['layout'] != 'reversible_card']
+            batch = batch.loc[batch['promoTypes'] != 'playtest']
+            batch = batch.loc[batch['securityStamp'] != 'heart']
+            batch = batch.loc[batch['securityStamp'] != 'acorn']
+            # Keep only specified columns
+            batch = batch[columns_to_keep]
+            processed_dfs.append(batch)
+        else:
+            logger.debug("Skipping column checks...")
+    
+    # Keep only specified columns
+    batch = batch[columns_to_keep]
+    processed_dfs.append(batch)
+
+    # Combine processed batches
+    result = pd.concat(processed_dfs, ignore_index=True)
+
+    # Final processing
+    result.drop_duplicates(subset='faceName', keep='first', inplace=True)
+    result.sort_values(by=['name', 'side'], key=lambda col: col.str.lower(), inplace=True)
+
+    logger.info("DataFrame processing completed")
+    return result

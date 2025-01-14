@@ -13,7 +13,7 @@ import inquirer
 
 # Local application imports
 from settings import (
-    banned_cards, csv_directory, SETUP_COLORS, COLOR_ABRV, MTGJSON_API_URL
+    banned_cards, CSV_DIRECTORY, SETUP_COLORS, COLOR_ABRV, MTGJSON_API_URL
 )
 from setup_utils import (
     download_cards_csv, filter_dataframe, process_legendary_cards, filter_by_color_identity
@@ -72,7 +72,7 @@ def initial_setup() -> None:
     logger.info('Checking for cards.csv file')
     
     try:
-        cards_file = f'{csv_directory}/cards.csv'
+        cards_file = f'{CSV_DIRECTORY}/cards.csv'
         try:
             with open(cards_file, 'r', encoding='utf-8'):
                 logger.info('cards.csv exists')
@@ -88,11 +88,11 @@ def initial_setup() -> None:
         for i in range(min(len(SETUP_COLORS), len(COLOR_ABRV))):
             logger.info(f'Checking for {SETUP_COLORS[i]}_cards.csv')
             try:
-                with open(f'{csv_directory}/{SETUP_COLORS[i]}_cards.csv', 'r', encoding='utf-8'):
+                with open(f'{CSV_DIRECTORY}/{SETUP_COLORS[i]}_cards.csv', 'r', encoding='utf-8'):
                     logger.info(f'{SETUP_COLORS[i]}_cards.csv exists')
             except FileNotFoundError:
                 logger.info(f'{SETUP_COLORS[i]}_cards.csv not found, creating one')
-                filter_by_color(df, 'colorIdentity', COLOR_ABRV[i], f'{csv_directory}/{SETUP_COLORS[i]}_cards.csv')
+                filter_by_color(df, 'colorIdentity', COLOR_ABRV[i], f'{CSV_DIRECTORY}/{SETUP_COLORS[i]}_cards.csv')
 
         # Generate commander list
         determine_commanders()
@@ -143,7 +143,7 @@ def determine_commanders() -> None:
     
     try:
         # Check for cards.csv with progress tracking
-        cards_file = f'{csv_directory}/cards.csv'
+        cards_file = f'{CSV_DIRECTORY}/cards.csv'
         if not check_csv_exists(cards_file):
             logger.info('cards.csv not found, initiating download')
             download_cards_csv(MTGJSON_API_URL, cards_file)
@@ -169,7 +169,7 @@ def determine_commanders() -> None:
         
         # Save commander cards
         logger.info('Saving validated commander cards')
-        filtered_df.to_csv(f'{csv_directory}/commander_cards.csv', index=False)
+        filtered_df.to_csv(f'{CSV_DIRECTORY}/commander_cards.csv', index=False)
         
         logger.info('Commander card generation completed successfully')
         
@@ -196,10 +196,10 @@ def regenerate_csvs_all() -> None:
     """
     try:
         logger.info('Downloading latest card data from MTGJSON')
-        download_cards_csv(MTGJSON_API_URL, f'{csv_directory}/cards.csv')
+        download_cards_csv(MTGJSON_API_URL, f'{CSV_DIRECTORY}/cards.csv')
         
         logger.info('Loading and processing card data')
-        df = pd.read_csv(f'{csv_directory}/cards.csv', low_memory=False)
+        df = pd.read_csv(f'{CSV_DIRECTORY}/cards.csv', low_memory=False)
         df['colorIdentity'] = df['colorIdentity'].fillna('Colorless')
         
         logger.info('Regenerating color identity sorted files')
@@ -207,7 +207,7 @@ def regenerate_csvs_all() -> None:
             color = SETUP_COLORS[i]
             color_id = COLOR_ABRV[i]
             logger.info(f'Processing {color} cards')
-            filter_by_color(df, 'colorIdentity', color_id, f'{csv_directory}/{color}_cards.csv')
+            filter_by_color(df, 'colorIdentity', color_id, f'{CSV_DIRECTORY}/{color}_cards.csv')
             
         logger.info('Regenerating commander cards')
         determine_commanders()
@@ -239,14 +239,14 @@ def regenerate_csv_by_color(color: str) -> None:
         color_abv = COLOR_ABRV[SETUP_COLORS.index(color)]
         
         logger.info(f'Downloading latest card data for {color} cards')
-        download_cards_csv(MTGJSON_API_URL, f'{csv_directory}/cards.csv')
+        download_cards_csv(MTGJSON_API_URL, f'{CSV_DIRECTORY}/cards.csv')
         
         logger.info('Loading and processing card data')
-        df = pd.read_csv(f'{csv_directory}/cards.csv', low_memory=False)
+        df = pd.read_csv(f'{CSV_DIRECTORY}/cards.csv', low_memory=False)
         df['colorIdentity'] = df['colorIdentity'].fillna('Colorless')
         
         logger.info(f'Regenerating {color} cards CSV')
-        filter_by_color(df, 'colorIdentity', color_abv, f'{csv_directory}/{color}_cards.csv')
+        filter_by_color(df, 'colorIdentity', color_abv, f'{CSV_DIRECTORY}/{color}_cards.csv')
         
         logger.info(f'Successfully regenerated {color} cards database')
         

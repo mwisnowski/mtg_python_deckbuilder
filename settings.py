@@ -1,16 +1,44 @@
-"""Constants and configuration settings for the MTG Python Deckbuilder.
+from typing import Dict, List, Optional, Final, Tuple, Pattern, Union
+import ast
 
-This module contains all the constant values and configuration settings used throughout
-the application for card filtering, processing, and analysis. Constants are organized
-into logical sections with clear documentation.
+# Commander selection configuration
+COMMANDER_CSV_PATH: Final[str] = 'csv_files/commander_cards.csv'
+FUZZY_MATCH_THRESHOLD: Final[int] = 90  # Threshold for fuzzy name matching
+MAX_FUZZY_CHOICES: Final[int] = 5  # Maximum number of fuzzy match choices
+COMMANDER_CONVERTERS: Final[Dict[str, str]] = {'themeTags': ast.literal_eval, 'creatureTypes': ast.literal_eval}  # CSV loading converters
 
-All constants are properly typed according to PEP 484 standards to ensure type safety
-and enable static type checking with mypy.
-"""
+# Commander-related constants
+COMMANDER_POWER_DEFAULT: Final[int] = 0
+COMMANDER_TOUGHNESS_DEFAULT: Final[int] = 0
+COMMANDER_MANA_VALUE_DEFAULT: Final[int] = 0
+COMMANDER_TYPE_DEFAULT: Final[str] = ''
+COMMANDER_TEXT_DEFAULT: Final[str] = ''
+COMMANDER_MANA_COST_DEFAULT: Final[str] = ''
+COMMANDER_COLOR_IDENTITY_DEFAULT: Final[str] = ''
+COMMANDER_COLORS_DEFAULT: Final[List[str]] = []
+COMMANDER_CREATURE_TYPES_DEFAULT: Final[str] = ''
+COMMANDER_TAGS_DEFAULT: Final[List[str]] = []
+COMMANDER_THEMES_DEFAULT: Final[List[str]] = []
 
-from typing import Dict, List, Optional
-
+# Price checking configuration
+DEFAULT_PRICE_DELAY: Final[float] = 0.1  # Delay between price checks in seconds
+MAX_PRICE_CHECK_ATTEMPTS: Final[int] = 3  # Maximum attempts for price checking
+PRICE_CACHE_SIZE: Final[int] = 128  # Size of price check LRU cache
+PRICE_CHECK_TIMEOUT: Final[int] = 30  # Timeout for price check requests in seconds
+PRICE_TOLERANCE_MULTIPLIER: Final[float] = 1.1  # Multiplier for price tolerance
+DEFAULT_MAX_CARD_PRICE: Final[float] = 20.0  # Default maximum price per card
+DEFAULT_MAX_DECK_PRICE: Final[float] = 400.0  # Default maximum total deck price
+BATCH_PRICE_CHECK_SIZE: Final[int] = 50  # Number of cards to check prices for in one batch
 # Constants for input validation
+
+# Type aliases
+CardName = str
+CardType = str
+ThemeTag = str
+ColorIdentity = str
+ColorList = List[str]
+ColorInfo = Tuple[str, List[str], List[str]]
+
 INPUT_VALIDATION = {
     'max_attempts': 3,
     'default_text_message': 'Please enter a valid text response.',
@@ -52,8 +80,7 @@ banned_cards = [# in commander
                 'Jihad', 'Imprison', 'Crusade'
                 ]
 
-basic_lands = ['Plains', 'Island', 'Swamp', 'Mountain', 'Forest']
-basic_lands = ['Plains', 'Island', 'Swamp', 'Mountain', 'Forest']
+BASIC_LANDS = ['Plains', 'Island', 'Swamp', 'Mountain', 'Forest']
 
 # Constants for lands matter functionality
 LANDS_MATTER_PATTERNS: Dict[str, List[str]] = {
@@ -530,7 +557,7 @@ BOARD_WIPE_EXCLUSION_PATTERNS = [
 ]
 
 
-card_types = ['Artifact','Creature', 'Enchantment', 'Instant', 'Land', 'Planeswalker', 'Sorcery',
+CARD_TYPES = ['Artifact','Creature', 'Enchantment', 'Instant', 'Land', 'Planeswalker', 'Sorcery',
               'Kindred', 'Dungeon', 'Battle']
 
 # Mapping of card types to their corresponding theme tags
@@ -547,9 +574,102 @@ TYPE_TAG_MAPPING = {
     'Sorcery': ['Spells Matter', 'Spellslinger']
 }
 
-csv_directory = 'csv_files'
+CSV_DIRECTORY = 'csv_files'
 
-colors = ['colorless', 'white', 'blue', 'black', 'red', 'green',
+# Color identity constants and mappings
+MONO_COLOR_MAP: Final[Dict[str, Tuple[str, List[str]]]] = {
+    'COLORLESS': ('Colorless', ['colorless']),
+    'W': ('White', ['colorless', 'white']),
+    'U': ('Blue', ['colorless', 'blue']),
+    'B': ('Black', ['colorless', 'black']),
+    'R': ('Red', ['colorless', 'red']),
+    'G': ('Green', ['colorless', 'green'])
+}
+
+DUAL_COLOR_MAP: Final[Dict[str, Tuple[str, List[str], List[str]]]] = {
+    'B, G': ('Golgari: Black/Green', ['B', 'G', 'B, G'], ['colorless', 'black', 'green', 'golgari']),
+    'B, R': ('Rakdos: Black/Red', ['B', 'R', 'B, R'], ['colorless', 'black', 'red', 'rakdos']),
+    'B, U': ('Dimir: Black/Blue', ['B', 'U', 'B, U'], ['colorless', 'black', 'blue', 'dimir']),
+    'B, W': ('Orzhov: Black/White', ['B', 'W', 'B, W'], ['colorless', 'black', 'white', 'orzhov']),
+    'G, R': ('Gruul: Green/Red', ['G', 'R', 'G, R'], ['colorless', 'green', 'red', 'gruul']),
+    'G, U': ('Simic: Green/Blue', ['G', 'U', 'G, U'], ['colorless', 'green', 'blue', 'simic']),
+    'G, W': ('Selesnya: Green/White', ['G', 'W', 'G, W'], ['colorless', 'green', 'white', 'selesnya']),
+    'R, U': ('Izzet: Blue/Red', ['U', 'R', 'U, R'], ['colorless', 'blue', 'red', 'izzet']),
+    'U, W': ('Azorius: Blue/White', ['U', 'W', 'U, W'], ['colorless', 'blue', 'white', 'azorius']),
+    'R, W': ('Boros: Red/White', ['R', 'W', 'R, W'], ['colorless', 'red', 'white', 'boros'])
+}
+
+TRI_COLOR_MAP: Final[Dict[str, Tuple[str, List[str], List[str]]]] = {
+    'B, G, U': ('Sultai: Black/Blue/Green', ['B', 'G', 'U', 'B, G', 'B, U', 'G, U', 'B, G, U'],
+                ['colorless', 'black', 'blue', 'green', 'dimir', 'golgari', 'simic', 'sultai']),
+    'B, G, R': ('Jund: Black/Red/Green', ['B', 'G', 'R', 'B, G', 'B, R', 'G, R', 'B, G, R'],
+                ['colorless', 'black', 'green', 'red', 'golgari', 'rakdos', 'gruul', 'jund']),
+    'B, G, W': ('Abzan: Black/Green/White', ['B', 'G', 'W', 'B, G', 'B, W', 'G, W', 'B, G, W'],
+                ['colorless', 'black', 'green', 'white', 'golgari', 'orzhov', 'selesnya', 'abzan']),
+    'B, R, U': ('Grixis: Black/Blue/Red', ['B', 'R', 'U', 'B, R', 'B, U', 'R, U', 'B, R, U'],
+                ['colorless', 'black', 'blue', 'red', 'dimir', 'rakdos', 'izzet', 'grixis']),
+    'B, R, W': ('Mardu: Black/Red/White', ['B', 'R', 'W', 'B, R', 'B, W', 'R, W', 'B, R, W'],
+                ['colorless', 'black', 'red', 'white', 'rakdos', 'orzhov', 'boros', 'mardu']),
+    'B, U, W': ('Esper: Black/Blue/White', ['B', 'U', 'W', 'B, U', 'B, W', 'U, W', 'B, U, W'],
+                ['colorless', 'black', 'blue', 'white', 'dimir', 'orzhov', 'azorius', 'esper']),
+    'G, R, U': ('Temur: Blue/Green/Red', ['G', 'R', 'U', 'G, R', 'G, U', 'R, U', 'G, R, U'],
+                ['colorless', 'green', 'red', 'blue', 'simic', 'izzet', 'gruul', 'temur']),
+    'G, R, W': ('Naya: Green/Red/White', ['G', 'R', 'W', 'G, R', 'G, W', 'R, W', 'G, R, W'],
+                ['colorless', 'green', 'red', 'white', 'gruul', 'selesnya', 'boros', 'naya']),
+    'G, U, W': ('Bant: Blue/Green/White', ['G', 'U', 'W', 'G, U', 'G, W', 'U, W', 'G, U, W'],
+                ['colorless', 'green', 'blue', 'white', 'simic', 'azorius', 'selesnya', 'bant']),
+    'R, U, W': ('Jeskai: Blue/Red/White', ['R', 'U', 'W', 'R, U', 'U, W', 'R, W', 'R, U, W'],
+                ['colorless', 'blue', 'red', 'white', 'izzet', 'azorius', 'boros', 'jeskai'])
+}
+
+OTHER_COLOR_MAP: Final[Dict[str, Tuple[str, List[str], List[str]]]] = {
+    'B, G, R, U': ('Glint: Black/Blue/Green/Red',
+                   ['B', 'G', 'R', 'U', 'B, G', 'B, R', 'B, U', 'G, R', 'G, U', 'R, U', 'B, G, R',
+                    'B, G, U', 'B, R, U', 'G, R, U', 'B, G, R, U'],
+                   ['colorless', 'black', 'blue', 'green', 'red', 'golgari', 'rakdos', 'dimir',
+                    'gruul', 'simic', 'izzet', 'jund', 'sultai', 'grixis', 'temur', 'glint']),
+    'B, G, R, W': ('Dune: Black/Green/Red/White',
+                   ['B', 'G', 'R', 'W', 'B, G', 'B, R', 'B, W', 'G, R', 'G, W', 'R, W', 'B, G, R',
+                    'B, G, W', 'B, R, W', 'G, R, W', 'B, G, R, W'],
+                   ['colorless', 'black', 'green', 'red', 'white', 'golgari', 'rakdos', 'orzhov',
+                    'gruul', 'selesnya', 'boros', 'jund', 'abzan', 'mardu', 'naya', 'dune']),
+    'B, G, U, W': ('Witch: Black/Blue/Green/White',
+                   ['B', 'G', 'U', 'W', 'B, G', 'B, U', 'B, W', 'G, U', 'G, W', 'U, W', 'B, G, U',
+                    'B, G, W', 'B, U, W', 'G, U, W', 'B, G, U, W'],
+                   ['colorless', 'black', 'blue', 'green', 'white', 'golgari', 'dimir', 'orzhov',
+                    'simic', 'selesnya', 'azorius', 'sultai', 'abzan', 'esper', 'bant', 'witch']),
+    'B, R, U, W': ('Yore: Black/Blue/Red/White',
+                   ['B', 'R', 'U', 'W', 'B, R', 'B, U', 'B, W', 'R, U', 'R, W', 'U, W', 'B, R, U',
+                    'B, R, W', 'B, U, W', 'R, U, W', 'B, R, U, W'],
+                   ['colorless', 'black', 'blue', 'red', 'white', 'rakdos', 'dimir', 'orzhov',
+                    'izzet', 'boros', 'azorius', 'grixis', 'mardu', 'esper', 'jeskai', 'yore']),
+    'G, R, U, W': ('Ink: Blue/Green/Red/White',
+                   ['G', 'R', 'U', 'W', 'G, R', 'G, U', 'G, W', 'R, U', 'R, W', 'U, W', 'G, R, U',
+                    'G, R, W', 'G, U, W', 'R, U, W', 'G, R, U, W'],
+                   ['colorless', 'blue', 'green', 'red', 'white', 'gruul', 'simic', 'selesnya',
+                    'izzet', 'boros', 'azorius', 'temur', 'naya', 'bant', 'jeskai', 'ink']),
+    'B, G, R, U, W': ('WUBRG: All colors',
+                      ['B', 'G', 'R', 'U', 'W', 'B, G', 'B, R', 'B, U', 'B, W', 'G, R', 'G, U',
+                       'G, W', 'R, U', 'R, W', 'U, W', 'B, G, R', 'B, G, U', 'B, G, W', 'B, R, U',
+                       'B, R, W', 'B, U, W', 'G, R, U', 'G, R, W', 'G, U, W', 'R, U, W',
+                       'B, G, R, U', 'B, G, R, W', 'B, G, U, W', 'B, R, U, W', 'G, R, U, W',
+                       'B, G, R, U, W'],
+                      ['colorless', 'black', 'green', 'red', 'blue', 'white', 'golgari', 'rakdos',
+                       'dimir', 'orzhov', 'gruul', 'simic', 'selesnya', 'izzet', 'boros', 'azorius',
+                       'jund', 'sultai', 'abzan', 'grixis', 'mardu', 'esper', 'temur', 'naya',
+                       'bant', 'jeskai', 'glint', 'dune', 'witch', 'yore', 'ink', 'wubrg'])
+}
+
+# Color identity validation patterns
+COLOR_IDENTITY_PATTERNS: Final[Dict[str, str]] = {
+    'mono': r'^[WUBRG]$',
+    'dual': r'^[WUBRG], [WUBRG]$',
+    'tri': r'^[WUBRG], [WUBRG], [WUBRG]$',
+    'four': r'^[WUBRG], [WUBRG], [WUBRG], [WUBRG]$',
+    'five': r'^[WUBRG], [WUBRG], [WUBRG], [WUBRG], [WUBRG]$'
+}
+
+COLORS = ['colorless', 'white', 'blue', 'black', 'red', 'green',
                 'azorius', 'orzhov', 'selesnya', 'boros', 'dimir',
                 'simic', 'izzet', 'golgari', 'rakdos', 'gruul',
                 'bant', 'esper', 'grixis', 'jund', 'naya',
@@ -707,6 +827,21 @@ COLUMN_ORDER = [
     'power', 'toughness', 'keywords', 'themeTags', 'layout', 'side'
 ]
 
+PRETAG_COLUMN_ORDER: List[str] = [
+    'name', 'faceName', 'edhrecRank', 'colorIdentity', 'colors',
+    'manaCost', 'manaValue', 'type', 'text', 'power', 'toughness',
+    'keywords', 'layout', 'side'
+]
+
+TAGGED_COLUMN_ORDER: List[str] = [
+    'name', 'faceName', 'edhrecRank', 'colorIdentity', 'colors',
+    'manaCost', 'manaValue', 'type', 'creatureTypes', 'text',
+    'power', 'toughness', 'keywords', 'themeTags', 'layout', 'side'
+]
+
+EXCLUDED_CARD_TYPES: List[str] = ['Plane —', 'Conspiracy', 'Vanguard', 'Scheme',
+                       'Phenomenon', 'Stickers', 'Attraction', 'Hero',
+                       'Contraption']
 # Constants for type detection and processing
 OUTLAW_TYPES = ['Assassin', 'Mercenary', 'Pirate', 'Rogue', 'Warlock']
 TYPE_DETECTION_BATCH_SIZE = 1000
@@ -757,7 +892,7 @@ EQUIPMENT_TEXT_PATTERNS = [
     'unattach',         # Equipment removal
     'unequip',          # Equipment removal
 ]
-TYPE_DETECTION_BATCH_SIZE = 1000
+
 
 # Constants for Voltron strategy
 VOLTRON_COMMANDER_CARDS = [
@@ -808,6 +943,101 @@ PRICE_CHECK_CONFIG: Dict[str, float] = {
     # Price tolerance factor (e.g., 1.1 means accept prices within 10% difference)
     'price_tolerance': 1.1
 }
+
+# DataFrame processing configuration
+BATCH_SIZE: Final[int] = 1000  # Number of records to process at once
+DATAFRAME_BATCH_SIZE: Final[int] = 500  # Batch size for DataFrame operations
+TRANSFORM_BATCH_SIZE: Final[int] = 250  # Batch size for data transformations
+CSV_DOWNLOAD_TIMEOUT: Final[int] = 30  # Timeout in seconds for CSV downloads
+PROGRESS_UPDATE_INTERVAL: Final[int] = 100  # Number of records between progress updates
+
+# DataFrame operation timeouts
+DATAFRAME_READ_TIMEOUT: Final[int] = 30  # Timeout for DataFrame read operations
+DATAFRAME_WRITE_TIMEOUT: Final[int] = 30  # Timeout for DataFrame write operations
+DATAFRAME_TRANSFORM_TIMEOUT: Final[int] = 45  # Timeout for DataFrame transformations
+DATAFRAME_VALIDATION_TIMEOUT: Final[int] = 20  # Timeout for DataFrame validation
+
+# DataFrame validation configuration
+MIN_EDHREC_RANK: int = 0
+MAX_EDHREC_RANK: int = 100000
+MIN_MANA_VALUE: int = 0
+MAX_MANA_VALUE: int = 20
+
+# DataFrame validation rules
+DATAFRAME_VALIDATION_RULES: Final[Dict[str, Dict[str, Union[str, int, float, bool]]]] = {
+    'name': {'type': ('str', 'object'), 'required': True, 'unique': True},
+    'edhrecRank': {'type': ('str', 'int', 'float', 'object'), 'min': 0, 'max': 100000},
+    'manaValue': {'type': ('str', 'int', 'float', 'object'), 'min': 0, 'max': 20},
+    'power': {'type': ('str', 'int', 'float', 'object'), 'pattern': r'^[\d*+-]+$'},
+    'toughness': {'type': ('str', 'int', 'float', 'object'), 'pattern': r'^[\d*+-]+$'},
+    'colorIdentity': {'type': ('str', 'object'), 'required': True},
+    'text': {'type': ('str', 'object'), 'required': False}
+}
+
+# Card category validation rules
+CREATURE_VALIDATION_RULES: Final[Dict[str, Dict[str, Union[str, int, float, bool]]]] = {
+    'power': {'type': ('str', 'int', 'float'), 'required': True},
+    'toughness': {'type': ('str', 'int', 'float'), 'required': True},
+    'creatureTypes': {'type': 'list', 'required': True}
+}
+
+SPELL_VALIDATION_RULES: Final[Dict[str, Dict[str, Union[str, int, float, bool]]]] = {
+    'manaCost': {'type': 'str', 'required': True},
+    'text': {'type': 'str', 'required': True}
+}
+
+LAND_VALIDATION_RULES: Final[Dict[str, Dict[str, Union[str, int, float, bool]]]] = {
+    'type': {'type': ('str', 'object'), 'required': True},
+    'text': {'type': ('str', 'object'), 'required': False}
+}
+
+# Column mapping configurations
+DATAFRAME_COLUMN_MAPS: Final[Dict[str, Dict[str, str]]] = {
+    'creature': {
+        'name': 'Card Name',
+        'type': 'Card Type',
+        'manaCost': 'Mana Cost',
+        'manaValue': 'Mana Value',
+        'power': 'Power',
+        'toughness': 'Toughness'
+    },
+    'spell': {
+        'name': 'Card Name', 
+        'type': 'Card Type',
+        'manaCost': 'Mana Cost',
+        'manaValue': 'Mana Value'
+    },
+    'land': {
+        'name': 'Card Name',
+        'type': 'Card Type'
+    }
+}
+
+# Required DataFrame columns
+DATAFRAME_REQUIRED_COLUMNS: Final[List[str]] = [
+    'name', 'type', 'colorIdentity', 'manaValue', 'text',
+    'edhrecRank', 'themeTags', 'keywords'
+]
+
+# CSV processing configuration 
+CSV_READ_TIMEOUT: Final[int] = 30  # Timeout in seconds for CSV read operations
+CSV_PROCESSING_BATCH_SIZE: Final[int] = 1000  # Number of rows to process in each batch
+
+# CSV validation configuration
+CSV_VALIDATION_RULES: Final[Dict[str, Dict[str, Union[str, int, float]]]] = {
+    'name': {'type': ('str', 'object'), 'required': True, 'unique': True},
+    'edhrecRank': {'type': ('str', 'int', 'float', 'object'), 'min': 0, 'max': 100000},
+    'manaValue': {'type': ('str', 'int', 'float', 'object'), 'min': 0, 'max': 20},
+    'power': {'type': ('str', 'int', 'float', 'object'), 'pattern': r'^[\d*+-]+$'},
+    'toughness': {'type': ('str', 'int', 'float', 'object'), 'pattern': r'^[\d*+-]+$'}
+}
+
+# Required columns for CSV validation
+CSV_REQUIRED_COLUMNS: Final[List[str]] = [
+    'name', 'faceName', 'edhrecRank', 'colorIdentity', 'colors',
+    'manaCost', 'manaValue', 'type', 'creatureTypes', 'text',
+    'power', 'toughness', 'keywords', 'themeTags', 'layout', 'side'
+]
 # Constants for setup and CSV processing
 MTGJSON_API_URL = 'https://mtgjson.com/api/v5/csv/cards.csv'
 

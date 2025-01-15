@@ -584,3 +584,471 @@ class CommanderThemeError(CommanderValidationError):
             details: Additional context about the error
         """
         super().__init__(message, code="CMD_THEME_ERR", details=details)
+
+class CommanderMoveError(DeckBuilderError):
+    """Raised when there are issues moving the commander to the top of the library.
+    
+    This exception is used when the commander_to_top() method encounters problems
+    such as commander not found in library, invalid deck state, or other issues
+    preventing the commander from being moved to the top position.
+    
+    Examples:
+        >>> raise CommanderMoveError(
+        ...     "Commander not found in library",
+        ...     {"commander_name": "Atraxa, Praetors' Voice"}
+        ... )
+    """
+    
+    def __init__(self, message: str, details: dict | None = None):
+        """Initialize commander move error.
+        
+        Args:
+            message: Description of the move operation failure
+            details: Additional context about the error
+        """
+        super().__init__(message, code="CMD_MOVE_ERR", details=details)
+
+class LibraryOrganizationError(DeckBuilderError):
+    """Base exception class for library organization errors.
+    
+    This exception serves as the base for all errors related to organizing
+    and managing the card library, including card type counting and validation.
+    
+    Attributes:
+        code (str): Error code for identifying the error type
+        message (str): Descriptive error message
+        details (dict): Additional error context and details
+    """
+    
+    def __init__(self, message: str, code: str = "LIB_ORG_ERR", details: dict | None = None):
+        """Initialize the library organization error.
+        
+        Args:
+            message: Human-readable error description
+            code: Error code for identification and handling
+            details: Additional context about the error
+        """
+        super().__init__(message, code=code, details=details)
+
+class LibrarySortError(LibraryOrganizationError):
+    """Raised when there are issues sorting the card library.
+    
+    This exception is used when the sort_library() method encounters problems
+    organizing cards by type and name, such as invalid sort orders or
+    card type categorization errors.
+    
+    Examples:
+        >>> raise LibrarySortError(
+        ...     "Invalid card type sort order",
+        ...     "Card type 'Unknown' not in sort order list"
+        ... )
+    """
+    
+    def __init__(self, message: str, details: dict | None = None):
+        """Initialize library sort error.
+        
+        Args:
+            message: Description of the sorting failure
+            details: Additional context about the error
+        """
+        if details:
+            details = details or {}
+            details['sort_error'] = True
+        super().__init__(message, code="LIB_SORT_ERR", details=details)
+
+class DuplicateCardError(LibraryOrganizationError):
+    """Raised when there are issues processing duplicate cards in the library.
+    
+    This exception is used when the concatenate_duplicates() method encounters problems
+    processing duplicate cards, such as invalid card names, missing data, or
+    inconsistencies in duplicate card information.
+    
+    Examples:
+        >>> raise DuplicateCardError(
+        ...     "Failed to process duplicate cards",
+        ...     "Sol Ring",
+        ...     {"duplicate_count": 3}
+        ... )
+    """
+    
+    def __init__(self, message: str, card_name: str | None = None, details: dict | None = None):
+        """Initialize duplicate card error.
+        
+        Args:
+            message: Description of the duplicate processing failure
+            card_name: Name of the card causing the duplication error
+            details: Additional context about the error
+        """
+        if card_name:
+            details = details or {}
+            details['card_name'] = card_name
+        super().__init__(message, code="DUPLICATE_CARD", details=details)
+
+class CardTypeCountError(LibraryOrganizationError):
+    """Raised when there are issues counting cards of specific types.
+    
+    This exception is used when card type counting operations fail or
+    produce invalid results during library organization.
+    
+    Examples:
+        >>> raise CardTypeCountError(
+        ...     "Invalid creature count",
+        ...     "creature",
+        ...     {"expected": 30, "actual": 15}
+        ... )
+    """
+    
+    def __init__(self, message: str, card_type: str, details: dict | None = None):
+        """Initialize card type count error.
+        
+        Args:
+            message: Description of the counting failure
+            card_type: The type of card that caused the counting error
+            details: Additional context about the error
+        """
+        if card_type:
+            details = details or {}
+            details['card_type'] = card_type
+        super().__init__(message, code="CARD_TYPE_COUNT", details=details)
+
+class ThemeError(DeckBuilderError):
+    """Base exception class for theme-related errors.
+    
+    This exception serves as the base for all theme-related errors in the deck builder,
+    including theme selection, validation, and weight calculation issues.
+    
+    Attributes:
+        code (str): Error code for identifying the error type
+        message (str): Descriptive error message
+        details (dict): Additional error context and details
+    """
+    
+    def __init__(self, message: str, code: str = "THEME_ERR", details: dict | None = None):
+        """Initialize the base theme error.
+        
+        Args:
+            message: Human-readable error description
+            code: Error code for identification and handling
+            details: Additional context about the error
+        """
+        super().__init__(message, code=code, details=details)
+
+class ThemeSelectionError(ThemeError):
+    """Raised when theme selection fails or is invalid.
+    
+    This exception is used when an invalid theme is selected or when
+    the theme selection process is canceled by the user.
+    
+    Examples:
+        >>> raise ThemeSelectionError(
+        ...     "Invalid theme selected",
+        ...     "artifacts",
+        ...     {"available_themes": ["tokens", "lifegain", "counters"]}
+        ... )
+    """
+    
+    def __init__(self, message: str, selected_theme: str | None = None, details: dict | None = None):
+        """Initialize theme selection error.
+        
+        Args:
+            message: Description of the selection failure
+            selected_theme: The invalid theme that was selected (if any)
+            details: Additional context about the error
+        """
+        if selected_theme:
+            details = details or {}
+            details['selected_theme'] = selected_theme
+        super().__init__(message, code="THEME_SELECT", details=details)
+
+class ThemeWeightError(ThemeError):
+    """Raised when theme weight calculation fails.
+    
+    This exception is used when there are errors in calculating or validating
+    theme weights during the theme selection process.
+    """
+    
+    def __init__(self, message: str, theme: str | None = None, details: dict | None = None):
+        """Initialize theme weight error.
+        
+        Args:
+            message: Description of the weight calculation failure
+            theme: The theme that caused the weight calculation error
+            details: Additional context about the error
+        """
+        if theme:
+            details = details or {}
+            details['theme'] = theme
+        super().__init__(message, code="THEME_WEIGHT", details=details)
+
+class IdealDeterminationError(DeckBuilderError):
+    """Raised when there are issues determining deck composition ideals.
+    
+    This exception is used when the determine_ideals() method encounters problems
+    calculating or validating deck composition ratios and requirements.
+    
+    Examples:
+        >>> raise IdealDeterminationError(
+        ...     "Invalid land ratio calculation",
+        ...     {"calculated_ratio": 0.1, "min_allowed": 0.3}
+        ... )
+    """
+    
+    def __init__(self, message: str, details: dict | None = None):
+        """Initialize ideal determination error.
+        
+        Args:
+            message: Description of the ideal calculation failure
+            details: Additional context about the error
+        """
+        super().__init__(message, code="IDEAL_ERR", details=details)
+
+class PriceConfigurationError(DeckBuilderError):
+    """Raised when there are issues configuring price settings.
+    
+    This exception is used when price-related configuration in determine_ideals()
+    is invalid or cannot be properly applied.
+    
+    Examples:
+        >>> raise PriceConfigurationError(
+        ...     "Invalid budget allocation",
+        ...     {"total_budget": 100, "min_card_price": 200}
+        ... )
+    """
+    
+    def __init__(self, message: str, details: dict | None = None):
+        """Initialize price configuration error.
+        
+        Args:
+            message: Description of the price configuration failure
+            details: Additional context about the error
+        """
+        super().__init__(message, code="PRICE_CONFIG_ERR", details=details)
+
+class BasicLandError(DeckBuilderError):
+    """Base exception class for basic land related errors.
+    
+    This exception serves as the base for all basic land related errors in the deck builder,
+    including land distribution, snow-covered lands, and colorless deck handling.
+    
+    Attributes:
+        code (str): Error code for identifying the error type
+        message (str): Descriptive error message
+        details (dict): Additional error context and details
+    """
+    
+    def __init__(self, message: str, code: str = "BASIC_LAND_ERR", details: dict | None = None):
+        """Initialize the basic land error.
+        
+        Args:
+            message: Human-readable error description
+            code: Error code for identification and handling
+        """
+        super().__init__(message, code=code, details=details)
+
+class BasicLandCountError(BasicLandError):
+    """Raised when there are issues with counting basic lands.
+    
+    This exception is used when basic land counting operations fail or
+    produce unexpected results during deck validation or analysis.
+    
+    Examples:
+        >>> raise BasicLandCountError(
+        ...     "Failed to count basic lands in deck",
+        ...     {"expected_count": 35, "actual_count": 0}
+        ... )
+        
+        >>> raise BasicLandCountError(
+        ...     "Invalid basic land count for color distribution",
+        ...     {"color": "U", "count": -1}
+        ... )
+    """
+    
+    def __init__(self, message: str, details: dict | None = None):
+        """Initialize basic land count error.
+        
+        Args:
+            message: Description of the counting operation failure
+            details: Additional context about the error
+        """
+        super().__init__(message, code="BASIC_LAND_COUNT_ERR", details=details)
+
+class StapleLandError(DeckBuilderError):
+    """Raised when there are issues adding staple lands.
+    ```
+    This exception is used when there are problems adding staple lands
+    to the deck, such as invalid land types, missing lands, or
+    incompatible color requirements.
+    
+    Examples:
+        >>> raise StapleLandError(
+        ...     "Failed to add required shock lands",
+        ...     {"missing_lands": ["Steam Vents", "Breeding Pool"]}
+        ... )
+    """
+    
+    def __init__(self, message: str, details: dict | None = None):
+        """Initialize staple land error.
+        
+        Args:
+            message: Description of the staple land operation failure
+            details: Additional context about the error
+        """
+        super().__init__(
+            message,
+            code="STAPLE_LAND_ERR",
+            details=details
+        )
+
+class LandDistributionError(BasicLandError):
+    """Raised when there are issues with basic land distribution.
+    
+    This exception is used when there are problems distributing basic lands
+    across colors, such as invalid color ratios or unsupported color combinations.
+    
+    Examples:
+        >>> raise LandDistributionError(
+        ...     "Invalid land distribution for colorless deck",
+        ...     {"colors": [], "requested_lands": 40}
+        ... )
+    """
+    
+    def __init__(self, message: str, details: dict | None = None):
+        """Initialize land distribution error.
+        
+        Args:
+            message: Description of the land distribution failure
+            details: Additional context about the error
+        """
+        super().__init__(message, code="LAND_DIST_ERR", details=details)
+
+class FetchLandError(DeckBuilderError):
+    """Base exception class for fetch land-related errors.
+    
+    This exception serves as the base for all fetch land-related errors in the deck builder,
+    including validation errors, selection errors, and fetch land processing issues.
+    
+    Attributes:
+        code (str): Error code for identifying the error type
+        message (str): Descriptive error message
+        details (dict): Additional error context and details
+    """
+    
+    def __init__(self, message: str, code: str = "FETCH_ERR", details: dict | None = None):
+        """Initialize the base fetch land error.
+        
+        Args:
+            message: Human-readable error description
+            code: Error code for identification and handling
+            details: Additional context about the error
+        """
+        super().__init__(message, code=code, details=details)
+    
+class KindredLandError(DeckBuilderError):
+    """Base exception class for Kindred land-related errors.
+    
+    This exception serves as the base for all Kindred land-related errors in the deck builder,
+    including validation errors, selection errors, and Kindred land processing issues.
+    
+    Attributes:
+        code (str): Error code for identifying the error type
+        message (str): Descriptive error message
+        details (dict): Additional error context and details
+    """
+    
+    def __init__(self, message: str, code: str = "KINDRED_ERR", details: dict | None = None):
+        """Initialize the base Kindred land error.
+        
+        Args:
+            message: Human-readable error description
+            code: Error code for identification and handling
+            details: Additional context about the error
+        """
+        super().__init__(message, code=code, details=details)
+
+class KindredLandValidationError(KindredLandError):
+    """Raised when Kindred land validation fails.
+    
+    This exception is used when there are issues validating Kindred land inputs,
+    such as invalid land types, unsupported creature types, or color identity mismatches.
+    
+    Examples:
+        >>> raise KindredLandValidationError(
+        ...     "Invalid Kindred land type",
+        ...     {"land_type": "Non-Kindred Land", "creature_type": "Elf"}
+        ... )
+    """
+    
+    def __init__(self, message: str, details: dict | None = None):
+        """Initialize Kindred land validation error.
+        
+        Args:
+            message: Description of the validation failure
+            details: Additional context about the error
+        """
+        super().__init__(message, code="KINDRED_VALID_ERR", details=details)
+
+class KindredLandSelectionError(KindredLandError):
+    """Raised when Kindred land selection fails.
+    
+    This exception is used when there are issues selecting appropriate Kindred lands,
+    such as no valid lands found, creature type mismatches, or price constraints.
+    
+    Examples:
+        >>> raise KindredLandSelectionError(
+        ...     "No valid Kindred lands found for creature type",
+        ...     {"creature_type": "Dragon", "attempted_lands": ["Cavern of Souls"]}
+        ... )
+    """
+    
+    def __init__(self, message: str, details: dict | None = None):
+        """Initialize Kindred land selection error.
+        
+        Args:
+            message: Description of the selection failure
+            details: Additional context about the error
+        """
+        super().__init__(message, code="KINDRED_SELECT_ERR", details=details)
+
+class FetchLandValidationError(FetchLandError):
+    """Raised when fetch land validation fails.
+    
+    This exception is used when there are issues validating fetch land inputs,
+    such as invalid fetch count, unsupported colors, or invalid fetch land types.
+    
+    Examples:
+        >>> raise FetchLandValidationError(
+        ...     "Invalid fetch land count",
+        ...     {"requested": 10, "maximum": 9}
+        ... )
+    """
+    
+    def __init__(self, message: str, details: dict | None = None):
+        """Initialize fetch land validation error.
+        
+        Args:
+            message: Description of the validation failure
+            details: Additional context about the error
+        """
+        super().__init__(message, code="FETCH_VALID_ERR", details=details)
+
+class FetchLandSelectionError(FetchLandError):
+    """Raised when fetch land selection fails.
+    
+    This exception is used when there are issues selecting appropriate fetch lands,
+    such as no valid fetches found, color identity mismatches, or price constraints.
+    
+    Examples:
+        >>> raise FetchLandSelectionError(
+        ...     "No valid fetch lands found for color identity",
+        ...     {"colors": ["W", "U"], "attempted_fetches": ["Flooded Strand", "Polluted Delta"]}
+        ... )
+    """
+    
+    def __init__(self, message: str, details: dict | None = None):
+        """Initialize fetch land selection error.
+        
+        Args:
+            message: Description of the selection failure
+            details: Additional context about the error
+        """
+        super().__init__(message, code="FETCH_SELECT_ERR", details=details)

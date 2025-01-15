@@ -190,19 +190,19 @@ class InputHandler:
                     question = [
                         inquirer.Text(
                             'text',
-                            message=message or 'Enter text',
+                            message=f'{message}' or 'Enter text',
                             default=default_value or self.default_text
                         )
                     ]
                     result = inquirer.prompt(question)['text']
                     if self.validate_text(result):
-                        return result
+                        return str(result)
                 
                 elif question_type == 'Price':
                     question = [
                         inquirer.Text(
                             'price',
-                            message=message or 'Enter price (or "unlimited")',
+                            message=f'{message}' or 'Enter price (or "unlimited")',
                             default=str(default_value or DEFAULT_MAX_CARD_PRICE)
                         )
                     ]
@@ -210,12 +210,13 @@ class InputHandler:
                     price, is_unlimited = self.validate_price(result)
                     if not is_unlimited:
                         self.validate_price_threshold(price)
-                    return price
+                    return float(price)
+                
                 elif question_type == 'Number':
                     question = [
                         inquirer.Text(
                             'number',
-                            message=message or 'Enter number',
+                            message=f'{message}' or 'Enter number',
                             default=str(default_value or self.default_number)
                         )
                     ]
@@ -226,7 +227,7 @@ class InputHandler:
                     question = [
                         inquirer.Confirm(
                             'confirm',
-                            message=message or 'Confirm?',
+                            message=f'{message}' or 'Confirm?',
                             default=default_value if default_value is not None else self.default_confirm
                         )
                     ]
@@ -239,7 +240,7 @@ class InputHandler:
                     question = [
                         inquirer.List(
                             'selection',
-                            message=message or 'Select an option',
+                            message=f'{message}' or 'Select an option',
                             choices=choices_list,
                             carousel=True
                         )

@@ -1,12 +1,14 @@
-from typing import Dict, List, Optional, Final, Tuple, Pattern, Union
+from typing import Dict, List, Optional, Final, Tuple, Pattern, Union, Callable
 import ast
 
 # Commander selection configuration
+# Format string for displaying duplicate cards in deck lists
+DUPLICATE_CARD_FORMAT: Final[str] = '{card_name} x {count}'
+
 COMMANDER_CSV_PATH: Final[str] = 'csv_files/commander_cards.csv'
 FUZZY_MATCH_THRESHOLD: Final[int] = 90  # Threshold for fuzzy name matching
 MAX_FUZZY_CHOICES: Final[int] = 5  # Maximum number of fuzzy match choices
 COMMANDER_CONVERTERS: Final[Dict[str, str]] = {'themeTags': ast.literal_eval, 'creatureTypes': ast.literal_eval}  # CSV loading converters
-
 # Commander-related constants
 COMMANDER_POWER_DEFAULT: Final[int] = 0
 COMMANDER_TOUGHNESS_DEFAULT: Final[int] = 0
@@ -27,6 +29,148 @@ PRICE_CACHE_SIZE: Final[int] = 128  # Size of price check LRU cache
 PRICE_CHECK_TIMEOUT: Final[int] = 30  # Timeout for price check requests in seconds
 PRICE_TOLERANCE_MULTIPLIER: Final[float] = 1.1  # Multiplier for price tolerance
 DEFAULT_MAX_CARD_PRICE: Final[float] = 20.0  # Default maximum price per card
+
+# Deck composition defaults
+DEFAULT_RAMP_COUNT: Final[int] = 8  # Default number of ramp pieces
+DEFAULT_LAND_COUNT: Final[int] = 35  # Default total land count
+DEFAULT_BASIC_LAND_COUNT: Final[int] = 20  # Default minimum basic lands
+DEFAULT_NON_BASIC_LAND_SLOTS: Final[int] = 10  # Default number of non-basic land slots to reserve
+DEFAULT_BASICS_PER_COLOR: Final[int] = 5  # Default number of basic lands to add per color
+
+# Default fetch land count
+FETCH_LAND_DEFAULT_COUNT: Final[int] = 3  # Default number of fetch lands to include
+# Basic land mappings
+COLOR_TO_BASIC_LAND: Final[Dict[str, str]] = {
+    'W': 'Plains',
+    'U': 'Island', 
+    'B': 'Swamp',
+    'R': 'Mountain',
+    'G': 'Forest',
+    'C': 'Wastes'
+}
+
+SNOW_COVERED_BASIC_LANDS: Final[Dict[str, str]] = {
+    'W': 'Snow-Covered Plains',
+    'U': 'Snow-Covered Island',
+    'B': 'Snow-Covered Swamp',
+    'G': 'Snow-Covered Forest'
+}
+
+SNOW_BASIC_LAND_MAPPING: Final[Dict[str, str]] = {
+    'W': 'Snow-Covered Plains',
+    'U': 'Snow-Covered Island', 
+    'B': 'Snow-Covered Swamp',
+    'R': 'Snow-Covered Mountain',
+    'G': 'Snow-Covered Forest',
+    'C': 'Wastes'  # Note: No snow-covered version exists for Wastes
+}
+
+# Generic fetch lands list
+GENERIC_FETCH_LANDS: Final[List[str]] = [
+    'Evolving Wilds',
+    'Terramorphic Expanse',
+    'Shire Terrace',
+    'Escape Tunnel',
+    'Promising Vein',
+    'Myriad Landscape',
+    'Fabled Passage',
+    'Terminal Moraine',
+    'Prismatic Vista'
+]
+
+# Kindred land constants
+KINDRED_STAPLE_LANDS: Final[List[Dict[str, str]]] = [
+    {
+        'name': 'Path of Ancestry',
+        'type': 'Land'
+    },
+    {
+        'name': 'Three Tree City',
+        'type': 'Legendary Land'
+    },
+    {'name': 'Cavern of Souls', 'type': 'Land'}
+]
+
+# Color-specific fetch land mappings
+COLOR_TO_FETCH_LANDS: Final[Dict[str, List[str]]] = {
+    'W': [
+        'Flooded Strand',
+        'Windswept Heath', 
+        'Marsh Flats',
+        'Arid Mesa',
+        'Brokers Hideout',
+        'Obscura Storefront',
+        'Cabaretti Courtyard'
+    ],
+    'U': [
+        'Flooded Strand',
+        'Polluted Delta',
+        'Scalding Tarn', 
+        'Misty Rainforest',
+        'Brokers Hideout',
+        'Obscura Storefront',
+        'Maestros Theater'
+    ],
+    'B': [
+        'Polluted Delta',
+        'Bloodstained Mire',
+        'Marsh Flats',
+        'Verdant Catacombs',
+        'Obscura Storefront',
+        'Maestros Theater',
+        'Riveteers Overlook'
+    ],
+    'R': [
+        'Bloodstained Mire',
+        'Wooded Foothills',
+        'Scalding Tarn',
+        'Arid Mesa',
+        'Maestros Theater',
+        'Riveteers Overlook',
+        'Cabaretti Courtyard'
+    ],
+    'G': [
+        'Wooded Foothills',
+        'Windswept Heath',
+        'Verdant Catacombs',
+        'Misty Rainforest',
+        'Brokers Hideout',
+        'Riveteers Overlook',
+        'Cabaretti Courtyard'
+    ]
+}
+
+DEFAULT_CREATURE_COUNT: Final[int] = 25  # Default number of creatures
+DEFAULT_REMOVAL_COUNT: Final[int] = 10  # Default number of spot removal spells
+DEFAULT_WIPES_COUNT: Final[int] = 2  # Default number of board wipes
+
+# Staple land conditions mapping
+STAPLE_LAND_CONDITIONS: Final[Dict[str, Callable[[List[str], List[str], int], bool]]] = {
+    'Reliquary Tower': lambda commander_tags, colors, commander_power: True,  # Always include
+    'Ash Barrens': lambda commander_tags, colors, commander_power: 'Landfall' not in commander_tags,
+    'Command Tower': lambda commander_tags, colors, commander_power: len(colors) > 1,
+    'Exotic Orchard': lambda commander_tags, colors, commander_power: len(colors) > 1,
+    'War Room': lambda commander_tags, colors, commander_power: len(colors) <= 2,
+    'Rogue\'s Passage': lambda commander_tags, colors, commander_power: commander_power >= 5
+}
+
+
+DEFAULT_CARD_ADVANTAGE_COUNT: Final[int] = 10  # Default number of card advantage pieces
+DEFAULT_PROTECTION_COUNT: Final[int] = 8  # Default number of protection spells
+
+# Deck composition prompts
+DECK_COMPOSITION_PROMPTS: Final[Dict[str, str]] = {
+    'ramp': 'Enter desired number of ramp pieces (default: 8):',
+    'lands': 'Enter desired number of total lands (default: 35):',
+    'basic_lands': 'Enter minimum number of basic lands (default: 20):',
+    'creatures': 'Enter desired number of creatures (default: 25):',
+    'removal': 'Enter desired number of spot removal spells (default: 10):',
+    'wipes': 'Enter desired number of board wipes (default: 2):',
+    'card_advantage': 'Enter desired number of card advantage pieces (default: 10):',
+    'protection': 'Enter desired number of protection spells (default: 8):',
+    'max_deck_price': 'Enter maximum total deck price in dollars (default: 400.0):',
+    'max_card_price': 'Enter maximum price per card in dollars (default: 20.0):'
+}
 DEFAULT_MAX_DECK_PRICE: Final[float] = 400.0  # Default maximum total deck price
 BATCH_PRICE_CHECK_SIZE: Final[int] = 50  # Number of cards to check prices for in one batch
 # Constants for input validation
@@ -555,10 +699,30 @@ BOARD_WIPE_EXCLUSION_PATTERNS = [
     'target player\'s library',
     'that player\'s library'
 ]
-
-
 CARD_TYPES = ['Artifact','Creature', 'Enchantment', 'Instant', 'Land', 'Planeswalker', 'Sorcery',
               'Kindred', 'Dungeon', 'Battle']
+
+# Card type sorting order for organizing libraries
+# This constant defines the order in which different card types should be sorted
+# when organizing a deck library. The order is designed to group cards logically,
+# starting with Planeswalkers and ending with Lands.
+CARD_TYPE_SORT_ORDER: Final[List[str]] = [
+    'Planeswalker', 'Battle', 'Creature', 'Instant', 'Sorcery',
+    'Artifact', 'Enchantment', 'Land'
+]
+
+# Default counts for each card type
+CARD_TYPE_COUNT_DEFAULTS: Final[Dict[str, int]] = {
+    'Artifact': 0,
+    'Battle': 0,
+    'Creature': 0,
+    'Enchantment': 0,
+    'Instant': 0,
+    'Kindred': 0,
+    'Land': 0,
+    'Planeswalker': 0,
+    'Sorcery': 0
+}
 
 # Mapping of card types to their corresponding theme tags
 TYPE_TAG_MAPPING = {
@@ -810,6 +974,21 @@ REQUIRED_COLUMNS: List[str] = [
     'power', 'toughness', 'keywords', 'themeTags', 'layout', 'side'
 ]
 
+# Constants for theme weight management
+THEME_WEIGHTS_DEFAULT: Final[Dict[str, float]] = {
+    'primary': 1.0,
+    'secondary': 0.6,
+    'tertiary': 0.3,
+    'hidden': 0.0
+}
+
+WEIGHT_ADJUSTMENT_FACTORS: Final[Dict[str, float]] = {
+    'kindred_primary': 1.5,    # Boost for Kindred themes as primary
+    'kindred_secondary': 1.3,  # Boost for Kindred themes as secondary
+    'kindred_tertiary': 1.2,   # Boost for Kindred themes as tertiary
+    'theme_synergy': 1.2       # Boost for themes that work well together
+}
+
 DEFAULT_THEME_TAGS = [
     'Aggro', 'Aristocrats', 'Artifacts Matter', 'Big Mana', 'Blink',
     'Board Wipes', 'Burn', 'Cantrips', 'Card Draw', 'Clones',
@@ -976,9 +1155,9 @@ DATAFRAME_VALIDATION_RULES: Final[Dict[str, Dict[str, Union[str, int, float, boo
 
 # Card category validation rules
 CREATURE_VALIDATION_RULES: Final[Dict[str, Dict[str, Union[str, int, float, bool]]]] = {
-    'power': {'type': ('str', 'int', 'float'), 'required': True},
-    'toughness': {'type': ('str', 'int', 'float'), 'required': True},
-    'creatureTypes': {'type': 'list', 'required': True}
+    'power': {'type': ('str', 'int', 'float', 'object'), 'required': True},
+    'toughness': {'type': ('str', 'int', 'float', 'object'), 'required': True},
+    'creatureTypes': {'type': ('list', 'object'), 'required': True}
 }
 
 SPELL_VALIDATION_RULES: Final[Dict[str, Dict[str, Union[str, int, float, bool]]]] = {

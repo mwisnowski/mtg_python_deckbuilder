@@ -34,6 +34,9 @@ from settings import (
     COLOR_TO_BASIC_LAND,
     SNOW_BASIC_LAND_MAPPING,
     KINDRED_STAPLE_LANDS,
+    DUAL_LAND_TYPE_MAP,
+    MANA_COLORS,
+    MANA_PIP_PATTERNS
 )
 from exceptions import (
     DeckBuilderError,
@@ -46,6 +49,7 @@ from exceptions import (
     FetchLandValidationError,
     KindredLandSelectionError,
     KindredLandValidationError,
+    LandRemovalError,
     ThemeSelectionError,
     ThemeWeightError,
     CardTypeCountError
@@ -584,7 +588,7 @@ def process_duplicate_cards(card_library: pd.DataFrame, duplicate_lists: List[st
         # Process each allowed duplicate card
         for card_name in duplicate_lists:
             # Find all instances of the card
-            card_mask = processed_library['name'] == card_name
+            card_mask = processed_library['Card Name'] == card_name
             card_count = card_mask.sum()
             
             if card_count > 1:
@@ -592,7 +596,7 @@ def process_duplicate_cards(card_library: pd.DataFrame, duplicate_lists: List[st
                 first_instance = processed_library[card_mask].iloc[0]
                 processed_library = processed_library[~card_mask]
                 
-                first_instance['name'] = DUPLICATE_CARD_FORMAT.format(
+                first_instance['Card Name'] = DUPLICATE_CARD_FORMAT.format(
                     card_name=card_name,
                     count=card_count
                 )
@@ -624,7 +628,7 @@ def count_cards_by_type(card_library: pd.DataFrame, card_types: List[str]) -> Di
         for card_type in card_types:
             # Use pandas str.contains() for efficient type matching
             # Case-insensitive matching with na=False to handle missing values
-            type_mask = card_library['type'].str.contains(
+            type_mask = card_library['Card Type'].str.contains(
                 card_type, 
                 case=False, 
                 na=False
@@ -633,6 +637,7 @@ def count_cards_by_type(card_library: pd.DataFrame, card_types: List[str]) -> Di
         
         return type_counts
     except Exception as e:
+        print(card_type)
         logger.error(f"Error counting cards by type: {e}")
         raise CardTypeCountError(f"Failed to count cards by type: {str(e)}")
 
@@ -838,7 +843,6 @@ def get_available_fetch_lands(colors: List[str], price_checker: Optional[Any] = 
             fetch for fetch in available_fetches
             if price_checker.get_card_price(fetch) <= max_price * 1.1
         ]
-
     return available_fetches
 
 def select_fetch_lands(available_fetches: List[str], count: int,
@@ -915,8 +919,7 @@ def validate_kindred_lands(land_name: str, commander_tags: List[str], colors: Li
             f"Failed to validate Kindred land {land_name}",
             {"error": str(e), "tags": commander_tags, "colors": colors}
         )
-
-def get_available_kindred_lands(colors: List[str], commander_tags: List[str],
+def get_available_kindred_lands(land_df: pd.DataFrame, colors: List[str], commander_tags: List[str],
                               price_checker: Optional[Any] = None,
                               max_price: Optional[float] = None) -> List[str]:
     """Get list of Kindred lands available for the deck's colors and themes.
@@ -934,8 +937,35 @@ def get_available_kindred_lands(colors: List[str], commander_tags: List[str],
         >>> get_available_kindred_lands(['G'], ['Elf Kindred'])
         ['Cavern of Souls', 'Path of Ancestry', ...]
     """
-    # Start with staple Kindred lands
-    available_lands = [land['name'] for land in KINDRED_STAPLE_LANDS]
+    # Only proceed if deck has tribal themes
+    if not any('Kindred' in tag for tag in commander_tags):
+        return []
+
+    available_lands = []
+    
+    # Add staple Kindred lands first
+    available_lands.extend([land['name'] for land in KINDRED_STAPLE_LANDS
+                          if validate_kindred_lands(land['name'], commander_tags, colors)])
+    
+    # Extract creature types from Kindred themes
+    creature_types = [tag.replace(' Kindred', '') 
+                     for tag in commander_tags 
+                     if 'Kindred' in tag]
+    
+    # Find lands specific to each creature type
+    for creature_type in creature_types:
+        logging.info(f'Searching for {creature_type}-specific lands')
+        
+        # Filter lands by creature type mentions in text or type
+        type_specific = land_df[
+            land_df['text'].notna() &
+            (land_df['text'].str.contains(creature_type, case=False) |
+             land_df['type'].str.contains(creature_type, case=False))
+        ]
+        
+        # Add any found type-specific lands
+        if not type_specific.empty:
+            available_lands.extend(type_specific['name'].tolist())
 
     # Filter by price if price checking is enabled
     if price_checker and max_price:
@@ -946,14 +976,12 @@ def get_available_kindred_lands(colors: List[str], commander_tags: List[str],
 
     return available_lands
 
-def select_kindred_lands(available_lands: List[str], count: int,
+def select_kindred_lands(available_lands: List[str], count: int = None,
                        allow_duplicates: bool = False) -> List[str]:
     """Select Kindred lands from the available pool.
 
     Args:
         available_lands: List of available Kindred lands
-        count: Number of Kindred lands to select
-        allow_duplicates: Whether to allow duplicate selections
 
     Returns:
         List of selected Kindred land names
@@ -962,11 +990,10 @@ def select_kindred_lands(available_lands: List[str], count: int,
         KindredLandSelectionError: If unable to select required number of lands
 
     Example:
-        >>> select_kindred_lands(['Cavern of Souls', 'Path of Ancestry'], 2)
-        ['Path of Ancestry', 'Cavern of Souls']
+        >>> select_kindred_lands(['Cavern of Souls', 'Path of Ancestry'])
+        ['Cavern of Souls', 'Path of Ancestry']
     """
     import random
-
     if not available_lands:
         raise KindredLandSelectionError(
             "No Kindred lands available to select from",
@@ -1002,3 +1029,443 @@ def process_kindred_lands(lands_to_add: List[str], card_library: pd.DataFrame,
     """
     updated_land_df = land_df[~land_df['name'].isin(lands_to_add)]
     return updated_land_df
+
+def validate_dual_lands(color_pairs: List[str], use_snow: bool = False) -> bool:
+    """Validate if dual lands should be added based on deck configuration.
+
+    Args:
+        color_pairs: List of color pair combinations (e.g., ['azorius', 'orzhov'])
+        use_snow: Whether to use snow-covered lands
+
+    Returns:
+        bool: True if dual lands should be added, False otherwise
+
+    Example:
+        >>> validate_dual_lands(['azorius', 'orzhov'], False)
+        True
+    """
+    if not color_pairs:
+        return False
+
+    # Validate color pairs against DUAL_LAND_TYPE_MAP
+    return len(color_pairs) > 0
+
+def get_available_dual_lands(land_df: pd.DataFrame, color_pairs: List[str], 
+                           use_snow: bool = False) -> pd.DataFrame:
+    """Get available dual lands based on color pairs and snow preference.
+
+    Args:
+        land_df: DataFrame containing available lands
+        color_pairs: List of color pair combinations
+        use_snow: Whether to use snow-covered lands
+
+    Returns:
+        DataFrame containing available dual lands
+
+    Example:
+        >>> get_available_dual_lands(land_df, ['azorius'], False)
+        DataFrame with azorius dual lands
+    """
+    # Create type filters based on color pairs
+    type_filters = color_pairs
+
+    # Filter lands
+    if type_filters:
+        return land_df[land_df['type'].isin(type_filters)].copy()
+    return pd.DataFrame()
+
+def select_dual_lands(dual_df: pd.DataFrame, price_checker: Optional[Any] = None,
+                     max_price: Optional[float] = None) -> List[Dict[str, Any]]:
+    """Select appropriate dual lands from available pool.
+
+    Args:
+        dual_df: DataFrame of available dual lands
+        price_checker: Optional price checker instance
+        max_price: Maximum allowed price per card
+
+    Returns:
+        List of selected dual land dictionaries
+
+    Example:
+        >>> select_dual_lands(dual_df, price_checker, 20.0)
+        [{'name': 'Hallowed Fountain', 'type': 'Land — Plains Island', ...}]
+    """
+    if dual_df.empty:
+        return []
+
+    # Sort by EDHREC rank
+    dual_df.sort_values(by='edhrecRank', inplace=True)
+
+    # Convert to list of card dictionaries
+    selected_lands = []
+    for _, row in dual_df.iterrows():
+        card = {
+            'name': row['name'],
+            'type': row['type'],
+            'manaCost': row['manaCost'],
+            'manaValue': row['manaValue']
+        }
+
+        # Check price if enabled
+        if price_checker and max_price:
+            try:
+                price = price_checker.get_card_price(card['name'])
+                if price > max_price * 1.1:
+                    continue
+            except Exception as e:
+                logger.warning(f"Price check failed for {card['name']}: {e}")
+                continue
+
+        selected_lands.append(card)
+
+    return selected_lands
+
+def process_dual_lands(lands_to_add: List[Dict[str, Any]], card_library: pd.DataFrame,
+                      land_df: pd.DataFrame) -> pd.DataFrame:
+    """Update land DataFrame after adding dual lands.
+
+    Args:
+        lands_to_add: List of dual lands to be added
+        card_library: Current deck library
+        land_df: DataFrame of available lands
+
+    Returns:
+        Updated land DataFrame
+
+    Example:
+        >>> process_dual_lands(dual_lands, card_library, land_df)
+        Updated DataFrame without added dual lands
+    """
+    lands_to_remove = set(land['name'] for land in lands_to_add)
+    return land_df[~land_df['name'].isin(lands_to_remove)]
+
+def validate_triple_lands(color_triplets: List[str], use_snow: bool = False) -> bool:
+    """Validate if triple lands should be added based on deck configuration.
+
+    Args:
+        color_triplets: List of color triplet combinations (e.g., ['esper', 'bant'])
+        use_snow: Whether to use snow-covered lands
+
+    Returns:
+        bool: True if triple lands should be added, False otherwise
+
+    Example:
+        >>> validate_triple_lands(['esper', 'bant'], False)
+        True
+    """
+    if not color_triplets:
+        return False
+
+    # Validate color triplets
+    return len(color_triplets) > 0
+
+def get_available_triple_lands(land_df: pd.DataFrame, color_triplets: List[str],
+                              use_snow: bool = False) -> pd.DataFrame:
+    """Get available triple lands based on color triplets and snow preference.
+
+    Args:
+        land_df: DataFrame containing available lands
+        color_triplets: List of color triplet combinations
+        use_snow: Whether to use snow-covered lands
+
+    Returns:
+        DataFrame containing available triple lands
+
+    Example:
+        >>> get_available_triple_lands(land_df, ['esper'], False)
+        DataFrame with esper triple lands
+    """
+    # Create type filters based on color triplets
+    type_filters = color_triplets
+
+    # Filter lands
+    if type_filters:
+        return land_df[land_df['type'].isin(type_filters)].copy()
+    return pd.DataFrame()
+
+def select_triple_lands(triple_df: pd.DataFrame, price_checker: Optional[Any] = None,
+                       max_price: Optional[float] = None) -> List[Dict[str, Any]]:
+    """Select appropriate triple lands from available pool.
+
+    Args:
+        triple_df: DataFrame of available triple lands
+        price_checker: Optional price checker instance
+        max_price: Maximum allowed price per card
+
+    Returns:
+        List of selected triple land dictionaries
+
+    Example:
+        >>> select_triple_lands(triple_df, price_checker, 20.0)
+        [{'name': 'Raffine's Tower', 'type': 'Land — Plains Island Swamp', ...}]
+    """
+    if triple_df.empty:
+        return []
+
+    # Sort by EDHREC rank
+    triple_df.sort_values(by='edhrecRank', inplace=True)
+
+    # Convert to list of card dictionaries
+    selected_lands = []
+    for _, row in triple_df.iterrows():
+        card = {
+            'name': row['name'],
+            'type': row['type'],
+            'manaCost': row['manaCost'],
+            'manaValue': row['manaValue']
+        }
+
+        # Check price if enabled
+        if price_checker and max_price:
+            try:
+                price = price_checker.get_card_price(card['name'])
+                if price > max_price * 1.1:
+                    continue
+            except Exception as e:
+                logger.warning(f"Price check failed for {card['name']}: {e}")
+                continue
+
+        selected_lands.append(card)
+
+    return selected_lands
+
+def process_triple_lands(lands_to_add: List[Dict[str, Any]], card_library: pd.DataFrame,
+                        land_df: pd.DataFrame) -> pd.DataFrame:
+    """Update land DataFrame after adding triple lands.
+
+    Args:
+        lands_to_add: List of triple lands to be added
+        card_library: Current deck library
+        land_df: DataFrame of available lands
+
+    Returns:
+        Updated land DataFrame
+
+    Example:
+        >>> process_triple_lands(triple_lands, card_library, land_df)
+        Updated DataFrame without added triple lands
+    """
+    lands_to_remove = set(land['name'] for land in lands_to_add)
+    return land_df[~land_df['name'].isin(lands_to_remove)]
+
+def get_available_misc_lands(land_df: pd.DataFrame, max_pool_size: int) -> List[Dict[str, Any]]:
+    """Retrieve the top N lands from land_df for miscellaneous land selection.
+
+    Args:
+        land_df: DataFrame containing available lands
+        max_pool_size: Maximum number of lands to include in the pool
+
+    Returns:
+        List of dictionaries containing land information
+
+    Example:
+        >>> get_available_misc_lands(land_df, 100)
+        [{'name': 'Command Tower', 'type': 'Land', ...}, ...]
+    """
+    try:
+        # Take top N lands by EDHREC rank
+        top_lands = land_df.head(max_pool_size).copy()
+
+        # Convert to list of dictionaries
+        available_lands = [
+            {
+                'name': row['name'],
+                'type': row['type'],
+                'manaCost': row['manaCost'],
+                'manaValue': row['manaValue']
+            }
+            for _, row in top_lands.iterrows()
+        ]
+
+        return available_lands
+
+    except Exception as e:
+        logger.error(f"Error getting available misc lands: {e}")
+        return []
+
+def select_misc_lands(available_lands: List[Dict[str, Any]], min_count: int, max_count: int,
+                     price_checker: Optional[PriceChecker] = None,
+                     max_price: Optional[float] = None) -> List[Dict[str, Any]]:
+    """Randomly select a number of lands between min_count and max_count.
+
+    Args:
+        available_lands: List of available lands to select from
+        min_count: Minimum number of lands to select
+        max_count: Maximum number of lands to select
+        price_checker: Optional price checker instance
+        max_price: Maximum allowed price per card
+
+    Returns:
+        List of selected land dictionaries
+
+    Example:
+        >>> select_misc_lands(available_lands, 5, 10)
+        [{'name': 'Command Tower', 'type': 'Land', ...}, ...]
+    """
+    import random
+
+    if not available_lands:
+        return []
+
+    # Randomly determine number of lands to select
+    target_count = random.randint(min_count, max_count)
+    selected_lands = []
+
+    # Create a copy of available lands to avoid modifying the original
+    land_pool = available_lands.copy()
+
+    while land_pool and len(selected_lands) < target_count:
+        # Randomly select a land
+        land = random.choice(land_pool)
+        land_pool.remove(land)
+
+        # Check price if enabled
+        if price_checker and max_price:
+            try:
+                price = price_checker.get_card_price(land['name'])
+                if price > max_price * 1.1:
+                    continue
+            except Exception as e:
+                logger.warning(f"Price check failed for {land['name']}: {e}")
+                continue
+
+        selected_lands.append(land)
+
+    return selected_lands
+
+
+def filter_removable_lands(card_library: pd.DataFrame, protected_lands: List[str]) -> pd.DataFrame:
+    """Filter the card library to get lands that can be removed.
+
+    Args:
+        card_library: DataFrame containing all cards in the deck
+        protected_lands: List of land names that cannot be removed
+
+    Returns:
+        DataFrame containing only removable lands
+
+    Raises:
+        LandRemovalError: If no removable lands are found
+        DataFrameValidationError: If card_library validation fails
+    """
+    try:
+        # Validate input DataFrame
+        if card_library.empty:
+            raise EmptyDataFrameError("filter_removable_lands")
+
+        # Filter for lands only
+        lands_df = card_library[card_library['Card Type'].str.contains('Land', case=False, na=False)].copy()
+
+        # Remove protected lands
+        removable_lands = lands_df[~lands_df['Card Name'].isin(protected_lands)]
+
+        if removable_lands.empty:
+            raise LandRemovalError(
+                "No removable lands found in deck",
+                {"protected_lands": protected_lands}
+            )
+
+        logger.debug(f"Found {len(removable_lands)} removable lands")
+        return removable_lands
+
+    except Exception as e:
+        logger.error(f"Error filtering removable lands: {e}")
+        raise
+
+def select_land_for_removal(filtered_lands: pd.DataFrame) -> Tuple[int, str]:
+    """Randomly select a land for removal from filtered lands.
+
+    Args:
+        filtered_lands: DataFrame containing only removable lands
+
+    Returns:
+        Tuple containing (index in original DataFrame, name of selected land)
+
+    Raises:
+        LandRemovalError: If filtered_lands is empty
+        DataFrameValidationError: If filtered_lands validation fails
+    """
+    try:
+        if filtered_lands.empty:
+            raise LandRemovalError(
+                "No lands available for removal",
+                {"filtered_lands_size": len(filtered_lands)}
+            )
+
+        # Randomly select a land
+        selected_land = filtered_lands.sample(n=1).iloc[0]
+        index = selected_land.name
+        land_name = selected_land['Card Name']
+
+        logger.info(f"Selected land for removal: {land_name}")
+        return index, land_name
+
+    except Exception as e:
+        logger.error(f"Error selecting land for removal: {e}")
+        raise
+    
+def count_color_pips(mana_costs: pd.Series, color: str) -> int:
+    """Count the number of colored mana pips of a specific color in mana costs.
+
+    Args:
+        mana_costs: Series of mana cost strings to analyze
+        color: Color to count pips for (W, U, B, R, or G)
+
+    Returns:
+        Total number of pips of the specified color
+
+    Example:
+        >>> mana_costs = pd.Series(['{2}{W}{W}', '{W}{U}', '{B}{R}'])
+        >>> count_color_pips(mana_costs, 'W')
+        3
+    """
+    if not isinstance(mana_costs, pd.Series):
+        raise TypeError("mana_costs must be a pandas Series")
+        
+    if color not in MANA_COLORS:
+        raise ValueError(f"Invalid color: {color}. Must be one of {MANA_COLORS}")
+
+    pattern = MANA_PIP_PATTERNS[color]
+    
+    # Count occurrences of the pattern in non-null mana costs
+    pip_counts = mana_costs.fillna('').str.count(pattern)
+    
+    return int(pip_counts.sum())
+
+def calculate_pip_percentages(pip_counts: Dict[str, int]) -> Dict[str, float]:
+    """Calculate the percentage distribution of mana pips for each color.
+
+    Args:
+        pip_counts: Dictionary mapping colors to their pip counts
+
+    Returns:
+        Dictionary mapping colors to their percentage of total pips (0-100)
+
+    Example:
+        >>> pip_counts = {'W': 10, 'U': 5, 'B': 5, 'R': 0, 'G': 0}
+        >>> calculate_pip_percentages(pip_counts)
+        {'W': 50.0, 'U': 25.0, 'B': 25.0, 'R': 0.0, 'G': 0.0}
+
+    Note:
+        If total pip count is 0, returns 0% for all colors to avoid division by zero.
+    """
+    if not isinstance(pip_counts, dict):
+        raise TypeError("pip_counts must be a dictionary")
+        
+    # Validate colors
+    invalid_colors = set(pip_counts.keys()) - set(MANA_COLORS)
+    if invalid_colors:
+        raise ValueError(f"Invalid colors in pip_counts: {invalid_colors}")
+
+    total_pips = sum(pip_counts.values())
+    
+    if total_pips == 0:
+        return {color: 0.0 for color in MANA_COLORS}
+    
+    percentages = {}
+    for color in MANA_COLORS:
+        count = pip_counts.get(color, 0)
+        percentage = (count / total_pips) * 100
+        percentages[color] = round(percentage, 1)
+    
+    return percentages

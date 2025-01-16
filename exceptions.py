@@ -1052,3 +1052,230 @@ class FetchLandSelectionError(FetchLandError):
             details: Additional context about the error
         """
         super().__init__(message, code="FETCH_SELECT_ERR", details=details)
+
+class DualLandError(DeckBuilderError):
+    """Base exception class for dual land-related errors.
+    
+    This exception serves as the base for all dual land-related errors in the deck builder,
+    including validation errors, selection errors, and dual land processing issues.
+    
+    Attributes:
+        code (str): Error code for identifying the error type
+        message (str): Descriptive error message
+        details (dict): Additional error context and details
+    """
+    
+    def __init__(self, message: str, code: str = "DUAL_ERR", details: dict | None = None):
+        """Initialize the base dual land error.
+        
+        Args:
+            message: Human-readable error description
+            code: Error code for identification and handling
+            details: Additional context about the error
+        """
+        super().__init__(message, code=code, details=details)
+
+class DualLandValidationError(DualLandError):
+    """Raised when dual land validation fails.
+    
+    This exception is used when there are issues validating dual land inputs,
+    such as invalid dual land types, color identity mismatches, or budget constraints.
+    
+    Examples:
+        >>> raise DualLandValidationError(
+        ...     "Invalid dual land type",
+        ...     {"land_type": "Not a dual land", "colors": ["W", "U"]}
+        ... )
+    """
+    
+    def __init__(self, message: str, details: dict | None = None):
+        """Initialize dual land validation error.
+        
+        Args:
+            message: Description of the validation failure
+            details: Additional context about the error
+        """
+        super().__init__(message, code="DUAL_VALID_ERR", details=details)
+
+class DualLandSelectionError(DualLandError):
+    """Raised when dual land selection fails.
+    
+    This exception is used when there are issues selecting appropriate dual lands,
+    such as no valid duals found, color identity mismatches, or price constraints.
+    
+    Examples:
+        >>> raise DualLandSelectionError(
+        ...     "No valid dual lands found for color identity",
+        ...     {"colors": ["W", "U"], "attempted_duals": ["Tundra", "Hallowed Fountain"]}
+        ... )
+    """
+    
+    def __init__(self, message: str, details: dict | None = None):
+        """Initialize dual land selection error.
+        
+        Args:
+            message: Description of the selection failure
+            details: Additional context about the error
+        """
+        super().__init__(message, code="DUAL_SELECT_ERR", details=details)
+
+class TripleLandError(DeckBuilderError):
+    """Base exception class for triple land-related errors.
+    
+    This exception serves as the base for all triple land-related errors in the deck builder,
+    including validation errors, selection errors, and triple land processing issues.
+    
+    Attributes:
+        code (str): Error code for identifying the error type
+        message (str): Descriptive error message
+        details (dict): Additional error context and details
+    """
+    
+    def __init__(self, message: str, code: str = "TRIPLE_ERR", details: dict | None = None):
+        """Initialize the base triple land error.
+        
+        Args:
+            message: Human-readable error description
+            code: Error code for identification and handling
+            details: Additional context about the error
+        """
+        super().__init__(message, code=code, details=details)
+
+class TripleLandValidationError(TripleLandError):
+    """Raised when triple land validation fails.
+    
+    This exception is used when there are issues validating triple land inputs,
+    such as invalid triple land types, color identity mismatches, or budget constraints.
+    
+    Examples:
+        >>> raise TripleLandValidationError(
+        ...     "Invalid triple land type",
+        ...     {"land_type": "Not a triple land", "colors": ["W", "U", "B"]}
+        ... )
+    """
+    
+    def __init__(self, message: str, details: dict | None = None):
+        """Initialize triple land validation error.
+        
+        Args:
+            message: Description of the validation failure
+            details: Additional context about the error
+        """
+        super().__init__(message, code="TRIPLE_VALID_ERR", details=details)
+
+class TripleLandSelectionError(TripleLandError):
+    """Raised when triple land selection fails.
+    
+    This exception is used when there are issues selecting appropriate triple lands,
+    such as no valid triples found, color identity mismatches, or price constraints.
+    
+    Examples:
+        >>> raise TripleLandSelectionError(
+        ...     "No valid triple lands found for color identity",
+        ...     {"colors": ["W", "U", "B"], "attempted_triples": ["Arcane Sanctum", "Seaside Citadel"]}
+        ... )
+    """
+    
+    def __init__(self, message: str, details: dict | None = None):
+        """Initialize triple land selection error.
+        
+        Args:
+            message: Description of the selection failure
+            details: Additional context about the error
+        """
+        super().__init__(message, code="TRIPLE_SELECT_ERR", details=details)
+
+class MiscLandSelectionError(DeckBuilderError):
+    """Raised when miscellaneous land selection fails.
+    
+    This exception is used when there are issues selecting appropriate miscellaneous lands,
+    such as insufficient lands in the pool, invalid land types, or selection criteria failures.
+    
+    Examples:
+        >>> raise MiscLandSelectionError(
+        ...     "Insufficient lands in pool for selection",
+        ...     {"available_count": 50, "required_count": 100}
+        ... )
+        
+        >>> raise MiscLandSelectionError(
+        ...     "Invalid land type in selection pool",
+        ...     {"invalid_lands": ["Not a Land", "Also Not a Land"]}
+        ... )
+    """
+    
+    def __init__(self, message: str, details: dict | None = None):
+        """Initialize miscellaneous land selection error.
+        
+        Args:
+            message: Description of the selection failure
+            details: Additional context about the error
+        """
+        super().__init__(
+            message,
+            code="MISC_LAND_ERR",
+            details=details
+        )
+
+class LandRemovalError(DeckBuilderError):
+    """Raised when there are issues removing lands from the deck.
+    
+    This exception is used when the land removal process encounters problems,
+    such as no removable lands available, invalid land selection criteria,
+    or when removing lands would violate deck construction rules.
+    
+    Examples:
+        >>> raise LandRemovalError(
+        ...     "No removable lands found in deck",
+        ...     {"deck_size": 100, "current_lands": 36, "minimum_lands": 36}
+        ... )
+        
+        >>> raise LandRemovalError(
+        ...     "Cannot remove required basic lands",
+        ...     {"land_type": "Basic Forest", "current_count": 5, "minimum_required": 5}
+        ... )
+    """
+    
+    def __init__(self, message: str, details: dict | None = None):
+        """Initialize land removal error.
+        
+        Args:
+            message: Description of the land removal failure
+            details: Additional context about the error
+        """
+        super().__init__(
+            message,
+            code="LAND_REMOVE_ERR",
+            details=details
+        )
+
+class ManaPipError(DeckBuilderError):
+    """Raised when there are issues analyzing mana pips in the deck.
+    
+    This exception is used when there are problems analyzing or calculating
+    mana pips in the deck, such as invalid mana costs, calculation errors,
+    or inconsistencies in pip distribution analysis.
+    
+    Examples:
+        >>> raise ManaPipError(
+        ...     "Invalid mana cost format",
+        ...     {"card_name": "Invalid Card", "mana_cost": "Not Valid"}
+        ... )
+        
+        >>> raise ManaPipError(
+        ...     "Error calculating color pip distribution",
+        ...     {"colors": ["W", "U"], "pip_counts": "invalid"}
+        ... )
+    """
+    
+    def __init__(self, message: str, details: dict | None = None):
+        """Initialize mana pip error.
+        
+        Args:
+            message: Description of the mana pip analysis failure
+            details: Additional context about the error
+        """
+        super().__init__(
+            message,
+            code="MANA_PIP_ERR",
+            details=details
+        )

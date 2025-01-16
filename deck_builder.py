@@ -21,11 +21,13 @@ from settings import (
     COMMANDER_POWER_DEFAULT, COMMANDER_TOUGHNESS_DEFAULT, COMMANDER_MANA_COST_DEFAULT,
     COMMANDER_MANA_VALUE_DEFAULT, COMMANDER_TYPE_DEFAULT, COMMANDER_TEXT_DEFAULT, 
     COMMANDER_COLOR_IDENTITY_DEFAULT, COMMANDER_COLORS_DEFAULT, COMMANDER_TAGS_DEFAULT, 
-    COMMANDER_THEMES_DEFAULT, COMMANDER_CREATURE_TYPES_DEFAULT,
+    COMMANDER_THEMES_DEFAULT, COMMANDER_CREATURE_TYPES_DEFAULT, DUAL_LAND_TYPE_MAP,
     CSV_READ_TIMEOUT, CSV_PROCESSING_BATCH_SIZE, CSV_VALIDATION_RULES, CSV_REQUIRED_COLUMNS,
-    STAPLE_LAND_CONDITIONS
+    STAPLE_LAND_CONDITIONS, TRIPLE_LAND_TYPE_MAP, MISC_LAND_MAX_COUNT, MISC_LAND_MIN_COUNT,
+    MISC_LAND_POOL_SIZE, LAND_REMOVAL_MAX_ATTEMPTS, PROTECTED_LANDS,
+    MANA_COLORS, MANA_PIP_PATTERNS
 )
-import builder_utils 
+import builder_utils
 import setup_utils
 from setup import determine_commanders
 from input_handler import InputHandler
@@ -52,6 +54,7 @@ from exceptions import (
     IdealDeterminationError,
     InvalidNumberError,
     InvalidQuestionTypeError,
+    LandRemovalError,
     LibraryOrganizationError,
     LibrarySortError,
     MaxAttemptsError,
@@ -63,7 +66,8 @@ from exceptions import (
     ThemeSelectionError,
     ThemeWeightError,
     StapleLandError,
-    StapleLandError
+    StapleLandError,
+    ManaPipError
 )
 from type_definitions import (
     CardDict,
@@ -134,7 +138,9 @@ class DeckBuilder:
             'Card Type': pd.Series(dtype='str'), 
             'Mana Cost': pd.Series(dtype='str'),
             'Mana Value': pd.Series(dtype='int'),
-            'Commander': pd.Series(dtype='bool')
+            'Creature Types': pd.Series(dtype='object'),
+            'Themes': pd.Series(dtype='object'),
+            'Commander': pd.Series(dtype='bool'),
         })
         
         # Initialize component dataframes
@@ -461,7 +467,8 @@ class DeckBuilder:
             'CMC': 0.0
         }
         self.add_card(self.commander, self.commander_type,
-                      self.commander_mana_cost, self.commander_mana_value, True)
+                      self.commander_mana_cost, self.commander_mana_value,
+                      self.creature_types, self.commander_tags, True)
 
     def _initialize_deck_building(self) -> None:
         """Initialize deck building process.
@@ -869,6 +876,7 @@ class DeckBuilder:
             logger.error(f"Error in DataFrame setup: {e}")
             raise
     
+    # Theme selection
     def determine_themes(self) -> None:
         """Determine and set up themes for the deck building process.
         
@@ -1046,7 +1054,8 @@ class DeckBuilder:
                     self.hidden_weight = self.weights['hidden']
                 else:
                     continue
-        
+    
+    # Setting ideals
     def determine_ideals(self):
         """Determine ideal card counts and price settings for the deck.
 
@@ -1099,13 +1108,16 @@ class DeckBuilder:
             logger.error(f"Error in determine_ideals: {e}")
             raise
     
-    def add_card(self, card: str, card_type: str, mana_cost: str, mana_value: int, is_commander: bool = False) -> None:
+    # Adding card to library
+    def add_card(self, card: str, card_type: str, mana_cost: str, mana_value: int, creature_types: list = None, tags: list = None, is_commander: bool = False) -> None:
         """Add a card to the deck library with price checking if enabled.
         Args:
             card (str): Name of the card to add
             card_type (str): Type of the card (e.g., 'Creature', 'Instant')
             mana_cost (str): Mana cost string representation
             mana_value (int): Converted mana cost/mana value
+            creature_types (list): List of creature types in the card (if any)
+            themes (list): List of themes the card has
             is_commander (bool, optional): Whether this card is the commander. Defaults to False.
 
         Returns:
@@ -1135,13 +1147,14 @@ class DeckBuilder:
             return
 
         # Create card entry
-        card_entry = [card, card_type, mana_cost, mana_value, is_commander]
+        card_entry = [card, card_type, mana_cost, mana_value, creature_types, tags, is_commander]
 
         # Add to library
         self.card_library.loc[len(self.card_library)] = card_entry
 
         logger.debug(f"Added {card} to deck library")
     
+    # Get card counts, sort library, set commander at index 1, and combine duplicates into 1 entry
     def organize_library(self):
         """Organize and count cards in the library by their types.
 
@@ -1296,6 +1309,7 @@ class DeckBuilder:
             logger.error(f"Error processing duplicate cards: {e}")
             raise
     
+    # Land Management
     def add_lands(self):
         """
         Add lands to the deck based on ideal count and deck requirements.
@@ -1336,6 +1350,7 @@ class DeckBuilder:
             
             # Adjust to ideal land count
             self.check_basics()
+            print()
             logger.info('Adjusting total land count to match ideal count...')
             self.organize_library()
             
@@ -1546,6 +1561,7 @@ class DeckBuilder:
             # Get available Kindred lands based on themes and budget
             max_price = self.max_card_price if hasattr(self, 'max_card_price') else None
             available_lands = builder_utils.get_available_kindred_lands(
+                self.land_df,
                 self.colors,
                 self.commander_tags,
                 self.price_checker if use_scrython else None,
@@ -1554,7 +1570,8 @@ class DeckBuilder:
         
             # Select Kindred lands
             selected_lands = builder_utils.select_kindred_lands(
-                available_lands
+                available_lands,
+                len(available_lands)
             )
             
             # Add selected Kindred lands to deck
@@ -1575,158 +1592,181 @@ class DeckBuilder:
             raise
         
     def add_dual_lands(self):
-        # Determine dual-color lands available
+        """Add dual lands to the deck based on color identity and user preference.
 
-        # Determine if using the dual-type lands
-        print('Would you like to include Dual-type lands (i.e. lands that count as both a Plains and a Swamp for example)?')
-        choice = self.input_handler.questionnaire('Confirm', message='', default_value=True)
-        color_filter = []
-        color_dict = {
-            'azorius': 'Plains Island',
-            'dimir': 'Island Swamp',
-            'rakdos': 'Swamp Mountain',
-            'gruul': 'Mountain Forest',
-            'selesnya': 'Forest Plains',
-            'orzhov': 'Plains Swamp',
-            'golgari': 'Swamp Forest',
-            'simic': 'Forest Island',
-            'izzet': 'Island Mountain',
-            'boros': 'Mountain Plains'
-        }
-        
-        if choice:
-            for key in color_dict:
-                if key in self.files_to_load:
-                    color_filter.extend([f'Land — {color_dict[key]}', f'Snow Land — {color_dict[key]}'])
-            
-            dual_df = self.land_df[self.land_df['type'].isin(color_filter)].copy()
-            
-            # Convert to list of card dictionaries
-            card_pool = []
-            for _, row in dual_df.iterrows():
-                card = {
-                    'name': row['name'],
-                    'type': row['type'],
-                    'manaCost': row['manaCost'],
-                    'manaValue': row['manaValue']
-                }
-                card_pool.append(card)
-            
-            lands_to_remove = []
-            for card in card_pool:
-                self.add_card(card['name'], card['type'], 
-                            card['manaCost'], card['manaValue'])
-                lands_to_remove.append(card['name'])
+        This method handles the addition of dual lands by:
+        1. Validating if dual lands should be added
+        2. Getting available dual lands based on deck colors
+        3. Selecting appropriate dual lands
+        4. Adding selected lands to the deck
+        5. Updating the land database
 
-            self.land_df = self.land_df[~self.land_df['name'].isin(lands_to_remove)]
-            self.land_df.to_csv(f'{CSV_DIRECTORY}/test_lands.csv', index=False)
-            
-            logger.info(f'Added {len(card_pool)} Dual-type land cards.')
-            
-        if not choice:
-            logger.info('Skipping adding Dual-type land cards.')
-    
-    def add_triple_lands(self):
-        # Determine if using Triome lands
-        print('Would you like to include triome lands (i.e. lands that count as a Mountain, Forest, and Plains for example)?')
-        choice = self.input_handler.questionnaire('Confirm', message='', default_value=True)
-        
-        color_filter = []
-        color_dict = {
-            'bant': 'Forest Plains Island',
-            'esper': 'Plains Island Swamp',
-            'grixis': 'Island Swamp Mountain',
-            'jund': 'Swamp Mountain Forest',
-            'naya': 'Mountain Forest Plains',
-            'mardu': 'Mountain Plains Swamp',
-            'abzan': 'Plains Swamp Forest',
-            'sultai': 'Swamp Forest Island',
-            'temur': 'Forest Island Mountain',
-            'jeska': 'Island Mountain Plains'
-        }
-        
-        if choice:
-            for key in color_dict:
-                if key in self.files_to_load:
-                    color_filter.extend([f'Land — {color_dict[key]}'])
-            
-            triome_df = self.land_df[self.land_df['type'].isin(color_filter)].copy()
-        
-            # Convert to list of card dictionaries
-            card_pool = []
-            for _, row in triome_df.iterrows():
-                card = {
-                    'name': row['name'],
-                    'type': row['type'],
-                    'manaCost': row['manaCost'],
-                    'manaValue': row['manaValue']
-                }
-                card_pool.append(card)
-            
-            lands_to_remove = []
-            for card in card_pool:
-                self.add_card(card['name'], card['type'], 
-                            card['manaCost'], card['manaValue'])
-                lands_to_remove.append(card['name'])
-
-            self.land_df = self.land_df[~self.land_df['name'].isin(lands_to_remove)]
-            self.land_df.to_csv(f'{CSV_DIRECTORY}/test_lands.csv', index=False)
-            
-            logger.info(f'Added {len(card_pool)} Triome land cards.')
-            
-        if not choice:
-            logger.info('Skipping adding Triome land cards.')
-    
-    def add_misc_lands(self):
-        """Add additional utility lands that fit the deck's color identity."""
-        logger.info('Adding miscellaneous utility lands')
-        
-        MIN_MISC_LANDS = 5
-        MAX_MISC_LANDS = 15
-        MAX_POOL_SIZE = 100
-        
+        The process uses helper functions from builder_utils for modular operation.
+        """
         try:
-            # Create filtered pool of candidate lands
-            land_pool = (self.land_df
-                        .head(MAX_POOL_SIZE)
-                        .copy()
-                        .reset_index(drop=True))
+            # Check if we should add dual lands
+            print()
+            print('Would you like to include Dual-type lands (i.e. lands that count as both a Plains and a Swamp for example)?')
+            use_duals = self.input_handler.questionnaire('Confirm', message='', default_value=True)
             
-            # Convert to card dictionaries
-            card_pool = [
-                {
-                    'name': row['name'],
-                    'type': row['type'],
-                    'manaCost': row['manaCost'],
-                    'manaValue': row['manaValue']
-                }
-                for _, row in land_pool.iterrows()
-                if row['name'] not in self.card_library['Card Name'].values
-            ]
-            
-            if not card_pool:
-                logger.warning("No eligible misc lands found")
+            if not use_duals:
+                logger.info('Skipping adding Dual-type land cards.')
                 return
             
-            # Randomly select lands within constraints
-            target_count = random.randint(MIN_MISC_LANDS, MAX_MISC_LANDS)
-            cards_to_add = []
+            logger.info('Adding Dual-type lands')
+            # Get color pairs by checking DUAL_LAND_TYPE_MAP keys against files_to_load
+            color_pairs = []
+            for key in DUAL_LAND_TYPE_MAP:
+                if key in self.files_to_load:
+                    color_pairs.extend([f'Land — {DUAL_LAND_TYPE_MAP[key]}', f'Snow Land — {DUAL_LAND_TYPE_MAP[key]}'])
             
-            while card_pool and len(cards_to_add) < target_count:
-                card = random.choice(card_pool)
-                card_pool.remove(card)
-                
-                # Check price if enabled
-                if use_scrython and self.set_max_card_price:
-                    price = self.price_checker.get_card_price(card['name'])
-                    if price > self.max_card_price * 1.1:
-                        continue
-                
-                cards_to_add.append(card)
+            # Validate dual lands for these color pairs
+            if not builder_utils.validate_dual_lands(color_pairs, 'Snow' in self.commander_tags):
+                logger.info('No valid dual lands available for this color combination.')
+                return
+            
+            # Get available dual lands
+            dual_df = builder_utils.get_available_dual_lands(
+                self.land_df,
+                color_pairs,
+                'Snow' in self.commander_tags
+            )
+            
+            # Select appropriate dual lands
+            selected_lands = builder_utils.select_dual_lands(
+                dual_df,
+                self.price_checker if use_scrython else None,
+                self.max_card_price if hasattr(self, 'max_card_price') else None
+            )
+            
+            # Add selected lands to deck
+            for land in selected_lands:
+                self.add_card(land['name'], land['type'],
+                             land['manaCost'], land['manaValue'])
+            
+            # Update land database
+            self.land_df = builder_utils.process_dual_lands(
+                selected_lands,
+                self.card_library,
+                self.land_df
+            )
+            self.land_df.to_csv(f'{CSV_DIRECTORY}/test_lands.csv', index=False)
+            
+            logger.info(f'Added {len(selected_lands)} Dual-type land cards:')
+            for card in selected_lands:
+                print(card['name'])
+            
+        except Exception as e:
+            logger.error(f"Error adding dual lands: {e}")
+            raise
+    
+    def add_triple_lands(self):
+        """Add triple lands to the deck based on color identity and user preference.
+
+        This method handles the addition of triple lands by:
+        1. Validating if triple lands should be added
+        2. Getting available triple lands based on deck colors
+        3. Selecting appropriate triple lands
+        4. Adding selected lands to the deck
+        5. Updating the land database
+
+        The process uses helper functions from builder_utils for modular operation.
+        """
+        try:
+            # Check if we should add triple lands
+            print()
+            print('Would you like to include triple lands (i.e. lands that count as a Mountain, Forest, and Plains for example)?')
+            use_triples = self.input_handler.questionnaire('Confirm', message='', default_value=True)
+            
+            if not use_triples:
+                logger.info('Skipping adding triple lands.')
+                return
+            
+            logger.info('Adding triple lands')
+            # Get color triplets by checking TRIPLE_LAND_TYPE_MAP keys against files_to_load
+            color_triplets = []
+            for key in TRIPLE_LAND_TYPE_MAP:
+                if key in self.files_to_load:
+                    color_triplets.extend([f'Land — {TRIPLE_LAND_TYPE_MAP[key]}'])
+            
+            # Validate triple lands for these color triplets
+            if not builder_utils.validate_triple_lands(color_triplets, 'Snow' in self.commander_tags):
+                logger.info('No valid triple lands available for this color combination.')
+                return
+            
+            # Get available triple lands
+            triple_df = builder_utils.get_available_triple_lands(
+                self.land_df,
+                color_triplets,
+                'Snow' in self.commander_tags
+            )
+            
+            # Select appropriate triple lands
+            selected_lands = builder_utils.select_triple_lands(
+                triple_df,
+                self.price_checker if use_scrython else None,
+                self.max_card_price if hasattr(self, 'max_card_price') else None
+            )
+            
+            # Add selected lands to deck
+            for land in selected_lands:
+                self.add_card(land['name'], land['type'],
+                             land['manaCost'], land['manaValue'])
+            
+            # Update land database
+            self.land_df = builder_utils.process_triple_lands(
+                selected_lands,
+                self.card_library,
+                self.land_df
+            )
+            self.land_df.to_csv(f'{CSV_DIRECTORY}/test_lands.csv', index=False)
+            
+            logger.info(f'Added {len(selected_lands)} triple lands:')
+            for card in selected_lands:
+                print(card['name'])
+            
+        except Exception as e:
+            logger.error(f"Error adding triple lands: {e}")
+            
+    def add_misc_lands(self):
+        """Add additional utility lands that fit the deck's color identity.
+
+        This method randomly selects a number of miscellaneous utility lands to add to the deck.
+        The number of lands is randomly determined between MISC_LAND_MIN_COUNT and MISC_LAND_MAX_COUNT.
+        Lands are selected from a filtered pool of the top MISC_LAND_POOL_SIZE lands by EDHREC rank.
+
+        The method handles price constraints if price checking is enabled and updates the land
+        database after adding lands to prevent duplicates.
+
+        Raises:
+            MiscLandSelectionError: If there are issues selecting appropriate misc lands
+        """
+        print()
+        logger.info('Adding miscellaneous utility lands')
+        
+        try:
+            # Get available misc lands
+            available_lands = builder_utils.get_available_misc_lands(
+                self.land_df,
+                MISC_LAND_POOL_SIZE
+            )
+            
+            if not available_lands:
+                logger.warning("No eligible miscellaneous lands found")
+                return
+            
+            # Select random number of lands
+            selected_lands = builder_utils.select_misc_lands(
+                available_lands,
+                MISC_LAND_MIN_COUNT,
+                MISC_LAND_MAX_COUNT,
+                self.price_checker if use_scrython else None,
+                self.max_card_price if hasattr(self, 'max_card_price') else None
+            )
             
             # Add selected lands
             lands_to_remove = set()
-            for card in cards_to_add:
+            for card in selected_lands:
                 self.add_card(card['name'], card['type'],
                             card['manaCost'], card['manaValue'])
                 lands_to_remove.add(card['name'])
@@ -1735,7 +1775,9 @@ class DeckBuilder:
             self.land_df = self.land_df[~self.land_df['name'].isin(lands_to_remove)]
             self.land_df.to_csv(f'{CSV_DIRECTORY}/test_lands.csv', index=False)
             
-            logger.info(f'Added {len(cards_to_add)} miscellaneous lands')
+            logger.info(f'Added {len(selected_lands)} miscellaneous lands:')
+            for card in selected_lands:
+                print(card['name'])
             
         except Exception as e:
             logger.error(f"Error adding misc lands: {e}")
@@ -1778,7 +1820,7 @@ class DeckBuilder:
                 count = len(self.card_library[self.card_library['Card Name'] == land])
                 basic_lands[land] = count
                 self.total_basics += count
-            
+            print()
             logger.info("Basic Land Counts:")
             for land, count in basic_lands.items():
                 if count > 0:
@@ -1797,6 +1839,7 @@ class DeckBuilder:
         Args:
             max_attempts: Maximum number of removal attempts before falling back to non-basics
         """
+        print()
         logger.info('Land count over ideal count, removing a basic land.')
         
         color_to_basic = {
@@ -1843,62 +1886,127 @@ class DeckBuilder:
         self.remove_land()
     
     def remove_land(self):
-        """Remove a random non-basic, non-staple land from the deck."""
-        logger.info('Removing a random nonbasic land.')
+        """Remove a random non-basic, non-staple land from the deck.
 
-        # Define basic lands including snow-covered variants
-        basic_lands = [
-            'Plains', 'Island', 'Swamp', 'Mountain', 'Forest',
-            'Snow-Covered Plains', 'Snow-Covered Island', 'Snow-Covered Swamp',
-            'Snow-Covered Mountain', 'Snow-Covered Forest'
-        ]
+        This method attempts to remove a non-protected land from the deck up to
+        LAND_REMOVAL_MAX_ATTEMPTS times. It uses helper functions to filter removable
+        lands and select a land for removal.
 
-        try:
-            # Filter for non-basic, non-staple lands
-            library_filter = self.card_library[
-                (self.card_library['Card Type'].str.contains('Land')) & 
-                (~self.card_library['Card Name'].isin(basic_lands + self.staples))
-            ].copy()
+        Raises:
+            LandRemovalError: If no removable lands are found or removal fails
+        """
+        print()
+        logger.info('Attempting to remove a non-protected land')
+        attempts = 0
 
-            if len(library_filter) == 0:
-                logger.warning("No suitable non-basic lands found to remove.")
+        while attempts < LAND_REMOVAL_MAX_ATTEMPTS:
+            try:
+                # Get removable lands
+                removable_lands = builder_utils.filter_removable_lands(self.card_library, PROTECTED_LANDS + self.staples)
+
+                # Select a land for removal
+                card_index, card_name = builder_utils.select_land_for_removal(removable_lands)
+
+                # Remove the selected land
+                logger.info(f"Removing {card_name}")
+                self.card_library.drop(card_index, inplace=True)
+                self.card_library.reset_index(drop=True, inplace=True)
+                logger.info("Land removed successfully")
                 return
 
-            # Select random land to remove
-            card_index = np.random.choice(library_filter.index)
-            card_name = self.card_library.loc[card_index, 'Card Name']
+            except LandRemovalError as e:
+                logger.warning(f"Attempt {attempts + 1} failed: {e}")
+                attempts += 1
+                continue
+            except Exception as e:
+                logger.error(f"Unexpected error removing land: {e}")
+                raise LandRemovalError(f"Failed to remove land: {str(e)}")
 
-            logger.info(f"Removing {card_name}")
-            self.card_library.drop(card_index, inplace=True)
-            self.card_library.reset_index(drop=True, inplace=True)
-            logger.info("Card removed successfully.")
-
-        except Exception as e:
-            logger.error(f"Error removing land: {e}")
-            logger.warning("Failed to remove land card.")
-    
+        # If we reach here, we've exceeded max attempts
+        raise LandRemovalError(f"Could not find a removable land after {LAND_REMOVAL_MAX_ATTEMPTS} attempts")
+    # Count pips and get average CMC
     def count_pips(self):
-        """Count and display the number of colored mana symbols in casting costs using vectorized operations."""
+        """Analyze and display the distribution of colored mana symbols (pips) in card casting costs.
+
+        This method processes the mana costs of all cards in the deck to:
+        1. Count the number of colored mana symbols for each color
+        2. Calculate the percentage distribution of colors
+        3. Log detailed pip distribution information
+
+        The analysis uses helper functions from builder_utils for consistent counting
+        and percentage calculations. Results are logged with detailed breakdowns
+        of pip counts and distributions.
+
+        Dependencies:
+            - MANA_COLORS from settings.py for color iteration
+            - builder_utils.count_color_pips() for counting pips
+            - builder_utils.calculate_pip_percentages() for distribution calculation
+
+        Returns:
+            None
+
+        Raises:
+            ManaPipError: If there are issues with:
+                - Counting pips for specific colors
+                - Calculating pip percentages
+                - Unexpected errors during analysis
+
+        Logs:
+            - Warning if no colored mana symbols are found
+            - Info with detailed pip distribution and percentages
+            - Error details if analysis fails
+        """
+        print()
         logger.info('Analyzing color pip distribution...')
         
-        # Define colors to check
-        colors = ['W', 'U', 'B', 'R', 'G']
-        
-        # Use vectorized string operations
-        mana_costs = self.card_library['Mana Cost'].dropna()
-        pip_counts = {color: mana_costs.str.count(color).sum() for color in colors}
-        
-        total_pips = sum(pip_counts.values())
-        if total_pips == 0:
-            logger.error("No colored mana symbols found in casting costs.")
-            return
-        
-        logger.info("\nColor Pip Distribution:")
-        for color, count in pip_counts.items():
-            if count > 0:
-                percentage = (count / total_pips) * 100
-                print(f"{color}: {count} pips ({percentage:.1f}%)")
-        logger.info(f"Total colored pips: {total_pips}\n")
+        try:
+            # Get mana costs from card library
+            mana_costs = self.card_library['Mana Cost'].dropna()
+            
+            # Count pips for each color using helper function
+            pip_counts = {}
+            for color in MANA_COLORS:
+                try:
+                    pip_counts[color] = builder_utils.count_color_pips(mana_costs, color)
+                except (TypeError, ValueError) as e:
+                    raise ManaPipError(
+                        f"Error counting {color} pips",
+                        {"color": color, "error": str(e)}
+                    )
+            
+            # Calculate percentages using helper function
+            try:
+                percentages = builder_utils.calculate_pip_percentages(pip_counts)
+            except (TypeError, ValueError) as e:
+                raise ManaPipError(
+                    "Error calculating pip percentages",
+                    {"error": str(e)}
+                )
+            
+            # Log detailed pip distribution
+            total_pips = sum(pip_counts.values())
+            if total_pips == 0:
+                logger.warning("No colored mana symbols found in casting costs")
+                return
+            
+            logger.info("Color Pip Distribution:")
+            for color in MANA_COLORS:
+                count = pip_counts[color]
+                if count > 0:
+                    percentage = percentages[color]
+                    print(f"{color}: {count} pips ({percentage:.1f}%)")
+            print()
+            logger.info(f"Total colored pips: {total_pips}")
+            # Filter out zero percentages
+            non_zero_percentages = {color: pct for color, pct in percentages.items() if pct > 0}
+            logger.info(f"Distribution ratios: {non_zero_percentages}\n")
+            
+        except ManaPipError as e:
+            logger.error(f"Mana pip analysis failed: {e}")
+            raise
+        except Exception as e:
+            logger.error(f"Unexpected error in pip analysis: {e}")
+            raise ManaPipError("Failed to analyze mana pips", {"error": str(e)})
         
     def get_cmc(self):
         """Calculate average converted mana cost of non-land cards."""
@@ -1947,7 +2055,9 @@ class DeckBuilder:
                 'name': row['name'],
                 'type': row['type'],
                 'manaCost': row['manaCost'],
-                'manaValue': row['manaValue']
+                'manaValue': row['manaValue'],
+                'creatureTypes': row['creatureTypes'],
+                'themeTags': row['themeTags']
             }
             for _, row in tag_df.iterrows()
         ]
@@ -1990,7 +2100,8 @@ class DeckBuilder:
         # Add selected cards to library
         for card in cards_to_add:
             self.add_card(card['name'], card['type'], 
-                         card['manaCost'], card['manaValue'])
+                         card['manaCost'], card['manaValue'],
+                         card['creatureTypes'], card['themeTags'])
         
         card_pool_names = [item['name'] for item in card_pool]
         self.full_df = self.full_df[~self.full_df['name'].isin(card_pool_names)]
@@ -2017,7 +2128,9 @@ class DeckBuilder:
                 'name': row['name'],
                 'type': row['type'],
                 'manaCost': row['manaCost'],
-                'manaValue': row['manaValue']
+                'manaValue': row['manaValue'],
+                'creatureTypes': row['creatureTypes'],
+                'themeTags': row['themeTags']
             }
             for _, row in tag_df.iterrows()
         ]
@@ -2047,8 +2160,9 @@ class DeckBuilder:
         # Add selected cards to library
         for card in cards_to_add:
             if len(self.card_library) < 100:
-                self.add_card(card['name'], card['type'], 
-                            card['manaCost'], card['manaValue'])
+                self.add_card(card['name'], card['type'],
+                              card['manaCost'], card['manaValue'],
+                              card['creatureTypes'], card['themeTags'])
             else:
                 continue
 

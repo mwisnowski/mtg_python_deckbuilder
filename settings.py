@@ -37,8 +37,14 @@ DEFAULT_BASIC_LAND_COUNT: Final[int] = 20  # Default minimum basic lands
 DEFAULT_NON_BASIC_LAND_SLOTS: Final[int] = 10  # Default number of non-basic land slots to reserve
 DEFAULT_BASICS_PER_COLOR: Final[int] = 5  # Default number of basic lands to add per color
 
+# Miscellaneous land configuration
+MISC_LAND_MIN_COUNT: Final[int] = 5  # Minimum number of miscellaneous lands to add
+MISC_LAND_MAX_COUNT: Final[int] = 10  # Maximum number of miscellaneous lands to add
+MISC_LAND_POOL_SIZE: Final[int] = 100  # Maximum size of initial land pool to select from
+
 # Default fetch land count
 FETCH_LAND_DEFAULT_COUNT: Final[int] = 3  # Default number of fetch lands to include
+
 # Basic land mappings
 COLOR_TO_BASIC_LAND: Final[Dict[str, str]] = {
     'W': 'Plains',
@@ -48,6 +54,41 @@ COLOR_TO_BASIC_LAND: Final[Dict[str, str]] = {
     'G': 'Forest',
     'C': 'Wastes'
 }
+
+# Dual land type mappings
+DUAL_LAND_TYPE_MAP: Final[Dict[str, str]] = {
+    'azorius': 'Plains Island',
+    'dimir': 'Island Swamp',
+    'rakdos': 'Swamp Mountain',
+    'gruul': 'Mountain Forest',
+    'selesnya': 'Forest Plains',
+    'orzhov': 'Plains Swamp',
+    'golgari': 'Swamp Forest',
+    'simic': 'Forest Island',
+    'izzet': 'Island Mountain',
+    'boros': 'Mountain Plains'
+}
+
+# Triple land type mappings
+TRIPLE_LAND_TYPE_MAP: Final[Dict[str, str]] = {
+    'bant': 'Forest Plains Island',
+    'esper': 'Plains Island Swamp',
+    'grixis': 'Island Swamp Mountain',
+    'jund': 'Swamp Mountain Forest',
+    'naya': 'Mountain Forest Plains',
+    'mardu': 'Mountain Plains Swamp',
+    'abzan': 'Plains Swamp Forest',
+    'sultai': 'Swamp Forest Island',
+    'temur': 'Forest Island Mountain',
+    'jeska': 'Island Mountain Plains'
+}
+
+# Default preference for including dual lands
+DEFAULT_DUAL_LAND_ENABLED: Final[bool] = True
+
+# Default preference for including triple lands
+DEFAULT_TRIPLE_LAND_ENABLED: Final[bool] = True
+
 
 SNOW_COVERED_BASIC_LANDS: Final[Dict[str, str]] = {
     'W': 'Snow-Covered Plains',
@@ -225,6 +266,12 @@ banned_cards = [# in commander
                 ]
 
 BASIC_LANDS = ['Plains', 'Island', 'Swamp', 'Mountain', 'Forest']
+
+# Constants for land removal functionality
+LAND_REMOVAL_MAX_ATTEMPTS: Final[int] = 3
+
+# Protected lands that cannot be removed during land removal process
+PROTECTED_LANDS: Final[List[str]] = BASIC_LANDS + [land['name'] for land in KINDRED_STAPLE_LANDS]
 
 # Constants for lands matter functionality
 LANDS_MATTER_PATTERNS: Dict[str, List[str]] = {
@@ -427,6 +474,7 @@ ARISTOCRAT_EXCLUSION_PATTERNS = [
     'from your library',
     'into your hand'
 ]
+
 STAX_TEXT_PATTERNS = [
     'an opponent controls'
     'can\'t attack',
@@ -699,6 +747,7 @@ BOARD_WIPE_EXCLUSION_PATTERNS = [
     'target player\'s library',
     'that player\'s library'
 ]
+
 CARD_TYPES = ['Artifact','Creature', 'Enchantment', 'Instant', 'Land', 'Planeswalker', 'Sorcery',
               'Kindred', 'Dungeon', 'Battle']
 
@@ -741,6 +790,15 @@ TYPE_TAG_MAPPING = {
 CSV_DIRECTORY = 'csv_files'
 
 # Color identity constants and mappings
+
+# Basic mana colors
+MANA_COLORS: Final[List[str]] = ['W', 'U', 'B', 'R', 'G']
+
+# Mana pip patterns for each color
+MANA_PIP_PATTERNS: Final[Dict[str, str]] = {
+    color: f'{{{color}}}' for color in MANA_COLORS
+}
+
 MONO_COLOR_MAP: Final[Dict[str, Tuple[str, List[str]]]] = {
     'COLORLESS': ('Colorless', ['colorless']),
     'W': ('White', ['colorless', 'white']),
@@ -1033,6 +1091,7 @@ AURA_SPECIFIC_CARDS = [
     'Ivy, Gleeful Spellthief',          # Copies spells that have single target
     'Killian, Ink Duelist',             # Targetted spell cost reduction
 ]
+
 # Equipment-related constants
 EQUIPMENT_EXCLUSIONS = [
     'Bruenor Battlehammer',         # Equipment cost reduction

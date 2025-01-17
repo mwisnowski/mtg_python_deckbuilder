@@ -1,31 +1,65 @@
 from __future__ import annotations
 
+"""MTG Python Deckbuilder setup module.
+
+This module provides the main setup functionality for the MTG Python Deckbuilder
+application. It handles initial setup tasks such as downloading card data,
+creating color-filtered card lists, and generating commander-eligible card lists.
+
+Key Features:
+    - Initial setup and configuration
+    - Card data download and processing
+    - Color-based card filtering
+    - Commander card list generation
+    - CSV file management and validation
+
+The module works in conjunction with setup_utils.py for utility functions and
+exceptions.py for error handling.
+"""
+
 # Standard library imports
 import logging
 from enum import Enum
+import os
 from pathlib import Path
 from typing import Union, List, Dict, Any
 
 # Third-party imports
-import pandas as pd
 import inquirer
+import pandas as pd
 
 # Local application imports
 from settings import (
-    banned_cards, csv_directory, SETUP_COLORS, COLOR_ABRV, MTGJSON_API_URL
+    banned_cards,
+    COLOR_ABRV,
+    CSV_DIRECTORY,
+    MTGJSON_API_URL,
+    SETUP_COLORS
 )
 from setup_utils import (
-    download_cards_csv, filter_dataframe, process_legendary_cards, filter_by_color_identity
+    download_cards_csv,
+    filter_by_color_identity,
+    filter_dataframe,
+    process_legendary_cards
 )
 from exceptions import (
-    CSVFileNotFoundError, MTGJSONDownloadError, DataFrameProcessingError,
-    ColorFilterError, CommanderValidationError
+    CSVFileNotFoundError,
+    ColorFilterError,
+    CommanderValidationError,
+    DataFrameProcessingError,
+    MTGJSONDownloadError
 )
-# Configure logging
+# Create logs directory if it doesn't exist
+if not os.path.exists('logs'):
+    os.makedirs('logs')
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S'
+    handlers=[
+        logging.StreamHandler(),
+        logging.FileHandler('logs/setup.log', mode='w', encoding='utf-8')
+    ]
 )
 logger = logging.getLogger(__name__)
 
@@ -65,7 +99,7 @@ def initial_setup() -> None:
     logger.info('Checking for cards.csv file')
     
     try:
-        cards_file = f'{csv_directory}/cards.csv'
+        cards_file = f'{CSV_DIRECTORY}/cards.csv'
         try:
             with open(cards_file, 'r', encoding='utf-8'):
                 logger.info('cards.csv exists')
@@ -81,11 +115,11 @@ def initial_setup() -> None:
         for i in range(min(len(SETUP_COLORS), len(COLOR_ABRV))):
             logger.info(f'Checking for {SETUP_COLORS[i]}_cards.csv')
             try:
-                with open(f'{csv_directory}/{SETUP_COLORS[i]}_cards.csv', 'r', encoding='utf-8'):
+                with open(f'{CSV_DIRECTORY}/{SETUP_COLORS[i]}_cards.csv', 'r', encoding='utf-8'):
                     logger.info(f'{SETUP_COLORS[i]}_cards.csv exists')
             except FileNotFoundError:
                 logger.info(f'{SETUP_COLORS[i]}_cards.csv not found, creating one')
-                filter_by_color(df, 'colorIdentity', COLOR_ABRV[i], f'{csv_directory}/{SETUP_COLORS[i]}_cards.csv')
+                filter_by_color(df, 'colorIdentity', COLOR_ABRV[i], f'{CSV_DIRECTORY}/{SETUP_COLORS[i]}_cards.csv')
 
         # Generate commander list
         determine_commanders()
@@ -136,7 +170,7 @@ def determine_commanders() -> None:
     
     try:
         # Check for cards.csv with progress tracking
-        cards_file = f'{csv_directory}/cards.csv'
+        cards_file = f'{CSV_DIRECTORY}/cards.csv'
         if not check_csv_exists(cards_file):
             logger.info('cards.csv not found, initiating download')
             download_cards_csv(MTGJSON_API_URL, cards_file)
@@ -162,7 +196,7 @@ def determine_commanders() -> None:
         
         # Save commander cards
         logger.info('Saving validated commander cards')
-        filtered_df.to_csv(f'{csv_directory}/commander_cards.csv', index=False)
+        filtered_df.to_csv(f'{CSV_DIRECTORY}/commander_cards.csv', index=False)
         
         logger.info('Commander card generation completed successfully')
         
@@ -189,10 +223,10 @@ def regenerate_csvs_all() -> None:
     """
     try:
         logger.info('Downloading latest card data from MTGJSON')
-        download_cards_csv(MTGJSON_API_URL, f'{csv_directory}/cards.csv')
+        download_cards_csv(MTGJSON_API_URL, f'{CSV_DIRECTORY}/cards.csv')
         
         logger.info('Loading and processing card data')
-        df = pd.read_csv(f'{csv_directory}/cards.csv', low_memory=False)
+        df = pd.read_csv(f'{CSV_DIRECTORY}/cards.csv', low_memory=False)
         df['colorIdentity'] = df['colorIdentity'].fillna('Colorless')
         
         logger.info('Regenerating color identity sorted files')
@@ -200,7 +234,7 @@ def regenerate_csvs_all() -> None:
             color = SETUP_COLORS[i]
             color_id = COLOR_ABRV[i]
             logger.info(f'Processing {color} cards')
-            filter_by_color(df, 'colorIdentity', color_id, f'{csv_directory}/{color}_cards.csv')
+            filter_by_color(df, 'colorIdentity', color_id, f'{CSV_DIRECTORY}/{color}_cards.csv')
             
         logger.info('Regenerating commander cards')
         determine_commanders()
@@ -232,14 +266,14 @@ def regenerate_csv_by_color(color: str) -> None:
         color_abv = COLOR_ABRV[SETUP_COLORS.index(color)]
         
         logger.info(f'Downloading latest card data for {color} cards')
-        download_cards_csv(MTGJSON_API_URL, f'{csv_directory}/cards.csv')
+        download_cards_csv(MTGJSON_API_URL, f'{CSV_DIRECTORY}/cards.csv')
         
         logger.info('Loading and processing card data')
-        df = pd.read_csv(f'{csv_directory}/cards.csv', low_memory=False)
+        df = pd.read_csv(f'{CSV_DIRECTORY}/cards.csv', low_memory=False)
         df['colorIdentity'] = df['colorIdentity'].fillna('Colorless')
         
         logger.info(f'Regenerating {color} cards CSV')
-        filter_by_color(df, 'colorIdentity', color_abv, f'{csv_directory}/{color}_cards.csv')
+        filter_by_color(df, 'colorIdentity', color_abv, f'{CSV_DIRECTORY}/{color}_cards.csv')
         
         logger.info(f'Successfully regenerated {color} cards database')
         
@@ -288,23 +322,23 @@ def setup() -> bool:
         choice = _display_setup_menu()
         
         if choice == SetupOption.INITIAL_SETUP:
-            logging.info('Starting initial setup')
+            logger.info('Starting initial setup')
             initial_setup()
-            logging.info('Initial setup completed successfully')
+            logger.info('Initial setup completed successfully')
             return True
             
         elif choice == SetupOption.REGENERATE_CSV:
-            logging.info('Starting CSV regeneration')
+            logger.info('Starting CSV regeneration')
             regenerate_csvs_all()
-            logging.info('CSV regeneration completed successfully')
+            logger.info('CSV regeneration completed successfully')
             return True
             
         elif choice == SetupOption.BACK:
-            logging.info('Setup cancelled by user')
+            logger.info('Setup cancelled by user')
             return False
             
     except Exception as e:
-        logging.error(f'Error during setup: {e}')
+        logger.error(f'Error during setup: {e}')
         raise
     
     return False

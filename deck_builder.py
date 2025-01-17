@@ -1,50 +1,104 @@
 from __future__ import annotations
 
 import logging
-import inquirer.prompt # type: ignore
-import keyboard # type: ignore
 import math
 import numpy as np
-import pandas as pd # type: ignore
-import pprint # type: ignore
 import random
 import time
-
 from functools import lru_cache
+from typing import Dict, List, Optional, Union
+
+import inquirer.prompt # type: ignore
+import keyboard # type: ignore 
+import pandas as pd # type: ignore
+import pprint # type: ignore
 from fuzzywuzzy import process # type: ignore
+from tqdm import tqdm # type: ignore
 
-from settings import basic_lands, card_types, csv_directory, multiple_copy_cards
-from setup import determine_commanders
+from settings import (
+    BASIC_LANDS, CARD_TYPES, CSV_DIRECTORY, multiple_copy_cards, DEFAULT_NON_BASIC_LAND_SLOTS,
+    COMMANDER_CSV_PATH, FUZZY_MATCH_THRESHOLD, MAX_FUZZY_CHOICES, FETCH_LAND_DEFAULT_COUNT,
+    COMMANDER_POWER_DEFAULT, COMMANDER_TOUGHNESS_DEFAULT, COMMANDER_MANA_COST_DEFAULT,
+    COMMANDER_MANA_VALUE_DEFAULT, COMMANDER_TYPE_DEFAULT, COMMANDER_TEXT_DEFAULT, 
+    THEME_PRIORITY_BONUS, THEME_POOL_SIZE_MULTIPLIER,
+    COMMANDER_COLOR_IDENTITY_DEFAULT, COMMANDER_COLORS_DEFAULT, COMMANDER_TAGS_DEFAULT, 
+    COMMANDER_THEMES_DEFAULT, COMMANDER_CREATURE_TYPES_DEFAULT, DUAL_LAND_TYPE_MAP,
+    CSV_READ_TIMEOUT, CSV_PROCESSING_BATCH_SIZE, CSV_VALIDATION_RULES, CSV_REQUIRED_COLUMNS,
+    STAPLE_LAND_CONDITIONS, TRIPLE_LAND_TYPE_MAP, MISC_LAND_MAX_COUNT, MISC_LAND_MIN_COUNT,
+    MISC_LAND_POOL_SIZE, LAND_REMOVAL_MAX_ATTEMPTS, PROTECTED_LANDS,
+    MANA_COLORS, MANA_PIP_PATTERNS, THEME_WEIGHT_MULTIPLIER
+)
+import builder_utils
+import setup_utils
+from input_handler import InputHandler
+from exceptions import (
+    BasicLandCountError,
+    BasicLandError,
+    CommanderMoveError,
+    CardTypeCountError,
+    CommanderColorError,
+    CommanderSelectionError, 
+    CommanderValidationError,
+    CSVError,
+    CSVReadError,
+    CSVTimeoutError,
+    CSVValidationError,
+    DataFrameValidationError,
+    DuplicateCardError,
+    DeckBuilderError,
+    EmptyDataFrameError,
+    FetchLandSelectionError,
+    FetchLandValidationError,
+    IdealDeterminationError,
+    LandRemovalError,
+    LibraryOrganizationError,
+    LibrarySortError,
+    PriceAPIError,
+    PriceConfigurationError,
+    PriceLimitError, 
+    PriceTimeoutError,
+    PriceValidationError,
+    ThemeSelectionError,
+    ThemeWeightError,
+    StapleLandError,
+    ManaPipError,
+    ThemeTagError,
+    ThemeWeightingError,
+    ThemePoolError
+)
+from type_definitions import (
+    CommanderDict,
+    CardLibraryDF,
+    CommanderDF,
+    LandDF,
+    ArtifactDF,
+    CreatureDF,
+    NonCreatureDF,
+    PlaneswalkerDF,
+    NonPlaneswalkerDF)
 
+# Try to import scrython and price_checker
 try:
     import scrython # type: ignore
+    from price_check import PriceChecker
     use_scrython = True
 except ImportError:
     scrython = None
+    PriceChecker = None
     use_scrython = False
-    logging.warning("Scrython is not installed. Some pricing features will be unavailable.")
+    logging.warning("Scrython is not installed. Price checking features will be unavailable."
+                    )
 
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 
+logger = logging.getLogger(__name__)
+
 pd.set_option('display.max_columns', None)
 pd.set_option('display.max_rows', None)
 pd.set_option('display.max_colwidth', 50)
-
-"""
-Basic deck builder, primarily intended for building Kindred decks.
-Logic for other themes (such as Spellslinger or Wheels), is added.
-I plan to also implement having it recommend a commander or themes.
-
-Currently, the script will ask questions to determine number of 
-creatures, lands, interaction, ramp, etc... then add cards and 
-adjust from there.
-
-Land spread will ideally be handled based on pips and some adjustment
-is planned based on mana curve and ramp added.
-"""
 
 def new_line(num_lines: int = 1) -> None:
     """Print specified number of newlines for formatting output.
@@ -61,243 +115,330 @@ def new_line(num_lines: int = 1) -> None:
 
 class DeckBuilder:
 
-    def __init__(self):
-        self.card_library = pd.DataFrame()
-        self.card_library['Card Name'] = pd.Series(dtype='str')
-        self.card_library['Card Type'] = pd.Series(dtype='str')
-        self.card_library['Mana Cost'] = pd.Series(dtype='str')
-        self.card_library['Mana Value'] = pd.Series(dtype='int')
-        self.card_library['Commander'] = pd.Series(dtype='bool')
+    def __init__(self) -> None:
+        """Initialize DeckBuilder with empty dataframes and default attributes."""
+        # Initialize dataframes with type hints
+        self.card_library: CardLibraryDF = pd.DataFrame({
+            'Card Name': pd.Series(dtype='str'),
+            'Card Type': pd.Series(dtype='str'), 
+            'Mana Cost': pd.Series(dtype='str'),
+            'Mana Value': pd.Series(dtype='int'),
+            'Creature Types': pd.Series(dtype='object'),
+            'Themes': pd.Series(dtype='object'),
+            'Commander': pd.Series(dtype='bool'),
+        })
         
-        self.set_max_deck_price = False
-        self.set_max_card_price = False
-        self.card_prices = {} if use_scrython else None
+        # Initialize component dataframes
+        self.commander_df: CommanderDF = pd.DataFrame()
+        self.land_df: LandDF = pd.DataFrame()
+        self.artifact_df: ArtifactDF = pd.DataFrame()
+        self.creature_df: CreatureDF = pd.DataFrame()
+        self.noncreature_df: NonCreatureDF = pd.DataFrame()
+        self.nonplaneswalker_df: NonPlaneswalkerDF = pd.DataFrame()
+        # Initialize other attributes with type hints
+        self.commander_info: Dict = {}
+        self.max_card_price: Optional[float] = None
+        self.commander_dict: CommanderDict = {}
+        self.commander: str = ''
+        self.commander_type: str = ''
+        self.commander_text: str = ''
+        self.commander_power: int = 0
+        self.commander_toughness: int = 0
+        self.commander_mana_cost: str = ''
+        self.commander_mana_value: int = 0
+        self.color_identity: Union[str, List[str]] = ''
+        self.color_identity_full: str = ''
+        self.colors: List[str] = []
+        self.creature_types: str = ''
+        self.commander_tags: List[str] = []
+        self.themes: List[str] = []
         
-    def pause_with_message(self, message="Press Enter to continue..."):
+        # Initialize handlers
+        self.price_checker = PriceChecker() if PriceChecker else None
+        self.input_handler = InputHandler()
+    
+    def pause_with_message(self, message: str = "Press Enter to continue...") -> None:
+        """Display a message and wait for user input.
+        
+        Args:
+            message: Message to display before pausing
+        """
         """Helper function to pause execution with a message."""
         print(f"\n{message}")
         input()
-        
-    def validate_text(self, result: str) -> bool:
-        """Validate text input is not empty.
-        
-        Args:
-            result (str): Text input to validate
-        
-        Returns:
-            bool: True if text is not empty after stripping whitespace
-        """
-        return bool(result and result.strip())
     
-    def validate_number(self, result: str) -> float | None:
-        """Validate and convert string input to float.
+    # Determine and Validate commander
+    def determine_commander(self) -> None:
+        """Main orchestrator method for commander selection and initialization process.
         
-        Args:
-            result (str): Number input to validate
+        This method coordinates the commander selection workflow by:
+        1. Loading commander data
+        2. Facilitating commander selection
+        3. Confirming the selection
+        4. Initializing commander attributes
         
-        Returns:
-            float | None: Converted float value or None if invalid
+        Raises:
+            CommanderLoadError: If commander data cannot be loaded
+            CommanderSelectionError: If commander selection fails
+            CommanderValidationError: If commander data is invalid
         """
-        try:
-            return float(result)
-        except (ValueError, TypeError):
-            return None
-    def validate_confirm(self, result):
-        return bool(result)
+        logger.info("Starting commander selection process")
         
-    def questionnaire(self, question_type, default_value='', choices_list=[]):
-        MAX_ATTEMPTS = 3
-        
-        if question_type == 'Text':
-            question = [inquirer.Text('text')]
-            result = inquirer.prompt(question)['text']
-            while not result.strip():
-                question = [
-                    inquirer.Text('text', message='Input cannot be empty')
-                ]
-                result = inquirer.prompt(question)['text']
-            return result
-            
-        elif question_type == 'Number':
-            attempts = 0
-            question = [
-                inquirer.Text('number', default=default_value)
-            ]
-            result = inquirer.prompt(question)['number']
-            
-            while attempts < MAX_ATTEMPTS:
-                try:
-                    result = float(result)
-                    break
-                except ValueError:
-                    attempts += 1
-                    if attempts < MAX_ATTEMPTS:
-                        question = [
-                            inquirer.Text('number', 
-                                message='Input must be a valid number',
-                                default=default_value)
-                        ]
-                        result = inquirer.prompt(question)['number']
-                    else:
-                        logging.error("Maximum input attempts reached for Number type.")
-                        raise ValueError("Invalid number input.")
-            return result
-            
-        elif question_type == 'Confirm':
-            question = [
-                inquirer.Confirm('confirm', default=default_value)
-            ]
-            result = inquirer.prompt(question)['confirm']
-            return self.validate_confirm(result)
-            
-        elif question_type == 'Choice':
-            question = [
-                inquirer.List('selection',
-                    choices=choices_list,
-                    carousel=True)
-            ]
-            result = inquirer.prompt(question)['selection']
-            return result
-            
-        raise ValueError(f"Unsupported question type: {question_type}")
-    
-    @lru_cache(maxsize=128)
-    def price_check(self, card_name):
         try:
-            time.sleep(0.1)
-            card = scrython.cards.Named(fuzzy=card_name)
-            card_price = card.prices('usd')
-            if card_price is not None and isinstance(card_price, (int, float)):
-                try:
-                    self.card_prices[card_name] = card_price
-                    return float(card_price)
-                except ValueError:
-                    logging.error(f"Invalid price format for '{card_name}': {card_price}")
-                    return 0.0
-            return 0.0
-        except (scrython.foundation.ScryfallError, scrython.foundation.ScryfallRequestError) as e:
-            logging.error(f"Scryfall API error for '{card_name}': {e}")
-            return 0.0
-        except TimeoutError:
-            logging.error(f"Request timed out while fetching price for '{card_name}'")
-            return 0.0
+            # Load commander data using builder_utils
+            df = builder_utils.load_commander_data()
+            logger.debug("Commander data loaded successfully")
+            
+            # Select commander
+            commander_name = self._select_commander(df)
+            logger.info(f"Commander selected: {commander_name}")
+            
+            # Confirm selection
+            commander_data = self._confirm_commander(df, commander_name)
+            logger.info("Commander selection confirmed")
+            
+            # Initialize commander
+            self._initialize_commander(commander_data)
+            logger.info("Commander initialization complete")
+            
+        except DeckBuilderError as e:
+            logger.error(f"Commander selection failed: {e}")
+            raise
         except Exception as e:
-            logging.error(f"Unexpected error fetching price for '{card_name}': {e}")
-            return 0.0
+            logger.error(f"Unexpected error in commander selection: {e}")
+            raise DeckBuilderError(f"Commander selection failed: {str(e)}")
+
+    def _select_commander(self, df: pd.DataFrame) -> str:
+        """Handle the commander selection process including fuzzy matching.
         
-    def determine_commander(self):
-        # Setup dataframe
-        try:
-            df = pd.read_csv('csv_files/commander_cards.csv', converters={'themeTags': pd.eval, 'creatureTypes': pd.eval})
-        except FileNotFoundError:
-            determine_commanders()
-            df = pd.read_csv('csv_files/commander_cards.csv', converters={'themeTags': pd.eval, 'creatureTypes': pd.eval})
-        # Determine the commander of the deck
-        # Set frames that have nothing for color identity to be 'COLORLESS' instead
-        df['colorIdentity'] = df['colorIdentity'].fillna('COLORLESS')
-        df['colors'] = df['colors'].fillna('COLORLESS')
-        commander_chosen = False
-        while not commander_chosen:
-            print('Enter a card name to be your commander, note that at this time only cards that have the \'Creature\' type may be chosen')
-            card_choice = self.questionnaire('Text', '')
-
-            # Logic to find the card in the commander_cards csv, then display it's information
-            # If the card can't be found, or doesn't have enough of a match score, display a 
-            # list to choose from
-            fuzzy_chosen = False
-            while not fuzzy_chosen:
-                match, score, _ = process.extractOne(card_choice, df['name'])
-                if score >= 90:
-                    fuzzy_card_choice = match
-                    print(fuzzy_card_choice)
-                    fuzzy_chosen = True
-                else:
-                    logging.warning('Multiple options found, which is correct?')
-                    fuzzy_card_choices = process.extract(card_choice, df['name'], limit=5)
-                    fuzzy_card_choices.append('Neither')
-                    print(fuzzy_card_choices)
-                    fuzzy_card_choice = self.questionnaire('Choice', choices_list=fuzzy_card_choices)
-                    if isinstance(fuzzy_card_choice, tuple):
-                        fuzzy_card_choice = fuzzy_card_choice[0]
-                    if fuzzy_card_choice != 'Neither':
-                        print(fuzzy_card_choice)
-                        fuzzy_chosen = True
-
-                    else:
-                        break
-
-                filtered_df = df[df['name'] == fuzzy_card_choice]
-                df_dict = filtered_df.to_dict('list')
-                print('Is this the card you chose?')
-                pprint.pprint(df_dict, sort_dicts=False)
-                self.commander_df = pd.DataFrame(df_dict)
-
-                # Confirm if card entered was correct
-                commander_confirmed = self.questionnaire('Confirm', True)
-                # If correct, set it as the commander
-                if commander_confirmed:
-                    commander_chosen = True
-                    self.commander_info = df_dict
-                    self.commander = self.commander_df.at[0, 'name']
-                    self.price_check(self.commander)
-                    logging.info(f"Commander selected: {self.commander}")
-                    break
-                else:
-                    commander_chosen = False
-
-        # Send commander info to setup commander, including extracting info on colors, color identity,
-        # creature types, and other information, like keywords, abilities, etc...
-        self.commander_setup()
+        Args:
+            df: DataFrame containing commander data
+            
+        Returns:
+            Selected commander name
+            
+        Raises:
+            CommanderSelectionError: If commander selection fails
+        """
+        while True:
+            try:
+                card_choice = self.input_handler.questionnaire(
+                    'Text',
+                    'Enter a card name to be your commander'
+                )
                 
-    def commander_setup(self):
-        # Load commander info into a dataframe
+                # Use builder_utils for fuzzy matching
+                match, choices, exact_match = builder_utils.process_fuzzy_matches(card_choice, df)
+                
+                if exact_match:
+                    return match
+                
+                # Handle multiple matches
+                choices.append(('Neither', 0))
+                logger.info("Multiple commander matches found")
+                
+                choice = self.input_handler.questionnaire(
+                    'Choice',
+                    'Multiple matches found. Please select:',
+                    choices_list=[name for name, _ in choices]
+                )
+                
+                if choice != 'Neither':
+                    return choice
+                    
+            except DeckBuilderError as e:
+                logger.warning(f"Commander selection attempt failed: {e}")
+                continue
+                
+    def _confirm_commander(self, df: pd.DataFrame, commander_name: str) -> Dict:
+        """Confirm commander selection and validate data.
+        
+        Args:
+            df: DataFrame containing commander data
+            commander_name: Name of selected commander
+            
+        Returns:
+            Dictionary containing commander data
+            
+        Raises:
+            CommanderValidationError: If commander data is invalid
+        """
+        try:
+            # Validate commander data
+            commander_data = builder_utils.validate_commander_selection(df, commander_name)
+            
+            # Store commander DataFrame
+            self.commander_df = pd.DataFrame(commander_data)
+            
+            # Display commander info
+            print('\nSelected Commander:')
+            pprint.pprint(commander_data, sort_dicts=False)
+            
+            # Confirm selection
+            if not self.input_handler.questionnaire('Confirm', 'Is this the commander you want?', True):
+                raise CommanderSelectionError("Commander selection cancelled by user")
+            
+            # Check price if enabled
+            if self.price_checker:
+                self.price_checker.get_card_price(commander_name)
+                
+            return commander_data
+            
+        except DeckBuilderError as e:
+            logger.error(f"Commander confirmation failed: {e}")
+            raise
+            
+    def _initialize_commander(self, commander_data: Dict) -> None:
+        """Initialize commander attributes from validated data.
+        
+        Args:
+            commander_data: Dictionary containing commander information
+            
+        Raises:
+            CommanderValidationError: If required attributes are missing
+        """
+        try:
+            # Store commander info
+            self.commander_info = commander_data
+            self.commander = commander_data['name'][0]
+            
+            # Initialize commander attributes
+            self.commander_setup()
+            logger.debug("Commander attributes initialized successfully")
+            
+        except Exception as e:
+            logger.error(f"Commander initialization failed: {e}")
+            raise CommanderValidationError(f"Failed to initialize commander: {str(e)}")
+
+    # Setup Commander
+    def commander_setup(self) -> None:
+        """Set up commander attributes and initialize deck building.
+        
+        This method orchestrates the commander setup process by calling specialized
+        helper methods to handle different aspects of initialization.
+        
+        Raises:
+            CommanderValidationError: If commander validation fails
+            DeckBuilderError: If deck building initialization fails
+        """
+        try:
+            # Initialize commander attributes
+            self._initialize_commander_attributes()
+            
+            # Set up commander components
+            self._setup_commander_type_and_text()
+            self._setup_commander_stats()
+            self._setup_color_identity()
+            self._setup_creature_types()
+            self._setup_commander_tags()
+            
+            # Initialize commander dictionary and deck
+            self._initialize_commander_dict()
+            self._initialize_deck_building()
+            
+            logger.info("Commander setup completed successfully")
+            
+        except CommanderValidationError as e:
+            logger.error(f"Commander validation failed: {e}")
+            raise
+        except DeckBuilderError as e:
+            logger.error(f"Deck building initialization failed: {e}")
+            raise
+
+    def _initialize_commander_attributes(self) -> None:
+        """Initialize basic commander attributes with defaults.
+        
+        Uses settings.py constants for default values.
+        """
+        self.commander_power = COMMANDER_POWER_DEFAULT
+        self.commander_toughness = COMMANDER_TOUGHNESS_DEFAULT
+        self.commander_mana_value = COMMANDER_MANA_VALUE_DEFAULT
+        self.commander_type = COMMANDER_TYPE_DEFAULT
+        self.commander_text = COMMANDER_TEXT_DEFAULT
+        self.commander_mana_cost = COMMANDER_MANA_COST_DEFAULT
+        self.color_identity = COMMANDER_COLOR_IDENTITY_DEFAULT
+        self.colors = COMMANDER_COLORS_DEFAULT.copy()
+        self.creature_types = COMMANDER_CREATURE_TYPES_DEFAULT
+        self.commander_tags = COMMANDER_TAGS_DEFAULT.copy()
+        self.themes = COMMANDER_THEMES_DEFAULT.copy()
+
+    def _setup_commander_type_and_text(self) -> None:
+        """Set up and validate commander type line and text.
+        
+        Raises:
+            CommanderTypeError: If type line validation fails
+        """
         df = self.commander_df
-
-        # Set type line
-        self.commander_type = str(df.at[0, 'type'])
-
-        # Set text line
+        type_line = str(df.at[0, 'type'])
+        self.commander_type = self.input_handler.validate_commander_type(type_line)
         self.commander_text = str(df.at[0, 'text'])
 
-        # Set Power
-        self.commander_power = int(df.at[0, 'power'])
-
-        # Set Toughness
-        self.commander_toughness = int(df.at[0, 'toughness'])
-
-        # Set Mana Cost
+    def _setup_commander_stats(self) -> None:
+        """Set up and validate commander power, toughness, and mana values.
+        
+        Raises:
+            CommanderStatsError: If stats validation fails
+        """
+        df = self.commander_df
+        
+        # Validate power and toughness
+        self.commander_power = self.input_handler.validate_commander_stats(
+            'power', str(df.at[0, 'power']))
+        self.commander_toughness = self.input_handler.validate_commander_stats(
+            'toughness', str(df.at[0, 'toughness']))
+            
+        # Set mana cost and value
         self.commander_mana_cost = str(df.at[0, 'manaCost'])
-        self.commander_mana_value = int(df.at[0, 'manaValue'])
+        self.commander_mana_value = self.input_handler.validate_commander_stats(
+            'mana value', int(df.at[0, 'manaValue']))
 
-        # Set color identity
+    def _setup_color_identity(self) -> None:
+        """Set up and validate commander color identity.
+        
+        Raises:
+            CommanderColorError: If color identity validation fails
+        """
+        df = self.commander_df
         try:
-            self.color_identity = df.at[0, 'colorIdentity']
-            if pd.isna(self.color_identity):
-                self.color_identity = 'COLORLESS'
+            color_id = df.at[0, 'colorIdentity']
+            if pd.isna(color_id):
+                color_id = 'COLORLESS'
+            
+            self.color_identity = self.input_handler.validate_commander_colors(color_id)
             self.color_identity_full = ''
             self.determine_color_identity()
-        except Exception as e:
-            logging.error(f"Failed to set color identity: {e}")
-            raise ValueError("Could not determine color identity") from e
-
-        # Set creature colors
-        if pd.notna(df.at[0, 'colors']) and df.at[0, 'colors'].strip():
-            self.colors = [color.strip() for color in df.at[0, 'colors'].split(',') if color.strip()]
-            if not self.colors:
+            print(self.color_identity_full)
+            
+            # Set colors list
+            if pd.notna(df.at[0, 'colors']) and df.at[0, 'colors'].strip():
+                self.colors = [color.strip() for color in df.at[0, 'colors'].split(',') if color.strip()]
+                if not self.colors:
+                    self.colors = ['COLORLESS']
+            else:
                 self.colors = ['COLORLESS']
-        else:
-            self.colors = ['COLORLESS']
+                
+        except Exception as e:
+            raise CommanderColorError(f"Failed to set color identity: {str(e)}")
 
-        # Set creature types
+    def _setup_creature_types(self) -> None:
+        """Set up commander creature types."""
+        df = self.commander_df
         self.creature_types = str(df.at[0, 'creatureTypes'])
 
-        # Set deck theme tags
-        self.commander_tags = list(df.at[0, 'themeTags'])
-
-        self.determine_themes()
+    def _setup_commander_tags(self) -> None:
+        """Set up and validate commander theme tags.
         
+        Raises:
+            CommanderTagError: If tag validation fails
+        """
+        df = self.commander_df
+        tags = list(df.at[0, 'themeTags'])
+        self.commander_tags = self.input_handler.validate_commander_tags(tags)
+        self.determine_themes()
 
-        self.commander_dict = {
+    def _initialize_commander_dict(self) -> None:
+        """Initialize the commander dictionary with validated data."""
+        self.commander_dict: CommanderDict = {
             'Commander Name': self.commander,
             'Mana Cost': self.commander_mana_cost,
             'Mana Value': self.commander_mana_value,
@@ -308,586 +449,673 @@ class DeckBuilder:
             'Text': self.commander_text,
             'Power': self.commander_power,
             'Toughness': self.commander_toughness,
-            'Themes': self.themes
+            'Themes': self.themes,
+            'CMC': 0.0
         }
-        self.add_card(self.commander, self.commander_type, self.commander_mana_cost, self.commander_mana_value, True)
+        self.add_card(self.commander, self.commander_type,
+                      self.commander_mana_cost, self.commander_mana_value,
+                      self.creature_types, self.commander_tags, True)
 
-        # Begin Building the Deck
-        self.setup_dataframes()
-        self.determine_ideals()
-        self.add_lands()
-        self.add_creatures()
-        self.add_ramp()
-        self.add_board_wipes()
-        self.add_interaction()
-        self.add_card_advantage()
-        if len(self.card_library) < 100:
-            self.fill_out_deck()
-        self.card_library.to_csv(f'{csv_directory}/test_deck_presort.csv', index=False)
-        self.organize_library()
-        self.card_library.to_csv(f'{csv_directory}/test_deck_preconcat.csv', index=False)
-        logging.info(f'Creature cards (including commander): {self.creature_cards}')
-        logging.info(f'Planeswalker cards: {self.planeswalker_cards}')
-        logging.info(f'Battle cards: {self.battle_cards}')
-        logging.info(f'Instant cards: {self.instant_cards}')
-        logging.info(f'Sorcery cards: {self.sorcery_cards}')
-        logging.info(f'Artifact cards: {self.artifact_cards}')
-        logging.info(f'Enchantment cards: {self.enchantment_cards}')
-        logging.info(f'Land cards cards: {self.land_cards}')
-        logging.info(f'Number of cards in Library: {len(self.card_library)}')
-        self.get_cmc()
-        self.count_pips()
-        self.concatenate_duplicates()
-        self.organize_library()
-        self.sort_library()
-        self.commander_to_top()
-        self.card_library.to_csv(f'{csv_directory}/test_deck_done.csv', index=False)
-        self.full_df.to_csv(f'{csv_directory}/test_all_after_done.csv', index=False)
-    
-    def determine_color_identity(self) -> None:
-        """Determine the deck's color identity and set related attributes."""
-        # Single color mapping
-        mono_color_map = {
-            'COLORLESS': ('Colorless', ['colorless']),
-            'B': ('Black', ['colorless', 'black']),
-            'G': ('Green', ['colorless', 'green']),
-            'R': ('Red', ['colorless', 'red']),
-            'U': ('Blue', ['colorless', 'blue']),
-            'w': ('White', ['colorless', 'white'])
-        }
+    def _initialize_deck_building(self) -> None:
+        """Initialize deck building process.
         
-        # Two-color mapping
-        dual_color_map = {
-            'B, G': ('Golgari: Black/Green', ['B', 'G', 'B, G'], ['colorless', 'black', 'green', 'golgari']),
-            'B, R': ('Rakdos: Black/Red', ['B', 'R', 'B, R'], ['colorless', 'black', 'red', 'rakdos']),
-            'B, U': ('Dimir: Black/Blue', ['B', 'U', 'B, U'], ['colorless', 'black', 'blue', 'dimir']),
-            'B, W': ('Orzhov: Black/White', ['B', 'W', 'B, W'], ['colorless', 'black', 'white', 'orzhov']),
-            'G, R': ('Gruul: Green/Red', ['G', 'R', 'G, R'], ['colorless', 'green', 'red', 'gruul']),
-            'G, U': ('Simic: Green/Blue', ['G', 'U', 'G, U'], ['colorless', 'green', 'blue', 'simic']),
-            'G, W': ('Selesnya: Green/White', ['G', 'W', 'G, W'], ['colorless', 'green', 'white', 'selesnya']),
-            'R, U': ('Izzet: Blue/Red', ['U', 'R', 'U, R'], ['colorless', 'blue', 'red', 'izzet']),
-            'U, W': ('Azorius: Blue/White', ['U', 'W', 'U, W'], ['colorless', 'blue', 'white', 'azorius']),
-            'R, W': ('Boros: Red/White', ['R', 'W', 'R, W'], ['colorless', 'red', 'white', 'boros'])
-        }
-        
-        # Three-color mapping
-        tri_color_map = {
-            'B, G, U': ('Sultai: Black/Blue/Green', ['B', 'G', 'U', 'B, G', 'B, U', 'G, U', 'B, G, U'],
-                        ['colorless', 'black', 'blue', 'green', 'dimir', 'golgari', 'simic', 'sultai']),
-            'B, G, R': ('Jund: Black/Red/Green', ['B', 'G', 'R', 'B, G', 'B, R', 'G, R', 'B, G, R'],
-                        ['colorless', 'black', 'green', 'red', 'golgari', 'rakdos', 'gruul', 'jund']),
-            'B, G, W': ('Abzan: Black/Green/White', ['B', 'G', 'W', 'B, G', 'B, W', 'G, W', 'B, G, W'],
-                        ['colorless', 'black', 'green', 'white', 'golgari', 'orzhov', 'selesnya', 'abzan']),
-            'B, R, U': ('Grixis: Black/Blue/Red', ['B', 'R', 'U', 'B, R', 'B, U', 'R, U', 'B, R, U'],
-                        ['colorless', 'black', 'blue', 'red', 'dimir', 'rakdos', 'izzet', 'grixis']),
-            'B, R, W': ('Mardu: Black/Red/White', ['B', 'R', 'W', 'B, R', 'B, W', 'R, W', 'B, R, W'],
-                        ['colorless', 'black', 'red', 'white', 'rakdos', 'orzhov', 'boros', 'mardu']),
-            'B, U, W': ('Esper: Black/Blue/White', ['B', 'U', 'W', 'B, U', 'B, W', 'U, W', 'B, U, W'],
-                        ['colorless', 'black', 'blue', 'white', 'dimir', 'orzhov', 'azorius', 'esper']),
-            'G, R, U': ('Temur: Blue/Green/Red', ['G', 'R', 'U', 'G, R', 'G, U', 'R, U', 'G, R, U'],
-                        ['colorless', 'green', 'red', 'blue', 'simic', 'izzet', 'gruul', 'temur']),
-            'G, R, W': ('Naya: Green/Red/White', ['G', 'R', 'W', 'G, R', 'G, W', 'R, W', 'G, R, W'],
-                        ['green', 'red', 'white', 'gruul', 'selesnya', 'boros', 'naya']),
-            'G, U, W': ('Bant: Blue/Green/White', ['G', 'U', 'W', 'G, U', 'G, W', 'U, W', 'G, U, W'],
-                        ['colorless', 'green', 'blue', 'white', 'simic', 'azorius', 'selesnya', 'bant']),
-            'R, U, W': ('Jeskai: Blue/Red/White', ['R', 'U', 'W', 'R, U', 'U, W', 'R, W', 'R, U, W'],
-                        ['colorless', 'blue', 'red', 'white', 'izzet', 'azorius', 'boros', 'jeskai'])
-        }
-        
-        other_color_map ={
-            'B, G, R, U': ('Glint: Black/Blue/Green/Red',
-                           ['B', 'G', 'R', 'U', 'B, G', 'B, R', 'B, U','G, R', 'G, U', 'R, U', 'B, G, R',
-                            'B, G, U', 'B, R, U', 'G, R, U' , 'B, G, R, U'],
-                           ['colorless', 'black', 'blue', 'green', 'red', 'golgari', 'rakdos', 'dimir',
-                            'gruul','simic', 'izzet', 'jund', 'sultai', 'grixis', 'temur', 'glint']),
-            'B, G, R, W': ('Dune: Black/Green/Red/White',
-                           ['B', 'G', 'R', 'W', 'B, G', 'B, R', 'B, W', 'G, R', 'G, W', 'R, W', 'B, G, R',
-                            'B, G, W', 'B, R, W', 'G, R, W' , 'B, G, R, W'],
-                           ['colorless', 'black', 'green', 'red', 'white', 'golgari', 'rakdos', 'orzhov',
-                            'gruul', 'selesnya', 'boros', 'jund', 'abzan', 'mardu', 'naya', 'dune']),
-            'B, G, U, W': ('Witch: Black/Blue/Green/White',
-                           ['B', 'G', 'U', 'W', 'B, G', 'B, U', 'B, W', 'G, U', 'G, W', 'U, W', 'B, G, U',
-                            'B, G, W', 'B, U, W', 'G, U, W' , 'B, G, U, W'],
-                           ['colorless', 'black', 'blue', 'green', 'white', 'golgari', 'dimir', 'orzhov',
-                            'simic', 'selesnya', 'azorius', 'sultai', 'abzan', 'esper', 'bant', 'witch']),
-            'B, R, U, W': ('Yore: Black/Blue/Red/White',
-                           ['B', 'R', 'U', 'W', 'B, R', 'B, U', 'B, W', 'R, U', 'R, W', 'U, W', 'B, R, U',
-                            'B, R, W', 'B, U, W', 'R, U, W' , 'B, R, U, W'],
-                           ['colorless', 'black', 'blue', 'red', 'white', 'rakdos', 'dimir', 'orzhov',
-                            'izzet', 'boros', 'azorius', 'grixis', 'mardu', 'esper', 'mardu', 'yore']),
-            'G, R, U, W': ('Ink: Blue/Green/Red/White',
-                           ['G', 'R', 'U', 'W', 'G, R', 'G, U', 'G, W', 'R, U', 'R, W', 'U, W', 'G, R, U',
-                            'G, R, W', 'G, U, W', 'R, U, W', 'G, R, U, W'],
-                           ['colorless', 'blue', 'green', 'red', 'white', 'gruul', 'simic', 'selesnya',
-                            'izzet', 'boros', 'azorius', 'temur', 'naya', 'bant', 'jeskai', 'ink']),
-            'B, G, R, U, W': ('WUBRG: All colors',
-                              ['B', 'G', 'R', 'U', 'W', 'B, G', 'B, R', 'B, U', 'B, W', 'G, R', 'G, U',
-                               'G, W', 'R, U', 'R, W', 'U, W', 'B, G, R', 'B, G, U', 'B, G, W', 'B, R, U',
-                               'B, R, W', 'B, U, W', 'G, R, U', 'G, R, W', 'B, U ,W', 'R, U, W',
-                               'B, G, R, U', 'B, G, R, W', 'B, G, U, W', 'B, R, U, W', 'G, R, U, W',
-                               'B, G, R, U, W'],
-                              ['colorless', 'black', 'green', 'red', 'blue', 'white', 'golgari', 'rakdos',
-                               'dimir', 'orzhov', 'gruul', 'simic', 'selesnya', 'izzet', 'boros', 'azorius',
-                               'jund', 'sultai', 'abzan', 'grixis', 'mardu', 'esper', 'temur', 'naya',
-                               'bant', 'jeskai', 'glint', 'dune','witch', 'yore', 'ink', 'wubrg'])
-        }
-        
+        Raises:
+            DeckBuilderError: If deck building initialization fails
+        """
         try:
-            # Handle mono-color identities
-            if self.color_identity in mono_color_map:
-                self.color_identity_full, self.files_to_load = mono_color_map[self.color_identity]
-                return
+            # Set up initial deck structure
+            self.setup_dataframes()
+            self.determine_ideals()
+            
+            # Add cards by category
+            self.add_lands()
+            self.add_creatures()
+            self.add_ramp()
+            self.add_board_wipes()
+            self.add_interaction()
+            self.add_card_advantage()
+            
+            # Fill remaining slots if needed
+            if len(self.card_library) < 100:
+                self.fill_out_deck()
                 
-            # Handle two-color identities
-            if self.color_identity in dual_color_map:
-                identity_info = dual_color_map[self.color_identity]
-                self.color_identity_full = identity_info[0]
-                self.color_identity_options = identity_info[1]
-                self.files_to_load = identity_info[2]
+            # Process and organize deck
+            self.card_library.to_csv(f'{CSV_DIRECTORY}/test_deck_presort.csv', index=False)
+            self.organize_library()
+            self.card_library.to_csv(f'{CSV_DIRECTORY}/test_deck_preconcat.csv', index=False)
+            
+            # Log deck composition
+            self._log_deck_composition()
+            
+            # Finalize deck
+            self.get_cmc()
+            self.count_pips()
+            self.concatenate_duplicates()
+            self.organize_library()
+            self.sort_library()
+            self.commander_to_top()
+            
+            # Save final deck
+            self.card_library.to_csv(f'{CSV_DIRECTORY}/test_deck_done.csv', index=False)
+            self.full_df.to_csv(f'{CSV_DIRECTORY}/test_all_after_done.csv', index=False)
+            
+        except Exception as e:
+            raise DeckBuilderError(f"Failed to initialize deck building: {str(e)}")
+
+    def _log_deck_composition(self) -> None:
+        """Log the deck composition statistics."""
+        logger.info(f'Creature cards (including commander): {self.creature_cards}')
+        logger.info(f'Planeswalker cards: {self.planeswalker_cards}')
+        logger.info(f'Battle cards: {self.battle_cards}')
+        logger.info(f'Instant cards: {self.instant_cards}')
+        logger.info(f'Sorcery cards: {self.sorcery_cards}')
+        logger.info(f'Artifact cards: {self.artifact_cards}')
+        logger.info(f'Enchantment cards: {self.enchantment_cards}')
+        logger.info(f'Land cards cards: {self.land_cards}')
+        logger.info(f'Number of cards in Library: {len(self.card_library)}')
+    
+    # Determine and validate color identity
+    def determine_color_identity(self) -> None:
+        """Determine the deck's color identity and set related attributes.
+
+        This method orchestrates the color identity determination process by:
+        1. Validating the color identity input
+        2. Determining the appropriate color combination type
+        3. Setting color identity attributes based on the combination
+
+        Raises:
+            CommanderColorError: If color identity validation fails
+        """
+        try:
+            # Validate color identity using input handler
+            validated_identity = self.input_handler.validate_commander_colors(self.color_identity)
+            
+            # Determine color combination type and set attributes
+            if self._determine_mono_color(validated_identity):
                 return
             
-            # Handle three-color identities
-            if self.color_identity in tri_color_map:
-                identity_info = tri_color_map[self.color_identity]
-                self.color_identity_full = identity_info[0]
-                self.color_identity_options = identity_info[1]
-                self.files_to_load = identity_info[2]
+            if self._determine_dual_color(validated_identity):
                 return
             
-            # Handle four-color/five-color identities
-            if self.color_identity in other_color_map:
-                identity_info = other_color_map[self.color_identity]
-                self.color_identity_full = identity_info[0]
-                self.color_identity_options = identity_info[1]
-                self.files_to_load = identity_info[2]
+            if self._determine_tri_color(validated_identity):
                 return
-                
-            # If we get here, it's an unknown color identity
-            logging.warning(f"Unknown color identity: {self.color_identity}")
+            
+            if self._determine_other_color(validated_identity):
+                return
+            
+            # Handle unknown color identity
+            logger.warning(f"Unknown color identity: {validated_identity}")
             self.color_identity_full = 'Unknown'
             self.files_to_load = ['colorless']
             
-        except Exception as e:
-            logging.error(f"Error in determine_color_identity: {e}")
+        except CommanderColorError as e:
+            logger.error(f"Color identity validation failed: {e}")
             raise
-    
-    def read_csv(self, filename: str, converters: dict | None = None) -> pd.DataFrame:
-        """Read CSV file with error handling and logging.
+        except Exception as e:
+            logger.error(f"Error in determine_color_identity: {e}")
+            raise CommanderColorError(f"Failed to determine color identity: {str(e)}")
+
+    def _determine_mono_color(self, color_identity: str) -> bool:
+        """Handle single color identities.
+
+        Args:
+            color_identity: Validated color identity string
+
+        Returns:
+            True if color identity was handled, False otherwise
+        """
+        from settings import MONO_COLOR_MAP
         
+        if color_identity in MONO_COLOR_MAP:
+            self.color_identity_full, self.files_to_load = MONO_COLOR_MAP[color_identity]
+            return True
+        return False
+
+    def _determine_dual_color(self, color_identity: str) -> bool:
+        """Handle two-color combinations.
+
+        Args:
+            color_identity: Validated color identity string
+
+        Returns:
+            True if color identity was handled, False otherwise
+        """
+        from settings import DUAL_COLOR_MAP
+        
+        if color_identity in DUAL_COLOR_MAP:
+            identity_info = DUAL_COLOR_MAP[color_identity]
+            self.color_identity_full = identity_info[0]
+            self.color_identity_options = identity_info[1]
+            self.files_to_load = identity_info[2]
+            return True
+        return False
+
+    def _determine_tri_color(self, color_identity: str) -> bool:
+        """Handle three-color combinations.
+
+        Args:
+            color_identity: Validated color identity string
+
+        Returns:
+            True if color identity was handled, False otherwise
+        """
+        from settings import TRI_COLOR_MAP
+        
+        if color_identity in TRI_COLOR_MAP:
+            identity_info = TRI_COLOR_MAP[color_identity]
+            self.color_identity_full = identity_info[0]
+            self.color_identity_options = identity_info[1]
+            self.files_to_load = identity_info[2]
+            return True
+        return False
+
+    def _determine_other_color(self, color_identity: str) -> bool:
+        """Handle four and five color combinations.
+
+        Args:
+            color_identity: Validated color identity string
+
+        Returns:
+            True if color identity was handled, False otherwise
+        """
+        from settings import OTHER_COLOR_MAP
+        
+        if color_identity in OTHER_COLOR_MAP:
+            identity_info = OTHER_COLOR_MAP[color_identity]
+            self.color_identity_full = identity_info[0]
+            self.color_identity_options = identity_info[1]
+            self.files_to_load = identity_info[2]
+            return True
+        return False
+
+    # CSV and dataframe functionality
+    def read_csv(self, filename: str, converters: dict | None = None) -> pd.DataFrame:
+        """Read and validate CSV file with comprehensive error handling.
+
         Args:
             filename: Name of the CSV file without extension
             converters: Dictionary of converters for specific columns
-        
-        Returns:
-            DataFrame from CSV file
-        """
-        try:
-            filepath = f'{csv_directory}/{filename}_cards.csv'
-            df = pd.read_csv(filepath, converters=converters or {'themeTags': pd.eval, 'creatureTypes': pd.eval})
-            logging.debug(f"Successfully read {filename}_cards.csv")
-            return df
-        except FileNotFoundError as e:
-            logging.error(f"File {filename}_cards.csv not found: {e}")
-            raise
-        except Exception as e:
-            logging.error(f"Error reading {filename}_cards.csv: {e}")
-            raise
 
+        Returns:
+            pd.DataFrame: Validated and processed DataFrame
+
+        Raises:
+            CSVReadError: If file cannot be read
+            CSVValidationError: If data fails validation
+            CSVTimeoutError: If read operation times out
+            EmptyDataFrameError: If DataFrame is empty
+        """
+        filepath = f'{CSV_DIRECTORY}/{filename}_cards.csv'
+        
+        try:
+            # Read with timeout
+            df = pd.read_csv(
+                filepath,
+                converters=converters or {'themeTags': pd.eval, 'creatureTypes': pd.eval},
+            )
+            
+            # Check for empty DataFrame
+            if df.empty:
+                raise EmptyDataFrameError(f"Empty DataFrame from {filename}_cards.csv")
+            
+            # Validate required columns
+            missing_cols = set(CSV_REQUIRED_COLUMNS) - set(df.columns)
+            if missing_cols:
+                raise CSVValidationError(f"Missing required columns: {missing_cols}")
+            
+            # Validate data rules
+            for col, rules in CSV_VALIDATION_RULES.items():
+                if rules.get('required', False) and df[col].isnull().any():
+                    raise CSVValidationError(f"Missing required values in column: {col}")
+                if 'type' in rules:
+                    expected_type = rules['type']
+                    actual_type = df[col].dtype.name
+                    if expected_type == 'str' and actual_type not in ['object', 'string']:
+                        raise CSVValidationError(f"Invalid type for column {col}: expected {expected_type}, got {actual_type}")
+                    elif expected_type != 'str' and not actual_type.startswith(expected_type):
+                        raise CSVValidationError(f"Invalid type for column {col}: expected {expected_type}, got {actual_type}")
+            logger.debug(f"Successfully read and validated {filename}_cards.csv")
+            #print(df.columns)
+            return df
+            
+        except pd.errors.EmptyDataError:
+            raise EmptyDataFrameError(f"Empty CSV file: {filename}_cards.csv")
+            
+        except FileNotFoundError as e:
+            logger.error(f"File {filename}_cards.csv not found: {e}")
+            setup_utils.regenerate_csvs_all()
+            return self.read_csv(filename, converters)
+            
+        except TimeoutError:
+            raise CSVTimeoutError(f"Timeout reading {filename}_cards.csv", CSV_READ_TIMEOUT)
+            
+        except Exception as e:
+            logger.error(f"Error reading {filename}_cards.csv: {e}")
+            raise CSVReadError(f"Failed to read {filename}_cards.csv: {str(e)}")
+    
     def write_csv(self, df: pd.DataFrame, filename: str) -> None:
-        """Write DataFrame to CSV with error handling and logging.
+        """Write DataFrame to CSV with error handling and logger.
         
         Args:
             df: DataFrame to write
             filename: Name of the CSV file without extension
         """
         try:
-            filepath = f'{csv_directory}/{filename}.csv'
+            filepath = f'{CSV_DIRECTORY}/{filename}.csv'
             df.to_csv(filepath, index=False)
-            logging.debug(f"Successfully wrote {filename}.csv")
+            logger.debug(f"Successfully wrote {filename}.csv")
         except Exception as e:
-            logging.error(f"Error writing {filename}.csv: {e}")
+            logger.error(f"Error writing {filename}.csv: {e}")
+    
+    def _load_and_combine_data(self) -> pd.DataFrame:
+        """Load and combine data from multiple CSV files.
+
+        Returns:
+            Combined DataFrame from all source files
+
+        Raises:
+            CSVError: If data loading or combining fails
+            EmptyDataFrameError: If no valid data is loaded
+        """
+        logger.info("Loading and combining data from CSV files...")
+        all_df = []
+
+        try:
+            # Wrap files_to_load with tqdm for progress bar
+            for file in tqdm(self.files_to_load, desc="Loading card data files", leave=False):
+                df = self.read_csv(file)
+                if df.empty:
+                    raise EmptyDataFrameError(f"Empty DataFrame from {file}")
+                all_df.append(df)
+                #print(df.columns)
+            return builder_utils.combine_dataframes(all_df)
+
+        except (CSVError, EmptyDataFrameError) as e:
+            logger.error(f"Error loading and combining data: {e}")
             raise
 
-    def setup_dataframes(self):
-        """Initialize and setup all required DataFrames."""
-        all_df = []
-        for file in self.files_to_load:
-            df = self.read_csv(file)
-            all_df.append(df)
-        self.full_df = pd.concat(all_df, ignore_index=True)
-        self.full_df.sort_values(by='edhrecRank', inplace=True)
-        
-        self.land_df = self.full_df[self.full_df['type'].str.contains('Land')].copy()
-        self.land_df.sort_values(by='edhrecRank', inplace=True)
-        self.land_df.to_csv(f'{csv_directory}/test_lands.csv', index=False)
-        
-        self.full_df = self.full_df[~self.full_df['type'].str.contains('Land')]
-        self.full_df.to_csv(f'{csv_directory}/test_all.csv', index=False)
-        
-        self.artifact_df = self.full_df[self.full_df['type'].str.contains('Artifact')].copy()
-        self.artifact_df.sort_values(by='edhrecRank', inplace=True)
-        self.artifact_df.to_csv(f'{csv_directory}/test_artifacts.csv', index=False)
-        
-        self.battle_df = self.full_df[self.full_df['type'].str.contains('Battle')].copy()
-        self.battle_df.sort_values(by='edhrecRank', inplace=True)
-        self.battle_df.to_csv(f'{csv_directory}/test_battles.csv', index=False)
-        
-        self.creature_df = self.full_df[self.full_df['type'].str.contains('Creature')].copy()
-        self.creature_df.sort_values(by='edhrecRank', inplace=True)
-        self.creature_df.to_csv(f'{csv_directory}/test_creatures.csv', index=False)
-        
-        self.noncreature_df = self.full_df[~self.full_df['type'].str.contains('Creature')].copy()
-        self.noncreature_df.sort_values(by='edhrecRank', inplace=True)
-        self.noncreature_df.to_csv(f'{csv_directory}/test_noncreatures.csv', index=False)
-        
-        self.noncreature_nonplaneswaker_df = self.noncreature_df[~self.noncreature_df['type'].str.contains('Planeswalker')].copy()
-        self.noncreature_nonplaneswaker_df.sort_values(by='edhrecRank', inplace=True)
-        self.noncreature_nonplaneswaker_df.to_csv(f'{csv_directory}/test_noncreatures.csv', index=False)
-        
-        self.enchantment_df = self.full_df[self.full_df['type'].str.contains('Enchantment')].copy()
-        self.enchantment_df.sort_values(by='edhrecRank', inplace=True)
-        self.enchantment_df.to_csv(f'{csv_directory}/test_enchantments.csv', index=False)
-        
-        self.instant_df = self.full_df[self.full_df['type'].str.contains('Instant')].copy()
-        self.instant_df.sort_values(by='edhrecRank', inplace=True)
-        self.instant_df.to_csv(f'{csv_directory}/test_instants.csv', index=False)
-        
-        self.planeswalker_df = self.full_df[self.full_df['type'].str.contains('Planeswalker')].copy()
-        self.planeswalker_df.sort_values(by='edhrecRank', inplace=True)
-        self.planeswalker_df.to_csv(f'{csv_directory}/test_planeswalkers.csv', index=False)
-        
-        self.sorcery_df = self.full_df[self.full_df['type'].str.contains('Sorcery')].copy()
-        self.sorcery_df.sort_values(by='edhrecRank', inplace=True)
-        self.sorcery_df.to_csv(f'{csv_directory}/test_sorcerys.csv', index=False)
-    
-    def determine_themes(self):
-        themes = self.commander_tags
-        print('Your commander deck will likely have a number of viable themes, but you\'ll want to narrow it down for focus.\n'
-                'This will go through the process of choosing up to three themes for the deck.\n')
-        while True:
-            # Choose a primary theme
-            print('Choose a primary theme for your commander deck.\n'
-                'This will be the "focus" of the deck, in a kindred deck this will typically be a creature type for example.')
-            choice = self.questionnaire('Choice', choices_list=themes)
-            self.primary_theme = choice
-            weights_default = {
-                'primary': 1.0,
-                'secondary': 0.0,
-                'tertiary': 0.0,
-                'hidden': 0.0
-                }
-            weights = weights_default.copy()
-            themes.remove(choice)
-            themes.append('Stop Here')
-            self.primary_weight = weights['primary']
+    def _split_into_specialized_frames(self, df: pd.DataFrame) -> None:
+        """Split combined DataFrame into specialized component frames.
 
-            secondary_theme_chosen = False
-            tertiary_theme_chosen = False
-            self.hidden_theme = False
+        Args:
+            df: Source DataFrame to split
 
-            while not secondary_theme_chosen:
-                # Secondary theme
-                print('Choose a secondary theme for your commander deck.\n'
-                    'This will typically be a secondary focus, like card draw for Spellslinger, or +1/+1 counters for Aggro.')
-                choice = self.questionnaire('Choice', choices_list=themes)
-                while True:
-                    if choice == 'Stop Here':
-                        logging.warning('You\'ve only selected one theme, are you sure you want to stop?\n')
-                        confirm_done = self.questionnaire('Confirm', False)
-                        if confirm_done:
-                            secondary_theme_chosen = True
-                            self.secondary_theme = False
-                            tertiary_theme_chosen = True
-                            self.tertiary_theme = False
-                            themes.remove(choice)
-                            break
-                        else:
-                            pass
-
-                    else:
-                        weights = weights_default.copy() # primary = 1.0, secondary = 0.0, tertiary = 0.0
-                        self.secondary_theme = choice
-                        themes.remove(choice)
-                        secondary_theme_chosen = True
-                        # Set weights for primary/secondary themes
-                        if 'Kindred' in self.primary_theme and 'Kindred' not in self.secondary_theme:
-                            weights['primary'] -= 0.1 # 0.8
-                            weights['secondary'] += 0.1 # 0.1
-                        elif 'Kindred' in self.primary_theme and 'Kindred' in self.secondary_theme:
-                            weights['primary'] -= 0.7 # 0.7
-                            weights['secondary'] += 0.3 # 0.3
-                        else:
-                            weights['primary'] -= 0.4 # 0.6
-                            weights['secondary'] += 0.4 # 0.4
-                        self.primary_weight = weights['primary']
-                        self.secondary_weight = weights['secondary']
-                        break
-
-            while not tertiary_theme_chosen:
-                # Tertiary theme
-                print('Choose a tertiary theme for your commander deck.\n'
-                    'This will typically be a tertiary focus, or just something else to do that your commander is good at.')
-                choice = self.questionnaire('Choice', choices_list=themes)
-                while True:
-                    if choice == 'Stop Here':
-                        logging.warning('You\'ve only selected two themes, are you sure you want to stop?\n')
-                        confirm_done = self.questionnaire('Confirm', False)
-                        if confirm_done:
-                            tertiary_theme_chosen = True
-                            self.tertiary_theme = False
-                            themes.remove(choice)
-                            break
-                        else:
-                            pass
-
-                    else:
-                        weights = weights_default.copy() # primary = 1.0, secondary = 0.0, tertiary = 0.0
-                        self.tertiary_theme = choice
-                        tertiary_theme_chosen = True
-                        
-                        # Set weights for themes:
-                        if 'Kindred' in self.primary_theme and 'Kindred' not in self.secondary_theme and 'Kindred' not in self.tertiary_theme:
-                            weights['primary'] -= 0.2 # 0.8
-                            weights['secondary'] += 0.1 # 0.1
-                            weights['tertiary'] += 0.1 # 0.1
-                        elif 'Kindred' in self.primary_theme and 'Kindred' in self.secondary_theme and 'Kindred' not in self.tertiary_theme:
-                            weights['primary'] -= 0.3 # 0.7
-                            weights['secondary'] += 0.2 # 0.2
-                            weights['tertiary'] += 0.1 # 0.1
-                        elif 'Kindred' in self.primary_theme and 'Kindred' in self.secondary_theme and 'Kindred' in self.tertiary_theme:
-                            weights['primary'] -= 0.5 # 0.5
-                            weights['secondary'] += 0.3 # 0.3
-                            weights['tertiary'] += 0.2 # 0.2
-                        else:
-                            weights['primary'] -= 0.6 # 0.4
-                            weights['secondary'] += 0.3 # 0.3
-                            weights['tertiary'] += 0.3 # 0.3
-                        self.primary_weight = weights['primary']
-                        self.secondary_weight = weights['secondary']
-                        self.tertiary_weight = weights['tertiary']
-                        break
+        Raises:
+            DataFrameValidationError: If data splitting fails
+        """
+        try:
+            # Extract lands
+            self.land_df = df[df['type'].str.contains('Land')].copy()
+            self.land_df.sort_values(by='edhrecRank', inplace=True)
             
-            self.themes = [self.primary_theme]
-            if not self.secondary_theme:
-                pass
-            else:
-                self.themes.append(self.secondary_theme)
-            if not self.tertiary_theme:
-                pass
-            else:
-                self.themes.append(self.tertiary_theme)
+            # Remove lands from main DataFrame
+            df = df[~df['type'].str.contains('Land')]
+            df.to_csv(f'{CSV_DIRECTORY}/test_cards.csv', index=False)
+            
+            # Create specialized frames
+            self.artifact_df = df[df['type'].str.contains('Artifact')].copy()
+            self.battle_df = df[df['type'].str.contains('Battle')].copy()
+            self.creature_df = df[df['type'].str.contains('Creature')].copy()
+            self.noncreature_df = df[~df['type'].str.contains('Creature')].copy()
+            self.enchantment_df = df[df['type'].str.contains('Enchantment')].copy()
+            self.instant_df = df[df['type'].str.contains('Instant')].copy()
+            self.planeswalker_df = df[df['type'].str.contains('Planeswalker')].copy()
+            self.nonplaneswalker_df = df[~df['type'].str.contains('Planeswalker')].copy()
+            self.sorcery_df = df[df['type'].str.contains('Sorcery')].copy()
+
+            self.battle_df.to_csv(f'{CSV_DIRECTORY}/test_battle_cards.csv', index=False)
+            
+            # Sort all frames
+            for frame in [self.artifact_df, self.battle_df, self.creature_df,
+                         self.noncreature_df, self.enchantment_df, self.instant_df,
+                         self.planeswalker_df, self.sorcery_df]:
+                frame.sort_values(by='edhrecRank', inplace=True)
                 
-            """
-            Setting 'Hidden' themes for multiple-copy cards, such as 'Hare Apparent' or 'Shadowborn Apostle'.
-            These are themes that will be prompted for under specific conditions, such as a matching Kindred theme or a matching color combination and Spellslinger theme for example.
-            Typically a hidden theme won't come up, but if it does, it will take priority with theme weights to ensure a decent number of the specialty cards are added.
-            """
-            # Setting hidden theme for Kindred-specific themes
-            hidden_themes = ['Advisor Kindred', 'Demon Kindred', 'Dwarf Kindred', 'Rabbit Kindred', 'Rat Kindred', 'Wraith Kindred']
-            theme_cards = ['Persistent Petitioners', 'Shadowborn Apostle', 'Seven Dwarves', 'Hare Apparent', ['Rat Colony', 'Relentless Rats'], 'Nazgûl']
-            color = ['B', 'B', 'R', 'W', 'B', 'B']
-            for i in range(min(len(hidden_themes), len(theme_cards), len(color))):
-                if (hidden_themes[i] in self.themes
-                    and hidden_themes[i] != 'Rat Kindred'
-                    and color[i] in self.colors):
-                    logging.info(f'Looks like you\'re making a {hidden_themes[i]} deck, would you like it to be a {theme_cards[i]} deck?')
-                    choice = self.questionnaire('Confirm', False)
-                    if choice:
-                        self.hidden_theme = theme_cards[i]
-                        self.themes.append(self.hidden_theme)
-                        weights['primary'] = round(weights['primary'] / 3, 2)
-                        weights['secondary'] = round(weights['secondary'] / 2, 2)
-                        weights['tertiary'] = weights['tertiary'] 
-                        weights['hidden'] = round(1.0 - weights['primary'] - weights['secondary'] - weights['tertiary'], 2)
-                        self.primary_weight = weights['primary']
-                        self.secondary_weight = weights['secondary']
-                        self.tertiary_weight = weights['tertiary']
-                        self.hidden_weight = weights['hidden']
-                    else:
-                        continue
+        except Exception as e:
+            logger.error(f"Error splitting DataFrames: {e}")
+            raise DataFrameValidationError("DataFrame splitting failed", {}, {"error": str(e)})
+
+    def _validate_dataframes(self) -> None:
+        """Validate all component DataFrames.
+
+        Raises:
+            DataFrameValidationError: If validation fails
+        """
+        try:
+            frames_to_validate = {
+                'land': self.land_df,
+                'artifact': self.artifact_df,
+                'battle': self.battle_df,
+                'creature': self.creature_df,
+                'noncreature': self.noncreature_df,
+                'enchantment': self.enchantment_df,
+                'instant': self.instant_df,
+                'planeswalker': self.planeswalker_df,
+                'sorcery': self.sorcery_df
+            }
+            
+            for name, frame in frames_to_validate.items():
+                rules = builder_utils.get_validation_rules(name)
+                if not builder_utils.validate_dataframe(frame, rules):
+                    raise DataFrameValidationError(f"{name} validation failed", rules)
                     
-                elif (hidden_themes[i] in self.themes
-                      and hidden_themes[i] == 'Rat Kindred'
-                      and color[i] in self.colors):
-                    logging.info(f'Looks like you\'re making a {hidden_themes[i]} deck, would you like it to be a {theme_cards[i][0]} or {theme_cards[i][1]} deck?')
-                    choice = self.questionnaire('Confirm', False)
-                    if choice:
-                        print('Which one?')
-                        choice = self.questionnaire('Choice', choices_list=theme_cards[i])
-                        if choice:
-                            self.hidden_theme = choice
-                            self.themes.append(self.hidden_theme)
-                            weights['primary'] = round(weights['primary'] / 3, 2)
-                            weights['secondary'] = round(weights['secondary'] / 2, 2)
-                            weights['tertiary'] = weights['tertiary'] 
-                            weights['hidden'] = round(1.0 - weights['primary'] - weights['secondary'] - weights['tertiary'], 2)
-                            self.primary_weight = weights['primary']
-                            self.secondary_weight = weights['secondary']
-                            self.tertiary_weight = weights['tertiary']
-                            self.hidden_weight = weights['hidden']
-                    else:
-                        continue
+        except Exception as e:
+            logger.error(f"DataFrame validation failed: {e}")
+            raise
+
+    def _save_intermediate_results(self) -> None:
+        """Save intermediate DataFrames for debugging and analysis.
+
+        Raises:
+            CSVError: If saving fails
+        """
+        try:
+            frames_to_save = {
+                'lands': self.land_df,
+                'artifacts': self.artifact_df,
+                'battles': self.battle_df,
+                'creatures': self.creature_df,
+                'noncreatures': self.noncreature_df,
+                'enchantments': self.enchantment_df,
+                'instants': self.instant_df,
+                'planeswalkers': self.planeswalker_df,
+                'sorcerys': self.sorcery_df
+            }
             
-            # Setting the hidden theme for non-Kindred themes
-            hidden_themes = ['Little Fellas', 'Mill', 'Spellslinger', 'Spells Matter', 'Spellslinger', 'Spells Matter',]
-            theme_cards = ['Hare Apparent', 'Persistent Petitions', 'Dragon\'s Approach', 'Dragon\'s Approach', 'Slime Against Humanity', 'Slime Against Humanity']
-            color = ['W', 'B', 'R', 'R', 'G', 'G']
-            for i in range(min(len(hidden_themes), len(theme_cards), len(color))):
-                if (hidden_themes[i] in self.themes
+            for name, frame in frames_to_save.items():
+                self.write_csv(frame, f'test_{name}')
+                
+        except Exception as e:
+            logger.error(f"Error saving intermediate results: {e}")
+            raise CSVError(f"Failed to save intermediate results: {str(e)}")
+
+    def setup_dataframes(self) -> None:
+        """Initialize and validate all required DataFrames.
+        
+        This method orchestrates the DataFrame setup process by:
+        1. Loading and combining data from CSV files
+        2. Splitting into specialized component frames
+        3. Validating all DataFrames
+        4. Saving intermediate results
+        
+        Raises:
+            CSVError: If any CSV operations fail
+            EmptyDataFrameError: If any required DataFrame is empty
+            DataFrameValidationError: If validation fails
+        """
+        try:
+            # Load and combine data
+            self.full_df = self._load_and_combine_data()
+            self.full_df = self.full_df[~self.full_df['name'].str.contains(self.commander)]
+            self.full_df.sort_values(by='edhrecRank', inplace=True)
+            self.full_df.to_csv(f'{CSV_DIRECTORY}/test_full_cards.csv', index=False)
+            
+            # Split into specialized frames
+            self._split_into_specialized_frames(self.full_df)
+            # Validate all frames
+            self._validate_dataframes()
+            
+            # Save intermediate results
+            self._save_intermediate_results()
+            
+            logger.info("DataFrame setup completed successfully")
+            
+        except (CSVError, EmptyDataFrameError, DataFrameValidationError) as e:
+            logger.error(f"Error in DataFrame setup: {e}")
+            raise
+    
+    # Theme selection
+    def determine_themes(self) -> None:
+        """Determine and set up themes for the deck building process.
+        
+        This method handles:
+        1. Theme selection (primary, secondary, tertiary)
+        2. Theme weight calculations
+        3. Hidden theme detection and setup
+        
+        Raises:
+            ThemeSelectionError: If theme selection fails
+            ThemeWeightError: If weight calculation fails
+        """
+        try:
+            # Get available themes from commander tags
+            themes = self.commander_tags.copy()
+            
+            # Get available themes from commander tags
+            themes = self.commander_tags.copy()
+            
+            # Initialize theme flags
+            self.hidden_theme = False
+            self.secondary_theme = False
+            self.tertiary_theme = False
+            
+            # Select primary theme (required)
+            self.primary_theme = builder_utils.select_theme(
+                themes,
+                'Choose a primary theme for your commander deck.\n'
+                'This will be the "focus" of the deck, in a kindred deck this will typically be a creature type for example.'
+            )
+            themes.remove(self.primary_theme)
+            
+            # Initialize self.weights from settings
+            from settings import THEME_WEIGHTS_DEFAULT
+            self.weights = THEME_WEIGHTS_DEFAULT.copy()
+            # Set initial weights for primary-only case
+            self.weights['primary'] = 1.0
+            self.weights['secondary'] = 0.0
+            self.weights['tertiary'] = 0.0
+            self.primary_weight = 1.0
+            
+            # Select secondary theme if desired
+            if themes:
+                self.secondary_theme = builder_utils.select_theme(
+                    themes,
+                    'Choose a secondary theme for your commander deck.\n'
+                    'This will typically be a secondary focus, like card draw for Spellslinger, or +1/+1 counters for Aggro.',
+                    optional=True
+                )
+                
+                # Check for Stop Here before modifying themes list
+                if self.secondary_theme == 'Stop Here':
+                    self.secondary_theme = False
+                elif self.secondary_theme:
+                    themes.remove(self.secondary_theme)
+                    self.weights['secondary'] = 0.6
+                    self.weights = builder_utils.adjust_theme_weights(
+                        self.primary_theme,
+                        self.secondary_theme,
+                        None,  # No tertiary theme yet
+                        self.weights
+                    )
+                    self.primary_weight = self.weights['primary']
+                    self.secondary_weight = self.weights['secondary']
+            
+            # Select tertiary theme if desired
+            if themes and self.secondary_theme and self.secondary_theme != 'Stop Here':
+                self.tertiary_theme = builder_utils.select_theme(
+                    themes,
+                    'Choose a tertiary theme for your commander deck.\n'
+                    'This will typically be a tertiary focus, or just something else to do that your commander is good at.',
+                    optional=True
+                )
+                
+                # Check for Stop Here before modifying themes list
+                if self.tertiary_theme == 'Stop Here':
+                    self.tertiary_theme = False
+                elif self.tertiary_theme:
+                    self.weights['tertiary'] = 0.3
+                    self.weights = builder_utils.adjust_theme_weights(
+                        self.primary_theme,
+                        self.secondary_theme,
+                        self.tertiary_theme,
+                        self.weights
+                    )
+                    self.primary_weight = self.weights['primary']
+                    self.secondary_weight = self.weights['secondary']
+                    self.tertiary_weight = self.weights['tertiary']
+            
+            # Build final themes list
+            self.themes = [self.primary_theme]
+            if self.secondary_theme:
+                self.themes.append(self.secondary_theme)
+            if self.tertiary_theme:
+                self.themes.append
+            self.determine_hidden_themes()
+
+        except (ThemeSelectionError, ThemeWeightError) as e:
+            logger.error(f"Error in theme determination: {e}")
+            raise
+
+    def determine_hidden_themes(self) -> None:            
+        """
+        Setting 'Hidden' themes for multiple-copy cards, such as 'Hare Apparent' or 'Shadowborn Apostle'.
+        These are themes that will be prompted for under specific conditions, such as a matching Kindred theme or a matching color combination and Spellslinger theme for example.
+        Typically a hidden theme won't come up, but if it does, it will take priority with theme self.weights to ensure a decent number of the specialty cards are added.
+        """
+        # Setting hidden theme for Kindred-specific themes
+        hidden_themes = ['Advisor Kindred', 'Demon Kindred', 'Dwarf Kindred', 'Rabbit Kindred', 'Rat Kindred', 'Wraith Kindred']
+        theme_cards = ['Persistent Petitioners', 'Shadowborn Apostle', 'Seven Dwarves', 'Hare Apparent', ['Rat Colony', 'Relentless Rats'], 'Nazgûl']
+        color = ['B', 'B', 'R', 'W', 'B', 'B']
+        for i in range(min(len(hidden_themes), len(theme_cards), len(color))):
+            if (hidden_themes[i] in self.themes
+                and hidden_themes[i] != 'Rat Kindred'
+                and color[i] in self.colors):
+                logger.info(f'Looks like you\'re making a {hidden_themes[i]} deck, would you like it to be a {theme_cards[i]} deck?')
+                choice = self.input_handler.questionnaire('Confirm', message='', default_value=False)
+                if choice:
+                    self.hidden_theme = theme_cards[i]
+                    self.themes.append(self.hidden_theme)
+                    self.weights['primary'] = round(self.weights['primary'] / 3, 2)
+                    self.weights['secondary'] = round(self.weights['secondary'] / 2, 2)
+                    self.weights['tertiary'] = self.weights['tertiary'] 
+                    self.weights['hidden'] = round(1.0 - self.weights['primary'] - self.weights['secondary'] - self.weights['tertiary'], 2)
+                    self.primary_weight = self.weights['primary']
+                    self.secondary_weight = self.weights['secondary']
+                    self.tertiary_weight = self.weights['tertiary']
+                    self.hidden_weight = self.weights['hidden']
+                else:
+                    continue
+                
+            elif (hidden_themes[i] in self.themes
+                    and hidden_themes[i] == 'Rat Kindred'
                     and color[i] in self.colors):
-                    logging.info(f'Looks like you\'re making a {hidden_themes[i]} deck, would you like it to be a {theme_cards[i]} deck?')
-                    choice = self.questionnaire('Confirm', False)
+                logger.info(f'Looks like you\'re making a {hidden_themes[i]} deck, would you like it to be a {theme_cards[i][0]} or {theme_cards[i][1]} deck?')
+                choice = self.input_handler.questionnaire('Confirm', message='', default_value=False)
+                if choice:
+                    print('Which one?')
+                    choice = self.input_handler.questionnaire('Choice', choices_list=theme_cards[i], message='')
                     if choice:
-                        self.hidden_theme = theme_cards[i]
+                        self.hidden_theme = choice
                         self.themes.append(self.hidden_theme)
-                        weights['primary'] = round(weights['primary'] / 3, 2)
-                        weights['secondary'] = round(weights['secondary'] / 2, 2)
-                        weights['tertiary'] = weights['tertiary'] 
-                        weights['hidden'] = round(1.0 - weights['primary'] - weights['secondary'] - weights['tertiary'], 2)
-                        self.primary_weight = weights['primary']
-                        self.secondary_weight = weights['secondary']
-                        self.tertiary_weight = weights['tertiary']
-                        self.hidden_weight = weights['hidden']
-                    else:
-                        continue
-            
-            break
+                        self.weights['primary'] = round(self.weights['primary'] / 3, 2)
+                        self.weights['secondary'] = round(self.weights['secondary'] / 2, 2)
+                        self.weights['tertiary'] = self.weights['tertiary'] 
+                        self.weights['hidden'] = round(1.0 - self.weights['primary'] - self.weights['secondary'] - self.weights['tertiary'], 2)
+                        self.primary_weight = self.weights['primary']
+                        self.secondary_weight = self.weights['secondary']
+                        self.tertiary_weight = self.weights['tertiary']
+                        self.hidden_weight = self.weights['hidden']
+                else:
+                    continue
+        
+        # Setting the hidden theme for non-Kindred themes
+        hidden_themes = ['Little Fellas', 'Mill', 'Spellslinger', 'Spells Matter', 'Spellslinger', 'Spells Matter',]
+        theme_cards = ['Hare Apparent', 'Persistent Petitions', 'Dragon\'s Approach', 'Dragon\'s Approach', 'Slime Against Humanity', 'Slime Against Humanity']
+        color = ['W', 'B', 'R', 'R', 'G', 'G']
+        for i in range(min(len(hidden_themes), len(theme_cards), len(color))):
+            if (hidden_themes[i] in self.themes
+                and color[i] in self.colors):
+                logger.info(f'Looks like you\'re making a {hidden_themes[i]} deck, would you like it to be a {theme_cards[i]} deck?')
+                choice = self.input_handler.questionnaire('Confirm', message='', default_value=False)
+                if choice:
+                    self.hidden_theme = theme_cards[i]
+                    self.themes.append(self.hidden_theme)
+                    self.weights['primary'] = round(self.weights['primary'] / 3, 2)
+                    self.weights['secondary'] = round(self.weights['secondary'] / 2, 2)
+                    self.weights['tertiary'] = self.weights['tertiary'] 
+                    self.weights['hidden'] = round(1.0 - self.weights['primary'] - self.weights['secondary'] - self.weights['tertiary'], 2)
+                    self.primary_weight = self.weights['primary']
+                    self.secondary_weight = self.weights['secondary']
+                    self.tertiary_weight = self.weights['tertiary']
+                    self.hidden_weight = self.weights['hidden']
+                else:
+                    continue
     
+    # Setting ideals
     def determine_ideals(self):
-        # "Free" slots that can be used for anything that isn't the ideals
-        self.free_slots = 99
-        
-        if use_scrython:
-            print('Would you like to set an intended max price of the deck?\n'
-                  'There will be some leeway of ~10%, with a couple alternative options provided.')
-            choice = self.questionnaire('Confirm', False)
-            if choice:
-                self.set_max_deck_price = True
-                self.deck_cost = 0.0
-                print('What would you like the max price to be?')
-                self.max_deck_price = float(self.questionnaire('Number', 400))
-                new_line()
-            else:
-                self.set_max_deck_price = False
-                new_line()
-            
-            print('Would you like to set a max price per card?\n'
-                  'There will be some leeway of ~10% when choosing cards and you can choose to keep it or not.')
-            choice = self.questionnaire('Confirm', False)
-            if choice:
-                self.set_max_card_price = True
-                print('What would you like the max price to be?')
-                answer = float(self.questionnaire('Number', 20))
-                self.max_card_price = answer
-                self.card_library['Card Price'] = pd.Series(dtype='float')
-                new_line()
-            else:
-                self.set_max_card_price = False
-                new_line()
-        
-        # Determine ramp
-        print('How many pieces of ramp would you like to include?\n'
-              'This includes mana rocks, mana dorks, and land ramp spells.\n'
-              'A good baseline is 8-12 pieces, scaling up with higher average CMC\n'
-              'Default: 8')
-        answer = self.questionnaire('Number', 8)
-        self.ideal_ramp = int(answer)
-        self.free_slots -= self.ideal_ramp
-        new_line()
-        
-        # Determine ideal land count
-        print('How many total lands would you like to include?\n'
-              'Before ramp is considered, 38-40 lands is typical for most decks.\n'
-              "For landfall decks, consider starting at 40 lands before ramp.\n"
-              'As a guideline, each mana source from ramp can reduce land count by ~1.\n'
-              'Default: 35')
-        answer = self.questionnaire('Number', 35)
-        self.ideal_land_count = int(answer)
-        self.free_slots -= self.ideal_land_count
-        new_line()
-        
-        # Determine minimum basics to have
-        print('How many basic lands would you like to have at minimum?\n'
-              'This can vary widely depending on your commander, colors in color identity, and what you want to do.\n'
-              'Some decks may be fine with as low as 10, others may want 25.\n'
-              'Default: 20')
-        answer = self.questionnaire('Number', 20)
-        self.min_basics = int(answer)
-        new_line()
-        
-        # Determine ideal creature count
-        print('How many creatures would you like to include?\n'
-              'Something like 25-30 would be a good starting point.\n'
-              "If you're going for a kindred theme, going past 30 is likely normal.\n"
-              "Also be sure to take into account token generation, but remember you'll want enough to stay safe\n"
-              'Default: 25')
-        answer = self.questionnaire('Number', 25)
-        self.ideal_creature_count = int(answer)
-        self.free_slots -= self.ideal_creature_count
-        new_line()
-        
-        # Determine spot/targetted removal
-        print('How many spot removal pieces would you like to include?\n'
-              'A good starting point is about 8-12 pieces of spot removal.\n'
-              'Counterspells can be considered proactive removal and protection.\n'
-              'If you\'re going spellslinger, more would be a good idea as you might have less cretaures.\n'
-              'Default: 10')
-        answer = self.questionnaire('Number', 10)
-        self.ideal_removal = int(answer)
-        self.free_slots -= self.ideal_removal
-        new_line()
+        """Determine ideal card counts and price settings for the deck.
 
-        # Determine board wipes
-        print('How many board wipes would you like to include?\n'
-              'Somewhere around 2-3 is good to help eliminate threats, but also prevent the game from running long\n.'
-              'This can include damaging wipes like "Blasphemous Act" or toughness reduction like "Meathook Massacre".\n'
-              'Default: 2')
-        answer = self.questionnaire('Number', 2)
-        self.ideal_wipes = int(answer)
-        self.free_slots -= self.ideal_wipes
-        new_line()
-        
-        # Determine card advantage
-        print('How many pieces of card advantage would you like to include?\n'
-              '10 pieces of card advantage is good, up to 14 is better.\n'
-              'Try to have a majority of it be non-conditional, and only have a couple of "Rhystic Study" style effects.\n'
-              'Default: 10')
-        answer = self.questionnaire('Number', 10)
-        self.ideal_card_advantage = int(answer)
-        self.free_slots -= self.ideal_card_advantage
-        new_line()
-        
-        # Determine how many protection spells
-        print('How many protection spells would you like to include?\n'
-              'This can be individual protection, board protection, fogs, or similar effects.\n'
-              'Things that grant indestructible, hexproof, phase out, or even just counterspells.\n'
-              'It\'s recommended to have 5 to 15, depending on your commander and preferred strategy.\n'
-              'Default: 8')
-        answer = self.questionnaire('Number', 8)
-        self.ideal_protection = int(answer)
-        self.free_slots -= self.ideal_protection
-        new_line()
-        
-        print(f'Free slots that aren\'t part of the ideals: {self.free_slots}')
-        print('Keep in mind that many of the ideals can also cover multiple roles, but this will give a baseline POV.')
+        This method handles:
+        1. Price configuration (if price checking is enabled)
+        2. Setting ideal counts for different card types
+        3. Calculating remaining free slots
+
+        Raises:
+            PriceConfigurationError: If there are issues configuring price settings
+            IdealDeterminationError: If there are issues determining ideal counts
+        """
+        try:
+            # Initialize free slots
+            self.free_slots = 99
+
+            # Configure price settings if enabled
+            if use_scrython:
+                try:
+                    builder_utils.configure_price_settings(self.price_checker, self.input_handler)
+                except ValueError as e:
+                    raise PriceConfigurationError(f"Failed to configure price settings: {str(e)}")
+
+            # Get deck composition values
+            try:
+                composition = builder_utils.get_deck_composition_values(self.input_handler)
+            except ValueError as e:
+                raise IdealDeterminationError(f"Failed to determine deck composition: {str(e)}")
+
+            # Update class attributes with composition values
+            self.ideal_ramp = composition['ramp']
+            self.ideal_land_count = composition['lands']
+            self.min_basics = composition['basic_lands']
+            self.ideal_creature_count = composition['creatures']
+            self.ideal_removal = composition['removal']
+            self.ideal_wipes = composition['wipes']
+            self.ideal_card_advantage = composition['card_advantage']
+            self.ideal_protection = composition['protection']
+
+            # Update free slots
+            for value in [self.ideal_ramp, self.ideal_land_count, self.ideal_creature_count,
+                         self.ideal_removal, self.ideal_wipes, self.ideal_card_advantage,
+                         self.ideal_protection]:
+                self.free_slots -= value
+
+            print(f'\nFree slots that aren\'t part of the ideals: {self.free_slots}')
+            print('Keep in mind that many of the ideals can also cover multiple roles, but this will give a baseline POV.')
+
+        except (PriceConfigurationError, IdealDeterminationError) as e:
+            logger.error(f"Error in determine_ideals: {e}")
+            raise
     
-    def add_card(self, card: str, card_type: str, mana_cost: str, mana_value: int, is_commander: bool = False) -> None:
+    # Adding card to library
+    def add_card(self, card: str, card_type: str, mana_cost: str, mana_value: int, creature_types: list = None, tags: list = None, is_commander: bool = False) -> None:
         """Add a card to the deck library with price checking if enabled.
-
         Args:
             card (str): Name of the card to add
             card_type (str): Type of the card (e.g., 'Creature', 'Instant')
             mana_cost (str): Mana cost string representation
             mana_value (int): Converted mana cost/mana value
+            creature_types (list): List of creature types in the card (if any)
+            themes (list): List of themes the card has
             is_commander (bool, optional): Whether this card is the commander. Defaults to False.
 
         Returns:
             None
 
         Raises:
-            ValueError: If card price exceeds maximum allowed price when price checking is enabled
+            PriceLimitError: If card price exceeds maximum allowed price
+            PriceAPIError: If there is an error fetching the price
+            PriceTimeoutError: If the price check times out
+            PriceValidationError: If the price data is invalid
         """
-        multiple_copies = basic_lands + multiple_copy_cards
+        multiple_copies = BASIC_LANDS + multiple_copy_cards
 
         # Skip if card already exists and isn't allowed multiple copies
         if card in pd.Series(self.card_library['Card Name']).values and card not in multiple_copies:
@@ -895,136 +1123,179 @@ class DeckBuilder:
 
         # Handle price checking
         card_price = 0.0
-        if use_scrython and self.set_max_card_price:
-            # Get price from cache or API
-            if card in self.card_prices:
-                card_price = self.card_prices[card]
-            else:
-                card_price = self.price_check(card)
-                
-            # Skip if card is too expensive
-            if card_price is not None and card_price > self.max_card_price * 1.1:
-                logging.info(f"Skipping {card} - price {card_price} exceeds maximum")
-                return
+        try:
+            # Get price and validate
+            card_price = self.price_checker.get_card_price(card)
+            self.price_checker.validate_card_price(card, card_price)
+            self.price_checker.update_deck_price(card_price)
+        except (PriceAPIError, PriceTimeoutError, PriceValidationError, PriceLimitError) as e:
+            logger.warning(str(e))
+            return
 
         # Create card entry
-        card_entry = [card, card_type, mana_cost, mana_value, is_commander]
-        if use_scrython and self.set_max_card_price:
-            card_entry.append(card_price)
+        card_entry = [card, card_type, mana_cost, mana_value, creature_types, tags, is_commander]
 
         # Add to library
         self.card_library.loc[len(self.card_library)] = card_entry
 
-        # Update deck cost if tracking
-        if self.set_max_deck_price:
-            self.deck_cost += card_price
-
-        logging.debug(f"Added {card} to deck library")
+        logger.debug(f"Added {card} to deck library")
     
+    # Get card counts, sort library, set commander at index 1, and combine duplicates into 1 entry
     def organize_library(self):
-        # Initialize counters dictionary dynamically from card_types including Kindred
-        all_types = card_types + ['Kindred'] if 'Kindred' not in card_types else card_types
-        card_counters = {card_type: 0 for card_type in all_types}
+        """Organize and count cards in the library by their types.
 
-        # Count cards by type
-        for card_type in card_types:
-            type_df = self.card_library[self.card_library['Card Type'].apply(lambda x: card_type in x)]
-            card_counters[card_type] = len(type_df)
+        This method counts the number of cards for each card type in the library
+        and updates the corresponding instance variables. It uses the count_cards_by_type
+        helper function from builder_utils for efficient counting.
 
-        # Assign counts to instance variables
-        self.artifact_cards = card_counters['Artifact']
-        self.battle_cards = card_counters['Battle']
-        self.creature_cards = card_counters['Creature']
-        self.enchantment_cards = card_counters['Enchantment']
-        self.instant_cards = card_counters['Instant']
-        self.kindred_cards = card_counters.get('Kindred', 0)  # Use get() with default value
-        self.land_cards = card_counters['Land']
-        self.planeswalker_cards = card_counters['Planeswalker']
-        self.sorcery_cards = card_counters['Sorcery']
-    
-    def sort_library(self):
-        self.card_library['Sort Order'] = pd.Series(dtype='str')
-        for index, row in self.card_library.iterrows():
-            for card_type in card_types:
-                if card_type in row['Card Type']:
-                    if row['Sort Order'] == 'Creature':
-                        continue
-                    if row['Sort Order'] != 'Creature':
-                        self.card_library.loc[index, 'Sort Order'] = card_type
+        The method handles the following card types:
+        - Artifacts
+        - Battles
+        - Creatures
+        - Enchantments
+        - Instants
+        - Kindred (if applicable)
+        - Lands
+        - Planeswalkers
+        - Sorceries
 
-        custom_order = ['Planeswalker', 'Battle', 'Creature', 'Instant', 'Sorcery', 'Artifact', 'Enchantment', 'Land']
-        self.card_library['Sort Order'] = pd.Categorical(
-            self.card_library['Sort Order'], 
-            categories=custom_order, 
-            ordered=True
-        )
-        self.card_library = (self.card_library
-            .sort_values(by=['Sort Order', 'Card Name'], ascending=[True, True])
-            .drop(columns=['Sort Order'])
-            .reset_index(drop=True)
-        )
-
-    def commander_to_top(self) -> None:
-        """Move commander card to the top of the library while preserving commander status."""
-        try:
-            commander_row = self.card_library[self.card_library['Commander']].copy()
-            if commander_row.empty:
-                logging.warning("No commander found in library")
-                return
-            
-            self.card_library = self.card_library[~self.card_library['Commander']]
-            
-            self.card_library = pd.concat([commander_row, self.card_library], ignore_index=True)
-            
-            commander_name = commander_row['Card Name'].iloc[0]
-            logging.info(f"Successfully moved commander '{commander_name}' to top")
-        except Exception as e:
-            logging.error(f"Error moving commander to top: {str(e)}")
-    def concatenate_duplicates(self):
-        """Handle duplicate cards in the library while maintaining data integrity."""
-        duplicate_lists = basic_lands + multiple_copy_cards
-        
-        # Create a count column for duplicates
-        self.card_library['Card Count'] = 1
-        
-        for duplicate in duplicate_lists:
-            mask = self.card_library['Card Name'] == duplicate
-            count = mask.sum()
-            
-            if count > 0:
-                logging.info(f'Found {count} copies of {duplicate}')
-                
-                # Keep first occurrence with updated count
-                first_idx = mask.idxmax()
-                self.card_library.loc[first_idx, 'Card Count'] = count
-                
-                # Drop other occurrences
-                self.card_library = self.card_library.drop(
-                    self.card_library[mask & (self.card_library.index != first_idx)].index
-                )
-        
-        # Update card names with counts where applicable
-        mask = self.card_library['Card Count'] > 1
-        self.card_library.loc[mask, 'Card Name'] = (
-            self.card_library.loc[mask, 'Card Name'] + 
-            ' x ' + 
-            self.card_library.loc[mask, 'Card Count'].astype(str)
-        )
-        
-        # Clean up
-        self.card_library = self.card_library.drop(columns=['Card Count'])
-        self.card_library = self.card_library.reset_index(drop=True)
-    def drop_card(self, dataframe: pd.DataFrame, index: int) -> None:
-        """Safely drop a card from the dataframe by index.
-        
-        Args:
-            dataframe: DataFrame to modify
-            index: Index to drop
+        Raises:
+            CardTypeCountError: If there are issues counting cards by type
+            LibraryOrganizationError: If library organization fails
         """
         try:
-            dataframe.drop(index, inplace=True)
-        except KeyError:
-            logging.warning(f"Attempted to drop non-existent index {index}")
+            # Get all card types to count, including Kindred if not already present
+            all_types = CARD_TYPES + ['Kindred'] if 'Kindred' not in CARD_TYPES else CARD_TYPES
+
+            # Use helper function to count cards by type
+            card_counters = builder_utils.count_cards_by_type(self.card_library, all_types)
+
+            # Update instance variables with counts
+            self.artifact_cards = card_counters['Artifact']
+            self.battle_cards = card_counters['Battle']
+            self.creature_cards = card_counters['Creature']
+            self.enchantment_cards = card_counters['Enchantment']
+            self.instant_cards = card_counters['Instant']
+            self.kindred_cards = card_counters.get('Kindred', 0)
+            self.land_cards = card_counters['Land']
+            self.planeswalker_cards = card_counters['Planeswalker']
+            self.sorcery_cards = card_counters['Sorcery']
+
+            logger.debug(f"Library organized successfully with {len(self.card_library)} total cards")
+
+        except (CardTypeCountError, Exception) as e:
+            logger.error(f"Error organizing library: {e}")
+            raise LibraryOrganizationError(f"Failed to organize library: {str(e)}")
+    
+    def sort_library(self) -> None:
+        """Sort the card library by card type and name.
+
+        This method sorts the card library first by card type according to the
+        CARD_TYPE_SORT_ORDER constant, and then alphabetically by card name.
+        It uses the assign_sort_order() helper function to ensure consistent
+        type-based sorting across the application.
+
+        The sorting order is:
+        1. Card type (Planeswalker -> Battle -> Creature -> Instant -> Sorcery ->
+           Artifact -> Enchantment -> Land)
+        2. Card name (alphabetically)
+
+        Raises:
+            LibrarySortError: If there are issues during the sorting process
+        """
+        try:
+            # Use the assign_sort_order helper function to add sort order
+            sorted_library = builder_utils.assign_sort_order(self.card_library)
+
+            # Sort by Sort Order and Card Name
+            sorted_library = sorted_library.sort_values(
+                by=['Sort Order', 'Card Name'],
+                ascending=[True, True]
+            )
+
+            # Clean up and reset index
+            self.card_library = (
+                sorted_library
+                .drop(columns=['Sort Order'])
+                .reset_index(drop=True)
+            )
+
+            logger.debug("Card library sorted successfully")
+
+        except Exception as e:
+            logger.error(f"Error sorting library: {e}")
+            raise LibrarySortError(
+                "Failed to sort card library",
+                {"error": str(e)}
+            )
+            
+    def commander_to_top(self) -> None:
+        """Move commander card to the top of the library while preserving commander status.
+        
+        This method identifies the commander card in the library using a boolean mask,
+        removes it from its current position, and prepends it to the top of the library.
+        The commander's status and attributes are preserved during the move.
+        
+        Raises:
+            CommanderMoveError: If the commander cannot be found in the library or
+                               if there are issues with the move operation.
+        """
+        try:
+            # Create boolean mask to identify commander
+            commander_mask = self.card_library['Commander']
+            
+            # Check if commander exists in library
+            if not commander_mask.any():
+                error_msg = "Commander not found in library"
+                logger.warning(error_msg)
+                raise CommanderMoveError(error_msg)
+            
+            # Get commander row and name for logging
+            commander_row = self.card_library[commander_mask].copy()
+            commander_name = commander_row['Card Name'].iloc[0]
+            
+            # Remove commander from current position
+            self.card_library = self.card_library[~commander_mask]
+            
+            # Prepend commander to top of library
+            self.card_library = pd.concat([commander_row, self.card_library], ignore_index=True)
+            
+            logger.info(f"Successfully moved commander '{commander_name}' to top of library")
+            
+        except CommanderMoveError:
+            raise
+        except Exception as e:
+            error_msg = f"Error moving commander to top: {str(e)}"
+            logger.error(error_msg)
+            raise CommanderMoveError(error_msg)
+
+    def concatenate_duplicates(self):
+        """Process duplicate cards in the library using the helper function.
+
+        This method consolidates duplicate cards (like basic lands and special cards
+        that can have multiple copies) into single entries with updated counts.
+        It uses the process_duplicate_cards helper function from builder_utils.
+
+        Raises:
+            DuplicateCardError: If there are issues processing duplicate cards
+        """
+        try:
+            # Get list of cards that can have duplicates
+            duplicate_lists = BASIC_LANDS + multiple_copy_cards
+
+            # Process duplicates using helper function
+            self.card_library = builder_utils.process_duplicate_cards(
+                self.card_library,
+                duplicate_lists
+            )
+
+            logger.info("Successfully processed duplicate cards")
+
+        except DuplicateCardError as e:
+            logger.error(f"Error processing duplicate cards: {e}")
+            raise
+    
+    # Land Management
     def add_lands(self):
         """
         Add lands to the deck based on ideal count and deck requirements.
@@ -1038,7 +1309,7 @@ class DeckBuilder:
         6. Add miscellaneous utility lands
         7. Adjust total land count to match ideal count
         """
-        MAX_ADJUSTMENT_ATTEMPTS = 10
+        MAX_ADJUSTMENT_ATTEMPTS = (self.ideal_land_count - self.min_basics) * 1.5
         self.total_basics = 0
         
         try:
@@ -1061,417 +1332,460 @@ class DeckBuilder:
             # Clean up land database
             mask = self.land_df['name'].isin(self.card_library['Card Name'])
             self.land_df = self.land_df[~mask]
-            self.land_df.to_csv(f'{csv_directory}/test_lands.csv', index=False)
+            self.land_df.to_csv(f'{CSV_DIRECTORY}/test_lands.csv', index=False)
             
             # Adjust to ideal land count
             self.check_basics()
-            logging.info('Adjusting total land count to match ideal count...')
+            print()
+            logger.info('Adjusting total land count to match ideal count...')
             self.organize_library()
             
             attempts = 0
             while self.land_cards > int(self.ideal_land_count) and attempts < MAX_ADJUSTMENT_ATTEMPTS:
-                logging.info(f'Current lands: {self.land_cards}, Target: {self.ideal_land_count}')
+                logger.info(f'Current lands: {self.land_cards}, Target: {self.ideal_land_count}')
                 self.remove_basic()
                 self.organize_library()
                 attempts += 1
             
             if attempts >= MAX_ADJUSTMENT_ATTEMPTS:
-                logging.warning(f"Could not reach ideal land count after {MAX_ADJUSTMENT_ATTEMPTS} attempts")
+                logger.warning(f"Could not reach ideal land count after {MAX_ADJUSTMENT_ATTEMPTS} attempts")
             
-            logging.info(f'Final land count: {self.land_cards}')
+            logger.info(f'Final land count: {self.land_cards}')
             
         except Exception as e:
-            logging.error(f"Error during land addition: {e}")
+            logger.error(f"Error during land addition: {e}")
             raise
     
     def add_basics(self):
-        base_basics = self.ideal_land_count - 10  # Reserve 10 slots for non-basic lands
-        basics_per_color = base_basics // len(self.colors)
-        remaining_basics = base_basics % len(self.colors)
+        """Add basic lands to the deck based on color identity and commander tags.
 
-        color_to_basic = {
-            'W': 'Plains',
-            'U': 'Island', 
-            'B': 'Swamp',
-            'R': 'Mountain',
-            'G': 'Forest',
-            'COLORLESS': 'Wastes'
-        }
+        This method:
+        1. Calculates total basics needed based on ideal land count
+        2. Gets appropriate basic land mapping (normal or snow-covered)
+        3. Distributes basics across colors
+        4. Updates the land database
 
-        if 'Snow' in self.commander_tags:
-            color_to_basic = {
-            'W': 'Snow-Covered Plains',
-            'U': 'Snow-Covered Island', 
-            'B': 'Snow-Covered Swamp',
-            'R': 'Snow-Covered Mountain',
-            'G': 'Snow-Covered Forest',
-            'COLORLESS': 'Snow-Covered Wastes'
-            }
+        Raises:
+            BasicLandError: If there are issues with basic land addition
+            LandDistributionError: If land distribution fails
+        """
+        try:
+            # Calculate total basics needed
+            total_basics = self.ideal_land_count - DEFAULT_NON_BASIC_LAND_SLOTS
+            if total_basics <= 0:
+                raise BasicLandError("Invalid basic land count calculation")
 
-        print(f'Adding {base_basics} basic lands distributed across {len(self.colors)} colors')
+            # Get appropriate basic land mapping
+            use_snow = 'Snow' in self.commander_tags
+            color_to_basic = builder_utils.get_basic_land_mapping(use_snow)
 
-        # Add equal distribution first
-        for color in self.colors:
-            basic = color_to_basic.get(color)
-            if basic:
-                # Add basics with explicit commander flag and track count
-                for _ in range(basics_per_color):
-                    self.add_card(basic, 'Basic Land', None, 0, is_commander=False)
+            # Calculate distribution
+            basics_per_color, remaining = builder_utils.calculate_basics_per_color(
+                total_basics,
+                len(self.colors)
+            )
 
-        # Distribute remaining basics based on color requirements
-        if remaining_basics > 0:
-            for color in self.colors[:remaining_basics]:
+            print()
+            logger.info(
+                f'Adding {total_basics} basic lands distributed across '
+                f'{len(self.colors)} colors'
+            )
+
+            # Initialize distribution dictionary
+            distribution = {color: basics_per_color for color in self.colors}
+
+            # Distribute remaining basics
+            if remaining > 0:
+                distribution = builder_utils.distribute_remaining_basics(
+                    distribution,
+                    remaining,
+                    self.colors
+                )
+
+            # Add basics according to distribution
+            lands_to_remove = []
+            for color, count in distribution.items():
                 basic = color_to_basic.get(color)
                 if basic:
-                    self.add_card(basic, 'Basic Land', None, 0, is_commander=False)
+                    for _ in range(count):
+                        self.add_card(basic, 'Basic Land', None, 0, is_commander=False)
+                    lands_to_remove.append(basic)
 
-        lands_to_remove = []
-        for key in color_to_basic:
-            basic = color_to_basic.get(key)
-            lands_to_remove.append(basic)
-        
-        self.land_df = self.land_df[~self.land_df['name'].isin(lands_to_remove)]
-        self.land_df.to_csv(f'{csv_directory}/test_lands.csv', index=False)
+            # Update land database
+            self.land_df = self.land_df[~self.land_df['name'].isin(lands_to_remove)]
+            self.land_df.to_csv(f'{CSV_DIRECTORY}/test_lands.csv', index=False)
+
+        except Exception as e:
+            logger.error(f"Error adding basic lands: {e}")
+            raise BasicLandError(f"Failed to add basic lands: {str(e)}")
 
     def add_standard_non_basics(self):
-        """Add staple utility lands based on deck requirements."""
-        logging.info('Adding staple non-basic lands')
-        
-        # Define staple lands and their conditions
-        staple_lands = {
-            'Reliquary Tower': lambda: True,  # Always include
-            'Ash Barrens': lambda: 'Landfall' not in self.commander_tags,
-            'Command Tower': lambda: len(self.colors) > 1,
-            'Exotic Orchard': lambda: len(self.colors) > 1,
-            'War Room': lambda: len(self.colors) <= 2,
-            'Rogue\'s Passage': lambda: self.commander_power >= 5
-        }
-        
+        """Add staple utility lands to the deck based on predefined conditions and requirements.
+
+        This method processes the STAPLE_LAND_CONDITIONS from settings to add appropriate
+        utility lands to the deck. For each potential staple land, it:
+
+        1. Validates the land against deck requirements using:
+           - Commander tags
+           - Color identity
+           - Commander power level
+           - Other predefined conditions
+
+        2. Adds validated lands to the deck and tracks them in self.staples
+
+        3. Updates the land database to remove added lands
+
+        The method ensures no duplicate lands are added and maintains proper logging
+        of all additions.
+
+        Raises:
+            StapleLandError: If there are issues adding staple lands, such as
+                            validation failures or database update errors.
+        """
+        print()
+        logger.info('Adding staple non-basic lands')
         self.staples = []
+
         try:
-            # Add lands that meet their conditions
-            for land, condition in staple_lands.items():
-                if condition():
+            for land in STAPLE_LAND_CONDITIONS:
+                if builder_utils.validate_staple_land_conditions(
+                    land,
+                    STAPLE_LAND_CONDITIONS,
+                    self.commander_tags,
+                    self.colors,
+                    self.commander_power
+                ):
                     if land not in self.card_library['Card Name'].values:
                         self.add_card(land, 'Land', None, 0)
                         self.staples.append(land)
-                        logging.debug(f"Added staple land: {land}")
-            
-            # Update land database
-            self.land_df = self.land_df[~self.land_df['name'].isin(self.staples)]
-            self.land_df.to_csv(f'{csv_directory}/test_lands.csv', index=False)
-            
-            logging.info(f'Added {len(self.staples)} staple lands')
-            
+                        logger.debug(f"Added staple land: {land}")
+
+            self.land_df = builder_utils.process_staple_lands(
+                self.staples, self.card_library, self.land_df
+            )
+            self.land_df.to_csv(f'{CSV_DIRECTORY}/test_lands.csv', index=False)
+            logger.info(f'Added {len(self.staples)} staple lands:')
+            print(*self.staples, sep='\n')
         except Exception as e:
-            logging.error(f"Error adding staple lands: {e}")
-            raise
+            logger.error(f"Error adding staple lands: {e}")
+            raise StapleLandError(f"Failed to add staple lands: {str(e)}")
+        
     def add_fetches(self):
-        # Determine how many fetches in total
-        print('How many fetch lands would you like to include?\n'
-              'For most decks you\'ll likely be good with 3 or 4, just enough to thin the deck and help ensure the color availability.\n'
-              'If you\'re doing Landfall, more fetches would be recommended just to get as many Landfall triggers per turn.')
-        answer = self.questionnaire('Number', 2)
-        MAX_ATTEMPTS = 50  # Maximum attempts to prevent infinite loops
-        attempt_count = 0
-        desired_fetches = int(answer)
-        chosen_fetches = []
-        
-        generic_fetches = [
-            'Evolving Wilds', 'Terramorphic Expanse', 'Shire Terrace', 
-            'Escape Tunnel', 'Promising Vein', 'Myriad Landscape', 
-            'Fabled Passage', 'Terminal Moraine'
-        ]
-        fetches = generic_fetches.copy()
-        lands_to_remove = generic_fetches.copy()
-        
-        # Adding in expensive fetches
-        if (use_scrython and self.set_max_card_price):
-            if self.price_check('Prismatic Vista') <= self.max_card_price * 1.1:
-                lands_to_remove.append('Prismatic Vista')
-                fetches.append('Prismatic Vista')
-            else:
-                lands_to_remove.append('Prismatic Vista')
-                pass
-        else:
-            lands_to_remove.append('Prismatic Vista')
-            fetches.append('Prismatic Vista')
-        
-        color_to_fetch = {
-            'W': ['Flooded Strand', 'Windswept Heath', 'Marsh Flats', 'Arid Mesa', 'Brokers Hideout', 'Obscura Storefront', 'Cabaretti Courtyard'],
-            'U': ['Flooded Strand', 'Polluted Delta', 'Scalding Tarn', 'Misty Rainforest', 'Brokers Hideout', 'Obscura Storefront', 'Maestros Theater'], 
-            'B': ['Polluted Delta', 'Bloodstained Mire', 'Marsh Flats', 'Verdant Catacombs', 'Obscura Storefront', 'Maestros Theater', 'Riveteers Overlook'],
-            'R': ['Bloodstained Mire', 'Wooded Foothills', 'Scalding Tarn', 'Arid Mesa', 'Maestros Theater', 'Riveteers Overlook', 'Cabaretti Courtyard'],
-            'G': ['Wooded Foothills', 'Windswept Heath', 'Verdant Catacombs', 'Misty Rainforest', 'Brokers Hideout', 'Riveteers Overlook', 'Cabaretti Courtyard']
-        }
-        
-        for color in self.colors:
-            fetch = color_to_fetch.get(color)
-            if fetch not in fetches:
-                fetches.extend(fetch)
-                if fetch not in lands_to_remove:
-                    lands_to_remove.extend(fetch)
-        for color in color_to_fetch:
-            fetch = color_to_fetch.get(color)
-            if fetch not in fetches:
-                fetches.extend(fetch)
-                if fetch not in lands_to_remove:
-                    lands_to_remove.extend(fetch)
-        
-        # Randomly choose fetches up to the desired number
-        while len(chosen_fetches) < desired_fetches + 3 and attempt_count < MAX_ATTEMPTS:
-            if not fetches:  # If we run out of fetches to choose from
-                break
-                
-            fetch_choice = random.choice(fetches)
-            if use_scrython and self.set_max_card_price:
-                if self.price_check(fetch_choice) <= self.max_card_price * 1.1:
-                    chosen_fetches.append(fetch_choice)
-                    fetches.remove(fetch_choice)
-            else:
-                chosen_fetches.append(fetch_choice)
-                fetches.remove(fetch_choice)
-                
-            attempt_count += 1
+        """Add fetch lands to the deck based on user input and deck colors.
 
-        # Select final fetches to add
-        fetches_to_add = []
-        available_fetches = chosen_fetches[:desired_fetches]
-        for fetch in available_fetches:
-            if fetch not in fetches_to_add:
-                fetches_to_add.append(fetch)
+        This method handles:
+        1. Getting user input for desired number of fetch lands
+        2. Validating the input
+        3. Getting available fetch lands based on deck colors
+        4. Selecting and adding appropriate fetch lands
+        5. Updating the land database
 
-        if attempt_count >= MAX_ATTEMPTS:
-            logging.warning(f"Reached maximum attempts ({MAX_ATTEMPTS}) while selecting fetch lands")
-
-        for card in fetches_to_add:
-            self.add_card(card, 'Land', None, 0)
-            
-        self.land_df = self.land_df[~self.land_df['name'].isin(lands_to_remove)]
-        self.land_df.to_csv(f'{csv_directory}/test_lands.csv', index=False)
-    
-    def add_kindred_lands(self):
-        """Add lands that support tribal/kindred themes."""
-        logging.info('Adding Kindred-themed lands')
-        
-        # Standard Kindred support lands
-        KINDRED_STAPLES = [
-            {'name': 'Path of Ancestry', 'type': 'Land'},
-            {'name': 'Three Tree City', 'type': 'Legendary Land'},
-            {'name': 'Cavern of Souls', 'type': 'Land'}
-        ]
-        
-        kindred_lands = KINDRED_STAPLES.copy()
-        lands_to_remove = set()
-        
+        Raises:
+            FetchLandValidationError: If fetch land count is invalid
+            FetchLandSelectionError: If unable to select required fetch lands
+            PriceLimitError: If fetch lands exceed price limits
+        """
         try:
-            # Process each Kindred theme
-            for theme in self.themes:
-                if 'Kindred' in theme:
-                    creature_type = theme.replace(' Kindred', '')
-                    logging.info(f'Searching for {creature_type}-specific lands')
-                    
-                    # Filter lands by creature type
-                    type_specific = self.land_df[
-                        self.land_df['text'].notna() & 
-                        (self.land_df['text'].str.contains(creature_type, case=False) |
-                         self.land_df['type'].str.contains(creature_type, case=False))
-                    ]
-                    
-                    # Add matching lands to pool
-                    for _, row in type_specific.iterrows():
-                        kindred_lands.append({
-                            'name': row['name'],
-                            'type': row['type'],
-                            'manaCost': row['manaCost'],
-                            'manaValue': row['manaValue']
-                        })
-                        lands_to_remove.add(row['name'])
+            # Get user input for fetch lands
+            print()
+            logger.info('Adding fetch lands')
+            print('How many fetch lands would you like to include?\n'
+                  'For most decks you\'ll likely be good with 3 or 4, just enough to thin the deck and help ensure the color availability.\n'
+                  'If you\'re doing Landfall, more fetches would be recommended just to get as many Landfall triggers per turn.')
             
-            # Add lands to deck
-            for card in kindred_lands:
-                if card['name'] not in self.card_library['Card Name'].values:
-                    self.add_card(card['name'], card['type'], 
-                                None, 0)
-                    lands_to_remove.add(card['name'])
+            # Get and validate fetch count
+            fetch_count = self.input_handler.questionnaire('Number', default_value=FETCH_LAND_DEFAULT_COUNT, message='Default')
+            validated_count = builder_utils.validate_fetch_land_count(fetch_count)
+            
+            # Get available fetch lands based on colors and budget
+            max_price = self.max_card_price if hasattr(self, 'max_card_price') else None
+            available_fetches = builder_utils.get_available_fetch_lands(
+                self.colors,
+                self.price_checker if use_scrython else None,
+                max_price
+            )
+            
+            # Select fetch lands
+            selected_fetches = builder_utils.select_fetch_lands(
+                available_fetches,
+                validated_count
+            )
+            
+            # Add selected fetch lands to deck
+            lands_to_remove = set()
+            for fetch in selected_fetches:
+                self.add_card(fetch, 'Land', None, 0)
+                lands_to_remove.add(fetch)
             
             # Update land database
             self.land_df = self.land_df[~self.land_df['name'].isin(lands_to_remove)]
-            self.land_df.to_csv(f'{csv_directory}/test_lands.csv', index=False)
+            self.land_df.to_csv(f'{CSV_DIRECTORY}/test_lands.csv', index=False)
             
-            logging.info(f'Added {len(lands_to_remove)} Kindred-themed lands')
+            logger.info(f'Added {len(selected_fetches)} fetch lands:')
+            print(*selected_fetches, sep='\n')
+            
+        except (FetchLandValidationError, FetchLandSelectionError, PriceLimitError) as e:
+            logger.error(f"Error adding fetch lands: {e}")
+            raise
+        
+    def add_kindred_lands(self):
+        """Add Kindred-themed lands to the deck based on commander themes.
+
+        This method handles:
+        1. Getting available Kindred lands based on deck themes
+        2. Selecting and adding appropriate Kindred lands
+        3. Updating the land database
+
+        Raises:
+            KindredLandSelectionError: If unable to select required Kindred lands
+            PriceLimitError: If Kindred lands exceed price limits
+        """
+        try:
+            print()
+            logger.info('Adding Kindred-themed lands')
+        
+            # Get available Kindred lands based on themes and budget
+            max_price = self.max_card_price if hasattr(self, 'max_card_price') else None
+            available_lands = builder_utils.get_available_kindred_lands(
+                self.land_df,
+                self.colors,
+                self.commander_tags,
+                self.price_checker if use_scrython else None,
+                max_price
+            )
+        
+            # Select Kindred lands
+            selected_lands = builder_utils.select_kindred_lands(
+                available_lands,
+                len(available_lands)
+            )
+            
+            # Add selected Kindred lands to deck
+            lands_to_remove = set()
+            for land in selected_lands:
+                self.add_card(land, 'Land', None, 0)
+                lands_to_remove.add(land)
+            
+            # Update land database
+            self.land_df = self.land_df[~self.land_df['name'].isin(lands_to_remove)]
+            self.land_df.to_csv(f'{CSV_DIRECTORY}/test_lands.csv', index=False)
+            
+            logger.info(f'Added {len(selected_lands)} Kindred-themed lands:')
+            print(*selected_lands, sep='\n')
             
         except Exception as e:
-            logging.error(f"Error adding Kindred lands: {e}")
+            logger.error(f"Error adding Kindred lands: {e}")
             raise
+        
     def add_dual_lands(self):
-        # Determine dual-color lands available 
-        
-        # Determine if using the dual-type lands
-        print('Would you like to include Dual-type lands (i.e. lands that count as both a Plains and a Swamp for example)?')
-        choice = self.questionnaire('Confirm', True)
-        color_filter = []
-        color_dict = {
-            'azorius': 'Plains Island',
-            'dimir': 'Island Swamp',
-            'rakdos': 'Swamp Mountain',
-            'gruul': 'Mountain Forest',
-            'selesnya': 'Forest Plains',
-            'orzhov': 'Plains Swamp',
-            'golgari': 'Swamp Forest',
-            'simic': 'Forest Island',
-            'izzet': 'Island Mountain',
-            'boros': 'Mountain Plains'
-        }
-        
-        if choice:
-            for key in color_dict:
-                if key in self.files_to_load:
-                    color_filter.extend([f'Land — {color_dict[key]}', f'Snow Land — {color_dict[key]}'])
-            
-            dual_df = self.land_df[self.land_df['type'].isin(color_filter)].copy()
-            
-            # Convert to list of card dictionaries
-            card_pool = []
-            for _, row in dual_df.iterrows():
-                card = {
-                    'name': row['name'],
-                    'type': row['type'],
-                    'manaCost': row['manaCost'],
-                    'manaValue': row['manaValue']
-                }
-                card_pool.append(card)
-            
-            lands_to_remove = []
-            for card in card_pool:
-                self.add_card(card['name'], card['type'], 
-                            card['manaCost'], card['manaValue'])
-                lands_to_remove.append(card['name'])
+        """Add dual lands to the deck based on color identity and user preference.
 
-            self.land_df = self.land_df[~self.land_df['name'].isin(lands_to_remove)]
-            self.land_df.to_csv(f'{csv_directory}/test_lands.csv', index=False)
-            
-            logging.info(f'Added {len(card_pool)} Dual-type land cards.')
-            
-        if not choice:
-            logging.info('Skipping adding Dual-type land cards.')
-    
-    def add_triple_lands(self):
-        # Determine if using Triome lands
-        print('Would you like to include triome lands (i.e. lands that count as a Mountain, Forest, and Plains for example)?')
-        choice = self.questionnaire('Confirm', True)
-        
-        color_filter = []
-        color_dict = {
-            'bant': 'Forest Plains Island',
-            'esper': 'Plains Island Swamp',
-            'grixis': 'Island Swamp Mountain',
-            'jund': 'Swamp Mountain Forest',
-            'naya': 'Mountain Forest Plains',
-            'mardu': 'Mountain Plains Swamp',
-            'abzan': 'Plains Swamp Forest',
-            'sultai': 'Swamp Forest Island',
-            'temur': 'Forest Island Mountain',
-            'jeska': 'Island Mountain Plains'
-        }
-        
-        if choice:
-            for key in color_dict:
-                if key in self.files_to_load:
-                    color_filter.extend([f'Land — {color_dict[key]}'])
-            
-            triome_df = self.land_df[self.land_df['type'].isin(color_filter)].copy()
-        
-            # Convert to list of card dictionaries
-            card_pool = []
-            for _, row in triome_df.iterrows():
-                card = {
-                    'name': row['name'],
-                    'type': row['type'],
-                    'manaCost': row['manaCost'],
-                    'manaValue': row['manaValue']
-                }
-                card_pool.append(card)
-            
-            lands_to_remove = []
-            for card in card_pool:
-                self.add_card(card['name'], card['type'], 
-                            card['manaCost'], card['manaValue'])
-                lands_to_remove.append(card['name'])
+        This method handles the addition of dual lands by:
+        1. Validating if dual lands should be added
+        2. Getting available dual lands based on deck colors
+        3. Selecting appropriate dual lands
+        4. Adding selected lands to the deck
+        5. Updating the land database
 
-            self.land_df = self.land_df[~self.land_df['name'].isin(lands_to_remove)]
-            self.land_df.to_csv(f'{csv_directory}/test_lands.csv', index=False)
-            
-            logging.info(f'Added {len(card_pool)} Triome land cards.')
-            
-        if not choice:
-            logging.info('Skipping adding Triome land cards.')
-    
-    def add_misc_lands(self):
-        """Add additional utility lands that fit the deck's color identity."""
-        logging.info('Adding miscellaneous utility lands')
-        
-        MIN_MISC_LANDS = 5
-        MAX_MISC_LANDS = 15
-        MAX_POOL_SIZE = 100
-        
+        The process uses helper functions from builder_utils for modular operation.
+        """
         try:
-            # Create filtered pool of candidate lands
-            land_pool = (self.land_df
-                        .head(MAX_POOL_SIZE)
-                        .copy()
-                        .reset_index(drop=True))
+            # Check if we should add dual lands
+            print()
+            print('Would you like to include Dual-type lands (i.e. lands that count as both a Plains and a Swamp for example)?')
+            use_duals = self.input_handler.questionnaire('Confirm', message='', default_value=True)
             
-            # Convert to card dictionaries
-            card_pool = [
-                {
-                    'name': row['name'],
-                    'type': row['type'],
-                    'manaCost': row['manaCost'],
-                    'manaValue': row['manaValue']
-                }
-                for _, row in land_pool.iterrows()
-                if row['name'] not in self.card_library['Card Name'].values
-            ]
-            
-            if not card_pool:
-                logging.warning("No eligible misc lands found")
+            if not use_duals:
+                logger.info('Skipping adding Dual-type land cards.')
                 return
             
-            # Randomly select lands within constraints
-            target_count = random.randint(MIN_MISC_LANDS, MAX_MISC_LANDS)
-            cards_to_add = []
+            logger.info('Adding Dual-type lands')
+            # Get color pairs by checking DUAL_LAND_TYPE_MAP keys against files_to_load
+            color_pairs = []
+            for key in DUAL_LAND_TYPE_MAP:
+                if key in self.files_to_load:
+                    color_pairs.extend([f'Land — {DUAL_LAND_TYPE_MAP[key]}', f'Snow Land — {DUAL_LAND_TYPE_MAP[key]}'])
             
-            while card_pool and len(cards_to_add) < target_count:
-                card = random.choice(card_pool)
-                card_pool.remove(card)
-                
-                # Check price if enabled
-                if use_scrython and self.set_max_card_price:
-                    price = self.price_check(card['name'])
-                    if price > self.max_card_price * 1.1:
-                        continue
-                
-                cards_to_add.append(card)
+            # Validate dual lands for these color pairs
+            if not builder_utils.validate_dual_lands(color_pairs, 'Snow' in self.commander_tags):
+                logger.info('No valid dual lands available for this color combination.')
+                return
+            
+            # Get available dual lands
+            dual_df = builder_utils.get_available_dual_lands(
+                self.land_df,
+                color_pairs,
+                'Snow' in self.commander_tags
+            )
+            
+            # Select appropriate dual lands
+            selected_lands = builder_utils.select_dual_lands(
+                dual_df,
+                self.price_checker if use_scrython else None,
+                self.max_card_price if hasattr(self, 'max_card_price') else None
+            )
+            
+            # Add selected lands to deck
+            for land in selected_lands:
+                self.add_card(land['name'], land['type'],
+                             land['manaCost'], land['manaValue'])
+            
+            # Update land database
+            self.land_df = builder_utils.process_dual_lands(
+                selected_lands,
+                self.card_library,
+                self.land_df
+            )
+            self.land_df.to_csv(f'{CSV_DIRECTORY}/test_lands.csv', index=False)
+            
+            logger.info(f'Added {len(selected_lands)} Dual-type land cards:')
+            for card in selected_lands:
+                print(card['name'])
+            
+        except Exception as e:
+            logger.error(f"Error adding dual lands: {e}")
+            raise
+    
+    def add_triple_lands(self):
+        """Add triple lands to the deck based on color identity and user preference.
+
+        This method handles the addition of triple lands by:
+        1. Validating if triple lands should be added
+        2. Getting available triple lands based on deck colors
+        3. Selecting appropriate triple lands
+        4. Adding selected lands to the deck
+        5. Updating the land database
+
+        The process uses helper functions from builder_utils for modular operation.
+        """
+        try:
+            # Check if we should add triple lands
+            print()
+            print('Would you like to include triple lands (i.e. lands that count as a Mountain, Forest, and Plains for example)?')
+            use_triples = self.input_handler.questionnaire('Confirm', message='', default_value=True)
+            
+            if not use_triples:
+                logger.info('Skipping adding triple lands.')
+                return
+            
+            logger.info('Adding triple lands')
+            # Get color triplets by checking TRIPLE_LAND_TYPE_MAP keys against files_to_load
+            color_triplets = []
+            for key in TRIPLE_LAND_TYPE_MAP:
+                if key in self.files_to_load:
+                    color_triplets.extend([f'Land — {TRIPLE_LAND_TYPE_MAP[key]}'])
+            
+            # Validate triple lands for these color triplets
+            if not builder_utils.validate_triple_lands(color_triplets, 'Snow' in self.commander_tags):
+                logger.info('No valid triple lands available for this color combination.')
+                return
+            
+            # Get available triple lands
+            triple_df = builder_utils.get_available_triple_lands(
+                self.land_df,
+                color_triplets,
+                'Snow' in self.commander_tags
+            )
+            
+            # Select appropriate triple lands
+            selected_lands = builder_utils.select_triple_lands(
+                triple_df,
+                self.price_checker if use_scrython else None,
+                self.max_card_price if hasattr(self, 'max_card_price') else None
+            )
+            
+            # Add selected lands to deck
+            for land in selected_lands:
+                self.add_card(land['name'], land['type'],
+                             land['manaCost'], land['manaValue'])
+            
+            # Update land database
+            self.land_df = builder_utils.process_triple_lands(
+                selected_lands,
+                self.card_library,
+                self.land_df
+            )
+            self.land_df.to_csv(f'{CSV_DIRECTORY}/test_lands.csv', index=False)
+            
+            logger.info(f'Added {len(selected_lands)} triple lands:')
+            for card in selected_lands:
+                print(card['name'])
+            
+        except Exception as e:
+            logger.error(f"Error adding triple lands: {e}")
+            
+    def add_misc_lands(self):
+        """Add additional utility lands that fit the deck's color identity.
+
+        This method randomly selects a number of miscellaneous utility lands to add to the deck.
+        The number of lands is randomly determined between MISC_LAND_MIN_COUNT and MISC_LAND_MAX_COUNT.
+        Lands are selected from a filtered pool of the top MISC_LAND_POOL_SIZE lands by EDHREC rank.
+
+        The method handles price constraints if price checking is enabled and updates the land
+        database after adding lands to prevent duplicates.
+
+        Raises:
+            MiscLandSelectionError: If there are issues selecting appropriate misc lands
+        """
+        print()
+        logger.info('Adding miscellaneous utility lands')
+        
+        try:
+            # Get available misc lands
+            available_lands = builder_utils.get_available_misc_lands(
+                self.land_df,
+                MISC_LAND_POOL_SIZE
+            )
+            
+            if not available_lands:
+                logger.warning("No eligible miscellaneous lands found")
+                return
+            
+            # Select random number of lands
+            selected_lands = builder_utils.select_misc_lands(
+                available_lands,
+                MISC_LAND_MIN_COUNT,
+                MISC_LAND_MAX_COUNT,
+                self.price_checker if use_scrython else None,
+                self.max_card_price if hasattr(self, 'max_card_price') else None
+            )
             
             # Add selected lands
             lands_to_remove = set()
-            for card in cards_to_add:
+            for card in selected_lands:
                 self.add_card(card['name'], card['type'],
                             card['manaCost'], card['manaValue'])
                 lands_to_remove.add(card['name'])
             
             # Update land database
             self.land_df = self.land_df[~self.land_df['name'].isin(lands_to_remove)]
-            self.land_df.to_csv(f'{csv_directory}/test_lands.csv', index=False)
+            self.land_df.to_csv(f'{CSV_DIRECTORY}/test_lands.csv', index=False)
             
-            logging.info(f'Added {len(cards_to_add)} miscellaneous lands')
+            logger.info(f'Added {len(selected_lands)} miscellaneous lands:')
+            for card in selected_lands:
+                print(card['name'])
             
         except Exception as e:
-            logging.error(f"Error adding misc lands: {e}")
+            logger.error(f"Error adding misc lands: {e}")
             raise
+        
     def check_basics(self):
-        """Check and display counts of each basic land type."""
+        """Check and display counts of each basic land type in the deck.
+
+        This method analyzes the deck's basic land composition by:
+        1. Counting each type of basic land (including snow-covered)
+        2. Displaying the counts for each basic land type
+        3. Calculating and storing the total number of basic lands
+
+        The method uses helper functions from builder_utils for consistent
+        counting and display formatting.
+
+        Raises:
+            BasicLandCountError: If there are issues counting basic lands
+
+        Note:
+            Updates self.total_basics with the sum of all basic lands
+        """
         basic_lands = {
             'Plains': 0,
             'Island': 0, 
@@ -1486,16 +1800,22 @@ class DeckBuilder:
         }
         
         self.total_basics = 0
-        for land in basic_lands:
-            count = len(self.card_library[self.card_library['Card Name'] == land])
-            basic_lands[land] = count
-            self.total_basics += count
         
-        logging.info("\nBasic Land Counts:")
-        for land, count in basic_lands.items():
-            if count > 0:
-                logging.info(f"{land}: {count}")
-        logging.info(f"Total basic lands: {self.total_basics}\n")
+        try:
+            for land in basic_lands:
+                count = len(self.card_library[self.card_library['Card Name'] == land])
+                basic_lands[land] = count
+                self.total_basics += count
+            print()
+            logger.info("Basic Land Counts:")
+            for land, count in basic_lands.items():
+                if count > 0:
+                    print(f"{land}: {count}")
+            logger.info(f"Total basic lands: {self.total_basics}")
+        except BasicLandCountError as e:
+            logger.error(f"Error counting basic lands: {e}")
+            self.total_basics = 0
+            raise
    
     def remove_basic(self, max_attempts: int = 3):
         """
@@ -1505,7 +1825,8 @@ class DeckBuilder:
         Args:
             max_attempts: Maximum number of removal attempts before falling back to non-basics
         """
-        logging.info('Land count over ideal count, removing a basic land.')
+        print()
+        logger.info('Land count over ideal count, removing a basic land.')
         
         color_to_basic = {
             'W': 'Plains', 'U': 'Island', 'B': 'Swamp',
@@ -1524,7 +1845,7 @@ class DeckBuilder:
         
         while attempts < max_attempts and sum_basics > self.min_basics:
             if not basic_counts:
-                logging.warning("No basic lands found to remove")
+                logger.warning("No basic lands found to remove")
                 break
                 
             basic_land = max(basic_counts.items(), key=lambda x: x[1])[0]
@@ -1537,80 +1858,145 @@ class DeckBuilder:
                     
                 index_to_drop = self.card_library[mask].index[0]
                 self.card_library = self.card_library.drop(index_to_drop).reset_index(drop=True)
-                logging.info(f'{basic_land} removed successfully')
+                logger.info(f'{basic_land} removed successfully')
                 return
                 
             except (IndexError, KeyError) as e:
-                logging.error(f"Error removing {basic_land}: {e}")
+                logger.error(f"Error removing {basic_land}: {e}")
                 basic_counts.pop(basic_land)
             
             attempts += 1
             
         # If we couldn't remove a basic land, try removing a non-basic
-        logging.warning("Could not remove basic land, attempting to remove non-basic")
+        logger.warning("Could not remove basic land, attempting to remove non-basic")
         self.remove_land()
     
     def remove_land(self):
-        """Remove a random non-basic, non-staple land from the deck."""
-        logging.info('Removing a random nonbasic land.')
+        """Remove a random non-basic, non-staple land from the deck.
 
-        # Define basic lands including snow-covered variants
-        basic_lands = [
-            'Plains', 'Island', 'Swamp', 'Mountain', 'Forest',
-            'Snow-Covered Plains', 'Snow-Covered Island', 'Snow-Covered Swamp',
-            'Snow-Covered Mountain', 'Snow-Covered Forest'
-        ]
+        This method attempts to remove a non-protected land from the deck up to
+        LAND_REMOVAL_MAX_ATTEMPTS times. It uses helper functions to filter removable
+        lands and select a land for removal.
 
-        try:
-            # Filter for non-basic, non-staple lands
-            library_filter = self.card_library[
-                (self.card_library['Card Type'].str.contains('Land')) & 
-                (~self.card_library['Card Name'].isin(basic_lands + self.staples))
-            ].copy()
+        Raises:
+            LandRemovalError: If no removable lands are found or removal fails
+        """
+        print()
+        logger.info('Attempting to remove a non-protected land')
+        attempts = 0
 
-            if len(library_filter) == 0:
-                logging.warning("No suitable non-basic lands found to remove.")
+        while attempts < LAND_REMOVAL_MAX_ATTEMPTS:
+            try:
+                # Get removable lands
+                removable_lands = builder_utils.filter_removable_lands(self.card_library, PROTECTED_LANDS + self.staples)
+
+                # Select a land for removal
+                card_index, card_name = builder_utils.select_land_for_removal(removable_lands)
+
+                # Remove the selected land
+                logger.info(f"Removing {card_name}")
+                self.card_library.drop(card_index, inplace=True)
+                self.card_library.reset_index(drop=True, inplace=True)
+                logger.info("Land removed successfully")
                 return
 
-            # Select random land to remove
-            card_index = np.random.choice(library_filter.index)
-            card_name = self.card_library.loc[card_index, 'Card Name']
+            except LandRemovalError as e:
+                logger.warning(f"Attempt {attempts + 1} failed: {e}")
+                attempts += 1
+                continue
+            except Exception as e:
+                logger.error(f"Unexpected error removing land: {e}")
+                raise LandRemovalError(f"Failed to remove land: {str(e)}")
 
-            logging.info(f"Removing {card_name}")
-            self.card_library.drop(card_index, inplace=True)
-            self.card_library.reset_index(drop=True, inplace=True)
-            logging.info("Card removed successfully.")
-
-        except Exception as e:
-            logging.error(f"Error removing land: {e}")
-            logging.warning("Failed to remove land card.")
-    
+        # If we reach here, we've exceeded max attempts
+        raise LandRemovalError(f"Could not find a removable land after {LAND_REMOVAL_MAX_ATTEMPTS} attempts")
+    # Count pips and get average CMC
     def count_pips(self):
-        """Count and display the number of colored mana symbols in casting costs using vectorized operations."""
-        logging.info('Analyzing color pip distribution...')
+        """Analyze and display the distribution of colored mana symbols (pips) in card casting costs.
+
+        This method processes the mana costs of all cards in the deck to:
+        1. Count the number of colored mana symbols for each color
+        2. Calculate the percentage distribution of colors
+        3. Log detailed pip distribution information
+
+        The analysis uses helper functions from builder_utils for consistent counting
+        and percentage calculations. Results are logged with detailed breakdowns
+        of pip counts and distributions.
+
+        Dependencies:
+            - MANA_COLORS from settings.py for color iteration
+            - builder_utils.count_color_pips() for counting pips
+            - builder_utils.calculate_pip_percentages() for distribution calculation
+
+        Returns:
+            None
+
+        Raises:
+            ManaPipError: If there are issues with:
+                - Counting pips for specific colors
+                - Calculating pip percentages
+                - Unexpected errors during analysis
+
+        Logs:
+            - Warning if no colored mana symbols are found
+            - Info with detailed pip distribution and percentages
+            - Error details if analysis fails
+        """
+        print()
+        logger.info('Analyzing color pip distribution...')
         
-        # Define colors to check
-        colors = ['W', 'U', 'B', 'R', 'G']
-        
-        # Use vectorized string operations
-        mana_costs = self.card_library['Mana Cost'].dropna()
-        pip_counts = {color: mana_costs.str.count(color).sum() for color in colors}
-        
-        total_pips = sum(pip_counts.values())
-        if total_pips == 0:
-            logging.error("No colored mana symbols found in casting costs.")
-            return
-        
-        logging.info("\nColor Pip Distribution:")
-        for color, count in pip_counts.items():
-            if count > 0:
-                percentage = (count / total_pips) * 100
-                print(f"{color}: {count} pips ({percentage:.1f}%)")
-        logging.info(f"Total colored pips: {total_pips}\n")
+        try:
+            # Get mana costs from card library
+            mana_costs = self.card_library['Mana Cost'].dropna()
+            
+            # Count pips for each color using helper function
+            pip_counts = {}
+            for color in MANA_COLORS:
+                try:
+                    pip_counts[color] = builder_utils.count_color_pips(mana_costs, color)
+                except (TypeError, ValueError) as e:
+                    raise ManaPipError(
+                        f"Error counting {color} pips",
+                        {"color": color, "error": str(e)}
+                    )
+            
+            # Calculate percentages using helper function
+            try:
+                percentages = builder_utils.calculate_pip_percentages(pip_counts)
+            except (TypeError, ValueError) as e:
+                raise ManaPipError(
+                    "Error calculating pip percentages",
+                    {"error": str(e)}
+                )
+            
+            # Log detailed pip distribution
+            total_pips = sum(pip_counts.values())
+            if total_pips == 0:
+                logger.warning("No colored mana symbols found in casting costs")
+                return
+            
+            logger.info("Color Pip Distribution:")
+            for color in MANA_COLORS:
+                count = pip_counts[color]
+                if count > 0:
+                    percentage = percentages[color]
+                    print(f"{color}: {count} pips ({percentage:.1f}%)")
+            print()
+            logger.info(f"Total colored pips: {total_pips}")
+            # Filter out zero percentages
+            non_zero_percentages = {color: pct for color, pct in percentages.items() if pct > 0}
+            logger.info(f"Distribution ratios: {non_zero_percentages}\n")
+            
+        except ManaPipError as e:
+            logger.error(f"Mana pip analysis failed: {e}")
+            raise
+        except Exception as e:
+            logger.error(f"Unexpected error in pip analysis: {e}")
+            raise ManaPipError("Failed to analyze mana pips", {"error": str(e)})
         
     def get_cmc(self):
         """Calculate average converted mana cost of non-land cards."""
-        logging.info('Calculating average mana value of non-land cards.')
+        logger.info('Calculating average mana value of non-land cards.')
         
         try:
             # Filter non-land cards
@@ -1619,152 +2005,210 @@ class DeckBuilder:
             ].copy()
             
             if non_land.empty:
-                logging.warning("No non-land cards found")
+                logger.warning("No non-land cards found")
                 self.cmc = 0.0
             else:
                 total_cmc = non_land['Mana Value'].sum()
                 self.cmc = round(total_cmc / len(non_land), 2)
             
             self.commander_dict.update({'CMC': float(self.cmc)})
-            logging.info(f"Average CMC: {self.cmc}")
+            logger.info(f"Average CMC: {self.cmc}")
             
         except Exception as e:
-            logging.error(f"Error calculating CMC: {e}")
+            logger.error(f"Error calculating CMC: {e}")
             self.cmc = 0.0
     
-    def weight_by_theme(self, tag, ideal=1, weight=1, df=None):
-        # First grab the first 50/30/20 cards that match each theme
-        """Add cards with specific tag up to ideal_value count"""
-        ideal_value = math.ceil(ideal * weight * 0.9)
-        print(f'Finding {ideal_value} cards with the "{tag}" tag...')
-        if 'Kindred' in tag:
-            tags = [tag, 'Kindred Support']
-        else:
-            tags = [tag]
-        # Filter cards with the given tag
-        tag_df = df.copy()
-        tag_df.sort_values(by='edhrecRank', inplace=True)
-        tag_df = tag_df[tag_df['themeTags'].apply(lambda x: any(tag in x for tag in tags))]
-        # Take top cards based on ideal value
-        pool_size = int(ideal_value * random.randint(15, 20) /10)
-        tag_df = tag_df.head(pool_size)
-        
-        # Convert to list of card dictionaries
-        card_pool = [
-            {
-                'name': row['name'],
-                'type': row['type'],
-                'manaCost': row['manaCost'],
-                'manaValue': row['manaValue']
-            }
-            for _, row in tag_df.iterrows()
-        ]
+    def weight_by_theme(self, tag: str, ideal: int = 1, weight: float = 1.0, df: Optional[pd.DataFrame] = None) -> None:
+        """Add cards with specific tag up to weighted ideal count.
 
-        # Randomly select cards up to ideal value
-        cards_to_add = []
-        while len(cards_to_add) < ideal_value and card_pool:
-            card = random.choice(card_pool)
-            card_pool.remove(card)
+        Args:
+            tag: Theme tag to filter cards by
+            ideal: Target number of cards to add
+            weight: Theme weight factor (0.0-1.0)
+            df: Source DataFrame to filter cards from
+
+        Raises:
+            ThemeWeightingError: If weight calculation fails
+            ThemePoolError: If card pool is empty or insufficient
+        """
+        try:
+            # Calculate target card count using weight and safety multiplier
+            target_count = math.ceil(ideal * weight * THEME_WEIGHT_MULTIPLIER)
+            logger.info(f'Finding {target_count} cards with the "{tag}" tag...')
+
+            # Handle Kindred theme special case
+            tags = [tag, 'Kindred Support'] if 'Kindred' in tag else [tag]
+
+            # Calculate initial pool size
+            pool_size = builder_utils.calculate_weighted_pool_size(target_count, weight)
+
+            # Filter cards by theme
+            if df is None:
+                raise ThemePoolError(f"No source DataFrame provided for theme {tag}")
             
-            # Check price constraints if enabled
-            if use_scrython and self.set_max_card_price:
-                price = self.price_check(card['name'])
-                if price > self.max_card_price * 1.1:
-                    continue
+            tag_df = builder_utils.filter_theme_cards(df, tags, pool_size)
+            if tag_df.empty:
+                raise ThemePoolError(f"No cards found for theme {tag}")
+
+            # Select cards considering price and duplicates
+            selected_cards = builder_utils.select_weighted_cards(
+                tag_df,
+                target_count,
+                self.price_checker if use_scrython else None,
+                self.max_card_price if hasattr(self, 'max_card_price') else None
+            )
+
+            # Process selected cards
+            cards_added = []
+            for card in selected_cards:
+                # Handle multiple copy cards
+                if card['name'] in multiple_copy_cards:
+                    copies = {
+                        'Nazgûl': 9,
+                        'Seven Dwarves': 7
+                    }.get(card['name'], target_count - len(cards_added))
                     
-            # Add card if not already in library
-            
-            if card['name'] in multiple_copy_cards:
-                if card['name'] == 'Nazgûl':
-                    for _ in range(9):
-                        cards_to_add.append(card)
-                elif card['name'] == 'Seven Dwarves':
-                    for _ in range(7):
-                        cards_to_add.append(card)
+                    for _ in range(copies):
+                        cards_added.append(card)
+                        
+                # Handle regular cards
+                elif card['name'] not in self.card_library['Card Name'].values:
+                    cards_added.append(card)
                 else:
-                    num_to_add = ideal_value - len(cards_to_add)
-                    for _ in range(num_to_add):
-                        cards_to_add.append(card)
-            
-            elif (card['name'] not in multiple_copy_cards
-                  and card['name'] not in self.card_library['Card Name'].values):
-                cards_to_add.append(card)
-                
-            elif (card['name'] not in multiple_copy_cards
-                  and card['name'] in self.card_library['Card Name'].values):
-                logging.warning(f"{card['name']} already in Library, skipping it.")
-                continue
-        
-        # Add selected cards to library
-        for card in cards_to_add:
-            self.add_card(card['name'], card['type'], 
-                         card['manaCost'], card['manaValue'])
-        
-        card_pool_names = [item['name'] for item in card_pool]
-        self.full_df = self.full_df[~self.full_df['name'].isin(card_pool_names)]
-        self.noncreature_df = self.noncreature_df[~self.noncreature_df['name'].isin(card_pool_names)]
-        logging.info(f'Added {len(cards_to_add)} {tag} cards')
-        #tag_df.to_csv(f'{csv_directory}/test_{tag}.csv', index=False)
+                    logger.warning(f"{card['name']} already in Library, skipping it.")
+
+            # Add selected cards to library
+            for card in cards_added:
+                self.add_card(
+                    card['name'],
+                    card['type'],
+                    card['manaCost'],
+                    card['manaValue'],
+                    card.get('creatureTypes'),
+                    card['themeTags']
+                )
+
+            # Update DataFrames
+            used_cards = {card['name'] for card in selected_cards}
+            self.noncreature_df = self.noncreature_df[~self.noncreature_df['name'].isin(used_cards)]
+
+            logger.info(f'Added {len(cards_added)} {tag} cards')
+            for card in cards_added:
+                print(card['name'])
+
+        except (ThemeWeightingError, ThemePoolError) as e:
+            logger.error(f"Error in weight_by_theme: {e}")
+            raise
+        except Exception as e:
+            logger.error(f"Unexpected error in weight_by_theme: {e}")
+            raise ThemeWeightingError(f"Failed to process theme {tag}: {str(e)}")
     
-    def add_by_tags(self, tag, ideal_value=1, df=None):
-        """Add cards with specific tag up to ideal_value count"""
-        print(f'Finding {ideal_value} cards with the "{tag}" tag...')
+    def add_by_tags(self, tag, ideal_value=1, df=None, ignore_existing=False):
+        """Add cards with specific tag up to ideal_value count.
+        Args:
+            tag: The theme tag to filter cards by
+            ideal_value: Target number of cards to add
+            df: DataFrame containing candidate cards
 
-        # Filter cards with the given tag
-        skip_creatures = self.creature_cards > self.ideal_creature_count * 1.1
-        tag_df = df.copy()
-        tag_df.sort_values(by='edhrecRank', inplace=True)
-        tag_df = tag_df[tag_df['themeTags'].apply(lambda x: tag in x)]
-        # Take top cards based on ideal value
-        pool_size = int(ideal_value * random.randint(2, 3))
-        tag_df = tag_df.head(pool_size)
-
-        # Convert to list of card dictionaries
-        card_pool = [
-            {
-                'name': row['name'],
-                'type': row['type'],
-                'manaCost': row['manaCost'],
-                'manaValue': row['manaValue']
-            }
-            for _, row in tag_df.iterrows()
-        ]
-
-        # Randomly select cards up to ideal value
-        cards_to_add = []
-        while len(cards_to_add) < ideal_value and card_pool:
-            card = random.choice(card_pool)
-            card_pool.remove(card)
-
-            # Check price constraints if enabled
-            if use_scrython and self.set_max_card_price:
-                price = self.price_check(card['name'])
-                if price > self.max_card_price * 1.1:
-                    continue
-
-            # Add card if not already in library
-            if card['name'] not in self.card_library['Card Name'].values:
-                if 'Creature' in card['type'] and skip_creatures:
-                    continue
-                else:
-                    if 'Creature' in card['type']:
-                        self.creature_cards += 1
-                        skip_creatures = self.creature_cards > self.ideal_creature_count * 1.1
-                    cards_to_add.append(card)
-
-        # Add selected cards to library
-        for card in cards_to_add:
-            if len(self.card_library) < 100:
-                self.add_card(card['name'], card['type'], 
-                            card['manaCost'], card['manaValue'])
+        Raises:
+            ThemeTagError: If there are issues with tag processing or card selection
+        """
+        try:
+            # Count existing cards with target tag
+            print()
+            if not ignore_existing:
+                existing_count = len(self.card_library[self.card_library['Themes'].apply(lambda x: x is not None and tag in x)])
+                remaining_slots = max(0, ideal_value - existing_count + 1)
             else:
-                continue
+                existing_count = 0
+                remaining_slots = max(0, ideal_value - existing_count + 1)
 
-        card_pool_names = [item['name'] for item in card_pool]
-        self.full_df = self.full_df[~self.full_df['name'].isin(card_pool_names)]
-        self.noncreature_df = self.noncreature_df[~self.noncreature_df['name'].isin(card_pool_names)]
-        logging.info(f'Added {len(cards_to_add)} {tag} cards')
-        #tag_df.to_csv(f'{csv_directory}/test_{tag}.csv', index=False)
+            if remaining_slots == 0:
+                if not ignore_existing:
+                    logger.info(f'Already have {existing_count} cards with tag "{tag}" - no additional cards needed')
+                    return
+                else:
+                    logger.info(f'Already have {ideal_value} cards with tag "{tag}" - no additional cards needed')
+                    return
+
+            logger.info(f'Finding {remaining_slots} additional cards with the "{tag}" tag...')
+
+            # Filter cards with the given tag
+            skip_creatures = self.creature_cards > self.ideal_creature_count * 1.1
+            tag_df = df.copy()
+            tag_df.sort_values(by='edhrecRank', inplace=True)
+            tag_df = tag_df[tag_df['themeTags'].apply(lambda x: x is not None and tag in x)]
+
+            # Calculate initial pool size using THEME_POOL_SIZE_MULTIPLIER
+            pool_size = int(remaining_slots * THEME_POOL_SIZE_MULTIPLIER)
+            tag_df = tag_df.head(pool_size)
+
+            # Convert to list of card dictionaries with priority scores
+            card_pool = []
+            for _, row in tag_df.iterrows():
+                theme_tags = row['themeTags'] if row['themeTags'] is not None else []
+                priority = builder_utils.calculate_theme_priority(theme_tags, self.themes, THEME_PRIORITY_BONUS)
+                card_pool.append({
+                    'name': row['name'],
+                    'type': row['type'],
+                    'manaCost': row['manaCost'],
+                    'manaValue': row['manaValue'],
+                    'creatureTypes': row['creatureTypes'],
+                    'themeTags': theme_tags,
+                    'priority': priority
+                })
+
+            # Sort card pool by priority score
+            card_pool.sort(key=lambda x: x['priority'], reverse=True)
+
+            # Select cards up to remaining slots
+            cards_to_add = []
+            for card in card_pool:
+                if len(cards_to_add) >= remaining_slots:
+                    break
+
+                # Check price constraints if enabled
+                if use_scrython and hasattr(self, 'max_card_price') and self.max_card_price:
+                    price = self.price_checker.get_card_price(card['name'])
+                    if price > self.max_card_price * 1.1:
+                        continue
+
+                # Handle multiple-copy cards
+                if card['name'] in multiple_copy_cards:
+                    existing_copies = len(self.card_library[self.card_library['Card Name'] == card['name']])
+                    if existing_copies < ideal_value:
+                        cards_to_add.append(card)
+                    continue
+
+                # Add new cards if not already in library
+                if card['name'] not in self.card_library['Card Name'].values:
+                    if 'Creature' in card['type'] and skip_creatures:
+                        continue
+                    else:
+                        if 'Creature' in card['type']:
+                            self.creature_cards += 1
+                            skip_creatures = self.creature_cards > self.ideal_creature_count * 1.1
+                        cards_to_add.append(card)
+
+            # Add selected cards to library
+            for card in cards_to_add:
+                if len(self.card_library) < 100:
+                    self.add_card(card['name'], card['type'],
+                                card['manaCost'], card['manaValue'],
+                                card['creatureTypes'], card['themeTags'])
+                else:
+                    break
+
+            # Update DataFrames
+            card_pool_names = [item['name'] for item in card_pool]
+            self.noncreature_df = self.noncreature_df[~self.noncreature_df['name'].isin(card_pool_names)]
+
+            logger.info(f'Added {len(cards_to_add)} {tag} cards (total with tag: {existing_count + len(cards_to_add)})')
+            for card in cards_to_add:
+                print(card['name'])
+
+        except Exception as e:
+            raise ThemeTagError(f"Error processing tag '{tag}'", {"error": str(e)})
         
     def add_creatures(self):
         """
@@ -1774,79 +2218,200 @@ class DeckBuilder:
         creatures proportionally according to their weights. The total number of
         creatures added will approximate the ideal_creature_count.
         
-        Themes are processed in order of importance (primary -> secondary -> tertiary)
-        with error handling to ensure the deck building process continues even if
-        a particular theme encounters issues.
+        The method follows this process:
+        1. Process hidden theme if present
+        2. Process primary theme
+        3. Process secondary theme if present
+        4. Process tertiary theme if present
+
+        Each theme is weighted according to its importance:
+        - Hidden theme: Highest priority if present
+        - Primary theme: Main focus
+        - Secondary theme: Supporting focus
+        - Tertiary theme: Minor focus
+
+        Args:
+            None
+
+        Returns:
+            None
+
+        Raises:
+            ThemeWeightingError: If there are issues with theme weight calculations
+            ThemePoolError: If the card pool for a theme is insufficient
+            Exception: For any other unexpected errors during creature addition
+
+        Note:
+            The method uses error handling to ensure the deck building process
+            continues even if a particular theme encounters issues.
         """
-        print(f'Adding creatures to deck based on the ideal creature count of {self.ideal_creature_count}...')
+        print()
+        logger.info(f'Adding creatures to deck based on the ideal creature count of {self.ideal_creature_count}...')
         
         try:
             if self.hidden_theme:
-                print(f'Processing Hidden theme: {self.hidden_theme}')
+                print()
+                logger.info(f'Processing Hidden theme: {self.hidden_theme}')
                 self.weight_by_theme(self.hidden_theme, self.ideal_creature_count, self.hidden_weight, self.creature_df)
             
-            print(f'Processing primary theme: {self.primary_theme}')
+            logger.info(f'Processing primary theme: {self.primary_theme}')
             self.weight_by_theme(self.primary_theme, self.ideal_creature_count, self.primary_weight, self.creature_df)
             
             if self.secondary_theme:
-                print(f'Processing secondary theme: {self.secondary_theme}')
+                print()
+                logger.info(f'Processing secondary theme: {self.secondary_theme}')
                 self.weight_by_theme(self.secondary_theme, self.ideal_creature_count, self.secondary_weight, self.creature_df)
             
             if self.tertiary_theme:
-                print(f'Processing tertiary theme: {self.tertiary_theme}')
+                print()
+                logger.info(f'Processing tertiary theme: {self.tertiary_theme}')
                 self.weight_by_theme(self.tertiary_theme, self.ideal_creature_count, self.tertiary_weight, self.creature_df)
                 
         except Exception as e:
-            logging.error(f"Error while adding creatures: {e}")
+            logger.error(f"Error while adding creatures: {e}")
         finally:
             self.organize_library()
-            logging.info(f'Creature addition complete. Total creatures (including commander): {self.creature_cards}')
     
     def add_ramp(self):
+        """Add ramp cards to the deck based on ideal ramp count.
+
+        This method adds three categories of ramp cards:
+        1. Mana rocks (artifacts that produce mana) - ~1/3 of ideal ramp count
+        2. Mana dorks (creatures that produce mana) - ~1/4 of ideal ramp count
+        3. General ramp spells - remaining portion of ideal ramp count
+
+        The method uses the add_by_tags() helper to add cards from each category
+        while respecting the deck's themes and color identity.
+
+        Args:
+            None
+
+        Returns:
+            None
+
+        Raises:
+            ThemeTagError: If there are issues adding cards with ramp-related tags
+        """
         try:
             self.add_by_tags('Mana Rock', math.ceil(self.ideal_ramp / 3), self.noncreature_df)
             self.add_by_tags('Mana Dork', math.ceil(self.ideal_ramp / 4), self.creature_df)
-            self.add_by_tags('Ramp', math.ceil(self.ideal_ramp / 2), self.noncreature_df)
+            self.add_by_tags('Ramp', self.ideal_ramp, self.noncreature_df)
         except Exception as e:
-            logging.error(f"Error while adding Ramp: {e}")
-        finally:
-            logging.info('Adding Ramp complete.')
-    
+            logger.error(f"Error while adding Ramp: {e}")
+            
     def add_interaction(self):
+        """Add interaction cards to the deck for removal and protection.
+
+        This method adds two categories of interaction cards:
+        1. Removal spells based on ideal_removal count
+        2. Protection spells based on ideal_protection count
+
+        Cards are selected from non-planeswalker cards to ensure appropriate
+        interaction types are added.
+
+        Args:
+            None
+
+        Returns:
+            None
+
+        Raises:
+            ThemeTagError: If there are issues adding cards with interaction-related tags
+        """
         try:
-            self.add_by_tags('Removal', self.ideal_removal, self.noncreature_nonplaneswaker_df)
-            self.add_by_tags('Protection', self.ideal_protection, self.noncreature_nonplaneswaker_df)
+            self.add_by_tags('Removal', self.ideal_removal, self.nonplaneswalker_df)
+            self.add_by_tags('Protection', self.ideal_protection, self.nonplaneswalker_df)
         except Exception as e:
-            logging.error(f"Error while adding Interaction: {e}")
-        finally:
-            logging.info('Adding Interaction complete.')
+            logger.error(f"Error while adding Interaction: {e}")
         
     def add_board_wipes(self):
+        """Add board wipe cards to the deck.
+
+        This method adds board wipe cards based on the ideal_wipes count.
+        Board wipes are selected from the full card pool to include all possible
+        options across different card types.
+
+        Args:
+            None
+
+        Returns:
+            None
+
+        Raises:
+            ThemeTagError: If there are issues adding cards with the 'Board Wipes' tag
+        """
         try:
             self.add_by_tags('Board Wipes', self.ideal_wipes, self.full_df)
         except Exception as e:
-            logging.error(f"Error while adding Board Wipes: {e}")
-        finally:
-            logging.info('Adding Board Wipes complete.')
+            logger.error(f"Error while adding Board Wipes: {e}")
         
     def add_card_advantage(self):
+        """Add card advantage effects to the deck.
+
+        This method adds two categories of card draw effects:
+        1. Conditional draw effects (20% of ideal_card_advantage)
+           - Cards that draw based on specific conditions or triggers
+        2. Unconditional draw effects (80% of ideal_card_advantage)
+           - Cards that provide straightforward card draw
+
+        Cards are selected from appropriate pools while avoiding planeswalkers
+        for unconditional draw effects.
+
+        Args:
+            None
+
+        Returns:
+            None
+
+        Raises:
+            ThemeTagError: If there are issues adding cards with draw-related tags
+        """
         try:
             self.add_by_tags('Conditional Draw', math.ceil(self.ideal_card_advantage * 0.2), self.full_df)
-            self.add_by_tags('Unconditional Draw', math.ceil(self.ideal_card_advantage * 0.8), self.noncreature_nonplaneswaker_df)
+            self.add_by_tags('Unconditional Draw', math.ceil(self.ideal_card_advantage * 0.8), self.nonplaneswalker_df)
         except Exception as e:
-            logging.error(f"Error while adding Card Draw: {e}")
-        finally:
-            logging.info('Adding Card Draw complete.')
+            logger.error(f"Error while adding Card Draw: {e}")
     
     def fill_out_deck(self):
-        """Fill out the deck to 100 cards with theme-appropriate cards."""
-        logging.info('Filling out the Library to 100 with cards fitting the themes.')
-        
+        """Fill out the deck to 100 cards with theme-appropriate cards.
+
+        This method completes the deck by adding remaining cards up to the 100-card
+        requirement, prioritizing cards that match the deck's themes. The process
+        follows these steps:
+
+        1. Calculate how many cards are needed to reach 100
+        2. Add cards from each theme with weighted distribution:
+           - Hidden theme (if present)
+           - Tertiary theme (20% weight if present)
+           - Secondary theme (30% weight if present)
+           - Primary theme (50% weight)
+
+        The method includes safeguards:
+        - Maximum attempts limit to prevent infinite loops
+        - Timeout to prevent excessive runtime
+        - Progress tracking to break early if insufficient progress
+
+        Args:
+            None
+
+        Returns:
+            None
+
+        Raises:
+            ThemeTagError: If there are issues adding cards with specific theme tags
+            TimeoutError: If the process exceeds the maximum allowed time
+
+        Note:
+            If the deck cannot be filled to 100 cards, a warning message is logged
+            indicating manual additions may be needed.
+        """
+        print()
+        logger.info('Filling out the Library to 100 with cards fitting the themes.')
         cards_needed = 100 - len(self.card_library)
         if cards_needed <= 0:
             return
         
-        logging.info(f"Need to add {cards_needed} more cards")
+        logger.info(f"Need to add {cards_needed} more cards")
         
         # Define maximum attempts and timeout
         MAX_ATTEMPTS = max(20, cards_needed * 2)
@@ -1857,50 +2422,69 @@ class DeckBuilder:
         while len(self.card_library) < 100 and attempts < MAX_ATTEMPTS:
             # Check timeout
             if time.time() - start_time > MAX_TIME:
-                logging.error("Timeout reached while filling deck")
+                logger.error("Timeout reached while filling deck")
                 break
                 
             initial_count = len(self.card_library)
             remaining = 100 - len(self.card_library)
             
-            # Adjust weights based on remaining cards needed
+            # Adjust self.weights based on remaining cards needed
             weight_multiplier = remaining / cards_needed
             
             try:
-                # Add cards from each theme with adjusted weights
-                if self.tertiary_theme:
+                # Add cards from each theme with adjusted self.weights
+                if self.hidden_theme and remaining > 0:
+                    self.add_by_tags(self.hidden_theme, 
+                        math.ceil(weight_multiplier),
+                        self.full_df,
+                        True)
+                    
+                    # Adjust self.weights based on remaining cards needed
+                    remaining = 100 - len(self.card_library)
+                    weight_multiplier = remaining / cards_needed
+                if self.tertiary_theme and remaining > 0:
                     self.add_by_tags(self.tertiary_theme, 
-                        math.ceil(self.tertiary_weight * 10 * weight_multiplier),
-                        self.noncreature_df)
-                if self.secondary_theme:
+                        math.ceil(weight_multiplier * 0.2),
+                        self.noncreature_df,
+                        True)
+                    
+                if self.secondary_theme and remaining > 0:
                     self.add_by_tags(self.secondary_theme, 
-                        math.ceil(self.secondary_weight * 3 * weight_multiplier),
-                        self.noncreature_df)
-                self.add_by_tags(self.primary_theme, 
-                    math.ceil(self.primary_weight * 2 * weight_multiplier),
-                    self.noncreature_df)
+                        math.ceil(weight_multiplier * 0.3),
+                        self.noncreature_df,
+                        True)
+                if remaining > 0:
+                    self.add_by_tags(self.primary_theme, 
+                        math.ceil(weight_multiplier * 0.5),
+                        self.noncreature_df,
+                        True)
                 
                 # Check if we made progress
                 if len(self.card_library) == initial_count:
                     attempts += 1
                     if attempts % 5 == 0:
-                        logging.warning(f"Made {attempts} attempts, still need {100 - len(self.card_library)} cards")
+                        print()
+                        logger.warning(f"Made {attempts} attempts, still need {100 - len(self.card_library)} cards")
                         
                 # Break early if we're stuck
                 if attempts >= MAX_ATTEMPTS / 2 and len(self.card_library) < initial_count + (cards_needed / 4):
-                    logging.warning("Insufficient progress being made, breaking early")
+                    print()
+                    logger.warning("Insufficient progress being made, breaking early")
                     break
                     
             except Exception as e:
-                logging.error(f"Error while adding cards: {e}")
+                print()
+                logger.error(f"Error while adding cards: {e}")
                 attempts += 1
         
         final_count = len(self.card_library)
         if final_count < 100:
             message = f"\nWARNING: Deck is incomplete with {final_count} cards. Manual additions may be needed."
-            logging.warning(message)
+            print()
+            logger.warning(message)
         else:
-            logging.info(f"Successfully filled deck to {final_count} cards in {attempts} attempts")
+            print()
+            logger.info(f"Successfully filled deck to {final_count} cards in {attempts} attempts")
 def main():
     """Main entry point for deck builder application."""
     build_deck = DeckBuilder()

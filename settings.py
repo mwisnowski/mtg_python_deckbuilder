@@ -1,15 +1,245 @@
-"""Constants and configuration settings for the MTG Python Deckbuilder.
+from typing import Dict, List, Optional, Final, Tuple, Pattern, Union, Callable
+import ast
 
-This module contains all the constant values and configuration settings used throughout
-the application for card filtering, processing, and analysis. Constants are organized
-into logical sections with clear documentation.
+# Commander selection configuration
+# Format string for displaying duplicate cards in deck lists
+DUPLICATE_CARD_FORMAT: Final[str] = '{card_name} x {count}'
 
-All constants are properly typed according to PEP 484 standards to ensure type safety
-and enable static type checking with mypy.
-"""
+COMMANDER_CSV_PATH: Final[str] = 'csv_files/commander_cards.csv'
+FUZZY_MATCH_THRESHOLD: Final[int] = 90  # Threshold for fuzzy name matching
+MAX_FUZZY_CHOICES: Final[int] = 5  # Maximum number of fuzzy match choices
+COMMANDER_CONVERTERS: Final[Dict[str, str]] = {'themeTags': ast.literal_eval, 'creatureTypes': ast.literal_eval}  # CSV loading converters
+# Commander-related constants
+COMMANDER_POWER_DEFAULT: Final[int] = 0
+COMMANDER_TOUGHNESS_DEFAULT: Final[int] = 0
+COMMANDER_MANA_VALUE_DEFAULT: Final[int] = 0
+COMMANDER_TYPE_DEFAULT: Final[str] = ''
+COMMANDER_TEXT_DEFAULT: Final[str] = ''
+COMMANDER_MANA_COST_DEFAULT: Final[str] = ''
+COMMANDER_COLOR_IDENTITY_DEFAULT: Final[str] = ''
+COMMANDER_COLORS_DEFAULT: Final[List[str]] = []
+COMMANDER_CREATURE_TYPES_DEFAULT: Final[str] = ''
+COMMANDER_TAGS_DEFAULT: Final[List[str]] = []
+COMMANDER_THEMES_DEFAULT: Final[List[str]] = []
 
-from typing import Dict, List, Optional
+# Price checking configuration
+DEFAULT_PRICE_DELAY: Final[float] = 0.1  # Delay between price checks in seconds
+MAX_PRICE_CHECK_ATTEMPTS: Final[int] = 3  # Maximum attempts for price checking
+PRICE_CACHE_SIZE: Final[int] = 128  # Size of price check LRU cache
+PRICE_CHECK_TIMEOUT: Final[int] = 30  # Timeout for price check requests in seconds
+PRICE_TOLERANCE_MULTIPLIER: Final[float] = 1.1  # Multiplier for price tolerance
+DEFAULT_MAX_CARD_PRICE: Final[float] = 20.0  # Default maximum price per card
 
+# Deck composition defaults
+DEFAULT_RAMP_COUNT: Final[int] = 8  # Default number of ramp pieces
+DEFAULT_LAND_COUNT: Final[int] = 35  # Default total land count
+DEFAULT_BASIC_LAND_COUNT: Final[int] = 20  # Default minimum basic lands
+DEFAULT_NON_BASIC_LAND_SLOTS: Final[int] = 10  # Default number of non-basic land slots to reserve
+DEFAULT_BASICS_PER_COLOR: Final[int] = 5  # Default number of basic lands to add per color
+
+# Miscellaneous land configuration
+MISC_LAND_MIN_COUNT: Final[int] = 5  # Minimum number of miscellaneous lands to add
+MISC_LAND_MAX_COUNT: Final[int] = 10  # Maximum number of miscellaneous lands to add
+MISC_LAND_POOL_SIZE: Final[int] = 100  # Maximum size of initial land pool to select from
+
+# Default fetch land count
+FETCH_LAND_DEFAULT_COUNT: Final[int] = 3  # Default number of fetch lands to include
+
+# Basic land mappings
+COLOR_TO_BASIC_LAND: Final[Dict[str, str]] = {
+    'W': 'Plains',
+    'U': 'Island', 
+    'B': 'Swamp',
+    'R': 'Mountain',
+    'G': 'Forest',
+    'C': 'Wastes'
+}
+
+# Dual land type mappings
+DUAL_LAND_TYPE_MAP: Final[Dict[str, str]] = {
+    'azorius': 'Plains Island',
+    'dimir': 'Island Swamp',
+    'rakdos': 'Swamp Mountain',
+    'gruul': 'Mountain Forest',
+    'selesnya': 'Forest Plains',
+    'orzhov': 'Plains Swamp',
+    'golgari': 'Swamp Forest',
+    'simic': 'Forest Island',
+    'izzet': 'Island Mountain',
+    'boros': 'Mountain Plains'
+}
+
+# Triple land type mappings
+TRIPLE_LAND_TYPE_MAP: Final[Dict[str, str]] = {
+    'bant': 'Forest Plains Island',
+    'esper': 'Plains Island Swamp',
+    'grixis': 'Island Swamp Mountain',
+    'jund': 'Swamp Mountain Forest',
+    'naya': 'Mountain Forest Plains',
+    'mardu': 'Mountain Plains Swamp',
+    'abzan': 'Plains Swamp Forest',
+    'sultai': 'Swamp Forest Island',
+    'temur': 'Forest Island Mountain',
+    'jeska': 'Island Mountain Plains'
+}
+
+# Default preference for including dual lands
+DEFAULT_DUAL_LAND_ENABLED: Final[bool] = True
+
+# Default preference for including triple lands
+DEFAULT_TRIPLE_LAND_ENABLED: Final[bool] = True
+
+
+SNOW_COVERED_BASIC_LANDS: Final[Dict[str, str]] = {
+    'W': 'Snow-Covered Plains',
+    'U': 'Snow-Covered Island',
+    'B': 'Snow-Covered Swamp',
+    'G': 'Snow-Covered Forest'
+}
+
+SNOW_BASIC_LAND_MAPPING: Final[Dict[str, str]] = {
+    'W': 'Snow-Covered Plains',
+    'U': 'Snow-Covered Island', 
+    'B': 'Snow-Covered Swamp',
+    'R': 'Snow-Covered Mountain',
+    'G': 'Snow-Covered Forest',
+    'C': 'Wastes'  # Note: No snow-covered version exists for Wastes
+}
+
+# Generic fetch lands list
+GENERIC_FETCH_LANDS: Final[List[str]] = [
+    'Evolving Wilds',
+    'Terramorphic Expanse',
+    'Shire Terrace',
+    'Escape Tunnel',
+    'Promising Vein',
+    'Myriad Landscape',
+    'Fabled Passage',
+    'Terminal Moraine',
+    'Prismatic Vista'
+]
+
+# Kindred land constants
+KINDRED_STAPLE_LANDS: Final[List[Dict[str, str]]] = [
+    {
+        'name': 'Path of Ancestry',
+        'type': 'Land'
+    },
+    {
+        'name': 'Three Tree City',
+        'type': 'Legendary Land'
+    },
+    {'name': 'Cavern of Souls', 'type': 'Land'}
+]
+
+# Color-specific fetch land mappings
+COLOR_TO_FETCH_LANDS: Final[Dict[str, List[str]]] = {
+    'W': [
+        'Flooded Strand',
+        'Windswept Heath', 
+        'Marsh Flats',
+        'Arid Mesa',
+        'Brokers Hideout',
+        'Obscura Storefront',
+        'Cabaretti Courtyard'
+    ],
+    'U': [
+        'Flooded Strand',
+        'Polluted Delta',
+        'Scalding Tarn', 
+        'Misty Rainforest',
+        'Brokers Hideout',
+        'Obscura Storefront',
+        'Maestros Theater'
+    ],
+    'B': [
+        'Polluted Delta',
+        'Bloodstained Mire',
+        'Marsh Flats',
+        'Verdant Catacombs',
+        'Obscura Storefront',
+        'Maestros Theater',
+        'Riveteers Overlook'
+    ],
+    'R': [
+        'Bloodstained Mire',
+        'Wooded Foothills',
+        'Scalding Tarn',
+        'Arid Mesa',
+        'Maestros Theater',
+        'Riveteers Overlook',
+        'Cabaretti Courtyard'
+    ],
+    'G': [
+        'Wooded Foothills',
+        'Windswept Heath',
+        'Verdant Catacombs',
+        'Misty Rainforest',
+        'Brokers Hideout',
+        'Riveteers Overlook',
+        'Cabaretti Courtyard'
+    ]
+}
+
+DEFAULT_CREATURE_COUNT: Final[int] = 25  # Default number of creatures
+DEFAULT_REMOVAL_COUNT: Final[int] = 10  # Default number of spot removal spells
+DEFAULT_WIPES_COUNT: Final[int] = 2  # Default number of board wipes
+
+# Staple land conditions mapping
+STAPLE_LAND_CONDITIONS: Final[Dict[str, Callable[[List[str], List[str], int], bool]]] = {
+    'Reliquary Tower': lambda commander_tags, colors, commander_power: True,  # Always include
+    'Ash Barrens': lambda commander_tags, colors, commander_power: 'Landfall' not in commander_tags,
+    'Command Tower': lambda commander_tags, colors, commander_power: len(colors) > 1,
+    'Exotic Orchard': lambda commander_tags, colors, commander_power: len(colors) > 1,
+    'War Room': lambda commander_tags, colors, commander_power: len(colors) <= 2,
+    'Rogue\'s Passage': lambda commander_tags, colors, commander_power: commander_power >= 5
+}
+
+
+DEFAULT_CARD_ADVANTAGE_COUNT: Final[int] = 10  # Default number of card advantage pieces
+DEFAULT_PROTECTION_COUNT: Final[int] = 8  # Default number of protection spells
+
+# Deck composition prompts
+DECK_COMPOSITION_PROMPTS: Final[Dict[str, str]] = {
+    'ramp': 'Enter desired number of ramp pieces (default: 8):',
+    'lands': 'Enter desired number of total lands (default: 35):',
+    'basic_lands': 'Enter minimum number of basic lands (default: 20):',
+    'creatures': 'Enter desired number of creatures (default: 25):',
+    'removal': 'Enter desired number of spot removal spells (default: 10):',
+    'wipes': 'Enter desired number of board wipes (default: 2):',
+    'card_advantage': 'Enter desired number of card advantage pieces (default: 10):',
+    'protection': 'Enter desired number of protection spells (default: 8):',
+    'max_deck_price': 'Enter maximum total deck price in dollars (default: 400.0):',
+    'max_card_price': 'Enter maximum price per card in dollars (default: 20.0):'
+}
+DEFAULT_MAX_DECK_PRICE: Final[float] = 400.0  # Default maximum total deck price
+BATCH_PRICE_CHECK_SIZE: Final[int] = 50  # Number of cards to check prices for in one batch
+# Constants for input validation
+
+# Type aliases
+CardName = str
+CardType = str
+ThemeTag = str
+ColorIdentity = str
+ColorList = List[str]
+ColorInfo = Tuple[str, List[str], List[str]]
+
+INPUT_VALIDATION = {
+    'max_attempts': 3,
+    'default_text_message': 'Please enter a valid text response.',
+    'default_number_message': 'Please enter a valid number.',
+    'default_confirm_message': 'Please enter Y/N or Yes/No.',
+    'default_choice_message': 'Please select a valid option from the list.'
+}
+
+QUESTION_TYPES = [
+    'Text',
+    'Number', 
+    'Confirm',
+    'Choice'
+]
+
+# Card type constants
 artifact_tokens: List[str] = ['Blood', 'Clue', 'Food', 'Gold', 'Incubator',
                 'Junk','Map','Powerstone', 'Treasure']
 
@@ -35,8 +265,13 @@ banned_cards = [# in commander
                 'Jihad', 'Imprison', 'Crusade'
                 ]
 
-basic_lands = ['Plains', 'Island', 'Swamp', 'Mountain', 'Forest']
-basic_lands = ['Plains', 'Island', 'Swamp', 'Mountain', 'Forest']
+BASIC_LANDS = ['Plains', 'Island', 'Swamp', 'Mountain', 'Forest']
+
+# Constants for land removal functionality
+LAND_REMOVAL_MAX_ATTEMPTS: Final[int] = 3
+
+# Protected lands that cannot be removed during land removal process
+PROTECTED_LANDS: Final[List[str]] = BASIC_LANDS + [land['name'] for land in KINDRED_STAPLE_LANDS]
 
 # Constants for lands matter functionality
 LANDS_MATTER_PATTERNS: Dict[str, List[str]] = {
@@ -239,6 +474,7 @@ ARISTOCRAT_EXCLUSION_PATTERNS = [
     'from your library',
     'into your hand'
 ]
+
 STAX_TEXT_PATTERNS = [
     'an opponent controls'
     'can\'t attack',
@@ -308,7 +544,7 @@ REMOVAL_TEXT_PATTERNS = [
     'returns target.*to.*hand'
 ]
 
-REMOVAL_SPECIFIC_CARDS = [] # type: list
+REMOVAL_SPECIFIC_CARDS = ['from.*graveyard.*hand'] # type: list
 
 REMOVAL_EXCLUSION_PATTERNS = [] # type: list
 
@@ -512,9 +748,30 @@ BOARD_WIPE_EXCLUSION_PATTERNS = [
     'that player\'s library'
 ]
 
-
-card_types = ['Artifact','Creature', 'Enchantment', 'Instant', 'Land', 'Planeswalker', 'Sorcery',
+CARD_TYPES = ['Artifact','Creature', 'Enchantment', 'Instant', 'Land', 'Planeswalker', 'Sorcery',
               'Kindred', 'Dungeon', 'Battle']
+
+# Card type sorting order for organizing libraries
+# This constant defines the order in which different card types should be sorted
+# when organizing a deck library. The order is designed to group cards logically,
+# starting with Planeswalkers and ending with Lands.
+CARD_TYPE_SORT_ORDER: Final[List[str]] = [
+    'Planeswalker', 'Battle', 'Creature', 'Instant', 'Sorcery',
+    'Artifact', 'Enchantment', 'Land'
+]
+
+# Default counts for each card type
+CARD_TYPE_COUNT_DEFAULTS: Final[Dict[str, int]] = {
+    'Artifact': 0,
+    'Battle': 0,
+    'Creature': 0,
+    'Enchantment': 0,
+    'Instant': 0,
+    'Kindred': 0,
+    'Land': 0,
+    'Planeswalker': 0,
+    'Sorcery': 0
+}
 
 # Mapping of card types to their corresponding theme tags
 TYPE_TAG_MAPPING = {
@@ -530,9 +787,111 @@ TYPE_TAG_MAPPING = {
     'Sorcery': ['Spells Matter', 'Spellslinger']
 }
 
-csv_directory = 'csv_files'
+CSV_DIRECTORY = 'csv_files'
 
-colors = ['colorless', 'white', 'blue', 'black', 'red', 'green',
+# Color identity constants and mappings
+
+# Basic mana colors
+MANA_COLORS: Final[List[str]] = ['W', 'U', 'B', 'R', 'G']
+
+# Mana pip patterns for each color
+MANA_PIP_PATTERNS: Final[Dict[str, str]] = {
+    color: f'{{{color}}}' for color in MANA_COLORS
+}
+
+MONO_COLOR_MAP: Final[Dict[str, Tuple[str, List[str]]]] = {
+    'COLORLESS': ('Colorless', ['colorless']),
+    'W': ('White', ['colorless', 'white']),
+    'U': ('Blue', ['colorless', 'blue']),
+    'B': ('Black', ['colorless', 'black']),
+    'R': ('Red', ['colorless', 'red']),
+    'G': ('Green', ['colorless', 'green'])
+}
+
+DUAL_COLOR_MAP: Final[Dict[str, Tuple[str, List[str], List[str]]]] = {
+    'B, G': ('Golgari: Black/Green', ['B', 'G', 'B, G'], ['colorless', 'black', 'green', 'golgari']),
+    'B, R': ('Rakdos: Black/Red', ['B', 'R', 'B, R'], ['colorless', 'black', 'red', 'rakdos']),
+    'B, U': ('Dimir: Black/Blue', ['B', 'U', 'B, U'], ['colorless', 'black', 'blue', 'dimir']),
+    'B, W': ('Orzhov: Black/White', ['B', 'W', 'B, W'], ['colorless', 'black', 'white', 'orzhov']),
+    'G, R': ('Gruul: Green/Red', ['G', 'R', 'G, R'], ['colorless', 'green', 'red', 'gruul']),
+    'G, U': ('Simic: Green/Blue', ['G', 'U', 'G, U'], ['colorless', 'green', 'blue', 'simic']),
+    'G, W': ('Selesnya: Green/White', ['G', 'W', 'G, W'], ['colorless', 'green', 'white', 'selesnya']),
+    'R, U': ('Izzet: Blue/Red', ['U', 'R', 'U, R'], ['colorless', 'blue', 'red', 'izzet']),
+    'U, W': ('Azorius: Blue/White', ['U', 'W', 'U, W'], ['colorless', 'blue', 'white', 'azorius']),
+    'R, W': ('Boros: Red/White', ['R', 'W', 'R, W'], ['colorless', 'red', 'white', 'boros'])
+}
+
+TRI_COLOR_MAP: Final[Dict[str, Tuple[str, List[str], List[str]]]] = {
+    'B, G, U': ('Sultai: Black/Blue/Green', ['B', 'G', 'U', 'B, G', 'B, U', 'G, U', 'B, G, U'],
+                ['colorless', 'black', 'blue', 'green', 'dimir', 'golgari', 'simic', 'sultai']),
+    'B, G, R': ('Jund: Black/Red/Green', ['B', 'G', 'R', 'B, G', 'B, R', 'G, R', 'B, G, R'],
+                ['colorless', 'black', 'green', 'red', 'golgari', 'rakdos', 'gruul', 'jund']),
+    'B, G, W': ('Abzan: Black/Green/White', ['B', 'G', 'W', 'B, G', 'B, W', 'G, W', 'B, G, W'],
+                ['colorless', 'black', 'green', 'white', 'golgari', 'orzhov', 'selesnya', 'abzan']),
+    'B, R, U': ('Grixis: Black/Blue/Red', ['B', 'R', 'U', 'B, R', 'B, U', 'R, U', 'B, R, U'],
+                ['colorless', 'black', 'blue', 'red', 'dimir', 'rakdos', 'izzet', 'grixis']),
+    'B, R, W': ('Mardu: Black/Red/White', ['B', 'R', 'W', 'B, R', 'B, W', 'R, W', 'B, R, W'],
+                ['colorless', 'black', 'red', 'white', 'rakdos', 'orzhov', 'boros', 'mardu']),
+    'B, U, W': ('Esper: Black/Blue/White', ['B', 'U', 'W', 'B, U', 'B, W', 'U, W', 'B, U, W'],
+                ['colorless', 'black', 'blue', 'white', 'dimir', 'orzhov', 'azorius', 'esper']),
+    'G, R, U': ('Temur: Blue/Green/Red', ['G', 'R', 'U', 'G, R', 'G, U', 'R, U', 'G, R, U'],
+                ['colorless', 'green', 'red', 'blue', 'simic', 'izzet', 'gruul', 'temur']),
+    'G, R, W': ('Naya: Green/Red/White', ['G', 'R', 'W', 'G, R', 'G, W', 'R, W', 'G, R, W'],
+                ['colorless', 'green', 'red', 'white', 'gruul', 'selesnya', 'boros', 'naya']),
+    'G, U, W': ('Bant: Blue/Green/White', ['G', 'U', 'W', 'G, U', 'G, W', 'U, W', 'G, U, W'],
+                ['colorless', 'green', 'blue', 'white', 'simic', 'azorius', 'selesnya', 'bant']),
+    'R, U, W': ('Jeskai: Blue/Red/White', ['R', 'U', 'W', 'R, U', 'U, W', 'R, W', 'R, U, W'],
+                ['colorless', 'blue', 'red', 'white', 'izzet', 'azorius', 'boros', 'jeskai'])
+}
+
+OTHER_COLOR_MAP: Final[Dict[str, Tuple[str, List[str], List[str]]]] = {
+    'B, G, R, U': ('Glint: Black/Blue/Green/Red',
+                   ['B', 'G', 'R', 'U', 'B, G', 'B, R', 'B, U', 'G, R', 'G, U', 'R, U', 'B, G, R',
+                    'B, G, U', 'B, R, U', 'G, R, U', 'B, G, R, U'],
+                   ['colorless', 'black', 'blue', 'green', 'red', 'golgari', 'rakdos', 'dimir',
+                    'gruul', 'simic', 'izzet', 'jund', 'sultai', 'grixis', 'temur', 'glint']),
+    'B, G, R, W': ('Dune: Black/Green/Red/White',
+                   ['B', 'G', 'R', 'W', 'B, G', 'B, R', 'B, W', 'G, R', 'G, W', 'R, W', 'B, G, R',
+                    'B, G, W', 'B, R, W', 'G, R, W', 'B, G, R, W'],
+                   ['colorless', 'black', 'green', 'red', 'white', 'golgari', 'rakdos', 'orzhov',
+                    'gruul', 'selesnya', 'boros', 'jund', 'abzan', 'mardu', 'naya', 'dune']),
+    'B, G, U, W': ('Witch: Black/Blue/Green/White',
+                   ['B', 'G', 'U', 'W', 'B, G', 'B, U', 'B, W', 'G, U', 'G, W', 'U, W', 'B, G, U',
+                    'B, G, W', 'B, U, W', 'G, U, W', 'B, G, U, W'],
+                   ['colorless', 'black', 'blue', 'green', 'white', 'golgari', 'dimir', 'orzhov',
+                    'simic', 'selesnya', 'azorius', 'sultai', 'abzan', 'esper', 'bant', 'witch']),
+    'B, R, U, W': ('Yore: Black/Blue/Red/White',
+                   ['B', 'R', 'U', 'W', 'B, R', 'B, U', 'B, W', 'R, U', 'R, W', 'U, W', 'B, R, U',
+                    'B, R, W', 'B, U, W', 'R, U, W', 'B, R, U, W'],
+                   ['colorless', 'black', 'blue', 'red', 'white', 'rakdos', 'dimir', 'orzhov',
+                    'izzet', 'boros', 'azorius', 'grixis', 'mardu', 'esper', 'jeskai', 'yore']),
+    'G, R, U, W': ('Ink: Blue/Green/Red/White',
+                   ['G', 'R', 'U', 'W', 'G, R', 'G, U', 'G, W', 'R, U', 'R, W', 'U, W', 'G, R, U',
+                    'G, R, W', 'G, U, W', 'R, U, W', 'G, R, U, W'],
+                   ['colorless', 'blue', 'green', 'red', 'white', 'gruul', 'simic', 'selesnya',
+                    'izzet', 'boros', 'azorius', 'temur', 'naya', 'bant', 'jeskai', 'ink']),
+    'B, G, R, U, W': ('WUBRG: All colors',
+                      ['B', 'G', 'R', 'U', 'W', 'B, G', 'B, R', 'B, U', 'B, W', 'G, R', 'G, U',
+                       'G, W', 'R, U', 'R, W', 'U, W', 'B, G, R', 'B, G, U', 'B, G, W', 'B, R, U',
+                       'B, R, W', 'B, U, W', 'G, R, U', 'G, R, W', 'G, U, W', 'R, U, W',
+                       'B, G, R, U', 'B, G, R, W', 'B, G, U, W', 'B, R, U, W', 'G, R, U, W',
+                       'B, G, R, U, W'],
+                      ['colorless', 'black', 'green', 'red', 'blue', 'white', 'golgari', 'rakdos',
+                       'dimir', 'orzhov', 'gruul', 'simic', 'selesnya', 'izzet', 'boros', 'azorius',
+                       'jund', 'sultai', 'abzan', 'grixis', 'mardu', 'esper', 'temur', 'naya',
+                       'bant', 'jeskai', 'glint', 'dune', 'witch', 'yore', 'ink', 'wubrg'])
+}
+
+# Color identity validation patterns
+COLOR_IDENTITY_PATTERNS: Final[Dict[str, str]] = {
+    'mono': r'^[WUBRG]$',
+    'dual': r'^[WUBRG], [WUBRG]$',
+    'tri': r'^[WUBRG], [WUBRG], [WUBRG]$',
+    'four': r'^[WUBRG], [WUBRG], [WUBRG], [WUBRG]$',
+    'five': r'^[WUBRG], [WUBRG], [WUBRG], [WUBRG], [WUBRG]$'
+}
+
+COLORS = ['colorless', 'white', 'blue', 'black', 'red', 'green',
                 'azorius', 'orzhov', 'selesnya', 'boros', 'dimir',
                 'simic', 'izzet', 'golgari', 'rakdos', 'gruul',
                 'bant', 'esper', 'grixis', 'jund', 'naya',
@@ -673,6 +1032,31 @@ REQUIRED_COLUMNS: List[str] = [
     'power', 'toughness', 'keywords', 'themeTags', 'layout', 'side'
 ]
 
+# Constants for theme weight management and selection
+
+# Multiplier for initial card pool size during theme-based selection
+THEME_POOL_SIZE_MULTIPLIER: Final[float] = 2.0
+
+# Bonus multiplier for cards that match multiple deck themes
+THEME_PRIORITY_BONUS: Final[float] = 1.2
+
+# Safety multiplier to avoid overshooting target counts
+THEME_WEIGHT_MULTIPLIER: Final[float] = 0.9
+
+THEME_WEIGHTS_DEFAULT: Final[Dict[str, float]] = {
+    'primary': 1.0,
+    'secondary': 0.6,
+    'tertiary': 0.3,
+    'hidden': 0.0
+}
+
+WEIGHT_ADJUSTMENT_FACTORS: Final[Dict[str, float]] = {
+    'kindred_primary': 1.5,    # Boost for Kindred themes as primary
+    'kindred_secondary': 1.3,  # Boost for Kindred themes as secondary
+    'kindred_tertiary': 1.2,   # Boost for Kindred themes as tertiary
+    'theme_synergy': 1.2       # Boost for themes that work well together
+}
+
 DEFAULT_THEME_TAGS = [
     'Aggro', 'Aristocrats', 'Artifacts Matter', 'Big Mana', 'Blink',
     'Board Wipes', 'Burn', 'Cantrips', 'Card Draw', 'Clones',
@@ -690,6 +1074,21 @@ COLUMN_ORDER = [
     'power', 'toughness', 'keywords', 'themeTags', 'layout', 'side'
 ]
 
+PRETAG_COLUMN_ORDER: List[str] = [
+    'name', 'faceName', 'edhrecRank', 'colorIdentity', 'colors',
+    'manaCost', 'manaValue', 'type', 'text', 'power', 'toughness',
+    'keywords', 'layout', 'side'
+]
+
+TAGGED_COLUMN_ORDER: List[str] = [
+    'name', 'faceName', 'edhrecRank', 'colorIdentity', 'colors',
+    'manaCost', 'manaValue', 'type', 'creatureTypes', 'text',
+    'power', 'toughness', 'keywords', 'themeTags', 'layout', 'side'
+]
+
+EXCLUDED_CARD_TYPES: List[str] = ['Plane —', 'Conspiracy', 'Vanguard', 'Scheme',
+                       'Phenomenon', 'Stickers', 'Attraction', 'Hero',
+                       'Contraption']
 # Constants for type detection and processing
 OUTLAW_TYPES = ['Assassin', 'Mercenary', 'Pirate', 'Rogue', 'Warlock']
 TYPE_DETECTION_BATCH_SIZE = 1000
@@ -702,6 +1101,7 @@ AURA_SPECIFIC_CARDS = [
     'Ivy, Gleeful Spellthief',          # Copies spells that have single target
     'Killian, Ink Duelist',             # Targetted spell cost reduction
 ]
+
 # Equipment-related constants
 EQUIPMENT_EXCLUSIONS = [
     'Bruenor Battlehammer',         # Equipment cost reduction
@@ -740,7 +1140,7 @@ EQUIPMENT_TEXT_PATTERNS = [
     'unattach',         # Equipment removal
     'unequip',          # Equipment removal
 ]
-TYPE_DETECTION_BATCH_SIZE = 1000
+
 
 # Constants for Voltron strategy
 VOLTRON_COMMANDER_CARDS = [
@@ -777,6 +1177,115 @@ VOLTRON_PATTERNS = [
     'reconfigure'
 ]
 
+# Constants for price checking functionality
+PRICE_CHECK_CONFIG: Dict[str, float] = {
+    # Maximum number of retry attempts for price checking requests
+    'max_retries': 3,
+    
+    # Timeout in seconds for price checking requests
+    'timeout': 0.1,
+    
+    # Maximum size of the price check cache
+    'cache_size': 128,
+    
+    # Price tolerance factor (e.g., 1.1 means accept prices within 10% difference)
+    'price_tolerance': 1.1
+}
+
+# DataFrame processing configuration
+BATCH_SIZE: Final[int] = 1000  # Number of records to process at once
+DATAFRAME_BATCH_SIZE: Final[int] = 500  # Batch size for DataFrame operations
+TRANSFORM_BATCH_SIZE: Final[int] = 250  # Batch size for data transformations
+CSV_DOWNLOAD_TIMEOUT: Final[int] = 30  # Timeout in seconds for CSV downloads
+PROGRESS_UPDATE_INTERVAL: Final[int] = 100  # Number of records between progress updates
+
+# DataFrame operation timeouts
+DATAFRAME_READ_TIMEOUT: Final[int] = 30  # Timeout for DataFrame read operations
+DATAFRAME_WRITE_TIMEOUT: Final[int] = 30  # Timeout for DataFrame write operations
+DATAFRAME_TRANSFORM_TIMEOUT: Final[int] = 45  # Timeout for DataFrame transformations
+DATAFRAME_VALIDATION_TIMEOUT: Final[int] = 20  # Timeout for DataFrame validation
+
+# DataFrame validation configuration
+MIN_EDHREC_RANK: int = 0
+MAX_EDHREC_RANK: int = 100000
+MIN_MANA_VALUE: int = 0
+MAX_MANA_VALUE: int = 20
+
+# DataFrame validation rules
+DATAFRAME_VALIDATION_RULES: Final[Dict[str, Dict[str, Union[str, int, float, bool]]]] = {
+    'name': {'type': ('str', 'object'), 'required': True, 'unique': True},
+    'edhrecRank': {'type': ('str', 'int', 'float', 'object'), 'min': 0, 'max': 100000},
+    'manaValue': {'type': ('str', 'int', 'float', 'object'), 'min': 0, 'max': 20},
+    'power': {'type': ('str', 'int', 'float', 'object'), 'pattern': r'^[\d*+-]+$'},
+    'toughness': {'type': ('str', 'int', 'float', 'object'), 'pattern': r'^[\d*+-]+$'},
+    'colorIdentity': {'type': ('str', 'object'), 'required': True},
+    'text': {'type': ('str', 'object'), 'required': False}
+}
+
+# Card category validation rules
+CREATURE_VALIDATION_RULES: Final[Dict[str, Dict[str, Union[str, int, float, bool]]]] = {
+    'power': {'type': ('str', 'int', 'float', 'object'), 'required': True},
+    'toughness': {'type': ('str', 'int', 'float', 'object'), 'required': True},
+    'creatureTypes': {'type': ('list', 'object'), 'required': True}
+}
+
+SPELL_VALIDATION_RULES: Final[Dict[str, Dict[str, Union[str, int, float, bool]]]] = {
+    'manaCost': {'type': 'str', 'required': True},
+    'text': {'type': 'str', 'required': True}
+}
+
+LAND_VALIDATION_RULES: Final[Dict[str, Dict[str, Union[str, int, float, bool]]]] = {
+    'type': {'type': ('str', 'object'), 'required': True},
+    'text': {'type': ('str', 'object'), 'required': False}
+}
+
+# Column mapping configurations
+DATAFRAME_COLUMN_MAPS: Final[Dict[str, Dict[str, str]]] = {
+    'creature': {
+        'name': 'Card Name',
+        'type': 'Card Type',
+        'manaCost': 'Mana Cost',
+        'manaValue': 'Mana Value',
+        'power': 'Power',
+        'toughness': 'Toughness'
+    },
+    'spell': {
+        'name': 'Card Name', 
+        'type': 'Card Type',
+        'manaCost': 'Mana Cost',
+        'manaValue': 'Mana Value'
+    },
+    'land': {
+        'name': 'Card Name',
+        'type': 'Card Type'
+    }
+}
+
+# Required DataFrame columns
+DATAFRAME_REQUIRED_COLUMNS: Final[List[str]] = [
+    'name', 'type', 'colorIdentity', 'manaValue', 'text',
+    'edhrecRank', 'themeTags', 'keywords'
+]
+
+# CSV processing configuration 
+CSV_READ_TIMEOUT: Final[int] = 30  # Timeout in seconds for CSV read operations
+CSV_PROCESSING_BATCH_SIZE: Final[int] = 1000  # Number of rows to process in each batch
+
+# CSV validation configuration
+CSV_VALIDATION_RULES: Final[Dict[str, Dict[str, Union[str, int, float]]]] = {
+    'name': {'type': ('str', 'object'), 'required': True, 'unique': True},
+    'edhrecRank': {'type': ('str', 'int', 'float', 'object'), 'min': 0, 'max': 100000},
+    'manaValue': {'type': ('str', 'int', 'float', 'object'), 'min': 0, 'max': 20},
+    'power': {'type': ('str', 'int', 'float', 'object'), 'pattern': r'^[\d*+-]+$'},
+    'toughness': {'type': ('str', 'int', 'float', 'object'), 'pattern': r'^[\d*+-]+$'}
+}
+
+# Required columns for CSV validation
+CSV_REQUIRED_COLUMNS: Final[List[str]] = [
+    'name', 'faceName', 'edhrecRank', 'colorIdentity', 'colors',
+    'manaCost', 'manaValue', 'type', 'creatureTypes', 'text',
+    'power', 'toughness', 'keywords', 'themeTags', 'layout', 'side'
+]
 # Constants for setup and CSV processing
 MTGJSON_API_URL = 'https://mtgjson.com/api/v5/csv/cards.csv'
 

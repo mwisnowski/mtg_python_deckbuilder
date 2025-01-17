@@ -293,7 +293,7 @@ def create_theme_tags(df: pd.DataFrame, color: str) -> None:
         raise TypeError("df must be a pandas DataFrame")
     if not isinstance(color, str):
         raise TypeError("color must be a string")
-    if color not in settings.colors:
+    if color not in settings.COLORS:
         raise ValueError(f"Invalid color: {color}")
 
     try:
@@ -2633,6 +2633,24 @@ def create_token_modifier_mask(df: pd.DataFrame) -> pd.Series:
 
     return has_modifier & has_effect & ~name_exclusions
 
+def create_tokens_matter_mask(df: pd.DataFrame) -> pd.Series:
+    """Create a boolean mask for cards that care about tokens.
+
+    Args:
+        df: DataFrame to search
+
+    Returns:
+        Boolean Series indicating which cards care about tokens
+    """
+    # Create patterns for token matters
+    text_patterns = [
+        'tokens.*you.*control',
+        'that\'s a token',
+    ]
+    text_mask = tag_utils.create_text_mask(df, text_patterns)
+
+    return text_mask
+
 def tag_for_tokens(df: pd.DataFrame, color: str) -> None:
     """Tag cards that create or modify tokens using vectorized operations.
 
@@ -2670,6 +2688,13 @@ def tag_for_tokens(df: pd.DataFrame, color: str) -> None:
             tag_utils.apply_tag_vectorized(df, modifier_mask,
                 ['Token Modification', 'Token Creation', 'Tokens Matter'])
             logger.info('Tagged %d cards that modify token creation', modifier_mask.sum())
+            
+        # Create tokens matter mask
+        matters_mask = create_tokens_matter_mask(df)
+        if matters_mask.any():
+            tag_utils.apply_tag_vectorized(df, matters_mask,
+                ['Tokens Matter'])
+            logger.info('Tagged %d cards that care about tokens', modifier_mask.sum())
 
         duration = (pd.Timestamp.now() - start_time).total_seconds()
         logger.info('Completed token tagging in %.2fs', duration)
@@ -3638,7 +3663,7 @@ def tag_for_cantrips(df: pd.DataFrame, color: str) -> None:
         logger.error('Error tagging Cantrips in %s_cards.csv: %s', color, str(e))
         raise
 
-
+## Magecraft
 def create_magecraft_mask(df: pd.DataFrame) -> pd.Series:
     """Create a boolean mask for cards with magecraft effects.
 
@@ -6369,6 +6394,18 @@ def create_removal_text_mask(df: pd.DataFrame) -> pd.Series:
     """
     return tag_utils.create_text_mask(df, settings.REMOVAL_TEXT_PATTERNS)
 
+def create_removal_exclusion_mask(df: pd.DataFrame) -> pd.Series:
+    """Create a boolean mask for cards that should be excluded from removal effects.
+
+    Args:
+        df: DataFrame to search
+
+    Returns:
+        Boolean Series indicating which cards should be excluded
+    """
+    return tag_utils.create_text_mask(df, settings.REMOVAL_EXCLUSION_PATTERNS)
+
+
 def tag_for_removal(df: pd.DataFrame, color: str) -> None:
     """Tag cards that provide spot removal using vectorized operations.
 
@@ -6422,7 +6459,8 @@ def tag_for_removal(df: pd.DataFrame, color: str) -> None:
 
 def run_tagging():
     start_time = pd.Timestamp.now()
-    for color in settings.colors:
+    for color in settings.COLORS:
         load_dataframe(color)
     duration = (pd.Timestamp.now() - start_time).total_seconds()
     logger.info(f'Tagged cards in {duration:.2f}s')
+

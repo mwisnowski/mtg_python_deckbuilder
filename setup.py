@@ -1,26 +1,53 @@
 from __future__ import annotations
 
+"""MTG Python Deckbuilder setup module.
+
+This module provides the main setup functionality for the MTG Python Deckbuilder
+application. It handles initial setup tasks such as downloading card data,
+creating color-filtered card lists, and generating commander-eligible card lists.
+
+Key Features:
+    - Initial setup and configuration
+    - Card data download and processing
+    - Color-based card filtering
+    - Commander card list generation
+    - CSV file management and validation
+
+The module works in conjunction with setup_utils.py for utility functions and
+exceptions.py for error handling.
+"""
+
 # Standard library imports
 import logging
 from enum import Enum
-from pathlib import Path
 import os
+from pathlib import Path
 from typing import Union, List, Dict, Any
 
 # Third-party imports
-import pandas as pd
 import inquirer
+import pandas as pd
 
 # Local application imports
 from settings import (
-    banned_cards, CSV_DIRECTORY, SETUP_COLORS, COLOR_ABRV, MTGJSON_API_URL
+    banned_cards,
+    COLOR_ABRV,
+    CSV_DIRECTORY,
+    MTGJSON_API_URL,
+    SETUP_COLORS
 )
 from setup_utils import (
-    download_cards_csv, filter_dataframe, process_legendary_cards, filter_by_color_identity
+    download_cards_csv,
+    filter_by_color_identity,
+    filter_dataframe,
+    process_legendary_cards
 )
 from exceptions import (
-    CSVFileNotFoundError, MTGJSONDownloadError, DataFrameProcessingError,
-    ColorFilterError, CommanderValidationError
+    CSVFileNotFoundError,
+    ColorFilterError,
+    CommanderValidationError,
+    DataFrameProcessingError,
+    MTGJSONDownloadError
 )
 # Create logs directory if it doesn't exist
 if not os.path.exists('logs'):

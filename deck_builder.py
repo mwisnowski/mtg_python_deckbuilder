@@ -20,16 +20,16 @@ from settings import (
     COMMANDER_CSV_PATH, FUZZY_MATCH_THRESHOLD, MAX_FUZZY_CHOICES, FETCH_LAND_DEFAULT_COUNT,
     COMMANDER_POWER_DEFAULT, COMMANDER_TOUGHNESS_DEFAULT, COMMANDER_MANA_COST_DEFAULT,
     COMMANDER_MANA_VALUE_DEFAULT, COMMANDER_TYPE_DEFAULT, COMMANDER_TEXT_DEFAULT, 
+    THEME_PRIORITY_BONUS, THEME_POOL_SIZE_MULTIPLIER,
     COMMANDER_COLOR_IDENTITY_DEFAULT, COMMANDER_COLORS_DEFAULT, COMMANDER_TAGS_DEFAULT, 
     COMMANDER_THEMES_DEFAULT, COMMANDER_CREATURE_TYPES_DEFAULT, DUAL_LAND_TYPE_MAP,
     CSV_READ_TIMEOUT, CSV_PROCESSING_BATCH_SIZE, CSV_VALIDATION_RULES, CSV_REQUIRED_COLUMNS,
     STAPLE_LAND_CONDITIONS, TRIPLE_LAND_TYPE_MAP, MISC_LAND_MAX_COUNT, MISC_LAND_MIN_COUNT,
     MISC_LAND_POOL_SIZE, LAND_REMOVAL_MAX_ATTEMPTS, PROTECTED_LANDS,
-    MANA_COLORS, MANA_PIP_PATTERNS
+    MANA_COLORS, MANA_PIP_PATTERNS, THEME_WEIGHT_MULTIPLIER
 )
 import builder_utils
 import setup_utils
-from setup import determine_commanders
 from input_handler import InputHandler
 from exceptions import (
     BasicLandCountError,
@@ -37,7 +37,6 @@ from exceptions import (
     CommanderMoveError,
     CardTypeCountError,
     CommanderColorError,
-    CommanderLoadError,
     CommanderSelectionError, 
     CommanderValidationError,
     CSVError,
@@ -48,16 +47,12 @@ from exceptions import (
     DuplicateCardError,
     DeckBuilderError,
     EmptyDataFrameError,
-    EmptyInputError,
     FetchLandSelectionError,
     FetchLandValidationError,
     IdealDeterminationError,
-    InvalidNumberError,
-    InvalidQuestionTypeError,
     LandRemovalError,
     LibraryOrganizationError,
     LibrarySortError,
-    MaxAttemptsError,
     PriceAPIError,
     PriceConfigurationError,
     PriceLimitError, 
@@ -66,18 +61,21 @@ from exceptions import (
     ThemeSelectionError,
     ThemeWeightError,
     StapleLandError,
-    StapleLandError,
-    ManaPipError
+    ManaPipError,
+    ThemeTagError,
+    ThemeWeightingError,
+    ThemePoolError
 )
 from type_definitions import (
-    CardDict,
     CommanderDict,
     CardLibraryDF,
     CommanderDF,
     LandDF,
     ArtifactDF,
     CreatureDF,
-    NonCreatureDF)
+    NonCreatureDF,
+    PlaneswalkerDF,
+    NonPlaneswalkerDF)
 
 # Try to import scrython and price_checker
 try:
@@ -101,19 +99,6 @@ logger = logging.getLogger(__name__)
 pd.set_option('display.max_columns', None)
 pd.set_option('display.max_rows', None)
 pd.set_option('display.max_colwidth', 50)
-
-"""
-Basic deck builder, primarily intended for building Kindred decks.
-Logic for other themes (such as Spellslinger or Wheels), is added.
-I plan to also implement having it recommend a commander or themes.
-
-Currently, the script will ask questions to determine number of 
-creatures, lands, interaction, ramp, etc... then add cards and 
-adjust from there.
-
-Land spread will ideally be handled based on pips and some adjustment
-is planned based on mana curve and ramp added.
-"""
 
 def new_line(num_lines: int = 1) -> None:
     """Print specified number of newlines for formatting output.
@@ -149,9 +134,10 @@ class DeckBuilder:
         self.artifact_df: ArtifactDF = pd.DataFrame()
         self.creature_df: CreatureDF = pd.DataFrame()
         self.noncreature_df: NonCreatureDF = pd.DataFrame()
-        
+        self.nonplaneswalker_df: NonPlaneswalkerDF = pd.DataFrame()
         # Initialize other attributes with type hints
         self.commander_info: Dict = {}
+        self.max_card_price: Optional[float] = None
         self.commander_dict: CommanderDict = {}
         self.commander: str = ''
         self.commander_type: str = ''
@@ -764,7 +750,7 @@ class DeckBuilder:
             
             # Remove lands from main DataFrame
             df = df[~df['type'].str.contains('Land')]
-            df.to_csv(f'{CSV_DIRECTORY}/test_cards.csv')
+            df.to_csv(f'{CSV_DIRECTORY}/test_cards.csv', index=False)
             
             # Create specialized frames
             self.artifact_df = df[df['type'].str.contains('Artifact')].copy()
@@ -774,9 +760,10 @@ class DeckBuilder:
             self.enchantment_df = df[df['type'].str.contains('Enchantment')].copy()
             self.instant_df = df[df['type'].str.contains('Instant')].copy()
             self.planeswalker_df = df[df['type'].str.contains('Planeswalker')].copy()
+            self.nonplaneswalker_df = df[~df['type'].str.contains('Planeswalker')].copy()
             self.sorcery_df = df[df['type'].str.contains('Sorcery')].copy()
 
-            self.battle_df.to_csv(f'{CSV_DIRECTORY}/test_battle_cards.csv')
+            self.battle_df.to_csv(f'{CSV_DIRECTORY}/test_battle_cards.csv', index=False)
             
             # Sort all frames
             for frame in [self.artifact_df, self.battle_df, self.creature_df,
@@ -859,8 +846,9 @@ class DeckBuilder:
         try:
             # Load and combine data
             self.full_df = self._load_and_combine_data()
+            self.full_df = self.full_df[~self.full_df['name'].str.contains(self.commander)]
             self.full_df.sort_values(by='edhrecRank', inplace=True)
-            self.full_df.to_csv(f'{CSV_DIRECTORY}/test_full_cards.csv')
+            self.full_df.to_csv(f'{CSV_DIRECTORY}/test_full_cards.csv', index=False)
             
             # Split into specialized frames
             self._split_into_specialized_frames(self.full_df)
@@ -962,7 +950,6 @@ class DeckBuilder:
                         self.tertiary_theme,
                         self.weights
                     )
-                    print(self.weights)
                     self.primary_weight = self.weights['primary']
                     self.secondary_weight = self.weights['secondary']
                     self.tertiary_weight = self.weights['tertiary']
@@ -972,8 +959,7 @@ class DeckBuilder:
             if self.secondary_theme:
                 self.themes.append(self.secondary_theme)
             if self.tertiary_theme:
-                self.themes.append(self.tertiary_theme)
-            print(self.weights)
+                self.themes.append
             self.determine_hidden_themes()
 
         except (ThemeSelectionError, ThemeWeightError) as e:
@@ -1323,7 +1309,7 @@ class DeckBuilder:
         6. Add miscellaneous utility lands
         7. Adjust total land count to match ideal count
         """
-        MAX_ADJUSTMENT_ATTEMPTS = 10
+        MAX_ADJUSTMENT_ATTEMPTS = (self.ideal_land_count - self.min_basics) * 1.5
         self.total_basics = 0
         
         try:
@@ -2032,222 +2018,395 @@ class DeckBuilder:
             logger.error(f"Error calculating CMC: {e}")
             self.cmc = 0.0
     
-    def weight_by_theme(self, tag, ideal=1, weight=1, df=None):
-        # First grab the first 50/30/20 cards that match each theme
-        """Add cards with specific tag up to ideal_value count"""
-        ideal_value = math.ceil(ideal * weight * 0.9)
-        print(f'Finding {ideal_value} cards with the "{tag}" tag...')
-        if 'Kindred' in tag:
-            tags = [tag, 'Kindred Support']
-        else:
-            tags = [tag]
-        # Filter cards with the given tag
-        tag_df = df.copy()
-        tag_df.sort_values(by='edhrecRank', inplace=True)
-        tag_df = tag_df[tag_df['themeTags'].apply(lambda x: any(tag in x for tag in tags))]
-        # Take top cards based on ideal value
-        pool_size = int(ideal_value * random.randint(15, 20) /10)
-        tag_df = tag_df.head(pool_size)
-        
-        # Convert to list of card dictionaries
-        card_pool = [
-            {
-                'name': row['name'],
-                'type': row['type'],
-                'manaCost': row['manaCost'],
-                'manaValue': row['manaValue'],
-                'creatureTypes': row['creatureTypes'],
-                'themeTags': row['themeTags']
-            }
-            for _, row in tag_df.iterrows()
-        ]
+    def weight_by_theme(self, tag: str, ideal: int = 1, weight: float = 1.0, df: Optional[pd.DataFrame] = None) -> None:
+        """Add cards with specific tag up to weighted ideal count.
 
-        # Randomly select cards up to ideal value
-        cards_to_add = []
-        while len(cards_to_add) < ideal_value and card_pool:
-            card = random.choice(card_pool)
-            card_pool.remove(card)
+        Args:
+            tag: Theme tag to filter cards by
+            ideal: Target number of cards to add
+            weight: Theme weight factor (0.0-1.0)
+            df: Source DataFrame to filter cards from
+
+        Raises:
+            ThemeWeightingError: If weight calculation fails
+            ThemePoolError: If card pool is empty or insufficient
+        """
+        try:
+            # Calculate target card count using weight and safety multiplier
+            target_count = math.ceil(ideal * weight * THEME_WEIGHT_MULTIPLIER)
+            logger.info(f'Finding {target_count} cards with the "{tag}" tag...')
+
+            # Handle Kindred theme special case
+            tags = [tag, 'Kindred Support'] if 'Kindred' in tag else [tag]
+
+            # Calculate initial pool size
+            pool_size = builder_utils.calculate_weighted_pool_size(target_count, weight)
+
+            # Filter cards by theme
+            if df is None:
+                raise ThemePoolError(f"No source DataFrame provided for theme {tag}")
             
-            # Check price constraints if enabled
-            if use_scrython and self.set_max_card_price:
-                price = self.price_checker.get_card_price(card['name'])
-                if price > self.max_card_price * 1.1:
-                    continue
+            tag_df = builder_utils.filter_theme_cards(df, tags, pool_size)
+            if tag_df.empty:
+                raise ThemePoolError(f"No cards found for theme {tag}")
+
+            # Select cards considering price and duplicates
+            selected_cards = builder_utils.select_weighted_cards(
+                tag_df,
+                target_count,
+                self.price_checker if use_scrython else None,
+                self.max_card_price if hasattr(self, 'max_card_price') else None
+            )
+
+            # Process selected cards
+            cards_added = []
+            for card in selected_cards:
+                # Handle multiple copy cards
+                if card['name'] in multiple_copy_cards:
+                    copies = {
+                        'Nazgûl': 9,
+                        'Seven Dwarves': 7
+                    }.get(card['name'], target_count - len(cards_added))
                     
-            # Add card if not already in library
-            
-            if card['name'] in multiple_copy_cards:
-                if card['name'] == 'Nazgûl':
-                    for _ in range(9):
-                        cards_to_add.append(card)
-                elif card['name'] == 'Seven Dwarves':
-                    for _ in range(7):
-                        cards_to_add.append(card)
+                    for _ in range(copies):
+                        cards_added.append(card)
+                        
+                # Handle regular cards
+                elif card['name'] not in self.card_library['Card Name'].values:
+                    cards_added.append(card)
                 else:
-                    num_to_add = ideal_value - len(cards_to_add)
-                    for _ in range(num_to_add):
-                        cards_to_add.append(card)
-            
-            elif (card['name'] not in multiple_copy_cards
-                  and card['name'] not in self.card_library['Card Name'].values):
-                cards_to_add.append(card)
-                
-            elif (card['name'] not in multiple_copy_cards
-                  and card['name'] in self.card_library['Card Name'].values):
-                logger.warning(f"{card['name']} already in Library, skipping it.")
-                continue
-        
-        # Add selected cards to library
-        for card in cards_to_add:
-            self.add_card(card['name'], card['type'], 
-                         card['manaCost'], card['manaValue'],
-                         card['creatureTypes'], card['themeTags'])
-        
-        card_pool_names = [item['name'] for item in card_pool]
-        self.full_df = self.full_df[~self.full_df['name'].isin(card_pool_names)]
-        self.noncreature_df = self.noncreature_df[~self.noncreature_df['name'].isin(card_pool_names)]
-        logger.info(f'Added {len(cards_to_add)} {tag} cards')
-        #tag_df.to_csv(f'{CSV_DIRECTORY}/test_{tag}.csv', index=False)
+                    logger.warning(f"{card['name']} already in Library, skipping it.")
+
+            # Add selected cards to library
+            for card in cards_added:
+                self.add_card(
+                    card['name'],
+                    card['type'],
+                    card['manaCost'],
+                    card['manaValue'],
+                    card.get('creatureTypes'),
+                    card['themeTags']
+                )
+
+            # Update DataFrames
+            used_cards = {card['name'] for card in selected_cards}
+            self.noncreature_df = self.noncreature_df[~self.noncreature_df['name'].isin(used_cards)]
+
+            logger.info(f'Added {len(cards_added)} {tag} cards')
+            for card in cards_added:
+                print(card['name'])
+
+        except (ThemeWeightingError, ThemePoolError) as e:
+            logger.error(f"Error in weight_by_theme: {e}")
+            raise
+        except Exception as e:
+            logger.error(f"Unexpected error in weight_by_theme: {e}")
+            raise ThemeWeightingError(f"Failed to process theme {tag}: {str(e)}")
     
-    def add_by_tags(self, tag, ideal_value=1, df=None):
-        """Add cards with specific tag up to ideal_value count"""
-        print(f'Finding {ideal_value} cards with the "{tag}" tag...')
+    def add_by_tags(self, tag, ideal_value=1, df=None, ignore_existing=False):
+        """Add cards with specific tag up to ideal_value count.
+        Args:
+            tag: The theme tag to filter cards by
+            ideal_value: Target number of cards to add
+            df: DataFrame containing candidate cards
 
-        # Filter cards with the given tag
-        skip_creatures = self.creature_cards > self.ideal_creature_count * 1.1
-        tag_df = df.copy()
-        tag_df.sort_values(by='edhrecRank', inplace=True)
-        tag_df = tag_df[tag_df['themeTags'].apply(lambda x: tag in x)]
-        # Take top cards based on ideal value
-        pool_size = int(ideal_value * random.randint(2, 3))
-        tag_df = tag_df.head(pool_size)
-
-        # Convert to list of card dictionaries
-        card_pool = [
-            {
-                'name': row['name'],
-                'type': row['type'],
-                'manaCost': row['manaCost'],
-                'manaValue': row['manaValue'],
-                'creatureTypes': row['creatureTypes'],
-                'themeTags': row['themeTags']
-            }
-            for _, row in tag_df.iterrows()
-        ]
-
-        # Randomly select cards up to ideal value
-        cards_to_add = []
-        while len(cards_to_add) < ideal_value and card_pool:
-            card = random.choice(card_pool)
-            card_pool.remove(card)
-
-            # Check price constraints if enabled
-            if use_scrython and self.set_max_card_price:
-                price = self.price_checker.get_card_price(card['name'])
-                if price > self.max_card_price * 1.1:
-                    continue
-
-            # Add card if not already in library
-            if card['name'] not in self.card_library['Card Name'].values:
-                if 'Creature' in card['type'] and skip_creatures:
-                    continue
-                else:
-                    if 'Creature' in card['type']:
-                        self.creature_cards += 1
-                        skip_creatures = self.creature_cards > self.ideal_creature_count * 1.1
-                    cards_to_add.append(card)
-
-        # Add selected cards to library
-        for card in cards_to_add:
-            if len(self.card_library) < 100:
-                self.add_card(card['name'], card['type'],
-                              card['manaCost'], card['manaValue'],
-                              card['creatureTypes'], card['themeTags'])
+        Raises:
+            ThemeTagError: If there are issues with tag processing or card selection
+        """
+        try:
+            # Count existing cards with target tag
+            print()
+            if not ignore_existing:
+                existing_count = len(self.card_library[self.card_library['Themes'].apply(lambda x: x is not None and tag in x)])
+                remaining_slots = max(0, ideal_value - existing_count + 1)
             else:
-                continue
+                existing_count = 0
+                remaining_slots = max(0, ideal_value - existing_count + 1)
 
-        card_pool_names = [item['name'] for item in card_pool]
-        self.full_df = self.full_df[~self.full_df['name'].isin(card_pool_names)]
-        self.noncreature_df = self.noncreature_df[~self.noncreature_df['name'].isin(card_pool_names)]
-        logger.info(f'Added {len(cards_to_add)} {tag} cards')
-        #tag_df.to_csv(f'{CSV_DIRECTORY}/test_{tag}.csv', index=False)
+            if remaining_slots == 0:
+                if not ignore_existing:
+                    logger.info(f'Already have {existing_count} cards with tag "{tag}" - no additional cards needed')
+                    return
+                else:
+                    logger.info(f'Already have {ideal_value} cards with tag "{tag}" - no additional cards needed')
+                    return
+
+            logger.info(f'Finding {remaining_slots} additional cards with the "{tag}" tag...')
+
+            # Filter cards with the given tag
+            skip_creatures = self.creature_cards > self.ideal_creature_count * 1.1
+            tag_df = df.copy()
+            tag_df.sort_values(by='edhrecRank', inplace=True)
+            tag_df = tag_df[tag_df['themeTags'].apply(lambda x: x is not None and tag in x)]
+
+            # Calculate initial pool size using THEME_POOL_SIZE_MULTIPLIER
+            pool_size = int(remaining_slots * THEME_POOL_SIZE_MULTIPLIER)
+            tag_df = tag_df.head(pool_size)
+
+            # Convert to list of card dictionaries with priority scores
+            card_pool = []
+            for _, row in tag_df.iterrows():
+                theme_tags = row['themeTags'] if row['themeTags'] is not None else []
+                priority = builder_utils.calculate_theme_priority(theme_tags, self.themes, THEME_PRIORITY_BONUS)
+                card_pool.append({
+                    'name': row['name'],
+                    'type': row['type'],
+                    'manaCost': row['manaCost'],
+                    'manaValue': row['manaValue'],
+                    'creatureTypes': row['creatureTypes'],
+                    'themeTags': theme_tags,
+                    'priority': priority
+                })
+
+            # Sort card pool by priority score
+            card_pool.sort(key=lambda x: x['priority'], reverse=True)
+
+            # Select cards up to remaining slots
+            cards_to_add = []
+            for card in card_pool:
+                if len(cards_to_add) >= remaining_slots:
+                    break
+
+                # Check price constraints if enabled
+                if use_scrython and hasattr(self, 'max_card_price') and self.max_card_price:
+                    price = self.price_checker.get_card_price(card['name'])
+                    if price > self.max_card_price * 1.1:
+                        continue
+
+                # Handle multiple-copy cards
+                if card['name'] in multiple_copy_cards:
+                    existing_copies = len(self.card_library[self.card_library['Card Name'] == card['name']])
+                    if existing_copies < ideal_value:
+                        cards_to_add.append(card)
+                    continue
+
+                # Add new cards if not already in library
+                if card['name'] not in self.card_library['Card Name'].values:
+                    if 'Creature' in card['type'] and skip_creatures:
+                        continue
+                    else:
+                        if 'Creature' in card['type']:
+                            self.creature_cards += 1
+                            skip_creatures = self.creature_cards > self.ideal_creature_count * 1.1
+                        cards_to_add.append(card)
+
+            # Add selected cards to library
+            for card in cards_to_add:
+                if len(self.card_library) < 100:
+                    self.add_card(card['name'], card['type'],
+                                card['manaCost'], card['manaValue'],
+                                card['creatureTypes'], card['themeTags'])
+                else:
+                    break
+
+            # Update DataFrames
+            card_pool_names = [item['name'] for item in card_pool]
+            self.noncreature_df = self.noncreature_df[~self.noncreature_df['name'].isin(card_pool_names)]
+
+            logger.info(f'Added {len(cards_to_add)} {tag} cards (total with tag: {existing_count + len(cards_to_add)})')
+            for card in cards_to_add:
+                print(card['name'])
+
+        except Exception as e:
+            raise ThemeTagError(f"Error processing tag '{tag}'", {"error": str(e)})
         
     def add_creatures(self):
         """
-        Add creatures to the deck based on themes and self.weights.
+        Add creatures to the deck based on themes and weights.
         
         This method processes the primary, secondary, and tertiary themes to add
-        creatures proportionally according to their self.weights. The total number of
+        creatures proportionally according to their weights. The total number of
         creatures added will approximate the ideal_creature_count.
         
-        Themes are processed in order of importance (primary -> secondary -> tertiary)
-        with error handling to ensure the deck building process continues even if
-        a particular theme encounters issues.
+        The method follows this process:
+        1. Process hidden theme if present
+        2. Process primary theme
+        3. Process secondary theme if present
+        4. Process tertiary theme if present
+
+        Each theme is weighted according to its importance:
+        - Hidden theme: Highest priority if present
+        - Primary theme: Main focus
+        - Secondary theme: Supporting focus
+        - Tertiary theme: Minor focus
+
+        Args:
+            None
+
+        Returns:
+            None
+
+        Raises:
+            ThemeWeightingError: If there are issues with theme weight calculations
+            ThemePoolError: If the card pool for a theme is insufficient
+            Exception: For any other unexpected errors during creature addition
+
+        Note:
+            The method uses error handling to ensure the deck building process
+            continues even if a particular theme encounters issues.
         """
-        print(f'Adding creatures to deck based on the ideal creature count of {self.ideal_creature_count}...')
+        print()
+        logger.info(f'Adding creatures to deck based on the ideal creature count of {self.ideal_creature_count}...')
         
         try:
             if self.hidden_theme:
-                print(f'Processing Hidden theme: {self.hidden_theme}')
+                print()
+                logger.info(f'Processing Hidden theme: {self.hidden_theme}')
                 self.weight_by_theme(self.hidden_theme, self.ideal_creature_count, self.hidden_weight, self.creature_df)
             
-            print(f'Processing primary theme: {self.primary_theme}')
+            logger.info(f'Processing primary theme: {self.primary_theme}')
             self.weight_by_theme(self.primary_theme, self.ideal_creature_count, self.primary_weight, self.creature_df)
             
             if self.secondary_theme:
-                print(f'Processing secondary theme: {self.secondary_theme}')
+                print()
+                logger.info(f'Processing secondary theme: {self.secondary_theme}')
                 self.weight_by_theme(self.secondary_theme, self.ideal_creature_count, self.secondary_weight, self.creature_df)
             
             if self.tertiary_theme:
-                print(f'Processing tertiary theme: {self.tertiary_theme}')
+                print()
+                logger.info(f'Processing tertiary theme: {self.tertiary_theme}')
                 self.weight_by_theme(self.tertiary_theme, self.ideal_creature_count, self.tertiary_weight, self.creature_df)
                 
         except Exception as e:
             logger.error(f"Error while adding creatures: {e}")
         finally:
             self.organize_library()
-            logger.info(f'Creature addition complete. Total creatures (including commander): {self.creature_cards}')
     
     def add_ramp(self):
+        """Add ramp cards to the deck based on ideal ramp count.
+
+        This method adds three categories of ramp cards:
+        1. Mana rocks (artifacts that produce mana) - ~1/3 of ideal ramp count
+        2. Mana dorks (creatures that produce mana) - ~1/4 of ideal ramp count
+        3. General ramp spells - remaining portion of ideal ramp count
+
+        The method uses the add_by_tags() helper to add cards from each category
+        while respecting the deck's themes and color identity.
+
+        Args:
+            None
+
+        Returns:
+            None
+
+        Raises:
+            ThemeTagError: If there are issues adding cards with ramp-related tags
+        """
         try:
             self.add_by_tags('Mana Rock', math.ceil(self.ideal_ramp / 3), self.noncreature_df)
             self.add_by_tags('Mana Dork', math.ceil(self.ideal_ramp / 4), self.creature_df)
-            self.add_by_tags('Ramp', math.ceil(self.ideal_ramp / 2), self.noncreature_df)
+            self.add_by_tags('Ramp', self.ideal_ramp, self.noncreature_df)
         except Exception as e:
             logger.error(f"Error while adding Ramp: {e}")
-        finally:
-            logger.info('Adding Ramp complete.')
-    
+            
     def add_interaction(self):
+        """Add interaction cards to the deck for removal and protection.
+
+        This method adds two categories of interaction cards:
+        1. Removal spells based on ideal_removal count
+        2. Protection spells based on ideal_protection count
+
+        Cards are selected from non-planeswalker cards to ensure appropriate
+        interaction types are added.
+
+        Args:
+            None
+
+        Returns:
+            None
+
+        Raises:
+            ThemeTagError: If there are issues adding cards with interaction-related tags
+        """
         try:
-            self.add_by_tags('Removal', self.ideal_removal, self.noncreature_nonplaneswaker_df)
-            self.add_by_tags('Protection', self.ideal_protection, self.noncreature_nonplaneswaker_df)
+            self.add_by_tags('Removal', self.ideal_removal, self.nonplaneswalker_df)
+            self.add_by_tags('Protection', self.ideal_protection, self.nonplaneswalker_df)
         except Exception as e:
             logger.error(f"Error while adding Interaction: {e}")
-        finally:
-            logger.info('Adding Interaction complete.')
         
     def add_board_wipes(self):
+        """Add board wipe cards to the deck.
+
+        This method adds board wipe cards based on the ideal_wipes count.
+        Board wipes are selected from the full card pool to include all possible
+        options across different card types.
+
+        Args:
+            None
+
+        Returns:
+            None
+
+        Raises:
+            ThemeTagError: If there are issues adding cards with the 'Board Wipes' tag
+        """
         try:
             self.add_by_tags('Board Wipes', self.ideal_wipes, self.full_df)
         except Exception as e:
             logger.error(f"Error while adding Board Wipes: {e}")
-        finally:
-            logger.info('Adding Board Wipes complete.')
         
     def add_card_advantage(self):
+        """Add card advantage effects to the deck.
+
+        This method adds two categories of card draw effects:
+        1. Conditional draw effects (20% of ideal_card_advantage)
+           - Cards that draw based on specific conditions or triggers
+        2. Unconditional draw effects (80% of ideal_card_advantage)
+           - Cards that provide straightforward card draw
+
+        Cards are selected from appropriate pools while avoiding planeswalkers
+        for unconditional draw effects.
+
+        Args:
+            None
+
+        Returns:
+            None
+
+        Raises:
+            ThemeTagError: If there are issues adding cards with draw-related tags
+        """
         try:
             self.add_by_tags('Conditional Draw', math.ceil(self.ideal_card_advantage * 0.2), self.full_df)
-            self.add_by_tags('Unconditional Draw', math.ceil(self.ideal_card_advantage * 0.8), self.noncreature_nonplaneswaker_df)
+            self.add_by_tags('Unconditional Draw', math.ceil(self.ideal_card_advantage * 0.8), self.nonplaneswalker_df)
         except Exception as e:
             logger.error(f"Error while adding Card Draw: {e}")
-        finally:
-            logger.info('Adding Card Draw complete.')
     
     def fill_out_deck(self):
-        """Fill out the deck to 100 cards with theme-appropriate cards."""
+        """Fill out the deck to 100 cards with theme-appropriate cards.
+
+        This method completes the deck by adding remaining cards up to the 100-card
+        requirement, prioritizing cards that match the deck's themes. The process
+        follows these steps:
+
+        1. Calculate how many cards are needed to reach 100
+        2. Add cards from each theme with weighted distribution:
+           - Hidden theme (if present)
+           - Tertiary theme (20% weight if present)
+           - Secondary theme (30% weight if present)
+           - Primary theme (50% weight)
+
+        The method includes safeguards:
+        - Maximum attempts limit to prevent infinite loops
+        - Timeout to prevent excessive runtime
+        - Progress tracking to break early if insufficient progress
+
+        Args:
+            None
+
+        Returns:
+            None
+
+        Raises:
+            ThemeTagError: If there are issues adding cards with specific theme tags
+            TimeoutError: If the process exceeds the maximum allowed time
+
+        Note:
+            If the deck cannot be filled to 100 cards, a warning message is logged
+            indicating manual additions may be needed.
+        """
+        print()
         logger.info('Filling out the Library to 100 with cards fitting the themes.')
-        
         cards_needed = 100 - len(self.card_library)
         if cards_needed <= 0:
             return
@@ -2274,38 +2433,57 @@ class DeckBuilder:
             
             try:
                 # Add cards from each theme with adjusted self.weights
-                if self.tertiary_theme:
+                if self.hidden_theme and remaining > 0:
+                    self.add_by_tags(self.hidden_theme, 
+                        math.ceil(weight_multiplier),
+                        self.full_df,
+                        True)
+                    
+                    # Adjust self.weights based on remaining cards needed
+                    remaining = 100 - len(self.card_library)
+                    weight_multiplier = remaining / cards_needed
+                if self.tertiary_theme and remaining > 0:
                     self.add_by_tags(self.tertiary_theme, 
-                        math.ceil(self.tertiary_weight * 10 * weight_multiplier),
-                        self.noncreature_df)
-                if self.secondary_theme:
+                        math.ceil(weight_multiplier * 0.2),
+                        self.noncreature_df,
+                        True)
+                    
+                if self.secondary_theme and remaining > 0:
                     self.add_by_tags(self.secondary_theme, 
-                        math.ceil(self.secondary_weight * 3 * weight_multiplier),
-                        self.noncreature_df)
-                self.add_by_tags(self.primary_theme, 
-                    math.ceil(self.primary_weight * 2 * weight_multiplier),
-                    self.noncreature_df)
+                        math.ceil(weight_multiplier * 0.3),
+                        self.noncreature_df,
+                        True)
+                if remaining > 0:
+                    self.add_by_tags(self.primary_theme, 
+                        math.ceil(weight_multiplier * 0.5),
+                        self.noncreature_df,
+                        True)
                 
                 # Check if we made progress
                 if len(self.card_library) == initial_count:
                     attempts += 1
                     if attempts % 5 == 0:
+                        print()
                         logger.warning(f"Made {attempts} attempts, still need {100 - len(self.card_library)} cards")
                         
                 # Break early if we're stuck
                 if attempts >= MAX_ATTEMPTS / 2 and len(self.card_library) < initial_count + (cards_needed / 4):
+                    print()
                     logger.warning("Insufficient progress being made, breaking early")
                     break
                     
             except Exception as e:
+                print()
                 logger.error(f"Error while adding cards: {e}")
                 attempts += 1
         
         final_count = len(self.card_library)
         if final_count < 100:
             message = f"\nWARNING: Deck is incomplete with {final_count} cards. Manual additions may be needed."
+            print()
             logger.warning(message)
         else:
+            print()
             logger.info(f"Successfully filled deck to {final_count} cards in {attempts} attempts")
 def main():
     """Main entry point for deck builder application."""

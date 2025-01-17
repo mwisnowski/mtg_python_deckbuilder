@@ -1279,3 +1279,110 @@ class ManaPipError(DeckBuilderError):
             code="MANA_PIP_ERR",
             details=details
         )
+
+class ThemeTagError(DeckBuilderError):
+    """Raised when there are issues processing theme tags.
+    
+    This exception is used when there are problems processing or validating theme tags,
+    such as invalid tag formats, missing required tags, or tag validation failures.
+    
+    Examples:
+        >>> raise ThemeTagError(
+        ...     "Invalid theme tag format",
+        ...     {"tag": "invalid#tag", "expected_format": "theme:subtheme"}
+        ... )
+        
+        >>> raise ThemeTagError(
+        ...     "Missing required theme tags",
+        ...     {"card_name": "Example Card", "required_tags": ["theme:tribal", "theme:synergy"]}
+        ... )
+    """
+    
+    def __init__(self, message: str, details: dict | None = None):
+        """Initialize theme tag error.
+        
+        Args:
+            message: Description of the theme tag processing failure
+            details: Additional context about the error
+        """
+        super().__init__(
+            message,
+            code="THEME_TAG_ERR",
+            details=details
+        )
+
+class ThemeWeightingError(DeckBuilderError):
+    """Raised when there are issues with theme-based card weighting.
+    
+    This exception is used when there are problems calculating or validating
+    theme weights, such as invalid weight values, calculation errors, or
+    inconsistencies in theme weight distribution.
+    
+    Examples:
+        >>> raise ThemeWeightingError(
+        ...     "Invalid theme weight value",
+        ...     {"theme": "tribal", "weight": -1, "valid_range": "0-100"}
+        ... )
+        
+        >>> raise ThemeWeightingError(
+        ...     "Theme weight calculation error",
+        ...     {"theme": "artifacts", "error": "Division by zero in weight normalization"}
+        ... )
+    """
+    
+    def __init__(self, message: str, details: dict | None = None):
+        """Initialize theme weighting error.
+        
+        Args:
+            message: Description of the theme weighting failure
+            details: Additional context about the error
+        """
+        super().__init__(
+            message,
+            code="THEME_WEIGHT_ERR",
+            details=details
+        )
+
+class ThemePoolError(DeckBuilderError):
+    """Raised when there are issues with the theme card pool.
+    
+    This exception is used when there are problems creating or managing the theme
+    card pool, such as empty pools, insufficient cards, or invalid pool configurations.
+    
+    Examples:
+        >>> raise ThemePoolError(
+        ...     "Empty theme card pool",
+        ...     {"theme": "spellslinger", "required_cards": 30}
+        ... )
+        
+        >>> raise ThemePoolError(
+        ...     "Insufficient cards in theme pool",
+        ...     {
+        ...         "theme": "artifacts",
+        ...         "available_cards": 15,
+        ...         "required_cards": 25
+        ...     }
+        ... )
+        
+        >>> raise ThemePoolError(
+        ...     "Invalid card pool configuration",
+        ...     {
+        ...         "theme": "tribal",
+        ...         "creature_type": "Dragon",
+        ...         "error": "No cards match creature type"
+        ...     }
+        ... )
+    """
+    
+    def __init__(self, message: str, details: dict | None = None):
+        """Initialize theme pool error.
+        
+        Args:
+            message: Description of the theme pool failure
+            details: Additional context about the error
+        """
+        super().__init__(
+            message,
+            code="THEME_POOL_ERR",
+            details=details
+        )

@@ -46,4 +46,5 @@ NonCreatureDF = pd.DataFrame
 EnchantmentDF = pd.DataFrame
 InstantDF = pd.DataFrame
 PlaneswalkerDF = pd.DataFrame
+NonPlaneswalkerDF = pd.DataFrame
 SorceryDF = pd.DataFrame

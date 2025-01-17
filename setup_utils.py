@@ -347,7 +347,7 @@ def process_legendary_cards(df: pd.DataFrame) -> pd.DataFrame:
         ) from e
 
 def process_card_dataframe(df: CardLibraryDF, batch_size: int = 1000, columns_to_keep: Optional[List[str]] = None,
-                         include_commander_cols: bool = False, skip_availability_checks: bool = False) -> pd.DataFrame:
+                         include_commander_cols: bool = False, skip_availability_checks: bool = False) -> CardLibraryDF:
     """Process DataFrame with common operations in batches.
 
     Args:

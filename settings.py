@@ -544,7 +544,7 @@ REMOVAL_TEXT_PATTERNS = [
     'returns target.*to.*hand'
 ]
 
-REMOVAL_SPECIFIC_CARDS = [] # type: list
+REMOVAL_SPECIFIC_CARDS = ['from.*graveyard.*hand'] # type: list
 
 REMOVAL_EXCLUSION_PATTERNS = [] # type: list
 
@@ -1032,7 +1032,17 @@ REQUIRED_COLUMNS: List[str] = [
     'power', 'toughness', 'keywords', 'themeTags', 'layout', 'side'
 ]
 
-# Constants for theme weight management
+# Constants for theme weight management and selection
+
+# Multiplier for initial card pool size during theme-based selection
+THEME_POOL_SIZE_MULTIPLIER: Final[float] = 2.0
+
+# Bonus multiplier for cards that match multiple deck themes
+THEME_PRIORITY_BONUS: Final[float] = 1.2
+
+# Safety multiplier to avoid overshooting target counts
+THEME_WEIGHT_MULTIPLIER: Final[float] = 0.9
+
 THEME_WEIGHTS_DEFAULT: Final[Dict[str, float]] = {
     'primary': 1.0,
     'secondary': 0.6,

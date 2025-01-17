@@ -1,49 +1,48 @@
-from typing import Dict, List, Tuple, Optional, Any, Callable, TypeVar, Union, cast
-import pandas as pd
-from price_check import PriceChecker
-from input_handler import InputHandler
-import logging
+"""Utility module for MTG deck building operations.
+
+This module provides utility functions for various deck building operations including:
+- DataFrame validation and processing
+- Card type counting and validation
+- Land selection and management
+- Theme processing and weighting
+- Price checking integration
+- Mana pip analysis
+
+The module serves as a central collection of helper functions used throughout the
+deck building process, handling data validation, card selection, and various
+deck composition calculations.
+
+Key Features:
+- DataFrame validation with timeout handling
+- Card type counting and categorization
+- Land type validation and selection (basic, fetch, dual, etc.)
+- Theme tag processing and weighting calculations
+- Mana pip counting and color distribution analysis
+
+Typical usage example:
+    >>> df = load_commander_data()
+    >>> validate_dataframe(df, DATAFRAME_VALIDATION_RULES)
+    >>> process_dataframe_batch(df)
+    >>> count_cards_by_type(df, ['Creature', 'Instant', 'Sorcery'])
+"""
+
+# Standard library imports
 import functools
+import logging
 import time
+from typing import Any, Callable, Dict, List, Optional, Tuple, TypeVar, Union, cast
+
+# Third-party imports
 import pandas as pd
 from fuzzywuzzy import process
-from settings import (
-    COMMANDER_CSV_PATH,
-    FUZZY_MATCH_THRESHOLD,
-    MAX_FUZZY_CHOICES,
-    COMMANDER_CONVERTERS,
-    DATAFRAME_VALIDATION_RULES,
-    DATAFRAME_VALIDATION_TIMEOUT,
-    DATAFRAME_BATCH_SIZE,
-    DATAFRAME_TRANSFORM_TIMEOUT,
-    DATAFRAME_REQUIRED_COLUMNS,
-    WEIGHT_ADJUSTMENT_FACTORS,
-    DEFAULT_MAX_DECK_PRICE,
-    DEFAULT_MAX_CARD_PRICE,
-    DECK_COMPOSITION_PROMPTS,
-    DEFAULT_RAMP_COUNT,
-    DEFAULT_LAND_COUNT,
-    DEFAULT_BASIC_LAND_COUNT,
-    DEFAULT_CREATURE_COUNT,
-    DEFAULT_REMOVAL_COUNT,
-    DEFAULT_CARD_ADVANTAGE_COUNT,
-    DEFAULT_PROTECTION_COUNT,
-    DEFAULT_WIPES_COUNT,
-    CARD_TYPE_SORT_ORDER,
-    DUPLICATE_CARD_FORMAT,
-    COLOR_TO_BASIC_LAND,
-    SNOW_BASIC_LAND_MAPPING,
-    KINDRED_STAPLE_LANDS,
-    DUAL_LAND_TYPE_MAP,
-    MANA_COLORS,
-    MANA_PIP_PATTERNS
-)
+
+# Local application imports
 from exceptions import (
+    CSVValidationError,
+    DataFrameTimeoutError,
+    DataFrameValidationError,
     DeckBuilderError,
     DuplicateCardError,
-    CSVValidationError,
-    DataFrameValidationError,
-    DataFrameTimeoutError,
     EmptyDataFrameError,
     FetchLandSelectionError,
     FetchLandValidationError,
@@ -54,6 +53,24 @@ from exceptions import (
     ThemeWeightError,
     CardTypeCountError
 )
+from input_handler import InputHandler
+from price_check import PriceChecker
+from settings import (
+    CARD_TYPE_SORT_ORDER, COLOR_TO_BASIC_LAND, COMMANDER_CONVERTERS,
+    COMMANDER_CSV_PATH, DATAFRAME_BATCH_SIZE,
+    DATAFRAME_REQUIRED_COLUMNS, DATAFRAME_TRANSFORM_TIMEOUT,
+    DATAFRAME_VALIDATION_RULES, DATAFRAME_VALIDATION_TIMEOUT,
+    DECK_COMPOSITION_PROMPTS, DEFAULT_BASIC_LAND_COUNT,
+    DEFAULT_CARD_ADVANTAGE_COUNT, DEFAULT_CREATURE_COUNT,
+    DEFAULT_LAND_COUNT, DEFAULT_MAX_CARD_PRICE, DEFAULT_MAX_DECK_PRICE,
+    DEFAULT_PROTECTION_COUNT, DEFAULT_RAMP_COUNT,
+    DEFAULT_REMOVAL_COUNT, DEFAULT_WIPES_COUNT, DUAL_LAND_TYPE_MAP,
+    DUPLICATE_CARD_FORMAT, FUZZY_MATCH_THRESHOLD, KINDRED_STAPLE_LANDS,
+    MANA_COLORS, MANA_PIP_PATTERNS, MAX_FUZZY_CHOICES,
+    SNOW_BASIC_LAND_MAPPING, THEME_POOL_SIZE_MULTIPLIER,
+    WEIGHT_ADJUSTMENT_FACTORS
+)
+from type_definitions import CardLibraryDF, CommanderDF, LandDF
 
 logging.basicConfig(
     level=logging.INFO,
@@ -61,7 +78,6 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger(__name__)
-
 # Type variables for generic functions
 T = TypeVar('T')
 DataFrame = TypeVar('DataFrame', bound=pd.DataFrame)
@@ -431,7 +447,6 @@ def adjust_theme_weights(primary_theme: str,
         if total_weight > 0:
             adjusted_weights = {k: round(v/total_weight, 2) for k, v in adjusted_weights.items()}
 
-        print(adjusted_weights)
         return adjusted_weights
 
     except Exception as e:
@@ -1404,6 +1419,162 @@ def select_land_for_removal(filtered_lands: pd.DataFrame) -> Tuple[int, str]:
         logger.error(f"Error selecting land for removal: {e}")
         raise
     
+def get_card_theme_overlap(card_tags: List[str], deck_themes: List[str]) -> int:
+    """Count how many deck themes a given card matches.
+
+    Args:
+        card_tags: List of tags associated with the card
+        deck_themes: List of themes in the deck
+
+    Returns:
+        Number of deck themes that match the card's tags
+
+    Example:
+        >>> card_tags = ['Artifacts Matter', 'Token Creation', 'Sacrifice']
+        >>> deck_themes = ['Artifacts Matter', 'Sacrifice Matters']
+        >>> get_card_theme_overlap(card_tags, deck_themes)
+        2
+    """
+    if not card_tags or not deck_themes:
+        return 0
+
+    # Convert to sets for efficient intersection
+    card_tag_set = set(card_tags)
+    deck_theme_set = set(deck_themes)
+
+    # Count overlapping themes
+    return len(card_tag_set.intersection(deck_theme_set))
+
+def calculate_theme_priority(card_tags: List[str], deck_themes: List[str], THEME_PRIORITY_BONUS: float) -> float:
+    """Calculate priority score for a card based on theme overlap.
+
+    Args:
+        card_tags: List of tags associated with the card
+        deck_themes: List of themes in the deck
+        THEME_PRIORITY_BONUS: Bonus multiplier for each additional theme match
+
+    Returns:
+        Priority score for the card (higher means more theme overlap)
+
+    Example:
+        >>> card_tags = ['Artifacts Matter', 'Token Creation', 'Sacrifice']
+        >>> deck_themes = ['Artifacts Matter', 'Sacrifice Matters']
+        >>> calculate_theme_priority(card_tags, deck_themes, 1.2)
+        1.44  # Base score of 1.0 * (1.2 ^ 2) for two theme matches
+    """
+    overlap_count = get_card_theme_overlap(card_tags, deck_themes)
+    if overlap_count == 0:
+        return 0.0
+
+    # Calculate priority score with exponential bonus for multiple matches
+    return pow(THEME_PRIORITY_BONUS, overlap_count)
+
+def calculate_weighted_pool_size(ideal_count: int, weight: float, multiplier: float = THEME_POOL_SIZE_MULTIPLIER) -> int:
+    """Calculate the size of the initial card pool based on ideal count and weight.
+
+    Args:
+        ideal_count: Target number of cards to select
+        weight: Theme weight factor (0.0-1.0)
+        multiplier: Pool size multiplier (default from settings)
+
+    Returns:
+        Calculated pool size
+
+    Example:
+        >>> calculate_weighted_pool_size(10, 0.8, 2.0)
+        16
+    """
+    return int(ideal_count * weight * multiplier)
+
+def filter_theme_cards(df: pd.DataFrame, themes: List[str], pool_size: int) -> pd.DataFrame:
+    """Filter cards by theme and return top cards by EDHREC rank.
+
+    Args:
+        df: Source DataFrame to filter
+        themes: List of theme tags to filter by
+        pool_size: Number of cards to return
+
+    Returns:
+        Filtered DataFrame with top cards
+
+    Raises:
+        ValueError: If themes is None or contains invalid values
+        TypeError: If themes is not a list
+
+    Example:
+        >>> filtered_df = filter_theme_cards(cards_df, ['Artifacts Matter', 'Token Creation'], 20)
+    """
+    # Input validation
+    if themes is None:
+        raise ValueError("themes parameter cannot be None")
+        
+    if not isinstance(themes, list):
+        raise TypeError("themes must be a list of strings")
+        
+    if not all(isinstance(theme, str) for theme in themes):
+        raise ValueError("all themes must be strings")
+        
+    if not themes:
+        return pd.DataFrame()  # Return empty DataFrame for empty themes list
+
+    # Create copy to avoid modifying original
+    filtered_df = df.copy()
+
+    # Filter by theme
+    filtered_df = filtered_df[filtered_df['themeTags'].apply(
+        lambda x: any(theme in x for theme in themes) if isinstance(x, list) else False
+    )]
+
+    # Sort by EDHREC rank and take top cards
+    filtered_df.sort_values('edhrecRank', inplace=True)
+    return filtered_df.head(pool_size)
+
+def select_weighted_cards(
+    card_pool: pd.DataFrame,
+    target_count: int,
+    price_checker: Optional[Any] = None,
+    max_price: Optional[float] = None
+) -> List[Dict[str, Any]]:
+    """Select cards from pool considering price constraints.
+
+    Args:
+        card_pool: DataFrame of candidate cards
+        target_count: Number of cards to select
+        price_checker: Optional price checker instance
+        max_price: Maximum allowed price per card
+
+    Returns:
+        List of selected card dictionaries
+
+    Example:
+        >>> selected = select_weighted_cards(pool_df, 5, price_checker, 10.0)
+    """
+    selected_cards = []
+
+    for _, card in card_pool.iterrows():
+        if len(selected_cards) >= target_count:
+            break
+
+        # Check price if enabled
+        if price_checker and max_price:
+            try:
+                price = price_checker.get_card_price(card['name'])
+                if price > max_price * 1.1:
+                    continue
+            except Exception as e:
+                logger.warning(f"Price check failed for {card['name']}: {e}")
+                continue
+
+        selected_cards.append({
+            'name': card['name'],
+            'type': card['type'],
+            'manaCost': card['manaCost'],
+            'manaValue': card['manaValue'],
+            'themeTags': card['themeTags']
+        })
+
+    return selected_cards
+
 def count_color_pips(mana_costs: pd.Series, color: str) -> int:
     """Count the number of colored mana pips of a specific color in mana costs.
 

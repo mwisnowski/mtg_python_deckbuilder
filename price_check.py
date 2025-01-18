@@ -36,6 +36,31 @@ from settings import (
 )
 from type_definitions import PriceCache
 
+# Logging configuration
+LOG_DIR = 'logs'
+LOG_FILE = f'{LOG_DIR}/price_check.log'
+LOG_FORMAT = '%(asctime)s - %(levelname)s - %(message)s'
+LOG_LEVEL = logging.INFO
+
+# Create formatters and handlers
+formatter = logging.Formatter(LOG_FORMAT)
+
+# File handler
+file_handler = logging.FileHandler(LOG_FILE, mode='w', encoding='utf-8')
+file_handler.setFormatter(formatter)
+
+# Stream handler
+stream_handler = logging.StreamHandler()
+stream_handler.setFormatter(formatter)
+
+# Create logger for this module
+logger = logging.getLogger(__name__)
+logger.setLevel(LOG_LEVEL)
+
+# Add handlers to logger
+logger.addHandler(file_handler)
+logger.addHandler(stream_handler)
+
 class PriceChecker:
     """Class for handling MTG card price checking and validation.
     
@@ -64,12 +89,6 @@ class PriceChecker:
         self.max_card_price: float = max_card_price
         self.max_deck_price: float = max_deck_price
         self.current_deck_price: float = 0.0
-        
-        # Configure logging
-        logging.basicConfig(
-            level=logging.INFO,
-            format='%(asctime)s - %(levelname)s - %(message)s'
-        )
     
     @lru_cache(maxsize=PRICE_CACHE_SIZE)
     def get_card_price(self, card_name: str, attempts: int = 0) -> float:
@@ -116,7 +135,7 @@ class PriceChecker:
             
         except scrython.foundation.ScryfallError as e:
             if attempts < MAX_PRICE_CHECK_ATTEMPTS:
-                logging.warning(f"Retrying price check for {card_name} (attempt {attempts + 1})")
+                logger.warning(f"Retrying price check for {card_name} (attempt {attempts + 1})")
                 return self.get_card_price(card_name, attempts + 1)
             raise PriceAPIError(card_name, {"error": str(e)})
             
@@ -125,7 +144,7 @@ class PriceChecker:
             
         except Exception as e:
             if attempts < MAX_PRICE_CHECK_ATTEMPTS:
-                logging.warning(f"Unexpected error checking price for {card_name}, retrying")
+                logger.warning(f"Unexpected error checking price for {card_name}, retrying")
                 return self.get_card_price(card_name, attempts + 1)
             raise PriceAPIError(card_name, {"error": str(e)})
     
@@ -184,10 +203,10 @@ class PriceChecker:
                     results[card_name] = price
                 except Exception as e:
                     errors.append((card_name, e))
-                    logging.error(f"Error checking price for {card_name}: {e}")
+                    logger.error(f"Error checking price for {card_name}: {e}")
         
         if errors:
-            logging.warning(f"Failed to get prices for {len(errors)} cards")
+            logger.warning(f"Failed to get prices for {len(errors)} cards")
             
         return results
     
@@ -198,10 +217,10 @@ class PriceChecker:
             price: Price to add to current deck total
         """
         self.current_deck_price += price
-        logging.debug(f"Updated deck price to ${self.current_deck_price:.2f}")
+        logger.debug(f"Updated deck price to ${self.current_deck_price:.2f}")
     
     def clear_cache(self) -> None:
         """Clear the price cache."""
         self.price_cache.clear()
         self.get_card_price.cache_clear()
-        logging.info("Price cache cleared")
+        logger.info("Price cache cleared")

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from typing import Any, List, Optional, Tuple, Union
 
 import inquirer.prompt 
@@ -28,13 +29,35 @@ from exceptions import (
     PriceValidationError
 )
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
-)
+# Create logs directory if it doesn't exist
+if not os.path.exists('logs'):
+    os.makedirs('logs')
 
+# Logging configuration
+LOG_DIR = 'logs'
+LOG_FILE = f'{LOG_DIR}/input_handler.log'
+LOG_FORMAT = '%(asctime)s - %(levelname)s - %(message)s'
+LOG_LEVEL = logging.INFO
+
+# Create formatters and handlers
+formatter = logging.Formatter(LOG_FORMAT)
+
+# File handler
+file_handler = logging.FileHandler(LOG_FILE, mode='w', encoding='utf-8')
+file_handler.setFormatter(formatter)
+
+# Stream handler
+stream_handler = logging.StreamHandler()
+stream_handler.setFormatter(formatter)
+
+# Create logger for this module
 logger = logging.getLogger(__name__)
+logger.setLevel(LOG_LEVEL)
+
+# Add handlers to logger
+logger.addHandler(file_handler)
+logger.addHandler(stream_handler)
+
 
 class InputHandler:
     """Handles user input operations with validation and error handling.

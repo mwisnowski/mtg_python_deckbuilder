@@ -788,6 +788,7 @@ TYPE_TAG_MAPPING = {
 }
 
 CSV_DIRECTORY = 'csv_files'
+DECK_DIRECTORY = 'deck_files'
 
 # Color identity constants and mappings
 

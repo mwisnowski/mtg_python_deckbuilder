@@ -29,6 +29,7 @@ Typical usage example:
 # Standard library imports
 import functools
 import logging
+import os
 import time
 from typing import Any, Callable, Dict, List, Optional, Tuple, TypeVar, Union, cast
 
@@ -72,12 +73,35 @@ from settings import (
 )
 from type_definitions import CardLibraryDF, CommanderDF, LandDF
 
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
-)
+# Create logs directory if it doesn't exist
+if not os.path.exists('logs'):
+    os.makedirs('logs')
 
+# Logging configuration
+LOG_DIR = 'logs'
+LOG_FILE = f'{LOG_DIR}/builder_utils.log'
+LOG_FORMAT = '%(asctime)s - %(levelname)s - %(message)s'
+LOG_LEVEL = logging.INFO
+
+# Create formatters and handlers
+formatter = logging.Formatter(LOG_FORMAT)
+
+# File handler
+file_handler = logging.FileHandler(LOG_FILE, mode='w', encoding='utf-8')
+file_handler.setFormatter(formatter)
+
+# Stream handler
+stream_handler = logging.StreamHandler()
+stream_handler.setFormatter(formatter)
+
+# Create logger for this module
 logger = logging.getLogger(__name__)
+logger.setLevel(LOG_LEVEL)
+
+# Add handlers to logger
+logger.addHandler(file_handler)
+logger.addHandler(stream_handler)
+
 # Type variables for generic functions
 T = TypeVar('T')
 DataFrame = TypeVar('DataFrame', bound=pd.DataFrame)

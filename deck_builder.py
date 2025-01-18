@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import math
 import numpy as np
+import os
 import random
 import time
 from functools import lru_cache
@@ -20,7 +21,7 @@ from settings import (
     COMMANDER_CSV_PATH, FUZZY_MATCH_THRESHOLD, MAX_FUZZY_CHOICES, FETCH_LAND_DEFAULT_COUNT,
     COMMANDER_POWER_DEFAULT, COMMANDER_TOUGHNESS_DEFAULT, COMMANDER_MANA_COST_DEFAULT,
     COMMANDER_MANA_VALUE_DEFAULT, COMMANDER_TYPE_DEFAULT, COMMANDER_TEXT_DEFAULT, 
-    THEME_PRIORITY_BONUS, THEME_POOL_SIZE_MULTIPLIER,
+    THEME_PRIORITY_BONUS, THEME_POOL_SIZE_MULTIPLIER, DECK_DIRECTORY,
     COMMANDER_COLOR_IDENTITY_DEFAULT, COMMANDER_COLORS_DEFAULT, COMMANDER_TAGS_DEFAULT, 
     COMMANDER_THEMES_DEFAULT, COMMANDER_CREATURE_TYPES_DEFAULT, DUAL_LAND_TYPE_MAP,
     CSV_READ_TIMEOUT, CSV_PROCESSING_BATCH_SIZE, CSV_VALIDATION_RULES, CSV_REQUIRED_COLUMNS,
@@ -89,12 +90,34 @@ except ImportError:
     logging.warning("Scrython is not installed. Price checking features will be unavailable."
                     )
 
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
-)
+# Create logs directory if it doesn't exist
+if not os.path.exists('logs'):
+    os.makedirs('logs')
 
+# Logging configuration
+LOG_DIR = 'logs'
+LOG_FILE = f'{LOG_DIR}/deck_builder.log'
+LOG_FORMAT = '%(asctime)s - %(levelname)s - %(message)s'
+LOG_LEVEL = logging.INFO
+
+# Create formatters and handlers
+formatter = logging.Formatter(LOG_FORMAT)
+
+# File handler
+file_handler = logging.FileHandler(LOG_FILE, mode='w', encoding='utf-8')
+file_handler.setFormatter(formatter)
+
+# Stream handler
+stream_handler = logging.StreamHandler()
+stream_handler.setFormatter(formatter)
+
+# Create logger for this module
 logger = logging.getLogger(__name__)
+logger.setLevel(LOG_LEVEL)
+
+# Add handlers to logger
+logger.addHandler(file_handler)
+logger.addHandler(stream_handler)
 
 pd.set_option('display.max_columns', None)
 pd.set_option('display.max_rows', None)
@@ -480,9 +503,7 @@ class DeckBuilder:
                 self.fill_out_deck()
                 
             # Process and organize deck
-            self.card_library.to_csv(f'{CSV_DIRECTORY}/test_deck_presort.csv', index=False)
             self.organize_library()
-            self.card_library.to_csv(f'{CSV_DIRECTORY}/test_deck_preconcat.csv', index=False)
             
             # Log deck composition
             self._log_deck_composition()
@@ -496,8 +517,9 @@ class DeckBuilder:
             self.commander_to_top()
             
             # Save final deck
-            self.card_library.to_csv(f'{CSV_DIRECTORY}/test_deck_done.csv', index=False)
-            self.full_df.to_csv(f'{CSV_DIRECTORY}/test_all_after_done.csv', index=False)
+            FILE_TIME = time.strftime("%Y%m%d-%H%M%S")
+            DECK_FILE = f'{self.commander}_{FILE_TIME}.csv'
+            self.card_library.to_csv(f'{DECK_DIRECTORY}/{DECK_FILE}', index=False)
             
         except Exception as e:
             raise DeckBuilderError(f"Failed to initialize deck building: {str(e)}")

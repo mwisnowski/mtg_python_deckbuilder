@@ -8,12 +8,12 @@ import time
 from functools import lru_cache
 from typing import Dict, List, Optional, Union
 
-import inquirer.prompt # type: ignore
-import keyboard # type: ignore 
-import pandas as pd # type: ignore
-import pprint # type: ignore
-from fuzzywuzzy import process # type: ignore
-from tqdm import tqdm # type: ignore
+import inquirer.prompt
+import keyboard
+import pandas as pd
+import pprint
+from fuzzywuzzy import process
+from tqdm import tqdm
 
 from settings import (
     BASIC_LANDS, CARD_TYPES, CSV_DIRECTORY, multiple_copy_cards, DEFAULT_NON_BASIC_LAND_SLOTS,
@@ -79,7 +79,7 @@ from type_definitions import (
 
 # Try to import scrython and price_checker
 try:
-    import scrython # type: ignore
+    import scrython
     from price_check import PriceChecker
     use_scrython = True
 except ImportError:
@@ -2485,6 +2485,7 @@ class DeckBuilder:
         else:
             print()
             logger.info(f"Successfully filled deck to {final_count} cards in {attempts} attempts")
+            
 def main():
     """Main entry point for deck builder application."""
     build_deck = DeckBuilder()

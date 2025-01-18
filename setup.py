@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """MTG Python Deckbuilder setup module.
 
 This module provides the main setup functionality for the MTG Python Deckbuilder
@@ -16,6 +14,8 @@ Key Features:
 The module works in conjunction with setup_utils.py for utility functions and
 exceptions.py for error handling.
 """
+
+from __future__ import annotations
 
 # Standard library imports
 import logging
@@ -49,6 +49,7 @@ from exceptions import (
     DataFrameProcessingError,
     MTGJSONDownloadError
 )
+
 # Create logs directory if it doesn't exist
 if not os.path.exists('logs'):
     os.makedirs('logs')

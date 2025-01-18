@@ -7,10 +7,10 @@ import re
 from typing import Union
 
 # Third-party imports
-import pandas as pd # type: ignore
+import pandas as pd
 
-import settings # type: ignore
-import tag_utils # type: ignore
+import settings
+import tag_utils
 
 # Local application imports
 from settings import CSV_DIRECTORY, multiple_copy_cards, num_to_search, triggers

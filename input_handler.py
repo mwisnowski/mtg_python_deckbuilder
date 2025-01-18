@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Any, List, Optional, Tuple, Union
 
-import inquirer.prompt  # type: ignore
+import inquirer.prompt 
 from settings import (
     COLORS, COLOR_ABRV, DEFAULT_MAX_CARD_PRICE,
     DEFAULT_MAX_DECK_PRICE, DEFAULT_THEME_TAGS, MONO_COLOR_MAP,

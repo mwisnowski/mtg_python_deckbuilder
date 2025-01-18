@@ -8,11 +8,11 @@ from pathlib import Path
 from typing import NoReturn, Optional
 
 # Third-party imports
-import inquirer.prompt # type: ignore
+import inquirer.prompt
 
 # Local imports
+import deck_builder
 import setup
-import card_info
 import tagger
 
 """Command-line interface for the MTG Python Deckbuilder application.
@@ -38,12 +38,11 @@ logger = logging.getLogger(__name__)
 
 # Menu constants
 MENU_SETUP = 'Setup'
-MENU_BUILD_DECK = 'Build a Deck'
-MENU_CARD_INFO = 'Get Card Info'
 MAIN_TAG = 'Tag CSV Files'
+MENU_BUILD_DECK = 'Build a Deck'
 MENU_QUIT = 'Quit'
 
-MENU_CHOICES = [MENU_SETUP, MENU_BUILD_DECK, MENU_CARD_INFO, MAIN_TAG, MENU_QUIT]
+MENU_CHOICES = [MENU_SETUP, MAIN_TAG, MENU_BUILD_DECK, MENU_QUIT]
 def get_menu_choice() -> Optional[str]:
     """Display the main menu and get user choice.
 
@@ -64,43 +63,11 @@ def get_menu_choice() -> Optional[str]:
                       carousel=True)
     ]
     try:
-        answer = inquirer.prompt(question) # type: ignore
+        answer = inquirer.prompt(question)
         return answer['menu'] if answer else None
     except (KeyError, TypeError) as e:
         logger.error(f"Error getting menu choice: {e}")
         return None
-
-def handle_card_info() -> None:
-    """Handle the card info menu option with proper error handling.
-
-    Provides an interface for looking up card information repeatedly until the user
-    chooses to stop. Handles potential errors from card info lookup and user input.
-
-    Returns:
-        None
-
-    Example:
-        >>> handle_card_info()
-        Enter card name: Lightning Bolt
-        [Card info displayed]
-        Would you like to look up another card? [y/N]: n
-    """
-    try:
-        while True:
-            card_info.get_card_info()
-            question = [
-                inquirer.Confirm('continue',
-                                message='Would you like to look up another card?')
-            ]
-            try:
-                answer = inquirer.prompt(question) # type: ignore
-                if not answer or not answer['continue']:
-                    break
-            except (KeyError, TypeError) as e:
-                logger.error(f"Error in card info continuation prompt: {e}")
-                break
-    except Exception as e:
-        logger.error(f"Error in card info handling: {e}")
 
 def run_menu() -> NoReturn:
     """Main menu loop with improved error handling and logger.
@@ -141,14 +108,10 @@ def run_menu() -> NoReturn:
             match choice:
                 case 'Setup':
                     setup.setup()
-                    tagger.run_tagging()
-                case 'Build a Deck':
-                    logger.info("Deck building not yet implemented")
-                    print('Deck building not yet implemented')
-                case 'Get Card Info':
-                    handle_card_info()
                 case 'Tag CSV Files':
                     tagger.run_tagging()
+                case 'Build a Deck':
+                    deck_builder.main()
                 case 'Quit':
                     logger.info("Exiting application")
                     sys.exit(0)

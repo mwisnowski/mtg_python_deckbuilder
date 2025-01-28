@@ -22,7 +22,8 @@ from typing import List, Set, Union, Any
 import pandas as pd
 
 # Local application imports
-import settings
+from . import tag_constants
+
 def pluralize(word: str) -> str:
     """Convert a word to its plural form using basic English pluralization rules.
 
@@ -319,10 +320,10 @@ def create_mass_effect_mask(df: pd.DataFrame, effect_type: str) -> pd.Series[boo
     Raises:
         ValueError: If effect_type is not recognized
     """
-    if effect_type not in settings.BOARD_WIPE_TEXT_PATTERNS:
+    if effect_type not in tag_constants.BOARD_WIPE_TEXT_PATTERNS:
         raise ValueError(f"Unknown effect type: {effect_type}")
 
-    patterns = settings.BOARD_WIPE_TEXT_PATTERNS[effect_type]
+    patterns = tag_constants.BOARD_WIPE_TEXT_PATTERNS[effect_type]
     return create_text_mask(df, patterns)
 
 def create_damage_pattern(number: Union[int, str]) -> str:

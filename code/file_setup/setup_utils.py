@@ -28,17 +28,14 @@ import pandas as pd
 from tqdm import tqdm
 
 # Local application imports
-from settings import (
+from .setup_constants import (
     CSV_PROCESSING_COLUMNS,
     CARD_TYPES_TO_EXCLUDE,
     NON_LEGAL_SETS,
     LEGENDARY_OPTIONS,
-    FILL_NA_COLUMNS,
     SORT_CONFIG,
     FILTER_CONFIG,
     COLUMN_ORDER,
-    PRETAG_COLUMN_ORDER,
-    EXCLUDED_CARD_TYPES,
     TAGGED_COLUMN_ORDER
 )
 from exceptions import (
@@ -48,35 +45,14 @@ from exceptions import (
     CommanderValidationError
 )
 from type_definitions import CardLibraryDF
-
-# Create logs directory if it doesn't exist
-if not os.path.exists('logs'):
-    os.makedirs('logs')
-
-# Logging configuration
-LOG_DIR = 'logs'
-LOG_FILE = f'{LOG_DIR}/setup_utils.log'
-LOG_FORMAT = '%(asctime)s - %(levelname)s - %(message)s'
-LOG_LEVEL = logging.INFO
-
-# Create formatters and handlers
-formatter = logging.Formatter(LOG_FORMAT)
-
-# File handler
-file_handler = logging.FileHandler(LOG_FILE, mode='w', encoding='utf-8')
-file_handler.setFormatter(formatter)
-
-# Stream handler
-stream_handler = logging.StreamHandler()
-stream_handler.setFormatter(formatter)
+from settings import FILL_NA_COLUMNS
+import logging_util
 
 # Create logger for this module
-logger = logging.getLogger(__name__)
-logger.setLevel(LOG_LEVEL)
-
-# Add handlers to logger
-logger.addHandler(file_handler)
-logger.addHandler(stream_handler)
+logger = logging_util.logging.getLogger(__name__)
+logger.setLevel(logging_util.LOG_LEVEL)
+logger.addHandler(logging_util.file_handler)
+logger.addHandler(logging_util.stream_handler)
 
 # Type definitions
 class FilterRule(TypedDict):

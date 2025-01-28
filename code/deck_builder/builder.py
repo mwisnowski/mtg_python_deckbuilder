@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 import math
 import numpy as np
 import os
@@ -16,8 +15,9 @@ import pprint
 from fuzzywuzzy import process
 from tqdm import tqdm
 
-from settings import (
-    BASIC_LANDS, CARD_TYPES, CSV_DIRECTORY, multiple_copy_cards, DEFAULT_NON_BASIC_LAND_SLOTS,
+from settings import CSV_DIRECTORY, MULTIPLE_COPY_CARDS
+from .builder_constants import (
+    BASIC_LANDS, CARD_TYPES, DEFAULT_NON_BASIC_LAND_SLOTS,
     COMMANDER_CSV_PATH, FUZZY_MATCH_THRESHOLD, MAX_FUZZY_CHOICES, FETCH_LAND_DEFAULT_COUNT,
     COMMANDER_POWER_DEFAULT, COMMANDER_TOUGHNESS_DEFAULT, COMMANDER_MANA_COST_DEFAULT,
     COMMANDER_MANA_VALUE_DEFAULT, COMMANDER_TYPE_DEFAULT, COMMANDER_TEXT_DEFAULT, 
@@ -29,8 +29,8 @@ from settings import (
     MISC_LAND_POOL_SIZE, LAND_REMOVAL_MAX_ATTEMPTS, PROTECTED_LANDS,
     MANA_COLORS, MANA_PIP_PATTERNS, THEME_WEIGHT_MULTIPLIER
 )
-import builder_utils
-import setup_utils
+from . import builder_utils
+from file_setup import setup_utils
 from input_handler import InputHandler
 from exceptions import (
     BasicLandCountError,
@@ -78,6 +78,14 @@ from type_definitions import (
     PlaneswalkerDF,
     NonPlaneswalkerDF)
 
+import logging_util
+
+# Create logger for this module
+logger = logging_util.logging.getLogger(__name__)
+logger.setLevel(logging_util.LOG_LEVEL)
+logger.addHandler(logging_util.file_handler)
+logger.addHandler(logging_util.stream_handler)
+
 # Try to import scrython and price_checker
 try:
     import scrython
@@ -87,37 +95,8 @@ except ImportError:
     scrython = None
     PriceChecker = None
     use_scrython = False
-    logging.warning("Scrython is not installed. Price checking features will be unavailable."
+    logger.warning("Scrython is not installed. Price checking features will be unavailable."
                     )
-
-# Create logs directory if it doesn't exist
-if not os.path.exists('logs'):
-    os.makedirs('logs')
-
-# Logging configuration
-LOG_DIR = 'logs'
-LOG_FILE = f'{LOG_DIR}/deck_builder.log'
-LOG_FORMAT = '%(asctime)s - %(levelname)s - %(message)s'
-LOG_LEVEL = logging.INFO
-
-# Create formatters and handlers
-formatter = logging.Formatter(LOG_FORMAT)
-
-# File handler
-file_handler = logging.FileHandler(LOG_FILE, mode='w', encoding='utf-8')
-file_handler.setFormatter(formatter)
-
-# Stream handler
-stream_handler = logging.StreamHandler()
-stream_handler.setFormatter(formatter)
-
-# Create logger for this module
-logger = logging.getLogger(__name__)
-logger.setLevel(LOG_LEVEL)
-
-# Add handlers to logger
-logger.addHandler(file_handler)
-logger.addHandler(stream_handler)
 
 pd.set_option('display.max_columns', None)
 pd.set_option('display.max_rows', None)
@@ -640,7 +619,7 @@ class DeckBuilder:
         Returns:
             True if color identity was handled, False otherwise
         """
-        from settings import OTHER_COLOR_MAP
+        from builder_constants import OTHER_COLOR_MAP
         
         if color_identity in OTHER_COLOR_MAP:
             identity_info = OTHER_COLOR_MAP[color_identity]
@@ -1137,7 +1116,7 @@ class DeckBuilder:
             PriceTimeoutError: If the price check times out
             PriceValidationError: If the price data is invalid
         """
-        multiple_copies = BASIC_LANDS + multiple_copy_cards
+        multiple_copies = BASIC_LANDS + MULTIPLE_COPY_CARDS
 
         # Skip if card already exists and isn't allowed multiple copies
         if card in pd.Series(self.card_library['Card Name']).values and card not in multiple_copies:
@@ -1303,7 +1282,7 @@ class DeckBuilder:
         """
         try:
             # Get list of cards that can have duplicates
-            duplicate_lists = BASIC_LANDS + multiple_copy_cards
+            duplicate_lists = BASIC_LANDS + MULTIPLE_COPY_CARDS
 
             # Process duplicates using helper function
             self.card_library = builder_utils.process_duplicate_cards(
@@ -2084,7 +2063,7 @@ class DeckBuilder:
             cards_added = []
             for card in selected_cards:
                 # Handle multiple copy cards
-                if card['name'] in multiple_copy_cards:
+                if card['name'] in MULTIPLE_COPY_CARDS:
                     copies = {
                         'Nazgûl': 9,
                         'Seven Dwarves': 7
@@ -2196,7 +2175,7 @@ class DeckBuilder:
                         continue
 
                 # Handle multiple-copy cards
-                if card['name'] in multiple_copy_cards:
+                if card['name'] in MULTIPLE_COPY_CARDS:
                     existing_copies = len(self.card_library[self.card_library['Card Name'] == card['name']])
                     if existing_copies < ideal_value:
                         cards_to_add.append(card)

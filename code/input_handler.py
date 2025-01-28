@@ -8,7 +8,9 @@ from typing import Any, List, Optional, Tuple, Union
 
 import inquirer.prompt 
 from settings import (
-    COLORS, COLOR_ABRV, DEFAULT_MAX_CARD_PRICE,
+    COLORS, COLOR_ABRV
+)
+from deck_builder.builder_constants import (DEFAULT_MAX_CARD_PRICE,
     DEFAULT_MAX_DECK_PRICE, DEFAULT_THEME_TAGS, MONO_COLOR_MAP,
     DUAL_COLOR_MAP, TRI_COLOR_MAP, OTHER_COLOR_MAP
 )
@@ -28,36 +30,13 @@ from exceptions import (
     PriceLimitError,
     PriceValidationError
 )
-
-# Create logs directory if it doesn't exist
-if not os.path.exists('logs'):
-    os.makedirs('logs')
-
-# Logging configuration
-LOG_DIR = 'logs'
-LOG_FILE = f'{LOG_DIR}/input_handler.log'
-LOG_FORMAT = '%(asctime)s - %(levelname)s - %(message)s'
-LOG_LEVEL = logging.INFO
-
-# Create formatters and handlers
-formatter = logging.Formatter(LOG_FORMAT)
-
-# File handler
-file_handler = logging.FileHandler(LOG_FILE, mode='w', encoding='utf-8')
-file_handler.setFormatter(formatter)
-
-# Stream handler
-stream_handler = logging.StreamHandler()
-stream_handler.setFormatter(formatter)
+import logging_util
 
 # Create logger for this module
-logger = logging.getLogger(__name__)
-logger.setLevel(LOG_LEVEL)
-
-# Add handlers to logger
-logger.addHandler(file_handler)
-logger.addHandler(stream_handler)
-
+logger = logging_util.logging.getLogger(__name__)
+logger.setLevel(logging_util.LOG_LEVEL)
+logger.addHandler(logging_util.file_handler)
+logger.addHandler(logging_util.stream_handler)
 
 class InputHandler:
     """Handles user input operations with validation and error handling.

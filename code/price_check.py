@@ -8,7 +8,6 @@ price lookups.
 from __future__ import annotations
 
 # Standard library imports
-import logging
 import time
 from functools import lru_cache
 from typing import Dict, List, Optional, Tuple, Union
@@ -24,7 +23,7 @@ from exceptions import (
     PriceTimeoutError,
     PriceValidationError
 )
-from settings import (
+from deck_builder.builder_constants import (
     BATCH_PRICE_CHECK_SIZE,
     DEFAULT_MAX_CARD_PRICE,
     DEFAULT_MAX_DECK_PRICE,
@@ -35,31 +34,13 @@ from settings import (
     PRICE_TOLERANCE_MULTIPLIER
 )
 from type_definitions import PriceCache
-
-# Logging configuration
-LOG_DIR = 'logs'
-LOG_FILE = f'{LOG_DIR}/price_check.log'
-LOG_FORMAT = '%(asctime)s - %(levelname)s - %(message)s'
-LOG_LEVEL = logging.INFO
-
-# Create formatters and handlers
-formatter = logging.Formatter(LOG_FORMAT)
-
-# File handler
-file_handler = logging.FileHandler(LOG_FILE, mode='w', encoding='utf-8')
-file_handler.setFormatter(formatter)
-
-# Stream handler
-stream_handler = logging.StreamHandler()
-stream_handler.setFormatter(formatter)
+import logging_util
 
 # Create logger for this module
-logger = logging.getLogger(__name__)
-logger.setLevel(LOG_LEVEL)
-
-# Add handlers to logger
-logger.addHandler(file_handler)
-logger.addHandler(stream_handler)
+logger = logging_util.logging.getLogger(__name__)
+logger.setLevel(logging_util.LOG_LEVEL)
+logger.addHandler(logging_util.file_handler)
+logger.addHandler(logging_util.stream_handler)
 
 class PriceChecker:
     """Class for handling MTG card price checking and validation.

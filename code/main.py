@@ -9,8 +9,6 @@ from __future__ import annotations
 
 # Standard library imports
 import sys
-import logging
-import os
 from pathlib import Path
 from typing import NoReturn, Optional
 
@@ -18,38 +16,16 @@ from typing import NoReturn, Optional
 import inquirer.prompt
 
 # Local imports
-import deck_builder
-import setup
-import tagger
-
-# Create logs directory if it doesn't exist
-if not os.path.exists('logs'):
-    os.makedirs('logs')
-
-# Logging configuration
-LOG_DIR = 'logs'
-LOG_FILE = os.path.join(LOG_DIR, 'main.log')
-LOG_FORMAT = '%(asctime)s - %(levelname)s - %(message)s'
-LOG_LEVEL = logging.INFO
-
-# Create formatters and handlers
-formatter = logging.Formatter(LOG_FORMAT)
-
-# File handler
-file_handler = logging.FileHandler(LOG_FILE, mode='w', encoding='utf-8')
-file_handler.setFormatter(formatter)
-
-# Stream handler
-stream_handler = logging.StreamHandler()
-stream_handler.setFormatter(formatter)
+from deck_builder import DeckBuilder
+from file_setup import setup
+from tagging import tagger
+import logging_util
 
 # Create logger for this module
-logger = logging.getLogger(__name__)
-logger.setLevel(LOG_LEVEL)
-
-# Add handlers to logger
-logger.addHandler(file_handler)
-logger.addHandler(stream_handler)
+logger = logging_util.logging.getLogger(__name__)
+logger.setLevel(logging_util.LOG_LEVEL)
+logger.addHandler(logging_util.file_handler)
+logger.addHandler(logging_util.stream_handler)
 
 # Menu constants
 MENU_SETUP = 'Setup'
@@ -58,6 +34,8 @@ MENU_BUILD_DECK = 'Build a Deck'
 MENU_QUIT = 'Quit'
 
 MENU_CHOICES = [MENU_SETUP, MAIN_TAG, MENU_BUILD_DECK, MENU_QUIT]
+
+builder = DeckBuilder()
 def get_menu_choice() -> Optional[str]:
     """Display the main menu and get user choice.
 
@@ -124,11 +102,11 @@ def run_menu() -> NoReturn:
 
             match choice:
                 case 'Setup':
-                    setup.setup()
+                    setup()
                 case 'Tag CSV Files':
                     tagger.run_tagging()
                 case 'Build a Deck':
-                    deck_builder.main()
+                    builder.determine_commander()
                 case 'Quit':
                     logger.info("Exiting application")
                     sys.exit(0)

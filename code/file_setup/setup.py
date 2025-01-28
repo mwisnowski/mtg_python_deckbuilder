@@ -28,15 +28,11 @@ from typing import Union, List, Dict, Any
 import inquirer
 import pandas as pd
 
-# Local application imports
-from settings import (
-    banned_cards,
-    COLOR_ABRV,
-    CSV_DIRECTORY,
-    MTGJSON_API_URL,
-    SETUP_COLORS
-)
-from setup_utils import (
+# Local imports
+import logging_util
+from settings import CSV_DIRECTORY
+from .setup_constants import BANNED_CARDS, SETUP_COLORS, COLOR_ABRV, MTGJSON_API_URL
+from .setup_utils import (
     download_cards_csv,
     filter_by_color_identity,
     filter_dataframe,
@@ -50,34 +46,15 @@ from exceptions import (
     MTGJSONDownloadError
 )
 
-# Create logs directory if it doesn't exist
-if not os.path.exists('logs'):
-    os.makedirs('logs')
-
-# Logging configuration
-LOG_DIR = 'logs'
-LOG_FILE = f'{LOG_DIR}/setup.log'
-LOG_FORMAT = '%(asctime)s - %(levelname)s - %(message)s'
-LOG_LEVEL = logging.INFO
-
-# Create formatters and handlers
-formatter = logging.Formatter(LOG_FORMAT)
-
-# File handler
-file_handler = logging.FileHandler(LOG_FILE, mode='w', encoding='utf-8')
-file_handler.setFormatter(formatter)
-
-# Stream handler
-stream_handler = logging.StreamHandler()
-stream_handler.setFormatter(formatter)
-
 # Create logger for this module
-logger = logging.getLogger(__name__)
-logger.setLevel(LOG_LEVEL)
+logger = logging_util.logging.getLogger(__name__)
+logger.setLevel(logging_util.LOG_LEVEL)
+logger.addHandler(logging_util.file_handler)
+logger.addHandler(logging_util.stream_handler)
 
-# Add handlers to logger
-logger.addHandler(file_handler)
-logger.addHandler(stream_handler)
+# Create CSV directory if it doesn't exist
+if not os.path.exists(CSV_DIRECTORY):
+    os.makedirs(CSV_DIRECTORY)
 
 def check_csv_exists(file_path: Union[str, Path]) -> bool:
     """Check if a CSV file exists at the specified path.
@@ -208,7 +185,7 @@ def determine_commanders() -> None:
         
         # Apply standard filters
         logger.info('Applying standard card filters')
-        filtered_df = filter_dataframe(filtered_df, banned_cards)
+        filtered_df = filter_dataframe(filtered_df, BANNED_CARDS)
         
         # Save commander cards
         logger.info('Saving validated commander cards')

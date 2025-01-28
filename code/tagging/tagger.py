@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 # Standard library imports
-import logging
 import os
 import re
 from typing import Union
@@ -9,65 +8,18 @@ from typing import Union
 # Third-party imports
 import pandas as pd
 
-import settings
-import tag_utils
-
 # Local application imports
-from settings import CSV_DIRECTORY, multiple_copy_cards, num_to_search, triggers
-from setup import regenerate_csv_by_color
-
-
-# Constants for common tag groupings
-TAG_GROUPS = {
-    "Cantrips": ["Cantrips", "Card Draw", "Spellslinger", "Spells Matter"],
-    "Tokens": ["Token Creation", "Tokens Matter"],
-    "Counters": ["Counters Matter"],
-    "Combat": ["Combat Matters", "Combat Tricks"],
-    "Artifacts": ["Artifacts Matter", "Artifact Tokens"],
-    "Enchantments": ["Enchantments Matter", "Enchantment Tokens"],
-    "Lands": ["Lands Matter"],
-    "Spells": ["Spellslinger", "Spells Matter"]
-}
-
-# Common regex patterns
-PATTERN_GROUPS = {
-    "draw": r"draw[s]? a card|draw[s]? one card",
-    "combat": r"attack[s]?|block[s]?|combat damage",
-    "tokens": r"create[s]? .* token|put[s]? .* token",
-    "counters": r"\+1/\+1 counter|\-1/\-1 counter|loyalty counter",
-    "sacrifice": r"sacrifice[s]? .*|sacrificed",
-    "exile": r"exile[s]? .*|exiled",
-    "cost_reduction": r"cost[s]? \{[\d\w]\} less|affinity for|cost[s]? less to cast|chosen type cost|copy cost|from exile cost|from exile this turn cost|from your graveyard cost|has undaunted|have affinity for artifacts|other than your hand cost|spells cost|spells you cast cost|that target .* cost|those spells cost|you cast cost|you pay cost"
-}
-
-# Create logs directory if it doesn't exist
-if not os.path.exists('logs'):
-    os.makedirs('logs')
-
-# Logging configuration
-LOG_DIR = 'logs'
-LOG_FILE = f'{LOG_DIR}/tagger.log'
-LOG_FORMAT = '%(asctime)s - %(levelname)s - %(message)s'
-LOG_LEVEL = logging.INFO
-
-# Create formatters and handlers
-formatter = logging.Formatter(LOG_FORMAT)
-
-# File handler
-file_handler = logging.FileHandler(LOG_FILE, mode='w', encoding='utf-8')
-file_handler.setFormatter(formatter)
-
-# Stream handler
-stream_handler = logging.StreamHandler()
-stream_handler.setFormatter(formatter)
+from . import tag_utils
+from . import tag_constants
+from settings import CSV_DIRECTORY, MULTIPLE_COPY_CARDS, COLORS
+import logging_util
+from file_setup import setup
 
 # Create logger for this module
-logger = logging.getLogger(__name__)
-logger.setLevel(LOG_LEVEL)
-
-# Add handlers to logger
-logger.addHandler(file_handler)
-logger.addHandler(stream_handler)
+logger = logging_util.logging.getLogger(__name__)
+logger.setLevel(logging_util.LOG_LEVEL)
+logger.addHandler(logging_util.file_handler)
+logger.addHandler(logging_util.stream_handler)
 
 ### Setup
 ## Load the dataframe
@@ -88,7 +40,7 @@ def load_dataframe(color: str) -> None:
         # Check if file exists, regenerate if needed
         if not os.path.exists(filepath):
             logger.warning(f'{color}_cards.csv not found, regenerating it.')
-            regenerate_csv_by_color(color)
+            setup.regenerate_csv_by_color(color)
             if not os.path.exists(filepath):
                 raise FileNotFoundError(f"Failed to generate {filepath}")
 
@@ -213,8 +165,8 @@ def kindred_tagging(df: pd.DataFrame, color: str) -> None:
             for idx, row in creature_rows.iterrows():
                 types = tag_utils.extract_creature_types(
                     row['type'],
-                    settings.creature_types,
-                    settings.non_creature_types
+                    tag_constants.CREATURE_TYPES,
+                    tag_constants.NON_CREATURE_TYPES
                 )
                 if types:
                     df.at[idx, 'creatureTypes'] = types
@@ -225,7 +177,7 @@ def kindred_tagging(df: pd.DataFrame, color: str) -> None:
         
         logger.info(f'Setting Outlaw creature type tags on {color}_cards.csv')
         # Process outlaw types
-        outlaws = settings.OUTLAW_TYPES
+        outlaws = tag_constants.OUTLAW_TYPES
         df['creatureTypes'] = df.apply(
             lambda row: tag_utils.add_outlaw_type(row['creatureTypes'], outlaws)
             if isinstance(row['creatureTypes'], list) else row['creatureTypes'],
@@ -249,7 +201,7 @@ def kindred_tagging(df: pd.DataFrame, color: str) -> None:
                 text_types = tag_utils.find_types_in_text(
                     row['text'],
                     row['name'], 
-                    settings.creature_types
+                    tag_constants.CREATURE_TYPES
                 )
                 if text_types:
                     current_types = row['creatureTypes']
@@ -270,7 +222,7 @@ def kindred_tagging(df: pd.DataFrame, color: str) -> None:
                 'keywords', 'layout', 'side'
             ]
             df = df[columns_to_keep]
-            df.to_csv(f'{settings.CSV_DIRECTORY}/{color}_cards.csv', index=False)
+            df.to_csv(f'{tag_constants.CSV_DIRECTORY}/{color}_cards.csv', index=False)
             total_time = pd.Timestamp.now() - start_time
             logger.info(f'Creature type tagging completed in {total_time.total_seconds():.2f}s')
 
@@ -308,7 +260,7 @@ def create_theme_tags(df: pd.DataFrame, color: str) -> None:
         raise TypeError("df must be a pandas DataFrame")
     if not isinstance(color, str):
         raise TypeError("color must be a string")
-    if color not in settings.COLORS:
+    if color not in COLORS:
         raise ValueError(f"Invalid color: {color}")
 
     try:
@@ -327,7 +279,7 @@ def create_theme_tags(df: pd.DataFrame, color: str) -> None:
             raise ValueError(f"Missing required columns: {missing}")
 
         # Define column order
-        columns_to_keep = settings.REQUIRED_COLUMNS
+        columns_to_keep = tag_constants.REQUIRED_COLUMNS
 
         # Reorder columns efficiently
         available_cols = [col for col in columns_to_keep if col in df.columns]
@@ -335,7 +287,7 @@ def create_theme_tags(df: pd.DataFrame, color: str) -> None:
         
         # Save results
         try:
-            df.to_csv(f'{settings.CSV_DIRECTORY}/{color}_cards.csv', index=False)
+            df.to_csv(f'{CSV_DIRECTORY}/{color}_cards.csv', index=False)
             total_time = pd.Timestamp.now() - start_time
             logger.info(f'Creature type tagging completed in {total_time.total_seconds():.2f}s')
 
@@ -375,7 +327,7 @@ def tag_for_card_types(df: pd.DataFrame, color: str) -> None:
             raise ValueError(f"Missing required columns: {required_cols - set(df.columns)}")
 
         # Define type-to-tag mapping
-        type_tag_map = settings.TYPE_TAG_MAPPING
+        type_tag_map = tag_constants.TYPE_TAG_MAPPING
 
         # Process each card type
         for card_type, tags in type_tag_map.items():
@@ -518,7 +470,7 @@ def tag_for_cost_reduction(df: pd.DataFrame, color: str) -> None:
 
     try:
         # Create masks for different cost reduction patterns
-        cost_mask = tag_utils.create_text_mask(df, PATTERN_GROUPS['cost_reduction'])
+        cost_mask = tag_utils.create_text_mask(df, tag_constants.PATTERN_GROUPS['cost_reduction'])
 
         # Add specific named cards
         named_cards = [
@@ -634,15 +586,15 @@ def create_unconditional_draw_mask(df: pd.DataFrame) -> pd.Series:
         Boolean Series indicating which cards have unconditional draw effects
     """
     # Create pattern for draw effects using num_to_search
-    draw_patterns = [f'draw {num} card' for num in num_to_search]
+    draw_patterns = [f'draw {num} card' for num in tag_constants.NUM_TO_SEARCH]
     draw_mask = tag_utils.create_text_mask(df, draw_patterns)
 
     # Create exclusion mask for conditional effects
-    excluded_tags = settings.DRAW_RELATED_TAGS
+    excluded_tags = tag_constants.DRAW_RELATED_TAGS
     tag_mask = tag_utils.create_tag_mask(df, excluded_tags)
 
     # Create text-based exclusions
-    text_patterns = settings.DRAW_EXCLUSION_PATTERNS
+    text_patterns = tag_constants.DRAW_EXCLUSION_PATTERNS
     text_mask = tag_utils.create_text_mask(df, text_patterns)
 
     return draw_mask & ~(tag_mask | text_mask)
@@ -687,11 +639,11 @@ def create_conditional_draw_exclusion_mask(df: pd.DataFrame) -> pd.Series:
         Boolean Series indicating which cards should be excluded
     """
     # Create tag-based exclusions
-    excluded_tags = settings.DRAW_RELATED_TAGS
+    excluded_tags = tag_constants.DRAW_RELATED_TAGS
     tag_mask = tag_utils.create_tag_mask(df, excluded_tags)
 
     # Create text-based exclusions
-    text_patterns = settings.DRAW_EXCLUSION_PATTERNS + ['whenever you draw a card']
+    text_patterns = tag_constants.DRAW_EXCLUSION_PATTERNS + ['whenever you draw a card']
     text_mask = tag_utils.create_text_mask(df, text_patterns)
 
     # Create name-based exclusions
@@ -711,7 +663,7 @@ def create_conditional_draw_trigger_mask(df: pd.DataFrame) -> pd.Series:
     """
     # Build trigger patterns
     trigger_patterns = []
-    for trigger in triggers:
+    for trigger in tag_constants.TRIGGERS:
         # Permanent/creature/player triggers
         trigger_patterns.extend([
             f'{trigger} a permanent',
@@ -747,7 +699,7 @@ def create_conditional_draw_effect_mask(df: pd.DataFrame) -> pd.Series:
         Boolean Series indicating which cards have draw effects
     """
     # Create draw patterns using num_to_search
-    draw_patterns = [f'draw {num} card' for num in num_to_search]
+    draw_patterns = [f'draw {num} card' for num in tag_constants.NUM_TO_SEARCH]
     
     # Add token and 'draw for each' patterns
     draw_patterns.extend([
@@ -787,7 +739,7 @@ def tag_for_conditional_draw(df: pd.DataFrame, color: str) -> None:
         trigger_mask = create_conditional_draw_trigger_mask(df)
 
         # Create draw effect mask
-        draw_patterns = [f'draw {num} card' for num in num_to_search]
+        draw_patterns = [f'draw {num} card' for num in tag_constants.NUM_TO_SEARCH]
     
         # Add token and 'draw for each' patterns
         draw_patterns.extend([
@@ -824,7 +776,7 @@ def create_loot_mask(df: pd.DataFrame) -> pd.Series:
     has_other_loot = tag_utils.create_tag_mask(df, ['Cycling', 'Connive']) | df['text'].str.contains('blood token', case=False, na=False)
     
     # Match draw + discard patterns
-    draw_patterns = [f'draw {num} card' for num in num_to_search]
+    draw_patterns = [f'draw {num} card' for num in tag_constants.NUM_TO_SEARCH]
     discard_patterns = [
         'discard the rest',
         'for each card drawn this way, discard',
@@ -959,7 +911,7 @@ def create_replacement_draw_mask(df: pd.DataFrame) -> pd.Series:
     """
     # Create trigger patterns
     trigger_patterns = []
-    for trigger in triggers:
+    for trigger in tag_constants.TRIGGERS:
         trigger_patterns.extend([
             f'{trigger} a player.*instead.*draw',
             f'{trigger} an opponent.*instead.*draw', 
@@ -981,7 +933,7 @@ def create_replacement_draw_mask(df: pd.DataFrame) -> pd.Series:
     base_mask = tag_utils.create_text_mask(df, all_patterns)
 
     # Add mask for specific card numbers
-    number_patterns = [f'draw {num} card' for num in num_to_search]
+    number_patterns = [f'draw {num} card' for num in tag_constants.NUM_TO_SEARCH]
     number_mask = tag_utils.create_text_mask(df, number_patterns)
 
     # Add mask for non-specific numbers
@@ -999,11 +951,11 @@ def create_replacement_draw_exclusion_mask(df: pd.DataFrame) -> pd.Series:
         Boolean Series indicating which cards should be excluded
     """
     # Create tag-based exclusions
-    excluded_tags = settings.DRAW_RELATED_TAGS
+    excluded_tags = tag_constants.DRAW_RELATED_TAGS
     tag_mask = tag_utils.create_tag_mask(df, excluded_tags)
 
     # Create text-based exclusions
-    text_patterns = settings.DRAW_EXCLUSION_PATTERNS + ['skips that turn instead']
+    text_patterns = tag_constants.DRAW_EXCLUSION_PATTERNS + ['skips that turn instead']
     text_mask = tag_utils.create_text_mask(df, text_patterns)
 
     return tag_mask | text_mask
@@ -1114,7 +1066,7 @@ def tag_for_wheels(df: pd.DataFrame, color: str) -> None:
         tag_utils.apply_tag_vectorized(df, final_mask, ['Card Draw', 'Wheels'])
 
         # Add Draw Triggers tag for cards with trigger words
-        trigger_pattern = '|'.join(triggers)
+        trigger_pattern = '|'.join(tag_constants.TRIGGERS)
         trigger_mask = final_mask & df['text'].str.contains(trigger_pattern, case=False, na=False)
         tag_utils.apply_tag_vectorized(df, trigger_mask, ['Draw Triggers'])
 
@@ -1161,9 +1113,13 @@ def tag_for_artifacts(df: pd.DataFrame, color: str) -> None:
         required_cols = {'text', 'themeTags'}
         tag_utils.validate_dataframe_columns(df, required_cols)
 
-        # Process each type of draw effect
+        # Process each type of artifact effect
         tag_for_artifact_tokens(df, color)
         logger.info('Completed Artifact token tagging')
+        print('\n==========\n')
+        
+        tag_for_artifact_triggers(df, color)
+        logger.info('Completed Artifact trigger tagging')
         print('\n==========\n')
 
         tag_equipment(df, color)
@@ -1314,7 +1270,7 @@ def create_predefined_artifact_mask(df: pd.DataFrame) -> tuple[pd.Series, dict[i
     # Create masks for each token type
     token_masks = []
     
-    for token in settings.artifact_tokens:
+    for token in tag_constants.ARTIFACT_TOKENS:
         token_mask = tag_utils.create_text_mask(df, token.lower())
 
         # Handle exclusions
@@ -1493,7 +1449,7 @@ def create_equipment_cares_mask(df: pd.DataFrame) -> pd.Series:
     keyword_mask = tag_utils.create_keyword_mask(df, keyword_patterns)
 
     # Create specific cards mask
-    specific_cards = settings.EQUIPMENT_SPECIFIC_CARDS
+    specific_cards = tag_constants.EQUIPMENT_SPECIFIC_CARDS
     name_mask = tag_utils.create_name_mask(df, specific_cards)
 
     return text_mask | keyword_mask | name_mask
@@ -1767,7 +1723,7 @@ def create_predefined_enchantment_mask(df: pd.DataFrame) -> pd.Series:
     
     # Create masks for each token type
     token_masks = []
-    for token in settings.enchantment_tokens:
+    for token in tag_constants.ENCHANTMENT_TOKENS:
         token_mask = tag_utils.create_text_mask(df, token.lower())
         
         token_masks.append(token_mask)
@@ -1887,7 +1843,7 @@ def tag_auras(df: pd.DataFrame, color: str) -> None:
             'aura you control enters',
             'enchanted'
         ]
-        cares_mask = tag_utils.create_text_mask(df, text_patterns) | tag_utils.create_name_mask(df, settings.AURA_SPECIFIC_CARDS)
+        cares_mask = tag_utils.create_text_mask(df, text_patterns) | tag_utils.create_name_mask(df, tag_constants.AURA_SPECIFIC_CARDS)
         if cares_mask.any():
             tag_utils.apply_tag_vectorized(df, cares_mask,
                 ['Auras', 'Enchantments Matter', 'Voltron'])
@@ -2793,8 +2749,8 @@ def tag_for_lifegain(df: pd.DataFrame, color: str) -> None:
 
     try:
         # Create masks for different lifegain patterns
-        gain_patterns = [f'gain {num} life' for num in settings.num_to_search]
-        gain_patterns.extend([f'gains {num} life' for num in settings.num_to_search])
+        gain_patterns = [f'gain {num} life' for num in tag_constants.NUM_TO_SEARCH]
+        gain_patterns.extend([f'gains {num} life' for num in tag_constants.NUM_TO_SEARCH])
         gain_patterns.extend(['gain life', 'gains life'])
         
         gain_mask = tag_utils.create_text_mask(df, gain_patterns)
@@ -3144,7 +3100,7 @@ def tag_for_special_counters(df: pd.DataFrame, color: str) -> None:
     try:
         # Process each counter type
         counter_counts = {}
-        for counter_type in settings.counter_types:
+        for counter_type in tag_constants.COUNTER_TYPES:
             # Create pattern for this counter type
             pattern = f'{counter_type} counter'
             mask = tag_utils.create_text_mask(df, pattern)
@@ -3177,7 +3133,7 @@ def create_voltron_commander_mask(df: pd.DataFrame) -> pd.Series:
     Returns:
         Boolean Series indicating which cards are Voltron commanders
     """
-    return tag_utils.create_name_mask(df, settings.VOLTRON_COMMANDER_CARDS)
+    return tag_utils.create_name_mask(df, tag_constants.VOLTRON_COMMANDER_CARDS)
 
 def create_voltron_support_mask(df: pd.DataFrame) -> pd.Series:
     """Create a boolean mask for cards that support Voltron strategies.
@@ -3188,7 +3144,7 @@ def create_voltron_support_mask(df: pd.DataFrame) -> pd.Series:
     Returns:
         Boolean Series indicating which cards support Voltron strategies
     """
-    return tag_utils.create_text_mask(df, settings.VOLTRON_PATTERNS)
+    return tag_utils.create_text_mask(df, tag_constants.VOLTRON_PATTERNS)
 
 def create_voltron_equipment_mask(df: pd.DataFrame) -> pd.Series:
     """Create a boolean mask for Equipment-based Voltron cards.
@@ -3283,12 +3239,12 @@ def create_lands_matter_mask(df: pd.DataFrame) -> pd.Series:
         Boolean Series indicating which cards have lands matter effects
     """
     # Create mask for named cards
-    name_mask = tag_utils.create_name_mask(df, settings.LANDS_MATTER_SPECIFIC_CARDS)
+    name_mask = tag_utils.create_name_mask(df, tag_constants.LANDS_MATTER_SPECIFIC_CARDS)
 
     # Create text pattern masks
-    play_mask = tag_utils.create_text_mask(df, settings.LANDS_MATTER_PATTERNS['land_play'])
-    search_mask = tag_utils.create_text_mask(df, settings.LANDS_MATTER_PATTERNS['land_search']) 
-    state_mask = tag_utils.create_text_mask(df, settings.LANDS_MATTER_PATTERNS['land_state'])
+    play_mask = tag_utils.create_text_mask(df, tag_constants.LANDS_MATTER_PATTERNS['land_play'])
+    search_mask = tag_utils.create_text_mask(df, tag_constants.LANDS_MATTER_PATTERNS['land_search']) 
+    state_mask = tag_utils.create_text_mask(df, tag_constants.LANDS_MATTER_PATTERNS['land_state'])
 
     # Combine all masks
     return name_mask | play_mask | search_mask | state_mask
@@ -3302,8 +3258,8 @@ def create_domain_mask(df: pd.DataFrame) -> pd.Series:
     Returns:
         Boolean Series indicating which cards have domain effects
     """
-    keyword_mask = tag_utils.create_keyword_mask(df, settings.DOMAIN_PATTERNS['keyword'])
-    text_mask = tag_utils.create_text_mask(df, settings.DOMAIN_PATTERNS['text'])
+    keyword_mask = tag_utils.create_keyword_mask(df, tag_constants.DOMAIN_PATTERNS['keyword'])
+    text_mask = tag_utils.create_text_mask(df, tag_constants.DOMAIN_PATTERNS['text'])
     return keyword_mask | text_mask
 
 def create_landfall_mask(df: pd.DataFrame) -> pd.Series:
@@ -3315,8 +3271,8 @@ def create_landfall_mask(df: pd.DataFrame) -> pd.Series:
     Returns:
         Boolean Series indicating which cards have landfall effects
     """
-    keyword_mask = tag_utils.create_keyword_mask(df, settings.LANDFALL_PATTERNS['keyword'])
-    trigger_mask = tag_utils.create_text_mask(df, settings.LANDFALL_PATTERNS['triggers'])
+    keyword_mask = tag_utils.create_keyword_mask(df, tag_constants.LANDFALL_PATTERNS['keyword'])
+    trigger_mask = tag_utils.create_text_mask(df, tag_constants.LANDFALL_PATTERNS['triggers'])
     return keyword_mask | trigger_mask
 
 def create_landwalk_mask(df: pd.DataFrame) -> pd.Series:
@@ -3328,8 +3284,8 @@ def create_landwalk_mask(df: pd.DataFrame) -> pd.Series:
     Returns:
         Boolean Series indicating which cards have landwalk abilities
     """
-    basic_mask = tag_utils.create_text_mask(df, settings.LANDWALK_PATTERNS['basic'])
-    nonbasic_mask = tag_utils.create_text_mask(df, settings.LANDWALK_PATTERNS['nonbasic'])
+    basic_mask = tag_utils.create_text_mask(df, tag_constants.LANDWALK_PATTERNS['basic'])
+    nonbasic_mask = tag_utils.create_text_mask(df, tag_constants.LANDWALK_PATTERNS['nonbasic'])
     return basic_mask | nonbasic_mask
 
 def create_land_types_mask(df: pd.DataFrame) -> pd.Series:
@@ -3342,11 +3298,11 @@ def create_land_types_mask(df: pd.DataFrame) -> pd.Series:
         Boolean Series indicating which cards care about specific land types
     """
     # Create type-based mask
-    type_mask = tag_utils.create_type_mask(df, settings.LAND_TYPES)
+    type_mask = tag_utils.create_type_mask(df, tag_constants.LAND_TYPES)
 
     # Create text pattern masks for each land type
     text_masks = []
-    for land_type in settings.LAND_TYPES:
+    for land_type in tag_constants.LAND_TYPES:
         patterns = [
             f'search your library for a {land_type.lower()}',
             f'search your library for up to two {land_type.lower()}',
@@ -3654,7 +3610,7 @@ def tag_for_cantrips(df: pd.DataFrame, color: str) -> None:
         excluded_names = df['name'].isin(EXCLUDED_NAMES)
 
         # Create cantrip condition masks
-        has_draw = tag_utils.create_text_mask(df, PATTERN_GROUPS['draw'])
+        has_draw = tag_utils.create_text_mask(df, tag_constants.PATTERN_GROUPS['draw'])
         low_cost = df['manaValue'].fillna(float('inf')) <= 2
 
         # Combine conditions
@@ -3668,7 +3624,7 @@ def tag_for_cantrips(df: pd.DataFrame, color: str) -> None:
         )
 
         # Apply tags
-        tag_utils.apply_tag_vectorized(df, cantrip_mask, TAG_GROUPS['Cantrips'])
+        tag_utils.apply_tag_vectorized(df, cantrip_mask, tag_constants.TAG_GROUPS['Cantrips'])
 
         # Log results
         cantrip_count = cantrip_mask.sum()
@@ -4169,7 +4125,7 @@ def create_aristocrat_text_mask(df: pd.DataFrame) -> pd.Series:
     Returns:
         Boolean Series indicating which cards have aristocrat text patterns
     """
-    return tag_utils.create_text_mask(df, settings.ARISTOCRAT_TEXT_PATTERNS)
+    return tag_utils.create_text_mask(df, tag_constants.ARISTOCRAT_TEXT_PATTERNS)
 
 def create_aristocrat_name_mask(df: pd.DataFrame) -> pd.Series:
     """Create a boolean mask for specific aristocrat-related cards.
@@ -4180,7 +4136,7 @@ def create_aristocrat_name_mask(df: pd.DataFrame) -> pd.Series:
     Returns:
         Boolean Series indicating which cards are specific aristocrat cards
     """
-    return tag_utils.create_name_mask(df, settings.ARISTOCRAT_SPECIFIC_CARDS)
+    return tag_utils.create_name_mask(df, tag_constants.ARISTOCRAT_SPECIFIC_CARDS)
 
 def create_aristocrat_self_sacrifice_mask(df: pd.DataFrame) -> pd.Series:
     """Create a boolean mask for creatures with self-sacrifice effects.
@@ -4225,7 +4181,7 @@ def create_aristocrat_exclusion_mask(df: pd.DataFrame) -> pd.Series:
     Returns:
         Boolean Series indicating which cards should be excluded
     """
-    return tag_utils.create_text_mask(df, settings.ARISTOCRAT_EXCLUSION_PATTERNS)
+    return tag_utils.create_text_mask(df, tag_constants.ARISTOCRAT_EXCLUSION_PATTERNS)
 
 def tag_for_aristocrats(df: pd.DataFrame, color: str) -> None:
     """Tag cards that fit the Aristocrats or Sacrifice Matters themes using vectorized operations.
@@ -4332,10 +4288,10 @@ def tag_for_big_mana(df: pd.DataFrame, color: str) -> None:
         tag_utils.validate_dataframe_columns(df, required_cols)
 
         # Create masks for different big mana patterns
-        text_mask = tag_utils.create_text_mask(df, settings.BIG_MANA_TEXT_PATTERNS)
-        keyword_mask = tag_utils.create_keyword_mask(df, settings.BIG_MANA_KEYWORDS)
+        text_mask = tag_utils.create_text_mask(df, tag_constants.BIG_MANA_TEXT_PATTERNS)
+        keyword_mask = tag_utils.create_keyword_mask(df, tag_constants.BIG_MANA_KEYWORDS)
         cost_mask = create_big_mana_cost_mask(df)
-        specific_mask = tag_utils.create_name_mask(df, settings.BIG_MANA_SPECIFIC_CARDS)
+        specific_mask = tag_utils.create_name_mask(df, tag_constants.BIG_MANA_SPECIFIC_CARDS)
         tag_mask = tag_utils.create_tag_mask(df, 'Cost Reduction')
 
         # Combine all masks
@@ -5106,8 +5062,8 @@ def create_mill_text_mask(df: pd.DataFrame) -> pd.Series:
     text_mask = tag_utils.create_text_mask(df, text_patterns)
 
     # Create mill number patterns
-    mill_patterns = [f'mill {num}' for num in settings.num_to_search]
-    mill_patterns.extend([f'mills {num}' for num in settings.num_to_search])
+    mill_patterns = [f'mill {num}' for num in tag_constants.NUM_TO_SEARCH]
+    mill_patterns.extend([f'mills {num}' for num in tag_constants.NUM_TO_SEARCH])
     number_mask = tag_utils.create_text_mask(df, mill_patterns)
 
     return text_mask | number_mask
@@ -5261,7 +5217,7 @@ def tag_for_multiple_copies(df: pd.DataFrame, color: str) -> None:
         tag_utils.validate_dataframe_columns(df, required_cols)
 
         # Create mask for multiple copy cards
-        multiple_copies_mask = tag_utils.create_name_mask(df, multiple_copy_cards)
+        multiple_copies_mask = tag_utils.create_name_mask(df, MULTIPLE_COPY_CARDS)
 
         # Apply tags
         if multiple_copies_mask.any():
@@ -5487,7 +5443,7 @@ def create_stax_text_mask(df: pd.DataFrame) -> pd.Series:
     Returns:
         Boolean Series indicating which cards have stax text patterns
     """
-    return tag_utils.create_text_mask(df, settings.STAX_TEXT_PATTERNS)
+    return tag_utils.create_text_mask(df, tag_constants.STAX_TEXT_PATTERNS)
 
 def create_stax_name_mask(df: pd.DataFrame) -> pd.Series:
     """Create a boolean mask for cards used in stax strategies.
@@ -5498,7 +5454,7 @@ def create_stax_name_mask(df: pd.DataFrame) -> pd.Series:
     Returns:
         Boolean Series indicating which cards have stax text patterns
     """
-    return tag_utils.create_text_mask(df, settings.STAX_SPECIFIC_CARDS)
+    return tag_utils.create_text_mask(df, tag_constants.STAX_SPECIFIC_CARDS)
 
 def create_stax_tag_mask(df: pd.DataFrame) -> pd.Series:
     """Create a boolean mask for cards with stax-related tags.
@@ -5521,7 +5477,7 @@ def create_stax_exclusion_mask(df: pd.DataFrame) -> pd.Series:
         Boolean Series indicating which cards should be excluded
     """
     # Add specific exclusion patterns here if needed
-    return tag_utils.create_text_mask(df, settings.STAX_EXCLUSION_PATTERNS)
+    return tag_utils.create_text_mask(df, tag_constants.STAX_EXCLUSION_PATTERNS)
 
 def tag_for_stax(df: pd.DataFrame, color: str) -> None:
     """Tag cards that fit the Stax theme using vectorized operations.
@@ -5577,7 +5533,7 @@ def create_theft_text_mask(df: pd.DataFrame) -> pd.Series:
     Returns:
         Boolean Series indicating which cards have theft text patterns
     """
-    return tag_utils.create_text_mask(df, settings.THEFT_TEXT_PATTERNS)
+    return tag_utils.create_text_mask(df, tag_constants.THEFT_TEXT_PATTERNS)
 
 def create_theft_name_mask(df: pd.DataFrame) -> pd.Series:
     """Create a boolean mask for specific theft-related cards.
@@ -5588,7 +5544,7 @@ def create_theft_name_mask(df: pd.DataFrame) -> pd.Series:
     Returns:
         Boolean Series indicating which cards are specific theft cards
     """
-    return tag_utils.create_name_mask(df, settings.THEFT_SPECIFIC_CARDS)
+    return tag_utils.create_name_mask(df, tag_constants.THEFT_SPECIFIC_CARDS)
 
 def tag_for_theft(df: pd.DataFrame, color: str) -> None:
     """Tag cards that steal or use opponents' resources using vectorized operations.
@@ -5751,7 +5707,7 @@ def create_topdeck_text_mask(df: pd.DataFrame) -> pd.Series:
     Returns:
         Boolean Series indicating which cards have topdeck text patterns
     """
-    return tag_utils.create_text_mask(df, settings.TOPDECK_TEXT_PATTERNS)
+    return tag_utils.create_text_mask(df, tag_constants.TOPDECK_TEXT_PATTERNS)
 
 def create_topdeck_keyword_mask(df: pd.DataFrame) -> pd.Series:
     """Create a boolean mask for cards with topdeck-related keywords.
@@ -5762,7 +5718,7 @@ def create_topdeck_keyword_mask(df: pd.DataFrame) -> pd.Series:
     Returns:
         Boolean Series indicating which cards have topdeck keywords
     """
-    return tag_utils.create_keyword_mask(df, settings.TOPDECK_KEYWORDS)
+    return tag_utils.create_keyword_mask(df, tag_constants.TOPDECK_KEYWORDS)
 
 def create_topdeck_specific_mask(df: pd.DataFrame) -> pd.Series:
     """Create a boolean mask for specific topdeck-related cards.
@@ -5773,7 +5729,7 @@ def create_topdeck_specific_mask(df: pd.DataFrame) -> pd.Series:
     Returns:
         Boolean Series indicating which cards are specific topdeck cards
     """
-    return tag_utils.create_name_mask(df, settings.TOPDECK_SPECIFIC_CARDS)
+    return tag_utils.create_name_mask(df, tag_constants.TOPDECK_SPECIFIC_CARDS)
 
 def create_topdeck_exclusion_mask(df: pd.DataFrame) -> pd.Series:
     """Create a boolean mask for cards that should be excluded from topdeck effects.
@@ -5784,7 +5740,7 @@ def create_topdeck_exclusion_mask(df: pd.DataFrame) -> pd.Series:
     Returns:
         Boolean Series indicating which cards should be excluded
     """
-    return tag_utils.create_text_mask(df, settings.TOPDECK_EXCLUSION_PATTERNS)
+    return tag_utils.create_text_mask(df, tag_constants.TOPDECK_EXCLUSION_PATTERNS)
 
 def tag_for_topdeck(df: pd.DataFrame, color: str) -> None:
     """Tag cards that manipulate the top of library using vectorized operations.
@@ -5990,7 +5946,7 @@ def create_counterspell_text_mask(df: pd.DataFrame) -> pd.Series:
     Returns:
         Boolean Series indicating which cards have counterspell text patterns
     """
-    return tag_utils.create_text_mask(df, settings.COUNTERSPELL_TEXT_PATTERNS)
+    return tag_utils.create_text_mask(df, tag_constants.COUNTERSPELL_TEXT_PATTERNS)
 
 def create_counterspell_specific_mask(df: pd.DataFrame) -> pd.Series:
     """Create a boolean mask for specific counterspell cards.
@@ -6001,7 +5957,7 @@ def create_counterspell_specific_mask(df: pd.DataFrame) -> pd.Series:
     Returns:
         Boolean Series indicating which cards are specific counterspell cards
     """
-    return tag_utils.create_name_mask(df, settings.COUNTERSPELL_SPECIFIC_CARDS)
+    return tag_utils.create_name_mask(df, tag_constants.COUNTERSPELL_SPECIFIC_CARDS)
 
 def create_counterspell_exclusion_mask(df: pd.DataFrame) -> pd.Series:
     """Create a boolean mask for cards that should be excluded from counterspell effects.
@@ -6012,7 +5968,7 @@ def create_counterspell_exclusion_mask(df: pd.DataFrame) -> pd.Series:
     Returns:
         Boolean Series indicating which cards should be excluded
     """
-    return tag_utils.create_text_mask(df, settings.COUNTERSPELL_EXCLUSION_PATTERNS)
+    return tag_utils.create_text_mask(df, tag_constants.COUNTERSPELL_EXCLUSION_PATTERNS)
 
 def tag_for_counterspells(df: pd.DataFrame, color: str) -> None:
     """Tag cards that counter spells using vectorized operations.
@@ -6101,10 +6057,10 @@ def tag_for_board_wipes(df: pd.DataFrame, color: str) -> None:
         damage_mask = tag_utils.create_mass_damage_mask(df)
 
         # Create exclusion mask
-        exclusion_mask = tag_utils.create_text_mask(df, settings.BOARD_WIPE_EXCLUSION_PATTERNS)
+        exclusion_mask = tag_utils.create_text_mask(df, tag_constants.BOARD_WIPE_EXCLUSION_PATTERNS)
 
         # Create specific cards mask
-        specific_mask = tag_utils.create_name_mask(df, settings.BOARD_WIPE_SPECIFIC_CARDS)
+        specific_mask = tag_utils.create_name_mask(df, tag_constants.BOARD_WIPE_SPECIFIC_CARDS)
 
         # Combine all masks
         final_mask = (
@@ -6407,7 +6363,7 @@ def create_removal_text_mask(df: pd.DataFrame) -> pd.Series:
     Returns:
         Boolean Series indicating which cards have removal text patterns
     """
-    return tag_utils.create_text_mask(df, settings.REMOVAL_TEXT_PATTERNS)
+    return tag_utils.create_text_mask(df, tag_constants.REMOVAL_TEXT_PATTERNS)
 
 def create_removal_exclusion_mask(df: pd.DataFrame) -> pd.Series:
     """Create a boolean mask for cards that should be excluded from removal effects.
@@ -6418,7 +6374,7 @@ def create_removal_exclusion_mask(df: pd.DataFrame) -> pd.Series:
     Returns:
         Boolean Series indicating which cards should be excluded
     """
-    return tag_utils.create_text_mask(df, settings.REMOVAL_EXCLUSION_PATTERNS)
+    return tag_utils.create_text_mask(df, tag_constants.REMOVAL_EXCLUSION_PATTERNS)
 
 
 def tag_for_removal(df: pd.DataFrame, color: str) -> None:
@@ -6474,7 +6430,7 @@ def tag_for_removal(df: pd.DataFrame, color: str) -> None:
 
 def run_tagging():
     start_time = pd.Timestamp.now()
-    for color in settings.COLORS:
+    for color in COLORS:
         load_dataframe(color)
     duration = (pd.Timestamp.now() - start_time).total_seconds()
     logger.info(f'Tagged cards in {duration:.2f}s')

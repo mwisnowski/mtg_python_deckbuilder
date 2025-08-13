@@ -17,8 +17,6 @@ The module integrates with settings.py for configuration and exceptions.py for e
 from __future__ import annotations
 
 # Standard library imports
-import logging
-import os
 import requests
 from pathlib import Path
 from typing import List, Optional, Union, TypedDict
@@ -36,7 +34,9 @@ from .setup_constants import (
     SORT_CONFIG,
     FILTER_CONFIG,
     COLUMN_ORDER,
-    TAGGED_COLUMN_ORDER
+    TAGGED_COLUMN_ORDER,
+    SETUP_COLORS,
+    COLOR_ABRV
 )
 from exceptions import (
     MTGJSONDownloadError,
@@ -117,6 +117,47 @@ def check_csv_exists(filepath: Union[str, Path]) -> bool:
         ...     download_cards_csv(MTGJSON_API_URL, 'cards.csv')
     """
     return Path(filepath).is_file()
+
+def save_color_filtered_csvs(df: pd.DataFrame, out_dir: Union[str, Path]) -> None:
+    """Generate and save color-identity filtered CSVs for all configured colors.
+
+    Iterates across configured color names and their corresponding color identity
+    abbreviations, filters the provided DataFrame using standard filters plus
+    color identity, and writes each filtered set to CSV in the provided directory.
+
+    Args:
+        df: Source DataFrame containing card data.
+        out_dir: Output directory for the generated CSV files.
+
+    Raises:
+        DataFrameProcessingError: If filtering fails.
+        ColorFilterError: If color filtering fails for a specific color.
+    """
+    out_path = Path(out_dir)
+    out_path.mkdir(parents=True, exist_ok=True)
+
+    # Base-filter once for efficiency, then per-color filter without redoing base filters
+    try:
+        base_df = filter_dataframe(df, [])
+    except Exception as e:
+        # Wrap any unexpected issues as DataFrameProcessingError
+        raise DataFrameProcessingError(
+            "Failed to prepare base DataFrame for color filtering",
+            "base_color_filtering",
+            str(e)
+        ) from e
+
+    for color_name, color_id in zip(SETUP_COLORS, COLOR_ABRV):
+        try:
+            logger.info(f"Generating {color_name}_cards.csv")
+            color_df = base_df[base_df['colorIdentity'] == color_id]
+            color_df.to_csv(out_path / f"{color_name}_cards.csv", index=False)
+        except Exception as e:
+            raise ColorFilterError(
+                "Failed to generate color CSV",
+                color_id,
+                str(e)
+            ) from e
 
 def filter_dataframe(df: pd.DataFrame, banned_cards: List[str]) -> pd.DataFrame:
     """Apply standard filters to the cards DataFrame using configuration from settings.
@@ -392,10 +433,14 @@ def process_card_dataframe(df: CardLibraryDF, batch_size: int = 1000, columns_to
             processed_dfs.append(batch)
         else:
             logger.debug("Skipping column checks...")
-    
-    # Keep only specified columns
-    batch = batch[columns_to_keep]
-    processed_dfs.append(batch)
+            # Even when skipping availability checks, still ensure columns_to_keep if provided
+            if columns_to_keep is not None:
+                try:
+                    batch = batch[columns_to_keep]
+                except Exception:
+                    # If requested columns are not present, keep as-is
+                    pass
+            processed_dfs.append(batch)
 
     # Combine processed batches
     result = pd.concat(processed_dfs, ignore_index=True)
@@ -406,3 +451,13 @@ def process_card_dataframe(df: CardLibraryDF, batch_size: int = 1000, columns_to
 
     logger.info("DataFrame processing completed")
     return result
+
+# Backward-compatibility wrapper used by deck_builder.builder
+def regenerate_csvs_all() -> None:  # pragma: no cover - simple delegator
+    """Delegate to setup.regenerate_csvs_all to preserve existing imports.
+
+    Some modules import regenerate_csvs_all from setup_utils. Keep this
+    function as a stable indirection to avoid breaking callers.
+    """
+    from . import setup as setup_module  # local import to avoid circular import
+    setup_module.regenerate_csvs_all()

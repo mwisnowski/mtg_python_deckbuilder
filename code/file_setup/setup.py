@@ -18,11 +18,9 @@ exceptions.py for error handling.
 from __future__ import annotations
 
 # Standard library imports
-import logging
 from enum import Enum
 import os
-from pathlib import Path
-from typing import Union, List, Dict, Any
+from typing import List, Dict, Any
 
 # Third-party imports
 import inquirer
@@ -34,15 +32,14 @@ from settings import CSV_DIRECTORY
 from .setup_constants import BANNED_CARDS, SETUP_COLORS, COLOR_ABRV, MTGJSON_API_URL
 from .setup_utils import (
     download_cards_csv,
-    filter_by_color_identity,
     filter_dataframe,
-    process_legendary_cards
+    process_legendary_cards,
+    check_csv_exists,
+    save_color_filtered_csvs,
 )
 from exceptions import (
     CSVFileNotFoundError,
-    ColorFilterError,
     CommanderValidationError,
-    DataFrameProcessingError,
     MTGJSONDownloadError
 )
 
@@ -56,25 +53,7 @@ logger.addHandler(logging_util.stream_handler)
 if not os.path.exists(CSV_DIRECTORY):
     os.makedirs(CSV_DIRECTORY)
 
-def check_csv_exists(file_path: Union[str, Path]) -> bool:
-    """Check if a CSV file exists at the specified path.
-    
-    Args:
-        file_path: Path to the CSV file to check
-        
-    Returns:
-        bool: True if file exists, False otherwise
-        
-    Raises:
-        CSVFileNotFoundError: If there are issues accessing the file path
-    """
-    try:
-        with open(file_path, 'r', encoding='utf-8'):
-            return True
-    except FileNotFoundError:
-        return False
-    except Exception as e:
-        raise CSVFileNotFoundError(f'Error checking CSV file: {str(e)}')
+## Note: using shared check_csv_exists from setup_utils to avoid duplication
 
 def initial_setup() -> None:
     """Perform initial setup by downloading card data and creating filtered CSV files.
@@ -99,21 +78,13 @@ def initial_setup() -> None:
         except FileNotFoundError:
             logger.info('cards.csv not found, downloading from mtgjson')
             download_cards_csv(MTGJSON_API_URL, cards_file)
-
-        df = pd.read_csv(cards_file, low_memory=False)
-        df['colorIdentity'] = df['colorIdentity'].fillna('Colorless')
-
-        logger.info('Checking for color identity sorted files')
         
-        for i in range(min(len(SETUP_COLORS), len(COLOR_ABRV))):
-            logger.info(f'Checking for {SETUP_COLORS[i]}_cards.csv')
-            try:
-                with open(f'{CSV_DIRECTORY}/{SETUP_COLORS[i]}_cards.csv', 'r', encoding='utf-8'):
-                    logger.info(f'{SETUP_COLORS[i]}_cards.csv exists')
-            except FileNotFoundError:
-                logger.info(f'{SETUP_COLORS[i]}_cards.csv not found, creating one')
-                filter_by_color(df, 'colorIdentity', COLOR_ABRV[i], f'{CSV_DIRECTORY}/{SETUP_COLORS[i]}_cards.csv')
-
+        df = pd.read_csv(cards_file, low_memory=False)
+        
+        logger.info('Checking for color identity sorted files')
+        # Generate color-identity filtered CSVs in one pass
+        save_color_filtered_csvs(df, CSV_DIRECTORY)
+        
         # Generate commander list
         determine_commanders()
 
@@ -121,31 +92,7 @@ def initial_setup() -> None:
         logger.error(f'Error during initial setup: {str(e)}')
         raise
 
-def filter_by_color(df: pd.DataFrame, column_name: str, value: str, new_csv_name: Union[str, Path]) -> None:
-    """Filter DataFrame by color identity and save to CSV.
-    
-    Args:
-        df: DataFrame to filter
-        column_name: Column to filter on (should be 'colorIdentity')
-        value: Color identity value to filter for
-        new_csv_name: Path to save filtered CSV
-        
-    Raises:
-        ColorFilterError: If filtering fails
-        DataFrameProcessingError: If DataFrame processing fails
-        CSVFileNotFoundError: If CSV file operations fail
-    """
-    try:
-        # Check if target CSV already exists
-        if check_csv_exists(new_csv_name):
-            logger.info(f'{new_csv_name} already exists, will be overwritten')
-            
-        filtered_df = filter_by_color_identity(df, value)
-        filtered_df.to_csv(new_csv_name, index=False)
-        logger.info(f'Successfully created {new_csv_name}')
-    except (ColorFilterError, DataFrameProcessingError, CSVFileNotFoundError) as e:
-        logger.error(f'Failed to filter by color {value}: {str(e)}')
-        raise
+## Removed local filter_by_color in favor of setup_utils.save_color_filtered_csvs
 
 def determine_commanders() -> None:
     """Generate commander_cards.csv containing all cards eligible to be commanders.
@@ -169,11 +116,10 @@ def determine_commanders() -> None:
             download_cards_csv(MTGJSON_API_URL, cards_file)
         else:
             logger.info('cards.csv found, proceeding with processing')
-            
+        
         # Load and process cards data
         logger.info('Loading card data from CSV')
         df = pd.read_csv(cards_file, low_memory=False)
-        df['colorIdentity'] = df['colorIdentity'].fillna('Colorless')
         
         # Process legendary cards with validation
         logger.info('Processing and validating legendary cards')
@@ -220,14 +166,9 @@ def regenerate_csvs_all() -> None:
         
         logger.info('Loading and processing card data')
         df = pd.read_csv(f'{CSV_DIRECTORY}/cards.csv', low_memory=False)
-        df['colorIdentity'] = df['colorIdentity'].fillna('Colorless')
         
         logger.info('Regenerating color identity sorted files')
-        for i in range(min(len(SETUP_COLORS), len(COLOR_ABRV))):
-            color = SETUP_COLORS[i]
-            color_id = COLOR_ABRV[i]
-            logger.info(f'Processing {color} cards')
-            filter_by_color(df, 'colorIdentity', color_id, f'{CSV_DIRECTORY}/{color}_cards.csv')
+        save_color_filtered_csvs(df, CSV_DIRECTORY)
             
         logger.info('Regenerating commander cards')
         determine_commanders()
@@ -237,8 +178,7 @@ def regenerate_csvs_all() -> None:
     except Exception as e:
         logger.error(f'Failed to regenerate card database: {str(e)}')
         raise
-    # Once files are regenerated, create a new legendary list
-    determine_commanders()
+    # Once files are regenerated, create a new legendary list (already executed in try)
 
 def regenerate_csv_by_color(color: str) -> None:
     """Regenerate CSV file for a specific color identity.
@@ -263,10 +203,13 @@ def regenerate_csv_by_color(color: str) -> None:
         
         logger.info('Loading and processing card data')
         df = pd.read_csv(f'{CSV_DIRECTORY}/cards.csv', low_memory=False)
-        df['colorIdentity'] = df['colorIdentity'].fillna('Colorless')
         
         logger.info(f'Regenerating {color} cards CSV')
-        filter_by_color(df, 'colorIdentity', color_abv, f'{CSV_DIRECTORY}/{color}_cards.csv')
+        # Use shared utilities to base-filter once then slice color
+        base_df = filter_dataframe(df, [])
+        base_df[base_df['colorIdentity'] == color_abv].to_csv(
+            f'{CSV_DIRECTORY}/{color}_cards.csv', index=False
+        )
         
         logger.info(f'Successfully regenerated {color} cards database')
         

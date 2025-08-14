@@ -2,16 +2,14 @@
 
 from __future__ import annotations
 
-import logging
-import os
-from typing import Any, List, Optional, Tuple, Union
+from typing import Any, List, Tuple, Union
 
-import inquirer.prompt 
+import inquirer 
 from settings import (
-    COLORS, COLOR_ABRV
+    COLOR_ABRV
 )
 from deck_builder.builder_constants import (DEFAULT_MAX_CARD_PRICE,
-    DEFAULT_MAX_DECK_PRICE, DEFAULT_THEME_TAGS, MONO_COLOR_MAP,
+    DEFAULT_THEME_TAGS, MONO_COLOR_MAP,
     DUAL_COLOR_MAP, TRI_COLOR_MAP, OTHER_COLOR_MAP
 )
 
@@ -26,7 +24,7 @@ from exceptions import (
     InvalidNumberError,
     InvalidQuestionTypeError,
     MaxAttemptsError,
-    PriceError,
+    
     PriceLimitError,
     PriceValidationError
 )

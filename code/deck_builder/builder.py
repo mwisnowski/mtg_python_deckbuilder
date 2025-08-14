@@ -1,33 +1,29 @@
 from __future__ import annotations
 
 import math
-import numpy as np
-import os
-import random
+import pprint
 import time
-from functools import lru_cache
+# from functools import lru_cache
 from typing import Dict, List, Optional, Union
 
-import inquirer.prompt
-import keyboard
+# import keyboard
 import pandas as pd
-import pprint
-from fuzzywuzzy import process
+# from fuzzywuzzy import process
 from tqdm import tqdm
 
 from settings import CSV_DIRECTORY, MULTIPLE_COPY_CARDS
 from .builder_constants import (
     BASIC_LANDS, CARD_TYPES, DEFAULT_NON_BASIC_LAND_SLOTS,
-    COMMANDER_CSV_PATH, FUZZY_MATCH_THRESHOLD, MAX_FUZZY_CHOICES, FETCH_LAND_DEFAULT_COUNT,
+    FETCH_LAND_DEFAULT_COUNT,
     COMMANDER_POWER_DEFAULT, COMMANDER_TOUGHNESS_DEFAULT, COMMANDER_MANA_COST_DEFAULT,
     COMMANDER_MANA_VALUE_DEFAULT, COMMANDER_TYPE_DEFAULT, COMMANDER_TEXT_DEFAULT, 
     THEME_PRIORITY_BONUS, THEME_POOL_SIZE_MULTIPLIER, DECK_DIRECTORY,
     COMMANDER_COLOR_IDENTITY_DEFAULT, COMMANDER_COLORS_DEFAULT, COMMANDER_TAGS_DEFAULT, 
     COMMANDER_THEMES_DEFAULT, COMMANDER_CREATURE_TYPES_DEFAULT, DUAL_LAND_TYPE_MAP,
-    CSV_READ_TIMEOUT, CSV_PROCESSING_BATCH_SIZE, CSV_VALIDATION_RULES, CSV_REQUIRED_COLUMNS,
+    CSV_READ_TIMEOUT, CSV_VALIDATION_RULES, CSV_REQUIRED_COLUMNS,
     STAPLE_LAND_CONDITIONS, TRIPLE_LAND_TYPE_MAP, MISC_LAND_MAX_COUNT, MISC_LAND_MIN_COUNT,
     MISC_LAND_POOL_SIZE, LAND_REMOVAL_MAX_ATTEMPTS, PROTECTED_LANDS,
-    MANA_COLORS, MANA_PIP_PATTERNS, THEME_WEIGHT_MULTIPLIER
+    MANA_COLORS, THEME_WEIGHT_MULTIPLIER
 )
 from . import builder_utils
 from file_setup import setup_utils
@@ -75,7 +71,7 @@ from type_definitions import (
     ArtifactDF,
     CreatureDF,
     NonCreatureDF,
-    PlaneswalkerDF,
+    
     NonPlaneswalkerDF)
 
 import logging_util

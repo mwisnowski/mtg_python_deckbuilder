@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional, Final, Tuple, Pattern, Union, Callable
+from typing import Dict, List, Final
 
 TRIGGERS: List[str] = ['when', 'whenever', 'at']
 
@@ -20,7 +20,7 @@ TAG_GROUPS: Dict[str, List[str]] = {
 }
 
 # Common regex patterns
-PATTERN_GROUPS: Dict[str, Optional[str]]  = {
+PATTERN_GROUPS: Dict[str, str]  = {
     "draw": r"draw[s]? a card|draw[s]? one card",
     "combat": r"attack[s]?|block[s]?|combat damage",
     "tokens": r"create[s]? .* token|put[s]? .* token",
@@ -29,6 +29,31 @@ PATTERN_GROUPS: Dict[str, Optional[str]]  = {
     "exile": r"exile[s]? .*|exiled",
     "cost_reduction": r"cost[s]? \{[\d\w]\} less|affinity for|cost[s]? less to cast|chosen type cost|copy cost|from exile cost|from exile this turn cost|from your graveyard cost|has undaunted|have affinity for artifacts|other than your hand cost|spells cost|spells you cast cost|that target .* cost|those spells cost|you cast cost|you pay cost"
 }
+
+# Common phrase groups (lists) used across taggers
+PHRASE_GROUPS: Dict[str, List[str]] = {
+    # Variants for monarch wording
+    "monarch": [
+        r"becomes? the monarch",
+        r"can\'t become the monarch",
+        r"is the monarch",
+        r"was the monarch",
+        r"you are the monarch",
+        r"you become the monarch",
+        r"you can\'t become the monarch",
+        r"you\'re the monarch"
+    ],
+    # Variants for blink-style return to battlefield wording
+    "blink_return": [
+        r"return it to the battlefield",
+        r"return that card to the battlefield",
+        r"return them to the battlefield",
+        r"return those cards to the battlefield",
+        r"return .* to the battlefield"
+    ]
+}
+# Common action patterns
+CREATE_ACTION_PATTERN: Final[str] = r"create|put"
 
 # Creature/Counter types
 COUNTER_TYPES: List[str] = [r'\+0/\+1', r'\+0/\+2', r'\+1/\+0', r'\+1/\+2', r'\+2/\+0', r'\+2/\+2',
@@ -128,7 +153,7 @@ REQUIRED_COLUMNS: List[str] = [
 ]
 
 # Mapping of card types to their corresponding theme tags
-TYPE_TAG_MAPPING: List[str] = {
+TYPE_TAG_MAPPING: Dict[str, List[str]] = {
     'Artifact': ['Artifacts Matter'],
     'Battle': ['Battles Matter'],
     #'Creature': [],
@@ -268,12 +293,12 @@ LANDS_MATTER_PATTERNS: Dict[str, List[str]] = {
     ]
 }
 
-DOMAIN_PATTERNS: List[str] = {
+DOMAIN_PATTERNS: Dict[str, List[str]] = {
     'keyword': ['domain'],
     'text': ['basic land types among lands you control']
 }
 
-LANDFALL_PATTERNS: List[str] = {
+LANDFALL_PATTERNS: Dict[str, List[str]] = {
     'keyword': ['landfall'],
     'triggers': [
         'whenever a land enters the battlefield under your control',
@@ -281,7 +306,7 @@ LANDFALL_PATTERNS: List[str] = {
     ]
 }
 
-LANDWALK_PATTERNS: List[str] = {
+LANDWALK_PATTERNS: Dict[str, List[str]] = {
     'basic': [
         'plainswalker',
         'islandwalk',
@@ -404,7 +429,7 @@ ARISTOCRAT_EXCLUSION_PATTERNS: List[str] = [
 
 # Constants for stax functionality
 STAX_TEXT_PATTERNS: List[str] = [
-    'an opponent controls'
+    'an opponent controls',
     'can\'t attack',
     'can\'t be cast', 
     'can\'t be activated',
@@ -422,11 +447,7 @@ STAX_TEXT_PATTERNS: List[str] = [
     'opponents control',
     'opponents control can\'t',
     'opponents control enter tapped',
-    'spells cost {1} more',
-    'spells cost {2} more',
-    'spells cost {3} more',
-    'spells cost {4} more',
-    'spells cost {5} more',
+    r'spells cost \{\d\} more',
     'that player doesn\'t',
     'unless that player pays',
     'you control your opponent',

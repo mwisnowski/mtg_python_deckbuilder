@@ -16,53 +16,13 @@ from __future__ import annotations
 
 # Standard library imports
 import re
-from typing import List, Set, Union, Any, Tuple
-from functools import lru_cache
-
-import numpy as np
+from typing import List, Set, Union, Any
 
 # Third-party imports
 import pandas as pd
 
 # Local application imports
 from . import tag_constants
-
-
-# --- Internal helpers for performance -----------------------------------------------------------
-@lru_cache(maxsize=2048)
-def _build_joined_pattern(parts: Tuple[str, ...]) -> str:
-    """Join multiple regex parts with '|'. Cached for reuse across calls."""
-    return '|'.join(parts)
-
-
-@lru_cache(maxsize=2048)
-def _compile_pattern(pattern: str, ignore_case: bool = True):
-    """Compile a regex pattern with optional IGNORECASE. Cached for reuse."""
-    flags = re.IGNORECASE if ignore_case else 0
-    return re.compile(pattern, flags)
-
-def _ensure_norm_series(df: pd.DataFrame, source_col: str, norm_col: str) -> pd.Series:
-    """Ensure a cached normalized string series exists on df for source_col.
-
-    Normalization here means: fillna('') and cast to str once. This avoids
-    repeating fill/astype work on every mask creation. Extra columns are
-    later dropped by final reindex in output.
-
-    Args:
-        df: DataFrame containing the column
-        source_col: Name of the source column (e.g., 'text')
-        norm_col: Name of the cache column to create/use (e.g., '__text_s')
-
-    Returns:
-        The normalized pandas Series.
-    """
-    if norm_col in df.columns:
-        return df[norm_col]
-    # Create normalized string series
-    series = df[source_col].fillna('') if source_col in df.columns else pd.Series([''] * len(df), index=df.index)
-    series = series.astype(str)
-    df[norm_col] = series
-    return df[norm_col]
 
 def pluralize(word: str) -> str:
     """Convert a word to its plural form using basic English pluralization rules.
@@ -118,21 +78,12 @@ def create_type_mask(df: pd.DataFrame, type_text: Union[str, List[str]], regex: 
     elif not isinstance(type_text, list):
         raise TypeError("type_text must be a string or list of strings")
 
-    if len(df) == 0:
-        return pd.Series([], dtype=bool)
-
-    # Use normalized cached series
-    type_series = _ensure_norm_series(df, 'type', '__type_s')
-
     if regex:
-        pattern = _build_joined_pattern(tuple(type_text)) if len(type_text) > 1 else type_text[0]
-        compiled = _compile_pattern(pattern, ignore_case=True)
-        return type_series.str.contains(compiled, na=False, regex=True)
+        pattern = '|'.join(f'{p}' for p in type_text)
+        return df['type'].str.contains(pattern, case=False, na=False, regex=True)
     else:
-        masks = [type_series.str.contains(p, case=False, na=False, regex=False) for p in type_text]
-        if not masks:
-            return pd.Series(False, index=df.index)
-        return pd.Series(np.logical_or.reduce(masks), index=df.index)
+        masks = [df['type'].str.contains(p, case=False, na=False, regex=False) for p in type_text]
+        return pd.concat(masks, axis=1).any(axis=1)
 
 def create_text_mask(df: pd.DataFrame, type_text: Union[str, List[str]], regex: bool = True, combine_with_or: bool = True) -> pd.Series[bool]:
     """Create a boolean mask for rows where text matches one or more patterns.
@@ -158,22 +109,15 @@ def create_text_mask(df: pd.DataFrame, type_text: Union[str, List[str]], regex: 
     elif not isinstance(type_text, list):
         raise TypeError("type_text must be a string or list of strings")
 
-    if len(df) == 0:
-        return pd.Series([], dtype=bool)
-
-    # Use normalized cached series
-    text_series = _ensure_norm_series(df, 'text', '__text_s')
-
     if regex:
-        pattern = _build_joined_pattern(tuple(type_text)) if len(type_text) > 1 else type_text[0]
-        compiled = _compile_pattern(pattern, ignore_case=True)
-        return text_series.str.contains(compiled, na=False, regex=True)
+        pattern = '|'.join(f'{p}' for p in type_text)
+        return df['text'].str.contains(pattern, case=False, na=False, regex=True)
     else:
-        masks = [text_series.str.contains(p, case=False, na=False, regex=False) for p in type_text]
-        if not masks:
-            return pd.Series(False, index=df.index)
-        reduced = np.logical_or.reduce(masks) if combine_with_or else np.logical_and.reduce(masks)
-        return pd.Series(reduced, index=df.index)
+        masks = [df['text'].str.contains(p, case=False, na=False, regex=False) for p in type_text]
+        if combine_with_or:
+            return pd.concat(masks, axis=1).any(axis=1)
+        else:
+            return pd.concat(masks, axis=1).all(axis=1)
 
 def create_keyword_mask(df: pd.DataFrame, type_text: Union[str, List[str]], regex: bool = True) -> pd.Series[bool]:
     """Create a boolean mask for rows where keyword text matches one or more patterns.
@@ -207,18 +151,18 @@ def create_keyword_mask(df: pd.DataFrame, type_text: Union[str, List[str]], rege
     elif not isinstance(type_text, list):
         raise TypeError("type_text must be a string or list of strings")
 
-    # Use normalized cached series for keywords
-    keywords = _ensure_norm_series(df, 'keywords', '__keywords_s')
+    # Create default mask for null values
+    # Handle null values and convert to string
+    keywords = df['keywords'].fillna('')
+    # Convert non-string values to strings
+    keywords = keywords.astype(str)
 
     if regex:
-        pattern = _build_joined_pattern(tuple(type_text)) if len(type_text) > 1 else type_text[0]
-        compiled = _compile_pattern(pattern, ignore_case=True)
-        return keywords.str.contains(compiled, na=False, regex=True)
+        pattern = '|'.join(f'{p}' for p in type_text)
+        return keywords.str.contains(pattern, case=False, na=False, regex=True)
     else:
         masks = [keywords.str.contains(p, case=False, na=False, regex=False) for p in type_text]
-        if not masks:
-            return pd.Series(False, index=df.index)
-        return pd.Series(np.logical_or.reduce(masks), index=df.index)
+        return pd.concat(masks, axis=1).any(axis=1)
 
 def create_name_mask(df: pd.DataFrame, type_text: Union[str, List[str]], regex: bool = True) -> pd.Series[bool]:
     """Create a boolean mask for rows where name matches one or more patterns.
@@ -243,21 +187,12 @@ def create_name_mask(df: pd.DataFrame, type_text: Union[str, List[str]], regex: 
     elif not isinstance(type_text, list):
         raise TypeError("type_text must be a string or list of strings")
 
-    if len(df) == 0:
-        return pd.Series([], dtype=bool)
-
-    # Use normalized cached series
-    name_series = _ensure_norm_series(df, 'name', '__name_s')
-
     if regex:
-        pattern = _build_joined_pattern(tuple(type_text)) if len(type_text) > 1 else type_text[0]
-        compiled = _compile_pattern(pattern, ignore_case=True)
-        return name_series.str.contains(compiled, na=False, regex=True)
+        pattern = '|'.join(f'{p}' for p in type_text)
+        return df['name'].str.contains(pattern, case=False, na=False, regex=True)
     else:
-        masks = [name_series.str.contains(p, case=False, na=False, regex=False) for p in type_text]
-        if not masks:
-            return pd.Series(False, index=df.index)
-        return pd.Series(np.logical_or.reduce(masks), index=df.index)
+        masks = [df['name'].str.contains(p, case=False, na=False, regex=False) for p in type_text]
+        return pd.concat(masks, axis=1).any(axis=1)
 
 def extract_creature_types(type_text: str, creature_types: List[str], non_creature_types: List[str]) -> List[str]:
     """Extract creature types from a type text string.
@@ -372,31 +307,6 @@ def apply_tag_vectorized(df: pd.DataFrame, mask: pd.Series[bool], tags: Union[st
     # Add new tags
     df.loc[mask, 'themeTags'] = current_tags.apply(lambda x: sorted(list(set(x + tags))))
 
-def apply_rules(df: pd.DataFrame, rules: List[dict]) -> None:
-        """Apply a list of rules to a DataFrame.
-
-        Each rule dict supports:
-            - mask: pd.Series of booleans or a callable df->mask
-            - tags: str|List[str]
-
-        Example:
-            rules = [
-                { 'mask': lambda d: create_text_mask(d, 'lifelink'), 'tags': ['Lifelink'] },
-            ]
-
-        Args:
-                df: DataFrame to update
-                rules: list of rule dicts
-        """
-        for rule in rules:
-                mask = rule.get('mask')
-                if callable(mask):
-                        mask = mask(df)
-                if mask is None:
-                        continue
-                tags = rule.get('tags', [])
-                apply_tag_vectorized(df, mask, tags)
-
 def create_mass_effect_mask(df: pd.DataFrame, effect_type: str) -> pd.Series[bool]:
     """Create a boolean mask for cards with mass removal effects of a specific type.
 
@@ -414,60 +324,6 @@ def create_mass_effect_mask(df: pd.DataFrame, effect_type: str) -> pd.Series[boo
         raise ValueError(f"Unknown effect type: {effect_type}")
 
     patterns = tag_constants.BOARD_WIPE_TEXT_PATTERNS[effect_type]
-    return create_text_mask(df, patterns)
-
-def create_trigger_mask(
-    df: pd.DataFrame,
-    subjects: Union[str, List[str]],
-    include_attacks: bool = False,
-) -> pd.Series:
-    """Create a mask for text that contains trigger phrases followed by subjects.
-
-    Example: with subjects=['a creature','you'] builds patterns:
-      'when a creature', 'whenever you', 'at you', etc.
-
-    Args:
-        df: DataFrame
-        subjects: A subject string or list (will be normalized to list)
-        include_attacks: If True, also include '{trigger} .* attacks'
-
-    Returns:
-        Boolean Series mask
-    """
-    subs = [subjects] if isinstance(subjects, str) else subjects
-    patterns: List[str] = []
-    for trig in tag_constants.TRIGGERS:
-        patterns.extend([f"{trig} {s}" for s in subs])
-        if include_attacks:
-            patterns.append(f"{trig} .* attacks")
-    return create_text_mask(df, patterns)
-
-def create_numbered_phrase_mask(
-    df: pd.DataFrame,
-    verb: Union[str, List[str]],
-    noun: str = '',
-    numbers: List[str] | None = None,
-) -> pd.Series:
-    """Create a boolean mask for phrases like 'draw {num} card'.
-
-    Args:
-        df: DataFrame to search
-    verb: Action verb or list of verbs (e.g., 'draw' or ['gain', 'gains'])
-    noun: Optional object noun in singular form (e.g., 'card'); if empty, omitted
-        numbers: Optional list of number words/digits (defaults to tag_constants.NUM_TO_SEARCH)
-
-    Returns:
-        Boolean Series mask
-    """
-    if numbers is None:
-        numbers = tag_constants.NUM_TO_SEARCH
-    # Normalize verbs to list
-    verbs = [verb] if isinstance(verb, str) else verb
-    # Build patterns
-    if noun:
-        patterns = [fr"{v}\s+{num}\s+{noun}" for v in verbs for num in numbers]
-    else:
-        patterns = [fr"{v}\s+{num}" for v in verbs for num in numbers]
     return create_text_mask(df, patterns)
 
 def create_damage_pattern(number: Union[int, str]) -> str:

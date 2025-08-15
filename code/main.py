@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import NoReturn, Optional
 
 # Third-party imports
-import inquirer
+import inquirer.prompt
 
 # Local imports
 from deck_builder import DeckBuilder
@@ -104,7 +104,7 @@ def run_menu() -> NoReturn:
                 case 'Setup':
                     setup()
                 case 'Tag CSV Files':
-                    tagger.run_tagging(parallel=True)
+                    tagger.run_tagging()
                 case 'Build a Deck':
                     builder.determine_commander()
                 case 'Quit':

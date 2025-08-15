@@ -1,16 +1,4 @@
-from typing import Dict, List, Final, Iterable
-from dataclasses import dataclass
-from settings import REQUIRED_CARD_COLUMNS as REQUIRED_COLUMNS  # unified column list
-
-__all__ = [
-    'TRIGGERS', 'NUM_TO_SEARCH', 'TAG_GROUPS', 'PATTERN_GROUPS', 'PHRASE_GROUPS',
-    'CREATE_ACTION_PATTERN', 'COUNTER_TYPES', 'CREATURE_TYPES', 'NON_CREATURE_TYPES',
-    'OUTLAW_TYPES', 'ENCHANTMENT_TOKENS', 'ARTIFACT_TOKENS', 'REQUIRED_COLUMNS',
-    'TYPE_TAG_MAPPING', 'DRAW_RELATED_TAGS', 'DRAW_EXCLUSION_PATTERNS',
-    'EQUIPMENT_EXCLUSIONS', 'EQUIPMENT_SPECIFIC_CARDS', 'EQUIPMENT_RELATED_TAGS',
-    'EQUIPMENT_TEXT_PATTERNS', 'AURA_SPECIFIC_CARDS', 'VOLTRON_COMMANDER_CARDS',
-    'VOLTRON_PATTERNS'
-]
+from typing import Dict, List, Final
 
 TRIGGERS: List[str] = ['when', 'whenever', 'at']
 
@@ -68,75 +56,41 @@ PHRASE_GROUPS: Dict[str, List[str]] = {
 CREATE_ACTION_PATTERN: Final[str] = r"create|put"
 
 # Creature/Counter types
-"""Counter type vocabularies."""
-
-# Power/Toughness modifier counters (regex fragments already escaped where needed)
-PT_COUNTER_TYPES: List[str] = [
-    r'\+0/\+1', r'\+0/\+2', r'\+1/\+0', r'\+1/\+2', r'\+2/\+0', r'\+2/\+2',
-    '-0/-1', '-0/-2', '-1/-0', '-1/-2', '-2/-0', '-2/-2'
-]
-
-# Named counters (alphabetical within rough thematic blocks)
-NAMED_COUNTER_TYPES: List[str] = [
-    'Acorn', 'Aegis', 'Age', 'Aim', 'Arrow', 'Arrowhead', 'Awakening',
-    'Bait', 'Blaze', 'Blessing', 'Blight', 'Blood', 'Bloodline', 'Bloodstain', 'Book',
-    'Bounty', 'Brain', 'Bribery', 'Brick', 'Burden', 'Cage', 'Carrion', 'Charge', 'Coin',
-    'Collection', 'Component', 'Contested', 'Corruption', 'CRANK!', 'Credit', 'Croak',
-    'Corpse', 'Crystal', 'Cube', 'Currency', 'Death', 'Defense', 'Delay', 'Depletion',
-    'Descent', 'Despair', 'Devotion', 'Divinity', 'Doom', 'Dream', 'Duty', 'Echo', 'Egg',
-    'Elixir', 'Ember', 'Energy', 'Enlightened', 'Eon', 'Eruption', 'Everything',
-    'Experience', 'Eyeball', 'Eyestalk', 'Fade', 'Fate', 'Feather', 'Feeding',
-    'Fellowship', 'Fetch', 'Filibuster', 'Finality', 'Flame', 'Flood', 'Foreshadow',
-    'Fungus', 'Fury', 'Fuse', 'Gem', 'Ghostform', 'Glyph', 'Gold', 'Growth', 'Hack',
-    'Harmony', 'Hatching', 'Hatchling', 'Healing', 'Hit', 'Hope', 'Hone', 'Hoofprint',
-    'Hour', 'Hourglass', 'Hunger', 'Ice', 'Imposter', 'Incarnation', 'Incubation',
-    'Infection', 'Influence', 'Ingenuity', 'Intel', 'Intervention', 'Invitation',
-    'Isolation', 'Javelin', 'Judgment', 'Keyword', 'Ki', 'Kick', 'Knickknack',
-    'Knowledge', 'Landmark', 'Level', 'Loot', 'Lore', 'Loyalty', 'Luck', 'Magnet',
-    'Manabond', 'Manifestation', 'Mannequin', 'Mask', 'Matrix', 'Memory', 'Midway',
-    'Mine', 'Mining', 'Mire', 'Music', 'Muster', 'Necrodermis', 'Nest', 'Net', 'Night',
-    'Oil', 'Omen', 'Ore', 'Page', 'Pain', 'Palliation', 'Paralyzing', 'Pause', 'Petal',
-    'Petrification', 'Phyresis', 'Phylactery', 'Pin', 'Plague', 'Plot', 'Point', 'Poison',
-    'Polyp', 'Possession', 'Pressure', 'Prey', 'Pupa', 'Quest', 'Rad', 'Rejection',
-    'Reprieve', 'Rev', 'Revival', 'Ribbon', 'Ritual', 'Rope', 'Rust', 'Scream', 'Scroll',
-    'Shell', 'Shield', 'Silver', 'Shred', 'Sleep', 'Sleight', 'Slime', 'Slumber', 'Soot',
-    'Soul', 'Spark', 'Spite', 'Spore', 'Stash', 'Storage', 'Story', 'Strife', 'Study',
-    'Stun', 'Supply', 'Suspect', 'Takeover', 'Task', 'Ticket', 'Tide', 'Time', 'Tower',
-    'Training', 'Trap', 'Treasure', 'Unity', 'Unlock', 'Valor', 'Velocity', 'Verse',
-    'Vitality', 'Void', 'Volatile', 'Vortex', 'Vow', 'Voyage', 'Wage', 'Winch', 'Wind',
-    'Wish'
-]
-
-# Dataclass describing a counter pattern and display label
-@dataclass(frozen=True)
-class CounterSpec:
-    pattern: str        # Regex fragment (without trailing " counter")
-    label: str          # Human-readable label (used in tag text)
-    group: str          # 'pt' or 'named' (for future filtering)
-
-    def search_pattern(self) -> str:
-        """Full regex used for searching (matches singular/plural)."""
-        return rf"{self.pattern} counter[s]?"
-
-# Helper to derive label from pattern (unescape common sequences)
-def _derive_label(p: str) -> str:
-    return p.replace('\\+','+')
-
-def _build_counter_specs(pt_list: Iterable[str], named_list: Iterable[str]) -> List[CounterSpec]:
-    specs: List[CounterSpec] = []
-    specs.extend(CounterSpec(pattern=p, label=_derive_label(p), group='pt') for p in pt_list)
-    specs.extend(CounterSpec(pattern=p, label=p, group='named') for p in named_list)
-    return specs
-
-ALL_COUNTER_SPECS: List[CounterSpec] = _build_counter_specs(PT_COUNTER_TYPES, NAMED_COUNTER_TYPES)
-
-# Backward-compatible flat list (legacy usage)
-COUNTER_TYPES: List[str] = [s.pattern for s in ALL_COUNTER_SPECS]
-
-# Basic duplication guard (fails fast during import if misconfigured)
-if len(COUNTER_TYPES) != len(set(COUNTER_TYPES)):
-    duplicate = sorted({p for p in COUNTER_TYPES if COUNTER_TYPES.count(p) > 1})
-    raise ValueError(f"Duplicate counter patterns detected: {duplicate}")
+COUNTER_TYPES: List[str] = [r'\+0/\+1', r'\+0/\+2', r'\+1/\+0', r'\+1/\+2', r'\+2/\+0', r'\+2/\+2',
+                '-0/-1', '-0/-2', '-1/-0', '-1/-2', '-2/-0', '-2/-2',
+                'Acorn', 'Aegis', 'Age', 'Aim', 'Arrow', 'Arrowhead','Awakening',
+                'Bait', 'Blaze', 'Blessing', 'Blight',' Blood', 'Bloddline',
+                'Bloodstain', 'Book', 'Bounty', 'Brain', 'Bribery', 'Brick',
+                'Burden', 'Cage', 'Carrion', 'Charge', 'Coin', 'Collection',
+                'Component', 'Contested', 'Corruption', 'CRANK!', 'Credit',
+                'Croak', 'Corpse', 'Crystal', 'Cube', 'Currency', 'Death',
+                'Defense', 'Delay', 'Depletion', 'Descent', 'Despair', 'Devotion',
+                'Divinity', 'Doom', 'Dream', 'Duty', 'Echo', 'Egg', 'Elixir',
+                'Ember', 'Energy', 'Enlightened', 'Eon', 'Eruption', 'Everything',
+                'Experience', 'Eyeball', 'Eyestalk', 'Fade', 'Fate', 'Feather',
+                'Feeding', 'Fellowship', 'Fetch', 'Filibuster', 'Finality', 'Flame',
+                'Flood', 'Foreshadow', 'Fungus', 'Fury', 'Fuse', 'Gem', 'Ghostform',
+                'Glpyh', 'Gold', 'Growth', 'Hack', 'Harmony', 'Hatching', 'Hatchling',
+                'Healing', 'Hit', 'Hope',' Hone', 'Hoofprint', 'Hour', 'Hourglass',
+                'Hunger', 'Ice', 'Imposter', 'Incarnation', 'Incubation', 'Infection',
+                'Influence', 'Ingenuity', 'Intel', 'Intervention', 'Invitation',
+                'Isolation', 'Javelin', 'Judgment', 'Keyword', 'Ki', 'Kick',
+                'Knickknack', 'Knowledge', 'Landmark', 'Level', 'Loot', 'Lore',
+                'Loyalty', 'Luck', 'Magnet', 'Manabond', 'Manifestation', 'Mannequin',
+                'Mask', 'Matrix', 'Memory', 'Midway', 'Mine', 'Mining', 'Mire',
+                'Music', 'Muster', 'Necrodermis', 'Nest', 'Net', 'Night', 'Oil',
+                'Omen', 'Ore', 'Page', 'Pain', 'Palliation', 'Paralyzing', 'Pause',
+                'Petal', 'Petrification', 'Phyresis', 'Phylatery', 'Pin', 'Plague',
+                'Plot', 'Point', 'Poison', 'Polyp', 'Possession', 'Pressure', 'Prey',
+                'Pupa', 'Quest', 'Rad', 'Rejection', 'Reprieve', 'Rev', 'Revival',
+                'Ribbon', 'Ritual', 'Rope', 'Rust', 'Scream', 'Scroll', 'Shell',
+                'Shield', 'Silver', 'Shred', 'Sleep', 'Sleight', 'Slime', 'Slumber',
+                'Soot', 'Soul', 'Spark', 'Spite', 'Spore', 'Stash', 'Storage',
+                'Story', 'Strife', 'Study', 'Stun', 'Supply', 'Suspect', 'Takeover',
+                'Task', 'Ticket', 'Tide', 'Time', 'Tower', 'Training', 'Trap',
+                'Treasure', 'Unity', 'Unlock', 'Valor', 'Velocity', 'Verse',
+                'Vitality', 'Void', 'Volatile', 'Vortex', 'Vow', 'Voyage', 'Wage',
+                'Winch', 'Wind', 'Wish']
 
 CREATURE_TYPES: List[str] = ['Advisor', 'Aetherborn', 'Alien', 'Ally', 'Angel', 'Antelope', 'Ape', 'Archer', 'Archon', 'Armadillo',
                 'Army', 'Artificer', 'Assassin', 'Assembly-Worker', 'Astartes', 'Atog', 'Aurochs', 'Automaton',
@@ -191,7 +145,12 @@ ENCHANTMENT_TOKENS: List[str] = ['Cursed Role', 'Monster Role', 'Royal Role', 'S
 ARTIFACT_TOKENS: List[str] = ['Blood', 'Clue', 'Food', 'Gold', 'Incubator',
                 'Junk','Map','Powerstone', 'Treasure']
 
-# (REQUIRED_COLUMNS imported from settings to avoid duplication)
+# Constants for DataFrame validation and processing
+REQUIRED_COLUMNS: List[str] = [
+    'name', 'faceName', 'edhrecRank', 'colorIdentity', 'colors',
+    'manaCost', 'manaValue', 'type', 'creatureTypes', 'text',
+    'power', 'toughness', 'keywords', 'themeTags', 'layout', 'side'
+]
 
 # Mapping of card types to their corresponding theme tags
 TYPE_TAG_MAPPING: Dict[str, List[str]] = {

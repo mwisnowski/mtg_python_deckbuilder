@@ -3044,18 +3044,15 @@ def tag_for_special_counters(df: pd.DataFrame, color: str) -> None:
     start_time = pd.Timestamp.now()
 
     try:
-        # Process each counter type
+        # Process each counter type (supports singular/plural)
         counter_counts = {}
-        for counter_type in tag_constants.COUNTER_TYPES:
-            # Create pattern for this counter type
-            pattern = f'{counter_type} counter'
+        for spec in tag_constants.ALL_COUNTER_SPECS:
+            pattern = spec.search_pattern()
             mask = tag_utils.create_text_mask(df, pattern)
-
             if mask.any():
-                # Apply tags via rules engine
-                tags = [f'{counter_type} Counters', 'Counters Matter']
-                tag_utils.apply_rules(df, [ { 'mask': mask, 'tags': tags } ])
-                counter_counts[counter_type] = mask.sum()
+                tags = [f'{spec.label} Counters', 'Counters Matter']
+                tag_utils.apply_rules(df, [ {'mask': mask, 'tags': tags} ])
+                counter_counts[spec.label] = int(mask.sum())
 
         # Log results
         duration = (pd.Timestamp.now() - start_time).total_seconds()

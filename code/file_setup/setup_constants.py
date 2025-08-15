@@ -1,41 +1,40 @@
-from typing import Dict, List, Optional, Final, Tuple, Pattern, Union, Callable
+from typing import Dict, List
+from settings import (
+    SETUP_COLORS,
+    COLOR_ABRV,
+    CARD_DATA_COLUMNS as COLUMN_ORDER,  # backward compatible alias
+    CARD_DATA_COLUMNS as TAGGED_COLUMN_ORDER,
+)
 
-BANNED_CARDS: List[str] = [# in commander
-                'Ancestral Recall', 'Balance', 'Biorhythm', 'Black Lotus',
-                'Braids, Cabal Minion', 'Chaos Orb', 'Coalition Victory',
-                'Channel', 'Dockside Extortionist', 'Emrakul, the Aeons Torn',
-                'Erayo, Soratami Ascendant', 'Falling Star', 'Fastbond',
-                'Flash', 'Gifts Ungiven', 'Golos, Tireless Pilgrim',
-                'Griselbrand', 'Hullbreacher', 'Iona, Shield of Emeria',
-                'Karakas', 'Jeweled Lotus', 'Leovold, Emissary of Trest',
-                'Library of Alexandria', 'Limited Resources', 'Lutri, the Spellchaser',
-                'Mana Crypt', 'Mox Emerald', 'Mox Jet', 'Mox Pearl', 'Mox Ruby',
-                'Mox Sapphire', 'Nadu, Winged Wisdom', 'Panoptic Mirror',
-                'Paradox Engine', 'Primeval Titan', 'Prophet of Kruphix',
-                'Recurring Nightmare', 'Rofellos, Llanowar Emissary', 'Shahrazad',
-                'Sundering Titan', 'Sway of the Stars', 'Sylvan Primordial',
-                'Time Vault', 'Time Walk', 'Tinker', 'Tolarian Academy',
-                'Trade Secrets', 'Upheaval', 'Yawgmoth\'s Bargain',
-                
-                # In constructed
-                'Invoke Prejudice', 'Cleanse', 'Stone-Throwing Devils', 'Pradesh Gypsies',
-                'Jihad', 'Imprison', 'Crusade'
-                ]
+__all__ = [
+    'SETUP_COLORS', 'COLOR_ABRV', 'COLUMN_ORDER', 'TAGGED_COLUMN_ORDER',
+    'BANNED_CARDS', 'MTGJSON_API_URL', 'LEGENDARY_OPTIONS', 'NON_LEGAL_SETS',
+    'CARD_TYPES_TO_EXCLUDE', 'CSV_PROCESSING_COLUMNS', 'SORT_CONFIG',
+    'FILTER_CONFIG'
+]
 
-SETUP_COLORS: List[str] = ['colorless', 'white', 'blue', 'black', 'green', 'red',
-          'azorius', 'orzhov', 'selesnya', 'boros', 'dimir',
-          'simic', 'izzet', 'golgari', 'rakdos', 'gruul',
-          'bant', 'esper', 'grixis', 'jund', 'naya',
-          'abzan', 'jeskai', 'mardu', 'sultai', 'temur',
-          'dune', 'glint', 'ink', 'witch', 'yore', 'wubrg']
-
-COLOR_ABRV: List[str] = ['Colorless', 'W', 'U', 'B', 'G', 'R',
-              'U, W', 'B, W', 'G, W', 'R, W', 'B, U',
-              'G, U', 'R, U', 'B, G', 'B, R', 'G, R',
-              'G, U, W', 'B, U, W', 'B, R, U', 'B, G, R', 'G, R, W',
-              'B, G, W', 'R, U, W', 'B, R, W', 'B, G, U', 'G, R, U',
-              'B, G, R, W', 'B, G, R, U', 'G, R, U, W', 'B, G, U, W',
-              'B, R, U, W', 'B, G, R, U, W']
+# Banned cards consolidated here (remains specific to setup concerns)
+BANNED_CARDS: List[str] = [
+    # Commander banned list
+    'Ancestral Recall', 'Balance', 'Biorhythm', 'Black Lotus',
+    'Braids, Cabal Minion', 'Chaos Orb', 'Coalition Victory',
+    'Channel', 'Dockside Extortionist', 'Emrakul, the Aeons Torn',
+    'Erayo, Soratami Ascendant', 'Falling Star', 'Fastbond',
+    'Flash', 'Gifts Ungiven', 'Golos, Tireless Pilgrim',
+    'Griselbrand', 'Hullbreacher', 'Iona, Shield of Emeria',
+    'Karakas', 'Jeweled Lotus', 'Leovold, Emissary of Trest',
+    'Library of Alexandria', 'Limited Resources', 'Lutri, the Spellchaser',
+    'Mana Crypt', 'Mox Emerald', 'Mox Jet', 'Mox Pearl', 'Mox Ruby',
+    'Mox Sapphire', 'Nadu, Winged Wisdom', 'Panoptic Mirror',
+    'Paradox Engine', 'Primeval Titan', 'Prophet of Kruphix',
+    'Recurring Nightmare', 'Rofellos, Llanowar Emissary', 'Shahrazad',
+    'Sundering Titan', 'Sway of the Stars', 'Sylvan Primordial',
+    'Time Vault', 'Time Walk', 'Tinker', 'Tolarian Academy',
+    'Trade Secrets', 'Upheaval', "Yawgmoth's Bargain",
+    # Problematic / culturally sensitive or banned in other formats
+    'Invoke Prejudice', 'Cleanse', 'Stone-Throwing Devils', 'Pradesh Gypsies',
+    'Jihad', 'Imprison', 'Crusade'
+]
 
 # Constants for setup and CSV processing
 MTGJSON_API_URL: str = 'https://mtgjson.com/api/v5/csv/cards.csv'
@@ -105,14 +104,4 @@ FILTER_CONFIG: Dict[str, Dict[str, List[str]]] = {
     }
 }
 
-COLUMN_ORDER: List[str] = [
-    'name', 'faceName', 'edhrecRank', 'colorIdentity', 'colors',
-    'manaCost', 'manaValue', 'type', 'creatureTypes', 'text',
-    'power', 'toughness', 'keywords', 'themeTags', 'layout', 'side'
-]
-
-TAGGED_COLUMN_ORDER: List[str] = [
-    'name', 'faceName', 'edhrecRank', 'colorIdentity', 'colors',
-    'manaCost', 'manaValue', 'type', 'creatureTypes', 'text',
-    'power', 'toughness', 'keywords', 'themeTags', 'layout', 'side'
-]
+# COLUMN_ORDER and TAGGED_COLUMN_ORDER now sourced from settings via CARD_DATA_COLUMNS

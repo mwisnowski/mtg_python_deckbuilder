@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from settings import os
+import os
 import logging
 
 # Create logs directory if it doesn't exist
@@ -27,3 +27,12 @@ file_handler.setFormatter(NoDunderFormatter(LOG_FORMAT))
 # Stream handler
 stream_handler = logging.StreamHandler()
 stream_handler.setFormatter(NoDunderFormatter(LOG_FORMAT))
+
+# Root logger assembly helper (idempotent)
+def get_logger(name: str = 'deck_builder') -> logging.Logger:
+    logger = logging.getLogger(name)
+    if not logger.handlers:
+        logger.setLevel(LOG_LEVEL)
+        logger.addHandler(file_handler)
+        logger.addHandler(stream_handler)
+    return logger

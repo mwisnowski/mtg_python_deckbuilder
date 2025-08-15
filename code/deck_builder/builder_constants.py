@@ -1,4 +1,9 @@
-from typing import Dict, List, Optional, Final, Tuple, Pattern, Union, Callable
+from typing import Dict, List, Final, Tuple, Union, Callable
+from settings import CARD_DATA_COLUMNS as CSV_REQUIRED_COLUMNS  # unified
+
+__all__ = [
+    'CSV_REQUIRED_COLUMNS'
+]
 import ast
 
 # Commander selection configuration
@@ -390,12 +395,7 @@ CSV_VALIDATION_RULES: Final[Dict[str, Dict[str, Union[str, int, float]]]] = {
     'toughness': {'type': ('str', 'int', 'float', 'object'), 'pattern': r'^[\d*+-]+$'}
 }
 
-# Required columns for CSV validation
-CSV_REQUIRED_COLUMNS: Final[List[str]] = [
-    'name', 'faceName', 'edhrecRank', 'colorIdentity', 'colors',
-    'manaCost', 'manaValue', 'type', 'creatureTypes', 'text',
-    'power', 'toughness', 'keywords', 'themeTags', 'layout', 'side'
-]
+# (CSV_REQUIRED_COLUMNS imported from settings to avoid duplication)
 
 # DataFrame processing configuration
 BATCH_SIZE: Final[int] = 1000  # Number of records to process at once

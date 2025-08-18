@@ -122,6 +122,23 @@ OTHER_COLOR_MAP: Final[Dict[str, Tuple[str, List[str], List[str]]]] = {
                        'bant', 'jeskai', 'glint', 'dune', 'witch', 'yore', 'ink', 'wubrg'])
 }
 
+# Card category validation rules
+CREATURE_VALIDATION_RULES: Final[Dict[str, Dict[str, Union[str, int, float, bool]]]] = {
+    'power': {'type': ('str', 'int', 'float'), 'required': True},
+    'toughness': {'type': ('str', 'int', 'float'), 'required': True},
+    'creatureTypes': {'type': 'list', 'required': True}
+}
+
+SPELL_VALIDATION_RULES: Final[Dict[str, Dict[str, Union[str, int, float, bool]]]] = {
+    'manaCost': {'type': 'str', 'required': True},
+    'text': {'type': 'str', 'required': True}
+}
+
+LAND_VALIDATION_RULES: Final[Dict[str, Dict[str, Union[str, int, float, bool]]]] = {
+    'type': {'type': ('str', 'object'), 'required': True},
+    'text': {'type': ('str', 'object'), 'required': False}
+}
+
 # Price checking configuration
 DEFAULT_PRICE_DELAY: Final[float] = 0.1  # Delay between price checks in seconds
 MAX_PRICE_CHECK_ATTEMPTS: Final[int] = 3  # Maximum attempts for price checking
@@ -434,4 +451,21 @@ DATAFRAME_VALIDATION_RULES: Final[Dict[str, Dict[str, Union[str, int, float, boo
 CARD_TYPE_SORT_ORDER: Final[List[str]] = [
     'Planeswalker', 'Battle', 'Creature', 'Instant', 'Sorcery',
     'Artifact', 'Enchantment', 'Land'
+]
+
+# Game changer cards, used to help determine bracket
+GAME_CHANGERS: Final[List[str]] = [
+    'Ad Nauseum', 'Ancient Tomb', 'Aura Shards', 'Bolas\'s Citadel', 'Braids, Cabal Minion',
+    'Chrome Mox', 'Coalition Victory', 'Consecrated Sphinx', 'Crop Rotation', 'Cyclonic Rift',
+    'Deflecting Swat', 'Demonic Tutor', 'Drannith Magistrate', 'Enlightened Tutor', 'Expropriate',
+    'Field of the Dead', 'Fierce Guardianship', 'Food Chain', 'Force of Will', 'Gaea\'s Cradle',
+    'Gamble', 'Gifts Ungiven', 'Glacial Chasm', 'Grand Arbiter Augustin IV', 'Grim Monolith', 'Humility',
+    'Imperial Seal', 'Intuition', 'Jeska\'s Will', 'Jin-Gitaxias, Core Augur', 'Kinnan, Bonder Prodigy',
+    'Lion\'s Eye Diamond', 'Mana Vault', 'Mishra\'s Workshop', 'Mox Diamond', 'Mystical Tutor',
+    'Narset, Parter of Veils', 'Natural Order', 'Necropotence', 'Notion Thief', 'Opposition Agent',
+    'Orcish Bowmasters', 'Panoptic Mirror', 'Rhystic Study', 'Seedborn Muse', 'Serra\'s Sanctum',
+    'Smother Tithe', 'Survival of the Fittest', 'Sway of the Stars', 'Teferi\'s Protection',
+    'Tergrid, God of Fright', 'Thassa\'s Oracle', 'The One Ring', 'The Tabernacle at Pendrell Vale',
+    'Underworld Breach', 'Urza, Lord High Artificer', 'Vampiric Tutor', 'Vorinclex, Voice of Hunger',
+    'Winota, Joiner of Forces', 'Worldly Tutor', 'Yuriko, the Tiger\'s Shadow'
 ]

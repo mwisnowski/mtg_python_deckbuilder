@@ -10,9 +10,11 @@ from __future__ import annotations
 
 from typing import Dict, Iterable
 import re
-
+import ast
+import random as _rand
 
 from . import builder_constants as bc
+import math
 
 COLOR_LETTERS = ['W', 'U', 'B', 'R', 'G']
 
@@ -25,7 +27,6 @@ def parse_theme_tags(val) -> list[str]:
 	  "['Tag1', 'Tag2']"
 	  Tag1, Tag2
 	Returns list of stripped string tags (may be empty)."""
-	import ast
 	if isinstance(val, list):
 		flat: list[str] = []
 		for v in val:
@@ -157,6 +158,9 @@ __all__ = [
 	'compute_spell_pip_weights',
 	'parse_theme_tags',
 	'normalize_theme_list',
+	'compute_adjusted_target',
+	'normalize_tag_cell',
+	'sort_by_priority',
 	'COLOR_LETTERS',
 	'tapped_land_penalty',
 	'replacement_land_score',
@@ -172,6 +176,53 @@ __all__ = [
 	'count_existing_fetches',
 	'select_top_land_candidates',
 ]
+
+
+def compute_adjusted_target(category_label: str,
+                            original_cfg: int,
+                            existing: int,
+                            output_func,
+                            plural_word: str | None = None,
+                            bonus_max_pct: float = 0.2,
+                            rng=None) -> tuple[int, int]:
+	"""Compute how many additional cards of a category to add applying a random bonus.
+
+	Returns (to_add, bonus). to_add may be 0 if target already satisfied and bonus doesn't push above existing.
+
+	Parameters
+	----------
+	category_label : str
+		Human-readable label (e.g. 'Ramp', 'Removal').
+	original_cfg : int
+		Configured target count.
+	existing : int
+		How many already present.
+	output_func : callable
+		Function for emitting messages (e.g. print or logger).
+	plural_word : str | None
+		Phrase used in messages for plural additions. If None derives from label (lower + ' spells').
+	bonus_max_pct : float
+		Upper bound for random bonus percent (default 0.2 => up to +20%).
+	rng : object | None
+		Optional random-like object with uniform().
+	"""
+	if original_cfg <= 0:
+		return 0, 0
+	plural_word = plural_word or f"{category_label.lower()} spells"
+	# Random bonus between 0 and bonus_max_pct inclusive
+	roll = (rng.uniform(0.0, bonus_max_pct) if rng else _rand.uniform(0.0, bonus_max_pct))
+	bonus = math.ceil(original_cfg * roll) if original_cfg > 0 else 0
+	if existing >= original_cfg:
+		to_add = original_cfg + bonus - existing
+		if to_add <= 0:
+			output_func(f"{category_label} target met ({existing}/{original_cfg}). Random bonus {bonus} -> no additional {plural_word} needed.")
+			return 0, bonus
+		output_func(f"{category_label} target met ({existing}/{original_cfg}). Adding random bonus {bonus}; scheduling {to_add} extra {plural_word}.")
+		return to_add, bonus
+	remaining_need = original_cfg - existing
+	to_add = remaining_need + bonus
+	output_func(f"Existing {category_label.lower()} {existing}/{original_cfg}. Remaining need {remaining_need}. Random bonus {bonus}. Adding {to_add} {plural_word}.")
+	return to_add, bonus
 
 
 def tapped_land_penalty(tline: str, text_field: str) -> tuple[int, int]:
@@ -265,7 +316,7 @@ def weighted_sample_without_replacement(pool: list[tuple[str, int | float]], k: 
 	"""
 	if k <= 0 or not pool:
 		return []
-	import random as _rand
+	# _rand imported at module level
 	local_rng = rng if rng is not None else _rand
 	working = pool.copy()
 	chosen: list[str] = []
@@ -327,6 +378,44 @@ def select_top_land_candidates(df, already: set[str], basics: set[str], top_n: i
 			continue
 	out.sort(key=lambda x: x[0])
 	return out[:top_n]
+
+
+# ---------------------------------------------------------------------------
+# Generic DataFrame helpers (tag normalization & sorting)
+# ---------------------------------------------------------------------------
+def normalize_tag_cell(cell):
+	"""Normalize a themeTags-like cell into a lowercase list of tags.
+
+	Accepts list, nested list, or string forms. Mirrors logic previously in multiple
+	methods inside builder.py.
+	"""
+	if isinstance(cell, list):
+		out: list[str] = []
+		for v in cell:
+			if isinstance(v, list):
+				out.extend(str(x).strip().lower() for x in v if str(x).strip())
+			else:
+				vs = str(v).strip().lower()
+				if vs:
+					out.append(vs)
+		return out
+	if isinstance(cell, str):
+		raw = cell.lower()
+		for ch in '[]"':
+			raw = raw.replace(ch, ' ')
+		parts = [p.strip().strip("'\"") for p in raw.replace(';', ',').split(',') if p.strip()]
+		return [p for p in parts if p]
+	return []
+
+
+def sort_by_priority(df, columns: list[str]):
+	"""Sort DataFrame by listed columns ascending if present; ignores missing.
+
+	Returns new DataFrame (does not mutate original)."""
+	present = [c for c in columns if c in df.columns]
+	if not present:
+		return df
+	return df.sort_values(by=present, ascending=[True]*len(present), na_position='last')
 
 
 # ---------------------------------------------------------------------------
@@ -493,7 +582,7 @@ def enforce_land_cap(builder, step_label: str = ""):
 	bc = __import__('deck_builder.builder_constants', fromlist=['DEFAULT_LAND_COUNT'])
 	land_target = builder.ideal_counts.get('lands', getattr(bc, 'DEFAULT_LAND_COUNT', 35))
 	min_basic = builder.ideal_counts.get('basic_lands', getattr(bc, 'DEFAULT_BASIC_LAND_COUNT', 20))
-	import math
+	# math not needed; using ceil via BASIC_FLOOR_FACTOR logic only
 	floor_basics = math.ceil(bc.BASIC_FLOOR_FACTOR * min_basic)
 	current_land = builder._current_land_count()
 	if current_land <= land_target:

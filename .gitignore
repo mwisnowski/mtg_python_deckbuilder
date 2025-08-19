@@ -11,3 +11,7 @@ build/
 csv_files/
 dist/
 logs/
+non_interactive_test.py
+test_determinism.py
+test.py
+deterministic_test.py

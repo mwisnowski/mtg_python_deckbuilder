@@ -35,12 +35,14 @@ def run(
     dual_count: Optional[int] = None,
     triple_count: Optional[int] = None,
     utility_count: Optional[int] = None,
+    seed: Optional[int] = None,
 ) -> DeckBuilder:
     """Run a scripted non-interactive deck build and return the DeckBuilder instance.
 
     Integer parameters (primary_choice, secondary_choice, tertiary_choice) correspond to the
     numeric indices shown during interactive tag selection. Pass None to omit secondary/tertiary.
     Optional counts (fetch_count, dual_count, triple_count, utility_count) constrain land steps.
+    seed: optional deterministic RNG seed for reproducible builds.
     """
     scripted_inputs: List[str] = []
     # Commander query & selection
@@ -70,7 +72,7 @@ def run(
             return scripted_inputs.pop(0)
         raise RuntimeError("Ran out of scripted inputs for prompt: " + prompt)
 
-    builder = DeckBuilder(input_func=scripted_input)
+    builder = DeckBuilder(input_func=scripted_input, seed=seed)
     builder.run_initial_setup()
     builder.run_deck_build_step1()
     builder.run_deck_build_step2()

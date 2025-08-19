@@ -385,8 +385,11 @@ def select_color_balance_removal(builder, deficit_colors: set[str], overages: di
 	  3. Mono-color non-flex land not producing deficit colors
 	"""
 	matrix_current = builder._compute_color_source_matrix()
-	# Flex first
+	land_names = set(matrix_current.keys())  # ensure we only ever remove lands
+	# Flex lands first
 	for name, entry in builder.card_library.items():
+		if name not in land_names:
+			continue
 		if entry.get('Role') == 'flex':
 			colors = matrix_current.get(name, {})
 			if not any(colors.get(c, 0) for c in deficit_colors):
@@ -396,10 +399,12 @@ def select_color_balance_removal(builder, deficit_colors: set[str], overages: di
 		color_remove = max(overages.items(), key=lambda x: x[1])[0]
 		basic_map = {'W': 'Plains', 'U': 'Island', 'B': 'Swamp', 'R': 'Mountain', 'G': 'Forest'}
 		candidate = basic_map.get(color_remove)
-		if candidate and candidate in builder.card_library:
+		if candidate and candidate in builder.card_library and candidate in land_names:
 			return candidate
-	# Mono-color non-flex
+	# Mono-color non-flex lands
 	for name, entry in builder.card_library.items():
+		if name not in land_names:
+			continue
 		if entry.get('Role') == 'flex':
 			continue
 		colors = matrix_current.get(name, {})

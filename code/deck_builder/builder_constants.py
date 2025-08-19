@@ -157,7 +157,7 @@ DEFAULT_MAX_CARD_PRICE: Final[float] = 20.0  # Default maximum price per card
 # Deck composition defaults
 DEFAULT_RAMP_COUNT: Final[int] = 8  # Default number of ramp pieces
 DEFAULT_LAND_COUNT: Final[int] = 35  # Default total land count
-DEFAULT_BASIC_LAND_COUNT: Final[int] = 10  # Default minimum basic lands
+DEFAULT_BASIC_LAND_COUNT: Final[int] = 15  # Default minimum basic lands
 DEFAULT_NON_BASIC_LAND_SLOTS: Final[int] = 10  # Default number of non-basic land slots to reserve
 DEFAULT_BASICS_PER_COLOR: Final[int] = 5  # Default number of basic lands to add per color
 
@@ -364,7 +364,7 @@ LAND_REMOVAL_MAX_ATTEMPTS: Final[int] = 3
 PROTECTED_LANDS: Final[List[str]] = BASIC_LANDS + [land['name'] for land in KINDRED_STAPLE_LANDS]
 
 # Other defaults
-DEFAULT_CREATURE_COUNT: Final[int] = 30  # Default number of creatures
+DEFAULT_CREATURE_COUNT: Final[int] = 25  # Default number of creatures
 DEFAULT_REMOVAL_COUNT: Final[int] = 10  # Default number of spot removal spells
 DEFAULT_WIPES_COUNT: Final[int] = 2  # Default number of board wipes
 
@@ -375,7 +375,7 @@ DEFAULT_PROTECTION_COUNT: Final[int] = 8  # Default number of protection spells
 DECK_COMPOSITION_PROMPTS: Final[Dict[str, str]] = {
     'ramp': 'Enter desired number of ramp pieces (default: 8):',
     'lands': 'Enter desired number of total lands (default: 35):',
-    'basic_lands': 'Enter minimum number of basic lands (default: 20):',
+    'basic_lands': 'Enter minimum number of basic lands (default: 15):',
     'creatures': 'Enter desired number of creatures (default: 25):',
     'removal': 'Enter desired number of spot removal spells (default: 10):',
     'wipes': 'Enter desired number of board wipes (default: 2):',

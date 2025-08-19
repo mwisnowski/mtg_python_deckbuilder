@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+from typing import List, Optional
+
 from deck_builder.builder import DeckBuilder
 
 """Non-interactive harness.
@@ -13,19 +17,32 @@ Indices correspond to the numbered tag list presented during interaction.
 """
 
 def run(
-    command_name: str = "Finneas, Ace Archer",
+    command_name: str = "Rocco, Street Chef",
     add_creatures: bool = True,
+    add_non_creature_spells: bool = True,
+    # Fine-grained toggles (used only if add_non_creature_spells is False)
+    add_ramp: bool = True,
+    add_removal: bool = True,
+    add_wipes: bool = True,
+    add_card_advantage: bool = True,
+    add_protection: bool = True,
     use_multi_theme: bool = True,
-    primary_choice: int = 11,
-    secondary_choice: int | None = None,
-    tertiary_choice: int | None = None,
+    primary_choice: int = 9,
+    secondary_choice: Optional[int] = 1,
+    tertiary_choice: Optional[int] = 11,
     add_lands: bool = True,
-    fetch_count: int | None = 3,
-    dual_count: int | None = None,
-    triple_count: int | None = None,
-    utility_count: int | None = None,
-):
-    scripted_inputs: list[str] = []
+    fetch_count: Optional[int] = 3,
+    dual_count: Optional[int] = None,
+    triple_count: Optional[int] = None,
+    utility_count: Optional[int] = None,
+) -> DeckBuilder:
+    """Run a scripted non-interactive deck build and return the DeckBuilder instance.
+
+    Integer parameters (primary_choice, secondary_choice, tertiary_choice) correspond to the
+    numeric indices shown during interactive tag selection. Pass None to omit secondary/tertiary.
+    Optional counts (fetch_count, dual_count, triple_count, utility_count) constrain land steps.
+    """
+    scripted_inputs: List[str] = []
     # Commander query & selection
     scripted_inputs.append(command_name)        # initial query
     scripted_inputs.append("1")                # choose first search match to inspect
@@ -73,16 +90,36 @@ def run(
         if hasattr(builder, 'run_land_step6'):
             builder.run_land_step6(requested_count=triple_count)
         if hasattr(builder, 'run_land_step7'):
+            
             builder.run_land_step7(requested_count=utility_count)
         if hasattr(builder, 'run_land_step8'):
             builder.run_land_step8()
 
     if add_creatures:
         builder.add_creatures()
+    # Non-creature spell categories (ramp / removal / wipes / draw / protection)
+    if add_non_creature_spells and hasattr(builder, 'add_non_creature_spells'):
+        builder.add_non_creature_spells()
+    else:
+        # Allow selective invocation if orchestrator not desired
+        if add_ramp and hasattr(builder, 'add_ramp'):
+            builder.add_ramp()
+        if add_removal and hasattr(builder, 'add_removal'):
+            builder.add_removal()
+        if add_wipes and hasattr(builder, 'add_board_wipes'):
+            builder.add_board_wipes()
+        if add_card_advantage and hasattr(builder, 'add_card_advantage'):
+            builder.add_card_advantage()
+        if add_protection and hasattr(builder, 'add_protection'):
+            builder.add_protection()
         
 
-    builder.print_card_library()
+    # Suppress verbose library print in non-interactive run since CSV export is produced.
+    # builder.print_card_library()
     builder.post_spell_land_adjust()
+    # Export decklist CSV (commander first word + date)
+    if hasattr(builder, 'export_decklist_csv'):
+        builder.export_decklist_csv()
     return builder
 
 if __name__ == "__main__":

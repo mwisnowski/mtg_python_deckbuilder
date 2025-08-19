@@ -106,7 +106,7 @@ def run_menu() -> NoReturn:
                 case 'Tag CSV Files':
                     tagger.run_tagging()
                 case 'Build a Deck':
-                    builder.determine_commander()
+                    builder.build_deck_full()
                 case 'Quit':
                     logger.info("Exiting application")
                     sys.exit(0)

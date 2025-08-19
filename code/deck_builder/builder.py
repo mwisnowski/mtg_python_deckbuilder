@@ -188,6 +188,47 @@ class DeckBuilder:
     output_func: Callable[[str], None] = field(default=lambda msg: print(msg))
 
     # ---------------------------
+    # High-level Orchestration
+    # ---------------------------
+    def build_deck_full(self) -> None:
+        """Run the full interactive deck building pipeline and export deck CSV.
+
+        Steps:
+          1. Commander selection & tag prioritization
+          2. Power bracket & ideal composition inputs
+          3. Land building steps (1-8)
+          4. Creature addition (theme-weighted)
+          5. Non-creature spell categories & filler
+          6. Post-spell land color balancing & basic rebalance
+          7. CSV export (deck_files/<name>_<date>.csv)
+        """
+        try:
+            self.run_initial_setup()
+            self.run_deck_build_step1()
+            self.run_deck_build_step2()
+            # Land steps
+            for step in range(1, 9):
+                m = getattr(self, f"run_land_step{step}", None)
+                if callable(m):
+                    m()
+            # Creatures
+            if hasattr(self, 'add_creatures'):
+                self.add_creatures()
+            # Non-creature spells
+            if hasattr(self, 'add_non_creature_spells'):
+                self.add_non_creature_spells()
+            # Post-spell land adjustments
+            if hasattr(self, 'post_spell_land_adjust'):
+                self.post_spell_land_adjust()
+            # Export
+            if hasattr(self, 'export_decklist_csv'):
+                self.export_decklist_csv()
+        except KeyboardInterrupt:
+            self.output_func("\nDeck build cancelled by user.")
+        except Exception as e:
+            self.output_func(f"Deck build failed: {e}")
+
+    # ---------------------------
     # Data Loading
     # ---------------------------
     def load_commander_data(self) -> pd.DataFrame:
@@ -592,7 +633,26 @@ class DeckBuilder:
                 mana_value = None
         entry = self.card_library.get(card_name)
         if entry:
-            # Increment only count; tag counts track unique card presence so unchanged
+            # Enforce Commander singleton rules: only basic lands may have multiple copies
+            try:
+                from deck_builder import builder_constants as bc
+                from settings import MULTIPLE_COPY_CARDS
+            except Exception:
+                MULTIPLE_COPY_CARDS = []  # type: ignore
+            is_land = 'land' in str(card_type or entry.get('Card Type','')).lower()
+            is_basic = False
+            try:
+                basic_list = getattr(bc, 'BASIC_LANDS', [])
+                is_basic = any(card_name == bl or card_name.startswith(bl + ' ') for bl in basic_list)
+            except Exception:
+                pass
+            if is_land and not is_basic:
+                # Non-basic land: do not increment
+                return
+            if card_name in MULTIPLE_COPY_CARDS:
+                # Explicit multi-copy list still restricted to 1 in Commander context
+                return
+            # Basic lands (or other allowed future exceptions) increment
             entry['Count'] += 1
         else:
             # If no tags passed attempt enrichment from full snapshot / combined pool
@@ -2257,8 +2317,9 @@ class DeckBuilder:
     def post_spell_land_adjust(self,
                                pip_weights: Optional[Dict[str,float]] = None,
                                color_shortfall_threshold: float = 0.15,
-                               perform_swaps: bool = False,
-                               max_swaps: int = 3):
+                               perform_swaps: bool = True,
+                               max_swaps: int = 5,
+                               rebalance_basics: bool = True):
         # Compute pip weights if not supplied
         if pip_weights is None:
             pip_weights = self._compute_spell_pip_weights()
@@ -2298,7 +2359,7 @@ class DeckBuilder:
 
         # Rank deficit colors by largest gap first
         deficits.sort(key=lambda x: x[3], reverse=True)
-        swaps_done: list[tuple[str,str]] = []  # (removed, added)
+        swaps_done: list[tuple[str,str,str]] = []  # (removed, added, target_color)
 
         # Precompute overrepresented colors to target for removal
         overages: Dict[str,float] = {}
@@ -2321,7 +2382,13 @@ class DeckBuilder:
             adds = addition_candidates(color)
             if not adds:
                 continue
-            to_add = adds[0]
+            to_add = None
+            for cand in adds:
+                if cand not in self.card_library:
+                    to_add = cand
+                    break
+            if not to_add:
+                continue
             to_remove = removal_candidate({color})
             if not to_remove:
                 continue
@@ -2329,12 +2396,72 @@ class DeckBuilder:
                 continue
             self.add_card(to_add, card_type='Land')
             self.card_library[to_add]['Role'] = 'color-fix'
-            swaps_done.append((to_remove, to_add))
+            swaps_done.append((to_remove, to_add, color))
+            current_counts = self._current_color_source_counts()
+            total_sources = sum(current_counts.values()) or 1
+            source_share = {c: current_counts[c]/total_sources for c in current_counts}
+            new_gap = pip_weights.get(color,0.0) - source_share.get(color,0.0)
+            if new_gap <= color_shortfall_threshold:
+                continue
 
         if swaps_done:
             self.output_func("\nColor Balance Swaps Performed:")
-            for old, new in swaps_done:
-                self.output_func(f"  Replaced {old} -> {new}")
+            for old, new, col in swaps_done:
+                self.output_func(f"  [{col}] Replaced {old} -> {new}")
+            final_counts = self._current_color_source_counts()
+            final_total = sum(final_counts.values()) or 1
+            final_source_share = {c: final_counts[c]/final_total for c in final_counts}
+            self.output_func("  Updated Source Shares:")
+            for c in ['W','U','B','R','G']:
+                self.output_func(f"    {c}: {final_source_share.get(c,0.0)*100:5.1f}% (pip {pip_weights.get(c,0.0)*100:5.1f}%)")
+            if rebalance_basics:
+                try:
+                    from deck_builder import builder_constants as bc
+                    basic_map = getattr(bc, 'COLOR_TO_BASIC_LAND', {})
+                    basics_present = {nm: entry for nm, entry in self.card_library.items() if nm in basic_map.values()}
+                    if basics_present:
+                        total_basics = sum(e.get('Count',1) for e in basics_present.values())
+                        if total_basics > 0:
+                            desired_per_color: dict[str,int] = {}
+                            for c, basic_name in basic_map.items():
+                                if c not in ['W','U','B','R','G']:
+                                    continue
+                                desired = pip_weights.get(c,0.0) * total_basics
+                                desired_per_color[c] = int(round(desired))
+                            drift = total_basics - sum(desired_per_color.values())
+                            if drift != 0:
+                                ordered = sorted(desired_per_color.items(), key=lambda kv: pip_weights.get(kv[0],0.0), reverse=(drift>0))
+                                i = 0
+                                while drift != 0 and ordered:
+                                    c,_ = ordered[i % len(ordered)]
+                                    desired_per_color[c] += 1 if drift>0 else -1
+                                    drift += -1 if drift>0 else 1
+                                    i += 1
+                            changes: list[tuple[str,int,int]] = []
+                            for c, basic_name in basic_map.items():
+                                if c not in ['W','U','B','R','G']:
+                                    continue
+                                target = max(0, desired_per_color.get(c,0))
+                                entry = self.card_library.get(basic_name)
+                                old = entry.get('Count',0) if entry else 0
+                                if old == 0 and target>0:
+                                    for _ in range(target):
+                                        self.add_card(basic_name, card_type='Land')
+                                    changes.append((basic_name, 0, target))
+                                elif entry and old != target:
+                                    if target > old:
+                                        for _ in range(target-old):
+                                            self.add_card(basic_name, card_type='Land')
+                                    else:
+                                        for _ in range(old-target):
+                                            self._decrement_card(basic_name)
+                                    changes.append((basic_name, old, target))
+                            if changes:
+                                self.output_func("\nBasic Land Rebalance (toward pip distribution):")
+                                for nm, old, new in changes:
+                                    self.output_func(f"  {nm}: {old} -> {new}")
+                except Exception as e:
+                    self.output_func(f"  Basic rebalance skipped (error: {e})")
         else:
             self.output_func("  (No viable swaps executed.)")
 
@@ -2479,6 +2606,10 @@ class DeckBuilder:
                 return cleaned
             return []
         creature_df = df[df['type'].str.contains('Creature', case=False, na=False)].copy()
+        # Exclude commander from candidate pool to avoid duplicating it in creature additions
+        commander_name = getattr(self, 'commander', None) or getattr(self, 'commander_name', None)
+        if commander_name and 'name' in creature_df.columns:
+            creature_df = creature_df[creature_df['name'] != commander_name]
         if creature_df.empty:
             self.output_func("No creature rows in dataset; skipping.")
             return
@@ -2538,6 +2669,8 @@ class DeckBuilder:
             except Exception:
                 chosen = names_vec[:target]
             for nm in chosen:
+                if commander_name and nm == commander_name:
+                    continue  # safeguard
                 row = pool[pool['name']==nm].iloc[0]
                 self.add_card(nm,
                               card_type=row.get('type','Creature'),
@@ -2564,6 +2697,8 @@ class DeckBuilder:
                     multi_pool = multi_pool.sort_values(by=['_multiMatch','manaValue'], ascending=[False, True], na_position='last')
                 fill = multi_pool['name'].tolist()[:need]
                 for nm in fill:
+                    if commander_name and nm == commander_name:
+                        continue
                     row = multi_pool[multi_pool['name']==nm].iloc[0]
                     self.add_card(nm,
                                   card_type=row.get('type','Creature'),
@@ -2588,8 +2723,879 @@ class DeckBuilder:
         self.output_func(f"  Total {total_added}/{desired_total}{' (dataset shortfall)' if total_added < desired_total else ''}")
 
     # ---------------------------
+    # Non-Creature Additions (Ramp, Removal, Wipes, Draw, Protection)
+    # ---------------------------
+    def add_ramp(self):
+        """Add ramp pieces in three phases: mana rocks (~1/3), mana dorks (~1/4), then general/other.
+
+        Selection is deterministic priority based: lowest edhrecRank then lowest mana value.
+        No theme weighting – simple best-available filtering while avoiding duplicates.
+        """
+        if not self._combined_cards_df is not None:
+            return
+        target_total = self.ideal_counts.get('ramp', 0)
+        if target_total <= 0:
+            return
+        already = {n.lower() for n in self.card_library.keys()}
+        df = self._combined_cards_df
+        if 'name' not in df.columns:
+            return
+
+        def norm_tags(cell):
+            if isinstance(cell, list):
+                return [str(t).strip().lower() for t in cell]
+            if isinstance(cell, str) and cell.strip():
+                # attempt split on common delimiters / list literal
+                raw = cell
+                for ch in '[]'":":
+                    raw = raw.replace(ch, ' ')
+                parts = [p.strip().strip("'\"").lower() for p in raw.replace(';', ',').split(',') if p.strip()]
+                return parts
+            return []
+
+        work = df.copy()
+        work['_ltags'] = work.get('themeTags', []).apply(norm_tags)
+        # identify ramp-tagged cards (contains substring 'ramp')
+        def is_ramp(tags):
+            return any('ramp' in t for t in tags)
+        work = work[work['_ltags'].apply(is_ramp)]
+        if work.empty:
+            self.output_func('No ramp-tagged cards found in dataset.')
+            return
+        # Count existing ramp already in library & compute random bonus (0-20%) of original configured target
+        import math
+        import random
+        original_cfg = target_total
+        existing_ramp = 0
+        for name, entry in self.card_library.items():
+            for t in entry.get('Tags', []):
+                if isinstance(t, str) and 'ramp' in t.lower():
+                    existing_ramp += 1
+                    break
+        bonus = math.ceil(original_cfg * random.uniform(0.0, 0.2)) if original_cfg > 0 else 0
+        if existing_ramp >= original_cfg:
+            to_add = original_cfg + bonus - existing_ramp
+            if to_add <= 0:
+                self.output_func(f"Ramp target met ({existing_ramp}/{original_cfg}). Random bonus {bonus} -> no additional ramp needed.")
+                return
+            self.output_func(f"Ramp target met ({existing_ramp}/{original_cfg}). Adding random bonus {bonus}; scheduling {to_add} extra ramp spells.")
+            target_total = to_add
+        else:
+            remaining = original_cfg - existing_ramp
+            self.output_func(f"Existing ramp {existing_ramp}/{original_cfg}. Remaining need {remaining}. Random bonus {bonus}. Adding {remaining + bonus} ramp spells.")
+            target_total = remaining + bonus
+        # Exclude lands (handled separately) and Commander
+        work = work[~work['type'].fillna('').str.contains('Land', case=False, na=False)]
+        commander_name = getattr(self, 'commander', None)
+        if commander_name:
+            work = work[work['name'] != commander_name]
+        # Sort priority
+        sort_cols = []
+        if 'edhrecRank' in work.columns:
+            sort_cols.append('edhrecRank')
+        if 'manaValue' in work.columns:
+            sort_cols.append('manaValue')
+        if sort_cols:
+            work = work.sort_values(by=sort_cols, ascending=[True]*len(sort_cols), na_position='last')
+
+        # Phase targets
+        import math
+        rocks_target = min(target_total, math.ceil(target_total/3))
+        dorks_target = min(target_total - rocks_target, math.ceil(target_total/4))
+        # remainder auto for general
+
+        added_rocks = []
+        added_dorks = []
+        added_general = []
+
+        def add_from_pool(pool, remaining_needed, added_list, phase_name):
+            added_now = 0
+            for _, r in pool.iterrows():
+                nm = r['name']
+                if nm.lower() in already:
+                    continue
+                self.add_card(nm,
+                              card_type=r.get('type',''),
+                              mana_cost=r.get('manaCost',''),
+                              mana_value=r.get('manaValue', r.get('cmc','')),
+                              tags=r.get('themeTags', []) if isinstance(r.get('themeTags', []), list) else [])
+                already.add(nm.lower())
+                added_list.append(nm)
+                added_now += 1
+                if added_now >= remaining_needed:
+                    break
+            if added_now:
+                self.output_func(f"Ramp phase {phase_name}: added {added_now}/{remaining_needed} target.")
+            return added_now
+
+        # Mana Rocks: Artifact ramp (artifact in type OR common rock tag)
+        rocks_pool = work[work['type'].fillna('').str.contains('Artifact', case=False, na=False)]
+        if rocks_target > 0:
+            add_from_pool(rocks_pool, rocks_target, added_rocks, 'Rocks')
+
+        # Mana Dorks: Creature ramp (Creature type)
+        dorks_pool = work[work['type'].fillna('').str.contains('Creature', case=False, na=False)]
+        if dorks_target > 0:
+            add_from_pool(dorks_pool, dorks_target, added_dorks, 'Dorks')
+
+        # General / Remaining
+        current_total = len(added_rocks) + len(added_dorks)
+        remaining = target_total - current_total
+        if remaining > 0:
+            general_pool = work[~work['name'].isin(added_rocks + added_dorks)]
+            add_from_pool(general_pool, remaining, added_general, 'General')
+
+        total_added_now = len(added_rocks)+len(added_dorks)+len(added_general)
+        self.output_func(f"Total Ramp Added This Pass: {total_added_now}/{target_total}")
+        if (len(added_rocks)+len(added_dorks)+len(added_general)) < target_total:
+            self.output_func('Ramp shortfall due to limited dataset.')
+        if total_added_now:
+            self.output_func("Ramp Cards Added:")
+            for nm in added_rocks:
+                self.output_func(f"  [Rock] {nm}")
+            for nm in added_dorks:
+                self.output_func(f"  [Dork] {nm}")
+            for nm in added_general:
+                self.output_func(f"  [General] {nm}")
+
+    def add_removal(self):
+        """Add spot removal spells up to ideal count. Excludes obvious board wipes."""
+        target = self.ideal_counts.get('removal', 0)
+        if target <= 0 or self._combined_cards_df is None:
+            return
+        already = {n.lower() for n in self.card_library.keys()}
+        df = self._combined_cards_df.copy()
+        if 'name' not in df.columns:
+            return
+        def norm_tags(cell):
+            if isinstance(cell, list):
+                return [str(t).strip().lower() for t in cell]
+            if isinstance(cell, str):
+                raw = cell.lower()
+                for ch in '[]'":":
+                    raw = raw.replace(ch, ' ')
+                return [p.strip().strip("'\"") for p in raw.replace(';', ',').split(',') if p.strip()]
+            return []
+        df['_ltags'] = df.get('themeTags', []).apply(norm_tags)
+        def is_removal(tags):
+            return any('removal' in t or 'spot removal' in t for t in tags)
+        def is_wipe(tags):
+            return any('board wipe' in t or 'mass removal' in t for t in tags)
+        pool = df[df['_ltags'].apply(is_removal) & ~df['_ltags'].apply(is_wipe)]
+        pool = pool[~pool['type'].fillna('').str.contains('Land', case=False, na=False)]
+        commander_name = getattr(self, 'commander', None)
+        if commander_name:
+            pool = pool[pool['name'] != commander_name]
+        sort_cols = []
+        if 'edhrecRank' in pool.columns:
+            sort_cols.append('edhrecRank')
+        if 'manaValue' in pool.columns:
+            sort_cols.append('manaValue')
+        if sort_cols:
+            pool = pool.sort_values(by=sort_cols, ascending=[True]*len(sort_cols), na_position='last')
+        # Count existing removal (excluding wipes) & random bonus up to 20%
+        import math
+        import random
+        original_cfg = target
+        existing = 0
+        for name, entry in self.card_library.items():
+            lt = [str(t).lower() for t in entry.get('Tags', [])]
+            if any(('removal' in t or 'spot removal' in t) for t in lt) and not any(('board wipe' in t or 'mass removal' in t) for t in lt):
+                existing += 1
+        bonus = math.ceil(original_cfg * random.uniform(0.0, 0.2)) if original_cfg > 0 else 0
+        if existing >= original_cfg:
+            to_add = original_cfg + bonus - existing
+            if to_add <= 0:
+                self.output_func(f"Removal target met ({existing}/{original_cfg}). Random bonus {bonus} -> no additional removal needed.")
+                return
+            self.output_func(f"Removal target met ({existing}/{original_cfg}). Adding random bonus {bonus}; scheduling {to_add} extra removal spells.")
+            target = to_add
+        else:
+            remaining_need = original_cfg - existing
+            target = remaining_need + bonus
+            self.output_func(f"Existing removal {existing}/{original_cfg}. Remaining need {remaining_need}. Random bonus {bonus}. Adding {target} removal spells.")
+        added = 0
+        added_names = []
+        for _, r in pool.iterrows():
+            if added >= target:
+                break
+            nm = r['name']
+            if nm.lower() in already:
+                continue
+            self.add_card(nm,
+                          card_type=r.get('type',''),
+                          mana_cost=r.get('manaCost',''),
+                          mana_value=r.get('manaValue', r.get('cmc','')),
+                          tags=r.get('themeTags', []) if isinstance(r.get('themeTags', []), list) else [])
+            already.add(nm.lower())
+            added += 1
+            added_names.append(nm)
+        self.output_func(f"Added Spot Removal This Pass: {added}/{target}{' (dataset shortfall)' if added < target else ''}")
+        if added_names:
+            self.output_func('Removal Cards Added:')
+            for nm in added_names:
+                self.output_func(f"  - {nm}")
+
+    def add_board_wipes(self):
+        """Add board wipe spells up to ideal count."""
+        target = self.ideal_counts.get('wipes', 0)
+        if target <= 0 or self._combined_cards_df is None:
+            return
+        already = {n.lower() for n in self.card_library.keys()}
+        df = self._combined_cards_df.copy()
+        def norm(cell):
+            if isinstance(cell, list):
+                return [str(t).strip().lower() for t in cell]
+            if isinstance(cell, str):
+                raw = cell.lower()
+                for ch in '[]'":":
+                    raw = raw.replace(ch, ' ')
+                return [p.strip().strip("'\"") for p in raw.replace(';', ',').split(',') if p.strip()]
+            return []
+        df['_ltags'] = df.get('themeTags', []).apply(norm)
+        def is_wipe(tags):
+            return any('board wipe' in t or 'mass removal' in t for t in tags)
+        pool = df[df['_ltags'].apply(is_wipe)]
+        pool = pool[~pool['type'].fillna('').str.contains('Land', case=False, na=False)]
+        commander_name = getattr(self, 'commander', None)
+        if commander_name:
+            pool = pool[pool['name'] != commander_name]
+        sort_cols = []
+        if 'edhrecRank' in pool.columns:
+            sort_cols.append('edhrecRank')
+        if 'manaValue' in pool.columns:
+            sort_cols.append('manaValue')
+        if sort_cols:
+            pool = pool.sort_values(by=sort_cols, ascending=[True]*len(sort_cols), na_position='last')
+        # Count existing wipes & random bonus up to 20%
+        import math
+        import random
+        original_cfg = target
+        existing = 0
+        for name, entry in self.card_library.items():
+            tags = [str(t).lower() for t in entry.get('Tags', [])]
+            if any(('board wipe' in t or 'mass removal' in t) for t in tags):
+                existing += 1
+        bonus = math.ceil(original_cfg * random.uniform(0.0, 0.2)) if original_cfg > 0 else 0
+        if existing >= original_cfg:
+            to_add = original_cfg + bonus - existing
+            if to_add <= 0:
+                self.output_func(f"Board wipe target met ({existing}/{original_cfg}). Random bonus {bonus} -> no additional wipes needed.")
+                return
+            self.output_func(f"Board wipe target met ({existing}/{original_cfg}). Adding random bonus {bonus}; scheduling {to_add} extra wipes.")
+            target = to_add
+        else:
+            remaining_need = original_cfg - existing
+            target = remaining_need + bonus
+            self.output_func(f"Existing wipes {existing}/{original_cfg}. Remaining need {remaining_need}. Random bonus {bonus}. Adding {target} wipes.")
+        added = 0
+        added_names = []
+        for _, r in pool.iterrows():
+            if added >= target:
+                break
+            nm = r['name']
+            if nm.lower() in already:
+                continue
+            self.add_card(nm,
+                          card_type=r.get('type',''),
+                          mana_cost=r.get('manaCost',''),
+                          mana_value=r.get('manaValue', r.get('cmc','')),
+                          tags=r.get('themeTags', []) if isinstance(r.get('themeTags', []), list) else [])
+            already.add(nm.lower())
+            added += 1
+            added_names.append(nm)
+        self.output_func(f"Added Board Wipes This Pass: {added}/{target}{' (dataset shortfall)' if added < target else ''}")
+        if added_names:
+            self.output_func('Board Wipes Added:')
+            for nm in added_names:
+                self.output_func(f"  - {nm}")
+
+    def add_card_advantage(self):
+        """Add card advantage (draw) in two phases: conditional (~20%) then unconditional remainder."""
+        total_target = self.ideal_counts.get('card_advantage', 0)
+        if total_target <= 0 or self._combined_cards_df is None:
+            return
+        import math
+        # Count existing draw pieces & random bonus up to 20%
+        import random
+        original_cfg = total_target
+        existing = 0
+        for name, entry in self.card_library.items():
+            tags = [str(t).lower() for t in entry.get('Tags', [])]
+            if any(('draw' in t) or ('card advantage' in t) for t in tags):
+                existing += 1
+        bonus = math.ceil(original_cfg * random.uniform(0.0, 0.2)) if original_cfg > 0 else 0
+        if existing >= original_cfg:
+            to_add_total = original_cfg + bonus - existing
+            if to_add_total <= 0:
+                self.output_func(f"Card advantage target met ({existing}/{original_cfg}). Random bonus {bonus} -> no additional draw needed.")
+                return
+            self.output_func(f"Card advantage target met ({existing}/{original_cfg}). Adding random bonus {bonus}; scheduling {to_add_total} extra draw spells.")
+            total_target = to_add_total
+        else:
+            remaining_need = original_cfg - existing
+            total_target = remaining_need + bonus
+            self.output_func(f"Existing draw {existing}/{original_cfg}. Remaining need {remaining_need}. Random bonus {bonus}. Adding {total_target} draw spells.")
+        conditional_target = min(total_target, math.ceil(total_target * 0.2))
+        already = {n.lower() for n in self.card_library.keys()}
+        df = self._combined_cards_df.copy()
+        def norm(cell):
+            if isinstance(cell, list):
+                return [str(t).strip().lower() for t in cell]
+            if isinstance(cell, str):
+                raw = cell.lower()
+                for ch in '[]'":":
+                    raw = raw.replace(ch, ' ')
+                return [p.strip().strip("'\"") for p in raw.replace(';', ',').split(',') if p.strip()]
+            return []
+        df['_ltags'] = df.get('themeTags', []).apply(norm)
+        def is_draw(tags):
+            return any(('draw' in t) or ('card advantage' in t) for t in tags)
+        df = df[df['_ltags'].apply(is_draw)]
+        df = df[~df['type'].fillna('').str.contains('Land', case=False, na=False)]
+        commander_name = getattr(self, 'commander', None)
+        if commander_name:
+            df = df[df['name'] != commander_name]
+        # Classify conditional vs unconditional by presence of keywords
+        CONDITIONAL_KEYS = ['conditional', 'situational', 'attacks', 'combat damage', 'when you cast']
+        def is_conditional(tags):
+            return any(any(k in t for k in CONDITIONAL_KEYS) for t in tags)
+        conditional_df = df[df['_ltags'].apply(is_conditional)]
+        unconditional_df = df[~df.index.isin(conditional_df.index)]
+        def sortit(d):
+            sc = []
+            if 'edhrecRank' in d.columns:
+                sc.append('edhrecRank')
+            if 'manaValue' in d.columns:
+                sc.append('manaValue')
+            if sc:
+                d = d.sort_values(by=sc, ascending=[True]*len(sc), na_position='last')
+            return d
+        conditional_df = sortit(conditional_df)
+        unconditional_df = sortit(unconditional_df)
+        added_cond = 0
+        added_cond_names = []
+        for _, r in conditional_df.iterrows():
+            if added_cond >= conditional_target:
+                break
+            nm = r['name']
+            if nm.lower() in already:
+                continue
+            self.add_card(nm,
+                          card_type=r.get('type',''),
+                          mana_cost=r.get('manaCost',''),
+                          mana_value=r.get('manaValue', r.get('cmc','')),
+                          tags=r.get('themeTags', []) if isinstance(r.get('themeTags', []), list) else [])
+            already.add(nm.lower())
+            added_cond += 1
+            added_cond_names.append(nm)
+        remaining = total_target - added_cond
+        added_uncond = 0
+        added_uncond_names = []
+        if remaining > 0:
+            for _, r in unconditional_df.iterrows():
+                if added_uncond >= remaining:
+                    break
+                nm = r['name']
+                if nm.lower() in already:
+                    continue
+                self.add_card(nm,
+                              card_type=r.get('type',''),
+                              mana_cost=r.get('manaCost',''),
+                              mana_value=r.get('manaValue', r.get('cmc','')),
+                              tags=r.get('themeTags', []) if isinstance(r.get('themeTags', []), list) else [])
+                already.add(nm.lower())
+                added_uncond += 1
+                added_uncond_names.append(nm)
+        self.output_func(f"Added Card Advantage This Pass: conditional {added_cond}/{conditional_target}, total {(added_cond+added_uncond)}/{total_target}{' (dataset shortfall)' if (added_cond+added_uncond) < total_target else ''}")
+        if added_cond_names or added_uncond_names:
+            self.output_func('Card Advantage Cards Added:')
+            for nm in added_cond_names:
+                self.output_func(f"  [Conditional] {nm}")
+            for nm in added_uncond_names:
+                self.output_func(f"  [Unconditional] {nm}")
+
+    def add_protection(self):
+        """Add protection spells up to target (tags containing 'protection')."""
+        target = self.ideal_counts.get('protection', 0)
+        if target <= 0 or self._combined_cards_df is None:
+            return
+        already = {n.lower() for n in self.card_library.keys()}
+        df = self._combined_cards_df.copy()
+        def norm(cell):
+            if isinstance(cell, list):
+                return [str(t).strip().lower() for t in cell]
+            if isinstance(cell, str):
+                raw = cell.lower()
+                for ch in '[]'":":
+                    raw = raw.replace(ch, ' ')
+                return [p.strip().strip("'\"") for p in raw.replace(';', ',').split(',') if p.strip()]
+            return []
+        df['_ltags'] = df.get('themeTags', []).apply(norm)
+        pool = df[df['_ltags'].apply(lambda tags: any('protection' in t for t in tags))]
+        pool = pool[~pool['type'].fillna('').str.contains('Land', case=False, na=False)]
+        commander_name = getattr(self, 'commander', None)
+        if commander_name:
+            pool = pool[pool['name'] != commander_name]
+        sort_cols = []
+        if 'edhrecRank' in pool.columns:
+            sort_cols.append('edhrecRank')
+        if 'manaValue' in pool.columns:
+            sort_cols.append('manaValue')
+        if sort_cols:
+            pool = pool.sort_values(by=sort_cols, ascending=[True]*len(sort_cols), na_position='last')
+        # Count existing protection pieces & random bonus up to 20%
+        import math
+        import random
+        original_cfg = target
+        existing = 0
+        for name, entry in self.card_library.items():
+            tags = [str(t).lower() for t in entry.get('Tags', [])]
+            if any('protection' in t for t in tags):
+                existing += 1
+        bonus = math.ceil(original_cfg * random.uniform(0.0, 0.2)) if original_cfg > 0 else 0
+        if existing >= original_cfg:
+            to_add = original_cfg + bonus - existing
+            if to_add <= 0:
+                self.output_func(f"Protection target met ({existing}/{original_cfg}). Random bonus {bonus} -> no additional protection needed.")
+                return
+            self.output_func(f"Protection target met ({existing}/{original_cfg}). Adding random bonus {bonus}; scheduling {to_add} extra protection spells.")
+            target = to_add
+        else:
+            remaining_need = original_cfg - existing
+            target = remaining_need + bonus
+            self.output_func(f"Existing protection {existing}/{original_cfg}. Remaining need {remaining_need}. Random bonus {bonus}. Adding {target} protection spells.")
+        added = 0
+        added_names = []
+        for _, r in pool.iterrows():
+            if added >= target:
+                break
+            nm = r['name']
+            if nm.lower() in already:
+                continue
+            self.add_card(nm,
+                          card_type=r.get('type',''),
+                          mana_cost=r.get('manaCost',''),
+                          mana_value=r.get('manaValue', r.get('cmc','')),
+                          tags=r.get('themeTags', []) if isinstance(r.get('themeTags', []), list) else [])
+            already.add(nm.lower())
+            added += 1
+            added_names.append(nm)
+        self.output_func(f"Added Protection This Pass: {added}/{target}{' (dataset shortfall)' if added < target else ''}")
+        if added_names:
+            self.output_func('Protection Cards Added:')
+            for nm in added_names:
+                self.output_func(f"  - {nm}")
+
+    def fill_remaining_theme_spells(self):
+        """Fill remaining deck slots (to 100 incl. commander) with non-land, non-creature theme spells.
+
+        Uses same multi-theme weighting & kindred multipliers as creature addition.
+        Weighted sampling favors multi-match (synergy) cards. Stops exactly at or before 100.
+        """
+        # Determine remaining slots
+        total_cards = sum(entry.get('Count', 1) for entry in self.card_library.values())
+        remaining = 100 - total_cards
+        if remaining <= 0:
+            return
+        df = getattr(self, '_combined_cards_df', None)
+        if df is None or df.empty or 'type' not in df.columns:
+            return
+        themes_ordered: list[tuple[str, str]] = []
+        if self.primary_tag:
+            themes_ordered.append(('primary', self.primary_tag))
+        if self.secondary_tag:
+            themes_ordered.append(('secondary', self.secondary_tag))
+        if self.tertiary_tag:
+            themes_ordered.append(('tertiary', self.tertiary_tag))
+        if not themes_ordered:
+            return
+        import ast
+        import re
+        import math
+        import random
+        n_themes = len(themes_ordered)
+        if n_themes == 1:
+            base_map = {'primary': 1.0}
+        elif n_themes == 2:
+            base_map = {'primary': 0.6, 'secondary': 0.4}
+        else:
+            base_map = {'primary': 0.5, 'secondary': 0.3, 'tertiary': 0.2}
+        weights: dict[str, float] = {}
+        boosted: set[str] = set()
+        if n_themes > 1:
+            for role, tag in themes_ordered:
+                w = base_map.get(role, 0.0)
+                lt = tag.lower()
+                if 'kindred' in lt or 'tribal' in lt:
+                    mult = getattr(bc, 'WEIGHT_ADJUSTMENT_FACTORS', {}).get(f'kindred_{role}', 1.0)
+                    w *= mult
+                    boosted.add(role)
+                weights[role] = w
+            tot = sum(weights.values())
+            if tot > 1.0:
+                for r in weights:
+                    weights[r] /= tot
+            else:
+                rem = 1.0 - tot
+                base_sum_unboosted = sum(base_map[r] for r, _ in themes_ordered if r not in boosted)
+                if rem > 1e-6 and base_sum_unboosted > 0:
+                    for r, _ in themes_ordered:
+                        if r not in boosted:
+                            weights[r] += rem * (base_map[r] / base_sum_unboosted)
+        else:
+            weights['primary'] = 1.0
+
+        def _parse_tags(val):
+            if isinstance(val, list):
+                out = []
+                for v in val:
+                    if isinstance(v, list):
+                        out.extend(str(x) for x in v)
+                    else:
+                        out.append(str(v))
+                return [s.strip() for s in out if s and s.strip()]
+            if isinstance(val, str):
+                s = val.strip()
+                try:
+                    parsed = ast.literal_eval(s)
+                    if isinstance(parsed, list):
+                        return [str(x).strip() for x in parsed if str(x).strip()]
+                except Exception:
+                    pass
+                if s.startswith('[') and s.endswith(']'):
+                    s = s[1:-1]
+                parts = [p.strip().strip("'\"") for p in s.split(',')]
+                cleaned = []
+                for p in parts:
+                    if not p:
+                        continue
+                    q = re.sub(r"^[\[\s']+|[\]\s']+$", '', p)
+                    if q:
+                        cleaned.append(q)
+                return cleaned
+            return []
+
+        # Filter to non-land, non-creature spells
+        spells_df = df[
+            ~df['type'].str.contains('Land', case=False, na=False)
+            & ~df['type'].str.contains('Creature', case=False, na=False)
+        ].copy()
+        if spells_df.empty:
+            return
+        selected_tags_lower = [t.lower() for _r, t in themes_ordered]
+        if '_parsedThemeTags' not in spells_df.columns:
+            spells_df['_parsedThemeTags'] = spells_df['themeTags'].apply(_parse_tags)
+        spells_df['_normTags'] = spells_df['_parsedThemeTags'].apply(lambda lst: [s.lower() for s in lst])
+        spells_df['_multiMatch'] = spells_df['_normTags'].apply(
+            lambda lst: sum(1 for t in selected_tags_lower if t in lst)
+        )
+        base_top = 40
+        top_n = int(base_top * getattr(bc, 'THEME_POOL_SIZE_MULTIPLIER', 2.0))
+        synergy_bonus = getattr(bc, 'THEME_PRIORITY_BONUS', 1.2)
+        per_theme_added: dict[str, list[str]] = {r: [] for r, _t in themes_ordered}
+        total_added = 0
+        for role, tag in themes_ordered:
+            if remaining - total_added <= 0:
+                break
+            w = weights.get(role, 0.0)
+            if w <= 0:
+                continue
+            target = int(math.ceil(remaining * w * random.uniform(1.0, 1.1)))
+            target = min(target, remaining - total_added)
+            if target <= 0:
+                continue
+            tnorm = tag.lower()
+            subset = spells_df[
+                spells_df['_normTags'].apply(
+                    lambda lst, tn=tnorm: (tn in lst) or any(tn in x for x in lst)
+                )
+            ]
+            if subset.empty:
+                continue
+            if 'edhrecRank' in subset.columns:
+                subset = subset.sort_values(
+                    by=['_multiMatch', 'edhrecRank', 'manaValue'],
+                    ascending=[False, True, True],
+                    na_position='last',
+                )
+            elif 'manaValue' in subset.columns:
+                subset = subset.sort_values(
+                    by=['_multiMatch', 'manaValue'],
+                    ascending=[False, True],
+                    na_position='last',
+                )
+            pool = subset.head(top_n).copy()
+            pool = pool[~pool['name'].isin(self.card_library.keys())]
+            if pool.empty:
+                continue
+            names_vec = pool['name'].tolist()
+            weights_vec = [
+                synergy_bonus if mm >= 2 else 1.0 for mm in pool['_multiMatch']
+            ]
+            chosen = []
+            try:
+                for _ in range(min(target, len(names_vec))):
+                    totw = sum(weights_vec)
+                    if totw <= 0:
+                        break
+                    r = random.random() * totw
+                    acc = 0.0
+                    idx = 0
+                    for i, wv in enumerate(weights_vec):
+                        acc += wv
+                        if r <= acc:
+                            idx = i
+                            break
+                    chosen.append(names_vec.pop(idx))
+                    weights_vec.pop(idx)
+            except Exception:
+                chosen = names_vec[:target]
+            for nm in chosen:
+                row = pool[pool['name'] == nm].iloc[0]
+                self.add_card(
+                    nm,
+                    card_type=row.get('type', ''),
+                    mana_cost=row.get('manaCost', ''),
+                    mana_value=row.get('manaValue', row.get('cmc', '')),
+                    tags=row.get('themeTags', [])
+                    if isinstance(row.get('themeTags', []), list)
+                    else [],
+                )
+                per_theme_added[role].append(nm)
+                total_added += 1
+                if total_added >= remaining:
+                    break
+        if total_added < remaining:
+            need = remaining - total_added
+            multi_pool = spells_df[~spells_df['name'].isin(self.card_library.keys())].copy()
+            multi_pool = multi_pool[multi_pool['_multiMatch'] > 0]
+            if not multi_pool.empty:
+                if 'edhrecRank' in multi_pool.columns:
+                    multi_pool = multi_pool.sort_values(
+                        by=['_multiMatch', 'edhrecRank', 'manaValue'],
+                        ascending=[False, True, True],
+                        na_position='last',
+                    )
+                elif 'manaValue' in multi_pool.columns:
+                    multi_pool = multi_pool.sort_values(
+                        by=['_multiMatch', 'manaValue'],
+                        ascending=[False, True],
+                        na_position='last',
+                    )
+                fill = multi_pool['name'].tolist()[:need]
+                for nm in fill:
+                    row = multi_pool[multi_pool['name'] == nm].iloc[0]
+                    self.add_card(
+                        nm,
+                        card_type=row.get('type', ''),
+                        mana_cost=row.get('manaCost', ''),
+                        mana_value=row.get('manaValue', row.get('cmc', '')),
+                        tags=row.get('themeTags', [])
+                        if isinstance(row.get('themeTags', []), list)
+                        else [],
+                    )
+                    total_added += 1
+                    if total_added >= remaining:
+                        break
+        # Still short? Randomly add general utility (ramp / draw / protection / removal / wipes)
+        if total_added < remaining:
+            extra_needed = remaining - total_added
+            leftover = spells_df[~spells_df['name'].isin(self.card_library.keys())].copy()
+            if not leftover.empty:
+                # Prepare lowercase tag lists if not present
+                if '_normTags' not in leftover.columns:
+                    leftover['_normTags'] = leftover['themeTags'].apply(
+                        lambda x: [str(t).lower() for t in x] if isinstance(x, list) else []
+                    )
+                def has_any(tag_list, needles):
+                    return any(any(nd in t for nd in needles) for t in tag_list)
+                # Category detection
+                def classify(row):
+                    tags = row['_normTags']
+                    if has_any(tags, ['ramp']):
+                        return 'ramp'
+                    if has_any(tags, ['card advantage', 'draw']):
+                        return 'card_advantage'
+                    if has_any(tags, ['protection']):
+                        return 'protection'
+                    if has_any(tags, ['board wipe', 'mass removal']):
+                        return 'board_wipe'
+                    if has_any(tags, ['removal']):
+                        return 'removal'
+                    return ''
+                leftover['_fillerCat'] = leftover.apply(classify, axis=1)
+                random_added = []
+                for _ in range(extra_needed):
+                    candidates_by_cat = {}
+                    for cat in ['ramp','card_advantage','protection','board_wipe','removal']:
+                        subset = leftover[leftover['_fillerCat'] == cat]
+                        if not subset.empty:
+                            candidates_by_cat[cat] = subset
+                    if not candidates_by_cat:
+                        # fallback: any leftover spell
+                        subset = leftover
+                    else:
+                        cat_choice = random.choice(list(candidates_by_cat.keys()))
+                        subset = candidates_by_cat[cat_choice]
+                    # Sort subset
+                    if 'edhrecRank' in subset.columns:
+                        subset = subset.sort_values(by=['edhrecRank','manaValue'], ascending=[True, True], na_position='last')
+                    elif 'manaValue' in subset.columns:
+                        subset = subset.sort_values(by=['manaValue'], ascending=[True], na_position='last')
+                    row = subset.head(1)
+                    if row.empty:
+                        break
+                    r0 = row.iloc[0]
+                    nm = r0['name']
+                    self.add_card(
+                        nm,
+                        card_type=r0.get('type',''),
+                        mana_cost=r0.get('manaCost',''),
+                        mana_value=r0.get('manaValue', r0.get('cmc','')),
+                        tags=r0.get('themeTags', []) if isinstance(r0.get('themeTags', []), list) else []
+                    )
+                    random_added.append(nm)
+                    # Remove from leftover
+                    leftover = leftover[leftover['name'] != nm]
+                    total_added += 1
+                    if total_added >= remaining:
+                        break
+                if random_added:
+                    self.output_func("  General Utility Filler Added:")
+                    for nm in random_added:
+                        self.output_func(f"    - {nm}")
+        if total_added:
+            self.output_func("\nFinal Theme Spell Fill:")
+            for role, tag in themes_ordered:
+                lst = per_theme_added.get(role, [])
+                if lst:
+                    self.output_func(f"  {role.title()} '{tag}': {len(lst)}")
+                    for nm in lst:
+                        self.output_func(f"    - {nm}")
+            self.output_func(f"  Total Theme Spells Added: {total_added}")
+
+    def add_non_creature_spells(self):
+        """Convenience orchestrator for adding remaining non-creature spell categories in standard order."""
+        self.add_ramp()
+        self.add_removal()
+        self.add_board_wipes()
+        self.add_card_advantage()
+        self.add_protection()
+        # Final thematic fill to 100
+        self.fill_remaining_theme_spells()
+        # Show card type distribution after all spells
+        self.print_type_summary()
+
+    def print_type_summary(self):
+        """Print a concise summary of deck counts by primary card types (includes commander)."""
+        type_buckets = {
+            'Lands': 0,
+            'Creatures': 0,
+            'Artifacts': 0,
+            'Enchantments': 0,
+            'Instants': 0,
+            'Sorceries': 0,
+            'Planeswalkers': 0,
+            'Battles': 0,
+            'Other': 0,
+        }
+        for name, entry in self.card_library.items():
+            ctype = str(entry.get('Card Type', ''))
+            count = entry.get('Count', 1)
+            low = ctype.lower()
+            placed = False
+            if 'land' in low:
+                type_buckets['Lands'] += count
+                placed = True
+            if 'creature' in low:
+                type_buckets['Creatures'] += count
+                placed = True
+            if 'artifact' in low:
+                type_buckets['Artifacts'] += count
+                placed = True
+            if 'enchantment' in low:
+                type_buckets['Enchantments'] += count
+                placed = True
+            if 'instant' in low:
+                type_buckets['Instants'] += count
+                placed = True
+            if 'sorcery' in low:
+                type_buckets['Sorceries'] += count
+                placed = True
+            if 'planeswalker' in low:
+                type_buckets['Planeswalkers'] += count
+                placed = True
+            if 'battle' in low:
+                type_buckets['Battles'] += count
+                placed = True
+            if not placed:
+                type_buckets['Other'] += count
+        total = sum(type_buckets.values())
+        self.output_func("\nCard Type Summary:")
+        for k in ['Lands','Creatures','Artifacts','Enchantments','Instants','Sorceries','Planeswalkers','Battles','Other']:
+            v = type_buckets[k]
+            if v:
+                self.output_func(f"  {k}: {v}")
+        deck_card_total = sum(entry.get('Count',1) for entry in self.card_library.values())
+        self.output_func(f"  Total (multi-type bucketed sum): {total}")
+        if total != deck_card_total:
+            self.output_func(f"  Unique Card Copies: {deck_card_total}")
+        self.output_func("  Note: Multi-typed cards (e.g., Artifact Creature) are counted in each applicable bucket.")
+
+    # ---------------------------
     # Card Library Reporting
     # ---------------------------
+    def export_decklist_csv(self, path: Optional[str] = None) -> Optional[str]:
+        """Export current deck list to CSV file.
+
+        If path not provided, writes to deck_files/<CommanderFirstWord>_<YYYYMMDD>.csv.
+        Returns the written path or None on failure.
+        """
+        import datetime
+        import os
+        import csv
+        if not self.card_library:
+            self.output_func('No cards in library to export.')
+            return None
+        commander_name = getattr(self, 'commander', '') or ''
+        if path is None:
+            first = 'deck'
+            if commander_name:
+                first = commander_name.split()[0]
+            date_str = datetime.date.today().strftime('%Y%m%d')
+            os.makedirs('deck_files', exist_ok=True)
+            path = f'deck_files/{first}_{date_str}.csv'
+        try:
+            with open(path, 'w', newline='', encoding='utf-8') as f:
+                w = csv.writer(f)
+                w.writerow(['Name','Count','Type','Mana Cost','Mana Value','Tags','Text'])
+                # Build lookup for text from combined/full df
+                combined = self._full_cards_df if self._full_cards_df is not None else self._combined_cards_df
+                text_lookup = {}
+                if combined is not None and 'name' in combined.columns:
+                    for _, r in combined.iterrows():
+                        nm = str(r.get('name'))
+                        if nm not in text_lookup:
+                            txt = r.get('text', '') or r.get('oracleText', '') or ''
+                            text_lookup[nm] = txt
+                for name, entry in self.card_library.items():
+                    text_field = text_lookup.get(name, '')
+                    w.writerow([
+                        name,
+                        entry.get('Count',1),
+                        entry.get('Card Type',''),
+                        entry.get('Mana Cost',''),
+                        entry.get('Mana Value',''),
+                        '; '.join(entry.get('Tags', [])),
+                        text_field.replace('\n',' ')[:500]
+                    ])
+            self.output_func(f'Deck exported to {path}')
+            return path
+        except Exception as e:
+            self.output_func(f'Failed to export deck CSV: {e}')
+            return None
+
     def print_card_library(self, truncate_text: bool = True, text_limit: int = 80):
         """Pretty print the current card library using PrettyTable.
 

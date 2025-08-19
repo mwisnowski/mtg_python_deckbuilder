@@ -150,7 +150,7 @@ DEFAULT_MAX_CARD_PRICE: Final[float] = 20.0  # Default maximum price per card
 # Deck composition defaults
 DEFAULT_RAMP_COUNT: Final[int] = 8  # Default number of ramp pieces
 DEFAULT_LAND_COUNT: Final[int] = 35  # Default total land count
-DEFAULT_BASIC_LAND_COUNT: Final[int] = 20  # Default minimum basic lands
+DEFAULT_BASIC_LAND_COUNT: Final[int] = 10  # Default minimum basic lands
 DEFAULT_NON_BASIC_LAND_SLOTS: Final[int] = 10  # Default number of non-basic land slots to reserve
 DEFAULT_BASICS_PER_COLOR: Final[int] = 5  # Default number of basic lands to add per color
 
@@ -158,9 +158,49 @@ DEFAULT_BASICS_PER_COLOR: Final[int] = 5  # Default number of basic lands to add
 MISC_LAND_MIN_COUNT: Final[int] = 5  # Minimum number of miscellaneous lands to add
 MISC_LAND_MAX_COUNT: Final[int] = 10  # Maximum number of miscellaneous lands to add
 MISC_LAND_POOL_SIZE: Final[int] = 100  # Maximum size of initial land pool to select from
+MISC_LAND_TOP_POOL_SIZE: Final[int] = 30  # For utility step: sample from top N by EDHREC rank
+MISC_LAND_COLOR_FIX_PRIORITY_WEIGHT: Final[int] = 2  # Weight multiplier for color-fixing candidates
 
-# Default fetch land count
+# Default fetch land count & cap
 FETCH_LAND_DEFAULT_COUNT: Final[int] = 3  # Default number of fetch lands to include
+FETCH_LAND_MAX_CAP: Final[int] = 7  # Absolute maximum fetch lands allowed in final manabase
+
+# Default dual land (two-color nonbasic) total target
+DUAL_LAND_DEFAULT_COUNT: Final[int] = 4  # Heuristic total; actual added may be less based on colors/capacity
+
+# Default triple land (three-color typed) total target (kept low; usually only 1-2 high quality available)
+TRIPLE_LAND_DEFAULT_COUNT: Final[int] = 2  # User preference: add only one or two
+
+# Maximum acceptable ETB tapped land counts per power bracket (1-5)
+TAPPED_LAND_MAX_THRESHOLDS: Final[Dict[int,int]] = {
+    1: 14,  # Exhibition
+    2: 12,  # Core / Precon
+    3: 10,  # Upgraded
+    4: 8,   # Optimized
+    5: 6,   # cEDH (fast mana expectations)
+}
+
+# Minimum penalty score to consider swapping (higher scores swapped first); kept for tuning
+TAPPED_LAND_SWAP_MIN_PENALTY: Final[int] = 6
+
+# Basic land floor ratio (ceil of ratio * configured basic count)
+BASIC_FLOOR_FACTOR: Final[float] = 0.9
+
+# Shared textual heuristics / keyword lists
+BASIC_LAND_TYPE_KEYWORDS: Final[List[str]] = ['plains','island','swamp','mountain','forest']
+ANY_COLOR_MANA_PHRASES: Final[List[str]] = [
+    'add one mana of any color',
+    'add one mana of any colour'
+]
+TAPPED_LAND_PHRASE: Final[str] = 'enters the battlefield tapped'
+SHOCK_LIKE_PHRASE: Final[str] = 'you may pay 2 life'
+CONDITIONAL_UNTAP_KEYWORDS: Final[List[str]] = [
+    'unless you control',
+    'if you control',
+    'as long as you control'
+]
+COLORED_MANA_SYMBOLS: Final[List[str]] = ['{w}','{u}','{b}','{r}','{g}']
+
 
 # Basic Lands
 BASIC_LANDS = ['Plains', 'Island', 'Swamp', 'Mountain', 'Forest']
@@ -377,12 +417,12 @@ THEME_WEIGHT_MULTIPLIER: Final[float] = 0.9
 THEME_WEIGHTS_DEFAULT: Final[Dict[str, float]] = {
     'primary': 1.0,
     'secondary': 0.6,
-    'tertiary': 0.3,
+    'tertiary': 0.2,
     'hidden': 0.0
 }
 
 WEIGHT_ADJUSTMENT_FACTORS: Final[Dict[str, float]] = {
-    'kindred_primary': 1.5,    # Boost for Kindred themes as primary
+    'kindred_primary': 1.4,    # Boost for Kindred themes as primary
     'kindred_secondary': 1.3,  # Boost for Kindred themes as secondary
     'kindred_tertiary': 1.2,   # Boost for Kindred themes as tertiary
     'theme_synergy': 1.2       # Boost for themes that work well together

@@ -1,0 +1,462 @@
+"""Utility helper functions for deck builder.
+
+This module houses pure/stateless helper logic that was previously embedded
+inside the large builder.py module. Extracting them here keeps the DeckBuilder
+class leaner and makes the logic easier to test independently.
+
+Only import lightweight standard library modules here to avoid import cycles.
+"""
+from __future__ import annotations
+
+from typing import Dict, Iterable
+import re
+
+
+from . import builder_constants as bc
+
+COLOR_LETTERS = ['W', 'U', 'B', 'R', 'G']
+
+
+def compute_color_source_matrix(card_library: Dict[str, dict], full_df) -> Dict[str, Dict[str, int]]:
+	"""Build a matrix mapping land name -> {color: 0/1} indicating if that land
+	can (reliably) produce each color.
+
+	Heuristics:
+	  - Presence of basic land types in type line grants that color.
+	  - Text containing "add one mana of any color/colour" grants all colors.
+	  - Explicit mana symbols in rules text (e.g. "{R}") grant that color.
+
+	Parameters
+	----------
+	card_library : Dict[str, dict]
+		Current deck card entries (expects 'Card Type' and 'Count').
+	full_df : pandas.DataFrame | None
+		Full card dataset used for type/text lookups. May be None/empty.
+	"""
+	matrix: Dict[str, Dict[str, int]] = {}
+	lookup = {}
+	if full_df is not None and not getattr(full_df, 'empty', True) and 'name' in full_df.columns:
+		for _, r in full_df.iterrows():  # type: ignore[attr-defined]
+			nm = str(r.get('name', ''))
+			if nm and nm not in lookup:
+				lookup[nm] = r
+	for name, entry in card_library.items():
+		if 'land' not in str(entry.get('Card Type', '')).lower():
+			continue
+		row = lookup.get(name, {})
+		tline = str(row.get('type', row.get('type_line', ''))).lower()
+		text_field = str(row.get('text', row.get('oracleText', ''))).lower()
+		colors = {c: 0 for c in COLOR_LETTERS}
+		if 'plains' in tline:
+			colors['W'] = 1
+		if 'island' in tline:
+			colors['U'] = 1
+		if 'swamp' in tline:
+			colors['B'] = 1
+		if 'mountain' in tline:
+			colors['R'] = 1
+		if 'forest' in tline:
+			colors['G'] = 1
+		if 'add one mana of any color' in text_field or 'add one mana of any colour' in text_field:
+			for k in colors:
+				colors[k] = 1
+		for sym, c in [(' {w}', 'W'), (' {u}', 'U'), (' {b}', 'B'), (' {r}', 'R'), (' {g}', 'G')]:
+			if sym in text_field:
+				colors[c] = 1
+		matrix[name] = colors
+	return matrix
+
+
+def compute_spell_pip_weights(card_library: Dict[str, dict], color_identity: Iterable[str]) -> Dict[str, float]:
+	"""Compute relative colored mana pip weights from non-land spells.
+
+	Hybrid symbols are split evenly among their component colors. If no colored
+	pips are found we fall back to an even distribution across the commander's
+	color identity (or 0s if identity empty).
+	"""
+	pip_counts = {c: 0 for c in COLOR_LETTERS}
+	total_colored = 0.0
+	for entry in card_library.values():
+		ctype = str(entry.get('Card Type', ''))
+		if 'land' in ctype.lower():
+			continue
+		mana_cost = entry.get('Mana Cost') or entry.get('mana_cost') or ''
+		if not isinstance(mana_cost, str):
+			continue
+		for match in re.findall(r'\{([^}]+)\}', mana_cost):
+			sym = match.upper()
+			if len(sym) == 1 and sym in pip_counts:
+				pip_counts[sym] += 1
+				total_colored += 1
+			else:
+				if '/' in sym:
+					parts = [p for p in sym.split('/') if p in pip_counts]
+					if parts:
+						weight_each = 1 / len(parts)
+						for p in parts:
+							pip_counts[p] += weight_each
+							total_colored += weight_each
+	if total_colored <= 0:
+		colors = [c for c in color_identity if c in pip_counts]
+		if not colors:
+			return {c: 0.0 for c in pip_counts}
+		share = 1 / len(colors)
+		return {c: (share if c in colors else 0.0) for c in pip_counts}
+	return {c: (pip_counts[c] / total_colored) for c in pip_counts}
+
+
+__all__ = [
+	'compute_color_source_matrix',
+	'compute_spell_pip_weights',
+	'COLOR_LETTERS',
+	'tapped_land_penalty',
+	'replacement_land_score',
+	'build_tag_driven_suggestions',
+	'select_color_balance_removal',
+	'color_balance_addition_candidates',
+	'basic_land_names',
+	'count_basic_lands',
+	'choose_basic_to_trim',
+	'enforce_land_cap',
+	'is_color_fixing_land',
+	'weighted_sample_without_replacement',
+	'count_existing_fetches',
+	'select_top_land_candidates',
+]
+
+
+def tapped_land_penalty(tline: str, text_field: str) -> tuple[int, int]:
+	"""Classify a land for tapped optimization.
+
+	Returns (tapped_flag, penalty). tapped_flag is 1 if the land counts toward
+	the tapped threshold. Penalty is higher for worse (slower) lands. Non-tapped
+	lands return (0, 0).
+	"""
+	tline_l = tline.lower()
+	text_l = text_field.lower()
+	if 'land' not in tline_l:
+		return 0, 0
+	always_tapped = 'enters the battlefield tapped' in text_l
+	shock_like = 'you may pay 2 life' in text_l  # shocks can be untapped
+	conditional = any(kw in text_l for kw in ['unless you control', 'if you control', 'as long as you control']) or shock_like
+	tapped_flag = 0
+	if always_tapped and not shock_like:
+		tapped_flag = 1
+	elif conditional:
+		tapped_flag = 1
+	if not tapped_flag:
+		return 0, 0
+	tri_types = sum(1 for b in bc.BASIC_LAND_TYPE_KEYWORDS if b in tline_l) >= 3
+	any_color = any(p in text_l for p in bc.ANY_COLOR_MANA_PHRASES)
+	cycling = 'cycling' in text_l
+	life_gain = 'gain' in text_l and 'life' in text_l and 'you gain' in text_l
+	produces_basic_colors = any(sym in text_l for sym in bc.COLORED_MANA_SYMBOLS)
+	penalty = 8 if always_tapped and not conditional else 6
+	if tri_types:
+		penalty -= 3
+	if any_color:
+		penalty -= 3
+	if cycling:
+		penalty -= 2
+	if conditional:
+		penalty -= 2
+	if not produces_basic_colors and not any_color:
+		penalty += 1
+	if life_gain:
+		penalty += 1
+	return tapped_flag, penalty
+
+
+def replacement_land_score(name: str, tline: str, text_field: str) -> int:
+	"""Heuristic scoring of candidate replacement lands (higher is better)."""
+	tline_l = tline.lower()
+	text_l = text_field.lower()
+	score = 0
+	lname = name.lower()
+	# Prioritize shocks explicitly
+	if any(kw in lname for kw in ['blood crypt', 'steam vents', 'watery grave', 'breeding pool', 'godless shrine', 'hallowed fountain', 'overgrown tomb', 'stomping ground', 'temple garden', 'sacred foundry']):
+		score += 20
+	if 'you may pay 2 life' in text_l:
+		score += 15
+	if any(p in text_l for p in bc.ANY_COLOR_MANA_PHRASES):
+		score += 10
+	types_present = [b for b in bc.BASIC_LAND_TYPE_KEYWORDS if b in tline_l]
+	score += len(types_present) * 3
+	if 'unless you control' in text_l:
+		score += 2
+	if 'cycling' in text_l:
+		score += 1
+	return score
+
+
+def is_color_fixing_land(tline: str, text_lower: str) -> bool:
+	"""Heuristic to detect if a land significantly fixes colors.
+
+	Criteria:
+	  - Two or more basic land types
+	  - Produces any color (explicit text)
+	  - Text shows two or more distinct colored mana symbols
+	"""
+	basic_count = sum(1 for bk in bc.BASIC_LAND_TYPE_KEYWORDS if bk in tline.lower())
+	if basic_count >= 2:
+		return True
+	if any(p in text_lower for p in bc.ANY_COLOR_MANA_PHRASES):
+		return True
+	distinct = {cw for cw in bc.COLORED_MANA_SYMBOLS if cw in text_lower}
+	return len(distinct) >= 2
+
+
+# ---------------------------------------------------------------------------
+# Weighted sampling & fetch helpers
+# ---------------------------------------------------------------------------
+def weighted_sample_without_replacement(pool: list[tuple[str, int | float]], k: int, rng=None) -> list[str]:
+	"""Sample up to k unique names from (name, weight) pool without replacement.
+
+	If total weight becomes 0, stops early. Stable for small pools used here.
+	"""
+	if k <= 0 or not pool:
+		return []
+	import random as _rand
+	local_rng = rng if rng is not None else _rand
+	working = pool.copy()
+	chosen: list[str] = []
+	while working and len(chosen) < k:
+		total_w = sum(max(0, float(w)) for _, w in working)
+		if total_w <= 0:
+			break
+		r = local_rng.random() * total_w
+		acc = 0.0
+		pick_idx = 0
+		for idx, (nm, w) in enumerate(working):
+			acc += max(0, float(w))
+			if r <= acc:
+				pick_idx = idx
+				break
+		nm, _w = working.pop(pick_idx)
+		chosen.append(nm)
+	return chosen
+
+
+def count_existing_fetches(card_library: dict) -> int:
+	bc = __import__('deck_builder.builder_constants', fromlist=['FETCH_LAND_MAX_CAP'])
+	total = 0
+	generic = getattr(bc, 'GENERIC_FETCH_LANDS', [])
+	for n in generic:
+		if n in card_library:
+			total += card_library[n].get('Count', 1)
+	for seq in getattr(bc, 'COLOR_TO_FETCH_LANDS', {}).values():
+		for n in seq:
+			if n in card_library:
+				total += card_library[n].get('Count', 1)
+	return total
+
+
+def select_top_land_candidates(df, already: set[str], basics: set[str], top_n: int) -> list[tuple[int,str,str,str]]:
+	"""Return list of (edh_rank, name, type_line, text_lower) for top_n remaining lands.
+
+	Falls back to large rank number if edhrecRank missing/unparseable.
+	"""
+	out: list[tuple[int,str,str,str]] = []
+	if df is None or getattr(df, 'empty', True):
+		return out
+	for _, row in df.iterrows():  # type: ignore[attr-defined]
+		try:
+			name = str(row.get('name',''))
+			if not name or name in already or name in basics:
+				continue
+			tline = str(row.get('type', row.get('type_line','')))
+			if 'land' not in tline.lower():
+				continue
+			edh = row.get('edhrecRank') if 'edhrecRank' in df.columns else None
+			try:
+				edh_val = int(edh) if edh not in (None,'','nan') else 999999
+			except Exception:
+				edh_val = 999999
+			text_lower = str(row.get('text', row.get('oracleText',''))).lower()
+			out.append((edh_val, name, tline, text_lower))
+		except Exception:
+			continue
+	out.sort(key=lambda x: x[0])
+	return out[:top_n]
+
+
+# ---------------------------------------------------------------------------
+# Tag-driven land suggestion helpers
+# ---------------------------------------------------------------------------
+def build_tag_driven_suggestions(builder) -> list[dict]:  # type: ignore[override]
+	"""Return a list of suggestion dicts based on selected commander tags.
+
+	Each dict fields:
+	  name, reason, condition (callable taking builder), flex (bool), defer_if_full (bool)
+	"""
+	tags_lower = [t.lower() for t in getattr(builder, 'selected_tags', [])]
+	existing = set(builder.card_library.keys())
+	suggestions: list[dict] = []
+
+	def cond_always(_):
+		return True
+
+	def cond_artifact_threshold(b):
+		art_count = sum(1 for v in b.card_library.values() if 'artifact' in str(v.get('Card Type', '')).lower())
+		return art_count >= 10
+
+	mapping = [
+		(['+1/+1 counters', 'counters matter'], 'Gavony Township', cond_always, '+1/+1 Counters support', True),
+		(['token', 'tokens', 'wide'], 'Castle Ardenvale', cond_always, 'Token strategy support', True),
+		(['graveyard', 'recursion', 'reanimator'], 'Boseiju, Who Endures', cond_always, 'Graveyard interaction / utility', False),
+		(['graveyard', 'recursion', 'reanimator'], 'Takenuma, Abandoned Mire', cond_always, 'Recursion utility', True),
+		(['artifact'], "Inventors' Fair", cond_artifact_threshold, 'Artifact payoff (conditional)', True),
+	]
+	for tag_keys, land_name, condition, reason, flex in mapping:
+		if any(k in tl for k in tag_keys for tl in tags_lower):
+			if land_name not in existing:
+				suggestions.append({
+					'name': land_name,
+					'reason': reason,
+					'condition': condition,
+					'flex': flex,
+					'defer_if_full': True
+				})
+	# Landfall fetch cap soft bump (side-effect set on builder)
+	if any('landfall' in tl for tl in tags_lower) and not hasattr(builder, '_landfall_fetch_bump_applied'):
+		setattr(builder, '_landfall_fetch_bump_applied', True)
+		builder.dynamic_fetch_cap = getattr(__import__('deck_builder.builder_constants', fromlist=['FETCH_LAND_MAX_CAP']), 'FETCH_LAND_MAX_CAP', 7) + 1  # safe fallback
+	return suggestions
+
+
+# ---------------------------------------------------------------------------
+# Color balance swap helpers
+# ---------------------------------------------------------------------------
+def select_color_balance_removal(builder, deficit_colors: set[str], overages: dict[str, float]) -> str | None:
+	"""Select a land to remove when performing color balance swaps.
+
+	Preference order:
+	  1. Flex lands not producing any deficit colors
+	  2. Basic land of the most overrepresented color
+	  3. Mono-color non-flex land not producing deficit colors
+	"""
+	matrix_current = builder._compute_color_source_matrix()
+	# Flex first
+	for name, entry in builder.card_library.items():
+		if entry.get('Role') == 'flex':
+			colors = matrix_current.get(name, {})
+			if not any(colors.get(c, 0) for c in deficit_colors):
+				return name
+	# Basic of most overrepresented color
+	if overages:
+		color_remove = max(overages.items(), key=lambda x: x[1])[0]
+		basic_map = {'W': 'Plains', 'U': 'Island', 'B': 'Swamp', 'R': 'Mountain', 'G': 'Forest'}
+		candidate = basic_map.get(color_remove)
+		if candidate and candidate in builder.card_library:
+			return candidate
+	# Mono-color non-flex
+	for name, entry in builder.card_library.items():
+		if entry.get('Role') == 'flex':
+			continue
+		colors = matrix_current.get(name, {})
+		color_count = sum(1 for v in colors.values() if v)
+		if color_count <= 1 and not any(colors.get(c, 0) for c in deficit_colors):
+			return name
+	return None
+
+
+def color_balance_addition_candidates(builder, target_color: str, combined_df) -> list[str]:
+	"""Rank potential addition lands for a target color (best first)."""
+	if combined_df is None or getattr(combined_df, 'empty', True):
+		return []
+	existing = set(builder.card_library.keys())
+	out: list[tuple[str, int]] = []
+	for _, row in combined_df.iterrows():  # type: ignore[attr-defined]
+		name = str(row.get('name', ''))
+		if not name or name in existing or any(name == o[0] for o in out):
+			continue
+		tline = str(row.get('type', row.get('type_line', ''))).lower()
+		if 'land' not in tline:
+			continue
+		text_field = str(row.get('text', row.get('oracleText', ''))).lower()
+		produces = False
+		if target_color == 'W' and ('plains' in tline or '{w}' in text_field):
+			produces = True
+		if target_color == 'U' and ('island' in tline or '{u}' in text_field):
+			produces = True
+		if target_color == 'B' and ('swamp' in tline or '{b}' in text_field):
+			produces = True
+		if target_color == 'R' and ('mountain' in tline or '{r}' in text_field):
+			produces = True
+		if target_color == 'G' and ('forest' in tline or '{g}' in text_field):
+			produces = True
+		if not produces:
+			continue
+		any_color = 'add one mana of any color' in text_field
+		basic_types = sum(1 for b in bc.BASIC_LAND_TYPE_KEYWORDS if b in tline)
+		score = 0
+		if any_color:
+			score += 30
+		score += basic_types * 10
+		if 'enters the battlefield tapped' in text_field and 'you may pay 2 life' not in text_field:
+			score -= 5
+		out.append((name, score))
+	out.sort(key=lambda x: x[1], reverse=True)
+	return [n for n, _ in out]
+
+
+# ---------------------------------------------------------------------------
+# Basic land / land cap helpers
+# ---------------------------------------------------------------------------
+def basic_land_names() -> set[str]:
+	names = set(getattr(__import__('deck_builder.builder_constants', fromlist=['BASIC_LANDS']), 'BASIC_LANDS', []))
+	names.update(getattr(__import__('deck_builder.builder_constants', fromlist=['SNOW_BASIC_LAND_MAPPING']), 'SNOW_BASIC_LAND_MAPPING', {}).values())
+	names.add('Wastes')
+	return names
+
+
+def count_basic_lands(card_library: dict) -> int:
+	basics = basic_land_names()
+	total = 0
+	for name, entry in card_library.items():
+		if name in basics:
+			total += entry.get('Count', 1)
+	return total
+
+
+def choose_basic_to_trim(card_library: dict) -> str | None:
+	basics = basic_land_names()
+	candidates: list[tuple[int, str]] = []
+	for name, entry in card_library.items():
+		if name in basics:
+			cnt = entry.get('Count', 1)
+			if cnt > 0:
+				candidates.append((cnt, name))
+	if not candidates:
+		return None
+	candidates.sort(reverse=True)
+	return candidates[0][1]
+
+
+def enforce_land_cap(builder, step_label: str = ""):
+	if not hasattr(builder, 'ideal_counts') or not getattr(builder, 'ideal_counts'):
+		return
+	bc = __import__('deck_builder.builder_constants', fromlist=['DEFAULT_LAND_COUNT'])
+	land_target = builder.ideal_counts.get('lands', getattr(bc, 'DEFAULT_LAND_COUNT', 35))
+	min_basic = builder.ideal_counts.get('basic_lands', getattr(bc, 'DEFAULT_BASIC_LAND_COUNT', 20))
+	import math
+	floor_basics = math.ceil(bc.BASIC_FLOOR_FACTOR * min_basic)
+	current_land = builder._current_land_count()
+	if current_land <= land_target:
+		return
+	builder.output_func(f"\nLand Cap Enforcement after {step_label}: Over target ({current_land}/{land_target}). Trimming basics...")
+	removed = 0
+	while current_land > land_target:
+		basic_total = count_basic_lands(builder.card_library)
+		if basic_total <= floor_basics:
+			builder.output_func(f"Stopped trimming: basic lands at floor {basic_total} (floor {floor_basics}). Still {current_land}/{land_target}.")
+			break
+		target_basic = choose_basic_to_trim(builder.card_library)
+		if not target_basic or not builder._decrement_card(target_basic):
+			builder.output_func("No basic lands available to trim further.")
+			break
+		removed += 1
+		current_land = builder._current_land_count()
+	if removed:
+		builder.output_func(f"Trimmed {removed} basic land(s). New land count: {current_land}/{land_target}. Basic total now {count_basic_lands(builder.card_library)} (floor {floor_basics}).")
+

@@ -168,6 +168,16 @@ class DeckBuilder:
 
     # Deck library (cards added so far) mapping name->record
     card_library: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    # Deferred suggested lands based on tags / conditions
+    suggested_lands_queue: List[Dict[str, Any]] = field(default_factory=list)
+    # Baseline color source matrix captured after land build, before spell adjustments
+    color_source_matrix_baseline: Optional[Dict[str, Dict[str,int]]] = None
+    # Live cached color source matrix (recomputed lazily when lands change)
+    _color_source_matrix_cache: Optional[Dict[str, Dict[str,int]]] = None
+    _color_source_cache_dirty: bool = True
+    # Cached spell pip weights (invalidate on non-land changes)
+    _spell_pip_weights_cache: Optional[Dict[str, float]] = None
+    _spell_pip_cache_dirty: bool = True
 
     # IO injection for testing
     input_func: Callable[[str], str] = field(default=lambda prompt: input(prompt))
@@ -588,7 +598,8 @@ class DeckBuilder:
                 'Creature Types': creature_types,
                 'Tags': tags,
                 'Commander': is_commander,
-                'Count': 1
+                'Count': 1,
+                'Role': None  # placeholder for 'flex', 'suggested', etc.
             }
         # Keep commander dict CMC up to date if adding commander
         if is_commander and self.commander_dict:
@@ -596,6 +607,14 @@ class DeckBuilder:
                 self.commander_dict['CMC'] = mana_value
         # Remove this card from combined pool if present
         self._remove_from_pool(card_name)
+        # Invalidate color source cache if land added
+        try:
+            if 'land' in str(card_type).lower():
+                self._color_source_cache_dirty = True
+            else:
+                self._spell_pip_cache_dirty = True
+        except Exception:
+            pass
 
     def _remove_from_pool(self, card_name: str):
         if self._combined_cards_df is None:
@@ -731,11 +750,26 @@ class DeckBuilder:
         if land_target is None:
             land_target = getattr(bc, 'DEFAULT_LAND_COUNT', 35)
 
-        # Early exit if already at or above target
-        if self._current_land_count() >= land_target:
-            self.output_func("Staple Lands: Land target already met; skipping step 2.")
-            return
+        # We allow swapping basics (above 90% min floor) to fit staple lands.
+        # If already at target, we'll attempt to free slots on-demand while iterating.
+        min_basic_cfg = getattr(bc, 'DEFAULT_BASIC_LAND_COUNT', 20)
+        if hasattr(self, 'ideal_counts') and self.ideal_counts:
+            min_basic_cfg = self.ideal_counts.get('basic_lands', min_basic_cfg)
+        basic_floor = self._basic_floor(min_basic_cfg)
 
+        def ensure_capacity() -> bool:
+            """Try to free one land slot by trimming a basic (if above floor). Return True if capacity exists after call."""
+            if self._current_land_count() < land_target:
+                return True
+            # Need to free one slot
+            if self._count_basic_lands() <= basic_floor:
+                return False
+            target_basic = self._choose_basic_to_trim()
+            if not target_basic:
+                return False
+            if not self._decrement_card(target_basic):
+                return False
+            return self._current_land_count() < land_target
         commander_tags_all = set(getattr(self, 'commander_tags', []) or []) | set(getattr(self, 'selected_tags', []) or [])
         colors = self.color_identity or []
         # Commander power for conditions
@@ -753,8 +787,9 @@ class DeckBuilder:
         added: List[str] = []
         reasons: Dict[str, str] = {}
         for land_name, cond in getattr(bc, 'STAPLE_LAND_CONDITIONS', {}).items():
-            # Stop if land target reached
-            if self._current_land_count() >= land_target:
+            # Ensure we have a slot (attempt to free basics if necessary)
+            if not ensure_capacity():
+                self.output_func("Staple Lands: Cannot free capacity without violating basic floor; stopping additions.")
                 break
             # Skip if already in library
             if land_name in self.card_library:
@@ -793,6 +828,1226 @@ class DeckBuilder:
     def run_land_step2(self):
         """Public wrapper for adding generic staple nonbasic lands (excluding kindred)."""
         self.add_staple_lands()
+        self._enforce_land_cap(step_label="Staples (Step 2)")
+
+    # ---------------------------
+    # Land Building Step 3: Kindred / Creature-Type Focused Lands
+    # ---------------------------
+    def add_kindred_lands(self):
+        """Add kindred-oriented lands ONLY if a selected tag includes 'Kindred' or 'Tribal'.
+
+        Baseline inclusions on kindred focus:
+          - Path of Ancestry (always when kindred)
+          - Cavern of Souls (<=4 colors)
+          - Three Tree City (>=2 colors)
+        Dynamic tribe-specific lands: derived only from selected tags (not all commander tags).
+        Capacity: may swap excess basics (above 90% floor) similar to other steps.
+        """
+        # Ensure color identity loaded
+        if not self.files_to_load:
+            try:
+                self.determine_color_identity()
+                self.setup_dataframes()
+            except Exception as e:
+                self.output_func(f"Cannot add kindred lands until color identity resolved: {e}")
+                return
+
+        # Gate: only run if user-selected tag has kindred/tribal
+        if not any(('kindred' in t.lower() or 'tribal' in t.lower()) for t in (self.selected_tags or [])):
+            self.output_func("Kindred Lands: No selected kindred/tribal tag; skipping.")
+            return
+
+        # Land target
+        if hasattr(self, 'ideal_counts') and self.ideal_counts:
+            land_target = self.ideal_counts.get('lands', getattr(bc, 'DEFAULT_LAND_COUNT', 35))
+        else:
+            land_target = getattr(bc, 'DEFAULT_LAND_COUNT', 35)
+
+        min_basic_cfg = getattr(bc, 'DEFAULT_BASIC_LAND_COUNT', 20)
+        if hasattr(self, 'ideal_counts') and self.ideal_counts:
+            min_basic_cfg = self.ideal_counts.get('basic_lands', min_basic_cfg)
+        basic_floor = self._basic_floor(min_basic_cfg)
+
+        def ensure_capacity() -> bool:
+            if self._current_land_count() < land_target:
+                return True
+            if self._count_basic_lands() <= basic_floor:
+                return False
+            target_basic = self._choose_basic_to_trim()
+            if not target_basic:
+                return False
+            if not self._decrement_card(target_basic):
+                return False
+            return self._current_land_count() < land_target
+
+        colors = self.color_identity or []
+        added: list[str] = []
+        reasons: dict[str, str] = {}
+
+        def try_add(name: str, reason: str):
+            if name in self.card_library:
+                return
+            if not ensure_capacity():
+                return
+            self.add_card(name, card_type='Land')
+            added.append(name)
+            reasons[name] = reason
+
+        # Baseline
+        try_add('Path of Ancestry', 'kindred focus')
+        if len(colors) <= 4:
+            try_add('Cavern of Souls', f"kindred focus ({len(colors)} colors)")
+        if len(colors) >= 2:
+            try_add('Three Tree City', f"kindred focus ({len(colors)} colors)")
+
+        # Dynamic tribe references
+        tribe_terms: set[str] = set()
+        for tag in (self.selected_tags or []):
+            lower = tag.lower()
+            if 'kindred' in lower:
+                base = lower.replace('kindred', '').strip()
+                if base:
+                    tribe_terms.add(base.split()[0])
+            elif 'tribal' in lower:
+                base = lower.replace('tribal', '').strip()
+                if base:
+                    tribe_terms.add(base.split()[0])
+
+        snapshot = self._full_cards_df
+        if snapshot is not None and not snapshot.empty and tribe_terms:
+            dynamic_limit = 5
+            for tribe in sorted(tribe_terms):
+                if self._current_land_count() >= land_target or dynamic_limit <= 0:
+                    break
+                tribe_lower = tribe.lower()
+                matches: list[str] = []
+                for _, row in snapshot.iterrows():
+                    try:
+                        nm = str(row.get('name', ''))
+                        if not nm or nm in self.card_library:
+                            continue
+                        tline = str(row.get('type', row.get('type_line', ''))).lower()
+                        if 'land' not in tline:
+                            continue
+                        text_field = row.get('text', row.get('oracleText', ''))
+                        text_str = str(text_field).lower() if text_field is not None else ''
+                        nm_lower = nm.lower()
+                        if (tribe_lower in nm_lower or f" {tribe_lower}" in text_str or f"{tribe_lower} " in text_str or f"{tribe_lower}s" in text_str):
+                            matches.append(nm)
+                    except Exception:
+                        continue
+                for nm in matches[:2]:
+                    if self._current_land_count() >= land_target or dynamic_limit <= 0:
+                        break
+                    if nm in added or nm in getattr(bc, 'BASIC_LANDS', []):
+                        continue
+                    try_add(nm, f"text/name references '{tribe}'")
+                    dynamic_limit -= 1
+
+        self.output_func("\nKindred Lands Added (Step 3):")
+        if not added:
+            self.output_func("  (None added)")
+        else:
+            width = max(len(n) for n in added)
+            for n in added:
+                self.output_func(f"  {n.ljust(width)} : 1  ({reasons.get(n,'')})")
+        self.output_func(f"  Land Count Now : {self._current_land_count()} / {land_target}")
+
+    def run_land_step3(self):
+        """Public wrapper to add kindred-focused lands."""
+        self.add_kindred_lands()
+        self._enforce_land_cap(step_label="Kindred (Step 3)")
+
+    # ---------------------------
+    # Land Building Step 4: Fetch Lands
+    # ---------------------------
+    def add_fetch_lands(self, requested_count: Optional[int] = None):
+        """Add fetch lands (color-specific + generic) respecting land target.
+
+        Steps:
+          1. Ensure color identity loaded.
+          2. Build candidate list (color-specific first, then generic) excluding existing.
+          3. Determine desired count (prompt or provided) respecting global fetch cap.
+          4. If no capacity, attempt to trim basics down to floor to free slots.
+          5. Sample color-specific first, then generic; add until satisfied.
+        """
+        # 1. Ensure color identity context
+        if not self.files_to_load:
+            try:
+                self.determine_color_identity()
+                self.setup_dataframes()
+            except Exception as e:
+                self.output_func(f"Cannot add fetch lands until color identity resolved: {e}")
+                return
+        # 2. Land target
+        land_target = (self.ideal_counts.get('lands') if getattr(self, 'ideal_counts', None) else None) or getattr(bc, 'DEFAULT_LAND_COUNT', 35)
+        current = self._current_land_count()
+        color_order = [c for c in self.color_identity if c in ['W','U','B','R','G']]
+        color_map = getattr(bc, 'COLOR_TO_FETCH_LANDS', {})
+        candidates: list[str] = []
+        for c in color_order:
+            for nm in color_map.get(c, []):
+                if nm not in candidates:
+                    candidates.append(nm)
+        generic_list = getattr(bc, 'GENERIC_FETCH_LANDS', [])
+        for nm in generic_list:
+            if nm not in candidates:
+                candidates.append(nm)
+        candidates = [n for n in candidates if n not in self.card_library]
+        if not candidates:
+            self.output_func("Fetch Lands: No eligible fetch lands remaining.")
+            return
+        # 3. Desired count & caps
+        default_fetch = getattr(bc, 'FETCH_LAND_DEFAULT_COUNT', 3)
+        remaining_capacity = max(0, land_target - current)
+        cap_for_default = remaining_capacity if remaining_capacity > 0 else len(candidates)
+        effective_default = min(default_fetch, cap_for_default, len(candidates))
+        existing_fetches = sum(1 for n in self.card_library if n in candidates)
+        fetch_cap = getattr(bc, 'FETCH_LAND_MAX_CAP', 99)
+        remaining_fetch_slots = max(0, fetch_cap - existing_fetches)
+        if requested_count is None:
+            self.output_func("\nAdd Fetch Lands (Step 4):")
+            self.output_func("Fetch lands help fix colors & enable landfall / graveyard synergies.")
+            prompt = f"Enter desired number of fetch lands (default: {effective_default}):"
+            desired = self._prompt_int_with_default(prompt + ' ', effective_default, minimum=0, maximum=20)
+        else:
+            desired = max(0, int(requested_count))
+        if desired > remaining_fetch_slots:
+            desired = remaining_fetch_slots
+            if desired == 0:
+                self.output_func("Fetch Lands: Global fetch cap reached; skipping.")
+                return
+        if desired == 0:
+            self.output_func("Fetch Lands: Desired count 0; skipping.")
+            return
+        # 4. Free capacity via basic trimming if needed
+        if remaining_capacity == 0 and desired > 0:
+            min_basic_cfg = getattr(bc, 'DEFAULT_BASIC_LAND_COUNT', 20)
+            if getattr(self, 'ideal_counts', None):
+                min_basic_cfg = self.ideal_counts.get('basic_lands', min_basic_cfg)
+            floor_basics = self._basic_floor(min_basic_cfg)
+            slots_needed = desired
+            while slots_needed > 0 and self._count_basic_lands() > floor_basics:
+                target_basic = self._choose_basic_to_trim()
+                if not target_basic or not self._decrement_card(target_basic):
+                    break
+                slots_needed -= 1
+                remaining_capacity = max(0, land_target - self._current_land_count())
+                if remaining_capacity > 0 and slots_needed == 0:
+                    break
+            if slots_needed > 0 and remaining_capacity == 0:
+                desired -= slots_needed
+        # 5. Clamp & add
+        remaining_capacity = max(0, land_target - self._current_land_count())
+        desired = min(desired, remaining_capacity, len(candidates), remaining_fetch_slots)
+        if desired <= 0:
+            self.output_func("Fetch Lands: No capacity (after trimming) or desired reduced to 0; skipping.")
+            return
+        import random
+        rng = getattr(self, 'rng', None)
+        color_specific_all: list[str] = []
+        for c in color_order:
+            for n in color_map.get(c, []):
+                if n in candidates and n not in color_specific_all:
+                    color_specific_all.append(n)
+        generic_all: list[str] = [n for n in generic_list if n in candidates]
+        def sampler(pool: list[str], k: int) -> list[str]:
+            if k <= 0 or not pool:
+                return []
+            if k >= len(pool):
+                return pool.copy()
+            try:
+                return (rng.sample if rng else random.sample)(pool, k)
+            except Exception:
+                return pool[:k]
+        need = desired
+        chosen: list[str] = []
+        take_color = min(need, len(color_specific_all))
+        chosen.extend(sampler(color_specific_all, take_color))
+        need -= len(chosen)
+        if need > 0:
+            chosen.extend(sampler(generic_all, min(need, len(generic_all))))
+        if len(chosen) < desired:  # fill leftovers
+            leftovers = [n for n in candidates if n not in chosen]
+            chosen.extend(leftovers[: desired - len(chosen)])
+        added: list[str] = []
+        for nm in chosen:
+            if self._current_land_count() >= land_target:
+                break
+            self.add_card(nm, card_type='Land')
+            added.append(nm)
+        self.output_func("\nFetch Lands Added (Step 4):")
+        if not added:
+            self.output_func("  (None added)")
+        else:
+            width = max(len(n) for n in added)
+            for n in added:
+                note = 'generic' if n in generic_list else 'color-specific'
+                self.output_func(f"  {n.ljust(width)} : 1  ({note})")
+        self.output_func(f"  Land Count Now : {self._current_land_count()} / {land_target}")
+        # Land cap enforcement handled in run_land_step4 wrapper
+
+    def run_land_step4(self, requested_count: Optional[int] = None):
+        """Public wrapper to add fetch lands. Optional requested_count to bypass prompt."""
+        self.add_fetch_lands(requested_count=requested_count)
+        self._enforce_land_cap(step_label="Fetch (Step 4)")
+
+    # ---------------------------
+    # Internal Helper: Basic Land Floor
+    # ---------------------------
+    def _basic_floor(self, min_basic_cfg: int) -> int:
+        """Return the minimum number of basics we will not trim below.
+
+        Currently defined as ceil(bc.BASIC_FLOOR_FACTOR * configured_basic_count). Centralizing here so
+        future tuning (e.g., dynamic by color count, bracket, or pip distribution) only
+        needs a single change. min_basic_cfg already accounts for ideal_counts override.
+        """
+        import math
+        try:
+            from . import builder_constants as bc
+            return max(0, int(math.ceil(bc.BASIC_FLOOR_FACTOR * float(min_basic_cfg))))
+        except Exception:
+            return max(0, min_basic_cfg)
+
+    # ---------------------------
+    # Land Building Step 5: Dual Lands (Two-Color Typed Lands)
+    # ---------------------------
+    def add_dual_lands(self, requested_count: Optional[int] = None):
+        """Add two-color 'typed' dual lands based on color identity.
+
+        Strategy:
+          - Build a pool of candidate duals whose basic land types both appear in color identity.
+          - Avoid duplicates or already-added lands.
+          - Prioritize untapped / fetchable typed duals first (simple heuristic via name substrings).
+          - Respect total land target; if at capacity attempt basic swaps (90% floor) like other steps.
+          - If requested_count provided, cap additions to that number; else use constant default per colors.
+        """
+        # Ensure context
+        if not self.files_to_load:
+            try:
+                self.determine_color_identity()
+                self.setup_dataframes()
+            except Exception as e:
+                self.output_func(f"Cannot add dual lands until color identity resolved: {e}")
+                return
+        colors = [c for c in self.color_identity if c in ['W','U','B','R','G']]
+        if len(colors) < 2:
+            self.output_func("Dual Lands: Not multi-color; skipping step 5.")
+            return
+
+        land_target = getattr(self, 'ideal_counts', {}).get('lands', getattr(bc, 'DEFAULT_LAND_COUNT', 35)) if getattr(self, 'ideal_counts', None) else getattr(bc, 'DEFAULT_LAND_COUNT', 35)
+
+        # Candidate sourcing: search combined DF for lands whose type line includes exactly two relevant basic types
+        # Build mapping from frozenset({colorA,colorB}) -> list of candidate names
+        pool: list[str] = []
+        type_to_card = {}
+        pair_buckets: dict[frozenset[str], list[str]] = {}
+        df = self._combined_cards_df
+        if df is not None and not df.empty and {'name','type'}.issubset(df.columns):
+            try:
+                for _, row in df.iterrows():
+                    try:
+                        name = str(row.get('name',''))
+                        if not name or name in self.card_library:
+                            continue
+                        tline = str(row.get('type','')).lower()
+                        if 'land' not in tline:
+                            continue
+                        # Basic type presence count
+                        types_present = [basic for basic in ['plains','island','swamp','mountain','forest'] if basic in tline]
+                        if len(types_present) < 2:
+                            continue
+                        # Map basic types to colors
+                        mapped_colors = set()
+                        for tp in types_present:
+                            if tp == 'plains':
+                                mapped_colors.add('W')
+                            elif tp == 'island':
+                                mapped_colors.add('U')
+                            elif tp == 'swamp':
+                                mapped_colors.add('B')
+                            elif tp == 'mountain':
+                                mapped_colors.add('R')
+                            elif tp == 'forest':
+                                mapped_colors.add('G')
+                        if len(mapped_colors) != 2:  # strictly dual typed
+                            continue
+                        if not mapped_colors.issubset(set(colors)):
+                            continue
+                        pool.append(name)
+                        type_to_card[name] = tline
+                        key = frozenset(mapped_colors)
+                        pair_buckets.setdefault(key, []).append(name)
+                    except Exception:
+                        continue
+            except Exception:
+                pass
+
+        # De-duplicate
+        pool = list(dict.fromkeys(pool))
+        if not pool:
+            self.output_func("Dual Lands: No candidate dual typed lands found in dataset.")
+            return
+
+        # Heuristic ranking inside each pair bucket: shocks > untapped > other > tapped ETB
+        def rank(name: str) -> int:
+            lname = name.lower()
+            tline = type_to_card.get(name,'')
+            score = 0
+            if any(kw in lname for kw in ['temple garden','sacred foundry','stomping ground','hallowed fountain','watery grave','overgrown tomb','breeding pool','godless shrine','steam vents','blood crypt']):
+                score += 10  # shocks
+            if 'enters the battlefield tapped' not in tline:
+                score += 2
+            if 'snow' in tline:
+                score += 1
+            # Penalize gainlands / taplands
+            if 'enters the battlefield tapped' in tline and 'you gain' in tline:
+                score -= 1
+            return score
+        for key, names in pair_buckets.items():
+            names.sort(key=lambda n: rank(n), reverse=True)
+            # After deterministic ranking, perform a weighted shuffle so higher-ranked
+            # lands still tend to appear earlier, but we get variety across runs.
+            # This prevents always selecting the exact same first few duals when
+            # capacity is limited (e.g., consistently only the top 4 of 7 available).
+            if len(names) > 1:
+                try:
+                    rng_obj = getattr(self, 'rng', None)
+                    weighted: list[tuple[str, int]] = []
+                    for n in names:
+                        # Base weight derived from rank() (ensure >=1) and mildly amplified
+                        w = max(1, rank(n)) + 1
+                        weighted.append((n, w))
+                    shuffled: list[str] = []
+                    import random as _rand
+                    while weighted:
+                        total = sum(w for _, w in weighted)
+                        r = (rng_obj.random() if rng_obj else _rand.random()) * total
+                        acc = 0.0
+                        for idx, (n, w) in enumerate(weighted):
+                            acc += w
+                            if r <= acc:
+                                shuffled.append(n)
+                                del weighted[idx]
+                                break
+                    pair_buckets[key] = shuffled
+                except Exception:
+                    pair_buckets[key] = names  # fallback to deterministic order
+            else:
+                pair_buckets[key] = names
+
+        import random
+        min_basic_cfg = getattr(bc, 'DEFAULT_BASIC_LAND_COUNT', 20)
+        if hasattr(self, 'ideal_counts') and self.ideal_counts:
+            min_basic_cfg = self.ideal_counts.get('basic_lands', min_basic_cfg)
+        basic_floor = self._basic_floor(min_basic_cfg)
+
+        # Desired count heuristic: min(default/requested, capacity, size of all candidates)
+        default_dual_target = getattr(bc, 'DUAL_LAND_DEFAULT_COUNT', 6)
+        remaining_capacity = max(0, land_target - self._current_land_count())
+        effective_default = min(default_dual_target, remaining_capacity if remaining_capacity>0 else len(pool), len(pool))
+        if requested_count is None:
+            desired = effective_default
+        else:
+            desired = max(0, int(requested_count))
+        if desired == 0:
+            self.output_func("Dual Lands: Desired count 0; skipping.")
+            return
+
+        # If at capacity attempt to free slots (basic swapping)
+        if remaining_capacity == 0 and desired > 0:
+            slots_needed = desired
+            freed_slots = 0
+            while freed_slots < slots_needed and self._count_basic_lands() > basic_floor:
+                target_basic = self._choose_basic_to_trim()
+                if not target_basic:
+                    break
+                if not self._decrement_card(target_basic):
+                    break
+                freed_slots += 1
+            if freed_slots == 0:
+                desired = 0
+        remaining_capacity = max(0, land_target - self._current_land_count())
+        desired = min(desired, remaining_capacity, len(pool))
+        if desired<=0:
+            self.output_func("Dual Lands: No capacity after trimming; skipping.")
+            return
+
+        # Build weighted candidate list using round-robin across color pairs
+        chosen: list[str] = []
+        bucket_keys = list(pair_buckets.keys())
+        rng = getattr(self, 'rng', None)
+        try:
+            if rng:
+                rng.shuffle(bucket_keys)  # type: ignore
+            else:
+                random.shuffle(bucket_keys)
+        except Exception:
+            pass
+        indices = {k:0 for k in bucket_keys}
+        while len(chosen) < desired and bucket_keys:
+            progressed = False
+            for k in list(bucket_keys):
+                idx = indices[k]
+                names = pair_buckets.get(k, [])
+                if idx >= len(names):
+                    continue
+                name = names[idx]
+                indices[k] += 1
+                if name in chosen:
+                    continue
+                chosen.append(name)
+                progressed = True
+                if len(chosen) >= desired:
+                    break
+            if not progressed:
+                break
+
+        added: list[str] = []
+        for name in chosen:
+            if self._current_land_count() >= land_target:
+                break
+            self.add_card(name, card_type='Land')
+            added.append(name)
+
+        self.output_func("\nDual Lands Added (Step 5):")
+        if not added:
+            self.output_func("  (None added)")
+        else:
+            width = max(len(n) for n in added)
+            for n in added:
+                self.output_func(f"  {n.ljust(width)} : 1")
+        self.output_func(f"  Land Count Now : {self._current_land_count()} / {land_target}")
+        # Enforcement via wrapper
+
+    def run_land_step5(self, requested_count: Optional[int] = None):
+        self.add_dual_lands(requested_count=requested_count)
+        self._enforce_land_cap(step_label="Duals (Step 5)")
+
+    # ---------------------------
+    # Land Building Step 6: Triple (Tri-Color) Typed Lands
+    # ---------------------------
+    def add_triple_lands(self, requested_count: Optional[int] = None):
+        """Add three-color typed lands (e.g., Triomes) respecting land target and basic floor.
+
+        Logic parallels add_dual_lands but restricted to lands whose type line contains exactly
+        three distinct basic land types that are all within the deck's color identity.
+        Selection aims for 1-2 (default) with weighted random ordering among viable tri-color combos
+        to avoid always choosing the same land when multiple exist.
+        """
+        if not self.files_to_load:
+            try:
+                self.determine_color_identity()
+                self.setup_dataframes()
+            except Exception as e:
+                self.output_func(f"Cannot add triple lands until color identity resolved: {e}")
+                return
+        colors = [c for c in self.color_identity if c in ['W','U','B','R','G']]
+        if len(colors) < 3:
+            self.output_func("Triple Lands: Fewer than three colors; skipping step 6.")
+            return
+
+        land_target = getattr(self, 'ideal_counts', {}).get('lands', getattr(bc, 'DEFAULT_LAND_COUNT', 35)) if getattr(self, 'ideal_counts', None) else getattr(bc, 'DEFAULT_LAND_COUNT', 35)
+
+        df = self._combined_cards_df
+        pool: list[str] = []
+        type_map: dict[str,str] = {}
+        tri_buckets: dict[frozenset[str], list[str]] = {}
+        if df is not None and not df.empty and {'name','type'}.issubset(df.columns):
+            try:
+                for _, row in df.iterrows():
+                    try:
+                        name = str(row.get('name',''))
+                        if not name or name in self.card_library:
+                            continue
+                        tline = str(row.get('type','')).lower()
+                        if 'land' not in tline:
+                            continue
+                        basics_found = [b for b in ['plains','island','swamp','mountain','forest'] if b in tline]
+                        uniq_basics = []
+                        for b in basics_found:
+                            if b not in uniq_basics:
+                                uniq_basics.append(b)
+                        if len(uniq_basics) != 3:
+                            continue
+                        mapped = set()
+                        for b in uniq_basics:
+                            if b == 'plains':
+                                mapped.add('W')
+                            elif b == 'island':
+                                mapped.add('U')
+                            elif b == 'swamp':
+                                mapped.add('B')
+                            elif b == 'mountain':
+                                mapped.add('R')
+                            elif b == 'forest':
+                                mapped.add('G')
+                        if len(mapped) != 3:
+                            continue
+                        if not mapped.issubset(set(colors)):
+                            continue
+                        pool.append(name)
+                        type_map[name] = tline
+                        key = frozenset(mapped)
+                        tri_buckets.setdefault(key, []).append(name)
+                    except Exception:
+                        continue
+            except Exception:
+                pass
+        pool = list(dict.fromkeys(pool))
+        if not pool:
+            self.output_func("Triple Lands: No candidate triple typed lands found.")
+            return
+
+        # Rank tri lands: those that can enter untapped / have cycling / fetchable (heuristic), else default
+        def rank(name: str) -> int:
+            lname = name.lower()
+            tline = type_map.get(name,'')
+            score = 0
+            # Triomes & similar premium typed tri-lands
+            if 'forest' in tline and 'plains' in tline and 'island' in tline:
+                score += 1  # minor bump per type already inherent; focus on special abilities
+            if 'cycling' in tline:
+                score += 3
+            if 'enters the battlefield tapped' not in tline:
+                score += 5
+            if 'trium' in lname or 'triome' in lname or 'panorama' in lname:
+                score += 4
+            if 'domain' in tline:
+                score += 1
+            return score
+        for key, names in tri_buckets.items():
+            names.sort(key=lambda n: rank(n), reverse=True)
+            if len(names) > 1:
+                try:
+                    rng_obj = getattr(self, 'rng', None)
+                    weighted = [(n, max(1, rank(n))+1) for n in names]
+                    import random as _rand
+                    shuffled: list[str] = []
+                    while weighted:
+                        total = sum(w for _, w in weighted)
+                        r = (rng_obj.random() if rng_obj else _rand.random()) * total
+                        acc = 0.0
+                        for idx, (n, w) in enumerate(weighted):
+                            acc += w
+                            if r <= acc:
+                                shuffled.append(n)
+                                del weighted[idx]
+                                break
+                    tri_buckets[key] = shuffled
+                except Exception:
+                    tri_buckets[key] = names
+            else:
+                tri_buckets[key] = names
+        import random
+        min_basic_cfg = getattr(bc, 'DEFAULT_BASIC_LAND_COUNT', 20)
+        if hasattr(self, 'ideal_counts') and self.ideal_counts:
+            min_basic_cfg = self.ideal_counts.get('basic_lands', min_basic_cfg)
+        basic_floor = self._basic_floor(min_basic_cfg)
+
+        default_triple_target = getattr(bc, 'TRIPLE_LAND_DEFAULT_COUNT', 2)
+        remaining_capacity = max(0, land_target - self._current_land_count())
+        effective_default = min(default_triple_target, remaining_capacity if remaining_capacity>0 else len(pool), len(pool))
+        desired = effective_default if requested_count is None else max(0, int(requested_count))
+        if desired == 0:
+            self.output_func("Triple Lands: Desired count 0; skipping.")
+            return
+        if remaining_capacity == 0 and desired > 0:
+            slots_needed = desired
+            freed = 0
+            while freed < slots_needed and self._count_basic_lands() > basic_floor:
+                target_basic = self._choose_basic_to_trim()
+                if not target_basic or not self._decrement_card(target_basic):
+                    break
+                freed += 1
+            if freed == 0:
+                desired = 0
+        remaining_capacity = max(0, land_target - self._current_land_count())
+        desired = min(desired, remaining_capacity, len(pool))
+        if desired <= 0:
+            self.output_func("Triple Lands: No capacity after trimming; skipping.")
+            return
+
+        chosen: list[str] = []
+        bucket_keys = list(tri_buckets.keys())
+        rng = getattr(self, 'rng', None)
+        try:
+            if rng:
+                rng.shuffle(bucket_keys)  # type: ignore
+            else:
+                random.shuffle(bucket_keys)
+        except Exception:
+            pass
+        indices = {k:0 for k in bucket_keys}
+        while len(chosen) < desired and bucket_keys:
+            progressed = False
+            for k in list(bucket_keys):
+                idx = indices[k]
+                names = tri_buckets.get(k, [])
+                if idx >= len(names):
+                    continue
+                name = names[idx]
+                indices[k] += 1
+                if name in chosen:
+                    continue
+                chosen.append(name)
+                progressed = True
+                if len(chosen) >= desired:
+                    break
+            if not progressed:
+                break
+
+        added: list[str] = []
+        for name in chosen:
+            if self._current_land_count() >= land_target:
+                break
+            self.add_card(name, card_type='Land')
+            added.append(name)
+
+        self.output_func("\nTriple Lands Added (Step 6):")
+        if not added:
+            self.output_func("  (None added)")
+        else:
+            width = max(len(n) for n in added)
+            for n in added:
+                self.output_func(f"  {n.ljust(width)} : 1")
+        self.output_func(f"  Land Count Now : {self._current_land_count()} / {land_target}")
+
+    def run_land_step6(self, requested_count: Optional[int] = None):
+        self.add_triple_lands(requested_count=requested_count)
+        self._enforce_land_cap(step_label="Triples (Step 6)")
+
+    # ---------------------------
+    # Land Building Step 7: Misc / Utility Lands
+    # ---------------------------
+    def add_misc_utility_lands(self, requested_count: Optional[int] = None):
+        """Add miscellaneous utility lands chosen from the top N (default 30) remaining lands by EDHREC rank.
+
+        Process:
+          1. Build candidate set of remaining lands (not already in library, excluding basics & prior staples if desired).
+          2. Filter out lands already added in earlier specialized steps.
+          3. Sort by ascending edhrecRank (lower = more popular) and take top N (constant).
+          4. Apply weighting: color-fixing lands (produce 2+ colors, have basic types, or include "add one mana of any color") get extra weight.
+          5. Randomly select up to desired_count (or available capacity) using weighted sampling without replacement.
+          6. Capacity aware: may trim basics down to 90% floor like other steps; stops when capacity or desired reached.
+
+        requested_count overrides default. Default target is remaining nonbasic slots or heuristic 3-5 depending on colors.
+        """
+        # Ensure dataframes loaded
+        if not self.files_to_load:
+            try:
+                self.determine_color_identity()
+                self.setup_dataframes()
+            except Exception as e:
+                self.output_func(f"Cannot add misc utility lands until color identity resolved: {e}")
+                return
+        df = self._combined_cards_df
+        if df is None or df.empty:
+            self.output_func("Misc Lands: No card pool loaded.")
+            return
+
+        # Land target and capacity
+        land_target = getattr(self, 'ideal_counts', {}).get('lands', getattr(bc, 'DEFAULT_LAND_COUNT', 35)) if getattr(self, 'ideal_counts', None) else getattr(bc, 'DEFAULT_LAND_COUNT', 35)
+        current = self._current_land_count()
+        remaining_capacity = max(0, land_target - current)
+        if remaining_capacity <= 0:
+            # We'll attempt basic swaps below if needed
+            remaining_capacity = 0
+
+        min_basic_cfg = getattr(bc, 'DEFAULT_BASIC_LAND_COUNT', 20)
+        if hasattr(self, 'ideal_counts') and self.ideal_counts:
+            min_basic_cfg = self.ideal_counts.get('basic_lands', min_basic_cfg)
+        basic_floor = self._basic_floor(min_basic_cfg)
+
+        # Determine desired count
+        if requested_count is not None:
+            desired = max(0, int(requested_count))
+        else:
+            # Fill all remaining land capacity (goal: reach land_target this step)
+            desired = max(0, land_target - current)
+        if desired == 0:
+            self.output_func("Misc Lands: No remaining land capacity; skipping.")
+            return
+
+        # Build candidate pool using helper
+        basics = self._basic_land_names()
+        already = set(self.card_library.keys())
+        from . import builder_utils as bu
+        top_n = getattr(bc, 'MISC_LAND_TOP_POOL_SIZE', 30)
+        top_candidates = bu.select_top_land_candidates(df, already, basics, top_n)
+        if not top_candidates:
+            self.output_func("Misc Lands: No remaining candidate lands.")
+            return
+
+        # Weight calculation for color fixing
+        weighted_pool: list[tuple[str,int]] = []
+        base_weight_fix = getattr(bc, 'MISC_LAND_COLOR_FIX_PRIORITY_WEIGHT', 2)
+        fetch_names = set()
+        # Build a union of known fetch candidates from constants to recognize them in Step 7
+        for seq in getattr(bc, 'COLOR_TO_FETCH_LANDS', {}).values():
+            for nm in seq:
+                fetch_names.add(nm)
+        for nm in getattr(bc, 'GENERIC_FETCH_LANDS', []):
+            fetch_names.add(nm)
+
+        existing_fetch_count = bu.count_existing_fetches(self.card_library)
+        fetch_cap = getattr(bc, 'FETCH_LAND_MAX_CAP', 99)
+        remaining_fetch_slots = max(0, fetch_cap - existing_fetch_count)
+
+        for edh_val, name, tline, text_lower in top_candidates:
+            w = 1
+            if bu.is_color_fixing_land(tline, text_lower):
+                w *= base_weight_fix
+            # If this candidate is a fetch but we've hit the fetch cap, zero weight it so it won't be chosen
+            if name in fetch_names and remaining_fetch_slots <= 0:
+                continue
+            weighted_pool.append((name, w))
+
+        # Capacity freeing if needed
+        if self._current_land_count() >= land_target and desired > 0:
+            slots_needed = desired
+            freed = 0
+            while freed < slots_needed and self._count_basic_lands() > basic_floor:
+                target_basic = self._choose_basic_to_trim()
+                if not target_basic or not self._decrement_card(target_basic):
+                    break
+                freed += 1
+            if freed == 0 and self._current_land_count() >= land_target:
+                self.output_func("Misc Lands: Cannot free capacity; skipping.")
+                return
+
+        remaining_capacity = max(0, land_target - self._current_land_count())
+        desired = min(desired, remaining_capacity, len(weighted_pool))
+        if desired <= 0:
+            self.output_func("Misc Lands: No capacity after trimming; skipping.")
+            return
+
+        # Weighted random selection without replacement
+        rng = getattr(self, 'rng', None)
+        chosen = bu.weighted_sample_without_replacement(weighted_pool, desired, rng=rng)
+
+        added: list[str] = []
+        for nm in chosen:
+            if self._current_land_count() >= land_target:
+                break
+            self.add_card(nm, card_type='Land')
+            added.append(nm)
+
+        self.output_func("\nMisc Utility Lands Added (Step 7):")
+        if not added:
+            self.output_func("  (None added)")
+        else:
+            width = max(len(n) for n in added)
+            for n in added:
+                note = ''
+                row = next((r for r in top_candidates if r[1] == n), None)
+                if row:
+                    for edh_val, name2, tline2, text_lower2 in top_candidates:
+                        if name2 == n and bu.is_color_fixing_land(tline2, text_lower2):
+                            note = '(fixing)'
+                            break
+                self.output_func(f"  {n.ljust(width)} : 1  {note}")
+        self.output_func(f"  Land Count Now : {self._current_land_count()} / {land_target}")
+
+    def run_land_step7(self, requested_count: Optional[int] = None):
+        self.add_misc_utility_lands(requested_count=requested_count)
+        self._enforce_land_cap(step_label="Utility (Step 7)")
+        # Build and attempt to apply tag-driven suggestions (light augmentation)
+        self._build_tag_driven_land_suggestions()
+        self._apply_land_suggestions_if_room()
+
+    # ---------------------------
+    # Land Building Step 8: ETB Tapped Minimization / Optimization Pass
+    # ---------------------------
+    def optimize_tapped_lands(self):
+        """Attempt to reduce number of slow ETB tapped lands if exceeding bracket threshold.
+
+        Logic:
+          1. Determine threshold from power bracket (defaults if absent).
+          2. Classify each land in current library as tapped or untapped (heuristic via text).
+             - Treat shocks ("you may pay 2 life") as untapped potential (not counted towards tapped threshold).
+             - Treat conditional untap ("unless you control", "if you control") as half-penalty (still counted but lower priority to remove).
+          3. If tapped_count <= threshold: exit.
+          4. Score tapped lands by penalty; higher penalty = more likely swap out.
+             Penalty factors:
+               +8 base if always tapped.
+               -3 if provides 3+ basic types (tri land) or adds any color.
+               -2 if cycling.
+               -2 if conditional untap ("unless you control", "if you control", "you may pay 2 life").
+               +1 if only colorless production.
+               +1 if minor upside (gain life) instead of speed.
+          5. Build candidate replacement pool of untapped or effectively fast lands not already in deck:
+               - Prioritize dual typed lands we missed, pain lands, shocks (if missing), basics if needed as fallback.
+          6. Swap worst offenders until tapped_count <= threshold or replacements exhausted.
+          7. Report swaps.
+        """
+        # Need card pool dataframe
+        df = getattr(self, '_combined_cards_df', None)
+        if df is None or df.empty:
+            return
+        # Gather threshold
+        bracket_level = getattr(self, 'bracket_level', None)
+        threshold_map = getattr(bc, 'TAPPED_LAND_MAX_THRESHOLDS', {5:6,4:8,3:10,2:12,1:14})
+        threshold = threshold_map.get(bracket_level, 10)
+
+        # Build quick lookup for card rows by name (first occurrence)
+        name_to_row: dict[str, dict] = {}
+        for _, row in df.iterrows():
+            nm = str(row.get('name',''))
+            if nm and nm not in name_to_row:
+                name_to_row[nm] = row.to_dict()
+
+        tapped_info: list[tuple[str,int,int]] = []  # (name, penalty, tapped_flag 1/0)
+        total_tapped = 0
+        from . import builder_utils as bu
+        for name, entry in list(self.card_library.items()):
+            # Only consider lands
+            row = name_to_row.get(name)
+            if not row:
+                continue
+            tline = str(row.get('type', row.get('type_line',''))).lower()
+            if 'land' not in tline:
+                continue
+            text_field = str(row.get('text', row.get('oracleText',''))).lower()
+            tapped_flag, penalty = bu.tapped_land_penalty(tline, text_field)
+            if tapped_flag:
+                total_tapped += 1
+                tapped_info.append((name, penalty, tapped_flag))
+
+        if total_tapped <= threshold:
+            self.output_func(f"Tapped Optimization (Step 8): {total_tapped} tapped/conditional lands (threshold {threshold}); no changes.")
+            return
+
+        # Determine how many to replace
+        over = total_tapped - threshold
+        swap_min_penalty = getattr(bc, 'TAPPED_LAND_SWAP_MIN_PENALTY', 6)
+        # Sort by penalty descending
+        tapped_info.sort(key=lambda x: x[1], reverse=True)
+        to_consider = [t for t in tapped_info if t[1] >= swap_min_penalty]
+        if not to_consider:
+            self.output_func(f"Tapped Optimization (Step 8): Over threshold ({total_tapped}>{threshold}) but no suitable swaps (penalties too low).")
+            return
+
+        # Build replacement candidate pool: untapped multi-color first
+        replacement_candidates: list[str] = []
+        seen = set(self.card_library.keys())
+        colors = [c for c in self.color_identity if c in ['W','U','B','R','G']]
+        for _, row in df.iterrows():
+            try:
+                name = str(row.get('name',''))
+                if not name or name in seen or name in replacement_candidates:
+                    continue
+                tline = str(row.get('type', row.get('type_line',''))).lower()
+                if 'land' not in tline:
+                    continue
+                text_field = str(row.get('text', row.get('oracleText',''))).lower()
+                if 'enters the battlefield tapped' in text_field and 'you may pay 2 life' not in text_field and 'unless you control' not in text_field:
+                    # Hard tapped, skip as replacement
+                    continue
+                # Color relevance: if produces at least one deck color or has matching basic types
+                produces_color = any(sym in text_field for sym in ['{w}','{u}','{b}','{r}','{g}'])
+                basic_types = [b for b in ['plains','island','swamp','mountain','forest'] if b in tline]
+                mapped = set()
+                for b in basic_types:
+                    if b == 'plains':
+                        mapped.add('W')
+                    elif b == 'island':
+                        mapped.add('U')
+                    elif b == 'swamp':
+                        mapped.add('B')
+                    elif b == 'mountain':
+                        mapped.add('R')
+                    elif b == 'forest':
+                        mapped.add('G')
+                if not produces_color and not (mapped & set(colors)):
+                    continue
+                replacement_candidates.append(name)
+            except Exception:
+                continue
+
+        # Simple ranking: prefer shocks / pain / dual typed, then any_color, then others
+        def repl_rank(name: str) -> int:
+            row = name_to_row.get(name, {})
+            tline = str(row.get('type', row.get('type_line','')))
+            text_field = str(row.get('text', row.get('oracleText','')))
+            return bu.replacement_land_score(name, tline, text_field)
+        replacement_candidates.sort(key=repl_rank, reverse=True)
+
+        swaps_made: list[tuple[str,str]] = []
+        idx_rep = 0
+        for name, penalty, _ in to_consider:
+            if over <= 0:
+                break
+            # Remove this tapped land
+            if not self._decrement_card(name):
+                continue
+            # Find replacement
+            replacement = None
+            while idx_rep < len(replacement_candidates):
+                cand = replacement_candidates[idx_rep]
+                idx_rep += 1
+                # Skip if would exceed fetch cap
+                if cand in getattr(bc, 'GENERIC_FETCH_LANDS', []) or any(cand in lst for lst in getattr(bc, 'COLOR_TO_FETCH_LANDS', {}).values()):
+                    # Count existing fetches
+                    fetch_cap = getattr(bc, 'FETCH_LAND_MAX_CAP', 99)
+                    existing_fetches = sum(1 for n in self.card_library if n in getattr(bc, 'GENERIC_FETCH_LANDS', []))
+                    for lst in getattr(bc, 'COLOR_TO_FETCH_LANDS', {}).values():
+                        existing_fetches += sum(1 for n in self.card_library if n in lst)
+                    if existing_fetches >= fetch_cap:
+                        continue
+                replacement = cand
+                break
+            # Fallback to a basic if no candidate
+            if replacement is None:
+                # Choose most needed basic by current counts vs color identity
+                basics = self._basic_land_names()
+                basic_counts = {b: self.card_library.get(b, {}).get('Count',0) for b in basics}
+                # pick basic with lowest count among colors we use
+                color_basic_map = {'W':'Plains','U':'Island','B':'Swamp','R':'Mountain','G':'Forest'}
+                usable_basics = [color_basic_map[c] for c in colors if color_basic_map[c] in basics]
+                usable_basics.sort(key=lambda b: basic_counts.get(b,0))
+                replacement = usable_basics[0] if usable_basics else 'Wastes'
+            self.add_card(replacement, card_type='Land')
+            swaps_made.append((name, replacement))
+            over -= 1
+
+        if not swaps_made:
+            self.output_func(f"Tapped Optimization (Step 8): Could not perform swaps; over threshold {total_tapped}>{threshold}.")
+            return
+        self.output_func("\nTapped Optimization (Step 8) Swaps:")
+        for old, new in swaps_made:
+            self.output_func(f"  Replaced {old} -> {new}")
+        new_tapped = 0
+        # Recount tapped
+        for name, entry in self.card_library.items():
+            row = name_to_row.get(name)
+            if not row:
+                continue
+            text_field = str(row.get('text', row.get('oracleText',''))).lower()
+            if 'enters the battlefield tapped' in text_field and 'you may pay 2 life' not in text_field:
+                new_tapped += 1
+        self.output_func(f"  Tapped Lands After : {new_tapped} (threshold {threshold})")
+
+    def run_land_step8(self):
+        self.optimize_tapped_lands()
+        # Land count unchanged; still enforce cap to be safe
+        self._enforce_land_cap(step_label="Tapped Opt (Step 8)")
+        # Capture color source baseline after land optimization (once)
+        if self.color_source_matrix_baseline is None:
+            self.color_source_matrix_baseline = self._compute_color_source_matrix()
+
+    # ---------------------------
+    # Tag-driven utility suggestions
+    # ---------------------------
+    def _build_tag_driven_land_suggestions(self):
+        from . import builder_utils as bu
+        # Delegate construction of suggestion dicts to utility module.
+        suggestions = bu.build_tag_driven_suggestions(self)
+        if suggestions:
+            self.suggested_lands_queue.extend(suggestions)
+
+    def _apply_land_suggestions_if_room(self):
+        if not self.suggested_lands_queue:
+            return
+        land_target = getattr(self, 'ideal_counts', {}).get('lands', getattr(bc, 'DEFAULT_LAND_COUNT', 35)) if getattr(self, 'ideal_counts', None) else getattr(bc, 'DEFAULT_LAND_COUNT', 35)
+        applied: list[dict] = []
+        remaining: list[dict] = []
+        min_basic_cfg = getattr(bc, 'DEFAULT_BASIC_LAND_COUNT', 20)
+        if hasattr(self, 'ideal_counts') and self.ideal_counts:
+            min_basic_cfg = self.ideal_counts.get('basic_lands', min_basic_cfg)
+        basic_floor = self._basic_floor(min_basic_cfg)
+        for sug in self.suggested_lands_queue:
+            name = sug['name']
+            if name in self.card_library:
+                continue
+            if not sug['condition'](self):
+                remaining.append(sug)
+                continue
+            if self._current_land_count() >= land_target:
+                if sug.get('defer_if_full'):
+                    if self._count_basic_lands() > basic_floor:
+                        target_basic = self._choose_basic_to_trim()
+                        if not target_basic or not self._decrement_card(target_basic):
+                            remaining.append(sug)
+                            continue
+                    else:
+                        remaining.append(sug)
+                        continue
+            self.add_card(name, card_type='Land')
+            if sug.get('flex') and name in self.card_library:
+                self.card_library[name]['Role'] = 'flex'
+            applied.append(sug)
+        self.suggested_lands_queue = remaining
+        if applied:
+            self.output_func("\nTag-Driven Utility Lands Added:")
+            width = max(len(s['name']) for s in applied)
+            for s in applied:
+                role = ' (flex)' if s.get('flex') else ''
+                self.output_func(f"  {s['name'].ljust(width)} : 1  {s['reason']}{role}")
+
+    # ---------------------------
+    # Color source matrix & post-spell adjustment stub
+    # ---------------------------
+    def _compute_color_source_matrix(self) -> Dict[str, Dict[str,int]]:
+        # Cached: recompute only if dirty
+        if self._color_source_matrix_cache is not None and not self._color_source_cache_dirty:
+            return self._color_source_matrix_cache
+        from . import builder_utils as bu
+        matrix = bu.compute_color_source_matrix(self.card_library, getattr(self, '_full_cards_df', None))
+        self._color_source_matrix_cache = matrix
+        self._color_source_cache_dirty = False
+        return matrix
+
+    # ---------------------------
+    # Spell pip analysis helpers
+    # ---------------------------
+    def _compute_spell_pip_weights(self) -> Dict[str, float]:
+        if self._spell_pip_weights_cache is not None and not self._spell_pip_cache_dirty:
+            return self._spell_pip_weights_cache
+        from . import builder_utils as bu
+        weights = bu.compute_spell_pip_weights(self.card_library, self.color_identity)
+        self._spell_pip_weights_cache = weights
+        self._spell_pip_cache_dirty = False
+        return weights
+
+    def _current_color_source_counts(self) -> Dict[str,int]:
+        matrix = self._compute_color_source_matrix()
+        counts = {c:0 for c in ['W','U','B','R','G']}
+        for name, colors in matrix.items():
+            entry = self.card_library.get(name, {})
+            copies = entry.get('Count',1)
+            for c, v in colors.items():
+                if v:
+                    counts[c] += copies
+        return counts
+
+    def post_spell_land_adjust(self,
+                               pip_weights: Optional[Dict[str,float]] = None,
+                               color_shortfall_threshold: float = 0.15,
+                               perform_swaps: bool = False,
+                               max_swaps: int = 3):
+        # Compute pip weights if not supplied
+        if pip_weights is None:
+            pip_weights = self._compute_spell_pip_weights()
+        if self.color_source_matrix_baseline is None:
+            self.color_source_matrix_baseline = self._compute_color_source_matrix()
+        current_counts = self._current_color_source_counts()
+        total_sources = sum(current_counts.values()) or 1
+        source_share = {c: current_counts[c]/total_sources for c in current_counts}
+        deficits: list[tuple[str,float,float,float]] = []  # color, pip_share, source_share, gap
+        for c in ['W','U','B','R','G']:
+            pip_share = pip_weights.get(c,0.0)
+            s_share = source_share.get(c,0.0)
+            gap = pip_share - s_share
+            if gap > color_shortfall_threshold and pip_share > 0.0:
+                deficits.append((c,pip_share,s_share,gap))
+        self.output_func("\nPost-Spell Color Distribution Analysis:")
+        self.output_func("  Color | Pip% | Source% | Diff%")
+        for c in ['W','U','B','R','G']:
+            self.output_func(f"   {c:>1}    {pip_weights.get(c,0.0)*100:5.1f}%   {source_share.get(c,0.0)*100:6.1f}%   {(pip_weights.get(c,0.0)-source_share.get(c,0.0))*100:6.1f}%")
+        if not deficits:
+            self.output_func("  No color deficits above threshold.")
+        else:
+            self.output_func("  Deficits (need more sources):")
+            for c, pip_share, s_share, gap in deficits:
+                self.output_func(f"    {c}: need +{gap*100:.1f}% sources (pip {pip_share*100:.1f}% vs sources {s_share*100:.1f}%)")
+        if not perform_swaps or not deficits:
+            self.output_func("  (No land swaps performed.)")
+            return
+
+        # ---------------------------
+        # Simple swap engine: attempt to add lands for deficit colors
+        # ---------------------------
+        df = getattr(self, '_combined_cards_df', None)
+        if df is None or df.empty:
+            self.output_func("  Swap engine: card pool unavailable; aborting swaps.")
+            return
+
+        # Rank deficit colors by largest gap first
+        deficits.sort(key=lambda x: x[3], reverse=True)
+        swaps_done: list[tuple[str,str]] = []  # (removed, added)
+
+        # Precompute overrepresented colors to target for removal
+        overages: Dict[str,float] = {}
+        for c in ['W','U','B','R','G']:
+            over = source_share.get(c,0.0) - pip_weights.get(c,0.0)
+            if over > 0:
+                overages[c] = over
+
+        def removal_candidate(exclude_colors: set[str]) -> Optional[str]:
+            from . import builder_utils as bu
+            return bu.select_color_balance_removal(self, exclude_colors, overages)
+
+        def addition_candidates(target_color: str) -> List[str]:
+            from . import builder_utils as bu
+            return bu.color_balance_addition_candidates(self, target_color, df)
+
+        for color, _, _, gap in deficits:
+            if len(swaps_done) >= max_swaps:
+                break
+            adds = addition_candidates(color)
+            if not adds:
+                continue
+            to_add = adds[0]
+            to_remove = removal_candidate({color})
+            if not to_remove:
+                continue
+            if not self._decrement_card(to_remove):
+                continue
+            self.add_card(to_add, card_type='Land')
+            self.card_library[to_add]['Role'] = 'color-fix'
+            swaps_done.append((to_remove, to_add))
+
+        if swaps_done:
+            self.output_func("\nColor Balance Swaps Performed:")
+            for old, new in swaps_done:
+                self.output_func(f"  Replaced {old} -> {new}")
+        else:
+            self.output_func("  (No viable swaps executed.)")
+
+    # ---------------------------
+    # Land Cap Enforcement (applies after every non-basic step)
+    # ---------------------------
+    def _basic_land_names(self) -> set:
+        """Return set of all basic (and snow basic) land names plus Wastes."""
+        from . import builder_utils as bu
+        return bu.basic_land_names()
+
+    def _count_basic_lands(self) -> int:
+        """Count total copies of basic lands currently in the library."""
+        from . import builder_utils as bu
+        return bu.count_basic_lands(self.card_library)
+
+    def _choose_basic_to_trim(self) -> Optional[str]:
+        """Return a basic land name to trim (highest count) or None."""
+        from . import builder_utils as bu
+        return bu.choose_basic_to_trim(self.card_library)
+
+    def _decrement_card(self, name: str) -> bool:
+        entry = self.card_library.get(name)
+        if not entry:
+            return False
+        cnt = entry.get('Count', 1)
+        was_land = 'land' in str(entry.get('Card Type','')).lower()
+        was_non_land = not was_land
+        if cnt <= 1:
+            # remove entire entry
+            try:
+                del self.card_library[name]
+            except Exception:
+                return False
+        else:
+            entry['Count'] = cnt - 1
+        if was_land:
+            self._color_source_cache_dirty = True
+        if was_non_land:
+            self._spell_pip_cache_dirty = True
+        return True
+
+    def _enforce_land_cap(self, step_label: str = ""):
+        """Delegate land cap enforcement to utility helper."""
+        from . import builder_utils as bu
+        bu.enforce_land_cap(self, step_label)
 
     # ---------------------------
     # Tag Prioritization
@@ -1103,7 +2358,7 @@ class DeckBuilder:
         self.output_func(f"\nCard Library: {total_cards} cards (Commander included). Remaining slots: {remaining}")
 
         try:
-            from prettytable import PrettyTable
+            from prettytable import PrettyTable, ALL
         except ImportError:
             self.output_func("PrettyTable not installed. Run 'pip install prettytable' to enable formatted library output.")
             for name, entry in self.card_library.items():
@@ -1116,6 +2371,11 @@ class DeckBuilder:
         ]  # Name will include duplicate count suffix (e.g., "Plains x13") if Count>1
         table = PrettyTable(field_names=cols)
         table.align = 'l'
+        # Add horizontal rules between all rows for clearer separation
+        try:
+            table.hrules = ALL  # type: ignore[attr-defined]
+        except Exception:
+            pass
 
         # Build lookup from combined df for enrichment (prefer full snapshot so removed rows still enrich)
         combined = self._full_cards_df if self._full_cards_df is not None else self._combined_cards_df
@@ -1243,22 +2503,106 @@ class DeckBuilder:
                     ci = ''
                     colors = ''
 
+                # Enrich basics (and snow basics) with canonical type line and oracle text
+                basic_detail_map = {
+                    'Plains': ('Basic Land — Plains', '{T}: Add {W}.'),
+                    'Island': ('Basic Land — Island', '{T}: Add {U}.'),
+                    'Swamp': ('Basic Land — Swamp', '{T}: Add {B}.'),
+                    'Mountain': ('Basic Land — Mountain', '{T}: Add {R}.'),
+                    'Forest': ('Basic Land — Forest', '{T}: Add {G}.'),
+                    'Wastes': ('Basic Land', '{T}: Add {C}.'),
+                    'Snow-Covered Plains': ('Basic Snow Land — Plains', '{T}: Add {W}.'),
+                    'Snow-Covered Island': ('Basic Snow Land — Island', '{T}: Add {U}.'),
+                    'Snow-Covered Swamp': ('Basic Snow Land — Swamp', '{T}: Add {B}.'),
+                    'Snow-Covered Mountain': ('Basic Snow Land — Mountain', '{T}: Add {R}.'),
+                    'Snow-Covered Forest': ('Basic Snow Land — Forest', '{T}: Add {G}.'),
+                }
+                if name in basic_detail_map:
+                    canonical_type, canonical_text = basic_detail_map[name]
+                    type_line = canonical_type
+                    if not text_field:
+                        text_field = canonical_text
+                    # Ensure ci/colors set (if missing due to csv NaN)
+                    if name in basic_names:
+                        ci = rev_basic.get(name, ci)
+                        colors = rev_basic.get(name, colors)
+                    elif name in snow_basic_names:
+                        ci = rev_snow.get(name, ci)
+                        colors = rev_snow.get(name, colors)
+
+                # Sanitize NaN / 'nan' strings for display cleanliness
+                import math
+                def _sanitize(val):
+                    if val is None:
+                        return ''
+                    if isinstance(val, float) and math.isnan(val):
+                        return ''
+                    if isinstance(val, str) and val.lower() == 'nan':
+                        return ''
+                    return val
+                mana_cost = _sanitize(mana_cost)
+                mana_value = _sanitize(mana_value)
+                type_line = _sanitize(type_line)
+                creature_types = _sanitize(creature_types)
+                power = _sanitize(power)
+                toughness = _sanitize(toughness)
+                keywords = _sanitize(keywords)
+                theme_tags = _sanitize(theme_tags)
+                text_field = _sanitize(text_field)
+                ci = _sanitize(ci)
+                colors = _sanitize(colors)
+
+                # Strip embedded newline characters/sequences from text and theme tags for cleaner single-row display
+                if text_field:
+                    text_field = text_field.replace('\\n', ' ').replace('\n', ' ')
+                    # Collapse multiple spaces
+                    while '  ' in text_field:
+                        text_field = text_field.replace('  ', ' ')
+                if theme_tags:
+                    theme_tags = theme_tags.replace('\n', ' ').replace('\\n', ' ')
+
             table.add_row([
                 display_name,
                 ci,
                 colors,
                 mana_cost,
                 mana_value,
-                type_line,
+                self._wrap_cell(type_line, width=30),
                 creature_types,
                 power,
                 toughness,
                 keywords,
-                theme_tags,
-                text_field
+                self._wrap_cell(theme_tags, width=60),
+                self._wrap_cell(text_field, prefer_long=True)
             ])
 
         self.output_func(table.get_string())
+
+    # Internal helper for wrapping cell contents to keep table readable
+    def _wrap_cell(self, text: str, width: int = 60, prefer_long: bool = False) -> str:
+        """Word-wrap a cell's text.
+
+        prefer_long: if True, uses a slightly larger width (e.g. for oracle text).
+        """
+        if not text:
+            return ''
+        if prefer_long:
+            width = 80
+        # Normalize whitespace but preserve existing newlines (treat each paragraph separately)
+        import textwrap
+        paragraphs = str(text).split('\n')
+        wrapped_parts = []
+        for p in paragraphs:
+            p = p.strip()
+            if not p:
+                wrapped_parts.append('')
+                continue
+            # If already shorter than width, keep
+            if len(p) <= width:
+                wrapped_parts.append(p)
+                continue
+            wrapped_parts.append('\n'.join(textwrap.wrap(p, width=width)))
+        return '\n'.join(wrapped_parts)
 
     # Convenience to run Step 1 & 2 sequentially (future orchestrator)
     def run_deck_build_steps_1_2(self):

@@ -17,6 +17,53 @@ from . import builder_constants as bc
 COLOR_LETTERS = ['W', 'U', 'B', 'R', 'G']
 
 
+def parse_theme_tags(val) -> list[str]:
+	"""Robustly parse a themeTags cell that may be a list, nested list, or string-repr.
+
+	Handles formats like:
+	  ['Tag1', 'Tag2']
+	  "['Tag1', 'Tag2']"
+	  Tag1, Tag2
+	Returns list of stripped string tags (may be empty)."""
+	import ast
+	if isinstance(val, list):
+		flat: list[str] = []
+		for v in val:
+			if isinstance(v, list):
+				flat.extend(str(x) for x in v)
+			else:
+				flat.append(str(v))
+		return [s.strip() for s in flat if s and str(s).strip()]
+	if isinstance(val, str):
+		s = val.strip()
+		# Try literal list first
+		try:
+			parsed = ast.literal_eval(s)
+			if isinstance(parsed, list):
+				return [str(x).strip() for x in parsed if str(x).strip()]
+		except Exception:
+			pass
+		# Fallback comma split
+		if s.startswith('[') and s.endswith(']'):
+			s = s[1:-1]
+		parts = [p.strip().strip("'\"") for p in s.split(',')]
+		out: list[str] = []
+		for p in parts:
+			if not p:
+				continue
+			clean = re.sub(r"^[\[\s']+|[\]\s']+$", '', p)
+			if clean:
+				out.append(clean)
+		return out
+	return []
+
+
+def normalize_theme_list(raw) -> list[str]:
+	"""Parse then lowercase + strip each tag."""
+	tags = parse_theme_tags(raw)
+	return [t.lower().strip() for t in tags if t and t.strip()]
+
+
 def compute_color_source_matrix(card_library: Dict[str, dict], full_df) -> Dict[str, Dict[str, int]]:
 	"""Build a matrix mapping land name -> {color: 0/1} indicating if that land
 	can (reliably) produce each color.
@@ -108,6 +155,8 @@ def compute_spell_pip_weights(card_library: Dict[str, dict], color_identity: Ite
 __all__ = [
 	'compute_color_source_matrix',
 	'compute_spell_pip_weights',
+	'parse_theme_tags',
+	'normalize_theme_list',
 	'COLOR_LETTERS',
 	'tapped_land_penalty',
 	'replacement_land_score',

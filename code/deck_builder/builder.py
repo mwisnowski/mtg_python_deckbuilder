@@ -168,6 +168,10 @@ class DeckBuilder:
 
     # Deck library (cards added so far) mapping name->record
     card_library: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    # Tag tracking: counts of unique cards per tag (not per copy)
+    tag_counts: Dict[str,int] = field(default_factory=dict)
+    # Internal map name -> set of tags used for uniqueness checks
+    _card_name_tags_index: Dict[str,set] = field(default_factory=dict)
     # Deferred suggested lands based on tags / conditions
     suggested_lands_queue: List[Dict[str, Any]] = field(default_factory=list)
     # Baseline color source matrix captured after land build, before spell adjustments
@@ -588,8 +592,38 @@ class DeckBuilder:
                 mana_value = None
         entry = self.card_library.get(card_name)
         if entry:
+            # Increment only count; tag counts track unique card presence so unchanged
             entry['Count'] += 1
         else:
+            # If no tags passed attempt enrichment from full snapshot / combined pool
+            if not tags:
+                df_src = self._full_cards_df if self._full_cards_df is not None else self._combined_cards_df
+                try:
+                    if df_src is not None and not df_src.empty and 'name' in df_src.columns:
+                        row_match = df_src[df_src['name'] == card_name]
+                        if not row_match.empty:
+                            raw_tags = row_match.iloc[0].get('themeTags', [])
+                            if isinstance(raw_tags, list):
+                                tags = [str(t).strip() for t in raw_tags if str(t).strip()]
+                            elif isinstance(raw_tags, str) and raw_tags.strip():
+                                # tolerate comma separated
+                                parts = [p.strip().strip("'\"") for p in raw_tags.split(',')]
+                                tags = [p for p in parts if p]
+                except Exception:
+                    pass
+            # Normalize & dedupe tags
+            norm_tags: list[str] = []
+            seen_tag = set()
+            for t in tags:
+                if not isinstance(t, str):
+                    t = str(t)
+                tt = t.strip()
+                if not tt or tt.lower() == 'nan':
+                    continue
+                if tt not in seen_tag:
+                    norm_tags.append(tt)
+                    seen_tag.add(tt)
+            tags = norm_tags
             self.card_library[card_name] = {
                 'Card Name': card_name,
                 'Card Type': card_type,
@@ -601,6 +635,11 @@ class DeckBuilder:
                 'Count': 1,
                 'Role': None  # placeholder for 'flex', 'suggested', etc.
             }
+            # Update tag counts for new unique card
+            tag_set = set(tags)
+            self._card_name_tags_index[card_name] = tag_set
+            for tg in tag_set:
+                self.tag_counts[tg] = self.tag_counts.get(tg, 0) + 1
         # Keep commander dict CMC up to date if adding commander
         if is_commander and self.commander_dict:
             if mana_value is not None:
@@ -624,6 +663,301 @@ class DeckBuilder:
             self._combined_cards_df = df[df['name'] != card_name]
         elif 'Card Name' in df.columns:
             self._combined_cards_df = df[df['Card Name'] != card_name]
+
+    # ---------------------------
+    # Tag Prioritization
+    # ---------------------------
+    def select_commander_tags(self) -> List[str]:
+        if not self.commander_name:
+            self.output_func("No commander chosen yet. Selecting commander first...")
+            self.choose_commander()
+
+        tags = list(dict.fromkeys(self.commander_tags))
+        if not tags:
+            self.output_func("Commander has no theme tags available.")
+            self.selected_tags = []
+            self.primary_tag = self.secondary_tag = self.tertiary_tag = None
+            self._update_commander_dict_with_selected_tags()
+            return self.selected_tags
+
+        self.output_func("\nAvailable Theme Tags:")
+        for i, t in enumerate(tags, 1):
+            self.output_func(f"  {i}. {t}")
+
+        self.selected_tags = []
+        # Primary (required)
+        self.primary_tag = self._prompt_tag_choice(tags, "Select PRIMARY tag (required):", allow_stop=False)
+        self.selected_tags.append(self.primary_tag)
+
+        remaining = [t for t in tags if t not in self.selected_tags]
+
+        # Secondary (optional)
+        if remaining:
+            self.secondary_tag = self._prompt_tag_choice(
+                remaining,
+                "Select SECONDARY tag (or 0 to stop here):",
+                allow_stop=True
+            )
+            if self.secondary_tag:
+                self.selected_tags.append(self.secondary_tag)
+                remaining = [t for t in remaining if t != self.secondary_tag]
+
+        # Tertiary (optional)
+        if remaining and self.secondary_tag:
+            self.tertiary_tag = self._prompt_tag_choice(
+                remaining,
+                "Select TERTIARY tag (or 0 to stop here):",
+                allow_stop=True
+            )
+            if self.tertiary_tag:
+                self.selected_tags.append(self.tertiary_tag)
+
+        self.output_func("\nChosen Tags (in priority order):")
+        if not self.selected_tags:
+            self.output_func("  (None)")
+        else:
+            for idx, tag in enumerate(self.selected_tags, 1):
+                label = ["Primary", "Secondary", "Tertiary"][idx - 1] if idx <= 3 else f"Tag {idx}"
+                self.output_func(f"  {idx}. {tag} ({label})")
+
+        self._update_commander_dict_with_selected_tags()
+        return self.selected_tags
+
+    def _prompt_tag_choice(self, available: List[str], prompt_text: str, allow_stop: bool) -> Optional[str]:
+        while True:
+            self.output_func("\nCurrent options:")
+            for i, t in enumerate(available, 1):
+                self.output_func(f"  {i}. {t}")
+            if allow_stop:
+                self.output_func("  0. Stop (no further tags)")
+            raw = self.input_func(f"{prompt_text} ").strip()
+            if allow_stop and raw == "0":
+                return None
+            if raw.isdigit():
+                idx = int(raw)
+                if 1 <= idx <= len(available):
+                    return available[idx - 1]
+            matches = [t for t in available if t.lower() == raw.lower()]
+            if matches:
+                return matches[0]
+            self.output_func("Invalid selection. Try again.")
+
+    def _update_commander_dict_with_selected_tags(self):
+        if not self.commander_dict and self.commander_row is not None:
+            self._initialize_commander_dict(self.commander_row)
+        if not self.commander_dict:
+            return
+        self.commander_dict["Primary Tag"] = self.primary_tag
+        self.commander_dict["Secondary Tag"] = self.secondary_tag
+        self.commander_dict["Tertiary Tag"] = self.tertiary_tag
+        self.commander_dict["Selected Tags"] = self.selected_tags.copy()
+
+    # ---------------------------
+    # Power Bracket Selection (Deck Building Step 1)
+    # ---------------------------
+    def select_power_bracket(self) -> BracketDefinition:
+        if self.bracket_definition:
+            return self.bracket_definition
+
+        self.output_func("\nChoose Deck Power Bracket:")
+        for bd in BRACKET_DEFINITIONS:
+            self.output_func(f"  {bd.level}. {bd.name} - {bd.short_desc}")
+
+        while True:
+            raw = self.input_func("Enter bracket number (1-5) or 'info' for details: ").strip().lower()
+            if raw == "info":
+                self._print_bracket_details()
+                continue
+            if raw.isdigit():
+                num = int(raw)
+                match = next((bd for bd in BRACKET_DEFINITIONS if bd.level == num), None)
+                if match:
+                    self.bracket_definition = match
+                    self.bracket_level = match.level
+                    self.bracket_name = match.name
+                    self.bracket_limits = match.limits.copy()
+                    self.output_func(f"\nSelected Bracket {match.level}: {match.name}")
+                    self._print_selected_bracket_summary()
+                    return match
+            self.output_func("Invalid input. Type 1-5 or 'info'.")
+
+    def _print_bracket_details(self):
+        self.output_func("\nBracket Details:")
+        for bd in BRACKET_DEFINITIONS:
+            self.output_func(f"\n[{bd.level}] {bd.name}")
+            self.output_func(bd.long_desc)
+            self.output_func(self._format_limits(bd.limits))
+
+    def _print_selected_bracket_summary(self):
+        if not self.bracket_definition:
+            return
+        self.output_func("\nBracket Constraints:")
+        self.output_func(self._format_limits(self.bracket_limits))
+
+    @staticmethod
+    def _format_limits(limits: Dict[str, Optional[int]]) -> str:
+        labels = {
+            "game_changers": "Game Changers",
+            "mass_land_denial": "Mass Land Denial",
+            "extra_turns": "Extra Turn Cards",
+            "tutors_nonland": "Nonland Tutors",
+            "two_card_combos": "Two-Card Combos"
+        }
+        lines = []
+        for key, label in labels.items():
+            val = limits.get(key, None)
+            if val is None:
+                lines.append(f"  {label}: Unlimited")
+            else:
+                lines.append(f"  {label}: {val}")
+        return "\n".join(lines)
+
+    def run_deck_build_step1(self):
+        self.select_power_bracket()
+
+    # ---------------------------
+    # Reporting Helper
+    # ---------------------------
+    def print_commander_dict_table(self):
+        if self.commander_row is None:
+            self.output_func("No commander selected.")
+            return
+        block = self._format_commander_pretty(self.commander_row)
+        self.output_func("\n" + block)
+        # New: show which CSV files (stems) were loaded for this color identity
+        if self.files_to_load:
+            file_list = ", ".join(f"{stem}_cards.csv" for stem in self.files_to_load)
+            self.output_func(f"Card Pool Files: {file_list}")
+        if self.selected_tags:
+            self.output_func("Chosen Tags:")
+            if self.primary_tag:
+                self.output_func(f"  Primary : {self.primary_tag}")
+            if self.secondary_tag:
+                self.output_func(f"  Secondary: {self.secondary_tag}")
+            if self.tertiary_tag:
+                self.output_func(f"  Tertiary : {self.tertiary_tag}")
+            self.output_func("")
+        if self.bracket_definition:
+            self.output_func(f"Power Bracket: {self.bracket_level} - {self.bracket_name}")
+            self.output_func(self._format_limits(self.bracket_limits))
+            self.output_func("")
+
+    # ---------------------------
+    # Orchestration
+    # ---------------------------
+    def run_initial_setup(self):
+        self.choose_commander()
+        self.select_commander_tags()
+        # New: color identity & card pool loading
+        try:
+            self.determine_color_identity()
+            self.setup_dataframes()
+        except Exception as e:
+            self.output_func(f"Failed to load color-identity card pool: {e}")
+        self.print_commander_dict_table()
+
+    def run_full_initial_with_bracket(self):
+        self.run_initial_setup()
+        self.run_deck_build_step1()
+        # (Further steps can be chained here)
+        self.print_commander_dict_table()
+
+    # ===========================
+    # Deck Building Step 2: Ideal Composition Counts
+    # ===========================
+    ideal_counts: Dict[str, int] = field(default_factory=dict)
+
+    def run_deck_build_step2(self) -> Dict[str, int]:
+        """Determine ideal counts for general card categories (bracket‑agnostic baseline).
+
+        Prompts the user (Enter to keep default). Stores results in ideal_counts and returns it.
+        Categories:
+          ramp, lands, basic_lands, creatures, removal, wipes, card_advantage, protection
+        """
+        # Initialize defaults from constants if not already present
+        defaults = {
+            'ramp': bc.DEFAULT_RAMP_COUNT,
+            'lands': bc.DEFAULT_LAND_COUNT,
+            'basic_lands': bc.DEFAULT_BASIC_LAND_COUNT,
+            'creatures': bc.DEFAULT_CREATURE_COUNT,
+            'removal': bc.DEFAULT_REMOVAL_COUNT,
+            'wipes': bc.DEFAULT_WIPES_COUNT,
+            'card_advantage': bc.DEFAULT_CARD_ADVANTAGE_COUNT,
+            'protection': bc.DEFAULT_PROTECTION_COUNT,
+        }
+
+        # Seed existing values if already set (allow re-run keeping previous choices)
+        for k, v in defaults.items():
+            if k not in self.ideal_counts:
+                self.ideal_counts[k] = v
+
+        self.output_func("\nSet Ideal Deck Composition Counts (press Enter to accept default/current):")
+        for key, prompt in bc.DECK_COMPOSITION_PROMPTS.items():
+            if key not in defaults:  # skip price prompts & others for this step
+                continue
+            current_default = self.ideal_counts[key]
+            value = self._prompt_int_with_default(f"{prompt} ", current_default, minimum=0, maximum=200)
+            self.ideal_counts[key] = value
+
+        # Basic validation adjustments
+        # Ensure basic_lands <= lands
+        if self.ideal_counts['basic_lands'] > self.ideal_counts['lands']:
+            self.output_func("Adjusting basic lands to not exceed total lands.")
+            self.ideal_counts['basic_lands'] = self.ideal_counts['lands']
+
+        self._print_ideal_counts_summary()
+        return self.ideal_counts
+
+    # Helper to prompt integer values with default
+    def _prompt_int_with_default(self, prompt: str, default: int, minimum: int = 0, maximum: int = 999) -> int:
+        while True:
+            raw = self.input_func(f"{prompt}[{default}] ").strip()
+            if raw == "":
+                return default
+            if raw.isdigit():
+                val = int(raw)
+                if minimum <= val <= maximum:
+                    return val
+            self.output_func(f"Enter a number between {minimum} and {maximum}, or press Enter for {default}.")
+
+    def _print_ideal_counts_summary(self):
+        self.output_func("\nIdeal Composition Targets:")
+        order = [
+            ('ramp', 'Ramp Pieces'),
+            ('lands', 'Total Lands'),
+            ('basic_lands', 'Minimum Basic Lands'),
+            ('creatures', 'Creatures'),
+            ('removal', 'Spot Removal'),
+            ('wipes', 'Board Wipes'),
+            ('card_advantage', 'Card Advantage'),
+            ('protection', 'Protection')
+        ]
+        width = max(len(label) for _, label in order)
+        for key, label in order:
+            if key in self.ideal_counts:
+                self.output_func(f"  {label.ljust(width)} : {self.ideal_counts[key]}")
+
+    # Public wrapper for external callers / tests
+    def print_ideal_counts(self):
+        if not self.ideal_counts:
+            self.output_func("Ideal counts not set. Run run_deck_build_step2() first.")
+            return
+        # Reuse formatting but with a simpler heading per user request
+        self.output_func("\nIdeal Counts:")
+        order = [
+            ('ramp', 'Ramp'),
+            ('lands', 'Total Lands'),
+            ('basic_lands', 'Basic Lands (Min)'),
+            ('creatures', 'Creatures'),
+            ('removal', 'Spot Removal'),
+            ('wipes', 'Board Wipes'),
+            ('card_advantage', 'Card Advantage'),
+            ('protection', 'Protection')
+        ]
+        width = max(len(label) for _, label in order)
+        for key, label in order:
+            if key in self.ideal_counts:
+                self.output_func(f"  {label.ljust(width)} : {self.ideal_counts[key]}")
 
     # ---------------------------
     # Land Building Step 1: Basic Lands
@@ -1104,7 +1438,6 @@ class DeckBuilder:
         """
         import math
         try:
-            from . import builder_constants as bc
             return max(0, int(math.ceil(bc.BASIC_FLOOR_FACTOR * float(min_basic_cfg))))
         except Exception:
             return max(0, min_basic_cfg)
@@ -2049,300 +2382,210 @@ class DeckBuilder:
         from . import builder_utils as bu
         bu.enforce_land_cap(self, step_label)
 
-    # ---------------------------
-    # Tag Prioritization
-    # ---------------------------
-    def select_commander_tags(self) -> List[str]:
-        if not self.commander_name:
-            self.output_func("No commander chosen yet. Selecting commander first...")
-            self.choose_commander()
-
-        tags = list(dict.fromkeys(self.commander_tags))
-        if not tags:
-            self.output_func("Commander has no theme tags available.")
-            self.selected_tags = []
-            self.primary_tag = self.secondary_tag = self.tertiary_tag = None
-            self._update_commander_dict_with_selected_tags()
-            return self.selected_tags
-
-        self.output_func("\nAvailable Theme Tags:")
-        for i, t in enumerate(tags, 1):
-            self.output_func(f"  {i}. {t}")
-
-        self.selected_tags = []
-        # Primary (required)
-        self.primary_tag = self._prompt_tag_choice(tags, "Select PRIMARY tag (required):", allow_stop=False)
-        self.selected_tags.append(self.primary_tag)
-
-        remaining = [t for t in tags if t not in self.selected_tags]
-
-        # Secondary (optional)
-        if remaining:
-            self.secondary_tag = self._prompt_tag_choice(
-                remaining,
-                "Select SECONDARY tag (or 0 to stop here):",
-                allow_stop=True
-            )
-            if self.secondary_tag:
-                self.selected_tags.append(self.secondary_tag)
-                remaining = [t for t in remaining if t != self.secondary_tag]
-
-        # Tertiary (optional)
-        if remaining and self.secondary_tag:
-            self.tertiary_tag = self._prompt_tag_choice(
-                remaining,
-                "Select TERTIARY tag (or 0 to stop here):",
-                allow_stop=True
-            )
-            if self.tertiary_tag:
-                self.selected_tags.append(self.tertiary_tag)
-
-        self.output_func("\nChosen Tags (in priority order):")
-        if not self.selected_tags:
-            self.output_func("  (None)")
-        else:
-            for idx, tag in enumerate(self.selected_tags, 1):
-                label = ["Primary", "Secondary", "Tertiary"][idx - 1] if idx <= 3 else f"Tag {idx}"
-                self.output_func(f"  {idx}. {tag} ({label})")
-
-        self._update_commander_dict_with_selected_tags()
-        return self.selected_tags
-
-    def _prompt_tag_choice(self, available: List[str], prompt_text: str, allow_stop: bool) -> Optional[str]:
-        while True:
-            self.output_func("\nCurrent options:")
-            for i, t in enumerate(available, 1):
-                self.output_func(f"  {i}. {t}")
-            if allow_stop:
-                self.output_func("  0. Stop (no further tags)")
-            raw = self.input_func(f"{prompt_text} ").strip()
-            if allow_stop and raw == "0":
-                return None
-            if raw.isdigit():
-                idx = int(raw)
-                if 1 <= idx <= len(available):
-                    return available[idx - 1]
-            matches = [t for t in available if t.lower() == raw.lower()]
-            if matches:
-                return matches[0]
-            self.output_func("Invalid selection. Try again.")
-
-    def _update_commander_dict_with_selected_tags(self):
-        if not self.commander_dict and self.commander_row is not None:
-            self._initialize_commander_dict(self.commander_row)
-        if not self.commander_dict:
-            return
-        self.commander_dict["Primary Tag"] = self.primary_tag
-        self.commander_dict["Secondary Tag"] = self.secondary_tag
-        self.commander_dict["Tertiary Tag"] = self.tertiary_tag
-        self.commander_dict["Selected Tags"] = self.selected_tags.copy()
-
-    # ---------------------------
-    # Power Bracket Selection (Deck Building Step 1)
-    # ---------------------------
-    def select_power_bracket(self) -> BracketDefinition:
-        if self.bracket_definition:
-            return self.bracket_definition
-
-        self.output_func("\nChoose Deck Power Bracket:")
-        for bd in BRACKET_DEFINITIONS:
-            self.output_func(f"  {bd.level}. {bd.name} - {bd.short_desc}")
-
-        while True:
-            raw = self.input_func("Enter bracket number (1-5) or 'info' for details: ").strip().lower()
-            if raw == "info":
-                self._print_bracket_details()
-                continue
-            if raw.isdigit():
-                num = int(raw)
-                match = next((bd for bd in BRACKET_DEFINITIONS if bd.level == num), None)
-                if match:
-                    self.bracket_definition = match
-                    self.bracket_level = match.level
-                    self.bracket_name = match.name
-                    self.bracket_limits = match.limits.copy()
-                    self.output_func(f"\nSelected Bracket {match.level}: {match.name}")
-                    self._print_selected_bracket_summary()
-                    return match
-            self.output_func("Invalid input. Type 1-5 or 'info'.")
-
-    def _print_bracket_details(self):
-        self.output_func("\nBracket Details:")
-        for bd in BRACKET_DEFINITIONS:
-            self.output_func(f"\n[{bd.level}] {bd.name}")
-            self.output_func(bd.long_desc)
-            self.output_func(self._format_limits(bd.limits))
-
-    def _print_selected_bracket_summary(self):
-        if not self.bracket_definition:
-            return
-        self.output_func("\nBracket Constraints:")
-        self.output_func(self._format_limits(self.bracket_limits))
-
-    @staticmethod
-    def _format_limits(limits: Dict[str, Optional[int]]) -> str:
-        labels = {
-            "game_changers": "Game Changers",
-            "mass_land_denial": "Mass Land Denial",
-            "extra_turns": "Extra Turn Cards",
-            "tutors_nonland": "Nonland Tutors",
-            "two_card_combos": "Two-Card Combos"
-        }
-        lines = []
-        for key, label in labels.items():
-            val = limits.get(key, None)
-            if val is None:
-                lines.append(f"  {label}: Unlimited")
-            else:
-                lines.append(f"  {label}: {val}")
-        return "\n".join(lines)
-
-    def run_deck_build_step1(self):
-        self.select_power_bracket()
-
-    # ---------------------------
-    # Reporting Helper
-    # ---------------------------
-    def print_commander_dict_table(self):
-        if self.commander_row is None:
-            self.output_func("No commander selected.")
-            return
-        block = self._format_commander_pretty(self.commander_row)
-        self.output_func("\n" + block)
-        # New: show which CSV files (stems) were loaded for this color identity
-        if self.files_to_load:
-            file_list = ", ".join(f"{stem}_cards.csv" for stem in self.files_to_load)
-            self.output_func(f"Card Pool Files: {file_list}")
-        if self.selected_tags:
-            self.output_func("Chosen Tags:")
-            if self.primary_tag:
-                self.output_func(f"  Primary : {self.primary_tag}")
-            if self.secondary_tag:
-                self.output_func(f"  Secondary: {self.secondary_tag}")
-            if self.tertiary_tag:
-                self.output_func(f"  Tertiary : {self.tertiary_tag}")
-            self.output_func("")
-        if self.bracket_definition:
-            self.output_func(f"Power Bracket: {self.bracket_level} - {self.bracket_name}")
-            self.output_func(self._format_limits(self.bracket_limits))
-            self.output_func("")
-
-    # ---------------------------
-    # Orchestration
-    # ---------------------------
-    def run_initial_setup(self):
-        self.choose_commander()
-        self.select_commander_tags()
-        # New: color identity & card pool loading
-        try:
-            self.determine_color_identity()
-            self.setup_dataframes()
-        except Exception as e:
-            self.output_func(f"Failed to load color-identity card pool: {e}")
-        self.print_commander_dict_table()
-
-    def run_full_initial_with_bracket(self):
-        self.run_initial_setup()
-        self.run_deck_build_step1()
-        # (Further steps can be chained here)
-        self.print_commander_dict_table()
-
     # ===========================
-    # Deck Building Step 2: Ideal Composition Counts
+    # Non-Land Addition: Creatures
     # ===========================
-    ideal_counts: Dict[str, int] = field(default_factory=dict)
+    def add_creatures(self):
+        """Add creature cards distributed across selected themes (1-3).
 
-    def run_deck_build_step2(self) -> Dict[str, int]:
-        """Determine ideal counts for general card categories (bracket‑agnostic baseline).
-
-        Prompts the user (Enter to keep default). Stores results in ideal_counts and returns it.
-        Categories:
-          ramp, lands, basic_lands, creatures, removal, wipes, card_advantage, protection
+        Unified logic replacing previous add_creatures_primary / add_creatures_by_themes.
+        Weight scheme:
+          1 theme: 100%
+          2 themes: 60/40
+          3 themes: 50/30/20
+        Kindred multipliers applied only when >1 theme.
+        Synergy prioritizes cards matching multiple selected themes.
         """
-        # Initialize defaults from constants if not already present
-        defaults = {
-            'ramp': bc.DEFAULT_RAMP_COUNT,
-            'lands': bc.DEFAULT_LAND_COUNT,
-            'basic_lands': bc.DEFAULT_BASIC_LAND_COUNT,
-            'creatures': bc.DEFAULT_CREATURE_COUNT,
-            'removal': bc.DEFAULT_REMOVAL_COUNT,
-            'wipes': bc.DEFAULT_WIPES_COUNT,
-            'card_advantage': bc.DEFAULT_CARD_ADVANTAGE_COUNT,
-            'protection': bc.DEFAULT_PROTECTION_COUNT,
-        }
-
-        # Seed existing values if already set (allow re-run keeping previous choices)
-        for k, v in defaults.items():
-            if k not in self.ideal_counts:
-                self.ideal_counts[k] = v
-
-        self.output_func("\nSet Ideal Deck Composition Counts (press Enter to accept default/current):")
-        for key, prompt in bc.DECK_COMPOSITION_PROMPTS.items():
-            if key not in defaults:  # skip price prompts & others for this step
-                continue
-            current_default = self.ideal_counts[key]
-            value = self._prompt_int_with_default(f"{prompt} ", current_default, minimum=0, maximum=200)
-            self.ideal_counts[key] = value
-
-        # Basic validation adjustments
-        # Ensure basic_lands <= lands
-        if self.ideal_counts['basic_lands'] > self.ideal_counts['lands']:
-            self.output_func("Adjusting basic lands to not exceed total lands.")
-            self.ideal_counts['basic_lands'] = self.ideal_counts['lands']
-
-        self._print_ideal_counts_summary()
-        return self.ideal_counts
-
-    # Helper to prompt integer values with default
-    def _prompt_int_with_default(self, prompt: str, default: int, minimum: int = 0, maximum: int = 999) -> int:
-        while True:
-            raw = self.input_func(f"{prompt}[{default}] ").strip()
-            if raw == "":
-                return default
-            if raw.isdigit():
-                val = int(raw)
-                if minimum <= val <= maximum:
-                    return val
-            self.output_func(f"Enter a number between {minimum} and {maximum}, or press Enter for {default}.")
-
-    def _print_ideal_counts_summary(self):
-        self.output_func("\nIdeal Composition Targets:")
-        order = [
-            ('ramp', 'Ramp Pieces'),
-            ('lands', 'Total Lands'),
-            ('basic_lands', 'Minimum Basic Lands'),
-            ('creatures', 'Creatures'),
-            ('removal', 'Spot Removal'),
-            ('wipes', 'Board Wipes'),
-            ('card_advantage', 'Card Advantage'),
-            ('protection', 'Protection')
-        ]
-        width = max(len(label) for _, label in order)
-        for key, label in order:
-            if key in self.ideal_counts:
-                self.output_func(f"  {label.ljust(width)} : {self.ideal_counts[key]}")
-
-    # Public wrapper for external callers / tests
-    def print_ideal_counts(self):
-        if not self.ideal_counts:
-            self.output_func("Ideal counts not set. Run run_deck_build_step2() first.")
+        import re
+        import ast
+        import math
+        import random
+        df = getattr(self, '_combined_cards_df', None)
+        if df is None or df.empty:
+            self.output_func("Card pool not loaded; cannot add creatures.")
             return
-        # Reuse formatting but with a simpler heading per user request
-        self.output_func("\nIdeal Counts:")
-        order = [
-            ('ramp', 'Ramp'),
-            ('lands', 'Total Lands'),
-            ('basic_lands', 'Basic Lands (Min)'),
-            ('creatures', 'Creatures'),
-            ('removal', 'Spot Removal'),
-            ('wipes', 'Board Wipes'),
-            ('card_advantage', 'Card Advantage'),
-            ('protection', 'Protection')
-        ]
-        width = max(len(label) for _, label in order)
-        for key, label in order:
-            if key in self.ideal_counts:
-                self.output_func(f"  {label.ljust(width)} : {self.ideal_counts[key]}")
+        if 'type' not in df.columns:
+            self.output_func("Card pool missing 'type' column; cannot add creatures.")
+            return
+        themes_ordered: list[tuple[str, str]] = []
+        if self.primary_tag:
+            themes_ordered.append(('primary', self.primary_tag))
+        if self.secondary_tag:
+            themes_ordered.append(('secondary', self.secondary_tag))
+        if self.tertiary_tag:
+            themes_ordered.append(('tertiary', self.tertiary_tag))
+        if not themes_ordered:
+            self.output_func("No themes selected; skipping creature addition.")
+            return
+        desired_total = (self.ideal_counts.get('creatures') if getattr(self, 'ideal_counts', None) else None) or getattr(bc, 'DEFAULT_CREATURE_COUNT', 25)
+        n_themes = len(themes_ordered)
+        if n_themes == 1:
+            base_map = {'primary': 1.0}
+        elif n_themes == 2:
+            base_map = {'primary': 0.6, 'secondary': 0.4}
+        else:
+            base_map = {'primary': 0.5, 'secondary': 0.3, 'tertiary': 0.2}
+        weights: dict[str, float] = {}
+        boosted_roles: set[str] = set()
+        if n_themes > 1:
+            for role, tag in themes_ordered:
+                w = base_map.get(role, 0.0)
+                lt = tag.lower()
+                if 'kindred' in lt or 'tribal' in lt:
+                    mult = getattr(bc, 'WEIGHT_ADJUSTMENT_FACTORS', {}).get(f'kindred_{role}', 1.0)
+                    w *= mult
+                    boosted_roles.add(role)
+                weights[role] = w
+            total = sum(weights.values())
+            if total > 1.0:
+                for r in list(weights):
+                    weights[r] /= total
+            else:
+                rem = 1.0 - total
+                base_sum_unboosted = sum(base_map[r] for r,_t in themes_ordered if r not in boosted_roles)
+                if rem > 1e-6 and base_sum_unboosted > 0:
+                    for r,_t in themes_ordered:
+                        if r not in boosted_roles:
+                            weights[r] += rem * (base_map[r] / base_sum_unboosted)
+        else:
+            weights['primary'] = 1.0
+        def _parse_theme_tags(val) -> list[str]:
+            if isinstance(val, list):
+                out: list[str] = []
+                for v in val:
+                    if isinstance(v, list):
+                        out.extend(str(x) for x in v)
+                    else:
+                        out.append(str(v))
+                return [s.strip() for s in out if s and s.strip()]
+            if isinstance(val, str):
+                s = val.strip()
+                try:
+                    parsed = ast.literal_eval(s)
+                    if isinstance(parsed, list):
+                        return [str(x).strip() for x in parsed if str(x).strip()]
+                except Exception:
+                    pass
+                if s.startswith('[') and s.endswith(']'):
+                    s = s[1:-1]
+                parts = [p.strip().strip("'\"") for p in s.split(',')]
+                cleaned = []
+                for p in parts:
+                    if not p:
+                        continue
+                    q = re.sub(r"^[\[\s']+|[\]\s']+$", '', p)
+                    if q:
+                        cleaned.append(q)
+                return cleaned
+            return []
+        creature_df = df[df['type'].str.contains('Creature', case=False, na=False)].copy()
+        if creature_df.empty:
+            self.output_func("No creature rows in dataset; skipping.")
+            return
+        selected_tags_lower = [t.lower() for _r,t in themes_ordered]
+        if '_parsedThemeTags' not in creature_df.columns:
+            creature_df['_parsedThemeTags'] = creature_df['themeTags'].apply(_parse_theme_tags)
+        creature_df['_normTags'] = creature_df['_parsedThemeTags'].apply(lambda lst: [s.lower() for s in lst])
+        creature_df['_multiMatch'] = creature_df['_normTags'].apply(lambda lst: sum(1 for t in selected_tags_lower if t in lst))
+        base_top = 30
+        top_n = int(base_top * getattr(bc, 'THEME_POOL_SIZE_MULTIPLIER', 2.0))
+        synergy_bonus = getattr(bc, 'THEME_PRIORITY_BONUS', 1.2)
+        total_added = 0
+        added_names: list[str] = []
+        per_theme_added: dict[str, list[str]] = {r: [] for r,_t in themes_ordered}
+        for role, tag in themes_ordered:
+            w = weights.get(role, 0.0)
+            if w <= 0:
+                continue
+            remaining = max(0, desired_total - total_added)
+            if remaining == 0:
+                break
+            target = int(math.ceil(desired_total * w * random.uniform(1.0, 1.1)))
+            target = min(target, remaining)
+            if target <= 0:
+                continue
+            tnorm = tag.lower()
+            subset = creature_df[creature_df['_normTags'].apply(lambda lst, tn=tnorm: (tn in lst) or any(tn in x for x in lst))]
+            if subset.empty:
+                self.output_func(f"Theme '{tag}' produced no creature candidates.")
+                continue
+            if 'edhrecRank' in subset.columns:
+                subset = subset.sort_values(by=['_multiMatch','edhrecRank','manaValue'], ascending=[False, True, True], na_position='last')
+            elif 'manaValue' in subset.columns:
+                subset = subset.sort_values(by=['_multiMatch','manaValue'], ascending=[False, True], na_position='last')
+            pool = subset.head(top_n).copy()
+            pool = pool[~pool['name'].isin(added_names)]
+            if pool.empty:
+                continue
+            weights_vec = [synergy_bonus if mm >= 2 else 1.0 for mm in pool['_multiMatch']]
+            names_vec = pool['name'].tolist()
+            chosen: list[str] = []
+            try:
+                for _ in range(min(target, len(names_vec))):
+                    totw = sum(weights_vec)
+                    if totw <= 0:
+                        break
+                    r = random.random() * totw
+                    acc = 0.0
+                    idx = 0
+                    for i, wv in enumerate(weights_vec):
+                        acc += wv
+                        if r <= acc:
+                            idx = i
+                            break
+                    chosen.append(names_vec.pop(idx))
+                    weights_vec.pop(idx)
+            except Exception:
+                chosen = names_vec[:target]
+            for nm in chosen:
+                row = pool[pool['name']==nm].iloc[0]
+                self.add_card(nm,
+                              card_type=row.get('type','Creature'),
+                              mana_cost=row.get('manaCost',''),
+                              mana_value=row.get('manaValue', row.get('cmc','')),
+                              creature_types=row.get('creatureTypes', []) if isinstance(row.get('creatureTypes', []), list) else [],
+                              tags=row.get('themeTags', []) if isinstance(row.get('themeTags', []), list) else [])
+                added_names.append(nm)
+                per_theme_added[role].append(nm)
+                total_added += 1
+                if total_added >= desired_total:
+                    break
+            self.output_func(f"Added {len(per_theme_added[role])} creatures for {role} theme '{tag}' (target {target}).")
+            if total_added >= desired_total:
+                break
+        if total_added < desired_total:
+            need = desired_total - total_added
+            multi_pool = creature_df[~creature_df['name'].isin(added_names)].copy()
+            multi_pool = multi_pool[multi_pool['_multiMatch'] > 0]
+            if not multi_pool.empty:
+                if 'edhrecRank' in multi_pool.columns:
+                    multi_pool = multi_pool.sort_values(by=['_multiMatch','edhrecRank','manaValue'], ascending=[False, True, True], na_position='last')
+                elif 'manaValue' in multi_pool.columns:
+                    multi_pool = multi_pool.sort_values(by=['_multiMatch','manaValue'], ascending=[False, True], na_position='last')
+                fill = multi_pool['name'].tolist()[:need]
+                for nm in fill:
+                    row = multi_pool[multi_pool['name']==nm].iloc[0]
+                    self.add_card(nm,
+                                  card_type=row.get('type','Creature'),
+                                  mana_cost=row.get('manaCost',''),
+                                  mana_value=row.get('manaValue', row.get('cmc','')),
+                                  creature_types=row.get('creatureTypes', []) if isinstance(row.get('creatureTypes', []), list) else [],
+                                  tags=row.get('themeTags', []) if isinstance(row.get('themeTags', []), list) else [])
+                    added_names.append(nm)
+                    total_added += 1
+                    if total_added >= desired_total:
+                        break
+                self.output_func(f"Fill pass added {min(need, len(fill))} extra creatures (shortfall compensation).")
+        self.output_func("\nCreatures Added:")
+        for role, tag in themes_ordered:
+            lst = per_theme_added.get(role, [])
+            if lst:
+                self.output_func(f"  {role.title()} '{tag}': {len(lst)}")
+                for nm in lst:
+                    self.output_func(f"    - {nm}")
+            else:
+                self.output_func(f"  {role.title()} '{tag}': 0")
+        self.output_func(f"  Total {total_added}/{desired_total}{' (dataset shortfall)' if total_added < desired_total else ''}")
 
     # ---------------------------
     # Card Library Reporting
@@ -2577,6 +2820,48 @@ class DeckBuilder:
             ])
 
         self.output_func(table.get_string())
+
+        # Tag summary (unique card counts per tag)
+        if self.tag_counts:
+            self.output_func("\nTag Summary (unique cards per tag):")
+
+            def _clean_tag_key(tag: str) -> str:
+                import re
+                if not isinstance(tag, str):
+                    tag = str(tag)
+                s = tag.strip()
+                # Remove common leading list artifacts like [', [" or ['
+                s = re.sub(r"^\[+['\"]?", "", s)
+                # Remove common trailing artifacts like '], ] or '] etc.
+                s = re.sub(r"['\"]?\]+$", "", s)
+                # Strip stray quotes again
+                s = s.strip("'\"")
+                # Collapse internal excessive whitespace
+                s = ' '.join(s.split())
+                return s
+
+            # Aggregate counts by cleaned key to merge duplicates created by formatting artifacts
+            aggregated: Dict[str, int] = {}
+            for raw_tag, cnt in self.tag_counts.items():
+                cleaned = _clean_tag_key(raw_tag)
+                if not cleaned:
+                    continue
+                aggregated[cleaned] = aggregated.get(cleaned, 0) + cnt
+
+            min_count = getattr(bc, 'TAG_SUMMARY_MIN_COUNT', 1)
+            always_show_subs = [s.lower() for s in getattr(bc, 'TAG_SUMMARY_ALWAYS_SHOW_SUBSTRS', [])]
+            printed = 0
+            hidden = 0
+            for tag, cnt in sorted(aggregated.items(), key=lambda kv: (-kv[1], kv[0].lower())):
+                tag_l = tag.lower()
+                force_show = any(sub in tag_l for sub in always_show_subs) if always_show_subs else False
+                if cnt >= min_count or force_show:
+                    self.output_func(f"  {tag}: {cnt}{' (low freq)' if force_show and cnt < min_count else ''}")
+                    printed += 1
+                else:
+                    hidden += 1
+            if hidden:
+                self.output_func(f"  (+ {hidden} low-frequency tags hidden < {min_count})")
 
     # Internal helper for wrapping cell contents to keep table readable
     def _wrap_cell(self, text: str, width: int = 60, prefer_long: bool = False) -> str:

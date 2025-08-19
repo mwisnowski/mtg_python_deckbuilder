@@ -28,6 +28,13 @@ COMMANDER_CREATURE_TYPES_DEFAULT: Final[str] = ''
 COMMANDER_TAGS_DEFAULT: Final[List[str]] = []
 COMMANDER_THEMES_DEFAULT: Final[List[str]] = []
 
+# Reporting / summaries
+TAG_SUMMARY_MIN_COUNT: Final[int] = 3  # Minimum unique-card count for a tag to appear in tag summary output
+TAG_SUMMARY_ALWAYS_SHOW_SUBSTRS: Final[List[str]] = [
+    'board wipe',   # ensure board wipes always shown even if below threshold
+    'mass removal'  # common alternate phrasing
+]
+
 CARD_TYPES = ['Artifact','Creature', 'Enchantment', 'Instant', 'Land', 'Planeswalker', 'Sorcery',
               'Kindred', 'Dungeon', 'Battle']
 
@@ -357,7 +364,7 @@ LAND_REMOVAL_MAX_ATTEMPTS: Final[int] = 3
 PROTECTED_LANDS: Final[List[str]] = BASIC_LANDS + [land['name'] for land in KINDRED_STAPLE_LANDS]
 
 # Other defaults
-DEFAULT_CREATURE_COUNT: Final[int] = 25  # Default number of creatures
+DEFAULT_CREATURE_COUNT: Final[int] = 30  # Default number of creatures
 DEFAULT_REMOVAL_COUNT: Final[int] = 10  # Default number of spot removal spells
 DEFAULT_WIPES_COUNT: Final[int] = 2  # Default number of board wipes
 

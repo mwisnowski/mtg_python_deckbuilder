@@ -17,7 +17,7 @@ Indices correspond to the numbered tag list presented during interaction.
 """
 
 def run(
-    command_name: str = "Rocco, Street Chef",
+    command_name: str = "Pantlaza",
     add_creatures: bool = True,
     add_non_creature_spells: bool = True,
     # Fine-grained toggles (used only if add_non_creature_spells is False)
@@ -27,9 +27,9 @@ def run(
     add_card_advantage: bool = True,
     add_protection: bool = True,
     use_multi_theme: bool = True,
-    primary_choice: int = 9,
-    secondary_choice: Optional[int] = 1,
-    tertiary_choice: Optional[int] = 11,
+    primary_choice: int = 2,
+    secondary_choice: Optional[int] = 2,
+    tertiary_choice: Optional[int] = 2,
     add_lands: bool = True,
     fetch_count: Optional[int] = 3,
     dual_count: Optional[int] = None,
@@ -62,7 +62,7 @@ def run(
     else:
         scripted_inputs.append("0")  # stop at primary
     # Bracket (meta power / style) selection; keeping existing scripted value
-    scripted_inputs.append("5")
+    scripted_inputs.append("3")
     # Ideal count prompts (press Enter for defaults)
     for _ in range(8):
         scripted_inputs.append("")

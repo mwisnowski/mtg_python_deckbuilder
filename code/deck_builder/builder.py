@@ -205,7 +205,15 @@ class DeckBuilder(CommanderSelectionMixin,
             # Export
             if hasattr(self, 'export_decklist_csv'):
                 logger.info("Export decklist phase")
-                self.export_decklist_csv()
+                csv_path = self.export_decklist_csv()
+                # Also emit plaintext list (.txt) for quick copy/paste
+                try:
+                    # Derive matching stem by replacing extension from csv_path
+                    import os as _os
+                    base, _ext = _os.path.splitext(_os.path.basename(csv_path))
+                    self.export_decklist_text(filename=base + '.txt')  # type: ignore[attr-defined]
+                except Exception:
+                    logger.warning("Plaintext export failed (non-fatal)")
             end_ts = datetime.datetime.now()
             logger.info(f"=== Deck Build: COMPLETE in {(end_ts - start_ts).total_seconds():.2f}s ===")
         except KeyboardInterrupt:

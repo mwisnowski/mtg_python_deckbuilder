@@ -1,0 +1,16 @@
+services:
+  mtg-deckbuilder:
+    build: .
+    container_name: mtg-deckbuilder-main
+    stdin_open: true          # Equivalent to docker run -i
+    tty: true                 # Equivalent to docker run -t
+    volumes:
+      - ${PWD}/deck_files:/app/deck_files
+      - ${PWD}/logs:/app/logs
+      - ${PWD}/csv_files:/app/csv_files
+    environment:
+      - PYTHONUNBUFFERED=1
+      - TERM=xterm-256color
+      - DEBIAN_FRONTEND=noninteractive
+    # Ensure proper cleanup
+    restart: "no"

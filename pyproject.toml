@@ -1,0 +1,58 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mtg-deckbuilder"
+version = "1.0.0"
+description = "A command-line tool for building and analyzing Magic: The Gathering decks"
+readme = "README.md"
+license = {file = "LICENSE"}
+authors = [
+    {name = "Your Name", email = "your.email@example.com"}
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+requires-python = ">=3.13" # This is what it was built with anyway
+dependencies = [
+    "pandas>=1.5.0",
+    "inquirer>=3.1.3",
+    "typing_extensions>=4.5.0",
+    "fuzzywuzzy>=0.18.0",
+    "python-Levenshtein>=0.12.0",
+    "tqdm>=4.66.0",
+    "scrython>=1.10.0",
+    "numpy>=1.24.0",
+    "requests>=2.31.0",
+    "prettytable>=3.9.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "mypy>=1.3.0",
+    "pandas-stubs>=2.0.0",
+    "pytest>=8.0.0",
+]
+
+[project.scripts]
+mtg-deckbuilder = "code.main:run_menu"
+
+[project.urls]
+Homepage = "https://github.com/mwisnowski/mtg_python_deckbuilder"
+Repository = "https://github.com/mwisnowski/mtg_python_deckbuilder"
+Issues = "https://github.com/mwisnowski/mtg_python_deckbuilder/issues"
+
+[tool.setuptools.packages.find]
+include = ["code*"]
+
+[tool.setuptools.package-data]
+"*" = ["*.csv"]

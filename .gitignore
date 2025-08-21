@@ -15,3 +15,4 @@ non_interactive_test.py
 test_determinism.py
 test.py
 deterministic_test.py
+build.ps1

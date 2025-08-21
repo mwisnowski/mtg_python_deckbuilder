@@ -44,12 +44,21 @@ This is the first stable release of the MTG Python Deckbuilder - a comprehensive
 
 ## 📦 Installation Options
 
-### Option 1: Docker (Recommended)
+### Option 1: Docker Hub (Easiest)
+```bash
+# Create a directory for your decks
+mkdir mtg-decks && cd mtg-decks
+
+# Run directly from Docker Hub
+docker run -it --rm -v "$(pwd)":/app/host mwisnowski/mtg-python-deckbuilder:latest
+```
+
+### Option 2: Docker from Source (Recommended for Development)
 1. Clone the repository
 2. Ensure Docker is installed
 3. Run `./quick-start.sh` (Linux/macOS) or `.\run-docker.ps1 compose` (Windows)
 
-### Option 2: From Source
+### Option 3: From Source
 ```bash
 git clone https://github.com/mwisnowski/mtg_python_deckbuilder.git
 cd mtg_python_deckbuilder

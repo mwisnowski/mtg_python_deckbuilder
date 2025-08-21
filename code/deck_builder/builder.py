@@ -87,7 +87,9 @@ class DeckBuilder(
                 try:
                     import os as _os
                     base, _ext = _os.path.splitext(_os.path.basename(csv_path))
-                    self.export_decklist_text(filename=base + '.txt')  # type: ignore[attr_defined]
+                    txt_path = self.export_decklist_text(filename=base + '.txt')  # type: ignore[attr-defined]
+                    # Display the text file contents for easy copy/paste to online deck builders
+                    self._display_txt_contents(txt_path)
                 except Exception:
                     logger.warning("Plaintext export failed (non-fatal)")
             end_ts = datetime.datetime.now()
@@ -98,6 +100,38 @@ class DeckBuilder(
         except Exception as e:
             logger.exception("Deck build failed with exception")
             self.output_func(f"Deck build failed: {e}")
+
+    def _display_txt_contents(self, txt_path: str):
+        """Display the contents of the exported .txt file for easy copy/paste to online deck builders."""
+        try:
+            import os
+            if not os.path.exists(txt_path):
+                self.output_func("Warning: Text file not found for display.")
+                return
+            
+            with open(txt_path, 'r', encoding='utf-8') as f:
+                contents = f.read().strip()
+            
+            if not contents:
+                self.output_func("Warning: Text file is empty.")
+                return
+            
+            # Create a nice display format
+            filename = os.path.basename(txt_path)
+            separator = "=" * 60
+            
+            self.output_func(f"\n{separator}")
+            self.output_func(f"DECK LIST - {filename}")
+            self.output_func("Ready for copy/paste to Moxfield, EDHREC, or other deck builders")
+            self.output_func(f"{separator}")
+            self.output_func(contents)
+            self.output_func(f"{separator}")
+            self.output_func(f"Deck list also saved to: {txt_path}")
+            self.output_func(f"{separator}\n")
+            
+        except Exception as e:
+            logger.warning(f"Failed to display text file contents: {e}")
+            self.output_func(f"Warning: Could not display deck list contents. Check {txt_path} manually.")
 
     def add_creatures_phase(self):
         """Run the creature addition phase (delegated to CreatureAdditionMixin)."""

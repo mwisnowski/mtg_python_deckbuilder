@@ -33,5 +33,10 @@ VOLUME ["/app/deck_files", "/app/logs", "/app/csv_files"]
 # Set the working directory to code for proper imports
 WORKDIR /app/code
 
+# Create symbolic links so the app can find the data directories
+RUN ln -sf /app/deck_files ./deck_files && \
+    ln -sf /app/logs ./logs && \
+    ln -sf /app/csv_files ./csv_files
+
 # Run the application
 CMD ["python", "main.py"]

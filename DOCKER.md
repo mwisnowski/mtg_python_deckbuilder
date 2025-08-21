@@ -7,13 +7,13 @@ A comprehensive guide for running the MTG Python Deckbuilder in Docker container
 ### Linux/macOS/Remote Host
 ```bash
 # Make scripts executable (one time only)
-chmod +x quick-start.sh run-docker-linux.sh
+chmod +x quick-start.sh run-docker.sh
 
 # Simplest method - just run this:
 ./quick-start.sh
 
 # Or use the full script with options:
-./run-docker-linux.sh compose
+./run-docker.sh compose
 ```
 
 ### Windows (PowerShell)
@@ -48,11 +48,11 @@ docker run -it --rm `
 
 | Command | Description |
 |---------|-------------|
-| `./run-docker-linux.sh setup` | Create directories and check Docker installation |
-| `./run-docker-linux.sh build` | Build the Docker image |
-| `./run-docker-linux.sh compose` | Run with Docker Compose (recommended) |
-| `./run-docker-linux.sh run` | Run with manual volume mounting |
-| `./run-docker-linux.sh clean` | Remove containers and images |
+| `./run-docker.sh setup` | Create directories and check Docker installation |
+| `./run-docker.sh build` | Build the Docker image |
+| `./run-docker.sh compose` | Run with Docker Compose (recommended) |
+| `./run-docker.sh run` | Run with manual volume mounting |
+| `./run-docker.sh clean` | Remove containers and images |
 
 ## 🗂️ File Persistence
 
@@ -131,11 +131,6 @@ The project includes two Docker Compose configurations:
 - Container name: `mtg-deckbuilder-main`
 - Use with: `docker compose run --rm mtg-deckbuilder`
 
-### `docker-compose.interactive.yml` (Alternative)
-- Identical functionality
-- Container name: `mtg-deckbuilder-interactive`
-- Use with: `docker compose -f docker compose.interactive.yml run --rm mtg-deckbuilder-interactive`
-
 Both files provide the same functionality and file persistence.
 
 ## 🐛 Troubleshooting
@@ -169,7 +164,6 @@ Files created by Docker may be owned by `root`. This is normal on Linux systems.
 ```bash
 # Stop all containers
 docker compose down
-docker compose -f docker-compose.interactive.yml down
 
 # Remove image
 docker rmi mtg-deckbuilder
@@ -217,5 +211,5 @@ After running the application:
 
 **Need help?** Check the troubleshooting section above or refer to the helper script help:
 ```bash
-./run-docker-linux.sh help
+./run-docker.sh help
 ```

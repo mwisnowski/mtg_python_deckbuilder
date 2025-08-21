@@ -22,3 +22,25 @@ coverage.xml
 .env
 logs/*.log
 *.egg-info/
+
+# Exclude data files that should be mounted as volumes
+csv_files/
+deck_files/
+logs/
+*.csv
+deck_files/*.txt
+logs/*.txt
+
+# Allow requirements.txt (needed for Docker build)
+!requirements.txt
+
+# Exclude development and build files
+build/
+dist/
+*.egg-info/
+.vscode/
+.idea/
+
+# Exclude OS files
+.DS_Store
+Thumbs.db

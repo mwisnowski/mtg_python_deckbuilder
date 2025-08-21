@@ -57,6 +57,8 @@ docker run -it --rm \
   mwisnowski/mtg-python-deckbuilder:latest
 ```
 
+**Windows Docker Desktop Users**: See `WINDOWS_DOCKER_GUIDE.md` for detailed Windows-specific instructions including GUI setup.
+
 ### Option 2: Docker from Source (Recommended for Development)
 1. Clone the repository
 2. Ensure Docker is installed

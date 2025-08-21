@@ -19,6 +19,9 @@ class ColorBalanceMixin:
     # Color / pip computation helpers (cached)
     # ---------------------------
     def _compute_color_source_matrix(self) -> Dict[str, Dict[str,int]]:
+        """Compute the color source matrix for the current deck library.
+        Returns a mapping of card names to color sources, cached for efficiency.
+        """
         if self._color_source_matrix_cache is not None and not self._color_source_cache_dirty:
             return self._color_source_matrix_cache
         matrix = bu.compute_color_source_matrix(self.card_library, getattr(self, '_full_cards_df', None))
@@ -27,6 +30,9 @@ class ColorBalanceMixin:
         return matrix
 
     def _compute_spell_pip_weights(self) -> Dict[str, float]:
+        """Compute the spell pip weights for the current deck library.
+        Returns a mapping of color letters to pip weight, cached for efficiency.
+        """
         if self._spell_pip_weights_cache is not None and not self._spell_pip_cache_dirty:
             return self._spell_pip_weights_cache
         weights = bu.compute_spell_pip_weights(self.card_library, self.color_identity)
@@ -35,6 +41,9 @@ class ColorBalanceMixin:
         return weights
 
     def _current_color_source_counts(self) -> Dict[str,int]:
+        """Return the current counts of color sources in the deck library.
+        Uses the color source matrix to aggregate counts for each color.
+        """
         matrix = self._compute_color_source_matrix()
         counts = {c:0 for c in ['W','U','B','R','G']}
         for name, colors in matrix.items():
@@ -48,12 +57,18 @@ class ColorBalanceMixin:
     # ---------------------------
     # Post-spell land adjustment & basic rebalance
     # ---------------------------
-    def post_spell_land_adjust(self,
-                               pip_weights: Optional[Dict[str,float]] = None,
-                               color_shortfall_threshold: float = 0.15,
-                               perform_swaps: bool = True,
-                               max_swaps: int = 5,
-                               rebalance_basics: bool = True):  # noqa: C901
+    def post_spell_land_adjust(
+        self,
+        pip_weights: Optional[Dict[str, float]] = None,
+        color_shortfall_threshold: float = 0.15,
+        perform_swaps: bool = True,
+        max_swaps: int = 5,
+        rebalance_basics: bool = True
+    ):
+        """Post-spell land adjustment and basic rebalance.
+        Analyzes color deficits after spell addition and optionally swaps lands and rebalances basics
+        to better align mana sources with spell pip demand.
+        """
         if pip_weights is None:
             pip_weights = self._compute_spell_pip_weights()
         if self.color_source_matrix_baseline is None:

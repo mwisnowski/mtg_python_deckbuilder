@@ -19,7 +19,11 @@ class CreatureAdditionMixin:
       - Avoid duplicating the commander
       - Deterministic weighted sampling via builder_utils helper
     """
-    def add_creatures(self):  # noqa: C901 (complexity preserved during extraction)
+    def add_creatures(self):
+        """Add creatures to the deck based on selected themes and allocation weights.
+        Applies kindred/tribal multipliers, prioritizes multi-theme matches, and avoids commander duplication.
+        Uses weighted sampling for selection and fills shortfall if needed.
+        """
         df = getattr(self, '_combined_cards_df', None)
         if df is None or df.empty:
             self.output_func("Card pool not loaded; cannot add creatures.")
@@ -179,3 +183,10 @@ class CreatureAdditionMixin:
             else:
                 self.output_func(f"  {role.title()} '{tag}': 0")
         self.output_func(f"  Total {total_added}/{desired_total}{' (dataset shortfall)' if total_added < desired_total else ''}")
+
+    def add_creatures_phase(self):
+        """Public method for orchestration: delegates to add_creatures.
+        Use this as the main entry point for the creature addition phase in deck building.
+        """
+        """Public method for orchestration: delegates to add_creatures."""
+        return self.add_creatures()

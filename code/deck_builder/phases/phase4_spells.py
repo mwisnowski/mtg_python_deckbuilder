@@ -120,7 +120,11 @@ class SpellAdditionMixin:
     # ---------------------------
     # Removal
     # ---------------------------
-    def add_removal(self):  # noqa: C901
+    def add_removal(self):
+        """Add spot removal spells to the deck, avoiding board wipes and lands.
+        Selects cards tagged as 'removal' or 'spot removal', prioritizing by EDHREC rank and mana value.
+        Avoids duplicates and commander card.
+        """
         target = self.ideal_counts.get('removal', 0)
         if target <= 0 or self._combined_cards_df is None:
             return
@@ -179,6 +183,10 @@ class SpellAdditionMixin:
     # Board Wipes
     # ---------------------------
     def add_board_wipes(self):
+        """Add board wipe spells to the deck.
+        Selects cards tagged as 'board wipe' or 'mass removal', prioritizing by EDHREC rank and mana value.
+        Avoids duplicates and commander card.
+        """
         target = self.ideal_counts.get('wipes', 0)
         if target <= 0 or self._combined_cards_df is None:
             return
@@ -232,7 +240,11 @@ class SpellAdditionMixin:
     # ---------------------------
     # Card Advantage
     # ---------------------------
-    def add_card_advantage(self):  # noqa: C901
+    def add_card_advantage(self):
+        """Add card advantage spells to the deck.
+        Selects cards tagged as 'draw' or 'card advantage', splits between conditional and unconditional draw.
+        Prioritizes by EDHREC rank and mana value, avoids duplicates and commander card.
+        """
         total_target = self.ideal_counts.get('card_advantage', 0)
         if total_target <= 0 or self._combined_cards_df is None:
             return
@@ -321,6 +333,10 @@ class SpellAdditionMixin:
     # Protection
     # ---------------------------
     def add_protection(self):
+        """Add protection spells to the deck.
+        Selects cards tagged as 'protection', prioritizing by EDHREC rank and mana value.
+        Avoids duplicates and commander card.
+        """
         target = self.ideal_counts.get('protection', 0)
         if target <= 0 or self._combined_cards_df is None:
             return
@@ -371,7 +387,11 @@ class SpellAdditionMixin:
     # ---------------------------
     # Theme Spell Filler to 100
     # ---------------------------
-    def fill_remaining_theme_spells(self):  # noqa: C901
+    def fill_remaining_theme_spells(self):
+        """Fill remaining deck slots with theme spells to reach 100 cards.
+        Uses primary, secondary, and tertiary tags to select spells matching deck themes.
+        Applies weighted selection and fallback to general utility spells if needed.
+        """
         total_cards = sum(entry.get('Count', 1) for entry in self.card_library.values())
         remaining = 100 - total_cards
         if remaining <= 0:
@@ -603,6 +623,9 @@ class SpellAdditionMixin:
     # Orchestrator
     # ---------------------------
     def add_non_creature_spells(self):
+        """Orchestrate addition of all non-creature spell categories and theme filler.
+        Calls ramp, removal, board wipes, card advantage, protection, and theme filler methods in order.
+        """
         """Convenience orchestrator calling remaining non-creature spell categories then thematic fill."""
         self.add_ramp()
         self.add_removal()
@@ -611,3 +634,11 @@ class SpellAdditionMixin:
         self.add_protection()
         self.fill_remaining_theme_spells()
         self.print_type_summary()
+    
+    def add_spells_phase(self):
+        """Public method for orchestration: delegates to add_non_creature_spells.
+        Use this as the main entry point for the spell addition phase in deck building.
+        """
+        """Public method for orchestration: delegates to add_non_creature_spells."""
+        return self.add_non_creature_spells()
+    

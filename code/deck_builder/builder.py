@@ -49,19 +49,67 @@ if not any(isinstance(h, logging_util.logging.StreamHandler) for h in logger.han
 ## Phase 0 extraction: BracketDefinition & BRACKET_DEFINITIONS now imported
 
 @dataclass
-class DeckBuilder(CommanderSelectionMixin,
-                  LandBasicsMixin,
-                  LandStaplesMixin,
-                  LandKindredMixin,
-                  LandFetchMixin,
-                  LandDualsMixin,
-                  LandTripleMixin,
-                  LandMiscUtilityMixin,
-                  LandOptimizationMixin,
-                  CreatureAdditionMixin,
-                  SpellAdditionMixin,
-                  ColorBalanceMixin,
-                  ReportingMixin):
+class DeckBuilder(
+    CommanderSelectionMixin,
+    LandBasicsMixin,
+    LandStaplesMixin,
+    LandKindredMixin,
+    LandFetchMixin,
+    LandDualsMixin,
+    LandTripleMixin,
+    LandMiscUtilityMixin,
+    LandOptimizationMixin,
+    CreatureAdditionMixin,
+    SpellAdditionMixin,
+    ColorBalanceMixin,
+    ReportingMixin
+):
+    def build_deck_full(self):
+        """Orchestrate the full deck build process, chaining all major phases."""
+        start_ts = datetime.datetime.now()
+        logger.info("=== Deck Build: BEGIN ===")
+        try:
+            self.run_initial_setup()
+            self.run_deck_build_step1()
+            self.run_deck_build_step2()
+            self._run_land_build_steps()
+            if hasattr(self, 'add_creatures_phase'):
+                self.add_creatures_phase()
+            if hasattr(self, 'add_spells_phase'):
+                self.add_spells_phase()
+            if hasattr(self, 'post_spell_land_adjust'):
+                self.post_spell_land_adjust()
+            # Modular reporting phase
+            if hasattr(self, 'run_reporting_phase'):
+                self.run_reporting_phase()
+            if hasattr(self, 'export_decklist_csv'):
+                csv_path = self.export_decklist_csv()
+                try:
+                    import os as _os
+                    base, _ext = _os.path.splitext(_os.path.basename(csv_path))
+                    self.export_decklist_text(filename=base + '.txt')  # type: ignore[attr_defined]
+                except Exception:
+                    logger.warning("Plaintext export failed (non-fatal)")
+            end_ts = datetime.datetime.now()
+            logger.info(f"=== Deck Build: COMPLETE in {(end_ts - start_ts).total_seconds():.2f}s ===")
+        except KeyboardInterrupt:
+            logger.warning("Deck build cancelled by user (KeyboardInterrupt).")
+            self.output_func("\nDeck build cancelled by user.")
+        except Exception as e:
+            logger.exception("Deck build failed with exception")
+            self.output_func(f"Deck build failed: {e}")
+
+    def add_creatures_phase(self):
+        """Run the creature addition phase (delegated to CreatureAdditionMixin)."""
+        if hasattr(super(), 'add_creatures_phase'):
+            return super().add_creatures_phase()
+        raise NotImplementedError("Creature addition phase not implemented.")
+
+    def add_spells_phase(self):
+        """Run the spell addition phase (delegated to SpellAdditionMixin)."""
+        if hasattr(super(), 'add_spells_phase'):
+            return super().add_spells_phase()
+        raise NotImplementedError("Spell addition phase not implemented.")
     # Commander core selection state
     commander_name: str = ""
     commander_row: Optional[pd.Series] = None
@@ -135,93 +183,22 @@ class DeckBuilder(CommanderSelectionMixin,
             self._original_output_func = self.output_func
 
             def _wrapped(msg: str):
-                try:
-                    # Collapse excessive blank lines for log readability, but keep printing original
-                    log_msg = msg.rstrip()
-                    if log_msg:
-                        logger.info(log_msg)
-                except Exception:
-                    pass
+                # Collapse excessive blank lines for log readability, but keep printing original
+                log_msg = msg.rstrip()
+                if log_msg:
+                    logger.info(log_msg)
                 self._original_output_func(msg)
 
-            self.output_func = _wrapped  # type: ignore
+            self.output_func = _wrapped
 
-    # Internal explicit logging helper for code paths where we do NOT want to echo to user
-    def _log_debug(self, msg: str):
-        logger.debug(msg)
-
-    def _log_info(self, msg: str):
-        logger.info(msg)
-
-    def _log_warning(self, msg: str):
-        logger.warning(msg)
-
-    def _log_error(self, msg: str):
-        logger.error(msg)
-
-    # ---------------------------
-    # High-level Orchestration
-    # ---------------------------
-    def build_deck_full(self) -> None:
-        """Run the full interactive deck building pipeline and export deck CSV.
-
-        Steps:
-          1. Commander selection & tag prioritization
-          2. Power bracket & ideal composition inputs
-          3. Land building steps (1-8)
-          4. Creature addition (theme-weighted)
-          5. Non-creature spell categories & filler
-          6. Post-spell land color balancing & basic rebalance
-          7. CSV export (deck_files/<name>_<date>.csv)
-        """
-        logger.info("=== Deck Build: START ===")
-        start_ts = datetime.datetime.now()
-        try:
-            logger.info("Step 0: Initial setup")
-            self.run_initial_setup()
-            logger.info("Step 1: Commander selection & tag prioritization complete")
-            self.run_deck_build_step1()
-            logger.info("Step 2: Power bracket & composition inputs")
-            self.run_deck_build_step2()
-            # Land steps (1-8)
-            for step in range(1, 9):
-                m = getattr(self, f"run_land_step{step}", None)
-                if callable(m):
-                    logger.info(f"Land Step {step}: begin")
-                    m()
-                    logger.info(f"Land Step {step}: complete (current land count {self._current_land_count() if hasattr(self, '_current_land_count') else 'n/a'})")
-            # Creatures
-            if hasattr(self, 'add_creatures'):
-                logger.info("Adding creatures phase")
-                self.add_creatures()
-            # Non-creature spells
-            if hasattr(self, 'add_non_creature_spells'):
-                logger.info("Adding non-creature spells phase")
-                self.add_non_creature_spells()
-            # Post-spell land adjustments
-            if hasattr(self, 'post_spell_land_adjust'):
-                logger.info("Post-spell land adjustment phase")
-                self.post_spell_land_adjust()
-            # Export
-            if hasattr(self, 'export_decklist_csv'):
-                logger.info("Export decklist phase")
-                csv_path = self.export_decklist_csv()
-                # Also emit plaintext list (.txt) for quick copy/paste
-                try:
-                    # Derive matching stem by replacing extension from csv_path
-                    import os as _os
-                    base, _ext = _os.path.splitext(_os.path.basename(csv_path))
-                    self.export_decklist_text(filename=base + '.txt')  # type: ignore[attr-defined]
-                except Exception:
-                    logger.warning("Plaintext export failed (non-fatal)")
-            end_ts = datetime.datetime.now()
-            logger.info(f"=== Deck Build: COMPLETE in {(end_ts - start_ts).total_seconds():.2f}s ===")
-        except KeyboardInterrupt:
-            logger.warning("Deck build cancelled by user (KeyboardInterrupt).")
-            self.output_func("\nDeck build cancelled by user.")
-        except Exception as e:
-            logger.exception("Deck build failed with exception")
-            self.output_func(f"Deck build failed: {e}")
+    def _run_land_build_steps(self):
+        """Run all land build steps (1-8) in order, logging progress."""
+        for step in range(1, 9):
+            m = getattr(self, f"run_land_step{step}", None)
+            if callable(m):
+                logger.info(f"Land Step {step}: begin")
+                m()
+                logger.info(f"Land Step {step}: complete (current land count {self._current_land_count() if hasattr(self, '_current_land_count') else 'n/a'})")
 
     # ---------------------------
     # RNG Initialization

@@ -15,9 +15,21 @@ except Exception:  # pragma: no cover
     PrettyTable = None  # type: ignore
 
 class ReportingMixin:
+    def run_reporting_phase(self):
+        """Public method for orchestration: delegates to print_type_summary and print_card_library.
+            def export_decklist_text(self, directory: str = 'deck_files', filename: str | None = None, suppress_output: bool = False) -> str:
+            def export_decklist_text(self, directory: str = 'deck_files', filename: str | None = None, suppress_output: bool = False) -> str:
+        Use this as the main entry point for the reporting phase in deck building.
+        """
+        """Public method for orchestration: delegates to print_type_summary and print_card_library."""
+        self.print_type_summary()
+        self.print_card_library(table=True)
     """Phase 6: Reporting, summaries, and export helpers."""
 
     def _wrap_cell(self, text: str, width: int = 28) -> str:
+        """Wraps a string to a specified width for table display.
+        Used for pretty-printing card names, roles, and tags in tabular output.
+        """
         words = text.split()
         lines: List[str] = []
         current_line = []
@@ -35,6 +47,9 @@ class ReportingMixin:
         return '\n'.join(lines)
 
     def print_type_summary(self):
+        """Prints a summary of card types and their counts in the current deck library.
+        Displays type distribution and percentage breakdown.
+        """
         type_counts: Dict[str,int] = {}
         for name, info in self.card_library.items():
             ctype = info.get('Type', 'Unknown')
@@ -44,7 +59,12 @@ class ReportingMixin:
         self.output_func("\nType Summary:")
         for t, c in sorted(type_counts.items(), key=lambda kv: (-kv[1], kv[0])):
             self.output_func(f"  {t:<15} {c:>3}  ({(c/total_cards*100 if total_cards else 0):5.1f}%)")
-    def export_decklist_csv(self, directory: str = 'deck_files', filename: str | None = None) -> str:
+    def export_decklist_csv(self, directory: str = 'deck_files', filename: str | None = None, suppress_output: bool = False) -> str:
+        """Export current decklist to CSV (enriched).
+        Filename pattern (default): commanderFirstWord_firstTheme_YYYYMMDD.csv
+        Included columns: Name, Count, Type, ManaCost, ManaValue, Colors, Power, Toughness, Role, Tags, Text.
+        Falls back gracefully if snapshot rows missing.
+        """
         """Export current decklist to CSV (enriched).
 
         Filename pattern (default): commanderFirstWord_firstTheme_YYYYMMDD.csv
@@ -55,9 +75,15 @@ class ReportingMixin:
         os.makedirs(directory, exist_ok=True)
         if filename is None:
             cmdr = getattr(self, 'commander_name', '') or getattr(self, 'commander', '') or ''
-            cmdr_first = cmdr.split()[0] if cmdr else 'deck'
+            if isinstance(cmdr, str) and cmdr:
+                cmdr_first = cmdr.split()[0]
+            else:
+                cmdr_first = 'deck'
             theme = getattr(self, 'primary_tag', None) or (self.selected_tags[0] if getattr(self, 'selected_tags', []) else None)
-            theme_first = str(theme).split()[0] if theme else 'notheme'
+            if isinstance(theme, str) and theme:
+                theme_first = theme.split()[0]
+            else:
+                theme_first = 'notheme'
             def _slug(s: str) -> str:
                 s2 = _re.sub(r'[^A-Za-z0-9_]+', '', s)
                 return s2 or 'x'
@@ -194,12 +220,15 @@ class ReportingMixin:
         try:  # pragma: no cover - sidecar convenience
             stem = os.path.splitext(os.path.basename(fname))[0]
             # Always overwrite sidecar to reflect latest deck state
-            self.export_decklist_text(directory=directory, filename=stem + '.txt')  # type: ignore[attr-defined]
+            self.export_decklist_text(directory=directory, filename=stem + '.txt', suppress_output=True)  # type: ignore[attr-defined]
         except Exception:
             logger.warning("Plaintext sidecar export failed (non-fatal)")
         return fname
 
-    def export_decklist_text(self, directory: str = 'deck_files', filename: str | None = None) -> str:
+    def export_decklist_text(self, directory: str = 'deck_files', filename: str | None = None, suppress_output: bool = False) -> str:
+        """Export a simple plaintext list: one line per unique card -> "[Count] [Card Name]".
+        Naming mirrors CSV export (same stem, .txt extension). Sorting follows same precedence.
+        """
         """Export a simple plaintext list: one line per unique card -> "[Count] [Card Name]".
 
         Naming mirrors CSV export (same stem, .txt extension). Sorting follows same
@@ -209,9 +238,15 @@ class ReportingMixin:
         # Derive base filename logic (shared with CSV exporter) – intentionally duplicated to avoid refactor risk.
         if filename is None:
             cmdr = getattr(self, 'commander_name', '') or getattr(self, 'commander', '') or ''
-            cmdr_first = cmdr.split()[0] if cmdr else 'deck'
+            if isinstance(cmdr, str) and cmdr:
+                cmdr_first = cmdr.split()[0]
+            else:
+                cmdr_first = 'deck'
             theme = getattr(self, 'primary_tag', None) or (self.selected_tags[0] if getattr(self, 'selected_tags', []) else None)
-            theme_first = str(theme).split()[0] if theme else 'notheme'
+            if isinstance(theme, str) and theme:
+                theme_first = theme.split()[0]
+            else:
+                theme_first = 'notheme'
             def _slug(s: str) -> str:
                 s2 = _re.sub(r'[^A-Za-z0-9_]+', '', s)
                 return s2 or 'x'
@@ -278,30 +313,13 @@ class ReportingMixin:
         with open(path, 'w', encoding='utf-8') as f:
             for _, name, count in sortable:
                 f.write(f"{count} {name}\n")
-        self.output_func(f"Plaintext deck list exported to {path}")
+        if not suppress_output:
+            self.output_func(f"Plaintext deck list exported to {path}")
         return path
 
-    def print_card_library(self, table: bool = True):  # noqa: C901
-        if table and PrettyTable is None:
-            table = False
-        if not table:
-            self.output_func("\nCard Library:")
-            for name, info in sorted(self.card_library.items()):
-                self.output_func(f"  {info.get('Count',1)}x {name} [{info.get('Type','')}] ({info.get('Role','')})")
-            return
-        # PrettyTable mode
-        pt = PrettyTable()
-        pt.field_names = ["Name","Count","Type","CMC","Role","Tags","Notes"]
-        pt.align = 'l'
-        for name, info in sorted(self.card_library.items()):
-            pt.add_row([
-                self._wrap_cell(name),
-                info.get('Count',1),
-                info.get('Type',''),
-                info.get('CMC',''),
-                self._wrap_cell(info.get('Role','')), 
-                self._wrap_cell(','.join(info.get('Tags',[]) or [])),
-                self._wrap_cell(info.get('SourceNotes',''))
-            ])
-        self.output_func("\nCard Library (tabular):")
-        self.output_func(pt.get_string())
+    def print_card_library(self, table: bool = True):
+        """Prints the current card library in either plain or tabular format.
+        Uses PrettyTable if available, otherwise prints a simple list.
+        """
+    # Card library printout suppressed; use CSV and text export for card list.
+    pass

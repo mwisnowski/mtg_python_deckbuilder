@@ -7,11 +7,12 @@ services:
     stdin_open: true
     tty: true
     volumes:
-      # Mount local directories to container for persistence
-      - ./deck_files:/app/deck_files
-      - ./logs:/app/logs
-      - ./csv_files:/app/csv_files
+      # Mount local directories to container for persistence (Linux paths)
+      - ${PWD}/deck_files:/app/deck_files
+      - ${PWD}/logs:/app/logs
+      - ${PWD}/csv_files:/app/csv_files
     environment:
       - PYTHONUNBUFFERED=1
-    # Remove the container when it stops (optional)
-    # remove: true
+      - TERM=xterm-256color
+    # Ensure proper cleanup
+    restart: "no"

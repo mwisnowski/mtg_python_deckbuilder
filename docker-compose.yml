@@ -1,9 +1,7 @@
-version: '3.8'
-
 services:
   mtg-deckbuilder:
     build: .
-    container_name: mtg-deckbuilder
+    container_name: mtg-deckbuilder-main
     stdin_open: true          # Equivalent to docker run -i
     tty: true                 # Equivalent to docker run -t
     volumes:

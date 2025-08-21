@@ -24,8 +24,11 @@ COPY code/ ./code/
 COPY csv_files/ ./csv_files/
 COPY mypy.ini .
 
-# Create necessary directories
+# Create necessary directories as mount points
 RUN mkdir -p deck_files logs
+
+# Create volumes for persistent data
+VOLUME ["/app/deck_files", "/app/logs", "/app/csv_files"]
 
 # Set the working directory to code for proper imports
 WORKDIR /app/code

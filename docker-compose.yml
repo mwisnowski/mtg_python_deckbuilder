@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  mtg-deckbuilder:
+    build: .
+    container_name: mtg-deckbuilder
+    stdin_open: true
+    tty: true
+    volumes:
+      # Mount local directories to container for persistence
+      - ./deck_files:/app/deck_files
+      - ./logs:/app/logs
+      - ./csv_files:/app/csv_files
+    environment:
+      - PYTHONUNBUFFERED=1
+    # Remove the container when it stops (optional)
+    # remove: true

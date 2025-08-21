@@ -25,18 +25,22 @@ COPY csv_files/ ./csv_files/
 COPY mypy.ini .
 
 # Create necessary directories as mount points
-RUN mkdir -p deck_files logs
+RUN mkdir -p deck_files logs csv_files
 
 # Create volumes for persistent data
 VOLUME ["/app/deck_files", "/app/logs", "/app/csv_files"]
 
-# Set the working directory to code for proper imports
-WORKDIR /app/code
-
-# Create symbolic links so the app can find the data directories
-RUN ln -sf /app/deck_files ./deck_files && \
+# Create symbolic links BEFORE changing working directory
+RUN cd /app/code && \
+    ln -sf /app/deck_files ./deck_files && \
     ln -sf /app/logs ./logs && \
     ln -sf /app/csv_files ./csv_files
+
+# Verify symbolic links were created
+RUN cd /app/code && ls -la deck_files logs csv_files
+
+# Set the working directory to code for proper imports
+WORKDIR /app/code
 
 # Run the application
 CMD ["python", "main.py"]

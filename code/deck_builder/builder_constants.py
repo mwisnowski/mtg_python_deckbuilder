@@ -364,7 +364,7 @@ LAND_REMOVAL_MAX_ATTEMPTS: Final[int] = 3
 PROTECTED_LANDS: Final[List[str]] = BASIC_LANDS + [land['name'] for land in KINDRED_STAPLE_LANDS]
 
 # Other defaults
-DEFAULT_CREATURE_COUNT: Final[int] = 35  # Default number of creatures
+DEFAULT_CREATURE_COUNT: Final[int] = 25  # Default number of creatures
 DEFAULT_REMOVAL_COUNT: Final[int] = 10  # Default number of spot removal spells
 DEFAULT_WIPES_COUNT: Final[int] = 2  # Default number of board wipes
 

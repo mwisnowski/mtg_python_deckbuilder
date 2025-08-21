@@ -1,8 +1,10 @@
-# Docker Usage Guide for MTG Deckbuilder
+# Docker Guide for MTG Python Deckbuilder
 
-## Quick Start (Recommended)
+A comprehensive guide for running the MTG Python Deckbuilder in Docker containers with full file persistence and cross-platform support.
 
-### Linux/Remote Host (Interactive Applications)
+## 🚀 Quick Start
+
+### Linux/macOS/Remote Host
 ```bash
 # Make scripts executable (one time only)
 chmod +x quick-start.sh run-docker-linux.sh
@@ -10,42 +12,16 @@ chmod +x quick-start.sh run-docker-linux.sh
 # Simplest method - just run this:
 ./quick-start.sh
 
-# Or use the full script with more options:
+# Or use the full script with options:
 ./run-docker-linux.sh compose
 ```
 
 ### Windows (PowerShell)
 ```powershell
-# Run with Docker Compose
+# Run with Docker Compose (recommended)
 .\run-docker.ps1 compose
-```
 
-## Important: Interactive Applications & Docker Compose
-
-**Your MTG Deckbuilder is an interactive application** that uses menus and requires keyboard input. This creates special requirements:
-
-### ✅ What Works for Interactive Apps:
-- `docker run -it` (manual)
-- `docker-compose run` (recommended)
-- `./quick-start.sh` (easiest)
-
-### ❌ What Doesn't Work:
-- `docker-compose up` (runs in background, no interaction)
-- Running without `-it` flags
-
-### Why the Difference?
-
-- **`docker-compose up`**: Starts services in the background, doesn't attach to your terminal
-- **`docker-compose run`**: Creates a new container and attaches to your terminal for interaction
-
-## Manual Docker Commands
-
-### Windows PowerShell
-```powershell
-# Build the image
-docker build -t mtg-deckbuilder .
-
-# Run with volume mounting for file persistence
+# Or manual Docker run
 docker run -it --rm `
     -v "${PWD}/deck_files:/app/deck_files" `
     -v "${PWD}/logs:/app/logs" `
@@ -53,12 +29,83 @@ docker run -it --rm `
     mtg-deckbuilder
 ```
 
-### Linux/macOS/Git Bash
-```bash
-# Build the image
-docker build -t mtg-deckbuilder .
+## 📋 Prerequisites
 
-# Run with volume mounting for file persistence
+- **Docker** installed and running
+- **Docker Compose** (usually included with Docker)
+- Basic terminal/command line knowledge
+
+## 🔧 Available Commands
+
+### Quick Start Scripts
+
+| Script | Platform | Description |
+|--------|----------|-------------|
+| `./quick-start.sh` | Linux/macOS | Simplest way to run the application |
+| `.\run-docker.ps1 compose` | Windows | PowerShell equivalent |
+
+### Full Featured Scripts
+
+| Command | Description |
+|---------|-------------|
+| `./run-docker-linux.sh setup` | Create directories and check Docker installation |
+| `./run-docker-linux.sh build` | Build the Docker image |
+| `./run-docker-linux.sh compose` | Run with Docker Compose (recommended) |
+| `./run-docker-linux.sh run` | Run with manual volume mounting |
+| `./run-docker-linux.sh clean` | Remove containers and images |
+
+## 🗂️ File Persistence
+
+Your files are automatically saved to local directories that persist between runs:
+
+```
+mtg_python_deckbuilder/
+├── deck_files/          # Your saved decks (CSV and TXT files)
+├── logs/               # Application logs and debug info
+├── csv_files/          # Card database and color-sorted files
+└── ...
+```
+
+### How It Works
+
+The Docker container uses **volume mounting** to map container directories to your local filesystem:
+
+- Container path `/app/deck_files` ↔ Host path `./deck_files`
+- Container path `/app/logs` ↔ Host path `./logs`
+- Container path `/app/csv_files` ↔ Host path `./csv_files`
+
+When the application saves files, they appear in your local directories and remain there after the container stops.
+
+## 🎮 Interactive Application Requirements
+
+The MTG Deckbuilder is an **interactive application** that uses menus and requires keyboard input.
+
+### ✅ Commands That Work
+- `docker compose run --rm mtg-deckbuilder`
+- `docker run -it --rm mtg-deckbuilder`
+- `./quick-start.sh`
+- Helper scripts with `compose` command
+
+### ❌ Commands That Don't Work
+- `docker compose up` (runs in background, no interaction)
+- `docker run` without `-it` flags
+- Any command without proper TTY allocation
+
+### Why the Difference?
+- **`docker compose run`**: Creates new container with terminal attachment
+- **`docker compose up`**: Starts service in background without terminal
+
+## 🔨 Manual Docker Commands
+
+### Build the Image
+```bash
+docker build -t mtg-deckbuilder .
+```
+
+### Run with Full Volume Mounting
+
+**Linux/macOS:**
+```bash
 docker run -it --rm \
     -v "$(pwd)/deck_files:/app/deck_files" \
     -v "$(pwd)/logs:/app/logs" \
@@ -66,97 +113,109 @@ docker run -it --rm \
     mtg-deckbuilder
 ```
 
-## File Persistence Explained
-
-The key to saving your files is **volume mounting**. Here's what happens:
-
-### Without Volume Mounting (Bad)
-- Files are saved inside the container
-- When container stops, files are lost forever
-- Example: `docker run -it mtg-deckbuilder` ❌
-
-### With Volume Mounting (Good)
-- Files are saved to your local directories
-- Files persist between container runs
-- Local directories are "mounted" into the container
-- Example: `docker run -it -v "./deck_files:/app/deck_files" mtg-deckbuilder` ✅
-
-## Directory Structure After Running
-
-After running the Docker container, you'll have these local directories:
-
-```
-mtg_python_deckbuilder/
-├── deck_files/          # Your saved decks (CSV and TXT files)
-├── logs/               # Application logs
-├── csv_files/          # Card database files
-└── ...
+**Windows PowerShell:**
+```powershell
+docker run -it --rm `
+    -v "${PWD}/deck_files:/app/deck_files" `
+    -v "${PWD}/logs:/app/logs" `
+    -v "${PWD}/csv_files:/app/csv_files" `
+    mtg-deckbuilder
 ```
 
-## Troubleshooting
+## 📁 Docker Compose Files
 
-### Files Still Not Saving?
+The project includes two Docker Compose configurations:
 
-1. **Check directory creation**: The helper scripts automatically create the needed directories
-2. **Verify volume mounts**: Look for `-v` flags in your docker run command
-3. **Check permissions**: Make sure you have write access to the local directories
+### `docker-compose.yml` (Main)
+- Standard configuration
+- Container name: `mtg-deckbuilder-main`
+- Use with: `docker compose run --rm mtg-deckbuilder`
+
+### `docker-compose.interactive.yml` (Alternative)
+- Identical functionality
+- Container name: `mtg-deckbuilder-interactive`
+- Use with: `docker compose -f docker compose.interactive.yml run --rm mtg-deckbuilder-interactive`
+
+Both files provide the same functionality and file persistence.
+
+## 🐛 Troubleshooting
+
+### Files Not Saving?
+
+1. **Check volume mounts**: Ensure you see `-v` flags in your docker command
+2. **Verify directories exist**: Scripts automatically create needed directories
+3. **Check permissions**: Ensure you have write access to the project directory
+4. **Use correct command**: Use `docker compose run`, not `docker compose up`
+
+### Application Won't Start Interactively?
+
+1. **Use the right command**: `docker compose run --rm mtg-deckbuilder`
+2. **Check TTY allocation**: Ensure `-it` flags are present in manual commands
+3. **Avoid background mode**: Don't use `docker compose up` for interactive apps
+
+### Permission Issues?
+
+Files created by Docker may be owned by `root`. This is normal on Linux systems.
+
+### Container Build Fails?
+
+1. **Update Docker**: Ensure you have a recent version
+2. **Clear cache**: Run `docker system prune -f`
+3. **Check network**: Ensure Docker can download dependencies
 
 ### Starting Fresh
 
-```powershell
-# Windows - Clean up everything
-.\run-docker.ps1 clean
-
-# Or manually
-docker-compose down
-docker rmi mtg-deckbuilder
-```
-
-### Container Won't Start
-
-1. Make sure Docker Desktop is running
-2. Try rebuilding: `.\run-docker.ps1 build`
-3. Check for port conflicts
-4. Review Docker logs: `docker logs mtg-deckbuilder`
-
-## Helper Script Commands
-
-### Windows PowerShell
-```powershell
-.\run-docker.ps1 build     # Build the Docker image
-.\run-docker.ps1 run       # Run with manual volume mounting
-.\run-docker.ps1 compose   # Run with Docker Compose (recommended)
-.\run-docker.ps1 clean     # Clean up containers and images
-.\run-docker.ps1 help      # Show help
-```
-
-### Linux/macOS
+**Complete cleanup:**
 ```bash
-./run-docker.sh build     # Build the Docker image
-./run-docker.sh run       # Run with manual volume mounting
-./run-docker.sh compose   # Run with Docker Compose (recommended)
-./run-docker.sh clean     # Clean up containers and images
-./run-docker.sh help      # Show help
+# Stop all containers
+docker compose down
+docker compose -f docker-compose.interactive.yml down
+
+# Remove image
+docker rmi mtg-deckbuilder
+
+# Clean up system
+docker system prune -f
+
+# Rebuild
+docker compose build
 ```
 
-## Why Docker Compose is Recommended
+## 🔍 Verifying Everything Works
 
-Docker Compose offers several advantages:
+After running the application:
 
-1. **Simpler commands**: Just `docker-compose up`
-2. **Configuration in file**: All settings stored in `docker-compose.yml`
-3. **Automatic cleanup**: Containers are removed when stopped
-4. **Consistent behavior**: Same setup every time
-
-## Verifying File Persistence
-
-After running the application and creating/saving files:
-
-1. Exit the Docker container
-2. Check your local directories:
-   ```powershell
-   ls deck_files    # Should show your saved deck files
-   ls logs         # Should show log files
-   ls csv_files    # Should show card database files
+1. **Create or modify some data** (run setup, build a deck, etc.)
+2. **Exit the container** (Ctrl+C or select Quit)
+3. **Check your local directories**:
+   ```bash
+   ls -la deck_files/   # Should show any decks you created
+   ls -la logs/         # Should show log files
+   ls -la csv_files/    # Should show card database files
    ```
-3. Run the container again - your files should still be there!
+4. **Run again** - your data should still be there!
+
+## 🎯 Best Practices
+
+1. **Use the quick-start script** for simplest experience
+2. **Always use `docker compose run`** for interactive applications
+3. **Keep your project directory organized** - files persist locally
+4. **Regularly backup your `deck_files/`** if you create valuable decks
+5. **Use `clean` commands** to free up disk space when needed
+
+## 🌟 Benefits of Docker Approach
+
+- ✅ **Consistent environment** across different machines
+- ✅ **No Python installation required** on host system
+- ✅ **Isolated dependencies** - won't conflict with other projects
+- ✅ **Easy sharing** - others can run your setup instantly
+- ✅ **Cross-platform** - works on Windows, macOS, and Linux
+- ✅ **File persistence** - your work is saved locally
+- ✅ **Easy cleanup** - remove everything with one command
+
+---
+
+**Need help?** Check the troubleshooting section above or refer to the helper script help:
+```bash
+./run-docker-linux.sh help
+```

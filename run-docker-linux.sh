@@ -33,14 +33,19 @@ print_debug() {
 show_help() {
     echo ""
     echo -e "${YELLOW}Available commands:${NC}"
-    echo "  ./run-docker-linux.sh setup     - Initial setup (create directories, check Docker)"
-    echo "  ./run-docker-linux.sh build     - Build the Docker image"
-    echo "  ./run-docker-linux.sh run       - Run with manual volume mounting"
-    echo "  ./run-docker-linux.sh compose   - Use docker-compose (recommended)"
-    echo "  ./run-docker-linux.sh debug     - Run with debug info and volume verification"
-    echo "  ./run-docker-linux.sh clean     - Remove containers and images"
-    echo "  ./run-docker-linux.sh help      - Show this help"
+    echo "  ./run-docker-linux.sh setup           - Initial setup (create directories, check Docker)"
+    echo "  ./run-docker-linux.sh build           - Build the Docker image"
+    echo "  ./run-docker-linux.sh run             - Run with manual volume mounting"
+    echo "  ./run-docker-linux.sh compose         - Use docker-compose run (recommended for interactive)"
+    echo "  ./run-docker-linux.sh compose-build   - Build and run with docker-compose"
+    echo "  ./run-docker-linux.sh compose-up      - Use docker-compose up (not recommended for interactive)"
+    echo "  ./run-docker-linux.sh debug           - Run with debug info and volume verification"
+    echo "  ./run-docker-linux.sh clean           - Remove containers and images"
+    echo "  ./run-docker-linux.sh help            - Show this help"
     echo ""
+    echo -e "${BLUE}For interactive applications like MTG Deckbuilder:${NC}"
+    echo -e "${BLUE}  - Use 'compose' or 'run' commands${NC}"
+    echo -e "${BLUE}  - Avoid 'compose-up' as it doesn't handle input properly${NC}"
 }
 
 setup_directories() {
@@ -134,6 +139,48 @@ case "$1" in
         
         print_debug "Using compose command: $COMPOSE_CMD"
         print_debug "Working directory: $(pwd)"
+        
+        print_status "Starting interactive session..."
+        print_warning "Use Ctrl+C to exit when done"
+        
+        # Run with compose in interactive mode
+        $COMPOSE_CMD run --rm mtg-deckbuilder
+        ;;
+    
+    "compose-build")
+        print_status "Building and running MTG Deckbuilder with Docker Compose..."
+        
+        # Ensure directories exist
+        setup_directories
+        
+        # Check for compose command
+        check_docker
+        
+        print_debug "Using compose command: $COMPOSE_CMD"
+        print_debug "Working directory: $(pwd)"
+        
+        print_status "Building image and starting interactive session..."
+        print_warning "Use Ctrl+C to exit when done"
+        
+        # Build and run with compose in interactive mode
+        $COMPOSE_CMD build
+        $COMPOSE_CMD run --rm mtg-deckbuilder
+        ;;
+    
+    "compose-up")
+        print_status "Running MTG Deckbuilder with Docker Compose UP (not recommended for interactive apps)..."
+        
+        # Ensure directories exist
+        setup_directories
+        
+        # Check for compose command
+        check_docker
+        
+        print_debug "Using compose command: $COMPOSE_CMD"
+        print_debug "Working directory: $(pwd)"
+        
+        print_warning "This may not work properly for interactive applications!"
+        print_warning "Use 'compose' command instead for better interactivity"
         
         # Run with compose
         $COMPOSE_CMD up --build

@@ -2,20 +2,41 @@
 
 ## Quick Start (Recommended)
 
+### Linux/Remote Host (Interactive Applications)
+```bash
+# Make scripts executable (one time only)
+chmod +x quick-start.sh run-docker-linux.sh
+
+# Simplest method - just run this:
+./quick-start.sh
+
+# Or use the full script with more options:
+./run-docker-linux.sh compose
+```
+
 ### Windows (PowerShell)
 ```powershell
-# Run with Docker Compose (easiest method)
+# Run with Docker Compose
 .\run-docker.ps1 compose
 ```
 
-### Linux/macOS
-```bash
-# Make script executable (one time only)
-chmod +x run-docker.sh
+## Important: Interactive Applications & Docker Compose
 
-# Run with Docker Compose
-./run-docker.sh compose
-```
+**Your MTG Deckbuilder is an interactive application** that uses menus and requires keyboard input. This creates special requirements:
+
+### ✅ What Works for Interactive Apps:
+- `docker run -it` (manual)
+- `docker-compose run` (recommended)
+- `./quick-start.sh` (easiest)
+
+### ❌ What Doesn't Work:
+- `docker-compose up` (runs in background, no interaction)
+- Running without `-it` flags
+
+### Why the Difference?
+
+- **`docker-compose up`**: Starts services in the background, doesn't attach to your terminal
+- **`docker-compose run`**: Creates a new container and attaches to your terminal for interaction
 
 ## Manual Docker Commands
 

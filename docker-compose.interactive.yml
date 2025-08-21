@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  mtg-deckbuilder-interactive:
+    build: .
+    container_name: mtg-deckbuilder-interactive
+    stdin_open: true
+    tty: true
+    volumes:
+      - ${PWD}/deck_files:/app/deck_files
+      - ${PWD}/logs:/app/logs
+      - ${PWD}/csv_files:/app/csv_files
+    environment:
+      - PYTHONUNBUFFERED=1
+      - TERM=xterm-256color
+      - DEBIAN_FRONTEND=noninteractive
+    # Don't restart automatically
+    restart: "no"
+    # Remove container when stopped
+    remove: true

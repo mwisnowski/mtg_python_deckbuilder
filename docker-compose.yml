@@ -4,8 +4,9 @@ services:
   mtg-deckbuilder:
     build: .
     container_name: mtg-deckbuilder
-    stdin_open: true
-    tty: true
+    stdin_open: true          # Equivalent to docker run -i
+    tty: true                 # Equivalent to docker run -t
+    profiles: ["interactive"] # Only run when specifically requested
     volumes:
       # Mount local directories to container for persistence (Linux paths)
       - ${PWD}/deck_files:/app/deck_files
@@ -14,5 +15,6 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - TERM=xterm-256color
+      - DEBIAN_FRONTEND=noninteractive
     # Ensure proper cleanup
     restart: "no"

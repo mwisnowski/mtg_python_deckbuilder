@@ -16,5 +16,3 @@ services:
       - DEBIAN_FRONTEND=noninteractive
     # Don't restart automatically
     restart: "no"
-    # Remove container when stopped
-    remove: true

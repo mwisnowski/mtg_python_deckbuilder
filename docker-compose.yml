@@ -6,9 +6,7 @@ services:
     container_name: mtg-deckbuilder
     stdin_open: true          # Equivalent to docker run -i
     tty: true                 # Equivalent to docker run -t
-    profiles: ["interactive"] # Only run when specifically requested
     volumes:
-      # Mount local directories to container for persistence (Linux paths)
       - ${PWD}/deck_files:/app/deck_files
       - ${PWD}/logs:/app/logs
       - ${PWD}/csv_files:/app/csv_files

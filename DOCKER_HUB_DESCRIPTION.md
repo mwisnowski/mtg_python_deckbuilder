@@ -15,8 +15,12 @@ Intelligent MTG Commander/EDH deck builder with theme detection and automated ca
 # Create a directory for your decks
 mkdir mtg-decks && cd mtg-decks
 
-# Run the application
-docker run -it --rm -v "$(pwd)":/app/host mwisnowski/mtg-python-deckbuilder:latest
+# Run the application with proper volume mounting
+docker run -it --rm \
+  -v "$(pwd)/deck_files":/app/deck_files \
+  -v "$(pwd)/logs":/app/logs \
+  -v "$(pwd)/csv_files":/app/csv_files \
+  mwisnowski/mtg-python-deckbuilder:latest
 ```
 
 ## Features
@@ -34,10 +38,14 @@ docker run -it --rm -v "$(pwd)":/app/host mwisnowski/mtg-python-deckbuilder:late
 
 ## Volume Mounts
 
-Mount a local directory to `/app/host` to persist your deck files:
+Mount local directories to the following container paths to persist your data:
 
 ```bash
-docker run -it --rm -v "$(pwd)":/app/host mwisnowski/mtg-python-deckbuilder:latest
+docker run -it --rm \
+  -v "$(pwd)/deck_files":/app/deck_files \
+  -v "$(pwd)/logs":/app/logs \
+  -v "$(pwd)/csv_files":/app/csv_files \
+  mwisnowski/mtg-python-deckbuilder:latest
 ```
 
 Your deck files will be saved to:

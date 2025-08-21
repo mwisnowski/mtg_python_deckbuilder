@@ -50,7 +50,11 @@ This is the first stable release of the MTG Python Deckbuilder - a comprehensive
 mkdir mtg-decks && cd mtg-decks
 
 # Run directly from Docker Hub
-docker run -it --rm -v "$(pwd)":/app/host mwisnowski/mtg-python-deckbuilder:latest
+docker run -it --rm \
+  -v "$(pwd)/deck_files":/app/deck_files \
+  -v "$(pwd)/logs":/app/logs \
+  -v "$(pwd)/csv_files":/app/csv_files \
+  mwisnowski/mtg-python-deckbuilder:latest
 ```
 
 ### Option 2: Docker from Source (Recommended for Development)

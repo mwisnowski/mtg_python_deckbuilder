@@ -16,6 +16,23 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Prepare release notes from template
+        id: notes
+        shell: bash
+        run: |
+          VERSION_REF="${GITHUB_REF##*/}"  # e.g. v1.2.3
+          TEMPLATE="RELEASE_NOTES_TEMPLATE.md"
+          if [ -f "$TEMPLATE" ]; then
+            sed "s/\${VERSION}/${VERSION_REF}/g" "$TEMPLATE" > RELEASE_NOTES.md
+          else
+            echo "# MTG Python Deckbuilder ${VERSION_REF}" > RELEASE_NOTES.md
+            echo >> RELEASE_NOTES.md
+            echo "Automated release." >> RELEASE_NOTES.md
+          fi
+          # Escape newlines for label usage
+          DESC=$(awk 'BEGIN{ORS="\\n"} {print}' RELEASE_NOTES.md)
+          echo "desc=$DESC" >> $GITHUB_OUTPUT
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
@@ -38,6 +55,10 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=raw,value=latest
+          labels: |
+            org.opencontainers.image.title=MTG Python Deckbuilder
+            org.opencontainers.image.version=${{ github.ref_name }}
+            org.opencontainers.image.description=${{ steps.notes.outputs.desc }}
 
       - name: Build and push
         uses: docker/build-push-action@v6

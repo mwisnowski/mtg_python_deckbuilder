@@ -6,7 +6,7 @@ import os
 from typing import Any, Dict, List, Optional
 from pathlib import Path
 
-from code.deck_builder.builder import DeckBuilder
+from deck_builder.builder import DeckBuilder
 
 """Headless (non-interactive) runner.
 
@@ -159,10 +159,12 @@ def run(
             if csv_path:
                 base = os.path.splitext(os.path.basename(csv_path))[0]
                 builder.export_decklist_text(filename=base + '.txt')
-                if hasattr(builder, 'export_run_config_json'):
+                # Headless policy: do NOT export JSON by default. Opt-in with HEADLESS_EXPORT_JSON=1
+                allow_json = (os.getenv('HEADLESS_EXPORT_JSON', '').strip().lower() in {'1','true','yes','on'})
+                if allow_json and hasattr(builder, 'export_run_config_json'):
                     try:
                         cfg_path_env = os.getenv('DECK_CONFIG')
-                        if cfg_path_env:
+                        if cfg_path_env and os.path.isdir(os.path.dirname(cfg_path_env) or '.'):
                             cfg_dir = os.path.dirname(cfg_path_env) or '.'
                         elif os.path.isdir('/app/config'):
                             cfg_dir = '/app/config'
@@ -170,8 +172,8 @@ def run(
                             cfg_dir = 'config'
                         os.makedirs(cfg_dir, exist_ok=True)
                         builder.export_run_config_json(directory=cfg_dir, filename=base + '.json')
-                        # If an explicit DECK_CONFIG path is given, also write to exactly that path
-                        if cfg_path_env:
+                        # If an explicit DECK_CONFIG path is given to a file, write exactly there as well
+                        if cfg_path_env and os.path.splitext(cfg_path_env)[1].lower() == '.json':
                             cfg_dir2 = os.path.dirname(cfg_path_env) or '.'
                             cfg_name2 = os.path.basename(cfg_path_env)
                             os.makedirs(cfg_dir2, exist_ok=True)

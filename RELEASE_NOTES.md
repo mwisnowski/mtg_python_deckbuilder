@@ -1,5 +1,7 @@
 # MTG Python Deckbuilder v1.1.0 Release Notes
 
+Note: Future releases will generate this file from `RELEASE_NOTES_TEMPLATE.md` automatically in CI.
+
 ## Highlights
 - Headless mode via submenu in the main menu (auto-runs single config; lists multiple as "Commander - Theme1, Theme2, Theme3"; `deck.json` shows as "Default")
 - Config precedence: CLI > env > JSON > defaults; honors `ideal_counts` in JSON

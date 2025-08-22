@@ -22,8 +22,11 @@ from enum import Enum
 import os
 from typing import List, Dict, Any
 
-# Third-party imports
-import inquirer
+# Third-party imports (optional)
+try:
+    import inquirer  # type: ignore
+except Exception:
+    inquirer = None  # Fallback to simple input-based menu when unavailable
 import pandas as pd
 
 # Local imports
@@ -229,13 +232,32 @@ def _display_setup_menu() -> SetupOption:
     Returns:
         SetupOption: The selected menu option
     """
-    question: List[Dict[str, Any]] = [
-        inquirer.List(
-            'menu',
-            choices=[option.value for option in SetupOption],
-            carousel=True)]
-    answer = inquirer.prompt(question)
-    return SetupOption(answer['menu'])
+    if inquirer is not None:
+        question: List[Dict[str, Any]] = [
+            inquirer.List(
+                'menu',
+                choices=[option.value for option in SetupOption],
+                carousel=True)]
+        answer = inquirer.prompt(question)
+        return SetupOption(answer['menu'])
+
+    # Simple fallback when inquirer isn't installed (e.g., headless/container)
+    options = list(SetupOption)
+    print("\nSetup Menu:")
+    for idx, opt in enumerate(options, start=1):
+        print(f"  {idx}) {opt.value}")
+    while True:
+        try:
+            sel = input("Select an option [1]: ").strip() or "1"
+            i = int(sel)
+            if 1 <= i <= len(options):
+                return options[i - 1]
+        except KeyboardInterrupt:
+            print("")
+            return SetupOption.BACK
+        except Exception:
+            pass
+        print("Invalid selection. Please try again.")
 
 def setup() -> bool:
     """Run the setup process for the MTG Python Deckbuilder.

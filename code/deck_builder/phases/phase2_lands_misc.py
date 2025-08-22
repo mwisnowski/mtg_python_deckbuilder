@@ -106,6 +106,7 @@ class LandMiscUtilityMixin:
             self.add_card(nm, card_type='Land', role='utility', sub_role='misc', added_by='lands_step7')
             added.append(nm)
 
+
         self.output_func("\nMisc Utility Lands Added (Step 7):")
         if not added:
             self.output_func("  (None added)")

@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
+          # Fallbacks if requirements-dev.txt not present
+          pip install mypy pytest || true
+
+      - name: Type check (mypy)
+        run: |
+          mypy code || true
+
+      - name: Headless smoke test (dry-run)
+        run: |
+          python -m code.headless_runner --config config/deck.json --dry-run
+
+      - name: Tests
+        run: |
+          pytest -q || true

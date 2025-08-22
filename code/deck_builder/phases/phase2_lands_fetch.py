@@ -114,6 +114,7 @@ class LandFetchMixin:
         if len(chosen) < desired:
             leftovers = [n for n in candidates if n not in chosen]
             chosen.extend(leftovers[: desired - len(chosen)])
+
         added: List[str] = []
         for nm in chosen:
             if self._current_land_count() >= land_target:  # type: ignore[attr-defined]
@@ -127,6 +128,11 @@ class LandFetchMixin:
                 added_by='lands_step4'
             )  # type: ignore[attr-defined]
             added.append(nm)
+        # Record actual number of fetch lands added for export/replay context
+        try:
+            setattr(self, 'fetch_count', len(added))  # type: ignore[attr-defined]
+        except Exception:
+            pass
         self.output_func("\nFetch Lands Added (Step 4):")
         if not added:
             self.output_func("  (None added)")

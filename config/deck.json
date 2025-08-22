@@ -1,0 +1,22 @@
+{
+  "commander": "Aang, Airbending Master",
+  "primary_tag": "Experience Counters",
+  "secondary_tag": "Token Creation",
+  "tertiary_tag": null,
+  "bracket_level": 4,
+  "use_multi_theme": true,
+  "add_lands": true,
+  "add_creatures": true,
+  "add_non_creature_spells": true,
+  "fetch_count": 3,
+  "ideal_counts": {
+    "ramp": 8,
+    "lands": 35,
+    "basic_lands": 15,
+    "creatures": 25,
+    "removal": 10,
+    "wipes": 2,
+    "card_advantage": 10,
+    "protection": 8
+  }
+}

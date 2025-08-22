@@ -383,6 +383,89 @@ class ReportingMixin:
             self.output_func(f"Plaintext deck list exported to {path}")
         return path
 
+    def export_run_config_json(self, directory: str = 'config', filename: str | None = None, suppress_output: bool = False) -> str:
+        """Export a JSON config capturing the key choices for replaying headless.
+
+        Filename mirrors CSV/TXT naming (same stem, .json extension).
+        Fields included:
+          - commander
+          - primary_tag / secondary_tag / tertiary_tag
+          - bracket_level (if chosen)
+          - use_multi_theme (default True)
+          - add_lands, add_creatures, add_non_creature_spells (defaults True)
+          - fetch_count (if determined during run)
+          - ideal_counts (the actual ideal composition values used)
+        """
+        os.makedirs(directory, exist_ok=True)
+
+        def _slug(s: str) -> str:
+            s2 = _re.sub(r'[^A-Za-z0-9_]+', '', s)
+            return s2 or 'x'
+
+        def _unique_path(path: str) -> str:
+            if not os.path.exists(path):
+                return path
+            base, ext = os.path.splitext(path)
+            i = 1
+            while True:
+                candidate = f"{base}_{i}{ext}"
+                if not os.path.exists(candidate):
+                    return candidate
+                i += 1
+
+        if filename is None:
+            cmdr = getattr(self, 'commander_name', '') or getattr(self, 'commander', '') or ''
+            cmdr_slug = _slug(cmdr) if isinstance(cmdr, str) and cmdr else 'deck'
+            themes: List[str] = []
+            if getattr(self, 'selected_tags', None):
+                themes = [str(t) for t in self.selected_tags if isinstance(t, str) and t.strip()]
+            else:
+                for t in [getattr(self, 'primary_tag', None), getattr(self, 'secondary_tag', None), getattr(self, 'tertiary_tag', None)]:
+                    if isinstance(t, str) and t.strip():
+                        themes.append(t)
+            theme_parts = [_slug(t) for t in themes if t]
+            if not theme_parts:
+                theme_parts = ['notheme']
+            theme_slug = '_'.join(theme_parts)
+            date_part = _dt.date.today().strftime('%Y%m%d')
+            filename = f"{cmdr_slug}_{theme_slug}_{date_part}.json"
+
+        path = _unique_path(os.path.join(directory, filename))
+
+        # Capture ideal counts (actual chosen values)
+        ideal_counts = getattr(self, 'ideal_counts', {}) or {}
+        # Capture fetch count (others vary run-to-run and are intentionally not recorded)
+        chosen_fetch = getattr(self, 'fetch_count', None)
+
+        payload = {
+            "commander": getattr(self, 'commander_name', '') or getattr(self, 'commander', '') or '',
+            "primary_tag": getattr(self, 'primary_tag', None),
+            "secondary_tag": getattr(self, 'secondary_tag', None),
+            "tertiary_tag": getattr(self, 'tertiary_tag', None),
+            "bracket_level": getattr(self, 'bracket_level', None),
+            "use_multi_theme": True,
+            "add_lands": True,
+            "add_creatures": True,
+            "add_non_creature_spells": True,
+            # chosen fetch land count (others intentionally omitted for variance)
+            "fetch_count": chosen_fetch,
+            # actual ideal counts used for this run
+            "ideal_counts": {
+                k: int(v) for k, v in ideal_counts.items() if isinstance(v, (int, float))
+            }
+            # seed intentionally omitted
+        }
+
+        try:
+            import json as _json
+            with open(path, 'w', encoding='utf-8') as f:
+                _json.dump(payload, f, indent=2)
+            if not suppress_output:
+                self.output_func(f"Run config exported to {path}")
+        except Exception as e:
+            logger.warning(f"Failed to export run config: {e}")
+        return path
+
     def print_card_library(self, table: bool = True):
         """Prints the current card library in either plain or tabular format.
         Uses PrettyTable if available, otherwise prints a simple list.

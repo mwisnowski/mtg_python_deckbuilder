@@ -8,9 +8,16 @@ services:
       - ${PWD}/deck_files:/app/deck_files
       - ${PWD}/logs:/app/logs
       - ${PWD}/csv_files:/app/csv_files
+      # Optional: mount a config directory for headless JSON
+      - ${PWD}/config:/app/config
     environment:
       - PYTHONUNBUFFERED=1
       - TERM=xterm-256color
       - DEBIAN_FRONTEND=noninteractive
+  # Set DECK_MODE=headless to auto-run non-interactive mode on start
+  # - DECK_MODE=headless
+  # Optional headless configuration (examples):
+  # - DECK_CONFIG=/app/config/deck.json
+  # - DECK_COMMANDER=Pantlaza
     # Ensure proper cleanup
     restart: "no"

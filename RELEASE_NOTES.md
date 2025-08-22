@@ -1,3 +1,62 @@
+# MTG Python Deckbuilder v1.1.0 Release Notes
+
+## Highlights
+- Headless mode via submenu in the main menu (auto-runs single config; lists multiple as "Commander - Theme1, Theme2, Theme3"; `deck.json` shows as "Default")
+- Config precedence: CLI > env > JSON > defaults; honors `ideal_counts` in JSON
+- Exports: CSV/TXT always; JSON run-config only for interactive runs (headless skips it)
+- Docs simplified: concise README and Docker guide; PowerShell examples included
+
+## Docker
+- Single service with persistent volumes:
+  - /app/deck_files
+  - /app/logs
+  - /app/csv_files
+  - Optional: /app/config for JSON configs
+
+### Quick Start (PowerShell)
+```powershell
+# From Docker Hub
+docker run -it --rm `
+  -v "${PWD}/deck_files:/app/deck_files" `
+  -v "${PWD}/logs:/app/logs" `
+  -v "${PWD}/csv_files:/app/csv_files" `
+  mwisnowski/mtg-python-deckbuilder:latest
+
+# From source with Compose
+docker compose build
+docker compose run --rm mtg-deckbuilder
+
+# Headless (optional)
+docker compose run --rm -e DECK_MODE=headless mtg-deckbuilder
+# With JSON config
+docker compose run --rm -e DECK_MODE=headless -e DECK_CONFIG=/app/config/deck.json mtg-deckbuilder
+```
+
+## Changes
+- Added headless runner and headless submenu
+- Suppressed JSON run-config export for headless runs
+- `ideal_counts` in JSON now honored by prompts; only `fetch_count` tracked for lands
+- Documentation trimmed and updated; added sample config with ideal_counts
+
+### Tagging updates
+- New: Discard Matters theme – detects your discard effects and triggers; includes Madness and Blood creators; Loot/Connive/Cycling/Blood also add Discard Matters.
+- New taggers:
+  - Freerunning → adds Freerunning and Cost Reduction.
+  - Craft → adds Transform; conditionally Artifacts Matter, Exile Matters, Graveyard Matters.
+  - Spree → adds Modal and Cost Scaling.
+  - Explore/Map → adds Card Selection; Explore may add +1/+1 Counters; Map adds Tokens Matter.
+  - Rad counters → adds Rad Counters.
+- Exile Matters expanded to cover Warp and Time Counters/Time Travel/Vanishing.
+- Energy enriched to also tag Resource Engine.
+- Eldrazi Spawn/Scion creators now tag Aristocrats and Ramp (replacing prior Sacrifice Fodder mapping).
+
+## Known Issues
+- First run downloads card data (takes a few minutes)
+- Use `docker compose run --rm` (not `up`) for interactive sessions
+- Ensure volumes are mounted to persist files outside the container
+
+---
+
 # MTG Python Deckbuilder v1.0.0 Release Notes
 
 ## 🎉 Initial Release

@@ -115,15 +115,33 @@ def tag_by_color(df: pd.DataFrame, color: str) -> None:
     ## Tag for various effects
     tag_for_cost_reduction(df, color)
     print('\n====================\n')
+    # Freerunning is a keyworded cost-reduction mechanic
+    tag_for_freerunning(df, color)
+    print('\n====================\n')
     tag_for_card_draw(df, color)
+    print('\n====================\n')
+    # Discard-centric effects and triggers
+    tag_for_discard_matters(df, color)
+    print('\n====================\n')
+    # Explore and Map tokens provide selection and incidental counters
+    tag_for_explore_and_map(df, color)
     print('\n====================\n')
     tag_for_artifacts(df, color)
     print('\n====================\n')
     tag_for_enchantments(df, color)
     print('\n====================\n')
+    # Craft is a transform mechanic that often references artifacts, exile, and graveyards
+    tag_for_craft(df, color)
+    print('\n====================\n')
     tag_for_exile_matters(df, color)
     print('\n====================\n')
+    # Custom keywords/mechanics
+    tag_for_bending(df, color)
+    print('\n====================\n')
     tag_for_tokens(df, color)
+    print('\n====================\n')
+    # Rad counters are tracked separately to surface the theme
+    tag_for_rad_counters(df, color)
     print('\n====================\n')
     tag_for_life_matters(df, color)
     print('\n====================\n')
@@ -134,6 +152,9 @@ def tag_by_color(df: pd.DataFrame, color: str) -> None:
     tag_for_lands_matter(df, color)
     print('\n====================\n')
     tag_for_spellslinger(df, color)
+    print('\n====================\n')
+    # Spree spells are modal and cost-scale via additional payments
+    tag_for_spree(df, color)
     print('\n====================\n')
     tag_for_ramp(df, color)
     print('\n====================\n')
@@ -810,19 +831,19 @@ def tag_for_loot_effects(df: pd.DataFrame, color: str) -> None:
 
     # Apply tags based on masks
     if loot_mask.any():
-        tag_utils.apply_tag_vectorized(df, loot_mask, ['Loot', 'Card Draw'])
+        tag_utils.apply_tag_vectorized(df, loot_mask, ['Loot', 'Card Draw', 'Discard Matters'])
         logger.info(f'Tagged {loot_mask.sum()} cards with standard loot effects')
 
     if connive_mask.any():
-        tag_utils.apply_tag_vectorized(df, connive_mask, ['Connive', 'Loot', 'Card Draw'])
+        tag_utils.apply_tag_vectorized(df, connive_mask, ['Connive', 'Loot', 'Card Draw', 'Discard Matters'])
         logger.info(f'Tagged {connive_mask.sum()} cards with connive effects')
 
     if cycling_mask.any():
-        tag_utils.apply_tag_vectorized(df, cycling_mask, ['Cycling', 'Loot', 'Card Draw'])
+        tag_utils.apply_tag_vectorized(df, cycling_mask, ['Cycling', 'Loot', 'Card Draw', 'Discard Matters'])
         logger.info(f'Tagged {cycling_mask.sum()} cards with cycling effects')
 
     if blood_mask.any():
-        tag_utils.apply_tag_vectorized(df, blood_mask, ['Blood Tokens', 'Loot', 'Card Draw'])
+        tag_utils.apply_tag_vectorized(df, blood_mask, ['Blood Tokens', 'Loot', 'Card Draw', 'Discard Matters'])
         logger.info(f'Tagged {blood_mask.sum()} cards with blood token effects')
 
     logger.info('Completed tagging loot-like effects')
@@ -2136,10 +2157,19 @@ def tag_for_exile_matters(df: pd.DataFrame, color: str) -> None:
         logger.info('Completed Suspend tagging')
         print('\n==========\n')
 
+        tag_for_warp(df, color)
+        logger.info('Completed Warp tagging')
+        print('\n==========\n')
+
+        # New: Time counters and Time Travel support
+        tag_for_time_counters(df, color)
+        logger.info('Completed Time Counters tagging')
+        print('\n==========\n')
+
         # Log completion and performance metrics
         duration = pd.Timestamp.now() - start_time
         logger.info(f'Completed all "Exile Matters" tagging in {duration.total_seconds():.2f}s')
-    
+
     except Exception as e:
         logger.error(f'Error in tag_for_exile_matters: {str(e)}')
         raise
@@ -2471,6 +2501,98 @@ def tag_for_suspend(df: pd.DataFrame, color: str) -> None:
 
     logger.info('Completed tagging Suspend cards')
 
+## Cards that have or care about Warp
+def tag_for_warp(df: pd.DataFrame, color: str) -> None:
+    """Tag cards with Warp using vectorized operations.
+
+    Args:
+        df: DataFrame containing card data
+        color: Color identifier for logging purposes
+    """
+    logger.info(f'Tagging Warp cards in {color}_cards.csv')
+    start_time = pd.Timestamp.now()
+
+    try:
+        # Create masks for Warp
+        keyword_mask = tag_utils.create_keyword_mask(df, 'Warp')
+        text_mask = tag_utils.create_text_mask(df, 'Warp')
+
+        final_mask = keyword_mask | text_mask
+        tag_utils.apply_rules(df, [{ 'mask': final_mask, 'tags': ['Warp', 'Exile Matters'] }])
+
+        duration = (pd.Timestamp.now() - start_time).total_seconds()
+        logger.info(f'Tagged {final_mask.sum()} Warp cards in {duration:.2f}s')
+    except Exception as e:
+        logger.error(f'Error tagging Warp cards: {str(e)}')
+        raise
+
+    logger.info('Completed tagging Warp cards')
+
+def create_time_counters_mask(df: pd.DataFrame) -> pd.Series:
+    """Create a boolean mask for cards that mention time counters or Time Travel.
+
+    This captures interactions commonly associated with Suspend without
+    requiring the Suspend keyword (e.g., Time Travel effects, adding/removing
+    time counters, or Vanishing).
+
+    Args:
+        df: DataFrame to search
+
+    Returns:
+        Boolean Series indicating which cards interact with time counters
+    """
+    # Text patterns around time counters and time travel
+    text_patterns = [
+        'time counter',
+        'time counters',
+        'remove a time counter',
+        'add a time counter',
+        'time travel'
+    ]
+    text_mask = tag_utils.create_text_mask(df, text_patterns)
+
+    # Keyword-based patterns that imply time counters
+    keyword_mask = tag_utils.create_keyword_mask(df, ['Vanishing'])
+
+    return text_mask | keyword_mask
+
+def tag_for_time_counters(df: pd.DataFrame, color: str) -> None:
+    """Tag cards that interact with time counters or Time Travel.
+
+    Applies a base 'Time Counters' tag. Adds 'Exile Matters' when the card also
+    mentions exile or Suspend, since those imply interaction with suspended
+    cards in exile.
+
+    Args:
+        df: DataFrame containing card data
+        color: Color identifier for logging purposes
+    """
+    logger.info(f'Tagging Time Counters interactions in {color}_cards.csv')
+    start_time = pd.Timestamp.now()
+
+    try:
+        time_mask = create_time_counters_mask(df)
+        if not time_mask.any():
+            logger.info('No Time Counters interactions found')
+            return
+
+        # Always tag Time Counters
+        tag_utils.apply_rules(df, [{ 'mask': time_mask, 'tags': ['Time Counters'] }])
+
+        # Conditionally add Exile Matters if the card references exile or suspend
+        exile_mask = tag_utils.create_text_mask(df, tag_constants.PATTERN_GROUPS['exile'])
+        suspend_mask = tag_utils.create_keyword_mask(df, 'Suspend') | tag_utils.create_text_mask(df, 'Suspend')
+        time_exile_mask = time_mask & (exile_mask | suspend_mask)
+        if time_exile_mask.any():
+            tag_utils.apply_rules(df, [{ 'mask': time_exile_mask, 'tags': ['Exile Matters'] }])
+
+        duration = (pd.Timestamp.now() - start_time).total_seconds()
+        logger.info('Completed Time Counters tagging in %.2fs', duration)
+
+    except Exception as e:
+        logger.error(f'Error tagging Time Counters interactions: {str(e)}')
+        raise
+
 ### Tokens
 def create_creature_token_mask(df: pd.DataFrame) -> pd.Series:
     """Create a boolean mask for cards that create creature tokens.
@@ -2591,6 +2713,19 @@ def tag_for_tokens(df: pd.DataFrame, color: str) -> None:
             { 'mask': matters_mask,  'tags': ['Tokens Matter'] },
         ])
 
+        # Eldrazi Spawn/Scion special-casing: add Aristocrats and Ramp synergy tags
+        spawn_patterns = [
+            'eldrazi spawn creature token',
+            'eldrazi scion creature token',
+            'spawn creature token with "sacrifice',
+            'scion creature token with "sacrifice'
+        ]
+        spawn_scion_mask = tag_utils.create_text_mask(df, spawn_patterns)
+        if spawn_scion_mask.any():
+            tag_utils.apply_rules(df, [
+                { 'mask': spawn_scion_mask, 'tags': ['Aristocrats', 'Ramp'] }
+            ])
+
         # Logging
         if creature_mask.any():
             logger.info('Tagged %d cards that create creature tokens', creature_mask.sum())
@@ -2604,6 +2739,162 @@ def tag_for_tokens(df: pd.DataFrame, color: str) -> None:
 
     except Exception as e:
         logger.error('Error tagging token cards: %s', str(e))
+        raise
+
+### Freerunning (cost reduction variant)
+def tag_for_freerunning(df: pd.DataFrame, color: str) -> None:
+    """Tag cards that reference the Freerunning mechanic.
+
+    Adds Cost Reduction to ensure consistency, and a specific Freerunning tag for filtering.
+    """
+    try:
+        required = {'text', 'themeTags'}
+        tag_utils.validate_dataframe_columns(df, required)
+        mask = tag_utils.create_keyword_mask(df, 'Freerunning') | tag_utils.create_text_mask(df, ['freerunning', 'free running'])
+        if mask.any():
+            tag_utils.apply_rules(df, [
+                { 'mask': mask, 'tags': ['Cost Reduction', 'Freerunning'] }
+            ])
+            logger.info('Tagged %d Freerunning cards', mask.sum())
+    except Exception as e:
+        logger.error('Error tagging Freerunning: %s', str(e))
+        raise
+
+### Craft (transform mechanic with exile/graveyard/artifact hooks)
+def tag_for_craft(df: pd.DataFrame, color: str) -> None:
+    """Tag cards with Craft. Adds Transform; conditionally adds Artifacts Matter, Exile Matters, and Graveyard Matters."""
+    try:
+        required = {'text', 'themeTags'}
+        tag_utils.validate_dataframe_columns(df, required)
+        craft_mask = tag_utils.create_keyword_mask(df, 'Craft') | tag_utils.create_text_mask(df, ['craft with', 'craft —', ' craft '])
+        if craft_mask.any():
+            rules = [{ 'mask': craft_mask, 'tags': ['Transform'] }]
+            # Conditionals
+            artifact_cond = craft_mask & tag_utils.create_text_mask(df, ['artifact', 'artifacts'])
+            exile_cond = craft_mask & tag_utils.create_text_mask(df, ['exile'])
+            gy_cond = craft_mask & tag_utils.create_text_mask(df, ['graveyard'])
+            if artifact_cond.any():
+                rules.append({ 'mask': artifact_cond, 'tags': ['Artifacts Matter'] })
+            if exile_cond.any():
+                rules.append({ 'mask': exile_cond, 'tags': ['Exile Matters'] })
+            if gy_cond.any():
+                rules.append({ 'mask': gy_cond, 'tags': ['Graveyard Matters'] })
+            tag_utils.apply_rules(df, rules)
+            logger.info('Tagged %d Craft cards', craft_mask.sum())
+    except Exception as e:
+        logger.error('Error tagging Craft: %s', str(e))
+        raise
+
+### Spree (modal, cost-scaling spells)
+def tag_for_spree(df: pd.DataFrame, color: str) -> None:
+    """Tag Spree spells with Modal and Cost Scaling."""
+    try:
+        required = {'text', 'themeTags'}
+        tag_utils.validate_dataframe_columns(df, required)
+        mask = tag_utils.create_keyword_mask(df, 'Spree') | tag_utils.create_text_mask(df, ['spree'])
+        if mask.any():
+            tag_utils.apply_rules(df, [
+                { 'mask': mask, 'tags': ['Modal', 'Cost Scaling'] }
+            ])
+            logger.info('Tagged %d Spree cards', mask.sum())
+    except Exception as e:
+        logger.error('Error tagging Spree: %s', str(e))
+        raise
+
+### Explore and Map tokens
+def tag_for_explore_and_map(df: pd.DataFrame, color: str) -> None:
+    """Tag Explore and Map token interactions.
+
+    - Explore: add Card Selection; if it places +1/+1 counters, add +1/+1 Counters
+    - Map Tokens: add Card Selection and Tokens Matter
+    """
+    try:
+        required = {'text', 'themeTags'}
+        tag_utils.validate_dataframe_columns(df, required)
+        explore_mask = tag_utils.create_keyword_mask(df, 'Explore') | tag_utils.create_text_mask(df, ['explores', 'explore.'])
+        map_mask = tag_utils.create_text_mask(df, ['map token', 'map tokens'])
+        rules = []
+        if explore_mask.any():
+            rules.append({ 'mask': explore_mask, 'tags': ['Card Selection'] })
+            # If the text also references +1/+1 counters, add that theme
+            explore_counters = explore_mask & tag_utils.create_text_mask(df, ['+1/+1 counter'])
+            if explore_counters.any():
+                rules.append({ 'mask': explore_counters, 'tags': ['+1/+1 Counters'] })
+        if map_mask.any():
+            rules.append({ 'mask': map_mask, 'tags': ['Card Selection', 'Tokens Matter'] })
+        if rules:
+            tag_utils.apply_rules(df, rules)
+            total = (explore_mask.astype(int) + map_mask.astype(int)).astype(bool).sum()
+            logger.info('Tagged %d Explore/Map cards', total)
+    except Exception as e:
+        logger.error('Error tagging Explore/Map: %s', str(e))
+        raise
+
+### Rad counters
+def tag_for_rad_counters(df: pd.DataFrame, color: str) -> None:
+    """Tag Rad counter interactions as a dedicated theme."""
+    try:
+        required = {'text', 'themeTags'}
+        tag_utils.validate_dataframe_columns(df, required)
+        rad_mask = tag_utils.create_text_mask(df, ['rad counter', 'rad counters'])
+        if rad_mask.any():
+            tag_utils.apply_rules(df, [ { 'mask': rad_mask, 'tags': ['Rad Counters'] } ])
+            logger.info('Tagged %d Rad counter cards', rad_mask.sum())
+    except Exception as e:
+        logger.error('Error tagging Rad counters: %s', str(e))
+        raise
+
+### Discard Matters
+def tag_for_discard_matters(df: pd.DataFrame, color: str) -> None:
+    """Tag cards that discard or care about discarding.
+
+    Adds Discard Matters for:
+    - Text that makes you discard a card (costs or effects)
+    - Triggers on discarding
+    Also adds Loot where applicable is handled elsewhere; this focuses on the theme surface.
+    """
+    try:
+        required = {'text', 'themeTags'}
+        tag_utils.validate_dataframe_columns(df, required)
+
+        # Events where YOU discard (as part of a cost or effect). Keep generic 'discard a card' but filter out opponent/each-player cases.
+        discard_action_patterns = [
+            r'you discard (?:a|one|two|three|x) card',
+            r'discard (?:a|one|two|three|x) card',
+            r'discard your hand',
+            r'as an additional cost to (?:cast this spell|activate this ability),? discard (?:a|one) card',
+            r'as an additional cost,? discard (?:a|one) card'
+        ]
+        action_mask = tag_utils.create_text_mask(df, discard_action_patterns)
+        exclude_opponent_patterns = [
+            r'target player discards',
+            r'target opponent discards',
+            r'each player discards',
+            r'each opponent discards',
+            r'that player discards'
+        ]
+        exclude_mask = tag_utils.create_text_mask(df, exclude_opponent_patterns)
+
+        # Triggers/conditions that care when you discard
+        discard_trigger_patterns = [
+            r'whenever you discard',
+            r'if you discarded',
+            r'for each card you discarded',
+            r'when you discard'
+        ]
+        trigger_mask = tag_utils.create_text_mask(df, discard_trigger_patterns)
+
+        # Blood tokens enable rummage (discard), and Madness explicitly cares about discarding
+        blood_patterns = [r'create (?:a|one|two|three|x|\d+) blood token']
+        blood_mask = tag_utils.create_text_mask(df, blood_patterns)
+        madness_mask = tag_utils.create_text_mask(df, [r'\bmadness\b'])
+
+        final_mask = ((action_mask & ~exclude_mask) | trigger_mask | blood_mask | madness_mask)
+        if final_mask.any():
+            tag_utils.apply_rules(df, [ { 'mask': final_mask, 'tags': ['Discard Matters'] } ])
+            logger.info('Tagged %d cards for Discard Matters', final_mask.sum())
+    except Exception as e:
+        logger.error('Error tagging Discard Matters: %s', str(e))
         raise
 
 ### Life Matters
@@ -4195,6 +4486,47 @@ def tag_for_aristocrats(df: pd.DataFrame, color: str) -> None:
         logger.error(f'Error in tag_for_aristocrats: {str(e)}')
         raise
 
+### Bending
+def tag_for_bending(df: pd.DataFrame, color: str) -> None:
+    """Tag cards for bending-related keywords.
+
+    Looks for 'airbend', 'waterbend', 'firebend', 'earthbend' in rules text and
+    applies tags accordingly.
+    """
+    logger.info(f'Tagging Bending keywords in {color}_cards.csv')
+    start_time = pd.Timestamp.now()
+
+    try:
+        rules = []
+        air_mask = tag_utils.create_text_mask(df, 'airbend')
+        if air_mask.any():
+            rules.append({ 'mask': air_mask, 'tags': ['Airbending', 'Exile Matters'] })
+
+        water_mask = tag_utils.create_text_mask(df, 'waterbend')
+        if water_mask.any():
+            rules.append({ 'mask': water_mask, 'tags': ['Waterbending', 'Cost Reduction', 'Big Mana'] })
+
+        fire_mask = tag_utils.create_text_mask(df, 'firebend')
+        if fire_mask.any():
+            rules.append({ 'mask': fire_mask, 'tags': ['Aggro', 'Combat Matters', 'Firebending', 'Mana Dork', 'Ramp', 'X Spells'] })
+
+        earth_mask = tag_utils.create_text_mask(df, 'earthbend')
+        if earth_mask.any():
+            rules.append({ 'mask': earth_mask, 'tags': ['Earthbend', 'Lands Matter', 'Landfall'] })
+
+        if rules:
+            tag_utils.apply_rules(df, rules)
+            total = sum(int(r['mask'].sum()) for r in rules)
+            logger.info('Tagged %d cards with Bending keywords', total)
+        else:
+            logger.info('No Bending keywords found')
+
+        duration = (pd.Timestamp.now() - start_time).total_seconds()
+        logger.info('Completed Bending tagging in %.2fs', duration)
+
+    except Exception as e:
+        logger.error(f'Error tagging Bending keywords: {str(e)}')
+        raise
 
 ## Big Mana
 def create_big_mana_cost_mask(df: pd.DataFrame) -> pd.Series:
@@ -4766,11 +5098,11 @@ def tag_for_energy(df: pd.DataFrame, color: str) -> None:
         energy_patterns = [r'\{e\}', 'energy counter', 'energy counters']
         energy_mask = tag_utils.create_text_mask(df, energy_patterns)
 
-        # Apply tags via rules engine
+        # Apply tags via rules engine (also mark as a Resource Engine per request)
         tag_utils.apply_rules(df, rules=[
             {
                 'mask': energy_mask,
-                'tags': ['Energy']
+                'tags': ['Energy', 'Resource Engine']
             }
         ])
 

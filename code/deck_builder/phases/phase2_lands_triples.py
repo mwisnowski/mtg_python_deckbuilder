@@ -217,6 +217,7 @@ class LandTripleMixin:
             )
             added.append(name)
 
+
         self.output_func("\nTriple Lands Added (Step 6):")
         if not added:
             self.output_func("  (None added)")

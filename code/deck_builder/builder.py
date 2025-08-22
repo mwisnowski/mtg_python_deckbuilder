@@ -103,6 +103,30 @@ class DeckBuilder(
                     txt_path = self.export_decklist_text(filename=base + '.txt')  # type: ignore[attr-defined]
                     # Display the text file contents for easy copy/paste to online deck builders
                     self._display_txt_contents(txt_path)
+                    # Also export a matching JSON config for replay (interactive builds only)
+                    if not getattr(self, 'headless', False):
+                        try:
+                            # Choose config output dir: DECK_CONFIG dir > /app/config > ./config
+                            import os as _os
+                            cfg_path_env = _os.getenv('DECK_CONFIG')
+                            cfg_dir = None
+                            if cfg_path_env:
+                                cfg_dir = _os.path.dirname(cfg_path_env) or '.'
+                            elif _os.path.isdir('/app/config'):
+                                cfg_dir = '/app/config'
+                            else:
+                                cfg_dir = 'config'
+                            if cfg_dir:
+                                _os.makedirs(cfg_dir, exist_ok=True)
+                                self.export_run_config_json(directory=cfg_dir, filename=base + '.json')  # type: ignore[attr-defined]
+                            # Also, if DECK_CONFIG explicitly points to a file path, write exactly there too
+                            if cfg_path_env:
+                                cfg_dir2 = _os.path.dirname(cfg_path_env) or '.'
+                                cfg_name2 = _os.path.basename(cfg_path_env)
+                                _os.makedirs(cfg_dir2, exist_ok=True)
+                                self.export_run_config_json(directory=cfg_dir2, filename=cfg_name2)  # type: ignore[attr-defined]
+                        except Exception:
+                            pass
                 except Exception:
                     logger.warning("Plaintext export failed (non-fatal)")
             end_ts = datetime.datetime.now()
@@ -213,13 +237,17 @@ class DeckBuilder(
     # IO injection for testing
     input_func: Callable[[str], str] = field(default=lambda prompt: input(prompt))
     output_func: Callable[[str], None] = field(default=lambda msg: print(msg))
-    # Deterministic random support
-    seed: Optional[int] = None
+    # Random support (no external seeding)
     _rng: Any = field(default=None, repr=False)
 
     # Logging / output behavior
     log_outputs: bool = True  # if True, mirror output_func messages into logger at INFO level
     _original_output_func: Optional[Callable[[str], None]] = field(default=None, repr=False)
+
+    # Chosen land counts (only fetches are tracked/exported; others vary randomly)
+    fetch_count: Optional[int] = None
+    # Whether this build is running in headless mode (suppress some interactive-only exports)
+    headless: bool = False
 
     def __post_init__(self):
         """Post-init hook to wrap the provided output function so that all user-facing
@@ -250,10 +278,10 @@ class DeckBuilder(
     # ---------------------------
     # RNG Initialization
     # ---------------------------
-    def _get_rng(self):  # lazy init to allow seed set post-construction
+    def _get_rng(self):  # lazy init
         if self._rng is None:
             import random as _r
-            self._rng = _r.Random(self.seed) if self.seed is not None else _r
+            self._rng = _r
         return self._rng
 
     # ---------------------------

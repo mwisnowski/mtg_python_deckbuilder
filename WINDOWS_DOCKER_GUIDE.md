@@ -145,46 +145,19 @@ C:\mtg-decks\
 ├── deck_files\              # Your completed decks (.csv and .txt files)
 │   ├── Atraxa_Superfriends_20250821.csv
 │   ├── Atraxa_Superfriends_20250821.txt
-│   └── ...
-├── logs\                    # Application logs
-│   └── deck_builder.log
-└── csv_files\               # Card database files
-    ├── commander_cards.csv
-    ├── white_cards.csv
-    └── ...
+# Windows Quick Start (Docker)
+
+Prerequisite: Docker Desktop running.
+
+## Run (one command)
+```powershell
+$base = "C:\mtg-decks"; New-Item -ItemType Directory -Force -Path "$base\deck_files","$base\logs","$base\csv_files" | Out-Null; docker run -it --rm -v "$base\deck_files:/app/deck_files" -v "$base\logs:/app/logs" -v "$base\csv_files:/app/csv_files" mwisnowski/mtg-python-deckbuilder:latest
 ```
 
-## Tips for Windows Users
-
-1. **Use PowerShell over Command Prompt** - it has better Unicode support for card names
-2. **Create a desktop shortcut** - Save the PowerShell command as a `.ps1` file for easy access
-3. **Antivirus exceptions** - Add your `C:\mtg-decks` folder to antivirus exceptions if file operations are slow
-4. **WSL2 backend** - Use WSL2 backend in Docker Desktop for better performance
-
-## One-Click Setup Script
-
-Save this as `setup-mtg-deckbuilder.ps1`:
-
-```powershell
-# MTG Python Deckbuilder - One-Click Setup for Windows
-Write-Host "Setting up MTG Python Deckbuilder..." -ForegroundColor Green
-
-# Create directories
-$baseDir = "C:\mtg-decks"
-New-Item -ItemType Directory -Force -Path "$baseDir\deck_files" | Out-Null
-New-Item -ItemType Directory -Force -Path "$baseDir\logs" | Out-Null
-New-Item -ItemType Directory -Force -Path "$baseDir\csv_files" | Out-Null
-
-Set-Location $baseDir
-
-Write-Host "Pulling latest Docker image..." -ForegroundColor Yellow
-docker pull mwisnowski/mtg-python-deckbuilder:latest
-
-Write-Host "Starting MTG Python Deckbuilder..." -ForegroundColor Green
-Write-Host "Your files will be saved in: $baseDir" -ForegroundColor Cyan
-
-docker run -it --rm `
-  -v "${baseDir}\deck_files:/app/deck_files" `
+Files saved to:
+- Decks: C:\mtg-decks\deck_files
+- Logs: C:\mtg-decks\logs
+- Card data: C:\mtg-decks\csv_files
   -v "${baseDir}\logs:/app/logs" `
   -v "${baseDir}\csv_files:/app/csv_files" `
   mwisnowski/mtg-python-deckbuilder:latest

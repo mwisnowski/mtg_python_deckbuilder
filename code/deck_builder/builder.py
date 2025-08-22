@@ -34,6 +34,9 @@ from .phases.phase6_reporting import ReportingMixin
 # Local application imports
 from . import builder_constants as bc
 from . import builder_utils as bu
+import os
+from settings import CSV_DIRECTORY
+from file_setup.setup import initial_setup
 
 # Create logger consistent with existing pattern (mirrors tagging/tagger.py usage)
 logger = logging_util.logging.getLogger(__name__)
@@ -69,6 +72,16 @@ class DeckBuilder(
         start_ts = datetime.datetime.now()
         logger.info("=== Deck Build: BEGIN ===")
         try:
+            # Ensure CSVs exist and are tagged before starting any deck build logic
+            try:
+                cards_path = os.path.join(CSV_DIRECTORY, 'cards.csv')
+                if not os.path.exists(cards_path):
+                    logger.info("cards.csv not found. Running initial setup and tagging before deck build...")
+                    initial_setup()
+                    from tagging import tagger
+                    tagger.run_tagging()
+            except Exception as e:
+                logger.error(f"Failed ensuring CSVs before deck build: {e}")
             self.run_initial_setup()
             self.run_deck_build_step1()
             self.run_deck_build_step2()

@@ -2235,7 +2235,7 @@ def tag_for_cascade(df: pd.DataFrame, color: str) -> None:
         logger.error('Error tagging Cascade cards: %s', str(e))
         raise
     
-## Dsicover cards
+## Discover cards
 def tag_for_discover(df: pd.DataFrame, color: str) -> None:
     """Tag cards with Discover using vectorized operations.
 
@@ -2416,6 +2416,7 @@ def tag_for_impulse(df: pd.DataFrame, color: str) -> None:
         raise
 
     logger.info('Completed tagging Impulse effects')
+
 ## Cards that have or care about plotting
 def tag_for_plot(df: pd.DataFrame, color: str) -> None:
     """Tag cards with Plot using vectorized operations.

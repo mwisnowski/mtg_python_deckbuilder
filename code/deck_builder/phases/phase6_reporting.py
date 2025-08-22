@@ -47,18 +47,67 @@ class ReportingMixin:
         return '\n'.join(lines)
 
     def print_type_summary(self):
-        """Prints a summary of card types and their counts in the current deck library.
-        Displays type distribution and percentage breakdown.
+        """Print a type/category distribution for the current deck library.
+        Uses the stored 'Card Type' when available; otherwise enriches from the
+        loaded card snapshot. Categories mirror export classification.
         """
-        type_counts: Dict[str,int] = {}
+        # Build a quick lookup from the loaded dataset to enrich type lines
+        full_df = getattr(self, '_full_cards_df', None)
+        combined_df = getattr(self, '_combined_cards_df', None)
+        snapshot = full_df if full_df is not None else combined_df
+        row_lookup: Dict[str, any] = {}
+        if snapshot is not None and hasattr(snapshot, 'empty') and not snapshot.empty and 'name' in snapshot.columns:
+            for _, r in snapshot.iterrows():
+                nm = str(r.get('name'))
+                if nm not in row_lookup:
+                    row_lookup[nm] = r
+
+        # Category precedence (purely for stable sorted output)
+        precedence_order = [
+            'Commander', 'Battle', 'Planeswalker', 'Creature', 'Instant', 'Sorcery', 'Artifact', 'Enchantment', 'Land', 'Other'
+        ]
+        precedence_index = {k: i for i, k in enumerate(precedence_order)}
+        commander_name = getattr(self, 'commander_name', '') or getattr(self, 'commander', '') or ''
+
+        def classify(primary_type_line: str, card_name: str) -> str:
+            if commander_name and card_name == commander_name:
+                return 'Commander'
+            tl = (primary_type_line or '').lower()
+            if 'battle' in tl:
+                return 'Battle'
+            if 'planeswalker' in tl:
+                return 'Planeswalker'
+            if 'creature' in tl:
+                return 'Creature'
+            if 'instant' in tl:
+                return 'Instant'
+            if 'sorcery' in tl:
+                return 'Sorcery'
+            if 'artifact' in tl:
+                return 'Artifact'
+            if 'enchantment' in tl:
+                return 'Enchantment'
+            if 'land' in tl:
+                return 'Land'
+            return 'Other'
+
+        # Count by classified category
+        cat_counts: Dict[str, int] = {}
         for name, info in self.card_library.items():
-            ctype = info.get('Type', 'Unknown')
-            cnt = info.get('Count',1)
-            type_counts[ctype] = type_counts.get(ctype,0) + cnt
-        total_cards = sum(type_counts.values())
+            base_type = info.get('Card Type') or info.get('Type', '')
+            if not base_type:
+                row = row_lookup.get(name)
+                if row is not None:
+                    base_type = row.get('type', row.get('type_line', '')) or ''
+            category = classify(base_type, name)
+            cnt = int(info.get('Count', 1))
+            cat_counts[category] = cat_counts.get(category, 0) + cnt
+
+        total_cards = sum(cat_counts.values())
         self.output_func("\nType Summary:")
-        for t, c in sorted(type_counts.items(), key=lambda kv: (-kv[1], kv[0])):
-            self.output_func(f"  {t:<15} {c:>3}  ({(c/total_cards*100 if total_cards else 0):5.1f}%)")
+        for cat, c in sorted(cat_counts.items(), key=lambda kv: (precedence_index.get(kv[0], 999), -kv[1], kv[0])):
+            pct = (c / total_cards * 100) if total_cards else 0.0
+            self.output_func(f"  {cat:<15} {c:>3}  ({pct:5.1f}%)")
     def export_decklist_csv(self, directory: str = 'deck_files', filename: str | None = None, suppress_output: bool = False) -> str:
         """Export current decklist to CSV (enriched).
         Filename pattern (default): commanderFirstWord_firstTheme_YYYYMMDD.csv
@@ -73,25 +122,37 @@ class ReportingMixin:
         Falls back gracefully if snapshot rows missing.
         """
         os.makedirs(directory, exist_ok=True)
+        def _slug(s: str) -> str:
+            s2 = _re.sub(r'[^A-Za-z0-9_]+', '', s)
+            return s2 or 'x'
+        def _unique_path(path: str) -> str:
+            if not os.path.exists(path):
+                return path
+            base, ext = os.path.splitext(path)
+            i = 1
+            while True:
+                candidate = f"{base}_{i}{ext}"
+                if not os.path.exists(candidate):
+                    return candidate
+                i += 1
         if filename is None:
             cmdr = getattr(self, 'commander_name', '') or getattr(self, 'commander', '') or ''
-            if isinstance(cmdr, str) and cmdr:
-                cmdr_first = cmdr.split()[0]
+            cmdr_slug = _slug(cmdr) if isinstance(cmdr, str) and cmdr else 'deck'
+            # Collect themes in order
+            themes: List[str] = []
+            if getattr(self, 'selected_tags', None):
+                themes = [str(t) for t in self.selected_tags if isinstance(t, str) and t.strip()]
             else:
-                cmdr_first = 'deck'
-            theme = getattr(self, 'primary_tag', None) or (self.selected_tags[0] if getattr(self, 'selected_tags', []) else None)
-            if isinstance(theme, str) and theme:
-                theme_first = theme.split()[0]
-            else:
-                theme_first = 'notheme'
-            def _slug(s: str) -> str:
-                s2 = _re.sub(r'[^A-Za-z0-9_]+', '', s)
-                return s2 or 'x'
-            cmdr_slug = _slug(cmdr_first)
-            theme_slug = _slug(theme_first)
+                for t in [getattr(self, 'primary_tag', None), getattr(self, 'secondary_tag', None), getattr(self, 'tertiary_tag', None)]:
+                    if isinstance(t, str) and t.strip():
+                        themes.append(t)
+            theme_parts = [_slug(t) for t in themes if t]
+            if not theme_parts:
+                theme_parts = ['notheme']
+            theme_slug = '_'.join(theme_parts)
             date_part = _dt.date.today().strftime('%Y%m%d')
             filename = f"{cmdr_slug}_{theme_slug}_{date_part}.csv"
-        fname = os.path.join(directory, filename)
+        fname = _unique_path(os.path.join(directory, filename))
 
         full_df = getattr(self, '_full_cards_df', None)
         combined_df = getattr(self, '_combined_cards_df', None)
@@ -217,12 +278,6 @@ class ReportingMixin:
 
         self.output_func(f"Deck exported to {fname}")
         # Auto-generate matching plaintext list (best-effort; ignore failures)
-        try:  # pragma: no cover - sidecar convenience
-            stem = os.path.splitext(os.path.basename(fname))[0]
-            # Always overwrite sidecar to reflect latest deck state
-            self.export_decklist_text(directory=directory, filename=stem + '.txt', suppress_output=True)  # type: ignore[attr-defined]
-        except Exception:
-            logger.warning("Plaintext sidecar export failed (non-fatal)")
         return fname
 
     def export_decklist_text(self, directory: str = 'deck_files', filename: str | None = None, suppress_output: bool = False) -> str:
@@ -236,27 +291,38 @@ class ReportingMixin:
         """
         os.makedirs(directory, exist_ok=True)
         # Derive base filename logic (shared with CSV exporter) – intentionally duplicated to avoid refactor risk.
+        def _slug(s: str) -> str:
+            s2 = _re.sub(r'[^A-Za-z0-9_]+', '', s)
+            return s2 or 'x'
+        def _unique_path(path: str) -> str:
+            if not os.path.exists(path):
+                return path
+            base, ext = os.path.splitext(path)
+            i = 1
+            while True:
+                candidate = f"{base}_{i}{ext}"
+                if not os.path.exists(candidate):
+                    return candidate
+                i += 1
         if filename is None:
             cmdr = getattr(self, 'commander_name', '') or getattr(self, 'commander', '') or ''
-            if isinstance(cmdr, str) and cmdr:
-                cmdr_first = cmdr.split()[0]
+            cmdr_slug = _slug(cmdr) if isinstance(cmdr, str) and cmdr else 'deck'
+            themes: List[str] = []
+            if getattr(self, 'selected_tags', None):
+                themes = [str(t) for t in self.selected_tags if isinstance(t, str) and t.strip()]
             else:
-                cmdr_first = 'deck'
-            theme = getattr(self, 'primary_tag', None) or (self.selected_tags[0] if getattr(self, 'selected_tags', []) else None)
-            if isinstance(theme, str) and theme:
-                theme_first = theme.split()[0]
-            else:
-                theme_first = 'notheme'
-            def _slug(s: str) -> str:
-                s2 = _re.sub(r'[^A-Za-z0-9_]+', '', s)
-                return s2 or 'x'
-            cmdr_slug = _slug(cmdr_first)
-            theme_slug = _slug(theme_first)
+                for t in [getattr(self, 'primary_tag', None), getattr(self, 'secondary_tag', None), getattr(self, 'tertiary_tag', None)]:
+                    if isinstance(t, str) and t.strip():
+                        themes.append(t)
+            theme_parts = [_slug(t) for t in themes if t]
+            if not theme_parts:
+                theme_parts = ['notheme']
+            theme_slug = '_'.join(theme_parts)
             date_part = _dt.date.today().strftime('%Y%m%d')
             filename = f"{cmdr_slug}_{theme_slug}_{date_part}.txt"
         if not filename.lower().endswith('.txt'):
             filename = filename + '.txt'
-        path = os.path.join(directory, filename)
+        path = _unique_path(os.path.join(directory, filename))
 
         # Sorting reproduction
         precedence_order = [

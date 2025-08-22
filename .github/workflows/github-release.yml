@@ -1,0 +1,40 @@
+name: Create GitHub Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare release notes
+        id: notes
+        shell: bash
+        run: |
+          VERSION_REF="${GITHUB_REF##*/}"  # e.g. v1.2.3
+          VERSION_NO_V="${VERSION_REF#v}"
+          TEMPLATE="RELEASE_NOTES_TEMPLATE.md"
+          if [ -f "$TEMPLATE" ]; then
+            sed "s/\${VERSION}/${VERSION_REF}/g" "$TEMPLATE" > RELEASE_NOTES.md
+          else
+            echo "# MTG Python Deckbuilder ${VERSION_REF}" > RELEASE_NOTES.md
+            echo >> RELEASE_NOTES.md
+            echo "Automated release." >> RELEASE_NOTES.md
+          fi
+          echo "version=$VERSION_REF" >> $GITHUB_OUTPUT
+          echo "notes_file=RELEASE_NOTES.md" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.notes.outputs.version }}
+          name: ${{ steps.notes.outputs.version }}
+          body_path: ${{ steps.notes.outputs.notes_file }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

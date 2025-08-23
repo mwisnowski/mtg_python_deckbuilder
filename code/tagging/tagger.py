@@ -2817,7 +2817,8 @@ def tag_for_explore_and_map(df: pd.DataFrame, color: str) -> None:
         if explore_mask.any():
             rules.append({ 'mask': explore_mask, 'tags': ['Card Selection'] })
             # If the text also references +1/+1 counters, add that theme
-            explore_counters = explore_mask & tag_utils.create_text_mask(df, ['+1/+1 counter'])
+            # Use literal match for '+1/+1 counter' to avoid regex errors on '+' at start
+            explore_counters = explore_mask & tag_utils.create_text_mask(df, ['+1/+1 counter'], regex=False)
             if explore_counters.any():
                 rules.append({ 'mask': explore_counters, 'tags': ['+1/+1 Counters'] })
         if map_mask.any():

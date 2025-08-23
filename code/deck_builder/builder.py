@@ -74,12 +74,36 @@ class DeckBuilder(
         try:
             # Ensure CSVs exist and are tagged before starting any deck build logic
             try:
+                import time as _time
+                import json as _json
+                from datetime import datetime as _dt
                 cards_path = os.path.join(CSV_DIRECTORY, 'cards.csv')
+                flag_path = os.path.join(CSV_DIRECTORY, '.tagging_complete.json')
+                refresh_needed = False
                 if not os.path.exists(cards_path):
                     logger.info("cards.csv not found. Running initial setup and tagging before deck build...")
+                    refresh_needed = True
+                else:
+                    try:
+                        age_seconds = _time.time() - os.path.getmtime(cards_path)
+                        if age_seconds > 7 * 24 * 60 * 60:
+                            logger.info("cards.csv is older than 7 days. Refreshing data before deck build...")
+                            refresh_needed = True
+                    except Exception:
+                        pass
+                if not os.path.exists(flag_path):
+                    logger.info("Tagging completion flag not found. Performing full tagging before deck build...")
+                    refresh_needed = True
+                if refresh_needed:
                     initial_setup()
-                    from tagging import tagger
-                    tagger.run_tagging()
+                    from tagging import tagger as _tagger
+                    _tagger.run_tagging()
+                    try:
+                        os.makedirs(CSV_DIRECTORY, exist_ok=True)
+                        with open(flag_path, 'w', encoding='utf-8') as _fh:
+                            _json.dump({'tagged_at': _dt.now().isoformat(timespec='seconds')}, _fh)
+                    except Exception:
+                        logger.warning("Failed to write tagging completion flag (non-fatal).")
             except Exception as e:
                 logger.error(f"Failed ensuring CSVs before deck build: {e}")
             self.run_initial_setup()

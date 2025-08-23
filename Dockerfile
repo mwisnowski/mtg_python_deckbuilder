@@ -22,6 +22,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application code
 COPY code/ ./code/
 COPY mypy.ini .
+COPY config/ ./config/
 
 # Create necessary directories as mount points
 RUN mkdir -p deck_files logs csv_files config

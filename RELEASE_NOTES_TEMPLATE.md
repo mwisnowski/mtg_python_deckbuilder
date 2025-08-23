@@ -1,10 +1,12 @@
 # MTG Python Deckbuilder ${VERSION}
 
 ## Highlights
-- Headless mode with a submenu in the main menu (auto-runs single config; lists multiple as "Commander - Theme1, Theme2, Theme3"; `deck.json` labeled "Default")
-- Config precedence: CLI > env > JSON > defaults; honors `ideal_counts` in JSON
-- Exports: CSV/TXT always; JSON run-config only for interactive runs (headless skips it)
-- Smarter filenames: commander + ordered themes + date, with auto-increment when exists
+- Headless support: run non-interactively or via the menu's headless submenu.
+- Config precedence: CLI > env > JSON > defaults; `ideal_counts` in JSON are honored.
+- Exports: CSV/TXT always; JSON run-config is exported for interactive runs. In headless, JSON export is opt-in via `HEADLESS_EXPORT_JSON`.
+- Power bracket: set interactively or via `bracket_level` (env: `DECK_BRACKET_LEVEL`).
+- Data freshness: auto-refreshes `cards.csv` if missing or older than 7 days and re-tags when needed using `.tagging_complete.json`.
+- Docker: ships a default `config/` in the image; mount `./config` to `/app/config` to use your own.
 
 ## Docker
 - Single service; persistent volumes:
@@ -33,22 +35,17 @@ docker compose run --rm -e DECK_MODE=headless -e DECK_CONFIG=/app/config/deck.js
 ```
 
 ## Changes
-- Added headless runner and main menu headless submenu
-- JSON export is suppressed in headless; interactive runs export replayable JSON to `config/`
-- `ideal_counts` supported and honored by prompts; only `fetch_count` tracked for lands
-- Documentation simplified and focused; Docker guide trimmed and PowerShell examples updated
+- Simplified headless runner and integrated a headless submenu in the main menu.
+- JSON export policy: headless runs skip JSON export by default; opt in with `HEADLESS_EXPORT_JSON`.
+- Correct config precedence applied consistently; tag name-to-index mapping improved for multi-step selection; `bracket_level` respected.
+- Data freshness enforcement with 7-day refresh and tagging completion flag.
+- Documentation and Docker usage clarified; default `config/` now included in the image.
 
 ### Tagging updates
-- New: Discard Matters theme – detects your discard effects and triggers; includes Madness and Blood creators; Loot/Connive/Cycling/Blood also add Discard Matters.
-- New taggers:
-  - Freerunning → adds Freerunning and Cost Reduction.
-  - Craft → adds Transform; conditionally Artifacts Matter, Exile Matters, Graveyard Matters.
-  - Spree → adds Modal and Cost Scaling.
-  - Explore/Map → adds Card Selection; Explore may add +1/+1 Counters; Map adds Tokens Matter.
-  - Rad counters → adds Rad Counters.
-- Exile Matters expanded to cover Warp and Time Counters/Time Travel/Vanishing.
-- Energy enriched to also tag Resource Engine.
-- Eldrazi Spawn/Scion creators now tag Aristocrats and Ramp (replacing prior Sacrifice Fodder mapping).
+- Explore/Map: fixed a pattern issue by treating "+1/+1 counter" as a literal; Explore adds Card Selection and may add +1/+1 Counters; Map adds Card Selection and Tokens Matter.
+- Discard Matters theme and enrichments for Loot/Connive/Cycling/Blood.
+- Newer mechanics support: Freerunning, Craft, Spree, Rad counters; Time Travel/Vanishing folded into Exile/Time Counters mapping; Energy enriched.
+- Spawn/Scion creators now map to Aristocrats and Ramp.
 
 ## Known Issues
 - First run downloads card data (takes a few minutes)

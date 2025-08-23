@@ -1,3 +1,16 @@
+# MTG Python Deckbuilder v1.1.2 Release Notes
+
+Small update focused on reliability and polish.
+
+## Fixes & Improvements
+- Headless: simplified flow and removed project-specific defaults; JSON export remains opt-in in headless.
+- Config: ensured correct precedence (CLI > env > JSON > defaults) and improved tag selection by mapping tag names to indices stepwise; respected `bracket_level`.
+- Data freshness: auto-refreshes card data if missing or older than 7 days and enforces re-tagging when needed via a `.tagging_complete.json` flag.
+- Tagging: fixed Explore/Map pattern error by treating "+1/+1 counter" as a literal; minor stability tweaks.
+- Docker: image now ships a default `config/` and docs/scripts clarify mounting `./config` for headless.
+
+---
+
 # MTG Python Deckbuilder v1.1.0 Release Notes
 
 Note: Future releases will generate this file from `RELEASE_NOTES_TEMPLATE.md` automatically in CI.

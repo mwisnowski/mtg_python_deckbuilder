@@ -16,6 +16,8 @@ docker run -it --rm `
     -v "${PWD}/deck_files:/app/deck_files" `
     -v "${PWD}/logs:/app/logs" `
     -v "${PWD}/csv_files:/app/csv_files" `
+    -v "${PWD}/owned_cards:/app/owned_cards" `
+    -v "${PWD}/config:/app/config" `
     mwisnowski/mtg-python-deckbuilder:latest
 ```
 
@@ -23,6 +25,7 @@ docker run -it --rm `
 - `/app/deck_files` ↔ `./deck_files`
 - `/app/logs` ↔ `./logs`
 - `/app/csv_files` ↔ `./csv_files`
+- `/app/owned_cards` ↔ `./owned_cards` (owned cards lists: .txt/.csv)
 - Optional: `/app/config` ↔ `./config` (JSON configs for headless)
 
 ## Interactive vs headless
@@ -52,6 +55,8 @@ docker run -it --rm `
     -v "${PWD}/deck_files:/app/deck_files" `
     -v "${PWD}/logs:/app/logs" `
     -v "${PWD}/csv_files:/app/csv_files" `
+    -v "${PWD}/owned_cards:/app/owned_cards" `
+    -v "${PWD}/config:/app/config" `
     mtg-deckbuilder
 ```
 
@@ -59,6 +64,7 @@ docker run -it --rm `
     - No prompts? Use `docker compose run --rm` (not `up`) or add `-it` to `docker run`
     - Files not saving? Verify volume mounts and that folders exist
     - Headless not picking config? Ensure `./config` is mounted to `/app/config` and `DECK_CONFIG` points to a JSON file
+    - Owned-cards prompt not seeing files? Ensure `./owned_cards` is mounted to `/app/owned_cards`
 
 ## Tips
 - Use `docker compose run`, not `up`, for interactive mode

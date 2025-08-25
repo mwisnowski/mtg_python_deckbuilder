@@ -12,7 +12,5 @@ build/
 csv_files/
 dist/
 logs/
-test_determinism.py
-test.py
-deterministic_test.py
 !config/deck.json
+RELEASE_NOTES.md

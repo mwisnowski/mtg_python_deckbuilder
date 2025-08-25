@@ -53,7 +53,6 @@ jobs:
             mwisnowski/mtg-python-deckbuilder
           tags: |
             type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
             type=raw,value=latest
           labels: |
             org.opencontainers.image.title=MTG Python Deckbuilder
@@ -70,11 +69,3 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
 
-      - name: Update Docker Hub description
-        uses: peter-evans/dockerhub-description@v4
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-          repository: mwisnowski/mtg-python-deckbuilder
-          readme-filepath: ./RELEASE_NOTES_TEMPLATE.md
-          short-description: "CLI MTG Commander deckbuilder with smart tagging, headless mode, CSV/TXT exports, Docker-ready."

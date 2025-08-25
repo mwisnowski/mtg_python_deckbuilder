@@ -166,7 +166,7 @@ class ReportingMixin:
 
         headers = [
             "Name","Count","Type","ManaCost","ManaValue","Colors","Power","Toughness",
-            "Role","SubRole","AddedBy","TriggerTag","Synergy","Tags","Text"
+            "Role","SubRole","AddedBy","TriggerTag","Synergy","Tags","Text","Owned"
         ]
 
         # Precedence list for sorting
@@ -199,6 +199,13 @@ class ReportingMixin:
             return 'ZZZ'
 
         rows: List[tuple] = []  # (sort_key, row_data)
+
+        # Prepare owned lookup if available
+        owned_set_lower = set()
+        try:
+            owned_set_lower = {n.lower() for n in (getattr(self, 'owned_card_names', set()) or set())}
+        except Exception:
+            owned_set_lower = set()
 
         for name, info in self.card_library.items():
             base_type = info.get('Card Type') or info.get('Type','')
@@ -250,6 +257,7 @@ class ReportingMixin:
             cat = classify(base_type, name)
             prec = precedence_index.get(cat, 999)
             # Alphabetical within category (no mana value sorting)
+            owned_flag = 'Y' if (name.lower() in owned_set_lower) else ''
             rows.append(((prec, name.lower()), [
                 name,
                 info.get('Count',1),
@@ -265,7 +273,8 @@ class ReportingMixin:
                 info.get('TriggerTag') or '',
                 info.get('Synergy') if info.get('Synergy') is not None else '',
                 tags_join,
-                text_field[:800] if isinstance(text_field, str) else str(text_field)[:800]
+                text_field[:800] if isinstance(text_field, str) else str(text_field)[:800],
+                owned_flag
             ]))
         # Now sort (category precedence, then alphabetical name)
         rows.sort(key=lambda x: x[0])

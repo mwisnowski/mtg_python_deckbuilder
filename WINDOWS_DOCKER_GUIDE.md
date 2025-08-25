@@ -36,6 +36,8 @@ docker run -it --rm `
   -v "${PWD}/deck_files:/app/deck_files" `
   -v "${PWD}/logs:/app/logs" `
   -v "${PWD}/csv_files:/app/csv_files" `
+  -v "${PWD}/owned_cards:/app/owned_cards" `
+  -v "${PWD}/config:/app/config" `
   mwisnowski/mtg-python-deckbuilder:latest
 ```
 
@@ -50,6 +52,8 @@ docker run -it --rm ^
   -v "%cd%\deck_files:/app/deck_files" ^
   -v "%cd%\logs:/app/logs" ^
   -v "%cd%\csv_files:/app/csv_files" ^
+  -v "%cd%\owned_cards:/app/owned_cards" ^
+  -v "%cd%\config:/app/config" ^
   mwisnowski/mtg-python-deckbuilder:latest
 ```
 
@@ -69,7 +73,9 @@ Create these folders on your computer:
 C:\mtg-decks\
 ├── deck_files\
 ├── logs\
-└── csv_files\
+├── csv_files\
+└── owned_cards\
+└── config\
 ```
 
 ### Step 3: Run Container
@@ -145,24 +151,3 @@ C:\mtg-decks\
 ├── deck_files\              # Your completed decks (.csv and .txt files)
 │   ├── Atraxa_Superfriends_20250821.csv
 │   ├── Atraxa_Superfriends_20250821.txt
-# Windows Quick Start (Docker)
-
-Prerequisite: Docker Desktop running.
-
-## Run (one command)
-```powershell
-$base = "C:\mtg-decks"; New-Item -ItemType Directory -Force -Path "$base\deck_files","$base\logs","$base\csv_files" | Out-Null; docker run -it --rm -v "$base\deck_files:/app/deck_files" -v "$base\logs:/app/logs" -v "$base\csv_files:/app/csv_files" mwisnowski/mtg-python-deckbuilder:latest
-```
-
-Files saved to:
-- Decks: C:\mtg-decks\deck_files
-- Logs: C:\mtg-decks\logs
-- Card data: C:\mtg-decks\csv_files
-  -v "${baseDir}\logs:/app/logs" `
-  -v "${baseDir}\csv_files:/app/csv_files" `
-  mwisnowski/mtg-python-deckbuilder:latest
-
-Write-Host "Session ended. Files saved in: $baseDir" -ForegroundColor Green
-```
-
-Then run with: `powershell -ExecutionPolicy Bypass -File setup-mtg-deckbuilder.ps1`

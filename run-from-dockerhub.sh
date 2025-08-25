@@ -5,7 +5,7 @@ echo "==========================================="
 
 # Create directories if they don't exist
 mkdir -p deck_files logs csv_files
-mkdir -p config
+mkdir -p config owned_cards
 
 echo "Starting MTG Python Deckbuilder from Docker Hub..."
 echo "Your files will be saved in the current directory:"
@@ -20,6 +20,7 @@ docker run -it --rm \
   -v "$(pwd)/deck_files":/app/deck_files \
   -v "$(pwd)/logs":/app/logs \
   -v "$(pwd)/csv_files":/app/csv_files \
+  -v "$(pwd)/owned_cards":/app/owned_cards \
   -v "$(pwd)/config":/app/config \
   mwisnowski/mtg-python-deckbuilder:latest
 

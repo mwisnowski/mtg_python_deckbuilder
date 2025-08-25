@@ -120,6 +120,12 @@ class DeckBuilder(
             if hasattr(self, 'run_reporting_phase'):
                 self.run_reporting_phase()
             if hasattr(self, 'export_decklist_csv'):
+                # If user opted out of owned-only, silently load all owned files for marking
+                try:
+                    if not self.use_owned_only and not self.owned_card_names:
+                        self._load_all_owned_silent()
+                except Exception:
+                    pass
                 csv_path = self.export_decklist_csv()
                 try:
                     import os as _os
@@ -127,6 +133,15 @@ class DeckBuilder(
                     txt_path = self.export_decklist_text(filename=base + '.txt')  # type: ignore[attr-defined]
                     # Display the text file contents for easy copy/paste to online deck builders
                     self._display_txt_contents(txt_path)
+                    # If owned-only build is incomplete, generate recommendations
+                    try:
+                        total_cards = sum(int(v.get('Count', 1)) for v in self.card_library.values())
+                        if self.use_owned_only and total_cards < 100:
+                            missing = 100 - total_cards
+                            rec_limit = int(math.ceil(1.5 * float(missing)))
+                            self._generate_recommendations(base_stem=base, limit=rec_limit)
+                    except Exception:
+                        pass
                     # Also export a matching JSON config for replay (interactive builds only)
                     if not getattr(self, 'headless', False):
                         try:
@@ -153,6 +168,14 @@ class DeckBuilder(
                             pass
                 except Exception:
                     logger.warning("Plaintext export failed (non-fatal)")
+            # If owned-only and deck not complete, print a note
+            try:
+                if self.use_owned_only:
+                    total_cards = sum(int(v.get('Count', 1)) for v in self.card_library.values())
+                    if total_cards < 100:
+                        self.output_func(f"Note: deck is incomplete ({total_cards}/100). Not enough owned cards to fill the deck.")
+            except Exception:
+                pass
             end_ts = datetime.datetime.now()
             logger.info(f"=== Deck Build: COMPLETE in {(end_ts - start_ts).total_seconds():.2f}s ===")
         except KeyboardInterrupt:
@@ -186,8 +209,8 @@ class DeckBuilder(
             self.output_func("Ready for copy/paste to Moxfield, EDHREC, or other deck builders")
             self.output_func(f"{separator}")
             self.output_func(contents)
-            self.output_func(f"{separator}")
-            self.output_func(f"Deck list also saved to: {txt_path}")
+            # self.output_func(f"{separator}")
+            # self.output_func(f"Deck list also saved to: {txt_path}")
             self.output_func(f"{separator}\n")
             
         except Exception as e:
@@ -237,6 +260,10 @@ class DeckBuilder(
     _commander_df: Optional[pd.DataFrame] = None
     _combined_cards_df: Optional[pd.DataFrame] = None
     _full_cards_df: Optional[pd.DataFrame] = None  # immutable snapshot of original combined pool
+    # Owned-cards mode
+    use_owned_only: bool = False
+    owned_card_names: set[str] = field(default_factory=set)
+    owned_files_selected: List[str] = field(default_factory=list)
 
     # Deck library (cards added so far) mapping name->record
     card_library: Dict[str, Dict[str, Any]] = field(default_factory=dict)
@@ -298,6 +325,289 @@ class DeckBuilder(
                 logger.info(f"Land Step {step}: begin")
                 m()
                 logger.info(f"Land Step {step}: complete (current land count {self._current_land_count() if hasattr(self, '_current_land_count') else 'n/a'})")
+
+    def _generate_recommendations(self, base_stem: str, limit: int):
+        """Silently build a full (non-owned-filtered) deck with same choices and export top recommendations.
+
+        - Uses same commander, tags, bracket, and ideal_counts.
+        - Excludes any cards already in this deck's library.
+        - Exports CSV and TXT to deck_files with suffix _recommendations.
+        """
+        try:
+            # Nothing to recommend if limit <= 0 or no commander
+            if limit <= 0 or not self.commander_row is not None:
+                return
+            # Prepare a quiet builder
+            def _silent_out(_msg: str) -> None:
+                return None
+            def _silent_in(_prompt: str) -> str:
+                return ""
+            rec = DeckBuilder(input_func=_silent_in, output_func=_silent_out, log_outputs=False, headless=True)
+            # Carry over selections
+            rec.commander_name = self.commander_name
+            rec.commander_row = self.commander_row
+            rec.commander_tags = list(self.commander_tags)
+            rec.primary_tag = self.primary_tag
+            rec.secondary_tag = self.secondary_tag
+            rec.tertiary_tag = self.tertiary_tag
+            rec.selected_tags = list(self.selected_tags)
+            rec.bracket_definition = self.bracket_definition
+            rec.bracket_level = self.bracket_level
+            rec.bracket_name = self.bracket_name
+            rec.bracket_limits = dict(self.bracket_limits) if self.bracket_limits else {}
+            rec.ideal_counts = dict(self.ideal_counts) if self.ideal_counts else {}
+            # Initialize commander dict (also adds commander to library)
+            try:
+                if rec.commander_row is not None:
+                    rec._initialize_commander_dict(rec.commander_row)
+            except Exception:
+                pass
+            # Build on full pool (owned-only disabled by default)
+            rec.determine_color_identity()
+            rec.setup_dataframes()
+            # Ensure bracket applied and counts present
+            try:
+                rec.run_deck_build_step1()
+            except Exception:
+                pass
+            # Run the content-adding phases silently
+            try:
+                rec._run_land_build_steps()
+            except Exception:
+                pass
+            try:
+                if hasattr(rec, 'add_creatures_phase'):
+                    rec.add_creatures_phase()
+            except Exception:
+                pass
+            try:
+                if hasattr(rec, 'add_spells_phase'):
+                    rec.add_spells_phase()
+            except Exception:
+                pass
+            try:
+                if hasattr(rec, 'post_spell_land_adjust'):
+                    rec.post_spell_land_adjust()
+            except Exception:
+                pass
+
+            # Build recommendation subset excluding already-chosen names
+            chosen = set(self.card_library.keys())
+            rec_items = []
+            for nm, info in rec.card_library.items():
+                if nm not in chosen:
+                    rec_items.append((nm, info))
+            if not rec_items:
+                return
+            # Cap to requested limit
+            rec_subset: Dict[str, Dict[str, Any]] = {}
+            for nm, info in rec_items[:max(0, int(limit))]:
+                rec_subset[nm] = info
+
+            # Temporarily export subset using the recommendation builder's context/snapshots
+            original_lib = rec.card_library
+            try:
+                rec.card_library = rec_subset
+                # Export CSV and TXT with suffix
+                rec.export_decklist_csv(directory='deck_files', filename=base_stem + '_recommendations.csv', suppress_output=True)  # type: ignore[attr-defined]
+                rec.export_decklist_text(directory='deck_files', filename=base_stem + '_recommendations.txt', suppress_output=True)  # type: ignore[attr-defined]
+            finally:
+                rec.card_library = original_lib
+            # Notify user succinctly
+            try:
+                self.output_func(f"Recommended but unowned cards in deck_files/{base_stem}_recommendations.csv")
+            except Exception:
+                pass
+        except Exception as _e:
+            try:
+                self.output_func(f"Failed to generate recommendations: {_e}")
+            except Exception:
+                pass
+
+    # ---------------------------
+    # Owned Cards Helpers
+    # ---------------------------
+    def _card_library_dir(self) -> str:
+        """Return folder to read owned cards from, preferring 'owned_cards'.
+
+        Precedence:
+        - OWNED_CARDS_DIR env var
+        - CARD_LIBRARY_DIR env var (back-compat)
+        - 'owned_cards' if exists
+        - 'card_library' if exists (back-compat)
+        - default 'owned_cards'
+        """
+        try:
+            import os as _os
+            # Env overrides
+            env_dir = _os.getenv('OWNED_CARDS_DIR') or _os.getenv('CARD_LIBRARY_DIR')
+            if env_dir:
+                return env_dir
+            # Prefer new name
+            if _os.path.isdir('owned_cards'):
+                return 'owned_cards'
+            if _os.path.isdir('card_library'):
+                return 'card_library'
+            return 'owned_cards'
+        except Exception:
+            return 'owned_cards'
+
+    def _find_owned_files(self) -> List[str]:
+        import os as _os
+        folder = self._card_library_dir()
+        try:
+            entries = []
+            if _os.path.isdir(folder):
+                for name in _os.listdir(folder):
+                    p = _os.path.join(folder, name)
+                    if _os.path.isfile(p) and name.lower().endswith(('.txt', '.csv')):
+                        entries.append(p)
+            return sorted(entries)
+        except Exception:
+            return []
+
+    def _parse_owned_line(self, line: str) -> Optional[str]:
+        s = (line or '').strip()
+        if not s or s.startswith('#') or s.startswith('//'):
+            return None
+        parts = s.split()
+        if len(parts) >= 2 and (parts[0].isdigit() or (parts[0].lower().endswith('x') and parts[0][:-1].isdigit())):
+            s = ' '.join(parts[1:])
+        return s.strip() or None
+
+    def _read_txt_owned(self, path: str) -> List[str]:
+        out: List[str] = []
+        try:
+            with open(path, 'r', encoding='utf-8', errors='ignore') as f:
+                for line in f:
+                    n = self._parse_owned_line(line)
+                    if n:
+                        out.append(n)
+        except Exception:
+            pass
+        return out
+
+    def _read_csv_owned(self, path: str) -> List[str]:
+        import csv as _csv
+        names: List[str] = []
+        try:
+            with open(path, 'r', encoding='utf-8', errors='ignore', newline='') as f:
+                try:
+                    reader = _csv.DictReader(f)
+                    headers = [h.strip() for h in (reader.fieldnames or [])]
+                    candidates = [c for c in ('name', 'card', 'Card', 'card_name', 'Card Name') if c in headers]
+                    if candidates:
+                        key = candidates[0]
+                        for row in reader:
+                            val = (row.get(key) or '').strip()
+                            if val:
+                                names.append(val)
+                    else:
+                        f.seek(0)
+                        reader2 = _csv.reader(f)
+                        for row in reader2:
+                            if not row:
+                                continue
+                            val = (row[0] or '').strip()
+                            if val and val.lower() not in ('name', 'card', 'card name'):
+                                names.append(val)
+                except Exception:
+                    # Fallback plain reader
+                    f.seek(0)
+                    for line in f:
+                        if line.strip():
+                            names.append(line.strip())
+        except Exception:
+            pass
+        return names
+
+    def _load_owned_from_files(self, files: List[str]) -> set[str]:
+        names: List[str] = []
+        for p in files:
+            pl = p.lower()
+            try:
+                if pl.endswith('.txt'):
+                    names.extend(self._read_txt_owned(p))
+                elif pl.endswith('.csv'):
+                    names.extend(self._read_csv_owned(p))
+            except Exception:
+                continue
+        clean = {n.strip() for n in names if isinstance(n, str) and n.strip()}
+        return clean
+
+    def _prompt_use_owned_cards(self):
+        # Quick existence check: only prompt if any owned files are present
+        files = self._find_owned_files()
+        if not files:
+            # No owned lists present; skip prompting entirely
+            return
+        resp = self.input_func("Use only owned cards? (y/N): ").strip().lower()
+        self.use_owned_only = (resp in ('y', 'yes'))
+        if not self.use_owned_only:
+            return
+        self.output_func("Select owned card files by number (comma-separated), or press Enter to use all:")
+        for i, p in enumerate(files):
+            try:
+                base = p.replace('\\', '/').split('/')[-1]
+            except Exception:
+                base = p
+            self.output_func(f"  [{i}] {base}")
+        raw = self.input_func("Selection: ").strip()
+        selected: List[str] = []
+        if not raw:
+            selected = files
+        else:
+            seen = set()
+            for tok in raw.split(','):
+                tok = tok.strip()
+                if tok.isdigit():
+                    idx = int(tok)
+                    if 0 <= idx < len(files) and idx not in seen:
+                        selected.append(files[idx])
+                        seen.add(idx)
+        if not selected:
+            self.output_func("No valid selections; using all owned files.")
+            selected = files
+        self.owned_files_selected = selected
+        self.owned_card_names = self._load_owned_from_files(selected)
+        self.output_func(f"Owned cards loaded: {len(self.owned_card_names)} unique names from {len(selected)} file(s).")
+
+    # Public helper for headless/tests: enable/disable owned-only and optionally preload files
+    def set_owned_mode(self, owned_only: bool, files: Optional[List[str]] = None):
+        self.use_owned_only = bool(owned_only)
+        if not self.use_owned_only:
+            self.owned_card_names = set()
+            self.owned_files_selected = []
+            return
+        if files is None:
+            return
+        # Normalize to existing files
+        valid: List[str] = []
+        for p in files:
+            try:
+                if os.path.isfile(p) and p.lower().endswith(('.txt', '.csv')):
+                    valid.append(p)
+                else:
+                    # try relative to card_library
+                    alt = os.path.join(self._card_library_dir(), p)
+                    if os.path.isfile(alt) and alt.lower().endswith(('.txt', '.csv')):
+                        valid.append(alt)
+            except Exception:
+                continue
+        if valid:
+            self.owned_files_selected = valid
+            self.owned_card_names = self._load_owned_from_files(valid)
+
+    # Internal helper: when user opts out, silently load all owned files for CSV flagging
+    def _load_all_owned_silent(self):
+        try:
+            files = self._find_owned_files()
+            if not files:
+                return
+            self.owned_files_selected = files
+            self.owned_card_names = self._load_owned_from_files(files)
+        except Exception:
+            pass
 
     # ---------------------------
     # RNG Initialization
@@ -613,6 +923,24 @@ class DeckBuilder(
         # Drop duplicate rows by 'name' if column exists
         if 'name' in combined.columns:
             combined = combined.drop_duplicates(subset='name', keep='first')
+        # If owned-only mode, filter combined pool to owned names (case-insensitive)
+        if self.use_owned_only:
+            try:
+                owned_lower = {n.lower() for n in self.owned_card_names}
+                name_col = None
+                if 'name' in combined.columns:
+                    name_col = 'name'
+                elif 'Card Name' in combined.columns:
+                    name_col = 'Card Name'
+                if name_col is not None:
+                    mask = combined[name_col].astype(str).str.lower().isin(owned_lower)
+                    prev = len(combined)
+                    combined = combined[mask].copy()
+                    self.output_func(f"Owned-only mode: filtered card pool from {prev} to {len(combined)} records.")
+                else:
+                    self.output_func("Owned-only mode: no recognizable name column to filter on; skipping filter.")
+            except Exception as _e:
+                self.output_func(f"Owned-only mode: failed to filter combined pool: {_e}")
         self._combined_cards_df = combined
         # Preserve original snapshot for enrichment across subsequent removals
         if self._full_cards_df is None:
@@ -639,6 +967,15 @@ class DeckBuilder(
 
         Stores minimal metadata; duplicates increment Count. Basic lands allowed unlimited.
         """
+        # In owned-only mode, block adding cards not in owned list (except the commander itself)
+        try:
+            if getattr(self, 'use_owned_only', False) and not is_commander:
+                owned = getattr(self, 'owned_card_names', set()) or set()
+                if owned and card_name.lower() not in {n.lower() for n in owned}:
+                    # Silently skip non-owned additions
+                    return
+        except Exception:
+            pass
         if creature_types is None:
             creature_types = []
         if tags is None:
@@ -802,6 +1139,12 @@ class DeckBuilder(
         if self.files_to_load:
             file_list = ", ".join(f"{stem}_cards.csv" for stem in self.files_to_load)
             self.output_func(f"Card Pool Files: {file_list}")
+        # Owned-only status
+        if getattr(self, 'use_owned_only', False):
+            try:
+                self.output_func(f"Owned-only mode: {len(self.owned_card_names)} cards from {len(self.owned_files_selected)} file(s)")
+            except Exception:
+                self.output_func("Owned-only mode: enabled")
         if self.selected_tags:
             self.output_func("Chosen Tags:")
             if self.primary_tag:
@@ -822,6 +1165,11 @@ class DeckBuilder(
     def run_initial_setup(self):
         self.choose_commander()
         self.select_commander_tags()
+        # Ask if user wants to limit pool to owned cards and gather selection
+        try:
+            self._prompt_use_owned_cards()
+        except Exception as e:
+            self.output_func(f"Owned-cards prompt failed (continuing without): {e}")
         # New: color identity & card pool loading
         try:
             self.determine_color_identity()

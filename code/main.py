@@ -11,12 +11,19 @@ from pathlib import Path
 import json
 from typing import NoReturn
 
+# Ensure local package resolution in frozen builds
+import os
+if getattr(sys, 'frozen', False):  # PyInstaller frozen
+    base = os.path.dirname(sys.executable)
+    code_dir = os.path.join(base, 'code')
+    if os.path.isdir(code_dir) and code_dir not in sys.path:
+        sys.path.insert(0, code_dir)
+
 # Local imports
 from deck_builder import DeckBuilder
 from file_setup.setup import initial_setup
 from tagging import tagger
 import logging_util
-import os
 from settings import CSV_DIRECTORY
 
 # Create logger for this module

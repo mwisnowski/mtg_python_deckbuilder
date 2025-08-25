@@ -29,7 +29,12 @@ jobs:
       - name: Build executable (PyInstaller)
         shell: powershell
         run: |
-          pyinstaller --onefile --name mtg-deckbuilder code/main.py
+          # Build using spec for reliable packaging
+          pyinstaller mtg_deckbuilder.spec
+          if (!(Test-Path dist/mtg-deckbuilder.exe)) {
+            Write-Host 'Spec build failed; retrying simple build with --paths code'
+            pyinstaller --onefile --name mtg-deckbuilder --paths code code/main.py
+          }
           if (!(Test-Path dist/mtg-deckbuilder.exe)) { throw 'Build failed: dist/mtg-deckbuilder.exe not found' }
 
       - name: Upload artifact (Windows EXE)

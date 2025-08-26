@@ -639,6 +639,7 @@ class ReportingMixin:
             "secondary_tag": getattr(self, 'secondary_tag', None),
             "tertiary_tag": getattr(self, 'tertiary_tag', None),
             "bracket_level": getattr(self, 'bracket_level', None),
+            "tag_mode": (getattr(self, 'tag_mode', 'AND') or 'AND'),
             "use_multi_theme": True,
             "add_lands": True,
             "add_creatures": True,

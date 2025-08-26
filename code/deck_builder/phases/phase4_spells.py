@@ -452,6 +452,7 @@ class SpellAdditionMixin:
         spells_df['_multiMatch'] = spells_df['_normTags'].apply(
             lambda lst: sum(1 for t in selected_tags_lower if t in lst)
         )
+        combine_mode = getattr(self, 'tag_mode', 'AND')
         base_top = 40
         top_n = int(base_top * getattr(bc, 'THEME_POOL_SIZE_MULTIPLIER', 2.0))
         synergy_bonus = getattr(bc, 'THEME_PRIORITY_BONUS', 1.2)
@@ -473,6 +474,9 @@ class SpellAdditionMixin:
                     lambda lst, tn=tnorm: (tn in lst) or any(tn in x for x in lst)
                 )
             ]
+            if combine_mode == 'AND' and len(selected_tags_lower) > 1:
+                if (spells_df['_multiMatch'] >= 2).any():
+                    subset = subset[subset['_multiMatch'] >= 2]
             if subset.empty:
                 continue
             if 'edhrecRank' in subset.columns:
@@ -491,7 +495,10 @@ class SpellAdditionMixin:
             pool = pool[~pool['name'].isin(self.card_library.keys())]
             if pool.empty:
                 continue
-            weighted_pool = [ (nm, (synergy_bonus if mm >= 2 else 1.0)) for nm, mm in zip(pool['name'], pool['_multiMatch']) ]
+            if combine_mode == 'AND':
+                weighted_pool = [ (nm, (synergy_bonus*1.3 if mm >= 2 else (1.1 if mm == 1 else 0.8))) for nm, mm in zip(pool['name'], pool['_multiMatch']) ]
+            else:
+                weighted_pool = [ (nm, (synergy_bonus if mm >= 2 else 1.0)) for nm, mm in zip(pool['name'], pool['_multiMatch']) ]
             chosen = bu.weighted_sample_without_replacement(weighted_pool, target)
             for nm in chosen:
                 row = pool[pool['name'] == nm].iloc[0]
@@ -514,7 +521,13 @@ class SpellAdditionMixin:
         if total_added < remaining:
             need = remaining - total_added
             multi_pool = spells_df[~spells_df['name'].isin(self.card_library.keys())].copy()
-            multi_pool = multi_pool[multi_pool['_multiMatch'] > 0]
+            if combine_mode == 'AND' and len(selected_tags_lower) > 1:
+                prioritized = multi_pool[multi_pool['_multiMatch'] >= 2]
+                if prioritized.empty:
+                    prioritized = multi_pool[multi_pool['_multiMatch'] > 0]
+                multi_pool = prioritized
+            else:
+                multi_pool = multi_pool[multi_pool['_multiMatch'] > 0]
             if not multi_pool.empty:
                 if 'edhrecRank' in multi_pool.columns:
                     multi_pool = multi_pool.sort_values(

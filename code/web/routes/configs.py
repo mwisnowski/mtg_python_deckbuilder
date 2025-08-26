@@ -117,9 +117,16 @@ async def configs_run(request: Request, name: str = Form(...)) -> HTMLResponse:
     tags = [t for t in [cfg.get("primary_tag"), cfg.get("secondary_tag"), cfg.get("tertiary_tag")] if t]
     bracket = int(cfg.get("bracket_level") or 0)
     ideals = cfg.get("ideal_counts", {}) or {}
+    # Optional combine mode for tags (AND/OR); support a few aliases
+    try:
+        tag_mode = (str(cfg.get("tag_mode") or cfg.get("combine_mode") or cfg.get("mode") or "AND").upper())
+        if tag_mode not in ("AND", "OR"):
+            tag_mode = "AND"
+    except Exception:
+        tag_mode = "AND"
 
     # Run build headlessly with orchestrator
-    res = orch.run_build(commander=commander, tags=tags, bracket=bracket, ideals=ideals)
+    res = orch.run_build(commander=commander, tags=tags, bracket=bracket, ideals=ideals, tag_mode=tag_mode)
     if not res.get("ok"):
         return templates.TemplateResponse(
             "configs/run_result.html",
@@ -130,6 +137,7 @@ async def configs_run(request: Request, name: str = Form(...)) -> HTMLResponse:
                 "log": res.get("log", ""),
                 "cfg_name": p.name,
                 "commander": commander,
+                "tag_mode": tag_mode,
             },
         )
     return templates.TemplateResponse(
@@ -143,6 +151,7 @@ async def configs_run(request: Request, name: str = Form(...)) -> HTMLResponse:
             "summary": res.get("summary"),
             "cfg_name": p.name,
             "commander": commander,
+            "tag_mode": tag_mode,
             "game_changers": bc.GAME_CHANGERS,
         },
     )

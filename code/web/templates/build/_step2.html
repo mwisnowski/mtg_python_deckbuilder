@@ -18,30 +18,55 @@
         <fieldset>
           <legend>Theme Tags</legend>
           {% if tags %}
-            <label>Primary
-              <select name="primary_tag">
-                <option value="">-- none --</option>
-                {% for t in tags %}
-                  <option value="{{ t }}" {% if t == primary_tag %}selected{% endif %}>{{ t }}</option>
-                {% endfor %}
-              </select>
-            </label>
-            <label>Secondary
-              <select name="secondary_tag">
-                <option value="">-- none --</option>
-                {% for t in tags %}
-                  <option value="{{ t }}" {% if t == secondary_tag %}selected{% endif %}>{{ t }}</option>
-                {% endfor %}
-              </select>
-            </label>
-            <label>Tertiary
-              <select name="tertiary_tag">
-                <option value="">-- none --</option>
-                {% for t in tags %}
-                  <option value="{{ t }}" {% if t == tertiary_tag %}selected{% endif %}>{{ t }}</option>
-                {% endfor %}
-              </select>
-            </label>
+          <input type="hidden" name="primary_tag" id="primary_tag" value="{{ primary_tag or '' }}" />
+          <input type="hidden" name="secondary_tag" id="secondary_tag" value="{{ secondary_tag or '' }}" />
+          <input type="hidden" name="tertiary_tag" id="tertiary_tag" value="{{ tertiary_tag or '' }}" />
+          <input type="hidden" name="tag_mode" id="tag_mode" value="{{ tag_mode or 'AND' }}" />
+          <div class="muted" style="font-size:12px; margin-bottom:.35rem;">Pick up to three themes. Toggle AND/OR to control how themes combine.</div>
+          <div style="display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; margin-bottom:.35rem;">
+            <span class="muted" style="font-size:12px;">Combine</span>
+            <div role="group" aria-label="Combine mode" aria-describedby="combine-help-tip">
+              <label style="margin-right:.35rem;" title="AND prioritizes cards that match multiple of your themes (tighter synergy, smaller pool).">
+                <input type="radio" name="combine_mode_radio" value="AND" {% if (tag_mode or 'AND') == 'AND' %}checked{% endif %} /> AND
+              </label>
+              <label title="OR treats your themes as a union (broader pool, fills easier).">
+                <input type="radio" name="combine_mode_radio" value="OR" {% if tag_mode == 'OR' %}checked{% endif %} /> OR
+              </label>
+            </div>
+            <button type="button" id="reset-tags" class="chip" style="margin-left:.35rem;">Reset themes</button>
+            <span id="tag-count" class="muted" style="font-size:12px;"></span>
+          </div>
+          <div id="combine-help-tip" class="muted" style="font-size:12px; margin:-.15rem 0 .5rem 0;">Tip: Choose OR for a stronger initial theme pool; switch to AND to tighten synergy.</div>
+          <div id="tag-order" class="muted" style="font-size:12px; margin-bottom:.4rem;"></div>
+          {% if recommended and recommended|length %}
+          <div style="display:flex; align-items:center; gap:.5rem; margin:.25rem 0 .35rem 0;">
+            <div class="muted" style="font-size:12px;">Recommended</div>
+            <button type="button" id="reco-why" class="chip" aria-expanded="false" aria-controls="reco-why-panel" title="Why these are recommended?">Why?</button>
+          </div>
+          <div id="reco-why-panel" role="group" aria-label="Why Recommended" aria-hidden="true" style="display:none; border:1px solid #e2e2e2; border-radius:8px; padding:.75rem; margin:-.15rem 0 .5rem 0; background:#f7f7f7; box-shadow:0 2px 8px rgba(0,0,0,.06);">
+            <div style="font-size:12px; color:#222; margin-bottom:.5rem;">Why these themes? <span class="muted" style="color:#555;">Signals from oracle text, color identity, and your local build history.</span></div>
+            <ul style="margin:.25rem 0; padding-left:1.1rem;">
+              {% for r in recommended %}
+                {% set tip = (recommended_reasons[r] if (recommended_reasons is defined and recommended_reasons and recommended_reasons.get(r)) else 'From this commander\'s theme list') %}
+                <li style="font-size:12px; color:#222; line-height:1.35;"><strong>{{ r }}</strong>: <span style="color:#333;">{{ tip }}</span></li>
+              {% endfor %}
+            </ul>
+          </div>
+      <div id="tag-reco-list" aria-label="Recommended themes" style="display:flex; gap:.35rem; flex-wrap:wrap; margin-bottom:.5rem;">
+            {% for r in recommended %}
+              {% set is_sel_r = (r == (primary_tag or '')) or (r == (secondary_tag or '')) or (r == (tertiary_tag or '')) %}
+        {% set tip = (recommended_reasons[r] if (recommended_reasons is defined and recommended_reasons and recommended_reasons.get(r)) else 'Recommended for this commander') %}
+        <button type="button" class="chip chip-reco{% if is_sel_r %} active{% endif %}" data-tag="{{ r }}" aria-pressed="{% if is_sel_r %}true{% else %}false{% endif %}" title="{{ tip }}">★ {{ r }}</button>
+            {% endfor %}
+            <button type="button" id="reco-select-all" class="chip" title="Add recommended up to 3">Select all</button>
+          </div>
+          {% endif %}
+          <div id="tag-chip-list" aria-label="Available themes" style="display:flex; gap:.35rem; flex-wrap:wrap;">
+            {% for t in tags %}
+              {% set is_sel = (t == (primary_tag or '')) or (t == (secondary_tag or '')) or (t == (tertiary_tag or '')) %}
+              <button type="button" class="chip{% if is_sel %} active{% endif %}" data-tag="{{ t }}" aria-pressed="{% if is_sel %}true{% else %}false{% endif %}">{{ t }}</button>
+            {% endfor %}
+          </div>
           {% else %}
             <p>No theme tags available for this commander.</p>
           {% endif %}
@@ -75,3 +100,213 @@
     </div>
   </div>
 </section>
+
+<script>
+  (function(){
+    var chipHost = document.getElementById('tag-chip-list');
+  var recoHost = document.getElementById('tag-reco-list');
+  var selAll = document.getElementById('reco-select-all');
+    var resetBtn = document.getElementById('reset-tags');
+    var primary = document.getElementById('primary_tag');
+    var secondary = document.getElementById('secondary_tag');
+    var tertiary = document.getElementById('tertiary_tag');
+    var tagMode = document.getElementById('tag_mode');
+    var countEl = document.getElementById('tag-count');
+  var orderEl = document.getElementById('tag-order');
+  var commander = '{{ commander.name|e }}';
+    if (!chipHost) return;
+
+    function storageKey(suffix){ return 'step2-' + (commander || 'unknown') + '-' + suffix; }
+
+    function getSelected(){
+      var arr = [];
+      if (primary && primary.value) arr.push(primary.value);
+      if (secondary && secondary.value) arr.push(secondary.value);
+      if (tertiary && tertiary.value) arr.push(tertiary.value);
+      return arr;
+    }
+    function setSelected(arr){
+      arr = Array.from(new Set(arr || [])).filter(Boolean).slice(0,3);
+      if (primary) primary.value = arr[0] || '';
+      if (secondary) secondary.value = arr[1] || '';
+      if (tertiary) tertiary.value = arr[2] || '';
+      updateCount();
+      persist();
+  updateOrderUI();
+    }
+    function toggleTag(t){
+      var cur = getSelected();
+      var idx = cur.indexOf(t);
+      if (idx >= 0) { cur.splice(idx, 1); }
+      else {
+        if (cur.length >= 3) { cur = cur.slice(1); }
+        cur.push(t);
+      }
+      setSelected(cur);
+      updateChipsState();
+    }
+    function updateCount(){
+      try { if (countEl) countEl.textContent = getSelected().length + ' / 3 selected'; } catch(_){}
+    }
+    function persist(){
+      try {
+        localStorage.setItem(storageKey('tags'), JSON.stringify(getSelected()));
+        if (tagMode) localStorage.setItem(storageKey('mode'), tagMode.value || 'AND');
+      } catch(_){}
+    }
+    function loadPersisted(){
+      try {
+        var savedTags = JSON.parse(localStorage.getItem(storageKey('tags')) || '[]');
+        var savedMode = localStorage.getItem(storageKey('mode')) || (tagMode && tagMode.value) || 'AND';
+        if ((!primary.value && !secondary.value && !tertiary.value) && Array.isArray(savedTags) && savedTags.length){ setSelected(savedTags); }
+        if (tagMode) { tagMode.value = (savedMode === 'OR' ? 'OR' : 'AND'); }
+        // sync radios
+        syncModeRadios();
+      } catch(_){}
+    }
+    function syncModeRadios(){
+      try {
+        var radios = document.querySelectorAll('input[name="combine_mode_radio"]');
+        Array.prototype.forEach.call(radios, function(r){ r.checked = (r.value === (tagMode && tagMode.value || 'AND')); });
+      } catch(_){}
+    }
+    function updateChipsState(){
+      var sel = getSelected();
+      function applyToContainer(container){
+        if (!container) return;
+        var chips = Array.prototype.slice.call(container.querySelectorAll('button.chip'));
+        chips.forEach(function(btn){
+          var t = btn.dataset.tag || '';
+          var active = sel.indexOf(t) >= 0;
+          btn.classList.toggle('active', active);
+          btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+          // update numeric badge for order
+          var old = btn.querySelector('sup.tag-order');
+          if (old) { try { old.remove(); } catch(_){} }
+          if (active){
+            var idx = sel.indexOf(t);
+            if (idx >= 0){
+              var sup = document.createElement('sup');
+              sup.className = 'tag-order';
+              sup.style.marginLeft = '.25rem';
+              sup.style.opacity = '.75';
+              sup.textContent = String(idx + 1);
+              btn.appendChild(sup);
+            }
+          }
+        });
+      }
+      applyToContainer(chipHost);
+      applyToContainer(recoHost);
+      updateCount();
+      updateOrderUI();
+  updateSelectAllState();
+    }
+
+    function updateOrderUI(){
+      if (!orderEl) return;
+      var sel = getSelected();
+      if (!sel.length){ orderEl.textContent = ''; return; }
+      try {
+        var parts = sel.map(function(t, i){ return (i+1) + '. ' + t; });
+        orderEl.textContent = 'Selected order: ' + parts.join(' • ');
+      } catch(_){ orderEl.textContent = ''; }
+    }
+
+    // bind mode radios
+    Array.prototype.forEach.call(document.querySelectorAll('input[name="combine_mode_radio"]'), function(r){
+      r.addEventListener('change', function(){ if (tagMode) { tagMode.value = r.value; persist(); } });
+    });
+  if (resetBtn) resetBtn.addEventListener('click', function(){ setSelected([]); updateChipsState(); });
+
+    // attach handlers to existing chips
+    Array.prototype.forEach.call(chipHost.querySelectorAll('button.chip'), function(btn){
+      var t = btn.dataset.tag || '';
+      btn.addEventListener('click', function(){ toggleTag(t); });
+      btn.addEventListener('keydown', function(e){
+        if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); toggleTag(t); }
+        else if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+          e.preventDefault();
+          var chips = Array.prototype.slice.call(chipHost.querySelectorAll('button.chip'));
+          var ix = chips.indexOf(e.currentTarget);
+          var next = (e.key === 'ArrowRight') ? chips[Math.min(ix+1, chips.length-1)] : chips[Math.max(ix-1, 0)];
+          if (next) { try { next.focus(); } catch(_){ } }
+        }
+      });
+    });
+
+    // attach handlers to recommended chips and select-all
+    if (recoHost){
+      Array.prototype.forEach.call(recoHost.querySelectorAll('button.chip-reco'), function(btn){
+        var t = btn.dataset.tag || '';
+        btn.addEventListener('click', function(){ toggleTag(t); });
+      });
+      if (selAll){
+        selAll.addEventListener('click', function(){
+          try {
+            var sel = getSelected();
+            var recs = Array.prototype.slice.call(recoHost.querySelectorAll('button.chip-reco')).map(function(b){ return b.dataset.tag || ''; }).filter(Boolean);
+            var combined = sel.slice();
+            recs.forEach(function(t){ if (combined.indexOf(t) === -1) combined.push(t); });
+            combined = combined.slice(-3); // keep last 3
+            setSelected(combined);
+            updateChipsState();
+            updateSelectAllState();
+          } catch(_){ }
+        });
+      }
+      // Why recommended panel toggle
+      var whyBtn = document.getElementById('reco-why');
+      var whyPanel = document.getElementById('reco-why-panel');
+      function setWhy(open){
+        if (!whyBtn || !whyPanel) return;
+        whyBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        whyPanel.style.display = open ? 'block' : 'none';
+        whyPanel.setAttribute('aria-hidden', open ? 'false' : 'true');
+      }
+      if (whyBtn && whyPanel){
+        whyBtn.addEventListener('click', function(e){
+          e.stopPropagation();
+          var isOpen = whyBtn.getAttribute('aria-expanded') === 'true';
+          setWhy(!isOpen);
+          if (!isOpen){ try { whyPanel.focus && whyPanel.focus(); } catch(_){} }
+        });
+        document.addEventListener('click', function(e){
+          try {
+            var isOpen = whyBtn.getAttribute('aria-expanded') === 'true';
+            if (!isOpen) return;
+            if (whyPanel.contains(e.target) || whyBtn.contains(e.target)) return;
+            setWhy(false);
+          } catch(_){}
+        });
+        document.addEventListener('keydown', function(e){
+          if (e.key === 'Escape'){ setWhy(false); }
+        });
+      }
+    }
+
+    function updateSelectAllState(){
+      try {
+        if (!selAll) return;
+        var sel = getSelected();
+        var recs = recoHost ? Array.prototype.slice.call(recoHost.querySelectorAll('button.chip-reco')).map(function(b){ return b.dataset.tag || ''; }).filter(Boolean) : [];
+        var unselected = recs.filter(function(t){ return sel.indexOf(t) === -1; });
+        var atCap = sel.length >= 3;
+        var noNew = unselected.length === 0;
+        var disable = atCap || noNew;
+        selAll.disabled = disable;
+        selAll.setAttribute('aria-disabled', disable ? 'true' : 'false');
+        if (disable){
+          selAll.title = atCap ? 'Already have 3 themes selected' : 'All recommended already selected';
+        } else {
+          selAll.title = 'Add recommended up to 3';
+        }
+      } catch(_){ }
+    }
+
+    // initial: set from template-selected values, then maybe load persisted if none
+  updateChipsState();
+  loadPersisted();
+  updateChipsState();
+  })();
+</script>

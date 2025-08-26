@@ -28,7 +28,12 @@ async def build_step1(request: Request) -> HTMLResponse:
 
 
 @router.post("/step1", response_class=HTMLResponse)
-async def build_step1_search(request: Request, query: str = Form(""), auto: str | None = Form(None)) -> HTMLResponse:
+async def build_step1_search(
+    request: Request,
+    query: str = Form(""),
+    auto: str | None = Form(None),
+    active: str | None = Form(None),
+) -> HTMLResponse:
     query = (query or "").strip()
     auto_enabled = True if (auto == "1") else False
     candidates = []
@@ -45,10 +50,22 @@ async def build_step1_search(request: Request, query: str = Form(""), auto: str 
                         "request": request,
                         "commander": res,
                         "tags": orch.tags_for_commander(res["name"]),
+                        "recommended": orch.recommended_tags_for_commander(res["name"]),
+                        "recommended_reasons": orch.recommended_tag_reasons_for_commander(res["name"]),
                         "brackets": orch.bracket_options(),
                     },
                 )
-    return templates.TemplateResponse("build/_step1.html", {"request": request, "query": query, "candidates": candidates, "auto": auto_enabled})
+    return templates.TemplateResponse(
+        "build/_step1.html",
+        {
+            "request": request,
+            "query": query,
+            "candidates": candidates,
+            "auto": auto_enabled,
+            "active": active,
+            "count": len(candidates) if candidates else 0,
+        },
+    )
 
 
 @router.post("/step1/inspect", response_class=HTMLResponse)
@@ -72,6 +89,8 @@ async def build_step1_confirm(request: Request, name: str = Form(...)) -> HTMLRe
             "request": request,
             "commander": res,
             "tags": orch.tags_for_commander(res["name"]),
+            "recommended": orch.recommended_tags_for_commander(res["name"]),
+            "recommended_reasons": orch.recommended_tag_reasons_for_commander(res["name"]),
             "brackets": orch.bracket_options(),
         },
     )
@@ -93,11 +112,14 @@ async def build_step2_get(request: Request) -> HTMLResponse:
             "request": request,
             "commander": {"name": commander},
             "tags": tags,
+            "recommended": orch.recommended_tags_for_commander(commander),
+            "recommended_reasons": orch.recommended_tag_reasons_for_commander(commander),
             "brackets": orch.bracket_options(),
             "primary_tag": selected[0] if len(selected) > 0 else "",
             "secondary_tag": selected[1] if len(selected) > 1 else "",
             "tertiary_tag": selected[2] if len(selected) > 2 else "",
             "selected_bracket": sess.get("bracket"),
+            "tag_mode": sess.get("tag_mode", "AND"),
         },
     )
 
@@ -109,6 +131,7 @@ async def build_step2_submit(
     primary_tag: str | None = Form(None),
     secondary_tag: str | None = Form(None),
     tertiary_tag: str | None = Form(None),
+    tag_mode: str | None = Form("AND"),
     bracket: int = Form(...),
 ) -> HTMLResponse:
     # Validate primary tag selection if tags are available
@@ -120,12 +143,15 @@ async def build_step2_submit(
                 "request": request,
                 "commander": {"name": commander},
                 "tags": available_tags,
+                "recommended": orch.recommended_tags_for_commander(commander),
+                "recommended_reasons": orch.recommended_tag_reasons_for_commander(commander),
                 "brackets": orch.bracket_options(),
                 "error": "Please choose a primary theme.",
                 "primary_tag": primary_tag or "",
                 "secondary_tag": secondary_tag or "",
                 "tertiary_tag": tertiary_tag or "",
                 "selected_bracket": int(bracket) if bracket is not None else None,
+                "tag_mode": (tag_mode or "AND"),
             },
         )
 
@@ -134,6 +160,7 @@ async def build_step2_submit(
     sess = get_session(sid)
     sess["commander"] = commander
     sess["tags"] = [t for t in [primary_tag, secondary_tag, tertiary_tag] if t]
+    sess["tag_mode"] = (tag_mode or "AND").upper()
     sess["bracket"] = int(bracket)
     # Proceed to Step 3 placeholder for now
     return templates.TemplateResponse(
@@ -309,6 +336,7 @@ async def build_step5_continue(request: Request) -> HTMLResponse:
             tags=sess.get("tags", []),
             bracket=safe_bracket,
             ideals=ideals_val,
+            tag_mode=sess.get("tag_mode", "AND"),
         )
     res = orch.run_stage(sess["build_ctx"], rerun=False)
     status = "Build complete" if res.get("done") else "Stage complete"
@@ -367,6 +395,7 @@ async def build_step5_rerun(request: Request) -> HTMLResponse:
             tags=sess.get("tags", []),
             bracket=safe_bracket,
             ideals=ideals_val,
+            tag_mode=sess.get("tag_mode", "AND"),
         )
     res = orch.run_stage(sess["build_ctx"], rerun=True)
     status = "Stage rerun complete" if not res.get("done") else "Build complete"
@@ -430,6 +459,7 @@ async def build_step5_start(request: Request) -> HTMLResponse:
             tags=sess.get("tags", []),
             bracket=safe_bracket,
             ideals=ideals_val,
+            tag_mode=sess.get("tag_mode", "AND"),
         )
         res = orch.run_stage(sess["build_ctx"], rerun=False)
         status = "Stage complete" if not res.get("done") else "Build complete"

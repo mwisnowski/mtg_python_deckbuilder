@@ -7,6 +7,7 @@
   <div class="grid" style="display:grid; grid-template-columns: 200px 1fr; gap:6px; max-width: 920px;">
     <div>Commander</div><div>{{ data.commander }}</div>
     <div>Tags</div><div>{{ data.primary_tag }}{% if data.secondary_tag %}, {{ data.secondary_tag }}{% endif %}{% if data.tertiary_tag %}, {{ data.tertiary_tag }}{% endif %}</div>
+  <div>Combine Mode</div><div>{{ (data.tag_mode or data.combine_mode or 'AND') | upper }}</div>
     <div>Bracket</div><div>{{ data.bracket_level }}</div>
   </div>
 </details>

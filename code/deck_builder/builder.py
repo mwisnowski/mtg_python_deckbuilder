@@ -281,6 +281,8 @@ class DeckBuilder(
     secondary_tag: Optional[str] = None
     tertiary_tag: Optional[str] = None
     selected_tags: List[str] = field(default_factory=list)
+    # How to combine multiple selected tags when prioritizing cards: 'AND' or 'OR'
+    tag_mode: str = 'AND'
 
     # Future deck config placeholders
     color_identity: List[str] = field(default_factory=list)  # raw list of color letters e.g. ['B','G']

@@ -10,6 +10,8 @@ import time
 import json
 from datetime import datetime as _dt
 import re
+import unicodedata
+from glob import glob
 
 
 def commander_names() -> List[str]:
@@ -19,6 +21,22 @@ def commander_names() -> List[str]:
 
 
 def commander_candidates(query: str, limit: int = 10) -> List[Tuple[str, int, List[str]]]:
+    def _strip_accents(s: str) -> str:
+        try:
+            return ''.join(ch for ch in unicodedata.normalize('NFKD', str(s)) if not unicodedata.combining(ch))
+        except Exception:
+            return str(s)
+
+    def _simplify(s: str) -> str:
+        try:
+            s2 = _strip_accents(str(s))
+            s2 = s2.lower()
+            # remove punctuation/symbols, keep letters/numbers/spaces
+            s2 = re.sub(r"[^a-z0-9\s]", " ", s2)
+            s2 = re.sub(r"\s+", " ", s2).strip()
+            return s2
+        except Exception:
+            return str(s).lower().strip()
     # Normalize query similar to CLI to reduce case sensitivity surprises
     tmp = DeckBuilder()
     try:
@@ -64,15 +82,21 @@ def commander_candidates(query: str, limit: int = 10) -> List[Tuple[str, int, Li
     # to avoid missing obvious matches like 'Inti, Seneschal of the Sun' for 'inti'.
     try:
         q_raw = (query or "").strip().lower()
+        q_norm = _simplify(query)
         if q_raw:
             have = {n for (n, _s) in pool}
             # Map original scores for reuse
             base_scores = {n: int(s) for (n, s) in scored_raw}
             for n in names:
                 nl = str(n).lower()
-                if q_raw in nl and n not in have:
+                nn = _simplify(n)
+                if (q_raw in nl or (q_norm and q_norm in nn)) and n not in have:
                     # Assign a reasonable base score if not present; favor prefixes
-                    approx = base_scores.get(n, 90 if nl.startswith(q_raw) else 80)
+                    approx_base = base_scores.get(n)
+                    if approx_base is None:
+                        starts = nl.startswith(q_raw) or (q_norm and nn.startswith(q_norm))
+                        approx_base = 90 if starts else 80
+                    approx = approx_base
                     pool.append((n, approx))
     except Exception:
         pass
@@ -82,7 +106,9 @@ def commander_candidates(query: str, limit: int = 10) -> List[Tuple[str, int, Li
     except Exception:
         df = None
     q = (query or "").strip().lower()
+    qn = _simplify(query)
     tokens = [t for t in re.split(r"[\s,]+", q) if t]
+    tokens_norm = [t for t in (qn.split(" ") if qn else []) if t]
     def _color_list_for(name: str) -> List[str]:
         colors: List[str] = []
         try:
@@ -106,42 +132,60 @@ def commander_candidates(query: str, limit: int = 10) -> List[Tuple[str, int, Li
         colors: List[str] = []
         colors = _color_list_for(name)
         nl = str(name).lower()
+        nnorm = _simplify(name)
         bonus = 0
         pos = nl.find(q) if q else -1
+        pos_norm = nnorm.find(qn) if qn else -1
+        pos_final = pos if pos >= 0 else pos_norm
         # Extract first word (letters only) for exact first-word preference
         try:
             m_first = re.match(r"^[a-z0-9']+", nl)
             first_word = m_first.group(0) if m_first else ""
         except Exception:
             first_word = nl.split(" ", 1)[0] if nl else ""
-        exact_first = 1 if (q and first_word == q) else 0
+        # Normalized first word
+        try:
+            m_first_n = re.match(r"^[a-z0-9']+", nnorm)
+            first_word_n = m_first_n.group(0) if m_first_n else ""
+        except Exception:
+            first_word_n = nnorm.split(" ", 1)[0] if nnorm else ""
+        exact_first = 1 if ((q and first_word == q) or (qn and first_word_n == qn)) else 0
         # Base heuristics
-        if q:
-            if nl == q:
+        if q or qn:
+            if q and nl == q:
                 bonus += 100
-            if nl.startswith(q):
+            elif qn and nnorm == qn:
+                bonus += 85
+            if (q and nl.startswith(q)) or (qn and nnorm.startswith(qn)):
                 bonus += 60
-            if re.search(r"\b" + re.escape(q), nl):
+            if q and re.search(r"\b" + re.escape(q), nl):
                 bonus += 40
-            if q in nl:
+            if (q and q in nl) or (qn and qn in nnorm):
                 bonus += 30
             # Strongly prefer exact first-word equality over general prefix
             if exact_first:
                 bonus += 140
         # Multi-token bonuses
-        if tokens:
-            present = sum(1 for t in tokens if t in nl)
-            all_present = 1 if all(t in nl for t in tokens) else 0
+        if tokens_norm or tokens:
+            present = 0
+            all_present = 0
+            if tokens_norm:
+                present = sum(1 for t in tokens_norm if t in nnorm)
+                all_present = 1 if all(t in nnorm for t in tokens_norm) else 0
+            elif tokens:
+                present = sum(1 for t in tokens if t in nl)
+                all_present = 1 if all(t in nl for t in tokens) else 0
             bonus += present * 10 + all_present * 40
             # Extra if first token is a prefix
-            if nl.startswith(tokens[0]):
+            t0 = (tokens_norm[0] if tokens_norm else (tokens[0] if tokens else None))
+            if t0 and (nnorm.startswith(t0) or nl.startswith(t0)):
                 bonus += 15
         # Favor shorter names slightly and earlier positions
         bonus += max(0, 20 - len(nl))
-        if pos >= 0:
-            bonus += max(0, 20 - pos)
+        if pos_final >= 0:
+            bonus += max(0, 20 - pos_final)
         rank_score = int(score) + bonus
-        rescored.append((name, int(score), colors, rank_score, pos if pos >= 0 else 10**6, exact_first))
+        rescored.append((name, int(score), colors, rank_score, pos_final if pos_final >= 0 else 10**6, exact_first))
 
     # Sort: exact first-word matches first, then by rank score desc, then earliest position, then original score desc, then name asc
     rescored.sort(key=lambda x: (-x[5], -x[3], x[4], -x[1], x[0]))
@@ -198,6 +242,214 @@ def tags_for_commander(name: str) -> List[str]:
         parts = [p.strip().strip("'\"") for p in raw.split(',')]
         return [p for p in parts if p]
     return []
+
+
+def _recommended_scored(name: str, max_items: int = 5) -> List[Tuple[str, int, List[str]]]:
+    """Internal: return list of (tag, score, reasons[]) for top recommendations."""
+    available_list = list(tags_for_commander(name) or [])
+    if not available_list:
+        return []
+    # Case-insensitive map: normalized -> original display tag
+    def _norm(s: str) -> str:
+        try:
+            return re.sub(r"\s+", " ", str(s).strip().lower())
+        except Exception:
+            return str(s).strip().lower()
+    norm_map: Dict[str, str] = { _norm(t): t for t in available_list }
+    available_norm = set(norm_map.keys())
+    available_norm_list = list(available_norm)
+
+    def _best_match_norm(tn: str) -> str | None:
+        """Return the best available normalized tag matching tn by exact or substring."""
+        if tn in available_norm:
+            return tn
+        try:
+            # prefer contains matches with minimal length difference
+            candidates = []
+            for an in available_norm_list:
+                if tn in an or an in tn:
+                    candidates.append((abs(len(an) - len(tn)), an))
+            if candidates:
+                candidates.sort(key=lambda x: (x[0], x[1]))
+                return candidates[0][1]
+        except Exception:
+            return None
+        return None
+    try:
+        tmp = DeckBuilder()
+        df = tmp.load_commander_data()
+    except Exception:
+        df = None
+    # Gather commander text and colors
+    text = ""
+    colors: List[str] = []
+    if df is not None:
+        try:
+            row = df[df["name"].astype(str) == str(name)]
+            if not row.empty:
+                r0 = row.iloc[0]
+                text = str(r0.get("text", r0.get("oracleText", "")) or "").lower()
+                ci = r0.get("colorIdentity")
+                if isinstance(ci, list):
+                    colors = [str(c).upper() for c in ci if str(c).strip()]
+                elif isinstance(ci, str) and ci.strip():
+                    parts = [p.strip().upper() for p in ci.replace('[', '').replace(']', '').replace("'", '').split(',') if p.strip()]
+                    colors = parts if parts else list(ci)
+        except Exception:
+            pass
+    if not colors:
+        colors = ["C"]
+
+    score: Dict[str, int] = {t: 0 for t in available_list}
+    reasons: Dict[str, List[str]] = {t: [] for t in available_list}
+    order_index = {t: i for i, t in enumerate(list(available_list))}
+
+    # Anchor weight; omit reason to keep tooltip focused
+    for t in list(available_list):
+        score[t] += 30
+
+    # Keyword patterns -> tags with labeled reasons
+    patterns: List[Tuple[str, List[str], List[str], int]] = [
+        ("Oracle mentions treasure/tokens", [r"\btreasure\b"], ["treasure", "tokens"], 8),
+        ("Oracle mentions tokens", [r"\btoken\b", r"create .* token"], ["tokens"], 10),
+        ("Oracle mentions sacrifice/death", [r"\bsacrifice\b", r"whenever .* dies"], ["sacrifice", "aristocrats"], 9),
+        ("Oracle mentions graveyard/recursion", [r"graveyard", r"from your graveyard", r"return .* from graveyard"], ["graveyard"], 9),
+        ("Oracle mentions lifegain/lifelink", [r"\bgain life\b", r"lifelink"], ["lifegain"], 9),
+        ("Oracle mentions instants/sorceries", [r"instant or sorcery", r"whenever you cast an instant", r"prowess"], ["spellslinger", "spells"], 9),
+        ("Oracle mentions artifacts/equipment", [r"\bartifact\b", r"equipment"], ["artifacts", "equipment"], 8),
+        ("Oracle mentions enchantments/auras", [r"\benchant\b", r"aura"], ["enchantments", "auras"], 7),
+        ("Oracle mentions +1/+1 counters", [r"\+1/\+1 counter", r"put .* counters?"], ["+1/+1 counters", "counters"], 8),
+        ("Oracle suggests blink/flicker", [r"exile .* return .* battlefield", r"blink"], ["blink"], 7),
+        ("Oracle mentions vehicles/crew", [r"vehicle", r"crew"], ["vehicles"], 6),
+    ("Oracle references legendary/legends", [r"\blegendary\b", r"legend(ary)?\b"], ["legends matter", "legends", "legendary matters"], 8),
+    ("Oracle references historic", [r"\bhistoric(s)?\b"], ["historics matter", "historic"], 7),
+    ("Oracle suggests aggressive attacks/haste", [r"\bhaste\b", r"attacks? each combat", r"whenever .* attacks"], ["aggro"], 6),
+    ("Oracle references direct damage", [r"deal \d+ damage", r"damage to any target", r"noncombat damage"], ["burn"], 6),
+    ]
+    for label, pats, tags_out, w in patterns:
+        try:
+            if any(re.search(p, text) for p in pats):
+                for tg in tags_out:
+                    tn = _norm(tg)
+                    bm = _best_match_norm(tn)
+                    if bm is None:
+                        continue
+                    orig = norm_map[bm]
+                    score[orig] = score.get(orig, 0) + w
+                    if len(reasons[orig]) < 3 and label not in reasons[orig]:
+                        reasons[orig].append(label)
+        except Exception:
+            continue
+
+    # Color identity mapped defaults
+    ci_key_sorted = ''.join(sorted(colors))
+    color_map: Dict[str, List[Tuple[str, int]]] = {
+        'GW': [("tokens", 5), ("enchantments", 4), ("+1/+1 counters", 4)],
+        'WU': [("blink", 5), ("control", 4)],
+        'UB': [("graveyard", 5), ("control", 4)],
+        'BR': [("sacrifice", 5), ("aristocrats", 4)],
+        'RG': [("landfall", 4), ("tokens", 3)],
+        'UR': [("spells", 5), ("artifacts", 4)],
+        'WB': [("lifegain", 5), ("aristocrats", 4)],
+        'BG': [("graveyard", 5), ("counters", 4)],
+        'WR': [("equipment", 5), ("tokens", 4)],
+        'UG': [("+1/+1 counters", 5), ("ramp", 4)],
+        'WUB': [("blink", 4), ("control", 4)],
+        'WBR': [("lifegain", 4), ("aristocrats", 4)],
+        'UBR': [("spells", 4), ("artifacts", 3)],
+        'BRG': [("sacrifice", 4), ("graveyard", 4)],
+        'RGW': [("tokens", 4), ("counters", 3)],
+        'GWU': [("blink", 4), ("enchantments", 3)],
+        'WUBR': [("control", 4), ("spells", 3)],
+        'UBRG': [("graveyard", 4), ("spells", 3)],
+        'BRGW': [("tokens", 3), ("sacrifice", 3)],
+        'RGWU': [("counters", 3), ("tokens", 3)],
+        'WUBRG': [("artifacts", 3), ("tokens", 3)],
+    }
+    # Build lookup keyed by sorted color string to be order-agnostic
+    try:
+        color_map_lookup: Dict[str, List[Tuple[str, int]]] = { ''.join(sorted(list(k))): v for k, v in color_map.items() }
+    except Exception:
+        color_map_lookup = color_map
+    if ci_key_sorted in color_map_lookup:
+        for tg, w in color_map_lookup[ci_key_sorted]:
+            tn = _norm(tg)
+            bm = _best_match_norm(tn)
+            if bm is None:
+                continue
+            orig = norm_map[bm]
+            score[orig] = score.get(orig, 0) + w
+            cr = f"Fits your colors ({ci_key_sorted})"
+            if len(reasons[orig]) < 3 and cr not in reasons[orig]:
+                reasons[orig].append(cr)
+
+    # Past builds history
+    try:
+        for path in glob(os.path.join('deck_files', '*.summary.json')):
+            try:
+                st = os.stat(path)
+                age_days = max(0, (time.time() - st.st_mtime) / 86400.0)
+                with open(path, 'r', encoding='utf-8') as f:
+                    data = json.load(f) or {}
+                meta = data.get('meta') or {}
+                if str(meta.get('commander', '')).strip() != str(name).strip():
+                    continue
+                tags_list = meta.get('tags') or []
+                for tg in tags_list:
+                    tn = _norm(str(tg))
+                    if tn in available_norm:
+                        orig = norm_map[tn]
+                        inc = 2
+                        recent = False
+                        if age_days <= 30:
+                            inc += 2
+                            recent = True
+                        elif age_days <= 90:
+                            inc += 1
+                        score[orig] = score.get(orig, 0) + inc
+                        lbl = "Popular in your past builds" + (" (recent)" if recent else "")
+                        if len(reasons[orig]) < 3 and lbl not in reasons[orig]:
+                            reasons[orig].append(lbl)
+            except Exception:
+                continue
+    except Exception:
+        pass
+
+    items = [(k, score.get(k, 0), reasons.get(k, [])) for k in available_list]
+    items.sort(key=lambda x: (-x[1], order_index.get(x[0], 10**6), x[0]))
+    # Trim reasons to at most two concise bullets and format as needed later
+    top = items[:max_items]
+    return top
+
+
+def recommended_tags_for_commander(name: str, max_items: int = 5) -> List[str]:
+    """Suggest up to `max_items` theme tags for a commander (tags only)."""
+    try:
+        return [tag for (tag, _s, _r) in _recommended_scored(name, max_items=max_items)]
+    except Exception:
+        return []
+
+
+def recommended_tag_reasons_for_commander(name: str, max_items: int = 5) -> Dict[str, str]:
+    """Return a mapping of tag -> short reason for why it was recommended."""
+    try:
+        res: Dict[str, str] = {}
+        for tag, _score, rs in _recommended_scored(name, max_items=max_items):
+            # Build a concise reason string
+            if not rs:
+                res[tag] = "From this commander's theme list"
+            else:
+                # Take up to two distinct reasons
+                uniq: List[str] = []
+                for r in rs:
+                    if r and r not in uniq:
+                        uniq.append(r)
+                    if len(uniq) >= 2:
+                        break
+                res[tag] = "; ".join(uniq)
+        return res
+    except Exception:
+        return {}
 
 
 def bracket_options() -> List[Dict[str, Any]]:
@@ -379,7 +631,7 @@ def _ensure_setup_ready(out, force: bool = False) -> None:
         _write_status({"running": False, "phase": "error", "message": "Setup check failed"})
 
 
-def run_build(commander: str, tags: List[str], bracket: int, ideals: Dict[str, int]) -> Dict[str, Any]:
+def run_build(commander: str, tags: List[str], bracket: int, ideals: Dict[str, int], tag_mode: str | None = None) -> Dict[str, Any]:
     """Run the deck build end-to-end with provided selections and capture logs.
 
     Returns: { ok: bool, log: str, csv_path: Optional[str], txt_path: Optional[str], error: Optional[str] }
@@ -425,6 +677,14 @@ def run_build(commander: str, tags: List[str], bracket: int, ideals: Dict[str, i
 
         # Ideal counts
         b.ideal_counts = {k: int(v) for k, v in (ideals or {}).items()}
+
+        # Apply tag combine mode
+        try:
+            b.tag_mode = (str(tag_mode).upper() if tag_mode else b.tag_mode)
+            if b.tag_mode not in ('AND','OR'):
+                b.tag_mode = 'AND'
+        except Exception:
+            pass
 
         # Load data and run phases
         try:
@@ -562,7 +822,7 @@ def _make_stages(b: DeckBuilder) -> List[Dict[str, Any]]:
     return stages
 
 
-def start_build_ctx(commander: str, tags: List[str], bracket: int, ideals: Dict[str, int]) -> Dict[str, Any]:
+def start_build_ctx(commander: str, tags: List[str], bracket: int, ideals: Dict[str, int], tag_mode: str | None = None) -> Dict[str, Any]:
     logs: List[str] = []
 
     def out(msg: str) -> None:
@@ -597,6 +857,14 @@ def start_build_ctx(commander: str, tags: List[str], bracket: int, ideals: Dict[
     b.bracket_limits = dict(getattr(bd, 'limits', {}))
     # Ideals
     b.ideal_counts = {k: int(v) for k, v in (ideals or {}).items()}
+    # Apply tag combine mode
+    try:
+        b.tag_mode = (str(tag_mode).upper() if tag_mode else b.tag_mode)
+        if b.tag_mode not in ('AND','OR'):
+            b.tag_mode = 'AND'
+    except Exception:
+        pass
+
     # Data load
     b.determine_color_identity()
     b.setup_dataframes()

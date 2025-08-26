@@ -1,28 +1,44 @@
 <section>
   <h3>Step 1: Choose a Commander</h3>
 
-  <form id="cmdr-search-form" hx-post="/build/step1" hx-target="#wizard" hx-swap="innerHTML">
-    <label>Search by name</label>
-    <input id="cmdr-search" type="text" name="query" value="{{ query or '' }}" autocomplete="off" />
+  <form id="cmdr-search-form" hx-post="/build/step1" hx-target="#wizard" hx-swap="innerHTML" aria-label="Commander search form" role="search">
+    <label for="cmdr-search">Search by name</label>
+  <span class="input-wrap">
+    <input id="cmdr-search" type="text" name="query" value="{{ query or '' }}" autocomplete="off" aria-describedby="cmdr-help" aria-controls="candidate-grid" placeholder="Type a commander name…" />
+    <button id="cmdr-clear" type="button" class="clear-btn" title="Clear search" aria-label="Clear search" hidden>×</button>
+  </span>
+    <input id="active-name" type="hidden" name="active" value="{{ active or '' }}" />
     <button type="submit">Search</button>
     <label style="margin-left:.5rem; font-weight:normal;">
       <input type="checkbox" name="auto" value="1" {% if auto %}checked{% endif %} /> Auto-select top match (very confident)
     </label>
+  <span id="search-spinner" class="spinner" aria-hidden="true" hidden style="display:none;"></span>
   </form>
-  <div class="muted" style="margin:.35rem 0 .5rem 0; font-size:.9rem;">
-    Tip: Press Enter to select the highlighted result, or use Up/Down to navigate. If your query is a full first word (e.g., "vivi"), exact first-word matches are prioritized.
+  <div id="cmdr-help" class="muted" style="margin:.35rem 0 .5rem 0; font-size:.9rem;">
+    Tip: Press Enter to select the highlighted result, or use arrow keys to navigate. If your query is a full first word (e.g., "vivi"), exact first-word matches are prioritized.
+  </div>
+  <div id="selection-live" class="sr-only" aria-live="polite" role="status"></div>
+  <div id="results-live" class="sr-only" aria-live="polite" role="status"></div>
+  <div id="kbd-hint" class="hint" hidden>
+    <span class="hint-text">Use 
+      <span class="keys"><kbd>↑</kbd><kbd>↓</kbd></span> to navigate, <kbd>Enter</kbd> to select
+    </span>
+    <button type="button" class="hint-close" title="Dismiss keyboard hint" aria-label="Dismiss">×</button>
   </div>
 
   {% if candidates %}
-  <h4>Top matches</h4>
-  <div class="candidate-grid" id="candidate-grid">
+  <h4 style="display:flex; align-items:center; gap:.5rem;">
+    Top matches
+    <small class="muted" aria-live="polite">{% if count is defined %}{{ count }} result{% if count != 1 %}s{% endif %}{% else %}{{ (candidates|length) if candidates else 0 }} results{% endif %}</small>
+  </h4>
+  <div class="candidate-grid" id="candidate-grid" role="list">
     {% for name, score, colors in candidates %}
-      <div class="candidate-tile" data-card-name="{{ name }}">
+      <div class="candidate-tile{% if active and active == name %} active{% endif %}" data-card-name="{{ name }}" role="listitem" aria-selected="{% if active and active == name %}true{% else %}false{% endif %}">
         <form hx-post="/build/step1/confirm" hx-target="#wizard" hx-swap="innerHTML">
           <input type="hidden" name="name" value="{{ name }}" />
           <button class="img-btn" type="submit" title="Select {{ name }} (score {{ score }})">
             <img src="https://api.scryfall.com/cards/named?fuzzy={{ name|urlencode }}&format=image&version=normal"
-                 alt="{{ name }}" />
+                 alt="{{ name }}" loading="lazy" decoding="async" />
           </button>
         </form>
         <div class="meta">
@@ -45,6 +61,12 @@
       </div>
     {% endfor %}
   </div>
+  {% endif %}
+
+  {% if (query is defined and query and (not candidates or (candidates|length == 0))) and not inspect %}
+    <div id="candidate-grid" class="muted" style="margin-top:.5rem;" aria-live="polite">
+      No results for “{{ query }}”. Try a shorter name or a different spelling.
+    </div>
   {% endif %}
 
   {% if inspect and inspect.ok %}
@@ -94,7 +116,58 @@
   var input = document.getElementById('cmdr-search');
   var form = document.getElementById('cmdr-search-form');
   var grid = document.getElementById('candidate-grid');
+  var spinner = document.getElementById('search-spinner');
+  var activeField = document.getElementById('active-name');
+  var selLive = document.getElementById('selection-live');
+  var resultsLive = document.getElementById('results-live');
+  var hint = document.getElementById('kbd-hint');
+  var defaultPlaceholder = (input && input.placeholder) ? input.placeholder : 'Type a commander name…';
+  var clearBtn = document.getElementById('cmdr-clear');
+  var initialDescribedBy = (input && input.getAttribute('aria-describedby')) || '';
+  // Persist auto-select preference
+  try {
+    var autoCb = document.querySelector('input[name="auto"][type="checkbox"]');
+    if (autoCb) {
+      var saved = localStorage.getItem('step1-auto');
+      if (saved === '1' || saved === '0') autoCb.checked = (saved === '1');
+      autoCb.addEventListener('change', function(){ localStorage.setItem('step1-auto', autoCb.checked ? '1' : '0'); });
+    }
+  } catch(_){ }
   if (!input || !form) return;
+  // Show keyboard hint only when candidates exist and user hasn't dismissed it
+  function showHintIfNeeded() {
+    try {
+      if (!hint) return;
+      var dismissed = localStorage.getItem('step1-hint-dismissed') === '1';
+      var hasTiles = !!(document.getElementById('candidate-grid') && document.getElementById('candidate-grid').querySelector('.candidate-tile'));
+      var shouldShow = !(dismissed || !hasTiles);
+      hint.hidden = !shouldShow;
+      // Link hint to input a11y description only when visible
+      if (input) {
+        var base = initialDescribedBy.trim();
+        var parts = base ? base.split(/\s+/) : [];
+        var idx = parts.indexOf('kbd-hint');
+        if (shouldShow) {
+          if (idx === -1) parts.push('kbd-hint');
+        } else {
+          if (idx !== -1) parts.splice(idx, 1);
+        }
+        if (parts.length) input.setAttribute('aria-describedby', parts.join(' '));
+        else input.removeAttribute('aria-describedby');
+      }
+    } catch(_) { /* noop */ }
+  }
+  showHintIfNeeded();
+  // Close button for hint
+  try {
+    var closeBtn = hint ? hint.querySelector('.hint-close') : null;
+    if (closeBtn) {
+      closeBtn.addEventListener('click', function(){
+        try { localStorage.setItem('step1-hint-dismissed', '1'); } catch(_){}
+        if (hint) hint.hidden = true;
+      });
+    }
+  } catch(_){ }
   // Debounce live search
   var t = null;
   function submit(){
@@ -106,15 +179,48 @@
   input.addEventListener('input', function(){
     if (t) clearTimeout(t);
     t = setTimeout(submit, 250);
+    try { if (clearBtn) clearBtn.hidden = !(input && input.value && input.value.length); } catch(_){ }
+  });
+  // Initialize clear visibility
+  try { if (clearBtn) clearBtn.hidden = !(input && input.value && input.value.length); } catch(_){ }
+  if (clearBtn) clearBtn.addEventListener('click', function(){
+    if (!input) return;
+    input.value = '';
+    try { clearBtn.hidden = true; } catch(_){ }
+    if (t) clearTimeout(t);
+    t = setTimeout(submit, 0);
+    try { input.focus(); } catch(_){}
+  });
+  // Focus the search box on load if nothing else is focused
+  try {
+    var ae = document.activeElement;
+    if (input && (!ae || ae === document.body)) { input.focus(); input.select && input.select(); }
+  } catch(_){}
+  // Quick focus: press "/" to focus the search input (unless already typing)
+  document.addEventListener('keydown', function(e){
+    if (e.key !== '/') return;
+    var tag = (e.target && e.target.tagName) ? e.target.tagName.toLowerCase() : '';
+    var isEditable = (tag === 'input' || tag === 'textarea' || tag === 'select' || (e.target && e.target.isContentEditable));
+    if (isEditable) return;
+    if (e.ctrlKey || e.altKey || e.metaKey) return;
+    e.preventDefault();
+    if (input) { input.focus(); try { input.select(); } catch(_){} }
   });
   // Keyboard navigation: up/down to move selection, Enter to choose/inspect
   document.addEventListener('keydown', function(e){
+    // Dismiss hint on first keyboard navigation
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'Enter') {
+      try { localStorage.setItem('step1-hint-dismissed', '1'); } catch(_){}
+      if (hint) hint.hidden = true;
+    }
     if (!grid || !grid.children || grid.children.length === 0) return;
     var tiles = Array.prototype.slice.call(grid.querySelectorAll('.candidate-tile'));
     // Ensure something is selected by default
     var idx = tiles.findIndex(function(el){ return el.classList.contains('active'); });
     if (idx < 0 && tiles.length > 0) {
       tiles[0].classList.add('active');
+      try { if (activeField) activeField.value = tiles[0].dataset.cardName || ''; } catch(_){}
+  try { if (selLive) selLive.textContent = 'Selected ' + (tiles[0].dataset.cardName || ''); } catch(_){}
       idx = 0;
     }
 
@@ -129,8 +235,11 @@
     function setActive(newIdx) {
       // Clamp to bounds; wrapping handled by callers
       newIdx = Math.max(0, Math.min(tiles.length - 1, newIdx));
-      tiles.forEach(function(el){ el.classList.remove('active'); });
-      tiles[newIdx].classList.add('active');
+      tiles.forEach(function(el){ el.classList.remove('active'); el.setAttribute('aria-selected', 'false'); });
+  tiles[newIdx].classList.add('active');
+  tiles[newIdx].setAttribute('aria-selected', 'true');
+  try { if (activeField) activeField.value = tiles[newIdx].dataset.cardName || ''; } catch(_){}
+  try { if (selLive) selLive.textContent = 'Selected ' + (tiles[newIdx].dataset.cardName || ''); } catch(_){}
       tiles[newIdx].scrollIntoView({ block: 'nearest', inline: 'nearest' });
       return newIdx;
     }
@@ -178,8 +287,30 @@
           if (btn) btn.click();
         }
       }
+    } else if (e.key === 'Escape') {
+      // ESC clears the search field and triggers a refresh
+      if (input && input.value) {
+        input.value = '';
+        if (t) clearTimeout(t);
+        t = setTimeout(submit, 0);
+      }
     }
   });
+  // Persist current active on click selection movement too
+  if (grid) {
+    grid.addEventListener('click', function(e){
+  // Dismiss hint on interaction
+  try { localStorage.setItem('step1-hint-dismissed', '1'); } catch(_){}
+  if (hint) hint.hidden = true;
+      var tile = e.target.closest('.candidate-tile');
+      if (!tile) return;
+  grid.querySelectorAll('.candidate-tile').forEach(function(el){ el.classList.remove('active'); el.setAttribute('aria-selected', 'false'); });
+  tile.classList.add('active');
+  tile.setAttribute('aria-selected', 'true');
+      try { if (activeField) activeField.value = tile.dataset.cardName || ''; } catch(_){}
+  try { if (selLive) selLive.textContent = 'Selected ' + (tile.dataset.cardName || ''); } catch(_){}
+    });
+  }
   // Highlight matched text
   try {
     var q = (input.value || '').trim().toLowerCase();
@@ -194,6 +325,44 @@
       });
     }
   } catch(_){}
+  // HTMX spinner binding for this form — only show if no results are currently displayed
+  if (window.htmx && form) {
+    form.addEventListener('htmx:beforeRequest', function(){
+      var hasTiles = false;
+      try { hasTiles = !!(grid && grid.querySelector('.candidate-tile')); } catch(_){}
+      if (spinner) spinner.hidden = hasTiles ? true : false;
+      if (!hasTiles && input) input.placeholder = 'Searching…';
+      try { form.setAttribute('aria-busy', 'true'); } catch(_){ }
+      if (resultsLive) resultsLive.textContent = 'Searching…';
+    });
+    form.addEventListener('htmx:afterSwap', function(){
+      if (spinner) spinner.hidden = true; if (input) input.placeholder = defaultPlaceholder;
+      // After swap, if there are no candidate tiles, clear active selection and live text
+      try {
+        var grid2 = document.getElementById('candidate-grid');
+        var hasAny = !!(grid2 && grid2.querySelector('.candidate-tile'));
+        if (!hasAny) {
+          if (activeField) activeField.value = '';
+          if (selLive) selLive.textContent = '';
+        }
+  // Re-evaluate hint visibility post-swap
+  showHintIfNeeded();
+        // Announce results count
+        try {
+          var qNow = (input && input.value) ? input.value.trim() : '';
+          var cnt = 0;
+          if (grid2) cnt = grid2.querySelectorAll('.candidate-tile').length;
+          if (resultsLive) {
+            if (cnt > 0) resultsLive.textContent = cnt + (cnt === 1 ? ' result' : ' results');
+            else if (qNow) resultsLive.textContent = 'No results for "' + qNow + '"';
+            else resultsLive.textContent = '';
+          }
+        } catch(_){ }
+        try { form.removeAttribute('aria-busy'); } catch(_){ }
+      } catch(_){ }
+    });
+    form.addEventListener('htmx:responseError', function(){ if (spinner) spinner.hidden = true; if (input) input.placeholder = defaultPlaceholder; });
+  }
 })();
 </script>
 <style>
@@ -211,4 +380,15 @@
 .chip-c { background:#f3f4f6; color:#111827; border-color:#e5e7eb; }
 mark { background: rgba(251, 191, 36, .35); color: inherit; padding:0 .1rem; border-radius:2px; }
 .candidate-tile { cursor: pointer; }
+.sr-only{ position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+ .spinner { display:inline-block; width:16px; height:16px; border:2px solid #93c5fd; border-top-color: transparent; border-radius:50%; animation: spin 0.8s linear infinite; vertical-align:middle; margin-left:.4rem; }
+@keyframes spin { to { transform: rotate(360deg); } }
+/* Ensure hidden attribute always hides spinner within this fragment */
+.spinner[hidden] { display: none !important; }
+.hint { display:flex; align-items:center; gap:.5rem; background:#0b1220; border:1px solid var(--border); color:#cbd5e1; padding:.4rem .6rem; border-radius:8px; margin:.4rem 0 .6rem; }
+.hint .hint-close { background:transparent; border:0; color:#9aa4b2; font-size:1rem; line-height:1; cursor:pointer; }
+.hint .keys kbd { background:#1f2937; color:#e5e7eb; padding:.1rem .3rem; border-radius:4px; margin:0 .1rem; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; font-size:.85em; }
+ .input-wrap { position: relative; display:inline-flex; align-items:center; }
+ .clear-btn { position:absolute; right:.35rem; background:transparent; color:#9aa4b2; border:0; cursor:pointer; font-size:1.1rem; line-height:1; padding:.1rem .2rem; }
+ .clear-btn:hover { color:#cbd5e1; }
 </style>

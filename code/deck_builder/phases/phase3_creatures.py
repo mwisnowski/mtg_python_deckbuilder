@@ -85,6 +85,8 @@ class CreatureAdditionMixin:
             creature_df['_parsedThemeTags'] = creature_df['themeTags'].apply(bu.normalize_tag_cell)
         creature_df['_normTags'] = creature_df['_parsedThemeTags']
         creature_df['_multiMatch'] = creature_df['_normTags'].apply(lambda lst: sum(1 for t in selected_tags_lower if t in lst))
+        # In AND mode, prefer intersections: create a hard filter order 3 -> 2 -> 1 matches
+        combine_mode = getattr(self, 'tag_mode', 'AND')
         base_top = 30
         top_n = int(base_top * getattr(bc, 'THEME_POOL_SIZE_MULTIPLIER', 2.0))
         synergy_bonus = getattr(bc, 'THEME_PRIORITY_BONUS', 1.2)
@@ -104,6 +106,10 @@ class CreatureAdditionMixin:
                 continue
             tnorm = tag.lower()
             subset = creature_df[creature_df['_normTags'].apply(lambda lst, tn=tnorm: (tn in lst) or any(tn in x for x in lst))]
+            if combine_mode == 'AND' and len(selected_tags_lower) > 1:
+                # Constrain to multi-tag overlap first if available
+                if (creature_df['_multiMatch'] >= 2).any():
+                    subset = subset[subset['_multiMatch'] >= 2]
             if subset.empty:
                 self.output_func(f"Theme '{tag}' produced no creature candidates.")
                 continue
@@ -115,7 +121,11 @@ class CreatureAdditionMixin:
             pool = pool[~pool['name'].isin(added_names)]
             if pool.empty:
                 continue
-            weighted_pool = [(nm, (synergy_bonus if mm >= 2 else 1.0)) for nm, mm in zip(pool['name'], pool['_multiMatch'])]
+            # In AND mode, boost weights more aggressively for 2+ tag matches
+            if combine_mode == 'AND':
+                weighted_pool = [(nm, (synergy_bonus*1.3 if mm >= 2 else (1.1 if mm == 1 else 0.8))) for nm, mm in zip(pool['name'], pool['_multiMatch'])]
+            else:
+                weighted_pool = [(nm, (synergy_bonus if mm >= 2 else 1.0)) for nm, mm in zip(pool['name'], pool['_multiMatch'])]
             chosen = bu.weighted_sample_without_replacement(weighted_pool, target)
             for nm in chosen:
                 if commander_name and nm == commander_name:
@@ -145,7 +155,14 @@ class CreatureAdditionMixin:
         if total_added < desired_total:
             need = desired_total - total_added
             multi_pool = creature_df[~creature_df['name'].isin(added_names)].copy()
-            multi_pool = multi_pool[multi_pool['_multiMatch'] > 0]
+            if combine_mode == 'AND' and len(selected_tags_lower) > 1:
+                # First prefer 3+ then 2, finally 1
+                prioritized = multi_pool[multi_pool['_multiMatch'] >= 2]
+                if prioritized.empty:
+                    prioritized = multi_pool[multi_pool['_multiMatch'] > 0]
+                multi_pool = prioritized
+            else:
+                multi_pool = multi_pool[multi_pool['_multiMatch'] > 0]
             if not multi_pool.empty:
                 if 'edhrecRank' in multi_pool.columns:
                     multi_pool = multi_pool.sort_values(by=['_multiMatch','edhrecRank','manaValue'], ascending=[False, True, True], na_position='last')

@@ -21,6 +21,8 @@
 *{box-sizing:border-box}
 html,body{height:100%}
 body { font-family: system-ui, Arial, sans-serif; margin: 0; color: var(--text); background: var(--bg); }
+/* Honor HTML hidden attribute across the app */
+[hidden] { display: none !important; }
 /* Top banner */
 .top-banner{ position:sticky; top:0; z-index:10; background:#0c0d0f; border-bottom:1px solid var(--border); }
 .top-banner .top-inner{ margin:0; padding:.5rem 0; display:grid; grid-template-columns: var(--sidebar-w) 1fr; align-items:center; }

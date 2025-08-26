@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block banner_subtitle %}Build a Deck{% endblock %}
+{% block content %}
+<h2>Build a Deck</h2>
+<div id="wizard">
+  <div hx-get="/build/step1" hx-trigger="load" hx-target="#wizard" hx-swap="innerHTML"></div>
+  <div hx-get="/build/banner?step=Build%20a%20Deck&i=1&n=5" hx-trigger="load"></div>
+  <noscript><p>Enable JavaScript to use the wizard.</p></noscript>
+</div>
+{% endblock %}

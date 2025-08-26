@@ -1,0 +1,1 @@
+<div id="banner-status" hx-swap-oob="true">{% if step %}<span class="muted">{{ step }}{% if i is not none and n is not none %} ({{ i }}/{{ n }}){% endif %}</span>: {% endif %}{% if commander %}<strong>{{ commander }}</strong>{% endif %}{% if tags and tags|length > 0 %} - {{ tags|join(', ') }}{% endif %}</div>

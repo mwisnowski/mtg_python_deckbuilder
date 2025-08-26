@@ -144,8 +144,17 @@ class LandFetchMixin:
         self.output_func(f"  Land Count Now : {self._current_land_count()} / {land_target}")  # type: ignore[attr-defined]
 
     def run_land_step4(self, requested_count: int | None = None):  # type: ignore[override]
-        """Public wrapper to add fetch lands. Optional requested_count to bypass prompt."""
-        self.add_fetch_lands(requested_count=requested_count)
+        """Public wrapper to add fetch lands.
+
+        If ideal_counts['fetch_lands'] is set, it will be used to bypass the prompt in both CLI and web builds.
+        """
+        desired = requested_count
+        try:
+            if desired is None and getattr(self, 'ideal_counts', None) and 'fetch_lands' in self.ideal_counts:
+                desired = int(self.ideal_counts['fetch_lands'])
+        except Exception:
+            desired = requested_count
+        self.add_fetch_lands(requested_count=desired)
         self._enforce_land_cap(step_label="Fetch (Step 4)")  # type: ignore[attr-defined]
 
 __all__ = [

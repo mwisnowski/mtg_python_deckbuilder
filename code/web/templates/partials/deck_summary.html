@@ -1,0 +1,396 @@
+<hr style="margin:1.25rem 0; border-color: var(--border);" />
+<h4>Deck Summary</h4>
+<div class="muted" style="font-size:12px; margin:.15rem 0 .4rem 0;">
+  Legend: <span class="game-changer" style="font-weight:600;">Game Changer</span>
+  <span class="muted" style="opacity:.8;">(green highlight)</span>
+  
+</div>
+
+<!-- Card Type Breakdown with names-only list and hover preview -->
+<section style="margin-top:.5rem;">
+  <h5>Card Types</h5>
+  <div style="margin:.5rem 0 .25rem 0; display:flex; gap:.5rem; align-items:center;">
+    <span class="muted">View:</span>
+    <div class="seg" role="tablist" aria-label="Type view">
+      <button type="button" class="seg-btn" data-view="list" aria-selected="true">List</button>
+      <button type="button" class="seg-btn" data-view="thumbs">Thumbnails</button>
+    </div>
+  </div>
+  {% set tb = summary.type_breakdown %}
+  {% if tb and tb.counts %}
+    <style>
+      .seg { display:inline-flex; border:1px solid var(--border); border-radius:8px; overflow:hidden; }
+      .seg-btn { background:#12161c; color:#e5e7eb; border:none; padding:.35rem .6rem; cursor:pointer; font-size:12px; }
+      .seg-btn[aria-selected="true"] { background:#1f2937; }
+      .typeview { margin-top:.25rem; }
+      .typeview.hidden { display:none; }
+      .stack-wrap { --card-w: 160px; --card-h: 224px; --cols: 9; --overlap: .5; overflow: visible; padding: 6px 0 calc(var(--card-h) * (1 - var(--overlap))) 0; }
+      .stack-grid { display: grid; grid-template-columns: repeat(var(--cols), var(--card-w)); grid-auto-rows: calc(var(--card-h) * var(--overlap)); column-gap: 10px; }
+      .stack-card { width: var(--card-w); height: var(--card-h); border-radius:8px; box-shadow: 0 6px 18px rgba(0,0,0,.55); border:1px solid var(--border); background:#0f1115; transition: transform .06s ease, box-shadow .06s ease; position: relative; }
+      .stack-card img { width: var(--card-w); height: var(--card-h); display:block; border-radius:8px; }
+      .stack-card:hover { z-index: 999; transform: translateY(-2px); box-shadow: 0 10px 22px rgba(0,0,0,.6); }
+      .count-badge { position:absolute; top:6px; right:6px; background:rgba(17,24,39,.9); color:#e5e7eb; border:1px solid var(--border); border-radius:12px; font-size:12px; line-height:18px; height:18px; padding:0 6px; pointer-events:none; }
+    </style>
+    <div id="typeview-list" class="typeview">
+      {% for t in tb.order %}
+        <div style="margin:.5rem 0 .25rem 0; font-weight:600;">
+          {{ t }} — {{ tb.counts[t] }}{% if tb.total %} ({{ '%.1f' % (tb.counts[t] * 100.0 / tb.total) }}%){% endif %}
+        </div>
+        {% set clist = tb.cards.get(t, []) %}
+        {% if clist %}
+  <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:.35rem .75rem; margin:.25rem 0 .75rem 0;">
+            {% for c in clist %}
+              <div class="{% if (game_changers and (c.name in game_changers)) or ('game_changer' in (c.role or '') or 'Game Changer' in (c.role or '')) %}game-changer{% endif %}">
+                {% set cnt = c.count if c.count else 1 %}
+                <span data-card-name="{{ c.name }}" data-count="{{ cnt }}" data-role="{{ c.role }}" data-tags="{{ (c.tags|join(', ')) if c.tags else '' }}">
+                  {{ cnt }}x {{ c.name }}
+                </span>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="muted" style="margin-bottom:.75rem;">No cards in this type.</div>
+        {% endif %}
+      {% endfor %}
+    </div>
+    <div id="typeview-thumbs" class="typeview hidden">
+      {% for t in tb.order %}
+        <div style="margin:.5rem 0 .25rem 0; font-weight:600;">
+          {{ t }} — {{ tb.counts[t] }}{% if tb.total %} ({{ '%.1f' % (tb.counts[t] * 100.0 / tb.total) }}%){% endif %}
+        </div>
+        {% set clist = tb.cards.get(t, []) %}
+        {% if clist %}
+          <div class="stack-wrap">
+            <div class="stack-grid">
+            {% for c in clist %}
+              {% set cnt = c.count if c.count else 1 %}
+              <div class="stack-card {% if (game_changers and (c.name in game_changers)) or ('game_changer' in (c.role or '') or 'Game Changer' in (c.role or '')) %}game-changer{% endif %}">
+                <img src="https://api.scryfall.com/cards/named?fuzzy={{ c.name|urlencode }}&format=image&version=normal" alt="{{ c.name }} image" data-card-name="{{ c.name }}" data-count="{{ cnt }}" data-role="{{ c.role }}" data-tags="{{ (c.tags|join(', ')) if c.tags else '' }}" />
+                <div class="count-badge">{{ cnt }}x</div>
+              </div>
+            {% endfor %}
+            </div>
+          </div>
+        {% else %}
+          <div class="muted" style="margin-bottom:.75rem;">No cards in this type.</div>
+        {% endif %}
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="muted">No type data available.</div>
+  {% endif %}
+</section>
+<script>
+  (function(){
+    var listBtn = document.querySelector('.seg-btn[data-view="list"]');
+    var thumbsBtn = document.querySelector('.seg-btn[data-view="thumbs"]');
+    var listView = document.getElementById('typeview-list');
+    var thumbsView = document.getElementById('typeview-thumbs');
+
+    function recalcThumbCols() {
+      if (thumbsView.classList.contains('hidden')) return;
+      var wraps = thumbsView.querySelectorAll('.stack-wrap');
+      wraps.forEach(function(sw){
+        var grid = sw.querySelector('.stack-grid');
+        if (!grid) return;
+        var gridStyles = window.getComputedStyle(grid);
+        var gap = parseFloat(gridStyles.columnGap) || 10;
+        var swStyles = window.getComputedStyle(sw);
+        var cardW = parseFloat(swStyles.getPropertyValue('--card-w')) || 160;
+        var width = sw.clientWidth;
+        if (!width || width < cardW) {
+          sw.style.setProperty('--cols', '1');
+          return;
+        }
+        var cols = Math.max(1, Math.floor((width + gap) / (cardW + gap)));
+        sw.style.setProperty('--cols', String(cols));
+      });
+    }
+
+    function debounce(fn, ms){ var t; return function(){ clearTimeout(t); t = setTimeout(fn, ms); }; }
+    var debouncedRecalc = debounce(recalcThumbCols, 100);
+    window.addEventListener('resize', debouncedRecalc);
+    document.addEventListener('htmx:afterSwap', debouncedRecalc);
+
+    function applyMode(mode){
+      var isList = (mode !== 'thumbs');
+      listView.classList.toggle('hidden', !isList);
+      thumbsView.classList.toggle('hidden', isList);
+      if (listBtn) listBtn.setAttribute('aria-selected', isList ? 'true' : 'false');
+      if (thumbsBtn) thumbsBtn.setAttribute('aria-selected', isList ? 'false' : 'true');
+      try { localStorage.setItem('summaryTypeView', mode); } catch(e) {}
+      if (!isList) recalcThumbCols();
+    }
+
+    if (listBtn && thumbsBtn) {
+      listBtn.addEventListener('click', function(){ applyMode('list'); });
+      thumbsBtn.addEventListener('click', function(){ applyMode('thumbs'); });
+    }
+    var initial = 'list';
+    try { initial = localStorage.getItem('summaryTypeView') || 'list'; } catch(e) {}
+    applyMode(initial);
+    if (initial === 'thumbs') recalcThumbCols();
+  })();
+</script>
+
+<!-- Mana Pip Distribution (vertical bars; only deck colors) -->
+<section style="margin-top:1rem;">
+  <h5>Mana Pip Distribution (non-lands)</h5>
+  {% set pd = summary.pip_distribution %}
+  {% set deck_colors = summary.colors or [] %}
+  {% if pd %}
+    {% set colors = deck_colors if deck_colors else ['W','U','B','R','G'] %}
+    <div style="display:flex; gap:14px; align-items:flex-end; height:140px;">
+      {% for color in colors %}
+        {% set w = (pd.weights[color] if pd.weights and color in pd.weights else 0) %}
+        {% set pct = (w * 100) | int %}
+        <div style="text-align:center;">
+          <svg width="28" height="120" aria-label="{{ color }} {{ pct }}%">
+            {% set count_val = (pd.counts[color] if pd.counts and color in pd.counts else 0) %}
+            {% set pct_f = (pd.weights[color] * 100) if pd.weights and color in pd.weights else 0 %}
+            <rect x="2" y="2" width="24" height="116" fill="#14171c" stroke="var(--border)" rx="4" ry="4"
+                  data-type="pips" data-color="{{ color }}" data-count="{{ '%.1f' % count_val }}" data-pct="{{ '%.1f' % pct_f }}"></rect>
+            {% set h = (pct * 1.0) | int %}
+            {% set bar_h = (h if h>2 else 2) %}
+            {% set y = 118 - bar_h %}
+            <rect x="2" y="{{ y }}" width="24" height="{{ bar_h }}" fill="#3b82f6" rx="4" ry="4"
+                  data-type="pips" data-color="{{ color }}" data-count="{{ '%.1f' % count_val }}" data-pct="{{ '%.1f' % pct_f }}"></rect>
+          </svg>
+          <div class="muted" style="margin-top:.25rem;">{{ color }}</div>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="muted">No pip data.</div>
+  {% endif %}
+</section>
+
+<!-- Mana Generation (color sources from lands, vertical bars; only deck colors) -->
+<section style="margin-top:1rem;">
+  <h5>Mana Generation (Color Sources)</h5>
+  {% set mg = summary.mana_generation %}
+  {% set deck_colors = summary.colors or [] %}
+  {% if mg %}
+    {% set colors = deck_colors if deck_colors else ['W','U','B','R','G'] %}
+    {% set ns = namespace(max_src=0) %}
+    {% for color in colors %}
+      {% set val = mg.get(color, 0) %}
+      {% if val > ns.max_src %}{% set ns.max_src = val %}{% endif %}
+    {% endfor %}
+    {% set denom = (ns.max_src if ns.max_src and ns.max_src > 0 else 1) %}
+    <div style="display:flex; gap:14px; align-items:flex-end; height:140px;">
+      {% for color in colors %}
+        {% set val = mg.get(color, 0) %}
+        {% set pct = (val * 100 / denom) | int %}
+        <div style="text-align:center;">
+          <svg width="28" height="120" aria-label="{{ color }} {{ val }}">
+            {% set pct_f = (100.0 * (val / (mg.total_sources or 1))) %}
+            <rect x="2" y="2" width="24" height="116" fill="#14171c" stroke="var(--border)" rx="4" ry="4"
+                  data-type="sources" data-color="{{ color }}" data-val="{{ val }}" data-pct="{{ '%.1f' % pct_f }}"></rect>
+            {% set bar_h = (pct if pct>2 else 2) %}
+            {% set y = 118 - bar_h %}
+            <rect x="2" y="{{ y }}" width="24" height="{{ bar_h }}" fill="#10b981" rx="4" ry="4"
+                  data-type="sources" data-color="{{ color }}" data-val="{{ val }}" data-pct="{{ '%.1f' % pct_f }}"></rect>
+          </svg>
+          <div class="muted" style="margin-top:.25rem;">{{ color }}</div>
+        </div>
+      {% endfor %}
+    </div>
+    <div class="muted" style="margin-top:.25rem;">Total sources: {{ mg.total_sources or 0 }}</div>
+  {% else %}
+    <div class="muted">No mana source data.</div>
+  {% endif %}
+</section>
+
+<!-- Mana Curve (vertical bars) -->
+<section style="margin-top:1rem;">
+  <h5>Mana Curve (non-lands)</h5>
+  {% set mc = summary.mana_curve %}
+  {% if mc %}
+    {% set ts = mc.total_spells or 0 %}
+    {% set denom = (ts if ts and ts > 0 else 1) %}
+    <div style="display:flex; gap:14px; align-items:flex-end; height:140px;">
+      {% for label in ['0','1','2','3','4','5','6+'] %}
+        {% set val = mc.get(label, 0) %}
+        {% set pct = (val * 100 / denom) | int %}
+        <div style="text-align:center;">
+          <svg width="28" height="120" aria-label="{{ label }} {{ val }}">
+            {% set cards = (mc.cards[label] if mc.cards and (label in mc.cards) else []) %}
+            {% set parts = [] %}
+            {% for c in cards %}
+              {% set _ = parts.append(c.name ~ ((" ×" ~ c.count) if c.count and c.count>1 else '')) %}
+            {% endfor %}
+            {% set cards_line = parts|join(' • ') %}
+            {% set pct_f = (100.0 * (val / denom)) %}
+            <rect x="2" y="2" width="24" height="116" fill="#14171c" stroke="var(--border)" rx="4" ry="4"
+                  data-type="curve" data-label="{{ label }}" data-val="{{ val }}" data-pct="{{ '%.1f' % pct_f }}" data-cards="{{ cards_line }}"></rect>
+            {% set bar_h = (pct if pct>2 else 2) %}
+            {% set y = 118 - bar_h %}
+            <rect x="2" y="{{ y }}" width="24" height="{{ bar_h }}" fill="#f59e0b" rx="4" ry="4"
+                  data-type="curve" data-label="{{ label }}" data-val="{{ val }}" data-pct="{{ '%.1f' % pct_f }}" data-cards="{{ cards_line }}"></rect>
+          </svg>
+          <div class="muted" style="margin-top:.25rem;">{{ label }}</div>
+        </div>
+      {% endfor %}
+    </div>
+    <div class="muted" style="margin-top:.25rem;">Total spells: {{ mc.total_spells or 0 }}</div>
+  {% else %}
+    <div class="muted">No curve data.</div>
+  {% endif %}
+</section>
+
+<!-- Test Hand (7 random cards; duplicates allowed only for basic lands) -->
+<section style="margin-top:1rem;">
+  <h5>Test Hand</h5>
+  <div style="display:flex; gap:.5rem; align-items:center; margin-bottom:.5rem;">
+    <button type="button" id="btn-new-hand">New Hand</button>
+    <span class="muted" style="font-size:12px;">Draw 7 at random (no repeats except for basic lands).</span>
+  </div>
+  <div class="stack-wrap" id="test-hand" style="--card-w: 240px; --card-h: 336px; --overlap: .55; --cols: 7;">
+    <div class="stack-grid" id="test-hand-grid"></div>
+  </div>
+  <script>
+    (function(){
+      var GC_SET = (function(){
+        try {
+          var els = document.querySelectorAll('#typeview-list .game-changer [data-card-name], #typeview-thumbs .game-changer [data-card-name]');
+          var s = new Set();
+          els.forEach(function(el){ var n = el.getAttribute('data-card-name'); if(n) s.add(n); });
+          return s;
+        } catch(e) { return new Set(); }
+      })();
+      var BASE_BASICS = ["Plains","Island","Swamp","Mountain","Forest","Wastes"];
+      function isBasicLand(name){
+        if (!name) return false;
+        if (BASE_BASICS.indexOf(name) >= 0) return true;
+        if (name.startsWith('Snow-Covered ')) {
+          var base = name.substring('Snow-Covered '.length);
+          return BASE_BASICS.indexOf(base) >= 0;
+        }
+        return false;
+      }
+      function collectDeck(){
+        var deck = [];
+        document.querySelectorAll('#typeview-list span[data-card-name]').forEach(function(el){
+          var name = el.getAttribute('data-card-name');
+          var cnt = parseInt(el.getAttribute('data-count') || '1', 10);
+          if (name) deck.push({ name: name, count: (isFinite(cnt) && cnt>0 ? cnt : 1) });
+        });
+        return deck;
+      }
+      function buildPool(deck){
+        var pool = [];
+        deck.forEach(function(it){
+          var n = Math.max(1, parseInt(it.count || 1, 10));
+          for (var i=0;i<n;i++){ pool.push(it.name); }
+        });
+        return pool;
+      }
+      function drawHand(deck){
+        var pool = buildPool(deck);
+        if (!pool.length) return [];
+        var picked = {};
+        var hand = [];
+        var attempts = 0;
+        while (hand.length < 7 && attempts < 500) {
+          attempts++;
+          var idx = Math.floor(Math.random() * pool.length);
+          var name = pool[idx];
+          if (!name) continue;
+          var allowDup = isBasicLand(name);
+          if (!allowDup && picked[name]) continue;
+          hand.push(name);
+          if (!allowDup) picked[name] = true;
+          pool.splice(idx, 1);
+          if (!pool.length) break;
+        }
+        return hand;
+      }
+      function compress(hand){
+        var map = {};
+        hand.forEach(function(n){ map[n] = (map[n]||0) + 1; });
+        var out = [];
+        Object.keys(map).forEach(function(n){ out.push({name:n, count: map[n]}); });
+        out.sort(function(a,b){ return hand.indexOf(a.name) - hand.indexOf(b.name); });
+        return out;
+      }
+      function render(hand){
+        var grid = document.getElementById('test-hand-grid');
+        if (!grid) return;
+        grid.innerHTML = '';
+        var unique = compress(hand);
+        unique.forEach(function(it){
+          var div = document.createElement('div');
+          div.className = 'stack-card';
+          if (GC_SET && GC_SET.has(it.name)) {
+            div.className += ' game-changer';
+          }
+          div.innerHTML = (
+            '<img src="https://api.scryfall.com/cards/named?fuzzy=' + encodeURIComponent(it.name) + '&format=image&version=normal" alt="' + it.name + '" data-card-name="' + it.name + '" />' +
+            '<div class="count-badge">' + it.count + 'x</div>'
+          );
+          grid.appendChild(div);
+        });
+      }
+      function newHand(){ var deck = collectDeck(); render(drawHand(deck)); }
+      var btn = document.getElementById('btn-new-hand');
+      if (btn) btn.addEventListener('click', newHand);
+      newHand();
+    })();
+  </script>
+</section>
+<style>
+  .chart-tooltip { position: fixed; pointer-events: none; background: #0f1115; color: #e5e7eb; border: 1px solid var(--border); padding: .4rem .55rem; border-radius: 6px; font-size: 12px; line-height: 1.3; white-space: pre-line; z-index: 9999; display: none; box-shadow: 0 4px 16px rgba(0,0,0,.4); }
+</style>
+<script>
+  (function() {
+    function ensureTip() {
+      var tip = document.getElementById('chart-tooltip');
+      if (!tip) {
+        tip = document.createElement('div');
+        tip.id = 'chart-tooltip';
+        tip.className = 'chart-tooltip';
+        document.body.appendChild(tip);
+      }
+      return tip;
+    }
+    var tip = ensureTip();
+    function position(e) {
+      tip.style.display = 'block';
+      var x = e.clientX + 12, y = e.clientY + 12;
+      tip.style.left = x + 'px';
+      tip.style.top = y + 'px';
+      var rect = tip.getBoundingClientRect();
+      var vw = window.innerWidth || document.documentElement.clientWidth;
+      var vh = window.innerHeight || document.documentElement.clientHeight;
+      if (x + rect.width + 8 > vw) tip.style.left = (e.clientX - rect.width - 12) + 'px';
+      if (y + rect.height + 8 > vh) tip.style.top = (e.clientY - rect.height - 12) + 'px';
+    }
+    function compose(el) {
+      var t = el.getAttribute('data-type');
+      if (t === 'pips') {
+        return el.dataset.color + ': ' + el.dataset.count + ' (' + el.dataset.pct + '%)';
+      }
+      if (t === 'sources') {
+        return el.dataset.color + ': ' + el.dataset.val + ' (' + el.dataset.pct + '%)';
+      }
+      if (t === 'curve') {
+        var cards = (el.dataset.cards || '').split(' • ').join('\n');
+        return el.dataset.label + ': ' + el.dataset.val + ' (' + el.dataset.pct + '%)' + (cards ? '\n' + cards : '');
+      }
+      return el.getAttribute('aria-label') || '';
+    }
+    function attach() {
+      document.querySelectorAll('[data-type]').forEach(function(el) {
+        el.addEventListener('mouseenter', function(e) {
+          tip.textContent = compose(el);
+          position(e);
+        });
+        el.addEventListener('mousemove', position);
+        el.addEventListener('mouseleave', function() { tip.style.display = 'none'; });
+      });
+    }
+    attach();
+    document.addEventListener('htmx:afterSwap', function() { attach(); });
+  })();
+</script>

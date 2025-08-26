@@ -22,3 +22,22 @@ services:
     # - DECK_COMMANDER=Pantlaza
     # Ensure proper cleanup
     restart: "no"
+
+  web:
+    build: .
+    container_name: mtg-deckbuilder-web
+    ports:
+      - "8080:8080"
+    environment:
+      - PYTHONUNBUFFERED=1
+      - TERM=xterm-256color
+      - DEBIAN_FRONTEND=noninteractive
+    volumes:
+      - ${PWD}/deck_files:/app/deck_files
+      - ${PWD}/logs:/app/logs
+      - ${PWD}/csv_files:/app/csv_files
+      - ${PWD}/config:/app/config
+      - ${PWD}/owned_cards:/app/owned_cards
+    working_dir: /app
+    command: ["bash", "-lc", "cd /app && uvicorn code.web.app:app --host 0.0.0.0 --port 8080"]
+    restart: "no"

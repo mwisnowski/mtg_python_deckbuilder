@@ -228,6 +228,49 @@ class DeckBuilder(
         if hasattr(super(), 'add_spells_phase'):
             return super().add_spells_phase()
         raise NotImplementedError("Spell addition phase not implemented.")
+    # ---------------------------
+    # Lightweight confirmations (CLI pauses; web auto-continues)
+    # ---------------------------
+    def _pause(self, message: str = "Press Enter to continue...") -> None:
+        try:
+            _ = self.input_func(message)
+        except Exception:
+            pass
+
+    def confirm_primary_theme(self) -> None:
+        if getattr(self, 'primary_tag', None):
+            self.output_func(f"Primary Theme: {self.primary_tag}")
+        self._pause()
+
+    def confirm_secondary_theme(self) -> None:
+        if getattr(self, 'secondary_tag', None):
+            self.output_func(f"Secondary Theme: {self.secondary_tag}")
+        self._pause()
+
+    def confirm_tertiary_theme(self) -> None:
+        if getattr(self, 'tertiary_tag', None):
+            self.output_func(f"Tertiary Theme: {self.tertiary_tag}")
+        self._pause()
+
+    def confirm_ramp_spells(self) -> None:
+        self.output_func("Confirm Ramp")
+        self._pause()
+
+    def confirm_removal_spells(self) -> None:
+        self.output_func("Confirm Removal")
+        self._pause()
+
+    def confirm_wipes_spells(self) -> None:
+        self.output_func("Confirm Board Wipes")
+        self._pause()
+
+    def confirm_card_advantage_spells(self) -> None:
+        self.output_func("Confirm Card Advantage")
+        self._pause()
+
+    def confirm_protection_spells(self) -> None:
+        self.output_func("Confirm Protection")
+        self._pause()
     # Commander core selection state
     commander_name: str = ""
     commander_row: Optional[pd.Series] = None
@@ -1201,6 +1244,7 @@ class DeckBuilder(
             'ramp': bc.DEFAULT_RAMP_COUNT,
             'lands': bc.DEFAULT_LAND_COUNT,
             'basic_lands': bc.DEFAULT_BASIC_LAND_COUNT,
+            'fetch_lands': getattr(bc, 'FETCH_LAND_DEFAULT_COUNT', 3),
             'creatures': bc.DEFAULT_CREATURE_COUNT,
             'removal': bc.DEFAULT_REMOVAL_COUNT,
             'wipes': bc.DEFAULT_WIPES_COUNT,
@@ -1248,6 +1292,7 @@ class DeckBuilder(
             ('ramp', 'Ramp Pieces'),
             ('lands', 'Total Lands'),
             ('basic_lands', 'Minimum Basic Lands'),
+            ('fetch_lands', 'Fetch Lands'),
             ('creatures', 'Creatures'),
             ('removal', 'Spot Removal'),
             ('wipes', 'Board Wipes'),
@@ -1270,6 +1315,7 @@ class DeckBuilder(
             ('ramp', 'Ramp'),
             ('lands', 'Total Lands'),
             ('basic_lands', 'Basic Lands (Min)'),
+            ('fetch_lands', 'Fetch Lands'),
             ('creatures', 'Creatures'),
             ('removal', 'Spot Removal'),
             ('wipes', 'Board Wipes'),

@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Build from JSON</h2>
+<div style="display:grid; grid-template-columns: 1fr minmax(360px, 520px); gap:16px; align-items:start;">
+  <p class="muted" style="max-width: 70ch; margin:0;">
+    Run a non-interactive deck build using a saved JSON configuration. Upload a JSON file, view its details, or run it headlessly to generate deck exports and a build summary.
+  </p>
+  <div>
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <strong style="font-size:14px;">Example: {{ example_name }}</strong>
+    </div>
+    <pre style="margin-top:.35rem; background:#0f1115; border:1px solid var(--border); padding:.75rem; border-radius:8px; max-height:300px; overflow:auto; white-space:pre;">{{ example_json or '{\n  "commander": "Your Commander Name",\n  "primary_tag": "Your Main Theme",\n  "secondary_tag": null,\n  "tertiary_tag": null,\n  "bracket_level": 0,\n  "ideal_counts": {\n    "ramp": 10,\n    "lands": 35,\n    "basic_lands": 20,\n    "fetch_lands": 3,\n    "creatures": 28,\n    "removal": 10,\n    "wipes": 2,\n    "card_advantage": 8,\n    "protection": 4\n  }\n}' }}</pre>
+  </div>
+</div>
+{% if error %}<div class="error">{{ error }}</div>{% endif %}
+{% if notice %}<div class="notice">{{ notice }}</div>{% endif %}
+<div class="config-actions" style="margin-bottom:1rem; display:flex; gap:12px; align-items:center;">
+  <form hx-post="/configs/upload" hx-target="#config-list" hx-swap="outerHTML" enctype="multipart/form-data">
+    <button type="button" class="btn" onclick="this.nextElementSibling.click();">Upload JSON</button>
+    <input id="upload-json" type="file" name="file" accept="application/json" style="display:none" onchange="this.form.requestSubmit();">
+  </form>
+  <input id="config-filter" type="search" placeholder="Filter by commander or tag..." style="flex:1; max-width:360px; padding:.4rem .6rem; border-radius:8px; border:1px solid var(--border); background:#0f1115; color:#e5e7eb;" />
+</div>
+<script>
+  (function(){
+    // Drag and drop upload support
+    var form = document.querySelector('.config-actions form[enctype="multipart/form-data"]');
+    var fileInput = document.getElementById('upload-json');
+    if (form && fileInput) {
+      form.addEventListener('dragover', function(e){ e.preventDefault(); form.style.outline = '2px dashed #334155'; });
+      form.addEventListener('dragleave', function(){ form.style.outline = ''; });
+      form.addEventListener('drop', function(e){
+        e.preventDefault(); form.style.outline = '';
+        if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) {
+          fileInput.files = e.dataTransfer.files;
+          form.requestSubmit();
+        }
+      });
+    }
+    // Client-side filter of config list
+    var filter = document.getElementById('config-filter');
+    var list = document.getElementById('config-list');
+    function applyFilter() {
+      if (!list) return;
+      var q = (filter.value || '').toLowerCase().trim();
+      var items = list.querySelectorAll('li');
+      items.forEach(function(li){
+        var txt = (li.textContent || '').toLowerCase();
+        li.style.display = (!q || txt.indexOf(q) !== -1) ? '' : 'none';
+      });
+    }
+    if (filter) {
+      filter.addEventListener('input', applyFilter);
+    }
+    document.addEventListener('htmx:afterSwap', function(e){ if (e && e.target && e.target.id === 'config-list') applyFilter(); });
+  })();
+  </script>
+<div id="config-list">
+  {% if not items %}
+  <p>No configs found in /config. Export a run config from a build, or upload one here.</p>
+  {% else %}
+    <ul class="file-list" style="list-style: none; margin: 0; padding: 0;">
+      {% for it in items %}
+        <li>
+          <div class="row" style="display:flex; justify-content:space-between; align-items:center; gap:12px;">
+            <div style="display:flex; align-items:center; gap:10px;">
+              <strong>
+                {% if it.commander %}
+                  <span data-card-name="{{ it.commander }}" data-tags="{{ (it.tags|join(', ')) if it.tags else '' }}">{{ it.commander }}</span>
+                {% else %}
+                  {{ it.name }}
+                {% endif %}
+              </strong>
+              {% if it.tags %}<span style="color:#64748b;">[{{ ', '.join(it.tags) }}]</span>{% endif %}
+              {% if it.bracket_level is not none %}<span class="badge">Bracket {{ it.bracket_level }}</span>{% endif %}
+            </div>
+            <div class="actions" style="display:flex; gap:8px;">
+              <form method="get" action="/configs/view" style="display:inline;">
+                <input type="hidden" name="name" value="{{ it.name }}" />
+                <button type="submit" class="btn">View</button>
+              </form>
+              <form method="post" action="/configs/run" style="display:inline;">
+                <input type="hidden" name="name" value="{{ it.name }}" />
+                <button type="submit">Run</button>
+              </form>
+            </div>
+          </div>
+        </li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+</div>
+{% endblock %}

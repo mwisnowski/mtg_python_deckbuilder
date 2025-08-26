@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block banner_subtitle %}Finished Decks{% endblock %}
+{% block content %}
+<h2>Finished Decks</h2>
+<p class="muted">These are exported decklists from previous runs. Open a deck to view the final summary, download CSV/TXT, and inspect card types and curve.</p>
+
+{% if error %}
+  <div class="error">{{ error }}</div>
+{% endif %}
+
+<div style="margin:.75rem 0; display:flex; gap:.5rem; align-items:center;">
+  <input type="text" id="deck-filter" placeholder="Filter decks…" style="max-width:280px;" />
+</div>
+
+{% if items %}
+  <div id="deck-list" style="list-style:none; padding:0; margin:0; display:block;">
+    {% for it in items %}
+      <div class="panel" data-name="{{ it.name }}" data-commander="{{ it.commander }}" data-tags="{{ (it.tags|join(' ')) if it.tags else '' }}" style="margin:0 0 .5rem 0;">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:.5rem;">
+          <div>
+            <div>
+              <strong data-card-name="{{ it.commander }}">{{ it.commander }}</strong>
+            </div>
+            {% if it.tags and it.tags|length %}
+            <div class="muted" style="font-size:12px;">Themes: {{ it.tags|join(', ') }}</div>
+            {% endif %}
+          </div>
+          <div style="display:flex; gap:.35rem;">
+            <form action="/decks/view" method="get" style="display:inline; margin:0;">
+              <input type="hidden" name="name" value="{{ it.name }}" />
+              <button type="submit">Open</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="muted">No exports yet. Run a build to create one.</div>
+{% endif %}
+
+<script>
+  (function(){
+    var input = document.getElementById('deck-filter');
+    if (!input) return;
+    input.addEventListener('input', function(){
+      var q = (input.value || '').toLowerCase();
+      document.querySelectorAll('#deck-list .panel').forEach(function(row){
+        var hay = (row.dataset.name + ' ' + row.dataset.commander + ' ' + (row.dataset.tags||'')).toLowerCase();
+        row.style.display = hay.indexOf(q) >= 0 ? '' : 'none';
+      });
+    });
+  })();
+  </script>
+{% endblock %}

@@ -17,6 +17,35 @@ docker run -it --rm `
     -v "${PWD}/logs:/app/logs" `
     -v "${PWD}/csv_files:/app/csv_files" `
     -v "${PWD}/owned_cards:/app/owned_cards" `
+## Web UI (new)
+
+The web UI runs the same deckbuilding logic behind a browser-based interface.
+
+### PowerShell (recommended)
+```powershell
+docker compose build web
+docker compose up --no-deps web
+```
+
+Then open http://localhost:8080
+
+Volumes are the same as the CLI service, so deck exports/logs/configs persist in your working folder.
+
+### From Docker Hub (PowerShell)
+If you prefer not to build locally, pull `mwisnowski/mtg-python-deckbuilder:latest` and run uvicorn:
+```powershell
+docker run --rm `
+    -p 8080:8080 `
+    -v "${PWD}/deck_files:/app/deck_files" `
+    -v "${PWD}/logs:/app/logs" `
+    -v "${PWD}/csv_files:/app/csv_files" `
+    -v "${PWD}/owned_cards:/app/owned_cards" `
+    -v "${PWD}/config:/app/config" `
+    mwisnowski/mtg-python-deckbuilder:latest `
+    bash -lc "cd /app && uvicorn code.web.app:app --host 0.0.0.0 --port 8080"
+```
+
+---
     -v "${PWD}/config:/app/config" `
     mwisnowski/mtg-python-deckbuilder:latest
 ```

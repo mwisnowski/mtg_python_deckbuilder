@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block banner_subtitle %}Finished Decks{% endblock %}
+{% block content %}
+<h2>Finished Deck</h2>
+<div class="muted">Commander: <strong data-card-name="{{ commander }}">{{ commander }}</strong>{% if tags and tags|length %} • Themes: {{ tags|join(', ') }}{% endif %}</div>
+<div class="muted">This view mirrors the end-of-build summary. Use the buttons to download the CSV/TXT exports.</div>
+
+<div style="display:grid; grid-template-columns: 360px 1fr; gap: 1rem; align-items:start; margin-top: .75rem;">
+  <div>
+    {% if commander %}
+      <img src="https://api.scryfall.com/cards/named?fuzzy={{ commander|urlencode }}&format=image&version=normal" alt="{{ commander }}" style="width:320px; height:auto; border-radius:8px; border:1px solid var(--border); box-shadow: 0 6px 18px rgba(0,0,0,.55);" />
+      <div class="muted" style="margin-top:.25rem;">Commander: <span data-card-name="{{ commander }}">{{ commander }}</span></div>
+    {% endif %}
+    <div style="margin-top:.75rem; display:flex; gap:.35rem; flex-wrap:wrap;">
+      {% if csv_path %}
+      <form action="/files" method="get" target="_blank" style="display:inline; margin:0;">
+        <input type="hidden" name="path" value="{{ csv_path }}" />
+        <button type="submit">Download CSV</button>
+      </form>
+      {% endif %}
+      {% if txt_path %}
+      <form action="/files" method="get" target="_blank" style="display:inline; margin:0;">
+        <input type="hidden" name="path" value="{{ txt_path }}" />
+        <button type="submit">Download TXT</button>
+      </form>
+      {% endif %}
+      <form method="get" action="/decks" style="display:inline; margin:0;">
+        <button type="submit">Back to Finished Decks</button>
+      </form>
+    </div>
+  </div>
+  <div>
+    {% if summary %}
+      {% include "partials/deck_summary.html" %}
+    {% else %}
+      <div class="muted">No summary available.</div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

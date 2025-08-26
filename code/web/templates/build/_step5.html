@@ -1,0 +1,111 @@
+<section>
+  <h3>Step 5: Build</h3>
+  <div class="two-col two-col-left-rail">
+    <aside class="card-preview">
+      <a href="https://scryfall.com/search?q={{ commander|urlencode }}" target="_blank" rel="noopener">
+        <img src="https://api.scryfall.com/cards/named?fuzzy={{ commander|urlencode }}&format=image&version=normal" alt="{{ commander }} card image" />
+      </a>
+      {% if status and status.startswith('Build complete') %}
+      <div style="margin-top:.75rem; display:flex; gap:.35rem; flex-wrap:wrap;">
+        {% if csv_path %}
+        <form action="/files" method="get" target="_blank" style="display:inline; margin:0;">
+          <input type="hidden" name="path" value="{{ csv_path }}" />
+          <button type="submit">Download CSV</button>
+        </form>
+        {% endif %}
+        {% if txt_path %}
+        <form action="/files" method="get" target="_blank" style="display:inline; margin:0;">
+          <input type="hidden" name="path" value="{{ txt_path }}" />
+          <button type="submit">Download TXT</button>
+        </form>
+        {% endif %}
+      </div>
+      {% endif %}
+    </aside>
+    <div class="grow">
+      <div hx-get="/build/banner?step=Build&i=5&n=5" hx-trigger="load"></div>
+
+      <p>Commander: <strong>{{ commander }}</strong></p>
+      <p>Tags: {{ tags|default([])|join(', ') }}</p>
+      <p>Bracket: {{ bracket }}</p>
+
+      {% if i and n %}
+        <div class="muted" style="margin:.25rem 0 .5rem 0;">Stage {{ i }}/{{ n }}</div>
+      {% endif %}
+
+      {% if status %}
+      <div style="margin-top:1rem;">
+        <strong>Status:</strong> {{ status }}{% if stage_label %} — <em>{{ stage_label }}</em>{% endif %}
+      </div>
+      {% endif %}
+
+      <!-- Controls moved back above the cards as requested -->
+      <div style="margin-top:1rem; display:flex; gap:.5rem; flex-wrap:wrap; align-items:center;">
+        <form hx-post="/build/step5/start" hx-target="#wizard" hx-swap="innerHTML" style="display:inline; margin-right:.5rem;">
+          <button type="submit">Start Build</button>
+        </form>
+        <form hx-post="/build/step5/continue" hx-target="#wizard" hx-swap="innerHTML" style="display:inline;">
+          <button type="submit" {% if status and status.startswith('Build complete') %}disabled{% endif %}>Continue</button>
+        </form>
+        <form hx-post="/build/step5/rerun" hx-target="#wizard" hx-swap="innerHTML" style="display:inline;">
+          <button type="submit" {% if status and status.startswith('Build complete') %}disabled{% endif %}>Rerun Stage</button>
+        </form>
+        <button type="button" hx-get="/build/step4" hx-target="#wizard" hx-swap="innerHTML">Back</button>
+      </div>
+
+      {% if added_cards %}
+      <h4 style="margin-top:1rem;">Cards added this stage</h4>
+  {% if stage_label and stage_label.startswith('Creatures') %}
+        {% set groups = added_cards|groupby('sub_role') %}
+        {% for g in groups %}
+          {% set role = g.grouper %}
+          {% if role %}
+            {% set heading = 'Theme: ' + role.title() %}
+          {% else %}
+            {% set heading = 'Additional Picks' %}
+          {% endif %}
+          <h5 style="margin:.5rem 0 .25rem 0;">{{ heading }}</h5>
+          <div class="card-grid">
+            {% for c in g.list %}
+            <div class="card-tile{% if game_changers and (c.name in game_changers) %} game-changer{% endif %}" data-card-name="{{ c.name }}" data-role="{{ c.role or c.sub_role or '' }}" data-tags="{{ (c.tags|join(', ')) if c.tags else '' }}">
+              <a href="https://scryfall.com/search?q={{ c.name|urlencode }}" target="_blank" rel="noopener">
+                <img src="https://api.scryfall.com/cards/named?fuzzy={{ c.name|urlencode }}&format=image&version=normal" alt="{{ c.name }} image" width="160" />
+              </a>
+              <div class="name">{{ c.name }}{% if c.count and c.count > 1 %} ×{{ c.count }}{% endif %}</div>
+              {% if c.reason %}<div class="reason">{{ c.reason }}</div>{% endif %}
+            </div>
+            {% endfor %}
+          </div>
+        {% endfor %}
+      {% else %}
+        <div class="card-grid">
+          {% for c in added_cards %}
+          <div class="card-tile{% if game_changers and (c.name in game_changers) %} game-changer{% endif %}" data-card-name="{{ c.name }}" data-role="{{ c.role or c.sub_role or '' }}" data-tags="{{ (c.tags|join(', ')) if c.tags else '' }}">
+            <a href="https://scryfall.com/search?q={{ c.name|urlencode }}" target="_blank" rel="noopener">
+              <img src="https://api.scryfall.com/cards/named?fuzzy={{ c.name|urlencode }}&format=image&version=normal" alt="{{ c.name }} image" width="160" />
+            </a>
+            <div class="name">{{ c.name }}{% if c.count and c.count > 1 %} ×{{ c.count }}{% endif %}</div>
+            {% if c.reason %}<div class="reason">{{ c.reason }}</div>{% endif %}
+          </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+      {% endif %}
+
+      {% if show_logs and log %}
+      <details style="margin-top:1rem;">
+        <summary>Show logs</summary>
+        <pre style="margin-top:.5rem; white-space:pre-wrap; background:#0f1115; border:1px solid var(--border); padding:1rem; border-radius:8px; max-height:40vh; overflow:auto;">{{ log }}</pre>
+      </details>
+      {% endif %}
+
+  <!-- controls now above -->
+
+      {% if status and status.startswith('Build complete') %}
+      {% if summary %}
+        {% include "partials/deck_summary.html" %}
+      {% endif %}
+      {% endif %}
+    </div>
+  </div>
+</section>

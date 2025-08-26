@@ -1,0 +1,119 @@
+/* Base */
+:root{
+	/* MTG color palette (approx from provided values) */
+	--sidebar-w: 260px;
+	--green-main: rgb(0,115,62);
+	--green-light: rgb(196,211,202);
+	--blue-main: rgb(14,104,171);
+	--blue-light: rgb(179,206,234);
+	--red-main: rgb(211,32,42);
+	--red-light: rgb(235,159,130);
+	--white-main: rgb(249,250,244);
+	--white-light: rgb(248,231,185);
+	--black-main: rgb(21,11,0);
+	--black-light: rgb(166,159,157);
+	--bg: #0f0f10;
+	--panel: #1a1b1e;
+	--text: #e8e8e8;
+	--muted: #b6b8bd;
+	--border: #2a2b2f;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body { font-family: system-ui, Arial, sans-serif; margin: 0; color: var(--text); background: var(--bg); }
+/* Top banner */
+.top-banner{ position:sticky; top:0; z-index:10; background:#0c0d0f; border-bottom:1px solid var(--border); }
+.top-banner .top-inner{ margin:0; padding:.5rem 0; display:grid; grid-template-columns: var(--sidebar-w) 1fr; align-items:center; }
+.top-banner h1{ font-size: 1.1rem; margin:0; padding-left: 1rem; }
+.banner-status{ color: var(--muted); font-size:.9rem; text-align:left; padding-left: 1.5rem; padding-right: 1.5rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.banner-status.busy{ color:#fbbf24; }
+
+/* Layout */
+.layout{ display:grid; grid-template-columns: var(--sidebar-w) 1fr; min-height: calc(100vh - 52px); }
+.sidebar{ background: var(--panel); border-right: 1px solid var(--border); padding: 1rem; position:sticky; top:0; align-self:start; height:100vh; overflow:auto; width: var(--sidebar-w); }
+.content{ padding: 1.25rem 1.5rem; }
+
+.brand h1{ display:none; }
+.mana-dots{ display:flex; gap:.35rem; margin-bottom:.5rem; }
+.mana-dots .dot{ width:12px; height:12px; border-radius:50%; display:inline-block; border:1px solid rgba(0,0,0,.35); box-shadow:0 1px 2px rgba(0,0,0,.3) inset; }
+.dot.green{ background: var(--green-main); }
+.dot.blue{ background: var(--blue-main); }
+.dot.red{ background: var(--red-main); }
+.dot.white{ background: var(--white-light); border-color: rgba(0,0,0,.2); }
+.dot.black{ background: var(--black-light); }
+
+.nav{ display:flex; flex-direction:column; gap:.35rem; }
+.nav a{ color: var(--text); text-decoration:none; padding:.4rem .5rem; border-radius:6px; border:1px solid transparent; }
+.nav a:hover{ background: #202227; border-color: var(--border); }
+
+/* Simple two-column layout for inspect panel */
+.two-col { display: grid; grid-template-columns: 1fr 320px; gap: 1rem; align-items: start; }
+.two-col .grow { min-width: 0; }
+.card-preview img { width: 100%; height: auto; border-radius: 10px; box-shadow: 0 6px 18px rgba(0,0,0,.35); border:1px solid var(--border); background: #111; }
+@media (max-width: 900px) { .two-col { grid-template-columns: 1fr; } }
+
+/* Left-rail variant puts the image first */
+.two-col.two-col-left-rail{ grid-template-columns: 320px 1fr; }
+.card-preview.card-sm{ max-width:200px; }
+
+/* Buttons, inputs */
+button{ background: var(--blue-main); color:#fff; border:none; border-radius:6px; padding:.45rem .7rem; cursor:pointer; }
+button:hover{ filter:brightness(1.05); }
+label{ display:inline-flex; flex-direction:column; gap:.25rem; margin-right:.75rem; }
+select,input[type="text"],input[type="number"]{ background:#0f1115; color:var(--text); border:1px solid var(--border); border-radius:6px; padding:.35rem .4rem; }
+fieldset{ border:1px solid var(--border); border-radius:8px; padding:.75rem; margin:.75rem 0; }
+small, .muted{ color: var(--muted); }
+
+/* Banner */
+.banner{ background: linear-gradient(90deg, rgba(0,0,0,.25), rgba(0,0,0,0)); border: 1px solid var(--border); border-radius: 10px; padding: 2rem 1.6rem; margin-bottom: 1rem; box-shadow: 0 8px 30px rgba(0,0,0,.25) inset; }
+.banner h1{ font-size: 2rem; margin:0 0 .35rem; }
+.banner .subtitle{ color: var(--muted); font-size:.95rem; }
+
+/* Home actions */
+.actions-grid{ display:grid; grid-template-columns: repeat( auto-fill, minmax(220px, 1fr) ); gap: .75rem; }
+.action-button{ display:block; text-decoration:none; color: var(--text); border:1px solid var(--border); background:#0f1115; padding:1.25rem; border-radius:10px; text-align:center; font-weight:600; }
+.action-button:hover{ border-color:#3a3c42; background:#12151b; }
+.action-button.primary{ background: linear-gradient(180deg, rgba(14,104,171,.25), rgba(14,104,171,.05)); border-color: #274766; }
+
+/* Card grid for added cards (responsive, compact tiles) */
+.card-grid{
+	display:grid;
+	grid-template-columns: repeat(auto-fill, minmax(170px, 170px)); /* ~160px image + padding */
+	gap: .5rem;
+	margin-top:.5rem;
+	justify-content: start; /* pack as many as possible per row */
+}
+.card-tile{
+	width:170px;
+	background:#0f1115;
+	border:1px solid var(--border);
+	border-radius:6px;
+	padding:.25rem .25rem .4rem;
+	text-align:center;
+}
+.card-tile.game-changer{ border-color: var(--red-main); box-shadow: 0 0 0 1px rgba(211,32,42,.35) inset; }
+.card-tile img{ width:160px; height:auto; border-radius:6px; box-shadow: 0 6px 18px rgba(0,0,0,.35); background:#111; }
+.card-tile .name{ font-weight:600; margin-top:.25rem; font-size:.92rem; }
+.card-tile .reason{ color:var(--muted); font-size:.85rem; margin-top:.15rem; }
+
+/* Step 1 candidate grid (200px-wide scaled images) */
+.candidate-grid{
+	display:grid;
+	grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+	gap:.75rem;
+}
+.candidate-tile{
+	background:#0f1115;
+	border:1px solid var(--border);
+	border-radius:8px;
+	padding:.4rem;
+}
+.candidate-tile .img-btn{ display:block; width:100%; padding:0; background:transparent; border:none; cursor:pointer; }
+.candidate-tile img{ width:100%; max-width:200px; height:auto; border-radius:8px; box-shadow:0 6px 18px rgba(0,0,0,.35); background:#111; display:block; margin:0 auto; }
+.candidate-tile .meta{ text-align:center; margin-top:.35rem; }
+.candidate-tile .name{ font-weight:600; font-size:.95rem; }
+.candidate-tile .score{ color:var(--muted); font-size:.85rem; }
+
+/* Deck summary: highlight game changers */
+.game-changer { color: var(--green-main); }
+.stack-card.game-changer { outline: 2px solid var(--green-main); }

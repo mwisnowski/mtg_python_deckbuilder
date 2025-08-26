@@ -1,0 +1,77 @@
+<section>
+  <h3>Step 2: Tags & Bracket</h3>
+  <div class="two-col two-col-left-rail">
+  <aside class="card-preview" data-card-name="{{ commander.name }}">
+      <a href="https://scryfall.com/search?q={{ commander.name|urlencode }}" target="_blank" rel="noopener">
+        <img src="https://api.scryfall.com/cards/named?fuzzy={{ commander.name|urlencode }}&format=image&version=normal" alt="{{ commander.name }} card image" />
+      </a>
+    </aside>
+    <div class="grow">
+  <div hx-get="/build/banner?step=Tags%20%26%20Bracket&i=2&n=5" hx-trigger="load"></div>
+
+      <form hx-post="/build/step2" hx-target="#wizard" hx-swap="innerHTML">
+        <input type="hidden" name="commander" value="{{ commander.name }}" />
+        {% if error %}
+          <div style="color:#a00; margin:.5rem 0;">{{ error }}</div>
+        {% endif %}
+
+        <fieldset>
+          <legend>Theme Tags</legend>
+          {% if tags %}
+            <label>Primary
+              <select name="primary_tag">
+                <option value="">-- none --</option>
+                {% for t in tags %}
+                  <option value="{{ t }}" {% if t == primary_tag %}selected{% endif %}>{{ t }}</option>
+                {% endfor %}
+              </select>
+            </label>
+            <label>Secondary
+              <select name="secondary_tag">
+                <option value="">-- none --</option>
+                {% for t in tags %}
+                  <option value="{{ t }}" {% if t == secondary_tag %}selected{% endif %}>{{ t }}</option>
+                {% endfor %}
+              </select>
+            </label>
+            <label>Tertiary
+              <select name="tertiary_tag">
+                <option value="">-- none --</option>
+                {% for t in tags %}
+                  <option value="{{ t }}" {% if t == tertiary_tag %}selected{% endif %}>{{ t }}</option>
+                {% endfor %}
+              </select>
+            </label>
+          {% else %}
+            <p>No theme tags available for this commander.</p>
+          {% endif %}
+        </fieldset>
+
+        <fieldset>
+          <legend>Budget/Power Bracket</legend>
+          <div style="display:grid; gap:.5rem;">
+            {% for b in brackets %}
+              <label style="display:flex; gap:.5rem; align-items:flex-start;">
+                <input type="radio" name="bracket" value="{{ b.level }}" {% if (selected_bracket is defined and selected_bracket == b.level) or (selected_bracket is not defined and loop.first) %}checked{% endif %} />
+                <span><strong>{{ b.name }}</strong> — <small>{{ b.desc }}</small></span>
+              </label>
+            {% endfor %}
+          </div>
+          <div class="muted" style="margin-top:.35rem; font-size:.9em;">
+            Note: This guides deck creation and relaxes/raises constraints, but it is not a guarantee the final deck strictly fits that bracket.
+          </div>
+        </fieldset>
+
+        <div style="margin-top:1rem;">
+          <button type="submit">Continue to Ideals</button>
+        </div>
+      </form>
+
+      <div style="margin-top:.5rem;">
+        <form action="/build" method="get" style="display:inline; margin:0;">
+          <button type="submit">Start over</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</section>

@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MTG Deckbuilder</title>
+    <script src="https://unpkg.com/htmx.org@1.9.12" onerror="var s=document.createElement('script');s.src='/static/vendor/htmx-1.9.12.min.js';document.head.appendChild(s);"></script>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <header class="top-banner">
+      <div class="top-inner">
+        <h1>MTG Deckbuilder</h1>
+  <div id="banner-status" class="banner-status">{% block banner_subtitle %}{% endblock %}</div>
+      </div>
+    </header>
+    <div class="layout">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="mana-dots" aria-hidden="true">
+            <span class="dot green"></span>
+            <span class="dot blue"></span>
+            <span class="dot red"></span>
+            <span class="dot white"></span>
+            <span class="dot black"></span>
+          </div>
+        </div>
+        <nav class="nav">
+          <a href="/">Home</a>
+          <a href="/build">Build</a>
+          <a href="/configs">Build from JSON</a>
+          {% if show_setup %}<a href="/setup">Setup/Tag</a>{% endif %}
+          <a href="/decks">Finished Decks</a>
+          {% if show_logs %}<a href="/logs">Logs</a>{% endif %}
+        </nav>
+      </aside>
+      <main class="content">
+        {% block content %}{% endblock %}
+      </main>
+    </div>
+    <style>
+      .card-hover { position: fixed; pointer-events: none; z-index: 9999; display: none; }
+      .card-hover-inner { display:flex; gap:12px; align-items:flex-start; }
+      .card-hover img { width: 320px; height: auto; display: block; border-radius: 8px; box-shadow: 0 6px 18px rgba(0,0,0,.55); border: 1px solid var(--border); background:#0f1115; }
+      .card-meta { background: #0f1115; color: #e5e7eb; border: 1px solid var(--border); border-radius: 8px; padding: .5rem .6rem; max-width: 280px; font-size: 12px; line-height: 1.35; box-shadow: 0 6px 18px rgba(0,0,0,.35); }
+      .card-meta .label { color:#94a3b8; text-transform: uppercase; font-size: 10px; letter-spacing: .04em; display:block; margin-bottom:.15rem; }
+      .card-meta .line + .line { margin-top:.35rem; }
+    </style>
+    <script>
+      (function(){
+        // Setup/Tagging status poller
+        var statusEl;
+        function ensureStatusEl(){
+          if (!statusEl) statusEl = document.getElementById('banner-status');
+          return statusEl;
+        }
+    function renderSetupStatus(data){
+          var el = ensureStatusEl(); if (!el) return;
+          if (data && data.running) {
+            var msg = (data.message || 'Preparing data...');
+      el.innerHTML = '<strong>Setup/Tagging:</strong> ' + msg + ' <a href="/setup/running" style="margin-left:.5rem;">View progress</a>';
+            el.classList.add('busy');
+          } else if (data && data.phase === 'done') {
+            el.innerHTML = '<span class="muted">Setup complete.</span>';
+            setTimeout(function(){ el.innerHTML = ''; el.classList.remove('busy'); }, 3000);
+          } else if (data && data.phase === 'error') {
+            el.innerHTML = '<span class="error">Setup error.</span>';
+            setTimeout(function(){ el.innerHTML = ''; el.classList.remove('busy'); }, 5000);
+          } else {
+            if (!el.innerHTML.trim()) el.innerHTML = '';
+            el.classList.remove('busy');
+          }
+        }
+        function pollStatus(){
+          try {
+            fetch('/status/setup', { cache: 'no-store' })
+              .then(function(r){ return r.json(); })
+              .then(renderSetupStatus)
+              .catch(function(){ /* noop */ });
+          } catch(e) {}
+        }
+        setInterval(pollStatus, 3000);
+        pollStatus();
+
+        function ensureCard() {
+          var pop = document.getElementById('card-hover');
+          if (!pop) {
+            pop = document.createElement('div');
+            pop.id = 'card-hover';
+            pop.className = 'card-hover';
+            var inner = document.createElement('div');
+            inner.className = 'card-hover-inner';
+            var img = document.createElement('img');
+            img.alt = 'Card preview';
+            var meta = document.createElement('div');
+            meta.className = 'card-meta';
+            inner.appendChild(img);
+            inner.appendChild(meta);
+            pop.appendChild(inner);
+            document.body.appendChild(pop);
+          }
+          return pop;
+        }
+        var cardPop = ensureCard();
+        function positionCard(e) {
+          var x = e.clientX + 16, y = e.clientY + 16;
+          cardPop.style.display = 'block';
+          cardPop.style.left = x + 'px';
+          cardPop.style.top = y + 'px';
+          var rect = cardPop.getBoundingClientRect();
+          var vw = window.innerWidth || document.documentElement.clientWidth;
+          var vh = window.innerHeight || document.documentElement.clientHeight;
+          if (x + rect.width + 8 > vw) cardPop.style.left = (e.clientX - rect.width - 16) + 'px';
+          if (y + rect.height + 8 > vh) cardPop.style.top = (e.clientY - rect.height - 16) + 'px';
+        }
+        function attachCardHover() {
+          document.querySelectorAll('[data-card-name]').forEach(function(el) {
+            if (el.__cardHoverBound) return; // avoid duplicate bindings
+            el.__cardHoverBound = true;
+            el.addEventListener('mouseenter', function(e) {
+              var img = cardPop.querySelector('img');
+              var meta = cardPop.querySelector('.card-meta');
+              var q = encodeURIComponent(el.getAttribute('data-card-name'));
+              img.src = 'https://api.scryfall.com/cards/named?fuzzy=' + q + '&format=image&version=normal';
+              var role = el.getAttribute('data-role') || '';
+              var tags = el.getAttribute('data-tags') || '';
+              if (role || tags) {
+                var html = '';
+                if (role) {
+                  html += '<div class="line"><span class="label">Role</span>' + role.replace(/</g,'&lt;') + '</div>';
+                }
+                if (tags) {
+                  html += '<div class="line"><span class="label">Themes</span>' + tags.replace(/</g,'&lt;') + '</div>';
+                }
+                meta.innerHTML = html;
+                meta.style.display = '';
+              } else {
+                meta.style.display = 'none';
+                meta.innerHTML = '';
+              }
+              positionCard(e);
+            });
+            el.addEventListener('mousemove', positionCard);
+            el.addEventListener('mouseleave', function() { cardPop.style.display = 'none'; });
+          });
+        }
+        attachCardHover();
+        document.addEventListener('htmx:afterSwap', function() { attachCardHover(); });
+      })();
+    </script>
+  </body>
+  </html>

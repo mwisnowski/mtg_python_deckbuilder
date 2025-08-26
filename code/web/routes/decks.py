@@ -1,0 +1,267 @@
+from __future__ import annotations
+
+from fastapi import APIRouter, Request
+from fastapi.responses import HTMLResponse
+from pathlib import Path
+import csv
+import os
+from typing import Dict, List, Tuple
+
+from ..app import templates
+from deck_builder import builder_constants as bc
+
+
+router = APIRouter(prefix="/decks")
+
+
+def _deck_dir() -> Path:
+    # Prefer explicit env var if provided, else default to ./deck_files
+    p = os.getenv("DECK_EXPORTS")
+    if p:
+        return Path(p).resolve()
+    return (Path.cwd() / "deck_files").resolve()
+
+
+def _list_decks() -> list[dict]:
+    d = _deck_dir()
+    try:
+        d.mkdir(parents=True, exist_ok=True)
+    except Exception:
+        pass
+    items: list[dict] = []
+    # Prefer CSV entries and pair with matching TXT if present
+    for p in sorted(d.glob("*.csv"), key=lambda x: x.stat().st_mtime, reverse=True):
+        meta = {"name": p.name, "path": str(p), "mtime": p.stat().st_mtime}
+        stem = p.stem
+        txt = p.with_suffix('.txt')
+        if txt.exists():
+            meta["txt_name"] = txt.name
+            meta["txt_path"] = str(txt)
+        # Prefer sidecar summary meta if present
+        sidecar = p.with_suffix('.summary.json')
+        if sidecar.exists():
+            try:
+                import json as _json
+                payload = _json.loads(sidecar.read_text(encoding='utf-8'))
+                _m = payload.get('meta', {}) if isinstance(payload, dict) else {}
+                meta["commander"] = _m.get('commander') or meta.get("commander")
+                meta["tags"] = _m.get('tags') or meta.get("tags") or []
+            except Exception:
+                pass
+        # Fallback to parsing commander/themes from filename convention Commander_Themes_YYYYMMDD
+        if not meta.get("commander"):
+            parts = stem.split('_')
+            if len(parts) >= 3:
+                meta["commander"] = parts[0]
+                meta["tags"] = parts[1:-1]
+            else:
+                meta["commander"] = stem
+                meta["tags"] = []
+        items.append(meta)
+    return items
+
+
+def _safe_within(base: Path, target: Path) -> bool:
+    try:
+        base_r = base.resolve()
+        targ_r = target.resolve()
+        return (base_r == targ_r) or (base_r in targ_r.parents)
+    except Exception:
+        return False
+
+
+def _read_csv_summary(csv_path: Path) -> Tuple[dict, Dict[str, int], Dict[str, int], Dict[str, List[dict]]]:
+    """Parse CSV export to reconstruct minimal summary pieces.
+
+    Returns: (meta, type_counts, curve_counts, type_cards)
+      meta: { 'commander': str, 'colors': [..] }
+    """
+    headers = []
+    type_counts: Dict[str, int] = {}
+    type_cards: Dict[str, List[dict]] = {}
+    curve_bins = ['0','1','2','3','4','5','6+']
+    curve_counts: Dict[str, int] = {b: 0 for b in curve_bins}
+    curve_cards: Dict[str, List[dict]] = {b: [] for b in curve_bins}
+    meta: dict = {"commander": "", "colors": []}
+    commander_seen = False
+    # Infer commander from filename stem (pattern Commander_Themes_YYYYMMDD)
+    stem_parts = csv_path.stem.split('_')
+    inferred_commander = stem_parts[0] if stem_parts else ''
+
+    def classify_mv(raw) -> str:
+        try:
+            v = float(raw)
+        except Exception:
+            v = 0.0
+        return '6+' if v >= 6 else str(int(v))
+
+    try:
+        with csv_path.open('r', encoding='utf-8') as f:
+            reader = csv.reader(f)
+            headers = next(reader, [])
+            # Expected columns include: Name, Count, Type, ManaCost, ManaValue, Colors, Power, Toughness, Role, ..., Tags, Text, Owned
+            name_idx = headers.index('Name') if 'Name' in headers else 0
+            count_idx = headers.index('Count') if 'Count' in headers else 1
+            type_idx = headers.index('Type') if 'Type' in headers else 2
+            mv_idx = headers.index('ManaValue') if 'ManaValue' in headers else (headers.index('Mana Value') if 'Mana Value' in headers else -1)
+            role_idx = headers.index('Role') if 'Role' in headers else -1
+            tags_idx = headers.index('Tags') if 'Tags' in headers else -1
+            colors_idx = headers.index('Colors') if 'Colors' in headers else -1
+
+            for row in reader:
+                if not row:
+                    continue
+                try:
+                    name = row[name_idx]
+                except Exception:
+                    continue
+                try:
+                    cnt = int(float(row[count_idx])) if row[count_idx] else 1
+                except Exception:
+                    cnt = 1
+                type_line = row[type_idx] if type_idx >= 0 and type_idx < len(row) else ''
+                role = (row[role_idx] if role_idx >= 0 and role_idx < len(row) else '')
+                tags = (row[tags_idx] if tags_idx >= 0 and tags_idx < len(row) else '')
+                tags_list = [t.strip() for t in tags.split(';') if t.strip()]
+
+                # Commander detection: prefer filename inference; else best-effort via type line containing 'Commander'
+                is_commander = (inferred_commander and name == inferred_commander)
+                if not is_commander:
+                    is_commander = isinstance(type_line, str) and ('commander' in type_line.lower())
+                if is_commander and not commander_seen:
+                    meta['commander'] = name
+                    commander_seen = True
+
+                # Map type_line to broad category
+                tl = (type_line or '').lower()
+                if 'battle' in tl:
+                    cat = 'Battle'
+                elif 'planeswalker' in tl:
+                    cat = 'Planeswalker'
+                elif 'creature' in tl:
+                    cat = 'Creature'
+                elif 'instant' in tl:
+                    cat = 'Instant'
+                elif 'sorcery' in tl:
+                    cat = 'Sorcery'
+                elif 'artifact' in tl:
+                    cat = 'Artifact'
+                elif 'enchantment' in tl:
+                    cat = 'Enchantment'
+                elif 'land' in tl:
+                    cat = 'Land'
+                else:
+                    cat = 'Other'
+
+                # Type counts/cards (exclude commander entry from distribution)
+                if not is_commander:
+                    type_counts[cat] = type_counts.get(cat, 0) + cnt
+                    type_cards.setdefault(cat, []).append({
+                        'name': name,
+                        'count': cnt,
+                        'role': role,
+                        'tags': tags_list,
+                    })
+
+                # Curve
+                if mv_idx >= 0 and mv_idx < len(row):
+                    bucket = classify_mv(row[mv_idx])
+                    if bucket not in curve_counts:
+                        bucket = '6+'
+                    curve_counts[bucket] += cnt
+                    curve_cards[bucket].append({'name': name, 'count': cnt})
+
+                # Colors (from Colors col for commander/overall)
+                if is_commander and colors_idx >= 0 and colors_idx < len(row):
+                    cid = row[colors_idx] or ''
+                    if isinstance(cid, str):
+                        meta['colors'] = list(cid)
+    except Exception:
+        pass
+
+    # Precedence ordering
+    precedence_order = [
+        'Battle', 'Planeswalker', 'Creature', 'Instant', 'Sorcery', 'Artifact', 'Enchantment', 'Land', 'Other'
+    ]
+    prec_index = {k: i for i, k in enumerate(precedence_order)}
+    type_order = sorted(type_counts.keys(), key=lambda k: prec_index.get(k, 999))
+
+    summary = {
+        'type_breakdown': {
+            'counts': type_counts,
+            'order': type_order,
+            'cards': type_cards,
+            'total': sum(type_counts.values()),
+        },
+        'pip_distribution': {
+            # Not recoverable from CSV without mana symbols; leave zeros
+            'counts': {c: 0 for c in ('W','U','B','R','G')},
+            'weights': {c: 0 for c in ('W','U','B','R','G')},
+        },
+        'mana_generation': {
+            # Not recoverable from CSV alone
+            'W': 0, 'U': 0, 'B': 0, 'R': 0, 'G': 0, 'total_sources': 0,
+        },
+        'mana_curve': {
+            **curve_counts,
+            'total_spells': sum(curve_counts.values()),
+            'cards': curve_cards,
+        },
+        'colors': meta.get('colors', []),
+    }
+    return summary, type_counts, curve_counts, type_cards
+
+
+@router.get("/", response_class=HTMLResponse)
+async def decks_index(request: Request) -> HTMLResponse:
+    items = _list_decks()
+    return templates.TemplateResponse("decks/index.html", {"request": request, "items": items})
+
+
+@router.get("/view", response_class=HTMLResponse)
+async def decks_view(request: Request, name: str) -> HTMLResponse:
+    base = _deck_dir()
+    p = (base / name).resolve()
+    if not _safe_within(base, p) or not (p.exists() and p.is_file() and p.suffix.lower() == ".csv"):
+        return templates.TemplateResponse("decks/index.html", {"request": request, "items": _list_decks(), "error": "Deck not found."})
+
+    # Try to load sidecar summary JSON first
+    summary = None
+    commander_name = ''
+    tags: List[str] = []
+    sidecar = p.with_suffix('.summary.json')
+    if sidecar.exists():
+        try:
+            import json as _json
+            payload = _json.loads(sidecar.read_text(encoding='utf-8'))
+            if isinstance(payload, dict):
+                summary = payload.get('summary')
+                meta = payload.get('meta', {})
+                if isinstance(meta, dict):
+                    commander_name = meta.get('commander') or ''
+                    _tags = meta.get('tags') or []
+                    if isinstance(_tags, list):
+                        tags = [str(t) for t in _tags]
+        except Exception:
+            summary = None
+    if not summary:
+        # Reconstruct minimal summary from CSV
+        summary, _tc, _cc, _tcs = _read_csv_summary(p)
+    stem = p.stem
+    txt_path = p.with_suffix('.txt')
+    # If missing still, infer from filename stem
+    if not commander_name:
+        parts = stem.split('_')
+        commander_name = parts[0] if parts else ''
+
+    ctx = {
+        "request": request,
+        "name": p.name,
+        "csv_path": str(p),
+        "txt_path": str(txt_path) if txt_path.exists() else None,
+        "summary": summary,
+        "commander": commander_name,
+        "tags": tags,
+    "game_changers": bc.GAME_CHANGERS,
+    }
+    return templates.TemplateResponse("decks/view.html", ctx)

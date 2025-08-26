@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Run from Config: {{ cfg_name }}</h2>
+{% if not ok %}
+  <div class="error">Build failed: {{ error }}</div>
+{% else %}
+  <div class="notice">Build completed.</div>
+  <div style="margin:.5rem 0;">
+    {% if csv_path %}<a class="btn" href="/files?path={{ csv_path | urlencode }}">Download CSV</a>{% endif %}
+    {% if txt_path %}<a class="btn" href="/files?path={{ txt_path | urlencode }}">Download TXT</a>{% endif %}
+  </div>
+  {% if summary %}
+    <hr style="margin:1.25rem 0; border-color: var(--border);" />
+    <h4>Deck Summary</h4>
+    {# Reuse the same inner sections as the build summary page by including its markup #}
+    {% set __summary = summary %}
+    {% set summary = __summary %}
+    {% include "build/_step5.html" ignore missing %}
+  {% else %}
+    <p class="muted">No summary data available.</p>
+  {% endif %}
+{% endif %}
+<p style="margin-top:1rem;"><a href="/configs">Back to Configs</a></p>
+{% endblock %}

@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Build from JSON: {{ name }}</h2>
+<p class="muted" style="max-width: 70ch;">Review the configuration details below, then run a non-interactive build to produce deck exports and a summary.</p>
+<details open>
+  <summary>Overview</summary>
+  <div class="grid" style="display:grid; grid-template-columns: 200px 1fr; gap:6px; max-width: 920px;">
+    <div>Commander</div><div>{{ data.commander }}</div>
+    <div>Tags</div><div>{{ data.primary_tag }}{% if data.secondary_tag %}, {{ data.secondary_tag }}{% endif %}{% if data.tertiary_tag %}, {{ data.tertiary_tag }}{% endif %}</div>
+    <div>Bracket</div><div>{{ data.bracket_level }}</div>
+  </div>
+</details>
+<details style="margin-top:1rem;" open>
+  <summary>Ideal Counts</summary>
+  <pre style="background:#0f1115; border:1px solid var(--border); padding:.75rem; border-radius:8px;">{{ data.ideal_counts | tojson(indent=2) }}</pre>
+</details>
+<form method="post" action="/configs/run" style="margin-top:1rem;">
+  <input type="hidden" name="name" value="{{ name }}" />
+  <button type="submit">Run Headless</button>
+  <button type="submit" formaction="/configs" formmethod="get" class="btn" style="margin-left:.5rem;">Back</button>
+</form>
+{% endblock %}

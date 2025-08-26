@@ -1,0 +1,214 @@
+<section>
+  <h3>Step 1: Choose a Commander</h3>
+
+  <form id="cmdr-search-form" hx-post="/build/step1" hx-target="#wizard" hx-swap="innerHTML">
+    <label>Search by name</label>
+    <input id="cmdr-search" type="text" name="query" value="{{ query or '' }}" autocomplete="off" />
+    <button type="submit">Search</button>
+    <label style="margin-left:.5rem; font-weight:normal;">
+      <input type="checkbox" name="auto" value="1" {% if auto %}checked{% endif %} /> Auto-select top match (very confident)
+    </label>
+  </form>
+  <div class="muted" style="margin:.35rem 0 .5rem 0; font-size:.9rem;">
+    Tip: Press Enter to select the highlighted result, or use Up/Down to navigate. If your query is a full first word (e.g., "vivi"), exact first-word matches are prioritized.
+  </div>
+
+  {% if candidates %}
+  <h4>Top matches</h4>
+  <div class="candidate-grid" id="candidate-grid">
+    {% for name, score, colors in candidates %}
+      <div class="candidate-tile" data-card-name="{{ name }}">
+        <form hx-post="/build/step1/confirm" hx-target="#wizard" hx-swap="innerHTML">
+          <input type="hidden" name="name" value="{{ name }}" />
+          <button class="img-btn" type="submit" title="Select {{ name }} (score {{ score }})">
+            <img src="https://api.scryfall.com/cards/named?fuzzy={{ name|urlencode }}&format=image&version=normal"
+                 alt="{{ name }}" />
+          </button>
+        </form>
+        <div class="meta">
+          <div class="name"><span class="name-text">{{ name }}</span></div>
+          <div class="score">
+            match {{ score }}%
+            {% if colors %}
+              <span class="colors" style="margin-left:.25rem;">
+                {% for c in colors %}
+                  <span class="chip chip-{{ c|lower }}" title="{{ c }}">{{ c }}</span>
+                {% endfor %}
+              </span>
+            {% endif %}
+          </div>
+          <form hx-post="/build/step1/inspect" hx-target="#wizard" hx-swap="innerHTML" style="margin-top:.25rem;">
+            <input type="hidden" name="name" value="{{ name }}" />
+            <button type="submit">Inspect</button>
+          </form>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% if inspect and inspect.ok %}
+  <div class="two-col two-col-left-rail">
+  <aside class="card-preview card-sm" data-card-name="{{ selected }}">
+      <a href="https://scryfall.com/search?q={{ selected|urlencode }}" target="_blank" rel="noopener">
+        <img src="https://api.scryfall.com/cards/named?fuzzy={{ selected|urlencode }}&format=image&version=normal" alt="{{ selected }} card image" />
+      </a>
+    </aside>
+    <div class="grow">
+      <h4>Theme Tags</h4>
+      {% if tags and tags|length > 0 %}
+        <ul>
+          {% for t in tags %}
+            <li>{{ t }}</li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="muted">No theme tags found for this commander.</p>
+      {% endif %}
+      <div style="margin-top:.75rem;">
+        <form style="display:inline" hx-post="/build/step1/confirm" hx-target="#wizard" hx-swap="innerHTML">
+          <input type="hidden" name="name" value="{{ selected }}" />
+          <button>Use this commander</button>
+        </form>
+        <form style="display:inline" hx-post="/build/step1" hx-target="#wizard" hx-swap="innerHTML">
+          <input type="hidden" name="query" value="" />
+          <button>Back to search</button>
+        </form>
+        <form action="/build" method="get" style="display:inline; margin-left:.5rem;">
+          <button type="submit">Start over</button>
+        </form>
+      </div>
+  <div hx-get="/build/banner?step=Choose%20Commander&i=1&n=5" hx-trigger="load"></div>
+    </div>
+  </div>
+  {% elif inspect and not inspect.ok %}
+    <div style="color:#a00">{{ inspect.error }}</div>
+  {% endif %}
+
+  {% if error %}
+  <div style="color:#a00">{{ error }}</div>
+  {% endif %}
+</section>
+<script>
+(function(){
+  var input = document.getElementById('cmdr-search');
+  var form = document.getElementById('cmdr-search-form');
+  var grid = document.getElementById('candidate-grid');
+  if (!input || !form) return;
+  // Debounce live search
+  var t = null;
+  function submit(){
+    if (!form) return;
+    // Trigger the HTMX post without clicking submit
+    if (window.htmx) { window.htmx.trigger(form, 'submit'); }
+    else { form.submit(); }
+  }
+  input.addEventListener('input', function(){
+    if (t) clearTimeout(t);
+    t = setTimeout(submit, 250);
+  });
+  // Keyboard navigation: up/down to move selection, Enter to choose/inspect
+  document.addEventListener('keydown', function(e){
+    if (!grid || !grid.children || grid.children.length === 0) return;
+    var tiles = Array.prototype.slice.call(grid.querySelectorAll('.candidate-tile'));
+    // Ensure something is selected by default
+    var idx = tiles.findIndex(function(el){ return el.classList.contains('active'); });
+    if (idx < 0 && tiles.length > 0) {
+      tiles[0].classList.add('active');
+      idx = 0;
+    }
+
+    // Determine columns via first row's offsetTop count
+    var cols = 1;
+    if (tiles.length > 1) {
+      var firstTop = tiles[0].offsetTop;
+      cols = tiles.findIndex(function(el, i){ return i>0 && el.offsetTop !== firstTop; });
+      if (cols === -1 || cols === 0) cols = tiles.length; // single row fallback
+    }
+
+    function setActive(newIdx) {
+      // Clamp to bounds; wrapping handled by callers
+      newIdx = Math.max(0, Math.min(tiles.length - 1, newIdx));
+      tiles.forEach(function(el){ el.classList.remove('active'); });
+      tiles[newIdx].classList.add('active');
+      tiles[newIdx].scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      return newIdx;
+    }
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      var total = tiles.length;
+      var rows = Math.ceil(total / cols);
+      var row = Math.floor(idx / cols);
+      var col = idx % cols;
+      var newRow = row + 1;
+      if (newRow >= rows) newRow = 0; // wrap to first row
+      var newIdx = newRow * cols + col;
+      if (newIdx >= total) newIdx = total - 1; // clamp to last tile if last row shorter
+      idx = setActive(newIdx);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      var totalU = tiles.length;
+      var rowsU = Math.ceil(totalU / cols);
+      var rowU = Math.floor(idx / cols);
+      var colU = idx % cols;
+      var newRowU = rowU - 1;
+      if (newRowU < 0) newRowU = rowsU - 1; // wrap to last row
+      var newIdxU = newRowU * cols + colU;
+      if (newIdxU >= totalU) newIdxU = totalU - 1;
+      idx = setActive(newIdxU);
+    } else if (e.key === 'ArrowRight') {
+      e.preventDefault();
+      var totalR = tiles.length;
+      idx = setActive((idx + 1) % totalR);
+    } else if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      var totalL = tiles.length;
+      idx = setActive((idx - 1 + totalL) % totalL);
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      var active = tiles[idx];
+      if (!active) return;
+      var formSel = active.querySelector('form[hx-post="/build/step1/confirm"]');
+      if (formSel) {
+        if (window.htmx) { window.htmx.trigger(formSel, 'submit'); }
+        else if (formSel.submit) { formSel.submit(); }
+        else {
+          var btn = active.querySelector('button');
+          if (btn) btn.click();
+        }
+      }
+    }
+  });
+  // Highlight matched text
+  try {
+    var q = (input.value || '').trim().toLowerCase();
+    if (q && grid) {
+      grid.querySelectorAll('.name-text').forEach(function(el){
+        var txt = el.textContent || '';
+        var low = txt.toLowerCase();
+        var i = low.indexOf(q);
+        if (i >= 0) {
+          el.innerHTML = txt.substring(0, i) + '<mark>' + txt.substring(i, i+q.length) + '</mark>' + txt.substring(i+q.length);
+        }
+      });
+    }
+  } catch(_){}
+})();
+</script>
+<style>
+.candidate-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap:.75rem; }
+.candidate-tile { border:1px solid var(--border); border-radius:8px; background:#0f1115; padding:.5rem; }
+.candidate-tile.active { outline:2px solid #3b82f6; }
+.img-btn { display:block; width:100%; background:transparent; border:0; padding:0; cursor:pointer; }
+.img-btn img { width:100%; height:auto; border-radius:6px; }
+.chip { display:inline-block; padding:0 .35rem; border-radius:999px; font-size:.75rem; line-height:1.4; border:1px solid var(--border); background:#151821; margin-left:.15rem; }
+.chip-w { background:#fdf4d6; color:#6b4f00; border-color:#e9d8a6; }
+.chip-u { background:#dbeafe; color:#1e40af; border-color:#93c5fd; }
+.chip-b { background:#e5e7eb; color:#111827; border-color:#9ca3af; }
+.chip-g { background:#dcfce7; color:#065f46; border-color:#86efac; }
+.chip-r { background:#fee2e2; color:#991b1b; border-color:#fecaca; }
+.chip-c { background:#f3f4f6; color:#111827; border-color:#e5e7eb; }
+mark { background: rgba(251, 191, 36, .35); color: inherit; padding:0 .1rem; border-radius:2px; }
+.candidate-tile { cursor: pointer; }
+</style>

@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+{% block content %}
+<section>
+  <h2>Preparing Card Database</h2>
+  <p class="muted">Initial setup and tagging may take several minutes on first run.</p>
+
+  <div id="setup-status" style="margin-top:1rem; padding:1rem; border:1px solid var(--border); background:#0f1115; border-radius:8px;" data-next-url="{{ next_url or '' }}">
+    <div class="muted">Status:</div>
+    <div id="setup-status-line" style="margin-top:.25rem;">Starting…</div>
+  <div id="setup-progress-line" class="muted" style="margin-top:.25rem; display:none;"></div>
+      <div id="setup-progress-bar" style="margin-top:.25rem; width:100%; height:10px; background:#151821; border:1px solid var(--border); border-radius:6px; overflow:hidden; display:none;">
+        <div id="setup-progress-bar-inner" style="height:100%; width:0%; background:#3b82f6;"></div>
+      </div>
+  <div id="setup-time-line" class="muted" style="margin-top:.25rem; display:none;"></div>
+    <div id="setup-color-line" class="muted" style="margin-top:.25rem; display:none;"></div>
+    <details id="setup-log-wrap" style="margin-top:.5rem; display:none;">
+      <summary id="setup-log-summary" class="muted" style="cursor:pointer;">Show logs</summary>
+      <pre id="setup-log-tail" style="margin-top:.5rem; max-height:240px; overflow:auto; background:#0b0d12; border:1px solid var(--border); padding:.5rem; border-radius:6px;"></pre>
+    </details>
+  </div>
+
+  <div style="margin-top:1rem; display:flex; gap:.5rem;">
+    <form method="get" action="/setup">
+      <button type="submit">Back to Setup</button>
+    </form>
+    {% if next_url %}
+    <form method="get" action="{{ next_url }}">
+      <button type="submit">Continue</button>
+    </form>
+    {% endif %}
+  </div>
+</section>
+<script>
+(function(){
+  var container = document.getElementById('setup-status');
+  var nextUrl = (container && container.dataset.nextUrl) ? container.dataset.nextUrl : null;
+  if (nextUrl === '') nextUrl = null;
+  function update(data){
+    var line = document.getElementById('setup-status-line');
+    var colorEl = document.getElementById('setup-color-line');
+    var logEl = document.getElementById('setup-log-tail');
+  var progEl = document.getElementById('setup-progress-line');
+    var timeEl = document.getElementById('setup-time-line');
+  var bar = document.getElementById('setup-progress-bar');
+  var barIn = document.getElementById('setup-progress-bar-inner');
+  var logWrap = document.getElementById('setup-log-wrap');
+  var logSummary = document.getElementById('setup-log-summary');
+    if (!line) return;
+    if (data && data.running) {
+      line.textContent = (data.message || 'Working…');
+      if (typeof data.percent === 'number') {
+        progEl.style.display = '';
+        var p = Math.max(0, Math.min(100, data.percent));
+        progEl.textContent = 'Progress: ' + p + '%';
+        if (bar && barIn) { bar.style.display = ''; barIn.style.width = p + '%'; }
+        if (typeof data.color_idx === 'number' && typeof data.color_total === 'number') {
+          progEl.textContent += ' • Colors: ' + data.color_idx + ' / ' + data.color_total;
+        }
+        if (typeof data.eta_seconds === 'number') {
+          var mins = Math.floor(data.eta_seconds / 60); var secs = data.eta_seconds % 60;
+          progEl.textContent += ' • ETA: ~' + mins + 'm ' + secs + 's';
+        }
+      } else {
+        progEl.style.display = 'none';
+        if (bar) bar.style.display = 'none';
+      }
+      if (data.started_at) {
+        timeEl.style.display = '';
+        timeEl.textContent = 'Started: ' + data.started_at;
+      } else {
+        timeEl.style.display = 'none';
+      }
+      if (data.color) {
+        colorEl.style.display = '';
+        colorEl.textContent = 'Current color: ' + data.color;
+      } else {
+        colorEl.style.display = 'none';
+      }
+      if (data.log_tail) {
+        var lines = data.log_tail.split(/\r?\n/).filter(function(x){ return x.trim() !== ''; });
+        if (logWrap) logWrap.style.display = '';
+        if (logSummary) logSummary.textContent = 'Show logs (' + lines.length + ' lines)';
+        logEl.textContent = data.log_tail;
+      } else {
+        if (logWrap) logWrap.style.display = 'none';
+      }
+    } else if (data && data.phase === 'done') {
+      line.textContent = 'Setup complete.';
+      if (typeof data.percent === 'number') {
+        progEl.style.display = '';
+        var p2 = Math.max(0, Math.min(100, data.percent));
+        progEl.textContent = 'Progress: ' + p2 + '%';
+        if (bar && barIn) { bar.style.display = ''; barIn.style.width = p2 + '%'; }
+      } else {
+        progEl.style.display = 'none';
+        if (bar) bar.style.display = 'none';
+      }
+      if (data.started_at || data.finished_at) {
+        timeEl.style.display = '';
+        var t = [];
+        if (data.started_at) t.push('Started: ' + data.started_at);
+        if (data.finished_at) t.push('Finished: ' + data.finished_at);
+        timeEl.textContent = t.join(' • ');
+      } else {
+        timeEl.style.display = 'none';
+      }
+  colorEl.style.display = 'none';
+  if (logWrap) logWrap.style.display = 'none';
+      if (nextUrl) {
+        setTimeout(function(){ window.location.href = nextUrl; }, 1200);
+      }
+    } else if (data && data.phase === 'error') {
+      line.textContent = (data.message || 'Setup error.');
+      if (data.color) {
+        colorEl.style.display = '';
+        colorEl.textContent = 'While working on: ' + data.color;
+      }
+    } else {
+      line.textContent = 'Idle';
+  colorEl.style.display = 'none';
+  if (logWrap) logWrap.style.display = 'none';
+    }
+  }
+  function poll(){
+    fetch('/status/setup', { cache: 'no-store' })
+      .then(function(r){ return r.json(); })
+      .then(update)
+      .catch(function(){});
+  }
+  setInterval(poll, 3000);
+  poll();
+})();
+</script>
+{% endblock %}

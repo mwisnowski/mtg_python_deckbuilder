@@ -1,0 +1,28 @@
+<section>
+	<h3>Step 4: Review</h3>
+	<div class="two-col two-col-left-rail">
+	<aside class="card-preview" data-card-name="{{ commander|urlencode }}">
+			<a href="https://scryfall.com/search?q={{ commander|urlencode }}" target="_blank" rel="noopener">
+				<img src="https://api.scryfall.com/cards/named?fuzzy={{ commander|urlencode }}&format=image&version=normal" alt="{{ commander }} card image" />
+			</a>
+		</aside>
+		<div class="grow">
+			<div hx-get="/build/banner?step=Review&i=4&n=5" hx-trigger="load"></div>
+			<h4>Chosen Ideals</h4>
+			<ul>
+				{% for key, label in labels.items() %}
+					<li>{{ label }}: <strong>{{ values[key] }}</strong></li>
+				{% endfor %}
+			</ul>
+							<div style="margin-top:1rem; display:flex; gap:.5rem;">
+								<form action="/build/step5/start" method="post" hx-post="/build/step5/start" hx-target="#wizard" hx-swap="innerHTML" style="display:inline; margin:0;">
+									<button type="submit">Build Deck</button>
+								</form>
+								<button type="button" hx-get="/build/step3" hx-target="#wizard" hx-swap="innerHTML">Back</button>
+								<form action="/build" method="get" style="display:inline; margin:0;">
+									<button type="submit">Start over</button>
+								</form>
+							</div>
+		</div>
+	</div>
+</section>

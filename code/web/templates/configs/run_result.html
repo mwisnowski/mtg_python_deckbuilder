@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Build from JSON: {{ cfg_name }}</h2>
+<p class="muted" style="max-width: 70ch;">This page shows the results of a non-interactive build from the selected JSON configuration.</p>
+{% if commander %}
+<div class="muted">Commander: <strong data-card-name="{{ commander }}">{{ commander }}</strong></div>
+{% endif %}
+
+<div class="two-col two-col-left-rail">
+  <aside class="card-preview">
+    {% if commander %}
+    <a href="https://scryfall.com/search?q={{ commander|urlencode }}" target="_blank" rel="noopener">
+      <img src="https://api.scryfall.com/cards/named?fuzzy={{ commander|urlencode }}&format=image&version=normal" alt="{{ commander }} card image" width="320" />
+    </a>
+    {% endif %}
+    <div style="margin-top:.75rem; display:flex; gap:.35rem; flex-wrap:wrap;">
+      {% if ok and csv_path %}
+      <form action="/files" method="get" target="_blank" style="display:inline; margin:0;">
+        <input type="hidden" name="path" value="{{ csv_path }}" />
+        <button type="submit">Download CSV</button>
+      </form>
+      {% endif %}
+      {% if ok and txt_path %}
+      <form action="/files" method="get" target="_blank" style="display:inline; margin:0;">
+        <input type="hidden" name="path" value="{{ txt_path }}" />
+        <button type="submit">Download TXT</button>
+      </form>
+      {% endif %}
+      <form method="get" action="/configs" style="display:inline; margin:0;">
+        <button type="submit">Back to Build from JSON</button>
+      </form>
+    </div>
+  </aside>
+  <div class="grow">
+    {% if not ok %}
+      <div class="error">Build failed: {{ error }}</div>
+    {% else %}
+      <div class="notice">Build completed{% if commander %} — <strong>{{ commander }}</strong>{% endif %}</div>
+      
+
+      {% if summary %}
+        {% include "partials/deck_summary.html" %}
+      {% endif %}
+    {% endif %}
+
+    {% if show_logs %}
+      <details style="margin-top:1rem;">
+        <summary>Show logs</summary>
+        <pre style="margin-top:.5rem; white-space:pre-wrap; background:#0f1115; border:1px solid var(--border); padding:1rem; border-radius:8px; max-height:40vh; overflow:auto;">{{ log }}</pre>
+      </details>
+    {% endif %}
+
+    
+  </div>
+</div>
+{% endblock %}

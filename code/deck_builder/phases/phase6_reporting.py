@@ -108,6 +108,192 @@ class ReportingMixin:
         for cat, c in sorted(cat_counts.items(), key=lambda kv: (precedence_index.get(kv[0], 999), -kv[1], kv[0])):
             pct = (c / total_cards * 100) if total_cards else 0.0
             self.output_func(f"  {cat:<15} {c:>3}  ({pct:5.1f}%)")
+
+    # ---------------------------
+    # Structured deck summary for UI (types, pips, sources, curve)
+    # ---------------------------
+    def build_deck_summary(self) -> dict:
+        """Return a structured summary of the finished deck for UI rendering.
+
+        Structure:
+        {
+          'type_breakdown': {
+             'counts': { type: count, ... },
+             'order': [sorted types by precedence],
+             'cards': { type: [ {name, count}, ... ] },
+             'total': int
+          },
+          'pip_distribution': {
+             'counts': { 'W': n, 'U': n, 'B': n, 'R': n, 'G': n },
+             'weights': { 'W': 0-1, ... },  # normalized weights (may not sum exactly to 1 due to rounding)
+          },
+          'mana_generation': { 'W': n, 'U': n, 'B': n, 'R': n, 'G': n, 'total_sources': n },
+          'mana_curve': { '0': n, '1': n, '2': n, '3': n, '4': n, '5': n, '6+': n, 'total_spells': n }
+        }
+        """
+        # Build lookup to enrich type and mana values
+        full_df = getattr(self, '_full_cards_df', None)
+        combined_df = getattr(self, '_combined_cards_df', None)
+        snapshot = full_df if full_df is not None else combined_df
+        row_lookup: Dict[str, any] = {}
+        if snapshot is not None and not getattr(snapshot, 'empty', True) and 'name' in snapshot.columns:
+            for _, r in snapshot.iterrows():  # type: ignore[attr-defined]
+                nm = str(r.get('name'))
+                if nm and nm not in row_lookup:
+                    row_lookup[nm] = r
+
+        # Category classification (reuse export logic)
+        precedence_order = [
+            'Commander', 'Battle', 'Planeswalker', 'Creature', 'Instant', 'Sorcery', 'Artifact', 'Enchantment', 'Land', 'Other'
+        ]
+        precedence_index = {k: i for i, k in enumerate(precedence_order)}
+        commander_name = getattr(self, 'commander_name', '') or getattr(self, 'commander', '') or ''
+
+        def classify(primary_type_line: str, card_name: str) -> str:
+            if commander_name and card_name == commander_name:
+                return 'Commander'
+            tl = (primary_type_line or '').lower()
+            if 'battle' in tl:
+                return 'Battle'
+            if 'planeswalker' in tl:
+                return 'Planeswalker'
+            if 'creature' in tl:
+                return 'Creature'
+            if 'instant' in tl:
+                return 'Instant'
+            if 'sorcery' in tl:
+                return 'Sorcery'
+            if 'artifact' in tl:
+                return 'Artifact'
+            if 'enchantment' in tl:
+                return 'Enchantment'
+            if 'land' in tl:
+                return 'Land'
+            return 'Other'
+
+        # Type breakdown (counts and per-type card lists)
+        type_counts: Dict[str, int] = {}
+        type_cards: Dict[str, list] = {}
+        total_cards = 0
+        for name, info in self.card_library.items():
+            # Exclude commander from type breakdown per UI preference
+            if commander_name and name == commander_name:
+                continue
+            cnt = int(info.get('Count', 1))
+            base_type = info.get('Card Type') or info.get('Type', '')
+            if not base_type:
+                row = row_lookup.get(name)
+                if row is not None:
+                    base_type = row.get('type', row.get('type_line', '')) or ''
+            category = classify(base_type, name)
+            type_counts[category] = type_counts.get(category, 0) + cnt
+            total_cards += cnt
+            type_cards.setdefault(category, []).append({
+                'name': name,
+                'count': cnt,
+                'role': info.get('Role', '') or '',
+                'tags': list(info.get('Tags', []) or []),
+            })
+        # Sort cards within each type by name
+        for cat, lst in type_cards.items():
+            lst.sort(key=lambda x: (x['name'].lower(), -int(x['count'])))
+        type_order = sorted(type_counts.keys(), key=lambda k: precedence_index.get(k, 999))
+
+        # Pip distribution (counts and weights) for non-land spells only
+        pip_counts = {c: 0 for c in ('W','U','B','R','G')}
+        import re as _re_local
+        total_pips = 0.0
+        for name, info in self.card_library.items():
+            ctype = str(info.get('Card Type', ''))
+            if 'land' in ctype.lower():
+                continue
+            mana_cost = info.get('Mana Cost') or info.get('mana_cost') or ''
+            if not isinstance(mana_cost, str):
+                continue
+            for match in _re_local.findall(r'\{([^}]+)\}', mana_cost):
+                sym = match.upper()
+                if len(sym) == 1 and sym in pip_counts:
+                    pip_counts[sym] += 1
+                    total_pips += 1
+                elif '/' in sym:
+                    parts = [p for p in sym.split('/') if p in pip_counts]
+                    if parts:
+                        weight_each = 1 / len(parts)
+                        for p in parts:
+                            pip_counts[p] += weight_each
+                            total_pips += weight_each
+        if total_pips <= 0:
+            # Fallback to even distribution across color identity
+            colors = [c for c in ('W','U','B','R','G') if c in (getattr(self, 'color_identity', []) or [])]
+            if colors:
+                share = 1 / len(colors)
+                for c in colors:
+                    pip_counts[c] = share
+                total_pips = 1.0
+        pip_weights = {c: (pip_counts[c] / total_pips if total_pips else 0.0) for c in pip_counts}
+
+        # Mana generation from lands (color sources)
+        try:
+            from deck_builder import builder_utils as _bu
+            matrix = _bu.compute_color_source_matrix(self.card_library, full_df)
+        except Exception:
+            matrix = {}
+        source_counts = {c: 0 for c in ('W','U','B','R','G')}
+        for name, flags in matrix.items():
+            copies = int(self.card_library.get(name, {}).get('Count', 1))
+            for c in source_counts:
+                if int(flags.get(c, 0)):
+                    source_counts[c] += copies
+        total_sources = sum(source_counts.values())
+
+        # Mana curve (non-land spells)
+        curve_bins = ['0','1','2','3','4','5','6+']
+        curve_counts = {b: 0 for b in curve_bins}
+        curve_cards: Dict[str, list] = {b: [] for b in curve_bins}
+        total_spells = 0
+        for name, info in self.card_library.items():
+            ctype = str(info.get('Card Type', ''))
+            if 'land' in ctype.lower():
+                continue
+            cnt = int(info.get('Count', 1))
+            mv = info.get('Mana Value')
+            if mv in (None, ''):
+                row = row_lookup.get(name)
+                if row is not None:
+                    mv = row.get('manaValue', row.get('cmc', None))
+            try:
+                val = float(mv) if mv not in (None, '') else 0.0
+            except Exception:
+                val = 0.0
+            bucket = '6+' if val >= 6 else str(int(val))
+            if bucket not in curve_counts:
+                bucket = '6+'
+            curve_counts[bucket] += cnt
+            curve_cards[bucket].append({'name': name, 'count': cnt})
+            total_spells += cnt
+
+        return {
+            'type_breakdown': {
+                'counts': type_counts,
+                'order': type_order,
+                'cards': type_cards,
+                'total': total_cards,
+            },
+            'pip_distribution': {
+                'counts': pip_counts,
+                'weights': pip_weights,
+            },
+            'mana_generation': {
+                **source_counts,
+                'total_sources': total_sources,
+            },
+            'mana_curve': {
+                **curve_counts,
+                'total_spells': total_spells,
+                'cards': curve_cards,
+            },
+            'colors': list(getattr(self, 'color_identity', []) or []),
+        }
     def export_decklist_csv(self, directory: str = 'deck_files', filename: str | None = None, suppress_output: bool = False) -> str:
         """Export current decklist to CSV (enriched).
         Filename pattern (default): commanderFirstWord_firstTheme_YYYYMMDD.csv
@@ -208,11 +394,11 @@ class ReportingMixin:
             owned_set_lower = set()
 
         for name, info in self.card_library.items():
-            base_type = info.get('Card Type') or info.get('Type','')
-            base_mc = info.get('Mana Cost','')
-            base_mv = info.get('Mana Value', info.get('CMC',''))
-            role = info.get('Role','') or ''
-            tags = info.get('Tags',[]) or []
+            base_type = info.get('Card Type') or info.get('Type', '')
+            base_mc = info.get('Mana Cost', '')
+            base_mv = info.get('Mana Value', info.get('CMC', ''))
+            role = info.get('Role', '') or ''
+            tags = info.get('Tags', []) or []
             tags_join = '; '.join(tags)
             text_field = ''
             colors = ''
@@ -260,7 +446,7 @@ class ReportingMixin:
             owned_flag = 'Y' if (name.lower() in owned_set_lower) else ''
             rows.append(((prec, name.lower()), [
                 name,
-                info.get('Count',1),
+                info.get('Count', 1),
                 base_type,
                 base_mc,
                 base_mv,
@@ -276,6 +462,7 @@ class ReportingMixin:
                 text_field[:800] if isinstance(text_field, str) else str(text_field)[:800],
                 owned_flag
             ]))
+
         # Now sort (category precedence, then alphabetical name)
         rows.sort(key=lambda x: x[0])
 

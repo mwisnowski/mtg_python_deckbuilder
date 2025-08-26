@@ -5,4 +5,10 @@ tqdm>=4.66.0
 # Optional pretty output in reports; app falls back gracefully if missing
 prettytable>=3.9.0
 
+# Web UI stack (FastAPI + Jinja + HTMX served via CDN)
+fastapi>=0.110.0
+uvicorn[standard]>=0.28.0
+Jinja2>=3.1.0
+python-multipart>=0.0.9
+
 # Development dependencies are in requirements-dev.txt

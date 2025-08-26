@@ -6,6 +6,7 @@ import os
 from typing import Any, Dict, List, Optional
 
 from deck_builder.builder import DeckBuilder
+from deck_builder import builder_constants as bc
 
 def run(
     command_name: str = "",
@@ -47,14 +48,27 @@ def run(
         scripted_inputs.append("0")  # stop at primary
     # Bracket (meta power / style) selection; default to 3 if not provided
     scripted_inputs.append(str(bracket_level if isinstance(bracket_level, int) and 1 <= bracket_level <= 5 else 3))
-    # Ideal count prompts (press Enter for defaults)
-    for _ in range(8):
-        scripted_inputs.append("")
+    # Ideal count prompts (press Enter for defaults). Include fetch_lands if present.
+    ideal_keys = {
+        "ramp",
+        "lands",
+        "basic_lands",
+        "fetch_lands",
+        "creatures",
+        "removal",
+        "wipes",
+        "card_advantage",
+        "protection",
+    }
+    for key in bc.DECK_COMPOSITION_PROMPTS.keys():
+        if key in ideal_keys:
+            scripted_inputs.append("")
 
     def scripted_input(prompt: str) -> str:
         if scripted_inputs:
             return scripted_inputs.pop(0)
-        raise RuntimeError("Ran out of scripted inputs for prompt: " + prompt)
+        # Fallback to auto-accept defaults for any unexpected prompts
+        return ""
 
     builder = DeckBuilder(input_func=scripted_input)
     # Mark this run as headless so builder can adjust exports and logging

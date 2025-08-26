@@ -1,28 +1,31 @@
 # MTG Python Deckbuilder ${VERSION}
 
 ## Highlights
-- Owned cards: prompt after commander to "Use only owned cards?"; supports `.txt`/`.csv` lists in `owned_cards/`.
-- Owned-only builds filter the pool by your lists; if the deck can't reach 100, it remains incomplete and notes it.
-- Recommendations: on incomplete owned-only builds, exports `deck_files/[stem]_recommendations.csv` and `.txt` with ~1.5× missing cards, and prints a short notice.
-- Owned column: when not using owned-only, owned cards are marked with an `Owned` column in the final CSV.
-- Headless support: run non-interactively or via the menu's headless submenu.
-- Config precedence: CLI > env > JSON > defaults; `ideal_counts` in JSON are honored.
-- Exports: CSV/TXT always; JSON run-config is exported for interactive runs. In headless, JSON export is opt-in via `HEADLESS_EXPORT_JSON`.
-- Power bracket: set interactively or via `bracket_level` (env: `DECK_BRACKET_LEVEL`).
-- Data freshness: auto-refreshes `cards.csv` if missing or older than 7 days and re-tags when needed using `.tagging_complete.json`.
-- Docker: mount `./owned_cards` to `/app/owned_cards` to enable owned-cards features; `./config` to `/app/config` for JSON configs.
+- New Web UI: FastAPI + Jinja front-end with a staged build view and clear reasons per stage. Step 2 now includes AND/OR combine mode with tooltips and selection-order display. Footer includes Scryfall attribution per their guidelines.
+- AND/OR combine mode: OR (default) recommends across any selected themes with overlap preference; AND prioritizes multi-theme intersections. In creatures, an AND pre-pass selects "all selected themes" creatures first, then fills by weighted overlap. Staged reasons show which selected themes each all-theme creature hits.
+- Headless improvements: `tag_mode` (AND/OR) accepted via JSON and environment; interactive exports include `tag_mode` in the run-config.
+- Owned cards workflow: Prompt after commander to "Use only owned cards?"; supports `.txt`/`.csv` lists in `owned_cards/`. Owned-only builds filter the pool; if the deck can't reach 100, it remains incomplete and notes it. When not owned-only, owned cards are marked with an `Owned` column in the final CSV.
+- Exports: CSV/TXT always; JSON run-config exported for interactive runs and optionally in headless (`HEADLESS_EXPORT_JSON=1`).
+- Data freshness: Auto-refreshes `cards.csv` if missing or older than 7 days and re-tags when needed using `.tagging_complete.json`.
+
+## What’s new
+- Web UI: Staged run with a new "Creatures: All-Theme" phase in AND mode; shows matched selected themes per card for explainability. Step 2 UI clarifies AND/OR with a tooltip and restyled Why panel.
+- Builder: AND-mode pre-pass for creatures; spells updated to prefer multi-tag overlap in AND mode.
+- Config: `tag_mode` added to JSON and accepted from env (`DECK_TAG_MODE`).
 
 ## Docker
-- Single service; persistent volumes:
+- CLI and Web UI in the same image.
+- docker-compose includes a `web` service exposing port 8080 by default.
+- Persistent volumes:
   - /app/deck_files
   - /app/logs
   - /app/csv_files
   - /app/owned_cards
-  - /app/config (mount `./config` for JSON configs)
+  - /app/config
 
 ### Quick Start
 ```powershell
-# From Docker Hub
+# CLI from Docker Hub
 docker run -it --rm `
   -v "${PWD}/deck_files:/app/deck_files" `
   -v "${PWD}/logs:/app/logs" `
@@ -31,30 +34,42 @@ docker run -it --rm `
   -v "${PWD}/config:/app/config" `
   mwisnowski/mtg-python-deckbuilder:latest
 
-# From source with Compose
+# Web UI from Docker Hub
+docker run --rm `
+  -p 8080:8080 `
+  -v "${PWD}/deck_files:/app/deck_files" `
+  -v "${PWD}/logs:/app/logs" `
+  -v "${PWD}/csv_files:/app/csv_files" `
+  -v "${PWD}/owned_cards:/app/owned_cards" `
+  -v "${PWD}/config:/app/config" `
+  mwisnowski/mtg-python-deckbuilder:latest `
+  bash -lc "cd /app && uvicorn code.web.app:app --host 0.0.0.0 --port 8080"
+
+# From source with Compose (CLI)
 docker compose build
 docker compose run --rm mtg-deckbuilder
 
-# Headless (optional)
-docker compose run --rm -e DECK_MODE=headless mtg-deckbuilder
-# With JSON config
-docker compose run --rm -e DECK_MODE=headless -e DECK_CONFIG=/app/config/deck.json mtg-deckbuilder
+# From source with Compose (Web)
+docker compose build web
+docker compose up --no-deps web
 ```
 
 ## Changes
-- Added owned-cards workflow, CSV Owned column, and recommendations export when owned-only builds are incomplete.
-- Docker assets updated to include `/app/owned_cards` volume and mount examples.
-- Windows release workflow now attaches a PyInstaller-built EXE to GitHub Releases.
+- Web UI: staged view, Step 2 AND/OR radios with tips, selection order display, improved Why panel readability, and Scryfall attribution footer.
+- Builder: AND-mode creatures pre-pass with matched-themes reasons; spells prefer overlap in AND mode.
+- Headless: `tag_mode` supported from JSON/env and exported in interactive run-config JSON.
+- Docs: README, DOCKER, and Windows Docker guide updated; PowerShell-friendly examples.
+- Docker: compose `web` service added; volumes clarified.
 
 ### Tagging updates
-- Explore/Map: fixed a pattern issue by treating "+1/+1 counter" as a literal; Explore adds Card Selection and may add +1/+1 Counters; Map adds Card Selection and Tokens Matter.
+- Explore/Map: treat "+1/+1 counter" as a literal; Explore adds Card Selection and may add +1/+1 Counters; Map adds Card Selection and Tokens Matter.
 - Discard Matters theme and enrichments for Loot/Connive/Cycling/Blood.
-- Newer mechanics support: Freerunning, Craft, Spree, Rad counters; Time Travel/Vanishing folded into Exile/Time Counters mapping; Energy enriched.
+- Newer mechanics support: Freerunning, Craft, Spree, Rad counters; Time Travel/Vanishing folded into Exile/Time Counters; Energy enriched.
 - Spawn/Scion creators now map to Aristocrats and Ramp.
 
 ## Known Issues
 - First run downloads card data (takes a few minutes)
-- Use `docker compose run --rm` (not `up`) for interactive sessions
+- Use `docker compose run --rm` (not `up`) for interactive CLI sessions
 - Ensure volumes are mounted to persist files outside the container
 
 ## Links

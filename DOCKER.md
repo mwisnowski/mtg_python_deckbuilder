@@ -1,6 +1,6 @@
-# Docker Guide (concise)
+# Docker Guide
 
-Run the MTG Deckbuilder in Docker with persistent volumes and optional headless mode.
+Run the MTG Deckbuilder (CLI and Web UI) in Docker with persistent volumes and optional headless mode.
 
 ## Quick start
 
@@ -17,6 +17,10 @@ docker run -it --rm `
     -v "${PWD}/logs:/app/logs" `
     -v "${PWD}/csv_files:/app/csv_files" `
     -v "${PWD}/owned_cards:/app/owned_cards" `
+    -v "${PWD}/config:/app/config" `
+    mwisnowski/mtg-python-deckbuilder:latest
+```
+
 ## Web UI (new)
 
 The web UI runs the same deckbuilding logic behind a browser-based interface.
@@ -45,11 +49,6 @@ docker run --rm `
     bash -lc "cd /app && uvicorn code.web.app:app --host 0.0.0.0 --port 8080"
 ```
 
----
-    -v "${PWD}/config:/app/config" `
-    mwisnowski/mtg-python-deckbuilder:latest
-```
-
 ## Volumes
 - `/app/deck_files` ↔ `./deck_files`
 - `/app/logs` ↔ `./logs`
@@ -76,6 +75,7 @@ docker run --rm `
 - DECK_CONFIG=/app/config/deck.json
 - DECK_COMMANDER, DECK_PRIMARY_CHOICE
 - DECK_ADD_LANDS, DECK_FETCH_COUNT
+ - DECK_TAG_MODE=AND|OR (combine mode used by the builder)
 
 ## Manual build/run
 ```powershell
@@ -89,11 +89,11 @@ docker run -it --rm `
     mtg-deckbuilder
 ```
 
-    ## Troubleshooting
-    - No prompts? Use `docker compose run --rm` (not `up`) or add `-it` to `docker run`
-    - Files not saving? Verify volume mounts and that folders exist
-    - Headless not picking config? Ensure `./config` is mounted to `/app/config` and `DECK_CONFIG` points to a JSON file
-    - Owned-cards prompt not seeing files? Ensure `./owned_cards` is mounted to `/app/owned_cards`
+## Troubleshooting
+- No prompts? Use `docker compose run --rm` (not `up`) or add `-it` to `docker run`
+- Files not saving? Verify volume mounts and that folders exist
+- Headless not picking config? Ensure `./config` is mounted to `/app/config` and `DECK_CONFIG` points to a JSON file
+- Owned-cards prompt not seeing files? Ensure `./owned_cards` is mounted to `/app/owned_cards`
 
 ## Tips
 - Use `docker compose run`, not `up`, for interactive mode

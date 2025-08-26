@@ -3,7 +3,7 @@
 <h2>Build from JSON: {{ cfg_name }}</h2>
 <p class="muted" style="max-width: 70ch;">This page shows the results of a non-interactive build from the selected JSON configuration.</p>
 {% if commander %}
-<div class="muted">Commander: <strong data-card-name="{{ commander }}">{{ commander }}</strong>{% if tag_mode %} · Combine: <code>{{ tag_mode }}</code>{% endif %}</div>
+<div class="muted">Commander: <strong data-card-name="{{ commander }}">{{ commander }}</strong>{% if tag_mode %} · Combine: <code>{{ tag_mode }}</code>{% endif %}{% if use_owned_only %} · Owned-only{% endif %}</div>
 {% endif %}
 
 <div class="two-col two-col-left-rail">

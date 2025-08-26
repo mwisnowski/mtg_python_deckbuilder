@@ -85,13 +85,74 @@ class CreatureAdditionMixin:
             creature_df['_parsedThemeTags'] = creature_df['themeTags'].apply(bu.normalize_tag_cell)
         creature_df['_normTags'] = creature_df['_parsedThemeTags']
         creature_df['_multiMatch'] = creature_df['_normTags'].apply(lambda lst: sum(1 for t in selected_tags_lower if t in lst))
-        # In AND mode, prefer intersections: create a hard filter order 3 -> 2 -> 1 matches
         combine_mode = getattr(self, 'tag_mode', 'AND')
         base_top = 30
         top_n = int(base_top * getattr(bc, 'THEME_POOL_SIZE_MULTIPLIER', 2.0))
         synergy_bonus = getattr(bc, 'THEME_PRIORITY_BONUS', 1.2)
         total_added = 0
         added_names: List[str] = []
+        # AND pre-pass: pick creatures that hit all selected themes first (if 2+ themes)
+        all_theme_added: List[tuple[str, List[str]]] = []
+        if combine_mode == 'AND' and len(selected_tags_lower) >= 2:
+            all_cnt = len(selected_tags_lower)
+            pre_cap_ratio = getattr(bc, 'AND_ALL_THEME_CAP_RATIO', 0.6)
+            hard_cap = max(0, int(math.floor(desired_total * float(pre_cap_ratio))))
+            remaining_capacity = max(0, desired_total - total_added)
+            target_cap = min(hard_cap if hard_cap > 0 else remaining_capacity, remaining_capacity)
+            if target_cap > 0:
+                subset_all = creature_df[creature_df['_multiMatch'] >= all_cnt].copy()
+                subset_all = subset_all[~subset_all['name'].isin(added_names)]
+                if not subset_all.empty:
+                    if 'edhrecRank' in subset_all.columns:
+                        subset_all = subset_all.sort_values(by=['edhrecRank','manaValue'], ascending=[True, True], na_position='last')
+                    elif 'manaValue' in subset_all.columns:
+                        subset_all = subset_all.sort_values(by=['manaValue'], ascending=[True], na_position='last')
+                    # Bias owned names ahead before weighting
+                    if getattr(self, 'prefer_owned', False):
+                        owned_set = getattr(self, 'owned_card_names', None)
+                        if owned_set:
+                            subset_all = bu.prefer_owned_first(subset_all, {str(n).lower() for n in owned_set})
+                    weight_strong = getattr(bc, 'AND_ALL_THEME_WEIGHT', 1.7)
+                    owned_lower = {str(n).lower() for n in getattr(self, 'owned_card_names', set())} if getattr(self, 'prefer_owned', False) else set()
+                    owned_mult = getattr(bc, 'PREFER_OWNED_WEIGHT_MULTIPLIER', 1.25)
+                    weighted_pool = []
+                    for nm in subset_all['name'].tolist():
+                        w = weight_strong
+                        if owned_lower and str(nm).lower() in owned_lower:
+                            w *= owned_mult
+                        weighted_pool.append((nm, w))
+                    chosen_all = bu.weighted_sample_without_replacement(weighted_pool, target_cap)
+                    for nm in chosen_all:
+                        if commander_name and nm == commander_name:
+                            continue
+                        row = subset_all[subset_all['name'] == nm].iloc[0]
+                        # Which selected themes does this card hit?
+                        selected_display_tags = [t for _r, t in themes_ordered]
+                        norm_tags = row.get('_normTags', []) if isinstance(row.get('_normTags', []), list) else []
+                        try:
+                            hits = [t for t in selected_display_tags if str(t).lower() in norm_tags]
+                        except Exception:
+                            hits = selected_display_tags
+                        self.add_card(
+                            nm,
+                            card_type=row.get('type','Creature'),
+                            mana_cost=row.get('manaCost',''),
+                            mana_value=row.get('manaValue', row.get('cmc','')),
+                            creature_types=row.get('creatureTypes', []) if isinstance(row.get('creatureTypes', []), list) else [],
+                            tags=row.get('themeTags', []) if isinstance(row.get('themeTags', []), list) else [],
+                            role='creature',
+                            sub_role='all_theme',
+                            added_by='creature_all_theme',
+                            trigger_tag=", ".join(hits) if hits else None,
+                            synergy=int(row.get('_multiMatch', all_cnt)) if '_multiMatch' in row else all_cnt
+                        )
+                        added_names.append(nm)
+                        all_theme_added.append((nm, hits))
+                        total_added += 1
+                        if total_added >= desired_total:
+                            break
+                    self.output_func(f"All-Theme AND Pre-Pass: added {len(all_theme_added)} / {target_cap} (matching all {all_cnt} themes)")
+        # Per-theme distribution
         per_theme_added: Dict[str, List[str]] = {r: [] for r,_t in themes_ordered}
         for role, tag in themes_ordered:
             w = weights.get(role, 0.0)
@@ -107,7 +168,6 @@ class CreatureAdditionMixin:
             tnorm = tag.lower()
             subset = creature_df[creature_df['_normTags'].apply(lambda lst, tn=tnorm: (tn in lst) or any(tn in x for x in lst))]
             if combine_mode == 'AND' and len(selected_tags_lower) > 1:
-                # Constrain to multi-tag overlap first if available
                 if (creature_df['_multiMatch'] >= 2).any():
                     subset = subset[subset['_multiMatch'] >= 2]
             if subset.empty:
@@ -117,15 +177,30 @@ class CreatureAdditionMixin:
                 subset = subset.sort_values(by=['_multiMatch','edhrecRank','manaValue'], ascending=[False, True, True], na_position='last')
             elif 'manaValue' in subset.columns:
                 subset = subset.sort_values(by=['_multiMatch','manaValue'], ascending=[False, True], na_position='last')
+            if getattr(self, 'prefer_owned', False):
+                owned_set = getattr(self, 'owned_card_names', None)
+                if owned_set:
+                    subset = bu.prefer_owned_first(subset, {str(n).lower() for n in owned_set})
             pool = subset.head(top_n).copy()
             pool = pool[~pool['name'].isin(added_names)]
             if pool.empty:
                 continue
-            # In AND mode, boost weights more aggressively for 2+ tag matches
+            owned_lower = {str(n).lower() for n in getattr(self, 'owned_card_names', set())} if getattr(self, 'prefer_owned', False) else set()
+            owned_mult = getattr(bc, 'PREFER_OWNED_WEIGHT_MULTIPLIER', 1.25)
             if combine_mode == 'AND':
-                weighted_pool = [(nm, (synergy_bonus*1.3 if mm >= 2 else (1.1 if mm == 1 else 0.8))) for nm, mm in zip(pool['name'], pool['_multiMatch'])]
+                weighted_pool = []
+                for nm, mm in zip(pool['name'], pool['_multiMatch']):
+                    base_w = (synergy_bonus*1.3 if mm >= 2 else (1.1 if mm == 1 else 0.8))
+                    if owned_lower and str(nm).lower() in owned_lower:
+                        base_w *= owned_mult
+                    weighted_pool.append((nm, base_w))
             else:
-                weighted_pool = [(nm, (synergy_bonus if mm >= 2 else 1.0)) for nm, mm in zip(pool['name'], pool['_multiMatch'])]
+                weighted_pool = []
+                for nm, mm in zip(pool['name'], pool['_multiMatch']):
+                    base_w = (synergy_bonus if mm >= 2 else 1.0)
+                    if owned_lower and str(nm).lower() in owned_lower:
+                        base_w *= owned_mult
+                    weighted_pool.append((nm, base_w))
             chosen = bu.weighted_sample_without_replacement(weighted_pool, target)
             for nm in chosen:
                 if commander_name and nm == commander_name:
@@ -152,11 +227,11 @@ class CreatureAdditionMixin:
             self.output_func(f"Added {len(per_theme_added[role])} creatures for {role} theme '{tag}' (target {target}).")
             if total_added >= desired_total:
                 break
+        # Fill remaining if still short
         if total_added < desired_total:
             need = desired_total - total_added
             multi_pool = creature_df[~creature_df['name'].isin(added_names)].copy()
             if combine_mode == 'AND' and len(selected_tags_lower) > 1:
-                # First prefer 3+ then 2, finally 1
                 prioritized = multi_pool[multi_pool['_multiMatch'] >= 2]
                 if prioritized.empty:
                     prioritized = multi_pool[multi_pool['_multiMatch'] > 0]
@@ -168,6 +243,10 @@ class CreatureAdditionMixin:
                     multi_pool = multi_pool.sort_values(by=['_multiMatch','edhrecRank','manaValue'], ascending=[False, True, True], na_position='last')
                 elif 'manaValue' in multi_pool.columns:
                     multi_pool = multi_pool.sort_values(by=['_multiMatch','manaValue'], ascending=[False, True], na_position='last')
+                if getattr(self, 'prefer_owned', False):
+                    owned_set = getattr(self, 'owned_card_names', None)
+                    if owned_set:
+                        multi_pool = bu.prefer_owned_first(multi_pool, {str(n).lower() for n in owned_set})
                 fill = multi_pool['name'].tolist()[:need]
                 for nm in fill:
                     if commander_name and nm == commander_name:
@@ -190,7 +269,15 @@ class CreatureAdditionMixin:
                     if total_added >= desired_total:
                         break
                 self.output_func(f"Fill pass added {min(need, len(fill))} extra creatures (shortfall compensation).")
+        # Summary output
         self.output_func("\nCreatures Added:")
+        if all_theme_added:
+            self.output_func(f"  All-Theme overlap: {len(all_theme_added)}")
+            for nm, hits in all_theme_added:
+                if hits:
+                    self.output_func(f"    - {nm} (tags: {', '.join(hits)})")
+                else:
+                    self.output_func(f"    - {nm}")
         for role, tag in themes_ordered:
             lst = per_theme_added.get(role, [])
             if lst:
@@ -401,3 +488,73 @@ class CreatureAdditionMixin:
 
     def add_creatures_fill_phase(self):
         return self._add_creatures_fill()
+
+    def add_creatures_all_theme_phase(self):
+        """Staged pre-pass: when AND mode and 2+ tags, add creatures matching all selected themes first."""
+        combine_mode = getattr(self, 'tag_mode', 'AND')
+        tags = [t for t in [getattr(self, 'primary_tag', None), getattr(self, 'secondary_tag', None), getattr(self, 'tertiary_tag', None)] if t]
+        if combine_mode != 'AND' or len(tags) < 2:
+            return
+        desired_total = (self.ideal_counts.get('creatures') if getattr(self, 'ideal_counts', None) else None) or getattr(bc, 'DEFAULT_CREATURE_COUNT', 25)
+        current_added = self._creature_count_in_library()
+        remaining_capacity = max(0, desired_total - current_added)
+        if remaining_capacity <= 0:
+            return
+        creature_df = self._prepare_creature_pool()
+        if creature_df is None or creature_df.empty:
+            return
+        all_cnt = len(tags)
+        pre_cap_ratio = getattr(bc, 'AND_ALL_THEME_CAP_RATIO', 0.6)
+        hard_cap = max(0, int(math.floor(desired_total * float(pre_cap_ratio))))
+        target_cap = min(hard_cap if hard_cap > 0 else remaining_capacity, remaining_capacity)
+        subset_all = creature_df[creature_df['_multiMatch'] >= all_cnt].copy()
+        existing_names = set(getattr(self, 'card_library', {}).keys())
+        subset_all = subset_all[~subset_all['name'].isin(existing_names)]
+        if subset_all.empty or target_cap <= 0:
+            return
+        if 'edhrecRank' in subset_all.columns:
+            subset_all = subset_all.sort_values(by=['edhrecRank','manaValue'], ascending=[True, True], na_position='last')
+        elif 'manaValue' in subset_all.columns:
+            subset_all = subset_all.sort_values(by=['manaValue'], ascending=[True], na_position='last')
+        if getattr(self, 'prefer_owned', False):
+            owned_set = getattr(self, 'owned_card_names', None)
+            if owned_set:
+                subset_all = bu.prefer_owned_first(subset_all, {str(n).lower() for n in owned_set})
+        weight_strong = getattr(bc, 'AND_ALL_THEME_WEIGHT', 1.7)
+        owned_lower = {str(n).lower() for n in getattr(self, 'owned_card_names', set())} if getattr(self, 'prefer_owned', False) else set()
+        owned_mult = getattr(bc, 'PREFER_OWNED_WEIGHT_MULTIPLIER', 1.25)
+        weighted_pool = []
+        for nm in subset_all['name'].tolist():
+            w = weight_strong
+            if owned_lower and str(nm).lower() in owned_lower:
+                w *= owned_mult
+            weighted_pool.append((nm, w))
+        chosen_all = bu.weighted_sample_without_replacement(weighted_pool, target_cap)
+        added = 0
+        for nm in chosen_all:
+            row = subset_all[subset_all['name'] == nm].iloc[0]
+            # Determine which selected themes this card hits for display
+            norm_tags = row.get('_normTags', []) if isinstance(row.get('_normTags', []), list) else []
+            hits: List[str] = []
+            try:
+                hits = [t for t in tags if str(t).lower() in norm_tags]
+            except Exception:
+                hits = list(tags)
+            self.add_card(
+                nm,
+                card_type=row.get('type','Creature'),
+                mana_cost=row.get('manaCost',''),
+                mana_value=row.get('manaValue', row.get('cmc','')),
+                creature_types=row.get('creatureTypes', []) if isinstance(row.get('creatureTypes', []), list) else [],
+                tags=row.get('themeTags', []) if isinstance(row.get('themeTags', []), list) else [],
+                role='creature',
+                sub_role='all_theme',
+                added_by='creature_all_theme',
+                trigger_tag=", ".join(hits) if hits else None,
+                synergy=int(row.get('_multiMatch', all_cnt)) if '_multiMatch' in row else all_cnt
+            )
+            added += 1
+            if added >= target_cap:
+                break
+        if added:
+            self.output_func(f"All-Theme AND Pre-Pass: added {added}/{target_cap} creatures (matching all {all_cnt} themes)")

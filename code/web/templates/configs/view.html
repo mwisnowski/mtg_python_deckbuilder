@@ -15,8 +15,12 @@
   <summary>Ideal Counts</summary>
   <pre style="background:#0f1115; border:1px solid var(--border); padding:.75rem; border-radius:8px;">{{ data.ideal_counts | tojson(indent=2) }}</pre>
 </details>
-<form method="post" action="/configs/run" style="margin-top:1rem;">
+<form method="post" action="/configs/run" style="margin-top:1rem; display:flex; align-items:center; gap:.75rem; flex-wrap:wrap;">
   <input type="hidden" name="name" value="{{ name }}" />
+  <label style="display:flex; align-items:center; gap:.35rem;">
+    <input type="checkbox" name="use_owned_only" value="1" />
+    Use only owned cards
+  </label>
   <button type="submit">Run Headless</button>
   <button type="submit" formaction="/configs" formmethod="get" class="btn" style="margin-left:.5rem;">Back</button>
 </form>

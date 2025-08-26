@@ -309,6 +309,8 @@ class DeckBuilder(
     use_owned_only: bool = False
     owned_card_names: set[str] = field(default_factory=set)
     owned_files_selected: List[str] = field(default_factory=list)
+    # Soft preference: bias selection toward owned names without excluding others
+    prefer_owned: bool = False
 
     # Deck library (cards added so far) mapping name->record
     card_library: Dict[str, Dict[str, Any]] = field(default_factory=dict)
@@ -986,6 +988,7 @@ class DeckBuilder(
                     self.output_func("Owned-only mode: no recognizable name column to filter on; skipping filter.")
             except Exception as _e:
                 self.output_func(f"Owned-only mode: failed to filter combined pool: {_e}")
+    # Soft prefer-owned does not filter the pool; biasing is applied later at selection time
         self._combined_cards_df = combined
         # Preserve original snapshot for enrichment across subsequent removals
         if self._full_cards_df is None:

@@ -631,7 +631,7 @@ def _ensure_setup_ready(out, force: bool = False) -> None:
         _write_status({"running": False, "phase": "error", "message": "Setup check failed"})
 
 
-def run_build(commander: str, tags: List[str], bracket: int, ideals: Dict[str, int], tag_mode: str | None = None) -> Dict[str, Any]:
+def run_build(commander: str, tags: List[str], bracket: int, ideals: Dict[str, int], tag_mode: str | None = None, *, use_owned_only: bool | None = None, prefer_owned: bool | None = None, owned_names: List[str] | None = None) -> Dict[str, Any]:
     """Run the deck build end-to-end with provided selections and capture logs.
 
     Returns: { ok: bool, log: str, csv_path: Optional[str], txt_path: Optional[str], error: Optional[str] }
@@ -683,6 +683,27 @@ def run_build(commander: str, tags: List[str], bracket: int, ideals: Dict[str, i
             b.tag_mode = (str(tag_mode).upper() if tag_mode else b.tag_mode)
             if b.tag_mode not in ('AND','OR'):
                 b.tag_mode = 'AND'
+        except Exception:
+            pass
+
+        # Owned/Prefer-owned integration (optional for headless runs)
+        try:
+            if use_owned_only:
+                b.use_owned_only = True  # type: ignore[attr-defined]
+                # Prefer explicit owned_names list if provided; else let builder discover from files
+                if owned_names:
+                    try:
+                        b.owned_card_names = set(str(n).strip() for n in owned_names if str(n).strip())  # type: ignore[attr-defined]
+                    except Exception:
+                        b.owned_card_names = set()  # type: ignore[attr-defined]
+            # Soft preference flag does not filter; only biases selection order
+            if prefer_owned:
+                try:
+                    b.prefer_owned = True  # type: ignore[attr-defined]
+                    if owned_names and not getattr(b, 'owned_card_names', None):
+                        b.owned_card_names = set(str(n).strip() for n in owned_names if str(n).strip())  # type: ignore[attr-defined]
+                except Exception:
+                    pass
         except Exception:
             pass
 
@@ -784,6 +805,14 @@ def _make_stages(b: DeckBuilder) -> List[Dict[str, Any]]:
         if callable(fn):
             stages.append({"key": f"land{i}", "label": f"Lands (Step {i})", "runner_name": f"run_land_step{i}"})
     # Creatures split into theme sub-stages for web confirm
+    # AND-mode pre-pass: add cards that match ALL selected themes first
+    try:
+        combine_mode = getattr(b, 'tag_mode', 'AND')
+    except Exception:
+        combine_mode = 'AND'
+    has_two_tags = bool(getattr(b, 'primary_tag', None) and getattr(b, 'secondary_tag', None))
+    if combine_mode == 'AND' and has_two_tags and hasattr(b, 'add_creatures_all_theme_phase'):
+        stages.append({"key": "creatures_all_theme", "label": "Creatures: All-Theme", "runner_name": "add_creatures_all_theme_phase"})
     if getattr(b, 'primary_tag', None) and hasattr(b, 'add_creatures_primary_phase'):
         stages.append({"key": "creatures_primary", "label": "Creatures: Primary", "runner_name": "add_creatures_primary_phase"})
     if getattr(b, 'secondary_tag', None) and hasattr(b, 'add_creatures_secondary_phase'):
@@ -822,7 +851,17 @@ def _make_stages(b: DeckBuilder) -> List[Dict[str, Any]]:
     return stages
 
 
-def start_build_ctx(commander: str, tags: List[str], bracket: int, ideals: Dict[str, int], tag_mode: str | None = None) -> Dict[str, Any]:
+def start_build_ctx(
+    commander: str,
+    tags: List[str],
+    bracket: int,
+    ideals: Dict[str, int],
+    tag_mode: str | None = None,
+    *,
+    use_owned_only: bool | None = None,
+    prefer_owned: bool | None = None,
+    owned_names: List[str] | None = None,
+) -> Dict[str, Any]:
     logs: List[str] = []
 
     def out(msg: str) -> None:
@@ -862,6 +901,25 @@ def start_build_ctx(commander: str, tags: List[str], bracket: int, ideals: Dict[
         b.tag_mode = (str(tag_mode).upper() if tag_mode else b.tag_mode)
         if b.tag_mode not in ('AND','OR'):
             b.tag_mode = 'AND'
+    except Exception:
+        pass
+
+    # Owned-only / prefer-owned (if requested)
+    try:
+        if use_owned_only:
+            b.use_owned_only = True  # type: ignore[attr-defined]
+            if owned_names:
+                try:
+                    b.owned_card_names = set(str(n).strip() for n in owned_names if str(n).strip())  # type: ignore[attr-defined]
+                except Exception:
+                    b.owned_card_names = set()  # type: ignore[attr-defined]
+        if prefer_owned:
+            try:
+                b.prefer_owned = True  # type: ignore[attr-defined]
+                if owned_names and not getattr(b, 'owned_card_names', None):
+                    b.owned_card_names = set(str(n).strip() for n in owned_names if str(n).strip())  # type: ignore[attr-defined]
+            except Exception:
+                pass
     except Exception:
         pass
 
@@ -926,7 +984,7 @@ def _restore_builder(b: DeckBuilder, snap: Dict[str, Any]) -> None:
     b._spell_pip_cache_dirty = bool(snap.get("_spell_pip_cache_dirty", True))
 
 
-def run_stage(ctx: Dict[str, Any], rerun: bool = False) -> Dict[str, Any]:
+def run_stage(ctx: Dict[str, Any], rerun: bool = False, show_skipped: bool = False) -> Dict[str, Any]:
     b: DeckBuilder = ctx["builder"]
     stages: List[Dict[str, Any]] = ctx["stages"]
     logs: List[str] = ctx["logs"]
@@ -1071,7 +1129,22 @@ def run_stage(ctx: Dict[str, Any], rerun: bool = False) -> Dict[str, Any]:
                 "total": len(stages),
             }
 
-        # No cards added: skip showing this stage and advance to next
+        # No cards added: either skip or surface as a 'skipped' stage
+        if show_skipped:
+            ctx["snapshot"] = snap_before
+            ctx["idx"] = i + 1
+            ctx["last_visible_idx"] = i + 1
+            return {
+                "done": False,
+                "label": label,
+                "log_delta": delta_log,
+                "added_cards": [],
+                "skipped": True,
+                "idx": i + 1,
+                "total": len(stages),
+            }
+
+        # No cards added and not showing skipped: advance to next
         i += 1
         # Continue loop to auto-advance
 

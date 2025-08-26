@@ -158,6 +158,7 @@ __all__ = [
 	'compute_spell_pip_weights',
 	'parse_theme_tags',
 	'normalize_theme_list',
+	'prefer_owned_first',
 	'compute_adjusted_target',
 	'normalize_tag_cell',
 	'sort_by_priority',
@@ -416,6 +417,32 @@ def sort_by_priority(df, columns: list[str]):
 	if not present:
 		return df
 	return df.sort_values(by=present, ascending=[True]*len(present), na_position='last')
+
+
+def prefer_owned_first(df, owned_names_lower: set[str], name_col: str = 'name'):
+	"""Stable-reorder DataFrame to put owned names first while preserving prior sort.
+
+	- Adds a temporary column to flag ownership, sorts by it desc with mergesort, then drops it.
+	- If the name column is missing or owned_names_lower empty, returns df unchanged.
+	"""
+	try:
+		if df is None or getattr(df, 'empty', True):
+			return df
+		if not owned_names_lower:
+			return df
+		if name_col not in df.columns:
+			return df
+		tmp_col = '_ownedPref'
+		# Avoid clobbering if already present
+		while tmp_col in df.columns:
+			tmp_col = tmp_col + '_x'
+		ser = df[name_col].astype(str).str.lower().isin(owned_names_lower).astype(int)
+		df = df.assign(**{tmp_col: ser})
+		df = df.sort_values(by=[tmp_col], ascending=[False], kind='mergesort')
+		df = df.drop(columns=[tmp_col])
+		return df
+	except Exception:
+		return df
 
 
 # ---------------------------------------------------------------------------

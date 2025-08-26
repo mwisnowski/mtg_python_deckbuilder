@@ -13,6 +13,10 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 ## [Unreleased]
 
 ### Added
+- Web UI: FastAPI + Jinja front-end for the builder; staged build view with per-stage reasons
+- Theme combine mode (AND/OR) with tooltips and selection-order display in the Web UI
+- AND-mode creatures pre-pass: select "all selected themes" creatures first, then fill by weighted overlap; staged reasons show matched themes
+- Scryfall attribution footer in the Web UI
 - Owned-cards workflow:
   - Prompt (only if lists exist) to "Use only owned cards?"
   - Support multiple file selection; parse `.txt` (1 per line) and `.csv` (any `name` column)
@@ -27,6 +31,8 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
   - New volume mounts: `./owned_cards:/app/owned_cards` and `./config:/app/config`
   - Compose and helper scripts updated accordingly
 - Release notes source is `RELEASE_NOTES_TEMPLATE.md`; `RELEASE_NOTES.md` ignored
+- README/DOCKER/WINDOWS_DOCKER_GUIDE updated for Web UI, headless examples, and PowerShell-friendly commands
+- Headless: tag_mode (AND/OR) accepted from JSON and environment and exported in interactive run-config JSON
 
 ### Fixed
 - Docker Hub workflow no longer publishes a `major.minor` tag (e.g., `1.1`); only full semver (e.g., `1.2.3`) and `latest`

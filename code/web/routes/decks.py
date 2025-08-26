@@ -8,6 +8,7 @@ import os
 from typing import Dict, List, Tuple
 
 from ..app import templates
+from ..services import owned_store
 from deck_builder import builder_constants as bc
 
 
@@ -263,5 +264,6 @@ async def decks_view(request: Request, name: str) -> HTMLResponse:
         "commander": commander_name,
         "tags": tags,
     "game_changers": bc.GAME_CHANGERS,
+    "owned_set": {n.lower() for n in owned_store.get_names()},
     }
     return templates.TemplateResponse("decks/view.html", ctx)

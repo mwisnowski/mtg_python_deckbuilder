@@ -16,18 +16,20 @@
     <option value="name-asc">Commander A–Z</option>
     <option value="name-desc">Commander Z–A</option>
   </select>
+  <select id="deck-theme" aria-label="Theme">
+    <option value="">All Themes</option>
+  </select>
   <label for="deck-txt-only" style="display:flex; align-items:center; gap:.25rem;">
     <input type="checkbox" id="deck-txt-only" /> TXT only
   </label>
   <button id="deck-clear" type="button" title="Clear filters">Clear</button>
   <button id="deck-share" type="button" title="Copy a shareable link">Share</button>
-  <button id="deck-reset-all" type="button" title="Reset filter, sort, and tags">Reset all</button>
+  <button id="deck-reset-all" type="button" title="Reset filter, sort, and theme">Reset all</button>
   <button id="deck-help" type="button" title="Keyboard shortcuts and tips" aria-haspopup="dialog" aria-controls="deck-help-modal">Help</button>
   <span id="deck-count" class="muted" aria-live="polite"></span>
   <span id="deck-live" class="sr-only" aria-live="polite" role="status"></span>
 </div>
-<div id="tag-label" class="muted" style="font-size:12px; margin:.15rem 0 .25rem 0;">Theme filters</div>
-<div id="tag-chips" aria-labelledby="tag-label" style="display:flex; gap:.25rem; flex-wrap:wrap; margin:.25rem 0 .75rem 0;"></div>
+
 
 {% if items %}
   <div id="deck-list" role="list" aria-labelledby="decks-heading" style="list-style:none; padding:0; margin:0; display:block;">
@@ -82,7 +84,7 @@
           <li><kbd>Enter</kbd>/<kbd>Space</kbd> opens a focused deck; <kbd>Ctrl</kbd>/<kbd>Shift</kbd>+<kbd>Enter</kbd> opens in a new tab</li>
           <li><kbd>Arrow ↑/↓</kbd>, <kbd>Home</kbd>, <kbd>End</kbd> navigate rows</li>
           <li><kbd>Esc</kbd> clears the filter (when focused)</li>
-          <li><kbd>R</kbd> resets all filters, sort, and tags</li>
+          <li><kbd>R</kbd> resets all filters, sort, and theme</li>
           <li>Use “TXT only” to show only decks that have a TXT export</li>
           <li>Share copies a link with your current filters</li>
         </ul>
@@ -97,9 +99,9 @@
   (function(){
     var input = document.getElementById('deck-filter');
     var sortSel = document.getElementById('deck-sort');
+    var themeSel = document.getElementById('deck-theme');
     var clearBtn = document.getElementById('deck-clear');
     var list = document.getElementById('deck-list');
-    var chips = document.getElementById('tag-chips');
     var countEl = document.getElementById('deck-count');
   var shareBtn = document.getElementById('deck-share');
   var resetAllBtn = document.getElementById('deck-reset-all');
@@ -112,15 +114,30 @@
   var txtOnlyCb = document.getElementById('deck-txt-only');
     if (!list) return;
 
-    // Build tag chips from data-tags-pipe
-    var tagSet = new Set();
+    // Panels and themes discovery from data-tags-pipe
   var panels = Array.prototype.slice.call(list.querySelectorAll('.panel'));
   function refreshPanels(){ panels = Array.prototype.slice.call(list.querySelectorAll('.panel')); }
-    panels.forEach(function(p){
-      var raw = p.dataset.tagsPipe || '';
-      raw.split('|').forEach(function(t){ if (t && t.trim()) tagSet.add(t.trim()); });
+  var themeSet = new Set();
+  panels.forEach(function(p){
+    var raw = p.dataset.tagsPipe || '';
+    raw.split('|').forEach(function(t){ t = (t||'').trim(); if (t) themeSet.add(t); });
   });
-  var activeTags = new Set();
+  // Populate theme dropdown
+  if (themeSel) {
+    // Preserve current selection if any
+    var prev = themeSel.value || '';
+    // Reset to default option
+    themeSel.innerHTML = '<option value="">All Themes</option>';
+    Array.from(themeSet).sort(function(a,b){ return a.localeCompare(b); }).forEach(function(t){
+      var opt = document.createElement('option');
+      opt.value = t; opt.textContent = t; themeSel.appendChild(opt);
+    });
+    if (prev) {
+      // Re-apply previous selection if it exists
+      var has = Array.prototype.some.call(themeSel.options, function(o){ return o.value === prev; });
+      if (has) themeSel.value = prev;
+    }
+  }
 
     // URL hash <-> state sync helpers
   function parseHash(){
@@ -130,22 +147,24 @@
         var qp = new URLSearchParams(h);
         var q = qp.get('q') || '';
         var sort = qp.get('sort') || '';
+        var tag = qp.get('tag') || '';
         var tagsStr = qp.get('tags') || '';
-    var tags = tagsStr ? tagsStr.split(',').filter(Boolean).map(function(s){ return decodeURIComponent(s); }) : [];
+        var tags = tagsStr ? tagsStr.split(',').filter(Boolean).map(function(s){ return decodeURIComponent(s); }) : [];
+        if (!tag && tags.length) { tag = tags[0]; }
     var txt = qp.get('txt');
     var txtOnly = (txt === '1' || txt === 'true');
-    return { q: q, sort: sort, tags: tags, txt: txtOnly };
+    return { q: q, sort: sort, tag: tag, txt: txtOnly };
       } catch(_) { return null; }
     }
   function updateHashFromState(){
       try {
         var q = (input && input.value) ? input.value.trim() : '';
         var sort = (sortSel && sortSel.value) ? sortSel.value : 'newest';
-        var tags = Array.from(activeTags);
+        var tag = (themeSel && themeSel.value) ? themeSel.value : '';
         var qp = new URLSearchParams();
         if (q) qp.set('q', q);
         if (sort && sort !== 'newest') qp.set('sort', sort);
-        if (tags.length) qp.set('tags', tags.map(function(s){ return encodeURIComponent(s); }).join(','));
+        if (tag) qp.set('tag', tag);
     if (txtOnlyCb && txtOnlyCb.checked) qp.set('txt', '1');
         var newHash = qp.toString();
         var base = location.pathname + location.search;
@@ -161,44 +180,15 @@
       var changed = false;
       if (typeof s.q === 'string' && input && input.value !== s.q) { input.value = s.q; changed = true; }
       if (s.sort && sortSel && sortSel.value !== s.sort) { sortSel.value = s.sort; changed = true; }
-      if (Array.isArray(s.tags)) { activeTags = new Set(s.tags); changed = true; }
+      if (typeof s.tag === 'string' && themeSel) {
+        // If the tag isn't present in options, add it for back-compat
+        var exists = Array.prototype.some.call(themeSel.options, function(o){ return o.value === s.tag; });
+        if (s.tag && !exists) { var opt = document.createElement('option'); opt.value = s.tag; opt.textContent = s.tag; themeSel.appendChild(opt); }
+        themeSel.value = s.tag; changed = true;
+      }
       if (typeof s.txt === 'boolean' && txtOnlyCb) { txtOnlyCb.checked = s.txt; changed = true; }
-      renderChips();
       applyAll();
       return changed;
-    }
-    function renderChips(){
-      if (!chips) return;
-      chips.innerHTML = '';
-      Array.from(tagSet).sort(function(a,b){ return a.localeCompare(b); }).forEach(function(t){
-        var btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'chip chip-filter' + (activeTags.has(t) ? ' active' : '');
-        btn.textContent = t;
-        btn.setAttribute('aria-pressed', activeTags.has(t) ? 'true' : 'false');
-        btn.addEventListener('click', function(){
-          if (activeTags.has(t)) activeTags.delete(t); else activeTags.add(t);
-          renderChips();
-          applyAll();
-        });
-        chips.appendChild(btn);
-      });
-      // Reset tags control appears only when any tags are active
-      if (activeTags.size > 0) {
-        var reset = document.createElement('button');
-        reset.type = 'button';
-        reset.id = 'reset-tags';
-        reset.className = 'chip';
-        reset.textContent = 'Reset tags';
-        reset.title = 'Clear selected theme tags';
-        reset.addEventListener('click', function(){
-          activeTags.clear();
-          renderChips();
-          applyAll();
-          if (liveEl) liveEl.textContent = 'Theme tags cleared';
-        });
-        chips.appendChild(reset);
-      }
     }
 
     function updateCount(){
@@ -218,13 +208,13 @@
 
   function applyFilter(){
       var q = (input && input.value || '').toLowerCase();
+      var selTag = (themeSel && themeSel.value) ? themeSel.value : '';
       panels.forEach(function(row){
         var hay = (row.dataset.name + ' ' + row.dataset.commander + ' ' + (row.dataset.tags||'')).toLowerCase();
         var textMatch = hay.indexOf(q) >= 0;
         var tagsPipe = row.dataset.tagsPipe || '';
         var tags = tagsPipe ? tagsPipe.split('|').filter(Boolean) : [];
-        var tagMatch = true;
-        activeTags.forEach(function(t){ if (tags.indexOf(t) === -1) tagMatch = false; });
+        var tagMatch = selTag ? (tags.indexOf(selTag) !== -1) : true;
     var txtOk = true;
     try { if (txtOnlyCb && txtOnlyCb.checked) { txtOk = (row.dataset.txt === '1'); } } catch(_){ }
     row.style.display = (textMatch && tagMatch && txtOk) ? '' : 'none';
@@ -312,7 +302,7 @@
       try {
         if (input) localStorage.setItem('decks-filter', input.value || '');
         if (sortSel) localStorage.setItem('decks-sort', sortSel.value || 'newest');
-        localStorage.setItem('decks-tags', JSON.stringify(Array.from(activeTags)));
+  if (themeSel) localStorage.setItem('decks-theme', themeSel.value || '');
         if (txtOnlyCb) localStorage.setItem('decks-txt', txtOnlyCb.checked ? '1' : '0');
       } catch(_){ }
       // Update URL hash for shareable state
@@ -332,13 +322,13 @@
   var debouncedApply = debounce(applyAll, 150);
   if (input) input.addEventListener('input', debouncedApply);
   if (sortSel) sortSel.addEventListener('change', applyAll);
+  if (themeSel) themeSel.addEventListener('change', applyAll);
   if (txtOnlyCb) txtOnlyCb.addEventListener('change', applyAll);
     if (clearBtn) clearBtn.addEventListener('click', function(){
       if (input) input.value = '';
-      activeTags.clear();
+      if (themeSel) themeSel.value = '';
       if (sortSel) sortSel.value = 'newest';
       if (txtOnlyCb) txtOnlyCb.checked = false;
-      renderChips();
       applyAll();
     });
 
@@ -348,19 +338,18 @@
         if (input) input.value = '';
         if (sortSel) sortSel.value = 'newest';
     if (txtOnlyCb) txtOnlyCb.checked = false;
-        activeTags.clear();
-        renderChips();
+        if (themeSel) themeSel.value = '';
         // Clear persistence
         localStorage.removeItem('decks-filter');
         localStorage.removeItem('decks-sort');
-        localStorage.removeItem('decks-tags');
+        localStorage.removeItem('decks-theme');
     localStorage.removeItem('decks-txt');
         // Clear URL hash
         var base = location.pathname + location.search;
         history.replaceState(null, '', base);
       } catch(_){ }
       applyAll();
-      if (liveEl) liveEl.textContent = 'Filters, sort, and tags reset';
+      if (liveEl) liveEl.textContent = 'Filters, sort, and theme reset';
     });
 
   if (shareBtn) shareBtn.addEventListener('click', function(){
@@ -385,7 +374,6 @@
     var hadHash = false;
     try { hadHash = !!((location.hash || '').replace(/^#/, '')); } catch(_){ }
   if (hadHash) {
-      renderChips();
       if (!applyStateFromHash()) { applyAll(); }
     } else {
       // Load persisted state
@@ -394,11 +382,26 @@
         if (input) input.value = savedFilter;
         var savedSort = localStorage.getItem('decks-sort') || 'newest';
         if (sortSel) sortSel.value = savedSort;
-        var savedTags = JSON.parse(localStorage.getItem('decks-tags') || '[]');
-        if (Array.isArray(savedTags)) savedTags.forEach(function(t){ activeTags.add(t); });
+        var savedTheme = localStorage.getItem('decks-theme') || '';
+        if (themeSel && savedTheme) {
+          var exists = Array.prototype.some.call(themeSel.options, function(o){ return o.value === savedTheme; });
+          if (!exists) { var opt = document.createElement('option'); opt.value = savedTheme; opt.textContent = savedTheme; themeSel.appendChild(opt); }
+          themeSel.value = savedTheme;
+        }
+        // Back-compat: if no savedTheme, try first of old saved tags
+        if (themeSel && !savedTheme) {
+          try {
+            var oldTags = JSON.parse(localStorage.getItem('decks-tags') || '[]');
+            if (Array.isArray(oldTags) && oldTags.length > 0) {
+              var ot = oldTags[0];
+              var ex2 = Array.prototype.some.call(themeSel.options, function(o){ return o.value === ot; });
+              if (!ex2) { var o2 = document.createElement('option'); o2.value = ot; o2.textContent = ot; themeSel.appendChild(o2); }
+              themeSel.value = ot;
+            }
+          } catch(_e){}
+        }
     if (txtOnlyCb) txtOnlyCb.checked = (localStorage.getItem('decks-txt') === '1');
       } catch(_){ }
-      renderChips();
       applyAll();
     }
 
@@ -544,8 +547,6 @@
   })();
   </script>
 <style>
-  .chip-filter { cursor:pointer; user-select:none; }
-  .chip-filter.active { background:#2563eb; color:#fff; border-color:#1d4ed8; }
   .sr-only{ position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
   mark { background: rgba(251, 191, 36, .35); color: inherit; padding:0 .1rem; border-radius:2px; }
   #deck-list[role="list"] .panel[role="listitem"] { outline: none; }

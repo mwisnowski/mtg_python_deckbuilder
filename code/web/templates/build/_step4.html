@@ -14,6 +14,17 @@
 					<li>{{ label }}: <strong>{{ values[key] }}</strong></li>
 				{% endfor %}
 			</ul>
+			<form hx-post="/build/toggle-owned-review" hx-target="#wizard" hx-swap="innerHTML" style="margin:.5rem 0; display:flex; align-items:center; gap:1rem; flex-wrap:wrap;">
+				<label style="display:flex; align-items:center; gap:.35rem;">
+					<input type="checkbox" name="use_owned_only" value="1" {% if owned_only %}checked{% endif %} onchange="this.form.requestSubmit();" />
+					Use only owned cards
+				</label>
+				<label style="display:flex; align-items:center; gap:.35rem;">
+					<input type="checkbox" name="prefer_owned" value="1" {% if prefer_owned %}checked{% endif %} onchange="this.form.requestSubmit();" />
+					Prefer owned cards (allow unowned fallback)
+				</label>
+				<a href="/owned" target="_blank" rel="noopener" class="muted">Manage Owned Library</a>
+			</form>
 							<div style="margin-top:1rem; display:flex; gap:.5rem;">
 								<form action="/build/step5/start" method="post" hx-post="/build/step5/start" hx-target="#wizard" hx-swap="innerHTML" style="display:inline; margin:0;">
 									<button type="submit">Build Deck</button>

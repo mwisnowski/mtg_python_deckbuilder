@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>MTG Deckbuilder</title>
     <script src="https://unpkg.com/htmx.org@1.9.12" onerror="var s=document.createElement('script');s.src='/static/vendor/htmx-1.9.12.min.js';document.head.appendChild(s);"></script>
-  <link rel="stylesheet" href="/static/styles.css?v=20250826-1" />
+  <link rel="stylesheet" href="/static/styles.css?v=20250826-3" />
   </head>
   <body>
     <header class="top-banner">
@@ -30,6 +30,7 @@
           <a href="/build">Build</a>
           <a href="/configs">Build from JSON</a>
           {% if show_setup %}<a href="/setup">Setup/Tag</a>{% endif %}
+          <a href="/owned">Owned Library</a>
           <a href="/decks">Finished Decks</a>
           {% if show_logs %}<a href="/logs">Logs</a>{% endif %}
         </nav>

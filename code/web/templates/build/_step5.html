@@ -27,6 +27,14 @@
 
       <p>Commander: <strong>{{ commander }}</strong></p>
       <p>Tags: {{ tags|default([])|join(', ') }}</p>
+      <div style="margin:.35rem 0; color: var(--muted); display:flex; gap:.5rem; align-items:center; flex-wrap:wrap;">
+        <span>Owned-only: <strong>{{ 'On' if owned_only else 'Off' }}</strong></span>
+          <div style="display:flex;align-items:center;gap:1rem;">
+            <button type="button" hx-get="/build/step4" hx-target="#wizard" hx-swap="innerHTML" style="background:#374151; color:#e5e7eb; border:none; border-radius:6px; padding:.25rem .5rem; cursor:pointer; font-size:12px;" title="Change owned settings in Review">Edit in Review</button>
+            <div>Prefer-owned: <strong>{{ 'On' if prefer_owned else 'Off' }}</strong></div>
+          </div>
+        <span style="margin-left:auto;"><a href="/owned" target="_blank" rel="noopener" class="muted">Manage Owned Library</a></span>
+      </div>
       <p>Bracket: {{ bracket }}</p>
 
       {% if i and n %}
@@ -41,20 +49,36 @@
 
       <!-- Controls moved back above the cards as requested -->
       <div style="margin-top:1rem; display:flex; gap:.5rem; flex-wrap:wrap; align-items:center;">
-        <form hx-post="/build/step5/start" hx-target="#wizard" hx-swap="innerHTML" style="display:inline; margin-right:.5rem;">
+        <form hx-post="/build/step5/start" hx-target="#wizard" hx-swap="innerHTML" style="display:inline; margin-right:.5rem; display:flex; align-items:center; gap:.5rem;">
+          <input type="hidden" name="show_skipped" value="{{ '1' if show_skipped else '0' }}" />
           <button type="submit">Start Build</button>
         </form>
-        <form hx-post="/build/step5/continue" hx-target="#wizard" hx-swap="innerHTML" style="display:inline;">
+        <form hx-post="/build/step5/continue" hx-target="#wizard" hx-swap="innerHTML" style="display:inline; display:flex; align-items:center; gap:.5rem;">
+          <input type="hidden" name="show_skipped" value="{{ '1' if show_skipped else '0' }}" />
           <button type="submit" {% if status and status.startswith('Build complete') %}disabled{% endif %}>Continue</button>
         </form>
-        <form hx-post="/build/step5/rerun" hx-target="#wizard" hx-swap="innerHTML" style="display:inline;">
+        <form hx-post="/build/step5/rerun" hx-target="#wizard" hx-swap="innerHTML" style="display:inline; display:flex; align-items:center; gap:.5rem;">
+          <input type="hidden" name="show_skipped" value="{{ '1' if show_skipped else '0' }}" />
           <button type="submit" {% if status and status.startswith('Build complete') %}disabled{% endif %}>Rerun Stage</button>
         </form>
+        <label class="muted" style="display:flex; align-items:center; gap:.35rem; margin-left: .5rem;">
+          <input type="checkbox" name="__toggle_show_skipped" {% if show_skipped %}checked{% endif %}
+                 onchange="const val=this.checked?'1':'0'; for(const f of this.closest('section').querySelectorAll('form')){ const h=f.querySelector('input[name=show_skipped]'); if(h) h.value=val; }" />
+          Show skipped stages
+        </label>
         <button type="button" hx-get="/build/step4" hx-target="#wizard" hx-swap="innerHTML">Back</button>
       </div>
 
-      {% if added_cards %}
+      {% if added_cards is not none %}
       <h4 style="margin-top:1rem;">Cards added this stage</h4>
+      {% if skipped and (not added_cards or added_cards|length == 0) %}
+        <div class="muted" style="margin:.25rem 0 .5rem 0;">No cards added in this stage.</div>
+      {% endif %}
+      <div class="muted" style="font-size:12px; margin:.15rem 0 .4rem 0; display:flex; gap:.75rem; align-items:center; flex-wrap:wrap;">
+        <span><span style="display:inline-block; border:1px solid var(--border); background:rgba(17,24,39,.9); color:#e5e7eb; border-radius:12px; font-size:12px; line-height:18px; height:18px; min-width:18px; padding:0 6px; text-align:center;">✔</span> Owned</span>
+        <span><span style="display:inline-block; border:1px solid var(--border); background:rgba(17,24,39,.9); color:#e5e7eb; border-radius:12px; font-size:12px; line-height:18px; height:18px; min-width:18px; padding:0 6px; text-align:center;">✖</span> Not owned</span>
+      </div>
+      
   {% if stage_label and stage_label.startswith('Creatures') %}
         {% set groups = added_cards|groupby('sub_role') %}
         {% for g in groups %}
@@ -67,10 +91,12 @@
           <h5 style="margin:.5rem 0 .25rem 0;">{{ heading }}</h5>
           <div class="card-grid">
             {% for c in g.list %}
+            {% set owned = (owned_set is defined and c.name and (c.name|lower in owned_set)) %}
             <div class="card-tile{% if game_changers and (c.name in game_changers) %} game-changer{% endif %}" data-card-name="{{ c.name }}" data-role="{{ c.role or c.sub_role or '' }}" data-tags="{{ (c.tags|join(', ')) if c.tags else '' }}">
               <a href="https://scryfall.com/search?q={{ c.name|urlencode }}" target="_blank" rel="noopener">
                 <img src="https://api.scryfall.com/cards/named?fuzzy={{ c.name|urlencode }}&format=image&version=normal" alt="{{ c.name }} image" width="160" />
               </a>
+              <div class="owned-badge" title="{{ 'Owned' if owned else 'Not owned' }}" aria-label="{{ 'Owned' if owned else 'Not owned' }}">{% if owned %}✔{% else %}✖{% endif %}</div>
               <div class="name">{{ c.name }}{% if c.count and c.count > 1 %} ×{{ c.count }}{% endif %}</div>
               {% if c.reason %}<div class="reason">{{ c.reason }}</div>{% endif %}
             </div>
@@ -80,10 +106,12 @@
       {% else %}
         <div class="card-grid">
           {% for c in added_cards %}
+          {% set owned = (owned_set is defined and c.name and (c.name|lower in owned_set)) %}
           <div class="card-tile{% if game_changers and (c.name in game_changers) %} game-changer{% endif %}" data-card-name="{{ c.name }}" data-role="{{ c.role or c.sub_role or '' }}" data-tags="{{ (c.tags|join(', ')) if c.tags else '' }}">
             <a href="https://scryfall.com/search?q={{ c.name|urlencode }}" target="_blank" rel="noopener">
               <img src="https://api.scryfall.com/cards/named?fuzzy={{ c.name|urlencode }}&format=image&version=normal" alt="{{ c.name }} image" width="160" />
             </a>
+            <div class="owned-badge" title="{{ 'Owned' if owned else 'Not owned' }}" aria-label="{{ 'Owned' if owned else 'Not owned' }}">{% if owned %}✔{% else %}✖{% endif %}</div>
             <div class="name">{{ c.name }}{% if c.count and c.count > 1 %} ×{{ c.count }}{% endif %}</div>
             {% if c.reason %}<div class="reason">{{ c.reason }}</div>{% endif %}
           </div>

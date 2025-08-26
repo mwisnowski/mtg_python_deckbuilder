@@ -90,10 +90,12 @@ from .routes import build as build_routes  # noqa: E402
 from .routes import configs as config_routes  # noqa: E402
 from .routes import decks as decks_routes  # noqa: E402
 from .routes import setup as setup_routes  # noqa: E402
+from .routes import owned as owned_routes  # noqa: E402
 app.include_router(build_routes.router)
 app.include_router(config_routes.router)
 app.include_router(decks_routes.router)
 app.include_router(setup_routes.router)
+app.include_router(owned_routes.router)
 
 # Lightweight file download endpoint for exports
 @app.get("/files")

@@ -5,6 +5,7 @@ from fastapi.responses import HTMLResponse
 from ..app import templates
 from deck_builder import builder_constants as bc
 from ..services import orchestrator as orch
+from ..services import owned_store
 from ..services.tasks import get_session, new_sid
 
 router = APIRouter(prefix="/build")
@@ -286,8 +287,42 @@ async def build_step4_get(request: Request) -> HTMLResponse:
             "labels": labels,
             "values": values,
             "commander": commander,
+            "owned_only": bool(sess.get("use_owned_only")),
+            "prefer_owned": bool(sess.get("prefer_owned")),
         },
     )
+
+
+@router.post("/toggle-owned-review", response_class=HTMLResponse)
+async def build_toggle_owned_review(
+    request: Request,
+    use_owned_only: str | None = Form(None),
+    prefer_owned: str | None = Form(None),
+) -> HTMLResponse:
+    """Toggle 'use owned only' and/or 'prefer owned' flags from the Review step and re-render Step 4."""
+    sid = request.cookies.get("sid") or new_sid()
+    sess = get_session(sid)
+    only_val = True if (use_owned_only and str(use_owned_only).strip() in ("1","true","on","yes")) else False
+    pref_val = True if (prefer_owned and str(prefer_owned).strip() in ("1","true","on","yes")) else False
+    sess["use_owned_only"] = only_val
+    sess["prefer_owned"] = pref_val
+    # Do not touch build_ctx here; user hasn't started the build yet from review
+    labels = orch.ideal_labels()
+    values = sess.get("ideals") or orch.ideal_defaults()
+    commander = sess.get("commander")
+    resp = templates.TemplateResponse(
+        "build/_step4.html",
+        {
+            "request": request,
+            "labels": labels,
+            "values": values,
+            "commander": commander,
+            "owned_only": bool(sess.get("use_owned_only")),
+            "prefer_owned": bool(sess.get("prefer_owned")),
+        },
+    )
+    resp.set_cookie("sid", sid, httponly=True, samesite="lax")
+    return resp
 
 
 @router.get("/step5", response_class=HTMLResponse)
@@ -302,6 +337,9 @@ async def build_step5_get(request: Request) -> HTMLResponse:
             "tags": sess.get("tags", []),
             "bracket": sess.get("bracket"),
             "values": sess.get("ideals", orch.ideal_defaults()),
+            "owned_only": bool(sess.get("use_owned_only")),
+            "prefer_owned": bool(sess.get("prefer_owned")),
+            "owned_set": {n.lower() for n in owned_store.get_names()},
             "status": None,
             "stage_label": None,
             "log": None,
@@ -331,14 +369,27 @@ async def build_step5_continue(request: Request) -> HTMLResponse:
         except Exception:
             safe_bracket = int(default_bracket)
         ideals_val = sess.get("ideals") or orch.ideal_defaults()
+        # Owned-only integration for staged builds
+        use_owned = bool(sess.get("use_owned_only"))
+        prefer = bool(sess.get("prefer_owned"))
+        owned_names = owned_store.get_names() if (use_owned or prefer) else None
         sess["build_ctx"] = orch.start_build_ctx(
             commander=sess.get("commander"),
             tags=sess.get("tags", []),
             bracket=safe_bracket,
             ideals=ideals_val,
             tag_mode=sess.get("tag_mode", "AND"),
+            use_owned_only=use_owned,
+            prefer_owned=prefer,
+            owned_names=owned_names,
         )
-    res = orch.run_stage(sess["build_ctx"], rerun=False)
+    show_skipped = True if (request.query_params.get('show_skipped') == '1' or (await request.form().get('show_skipped', None) == '1') if hasattr(request, 'form') else False) else False
+    try:
+        form = await request.form()
+        show_skipped = True if (form.get('show_skipped') == '1') else show_skipped
+    except Exception:
+        pass
+    res = orch.run_stage(sess["build_ctx"], rerun=False, show_skipped=show_skipped)
     status = "Build complete" if res.get("done") else "Stage complete"
     stage_label = res.get("label")
     log = res.get("log_delta", "")
@@ -357,6 +408,9 @@ async def build_step5_continue(request: Request) -> HTMLResponse:
             "tags": sess.get("tags", []),
             "bracket": sess.get("bracket"),
             "values": sess.get("ideals", orch.ideal_defaults()),
+            "owned_only": bool(sess.get("use_owned_only")),
+            "prefer_owned": bool(sess.get("prefer_owned")),
+            "owned_set": {n.lower() for n in owned_store.get_names()},
             "status": status,
             "stage_label": stage_label,
             "log": log,
@@ -367,6 +421,7 @@ async def build_step5_continue(request: Request) -> HTMLResponse:
             "txt_path": txt_path,
             "summary": summary,
             "game_changers": bc.GAME_CHANGERS,
+            "show_skipped": show_skipped,
         },
     )
     resp.set_cookie("sid", sid, httponly=True, samesite="lax")
@@ -390,14 +445,26 @@ async def build_step5_rerun(request: Request) -> HTMLResponse:
         except Exception:
             safe_bracket = int(default_bracket)
         ideals_val = sess.get("ideals") or orch.ideal_defaults()
+        use_owned = bool(sess.get("use_owned_only"))
+        prefer = bool(sess.get("prefer_owned"))
+        owned_names = owned_store.get_names() if (use_owned or prefer) else None
         sess["build_ctx"] = orch.start_build_ctx(
             commander=sess.get("commander"),
             tags=sess.get("tags", []),
             bracket=safe_bracket,
             ideals=ideals_val,
             tag_mode=sess.get("tag_mode", "AND"),
+            use_owned_only=use_owned,
+            prefer_owned=prefer,
+            owned_names=owned_names,
         )
-    res = orch.run_stage(sess["build_ctx"], rerun=True)
+    show_skipped = False
+    try:
+        form = await request.form()
+        show_skipped = True if (form.get('show_skipped') == '1') else False
+    except Exception:
+        pass
+    res = orch.run_stage(sess["build_ctx"], rerun=True, show_skipped=show_skipped)
     status = "Stage rerun complete" if not res.get("done") else "Build complete"
     stage_label = res.get("label")
     log = res.get("log_delta", "")
@@ -415,6 +482,9 @@ async def build_step5_rerun(request: Request) -> HTMLResponse:
             "tags": sess.get("tags", []),
             "bracket": sess.get("bracket"),
             "values": sess.get("ideals", orch.ideal_defaults()),
+            "owned_only": bool(sess.get("use_owned_only")),
+            "prefer_owned": bool(sess.get("prefer_owned")),
+            "owned_set": {n.lower() for n in owned_store.get_names()},
             "status": status,
             "stage_label": stage_label,
             "log": log,
@@ -425,6 +495,7 @@ async def build_step5_rerun(request: Request) -> HTMLResponse:
             "txt_path": txt_path,
             "summary": summary,
             "game_changers": bc.GAME_CHANGERS,
+            "show_skipped": show_skipped,
         },
     )
     resp.set_cookie("sid", sid, httponly=True, samesite="lax")
@@ -454,14 +525,26 @@ async def build_step5_start(request: Request) -> HTMLResponse:
         except Exception:
             safe_bracket = int(default_bracket)
         ideals_val = sess.get("ideals") or orch.ideal_defaults()
+        use_owned = bool(sess.get("use_owned_only"))
+        prefer = bool(sess.get("prefer_owned"))
+        owned_names = owned_store.get_names() if (use_owned or prefer) else None
         sess["build_ctx"] = orch.start_build_ctx(
             commander=commander,
             tags=sess.get("tags", []),
             bracket=safe_bracket,
             ideals=ideals_val,
             tag_mode=sess.get("tag_mode", "AND"),
+            use_owned_only=use_owned,
+            prefer_owned=prefer,
+            owned_names=owned_names,
         )
-        res = orch.run_stage(sess["build_ctx"], rerun=False)
+        show_skipped = False
+        try:
+            form = await request.form()
+            show_skipped = True if (form.get('show_skipped') == '1') else False
+        except Exception:
+            pass
+        res = orch.run_stage(sess["build_ctx"], rerun=False, show_skipped=show_skipped)
         status = "Stage complete" if not res.get("done") else "Build complete"
         stage_label = res.get("label")
         log = res.get("log_delta", "")
@@ -479,6 +562,9 @@ async def build_step5_start(request: Request) -> HTMLResponse:
                 "tags": sess.get("tags", []),
                 "bracket": sess.get("bracket"),
                 "values": sess.get("ideals", orch.ideal_defaults()),
+                "owned_only": bool(sess.get("use_owned_only")),
+                "prefer_owned": bool(sess.get("prefer_owned")),
+                "owned_set": {n.lower() for n in owned_store.get_names()},
                 "status": status,
                 "stage_label": stage_label,
                 "log": log,
@@ -489,6 +575,7 @@ async def build_step5_start(request: Request) -> HTMLResponse:
                 "txt_path": txt_path,
                 "summary": summary,
                 "game_changers": bc.GAME_CHANGERS,
+                "show_skipped": show_skipped,
             },
         )
         resp.set_cookie("sid", sid, httponly=True, samesite="lax")
@@ -503,6 +590,8 @@ async def build_step5_start(request: Request) -> HTMLResponse:
                 "tags": sess.get("tags", []),
                 "bracket": sess.get("bracket"),
                 "values": sess.get("ideals", orch.ideal_defaults()),
+                "owned_only": bool(sess.get("use_owned_only")),
+                "owned_set": {n.lower() for n in owned_store.get_names()},
                 "status": "Error",
                 "stage_label": None,
                 "log": f"Failed to start build: {e}",

@@ -57,6 +57,12 @@ class SpellAdditionMixin:
         if commander_name:
             work = work[work['name'] != commander_name]
         work = bu.sort_by_priority(work, ['edhrecRank','manaValue'])
+        # Prefer-owned bias: stable reorder to put owned first while preserving prior sort
+        if getattr(self, 'prefer_owned', False):
+            owned_set = getattr(self, 'owned_card_names', None)
+            if owned_set:
+                owned_lower = {str(n).lower() for n in owned_set}
+                work = bu.prefer_owned_first(work, owned_lower)
 
         rocks_target = min(target_total, math.ceil(target_total/3))
         dorks_target = min(target_total - rocks_target, math.ceil(target_total/4))
@@ -143,6 +149,10 @@ class SpellAdditionMixin:
         if commander_name:
             pool = pool[pool['name'] != commander_name]
         pool = bu.sort_by_priority(pool, ['edhrecRank','manaValue'])
+        if getattr(self, 'prefer_owned', False):
+            owned_set = getattr(self, 'owned_card_names', None)
+            if owned_set:
+                pool = bu.prefer_owned_first(pool, {str(n).lower() for n in owned_set})
         existing = 0
         for name, entry in self.card_library.items():
             lt = [str(t).lower() for t in entry.get('Tags', [])]
@@ -201,6 +211,10 @@ class SpellAdditionMixin:
         if commander_name:
             pool = pool[pool['name'] != commander_name]
         pool = bu.sort_by_priority(pool, ['edhrecRank','manaValue'])
+        if getattr(self, 'prefer_owned', False):
+            owned_set = getattr(self, 'owned_card_names', None)
+            if owned_set:
+                pool = bu.prefer_owned_first(pool, {str(n).lower() for n in owned_set})
         existing = 0
         for name, entry in self.card_library.items():
             tags = [str(t).lower() for t in entry.get('Tags', [])]
@@ -277,6 +291,12 @@ class SpellAdditionMixin:
             return bu.sort_by_priority(d, ['edhrecRank','manaValue'])
         conditional_df = sortit(conditional_df)
         unconditional_df = sortit(unconditional_df)
+        if getattr(self, 'prefer_owned', False):
+            owned_set = getattr(self, 'owned_card_names', None)
+            if owned_set:
+                owned_lower = {str(n).lower() for n in owned_set}
+                conditional_df = bu.prefer_owned_first(conditional_df, owned_lower)
+                unconditional_df = bu.prefer_owned_first(unconditional_df, owned_lower)
         added_cond = 0
         added_cond_names: List[str] = []
         for _, r in conditional_df.iterrows():
@@ -349,6 +369,10 @@ class SpellAdditionMixin:
         if commander_name:
             pool = pool[pool['name'] != commander_name]
         pool = bu.sort_by_priority(pool, ['edhrecRank','manaValue'])
+        if getattr(self, 'prefer_owned', False):
+            owned_set = getattr(self, 'owned_card_names', None)
+            if owned_set:
+                pool = bu.prefer_owned_first(pool, {str(n).lower() for n in owned_set})
         existing = 0
         for name, entry in self.card_library.items():
             tags = [str(t).lower() for t in entry.get('Tags', [])]
@@ -491,14 +515,32 @@ class SpellAdditionMixin:
                     ascending=[False, True],
                     na_position='last',
                 )
+            # Prefer-owned: stable reorder before trimming to top_n
+            if getattr(self, 'prefer_owned', False):
+                owned_set = getattr(self, 'owned_card_names', None)
+                if owned_set:
+                    subset = bu.prefer_owned_first(subset, {str(n).lower() for n in owned_set})
             pool = subset.head(top_n).copy()
             pool = pool[~pool['name'].isin(self.card_library.keys())]
             if pool.empty:
                 continue
+            # Build weighted pool with optional owned multiplier
+            owned_lower = {str(n).lower() for n in getattr(self, 'owned_card_names', set())} if getattr(self, 'prefer_owned', False) else set()
+            owned_mult = getattr(bc, 'PREFER_OWNED_WEIGHT_MULTIPLIER', 1.25)
+            base_pairs = list(zip(pool['name'], pool['_multiMatch']))
+            weighted_pool: list[tuple[str, float]] = []
             if combine_mode == 'AND':
-                weighted_pool = [ (nm, (synergy_bonus*1.3 if mm >= 2 else (1.1 if mm == 1 else 0.8))) for nm, mm in zip(pool['name'], pool['_multiMatch']) ]
+                for nm, mm in base_pairs:
+                    base_w = (synergy_bonus*1.3 if mm >= 2 else (1.1 if mm == 1 else 0.8))
+                    if owned_lower and str(nm).lower() in owned_lower:
+                        base_w *= owned_mult
+                    weighted_pool.append((nm, base_w))
             else:
-                weighted_pool = [ (nm, (synergy_bonus if mm >= 2 else 1.0)) for nm, mm in zip(pool['name'], pool['_multiMatch']) ]
+                for nm, mm in base_pairs:
+                    base_w = (synergy_bonus if mm >= 2 else 1.0)
+                    if owned_lower and str(nm).lower() in owned_lower:
+                        base_w *= owned_mult
+                    weighted_pool.append((nm, base_w))
             chosen = bu.weighted_sample_without_replacement(weighted_pool, target)
             for nm in chosen:
                 row = pool[pool['name'] == nm].iloc[0]
@@ -541,6 +583,10 @@ class SpellAdditionMixin:
                         ascending=[False, True],
                         na_position='last',
                     )
+                if getattr(self, 'prefer_owned', False):
+                    owned_set = getattr(self, 'owned_card_names', None)
+                    if owned_set:
+                        multi_pool = bu.prefer_owned_first(multi_pool, {str(n).lower() for n in owned_set})
                 fill = multi_pool['name'].tolist()[:need]
                 for nm in fill:
                     row = multi_pool[multi_pool['name'] == nm].iloc[0]
@@ -598,6 +644,10 @@ class SpellAdditionMixin:
                         subset = subset.sort_values(by=['edhrecRank','manaValue'], ascending=[True, True], na_position='last')
                     elif 'manaValue' in subset.columns:
                         subset = subset.sort_values(by=['manaValue'], ascending=[True], na_position='last')
+                    if getattr(self, 'prefer_owned', False):
+                        owned_set = getattr(self, 'owned_card_names', None)
+                        if owned_set:
+                            subset = bu.prefer_owned_first(subset, {str(n).lower() for n in owned_set})
                     row = subset.head(1)
                     if row.empty:
                         break

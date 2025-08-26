@@ -1,9 +1,9 @@
 <hr style="margin:1.25rem 0; border-color: var(--border);" />
 <h4>Deck Summary</h4>
-<div class="muted" style="font-size:12px; margin:.15rem 0 .4rem 0;">
-  Legend: <span class="game-changer" style="font-weight:600;">Game Changer</span>
-  <span class="muted" style="opacity:.8;">(green highlight)</span>
-  
+<div class="muted" style="font-size:12px; margin:.15rem 0 .4rem 0; display:flex; gap:.75rem; align-items:center; flex-wrap:wrap;">
+  <span>Legend:</span>
+  <span><span class="game-changer" style="font-weight:600;">Game Changer</span> <span class="muted" style="opacity:.8;">(green highlight)</span></span>
+  <span><span class="owned-flag" style="margin:0 .25rem 0 .1rem;">✔</span>Owned • <span class="owned-flag" style="margin:0 .25rem 0 .1rem;">✖</span>Not owned</span>
 </div>
 
 <!-- Card Type Breakdown with names-only list and hover preview -->
@@ -29,7 +29,9 @@
       .stack-card { width: var(--card-w); height: var(--card-h); border-radius:8px; box-shadow: 0 6px 18px rgba(0,0,0,.55); border:1px solid var(--border); background:#0f1115; transition: transform .06s ease, box-shadow .06s ease; position: relative; }
       .stack-card img { width: var(--card-w); height: var(--card-h); display:block; border-radius:8px; }
       .stack-card:hover { z-index: 999; transform: translateY(-2px); box-shadow: 0 10px 22px rgba(0,0,0,.6); }
-      .count-badge { position:absolute; top:6px; right:6px; background:rgba(17,24,39,.9); color:#e5e7eb; border:1px solid var(--border); border-radius:12px; font-size:12px; line-height:18px; height:18px; padding:0 6px; pointer-events:none; }
+  .count-badge { position:absolute; top:6px; right:6px; background:rgba(17,24,39,.9); color:#e5e7eb; border:1px solid var(--border); border-radius:12px; font-size:12px; line-height:18px; height:18px; padding:0 6px; pointer-events:none; }
+  .owned-badge { position:absolute; top:6px; left:6px; background:rgba(17,24,39,.9); color:#e5e7eb; border:1px solid var(--border); border-radius:12px; font-size:12px; line-height:18px; height:18px; min-width:18px; padding:0 6px; text-align:center; pointer-events:none; z-index: 2; }
+  .owned-flag { font-size:.95rem; opacity:.9; }
     </style>
     <div id="typeview-list" class="typeview">
       {% for t in tb.order %}
@@ -42,9 +44,11 @@
             {% for c in clist %}
               <div class="{% if (game_changers and (c.name in game_changers)) or ('game_changer' in (c.role or '') or 'Game Changer' in (c.role or '')) %}game-changer{% endif %}">
                 {% set cnt = c.count if c.count else 1 %}
+                {% set owned = (owned_set is defined and c.name and (c.name|lower in owned_set)) %}
                 <span data-card-name="{{ c.name }}" data-count="{{ cnt }}" data-role="{{ c.role }}" data-tags="{{ (c.tags|join(', ')) if c.tags else '' }}">
                   {{ cnt }}x {{ c.name }}
                 </span>
+                <span class="owned-flag" title="{{ 'Owned' if owned else 'Not owned' }}" aria-label="{{ 'Owned' if owned else 'Not owned' }}">{% if owned %}✔{% else %}✖{% endif %}</span>
               </div>
             {% endfor %}
           </div>
@@ -64,9 +68,11 @@
             <div class="stack-grid">
             {% for c in clist %}
               {% set cnt = c.count if c.count else 1 %}
+              {% set owned = (owned_set is defined and c.name and (c.name|lower in owned_set)) %}
               <div class="stack-card {% if (game_changers and (c.name in game_changers)) or ('game_changer' in (c.role or '') or 'Game Changer' in (c.role or '')) %}game-changer{% endif %}">
                 <img src="https://api.scryfall.com/cards/named?fuzzy={{ c.name|urlencode }}&format=image&version=normal" alt="{{ c.name }} image" data-card-name="{{ c.name }}" data-count="{{ cnt }}" data-role="{{ c.role }}" data-tags="{{ (c.tags|join(', ')) if c.tags else '' }}" />
                 <div class="count-badge">{{ cnt }}x</div>
+                <div class="owned-badge" title="{{ 'Owned' if owned else 'Not owned' }}" aria-label="{{ 'Owned' if owned else 'Not owned' }}">{% if owned %}✔{% else %}✖{% endif %}</div>
               </div>
             {% endfor %}
             </div>
@@ -133,110 +139,115 @@
   })();
 </script>
 
-<!-- Mana Pip Distribution (vertical bars; only deck colors) -->
+<!-- Mana Overview Row: Pips • Sources • Curve -->
 <section style="margin-top:1rem;">
-  <h5>Mana Pip Distribution (non-lands)</h5>
-  {% set pd = summary.pip_distribution %}
+  <h5>Mana Overview</h5>
   {% set deck_colors = summary.colors or [] %}
-  {% if pd %}
-    {% set colors = deck_colors if deck_colors else ['W','U','B','R','G'] %}
-    <div style="display:flex; gap:14px; align-items:flex-end; height:140px;">
-      {% for color in colors %}
-        {% set w = (pd.weights[color] if pd.weights and color in pd.weights else 0) %}
-        {% set pct = (w * 100) | int %}
-        <div style="text-align:center;">
-          <svg width="28" height="120" aria-label="{{ color }} {{ pct }}%">
-            {% set count_val = (pd.counts[color] if pd.counts and color in pd.counts else 0) %}
-            {% set pct_f = (pd.weights[color] * 100) if pd.weights and color in pd.weights else 0 %}
-            <rect x="2" y="2" width="24" height="116" fill="#14171c" stroke="var(--border)" rx="4" ry="4"
-                  data-type="pips" data-color="{{ color }}" data-count="{{ '%.1f' % count_val }}" data-pct="{{ '%.1f' % pct_f }}"></rect>
-            {% set h = (pct * 1.0) | int %}
-            {% set bar_h = (h if h>2 else 2) %}
-            {% set y = 118 - bar_h %}
-            <rect x="2" y="{{ y }}" width="24" height="{{ bar_h }}" fill="#3b82f6" rx="4" ry="4"
-                  data-type="pips" data-color="{{ color }}" data-count="{{ '%.1f' % count_val }}" data-pct="{{ '%.1f' % pct_f }}"></rect>
-          </svg>
-          <div class="muted" style="margin-top:.25rem;">{{ color }}</div>
+  <div class="mana-row" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; align-items: stretch;">
+    <!-- Pips Panel -->
+    <div class="mana-panel" style="border:1px solid var(--border); border-radius:8px; padding:.6rem; background:#0f1115;">
+      <div class="muted" style="margin-bottom:.35rem; font-weight:600;">Mana Pips (non-lands)</div>
+      {% set pd = summary.pip_distribution %}
+      {% if pd %}
+        {% set colors = deck_colors if deck_colors else ['W','U','B','R','G'] %}
+        <div style="display:flex; gap:14px; align-items:flex-end; height:140px;">
+          {% for color in colors %}
+            {% set w = (pd.weights[color] if pd.weights and color in pd.weights else 0) %}
+            {% set pct = (w * 100) | int %}
+            <div style="text-align:center;">
+              <svg width="28" height="120" aria-label="{{ color }} {{ pct }}%">
+                {% set count_val = (pd.counts[color] if pd.counts and color in pd.counts else 0) %}
+                {% set pct_f = (pd.weights[color] * 100) if pd.weights and color in pd.weights else 0 %}
+                <rect x="2" y="2" width="24" height="116" fill="#14171c" stroke="var(--border)" rx="4" ry="4"
+                      data-type="pips" data-color="{{ color }}" data-count="{{ '%.1f' % count_val }}" data-pct="{{ '%.1f' % pct_f }}"></rect>
+                {% set h = (pct * 1.0) | int %}
+                {% set bar_h = (h if h>2 else 2) %}
+                {% set y = 118 - bar_h %}
+                <rect x="2" y="{{ y }}" width="24" height="{{ bar_h }}" fill="#3b82f6" rx="4" ry="4"
+                      data-type="pips" data-color="{{ color }}" data-count="{{ '%.1f' % count_val }}" data-pct="{{ '%.1f' % pct_f }}"></rect>
+              </svg>
+              <div class="muted" style="margin-top:.25rem;">{{ color }}</div>
+            </div>
+          {% endfor %}
         </div>
-      {% endfor %}
+      {% else %}
+        <div class="muted">No pip data.</div>
+      {% endif %}
     </div>
-  {% else %}
-    <div class="muted">No pip data.</div>
-  {% endif %}
-</section>
 
-<!-- Mana Generation (color sources from lands, vertical bars; only deck colors) -->
-<section style="margin-top:1rem;">
-  <h5>Mana Generation (Color Sources)</h5>
-  {% set mg = summary.mana_generation %}
-  {% set deck_colors = summary.colors or [] %}
-  {% if mg %}
-    {% set colors = deck_colors if deck_colors else ['W','U','B','R','G'] %}
-    {% set ns = namespace(max_src=0) %}
-    {% for color in colors %}
-      {% set val = mg.get(color, 0) %}
-      {% if val > ns.max_src %}{% set ns.max_src = val %}{% endif %}
-    {% endfor %}
-    {% set denom = (ns.max_src if ns.max_src and ns.max_src > 0 else 1) %}
-    <div style="display:flex; gap:14px; align-items:flex-end; height:140px;">
-      {% for color in colors %}
-        {% set val = mg.get(color, 0) %}
-        {% set pct = (val * 100 / denom) | int %}
-        <div style="text-align:center;">
-          <svg width="28" height="120" aria-label="{{ color }} {{ val }}">
-            {% set pct_f = (100.0 * (val / (mg.total_sources or 1))) %}
-            <rect x="2" y="2" width="24" height="116" fill="#14171c" stroke="var(--border)" rx="4" ry="4"
-                  data-type="sources" data-color="{{ color }}" data-val="{{ val }}" data-pct="{{ '%.1f' % pct_f }}"></rect>
-            {% set bar_h = (pct if pct>2 else 2) %}
-            {% set y = 118 - bar_h %}
-            <rect x="2" y="{{ y }}" width="24" height="{{ bar_h }}" fill="#10b981" rx="4" ry="4"
-                  data-type="sources" data-color="{{ color }}" data-val="{{ val }}" data-pct="{{ '%.1f' % pct_f }}"></rect>
-          </svg>
-          <div class="muted" style="margin-top:.25rem;">{{ color }}</div>
+    <!-- Sources Panel -->
+    <div class="mana-panel" style="border:1px solid var(--border); border-radius:8px; padding:.6rem; background:#0f1115;">
+      <div class="muted" style="margin-bottom:.35rem; font-weight:600;">Mana Sources</div>
+      {% set mg = summary.mana_generation %}
+      {% if mg %}
+        {% set colors = deck_colors if deck_colors else ['W','U','B','R','G'] %}
+        {% set ns = namespace(max_src=0) %}
+        {% for color in colors %}
+          {% set val = mg.get(color, 0) %}
+          {% if val > ns.max_src %}{% set ns.max_src = val %}{% endif %}
+        {% endfor %}
+        {% set denom = (ns.max_src if ns.max_src and ns.max_src > 0 else 1) %}
+        <div style="display:flex; gap:14px; align-items:flex-end; height:140px;">
+          {% for color in colors %}
+            {% set val = mg.get(color, 0) %}
+            {% set pct = (val * 100 / denom) | int %}
+            <div style="text-align:center;">
+              <svg width="28" height="120" aria-label="{{ color }} {{ val }}">
+                {% set pct_f = (100.0 * (val / (mg.total_sources or 1))) %}
+                <rect x="2" y="2" width="24" height="116" fill="#14171c" stroke="var(--border)" rx="4" ry="4"
+                      data-type="sources" data-color="{{ color }}" data-val="{{ val }}" data-pct="{{ '%.1f' % pct_f }}"></rect>
+                {% set bar_h = (pct if pct>2 else 2) %}
+                {% set y = 118 - bar_h %}
+                <rect x="2" y="{{ y }}" width="24" height="{{ bar_h }}" fill="#10b981" rx="4" ry="4"
+                      data-type="sources" data-color="{{ color }}" data-val="{{ val }}" data-pct="{{ '%.1f' % pct_f }}"></rect>
+              </svg>
+              <div class="muted" style="margin-top:.25rem;">{{ color }}</div>
+            </div>
+          {% endfor %}
         </div>
-      {% endfor %}
+        <div class="muted" style="margin-top:.25rem;">Total sources: {{ mg.total_sources or 0 }}</div>
+      {% else %}
+        <div class="muted">No mana source data.</div>
+      {% endif %}
     </div>
-    <div class="muted" style="margin-top:.25rem;">Total sources: {{ mg.total_sources or 0 }}</div>
-  {% else %}
-    <div class="muted">No mana source data.</div>
-  {% endif %}
-</section>
 
-<!-- Mana Curve (vertical bars) -->
-<section style="margin-top:1rem;">
-  <h5>Mana Curve (non-lands)</h5>
-  {% set mc = summary.mana_curve %}
-  {% if mc %}
-    {% set ts = mc.total_spells or 0 %}
-    {% set denom = (ts if ts and ts > 0 else 1) %}
-    <div style="display:flex; gap:14px; align-items:flex-end; height:140px;">
-      {% for label in ['0','1','2','3','4','5','6+'] %}
-        {% set val = mc.get(label, 0) %}
-        {% set pct = (val * 100 / denom) | int %}
-        <div style="text-align:center;">
-          <svg width="28" height="120" aria-label="{{ label }} {{ val }}">
-            {% set cards = (mc.cards[label] if mc.cards and (label in mc.cards) else []) %}
-            {% set parts = [] %}
-            {% for c in cards %}
-              {% set _ = parts.append(c.name ~ ((" ×" ~ c.count) if c.count and c.count>1 else '')) %}
-            {% endfor %}
-            {% set cards_line = parts|join(' • ') %}
-            {% set pct_f = (100.0 * (val / denom)) %}
-            <rect x="2" y="2" width="24" height="116" fill="#14171c" stroke="var(--border)" rx="4" ry="4"
-                  data-type="curve" data-label="{{ label }}" data-val="{{ val }}" data-pct="{{ '%.1f' % pct_f }}" data-cards="{{ cards_line }}"></rect>
-            {% set bar_h = (pct if pct>2 else 2) %}
-            {% set y = 118 - bar_h %}
-            <rect x="2" y="{{ y }}" width="24" height="{{ bar_h }}" fill="#f59e0b" rx="4" ry="4"
-                  data-type="curve" data-label="{{ label }}" data-val="{{ val }}" data-pct="{{ '%.1f' % pct_f }}" data-cards="{{ cards_line }}"></rect>
-          </svg>
-          <div class="muted" style="margin-top:.25rem;">{{ label }}</div>
+    <!-- Curve Panel -->
+    <div class="mana-panel" style="border:1px solid var(--border); border-radius:8px; padding:.6rem; background:#0f1115;">
+      <div class="muted" style="margin-bottom:.35rem; font-weight:600;">Mana Curve (non-lands)</div>
+      {% set mc = summary.mana_curve %}
+      {% if mc %}
+        {% set ts = mc.total_spells or 0 %}
+        {% set denom = (ts if ts and ts > 0 else 1) %}
+        <div style="display:flex; gap:14px; align-items:flex-end; height:140px;">
+          {% for label in ['0','1','2','3','4','5','6+'] %}
+            {% set val = mc.get(label, 0) %}
+            {% set pct = (val * 100 / denom) | int %}
+            <div style="text-align:center;">
+              <svg width="28" height="120" aria-label="{{ label }} {{ val }}">
+                {% set cards = (mc.cards[label] if mc.cards and (label in mc.cards) else []) %}
+                {% set parts = [] %}
+                {% for c in cards %}
+                  {% set _ = parts.append(c.name ~ ((" ×" ~ c.count) if c.count and c.count>1 else '')) %}
+                {% endfor %}
+                {% set cards_line = parts|join(' • ') %}
+                {% set pct_f = (100.0 * (val / denom)) %}
+                <rect x="2" y="2" width="24" height="116" fill="#14171c" stroke="var(--border)" rx="4" ry="4"
+                      data-type="curve" data-label="{{ label }}" data-val="{{ val }}" data-pct="{{ '%.1f' % pct_f }}" data-cards="{{ cards_line }}"></rect>
+                {% set bar_h = (pct if pct>2 else 2) %}
+                {% set y = 118 - bar_h %}
+                <rect x="2" y="{{ y }}" width="24" height="{{ bar_h }}" fill="#f59e0b" rx="4" ry="4"
+                      data-type="curve" data-label="{{ label }}" data-val="{{ val }}" data-pct="{{ '%.1f' % pct_f }}" data-cards="{{ cards_line }}"></rect>
+              </svg>
+              <div class="muted" style="margin-top:.25rem;">{{ label }}</div>
+            </div>
+          {% endfor %}
         </div>
-      {% endfor %}
+        <div class="muted" style="margin-top:.25rem;">Total spells: {{ mc.total_spells or 0 }}</div>
+      {% else %}
+        <div class="muted">No curve data.</div>
+      {% endif %}
     </div>
-    <div class="muted" style="margin-top:.25rem;">Total spells: {{ mc.total_spells or 0 }}</div>
-  {% else %}
-    <div class="muted">No curve data.</div>
-  {% endif %}
+  </div>
 </section>
 
 <!-- Test Hand (7 random cards; duplicates allowed only for basic lands) -->
@@ -318,16 +329,15 @@
         var grid = document.getElementById('test-hand-grid');
         if (!grid) return;
         grid.innerHTML = '';
-        var unique = compress(hand);
-        unique.forEach(function(it){
+        hand.forEach(function(name){
+          if (!name) return;
           var div = document.createElement('div');
           div.className = 'stack-card';
-          if (GC_SET && GC_SET.has(it.name)) {
+          if (GC_SET && GC_SET.has(name)) {
             div.className += ' game-changer';
           }
           div.innerHTML = (
-            '<img src="https://api.scryfall.com/cards/named?fuzzy=' + encodeURIComponent(it.name) + '&format=image&version=normal" alt="' + it.name + '" data-card-name="' + it.name + '" />' +
-            '<div class="count-badge">' + it.count + 'x</div>'
+            '<img src="https://api.scryfall.com/cards/named?fuzzy=' + encodeURIComponent(name) + '&format=image&version=normal" alt="' + name + '" data-card-name="' + name + '" />'
           );
           grid.appendChild(div);
         });

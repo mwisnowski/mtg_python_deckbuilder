@@ -61,6 +61,10 @@ body { font-family: system-ui, Arial, sans-serif; margin: 0; color: var(--text);
 /* Buttons, inputs */
 button{ background: var(--blue-main); color:#fff; border:none; border-radius:6px; padding:.45rem .7rem; cursor:pointer; }
 button:hover{ filter:brightness(1.05); }
+/* Anchor-style buttons */
+.btn{ display:inline-block; background: var(--blue-main); color:#fff; border:none; border-radius:6px; padding:.45rem .7rem; cursor:pointer; text-decoration:none; line-height:1; }
+.btn:hover{ filter:brightness(1.05); text-decoration:none; }
+.btn.disabled, .btn[aria-disabled="true"]{ opacity:.6; cursor:default; pointer-events:none; }
 label{ display:inline-flex; flex-direction:column; gap:.25rem; margin-right:.75rem; }
 select,input[type="text"],input[type="number"]{ background:#0f1115; color:var(--text); border:1px solid var(--border); border-radius:6px; padding:.35rem .4rem; }
 fieldset{ border:1px solid var(--border); border-radius:8px; padding:.75rem; margin:.75rem 0; }
@@ -87,6 +91,7 @@ small, .muted{ color: var(--muted); }
 }
 .card-tile{
 	width:170px;
+	position: relative;
 	background:#0f1115;
 	border:1px solid var(--border);
 	border-radius:6px;
@@ -97,6 +102,25 @@ small, .muted{ color: var(--muted); }
 .card-tile img{ width:160px; height:auto; border-radius:6px; box-shadow: 0 6px 18px rgba(0,0,0,.35); background:#111; }
 .card-tile .name{ font-weight:600; margin-top:.25rem; font-size:.92rem; }
 .card-tile .reason{ color:var(--muted); font-size:.85rem; margin-top:.15rem; }
+
+/* Shared ownership badge for card tiles and stacked images */
+.owned-badge{
+	position:absolute;
+	top:6px;
+	left:6px;
+	background:rgba(17,24,39,.9);
+	color:#e5e7eb;
+	border:1px solid var(--border);
+	border-radius:12px;
+	font-size:12px;
+	line-height:18px;
+	height:18px;
+	min-width:18px;
+	padding:0 6px;
+	text-align:center;
+	pointer-events:none;
+	z-index:2;
+}
 
 /* Step 1 candidate grid (200px-wide scaled images) */
 .candidate-grid{

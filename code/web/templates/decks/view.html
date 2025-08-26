@@ -31,6 +31,29 @@
   </div>
   <div>
     {% if summary %}
+      {% if owned_set %}
+        {% set ns = namespace(owned=0, total=0) %}
+        {% set tb = summary.type_breakdown %}
+        {% if tb and tb.cards %}
+          {% for t, clist in tb.cards.items() %}
+            {% for c in clist %}
+              {% set cnt = c.count if c.count else 1 %}
+              {% set ns.total = ns.total + cnt %}
+              {% if c.name and (c.name|lower in owned_set) %}
+                {% set ns.owned = ns.owned + cnt %}
+              {% endif %}
+            {% endfor %}
+          {% endfor %}
+        {% endif %}
+        {% set not_owned = (ns.total - ns.owned) %}
+        {% set pct = ( (ns.owned * 100.0 / (ns.total or 1)) | round(1) ) %}
+        <div class="panel" style="margin-bottom:.75rem;">
+          <div style="display:flex; gap:1rem; align-items:center; flex-wrap:wrap;">
+            <div><strong>Ownership</strong></div>
+            <div class="muted">Owned: {{ ns.owned }} • Not owned: {{ not_owned }} • Total: {{ ns.total }} ({{ pct }}%)</div>
+          </div>
+        </div>
+      {% endif %}
       {% include "partials/deck_summary.html" %}
     {% else %}
       <div class="muted">No summary available.</div>

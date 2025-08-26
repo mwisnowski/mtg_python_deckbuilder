@@ -6,6 +6,7 @@ from pathlib import Path
 import os
 import json
 from ..app import templates
+from ..services import owned_store
 from ..services import orchestrator as orch
 from deck_builder import builder_constants as bc
 
@@ -92,7 +93,7 @@ async def configs_view(request: Request, name: str) -> HTMLResponse:
 
 
 @router.post("/run", response_class=HTMLResponse)
-async def configs_run(request: Request, name: str = Form(...)) -> HTMLResponse:
+async def configs_run(request: Request, name: str = Form(...), use_owned_only: str | None = Form(None)) -> HTMLResponse:
     base = _config_dir()
     p = (base / name).resolve()
     try:
@@ -125,8 +126,33 @@ async def configs_run(request: Request, name: str = Form(...)) -> HTMLResponse:
     except Exception:
         tag_mode = "AND"
 
+    # Optional owned-only for headless runs via JSON flag or form override
+    owned_flag = False
+    try:
+        uo = cfg.get("use_owned_only")
+        if isinstance(uo, bool):
+            owned_flag = uo
+        elif isinstance(uo, str):
+            owned_flag = uo.strip().lower() in ("1","true","yes","on")
+    except Exception:
+        owned_flag = False
+
+    # Form override takes precedence if provided
+    if use_owned_only is not None:
+        owned_flag = str(use_owned_only).strip().lower() in ("1","true","yes","on")
+
+    owned_names = owned_store.get_names() if owned_flag else None
+
     # Run build headlessly with orchestrator
-    res = orch.run_build(commander=commander, tags=tags, bracket=bracket, ideals=ideals, tag_mode=tag_mode)
+    res = orch.run_build(
+        commander=commander,
+        tags=tags,
+        bracket=bracket,
+        ideals=ideals,
+        tag_mode=tag_mode,
+    use_owned_only=owned_flag,
+        owned_names=owned_names,
+    )
     if not res.get("ok"):
         return templates.TemplateResponse(
             "configs/run_result.html",
@@ -138,6 +164,8 @@ async def configs_run(request: Request, name: str = Form(...)) -> HTMLResponse:
                 "cfg_name": p.name,
                 "commander": commander,
                 "tag_mode": tag_mode,
+                "use_owned_only": owned_flag,
+                "owned_set": {n.lower() for n in owned_store.get_names()},
             },
         )
     return templates.TemplateResponse(
@@ -152,6 +180,8 @@ async def configs_run(request: Request, name: str = Form(...)) -> HTMLResponse:
             "cfg_name": p.name,
             "commander": commander,
             "tag_mode": tag_mode,
+            "use_owned_only": owned_flag,
+            "owned_set": {n.lower() for n in owned_store.get_names()},
             "game_changers": bc.GAME_CHANGERS,
         },
     )

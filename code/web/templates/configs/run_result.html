@@ -10,7 +10,7 @@
   <aside class="card-preview">
     {% if commander %}
     <a href="https://scryfall.com/search?q={{ commander|urlencode }}" target="_blank" rel="noopener">
-      <img src="https://api.scryfall.com/cards/named?fuzzy={{ commander|urlencode }}&format=image&version=normal" alt="{{ commander }} card image" width="320" />
+  <img src="https://api.scryfall.com/cards/named?fuzzy={{ commander|urlencode }}&format=image&version=normal" alt="{{ commander }} card image" width="320" data-card-name="{{ commander }}" />
     </a>
     {% endif %}
     <div style="margin-top:.75rem; display:flex; gap:.35rem; flex-wrap:wrap;">

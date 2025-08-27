@@ -27,14 +27,44 @@ The web UI runs the same deckbuilding logic behind a browser-based interface.
 
 ### PowerShell (recommended)
 ```powershell
-docker compose build web
-docker compose up --no-deps web
+docker compose up --build --no-deps -d web
 ```
 
 Then open http://localhost:8080
 
 Volumes are the same as the CLI service, so deck exports/logs/configs persist in your working folder.
 The app serves a favicon at `/favicon.ico` and exposes a health endpoint at `/healthz`.
+
+### Diagnostics and logs (optional)
+Enable internal diagnostics and a read-only logs viewer with environment flags.
+
+- `SHOW_DIAGNOSTICS=1` — adds a Diagnostics nav link and `/diagnostics` tools
+- `SHOW_LOGS=1` — enables `/logs` and `/status/logs?tail=200`
+
+When enabled:
+- `/logs` supports an auto-refresh toggle with interval, a level filter (All/Error/Warning/Info/Debug), and a Copy button to copy the visible tail.
+- `/status/sys` returns a simple system summary (version, uptime, UTC server time, and feature flags) and is shown on the Diagnostics page when `SHOW_DIAGNOSTICS=1`.
+
+Compose example (web service):
+```yaml
+environment:
+    - SHOW_LOGS=1
+    - SHOW_DIAGNOSTICS=1
+```
+
+Docker Hub (PowerShell) example:
+```powershell
+docker run --rm `
+    -p 8080:8080 `
+    -e SHOW_LOGS=1 -e SHOW_DIAGNOSTICS=1 `
+    -v "${PWD}/deck_files:/app/deck_files" `
+    -v "${PWD}/logs:/app/logs" `
+    -v "${PWD}/csv_files:/app/csv_files" `
+    -v "${PWD}/owned_cards:/app/owned_cards" `
+    -v "${PWD}/config:/app/config" `
+    mwisnowski/mtg-python-deckbuilder:latest `
+    bash -lc "cd /app && uvicorn code.web.app:app --host 0.0.0.0 --port 8080"
+```
 
 ### Setup speed: parallel tagging (Web)
 First-time setup or stale data triggers card tagging. The web service uses parallel workers by default.

@@ -39,7 +39,7 @@
         <form hx-post="/build/step1/confirm" hx-target="#wizard" hx-swap="innerHTML">
           <input type="hidden" name="name" value="{{ name }}" />
           <button class="img-btn" type="submit" title="Select {{ name }} (score {{ score }})">
-            <img src="https://api.scryfall.com/cards/named?fuzzy={{ name|urlencode }}&format=image&version=normal"
+            <img src="https://api.scryfall.com/cards/named?fuzzy={{ name|urlencode }}&format=image&version=normal" data-card-name="{{ name }}"
                  alt="{{ name }}" loading="lazy" decoding="async" />
           </button>
         </form>
@@ -75,7 +75,7 @@
   <div class="two-col two-col-left-rail">
   <aside class="card-preview card-sm" data-card-name="{{ selected }}">
       <a href="https://scryfall.com/search?q={{ selected|urlencode }}" target="_blank" rel="noopener">
-        <img src="https://api.scryfall.com/cards/named?fuzzy={{ selected|urlencode }}&format=image&version=normal" alt="{{ selected }} card image" />
+  <img src="https://api.scryfall.com/cards/named?fuzzy={{ selected|urlencode }}&format=image&version=normal" alt="{{ selected }} card image" data-card-name="{{ selected }}" />
       </a>
     </aside>
     <div class="grow">

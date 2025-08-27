@@ -40,14 +40,25 @@
         </div>
         {% set clist = tb.cards.get(t, []) %}
         {% if clist %}
-  <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:.35rem .75rem; margin:.25rem 0 .75rem 0;">
+          <style>
+            .list-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap:.35rem .75rem; margin:.25rem 0 .75rem 0; }
+            @media (max-width: 1199px) {
+              .list-grid { grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
+            }
+            .list-row { display:grid; grid-template-columns: 4ch 1.25ch minmax(0,1fr) 1.6em; align-items:center; column-gap:.45rem; width:100%; }
+            .list-row .count { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-variant-numeric: tabular-nums; font-feature-settings: 'tnum'; text-align:right; color:#94a3b8; }
+            .list-row .times { color:#94a3b8; text-align:center; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+            .list-row .name { display:inline-block; padding: 2px 4px; border-radius: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+            .list-row .owned-flag { width: 1.6em; min-width: 1.6em; text-align:center; display:inline-block; }
+          </style>
+          <div class="list-grid">
             {% for c in clist %}
-              <div class="{% if (game_changers and (c.name in game_changers)) or ('game_changer' in (c.role or '') or 'Game Changer' in (c.role or '')) %}game-changer{% endif %}">
+              <div class="list-row {% if (game_changers and (c.name in game_changers)) or ('game_changer' in (c.role or '') or 'Game Changer' in (c.role or '')) %}game-changer{% endif %}">
                 {% set cnt = c.count if c.count else 1 %}
                 {% set owned = (owned_set is defined and c.name and (c.name|lower in owned_set)) %}
-                <span data-card-name="{{ c.name }}" data-count="{{ cnt }}" data-role="{{ c.role }}" data-tags="{{ (c.tags|join(', ')) if c.tags else '' }}">
-                  {{ cnt }}x {{ c.name }}
-                </span>
+                <span class="count">{{ cnt }}</span>
+                <span class="times">x</span>
+                <span class="name" title="{{ c.name }}" data-card-name="{{ c.name }}" data-count="{{ cnt }}" data-role="{{ c.role }}" data-tags="{{ (c.tags|join(', ')) if c.tags else '' }}">{{ c.name }}</span>
                 <span class="owned-flag" title="{{ 'Owned' if owned else 'Not owned' }}" aria-label="{{ 'Owned' if owned else 'Not owned' }}">{% if owned %}✔{% else %}✖{% endif %}</span>
               </div>
             {% endfor %}
@@ -375,9 +386,9 @@
 <style>
   .chart-tooltip { position: fixed; pointer-events: none; background: #0f1115; color: #e5e7eb; border: 1px solid var(--border); padding: .4rem .55rem; border-radius: 6px; font-size: 12px; line-height: 1.3; white-space: pre-line; z-index: 9999; display: none; box-shadow: 0 4px 16px rgba(0,0,0,.4); }
   /* Cross-highlight from charts to cards */
-  .chart-highlight { outline: 2px solid #f59e0b; outline-offset: 2px; border-radius: 6px; background: rgba(245,158,11,.08); }
-  /* For list view, wrap highlight visually */
-  #typeview-list [data-card-name].chart-highlight { display:inline-block; padding: 2px 4px; border-radius: 6px; }
+  .chart-highlight { border-radius: 6px; background: rgba(245,158,11,.08); box-shadow: 0 0 0 2px #f59e0b inset; }
+  /* For list view, ensure baseline padding so no layout shift on highlight */
+  #typeview-list .list-row .name { display:inline-block; padding: 2px 4px; border-radius: 6px; }
   /* Ensure stack-card gets visible highlight */
   .stack-card.chart-highlight { box-shadow: 0 0 0 2px #f59e0b, 0 6px 18px rgba(0,0,0,.55); }
 </style>

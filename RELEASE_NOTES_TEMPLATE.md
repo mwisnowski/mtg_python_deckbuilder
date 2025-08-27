@@ -13,6 +13,15 @@
  - Prefer-owned option in the Web UI Review step prioritizes owned cards while allowing unowned fallback; applied across creatures and spells with stable reordering and gentle weight boosts.
  - Owned page: export TXT/CSV, sort controls, live "N shown," color identity dots, exact color-identity combo filters (incl. 4-color), viewport-filling list, and scrollbar styling. Upload-time enrichment and de-duplication speeds up page loads.
  - Staged build visibility: optional "Show skipped stages" reveals phases that added no cards with a clear annotation.
+ - Owned page UX: hover preview now triggers from the thumbnail, not the name; selection outline is restricted to the thumbnail and uses white for clarity; hover popout shows Themes as a larger bullet list with a bright label.
+ - Image robustness: all Scryfall images include `data-card-name` and participate in centralized retry (version fallback + one cache-bust) for thumbnails and previews.
+ - Deck Summary: aligned text-mode list (fixed columns for count/×/name/owned), highlight that doesn’t shift layout, and tooltips for truncated names. The list begins directly under each type header for better scanability.
+
+### Diagnostics and error handling
+- Health endpoint `/healthz` returns `{ status, version, uptime_seconds }`.
+- All responses include `X-Request-ID`; JSON error payloads include `request_id` for correlation.
+- Friendly HTML error pages for 404/4xx/500 with a "Go home" link (browser requests).
+- Feature flags: `SHOW_DIAGNOSTICS=1` to enable a diagnostics page with test tools; `SHOW_LOGS=1` to enable a logs page and `/status/logs?tail=N`.
 
 ## What’s new
 - Web UI: Staged run with a new "Creatures: All-Theme" phase in AND mode; shows matched selected themes per card for explainability. Step 2 UI clarifies AND/OR with a tooltip and restyled Why panel.
@@ -80,6 +89,8 @@ docker compose up --no-deps web
  - Review step consolidates owned-only and prefer-owned controls; Step 5 is status-only with an "Edit in Review" link for changes.
  - Owned lists processing moved to upload-time in Web; per-request parsing removed. Enriched store powers fast Owned page and deck-building.
  - Finished Decks page uses a dropdown theme filter with shareable state.
+ - Global image retry binding for all card images (thumbnails and previews), with no JS hover cache to minimize memory and complexity.
+ - Deck Summary fixes: separated count and × into distinct columns, fixed-width owned indicator, and responsive stability at fullscreen widths.
 
 ### Tagging updates
 - Explore/Map: treat "+1/+1 counter" as a literal; Explore adds Card Selection and may add +1/+1 Counters; Map adds Card Selection and Tokens Matter.

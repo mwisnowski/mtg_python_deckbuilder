@@ -303,14 +303,7 @@ def get_enriched() -> Tuple[List[str], Dict[str, List[str]], Dict[str, str], Dic
     for n in names:
         info = meta.get(n) or {}
         tags = (info.get('tags') or [])
-        user_tags = (info.get('user_tags') or [])
-        if user_tags:
-            # merge user tags (unique, case-insensitive)
-            seen = {str(t).lower() for t in tags}
-            for ut in user_tags:
-                if str(ut).lower() not in seen:
-                    (tags or []).append(str(ut))
-                    seen.add(str(ut).lower())
+    # user-defined tags are no longer supported; no merge
         typ = info.get('type') or None
         cols = info.get('colors') or []
         if tags:
@@ -322,54 +315,7 @@ def get_enriched() -> Tuple[List[str], Dict[str, List[str]], Dict[str, str], Dic
     return names, tags_by_name, type_by_name, colors_by_name
 
 
-def add_user_tag(names: Iterable[str], tag: str) -> int:
-    """Add a user-defined tag to the given names; returns number of names updated."""
-    t = str(tag or '').strip()
-    if not t:
-        return 0
-    data = _load_raw()
-    cur = [str(x).strip() for x in (data.get('names') or []) if str(x).strip()]
-    target = {str(n).strip().lower() for n in (names or []) if str(n).strip()}
-    meta = data.get('meta') or {}
-    updated = 0
-    for s in cur:
-        if s.lower() not in target:
-            continue
-        entry = meta.setdefault(s, {})
-        arr = entry.get('user_tags') or []
-        if not any(str(x).strip().lower() == t.lower() for x in arr):
-            arr.append(t)
-            entry['user_tags'] = arr
-            updated += 1
-    data['meta'] = meta
-    _save_raw(data)
-    return updated
-
-
-def remove_user_tag(names: Iterable[str], tag: str) -> int:
-    """Remove a user-defined tag from the given names; returns number of names updated."""
-    t = str(tag or '').strip()
-    if not t:
-        return 0
-    data = _load_raw()
-    cur = [str(x).strip() for x in (data.get('names') or []) if str(x).strip()]
-    target = {str(n).strip().lower() for n in (names or []) if str(n).strip()}
-    meta = data.get('meta') or {}
-    updated = 0
-    for s in cur:
-        if s.lower() not in target:
-            continue
-        entry = meta.get(s) or {}
-        arr = [x for x in (entry.get('user_tags') or []) if str(x)]
-        before = len(arr)
-        arr = [x for x in arr if str(x).strip().lower() != t.lower()]
-        if len(arr) != before:
-            entry['user_tags'] = arr
-            meta[s] = entry
-            updated += 1
-    data['meta'] = meta
-    _save_raw(data)
-    return updated
+# add_user_tag/remove_user_tag removed; user-defined tags are not persisted anymore
 
 
 def get_added_at_map() -> Dict[str, int]:
@@ -416,18 +362,8 @@ def remove_names(names: Iterable[str]) -> Tuple[int, int]:
 
 
 def get_user_tags_map() -> Dict[str, list[str]]:
-    """Return a mapping of name -> list of user-defined tags (if any)."""
-    data = _load_raw()
-    meta: Dict[str, Dict[str, object]] = data.get("meta") or {}
-    out: Dict[str, list[str]] = {}
-    for n, info in meta.items():
-        try:
-            arr = [x for x in (info.get("user_tags") or []) if str(x)]
-            if arr:
-                out[n] = [str(x) for x in arr]
-        except Exception:
-            continue
-    return out
+    """Deprecated: user-defined tags have been removed. Always returns empty mapping."""
+    return {}
 
 
 def parse_txt_bytes(content: bytes) -> List[str]:

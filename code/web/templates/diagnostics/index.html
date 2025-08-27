@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block content %}
+<section>
+  <h2>Diagnostics</h2>
+  <p class="muted">Use these tools to verify error handling surfaces.</p>
+  <div class="card" style="background:#0f1115; border:1px solid var(--border); border-radius:10px; padding:.75rem; margin-bottom:.75rem">
+    <h3 style="margin-top:0">System summary</h3>
+    <div id="sysSummary" class="muted">Loading…</div>
+  </div>
+  <div class="card" style="background:#0f1115; border:1px solid var(--border); border-radius:10px; padding:.75rem;">
+  <h3 style="margin-top:0">Error triggers</h3>
+    <div class="row" style="display:flex; gap:.5rem; align-items:center">
+  <button class="btn" hx-get="/diagnostics/trigger-error" hx-trigger="click" hx-target="this" hx-swap="none">Trigger HTTP error (418)</button>
+  <button class="btn" hx-get="/diagnostics/trigger-error?kind=unhandled" hx-trigger="click" hx-target="this" hx-swap="none">Trigger unhandled error (500)</button>
+      <small class="muted">You should see a toast and an inline banner with Request-ID.</small>
+    </div>
+  </div>
+  {% if show_logs %}
+  <p style="margin-top:.75rem"><a class="btn" href="/logs">Open Logs</a></p>
+  {% endif %}
+</section>
+<script>
+(function(){
+  var el = document.getElementById('sysSummary');
+  function render(data){
+    if (!el) return;
+    try {
+      var v = (data && data.version) || 'dev';
+      var up = (data && data.uptime_seconds) || 0;
+      var st = (data && data.server_time_utc) || '';
+      var flags = (data && data.flags) || {};
+      el.innerHTML = '<div><strong>Version:</strong> '+String(v)+'</div>'+
+        (st ? '<div><strong>Server time (UTC):</strong> '+String(st)+'</div>' : '')+
+        '<div><strong>Uptime:</strong> '+String(up)+'s</div>'+
+        '<div><strong>Flags:</strong> SHOW_LOGS='+ (flags.SHOW_LOGS? '1':'0') +', SHOW_DIAGNOSTICS='+ (flags.SHOW_DIAGNOSTICS? '1':'0') +', SHOW_SETUP='+ (flags.SHOW_SETUP? '1':'0') +'</div>';
+    } catch(_){ el.textContent = 'Unavailable'; }
+  }
+  function load(){
+    try { fetch('/status/sys', { cache: 'no-store' }).then(function(r){ return r.json(); }).then(render).catch(function(){ el.textContent='Unavailable'; }); } catch(_){ el.textContent='Unavailable'; }
+  }
+  load();
+})();
+</script>
+{% endblock %}

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from fastapi import FastAPI, Request, HTTPException
-from fastapi.responses import HTMLResponse, FileResponse, PlainTextResponse, JSONResponse
+from fastapi import FastAPI, Request, HTTPException, Query
+from fastapi.responses import HTMLResponse, FileResponse, PlainTextResponse, JSONResponse, Response
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
@@ -10,6 +10,7 @@ import json as _json
 import time
 import uuid
 import logging
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 # Resolve template/static dirs relative to this file
 _THIS_DIR = Path(__file__).resolve().parent
@@ -33,11 +34,13 @@ def _as_bool(val: str | None, default: bool = False) -> bool:
 
 SHOW_LOGS = _as_bool(os.getenv("SHOW_LOGS"), False)
 SHOW_SETUP = _as_bool(os.getenv("SHOW_SETUP"), True)
+SHOW_DIAGNOSTICS = _as_bool(os.getenv("SHOW_DIAGNOSTICS"), False)
 
 # Expose as Jinja globals so all templates can reference without passing per-view
 templates.env.globals.update({
     "show_logs": SHOW_LOGS,
     "show_setup": SHOW_SETUP,
+    "show_diagnostics": SHOW_DIAGNOSTICS,
 })
 
 # --- Diagnostics: request-id and uptime ---
@@ -73,6 +76,58 @@ async def healthz():
     except Exception:
         # Avoid throwing from health
         return {"status": "degraded"}
+
+# System summary endpoint for diagnostics
+@app.get("/status/sys")
+async def status_sys():
+    try:
+        version = os.getenv("APP_VERSION", "dev")
+        uptime_s = int(time.time() - _APP_START_TIME)
+        server_time = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+        return {
+            "version": version,
+            "uptime_seconds": uptime_s,
+            "server_time_utc": server_time,
+            "flags": {
+                "SHOW_LOGS": bool(SHOW_LOGS),
+                "SHOW_SETUP": bool(SHOW_SETUP),
+                "SHOW_DIAGNOSTICS": bool(SHOW_DIAGNOSTICS),
+            },
+        }
+    except Exception:
+        return {"version": "unknown", "uptime_seconds": 0, "flags": {}}
+
+# Logs tail endpoint (read-only)
+@app.get("/status/logs")
+async def status_logs(
+    tail: int = Query(200, ge=1, le=500),
+    q: str | None = None,
+    level: str | None = Query(None, description="Optional level filter: error|warning|info|debug"),
+):
+    try:
+        if not SHOW_LOGS:
+            # Hide when logs are disabled
+            return JSONResponse({"error": True, "status": 403, "detail": "Logs disabled"}, status_code=403)
+        log_path = Path('logs/deck_builder.log')
+        if not log_path.exists():
+            return JSONResponse({"lines": [], "count": 0})
+        from collections import deque
+        with log_path.open('r', encoding='utf-8', errors='ignore') as lf:
+            lines = list(deque(lf, maxlen=tail))
+        if q:
+            ql = q.lower()
+            lines = [ln for ln in lines if ql in ln.lower()]
+        # Optional level filter (simple substring match)
+        if level:
+            lv = level.strip().lower()
+            # accept warn as alias for warning
+            if lv == "warn":
+                lv = "warning"
+            if lv in {"error", "warning", "info", "debug"}:
+                lines = [ln for ln in lines if lv in ln.lower()]
+        return JSONResponse({"lines": lines, "count": len(lines)})
+    except Exception:
+        return JSONResponse({"lines": [], "count": 0})
 
 # Lightweight setup/tagging status endpoint
 @app.get("/status/setup")
@@ -124,24 +179,59 @@ app.include_router(setup_routes.router)
 app.include_router(owned_routes.router)
 
 # --- Exception handling ---
+def _wants_html(request: Request) -> bool:
+    try:
+        accept = request.headers.get('accept', '')
+        is_htmx = request.headers.get('hx-request') == 'true'
+        return ("text/html" in accept) and not is_htmx
+    except Exception:
+        return False
+
+
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
     rid = getattr(request.state, "request_id", None) or uuid.uuid4().hex
     logging.getLogger("web").warning(
         f"HTTPException [rid={rid}] {exc.status_code} {request.method} {request.url.path}: {exc.detail}"
     )
-    # Return JSON structure suitable for HTMX or API consumers
-    return JSONResponse(
-        status_code=exc.status_code,
-        content={
-            "error": True,
-            "status": exc.status_code,
-            "detail": exc.detail,
-            "request_id": rid,
-            "path": str(request.url.path),
-        },
-        headers={"X-Request-ID": rid},
+    if _wants_html(request):
+        # Friendly HTML page
+        template = "errors/404.html" if exc.status_code == 404 else "errors/4xx.html"
+        try:
+            return templates.TemplateResponse(template, {"request": request, "status": exc.status_code, "detail": exc.detail, "request_id": rid}, status_code=exc.status_code, headers={"X-Request-ID": rid})
+        except Exception:
+            # Fallback plain text
+            return PlainTextResponse(f"Error {exc.status_code}: {exc.detail}\nRequest-ID: {rid}", status_code=exc.status_code, headers={"X-Request-ID": rid})
+    # JSON structure for HTMX/API
+    return JSONResponse(status_code=exc.status_code, content={
+        "error": True,
+        "status": exc.status_code,
+        "detail": exc.detail,
+        "request_id": rid,
+        "path": str(request.url.path),
+    }, headers={"X-Request-ID": rid})
+
+
+# Also handle Starlette's HTTPException (e.g., 404 route not found)
+@app.exception_handler(StarletteHTTPException)
+async def starlette_http_exception_handler(request: Request, exc: StarletteHTTPException):
+    rid = getattr(request.state, "request_id", None) or uuid.uuid4().hex
+    logging.getLogger("web").warning(
+        f"HTTPException* [rid={rid}] {exc.status_code} {request.method} {request.url.path}: {exc.detail}"
     )
+    if _wants_html(request):
+        template = "errors/404.html" if exc.status_code == 404 else "errors/4xx.html"
+        try:
+            return templates.TemplateResponse(template, {"request": request, "status": exc.status_code, "detail": exc.detail, "request_id": rid}, status_code=exc.status_code, headers={"X-Request-ID": rid})
+        except Exception:
+            return PlainTextResponse(f"Error {exc.status_code}: {exc.detail}\nRequest-ID: {rid}", status_code=exc.status_code, headers={"X-Request-ID": rid})
+    return JSONResponse(status_code=exc.status_code, content={
+        "error": True,
+        "status": exc.status_code,
+        "detail": exc.detail,
+        "request_id": rid,
+        "path": str(request.url.path),
+    }, headers={"X-Request-ID": rid})
 
 
 @app.exception_handler(Exception)
@@ -150,17 +240,18 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
     logging.getLogger("web").error(
         f"Unhandled exception [rid={rid}] {request.method} {request.url.path}", exc_info=True
     )
-    return JSONResponse(
-        status_code=500,
-        content={
-            "error": True,
-            "status": 500,
-            "detail": "Internal Server Error",
-            "request_id": rid,
-            "path": str(request.url.path),
-        },
-        headers={"X-Request-ID": rid},
-    )
+    if _wants_html(request):
+        try:
+            return templates.TemplateResponse("errors/500.html", {"request": request, "request_id": rid}, status_code=500, headers={"X-Request-ID": rid})
+        except Exception:
+            return PlainTextResponse(f"Internal Server Error\nRequest-ID: {rid}", status_code=500, headers={"X-Request-ID": rid})
+    return JSONResponse(status_code=500, content={
+        "error": True,
+        "status": 500,
+        "detail": "Internal Server Error",
+        "request_id": rid,
+        "path": str(request.url.path),
+    }, headers={"X-Request-ID": rid})
 
 # Lightweight file download endpoint for exports
 @app.get("/files")
@@ -196,3 +287,47 @@ async def favicon():
         return FileResponse(str(target))
     except Exception:
         return PlainTextResponse("Error", status_code=500)
+
+
+# Simple Logs page (optional, controlled by SHOW_LOGS)
+@app.get("/logs", response_class=HTMLResponse)
+async def logs_page(
+    request: Request,
+    tail: int = Query(200, ge=1, le=500),
+    q: str | None = None,
+    level: str | None = Query(None),
+) -> Response:
+    if not SHOW_LOGS:
+        # Respect feature flag
+        raise HTTPException(status_code=404, detail="Not Found")
+    # Reuse status_logs logic
+    data = await status_logs(tail=tail, q=q, level=level)  # type: ignore[arg-type]
+    lines: list[str]
+    if isinstance(data, JSONResponse):
+        payload = data.body
+        try:
+            parsed = _json.loads(payload)
+            lines = parsed.get("lines", [])
+        except Exception:
+            lines = []
+    else:
+        lines = []
+    return templates.TemplateResponse(
+        "diagnostics/logs.html",
+        {"request": request, "lines": lines, "tail": tail, "q": q or "", "level": (level or "all")},
+    )
+
+
+# Error trigger route for demoing HTMX/global error handling (feature-flagged)
+@app.get("/diagnostics/trigger-error")
+async def trigger_error(kind: str = Query("http")):
+    if kind == "http":
+        raise HTTPException(status_code=418, detail="Teapot: example error for testing")
+    raise RuntimeError("Example unhandled error for testing")
+
+
+@app.get("/diagnostics", response_class=HTMLResponse)
+async def diagnostics_home(request: Request) -> HTMLResponse:
+    if not SHOW_DIAGNOSTICS:
+        raise HTTPException(status_code=404, detail="Not Found")
+    return templates.TemplateResponse("diagnostics/index.html", {"request": request})

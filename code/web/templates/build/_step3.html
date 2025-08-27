@@ -4,7 +4,7 @@
   <div class="two-col two-col-left-rail">
   <aside class="card-preview" data-card-name="{{ commander|urlencode }}">
       <a href="https://scryfall.com/search?q={{ commander|urlencode }}" target="_blank" rel="noopener">
-        <img src="https://api.scryfall.com/cards/named?fuzzy={{ commander|urlencode }}&format=image&version=normal" alt="{{ commander }} card image" />
+  <img src="https://api.scryfall.com/cards/named?fuzzy={{ commander|urlencode }}&format=image&version=normal" alt="{{ commander }} card image" data-card-name="{{ commander }}" />
       </a>
     </aside>
     <div class="grow" data-skeleton>

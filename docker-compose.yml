@@ -32,6 +32,9 @@ services:
       - PYTHONUNBUFFERED=1
       - TERM=xterm-256color
       - DEBIAN_FRONTEND=noninteractive
+      # Logging and error utilities
+      # - SHOW_LOGS=1
+      # - SHOW_DIAGNOSTICS=1
       # Speed up setup/tagging in Web UI via parallel workers
       - WEB_TAG_PARALLEL=1
       - WEB_TAG_WORKERS=4

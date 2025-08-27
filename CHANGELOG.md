@@ -33,6 +33,10 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
  - Source detection: include non-land mana producers and colorless 'C'; basic lands reliably counted; fetch lands excluded as sources
  - Favicon support: `/favicon.ico` served (ICO with PNG fallback)
  - Diagnostics: `/healthz` endpoint returns `{status, version, uptime_seconds}`; responses carry `X-Request-ID`; unhandled errors return JSON with request_id
+ - Diagnostics page and tools gated by `SHOW_DIAGNOSTICS`; Logs page gated by `SHOW_LOGS`; both off by default
+ - Global error handling: friendly HTML templates for 404/4xx/500 with Request-ID and "Go home" link; JSON structure for HTMX/API
+ - Request-ID middleware assigns `X-Request-ID` to all responses and includes it in JSON error payloads
+ - `/status/logs?tail=N` endpoint (read-only) to fetch a recent log tail for quick diagnostics
  - Tooltip Copy action on chart tooltips (Pips/Sources) for quick sharing of per-color card lists
 
 ### Changed
@@ -49,6 +53,10 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
  - Deck summary reporting now includes colorless 'C' in totals and cards; UI adds a Show C toggle for Sources
  - List view highlight polished to wrap only the card name (no overrun of the row)
  - Total sources calculation updated to include 'C' properly
+ - 404s from Starlette now render the HTML 404 page when requested from a browser (Accept: text/html)
+ - Owned page UX: full-size preview now pops on thumbnail hover (not the name); selection highlight tightened to the thumbnail only and changed to white for better contrast; Themes in the hover popout render as a larger bullet list with a brighter "THEMES" label
+ - Image robustness: standardized `data-card-name` on all Scryfall images and centralized retry logic (thumbnails + previews) with version fallbacks (small/normal/large) and a single cache-bust refresh on final failure; removed the previous hover-image cache to reduce complexity and overhead
+ - Deck Summary list view: rows use fixed tracks for count, ×, name, and owned columns (monospace tabular numerals) to ensure perfect alignment; highlight is an inset box-shadow on the name to avoid layout shifts; long names ellipsize with a tooltip; list starts directly under the type header and remains stable on full-screen widths
 
 ### Fixed
 - Docker Hub workflow no longer publishes a `major.minor` tag (e.g., `1.1`); only full semver (e.g., `1.2.3`) and `latest`
@@ -57,6 +65,8 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
  - Source highlighting consistency: charts now correctly cross-highlight corresponding cards in both list and thumbnail views
  - Basics handling: ensured basic lands and Wastes are recognized as sources; added fallback oracle text for basics in CSV export
  - Fetch lands are no longer miscounted as mana sources
+ - Web 404s previously returned JSON to browsers in some cases; now correctly render HTML via a Starlette HTTPException handler
+ - Deck summary alignment issues in some sections (e.g., Enchantments) fixed by splitting the count and the × into separate columns and pinning the owned flag to a fixed width; prevents drift across responsive breakpoints
 
 ---
 

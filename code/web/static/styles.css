@@ -35,6 +35,8 @@ body { font-family: system-ui, Arial, sans-serif; margin: 0; color: var(--text);
 .top-banner h1{ font-size: 1.1rem; margin:0; padding-left: 1rem; }
 .banner-status{ color: var(--muted); font-size:.9rem; text-align:left; padding-left: 1.5rem; padding-right: 1.5rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .banner-status.busy{ color:#fbbf24; }
+.health-dot{ width:10px; height:10px; border-radius:50%; display:inline-block; background:#10b981; box-shadow:0 0 0 2px rgba(16,185,129,.25) inset; }
+.health-dot[data-state="bad"]{ background:#ef4444; box-shadow:0 0 0 2px rgba(239,68,68,.3) inset; }
 
 /* Layout */
 .layout{ display:grid; grid-template-columns: var(--sidebar-w) 1fr; min-height: calc(100vh - 52px); }
@@ -215,3 +217,7 @@ small, .muted{ color: var(--muted); }
 .btn-why{ background:#1f2937; color:#e5e7eb; border:1px solid var(--border); border-radius:6px; padding:.15rem .4rem; font-size:12px; cursor:pointer; }
 .chips-inline{ display:flex; gap:.35rem; flex-wrap:wrap; align-items:center; }
 .chips-inline .chip{ cursor:pointer; user-select:none; }
+
+/* Inline error banner */
+.inline-error-banner{ background:#1a0f10; border:1px solid #b91c1c; color:#fca5a5; padding:.5rem .6rem; border-radius:8px; margin-bottom:.5rem; }
+.inline-error-banner .muted{ color:#fda4af; }

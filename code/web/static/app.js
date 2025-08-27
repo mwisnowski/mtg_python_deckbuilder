@@ -41,20 +41,62 @@
     t.className = 'toast' + (type ? ' '+type : '');
     t.setAttribute('role','status');
     t.setAttribute('aria-live','polite');
-    t.textContent = msg;
+    t.textContent = '';
+    if (typeof msg === 'string') { t.textContent = msg; }
+    else if (msg && msg.nodeType === 1) { t.appendChild(msg); }
     toastHost.appendChild(t);
     var delay = (opts && opts.duration) || 2600;
     setTimeout(function(){ t.classList.add('hide'); setTimeout(function(){ t.remove(); }, 300); }, delay);
     return t;
   }
   window.toast = toast;
+  function toastHTML(html, type, opts){
+    var container = document.createElement('div');
+    container.innerHTML = html;
+    return toast(container, type, opts);
+  }
+  window.toastHTML = toastHTML;
 
   // Global HTMX error handling => toast
   document.addEventListener('htmx:responseError', function(e){
     var detail = e.detail || {}; var xhr = detail.xhr || {};
-    var msg = 'Action failed';
-    try { if (xhr.responseText) msg += ': ' + xhr.responseText.slice(0,140); } catch(_){}
-    toast(msg, 'error', { duration: 5000 });
+    var rid = (xhr.getResponseHeader && xhr.getResponseHeader('X-Request-ID')) || '';
+    var payload = (function(){ try { return JSON.parse(xhr.responseText || '{}'); } catch(_){ return {}; } })();
+    var status = payload.status || xhr.status || '';
+    var msg = payload.detail || payload.message || 'Action failed';
+    var path = payload.path || (e && e.detail && e.detail.path) || '';
+    var html = ''+
+      '<div style="display:flex; align-items:center; gap:.5rem">'+
+      '<span style="font-weight:600">'+String(msg)+'</span>'+ (status? ' <span class="muted">('+status+')</span>' : '')+
+      (rid ? '<button class="btn small" style="margin-left:auto" type="button" data-copy-error>Copy details</button>' : '')+
+      '</div>'+
+      (rid ? '<div class="muted" style="font-size:11px; margin-top:2px">Request-ID: <code>'+rid+'</code></div>' : '');
+    var t = toastHTML(html, 'error', { duration: 7000 });
+    // Wire Copy
+    var btn = t.querySelector('[data-copy-error]');
+    if (btn){
+      btn.addEventListener('click', function(){
+        var lines = [
+          'Error: '+String(msg),
+          'Status: '+String(status),
+          'Path: '+String(path || (xhr.responseURL||'')),
+          'Request-ID: '+String(rid)
+        ];
+        try { navigator.clipboard.writeText(lines.join('\n')); btn.textContent = 'Copied'; setTimeout(function(){ btn.textContent = 'Copy details'; }, 1200); } catch(_){ }
+      });
+    }
+    // Optional inline banner if a surface is available
+    try {
+      var target = e && e.target;
+      var surface = (target && target.closest && target.closest('[data-error-surface]')) || document.querySelector('[data-error-surface]');
+      if (surface){
+        var banner = document.createElement('div');
+        banner.className = 'inline-error-banner';
+        banner.innerHTML = '<strong>'+String(msg)+'</strong>' + (rid? ' <span class="muted">(Request-ID: '+rid+')</span>' : '');
+        surface.prepend(banner);
+        setTimeout(function(){ banner.remove(); }, 8000);
+      }
+    } catch(_){ }
   });
   document.addEventListener('htmx:sendError', function(){ toast('Network error', 'error', { duration: 4000 }); });
 

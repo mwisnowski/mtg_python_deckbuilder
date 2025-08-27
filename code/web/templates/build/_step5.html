@@ -4,7 +4,7 @@
   <div class="two-col two-col-left-rail">
     <aside class="card-preview">
       <a href="https://scryfall.com/search?q={{ commander|urlencode }}" target="_blank" rel="noopener">
-        <img src="https://api.scryfall.com/cards/named?fuzzy={{ commander|urlencode }}&format=image&version=normal" alt="{{ commander }} card image" />
+  <img src="https://api.scryfall.com/cards/named?fuzzy={{ commander|urlencode }}&format=image&version=normal" alt="{{ commander }} card image" data-card-name="{{ commander }}" />
       </a>
       {% if status and status.startswith('Build complete') %}
       <div style="margin-top:.75rem; display:flex; gap:.35rem; flex-wrap:wrap;">
@@ -144,7 +144,7 @@
             {% set owned = (owned_set is defined and c.name and (c.name|lower in owned_set)) %}
             <div class="card-tile{% if game_changers and (c.name in game_changers) %} game-changer{% endif %}" data-card-name="{{ c.name }}" data-role="{{ c.role or c.sub_role or '' }}" data-tags="{{ (c.tags|join(', ')) if c.tags else '' }}" data-owned="{{ '1' if owned else '0' }}">
               <a href="https://scryfall.com/search?q={{ c.name|urlencode }}" target="_blank" rel="noopener">
-                <img src="https://api.scryfall.com/cards/named?fuzzy={{ c.name|urlencode }}&format=image&version=normal" alt="{{ c.name }} image" width="160" />
+                <img src="https://api.scryfall.com/cards/named?fuzzy={{ c.name|urlencode }}&format=image&version=normal" alt="{{ c.name }} image" width="160" data-card-name="{{ c.name }}" />
               </a>
               <div class="owned-badge" title="{{ 'Owned' if owned else 'Not owned' }}" aria-label="{{ 'Owned' if owned else 'Not owned' }}">{% if owned %}✔{% else %}✖{% endif %}</div>
               <div class="name">{{ c.name }}{% if c.count and c.count > 1 %} ×{{ c.count }}{% endif %}</div>
@@ -165,7 +165,7 @@
           {% set owned = (owned_set is defined and c.name and (c.name|lower in owned_set)) %}
           <div class="card-tile{% if game_changers and (c.name in game_changers) %} game-changer{% endif %}" data-card-name="{{ c.name }}" data-role="{{ c.role or c.sub_role or '' }}" data-tags="{{ (c.tags|join(', ')) if c.tags else '' }}" data-owned="{{ '1' if owned else '0' }}">
             <a href="https://scryfall.com/search?q={{ c.name|urlencode }}" target="_blank" rel="noopener">
-              <img src="https://api.scryfall.com/cards/named?fuzzy={{ c.name|urlencode }}&format=image&version=normal" alt="{{ c.name }} image" width="160" />
+              <img src="https://api.scryfall.com/cards/named?fuzzy={{ c.name|urlencode }}&format=image&version=normal" alt="{{ c.name }} image" width="160" data-card-name="{{ c.name }}" />
             </a>
             <div class="owned-badge" title="{{ 'Owned' if owned else 'Not owned' }}" aria-label="{{ 'Owned' if owned else 'Not owned' }}">{% if owned %}✔{% else %}✖{% endif %}</div>
             <div class="name">{{ c.name }}{% if c.count and c.count > 1 %} ×{{ c.count }}{% endif %}</div>

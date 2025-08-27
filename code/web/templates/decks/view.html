@@ -8,7 +8,7 @@
 <div style="display:grid; grid-template-columns: 360px 1fr; gap: 1rem; align-items:start; margin-top: .75rem;">
   <div>
     {% if commander %}
-      <img src="https://api.scryfall.com/cards/named?fuzzy={{ commander|urlencode }}&format=image&version=normal" alt="{{ commander }}" style="width:320px; height:auto; border-radius:8px; border:1px solid var(--border); box-shadow: 0 6px 18px rgba(0,0,0,.55);" />
+  <img src="https://api.scryfall.com/cards/named?fuzzy={{ commander|urlencode }}&format=image&version=normal" alt="{{ commander }}" data-card-name="{{ commander }}" style="width:320px; height:auto; border-radius:8px; border:1px solid var(--border); box-shadow: 0 6px 18px rgba(0,0,0,.55);" />
       <div class="muted" style="margin-top:.25rem;">Commander: <span data-card-name="{{ commander }}">{{ commander }}</span></div>
     {% endif %}
     <div style="margin-top:.75rem; display:flex; gap:.35rem; flex-wrap:wrap;">

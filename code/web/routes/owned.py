@@ -77,7 +77,6 @@ def _build_owned_context(request: Request, notice: str | None = None, error: str
     # Read enriched data from the store (fast path; avoids per-request CSV parsing)
     names, tags_by_name, type_by_name, colors_by_name = store.get_enriched()
     added_at_map = store.get_added_at_map()
-    user_tags_map = store.get_user_tags_map()
     # Default sort by name (case-insensitive)
     names_sorted = sorted(names, key=lambda s: s.lower())
     # Build filter option sets
@@ -98,7 +97,6 @@ def _build_owned_context(request: Request, notice: str | None = None, error: str
         "all_colors": all_colors,
     "color_combos": combos,
     "added_at_map": added_at_map,
-    "user_tags_map": user_tags_map,
     }
     if notice:
         ctx["notice"] = notice
@@ -170,56 +168,12 @@ async def owned_remove(request: Request) -> HTMLResponse:
         return templates.TemplateResponse("owned/index.html", ctx)
 
 
-@router.post("/tag/add", response_class=HTMLResponse)
-async def owned_tag_add(request: Request) -> HTMLResponse:
-    try:
-        names: list[str] = []
-        tag: str = ""
-        try:
-            payload = await request.json()
-            if isinstance(payload, dict):
-                if isinstance(payload.get("names"), list):
-                    names = [str(x) for x in payload.get("names")]
-                tag = str(payload.get("tag") or "").strip()
-        except Exception:
-            form = await request.form()
-            raw = form.get("names") or ""
-            if raw:
-                names = [s.strip() for s in str(raw).split(',') if s.strip()]
-            tag = str(form.get("tag") or "").strip()
-        updated = store.add_user_tag(names, tag)
-        notice = f"Added tag '{tag}' to {updated} name(s)."
-        ctx = _build_owned_context(request, notice=notice)
-        return templates.TemplateResponse("owned/index.html", ctx)
-    except Exception as e:
-        ctx = _build_owned_context(request, error=f"Tag add failed: {e}")
-        return templates.TemplateResponse("owned/index.html", ctx)
+# Bulk user-tag endpoints removed by request.
 
 
-@router.post("/tag/remove", response_class=HTMLResponse)
-async def owned_tag_remove(request: Request) -> HTMLResponse:
-    try:
-        names: list[str] = []
-        tag: str = ""
-        try:
-            payload = await request.json()
-            if isinstance(payload, dict):
-                if isinstance(payload.get("names"), list):
-                    names = [str(x) for x in payload.get("names")]
-                tag = str(payload.get("tag") or "").strip()
-        except Exception:
-            form = await request.form()
-            raw = form.get("names") or ""
-            if raw:
-                names = [s.strip() for s in str(raw).split(',') if s.strip()]
-            tag = str(form.get("tag") or "").strip()
-        updated = store.remove_user_tag(names, tag)
-        notice = f"Removed tag '{tag}' from {updated} name(s)."
-        ctx = _build_owned_context(request, notice=notice)
-        return templates.TemplateResponse("owned/index.html", ctx)
-    except Exception as e:
-        ctx = _build_owned_context(request, error=f"Tag remove failed: {e}")
-        return templates.TemplateResponse("owned/index.html", ctx)
+"""
+Note: Per request, all user tag add/remove endpoints have been removed.
+"""
 
 
 # Legacy /owned/use route removed; owned-only toggle now lives on the Builder Review step.

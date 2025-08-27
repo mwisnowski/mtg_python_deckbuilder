@@ -78,27 +78,22 @@
       {% set cols = (colors_by_name.get(n, []) if colors_by_name else []) %}
       {% set added_ts = (added_at_map.get(n) if added_at_map else None) %}
       <li style="break-inside: avoid; overflow-wrap:anywhere;" data-type="{{ tline }}" data-tags="{{ (tags or [])|join('|') }}" data-colors="{{ (cols or [])|join('') }}" data-added="{{ added_ts if added_ts else '' }}">
-        <label style="display:flex; align-items:center; gap:.4rem;">
-          <input type="checkbox" class="sel" />
-          <span data-card-name="{{ n }}" {% if tags %}data-tags="{{ (tags or [])|join(', ') }}"{% endif %}>{{ n }}</span>
+  <label class="owned-row" style="cursor:pointer;" tabindex="0">
+          <input type="checkbox" class="sel sr-only" aria-label="Select {{ n }}" />
+          <div class="owned-vstack">
+            <img class="card-thumb" loading="lazy" alt="{{ n }} image" src="https://api.scryfall.com/cards/named?fuzzy={{ n|urlencode }}&format=image&version=small" data-card-name="{{ n }}" {% if tags %}data-tags="{{ (tags or [])|join(', ') }}"{% endif %} />
+            <span class="card-name"{% if tags %} data-tags="{{ (tags or [])|join(', ') }}"{% endif %}>{{ n }}</span>
+            {% if cols and cols|length %}
+            <div class="mana-group" aria-hidden="true">
+              {% for c in cols %}
+                <span class="mana mana-{{ c }}" title="{{ c }}"></span>
+              {% endfor %}
+            </div>
+            <span class="sr-only"> Colors: {{ cols|join(', ') }}</span>
+            {% endif %}
+          </div>
         </label>
-        {# Inline user tag badges #}
-        {% set utags = (user_tags_map.get(n, []) if user_tags_map else []) %}
-        {% if utags and utags|length %}
-        <div class="user-tags" style="display:flex; flex-wrap:wrap; gap:6px; margin:.25rem 0 .15rem 1.65rem;">
-          {% for t in utags %}
-          <span class="chip" data-name="{{ n }}" data-user-tag="{{ t }}" title="Click to remove tag" style="display:inline-flex; align-items:center; gap:6px; background:#0f1115; color:#e5e7eb; border:1px solid var(--border); border-radius:999px; padding:2px 8px; font-size:12px; cursor:pointer;">{{ t }} <span aria-hidden="true" style="opacity:.8;">×</span></span>
-          {% endfor %}
-        </div>
-        {% endif %}
-        {% if cols and cols|length %}
-        <span class="mana-group" aria-hidden="true" style="margin-left:.35rem; display:inline-flex; gap:4px; vertical-align:middle;">
-          {% for c in cols %}
-            <span class="mana mana-{{ c }}" title="{{ c }}"></span>
-          {% endfor %}
-        </span>
-        <span class="sr-only"> Colors: {{ cols|join(', ') }}</span>
-        {% endif %}
+        
       </li>
       {% endfor %}
     </ul>
@@ -127,7 +122,7 @@
     var btnClear = document.getElementById('clear-filters');
   var shownCount = document.getElementById('shown-count');
   var chips = document.getElementById('active-chips');
-  var tagInput;
+  
 
     // State helpers for URL hash and localStorage
     var state = {
@@ -136,6 +131,14 @@
       inHash: function(obj){ try{ var p=new URLSearchParams((location.hash||'').replace(/^#/,'')); Object.keys(obj||{}).forEach(function(k){ p.set(k, obj[k]); }); location.hash=p.toString(); }catch(e){} },
       readHash: function(){ try{ return new URLSearchParams((location.hash||'').replace(/^#/,'')); }catch(e){ return new URLSearchParams(); } }
     };
+
+    // Helper: build Scryfall image URL with optional cache-busting
+    function buildImageUrl(name, version, nocache){
+      var q = encodeURIComponent(name||'');
+      var url = 'https://api.scryfall.com/cards/named?fuzzy=' + q + '&format=image&version=' + (version||'small');
+      if (nocache) url += '&t=' + Date.now();
+      return url;
+    }
 
     // Resize the container to fill the viewport height
     function sizeBox(){
@@ -236,25 +239,7 @@
       });
     }
 
-    // Bulk tagging controls
-    (function(){
-      var bar = document.getElementById('bulk-bar');
-      if (!bar) return;
-      var wrap = document.createElement('div');
-      wrap.style.display='flex'; wrap.style.alignItems='center'; wrap.style.gap='.5rem'; wrap.style.flexWrap='wrap';
-      var inp = document.createElement('input'); inp.type='text'; inp.placeholder='Tag…'; inp.id='bulk-tag-input';
-      inp.style.background='#0f1115'; inp.style.color='#e5e7eb'; inp.style.border='1px solid var(--border)'; inp.style.borderRadius='6px'; inp.style.padding='.3rem .5rem';
-      var addBtn = document.createElement('button'); addBtn.textContent='Add tag to selected'; addBtn.id='btn-tag-add'; addBtn.disabled=true;
-      var remBtn = document.createElement('button'); remBtn.textContent='Remove tag from selected'; remBtn.id='btn-tag-remove'; remBtn.disabled=true;
-      wrap.appendChild(inp); wrap.appendChild(addBtn); wrap.appendChild(remBtn);
-      bar.appendChild(wrap);
-      tagInput = inp;
-      function refreshTagBtns(){ var hasSel = getSelectedNames().length>0; var hasTag = !!(tagInput && tagInput.value && tagInput.value.trim()); addBtn.disabled = !(hasSel && hasTag); remBtn.disabled = !(hasSel && hasTag); }
-      if (tagInput) tagInput.addEventListener('input', refreshTagBtns);
-      document.addEventListener('change', function(e){ if (e.target && e.target.classList && e.target.classList.contains('sel')) refreshTagBtns(); });
-      addBtn.addEventListener('click', function(){ var names=getSelectedNames(); var t=(tagInput&&tagInput.value||'').trim(); if(!names.length||!t) return; fetch('/owned/tag/add',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({names:names, tag:t})}).then(function(r){return r.text();}).then(function(html){ document.documentElement.innerHTML = html; }).catch(function(){ alert('Tagging failed'); }); });
-      remBtn.addEventListener('click', function(){ var names=getSelectedNames(); var t=(tagInput&&tagInput.value||'').trim(); if(!names.length||!t) return; fetch('/owned/tag/remove',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({names:names, tag:t})}).then(function(r){return r.text();}).then(function(html){ document.documentElement.innerHTML = html; }).catch(function(){ alert('Untag failed'); }); });
-    })();
+  // Bulk user-tag add/remove controls removed by request; inline chip removal remains supported.
 
     function resort(){
       if (!fSort) return;
@@ -308,6 +293,11 @@
         selAll.checked = (vis.length>0 && selected.length === vis.length);
         selAll.indeterminate = (selected.length>0 && selected.length < vis.length);
       }
+      // Toggle selected class for visual feedback
+      Array.prototype.forEach.call(grid.children, function(li){
+        var cb = li.querySelector('input.sel');
+        li.classList.toggle('is-selected', !!(cb && cb.checked));
+      });
     }
 
     if (selAll){
@@ -318,6 +308,15 @@
       });
     }
     grid.addEventListener('change', function(e){ if (e.target && e.target.classList && e.target.classList.contains('sel')) updateSelectedState(); });
+    // Keyboard: allow Enter/Space on the row to toggle selection
+    grid.addEventListener('keydown', function(e){
+      if (!(e.key === 'Enter' || e.key === ' ')) return;
+      var row = e.target && e.target.closest && e.target.closest('label.owned-row');
+      if (!row) return;
+      e.preventDefault();
+      var cb = row.querySelector('input.sel');
+      if (cb){ cb.checked = !cb.checked; cb.dispatchEvent(new Event('change', { bubbles:true })); }
+    });
 
     function postJSON(url, body){ return fetch(url, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body||{}) }).then(function(r){ if (r.ok) return r.text(); throw new Error('Request failed'); }); }
     function formPost(url, names){
@@ -362,19 +361,9 @@
   // Initial state
   apply();
 
-  // Delegated click: quick remove a user tag chip
-  grid.addEventListener('click', function(e){
-    var chip = e.target.closest && e.target.closest('.user-tags .chip');
-    if (!chip) return;
-    var name = chip.getAttribute('data-name');
-    var tag = chip.getAttribute('data-user-tag');
-    if (!name || !tag) return;
-    if (!window.confirm('Remove tag \''+tag+'\' from "'+name+'"?')) return;
-    fetch('/owned/tag/remove', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ names:[name], tag: tag }) })
-      .then(function(r){ return r.text(); })
-      .then(function(html){ sessionStorage.setItem('mtg:toastAfterReload', JSON.stringify({msg:'Removed tag \''+tag+'\' from '+name+'.', type:'success'})); document.documentElement.innerHTML = html; })
-      .catch(function(){ alert('Untag failed'); });
-  });
+  // Thumbnail retry now handled by global binder in base.html
+
+  // User tag chip UI removed by request.
   })();
   </script>
 <style>
@@ -393,5 +382,14 @@
   #owned-box::-webkit-scrollbar-track{ background: transparent; }
   #owned-box::-webkit-scrollbar-thumb{ background-color: rgba(148,163,184,.35); border-radius:8px; }
   #owned-box:hover::-webkit-scrollbar-thumb{ background-color: rgba(148,163,184,.6); }
+  /* Owned item layout */
+  #owned-grid{ justify-items:center; }
+  .owned-row{ display:flex; align-items:center; justify-content:center; gap:.5rem; border:1px solid transparent; border-radius:8px; padding:.5rem; width:100%; max-width:200px; margin:0 auto; }
+  .owned-vstack{ display:flex; flex-direction:column; gap:.25rem; align-items:center; text-align:center; }
+  .card-thumb{ display:block; width:100px; height:auto; border-radius:6px; border:1px solid var(--border); background:#0b0d12; object-fit:cover; }
+  /* Highlight only the thumbnail when selected */
+  li.is-selected .card-thumb{ border-color:#ffffff; box-shadow:0 0 0 3px rgba(255,255,255,.35); }
+  .mana-group{ display:flex; gap:4px; justify-content:center; }
+  .card-name{ display:block; }
 </style>
 {% endblock %}

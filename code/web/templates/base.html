@@ -15,7 +15,10 @@
     <header class="top-banner">
       <div class="top-inner">
         <h1>MTG Deckbuilder</h1>
-  <div id="banner-status" class="banner-status">{% block banner_subtitle %}{% endblock %}</div>
+        <div style="display:flex; align-items:center; gap:.5rem">
+          <span id="health-dot" class="health-dot" title="Health"></span>
+          <div id="banner-status" class="banner-status">{% block banner_subtitle %}{% endblock %}</div>
+        </div>
       </div>
     </header>
     <div class="layout">
@@ -36,10 +39,11 @@
           {% if show_setup %}<a href="/setup">Setup/Tag</a>{% endif %}
           <a href="/owned">Owned Library</a>
           <a href="/decks">Finished Decks</a>
+          {% if show_diagnostics %}<a href="/diagnostics">Diagnostics</a>{% endif %}
           {% if show_logs %}<a href="/logs">Logs</a>{% endif %}
         </nav>
       </aside>
-      <main class="content">
+  <main class="content" data-error-surface>
         {% block content %}{% endblock %}
       </main>
     </div>
@@ -52,8 +56,12 @@
       .card-hover { position: fixed; pointer-events: none; z-index: 9999; display: none; }
       .card-hover-inner { display:flex; gap:12px; align-items:flex-start; }
       .card-hover img { width: 320px; height: auto; display: block; border-radius: 8px; box-shadow: 0 6px 18px rgba(0,0,0,.55); border: 1px solid var(--border); background:#0f1115; }
-      .card-meta { background: #0f1115; color: #e5e7eb; border: 1px solid var(--border); border-radius: 8px; padding: .5rem .6rem; max-width: 280px; font-size: 12px; line-height: 1.35; box-shadow: 0 6px 18px rgba(0,0,0,.35); }
-      .card-meta .label { color:#94a3b8; text-transform: uppercase; font-size: 10px; letter-spacing: .04em; display:block; margin-bottom:.15rem; }
+  .card-meta { background: #0f1115; color: #e5e7eb; border: 1px solid var(--border); border-radius: 8px; padding: .5rem .6rem; max-width: 320px; font-size: 13px; line-height: 1.4; box-shadow: 0 6px 18px rgba(0,0,0,.35); }
+  .card-meta ul { margin:.25rem 0; padding-left: 1.1rem; list-style: disc; }
+  .card-meta li { margin:.1rem 0; }
+  .card-meta .themes-list { font-size: 18px; line-height: 1.35; }
+  .card-meta .label { color:#94a3b8; text-transform: uppercase; font-size: 10px; letter-spacing: .04em; display:block; margin-bottom:.15rem; }
+  .card-meta .themes-label { color:#f3f4f6; font-size: 20px; letter-spacing: .05em; }
       .card-meta .line + .line { margin-top:.35rem; }
       .site-footer { margin: 12px 16px 0; padding: 8px 12px; border-top: 1px solid var(--border); color: #94a3b8; font-size: 12px; text-align: center; }
       .site-footer a { color: #cbd5e1; text-decoration: underline; }
@@ -94,7 +102,26 @@
         setInterval(pollStatus, 3000);
         pollStatus();
 
-        function ensureCard() {
+        // Health indicator poller
+        var healthDot = document.getElementById('health-dot');
+        function renderHealth(data){
+          if (!healthDot) return;
+          var ok = data && data.status === 'ok';
+          healthDot.setAttribute('data-state', ok ? 'ok' : 'bad');
+          if (!ok) { healthDot.title = 'Degraded'; } else { healthDot.title = 'OK'; }
+        }
+        function pollHealth(){
+          try {
+            fetch('/healthz', { cache: 'no-store' })
+              .then(function(r){ return r.json(); })
+              .then(renderHealth)
+              .catch(function(){ renderHealth({ status: 'bad' }); });
+          } catch(e){ renderHealth({ status: 'bad' }); }
+        }
+        setInterval(pollHealth, 5000);
+        pollHealth();
+
+  function ensureCard() {
           var pop = document.getElementById('card-hover');
           if (!pop) {
             pop = document.createElement('div');
@@ -113,7 +140,65 @@
           }
           return pop;
         }
-        var cardPop = ensureCard();
+  var cardPop = ensureCard();
+        var PREVIEW_VERSIONS = ['normal','large'];
+        function buildCardUrl(name, version, nocache){
+          var q = encodeURIComponent(name||'');
+          var url = 'https://api.scryfall.com/cards/named?fuzzy=' + q + '&format=image&version=' + (version||'normal');
+          if (nocache) url += '&t=' + Date.now();
+          return url;
+        }
+        // Generic Scryfall image URL builder
+        function buildScryfallImageUrl(name, version, nocache){
+          var q = encodeURIComponent(name||'');
+          var url = 'https://api.scryfall.com/cards/named?fuzzy=' + q + '&format=image&version=' + (version||'normal');
+          if (nocache) url += '&t=' + Date.now();
+          return url;
+        }
+
+        // Global image retry binding for any <img data-card-name>
+        var IMG_FLAG = '__cardImgRetry';
+        function bindCardImageRetry(img, versions){
+          try {
+            if (!img || img[IMG_FLAG]) return;
+            var name = img.getAttribute('data-card-name') || '';
+            if (!name) return;
+            img[IMG_FLAG] = { vi: 0, nocache: 0, versions: versions && versions.length ? versions.slice() : ['normal','large'] };
+            img.addEventListener('error', function(){
+              var st = img[IMG_FLAG];
+              if (!st) return;
+              if (st.vi < st.versions.length - 1){
+                st.vi += 1;
+                img.src = buildScryfallImageUrl(name, st.versions[st.vi], false);
+              } else if (!st.nocache){
+                st.nocache = 1;
+                img.src = buildScryfallImageUrl(name, st.versions[st.vi], true);
+              }
+            });
+            // If the initial load already failed before binding, try the next immediately
+            if (img.complete && img.naturalWidth === 0){
+              // If src corresponds to the first version, move to next; else, just force a reload
+              var st = img[IMG_FLAG];
+              var current = img.src || '';
+              var first = buildScryfallImageUrl(name, st.versions[0], false);
+              if (current.indexOf(encodeURIComponent(name)) !== -1 && current.indexOf('version='+st.versions[0]) !== -1){
+                st.vi = Math.min(1, st.versions.length - 1);
+                img.src = buildScryfallImageUrl(name, st.versions[st.vi], false);
+              } else {
+                // Re-trigger current request (may succeed if transient)
+                img.src = current;
+              }
+            }
+          } catch(_){}
+        }
+        function bindAllCardImageRetries(){
+          document.querySelectorAll('img[data-card-name]').forEach(function(img){
+            // Use thumbnail fallbacks for card-thumb, otherwise preview fallbacks
+            var versions = (img.classList && img.classList.contains('card-thumb')) ? ['small','normal','large'] : ['normal','large'];
+            bindCardImageRetry(img, versions);
+          });
+        }
+
         function positionCard(e) {
           var x = e.clientX + 16, y = e.clientY + 16;
           cardPop.style.display = 'block';
@@ -132,17 +217,32 @@
             el.addEventListener('mouseenter', function(e) {
               var img = cardPop.querySelector('img');
               var meta = cardPop.querySelector('.card-meta');
-              var q = encodeURIComponent(el.getAttribute('data-card-name'));
-              img.src = 'https://api.scryfall.com/cards/named?fuzzy=' + q + '&format=image&version=normal';
+              var name = el.getAttribute('data-card-name') || '';
+              var vi = 0; // always start at 'normal' on hover
+              img.src = buildCardUrl(name, PREVIEW_VERSIONS[vi], false);
+              // Bind a one-off error handler per enter to try fallbacks
+              var triedNoCache = false;
+              function onErr(){
+                if (vi < PREVIEW_VERSIONS.length - 1){ vi += 1; img.src = buildCardUrl(name, PREVIEW_VERSIONS[vi], false); }
+                else if (!triedNoCache){ triedNoCache = true; img.src = buildCardUrl(name, PREVIEW_VERSIONS[vi], true); }
+                else { img.removeEventListener('error', onErr); }
+              }
+              img.addEventListener('error', onErr, { once:false });
+              img.addEventListener('load', function onOk(){ img.removeEventListener('load', onOk); img.removeEventListener('error', onErr); });
               var role = el.getAttribute('data-role') || '';
-              var tags = el.getAttribute('data-tags') || '';
-              if (role || tags) {
+              var rawTags = el.getAttribute('data-tags') || '';
+              // Clean and split tags into an array; remove brackets and quotes
+              var tags = rawTags
+                .replace(/[\[\]\u2018\u2019'\u201C\u201D"]/g,'')
+                .split(/\s*,\s*/)
+                .filter(function(t){ return t && t.trim(); });
+              if (role || (tags && tags.length)) {
                 var html = '';
                 if (role) {
                   html += '<div class="line"><span class="label">Role</span>' + role.replace(/</g,'&lt;') + '</div>';
                 }
-                if (tags) {
-                  html += '<div class="line"><span class="label">Themes</span>' + tags.replace(/</g,'&lt;') + '</div>';
+                if (tags && tags.length) {
+                  html += '<div class="line"><span class="label themes-label">Themes</span><ul class="themes-list">' + tags.map(function(t){ return '<li>' + t.replace(/</g,'&lt;') + '</li>'; }).join('') + '</ul></div>';
                 }
                 meta.innerHTML = html;
                 meta.style.display = '';
@@ -157,7 +257,8 @@
           });
         }
         attachCardHover();
-        document.addEventListener('htmx:afterSwap', function() { attachCardHover(); });
+  bindAllCardImageRetries();
+  document.addEventListener('htmx:afterSwap', function() { attachCardHover(); bindAllCardImageRetries(); });
       })();
     </script>
   <script src="/static/app.js?v=20250826-2"></script>

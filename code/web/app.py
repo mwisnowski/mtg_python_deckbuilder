@@ -1,12 +1,15 @@
 from __future__ import annotations
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import HTMLResponse, FileResponse, PlainTextResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 import os
 import json as _json
+import time
+import uuid
+import logging
 
 # Resolve template/static dirs relative to this file
 _THIS_DIR = Path(__file__).resolve().parent
@@ -37,16 +40,39 @@ templates.env.globals.update({
     "show_setup": SHOW_SETUP,
 })
 
+# --- Diagnostics: request-id and uptime ---
+_APP_START_TIME = time.time()
+
+@app.middleware("http")
+async def request_id_middleware(request: Request, call_next):
+    """Assign or propagate a request id and attach to response headers."""
+    rid = request.headers.get("X-Request-ID") or uuid.uuid4().hex
+    request.state.request_id = rid
+    try:
+        response = await call_next(request)
+    except Exception as ex:
+        # Log and re-raise so FastAPI exception handlers can format the response.
+        logging.getLogger("web").error(f"Unhandled error [rid={rid}]: {ex}", exc_info=True)
+        raise
+    response.headers["X-Request-ID"] = rid
+    return response
+
 
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request) -> HTMLResponse:
     return templates.TemplateResponse("home.html", {"request": request, "version": os.getenv("APP_VERSION", "dev")})
 
 
-# Simple health check
+# Simple health check (hardened)
 @app.get("/healthz")
 async def healthz():
-    return {"status": "ok"}
+    try:
+        version = os.getenv("APP_VERSION", "dev")
+        uptime_s = int(time.time() - _APP_START_TIME)
+        return {"status": "ok", "version": version, "uptime_seconds": uptime_s}
+    except Exception:
+        # Avoid throwing from health
+        return {"status": "degraded"}
 
 # Lightweight setup/tagging status endpoint
 @app.get("/status/setup")
@@ -97,6 +123,45 @@ app.include_router(decks_routes.router)
 app.include_router(setup_routes.router)
 app.include_router(owned_routes.router)
 
+# --- Exception handling ---
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    rid = getattr(request.state, "request_id", None) or uuid.uuid4().hex
+    logging.getLogger("web").warning(
+        f"HTTPException [rid={rid}] {exc.status_code} {request.method} {request.url.path}: {exc.detail}"
+    )
+    # Return JSON structure suitable for HTMX or API consumers
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "error": True,
+            "status": exc.status_code,
+            "detail": exc.detail,
+            "request_id": rid,
+            "path": str(request.url.path),
+        },
+        headers={"X-Request-ID": rid},
+    )
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    rid = getattr(request.state, "request_id", None) or uuid.uuid4().hex
+    logging.getLogger("web").error(
+        f"Unhandled exception [rid={rid}] {request.method} {request.url.path}", exc_info=True
+    )
+    return JSONResponse(
+        status_code=500,
+        content={
+            "error": True,
+            "status": 500,
+            "detail": "Internal Server Error",
+            "request_id": rid,
+            "path": str(request.url.path),
+        },
+        headers={"X-Request-ID": rid},
+    )
+
 # Lightweight file download endpoint for exports
 @app.get("/files")
 async def get_file(path: str):
@@ -118,3 +183,16 @@ async def get_file(path: str):
         return FileResponse(path)
     except Exception:
         return PlainTextResponse("Error serving file", status_code=500)
+
+# Serve /favicon.ico from static (prefer .ico, fallback to .png)
+@app.get("/favicon.ico")
+async def favicon():
+    try:
+        ico = _STATIC_DIR / "favicon.ico"
+        png = _STATIC_DIR / "favicon.png"
+        target = ico if ico.exists() else (png if png.exists() else None)
+        if target is None:
+            return PlainTextResponse("Not found", status_code=404)
+        return FileResponse(str(target))
+    except Exception:
+        return PlainTextResponse("Error", status_code=500)

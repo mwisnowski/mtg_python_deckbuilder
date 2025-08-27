@@ -24,24 +24,36 @@
     <a href="/owned/export.csv" download class="btn{% if count == 0 %} disabled{% endif %}" {% if count == 0 %}aria-disabled="true" onclick="return false;"{% endif %}>Export CSV</a>
     <span class="muted">{{ count }} unique name{{ '' if count == 1 else 's' }} <span id="shown-count" style="margin-left:.25rem;">{% if count %}• {{ count }} shown{% endif %}</span></span>
   </div>
+  {% if names and names|length %}
+  <div id="bulk-bar" style="display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; margin:.25rem 0 .5rem 0;">
+    <label style="display:flex; align-items:center; gap:.4rem;">
+      <input type="checkbox" id="select-all" /> Select all shown
+    </label>
+    <button type="button" id="btn-remove-selected" class="btn" disabled>Remove selected</button>
+    <button type="button" id="btn-remove-visible" class="btn" disabled>Remove visible</button>
+    <button type="button" id="btn-export-visible" class="btn" disabled>Export visible TXT</button>
+    <button type="button" id="btn-export-visible-csv" class="btn" disabled>Export visible CSV</button>
+  </div>
+  {% endif %}
 
   {% if names and names|length %}
   <div class="filters" style="display:flex; flex-wrap:wrap; gap:8px; margin:.25rem 0 .5rem 0;">
-    <select id="sort-by" style="background:#0f1115; color:#e5e7eb; border:1px solid var(--border); border-radius:6px; padding:.3rem .5rem;">
+    <select id="sort-by" data-pref="owned:sort" style="background:#0f1115; color:#e5e7eb; border:1px solid var(--border); border-radius:6px; padding:.3rem .5rem;">
       <option value="name">Sort: A → Z</option>
       <option value="type">Sort: Type</option>
       <option value="color">Sort: Color</option>
       <option value="tags">Sort: Tags</option>
+      <option value="recent">Sort: Recently added</option>
     </select>
-    <select id="filter-type" style="background:#0f1115; color:#e5e7eb; border:1px solid var(--border); border-radius:6px; padding:.3rem .5rem;">
+    <select id="filter-type" data-pref="owned:type" style="background:#0f1115; color:#e5e7eb; border:1px solid var(--border); border-radius:6px; padding:.3rem .5rem;">
       <option value="">All Types</option>
       {% for t in all_types %}<option value="{{ t }}">{{ t }}</option>{% endfor %}
     </select>
-    <select id="filter-tag" style="background:#0f1115; color:#e5e7eb; border:1px solid var(--border); border-radius:6px; padding:.3rem .5rem; max-width:320px;">
+    <select id="filter-tag" data-pref="owned:tag" style="background:#0f1115; color:#e5e7eb; border:1px solid var(--border); border-radius:6px; padding:.3rem .5rem; max-width:320px;">
       <option value="">All Themes</option>
       {% for t in all_tags %}<option value="{{ t }}">{{ t }}</option>{% endfor %}
     </select>
-    <select id="filter-color" style="background:#0f1115; color:#e5e7eb; border:1px solid var(--border); border-radius:6px; padding:.3rem .5rem;">
+    <select id="filter-color" data-pref="owned:color" style="background:#0f1115; color:#e5e7eb; border:1px solid var(--border); border-radius:6px; padding:.3rem .5rem;">
       <option value="">All Colors</option>
       {% for c in all_colors %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
       {% if color_combos and color_combos|length %}
@@ -51,9 +63,10 @@
       {% endfor %}
       {% endif %}
     </select>
-    <input id="filter-text" type="search" placeholder="Search name..." style="background:#0f1115; color:#e5e7eb; border:1px solid var(--border); border-radius:6px; padding:.3rem .5rem; flex:1; min-width:200px;" />
+    <input id="filter-text" data-pref="owned:q" type="search" placeholder="Search name..." style="background:#0f1115; color:#e5e7eb; border:1px solid var(--border); border-radius:6px; padding:.3rem .5rem; flex:1; min-width:200px;" />
     <button type="button" id="clear-filters">Clear</button>
   </div>
+  <div id="active-chips" class="muted" style="display:flex; flex-wrap:wrap; gap:6px; font-size:12px; margin:.25rem 0 .5rem 0;"></div>
   {% endif %}
 
   {% if names and names|length %}
@@ -63,8 +76,21 @@
       {% set tags = (tags_by_name.get(n, []) if tags_by_name else []) %}
       {% set tline = (type_by_name.get(n, '') if type_by_name else '') %}
       {% set cols = (colors_by_name.get(n, []) if colors_by_name else []) %}
-      <li style="break-inside: avoid; overflow-wrap:anywhere;" data-type="{{ tline }}" data-tags="{{ (tags or [])|join('|') }}" data-colors="{{ (cols or [])|join('') }}">
-        <span data-card-name="{{ n }}" {% if tags %}data-tags="{{ (tags or [])|join(', ') }}"{% endif %}>{{ n }}</span>
+      {% set added_ts = (added_at_map.get(n) if added_at_map else None) %}
+      <li style="break-inside: avoid; overflow-wrap:anywhere;" data-type="{{ tline }}" data-tags="{{ (tags or [])|join('|') }}" data-colors="{{ (cols or [])|join('') }}" data-added="{{ added_ts if added_ts else '' }}">
+        <label style="display:flex; align-items:center; gap:.4rem;">
+          <input type="checkbox" class="sel" />
+          <span data-card-name="{{ n }}" {% if tags %}data-tags="{{ (tags or [])|join(', ') }}"{% endif %}>{{ n }}</span>
+        </label>
+        {# Inline user tag badges #}
+        {% set utags = (user_tags_map.get(n, []) if user_tags_map else []) %}
+        {% if utags and utags|length %}
+        <div class="user-tags" style="display:flex; flex-wrap:wrap; gap:6px; margin:.25rem 0 .15rem 1.65rem;">
+          {% for t in utags %}
+          <span class="chip" data-name="{{ n }}" data-user-tag="{{ t }}" title="Click to remove tag" style="display:inline-flex; align-items:center; gap:6px; background:#0f1115; color:#e5e7eb; border:1px solid var(--border); border-radius:999px; padding:2px 8px; font-size:12px; cursor:pointer;">{{ t }} <span aria-hidden="true" style="opacity:.8;">×</span></span>
+          {% endfor %}
+        </div>
+        {% endif %}
         {% if cols and cols|length %}
         <span class="mana-group" aria-hidden="true" style="margin-left:.35rem; display:inline-flex; gap:4px; vertical-align:middle;">
           {% for c in cols %}
@@ -87,6 +113,12 @@
     var grid = document.getElementById('owned-grid');
     if (!grid) return;
     var box = document.getElementById('owned-box');
+  var bulk = document.getElementById('bulk-bar');
+  var selAll = document.getElementById('select-all');
+  var btnRemoveSel = document.getElementById('btn-remove-selected');
+  var btnRemoveVis = document.getElementById('btn-remove-visible');
+  var btnExportVis = document.getElementById('btn-export-visible');
+  var btnExportVisCsv = document.getElementById('btn-export-visible-csv');
   var fSort = document.getElementById('sort-by');
   var fType = document.getElementById('filter-type');
     var fTag = document.getElementById('filter-tag');
@@ -94,6 +126,16 @@
     var fText = document.getElementById('filter-text');
     var btnClear = document.getElementById('clear-filters');
   var shownCount = document.getElementById('shown-count');
+  var chips = document.getElementById('active-chips');
+  var tagInput;
+
+    // State helpers for URL hash and localStorage
+    var state = {
+      get: function(k, d){ try{ var v=localStorage.getItem('mtg:'+k); return v!==null?JSON.parse(v):d; }catch(e){ return d; } },
+      set: function(k, v){ try{ localStorage.setItem('mtg:'+k, JSON.stringify(v)); }catch(e){} },
+      inHash: function(obj){ try{ var p=new URLSearchParams((location.hash||'').replace(/^#/,'')); Object.keys(obj||{}).forEach(function(k){ p.set(k, obj[k]); }); location.hash=p.toString(); }catch(e){} },
+      readHash: function(){ try{ return new URLSearchParams((location.hash||'').replace(/^#/,'')); }catch(e){ return new URLSearchParams(); } }
+    };
 
     // Resize the container to fill the viewport height
     function sizeBox(){
@@ -143,6 +185,10 @@
       var total = 0;
       Array.prototype.forEach.call(grid.children, function(li){ if (li.style.display !== 'none') total++; });
       shownCount.textContent = (total > 0 ? '• ' + total + ' shown' : '');
+  // Enable/disable bulk buttons
+  var anyVisible = total > 0;
+  [btnRemoveVis, btnExportVis, btnExportVisCsv].forEach(function(b){ if (b) b.disabled = !anyVisible; });
+  updateSelectedState();
     }
 
     function apply(){
@@ -156,7 +202,59 @@
       });
       resort();
       updateShownCount();
+  renderChips();
+      // Persist
+      if (fSort && fSort.hasAttribute('data-pref')) state.set(fSort.getAttribute('data-pref'), fSort.value);
+      if (fType && fType.hasAttribute('data-pref')) state.set(fType.getAttribute('data-pref'), fType.value);
+      if (fTag && fTag.hasAttribute('data-pref')) state.set(fTag.getAttribute('data-pref'), fTag.value);
+      if (fColor && fColor.hasAttribute('data-pref')) state.set(fColor.getAttribute('data-pref'), fColor.value);
+      if (fText && fText.hasAttribute('data-pref')) state.set(fText.getAttribute('data-pref'), fText.value);
+      // Update URL hash
+      try{ state.inHash({ o_sort: (fSort?fSort.value:''), o_type: vt, o_tag: vtag, o_color: vc, o_q: vx }); }catch(_){ }
     }
+    function renderChips(){
+      if (!chips) return;
+      var items = [];
+      if (fType && fType.value) items.push({ k:'Type', v: fType.value, clear: function(){ fType.value=''; apply(); } });
+      if (fTag && fTag.value) items.push({ k:'Theme', v: fTag.value, clear: function(){ fTag.value=''; apply(); } });
+      if (fColor && fColor.value) items.push({ k:'Colors', v: fColor.value, clear: function(){ fColor.value=''; apply(); } });
+      if (fText && fText.value) items.push({ k:'Search', v: fText.value, clear: function(){ fText.value=''; apply(); } });
+      chips.innerHTML = '';
+      if (!items.length){ chips.style.display='none'; return; }
+      chips.style.display='flex';
+      items.forEach(function(it){
+        var span = document.createElement('span');
+        span.style.border = '1px solid var(--border)';
+        span.style.borderRadius = '16px';
+        span.style.padding = '2px 8px';
+        span.style.background = '#0f1115';
+        span.textContent = it.k+': '+it.v+' ×';
+        span.style.cursor = 'pointer';
+        span.title = 'Clear '+it.k;
+        span.addEventListener('click', function(){ it.clear(); });
+        chips.appendChild(span);
+      });
+    }
+
+    // Bulk tagging controls
+    (function(){
+      var bar = document.getElementById('bulk-bar');
+      if (!bar) return;
+      var wrap = document.createElement('div');
+      wrap.style.display='flex'; wrap.style.alignItems='center'; wrap.style.gap='.5rem'; wrap.style.flexWrap='wrap';
+      var inp = document.createElement('input'); inp.type='text'; inp.placeholder='Tag…'; inp.id='bulk-tag-input';
+      inp.style.background='#0f1115'; inp.style.color='#e5e7eb'; inp.style.border='1px solid var(--border)'; inp.style.borderRadius='6px'; inp.style.padding='.3rem .5rem';
+      var addBtn = document.createElement('button'); addBtn.textContent='Add tag to selected'; addBtn.id='btn-tag-add'; addBtn.disabled=true;
+      var remBtn = document.createElement('button'); remBtn.textContent='Remove tag from selected'; remBtn.id='btn-tag-remove'; remBtn.disabled=true;
+      wrap.appendChild(inp); wrap.appendChild(addBtn); wrap.appendChild(remBtn);
+      bar.appendChild(wrap);
+      tagInput = inp;
+      function refreshTagBtns(){ var hasSel = getSelectedNames().length>0; var hasTag = !!(tagInput && tagInput.value && tagInput.value.trim()); addBtn.disabled = !(hasSel && hasTag); remBtn.disabled = !(hasSel && hasTag); }
+      if (tagInput) tagInput.addEventListener('input', refreshTagBtns);
+      document.addEventListener('change', function(e){ if (e.target && e.target.classList && e.target.classList.contains('sel')) refreshTagBtns(); });
+      addBtn.addEventListener('click', function(){ var names=getSelectedNames(); var t=(tagInput&&tagInput.value||'').trim(); if(!names.length||!t) return; fetch('/owned/tag/add',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({names:names, tag:t})}).then(function(r){return r.text();}).then(function(html){ document.documentElement.innerHTML = html; }).catch(function(){ alert('Tagging failed'); }); });
+      remBtn.addEventListener('click', function(){ var names=getSelectedNames(); var t=(tagInput&&tagInput.value||'').trim(); if(!names.length||!t) return; fetch('/owned/tag/remove',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({names:names, tag:t})}).then(function(r){return r.text();}).then(function(html){ document.documentElement.innerHTML = html; }).catch(function(){ alert('Untag failed'); }); });
+    })();
 
     function resort(){
       if (!fSort) return;
@@ -169,10 +267,12 @@
       function byType(a,b){ return (a.getAttribute('data-type')||'').toLowerCase().localeCompare((b.getAttribute('data-type')||'').toLowerCase()); }
       function byColor(a,b){ return (a.getAttribute('data-colors')||'').localeCompare((b.getAttribute('data-colors')||'')); }
       function byTags(a,b){ var ac=(a.getAttribute('data-tags')||'').split('|').filter(Boolean).length; var bc=(b.getAttribute('data-tags')||'').split('|').filter(Boolean).length; return ac-bc || byName(a,b); }
+      function byRecent(a,b){ var ta=parseInt(a.getAttribute('data-added')||'0',10); var tb=parseInt(b.getAttribute('data-added')||'0',10); return (tb-ta) || byName(a,b); }
       var cmp = byName;
       if (mode === 'type') cmp = byType;
       else if (mode === 'color') cmp = byColor;
       else if (mode === 'tags') cmp = byTags;
+      else if (mode === 'recent') cmp = byRecent;
       visible.sort(cmp);
       // Re-append in new order
       var frag = document.createDocumentFragment();
@@ -181,14 +281,100 @@
       grid.appendChild(frag);
     }
 
-  if (fSort) fSort.addEventListener('change', function(){ resort(); });
+    function getVisibleNames(){
+      var out=[];
+      Array.prototype.forEach.call(grid.children, function(li){
+        if (li.style.display === 'none') return;
+        var span = li.querySelector('[data-card-name]');
+        if (span) out.push(span.getAttribute('data-card-name'));
+      });
+      return out;
+    }
+    function getSelectedNames(){
+      var out=[];
+      Array.prototype.forEach.call(grid.children, function(li){
+        var cb = li.querySelector('input.sel');
+        if (cb && cb.checked){ var span = li.querySelector('[data-card-name]'); if (span) out.push(span.getAttribute('data-card-name')); }
+      });
+      return out;
+    }
+    function updateSelectedState(){
+      if (!bulk) return;
+      var selected = getSelectedNames();
+      if (btnRemoveSel) btnRemoveSel.disabled = selected.length === 0;
+      if (selAll){
+        // Reflect if all visible are selected
+        var vis = getVisibleNames();
+        selAll.checked = (vis.length>0 && selected.length === vis.length);
+        selAll.indeterminate = (selected.length>0 && selected.length < vis.length);
+      }
+    }
+
+    if (selAll){
+      selAll.addEventListener('change', function(){
+        var on = !!selAll.checked;
+        Array.prototype.forEach.call(grid.children, function(li){ if (li.style.display==='none') return; var cb=li.querySelector('input.sel'); if (cb) cb.checked = on; });
+        updateSelectedState();
+      });
+    }
+    grid.addEventListener('change', function(e){ if (e.target && e.target.classList && e.target.classList.contains('sel')) updateSelectedState(); });
+
+    function postJSON(url, body){ return fetch(url, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body||{}) }).then(function(r){ if (r.ok) return r.text(); throw new Error('Request failed'); }); }
+    function formPost(url, names){
+      var fd = new FormData(); fd.append('names', names.join(','));
+      return fetch(url, { method:'POST', body: fd }).then(function(r){ if (r.ok) return r.text(); throw new Error('Request failed'); });
+    }
+    function confirmRemove(count){
+      return window.confirm('Remove '+count+' item'+(count===1?'':'s')+' from Owned? This cannot be undone.');
+    }
+    if (btnRemoveVis) btnRemoveVis.addEventListener('click', function(){ var names=getVisibleNames(); if(!names.length) return; if(!confirmRemove(names.length)) return; sessionStorage.setItem('mtg:toastAfterReload', JSON.stringify({msg:'Removed '+names.length+' visible name'+(names.length===1?'':'s')+'.', type:'success'})); formPost('/owned/remove', names).then(function(html){ document.documentElement.innerHTML = html; }).catch(function(){ alert('Remove failed'); }); });
+    if (btnRemoveSel) btnRemoveSel.addEventListener('click', function(){ var names=getSelectedNames(); if(!names.length) return; if(!confirmRemove(names.length)) return; sessionStorage.setItem('mtg:toastAfterReload', JSON.stringify({msg:'Removed '+names.length+' selected name'+(names.length===1?'':'s')+'.', type:'success'})); formPost('/owned/remove', names).then(function(html){ document.documentElement.innerHTML = html; }).catch(function(){ alert('Remove failed'); }); });
+    if (btnExportVis) btnExportVis.addEventListener('click', function(){ var names=getVisibleNames(); if(!names.length) return; postJSON('/owned/export-visible', { names: names }).then(function(txt){ var a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([txt],{type:'text/plain'})); a.download='owned_visible.txt'; a.click(); }); });
+    if (btnExportVisCsv) btnExportVisCsv.addEventListener('click', function(){ var names=getVisibleNames(); if(!names.length) return; postJSON('/owned/export-visible.csv', { names: names }).then(function(csv){ var a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'})); a.download='owned_visible.csv'; a.click(); }); });
+
+    // Keyboard helpers: '/' focus search, Esc clear filters
+    document.addEventListener('keydown', function(e){
+      if (e.target && (/input|textarea|select/i).test(e.target.tagName)) return;
+      if (e.key === '/') { if (fText){ e.preventDefault(); fText.focus(); fText.select && fText.select(); } }
+      else if (e.key === 'Escape'){ if (fText && fText.value){ fText.value=''; apply(); } }
+    });
+
+  // Hydrate from URL hash/localStorage
+  try{
+    var params = state.readHash();
+    var hv;
+    if (fSort){ hv = params.get('o_sort'); if (!hv) hv = state.get(fSort.getAttribute('data-pref'), 'name'); if (hv) fSort.value = hv; }
+    if (fType){ hv = params.get('o_type'); if (!hv) hv = state.get(fType.getAttribute('data-pref'), ''); if (hv !== null && typeof hv !== 'undefined') fType.value = hv; }
+    if (fTag){ hv = params.get('o_tag'); if (!hv) hv = state.get(fTag.getAttribute('data-pref'), ''); if (hv !== null && typeof hv !== 'undefined') fTag.value = hv; }
+    if (fColor){ hv = params.get('o_color'); if (!hv) hv = state.get(fColor.getAttribute('data-pref'), ''); if (hv !== null && typeof hv !== 'undefined') fColor.value = hv; }
+    if (fText){ hv = params.get('o_q'); if (!hv && hv !== '') hv = state.get(fText.getAttribute('data-pref'), ''); if (typeof hv === 'string') fText.value = hv; }
+  }catch(_){ }
+
+  if (fSort) fSort.addEventListener('change', function(){ resort(); apply(); });
   if (fType) fType.addEventListener('change', apply);
     if (fTag) fTag.addEventListener('change', apply);
     if (fColor) fColor.addEventListener('change', apply);
   if (fText) fText.addEventListener('input', apply);
-  if (btnClear) btnClear.addEventListener('click', function(){ if(fSort)fSort.value='name'; if(fType)fType.value=''; if(fTag)fTag.value=''; if(fColor)fColor.value=''; if(fText)fText.value=''; apply(); });
+  if (btnClear) btnClear.addEventListener('click', function(){
+    if(fSort)fSort.value='name'; if(fType)fType.value=''; if(fTag)fTag.value=''; if(fColor)fColor.value=''; if(fText)fText.value='';
+    apply();
+  });
   // Initial state
-  updateShownCount();
+  apply();
+
+  // Delegated click: quick remove a user tag chip
+  grid.addEventListener('click', function(e){
+    var chip = e.target.closest && e.target.closest('.user-tags .chip');
+    if (!chip) return;
+    var name = chip.getAttribute('data-name');
+    var tag = chip.getAttribute('data-user-tag');
+    if (!name || !tag) return;
+    if (!window.confirm('Remove tag \''+tag+'\' from "'+name+'"?')) return;
+    fetch('/owned/tag/remove', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ names:[name], tag: tag }) })
+      .then(function(r){ return r.text(); })
+      .then(function(html){ sessionStorage.setItem('mtg:toastAfterReload', JSON.stringify({msg:'Removed tag \''+tag+'\' from '+name+'.', type:'success'})); document.documentElement.innerHTML = html; })
+      .catch(function(){ alert('Untag failed'); });
+  });
   })();
   </script>
 <style>

@@ -5,10 +5,8 @@
 .mypy_cache/
 .venv/
 test.py
-main.spec
 !requirements.txt
 __pycache__/
-#build/
 csv_files/
 dist/
 logs/

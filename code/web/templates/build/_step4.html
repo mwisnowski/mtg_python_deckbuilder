@@ -1,4 +1,5 @@
 <section>
+	{% set step_index = 4 %}{% set step_total = 5 %}
 	<h3>Step 4: Review</h3>
 	<div class="two-col two-col-left-rail">
 	<aside class="card-preview" data-card-name="{{ commander|urlencode }}">
@@ -6,8 +7,9 @@
 				<img src="https://api.scryfall.com/cards/named?fuzzy={{ commander|urlencode }}&format=image&version=normal" alt="{{ commander }} card image" />
 			</a>
 		</aside>
-		<div class="grow">
+		<div class="grow" data-skeleton>
 			<div hx-get="/build/banner?step=Review&i=4&n=5" hx-trigger="load"></div>
+			{% include "build/_stage_navigator.html" %}
 			<h4>Chosen Ideals</h4>
 			<ul>
 				{% for key, label in labels.items() %}
@@ -23,13 +25,13 @@
 					<input type="checkbox" name="prefer_owned" value="1" {% if prefer_owned %}checked{% endif %} onchange="this.form.requestSubmit();" />
 					Prefer owned cards (allow unowned fallback)
 				</label>
-				<a href="/owned" target="_blank" rel="noopener" class="muted">Manage Owned Library</a>
+				<a href="/owned" target="_blank" rel="noopener" class="btn">Manage Owned Library</a>
 			</form>
 							<div style="margin-top:1rem; display:flex; gap:.5rem;">
 								<form action="/build/step5/start" method="post" hx-post="/build/step5/start" hx-target="#wizard" hx-swap="innerHTML" style="display:inline; margin:0;">
-									<button type="submit">Build Deck</button>
+									<button type="submit" class="btn-continue" data-action="continue">Build Deck</button>
 								</form>
-								<button type="button" hx-get="/build/step3" hx-target="#wizard" hx-swap="innerHTML">Back</button>
+								<button type="button" class="btn-back" data-action="back" hx-get="/build/step3" hx-target="#wizard" hx-swap="innerHTML">Back</button>
 								<form action="/build" method="get" style="display:inline; margin:0;">
 									<button type="submit">Start over</button>
 								</form>

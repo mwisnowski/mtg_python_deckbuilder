@@ -3,8 +3,23 @@
 {% block content %}
 <h2>Build a Deck</h2>
 <div id="wizard">
-  <div hx-get="/build/step1" hx-trigger="load" hx-target="#wizard" hx-swap="innerHTML"></div>
-  <div hx-get="/build/banner?step=Build%20a%20Deck&i=1&n=5" hx-trigger="load"></div>
+  {% set step = last_step or 1 %}
+  {% if step == 1 %}
+    <div hx-get="/build/step1" hx-trigger="load" hx-target="#wizard" hx-swap="innerHTML"></div>
+    <div hx-get="/build/banner?step=Build%20a%20Deck&i=1&n=5" hx-trigger="load"></div>
+  {% elif step == 2 %}
+    <div hx-get="/build/step2" hx-trigger="load" hx-target="#wizard" hx-swap="innerHTML"></div>
+    <div hx-get="/build/banner?step=Build%20a%20Deck&i=2&n=5" hx-trigger="load"></div>
+  {% elif step == 3 %}
+    <div hx-get="/build/step3" hx-trigger="load" hx-target="#wizard" hx-swap="innerHTML"></div>
+    <div hx-get="/build/banner?step=Build%20a%20Deck&i=3&n=5" hx-trigger="load"></div>
+  {% elif step == 4 %}
+    <div hx-get="/build/step4" hx-trigger="load" hx-target="#wizard" hx-swap="innerHTML"></div>
+    <div hx-get="/build/banner?step=Build%20a%20Deck&i=4&n=5" hx-trigger="load"></div>
+  {% else %}
+    <div hx-get="/build/step5" hx-trigger="load" hx-target="#wizard" hx-swap="innerHTML"></div>
+    <div hx-get="/build/banner?step=Build%20a%20Deck&i=5&n=5" hx-trigger="load"></div>
+  {% endif %}
   <noscript><p>Enable JavaScript to use the wizard.</p></noscript>
 </div>
 {% endblock %}

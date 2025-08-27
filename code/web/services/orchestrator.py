@@ -548,55 +548,92 @@ def _ensure_setup_ready(out, force: bool = False) -> None:
                 out(f"Initial setup failed: {e}")
                 _write_status({"running": False, "phase": "error", "message": f"Initial setup failed: {e}"})
                 return
-            # Tagging with granular color progress
+            # Tagging with progress; support parallel workers for speed
             try:
                 from tagging import tagger as _tagger  # type: ignore
                 from settings import COLORS as _COLORS  # type: ignore
                 colors = list(_COLORS)
                 total = len(colors)
+                use_parallel = str(os.getenv('WEB_TAG_PARALLEL', '1')).strip().lower() in {"1","true","yes","on"}
+                max_workers_env = os.getenv('WEB_TAG_WORKERS')
+                try:
+                    max_workers = int(max_workers_env) if max_workers_env else None
+                except Exception:
+                    max_workers = None
                 _write_status({
                     "running": True,
                     "phase": "tagging",
-                    "message": "Tagging cards (this may take a while)...",
+                    "message": "Tagging cards (this may take a while)..." if not use_parallel else "Tagging cards in parallel...",
                     "color": None,
                     "percent": 0,
                     "color_idx": 0,
                     "color_total": total,
                     "tagging_started_at": _dt.now().isoformat(timespec='seconds')
                 })
-                for idx, _color in enumerate(colors, start=1):
+
+                if use_parallel:
                     try:
-                        pct = int((idx - 1) * 100 / max(1, total))
-                        # Estimate ETA based on average time per completed color
-                        eta_s = None
-                        try:
-                            from datetime import datetime as __dt
-                            ts = __dt.fromisoformat(json.load(open(os.path.join('csv_files', '.setup_status.json'), 'r', encoding='utf-8')).get('tagging_started_at'))  # type: ignore
-                            elapsed = max(0.0, (_dt.now() - ts).total_seconds())
-                            completed = max(0, idx - 1)
-                            if completed > 0:
-                                avg = elapsed / completed
-                                remaining = max(0, total - completed)
-                                eta_s = int(avg * remaining)
-                        except Exception:
-                            eta_s = None
-                        payload = {
-                            "running": True,
-                            "phase": "tagging",
-                            "message": f"Tagging {_color}...",
-                            "color": _color,
-                            "percent": pct,
-                            "color_idx": idx,
-                            "color_total": total,
-                        }
-                        if eta_s is not None:
-                            payload["eta_seconds"] = eta_s
-                        _write_status(payload)
-                        _tagger.load_dataframe(_color)
+                        import concurrent.futures as _f
+                        completed = 0
+                        with _f.ProcessPoolExecutor(max_workers=max_workers) as ex:
+                            fut_map = {ex.submit(_tagger.load_dataframe, c): c for c in colors}
+                            for fut in _f.as_completed(fut_map):
+                                c = fut_map[fut]
+                                try:
+                                    fut.result()
+                                    completed += 1
+                                    pct = int(completed * 100 / max(1, total))
+                                    _write_status({
+                                        "running": True,
+                                        "phase": "tagging",
+                                        "message": f"Tagged {c}",
+                                        "color": c,
+                                        "percent": pct,
+                                        "color_idx": completed,
+                                        "color_total": total,
+                                    })
+                                except Exception as e:
+                                    out(f"Parallel tagging failed for {c}: {e}")
+                                    _write_status({"running": False, "phase": "error", "message": f"Tagging {c} failed: {e}", "color": c})
+                                    return
                     except Exception as e:
-                        out(f"Tagging {_color} failed: {e}")
-                        _write_status({"running": False, "phase": "error", "message": f"Tagging {_color} failed: {e}", "color": _color})
-                        return
+                        out(f"Parallel tagging init failed: {e}; falling back to sequential")
+                        use_parallel = False
+
+                if not use_parallel:
+                    for idx, _color in enumerate(colors, start=1):
+                        try:
+                            pct = int((idx - 1) * 100 / max(1, total))
+                            # Estimate ETA based on average time per completed color
+                            eta_s = None
+                            try:
+                                from datetime import datetime as __dt
+                                ts = __dt.fromisoformat(json.load(open(os.path.join('csv_files', '.setup_status.json'), 'r', encoding='utf-8')).get('tagging_started_at'))  # type: ignore
+                                elapsed = max(0.0, (_dt.now() - ts).total_seconds())
+                                completed = max(0, idx - 1)
+                                if completed > 0:
+                                    avg = elapsed / completed
+                                    remaining = max(0, total - completed)
+                                    eta_s = int(avg * remaining)
+                            except Exception:
+                                eta_s = None
+                            payload = {
+                                "running": True,
+                                "phase": "tagging",
+                                "message": f"Tagging {_color}...",
+                                "color": _color,
+                                "percent": pct,
+                                "color_idx": idx,
+                                "color_total": total,
+                            }
+                            if eta_s is not None:
+                                payload["eta_seconds"] = eta_s
+                            _write_status(payload)
+                            _tagger.load_dataframe(_color)
+                        except Exception as e:
+                            out(f"Tagging {_color} failed: {e}")
+                            _write_status({"running": False, "phase": "error", "message": f"Tagging {_color} failed: {e}", "color": _color})
+                            return
             except Exception as e:
                 out(f"Tagging failed to start: {e}")
                 _write_status({"running": False, "phase": "error", "message": f"Tagging failed to start: {e}"})
@@ -1117,6 +1154,21 @@ def run_stage(ctx: Dict[str, Any], rerun: bool = False, show_skipped: bool = Fal
 
         # If this stage added cards, present it and advance idx
         if added_cards:
+            # Progress counts
+            try:
+                total_cards = 0
+                for _n, _e in getattr(b, 'card_library', {}).items():
+                    try:
+                        total_cards += int(_e.get('Count', 1))
+                    except Exception:
+                        total_cards += 1
+            except Exception:
+                total_cards = None
+            added_total = 0
+            try:
+                added_total = sum(int(c.get('count', 0) or 0) for c in added_cards)
+            except Exception:
+                added_total = 0
             ctx["snapshot"] = snap_before  # snapshot for rerun
             ctx["idx"] = i + 1
             ctx["last_visible_idx"] = i + 1
@@ -1127,10 +1179,22 @@ def run_stage(ctx: Dict[str, Any], rerun: bool = False, show_skipped: bool = Fal
                 "added_cards": added_cards,
                 "idx": i + 1,
                 "total": len(stages),
+                "total_cards": total_cards,
+                "added_total": added_total,
             }
 
         # No cards added: either skip or surface as a 'skipped' stage
         if show_skipped:
+            # Progress counts even when skipped
+            try:
+                total_cards = 0
+                for _n, _e in getattr(b, 'card_library', {}).items():
+                    try:
+                        total_cards += int(_e.get('Count', 1))
+                    except Exception:
+                        total_cards += 1
+            except Exception:
+                total_cards = None
             ctx["snapshot"] = snap_before
             ctx["idx"] = i + 1
             ctx["last_visible_idx"] = i + 1
@@ -1142,6 +1206,8 @@ def run_stage(ctx: Dict[str, Any], rerun: bool = False, show_skipped: bool = Fal
                 "skipped": True,
                 "idx": i + 1,
                 "total": len(stages),
+                "total_cards": total_cards,
+                "added_total": 0,
             }
 
         # No cards added and not showing skipped: advance to next
@@ -1194,6 +1260,16 @@ def run_stage(ctx: Dict[str, Any], rerun: bool = False, show_skipped: bool = Fal
                 _json.dump(payload, f, ensure_ascii=False, indent=2)
     except Exception:
         pass
+    # Final progress
+    try:
+        total_cards = 0
+        for _n, _e in getattr(b, 'card_library', {}).items():
+            try:
+                total_cards += int(_e.get('Count', 1))
+            except Exception:
+                total_cards += 1
+    except Exception:
+        total_cards = None
     return {
         "done": True,
         "label": "Complete",
@@ -1203,4 +1279,6 @@ def run_stage(ctx: Dict[str, Any], rerun: bool = False, show_skipped: bool = Fal
         "csv_path": ctx.get("csv_path"),
         "txt_path": ctx.get("txt_path"),
         "summary": summary,
+        "total_cards": total_cards,
+        "added_total": 0,
     }

@@ -1,5 +1,7 @@
 <section>
+  {% set step_index = 1 %}{% set step_total = 5 %}
   <h3>Step 1: Choose a Commander</h3>
+  {% include "build/_stage_navigator.html" %}
 
   <form id="cmdr-search-form" hx-post="/build/step1" hx-target="#wizard" hx-swap="innerHTML" aria-label="Commander search form" role="search">
     <label for="cmdr-search">Search by name</label>
@@ -90,11 +92,11 @@
       <div style="margin-top:.75rem;">
         <form style="display:inline" hx-post="/build/step1/confirm" hx-target="#wizard" hx-swap="innerHTML">
           <input type="hidden" name="name" value="{{ selected }}" />
-          <button>Use this commander</button>
+          <button class="btn-continue" data-action="continue">Use this commander</button>
         </form>
         <form style="display:inline" hx-post="/build/step1" hx-target="#wizard" hx-swap="innerHTML">
           <input type="hidden" name="query" value="" />
-          <button>Back to search</button>
+          <button class="btn-back" data-action="back">Back to search</button>
         </form>
         <form action="/build" method="get" style="display:inline; margin-left:.5rem;">
           <button type="submit">Start over</button>

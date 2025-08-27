@@ -66,13 +66,15 @@ def normalize_theme_list(raw) -> list[str]:
 
 
 def compute_color_source_matrix(card_library: Dict[str, dict], full_df) -> Dict[str, Dict[str, int]]:
-	"""Build a matrix mapping land name -> {color: 0/1} indicating if that land
-	can (reliably) produce each color.
+	"""Build a matrix mapping card name -> {color: 0/1} indicating if that card
+	can (reliably) produce each color of mana on the battlefield.
 
-	Heuristics:
-	  - Presence of basic land types in type line grants that color.
-	  - Text containing "add one mana of any color/colour" grants all colors.
-	  - Explicit mana symbols in rules text (e.g. "{R}") grant that color.
+	Notes:
+	  - Includes lands and non-lands (artifacts/creatures/enchantments/planeswalkers) that produce mana.
+	  - Excludes instants/sorceries (rituals) by design; this is a "source" count, not ramp burst.
+	  - Any-color effects set W/U/B/R/G (not C). Colorless '{C}' is tracked separately.
+	  - For lands, we also infer from basic land types in the type line. For non-lands, we rely on text.
+	  - Fallback name mapping applies only to exact basic lands (incl. Snow-Covered) and Wastes.
 
 	Parameters
 	----------
@@ -89,29 +91,84 @@ def compute_color_source_matrix(card_library: Dict[str, dict], full_df) -> Dict[
 			if nm and nm not in lookup:
 				lookup[nm] = r
 	for name, entry in card_library.items():
-		if 'land' not in str(entry.get('Card Type', '')).lower():
-			continue
 		row = lookup.get(name, {})
-		tline = str(row.get('type', row.get('type_line', ''))).lower()
-		text_field = str(row.get('text', row.get('oracleText', ''))).lower()
-		colors = {c: 0 for c in COLOR_LETTERS}
-		if 'plains' in tline:
-			colors['W'] = 1
-		if 'island' in tline:
-			colors['U'] = 1
-		if 'swamp' in tline:
-			colors['B'] = 1
-		if 'mountain' in tline:
-			colors['R'] = 1
-		if 'forest' in tline:
-			colors['G'] = 1
-		if 'add one mana of any color' in text_field or 'add one mana of any colour' in text_field:
-			for k in colors:
+		entry_type = str(entry.get('Card Type') or entry.get('Type') or '').lower()
+		tline_full = str(row.get('type', row.get('type_line', '')) or '').lower()
+		# Land or permanent that could produce mana via text
+		is_land = ('land' in entry_type) or ('land' in tline_full)
+		text_field = str(row.get('text', row.get('oracleText', '')) or '').lower()
+		# Skip obvious non-permanents (rituals etc.)
+		if (not is_land) and ('instant' in entry_type or 'sorcery' in entry_type or 'instant' in tline_full or 'sorcery' in tline_full):
+			continue
+		# Keep only candidates that are lands OR whose text indicates mana production
+		produces_from_text = False
+		tf = text_field
+		if tf:
+			# Common patterns: "Add {G}", "Add {C}{C}", "Add one mana of any color/colour"
+			produces_from_text = (
+				('add one mana of any color' in tf) or
+				('add one mana of any colour' in tf) or
+				('add ' in tf and ('{w}' in tf or '{u}' in tf or '{b}' in tf or '{r}' in tf or '{g}' in tf or '{c}' in tf))
+			)
+		if not (is_land or produces_from_text):
+			continue
+		# Combine entry type and snapshot type line for robust parsing
+		tline = (entry_type + ' ' + tline_full).strip()
+		colors = {c: 0 for c in (COLOR_LETTERS + ['C'])}
+		# Land type-based inference
+		if is_land:
+			if 'plains' in tline:
+				colors['W'] = 1
+			if 'island' in tline:
+				colors['U'] = 1
+			if 'swamp' in tline:
+				colors['B'] = 1
+			if 'mountain' in tline:
+				colors['R'] = 1
+			if 'forest' in tline:
+				colors['G'] = 1
+		# Text-based inference for both lands and non-lands
+		if (
+			'add one mana of any color' in tf or
+			'add one mana of any colour' in tf or
+			('add' in tf and ('mana of any color' in tf or 'mana of any one color' in tf or 'any color of mana' in tf))
+		):
+			for k in COLOR_LETTERS:
 				colors[k] = 1
-		for sym, c in [(' {w}', 'W'), (' {u}', 'U'), (' {b}', 'B'), (' {r}', 'R'), (' {g}', 'G')]:
-			if sym in text_field:
-				colors[c] = 1
-		matrix[name] = colors
+		# Explicit colored/colorless symbols in add context
+		if 'add' in tf:
+			if '{w}' in tf:
+				colors['W'] = 1
+			if '{u}' in tf:
+				colors['U'] = 1
+			if '{b}' in tf:
+				colors['B'] = 1
+			if '{r}' in tf:
+				colors['R'] = 1
+			if '{g}' in tf:
+				colors['G'] = 1
+			if '{c}' in tf or 'colorless' in tf:
+				colors['C'] = 1
+		# Fallback: infer only for exact basic land names (incl. Snow-Covered) and Wastes
+		if not any(colors.values()) and is_land:
+			nm = str(name)
+			base = nm
+			if nm.startswith('Snow-Covered '):
+				base = nm[len('Snow-Covered '):]
+			mapping = {
+				'Plains': 'W',
+				'Island': 'U',
+				'Swamp': 'B',
+				'Mountain': 'R',
+				'Forest': 'G',
+				'Wastes': 'C',
+			}
+			col = mapping.get(base)
+			if col:
+				colors[col] = 1
+		# Only include cards that produced at least one color
+		if any(colors.values()):
+			matrix[name] = colors
 	return matrix
 
 

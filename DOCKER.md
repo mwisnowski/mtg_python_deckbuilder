@@ -34,6 +34,16 @@ docker compose up --no-deps web
 Then open http://localhost:8080
 
 Volumes are the same as the CLI service, so deck exports/logs/configs persist in your working folder.
+The app serves a favicon at `/favicon.ico` and exposes a health endpoint at `/healthz`.
+
+### Setup speed: parallel tagging (Web)
+First-time setup or stale data triggers card tagging. The web service uses parallel workers by default.
+
+Configure via environment variables on the `web` service:
+- `WEB_TAG_PARALLEL=1|0` — enable/disable parallel tagging (default: 1)
+- `WEB_TAG_WORKERS=<N>` — number of worker processes (default: 4 in compose)
+
+If parallel initialization fails, the service falls back to sequential tagging and continues.
 
 ### From Docker Hub (PowerShell)
 If you prefer not to build locally, pull `mwisnowski/mtg-python-deckbuilder:latest` and run uvicorn:
@@ -47,6 +57,11 @@ docker run --rm `
     -v "${PWD}/config:/app/config" `
     mwisnowski/mtg-python-deckbuilder:latest `
     bash -lc "cd /app && uvicorn code.web.app:app --host 0.0.0.0 --port 8080"
+```
+
+Health check:
+```text
+GET http://localhost:8080/healthz  ->  { "status": "ok", "version": "dev", "uptime_seconds": 123 }
 ```
 
 ## Volumes
@@ -76,6 +91,10 @@ docker run --rm `
 - DECK_COMMANDER, DECK_PRIMARY_CHOICE
 - DECK_ADD_LANDS, DECK_FETCH_COUNT
  - DECK_TAG_MODE=AND|OR (combine mode used by the builder)
+
+### Web UI tuning env vars
+- WEB_TAG_PARALLEL=1|0 (parallel tagging on/off)
+- WEB_TAG_WORKERS=<N> (process count; set based on CPU/memory)
 
 ## Manual build/run
 ```powershell

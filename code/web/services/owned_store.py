@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Iterable, List, Tuple, Dict
 import json
 import os
+import time
 
 
 def _owned_dir() -> Path:
@@ -108,6 +109,16 @@ def add_names(names: Iterable[str]) -> Tuple[int, int]:
     data["names"] = cur
     if "meta" not in data or not isinstance(data.get("meta"), dict):
         data["meta"] = {}
+    meta = data["meta"]
+    now = int(time.time())
+    # Ensure newly added names have an added_at
+    for s in cur:
+        info = meta.get(s)
+        if not info:
+            meta[s] = {"added_at": now}
+        else:
+            if "added_at" not in info:
+                info["added_at"] = now
     _save_raw(data)
     return added, len(cur)
 
@@ -263,10 +274,16 @@ def add_and_enrich(names: Iterable[str]) -> Tuple[int, int]:
             continue
     # Enrich
     meta = data.get("meta") or {}
+    now = int(time.time())
     if new_names:
         enriched = _enrich_from_csvs(new_names)
         for nm, info in enriched.items():
             meta[nm] = info
+        # Stamp added_at for new names if missing
+        for nm in new_names:
+            entry = meta.setdefault(nm, {})
+            if "added_at" not in entry:
+                entry["added_at"] = now
     data["names"] = current_names
     data["meta"] = meta
     _save_raw(data)
@@ -285,7 +302,15 @@ def get_enriched() -> Tuple[List[str], Dict[str, List[str]], Dict[str, str], Dic
     colors_by_name: Dict[str, List[str]] = {}
     for n in names:
         info = meta.get(n) or {}
-        tags = info.get('tags') or []
+        tags = (info.get('tags') or [])
+        user_tags = (info.get('user_tags') or [])
+        if user_tags:
+            # merge user tags (unique, case-insensitive)
+            seen = {str(t).lower() for t in tags}
+            for ut in user_tags:
+                if str(ut).lower() not in seen:
+                    (tags or []).append(str(ut))
+                    seen.add(str(ut).lower())
         typ = info.get('type') or None
         cols = info.get('colors') or []
         if tags:
@@ -295,6 +320,114 @@ def get_enriched() -> Tuple[List[str], Dict[str, List[str]], Dict[str, str], Dic
         if cols:
             colors_by_name[n] = [str(x).upper() for x in cols if str(x)]
     return names, tags_by_name, type_by_name, colors_by_name
+
+
+def add_user_tag(names: Iterable[str], tag: str) -> int:
+    """Add a user-defined tag to the given names; returns number of names updated."""
+    t = str(tag or '').strip()
+    if not t:
+        return 0
+    data = _load_raw()
+    cur = [str(x).strip() for x in (data.get('names') or []) if str(x).strip()]
+    target = {str(n).strip().lower() for n in (names or []) if str(n).strip()}
+    meta = data.get('meta') or {}
+    updated = 0
+    for s in cur:
+        if s.lower() not in target:
+            continue
+        entry = meta.setdefault(s, {})
+        arr = entry.get('user_tags') or []
+        if not any(str(x).strip().lower() == t.lower() for x in arr):
+            arr.append(t)
+            entry['user_tags'] = arr
+            updated += 1
+    data['meta'] = meta
+    _save_raw(data)
+    return updated
+
+
+def remove_user_tag(names: Iterable[str], tag: str) -> int:
+    """Remove a user-defined tag from the given names; returns number of names updated."""
+    t = str(tag or '').strip()
+    if not t:
+        return 0
+    data = _load_raw()
+    cur = [str(x).strip() for x in (data.get('names') or []) if str(x).strip()]
+    target = {str(n).strip().lower() for n in (names or []) if str(n).strip()}
+    meta = data.get('meta') or {}
+    updated = 0
+    for s in cur:
+        if s.lower() not in target:
+            continue
+        entry = meta.get(s) or {}
+        arr = [x for x in (entry.get('user_tags') or []) if str(x)]
+        before = len(arr)
+        arr = [x for x in arr if str(x).strip().lower() != t.lower()]
+        if len(arr) != before:
+            entry['user_tags'] = arr
+            meta[s] = entry
+            updated += 1
+    data['meta'] = meta
+    _save_raw(data)
+    return updated
+
+
+def get_added_at_map() -> Dict[str, int]:
+    """Return a mapping of name -> added_at unix timestamp (if known)."""
+    data = _load_raw()
+    meta: Dict[str, Dict[str, object]] = data.get("meta") or {}
+    out: Dict[str, int] = {}
+    for n, info in meta.items():
+        try:
+            ts = info.get("added_at")
+            if isinstance(ts, (int, float)):
+                out[n] = int(ts)
+        except Exception:
+            continue
+    return out
+
+
+def remove_names(names: Iterable[str]) -> Tuple[int, int]:
+    """Remove a batch of names; returns (removed_count, total_after)."""
+    target = {str(n).strip().lower() for n in (names or []) if str(n).strip()}
+    if not target:
+        return 0, len(get_names())
+    data = _load_raw()
+    cur = [str(x).strip() for x in (data.get("names") or []) if str(x).strip()]
+    before = len(cur)
+    cur_kept: List[str] = []
+    for s in cur:
+        if s.lower() in target:
+            continue
+        cur_kept.append(s)
+    removed = before - len(cur_kept)
+    data["names"] = cur_kept
+    meta = data.get("meta") or {}
+    # Drop meta entries for removed names
+    for s in list(meta.keys()):
+        try:
+            if s.lower() in target:
+                meta.pop(s, None)
+        except Exception:
+            continue
+    data["meta"] = meta
+    _save_raw(data)
+    return removed, len(cur_kept)
+
+
+def get_user_tags_map() -> Dict[str, list[str]]:
+    """Return a mapping of name -> list of user-defined tags (if any)."""
+    data = _load_raw()
+    meta: Dict[str, Dict[str, object]] = data.get("meta") or {}
+    out: Dict[str, list[str]] = {}
+    for n, info in meta.items():
+        try:
+            arr = [x for x in (info.get("user_tags") or []) if str(x)]
+            if arr:
+                out[n] = [str(x) for x in arr]
+        except Exception:
+            continue
+    return out
 
 
 def parse_txt_bytes(content: bytes) -> List[str]:

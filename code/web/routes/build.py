@@ -15,9 +15,28 @@ router = APIRouter(prefix="/build")
 async def build_index(request: Request) -> HTMLResponse:
     sid = request.cookies.get("sid") or new_sid()
     sess = get_session(sid)
+    # Determine last step (fallback heuristics if not set)
+    last_step = sess.get("last_step")
+    if not last_step:
+        if sess.get("build_ctx"):
+            last_step = 5
+        elif sess.get("ideals"):
+            last_step = 4
+        elif sess.get("bracket"):
+            last_step = 3
+        elif sess.get("commander"):
+            last_step = 2
+        else:
+            last_step = 1
     resp = templates.TemplateResponse(
         "build/index.html",
-        {"request": request, "sid": sid, "commander": sess.get("commander"), "tags": sess.get("tags", [])},
+        {
+            "request": request,
+            "sid": sid,
+            "commander": sess.get("commander"),
+            "tags": sess.get("tags", []),
+            "last_step": last_step,
+        },
     )
     resp.set_cookie("sid", sid, httponly=True, samesite="lax")
     return resp
@@ -25,7 +44,12 @@ async def build_index(request: Request) -> HTMLResponse:
 
 @router.get("/step1", response_class=HTMLResponse)
 async def build_step1(request: Request) -> HTMLResponse:
-    return templates.TemplateResponse("build/_step1.html", {"request": request, "candidates": []})
+    sid = request.cookies.get("sid") or new_sid()
+    sess = get_session(sid)
+    sess["last_step"] = 1
+    resp = templates.TemplateResponse("build/_step1.html", {"request": request, "candidates": []})
+    resp.set_cookie("sid", sid, httponly=True, samesite="lax")
+    return resp
 
 
 @router.post("/step1", response_class=HTMLResponse)
@@ -45,7 +69,10 @@ async def build_step1_search(
             top_name = candidates[0][0]
             res = orch.commander_select(top_name)
             if res.get("ok"):
-                return templates.TemplateResponse(
+                sid = request.cookies.get("sid") or new_sid()
+                sess = get_session(sid)
+                sess["last_step"] = 2
+                resp = templates.TemplateResponse(
                     "build/_step2.html",
                     {
                         "request": request,
@@ -56,7 +83,12 @@ async def build_step1_search(
                         "brackets": orch.bracket_options(),
                     },
                 )
-    return templates.TemplateResponse(
+                resp.set_cookie("sid", sid, httponly=True, samesite="lax")
+                return resp
+    sid = request.cookies.get("sid") or new_sid()
+    sess = get_session(sid)
+    sess["last_step"] = 1
+    resp = templates.TemplateResponse(
         "build/_step1.html",
         {
             "request": request,
@@ -67,24 +99,39 @@ async def build_step1_search(
             "count": len(candidates) if candidates else 0,
         },
     )
+    resp.set_cookie("sid", sid, httponly=True, samesite="lax")
+    return resp
 
 
 @router.post("/step1/inspect", response_class=HTMLResponse)
 async def build_step1_inspect(request: Request, name: str = Form(...)) -> HTMLResponse:
+    sid = request.cookies.get("sid") or new_sid()
+    sess = get_session(sid)
+    sess["last_step"] = 1
     info = orch.commander_inspect(name)
-    return templates.TemplateResponse(
+    resp = templates.TemplateResponse(
         "build/_step1.html",
         {"request": request, "inspect": info, "selected": name, "tags": orch.tags_for_commander(name)},
     )
+    resp.set_cookie("sid", sid, httponly=True, samesite="lax")
+    return resp
 
 
 @router.post("/step1/confirm", response_class=HTMLResponse)
 async def build_step1_confirm(request: Request, name: str = Form(...)) -> HTMLResponse:
     res = orch.commander_select(name)
     if not res.get("ok"):
-        return templates.TemplateResponse("build/_step1.html", {"request": request, "error": res.get("error"), "selected": name})
+        sid = request.cookies.get("sid") or new_sid()
+        sess = get_session(sid)
+        sess["last_step"] = 1
+        resp = templates.TemplateResponse("build/_step1.html", {"request": request, "error": res.get("error"), "selected": name})
+        resp.set_cookie("sid", sid, httponly=True, samesite="lax")
+        return resp
     # Proceed to step2 placeholder
-    return templates.TemplateResponse(
+    sid = request.cookies.get("sid") or new_sid()
+    sess = get_session(sid)
+    sess["last_step"] = 2
+    resp = templates.TemplateResponse(
         "build/_step2.html",
         {
             "request": request,
@@ -95,19 +142,24 @@ async def build_step1_confirm(request: Request, name: str = Form(...)) -> HTMLRe
             "brackets": orch.bracket_options(),
         },
     )
+    resp.set_cookie("sid", sid, httponly=True, samesite="lax")
+    return resp
 
 
 @router.get("/step2", response_class=HTMLResponse)
 async def build_step2_get(request: Request) -> HTMLResponse:
     sid = request.cookies.get("sid") or new_sid()
     sess = get_session(sid)
+    sess["last_step"] = 2
     commander = sess.get("commander")
     if not commander:
         # Fallback to step1 if no commander in session
-        return templates.TemplateResponse("build/_step1.html", {"request": request, "candidates": []})
+        resp = templates.TemplateResponse("build/_step1.html", {"request": request, "candidates": []})
+        resp.set_cookie("sid", sid, httponly=True, samesite="lax")
+        return resp
     tags = orch.tags_for_commander(commander)
     selected = sess.get("tags", [])
-    return templates.TemplateResponse(
+    resp = templates.TemplateResponse(
         "build/_step2.html",
         {
             "request": request,
@@ -123,6 +175,8 @@ async def build_step2_get(request: Request) -> HTMLResponse:
             "tag_mode": sess.get("tag_mode", "AND"),
         },
     )
+    resp.set_cookie("sid", sid, httponly=True, samesite="lax")
+    return resp
 
 
 @router.post("/step2", response_class=HTMLResponse)
@@ -138,7 +192,10 @@ async def build_step2_submit(
     # Validate primary tag selection if tags are available
     available_tags = orch.tags_for_commander(commander)
     if available_tags and not (primary_tag and primary_tag.strip()):
-        return templates.TemplateResponse(
+        sid = request.cookies.get("sid") or new_sid()
+        sess = get_session(sid)
+        sess["last_step"] = 2
+        resp = templates.TemplateResponse(
             "build/_step2.html",
             {
                 "request": request,
@@ -155,6 +212,8 @@ async def build_step2_submit(
                 "tag_mode": (tag_mode or "AND"),
             },
         )
+        resp.set_cookie("sid", sid, httponly=True, samesite="lax")
+        return resp
 
     # Save selection to session (basic MVP; real build will use this later)
     sid = request.cookies.get("sid") or new_sid()
@@ -164,7 +223,8 @@ async def build_step2_submit(
     sess["tag_mode"] = (tag_mode or "AND").upper()
     sess["bracket"] = int(bracket)
     # Proceed to Step 3 placeholder for now
-    return templates.TemplateResponse(
+    sess["last_step"] = 3
+    resp = templates.TemplateResponse(
         "build/_step3.html",
         {
             "request": request,
@@ -176,6 +236,8 @@ async def build_step2_submit(
             "values": orch.ideal_defaults(),
         },
     )
+    resp.set_cookie("sid", sid, httponly=True, samesite="lax")
+    return resp
 
 
 @router.post("/step3", response_class=HTMLResponse)
@@ -220,7 +282,8 @@ async def build_step3_submit(
     if errors:
         sid = request.cookies.get("sid") or new_sid()
         sess = get_session(sid)
-        return templates.TemplateResponse(
+        sess["last_step"] = 3
+        resp = templates.TemplateResponse(
             "build/_step3.html",
             {
                 "request": request,
@@ -233,6 +296,8 @@ async def build_step3_submit(
                 "bracket": sess.get("bracket"),
             },
         )
+        resp.set_cookie("sid", sid, httponly=True, samesite="lax")
+        return resp
 
     # Save to session
     sid = request.cookies.get("sid") or new_sid()
@@ -240,7 +305,8 @@ async def build_step3_submit(
     sess["ideals"] = submitted
 
     # Proceed to review (Step 4)
-    return templates.TemplateResponse(
+    sess["last_step"] = 4
+    resp = templates.TemplateResponse(
         "build/_step4.html",
         {
             "request": request,
@@ -249,12 +315,15 @@ async def build_step3_submit(
             "commander": sess.get("commander"),
         },
     )
+    resp.set_cookie("sid", sid, httponly=True, samesite="lax")
+    return resp
 
 
 @router.get("/step3", response_class=HTMLResponse)
 async def build_step3_get(request: Request) -> HTMLResponse:
     sid = request.cookies.get("sid") or new_sid()
     sess = get_session(sid)
+    sess["last_step"] = 3
     defaults = orch.ideal_defaults()
     values = sess.get("ideals") or defaults
     resp = templates.TemplateResponse(
@@ -277,6 +346,7 @@ async def build_step3_get(request: Request) -> HTMLResponse:
 async def build_step4_get(request: Request) -> HTMLResponse:
     sid = request.cookies.get("sid") or new_sid()
     sess = get_session(sid)
+    sess["last_step"] = 4
     labels = orch.ideal_labels()
     values = sess.get("ideals") or orch.ideal_defaults()
     commander = sess.get("commander")
@@ -302,6 +372,7 @@ async def build_toggle_owned_review(
     """Toggle 'use owned only' and/or 'prefer owned' flags from the Review step and re-render Step 4."""
     sid = request.cookies.get("sid") or new_sid()
     sess = get_session(sid)
+    sess["last_step"] = 4
     only_val = True if (use_owned_only and str(use_owned_only).strip() in ("1","true","on","yes")) else False
     pref_val = True if (prefer_owned and str(prefer_owned).strip() in ("1","true","on","yes")) else False
     sess["use_owned_only"] = only_val
@@ -329,6 +400,7 @@ async def build_toggle_owned_review(
 async def build_step5_get(request: Request) -> HTMLResponse:
     sid = request.cookies.get("sid") or new_sid()
     sess = get_session(sid)
+    sess["last_step"] = 5
     resp = templates.TemplateResponse(
         "build/_step5.html",
         {
@@ -344,6 +416,12 @@ async def build_step5_get(request: Request) -> HTMLResponse:
             "stage_label": None,
             "log": None,
             "added_cards": [],
+            "i": None,
+            "n": None,
+            "total_cards": None,
+            "added_total": 0,
+            "show_skipped": False,
+            "skipped": False,
             "game_changers": bc.GAME_CHANGERS,
         },
     )
@@ -383,10 +461,12 @@ async def build_step5_continue(request: Request) -> HTMLResponse:
             prefer_owned=prefer,
             owned_names=owned_names,
         )
-    show_skipped = True if (request.query_params.get('show_skipped') == '1' or (await request.form().get('show_skipped', None) == '1') if hasattr(request, 'form') else False) else False
+    # Read show_skipped from either query or form safely
+    show_skipped = True if (request.query_params.get('show_skipped') == '1') else False
     try:
         form = await request.form()
-        show_skipped = True if (form.get('show_skipped') == '1') else show_skipped
+        if form and form.get('show_skipped') == '1':
+            show_skipped = True
     except Exception:
         pass
     res = orch.run_stage(sess["build_ctx"], rerun=False, show_skipped=show_skipped)
@@ -400,6 +480,9 @@ async def build_step5_continue(request: Request) -> HTMLResponse:
     csv_path = res.get("csv_path") if res.get("done") else None
     txt_path = res.get("txt_path") if res.get("done") else None
     summary = res.get("summary") if res.get("done") else None
+    total_cards = res.get("total_cards")
+    added_total = res.get("added_total")
+    sess["last_step"] = 5
     resp = templates.TemplateResponse(
         "build/_step5.html",
         {
@@ -422,6 +505,9 @@ async def build_step5_continue(request: Request) -> HTMLResponse:
             "summary": summary,
             "game_changers": bc.GAME_CHANGERS,
             "show_skipped": show_skipped,
+            "total_cards": total_cards,
+            "added_total": added_total,
+            "skipped": bool(res.get("skipped")),
         },
     )
     resp.set_cookie("sid", sid, httponly=True, samesite="lax")
@@ -474,6 +560,9 @@ async def build_step5_rerun(request: Request) -> HTMLResponse:
     csv_path = res.get("csv_path") if res.get("done") else None
     txt_path = res.get("txt_path") if res.get("done") else None
     summary = res.get("summary") if res.get("done") else None
+    total_cards = res.get("total_cards")
+    added_total = res.get("added_total")
+    sess["last_step"] = 5
     resp = templates.TemplateResponse(
         "build/_step5.html",
         {
@@ -496,6 +585,9 @@ async def build_step5_rerun(request: Request) -> HTMLResponse:
             "summary": summary,
             "game_changers": bc.GAME_CHANGERS,
             "show_skipped": show_skipped,
+            "total_cards": total_cards,
+            "added_total": added_total,
+            "skipped": bool(res.get("skipped")),
         },
     )
     resp.set_cookie("sid", sid, httponly=True, samesite="lax")
@@ -554,6 +646,7 @@ async def build_step5_start(request: Request) -> HTMLResponse:
         csv_path = res.get("csv_path") if res.get("done") else None
         txt_path = res.get("txt_path") if res.get("done") else None
         summary = res.get("summary") if res.get("done") else None
+        sess["last_step"] = 5
         resp = templates.TemplateResponse(
             "build/_step5.html",
             {

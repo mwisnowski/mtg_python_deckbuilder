@@ -201,6 +201,8 @@ class ReportingMixin:
 
         # Pip distribution (counts and weights) for non-land spells only
         pip_counts = {c: 0 for c in ('W','U','B','R','G')}
+        # For UI cross-highlighting: map color -> list of cards that have that color pip in their cost
+        pip_cards: Dict[str, list] = {c: [] for c in ('W','U','B','R','G')}
         import re as _re_local
         total_pips = 0.0
         for name, info in self.card_library.items():
@@ -210,11 +212,14 @@ class ReportingMixin:
             mana_cost = info.get('Mana Cost') or info.get('mana_cost') or ''
             if not isinstance(mana_cost, str):
                 continue
+            # Track which colors appear for this card's mana cost for card listing
+            colors_for_card = set()
             for match in _re_local.findall(r'\{([^}]+)\}', mana_cost):
                 sym = match.upper()
                 if len(sym) == 1 and sym in pip_counts:
                     pip_counts[sym] += 1
                     total_pips += 1
+                    colors_for_card.add(sym)
                 elif '/' in sym:
                     parts = [p for p in sym.split('/') if p in pip_counts]
                     if parts:
@@ -222,6 +227,17 @@ class ReportingMixin:
                         for p in parts:
                             pip_counts[p] += weight_each
                             total_pips += weight_each
+                            colors_for_card.add(p)
+                elif sym.endswith('P') and len(sym) == 2:  # e.g. WP (Phyrexian) -> treat as that color
+                    base = sym[0]
+                    if base in pip_counts:
+                        pip_counts[base] += 1
+                        total_pips += 1
+                        colors_for_card.add(base)
+            if colors_for_card:
+                cnt = int(info.get('Count', 1))
+                for c in colors_for_card:
+                    pip_cards[c].append({'name': name, 'count': cnt})
         if total_pips <= 0:
             # Fallback to even distribution across color identity
             colors = [c for c in ('W','U','B','R','G') if c in (getattr(self, 'color_identity', []) or [])]
@@ -238,12 +254,15 @@ class ReportingMixin:
             matrix = _bu.compute_color_source_matrix(self.card_library, full_df)
         except Exception:
             matrix = {}
-        source_counts = {c: 0 for c in ('W','U','B','R','G')}
+        source_counts = {c: 0 for c in ('W','U','B','R','G','C')}
+        # For UI cross-highlighting: color -> list of cards that produce that color (typically lands, possibly others)
+        source_cards: Dict[str, list] = {c: [] for c in ('W','U','B','R','G','C')}
         for name, flags in matrix.items():
             copies = int(self.card_library.get(name, {}).get('Count', 1))
-            for c in source_counts:
+            for c in source_counts.keys():
                 if int(flags.get(c, 0)):
                     source_counts[c] += copies
+                    source_cards[c].append({'name': name, 'count': copies})
         total_sources = sum(source_counts.values())
 
         # Mana curve (non-land spells)
@@ -282,10 +301,12 @@ class ReportingMixin:
             'pip_distribution': {
                 'counts': pip_counts,
                 'weights': pip_weights,
+                'cards': pip_cards,
             },
             'mana_generation': {
                 **source_counts,
                 'total_sources': total_sources,
+                'cards': source_cards,
             },
             'mana_curve': {
                 **curve_counts,
@@ -393,6 +414,15 @@ class ReportingMixin:
         except Exception:
             owned_set_lower = set()
 
+        # Fallback oracle text for basic lands to ensure CSV has meaningful text
+        BASIC_TEXT = {
+            'Plains': '({T}: Add {W}.)',
+            'Island': '({T}: Add {U}.)',
+            'Swamp': '({T}: Add {B}.)',
+            'Mountain': '({T}: Add {R}.)',
+            'Forest': '({T}: Add {G}.)',
+            'Wastes': '({T}: Add {C}.)',
+        }
         for name, info in self.card_library.items():
             base_type = info.get('Card Type') or info.get('Type', '')
             base_mc = info.get('Mana Cost', '')
@@ -423,6 +453,9 @@ class ReportingMixin:
                 power = row.get('power', '') or ''
                 toughness = row.get('toughness', '') or ''
                 text_field = row.get('text', row.get('oracleText', '')) or ''
+            # If still no text and this is a basic, inject fallback oracle snippet
+            if (not text_field) and (str(name) in BASIC_TEXT):
+                text_field = BASIC_TEXT[str(name)]
             # Normalize and coerce text
             if isinstance(text_field, str):
                 cleaned = text_field

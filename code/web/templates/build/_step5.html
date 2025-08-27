@@ -1,4 +1,5 @@
 <section>
+  {% set step_index = 5 %}{% set step_total = 5 %}
   <h3>Step 5: Build</h3>
   <div class="two-col two-col-left-rail">
     <aside class="card-preview">
@@ -22,8 +23,9 @@
       </div>
       {% endif %}
     </aside>
-    <div class="grow">
+    <div class="grow" data-skeleton>
       <div hx-get="/build/banner?step=Build&i=5&n=5" hx-trigger="load"></div>
+      {% include "build/_stage_navigator.html" %}
 
       <p>Commander: <strong>{{ commander }}</strong></p>
       <p>Tags: {{ tags|default([])|join(', ') }}</p>
@@ -33,13 +35,26 @@
             <button type="button" hx-get="/build/step4" hx-target="#wizard" hx-swap="innerHTML" style="background:#374151; color:#e5e7eb; border:none; border-radius:6px; padding:.25rem .5rem; cursor:pointer; font-size:12px;" title="Change owned settings in Review">Edit in Review</button>
             <div>Prefer-owned: <strong>{{ 'On' if prefer_owned else 'Off' }}</strong></div>
           </div>
-        <span style="margin-left:auto;"><a href="/owned" target="_blank" rel="noopener" class="muted">Manage Owned Library</a></span>
+  <span style="margin-left:auto;"><a href="/owned" target="_blank" rel="noopener" class="btn">Manage Owned Library</a></span>
       </div>
       <p>Bracket: {{ bracket }}</p>
 
-      {% if i and n %}
-        <div class="muted" style="margin:.25rem 0 .5rem 0;">Stage {{ i }}/{{ n }}</div>
-      {% endif %}
+      <div style="display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; margin:.25rem 0 .5rem 0;">
+        {% if i and n %}
+          <span class="chip"><span class="dot"></span> Stage {{ i }}/{{ n }}</span>
+        {% endif %}
+  {% set deck_count = (total_cards if total_cards is not none else 0) %}
+  <span class="chip"><span class="dot" style="background: var(--green-main);"></span> Deck {{ deck_count }}/100</span>
+  {% if added_total is not none %}
+  <span class="chip"><span class="dot" style="background: var(--blue-main);"></span> Added {{ added_total }}</span>
+  {% endif %}
+      </div>
+      {% set pct = ((deck_count / 100.0) * 100.0) if deck_count else 0 %}
+      {% set pct_clamped = (pct if pct <= 100 else 100) %}
+      {% set pct_int = pct_clamped|int %}
+      <div class="progress{% if added_cards is defined and added_cards is not none and (added_cards|length == 0) and (status and not status.startswith('Build complete')) %} flash{% endif %}" aria-label="Deck progress" title="{{ deck_count }} of 100 cards" style="margin:.25rem 0 1rem 0;" data-pct="{{ pct_int }}">
+        <div class="bar"></div>
+      </div>
 
       {% if status %}
       <div style="margin-top:1rem;">
@@ -47,26 +62,56 @@
       </div>
       {% endif %}
 
-      <!-- Controls moved back above the cards as requested -->
-      <div style="margin-top:1rem; display:flex; gap:.5rem; flex-wrap:wrap; align-items:center;">
-        <form hx-post="/build/step5/start" hx-target="#wizard" hx-swap="innerHTML" style="display:inline; margin-right:.5rem; display:flex; align-items:center; gap:.5rem;">
+      <!-- Filters toolbar -->
+      <div class="cards-toolbar">
+        <input type="text" name="filter_query" placeholder="Filter by name, role, or tag" data-pref="cards:filter_q" />
+        <select name="filter_owned" data-pref="cards:owned">
+          <option value="all">All</option>
+          <option value="owned">Owned</option>
+          <option value="not">Not owned</option>
+        </select>
+        <label style="display:flex;align-items:center;gap:.35rem;">
+          <input type="checkbox" name="show_reasons" data-pref="cards:show_reasons" checked /> Show reasons
+        </label>
+        <label style="display:flex;align-items:center;gap:.35rem;">
+          <input type="checkbox" name="collapse_groups" data-pref="cards:collapse" /> Collapse groups
+        </label>
+        <select name="filter_sort" data-pref="cards:sort" aria-label="Sort">
+          <option value="az">A–Z</option>
+          <option value="owned">Owned first</option>
+          <option value="gc">Game-changers first</option>
+        </select>
+        <span class="sep"></span>
+        <span class="hint">Visible: <strong data-results>0</strong></span>
+        <span class="sep"></span>
+        <div class="chips-inline">
+          <span class="chip" data-chip-owned="all">All</span>
+          <span class="chip" data-chip-owned="owned">Owned</span>
+          <span class="chip" data-chip-owned="not">Not owned</span>
+          <span class="chip" data-chip-clear>Clear</span>
+        </div>
+      </div>
+
+      <!-- Sticky build controls on mobile -->
+      <div class="build-controls" style="position:sticky; top:0; z-index:5; background:linear-gradient(180deg, rgba(15,17,21,.95), rgba(15,17,21,.85)); border:1px solid var(--border); border-radius:10px; padding:.5rem; margin-top:1rem; display:flex; gap:.5rem; flex-wrap:wrap; align-items:center;">
+        <form hx-post="/build/step5/start" hx-target="#wizard" hx-swap="innerHTML" style="display:inline; margin-right:.5rem; display:flex; align-items:center; gap:.5rem;" onsubmit="try{ toast('Starting build…'); }catch(_){}">
           <input type="hidden" name="show_skipped" value="{{ '1' if show_skipped else '0' }}" />
-          <button type="submit">Start Build</button>
+          <button type="submit" class="btn-continue" data-action="continue">Start Build</button>
         </form>
-        <form hx-post="/build/step5/continue" hx-target="#wizard" hx-swap="innerHTML" style="display:inline; display:flex; align-items:center; gap:.5rem;">
+        <form hx-post="/build/step5/continue" hx-target="#wizard" hx-swap="innerHTML" style="display:inline; display:flex; align-items:center; gap:.5rem;" onsubmit="try{ toast('Continuing…'); }catch(_){}">
           <input type="hidden" name="show_skipped" value="{{ '1' if show_skipped else '0' }}" />
-          <button type="submit" {% if status and status.startswith('Build complete') %}disabled{% endif %}>Continue</button>
+          <button type="submit" class="btn-continue" data-action="continue" {% if status and status.startswith('Build complete') %}disabled{% endif %}>Continue</button>
         </form>
-        <form hx-post="/build/step5/rerun" hx-target="#wizard" hx-swap="innerHTML" style="display:inline; display:flex; align-items:center; gap:.5rem;">
+        <form hx-post="/build/step5/rerun" hx-target="#wizard" hx-swap="innerHTML" style="display:inline; display:flex; align-items:center; gap:.5rem;" onsubmit="try{ toast('Rerunning stage…'); }catch(_){}">
           <input type="hidden" name="show_skipped" value="{{ '1' if show_skipped else '0' }}" />
-          <button type="submit" {% if status and status.startswith('Build complete') %}disabled{% endif %}>Rerun Stage</button>
+          <button type="submit" class="btn-rerun" data-action="rerun" {% if status and status.startswith('Build complete') %}disabled{% endif %}>Rerun Stage</button>
         </form>
         <label class="muted" style="display:flex; align-items:center; gap:.35rem; margin-left: .5rem;">
-          <input type="checkbox" name="__toggle_show_skipped" {% if show_skipped %}checked{% endif %}
+          <input type="checkbox" name="__toggle_show_skipped" data-pref="build:show_skipped" {% if show_skipped %}checked{% endif %}
                  onchange="const val=this.checked?'1':'0'; for(const f of this.closest('section').querySelectorAll('form')){ const h=f.querySelector('input[name=show_skipped]'); if(h) h.value=val; }" />
           Show skipped stages
         </label>
-        <button type="button" hx-get="/build/step4" hx-target="#wizard" hx-swap="innerHTML">Back</button>
+  <button type="button" class="btn-back" data-action="back" hx-get="/build/step4" hx-target="#wizard" hx-swap="innerHTML">Back</button>
       </div>
 
       {% if added_cards is not none %}
@@ -88,36 +133,55 @@
           {% else %}
             {% set heading = 'Additional Picks' %}
           {% endif %}
-          <h5 style="margin:.5rem 0 .25rem 0;">{{ heading }}</h5>
-          <div class="card-grid">
+          <div class="group" data-group-key="{{ (role or 'other')|lower|replace(' ', '-') }}">
+            <div class="group-header">
+              <h5 style="margin:.5rem 0 .25rem 0;">{{ heading }}</h5>
+              <span class="count">(<span data-count>{{ g.list|length }}</span>)</span>
+              <button type="button" class="toggle" title="Collapse/Expand">Toggle</button>
+            </div>
+            <div class="card-grid group-grid" data-skeleton>
             {% for c in g.list %}
             {% set owned = (owned_set is defined and c.name and (c.name|lower in owned_set)) %}
-            <div class="card-tile{% if game_changers and (c.name in game_changers) %} game-changer{% endif %}" data-card-name="{{ c.name }}" data-role="{{ c.role or c.sub_role or '' }}" data-tags="{{ (c.tags|join(', ')) if c.tags else '' }}">
+            <div class="card-tile{% if game_changers and (c.name in game_changers) %} game-changer{% endif %}" data-card-name="{{ c.name }}" data-role="{{ c.role or c.sub_role or '' }}" data-tags="{{ (c.tags|join(', ')) if c.tags else '' }}" data-owned="{{ '1' if owned else '0' }}">
               <a href="https://scryfall.com/search?q={{ c.name|urlencode }}" target="_blank" rel="noopener">
                 <img src="https://api.scryfall.com/cards/named?fuzzy={{ c.name|urlencode }}&format=image&version=normal" alt="{{ c.name }} image" width="160" />
               </a>
               <div class="owned-badge" title="{{ 'Owned' if owned else 'Not owned' }}" aria-label="{{ 'Owned' if owned else 'Not owned' }}">{% if owned %}✔{% else %}✖{% endif %}</div>
               <div class="name">{{ c.name }}{% if c.count and c.count > 1 %} ×{{ c.count }}{% endif %}</div>
-              {% if c.reason %}<div class="reason">{{ c.reason }}</div>{% endif %}
+              {% if c.reason %}
+                <div style="display:flex; justify-content:center; margin-top:.25rem;">
+                  <button type="button" class="btn-why" aria-expanded="false">Why?</button>
+                </div>
+                <div class="reason" role="region" aria-label="Reason">{{ c.reason }}</div>
+              {% endif %}
             </div>
             {% endfor %}
+            </div>
           </div>
         {% endfor %}
       {% else %}
-        <div class="card-grid">
+  <div class="card-grid" data-skeleton>
           {% for c in added_cards %}
           {% set owned = (owned_set is defined and c.name and (c.name|lower in owned_set)) %}
-          <div class="card-tile{% if game_changers and (c.name in game_changers) %} game-changer{% endif %}" data-card-name="{{ c.name }}" data-role="{{ c.role or c.sub_role or '' }}" data-tags="{{ (c.tags|join(', ')) if c.tags else '' }}">
+          <div class="card-tile{% if game_changers and (c.name in game_changers) %} game-changer{% endif %}" data-card-name="{{ c.name }}" data-role="{{ c.role or c.sub_role or '' }}" data-tags="{{ (c.tags|join(', ')) if c.tags else '' }}" data-owned="{{ '1' if owned else '0' }}">
             <a href="https://scryfall.com/search?q={{ c.name|urlencode }}" target="_blank" rel="noopener">
               <img src="https://api.scryfall.com/cards/named?fuzzy={{ c.name|urlencode }}&format=image&version=normal" alt="{{ c.name }} image" width="160" />
             </a>
             <div class="owned-badge" title="{{ 'Owned' if owned else 'Not owned' }}" aria-label="{{ 'Owned' if owned else 'Not owned' }}">{% if owned %}✔{% else %}✖{% endif %}</div>
             <div class="name">{{ c.name }}{% if c.count and c.count > 1 %} ×{{ c.count }}{% endif %}</div>
-            {% if c.reason %}<div class="reason">{{ c.reason }}</div>{% endif %}
+            {% if c.reason %}
+              <div style="display:flex; justify-content:center; margin-top:.25rem;">
+                <button type="button" class="btn-why" aria-expanded="false">Why?</button>
+              </div>
+              <div class="reason" role="region" aria-label="Reason">{{ c.reason }}</div>
+            {% endif %}
           </div>
           {% endfor %}
         </div>
       {% endif %}
+      <div data-empty hidden role="status" aria-live="polite" class="muted" style="margin:.5rem 0 0;">
+        No cards match your filters.
+      </div>
       {% endif %}
 
       {% if show_logs and log %}

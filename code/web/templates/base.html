@@ -5,7 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>MTG Deckbuilder</title>
     <script src="https://unpkg.com/htmx.org@1.9.12" onerror="var s=document.createElement('script');s.src='/static/vendor/htmx-1.9.12.min.js';document.head.appendChild(s);"></script>
-  <link rel="stylesheet" href="/static/styles.css?v=20250826-3" />
+  <link rel="stylesheet" href="/static/styles.css?v=20250826-4" />
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="/static/favicon.png" />
+  <link rel="shortcut icon" href="/favicon.ico" />
+  <link rel="apple-touch-icon" href="/static/favicon.png" />
   </head>
   <body>
     <header class="top-banner">
@@ -156,5 +160,19 @@
         document.addEventListener('htmx:afterSwap', function() { attachCardHover(); });
       })();
     </script>
+  <script src="/static/app.js?v=20250826-2"></script>
+  <script>
+    // Show pending toast after full page reloads when actions replace the whole document
+    (function(){
+      try{
+        var raw = sessionStorage.getItem('mtg:toastAfterReload');
+        if (raw){
+          sessionStorage.removeItem('mtg:toastAfterReload');
+          var data = JSON.parse(raw);
+          if (data && data.msg){ window.toast && window.toast(data.msg, data.type||''); }
+        }
+      }catch(_){ }
+    })();
+  </script>
   </body>
   </html>

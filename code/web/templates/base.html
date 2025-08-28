@@ -1,0 +1,431 @@
+<!doctype html>
+<html lang="en" data-theme="{% if default_theme == 'light' %}light-blend{% elif default_theme == 'dark' %}dark{% else %}light-blend{% endif %}">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MTG Deckbuilder</title>
+    <script src="https://unpkg.com/htmx.org@1.9.12" onerror="var s=document.createElement('script');s.src='/static/vendor/htmx-1.9.12.min.js';document.head.appendChild(s);"></script>
+    <script>
+      (function(){
+        // Pre-CSS theme bootstrapping to avoid flash/mismatch on first paint
+        try{
+          var root = document.documentElement;
+          var KEY = 'mtg:theme';
+          var SERVER_DEFAULT = '{{ default_theme }}';
+          var params = new URLSearchParams(window.location.search || '');
+          var urlTheme = (params.get('theme') || '').toLowerCase();
+          var stored = localStorage.getItem(KEY);
+          function resolveSystem(){
+            var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+            return prefersDark ? 'dark' : 'light-blend';
+          }
+          function mapTheme(v){
+            var x = (v || 'system').toLowerCase();
+            if (x === 'system') return resolveSystem();
+            if (x === 'light') return 'light-blend';
+            return x;
+          }
+          var initial = urlTheme || ((stored && stored.trim()) ? stored : (SERVER_DEFAULT || 'system'));
+          root.setAttribute('data-theme', mapTheme(initial));
+        }catch(_){ }
+      })();
+    </script>
+  <link rel="stylesheet" href="/static/styles.css?v=20250828-14" />
+  <!-- Performance hints -->
+  <link rel="preconnect" href="https://api.scryfall.com" crossorigin>
+  <link rel="dns-prefetch" href="https://api.scryfall.com">
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="/static/favicon.png" />
+  <link rel="shortcut icon" href="/favicon.ico" />
+  <link rel="apple-touch-icon" href="/static/favicon.png" />
+  {% if enable_pwa %}
+  <link rel="manifest" href="/static/manifest.webmanifest" />
+  {% endif %}
+  </head>
+  <body data-diag="{% if show_diagnostics %}1{% else %}0{% endif %}" data-virt="{% if virtualize %}1{% else %}0{% endif %}">
+    <header class="top-banner">
+      <div class="top-inner">
+        <h1>MTG Deckbuilder</h1>
+        <div style="display:flex; align-items:center; gap:.5rem">
+          <span id="health-dot" class="health-dot" title="Health"></span>
+          <div id="banner-status" class="banner-status">{% block banner_subtitle %}{% endblock %}</div>
+          <button type="button" class="btn" title="Open a saved permalink"
+            onclick="(function(){try{var token = prompt('Paste a /build/from?state=... URL or token:'); if(!token) return; var m = token.match(/state=([^&]+)/); var t = m? m[1] : token.trim(); if(!t) return; window.location.href = '/build/from?state=' + encodeURIComponent(t); }catch(_){}})()">Open Permalink…</button>
+          {% if enable_themes %}
+          <label style="margin:0 .5rem; align-items:flex-start; margin-left:auto">
+            <span class="muted" style="font-size:11px">Theme</span>
+            <select id="theme-select" aria-label="Theme selector">
+              <option value="system">System</option>
+              <option value="light">Light</option>
+              <option value="dark">Dark</option>
+              <option value="high-contrast">High contrast</option>
+              <option value="cb-friendly">Color-blind</option>
+            </select>
+          </label>
+          <button type="button" id="theme-reset" class="btn" title="Reset theme preference" style="background: transparent; color: var(--surface-banner-text); border:1px solid var(--border);">
+            Reset
+          </button>
+          {% endif %}
+        </div>
+      </div>
+    </header>
+    <div class="layout">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="mana-dots" aria-hidden="true">
+            <span class="dot green"></span>
+            <span class="dot blue"></span>
+            <span class="dot red"></span>
+            <span class="dot white"></span>
+            <span class="dot black"></span>
+          </div>
+        </div>
+        <nav class="nav">
+          <a href="/">Home</a>
+          <a href="/build">Build</a>
+          <a href="/configs">Build from JSON</a>
+          {% if show_setup %}<a href="/setup">Setup/Tag</a>{% endif %}
+          <a href="/owned">Owned Library</a>
+          <a href="/decks">Finished Decks</a>
+          {% if show_diagnostics %}<a href="/diagnostics">Diagnostics</a>{% endif %}
+          {% if show_logs %}<a href="/logs">Logs</a>{% endif %}
+        </nav>
+      </aside>
+  <main class="content" data-error-surface>
+        {% block content %}{% endblock %}
+      </main>
+    </div>
+    <footer class="site-footer" role="contentinfo">
+      Card images and data provided by
+      <a href="https://scryfall.com" target="_blank" rel="noopener">Scryfall</a>.
+      This website is not produced by, endorsed by, supported by, or affiliated with Scryfall or Wizards of the Coast.
+    </footer>
+    <style>
+      .card-hover { position: fixed; pointer-events: none; z-index: 9999; display: none; }
+      .card-hover-inner { display:flex; gap:12px; align-items:flex-start; }
+    .card-hover img { width: 320px; height: auto; display: block; border-radius: 8px; box-shadow: 0 6px 18px rgba(0,0,0,.55); border: 1px solid var(--border); background: var(--panel); }
+  .card-meta { background: var(--panel); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: .5rem .6rem; max-width: 320px; font-size: 13px; line-height: 1.4; box-shadow: 0 6px 18px rgba(0,0,0,.35); }
+  .card-meta ul { margin:.25rem 0; padding-left: 1.1rem; list-style: disc; }
+  .card-meta li { margin:.1rem 0; }
+  .card-meta .themes-list { font-size: 18px; line-height: 1.35; }
+  .card-meta .label { color:#94a3b8; text-transform: uppercase; font-size: 10px; letter-spacing: .04em; display:block; margin-bottom:.15rem; }
+  .card-meta .themes-label { color: var(--text); font-size: 20px; letter-spacing: .05em; }
+      .card-meta .line + .line { margin-top:.35rem; }
+  .site-footer { margin: 8px 16px; padding: 8px 12px; border-top: 1px solid var(--border); color: #94a3b8; font-size: 12px; text-align: center; }
+      .site-footer a { color: #cbd5e1; text-decoration: underline; }
+  footer.site-footer { flex-shrink: 0; }
+    </style>
+    <script>
+      (function(){
+        // Setup/Tagging status poller
+        var statusEl;
+        function ensureStatusEl(){
+          if (!statusEl) statusEl = document.getElementById('banner-status');
+          return statusEl;
+        }
+    function renderSetupStatus(data){
+          var el = ensureStatusEl(); if (!el) return;
+          if (data && data.running) {
+            var msg = (data.message || 'Preparing data...');
+      el.innerHTML = '<strong>Setup/Tagging:</strong> ' + msg + ' <a href="/setup/running" style="margin-left:.5rem;">View progress</a>';
+            el.classList.add('busy');
+          } else if (data && data.phase === 'done') {
+            el.innerHTML = '<span class="muted">Setup complete.</span>';
+            setTimeout(function(){ el.innerHTML = ''; el.classList.remove('busy'); }, 3000);
+          } else if (data && data.phase === 'error') {
+            el.innerHTML = '<span class="error">Setup error.</span>';
+            setTimeout(function(){ el.innerHTML = ''; el.classList.remove('busy'); }, 5000);
+          } else {
+            if (!el.innerHTML.trim()) el.innerHTML = '';
+            el.classList.remove('busy');
+          }
+        }
+        function pollStatus(){
+          try {
+            fetch('/status/setup', { cache: 'no-store' })
+              .then(function(r){ return r.json(); })
+              .then(renderSetupStatus)
+              .catch(function(){ /* noop */ });
+          } catch(e) {}
+        }
+        setInterval(pollStatus, 3000);
+        pollStatus();
+
+        // Health indicator poller
+        var healthDot = document.getElementById('health-dot');
+        function renderHealth(data){
+          if (!healthDot) return;
+          var ok = data && data.status === 'ok';
+          healthDot.setAttribute('data-state', ok ? 'ok' : 'bad');
+          if (!ok) { healthDot.title = 'Degraded'; } else { healthDot.title = 'OK'; }
+        }
+        function pollHealth(){
+          try {
+            fetch('/healthz', { cache: 'no-store' })
+              .then(function(r){ return r.json(); })
+              .then(renderHealth)
+              .catch(function(){ renderHealth({ status: 'bad' }); });
+          } catch(e){ renderHealth({ status: 'bad' }); }
+        }
+        setInterval(pollHealth, 5000);
+        pollHealth();
+
+  function ensureCard() {
+          var pop = document.getElementById('card-hover');
+          if (!pop) {
+            pop = document.createElement('div');
+            pop.id = 'card-hover';
+            pop.className = 'card-hover';
+            var inner = document.createElement('div');
+            inner.className = 'card-hover-inner';
+            var img = document.createElement('img');
+            img.alt = 'Card preview';
+            var meta = document.createElement('div');
+            meta.className = 'card-meta';
+            inner.appendChild(img);
+            inner.appendChild(meta);
+            pop.appendChild(inner);
+            document.body.appendChild(pop);
+          }
+          return pop;
+        }
+  var cardPop = ensureCard();
+        var PREVIEW_VERSIONS = ['normal','large'];
+        function buildCardUrl(name, version, nocache){
+          var q = encodeURIComponent(name||'');
+          var url = 'https://api.scryfall.com/cards/named?fuzzy=' + q + '&format=image&version=' + (version||'normal');
+          if (nocache) url += '&t=' + Date.now();
+          return url;
+        }
+        // Generic Scryfall image URL builder
+        function buildScryfallImageUrl(name, version, nocache){
+          var q = encodeURIComponent(name||'');
+          var url = 'https://api.scryfall.com/cards/named?fuzzy=' + q + '&format=image&version=' + (version||'normal');
+          if (nocache) url += '&t=' + Date.now();
+          return url;
+        }
+
+        // Global image retry binding for any <img data-card-name>
+        var IMG_FLAG = '__cardImgRetry';
+        function bindCardImageRetry(img, versions){
+          try {
+            if (!img || img[IMG_FLAG]) return;
+            var name = img.getAttribute('data-card-name') || '';
+            if (!name) return;
+            img[IMG_FLAG] = { vi: 0, nocache: 0, versions: versions && versions.length ? versions.slice() : ['normal','large'] };
+            img.addEventListener('error', function(){
+              var st = img[IMG_FLAG];
+              if (!st) return;
+              if (st.vi < st.versions.length - 1){
+                st.vi += 1;
+                img.src = buildScryfallImageUrl(name, st.versions[st.vi], false);
+              } else if (!st.nocache){
+                st.nocache = 1;
+                img.src = buildScryfallImageUrl(name, st.versions[st.vi], true);
+              }
+            });
+            // If the initial load already failed before binding, try the next immediately
+            if (img.complete && img.naturalWidth === 0){
+              // If src corresponds to the first version, move to next; else, just force a reload
+              var st = img[IMG_FLAG];
+              var current = img.src || '';
+              var first = buildScryfallImageUrl(name, st.versions[0], false);
+              if (current.indexOf(encodeURIComponent(name)) !== -1 && current.indexOf('version='+st.versions[0]) !== -1){
+                st.vi = Math.min(1, st.versions.length - 1);
+                img.src = buildScryfallImageUrl(name, st.versions[st.vi], false);
+              } else {
+                // Re-trigger current request (may succeed if transient)
+                img.src = current;
+              }
+            }
+          } catch(_){}
+        }
+        function bindAllCardImageRetries(){
+          document.querySelectorAll('img[data-card-name]').forEach(function(img){
+            // Use thumbnail fallbacks for card-thumb, otherwise preview fallbacks
+            var versions = (img.classList && img.classList.contains('card-thumb')) ? ['small','normal','large'] : ['normal','large'];
+            bindCardImageRetry(img, versions);
+          });
+        }
+
+        function positionCard(e) {
+          var x = e.clientX + 16, y = e.clientY + 16;
+          cardPop.style.display = 'block';
+          cardPop.style.left = x + 'px';
+          cardPop.style.top = y + 'px';
+          var rect = cardPop.getBoundingClientRect();
+          var vw = window.innerWidth || document.documentElement.clientWidth;
+          var vh = window.innerHeight || document.documentElement.clientHeight;
+          if (x + rect.width + 8 > vw) cardPop.style.left = (e.clientX - rect.width - 16) + 'px';
+          if (y + rect.height + 8 > vh) cardPop.style.top = (e.clientY - rect.height - 16) + 'px';
+        }
+        function attachCardHover() {
+          document.querySelectorAll('[data-card-name]').forEach(function(el) {
+            if (el.__cardHoverBound) return; // avoid duplicate bindings
+            el.__cardHoverBound = true;
+            el.addEventListener('mouseenter', function(e) {
+              var img = cardPop.querySelector('img');
+              var meta = cardPop.querySelector('.card-meta');
+              var name = el.getAttribute('data-card-name') || '';
+              var vi = 0; // always start at 'normal' on hover
+              img.src = buildCardUrl(name, PREVIEW_VERSIONS[vi], false);
+              // Bind a one-off error handler per enter to try fallbacks
+              var triedNoCache = false;
+              function onErr(){
+                if (vi < PREVIEW_VERSIONS.length - 1){ vi += 1; img.src = buildCardUrl(name, PREVIEW_VERSIONS[vi], false); }
+                else if (!triedNoCache){ triedNoCache = true; img.src = buildCardUrl(name, PREVIEW_VERSIONS[vi], true); }
+                else { img.removeEventListener('error', onErr); }
+              }
+              img.addEventListener('error', onErr, { once:false });
+              img.addEventListener('load', function onOk(){ img.removeEventListener('load', onOk); img.removeEventListener('error', onErr); });
+              var role = el.getAttribute('data-role') || '';
+              var rawTags = el.getAttribute('data-tags') || '';
+              // Clean and split tags into an array; remove brackets and quotes
+              var tags = rawTags
+                .replace(/[\[\]\u2018\u2019'\u201C\u201D"]/g,'')
+                .split(/\s*,\s*/)
+                .filter(function(t){ return t && t.trim(); });
+              if (role || (tags && tags.length)) {
+                var html = '';
+                if (role) {
+                  html += '<div class="line"><span class="label">Role</span>' + role.replace(/</g,'&lt;') + '</div>';
+                }
+                if (tags && tags.length) {
+                  html += '<div class="line"><span class="label themes-label">Themes</span><ul class="themes-list">' + tags.map(function(t){ return '<li>' + t.replace(/</g,'&lt;') + '</li>'; }).join('') + '</ul></div>';
+                }
+                meta.innerHTML = html;
+                meta.style.display = '';
+              } else {
+                meta.style.display = 'none';
+                meta.innerHTML = '';
+              }
+              positionCard(e);
+            });
+            el.addEventListener('mousemove', positionCard);
+            el.addEventListener('mouseleave', function() { cardPop.style.display = 'none'; });
+          });
+        }
+        attachCardHover();
+  bindAllCardImageRetries();
+  document.addEventListener('htmx:afterSwap', function() { attachCardHover(); bindAllCardImageRetries(); });
+      })();
+    </script>
+  <script src="/static/app.js?v=20250826-4"></script>
+  {% if enable_themes %}
+  <script>
+    (function(){
+      try{
+        var sel = document.getElementById('theme-select');
+  var resetBtn = document.getElementById('theme-reset');
+        var root = document.documentElement;
+        var KEY = 'mtg:theme';
+        var SERVER_DEFAULT = '{{ default_theme }}';
+        function mapLight(v){ return v === 'light' ? 'light-blend' : v; }
+        function resolveSystem(){
+          var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+          return prefersDark ? 'dark' : 'light-blend';
+        }
+        function normalizeUiValue(v){
+          var x = (v||'system').toLowerCase();
+          if (x === 'light-blend' || x === 'light-slate' || x === 'light-parchment') return 'light';
+          return x;
+        }
+        function apply(val){
+          var v = (val || 'system').toLowerCase();
+          if (v === 'system') v = resolveSystem();
+          v = mapLight(v);
+          root.setAttribute('data-theme', v);
+        }
+        // Optional URL override: ?theme=system|light|dark|high-contrast|cb-friendly
+        var params = new URLSearchParams(window.location.search || '');
+        var urlTheme = (params.get('theme') || '').toLowerCase();
+        if (urlTheme) {
+          // Persist the UI value, not the mapped CSS token
+          localStorage.setItem(KEY, normalizeUiValue(urlTheme));
+          // Clean the URL so reloads don't keep overriding
+          try { var u = new URL(window.location.href); u.searchParams.delete('theme'); window.history.replaceState({}, document.title, u.toString()); } catch(_){ }
+        }
+        // Determine initial selection: URL -> localStorage -> server default -> system
+        var stored = localStorage.getItem(KEY);
+        var initial = urlTheme || ((stored && stored.trim()) ? stored : (SERVER_DEFAULT || 'system'));
+        apply(initial);
+        if (sel){
+          sel.value = normalizeUiValue(initial);
+          sel.addEventListener('change', function(){
+            var v = sel.value || 'system';
+            localStorage.setItem(KEY, v);
+            apply(v);
+          });
+        }
+        if (resetBtn){
+          resetBtn.addEventListener('click', function(){
+            try{ localStorage.removeItem(KEY); }catch(_){ }
+            var v = SERVER_DEFAULT || 'system';
+            apply(v);
+            if (sel) sel.value = normalizeUiValue(v);
+          });
+        }
+        // React to system changes when set to system
+        if (window.matchMedia){
+          var mq = window.matchMedia('(prefers-color-scheme: dark)');
+          mq.addEventListener && mq.addEventListener('change', function(){
+            var cur = localStorage.getItem(KEY) || (SERVER_DEFAULT || 'system');
+            if (cur === 'system') apply('system');
+          });
+        }
+      }catch(_){ }
+    })();
+  </script>
+  {% endif %}
+  {% if not enable_themes %}
+  <script>
+    (function(){
+      try{
+        // Apply THEME env even when the selector is disabled. Resolve 'system' to OS preference.
+        var root = document.documentElement;
+        var SERVER_DEFAULT = '{{ default_theme }}';
+        function resolveSystem(){
+          var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+          return prefersDark ? 'dark' : 'light-blend';
+        }
+        var v = (SERVER_DEFAULT || 'system').toLowerCase();
+        if (v === 'system') v = resolveSystem();
+        if (v === 'light') v = 'light-blend';
+        root.setAttribute('data-theme', v);
+        // Track OS changes when using system
+        if ((SERVER_DEFAULT||'system').toLowerCase() === 'system' && window.matchMedia){
+          var mq = window.matchMedia('(prefers-color-scheme: dark)');
+          mq.addEventListener && mq.addEventListener('change', function(){ root.setAttribute('data-theme', resolveSystem()); });
+        }
+      }catch(_){ }
+    })();
+  </script>
+  {% endif %}
+  {% if enable_pwa %}
+  <script>
+    (function(){
+      try{
+        if ('serviceWorker' in navigator){
+          navigator.serviceWorker.register('/static/sw.js').then(function(reg){
+            window.__pwaStatus = { registered: true, scope: reg.scope };
+          }).catch(function(){ window.__pwaStatus = { registered: false }; });
+        }
+      }catch(_){ }
+    })();
+  </script>
+  {% endif %}
+  <script>
+    // Show pending toast after full page reloads when actions replace the whole document
+    (function(){
+      try{
+        var raw = sessionStorage.getItem('mtg:toastAfterReload');
+        if (raw){
+          sessionStorage.removeItem('mtg:toastAfterReload');
+          var data = JSON.parse(raw);
+          if (data && data.msg){ window.toast && window.toast(data.msg, data.type||''); }
+        }
+      }catch(_){ }
+    })();
+  </script>
+  </body>
+  </html>

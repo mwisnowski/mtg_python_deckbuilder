@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block content %}
+<section>
+  <h2>Page not found</h2>
+  <p>The page you requested could not be found.</p>
+  <p class="muted">Request ID: <code>{{ request_id or request.state.request_id }}</code></p>
+  <p><a class="btn" href="/">Go home</a></p>
+  <details>
+    <summary>Details</summary>
+    <pre>Status: {{ status }}
+Path: {{ request.url.path }}</pre>
+  </details>
+{% endblock %}

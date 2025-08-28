@@ -1,0 +1,105 @@
+{% set pname = commander.name %}
+<div id="newdeck-commander-slot" hx-swap-oob="true" style="max-width:230px;">
+  <aside class="card-preview" data-card-name="{{ pname }}" style="max-width: 230px;">
+    <a href="https://scryfall.com/search?q={{ pname|urlencode }}" target="_blank" rel="noopener">
+      <img src="https://api.scryfall.com/cards/named?fuzzy={{ pname|urlencode }}&format=image&version=normal" alt="{{ pname }} card image" data-card-name="{{ pname }}" style="width:200px; height:auto; display:block; border-radius:6px;" />
+    </a>
+  </aside>
+  <div class="muted" style="font-size:12px; margin-top:.25rem; max-width: 230px;">{{ pname }}</div>
+  <script>
+    try {
+      var nm = document.querySelector('input[name="name"]');
+      var value = document.querySelector('#newdeck-commander-slot [data-card-name]')?.getAttribute('data-card-name') || '{{ pname|e }}';
+      if (nm && (!nm.value || !nm.value.trim())) { nm.value = value; }
+    } catch(_) {}
+  </script>
+</div>
+
+<div>
+  {% if tags and tags|length %}
+  <div class="muted" style="font-size:12px; margin-bottom:.35rem;">Pick up to three themes. Toggle AND/OR to control how themes combine.</div>
+  <div style="display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; margin-bottom:.35rem;">
+    <span class="muted" style="font-size:12px;">Combine</span>
+    <div role="group" aria-label="Combine mode">
+      <label style="margin-right:.35rem;" title="AND prioritizes cards that match multiple of your themes (tighter synergy, smaller pool).">
+        <input type="radio" name="combine_mode_radio" value="AND" checked /> AND
+      </label>
+      <label title="OR treats your themes as a union (broader pool, fills easier).">
+        <input type="radio" name="combine_mode_radio" value="OR" /> OR
+      </label>
+    </div>
+    <button type="button" id="modal-reset-tags" class="chip" style="margin-left:.35rem;">Reset themes</button>
+    <span id="modal-tag-count" class="muted" style="font-size:12px;"></span>
+  </div>
+  {% if recommended and recommended|length %}
+  <div style="display:flex; align-items:center; gap:.5rem; margin:.25rem 0 .35rem 0;">
+    <div class="muted" style="font-size:12px;">Recommended</div>
+  </div>
+  <div id="modal-tag-reco" aria-label="Recommended themes" style="display:flex; gap:.35rem; flex-wrap:wrap; margin-bottom:.5rem;">
+    {% for r in recommended %}
+      {% set tip = (recommended_reasons[r] if (recommended_reasons is defined and recommended_reasons and recommended_reasons.get(r)) else 'Recommended for this commander') %}
+      <button type="button" class="chip chip-reco" data-tag="{{ r }}" title="{{ tip }}">★ {{ r }}</button>
+    {% endfor %}
+    <button type="button" id="modal-reco-select-all" class="chip" title="Add recommended up to 3">Select all</button>
+  </div>
+  {% endif %}
+  <div id="modal-tag-list" aria-label="Available themes" style="display:flex; gap:.35rem; flex-wrap:wrap;">
+    {% for t in tags %}
+      <button type="button" class="chip" data-tag="{{ t }}">{{ t }}</button>
+    {% endfor %}
+  </div>
+  {% else %}
+    <p class="muted">No theme tags available for this commander.</p>
+  {% endif %}
+  <!-- hidden inputs that the main modal form will submit -->
+  <input type="hidden" name="primary_tag" id="modal_primary_tag" />
+  <input type="hidden" name="secondary_tag" id="modal_secondary_tag" />
+  <input type="hidden" name="tertiary_tag" id="modal_tertiary_tag" />
+  <input type="hidden" name="tag_mode" id="modal_tag_mode" value="AND" />
+
+  <div id="modal-selected-themes" class="muted" style="font-size:12px; margin-top:.5rem;">
+    <em>No themes selected yet.</em>
+  </div>
+</div>
+
+<script>
+(function(){
+  var list = document.getElementById('modal-tag-list');
+  var reco = document.getElementById('modal-tag-reco');
+  var selAll = document.getElementById('modal-reco-select-all');
+  var resetBtn = document.getElementById('modal-reset-tags');
+  var p = document.getElementById('modal_primary_tag');
+  var s = document.getElementById('modal_secondary_tag');
+  var t = document.getElementById('modal_tertiary_tag');
+  var mode = document.getElementById('modal_tag_mode');
+  var countEl = document.getElementById('modal-tag-count');
+  var selSummary = document.getElementById('modal-selected-themes');
+  if (!list) return;
+
+  function getSel(){ var a=[]; if(p&&p.value)a.push(p.value); if(s&&s.value)a.push(s.value); if(t&&t.value)a.push(t.value); return a; }
+  function setSel(a){ a = Array.from(new Set(a||[])).filter(Boolean).slice(0,3); if(p) p.value=a[0]||''; if(s) s.value=a[1]||''; if(t) t.value=a[2]||''; updateUI(); }
+  function toggle(tag){ var cur=getSel(); var i=cur.indexOf(tag); if(i>=0){cur.splice(i,1);} else { if(cur.length>=3){cur=cur.slice(1);} cur.push(tag);} setSel(cur); }
+  function updateUI(){
+    try{ if(countEl) countEl.textContent = getSel().length + ' / 3 selected'; }catch(_){ }
+    try{
+      if(selSummary){
+        var sel = getSel();
+        if(!sel.length){ selSummary.innerHTML = '<em>No themes selected yet.</em>'; }
+        else {
+          var parts = [];
+          sel.forEach(function(tag, idx){ parts.push((idx+1) + '. ' + tag); });
+          selSummary.textContent = 'Selected: ' + parts.join('  ·  ');
+        }
+      }
+    }catch(_){ }
+    function apply(container){ if(!container) return; var chips = container.querySelectorAll('button.chip'); chips.forEach(function(btn){ var tag=btn.dataset.tag||''; var active=getSel().indexOf(tag)>=0; btn.classList.toggle('active', active); btn.setAttribute('aria-pressed', active?'true':'false'); }); }
+    apply(list); apply(reco);
+  }
+  if (resetBtn) resetBtn.addEventListener('click', function(){ setSel([]); });
+  list.querySelectorAll('button.chip').forEach(function(btn){ var tag=btn.dataset.tag||''; btn.addEventListener('click', function(){ toggle(tag); }); });
+  if (reco){ reco.querySelectorAll('button.chip-reco').forEach(function(btn){ var tag=btn.dataset.tag||''; btn.addEventListener('click', function(){ toggle(tag); }); }); }
+  if (selAll){ selAll.addEventListener('click', function(){ try{ var cur=getSel(); var recs = reco? Array.from(reco.querySelectorAll('button.chip-reco')).map(function(b){return b.dataset.tag||'';}).filter(Boolean):[]; var combined=cur.slice(); recs.forEach(function(x){ if(combined.indexOf(x)===-1) combined.push(x); }); setSel(combined.slice(-3)); }catch(_){} }); }
+  document.querySelectorAll('input[name="combine_mode_radio"]').forEach(function(r){ r.addEventListener('change', function(){ if(mode){ mode.value = r.value; } }); });
+  updateUI();
+})();
+</script>

@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block banner_subtitle %}Build a Deck{% endblock %}
+{% block content %}
+<h2>Build a Deck</h2>
+<div style="margin:.25rem 0 1rem 0;">
+  <button type="button" class="btn" hx-get="/build/new" hx-target="body" hx-swap="beforeend">Build a New Deck…</button>
+  <span class="muted" style="margin-left:.5rem;">Quick-start wizard (name, commander, themes, ideals)</span>
+  </div>
+<div id="wizard">
+  <!-- Wizard content will load here after the modal submit starts the build. -->
+  <noscript><p>Enable JavaScript to build a deck.</p></noscript>
+</div>
+{% endblock %}

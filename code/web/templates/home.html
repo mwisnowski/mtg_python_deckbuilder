@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block content %}
+<section>
+  <div class="actions-grid">
+    <a class="action-button primary" href="/build">Build a Deck</a>
+    <a class="action-button" href="/configs">Run a JSON Config</a>
+  {% if show_setup %}<a class="action-button" href="/setup">Initial Setup</a>{% endif %}
+    <a class="action-button" href="/owned">Owned Library</a>
+    <a class="action-button" href="/decks">Finished Decks</a>
+  {% if show_logs %}<a class="action-button" href="/logs">View Logs</a>{% endif %}
+  </div>
+</section>
+{% endblock %}

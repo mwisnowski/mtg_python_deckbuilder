@@ -228,6 +228,49 @@ class DeckBuilder(
         if hasattr(super(), 'add_spells_phase'):
             return super().add_spells_phase()
         raise NotImplementedError("Spell addition phase not implemented.")
+    # ---------------------------
+    # Lightweight confirmations (CLI pauses; web auto-continues)
+    # ---------------------------
+    def _pause(self, message: str = "Press Enter to continue...") -> None:
+        try:
+            _ = self.input_func(message)
+        except Exception:
+            pass
+
+    def confirm_primary_theme(self) -> None:
+        if getattr(self, 'primary_tag', None):
+            self.output_func(f"Primary Theme: {self.primary_tag}")
+        self._pause()
+
+    def confirm_secondary_theme(self) -> None:
+        if getattr(self, 'secondary_tag', None):
+            self.output_func(f"Secondary Theme: {self.secondary_tag}")
+        self._pause()
+
+    def confirm_tertiary_theme(self) -> None:
+        if getattr(self, 'tertiary_tag', None):
+            self.output_func(f"Tertiary Theme: {self.tertiary_tag}")
+        self._pause()
+
+    def confirm_ramp_spells(self) -> None:
+        self.output_func("Confirm Ramp")
+        self._pause()
+
+    def confirm_removal_spells(self) -> None:
+        self.output_func("Confirm Removal")
+        self._pause()
+
+    def confirm_wipes_spells(self) -> None:
+        self.output_func("Confirm Board Wipes")
+        self._pause()
+
+    def confirm_card_advantage_spells(self) -> None:
+        self.output_func("Confirm Card Advantage")
+        self._pause()
+
+    def confirm_protection_spells(self) -> None:
+        self.output_func("Confirm Protection")
+        self._pause()
     # Commander core selection state
     commander_name: str = ""
     commander_row: Optional[pd.Series] = None
@@ -238,6 +281,8 @@ class DeckBuilder(
     secondary_tag: Optional[str] = None
     tertiary_tag: Optional[str] = None
     selected_tags: List[str] = field(default_factory=list)
+    # How to combine multiple selected tags when prioritizing cards: 'AND' or 'OR'
+    tag_mode: str = 'AND'
 
     # Future deck config placeholders
     color_identity: List[str] = field(default_factory=list)  # raw list of color letters e.g. ['B','G']
@@ -264,6 +309,8 @@ class DeckBuilder(
     use_owned_only: bool = False
     owned_card_names: set[str] = field(default_factory=set)
     owned_files_selected: List[str] = field(default_factory=list)
+    # Soft preference: bias selection toward owned names without excluding others
+    prefer_owned: bool = False
 
     # Deck library (cards added so far) mapping name->record
     card_library: Dict[str, Dict[str, Any]] = field(default_factory=dict)
@@ -941,6 +988,7 @@ class DeckBuilder(
                     self.output_func("Owned-only mode: no recognizable name column to filter on; skipping filter.")
             except Exception as _e:
                 self.output_func(f"Owned-only mode: failed to filter combined pool: {_e}")
+    # Soft prefer-owned does not filter the pool; biasing is applied later at selection time
         self._combined_cards_df = combined
         # Preserve original snapshot for enrichment across subsequent removals
         if self._full_cards_df is None:
@@ -1201,6 +1249,7 @@ class DeckBuilder(
             'ramp': bc.DEFAULT_RAMP_COUNT,
             'lands': bc.DEFAULT_LAND_COUNT,
             'basic_lands': bc.DEFAULT_BASIC_LAND_COUNT,
+            'fetch_lands': getattr(bc, 'FETCH_LAND_DEFAULT_COUNT', 3),
             'creatures': bc.DEFAULT_CREATURE_COUNT,
             'removal': bc.DEFAULT_REMOVAL_COUNT,
             'wipes': bc.DEFAULT_WIPES_COUNT,
@@ -1248,6 +1297,7 @@ class DeckBuilder(
             ('ramp', 'Ramp Pieces'),
             ('lands', 'Total Lands'),
             ('basic_lands', 'Minimum Basic Lands'),
+            ('fetch_lands', 'Fetch Lands'),
             ('creatures', 'Creatures'),
             ('removal', 'Spot Removal'),
             ('wipes', 'Board Wipes'),
@@ -1270,6 +1320,7 @@ class DeckBuilder(
             ('ramp', 'Ramp'),
             ('lands', 'Total Lands'),
             ('basic_lands', 'Basic Lands (Min)'),
+            ('fetch_lands', 'Fetch Lands'),
             ('creatures', 'Creatures'),
             ('removal', 'Spot Removal'),
             ('wipes', 'Board Wipes'),

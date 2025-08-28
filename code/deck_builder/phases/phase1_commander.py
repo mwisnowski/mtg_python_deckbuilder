@@ -24,11 +24,56 @@ class CommanderSelectionMixin:
     # ---------------------------
     # Commander Selection
     # ---------------------------
+    def _normalize_commander_query(self, s: str) -> str:
+        """Return a nicely capitalized search string (e.g., "inti, seneschal of the sun"
+        -> "Inti, Seneschal of the Sun"). Keeps small words lowercase unless at a segment start,
+        and capitalizes parts around hyphens/apostrophes.
+        """
+        if not isinstance(s, str):
+            return str(s)
+        s = s.strip()
+        if not s:
+            return s
+        small = {
+            'a','an','and','as','at','but','by','for','in','of','on','or','the','to','vs','v','with','from','into','over','per'
+        }
+        # Consider a new segment after these punctuation marks
+        segment_breakers = {':',';','-','–','—','/','\\','(', '[', '{', '"', "'", ',', '.'}
+        out_words: list[str] = []
+        start_of_segment = True
+        for raw in s.lower().split():
+            word = raw
+            # If preceding token ended with a breaker, reset segment
+            if out_words:
+                prev = out_words[-1]
+                if prev and prev[-1] in segment_breakers:
+                    start_of_segment = True
+            def cap_subparts(token: str) -> str:
+                # Capitalize around hyphens and apostrophes
+                def cap_piece(piece: str) -> str:
+                    return piece[:1].upper() + piece[1:] if piece else piece
+                parts = [cap_piece(p) for p in token.split("'")]
+                token2 = "'".join(parts)
+                parts2 = [cap_piece(p) for p in token2.split('-')]
+                return '-'.join(parts2)
+            if start_of_segment or word not in small:
+                fixed = cap_subparts(word)
+            else:
+                fixed = word
+            out_words.append(fixed)
+            # Next word is not start unless current ends with breaker
+            start_of_segment = word[-1:] in segment_breakers
+        # Post-process to ensure first character is capitalized if needed
+        if out_words:
+            out_words[0] = out_words[0][:1].upper() + out_words[0][1:]
+        return ' '.join(out_words)
+
     def choose_commander(self) -> str:  # type: ignore[override]
         df = self.load_commander_data()
         names = df["name"].tolist()
         while True:
             query = self.input_func("Enter commander name: ").strip()
+            query = self._normalize_commander_query(query)
             if not query:
                 self.output_func("No input provided. Try again.")
                 continue
@@ -66,7 +111,7 @@ class CommanderSelectionMixin:
                 else:
                     self.output_func("Invalid index.")
                     continue
-            query = choice  # treat as new query
+            query = self._normalize_commander_query(choice)  # treat as new (normalized) query
 
     def _present_commander_and_confirm(self, df: pd.DataFrame, name: str) -> bool:  # type: ignore[override]
         row = df[df["name"] == name].iloc[0]

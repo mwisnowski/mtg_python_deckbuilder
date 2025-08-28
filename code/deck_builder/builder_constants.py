@@ -376,6 +376,7 @@ DECK_COMPOSITION_PROMPTS: Final[Dict[str, str]] = {
     'ramp': 'Enter desired number of ramp pieces (default: 8):',
     'lands': 'Enter desired number of total lands (default: 35):',
     'basic_lands': 'Enter minimum number of basic lands (default: 15):',
+    'fetch_lands': 'Enter desired number of fetch lands (default: 3):',
     'creatures': 'Enter desired number of creatures (default: 25):',
     'removal': 'Enter desired number of spot removal spells (default: 10):',
     'wipes': 'Enter desired number of board wipes (default: 2):',

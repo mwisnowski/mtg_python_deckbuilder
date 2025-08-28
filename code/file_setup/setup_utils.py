@@ -36,7 +36,8 @@ from .setup_constants import (
     COLUMN_ORDER,
     TAGGED_COLUMN_ORDER,
     SETUP_COLORS,
-    COLOR_ABRV
+    COLOR_ABRV,
+    BANNED_CARDS,
 )
 from exceptions import (
     MTGJSONDownloadError,
@@ -138,7 +139,8 @@ def save_color_filtered_csvs(df: pd.DataFrame, out_dir: Union[str, Path]) -> Non
 
     # Base-filter once for efficiency, then per-color filter without redoing base filters
     try:
-        base_df = filter_dataframe(df, [])
+        # Apply full standard filtering including banned list once, then slice per color
+        base_df = filter_dataframe(df, BANNED_CARDS)
     except Exception as e:
         # Wrap any unexpected issues as DataFrameProcessingError
         raise DataFrameProcessingError(
@@ -207,10 +209,16 @@ def filter_dataframe(df: pd.DataFrame, banned_cards: List[str]) -> pd.DataFrame:
             filtered_df = filtered_df[~filtered_df['printings'].str.contains(set_code, na=False)]
         logger.debug('Removed illegal sets')
 
-        # Remove banned cards
-        for card in banned_cards:
-            filtered_df = filtered_df[~filtered_df['name'].str.contains(card, na=False)]
-        logger.debug('Removed banned cards')
+        # Remove banned cards (exact, case-insensitive match on name or faceName)
+        if banned_cards:
+            banned_set = {b.casefold() for b in banned_cards}
+            name_lc = filtered_df['name'].astype(str).str.casefold()
+            face_lc = filtered_df['faceName'].astype(str).str.casefold()
+            mask = ~(name_lc.isin(banned_set) | face_lc.isin(banned_set))
+            before = len(filtered_df)
+            filtered_df = filtered_df[mask]
+            after = len(filtered_df)
+            logger.debug(f'Removed banned cards: {before - after} filtered out')
 
         # Remove special card types
         for card_type in CARD_TYPES_TO_EXCLUDE:
@@ -268,7 +276,7 @@ def filter_by_color_identity(df: pd.DataFrame, color_identity: str) -> pd.DataFr
             
         # Apply base filtering
         with tqdm(total=1, desc='Applying base filtering') as pbar:
-            filtered_df = filter_dataframe(df, [])
+            filtered_df = filter_dataframe(df, BANNED_CARDS)
             pbar.update(1)
             
         # Filter by color identity

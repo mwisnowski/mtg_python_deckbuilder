@@ -198,24 +198,24 @@ def regenerate_csv_by_color(color: str) -> None:
     try:
         if color not in SETUP_COLORS:
             raise ValueError(f'Invalid color: {color}')
-            
+
         color_abv = COLOR_ABRV[SETUP_COLORS.index(color)]
-        
+
         logger.info(f'Downloading latest card data for {color} cards')
         download_cards_csv(MTGJSON_API_URL, f'{CSV_DIRECTORY}/cards.csv')
-        
+
         logger.info('Loading and processing card data')
         df = pd.read_csv(f'{CSV_DIRECTORY}/cards.csv', low_memory=False)
-        
+
         logger.info(f'Regenerating {color} cards CSV')
-        # Use shared utilities to base-filter once then slice color
-        base_df = filter_dataframe(df, [])
+        # Use shared utilities to base-filter once then slice color, honoring bans
+        base_df = filter_dataframe(df, BANNED_CARDS)
         base_df[base_df['colorIdentity'] == color_abv].to_csv(
             f'{CSV_DIRECTORY}/{color}_cards.csv', index=False
         )
-        
+
         logger.info(f'Successfully regenerated {color} cards database')
-        
+
     except Exception as e:
         logger.error(f'Failed to regenerate {color} cards: {str(e)}')
         raise

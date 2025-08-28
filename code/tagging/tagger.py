@@ -4501,7 +4501,7 @@ def tag_for_bending(df: pd.DataFrame, color: str) -> None:
         rules = []
         air_mask = tag_utils.create_text_mask(df, 'airbend')
         if air_mask.any():
-            rules.append({ 'mask': air_mask, 'tags': ['Airbending', 'Exile Matters'] })
+            rules.append({ 'mask': air_mask, 'tags': ['Airbending', 'Exile Matters', 'Leave the Battlefield'] })
 
         water_mask = tag_utils.create_text_mask(df, 'waterbend')
         if water_mask.any():

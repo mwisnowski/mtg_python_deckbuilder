@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block content %}
+<section>
+  <h2>Logs</h2>
+  <form method="get" action="/logs" class="form-row" style="gap:.5rem; align-items: center;">
+    <label>Tail <input type="number" name="tail" value="{{ tail }}" min="1" max="500" style="width:80px"></label>
+    <label>Filter <input type="text" name="q" value="{{ q }}" placeholder="keyword"></label>
+    <label>Level
+      <select name="level" id="levelSel">
+        {% set _lvl = (level or 'all') %}
+        <option value="all" {% if _lvl=='all' %}selected{% endif %}>All</option>
+        <option value="error" {% if _lvl=='error' %}selected{% endif %}>Error</option>
+        <option value="warning" {% if _lvl=='warning' %}selected{% endif %}>Warning</option>
+        <option value="info" {% if _lvl=='info' %}selected{% endif %}>Info</option>
+        <option value="debug" {% if _lvl=='debug' %}selected{% endif %}>Debug</option>
+      </select>
+    </label>
+    <button class="btn" type="submit">Refresh</button>
+    <button class="btn" type="button" id="copyLogsBtn" title="Copy visible logs">Copy</button>
+    <label style="margin-left:1rem; display:inline-flex; align-items:center; gap:.35rem">
+      <input type="checkbox" id="autoRefreshLogs" data-pref="logs:auto" /> Auto-refresh
+    </label>
+    <label style="display:inline-flex; align-items:center; gap:.35rem">
+      every <input type="number" id="autoRefreshInterval" value="3" min="1" max="30" style="width:60px"> s
+    </label>
+  </form>
+  <pre id="logTail" class="log-tail" data-tail="{{ tail }}" data-q="{{ q }}" data-level="{{ level or 'all' }}" style="white-space: pre-wrap; background:#0f1115; color:#e5e7eb; border:1px solid var(--border); border-radius:8px; padding:.75rem; margin-top:.75rem; max-height:60vh; overflow:auto">{{ lines | join('') }}</pre>
+  <script>
+    (function(){
+      var pre = document.getElementById('logTail');
+      var autoCb = document.getElementById('autoRefreshLogs');
+      var intervalInput = document.getElementById('autoRefreshInterval');
+      // hydrate from saved pref
+      try { var saved = window.__mtgState && window.__mtgState.get('logs:auto', false); if (typeof saved === 'boolean') autoCb.checked = saved; } catch(_){ }
+  var params = new URLSearchParams(window.location.search);
+  var tailAttr = (pre && pre.getAttribute('data-tail')) || '200';
+  var qAttr = (pre && pre.getAttribute('data-q')) || '';
+  var levelAttr = (pre && pre.getAttribute('data-level')) || 'all';
+  var tail = parseInt(params.get('tail') || tailAttr, 10) || parseInt(tailAttr, 10) || 200;
+  var q = params.get('q') || qAttr;
+  var level = params.get('level') || levelAttr;
+      var timer = null;
+      function fetchLogs(){
+        try {
+          var url = '/status/logs?tail='+encodeURIComponent(String(tail));
+          if (q) url += '&q='+encodeURIComponent(q);
+          if (level && level !== 'all') url += '&level='+encodeURIComponent(level);
+          fetch(url, { cache: 'no-store' })
+            .then(function(r){ return r.json(); })
+            .then(function(data){ if (pre && data && data.lines){ pre.textContent = (data.lines||[]).join(''); pre.scrollTop = pre.scrollHeight; } });
+        } catch(e){}
+      }
+      function start(){
+        stop();
+        var sec = parseInt(intervalInput.value||'3', 10); if (isNaN(sec) || sec < 1) sec = 3; if (sec > 30) sec = 30;
+        timer = setInterval(fetchLogs, sec * 1000);
+        fetchLogs();
+      }
+      function stop(){ if (timer){ clearInterval(timer); timer = null; } }
+      autoCb.addEventListener('change', function(){
+        try { window.__mtgState && window.__mtgState.set('logs:auto', !!autoCb.checked); } catch(_){ }
+        if (autoCb.checked) start(); else stop();
+      });
+      intervalInput.addEventListener('change', function(){ if (autoCb.checked) start(); });
+  if (autoCb.checked) start();
+  var levelSel = document.getElementById('levelSel');
+  if (levelSel){ levelSel.addEventListener('change', function(){ if (autoCb.checked) fetchLogs(); }); }
+      // Copy button
+      var copyBtn = document.getElementById('copyLogsBtn');
+      function copyText(text){
+        try { navigator.clipboard.writeText(text); return true; } catch(_) {
+          try {
+            var ta = document.createElement('textarea'); ta.value = text; ta.style.position='fixed'; ta.style.opacity='0'; document.body.appendChild(ta); ta.select(); var ok = document.execCommand('copy'); ta.remove(); return ok; } catch(__){ return false; }
+        }
+      }
+      if (copyBtn){
+        copyBtn.addEventListener('click', function(){
+          var ok = copyText(pre ? pre.textContent || '' : '');
+          if (ok){ if (window.toast) window.toast('Copied logs'); copyBtn.textContent = 'Copied'; setTimeout(function(){ copyBtn.textContent='Copy'; }, 1200); }
+        });
+      }
+    })();
+  </script>
+</section>
+{% endblock %}

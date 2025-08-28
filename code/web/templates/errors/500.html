@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% block content %}
+<section>
+  <h2>Internal Server Error</h2>
+  <p>Something went wrong.</p>
+  <p class="muted">Request ID: <code>{{ request_id or request.state.request_id }}</code></p>
+  <p><a class="btn" href="/">Go home</a></p>
+{% endblock %}

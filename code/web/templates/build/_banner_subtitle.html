@@ -1,0 +1,1 @@
+<div id="banner-status" hx-swap-oob="true">{% if name %}<strong>{{ name }}</strong>{% elif commander %}<strong>{{ commander }}</strong>{% endif %}{% if tags and tags|length > 0 %} — {{ tags|join(', ') }}{% endif %}</div>

@@ -1,0 +1,396 @@
+<section>
+  {% set step_index = 1 %}{% set step_total = 5 %}
+  <h3>Step 1: Choose a Commander</h3>
+  {% include "build/_stage_navigator.html" %}
+
+  <form id="cmdr-search-form" hx-post="/build/step1" hx-target="#wizard" hx-swap="innerHTML" aria-label="Commander search form" role="search">
+    <label for="cmdr-search">Search by name</label>
+  <span class="input-wrap">
+    <input id="cmdr-search" type="text" name="query" value="{{ query or '' }}" autocomplete="off" aria-describedby="cmdr-help" aria-controls="candidate-grid" placeholder="Type a commander name…" />
+    <button id="cmdr-clear" type="button" class="clear-btn" title="Clear search" aria-label="Clear search" hidden>×</button>
+  </span>
+    <input id="active-name" type="hidden" name="active" value="{{ active or '' }}" />
+    <button type="submit">Search</button>
+    <label style="margin-left:.5rem; font-weight:normal;">
+      <input type="checkbox" name="auto" value="1" {% if auto %}checked{% endif %} /> Auto-select top match (very confident)
+    </label>
+  <span id="search-spinner" class="spinner" aria-hidden="true" hidden style="display:none;"></span>
+  </form>
+  <div id="cmdr-help" class="muted" style="margin:.35rem 0 .5rem 0; font-size:.9rem;">
+    Tip: Press Enter to select the highlighted result, or use arrow keys to navigate. If your query is a full first word (e.g., "vivi"), exact first-word matches are prioritized.
+  </div>
+  <div id="selection-live" class="sr-only" aria-live="polite" role="status"></div>
+  <div id="results-live" class="sr-only" aria-live="polite" role="status"></div>
+  <div id="kbd-hint" class="hint" hidden>
+    <span class="hint-text">Use 
+      <span class="keys"><kbd>↑</kbd><kbd>↓</kbd></span> to navigate, <kbd>Enter</kbd> to select
+    </span>
+    <button type="button" class="hint-close" title="Dismiss keyboard hint" aria-label="Dismiss">×</button>
+  </div>
+
+  {% if candidates %}
+  <h4 style="display:flex; align-items:center; gap:.5rem;">
+    Top matches
+    <small class="muted" aria-live="polite">{% if count is defined %}{{ count }} result{% if count != 1 %}s{% endif %}{% else %}{{ (candidates|length) if candidates else 0 }} results{% endif %}</small>
+  </h4>
+  <div class="candidate-grid" id="candidate-grid" role="list">
+    {% for name, score, colors in candidates %}
+      <div class="candidate-tile{% if active and active == name %} active{% endif %}" data-card-name="{{ name }}" role="listitem" aria-selected="{% if active and active == name %}true{% else %}false{% endif %}">
+        <form hx-post="/build/step1/confirm" hx-target="#wizard" hx-swap="innerHTML">
+          <input type="hidden" name="name" value="{{ name }}" />
+          <button class="img-btn" type="submit" title="Select {{ name }} (score {{ score }})">
+            <img src="https://api.scryfall.com/cards/named?fuzzy={{ name|urlencode }}&format=image&version=normal" data-card-name="{{ name }}"
+                 alt="{{ name }}" loading="lazy" decoding="async" />
+          </button>
+        </form>
+        <div class="meta">
+          <div class="name"><span class="name-text">{{ name }}</span></div>
+          <div class="score">
+            match {{ score }}%
+            {% if colors %}
+              <span class="colors" style="margin-left:.25rem;">
+                {% for c in colors %}
+                  <span class="chip chip-{{ c|lower }}" title="{{ c }}">{{ c }}</span>
+                {% endfor %}
+              </span>
+            {% endif %}
+          </div>
+          <form hx-post="/build/step1/inspect" hx-target="#wizard" hx-swap="innerHTML" style="margin-top:.25rem;">
+            <input type="hidden" name="name" value="{{ name }}" />
+            <button type="submit">Inspect</button>
+          </form>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% if (query is defined and query and (not candidates or (candidates|length == 0))) and not inspect %}
+    <div id="candidate-grid" class="muted" style="margin-top:.5rem;" aria-live="polite">
+      No results for “{{ query }}”. Try a shorter name or a different spelling.
+    </div>
+  {% endif %}
+
+  {% if inspect and inspect.ok %}
+  <div class="two-col two-col-left-rail">
+  <aside class="card-preview card-sm" data-card-name="{{ selected }}">
+      <a href="https://scryfall.com/search?q={{ selected|urlencode }}" target="_blank" rel="noopener">
+  <img src="https://api.scryfall.com/cards/named?fuzzy={{ selected|urlencode }}&format=image&version=normal" alt="{{ selected }} card image" data-card-name="{{ selected }}" />
+      </a>
+    </aside>
+    <div class="grow">
+      <h4>Theme Tags</h4>
+      {% if tags and tags|length > 0 %}
+        <ul>
+          {% for t in tags %}
+            <li>{{ t }}</li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="muted">No theme tags found for this commander.</p>
+      {% endif %}
+      <div style="margin-top:.75rem;">
+        <form style="display:inline" hx-post="/build/step1/confirm" hx-target="#wizard" hx-swap="innerHTML">
+          <input type="hidden" name="name" value="{{ selected }}" />
+          <button class="btn-continue" data-action="continue">Use this commander</button>
+        </form>
+        <form style="display:inline" hx-post="/build/step1" hx-target="#wizard" hx-swap="innerHTML">
+          <input type="hidden" name="query" value="" />
+          <button class="btn-back" data-action="back">Back to search</button>
+        </form>
+        <form action="/build" method="get" style="display:inline; margin-left:.5rem;">
+          <button type="submit">Start over</button>
+        </form>
+      </div>
+  <div hx-get="/build/banner?step=Choose%20Commander&i=1&n=5" hx-trigger="load"></div>
+    </div>
+  </div>
+  {% elif inspect and not inspect.ok %}
+    <div style="color:#a00">{{ inspect.error }}</div>
+  {% endif %}
+
+  {% if error %}
+  <div style="color:#a00">{{ error }}</div>
+  {% endif %}
+</section>
+<script>
+(function(){
+  var input = document.getElementById('cmdr-search');
+  var form = document.getElementById('cmdr-search-form');
+  var grid = document.getElementById('candidate-grid');
+  var spinner = document.getElementById('search-spinner');
+  var activeField = document.getElementById('active-name');
+  var selLive = document.getElementById('selection-live');
+  var resultsLive = document.getElementById('results-live');
+  var hint = document.getElementById('kbd-hint');
+  var defaultPlaceholder = (input && input.placeholder) ? input.placeholder : 'Type a commander name…';
+  var clearBtn = document.getElementById('cmdr-clear');
+  var initialDescribedBy = (input && input.getAttribute('aria-describedby')) || '';
+  // Persist auto-select preference
+  try {
+    var autoCb = document.querySelector('input[name="auto"][type="checkbox"]');
+    if (autoCb) {
+      var saved = localStorage.getItem('step1-auto');
+      if (saved === '1' || saved === '0') autoCb.checked = (saved === '1');
+      autoCb.addEventListener('change', function(){ localStorage.setItem('step1-auto', autoCb.checked ? '1' : '0'); });
+    }
+  } catch(_){ }
+  if (!input || !form) return;
+  // Show keyboard hint only when candidates exist and user hasn't dismissed it
+  function showHintIfNeeded() {
+    try {
+      if (!hint) return;
+      var dismissed = localStorage.getItem('step1-hint-dismissed') === '1';
+      var hasTiles = !!(document.getElementById('candidate-grid') && document.getElementById('candidate-grid').querySelector('.candidate-tile'));
+      var shouldShow = !(dismissed || !hasTiles);
+      hint.hidden = !shouldShow;
+      // Link hint to input a11y description only when visible
+      if (input) {
+        var base = initialDescribedBy.trim();
+        var parts = base ? base.split(/\s+/) : [];
+        var idx = parts.indexOf('kbd-hint');
+        if (shouldShow) {
+          if (idx === -1) parts.push('kbd-hint');
+        } else {
+          if (idx !== -1) parts.splice(idx, 1);
+        }
+        if (parts.length) input.setAttribute('aria-describedby', parts.join(' '));
+        else input.removeAttribute('aria-describedby');
+      }
+    } catch(_) { /* noop */ }
+  }
+  showHintIfNeeded();
+  // Close button for hint
+  try {
+    var closeBtn = hint ? hint.querySelector('.hint-close') : null;
+    if (closeBtn) {
+      closeBtn.addEventListener('click', function(){
+        try { localStorage.setItem('step1-hint-dismissed', '1'); } catch(_){}
+        if (hint) hint.hidden = true;
+      });
+    }
+  } catch(_){ }
+  // Debounce live search
+  var t = null;
+  function submit(){
+    if (!form) return;
+    // Trigger the HTMX post without clicking submit
+    if (window.htmx) { window.htmx.trigger(form, 'submit'); }
+    else { form.submit(); }
+  }
+  input.addEventListener('input', function(){
+    if (t) clearTimeout(t);
+    t = setTimeout(submit, 250);
+    try { if (clearBtn) clearBtn.hidden = !(input && input.value && input.value.length); } catch(_){ }
+  });
+  // Initialize clear visibility
+  try { if (clearBtn) clearBtn.hidden = !(input && input.value && input.value.length); } catch(_){ }
+  if (clearBtn) clearBtn.addEventListener('click', function(){
+    if (!input) return;
+    input.value = '';
+    try { clearBtn.hidden = true; } catch(_){ }
+    if (t) clearTimeout(t);
+    t = setTimeout(submit, 0);
+    try { input.focus(); } catch(_){}
+  });
+  // Focus the search box on load if nothing else is focused
+  try {
+    var ae = document.activeElement;
+    if (input && (!ae || ae === document.body)) { input.focus(); input.select && input.select(); }
+  } catch(_){}
+  // Quick focus: press "/" to focus the search input (unless already typing)
+  document.addEventListener('keydown', function(e){
+    if (e.key !== '/') return;
+    var tag = (e.target && e.target.tagName) ? e.target.tagName.toLowerCase() : '';
+    var isEditable = (tag === 'input' || tag === 'textarea' || tag === 'select' || (e.target && e.target.isContentEditable));
+    if (isEditable) return;
+    if (e.ctrlKey || e.altKey || e.metaKey) return;
+    e.preventDefault();
+    if (input) { input.focus(); try { input.select(); } catch(_){} }
+  });
+  // Keyboard navigation: up/down to move selection, Enter to choose/inspect
+  document.addEventListener('keydown', function(e){
+    // Dismiss hint on first keyboard navigation
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'Enter') {
+      try { localStorage.setItem('step1-hint-dismissed', '1'); } catch(_){}
+      if (hint) hint.hidden = true;
+    }
+    if (!grid || !grid.children || grid.children.length === 0) return;
+    var tiles = Array.prototype.slice.call(grid.querySelectorAll('.candidate-tile'));
+    // Ensure something is selected by default
+    var idx = tiles.findIndex(function(el){ return el.classList.contains('active'); });
+    if (idx < 0 && tiles.length > 0) {
+      tiles[0].classList.add('active');
+      try { if (activeField) activeField.value = tiles[0].dataset.cardName || ''; } catch(_){}
+  try { if (selLive) selLive.textContent = 'Selected ' + (tiles[0].dataset.cardName || ''); } catch(_){}
+      idx = 0;
+    }
+
+    // Determine columns via first row's offsetTop count
+    var cols = 1;
+    if (tiles.length > 1) {
+      var firstTop = tiles[0].offsetTop;
+      cols = tiles.findIndex(function(el, i){ return i>0 && el.offsetTop !== firstTop; });
+      if (cols === -1 || cols === 0) cols = tiles.length; // single row fallback
+    }
+
+    function setActive(newIdx) {
+      // Clamp to bounds; wrapping handled by callers
+      newIdx = Math.max(0, Math.min(tiles.length - 1, newIdx));
+      tiles.forEach(function(el){ el.classList.remove('active'); el.setAttribute('aria-selected', 'false'); });
+  tiles[newIdx].classList.add('active');
+  tiles[newIdx].setAttribute('aria-selected', 'true');
+  try { if (activeField) activeField.value = tiles[newIdx].dataset.cardName || ''; } catch(_){}
+  try { if (selLive) selLive.textContent = 'Selected ' + (tiles[newIdx].dataset.cardName || ''); } catch(_){}
+      tiles[newIdx].scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      return newIdx;
+    }
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      var total = tiles.length;
+      var rows = Math.ceil(total / cols);
+      var row = Math.floor(idx / cols);
+      var col = idx % cols;
+      var newRow = row + 1;
+      if (newRow >= rows) newRow = 0; // wrap to first row
+      var newIdx = newRow * cols + col;
+      if (newIdx >= total) newIdx = total - 1; // clamp to last tile if last row shorter
+      idx = setActive(newIdx);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      var totalU = tiles.length;
+      var rowsU = Math.ceil(totalU / cols);
+      var rowU = Math.floor(idx / cols);
+      var colU = idx % cols;
+      var newRowU = rowU - 1;
+      if (newRowU < 0) newRowU = rowsU - 1; // wrap to last row
+      var newIdxU = newRowU * cols + colU;
+      if (newIdxU >= totalU) newIdxU = totalU - 1;
+      idx = setActive(newIdxU);
+    } else if (e.key === 'ArrowRight') {
+      e.preventDefault();
+      var totalR = tiles.length;
+      idx = setActive((idx + 1) % totalR);
+    } else if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      var totalL = tiles.length;
+      idx = setActive((idx - 1 + totalL) % totalL);
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      var active = tiles[idx];
+      if (!active) return;
+      var formSel = active.querySelector('form[hx-post="/build/step1/confirm"]');
+      if (formSel) {
+        if (window.htmx) { window.htmx.trigger(formSel, 'submit'); }
+        else if (formSel.submit) { formSel.submit(); }
+        else {
+          var btn = active.querySelector('button');
+          if (btn) btn.click();
+        }
+      }
+    } else if (e.key === 'Escape') {
+      // ESC clears the search field and triggers a refresh
+      if (input && input.value) {
+        input.value = '';
+        if (t) clearTimeout(t);
+        t = setTimeout(submit, 0);
+      }
+    }
+  });
+  // Persist current active on click selection movement too
+  if (grid) {
+    grid.addEventListener('click', function(e){
+  // Dismiss hint on interaction
+  try { localStorage.setItem('step1-hint-dismissed', '1'); } catch(_){}
+  if (hint) hint.hidden = true;
+      var tile = e.target.closest('.candidate-tile');
+      if (!tile) return;
+  grid.querySelectorAll('.candidate-tile').forEach(function(el){ el.classList.remove('active'); el.setAttribute('aria-selected', 'false'); });
+  tile.classList.add('active');
+  tile.setAttribute('aria-selected', 'true');
+      try { if (activeField) activeField.value = tile.dataset.cardName || ''; } catch(_){}
+  try { if (selLive) selLive.textContent = 'Selected ' + (tile.dataset.cardName || ''); } catch(_){}
+    });
+  }
+  // Highlight matched text
+  try {
+    var q = (input.value || '').trim().toLowerCase();
+    if (q && grid) {
+      grid.querySelectorAll('.name-text').forEach(function(el){
+        var txt = el.textContent || '';
+        var low = txt.toLowerCase();
+        var i = low.indexOf(q);
+        if (i >= 0) {
+          el.innerHTML = txt.substring(0, i) + '<mark>' + txt.substring(i, i+q.length) + '</mark>' + txt.substring(i+q.length);
+        }
+      });
+    }
+  } catch(_){}
+  // HTMX spinner binding for this form — only show if no results are currently displayed
+  if (window.htmx && form) {
+    form.addEventListener('htmx:beforeRequest', function(){
+      var hasTiles = false;
+      try { hasTiles = !!(grid && grid.querySelector('.candidate-tile')); } catch(_){}
+      if (spinner) spinner.hidden = hasTiles ? true : false;
+      if (!hasTiles && input) input.placeholder = 'Searching…';
+      try { form.setAttribute('aria-busy', 'true'); } catch(_){ }
+      if (resultsLive) resultsLive.textContent = 'Searching…';
+    });
+    form.addEventListener('htmx:afterSwap', function(){
+      if (spinner) spinner.hidden = true; if (input) input.placeholder = defaultPlaceholder;
+      // After swap, if there are no candidate tiles, clear active selection and live text
+      try {
+        var grid2 = document.getElementById('candidate-grid');
+        var hasAny = !!(grid2 && grid2.querySelector('.candidate-tile'));
+        if (!hasAny) {
+          if (activeField) activeField.value = '';
+          if (selLive) selLive.textContent = '';
+        }
+  // Re-evaluate hint visibility post-swap
+  showHintIfNeeded();
+        // Announce results count
+        try {
+          var qNow = (input && input.value) ? input.value.trim() : '';
+          var cnt = 0;
+          if (grid2) cnt = grid2.querySelectorAll('.candidate-tile').length;
+          if (resultsLive) {
+            if (cnt > 0) resultsLive.textContent = cnt + (cnt === 1 ? ' result' : ' results');
+            else if (qNow) resultsLive.textContent = 'No results for "' + qNow + '"';
+            else resultsLive.textContent = '';
+          }
+        } catch(_){ }
+        try { form.removeAttribute('aria-busy'); } catch(_){ }
+      } catch(_){ }
+    });
+    form.addEventListener('htmx:responseError', function(){ if (spinner) spinner.hidden = true; if (input) input.placeholder = defaultPlaceholder; });
+  }
+})();
+</script>
+<style>
+.candidate-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap:.75rem; }
+.candidate-tile { border:1px solid var(--border); border-radius:8px; background:#0f1115; padding:.5rem; }
+.candidate-tile.active { outline:2px solid #3b82f6; }
+.img-btn { display:block; width:100%; background:transparent; border:0; padding:0; cursor:pointer; }
+.img-btn img { width:100%; height:auto; border-radius:6px; }
+.chip { display:inline-block; padding:0 .35rem; border-radius:999px; font-size:.75rem; line-height:1.4; border:1px solid var(--border); background:#151821; margin-left:.15rem; }
+.chip-w { background:#fdf4d6; color:#6b4f00; border-color:#e9d8a6; }
+.chip-u { background:#dbeafe; color:#1e40af; border-color:#93c5fd; }
+.chip-b { background:#e5e7eb; color:#111827; border-color:#9ca3af; }
+.chip-g { background:#dcfce7; color:#065f46; border-color:#86efac; }
+.chip-r { background:#fee2e2; color:#991b1b; border-color:#fecaca; }
+.chip-c { background:#f3f4f6; color:#111827; border-color:#e5e7eb; }
+mark { background: rgba(251, 191, 36, .35); color: inherit; padding:0 .1rem; border-radius:2px; }
+.candidate-tile { cursor: pointer; }
+.sr-only{ position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+ .spinner { display:inline-block; width:16px; height:16px; border:2px solid #93c5fd; border-top-color: transparent; border-radius:50%; animation: spin 0.8s linear infinite; vertical-align:middle; margin-left:.4rem; }
+@keyframes spin { to { transform: rotate(360deg); } }
+/* Ensure hidden attribute always hides spinner within this fragment */
+.spinner[hidden] { display: none !important; }
+.hint { display:flex; align-items:center; gap:.5rem; background:#0b1220; border:1px solid var(--border); color:#cbd5e1; padding:.4rem .6rem; border-radius:8px; margin:.4rem 0 .6rem; }
+.hint .hint-close { background:transparent; border:0; color:#9aa4b2; font-size:1rem; line-height:1; cursor:pointer; }
+.hint .keys kbd { background:#1f2937; color:#e5e7eb; padding:.1rem .3rem; border-radius:4px; margin:0 .1rem; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; font-size:.85em; }
+ .input-wrap { position: relative; display:inline-flex; align-items:center; }
+ .clear-btn { position:absolute; right:.35rem; background:transparent; color:#9aa4b2; border:0; cursor:pointer; font-size:1.1rem; line-height:1; padding:.1rem .2rem; }
+ .clear-btn:hover { color:#cbd5e1; }
+</style>

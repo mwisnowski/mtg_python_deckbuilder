@@ -1,0 +1,149 @@
+<div class="modal" role="dialog" aria-modal="true" aria-labelledby="newDeckTitle" style="position:fixed; inset:0; z-index:1000; display:flex; align-items:center; justify-content:center;">
+  <div class="modal-backdrop" style="position:absolute; inset:0; background:rgba(0,0,0,.6);"></div>
+  <div class="modal-content" style="position:relative; max-width:720px; width:clamp(320px, 90vw, 720px); background:#0f1115; border:1px solid var(--border); border-radius:10px; box-shadow:0 10px 30px rgba(0,0,0,.5); padding:1rem;">
+    <div class="modal-header">
+  <h3 id="newDeckTitle">Build a New Deck</h3>
+    </div>
+    {% if error %}
+    <div class="error" role="alert" style="margin:.35rem 0 .5rem 0;">{{ error }}</div>
+    {% endif %}
+  <form hx-post="/build/new" hx-target="#wizard" hx-swap="innerHTML" hx-on="htmx:afterRequest: (function(evt){ try{ if(evt && evt.detail && evt.detail.elt === this){ var m=this.closest('.modal'); if(m){ m.remove(); } } }catch(_){} }).call(this, event)" autocomplete="off">
+      <fieldset>
+        <legend>Basics</legend>
+        <div class="basics-grid" style="display:grid; grid-template-columns: 2fr 1fr; gap:1rem; align-items:start;">
+          <div>
+            <label style="display:block; margin-bottom:.5rem;">
+              <span class="muted">Optional name (used for file names)</span>
+              <input type="text" name="name" placeholder="e.g., Inti Discard Tempo" autocomplete="off" autocapitalize="off" spellcheck="false" />
+            </label>
+            <label style="display:block; margin-bottom:.5rem;">
+              <span>Commander</span>
+    <input type="text" name="commander" required placeholder="Type a commander name" value="{{ form.commander if form else '' }}" autofocus autocomplete="off" autocapitalize="off" spellcheck="false"
+      role="combobox" aria-autocomplete="list" aria-controls="newdeck-candidates"
+      hx-get="/build/new/candidates" hx-trigger="input changed delay:150ms" hx-target="#newdeck-candidates" hx-sync="this:replace" />
+            </label>
+            <small class="muted" style="display:block; margin-top:.25rem;">Start typing to see matches, then select one to load themes.</small>
+            <div id="newdeck-candidates" class="muted" style="font-size:12px; min-height:1.1em;"></div>
+          </div>
+          <div id="newdeck-commander-slot" class="muted" style="max-width:230px;">
+            <em style="font-size:12px;">Pick a commander to preview here.</em>
+          </div>
+        </div>
+      </fieldset>
+      <fieldset>
+        <legend>Themes</legend>
+        <div id="newdeck-tags-slot" class="muted">
+          <em>Select a commander to see theme recommendations and choices.</em>
+          <input type="hidden" name="primary_tag" />
+          <input type="hidden" name="secondary_tag" />
+          <input type="hidden" name="tertiary_tag" />
+          <input type="hidden" name="tag_mode" value="AND" />
+        </div>
+        <div style="margin-top:.5rem;">
+          <label>Bracket
+            <select name="bracket">
+              {% for b in brackets %}
+              <option value="{{ b.level }}" {% if (form and form.bracket and form.bracket == b.level) or (not form and b.level == 3) %}selected{% endif %}>Bracket {{ b.level }}: {{ b.name }}</option>
+              {% endfor %}
+            </select>
+          </label>
+        </div>
+      </fieldset>
+      <details style="margin-top:.5rem;">
+        <summary>Advanced options (ideals)</summary>
+        <div style="display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap:.5rem; margin-top:.5rem;">
+          {% for key, label in labels.items() %}
+          <label>{{ label }}
+            <input type="number" name="{{ key }}" value="{{ defaults[key] }}" min="0" />
+          </label>
+          {% endfor %}
+        </div>
+      </details>
+      <div class="modal-footer" style="display:flex; gap:.5rem; justify-content:flex-end; margin-top:1rem;">
+        <button type="button" class="btn" onclick="this.closest('.modal').remove()">Cancel</button>
+        <button type="submit" class="btn-continue">Create</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  (function(){
+    var modal = document.currentScript && document.currentScript.previousElementSibling ? document.currentScript.previousElementSibling.previousElementSibling : document.querySelector('.modal');
+    // Prevent Enter in text inputs from submitting the form
+    try {
+      var form = modal ? modal.querySelector('form') : document.querySelector('.modal form');
+      if (form){
+        // Prevent Enter in name field from submitting
+        var nameEl = form.querySelector('input[name="name"]');
+        if (nameEl){ nameEl.addEventListener('keydown', function(e){ if (e.key === 'Enter'){ e.preventDefault(); } }); }
+        // In commander field, Enter picks the first candidate (if any) without closing the modal
+        var cmdEl = form.querySelector('input[name=\"commander\"]');
+        if (cmdEl){
+          function handleEnterNav(e){
+            // Enter selects the highlighted (or first) suggestion
+            var list = document.getElementById('newdeck-candidates');
+            var btns = list ? Array.prototype.slice.call(list.querySelectorAll('button.candidate-btn')) : [];
+            var getActiveIndex = function(){ return btns.findIndex(function(b){ return b.classList.contains('active'); }); };
+            if (!btns.length) return; // nothing to do, but we've already prevented default
+            // Skip if a request is in-flight to avoid fighting with swap timing
+            try{ if (cmdEl.matches('.htmx-request') || list.matches('.htmx-request')) return; }catch(_){ }
+            if (e.key === 'Enter'){
+              var idx = getActiveIndex();
+              var target = btns[(idx >= 0 ? idx : 0)];
+              if (target) { target.click(); }
+            }
+          }
+          // Capture keydown early to prevent submit on Enter (arrows left to default behavior)
+          cmdEl.addEventListener('keydown', function(e){
+            if (e.key === 'Enter'){
+              var list = document.getElementById('newdeck-candidates');
+              var hasBtns = !!(list && list.querySelector('button.candidate-btn'));
+              if (hasBtns){
+                e.preventDefault();
+                e.stopPropagation();
+                handleEnterNav(e);
+              }
+            }
+          }, true);
+          // Defensive: also block Enter on keyup (in case a browser tries to submit on keyup)
+          cmdEl.addEventListener('keyup', function(e){ if (e.key === 'Enter'){ e.preventDefault(); e.stopPropagation(); } });
+      // Global fallback: capture keydown at the document level so Enter never slips through when the commander input is focused
+          document.addEventListener('keydown', function(e){
+            try{
+              if (document.activeElement !== cmdEl) return;
+        if (e.key !== 'Enter') return;
+              var list = document.getElementById('newdeck-candidates');
+              var hasBtns = !!(list && list.querySelector('button.candidate-btn'));
+              if (!hasBtns) return;
+              e.preventDefault();
+              e.stopPropagation();
+              handleEnterNav(e);
+            }catch(_){ }
+          }, true);
+          // Reset candidate highlight when the list updates
+          document.body.addEventListener('htmx:afterSwap', function(ev){
+            try {
+              var tgt = ev && ev.detail && ev.detail.target ? ev.detail.target : null;
+              if (!tgt) return;
+              if (tgt.id === 'newdeck-candidates'){
+                var first = tgt.querySelector('button.candidate-btn');
+                if (first){
+                  // Clear any lingering active classes, then set the first as active for immediate Enter selection
+                  tgt.querySelectorAll('button.candidate-btn').forEach(function(b){ b.classList.remove('active'); b.setAttribute('aria-selected','false'); });
+                  first.classList.add('active');
+                  first.setAttribute('aria-selected','true');
+                  try{ cmdEl.setAttribute('aria-activedescendant', first.id || ''); }catch(_){ }
+                }
+              }
+            } catch(_){}
+          });
+        }
+      }
+    } catch(_){ }
+    // Close on Escape
+    function closeModal(){ try{ var m = document.querySelector('.modal'); if(m){ m.remove(); document.removeEventListener('keydown', onKey); } }catch(_){} }
+    function onKey(e){ if (e.key === 'Escape'){ e.preventDefault(); closeModal(); } }
+    document.addEventListener('keydown', onKey);
+  })();
+</script>

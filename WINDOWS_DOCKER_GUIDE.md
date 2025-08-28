@@ -41,6 +41,25 @@ docker run -it --rm `
   mwisnowski/mtg-python-deckbuilder:latest
 ```
 
+### Optional: Web UI from Docker Hub
+Run the browser UI by mapping a port and starting uvicorn:
+```powershell
+docker run --rm `
+  -p 8080:8080 `
+  -e WEB_VIRTUALIZE=1 ` # optional virtualization
+  -e ENABLE_THEMES=1 -e THEME=system ` # optional theme selector and default
+  -v "${PWD}/deck_files:/app/deck_files" `
+  -v "${PWD}/logs:/app/logs" `
+  -v "${PWD}/csv_files:/app/csv_files" `
+  -v "${PWD}/owned_cards:/app/owned_cards" `
+  -v "${PWD}/config:/app/config" `
+  mwisnowski/mtg-python-deckbuilder:latest `
+  bash -lc "cd /app && uvicorn code.web.app:app --host 0.0.0.0 --port 8080"
+```
+Then open http://localhost:8080
+
+Tip: The header includes a Reset Theme control to clear your browser’s saved preference and re-apply the server’s default (or OS when THEME=system).
+
 ## Method 2: Command Prompt
 ```cmd
 REM Create and navigate to workspace
@@ -151,3 +170,7 @@ C:\mtg-decks\
 ├── deck_files\              # Your completed decks (.csv and .txt files)
 │   ├── Atraxa_Superfriends_20250821.csv
 │   ├── Atraxa_Superfriends_20250821.txt
+├── logs\\
+├── csv_files\\
+├── owned_cards\\
+└── config\\

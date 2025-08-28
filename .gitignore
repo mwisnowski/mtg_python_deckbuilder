@@ -4,13 +4,13 @@
 *.txt
 .mypy_cache/
 .venv/
+.pytest_cache/
 test.py
-main.spec
 !requirements.txt
 __pycache__/
-build/
 csv_files/
 dist/
 logs/
 !config/deck.json
 RELEASE_NOTES.md
+*.bkp

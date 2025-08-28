@@ -1,0 +1,397 @@
+{% extends "base.html" %}
+{% block content %}
+<section>
+  <h3>Owned Cards Library</h3>
+  <p class="muted">Upload .txt or .csv lists. We’ll extract names and keep a de-duplicated library for the web UI.</p>
+
+  {% if error %}
+  <div class="error" style="margin:.5rem 0;">{{ error }}</div>
+  {% endif %}
+  {% if notice %}
+  <div class="notice" style="margin:.5rem 0;">{{ notice }}</div>
+  {% endif %}
+
+  <form action="/owned/upload" method="post" enctype="multipart/form-data" style="margin:.5rem 0 1rem 0;">
+    <button type="button" class="btn" onclick="this.nextElementSibling.click();">Upload TXT/CSV</button>
+    <input id="upload-owned" type="file" name="file" accept=".txt,.csv" style="display:none" onchange="this.form.requestSubmit();" />
+  </form>
+
+  <div style="display:flex; gap:.5rem; align-items:center; margin-bottom:.75rem;">
+    <form action="/owned/clear" method="post" style="display:inline;">
+      <button type="submit" {% if count == 0 %}disabled{% endif %}>Clear Library</button>
+    </form>
+    <a href="/owned/export" download class="btn{% if count == 0 %} disabled{% endif %}" {% if count == 0 %}aria-disabled="true" onclick="return false;"{% endif %}>Export TXT</a>
+    <a href="/owned/export.csv" download class="btn{% if count == 0 %} disabled{% endif %}" {% if count == 0 %}aria-disabled="true" onclick="return false;"{% endif %}>Export CSV</a>
+    <span class="muted">{{ count }} unique name{{ '' if count == 1 else 's' }} <span id="shown-count" style="margin-left:.25rem;">{% if count %}• {{ count }} shown{% endif %}</span></span>
+  </div>
+  {% if names and names|length %}
+  <div id="bulk-bar" style="display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; margin:.25rem 0 .5rem 0;">
+    <label style="display:flex; align-items:center; gap:.4rem;">
+      <input type="checkbox" id="select-all" /> Select all shown
+    </label>
+    <button type="button" id="btn-remove-selected" class="btn" disabled>Remove selected</button>
+    <button type="button" id="btn-remove-visible" class="btn" disabled>Remove visible</button>
+    <button type="button" id="btn-export-visible" class="btn" disabled>Export visible TXT</button>
+    <button type="button" id="btn-export-visible-csv" class="btn" disabled>Export visible CSV</button>
+  </div>
+  {% endif %}
+
+  {% if names and names|length %}
+  <div class="filters" style="display:flex; flex-wrap:wrap; gap:8px; margin:.25rem 0 .5rem 0;">
+    <select id="sort-by" data-pref="owned:sort" style="background:#0f1115; color:#e5e7eb; border:1px solid var(--border); border-radius:6px; padding:.3rem .5rem;">
+      <option value="name">Sort: A → Z</option>
+      <option value="type">Sort: Type</option>
+      <option value="color">Sort: Color</option>
+      <option value="tags">Sort: Tags</option>
+      <option value="recent">Sort: Recently added</option>
+    </select>
+    <select id="filter-type" data-pref="owned:type" style="background:#0f1115; color:#e5e7eb; border:1px solid var(--border); border-radius:6px; padding:.3rem .5rem;">
+      <option value="">All Types</option>
+      {% for t in all_types %}<option value="{{ t }}">{{ t }}</option>{% endfor %}
+    </select>
+    <select id="filter-tag" data-pref="owned:tag" style="background:#0f1115; color:#e5e7eb; border:1px solid var(--border); border-radius:6px; padding:.3rem .5rem; max-width:320px;">
+      <option value="">All Themes</option>
+      {% for t in all_tags %}<option value="{{ t }}">{{ t }}</option>{% endfor %}
+    </select>
+    <select id="filter-color" data-pref="owned:color" style="background:#0f1115; color:#e5e7eb; border:1px solid var(--border); border-radius:6px; padding:.3rem .5rem;">
+      <option value="">All Colors</option>
+      {% for c in all_colors %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
+      {% if color_combos and color_combos|length %}
+      <option value="" disabled>──────────</option>
+      {% for code, label in color_combos %}
+        <option value="{{ code }}">{{ label }}</option>
+      {% endfor %}
+      {% endif %}
+    </select>
+    <input id="filter-text" data-pref="owned:q" type="search" placeholder="Search name..." style="background:#0f1115; color:#e5e7eb; border:1px solid var(--border); border-radius:6px; padding:.3rem .5rem; flex:1; min-width:200px;" />
+    <button type="button" id="clear-filters">Clear</button>
+  </div>
+  <div id="active-chips" class="muted" style="display:flex; flex-wrap:wrap; gap:6px; font-size:12px; margin:.25rem 0 .5rem 0;"></div>
+  {% endif %}
+
+  {% if names and names|length %}
+  <div id="owned-box" style="overflow:auto; border:1px solid var(--border); border-radius:8px; padding:.5rem; background:#0f1115; color:#e5e7eb; min-height:240px;" {% if virtualize %}data-virtualize="1"{% endif %}>
+    <ul id="owned-grid" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); grid-auto-rows:auto; gap:4px 16px; list-style:none; margin:0; padding:0;">
+      {% for n in names %}
+      {% set tags = (tags_by_name.get(n, []) if tags_by_name else []) %}
+      {% set tline = (type_by_name.get(n, '') if type_by_name else '') %}
+      {% set cols = (colors_by_name.get(n, []) if colors_by_name else []) %}
+      {% set added_ts = (added_at_map.get(n) if added_at_map else None) %}
+      <li style="break-inside: avoid; overflow-wrap:anywhere;" data-type="{{ tline }}" data-tags="{{ (tags or [])|join('|') }}" data-colors="{{ (cols or [])|join('') }}" data-added="{{ added_ts if added_ts else '' }}">
+  <label class="owned-row" style="cursor:pointer;" tabindex="0">
+          <input type="checkbox" class="sel sr-only" aria-label="Select {{ n }}" />
+          <div class="owned-vstack">
+  <img class="card-thumb" loading="lazy" decoding="async" alt="{{ n }} image" src="https://api.scryfall.com/cards/named?fuzzy={{ n|urlencode }}&format=image&version=small" data-card-name="{{ n }}" data-lqip="1" {% if tags %}data-tags="{{ (tags or [])|join(', ') }}"{% endif %}
+        srcset="https://api.scryfall.com/cards/named?fuzzy={{ n|urlencode }}&format=image&version=small 160w, https://api.scryfall.com/cards/named?fuzzy={{ n|urlencode }}&format=image&version=normal 488w"
+        sizes="100px" />
+            <span class="card-name"{% if tags %} data-tags="{{ (tags or [])|join(', ') }}"{% endif %}>{{ n }}</span>
+            {% if cols and cols|length %}
+            <div class="mana-group" aria-hidden="true">
+              {% for c in cols %}
+                <span class="mana mana-{{ c }}" title="{{ c }}"></span>
+              {% endfor %}
+            </div>
+            <span class="sr-only"> Colors: {{ cols|join(', ') }}</span>
+            {% endif %}
+          </div>
+        </label>
+        
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% else %}
+  <p class="muted">No names yet. Upload a file to get started.</p>
+  {% endif %}
+</section>
+
+  <script>
+  (function(){
+    var grid = document.getElementById('owned-grid');
+    if (!grid) return;
+    var box = document.getElementById('owned-box');
+  var bulk = document.getElementById('bulk-bar');
+  var selAll = document.getElementById('select-all');
+  var btnRemoveSel = document.getElementById('btn-remove-selected');
+  var btnRemoveVis = document.getElementById('btn-remove-visible');
+  var btnExportVis = document.getElementById('btn-export-visible');
+  var btnExportVisCsv = document.getElementById('btn-export-visible-csv');
+  var fSort = document.getElementById('sort-by');
+  var fType = document.getElementById('filter-type');
+    var fTag = document.getElementById('filter-tag');
+    var fColor = document.getElementById('filter-color');
+    var fText = document.getElementById('filter-text');
+    var btnClear = document.getElementById('clear-filters');
+  var shownCount = document.getElementById('shown-count');
+  var chips = document.getElementById('active-chips');
+  
+
+    // State helpers for URL hash and localStorage
+    var state = {
+      get: function(k, d){ try{ var v=localStorage.getItem('mtg:'+k); return v!==null?JSON.parse(v):d; }catch(e){ return d; } },
+      set: function(k, v){ try{ localStorage.setItem('mtg:'+k, JSON.stringify(v)); }catch(e){} },
+      inHash: function(obj){ try{ var p=new URLSearchParams((location.hash||'').replace(/^#/,'')); Object.keys(obj||{}).forEach(function(k){ p.set(k, obj[k]); }); location.hash=p.toString(); }catch(e){} },
+      readHash: function(){ try{ return new URLSearchParams((location.hash||'').replace(/^#/,'')); }catch(e){ return new URLSearchParams(); } }
+    };
+
+    // Helper: build Scryfall image URL with optional cache-busting
+    function buildImageUrl(name, version, nocache){
+      var q = encodeURIComponent(name||'');
+      var url = 'https://api.scryfall.com/cards/named?fuzzy=' + q + '&format=image&version=' + (version||'small');
+      if (nocache) url += '&t=' + Date.now();
+      return url;
+    }
+
+    // Resize the container to fill the viewport height
+    function sizeBox(){
+      if (!box) return;
+      try {
+        var rect = box.getBoundingClientRect();
+        var margin = 16; // breathing room at bottom
+        var vh = window.innerHeight || document.documentElement.clientHeight || 0;
+        var h = Math.max(240, Math.floor(vh - rect.top - margin));
+        box.style.height = h + 'px';
+      } catch(_){}
+    }
+    function debounce(fn, delay){ var t=null; return function(){ var a=arguments, c=this; if(t) clearTimeout(t); t=setTimeout(function(){ fn.apply(c,a); }, delay); }; }
+    var debouncedSize = debounce(sizeBox, 100);
+    sizeBox();
+    window.addEventListener('resize', debouncedSize);
+
+    function passType(li, val){ if (!val) return true; var t=(li.getAttribute('data-type')||'').toLowerCase(); return t.indexOf(val.toLowerCase())!==-1; }
+    function passTag(li, val){ if (!val) return true; var ts=(li.getAttribute('data-tags')||''); if (!ts) return false; var parts=ts.split('|'); return parts.some(function(x){return x.toLowerCase()===val.toLowerCase();}); }
+    function canonCode(raw){
+      var s = (raw||'').toUpperCase();
+      var order = ['W','U','B','R','G'];
+      var out = [];
+      for (var i=0;i<order.length;i++){
+        var ch = order[i];
+        if (s.indexOf(ch) !== -1) out.push(ch);
+      }
+      if (out.length === 0){
+        // Treat empty or explicit C as colorless
+        if (s.indexOf('C') !== -1 || s === '') return 'C';
+        return '';
+      }
+      return out.join('');
+    }
+    function passColor(li, val){
+      if (!val) return true;
+      var cs=(li.getAttribute('data-colors')||'');
+      var vcode = canonCode(val);
+      var ccode = canonCode(cs);
+      if (!vcode) return true; // if somehow invalid selection
+      return ccode === vcode;
+    }
+    function passText(li, val){ if (!val) return true; var txt=(li.textContent||'').toLowerCase(); return txt.indexOf(val.toLowerCase())!==-1; }
+
+    function updateShownCount(){
+      if (!shownCount) return;
+      var total = 0;
+      Array.prototype.forEach.call(grid.children, function(li){ if (li.style.display !== 'none') total++; });
+      shownCount.textContent = (total > 0 ? '• ' + total + ' shown' : '');
+  // Enable/disable bulk buttons
+  var anyVisible = total > 0;
+  [btnRemoveVis, btnExportVis, btnExportVisCsv].forEach(function(b){ if (b) b.disabled = !anyVisible; });
+  updateSelectedState();
+    }
+
+    function apply(){
+      var vt = fType ? fType.value : '';
+      var vtag = fTag ? fTag.value : '';
+      var vc = fColor ? fColor.value : '';
+      var vx = fText ? fText.value.trim() : '';
+      Array.prototype.forEach.call(grid.children, function(li){
+        var ok = passType(li, vt) && passTag(li, vtag) && passColor(li, vc) && passText(li, vx);
+        li.style.display = ok ? '' : 'none';
+      });
+      resort();
+      updateShownCount();
+  renderChips();
+      // Persist
+      if (fSort && fSort.hasAttribute('data-pref')) state.set(fSort.getAttribute('data-pref'), fSort.value);
+      if (fType && fType.hasAttribute('data-pref')) state.set(fType.getAttribute('data-pref'), fType.value);
+      if (fTag && fTag.hasAttribute('data-pref')) state.set(fTag.getAttribute('data-pref'), fTag.value);
+      if (fColor && fColor.hasAttribute('data-pref')) state.set(fColor.getAttribute('data-pref'), fColor.value);
+      if (fText && fText.hasAttribute('data-pref')) state.set(fText.getAttribute('data-pref'), fText.value);
+      // Update URL hash
+      try{ state.inHash({ o_sort: (fSort?fSort.value:''), o_type: vt, o_tag: vtag, o_color: vc, o_q: vx }); }catch(_){ }
+    }
+    function renderChips(){
+      if (!chips) return;
+      var items = [];
+      if (fType && fType.value) items.push({ k:'Type', v: fType.value, clear: function(){ fType.value=''; apply(); } });
+      if (fTag && fTag.value) items.push({ k:'Theme', v: fTag.value, clear: function(){ fTag.value=''; apply(); } });
+      if (fColor && fColor.value) items.push({ k:'Colors', v: fColor.value, clear: function(){ fColor.value=''; apply(); } });
+      if (fText && fText.value) items.push({ k:'Search', v: fText.value, clear: function(){ fText.value=''; apply(); } });
+      chips.innerHTML = '';
+      if (!items.length){ chips.style.display='none'; return; }
+      chips.style.display='flex';
+      items.forEach(function(it){
+        var span = document.createElement('span');
+        span.style.border = '1px solid var(--border)';
+        span.style.borderRadius = '16px';
+        span.style.padding = '2px 8px';
+        span.style.background = '#0f1115';
+        span.textContent = it.k+': '+it.v+' ×';
+        span.style.cursor = 'pointer';
+        span.title = 'Clear '+it.k;
+        span.addEventListener('click', function(){ it.clear(); });
+        chips.appendChild(span);
+      });
+    }
+
+  // Bulk user-tag add/remove controls removed by request; inline chip removal remains supported.
+
+    function resort(){
+      if (!fSort) return;
+      var mode = fSort.value || 'name';
+      var lis = Array.prototype.slice.call(grid.children);
+      // Only consider visible items, but keep hidden in place after visible ones to avoid DOM thrash
+      var visible = lis.filter(function(li){ return li.style.display !== 'none'; });
+      var hidden = lis.filter(function(li){ return li.style.display === 'none'; });
+      function byName(a,b){ return (a.textContent||'').toLowerCase().localeCompare((b.textContent||'').toLowerCase()); }
+      function byType(a,b){ return (a.getAttribute('data-type')||'').toLowerCase().localeCompare((b.getAttribute('data-type')||'').toLowerCase()); }
+      function byColor(a,b){ return (a.getAttribute('data-colors')||'').localeCompare((b.getAttribute('data-colors')||'')); }
+      function byTags(a,b){ var ac=(a.getAttribute('data-tags')||'').split('|').filter(Boolean).length; var bc=(b.getAttribute('data-tags')||'').split('|').filter(Boolean).length; return ac-bc || byName(a,b); }
+      function byRecent(a,b){ var ta=parseInt(a.getAttribute('data-added')||'0',10); var tb=parseInt(b.getAttribute('data-added')||'0',10); return (tb-ta) || byName(a,b); }
+      var cmp = byName;
+      if (mode === 'type') cmp = byType;
+      else if (mode === 'color') cmp = byColor;
+      else if (mode === 'tags') cmp = byTags;
+      else if (mode === 'recent') cmp = byRecent;
+      visible.sort(cmp);
+      // Re-append in new order
+      var frag = document.createDocumentFragment();
+      visible.forEach(function(li){ frag.appendChild(li); });
+      hidden.forEach(function(li){ frag.appendChild(li); });
+      grid.appendChild(frag);
+    }
+
+    function getVisibleNames(){
+      var out=[];
+      Array.prototype.forEach.call(grid.children, function(li){
+        if (li.style.display === 'none') return;
+        var span = li.querySelector('[data-card-name]');
+        if (span) out.push(span.getAttribute('data-card-name'));
+      });
+      return out;
+    }
+    function getSelectedNames(){
+      var out=[];
+      Array.prototype.forEach.call(grid.children, function(li){
+        var cb = li.querySelector('input.sel');
+        if (cb && cb.checked){ var span = li.querySelector('[data-card-name]'); if (span) out.push(span.getAttribute('data-card-name')); }
+      });
+      return out;
+    }
+    function updateSelectedState(){
+      if (!bulk) return;
+      var selected = getSelectedNames();
+      if (btnRemoveSel) btnRemoveSel.disabled = selected.length === 0;
+      if (selAll){
+        // Reflect if all visible are selected
+        var vis = getVisibleNames();
+        selAll.checked = (vis.length>0 && selected.length === vis.length);
+        selAll.indeterminate = (selected.length>0 && selected.length < vis.length);
+      }
+      // Toggle selected class for visual feedback
+      Array.prototype.forEach.call(grid.children, function(li){
+        var cb = li.querySelector('input.sel');
+        li.classList.toggle('is-selected', !!(cb && cb.checked));
+      });
+    }
+
+    if (selAll){
+      selAll.addEventListener('change', function(){
+        var on = !!selAll.checked;
+        Array.prototype.forEach.call(grid.children, function(li){ if (li.style.display==='none') return; var cb=li.querySelector('input.sel'); if (cb) cb.checked = on; });
+        updateSelectedState();
+      });
+    }
+    grid.addEventListener('change', function(e){ if (e.target && e.target.classList && e.target.classList.contains('sel')) updateSelectedState(); });
+    // Keyboard: allow Enter/Space on the row to toggle selection
+    grid.addEventListener('keydown', function(e){
+      if (!(e.key === 'Enter' || e.key === ' ')) return;
+      var row = e.target && e.target.closest && e.target.closest('label.owned-row');
+      if (!row) return;
+      e.preventDefault();
+      var cb = row.querySelector('input.sel');
+      if (cb){ cb.checked = !cb.checked; cb.dispatchEvent(new Event('change', { bubbles:true })); }
+    });
+
+    function postJSON(url, body){ return fetch(url, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body||{}) }).then(function(r){ if (r.ok) return r.text(); throw new Error('Request failed'); }); }
+    function formPost(url, names){
+      var fd = new FormData(); fd.append('names', names.join(','));
+      return fetch(url, { method:'POST', body: fd }).then(function(r){ if (r.ok) return r.text(); throw new Error('Request failed'); });
+    }
+    function confirmRemove(count){
+      return window.confirm('Remove '+count+' item'+(count===1?'':'s')+' from Owned? This cannot be undone.');
+    }
+    if (btnRemoveVis) btnRemoveVis.addEventListener('click', function(){ var names=getVisibleNames(); if(!names.length) return; if(!confirmRemove(names.length)) return; sessionStorage.setItem('mtg:toastAfterReload', JSON.stringify({msg:'Removed '+names.length+' visible name'+(names.length===1?'':'s')+'.', type:'success'})); formPost('/owned/remove', names).then(function(html){ document.documentElement.innerHTML = html; }).catch(function(){ alert('Remove failed'); }); });
+    if (btnRemoveSel) btnRemoveSel.addEventListener('click', function(){ var names=getSelectedNames(); if(!names.length) return; if(!confirmRemove(names.length)) return; sessionStorage.setItem('mtg:toastAfterReload', JSON.stringify({msg:'Removed '+names.length+' selected name'+(names.length===1?'':'s')+'.', type:'success'})); formPost('/owned/remove', names).then(function(html){ document.documentElement.innerHTML = html; }).catch(function(){ alert('Remove failed'); }); });
+    if (btnExportVis) btnExportVis.addEventListener('click', function(){ var names=getVisibleNames(); if(!names.length) return; postJSON('/owned/export-visible', { names: names }).then(function(txt){ var a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([txt],{type:'text/plain'})); a.download='owned_visible.txt'; a.click(); }); });
+    if (btnExportVisCsv) btnExportVisCsv.addEventListener('click', function(){ var names=getVisibleNames(); if(!names.length) return; postJSON('/owned/export-visible.csv', { names: names }).then(function(csv){ var a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'})); a.download='owned_visible.csv'; a.click(); }); });
+
+    // Keyboard helpers: '/' focus search, Esc clear filters
+    document.addEventListener('keydown', function(e){
+      if (e.target && (/input|textarea|select/i).test(e.target.tagName)) return;
+      if (e.key === '/') { if (fText){ e.preventDefault(); fText.focus(); fText.select && fText.select(); } }
+      else if (e.key === 'Escape'){ if (fText && fText.value){ fText.value=''; apply(); } }
+    });
+
+  // Hydrate from URL hash/localStorage
+  try{
+    var params = state.readHash();
+    var hv;
+    if (fSort){ hv = params.get('o_sort'); if (!hv) hv = state.get(fSort.getAttribute('data-pref'), 'name'); if (hv) fSort.value = hv; }
+    if (fType){ hv = params.get('o_type'); if (!hv) hv = state.get(fType.getAttribute('data-pref'), ''); if (hv !== null && typeof hv !== 'undefined') fType.value = hv; }
+    if (fTag){ hv = params.get('o_tag'); if (!hv) hv = state.get(fTag.getAttribute('data-pref'), ''); if (hv !== null && typeof hv !== 'undefined') fTag.value = hv; }
+    if (fColor){ hv = params.get('o_color'); if (!hv) hv = state.get(fColor.getAttribute('data-pref'), ''); if (hv !== null && typeof hv !== 'undefined') fColor.value = hv; }
+    if (fText){ hv = params.get('o_q'); if (!hv && hv !== '') hv = state.get(fText.getAttribute('data-pref'), ''); if (typeof hv === 'string') fText.value = hv; }
+  }catch(_){ }
+
+  if (fSort) fSort.addEventListener('change', function(){ resort(); apply(); });
+  if (fType) fType.addEventListener('change', apply);
+    if (fTag) fTag.addEventListener('change', apply);
+    if (fColor) fColor.addEventListener('change', apply);
+  if (fText) fText.addEventListener('input', apply);
+  if (btnClear) btnClear.addEventListener('click', function(){
+    if(fSort)fSort.value='name'; if(fType)fType.value=''; if(fTag)fTag.value=''; if(fColor)fColor.value=''; if(fText)fText.value='';
+    apply();
+  });
+  // Initial state
+  apply();
+
+  // Thumbnail retry now handled by global binder in base.html
+
+  // User tag chip UI removed by request.
+  })();
+  </script>
+<style>
+  .sr-only{ position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+  .mana{ display:inline-block; width:14px; height:14px; border-radius:50%; box-sizing:border-box; }
+  .mana-W{ background:#f9fafb; border:1px solid #d1d5db; }
+  .mana-U{ background:#3b82f6; }
+  .mana-B{ background:#111827; }
+  .mana-R{ background:#ef4444; }
+  .mana-G{ background:#10b981; }
+  .mana-C{ background:#9ca3af; border:1px solid #6b7280; }
+  /* Subtle scrollbar styling for the owned list box */
+  #owned-box{ scrollbar-width: thin; scrollbar-color: rgba(148,163,184,.35) transparent; }
+  #owned-box:hover{ scrollbar-color: rgba(148,163,184,.6) transparent; }
+  #owned-box::-webkit-scrollbar{ width:8px; height:8px; }
+  #owned-box::-webkit-scrollbar-track{ background: transparent; }
+  #owned-box::-webkit-scrollbar-thumb{ background-color: rgba(148,163,184,.35); border-radius:8px; }
+  #owned-box:hover::-webkit-scrollbar-thumb{ background-color: rgba(148,163,184,.6); }
+  /* Owned item layout */
+  #owned-grid{ justify-items:center; }
+  .owned-row{ display:flex; align-items:center; justify-content:center; gap:.5rem; border:1px solid transparent; border-radius:8px; padding:.5rem; width:100%; max-width:200px; margin:0 auto; }
+  .owned-vstack{ display:flex; flex-direction:column; gap:.25rem; align-items:center; text-align:center; }
+  .card-thumb{ display:block; width:100px; height:auto; border-radius:6px; border:1px solid var(--border); background:#0b0d12; object-fit:cover; }
+  /* Highlight only the thumbnail when selected */
+  li.is-selected .card-thumb{ border-color:#ffffff; box-shadow:0 0 0 3px rgba(255,255,255,.35); }
+  .mana-group{ display:flex; gap:4px; justify-content:center; }
+  .card-name{ display:block; }
+</style>
+{% endblock %}

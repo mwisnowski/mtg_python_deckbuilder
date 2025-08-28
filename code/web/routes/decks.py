@@ -5,7 +5,7 @@ from fastapi.responses import HTMLResponse
 from pathlib import Path
 import csv
 import os
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Optional
 
 from ..app import templates
 from ..services import owned_store
@@ -47,6 +47,8 @@ def _list_decks() -> list[dict]:
                 _m = payload.get('meta', {}) if isinstance(payload, dict) else {}
                 meta["commander"] = _m.get('commander') or meta.get("commander")
                 meta["tags"] = _m.get('tags') or meta.get("tags") or []
+                if _m.get('name'):
+                    meta["display"] = _m.get('name')
             except Exception:
                 pass
         # Fallback to parsing commander/themes from filename convention Commander_Themes_YYYYMMDD
@@ -213,6 +215,38 @@ def _read_csv_summary(csv_path: Path) -> Tuple[dict, Dict[str, int], Dict[str, i
     return summary, type_counts, curve_counts, type_cards
 
 
+def _read_deck_counts(csv_path: Path) -> Dict[str, int]:
+    """Read a CSV deck export and return a mapping of card name -> total count.
+
+    Falls back to zero on parse issues; ignores header case and missing columns.
+    """
+    counts: Dict[str, int] = {}
+    try:
+        with csv_path.open('r', encoding='utf-8') as f:
+            reader = csv.reader(f)
+            headers = next(reader, [])
+            name_idx = headers.index('Name') if 'Name' in headers else 0
+            count_idx = headers.index('Count') if 'Count' in headers else 1
+            for row in reader:
+                if not row:
+                    continue
+                try:
+                    name = row[name_idx]
+                except Exception:
+                    continue
+                try:
+                    cnt = int(float(row[count_idx])) if row[count_idx] else 1
+                except Exception:
+                    cnt = 1
+                name = str(name).strip()
+                if not name:
+                    continue
+                counts[name] = counts.get(name, 0) + cnt
+    except Exception:
+        pass
+    return counts
+
+
 @router.get("/", response_class=HTMLResponse)
 async def decks_index(request: Request) -> HTMLResponse:
     items = _list_decks()
@@ -243,11 +277,14 @@ async def decks_view(request: Request, name: str) -> HTMLResponse:
                     _tags = meta.get('tags') or []
                     if isinstance(_tags, list):
                         tags = [str(t) for t in _tags]
+                    display_name = meta.get('name') or ''
         except Exception:
             summary = None
+            display_name = ''
     if not summary:
         # Reconstruct minimal summary from CSV
         summary, _tc, _cc, _tcs = _read_csv_summary(p)
+        display_name = ''
     stem = p.stem
     txt_path = p.with_suffix('.txt')
     # If missing still, infer from filename stem
@@ -263,7 +300,91 @@ async def decks_view(request: Request, name: str) -> HTMLResponse:
         "summary": summary,
         "commander": commander_name,
         "tags": tags,
+        "display_name": display_name,
     "game_changers": bc.GAME_CHANGERS,
     "owned_set": {n.lower() for n in owned_store.get_names()},
     }
     return templates.TemplateResponse("decks/view.html", ctx)
+
+
+@router.get("/compare", response_class=HTMLResponse)
+async def decks_compare(request: Request, A: Optional[str] = None, B: Optional[str] = None) -> HTMLResponse:
+    """Compare two finished deck CSVs and show diffs.
+
+    Query params:
+      - A: filename of first deck (e.g., Alena_..._20250827.csv)
+      - B: filename of second deck
+    """
+    base = _deck_dir()
+    items = _list_decks()
+    # Build select options with friendly display labels
+    options: List[Dict[str, str]] = []
+    for it in items:
+        label = it.get("display") or it.get("commander") or it.get("name")
+        # Include mtime for "Latest two" selection refinement
+        mt = it.get("mtime", 0)
+        try:
+            mt_val = str(int(mt))
+        except Exception:
+            mt_val = "0"
+        options.append({"name": it.get("name"), "label": label, "mtime": mt_val})  # type: ignore[arg-type]
+
+    diffs = None
+    metaA: Dict[str, str] = {}
+    metaB: Dict[str, str] = {}
+    if A and B:
+        pA = (base / A)
+        pB = (base / B)
+        if _safe_within(base, pA) and _safe_within(base, pB) and pA.exists() and pB.exists():
+            ca = _read_deck_counts(pA)
+            cb = _read_deck_counts(pB)
+            setA = set(ca.keys())
+            setB = set(cb.keys())
+            onlyA = sorted(list(setA - setB))
+            onlyB = sorted(list(setB - setA))
+            changed: List[Tuple[str, int, int]] = []
+            for n in sorted(setA & setB):
+                if ca.get(n, 0) != cb.get(n, 0):
+                    changed.append((n, ca.get(n, 0), cb.get(n, 0)))
+            # Side meta (commander/name/tags) if available
+            def _meta_for(path: Path) -> Dict[str, str]:
+                out: Dict[str, str] = {"filename": path.name}
+                sc = path.with_suffix('.summary.json')
+                try:
+                    if sc.exists():
+                        import json as _json
+                        payload = _json.loads(sc.read_text(encoding='utf-8'))
+                        if isinstance(payload, dict):
+                            m = payload.get('meta', {}) or {}
+                            out["display"] = (m.get('name') or '')
+                            out["commander"] = (m.get('commander') or '')
+                            out["tags"] = ', '.join(m.get('tags') or [])
+                except Exception:
+                    pass
+                if not out.get("commander"):
+                    parts = path.stem.split('_')
+                    if parts:
+                        out["commander"] = parts[0]
+                return out
+            metaA = _meta_for(pA)
+            metaB = _meta_for(pB)
+            diffs = {
+                "onlyA": onlyA,
+                "onlyB": onlyB,
+                "changed": changed,
+                "A": A,
+                "B": B,
+            }
+
+    return templates.TemplateResponse(
+        "decks/compare.html",
+        {
+            "request": request,
+            "options": options,
+            "A": A or "",
+            "B": B or "",
+            "diffs": diffs,
+            "metaA": metaA,
+            "metaB": metaB,
+        },
+    )

@@ -1,0 +1,226 @@
+{% extends "base.html" %}
+{% block banner_subtitle %}Compare Decks{% endblock %}
+{% block content %}
+<h2>Compare Decks</h2>
+<p class="muted">Pick two finished decks to compare. You can get here from Finished Decks or deck view pages.</p>
+
+<form method="get" action="/decks/compare" class="panel" style="display:flex; gap:.5rem; align-items:center; flex-wrap:wrap;">
+  <label>Deck A
+    <select name="A" required>
+      <option value="">Choose…</option>
+      {% for opt in options %}
+        <option value="{{ opt.name }}" data-mtime="{{ opt.mtime }}" {% if A == opt.name %}selected{% endif %}>{{ opt.label }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>Deck B
+    <select name="B" required>
+      <option value="">Choose…</option>
+      {% for opt in options %}
+        <option value="{{ opt.name }}" data-mtime="{{ opt.mtime }}" {% if B == opt.name %}selected{% endif %}>{{ opt.label }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <button type="submit">Compare</button>
+  <button type="button" id="cmp-swap" class="btn" title="Swap A and B" style="margin-left:.25rem;">Swap A/B</button>
+  <button type="button" id="cmp-latest" class="btn" title="Pick the latest two decks">Latest two</button>
+</form>
+
+{% if diffs %}
+  <div class="panel" style="margin-top:.75rem;">
+    <div style="display:flex; gap:1rem; flex-wrap:wrap; align-items:center;">
+      <div>
+        <strong>A:</strong> {{ metaA.display or metaA.filename }}
+        {% if metaA.commander %}<span class="muted">({{ metaA.commander }})</span>{% endif %}
+        {% if metaA.tags %}<div class="muted">{{ metaA.tags }}</div>{% endif %}
+      </div>
+      <div>
+        <strong>B:</strong> {{ metaB.display or metaB.filename }}
+        {% if metaB.commander %}<span class="muted">({{ metaB.commander }})</span>{% endif %}
+        {% if metaB.tags %}<div class="muted">{{ metaB.tags }}</div>{% endif %}
+      </div>
+  <div style="margin-left:auto; display:flex; gap:.5rem; align-items:center;">
+    <button type="button" id="cmp-copy" class="btn" title="Copy a plain-text summary of the diffs">Copy summary</button>
+    <button type="button" id="cmp-download" class="btn" title="Download a plain-text summary of the diffs">Download .txt</button>
+  </div>
+    </div>
+  </div>
+
+  <div class="panel" style="margin-top:.5rem; display:flex; gap:1rem; align-items:center; flex-wrap:wrap;">
+    <div class="muted">Totals:
+      <strong id="totA">{{ (diffs.onlyA|length) if diffs.onlyA else 0 }}</strong> only-in-A,
+      <strong id="totB">{{ (diffs.onlyB|length) if diffs.onlyB else 0 }}</strong> only-in-B,
+      <strong id="totC">{{ (diffs.changed|length) if diffs.changed else 0 }}</strong> changed
+    </div>
+    <label class="muted" style="margin-left:auto; display:flex; align-items:center; gap:.35rem;">
+  <input type="checkbox" id="cmp-changed-only" /> Changed only
+    </label>
+  </div>
+
+  <div class="only-panels" style="display:grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top:.75rem;">
+    <div class="panel onlyA">
+      <h3 style="margin-top:0;">Only in A</h3>
+      {% if diffs.onlyA and diffs.onlyA|length %}
+        <ul>
+          {% for n in diffs.onlyA %}<li>{{ n }}</li>{% endfor %}
+        </ul>
+      {% else %}
+        <div class="muted">None</div>
+      {% endif %}
+    </div>
+    <div class="panel onlyB">
+      <h3 style="margin-top:0;">Only in B</h3>
+      {% if diffs.onlyB and diffs.onlyB|length %}
+        <ul>
+          {% for n in diffs.onlyB %}<li>{{ n }}</li>{% endfor %}
+        </ul>
+      {% else %}
+        <div class="muted">None</div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="panel" style="margin-top:1rem;">
+    <h3 style="margin-top:0;">Changed counts</h3>
+    {% if diffs.changed and diffs.changed|length %}
+      <ul class="changed-list">
+        {% for n, a, b in diffs.changed %}
+          {% set delta = b - a %}
+          {% if delta > 0 %}
+            <li class="chg inc" title="Increased in B">▲ {{ n }}: A={{ a }}, B={{ b }} (+{{ delta }})</li>
+          {% elif delta < 0 %}
+            <li class="chg dec" title="Decreased in B">▼ {{ n }}: A={{ a }}, B={{ b }} ({{ delta }})</li>
+          {% else %}
+            <li class="chg">{{ n }}: A={{ a }}, B={{ b }}</li>
+          {% endif %}
+        {% endfor %}
+      </ul>
+    {% else %}
+      <div class="muted">None</div>
+    {% endif %}
+  </div>
+  <script id="cmp-data" type="application/json">{{ {
+      'aLabel': (metaA.display or metaA.filename),
+      'bLabel': (metaB.display or metaB.filename),
+      'onlyA': diffs.onlyA or [],
+      'onlyB': diffs.onlyB or [],
+      'changed': diffs.changed or []
+    } | tojson }}</script>
+  <script>
+  (function(){
+    var copyBtn = document.getElementById('cmp-copy');
+    var dlBtn = document.getElementById('cmp-download');
+    var changedOnly = document.getElementById('cmp-changed-only');
+    var dataEl = document.getElementById('cmp-data');
+    var data = null;
+    try { data = JSON.parse((dataEl && dataEl.textContent) ? dataEl.textContent : 'null'); } catch(e) { data = null; }
+    function buildLines(){
+      var lines = [];
+      lines.push('Compare:');
+      lines.push('A: ' + data.aLabel);
+      lines.push('B: ' + data.bLabel);
+      lines.push('');
+      if (!changedOnly || !changedOnly.checked) {
+        lines.push('Only in A:');
+        if (data.onlyA && data.onlyA.length) { data.onlyA.forEach(function(n){ lines.push('- ' + n); }); }
+        else { lines.push('(none)'); }
+        lines.push('');
+        lines.push('Only in B:');
+        if (data.onlyB && data.onlyB.length) { data.onlyB.forEach(function(n){ lines.push('- ' + n); }); }
+        else { lines.push('(none)'); }
+        lines.push('');
+      }
+      lines.push('Changed counts:');
+      if (data.changed && data.changed.length) {
+        data.changed.forEach(function(row){ lines.push('- ' + row[0] + ': A=' + row[1] + ', B=' + row[2]); });
+      } else { lines.push('(none)'); }
+      return lines;
+    }
+    if (copyBtn) copyBtn.addEventListener('click', function(){
+      try{
+        var txt = buildLines().join('\n');
+        if (navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(txt); }
+        else {
+          var ta = document.createElement('textarea'); ta.value = txt; document.body.appendChild(ta); ta.select(); try{ document.execCommand('copy'); }catch(_){} document.body.removeChild(ta);
+        }
+        if (window.toast) window.toast('Copied comparison');
+      }catch(_){ }
+    });
+    if (dlBtn) dlBtn.addEventListener('click', function(){
+      try{
+        var txt = buildLines().join('\n');
+        var blob = new Blob([txt], {type:'text/plain'});
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = 'compare.txt';
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(function(){ try{ URL.revokeObjectURL(url); document.body.removeChild(a); }catch(_){ } }, 0);
+      }catch(_){ }
+    });
+    function applyChangedOnlyFlag(){
+      try{
+        var wrap = document.querySelector('.only-panels');
+        if (!wrap || !changedOnly) return;
+        wrap.style.display = changedOnly.checked ? 'none' : 'grid';
+      }catch(_){ }
+    }
+    if (changedOnly) {
+      try {
+        var saved = localStorage.getItem('compare:changedOnly');
+        if (saved === '1') { changedOnly.checked = true; }
+      } catch(_){ }
+      applyChangedOnlyFlag();
+      changedOnly.addEventListener('change', function(){
+        try { localStorage.setItem('compare:changedOnly', this.checked ? '1' : '0'); } catch(_){ }
+        applyChangedOnlyFlag();
+      });
+    }
+    // Swap A/B
+    var swapBtn = document.getElementById('cmp-swap');
+    if (swapBtn) swapBtn.addEventListener('click', function(){
+      try{
+        var f = this.closest('form'); if(!f) return;
+        var a = f.querySelector('select[name="A"]');
+        var b = f.querySelector('select[name="B"]');
+        if(!a || !b) return;
+        var aVal = a.value, bVal = b.value;
+        a.value = bVal; b.value = aVal;
+        f.requestSubmit();
+      }catch(_){ }
+    });
+    // Pick latest two by mtime from options metadata
+    var latestBtn = document.getElementById('cmp-latest');
+    if (latestBtn) latestBtn.addEventListener('click', function(){
+      try{
+        var f = this.closest('form'); if(!f) return;
+        var a = f.querySelector('select[name="A"]');
+        var b = f.querySelector('select[name="B"]');
+        if(!a || !b) return;
+        var opts = Array.from(a.querySelectorAll('option[value]')).filter(function(o){ return o.value; });
+        opts.sort(function(x,y){
+          var mx = parseInt(x.getAttribute('data-mtime') || '0', 10);
+          var my = parseInt(y.getAttribute('data-mtime') || '0', 10);
+          return (my - mx);
+        });
+        if (opts.length >= 2){
+          var first = opts[0].value;
+          var second = opts[1].value;
+          a.value = first; b.value = second;
+          f.requestSubmit();
+        }
+      }catch(_){ }
+    });
+  })();
+  </script>
+<style>
+  .changed-list { list-style: none; padding-left: 0; }
+  .changed-list .chg { padding: 2px 0; }
+  .changed-list .chg.inc { color: #10b981; }
+  .changed-list .chg.dec { color: #ef4444; }
+  .only-panels .onlyA h3 { color: #60a5fa; }
+  .only-panels .onlyB h3 { color: #f59e0b; }
+</style>
+{% endif %}
+{% endblock %}

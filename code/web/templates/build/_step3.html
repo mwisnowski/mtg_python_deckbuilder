@@ -1,6 +1,5 @@
 <section>
-  {% set step_index = 3 %}{% set step_total = 5 %}
-  <h3>Step 3: Ideal Counts</h3>
+  {# Step phases removed #}
   <div class="two-col two-col-left-rail">
   <aside class="card-preview" data-card-name="{{ commander|urlencode }}">
       <a href="https://scryfall.com/search?q={{ commander|urlencode }}" target="_blank" rel="noopener">
@@ -8,8 +7,7 @@
       </a>
     </aside>
     <div class="grow" data-skeleton>
-      <div hx-get="/build/banner?step=Ideal%20Counts&i=3&n=5" hx-trigger="load"></div>
-      {% include "build/_stage_navigator.html" %}
+  <div hx-get="/build/banner" hx-trigger="load"></div>
 
       
 
@@ -37,7 +35,7 @@
         </div>
       </form>
       <div style="margin-top:.5rem;">
-        <form action="/build" method="get" style="display:inline; margin:0;">
+        <form hx-post="/build/reset-all" hx-target="#wizard" hx-swap="innerHTML" style="display:inline; margin:0;">
           <button type="submit">Start over</button>
         </form>
       </div>

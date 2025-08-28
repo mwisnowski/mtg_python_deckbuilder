@@ -24,6 +24,10 @@
   </label>
   <button id="deck-clear" type="button" title="Clear filters">Clear</button>
   <button id="deck-share" type="button" title="Copy a shareable link">Share</button>
+  <a href="/decks/compare" class="btn" role="button" title="Compare two finished decks">Compare</a>
+  <button id="deck-compare-selected" type="button" title="Compare two selected decks" disabled>Compare selected</button>
+  <button id="deck-compare-latest" type="button" title="Pick the latest two decks">Latest two</button>
+  <button id="deck-open-permalink" type="button" title="Open a saved permalink">Open Permalink…</button>
   <button id="deck-reset-all" type="button" title="Reset filter, sort, and theme">Reset all</button>
   <button id="deck-help" type="button" title="Keyboard shortcuts and tips" aria-haspopup="dialog" aria-controls="deck-help-modal">Help</button>
   <span id="deck-count" class="muted" aria-live="polite"></span>
@@ -34,11 +38,16 @@
 {% if items %}
   <div id="deck-list" role="list" aria-labelledby="decks-heading" style="list-style:none; padding:0; margin:0; display:block;">
     {% for it in items %}
-  <div class="panel" role="listitem" tabindex="0" data-name="{{ it.name }}" data-commander="{{ it.commander }}" data-tags="{{ (it.tags|join(' ')) if it.tags else '' }}" data-tags-pipe="{{ (it.tags|join('|')) if it.tags else '' }}" data-mtime="{{ it.mtime if it.mtime is defined else 0 }}" data-txt="{{ '1' if it.txt_path else '0' }}" style="margin:0 0 .5rem 0;">
+      <div class="panel" role="listitem" tabindex="0" data-name="{{ it.name }}" data-commander="{{ it.commander }}" data-tags="{{ (it.tags|join(' ')) if it.tags else '' }}" data-tags-pipe="{{ (it.tags|join('|')) if it.tags else '' }}" data-mtime="{{ it.mtime if it.mtime is defined else 0 }}" data-txt="{{ '1' if it.txt_path else '0' }}" style="margin:0 0 .5rem 0;">
         <div style="display:flex; justify-content:space-between; align-items:center; gap:.5rem;">
           <div>
             <div>
-              <strong data-card-name="{{ it.commander }}">{{ it.commander }}</strong>
+              {% if it.display %}
+                <strong>{{ it.display }}</strong>
+                <div class="muted" style="font-size:12px;">Commander: <span data-card-name="{{ it.commander }}">{{ it.commander }}</span></div>
+              {% else %}
+                <strong data-card-name="{{ it.commander }}">{{ it.commander }}</strong>
+              {% endif %}
             </div>
             {% if it.tags and it.tags|length %}
             <div class="muted" style="font-size:12px;">Themes: {{ it.tags|join(', ') }}</div>
@@ -50,6 +59,10 @@
             </div>
           </div>
           <div style="display:flex; gap:.35rem; align-items:center;">
+            <label title="Select deck for comparison" style="display:flex; align-items:center; gap:.25rem;">
+              <input type="checkbox" class="deck-select" aria-label="Select deck {{ it.name }} for comparison" />
+              <span class="muted" style="font-size:12px;">Select</span>
+            </label>
             <form action="/files" method="get" style="display:inline; margin:0;">
               <input type="hidden" name="path" value="{{ it.path }}" />
               <button type="submit" title="Download CSV" aria-label="Download CSV for {{ it.commander }}">CSV</button>
@@ -112,11 +125,22 @@
   var helpClose = document.getElementById('deck-help-close');
   var helpBackdrop = document.getElementById('deck-help-backdrop');
   var txtOnlyCb = document.getElementById('deck-txt-only');
+  var cmpSelBtn = document.getElementById('deck-compare-selected');
+  var cmpLatestBtn = document.getElementById('deck-compare-latest');
+  var openPermalinkBtn = document.getElementById('deck-open-permalink');
     if (!list) return;
 
     // Panels and themes discovery from data-tags-pipe
   var panels = Array.prototype.slice.call(list.querySelectorAll('.panel'));
   function refreshPanels(){ panels = Array.prototype.slice.call(list.querySelectorAll('.panel')); }
+  // Selection state for compare
+  var selected = new Set();
+  function updateCompareButtons(){
+    if (!cmpSelBtn) return;
+    var size = selected.size;
+    cmpSelBtn.disabled = (size !== 2);
+    if (cmpSelBtn) cmpSelBtn.title = (size === 2 ? 'Compare the two selected decks' : 'Select exactly two decks to enable');
+  }
   var themeSet = new Set();
   panels.forEach(function(p){
     var raw = p.dataset.tagsPipe || '';
@@ -309,6 +333,31 @@
       updateHashFromState();
     }
 
+  // Wire up compare selection checkboxes
+  function attachSelectHandlers(){
+    try {
+      var cbs = Array.prototype.slice.call(list.querySelectorAll('input.deck-select'));
+      cbs.forEach(function(cb){
+        // Initialize checked state based on current selection
+        var row = cb.closest('.panel');
+        var name = row ? (row.dataset.name || '') : '';
+        cb.checked = selected.has(name);
+        // Apply visual state on init
+        if (row) row.classList.toggle('selected', cb.checked);
+        cb.addEventListener('change', function(){
+          if (!name) return;
+          if (cb.checked) { selected.add(name); }
+          else { selected.delete(name); }
+          // Toggle selection highlight
+          if (row) row.classList.toggle('selected', cb.checked);
+          updateCompareButtons();
+        });
+      });
+      updateCompareButtons();
+    } catch(_){}
+  }
+  attachSelectHandlers();
+
   // Debounce helper
   function debounce(fn, delay){
     var timer = null;
@@ -331,6 +380,53 @@
       if (txtOnlyCb) txtOnlyCb.checked = false;
       applyAll();
     });
+
+  // Compare selected action
+  if (cmpSelBtn) cmpSelBtn.addEventListener('click', function(){
+    try {
+      if (selected.size !== 2) return;
+      var arr = Array.from(selected);
+      var url = '/decks/compare?A=' + encodeURIComponent(arr[0]) + '&B=' + encodeURIComponent(arr[1]);
+      window.location.href = url;
+    } catch(_){ }
+  });
+
+  // Latest two (by modified time across all decks, not just visible)
+  if (cmpLatestBtn) cmpLatestBtn.addEventListener('click', function(){
+    try {
+      // Gather all panels (including hidden) and sort by data-mtime desc
+      var rows = Array.prototype.slice.call(list.querySelectorAll('.panel'));
+      rows.sort(function(a,b){
+        var am = parseFloat(a.dataset.mtime || '0');
+        var bm = parseFloat(b.dataset.mtime || '0');
+        return bm - am;
+      });
+      // Take first two distinct names
+      var pick = [];
+      for (var i=0; i<rows.length && pick.length<2; i++){
+        var nm = rows[i].dataset.name || '';
+        if (nm && pick.indexOf(nm) === -1) pick.push(nm);
+      }
+      if (pick.length === 2){
+        var url = '/decks/compare?A=' + encodeURIComponent(pick[0]) + '&B=' + encodeURIComponent(pick[1]);
+        window.location.href = url;
+      } else {
+        if (window.toast) window.toast('Need at least two decks');
+      }
+    } catch(_){ }
+  });
+
+  // Open permalink prompt
+  if (openPermalinkBtn) openPermalinkBtn.addEventListener('click', function(){
+    try{
+      var token = prompt('Paste a /build/from?state=... URL or token:');
+      if(!token) return;
+      var m = token.match(/state=([^&]+)/);
+      var t = m ? m[1] : token.trim();
+      if(!t) return;
+      window.location.href = '/build/from?state=' + encodeURIComponent(t);
+    }catch(_){ }
+  });
 
   if (resetAllBtn) resetAllBtn.addEventListener('click', function(){
       // Clear UI state
@@ -407,6 +503,10 @@
 
     // React to external hash changes
     window.addEventListener('hashchange', function(){ applyStateFromHash(); });
+
+  // Re-attach selection handlers when list changes order
+  var observer = new MutationObserver(function(){ attachSelectHandlers(); });
+  try { observer.observe(list, { childList: true }); } catch(_){ }
 
     // Open deck: keyboard and mouse helpers on panels
     function getPanelUrl(p){
@@ -551,5 +651,6 @@
   mark { background: rgba(251, 191, 36, .35); color: inherit; padding:0 .1rem; border-radius:2px; }
   #deck-list[role="list"] .panel[role="listitem"] { outline: none; }
   #deck-list[role="list"] .panel[role="listitem"]:focus { box-shadow: 0 0 0 2px #3b82f6 inset; }
+    #deck-list .panel.selected { box-shadow: 0 0 0 2px #10b981 inset; border-color: #10b981; }
 </style>
 {% endblock %}

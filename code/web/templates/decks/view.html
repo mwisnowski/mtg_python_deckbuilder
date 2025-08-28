@@ -2,6 +2,9 @@
 {% block banner_subtitle %}Finished Decks{% endblock %}
 {% block content %}
 <h2>Finished Deck</h2>
+{% if display_name %}
+  <div><strong>{{ display_name }}</strong></div>
+{% endif %}
 <div class="muted">Commander: <strong data-card-name="{{ commander }}">{{ commander }}</strong>{% if tags and tags|length %} • Themes: {{ tags|join(', ') }}{% endif %}</div>
 <div class="muted">This view mirrors the end-of-build summary. Use the buttons to download the CSV/TXT exports.</div>
 
@@ -24,6 +27,7 @@
         <button type="submit">Download TXT</button>
       </form>
       {% endif %}
+  <a href="/decks/compare?A={{ name|urlencode }}" class="btn" role="button" title="Compare this deck with another">Compare…</a>
       <form method="get" action="/decks" style="display:inline; margin:0;">
         <button type="submit">Back to Finished Decks</button>
       </form>
@@ -54,7 +58,7 @@
           </div>
         </div>
       {% endif %}
-      {% include "partials/deck_summary.html" %}
+  {{ render_cached('partials/deck_summary.html', name, request=request, summary=summary, game_changers=game_changers, owned_set=owned_set) | safe }}
     {% else %}
       <div class="muted">No summary available.</div>
     {% endif %}

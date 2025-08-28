@@ -1,10 +1,11 @@
 <section>
-  {% set step_index = 5 %}{% set step_total = 5 %}
-  <h3>Step 5: Build</h3>
+  {# Step phases removed #}
   <div class="two-col two-col-left-rail">
     <aside class="card-preview">
-      <a href="https://scryfall.com/search?q={{ commander|urlencode }}" target="_blank" rel="noopener">
-  <img src="https://api.scryfall.com/cards/named?fuzzy={{ commander|urlencode }}&format=image&version=normal" alt="{{ commander }} card image" data-card-name="{{ commander }}" />
+    <a href="https://scryfall.com/search?q={{ commander|urlencode }}" target="_blank" rel="noopener">
+  <img src="https://api.scryfall.com/cards/named?fuzzy={{ commander|urlencode }}&format=image&version=normal" alt="{{ commander }} card image" data-card-name="{{ commander }}" loading="lazy" decoding="async" data-lqip="1"
+     srcset="https://api.scryfall.com/cards/named?fuzzy={{ commander|urlencode }}&format=image&version=small 160w, https://api.scryfall.com/cards/named?fuzzy={{ commander|urlencode }}&format=image&version=normal 488w, https://api.scryfall.com/cards/named?fuzzy={{ commander|urlencode }}&format=image&version=large 672w"
+     sizes="(max-width: 900px) 100vw, 320px" />
       </a>
       {% if status and status.startswith('Build complete') %}
       <div style="margin-top:.75rem; display:flex; gap:.35rem; flex-wrap:wrap;">
@@ -24,8 +25,7 @@
       {% endif %}
     </aside>
     <div class="grow" data-skeleton>
-      <div hx-get="/build/banner?step=Build&i=5&n=5" hx-trigger="load"></div>
-      {% include "build/_stage_navigator.html" %}
+  <div hx-get="/build/banner" hx-trigger="load"></div>
 
       <p>Commander: <strong>{{ commander }}</strong></p>
       <p>Tags: {{ tags|default([])|join(', ') }}</p>
@@ -39,7 +39,7 @@
       </div>
       <p>Bracket: {{ bracket }}</p>
 
-      <div style="display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; margin:.25rem 0 .5rem 0;">
+    <div style="display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; margin:.25rem 0 .5rem 0;">
         {% if i and n %}
           <span class="chip"><span class="dot"></span> Stage {{ i }}/{{ n }}</span>
         {% endif %}
@@ -48,6 +48,10 @@
   {% if added_total is not none %}
   <span class="chip"><span class="dot" style="background: var(--blue-main);"></span> Added {{ added_total }}</span>
   {% endif %}
+  <span id="locks-chip">{% if locks and locks|length > 0 %}<span class="chip" title="Locked cards">🔒 {{ locks|length }} locked</span>{% endif %}</span>
+  <button type="button" class="btn" style="margin-left:auto;" title="Copy permalink"
+      onclick="(async()=>{try{const r=await fetch('/build/permalink');const j=await r.json();const url=(j.permalink?location.origin+j.permalink:location.href+'#'+btoa(JSON.stringify(j.state||{}))); await navigator.clipboard.writeText(url); toast && toast('Permalink copied');}catch(e){alert('Copied state to console'); console.log(e);}})()">Copy Permalink</button>
+  <button type="button" class="btn" title="Open a saved permalink" onclick="(function(){try{var token = prompt('Paste a /build/from?state=... URL or token:'); if(!token) return; var m = token.match(/state=([^&]+)/); var t = m? m[1] : token.trim(); if(!t) return; window.location.href = '/build/from?state=' + encodeURIComponent(t); }catch(_){}})()">Open Permalink…</button>
       </div>
       {% set pct = ((deck_count / 100.0) * 100.0) if deck_count else 0 %}
       {% set pct_clamped = (pct if pct <= 100 else 100) %}
@@ -62,7 +66,31 @@
       </div>
       {% endif %}
 
-      <!-- Filters toolbar -->
+      {% if locked_cards is defined and locked_cards %}
+      <details id="locked-section" style="margin-top:.5rem;">
+        <summary>Locked cards (always kept)</summary>
+        <ul id="locked-list" style="list-style:none; padding:0; margin:.35rem 0 0; display:grid; gap:.35rem;">
+          {% for lk in locked_cards %}
+          <li style="display:flex; align-items:center; gap:.5rem; flex-wrap:wrap;">
+            <span class="chip"><span class="dot"></span> {{ lk.name }}</span>
+            <span class="muted">{% if lk.owned %}✔ Owned{% else %}✖ Not owned{% endif %}</span>
+            {% if lk.in_deck %}<span class="muted">• In deck</span>{% else %}<span class="muted">• Will be included on rerun</span>{% endif %}
+            <form hx-post="/build/lock" hx-target="closest li" hx-swap="outerHTML" onsubmit="try{toast('Unlocked {{ lk.name }}');}catch(_){}" style="display:inline; margin-left:auto;">
+              <input type="hidden" name="name" value="{{ lk.name }}" />
+              <input type="hidden" name="locked" value="0" />
+              <input type="hidden" name="from_list" value="1" />
+              <button type="submit" class="btn" title="Unlock" aria-pressed="true">Unlock</button>
+            </form>
+          </li>
+          {% endfor %}
+        </ul>
+      </details>
+      {% endif %}
+
+  <!-- Last action chip (oob-updated) -->
+  <div id="last-action" aria-live="polite" style="margin:.25rem 0; min-height:1.5rem;"></div>
+
+  <!-- Filters toolbar -->
       <div class="cards-toolbar">
         <input type="text" name="filter_query" placeholder="Filter by name, role, or tag" data-pref="cards:filter_q" />
         <select name="filter_owned" data-pref="cards:owned">
@@ -92,11 +120,11 @@
         </div>
       </div>
 
-      <!-- Sticky build controls on mobile -->
+  <!-- Sticky build controls on mobile -->
       <div class="build-controls" style="position:sticky; top:0; z-index:5; background:linear-gradient(180deg, rgba(15,17,21,.95), rgba(15,17,21,.85)); border:1px solid var(--border); border-radius:10px; padding:.5rem; margin-top:1rem; display:flex; gap:.5rem; flex-wrap:wrap; align-items:center;">
-        <form hx-post="/build/step5/start" hx-target="#wizard" hx-swap="innerHTML" style="display:inline; margin-right:.5rem; display:flex; align-items:center; gap:.5rem;" onsubmit="try{ toast('Starting build…'); }catch(_){}">
+        <form hx-post="/build/step5/start" hx-target="#wizard" hx-swap="innerHTML" style="display:inline; margin-right:.5rem; display:flex; align-items:center; gap:.5rem;" onsubmit="try{ toast('Restarting build…'); }catch(_){}">
           <input type="hidden" name="show_skipped" value="{{ '1' if show_skipped else '0' }}" />
-          <button type="submit" class="btn-continue" data-action="continue">Start Build</button>
+          <button type="submit" class="btn-continue" data-action="continue">Restart Build</button>
         </form>
         <form hx-post="/build/step5/continue" hx-target="#wizard" hx-swap="innerHTML" style="display:inline; display:flex; align-items:center; gap:.5rem;" onsubmit="try{ toast('Continuing…'); }catch(_){}">
           <input type="hidden" name="show_skipped" value="{{ '1' if show_skipped else '0' }}" />
@@ -105,6 +133,23 @@
         <form hx-post="/build/step5/rerun" hx-target="#wizard" hx-swap="innerHTML" style="display:inline; display:flex; align-items:center; gap:.5rem;" onsubmit="try{ toast('Rerunning stage…'); }catch(_){}">
           <input type="hidden" name="show_skipped" value="{{ '1' if show_skipped else '0' }}" />
           <button type="submit" class="btn-rerun" data-action="rerun" {% if status and status.startswith('Build complete') %}disabled{% endif %}>Rerun Stage</button>
+        </form>
+        <span class="sep"></span>
+    <div class="replace-toggle" role="group" aria-label="Replace toggle">
+          <form hx-post="/build/step5/toggle-replace" hx-target="closest .replace-toggle" hx-swap="outerHTML" onsubmit="return false;" style="display:inline;">
+            <input type="hidden" name="replace" value="{{ '1' if replace_mode else '0' }}" />
+      <label class="muted" style="display:flex; align-items:center; gap:.35rem;" title="When enabled, reruns of this stage will replace its picks with alternatives instead of keeping them.">
+              <input type="checkbox" name="replace_chk" value="1" {% if replace_mode %}checked{% endif %}
+                onchange="try{ const f=this.form; const h=f.querySelector('input[name=replace]'); if(h){ h.value=this.checked?'1':'0'; } f.requestSubmit(); }catch(_){ }" />
+              Replace stage picks
+            </label>
+          </form>
+        </div>
+        <form hx-post="/build/step5/reset-stage" hx-target="#wizard" hx-swap="innerHTML" style="display:inline; display:flex; align-items:center; gap:.5rem;">
+          <button type="submit" class="btn" title="Reset this stage to pre-stage picks">Reset stage</button>
+        </form>
+        <form hx-post="/build/reset-all" hx-target="#wizard" hx-swap="innerHTML" style="display:inline; display:flex; align-items:center; gap:.5rem;">
+          <button type="submit" class="btn" title="Start a brand new build (clears selections)">New build</button>
         </form>
         <label class="muted" style="display:flex; align-items:center; gap:.35rem; margin-left: .5rem;">
           <input type="checkbox" name="__toggle_show_skipped" data-pref="build:show_skipped" {% if show_skipped %}checked{% endif %}
@@ -115,7 +160,24 @@
       </div>
 
       {% if added_cards is not none %}
-      <h4 style="margin-top:1rem;">Cards added this stage</h4>
+      {% if history is defined and history %}
+      <details style="margin-top:.5rem;">
+        <summary>Stage timeline</summary>
+        <div class="muted" style="font-size:12px; margin:.25rem 0 .35rem 0;">Jump back to a previous stage, then you can continue forward again.</div>
+        <ul style="list-style:none; padding:0; margin:0; display:grid; gap:.25rem;">
+          {% for h in history %}
+          <li style="display:flex; align-items:center; gap:.5rem;">
+            <span class="chip"><span class="dot"></span> {{ h.label }}</span>
+            <form hx-post="/build/step5/rewind" hx-target="#wizard" hx-swap="innerHTML" style="display:inline; margin:0;">
+              <input type="hidden" name="to" value="{{ h.i }}" />
+              <button type="submit" class="btn">Go</button>
+            </form>
+          </li>
+          {% endfor %}
+        </ul>
+      </details>
+      {% endif %}
+  <h4 style="margin-top:1rem;">Cards added this stage</h4>
       {% if skipped and (not added_cards or added_cards|length == 0) %}
         <div class="muted" style="margin:.25rem 0 .5rem 0;">No cards added in this stage.</div>
       {% endif %}
@@ -127,6 +189,7 @@
   {% if stage_label and stage_label.startswith('Creatures') %}
         {% set groups = added_cards|groupby('sub_role') %}
         {% for g in groups %}
+          {% set group_idx = loop.index0 %}
           {% set role = g.grouper %}
           {% if role %}
             {% set heading = 'Theme: ' + role.title() %}
@@ -139,46 +202,81 @@
               <span class="count">(<span data-count>{{ g.list|length }}</span>)</span>
               <button type="button" class="toggle" title="Collapse/Expand">Toggle</button>
             </div>
-            <div class="card-grid group-grid" data-skeleton>
-            {% for c in g.list %}
+  <div class="card-grid group-grid" data-skeleton {% if virtualize %}data-virtualize="1"{% endif %}>
+      {% for c in g.list %}
             {% set owned = (owned_set is defined and c.name and (c.name|lower in owned_set)) %}
-            <div class="card-tile{% if game_changers and (c.name in game_changers) %} game-changer{% endif %}" data-card-name="{{ c.name }}" data-role="{{ c.role or c.sub_role or '' }}" data-tags="{{ (c.tags|join(', ')) if c.tags else '' }}" data-owned="{{ '1' if owned else '0' }}">
-              <a href="https://scryfall.com/search?q={{ c.name|urlencode }}" target="_blank" rel="noopener">
-                <img src="https://api.scryfall.com/cards/named?fuzzy={{ c.name|urlencode }}&format=image&version=normal" alt="{{ c.name }} image" width="160" data-card-name="{{ c.name }}" />
-              </a>
+            {% set is_locked = (locks is defined and (c.name|lower in locks)) %}
+            <div class="card-tile{% if game_changers and (c.name in game_changers) %} game-changer{% endif %}{% if is_locked %} locked{% endif %}" data-card-name="{{ c.name }}" data-role="{{ c.role or c.sub_role or '' }}" data-tags="{{ (c.tags|join(', ')) if c.tags else '' }}" data-owned="{{ '1' if owned else '0' }}">
+  <button type="button" class="img-btn" title="{{ 'Unlock this card (kept across reruns)' if is_locked else 'Lock this card (keep across reruns)' }}" aria-pressed="{{ 'true' if is_locked else 'false' }}"
+          hx-post="/build/lock" hx-target="#lock-{{ group_idx }}-{{ loop.index0 }}" hx-swap="innerHTML"
+          hx-vals='{"name": "{{ c.name }}", "locked": "{{ '0' if is_locked else '1' }}"}'
+          hx-on="htmx:afterOnLoad: (function(){try{const tile=this.closest('.card-tile');if(!tile)return;const valsAttr=this.getAttribute('hx-vals')||'{}';const sent=JSON.parse(valsAttr.replace(/&quot;/g,'\"'));const nowLocked=(sent.locked==='1');tile.classList.toggle('locked', nowLocked);const next=(nowLocked?'0':'1');this.setAttribute('hx-vals', JSON.stringify({name: sent.name, locked: next}));}catch(e){}})()">
+                <img class="card-thumb" src="https://api.scryfall.com/cards/named?fuzzy={{ c.name|urlencode }}&format=image&version=normal" alt="{{ c.name }} image" width="160" data-card-name="{{ c.name }}" loading="lazy" decoding="async" data-lqip="1"
+                  srcset="https://api.scryfall.com/cards/named?fuzzy={{ c.name|urlencode }}&format=image&version=small 160w, https://api.scryfall.com/cards/named?fuzzy={{ c.name|urlencode }}&format=image&version=normal 488w, https://api.scryfall.com/cards/named?fuzzy={{ c.name|urlencode }}&format=image&version=large 672w"
+                  sizes="160px" />
+              </button>
               <div class="owned-badge" title="{{ 'Owned' if owned else 'Not owned' }}" aria-label="{{ 'Owned' if owned else 'Not owned' }}">{% if owned %}✔{% else %}✖{% endif %}</div>
               <div class="name">{{ c.name }}{% if c.count and c.count > 1 %} ×{{ c.count }}{% endif %}</div>
+    <div class="lock-box" id="lock-{{ group_idx }}-{{ loop.index0 }}" style="display:flex; justify-content:center; gap:.25rem; margin-top:.25rem;">
+  <button type="button" class="btn-lock" title="{{ 'Unlock this card (kept across reruns)' if is_locked else 'Lock this card (keep across reruns)' }}" aria-pressed="{{ 'true' if is_locked else 'false' }}"
+      hx-post="/build/lock" hx-target="closest .lock-box" hx-swap="innerHTML"
+                        hx-vals='{"name": "{{ c.name }}", "locked": "{{ '0' if is_locked else '1' }}"}'>{{ '🔒 Unlock' if is_locked else '🔓 Lock' }}</button>
+              </div>
               {% if c.reason %}
-                <div style="display:flex; justify-content:center; margin-top:.25rem;">
+                <div style="display:flex; justify-content:center; margin-top:.25rem; gap:.35rem; flex-wrap:wrap;">
                   <button type="button" class="btn-why" aria-expanded="false">Why?</button>
+                  <button type="button" class="btn" hx-get="/build/alternatives" hx-vals='{"name": "{{ c.name }}"}' hx-target="#alts-{{ group_idx }}-{{ loop.index0 }}" hx-swap="innerHTML" title="Suggest alternatives">Alternatives</button>
                 </div>
                 <div class="reason" role="region" aria-label="Reason">{{ c.reason }}</div>
+              {% else %}
+                <div style="display:flex; justify-content:center; margin-top:.25rem;">
+                  <button type="button" class="btn" hx-get="/build/alternatives" hx-vals='{"name": "{{ c.name }}"}' hx-target="#alts-{{ group_idx }}-{{ loop.index0 }}" hx-swap="innerHTML" title="Suggest alternatives">Alternatives</button>
+                </div>
               {% endif %}
+              <div id="alts-{{ group_idx }}-{{ loop.index0 }}" class="alts" style="margin-top:.25rem;"></div>
             </div>
             {% endfor %}
             </div>
           </div>
         {% endfor %}
       {% else %}
-  <div class="card-grid" data-skeleton>
+  <div class="card-grid" data-skeleton {% if virtualize %}data-virtualize="1"{% endif %}>
           {% for c in added_cards %}
           {% set owned = (owned_set is defined and c.name and (c.name|lower in owned_set)) %}
-          <div class="card-tile{% if game_changers and (c.name in game_changers) %} game-changer{% endif %}" data-card-name="{{ c.name }}" data-role="{{ c.role or c.sub_role or '' }}" data-tags="{{ (c.tags|join(', ')) if c.tags else '' }}" data-owned="{{ '1' if owned else '0' }}">
-            <a href="https://scryfall.com/search?q={{ c.name|urlencode }}" target="_blank" rel="noopener">
-              <img src="https://api.scryfall.com/cards/named?fuzzy={{ c.name|urlencode }}&format=image&version=normal" alt="{{ c.name }} image" width="160" data-card-name="{{ c.name }}" />
-            </a>
+          {% set is_locked = (locks is defined and (c.name|lower in locks)) %}
+          <div class="card-tile{% if game_changers and (c.name in game_changers) %} game-changer{% endif %}{% if is_locked %} locked{% endif %}" data-card-name="{{ c.name }}" data-role="{{ c.role or c.sub_role or '' }}" data-tags="{{ (c.tags|join(', ')) if c.tags else '' }}" data-owned="{{ '1' if owned else '0' }}">
+  <button type="button" class="img-btn" title="{{ 'Unlock this card (kept across reruns)' if is_locked else 'Lock this card (keep across reruns)' }}" aria-pressed="{{ 'true' if is_locked else 'false' }}"
+        hx-post="/build/lock" hx-target="#lock-{{ loop.index0 }}" hx-swap="innerHTML"
+        hx-vals='{"name": "{{ c.name }}", "locked": "{{ '0' if is_locked else '1' }}"}'
+        hx-on="htmx:afterOnLoad: (function(){try{const tile=this.closest('.card-tile');if(!tile)return;const valsAttr=this.getAttribute('hx-vals')||'{}';const sent=JSON.parse(valsAttr.replace(/&quot;/g,'\"'));const nowLocked=(sent.locked==='1');tile.classList.toggle('locked', nowLocked);const next=(nowLocked?'0':'1');this.setAttribute('hx-vals', JSON.stringify({name: sent.name, locked: next}));}catch(e){}})()">
+              <img class="card-thumb" src="https://api.scryfall.com/cards/named?fuzzy={{ c.name|urlencode }}&format=image&version=normal" alt="{{ c.name }} image" width="160" data-card-name="{{ c.name }}" loading="lazy" decoding="async" data-lqip="1"
+                srcset="https://api.scryfall.com/cards/named?fuzzy={{ c.name|urlencode }}&format=image&version=small 160w, https://api.scryfall.com/cards/named?fuzzy={{ c.name|urlencode }}&format=image&version=normal 488w, https://api.scryfall.com/cards/named?fuzzy={{ c.name|urlencode }}&format=image&version=large 672w"
+                sizes="160px" />
+            </button>
             <div class="owned-badge" title="{{ 'Owned' if owned else 'Not owned' }}" aria-label="{{ 'Owned' if owned else 'Not owned' }}">{% if owned %}✔{% else %}✖{% endif %}</div>
             <div class="name">{{ c.name }}{% if c.count and c.count > 1 %} ×{{ c.count }}{% endif %}</div>
+    <div class="lock-box" id="lock-{{ loop.index0 }}" style="display:flex; justify-content:center; gap:.25rem; margin-top:.25rem;">
+  <button type="button" class="btn-lock" title="{{ 'Unlock this card (kept across reruns)' if is_locked else 'Lock this card (keep across reruns)' }}" aria-pressed="{{ 'true' if is_locked else 'false' }}"
+          hx-post="/build/lock" hx-target="closest .lock-box" hx-swap="innerHTML"
+                      hx-vals='{"name": "{{ c.name }}", "locked": "{{ '0' if is_locked else '1' }}"}'>{{ '🔒 Unlock' if is_locked else '🔓 Lock' }}</button>
+            </div>
             {% if c.reason %}
-              <div style="display:flex; justify-content:center; margin-top:.25rem;">
+              <div style="display:flex; justify-content:center; margin-top:.25rem; gap:.35rem; flex-wrap:wrap;">
                 <button type="button" class="btn-why" aria-expanded="false">Why?</button>
+                <button type="button" class="btn" hx-get="/build/alternatives" hx-vals='{"name": "{{ c.name }}"}' hx-target="#alts-{{ loop.index0 }}" hx-swap="innerHTML" title="Suggest alternatives">Alternatives</button>
               </div>
               <div class="reason" role="region" aria-label="Reason">{{ c.reason }}</div>
+            {% else %}
+              <div style="display:flex; justify-content:center; margin-top:.25rem;">
+                <button type="button" class="btn" hx-get="/build/alternatives" hx-vals='{"name": "{{ c.name }}"}' hx-target="#alts-{{ loop.index0 }}" hx-swap="innerHTML" title="Suggest alternatives">Alternatives</button>
+              </div>
             {% endif %}
+            <div id="alts-{{ loop.index0 }}" class="alts" style="margin-top:.25rem;"></div>
           </div>
           {% endfor %}
         </div>
       {% endif %}
+  <div class="muted" style="font-size:12px; margin:.35rem 0 .25rem 0;">Tip: Click a card to lock or unlock it. Locked cards are kept across reruns and won’t be replaced unless you unlock them.</div>
       <div data-empty hidden role="status" aria-live="polite" class="muted" style="margin:.5rem 0 0;">
         No cards match your filters.
       </div>
@@ -201,3 +299,67 @@
     </div>
   </div>
 </section>
+<script>
+// Sync tile class and image-button toggle after lock button swaps
+document.addEventListener('htmx:afterSwap', function(ev){
+  try{
+    const tgt = ev.target;
+    if(!tgt) return;
+    // Only act for lock-box updates
+    if(!tgt.classList || !tgt.classList.contains('lock-box')) return;
+    const tile = tgt.closest('.card-tile');
+    if(!tile) return;
+    const lockBtn = tgt.querySelector('.btn-lock');
+    if(lockBtn){
+      const isLocked = (lockBtn.getAttribute('data-locked') === '1');
+  tile.classList.toggle('locked', isLocked);
+      const imgBtn = tile.querySelector('.img-btn');
+      if(imgBtn){
+        try{
+          const valsAttr = imgBtn.getAttribute('hx-vals') || '{}';
+          const cur = JSON.parse(valsAttr.replace(/&quot;/g, '"'));
+          const next = isLocked ? '0' : '1';
+          // Keep name stable; fallback to tile data attribute
+          const nm = cur.name || tile.getAttribute('data-card-name') || '';
+          imgBtn.setAttribute('hx-vals', JSON.stringify({ name: nm, locked: next }));
+          imgBtn.title = 'Click to ' + (isLocked ? 'unlock' : 'lock') + ' this card';
+          try { imgBtn.setAttribute('aria-pressed', isLocked ? 'true' : 'false'); } catch(_){ }
+        }catch(_){/* noop */}
+      }
+    }
+  }catch(_){/* noop */}
+});
+// Allow dismissing/auto-clearing the last-action chip
+document.addEventListener('click', function(ev){
+  try{
+    var t = ev.target;
+    if (!t) return;
+    if (t.matches && t.matches('#last-action .chip')){
+      var c = document.getElementById('last-action');
+      if (c) c.innerHTML = '';
+    }
+  }catch(_){/* noop */}
+});
+setTimeout(function(){ try{ var c=document.getElementById('last-action'); if(c && c.firstElementChild){ c.innerHTML=''; } }catch(_){} }, 6000);
+
+// Keyboard helpers: when a card-tile is focused, L toggles lock, R opens alternatives
+document.addEventListener('keydown', function(e){
+  try{
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    var tag = (e.target && e.target.tagName) ? e.target.tagName.toLowerCase() : '';
+    // Ignore when typing in inputs/selects
+    if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+    var tile = document.activeElement && document.activeElement.closest ? document.activeElement.closest('.card-tile') : null;
+    if (!tile) return;
+    if (e.key === 'l' || e.key === 'L') {
+      e.preventDefault(); e.stopPropagation();
+      var lockFormBtn = tile.querySelector('.lock-box .btn-lock');
+      if (lockFormBtn) { lockFormBtn.click(); }
+    } else if (e.key === 'r' || e.key === 'R') {
+      e.preventDefault(); e.stopPropagation();
+      var altBtn = tile.querySelector('button[hx-get="/build/alternatives"]');
+      if (altBtn) { altBtn.click(); }
+    }
+  }catch(_){ }
+});
+</script>

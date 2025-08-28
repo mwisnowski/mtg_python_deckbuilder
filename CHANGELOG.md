@@ -13,7 +13,18 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 ## [Unreleased]
 
 ### Added
+- Web UI performance: optional virtualized grids/lists in Step 5 and Owned (enable with `WEB_VIRTUALIZE=1`).
+- Virtualization diagnostics overlay (when `SHOW_DIAGNOSTICS=1`); press `v` to toggle per‑grid overlays and a global summary bubble with visible range, totals, render time, and counters.
+- Image polish: lazy‑loading with responsive `srcset/sizes` and LQIP blur/fade‑in for Step 5 and Owned thumbnails and the commander preview image.
+- Short‑TTL fragment caching for template partials (e.g., finished deck summaries and config run summaries) to reduce re‑render cost.
 - Web UI: FastAPI + Jinja front-end for the builder; staged build view with per-stage reasons
+- New Deck modal consolidating steps 1–3 with optional Name for exports, Enter-to-select commander, and disabled browser autofill
+- Locks, Replace flow, Compare builds, and shareable permalinks for finished decks
+- Compare page: Copy summary action to copy diffs (Only in A/B and Changed counts) to clipboard
+ - Finished Decks multi-select → Compare with fallback to "Latest two"; options carry modified-time for ordering
+ - Permalinks include locks; global "Open Permalink…" entry exposed in header and Finished Decks
+ - Replace flow supports session-local Undo and lock-aware validation
+- New Deck modal: inline summary of selected themes with order (1, 2, 3)
 - Theme combine mode (AND/OR) with tooltips and selection-order display in the Web UI
 - AND-mode creatures pre-pass: select "all selected themes" creatures first, then fill by weighted overlap; staged reasons show matched themes
 - Scryfall attribution footer in the Web UI
@@ -39,7 +50,11 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
  - `/status/logs?tail=N` endpoint (read-only) to fetch a recent log tail for quick diagnostics
  - Tooltip Copy action on chart tooltips (Pips/Sources) for quick sharing of per-color card lists
 
+Roadmap and usage for Web UI features are tracked in `logs/web-ui-upgrade-outline.md`.
+
 ### Changed
+- Accessibility: respect OS “reduced motion” by disabling blur/fade transitions and smooth scrolling.
+- Static asset caching and compression tuned for the web service (cache headers + gzip) to improve load performance.
 - Rename folder from `card_library` to `owned_cards` (env override: `OWNED_CARDS_DIR`; back-compat respected)
 - Docker assets and docs updated:
   - New volume mounts: `./owned_cards:/app/owned_cards` and `./config:/app/config`
@@ -51,6 +66,12 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
  - Builder Review (Step 4): "Use only owned cards" toggle moved here; Step 5 is status-only with "Edit in Review" for changes
  - Minor UI/CSS polish and consolidation across builder/owned pages
  - Deck summary reporting now includes colorless 'C' in totals and cards; UI adds a Show C toggle for Sources
+ - New Deck modal submits directly to build, removing the intermediate review step
+ - Finished Decks banner and lists now prefer the custom Name provided in the modal
+ - Step 5 Replace toggle now includes a tooltip clarifying that reruns will replace picks in that stage when enabled
+ - Locks are enforced on rerun; the Locked section live-updates on unlock (row removal and chip refresh)
+ - Compare page shows ▲/▼ indicators on Changed counts and preserves the "Changed only" toggle across interactions
+ - Bracket selector shows numbered labels (e.g., "Bracket 3: Upgraded") and defaults to bracket 3 on new deck creation
  - List view highlight polished to wrap only the card name (no overrun of the row)
  - Total sources calculation updated to include 'C' properly
  - 404s from Starlette now render the HTML 404 page when requested from a browser (Accept: text/html)
@@ -66,7 +87,9 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
  - Basics handling: ensured basic lands and Wastes are recognized as sources; added fallback oracle text for basics in CSV export
  - Fetch lands are no longer miscounted as mana sources
  - Web 404s previously returned JSON to browsers in some cases; now correctly render HTML via a Starlette HTTPException handler
+ - Windows PowerShell curl parsing issue documented with guidance in README
  - Deck summary alignment issues in some sections (e.g., Enchantments) fixed by splitting the count and the × into separate columns and pinning the owned flag to a fixed width; prevents drift across responsive breakpoints
+ - Banned list filtering applied consistently to all color/guild CSV generation paths with exact, case-insensitive matching on name/faceName (e.g., Hullbreacher, Dockside Extortionist, and Lutri are excluded)
 
 ---
 

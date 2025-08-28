@@ -48,3 +48,7 @@ WORKDIR /app/code
 
 # Run the application
 CMD ["python", "main.py"]
+
+# Note: For the Web UI, start uvicorn in your orchestrator (compose/run) like:
+#   uvicorn code.web.app:app --host 0.0.0.0 --port 8080
+# Phase 9: enable web list virtualization with env WEB_VIRTUALIZE=1

@@ -70,7 +70,7 @@
   {% endif %}
 
   {% if names and names|length %}
-  <div id="owned-box" style="overflow:auto; border:1px solid var(--border); border-radius:8px; padding:.5rem; background:#0f1115; color:#e5e7eb; min-height:240px;">
+  <div id="owned-box" style="overflow:auto; border:1px solid var(--border); border-radius:8px; padding:.5rem; background:#0f1115; color:#e5e7eb; min-height:240px;" {% if virtualize %}data-virtualize="1"{% endif %}>
     <ul id="owned-grid" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); grid-auto-rows:auto; gap:4px 16px; list-style:none; margin:0; padding:0;">
       {% for n in names %}
       {% set tags = (tags_by_name.get(n, []) if tags_by_name else []) %}
@@ -81,7 +81,9 @@
   <label class="owned-row" style="cursor:pointer;" tabindex="0">
           <input type="checkbox" class="sel sr-only" aria-label="Select {{ n }}" />
           <div class="owned-vstack">
-            <img class="card-thumb" loading="lazy" alt="{{ n }} image" src="https://api.scryfall.com/cards/named?fuzzy={{ n|urlencode }}&format=image&version=small" data-card-name="{{ n }}" {% if tags %}data-tags="{{ (tags or [])|join(', ') }}"{% endif %} />
+  <img class="card-thumb" loading="lazy" decoding="async" alt="{{ n }} image" src="https://api.scryfall.com/cards/named?fuzzy={{ n|urlencode }}&format=image&version=small" data-card-name="{{ n }}" data-lqip="1" {% if tags %}data-tags="{{ (tags or [])|join(', ') }}"{% endif %}
+        srcset="https://api.scryfall.com/cards/named?fuzzy={{ n|urlencode }}&format=image&version=small 160w, https://api.scryfall.com/cards/named?fuzzy={{ n|urlencode }}&format=image&version=normal 488w"
+        sizes="100px" />
             <span class="card-name"{% if tags %} data-tags="{{ (tags or [])|join(', ') }}"{% endif %}>{{ n }}</span>
             {% if cols and cols|length %}
             <div class="mana-group" aria-hidden="true">

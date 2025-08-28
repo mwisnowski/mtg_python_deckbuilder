@@ -14,13 +14,14 @@ if not exist "owned_cards" mkdir owned_cards
 REM Flags (override by setting env vars before running)
 if "%SHOW_LOGS%"=="" set SHOW_LOGS=1
 if "%SHOW_DIAGNOSTICS%"=="" set SHOW_DIAGNOSTICS=1
+if "%WEB_VIRTUALIZE%"=="" set WEB_VIRTUALIZE=0
 
 echo Starting Web UI on http://localhost:8080
-printf Flags: SHOW_LOGS=%SHOW_LOGS%  SHOW_DIAGNOSTICS=%SHOW_DIAGNOSTICS%
+printf Flags: SHOW_LOGS=%SHOW_LOGS%  SHOW_DIAGNOSTICS=%SHOW_DIAGNOSTICS%  WEB_VIRTUALIZE=%WEB_VIRTUALIZE%
 
 docker run --rm ^
   -p 8080:8080 ^
-  -e SHOW_LOGS=%SHOW_LOGS% -e SHOW_DIAGNOSTICS=%SHOW_DIAGNOSTICS% ^
+  -e SHOW_LOGS=%SHOW_LOGS% -e SHOW_DIAGNOSTICS=%SHOW_DIAGNOSTICS% -e WEB_VIRTUALIZE=%WEB_VIRTUALIZE% ^
   -v "%cd%\deck_files:/app/deck_files" ^
   -v "%cd%\logs:/app/logs" ^
   -v "%cd%\csv_files:/app/csv_files" ^

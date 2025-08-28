@@ -8,6 +8,10 @@
 - Exports: CSV/TXT always; JSON run-config exported for interactive runs and optionally in headless (`HEADLESS_EXPORT_JSON=1`).
 - Data freshness: Auto-refreshes `cards.csv` if missing or older than 7 days and re-tags when needed using `.tagging_complete.json`.
 - Web setup speed: initial tagging runs in parallel by default for the Web UI. Configure with `WEB_TAG_PARALLEL=1|0` and `WEB_TAG_WORKERS=<N>` (compose default: 4). Falls back to sequential if parallel init fails.
+ - Phase 8 UI upgrade: Unified “New Deck” modal (steps 1–3), Locks, Replace flow, Compare builds, and shareable Permalinks. Optional Name field becomes the export filename stem and display name.
+  - Compare page now includes a Copy summary button to quickly share diffs.
+  - New Deck modal: shows selected themes and their order (1, 2, 3) inline while picking.
+ - Commander search UX: press Enter to select the first suggestion; arrow key navigation removed per feedback; browser autofill disabled.
  - Visual summaries: Mana Curve, Color Pips and Sources charts with hover-to-highlight and copyable tooltips. Sources now include non-land producers and colorless 'C' (toggle display in UI). Basic lands reliably counted; fetch lands no longer miscounted as sources.
  - Favicon support: app branding icon served at `/favicon.ico` (ICO/PNG fallback).
  - Prefer-owned option in the Web UI Review step prioritizes owned cards while allowing unowned fallback; applied across creatures and spells with stable reordering and gentle weight boosts.
@@ -16,6 +20,10 @@
  - Owned page UX: hover preview now triggers from the thumbnail, not the name; selection outline is restricted to the thumbnail and uses white for clarity; hover popout shows Themes as a larger bullet list with a bright label.
  - Image robustness: all Scryfall images include `data-card-name` and participate in centralized retry (version fallback + one cache-bust) for thumbnails and previews.
  - Deck Summary: aligned text-mode list (fixed columns for count/×/name/owned), highlight that doesn’t shift layout, and tooltips for truncated names. The list begins directly under each type header for better scanability.
+ - Finished Decks: banner and lists prefer the run’s custom Name when provided; runs include a sidecar `.summary.json` with `meta.name` for display.
+  - Replace toggle includes a tooltip explaining that reruns will replace that stage’s picks when enabled.
+  - Bracket selector labels now include numbers (e.g., "Bracket 3: Upgraded"). Default bracket is 3 when creating a new deck.
+ - Exports: CSV/TXT/JSON now share the same filename stem derived from the optional Name in the modal.
 
 ### Diagnostics and error handling
 - Health endpoint `/healthz` returns `{ status, version, uptime_seconds }`.
@@ -91,6 +99,7 @@ docker compose up --no-deps web
  - Finished Decks page uses a dropdown theme filter with shareable state.
  - Global image retry binding for all card images (thumbnails and previews), with no JS hover cache to minimize memory and complexity.
  - Deck Summary fixes: separated count and × into distinct columns, fixed-width owned indicator, and responsive stability at fullscreen widths.
+ - Data integrity: per-color/guild CSVs now consistently respect the Commander banned list using exact, case-insensitive name/faceName matching.
 
 ### Tagging updates
 - Explore/Map: treat "+1/+1 counter" as a literal; Explore adds Card Selection and may add +1/+1 Counters; Map adds Card Selection and Tokens Matter.

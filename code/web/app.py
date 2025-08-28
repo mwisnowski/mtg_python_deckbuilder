@@ -11,6 +11,8 @@ import time
 import uuid
 import logging
 from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.middleware.gzip import GZipMiddleware
+from typing import Any, Tuple
 
 # Resolve template/static dirs relative to this file
 _THIS_DIR = Path(__file__).resolve().parent
@@ -18,10 +20,20 @@ _TEMPLATES_DIR = _THIS_DIR / "templates"
 _STATIC_DIR = _THIS_DIR / "static"
 
 app = FastAPI(title="MTG Deckbuilder Web UI")
+app.add_middleware(GZipMiddleware, minimum_size=500)
 
 # Mount static if present
 if _STATIC_DIR.exists():
-    app.mount("/static", StaticFiles(directory=str(_STATIC_DIR)), name="static")
+    class CacheStatic(StaticFiles):
+        async def get_response(self, path, scope):  # type: ignore[override]
+            resp = await super().get_response(path, scope)
+            try:
+                # Add basic cache headers for static assets
+                resp.headers.setdefault("Cache-Control", "public, max-age=604800, immutable")
+            except Exception:
+                pass
+            return resp
+    app.mount("/static", CacheStatic(directory=str(_STATIC_DIR)), name="static")
 
 # Jinja templates
 templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
@@ -35,13 +47,41 @@ def _as_bool(val: str | None, default: bool = False) -> bool:
 SHOW_LOGS = _as_bool(os.getenv("SHOW_LOGS"), False)
 SHOW_SETUP = _as_bool(os.getenv("SHOW_SETUP"), True)
 SHOW_DIAGNOSTICS = _as_bool(os.getenv("SHOW_DIAGNOSTICS"), False)
+SHOW_VIRTUALIZE = _as_bool(os.getenv("WEB_VIRTUALIZE"), False)
 
 # Expose as Jinja globals so all templates can reference without passing per-view
 templates.env.globals.update({
     "show_logs": SHOW_LOGS,
     "show_setup": SHOW_SETUP,
     "show_diagnostics": SHOW_DIAGNOSTICS,
+    "virtualize": SHOW_VIRTUALIZE,
 })
+
+# --- Simple fragment cache for template partials (low-risk, TTL-based) ---
+_FRAGMENT_CACHE: dict[Tuple[str, str], tuple[float, str]] = {}
+_FRAGMENT_TTL_SECONDS = 60.0
+
+def render_cached(template_name: str, cache_key: str | None, /, **ctx: Any) -> str:
+    """Render a template fragment with an optional cache key and short TTL.
+
+    Intended for finished/immutable views (e.g., saved deck summaries). On error,
+    falls back to direct rendering without cache interaction.
+    """
+    try:
+        if cache_key:
+            now = time.time()
+            k = (template_name, str(cache_key))
+            hit = _FRAGMENT_CACHE.get(k)
+            if hit and (now - hit[0]) < _FRAGMENT_TTL_SECONDS:
+                return hit[1]
+            html = templates.get_template(template_name).render(**ctx)
+            _FRAGMENT_CACHE[k] = (now, html)
+            return html
+        return templates.get_template(template_name).render(**ctx)
+    except Exception:
+        return templates.get_template(template_name).render(**ctx)
+
+templates.env.globals["render_cached"] = render_cached
 
 # --- Diagnostics: request-id and uptime ---
 _APP_START_TIME = time.time()
@@ -331,3 +371,11 @@ async def diagnostics_home(request: Request) -> HTMLResponse:
     if not SHOW_DIAGNOSTICS:
         raise HTTPException(status_code=404, detail="Not Found")
     return templates.TemplateResponse("diagnostics/index.html", {"request": request})
+
+
+@app.get("/diagnostics/perf", response_class=HTMLResponse)
+async def diagnostics_perf(request: Request) -> HTMLResponse:
+    """Synthetic scroll performance page (diagnostics only)."""
+    if not SHOW_DIAGNOSTICS:
+        raise HTTPException(status_code=404, detail="Not Found")
+    return templates.TemplateResponse("diagnostics/perf.html", {"request": request})

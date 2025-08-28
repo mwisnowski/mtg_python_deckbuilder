@@ -46,6 +46,7 @@ Run the browser UI by mapping a port and starting uvicorn:
 ```powershell
 docker run --rm `
   -p 8080:8080 `
+  -e WEB_VIRTUALIZE=1 ` # optional virtualization
   -v "${PWD}/deck_files:/app/deck_files" `
   -v "${PWD}/logs:/app/logs" `
   -v "${PWD}/csv_files:/app/csv_files" `

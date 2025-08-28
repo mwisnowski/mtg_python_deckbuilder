@@ -7,6 +7,15 @@
     <h3 style="margin-top:0">System summary</h3>
     <div id="sysSummary" class="muted">Loading…</div>
   </div>
+  <div class="card" style="background:#0f1115; border:1px solid var(--border); border-radius:10px; padding:.75rem; margin-bottom:.75rem">
+    <h3 style="margin-top:0">Performance (local)</h3>
+    <div class="muted" style="margin-bottom:.35rem">Scroll the Step 5 list; this panel shows a rough FPS estimate and virtualization renders.</div>
+    <div style="display:flex; gap:1rem; flex-wrap:wrap">
+      <div><strong>Scroll FPS:</strong> <span id="perf-fps">–</span></div>
+      <div><strong>Visible tiles:</strong> <span id="perf-visible">–</span></div>
+      <div><strong>Render count:</strong> <span id="perf-renders">0</span></div>
+    </div>
+  </div>
   <div class="card" style="background:#0f1115; border:1px solid var(--border); border-radius:10px; padding:.75rem;">
   <h3 style="margin-top:0">Error triggers</h3>
     <div class="row" style="display:flex; gap:.5rem; align-items:center">
@@ -39,6 +48,40 @@
     try { fetch('/status/sys', { cache: 'no-store' }).then(function(r){ return r.json(); }).then(render).catch(function(){ el.textContent='Unavailable'; }); } catch(_){ el.textContent='Unavailable'; }
   }
   load();
+  // Perf probe: listen to scroll on a card grid if present
+  try{
+    var fpsEl = document.getElementById('perf-fps');
+    var visEl = document.getElementById('perf-visible');
+    var rcEl = document.getElementById('perf-renders');
+    var grid = document.querySelector('.card-grid');
+    var last = performance.now();
+    var frames = 0; var renders = 0;
+    function tick(){
+      frames++;
+      var now = performance.now();
+      if (now - last >= 500){
+        var fps = Math.round((frames * 1000) / (now - last));
+        if (fpsEl) fpsEl.textContent = String(fps);
+        frames = 0; last = now;
+      }
+      requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+    function updateVisible(){
+      try{
+        if (!grid) return;
+        var tiles = grid.querySelectorAll('.card-tile');
+        var c = 0; tiles.forEach(function(t){ if (t.style.display !== 'none') c++; });
+        if (visEl) visEl.textContent = String(c);
+      }catch(_){ }
+    }
+    if (grid){
+      grid.addEventListener('scroll', updateVisible);
+      var mo = new MutationObserver(function(){ renders++; if (rcEl) rcEl.textContent = String(renders); updateVisible(); });
+      mo.observe(grid, { childList: true, subtree: true, attributes: false });
+      updateVisible();
+    }
+  }catch(_){ }
 })();
 </script>
 {% endblock %}

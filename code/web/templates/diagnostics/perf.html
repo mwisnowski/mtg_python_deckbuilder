@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block content %}
+<section>
+  <h2>Diagnostics: Synthetic Perf Probe</h2>
+  <p class="muted">Scroll the list; we estimate FPS and count re-renders. This page is only available when diagnostics are enabled.</p>
+  <div style="display:flex; gap:1rem; flex-wrap:wrap; margin:.5rem 0 1rem 0;">
+    <div><strong>FPS:</strong> <span id="fps">–</span></div>
+    <div><strong>Visible rows:</strong> <span id="rows">–</span></div>
+    <div><strong>Render count:</strong> <span id="renders">0</span></div>
+  </div>
+
+  <div id="probe" style="height:60vh; overflow:auto; border:1px solid var(--border); border-radius:8px; background:#0f1115;">
+    <ul id="list" style="list-style:none; margin:0; padding:0; display:grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap:8px 12px;">
+      {% for i in range(1,1201) %}
+      <li style="padding:.5rem; border:1px solid var(--border); border-radius:8px; background:#0b0d12;">
+        <div style="display:flex; align-items:center; gap:.5rem;">
+          <div style="width:64px; height:40px; background:#111; border:1px solid var(--border); border-radius:6px;">
+            <img class="card-thumb" alt="Thumb {{ i }}" loading="lazy" decoding="async" data-lqip
+                 src="https://api.scryfall.com/cards/named?fuzzy=Lightning%20Bolt&format=image&version=small"
+                 width="64" height="40" style="width:64px; height:40px; object-fit:cover; border-radius:6px;" />
+          </div>
+          <div style="display:flex; flex-direction:column; gap:.25rem;">
+            <strong>Row {{ i }}</strong>
+            <small class="muted">Synthetic item for performance testing</small>
+          </div>
+        </div>
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+</section>
+<script>
+(function(){
+  var probe = document.getElementById('probe');
+  var list = document.getElementById('list');
+  var fpsEl = document.getElementById('fps');
+  var rowsEl = document.getElementById('rows');
+  var rcEl = document.getElementById('renders');
+  var last = performance.now();
+  var frames = 0; var renders = 0;
+  function raf(){
+    frames++;
+    var now = performance.now();
+    if (now - last >= 500){
+      var fps = Math.round((frames * 1000) / (now - last));
+      if (fpsEl) fpsEl.textContent = String(fps);
+      frames = 0; last = now;
+    }
+    requestAnimationFrame(raf);
+  }
+  requestAnimationFrame(raf);
+  function updateVisible(){
+    if (!probe || !list) return;
+    var count = 0;
+    list.querySelectorAll('li').forEach(function(li){
+      // rough: count if within viewport
+      var rect = li.getBoundingClientRect();
+      var pRect = probe.getBoundingClientRect();
+      if (rect.bottom >= pRect.top && rect.top <= pRect.bottom) count++;
+    });
+    if (rowsEl) rowsEl.textContent = String(count);
+  }
+  if (probe){
+    probe.addEventListener('scroll', updateVisible);
+    var mo = new MutationObserver(function(){ renders++; if (rcEl) rcEl.textContent = String(renders); updateVisible(); });
+    mo.observe(list, { childList: true, subtree: true });
+    updateVisible();
+  }
+})();
+</script>
+{% endblock %}

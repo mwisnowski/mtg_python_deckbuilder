@@ -6,18 +6,23 @@
     <title>MTG Deckbuilder</title>
     <script src="https://unpkg.com/htmx.org@1.9.12" onerror="var s=document.createElement('script');s.src='/static/vendor/htmx-1.9.12.min.js';document.head.appendChild(s);"></script>
   <link rel="stylesheet" href="/static/styles.css?v=20250826-4" />
+  <!-- Performance hints -->
+  <link rel="preconnect" href="https://api.scryfall.com" crossorigin>
+  <link rel="dns-prefetch" href="https://api.scryfall.com">
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="/static/favicon.png" />
   <link rel="shortcut icon" href="/favicon.ico" />
   <link rel="apple-touch-icon" href="/static/favicon.png" />
   </head>
-  <body>
+  <body data-diag="{% if show_diagnostics %}1{% else %}0{% endif %}" data-virt="{% if virtualize %}1{% else %}0{% endif %}">
     <header class="top-banner">
       <div class="top-inner">
         <h1>MTG Deckbuilder</h1>
         <div style="display:flex; align-items:center; gap:.5rem">
           <span id="health-dot" class="health-dot" title="Health"></span>
           <div id="banner-status" class="banner-status">{% block banner_subtitle %}{% endblock %}</div>
+          <button type="button" class="btn" style="margin-left:.5rem;" title="Open a saved permalink"
+            onclick="(function(){try{var token = prompt('Paste a /build/from?state=... URL or token:'); if(!token) return; var m = token.match(/state=([^&]+)/); var t = m? m[1] : token.trim(); if(!t) return; window.location.href = '/build/from?state=' + encodeURIComponent(t); }catch(_){}})()">Open Permalink…</button>
         </div>
       </div>
     </header>
@@ -261,7 +266,7 @@
   document.addEventListener('htmx:afterSwap', function() { attachCardHover(); bindAllCardImageRetries(); });
       })();
     </script>
-  <script src="/static/app.js?v=20250826-2"></script>
+  <script src="/static/app.js?v=20250826-4"></script>
   <script>
     // Show pending toast after full page reloads when actions replace the whole document
     (function(){

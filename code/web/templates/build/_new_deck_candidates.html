@@ -1,0 +1,18 @@
+{% if candidates and candidates|length %}
+<ul style="list-style:none; padding:0; margin:.35rem 0; display:grid; gap:.25rem;" role="listbox" aria-label="Commander suggestions" tabindex="-1">
+  {% for name, score, colors in candidates %}
+  <li>
+    <button type="button" id="cand-{{ loop.index0 }}" class="chip candidate-btn" role="option" data-idx="{{ loop.index0 }}" data-name="{{ name|e }}"
+            hx-get="/build/new/inspect?name={{ name|urlencode }}"
+            hx-target="#newdeck-tags-slot" hx-swap="innerHTML"
+            hx-on="htmx:afterOnLoad: (function(){ try{ var n=this.getAttribute('data-name')||''; var ci = document.querySelector('input[name=commander]'); if(ci){ ci.value=n; try{ ci.selectionStart = ci.selectionEnd = ci.value.length; }catch(_){} } var nm = document.querySelector('input[name=name]'); if(nm && (!nm.value || !nm.value.trim())){ nm.value=n; } }catch(_){ } }).call(this)">
+      {{ name }}
+    </button>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+  {% if query %}
+    <div class="muted">No matches for “{{ query }}”.</div>
+  {% endif %}
+{% endif %}

@@ -1,6 +1,5 @@
 <section>
-  {% set step_index = 2 %}{% set step_total = 5 %}
-  <h3>Step 2: Tags & Bracket</h3>
+  {# Step phases removed #}
   <div class="two-col two-col-left-rail">
   <aside class="card-preview" data-card-name="{{ commander.name }}">
       <a href="https://scryfall.com/search?q={{ commander.name|urlencode }}" target="_blank" rel="noopener">
@@ -8,8 +7,7 @@
       </a>
     </aside>
     <div class="grow" data-skeleton>
-  {% include "build/_stage_navigator.html" %}
-  <div hx-get="/build/banner?step=Tags%20%26%20Bracket&i=2&n=5" hx-trigger="load"></div>
+  <div hx-get="/build/banner" hx-trigger="load"></div>
 
       <form hx-post="/build/step2" hx-target="#wizard" hx-swap="innerHTML">
         <input type="hidden" name="commander" value="{{ commander.name }}" />
@@ -95,7 +93,7 @@
       </form>
 
       <div style="margin-top:.5rem;">
-        <form action="/build" method="get" style="display:inline; margin:0;">
+        <form hx-post="/build/reset-all" hx-target="#wizard" hx-swap="innerHTML" style="display:inline; margin:0;">
           <button type="submit">Start over</button>
         </form>
       </div>
@@ -116,6 +114,7 @@
     var countEl = document.getElementById('tag-count');
   var orderEl = document.getElementById('tag-order');
   var commander = '{{ commander.name|e }}';
+  var clearPersisted = '{{ (clear_persisted|default(false)) and "1" or "0" }}' === '1';
     if (!chipHost) return;
 
     function storageKey(suffix){ return 'step2-' + (commander || 'unknown') + '-' + suffix; }
@@ -158,6 +157,13 @@
     }
     function loadPersisted(){
       try {
+        // If this page load follows a fresh commander confirmation, wipe persisted values.
+        if (clearPersisted){
+          try {
+            localStorage.removeItem(storageKey('tags'));
+            localStorage.removeItem(storageKey('mode'));
+          } catch(_){ }
+        }
         var savedTags = JSON.parse(localStorage.getItem(storageKey('tags')) || '[]');
         var savedMode = localStorage.getItem(storageKey('mode')) || (tagMode && tagMode.value) || 'AND';
         if ((!primary.value && !secondary.value && !tertiary.value) && Array.isArray(savedTags) && savedTags.length){ setSelected(savedTags); }

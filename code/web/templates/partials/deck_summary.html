@@ -81,7 +81,9 @@
               {% set cnt = c.count if c.count else 1 %}
               {% set owned = (owned_set is defined and c.name and (c.name|lower in owned_set)) %}
               <div class="stack-card {% if (game_changers and (c.name in game_changers)) or ('game_changer' in (c.role or '') or 'Game Changer' in (c.role or '')) %}game-changer{% endif %}">
-                <img src="https://api.scryfall.com/cards/named?fuzzy={{ c.name|urlencode }}&format=image&version=normal" alt="{{ c.name }} image" data-card-name="{{ c.name }}" data-count="{{ cnt }}" data-role="{{ c.role }}" data-tags="{{ (c.tags|join(', ')) if c.tags else '' }}" />
+                <img class="card-thumb" loading="lazy" decoding="async" src="https://api.scryfall.com/cards/named?fuzzy={{ c.name|urlencode }}&format=image&version=normal" alt="{{ c.name }} image" data-card-name="{{ c.name }}" data-count="{{ cnt }}" data-role="{{ c.role }}" data-tags="{{ (c.tags|join(', ')) if c.tags else '' }}"
+                     srcset="https://api.scryfall.com/cards/named?fuzzy={{ c.name|urlencode }}&format=image&version=small 160w, https://api.scryfall.com/cards/named?fuzzy={{ c.name|urlencode }}&format=image&version=normal 488w, https://api.scryfall.com/cards/named?fuzzy={{ c.name|urlencode }}&format=image&version=large 672w"
+                     sizes="(max-width: 1200px) 160px, 240px" />
                 <div class="count-badge">{{ cnt }}x</div>
                 <div class="owned-badge" title="{{ 'Owned' if owned else 'Not owned' }}" aria-label="{{ 'Owned' if owned else 'Not owned' }}">{% if owned %}✔{% else %}✖{% endif %}</div>
               </div>
@@ -539,7 +541,7 @@
     }
   function highlightNames(names, on){
       if (!Array.isArray(names) || names.length === 0) return;
-      // List view spans
+  // List view spans
       try {
         document.querySelectorAll('#typeview-list [data-card-name]').forEach(function(it){
           var n = it.getAttribute('data-card-name');
@@ -550,7 +552,7 @@
       if (!on && !match) it.classList.remove('chart-highlight');
         });
       } catch(_) {}
-      // Thumbs view images
+  // Thumbs view images
       try {
         document.querySelectorAll('#typeview-thumbs [data-card-name]').forEach(function(it){
           var n = it.getAttribute('data-card-name');
@@ -560,6 +562,12 @@
           tile.classList.toggle('chart-highlight', !!(on && match));
           if (!on && !match) tile.classList.remove('chart-highlight');
         });
+      } catch(_) {}
+      // If virtualized lists are enabled, auto-scroll the Step 5 grid to the first match
+      try {
+        if (on && window.scrollCardIntoView && Array.isArray(names) && names.length) {
+          window.scrollCardIntoView(names[0]);
+        }
       } catch(_) {}
     }
     attach();

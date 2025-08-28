@@ -4,6 +4,7 @@
 *.txt
 .mypy_cache/
 .venv/
+.pytest_cache/
 test.py
 !requirements.txt
 __pycache__/

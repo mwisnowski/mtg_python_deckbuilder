@@ -1,6 +1,5 @@
 <section>
-	{% set step_index = 4 %}{% set step_total = 5 %}
-	<h3>Step 4: Review</h3>
+	{# Step phases removed #}
 	<div class="two-col two-col-left-rail">
 	<aside class="card-preview" data-card-name="{{ commander|urlencode }}">
 			<a href="https://scryfall.com/search?q={{ commander|urlencode }}" target="_blank" rel="noopener">
@@ -8,8 +7,12 @@
 			</a>
 		</aside>
 		<div class="grow" data-skeleton>
-			<div hx-get="/build/banner?step=Review&i=4&n=5" hx-trigger="load"></div>
-			{% include "build/_stage_navigator.html" %}
+			<div hx-get="/build/banner" hx-trigger="load"></div>
+			{% if locks_restored and locks_restored > 0 %}
+			  <div class="muted" style="margin:.35rem 0;">
+			    <span class="chip" title="Locks restored from permalink">🔒 {{ locks_restored }} locks restored</span>
+			  </div>
+			{% endif %}
 			<h4>Chosen Ideals</h4>
 			<ul>
 				{% for key, label in labels.items() %}
@@ -27,12 +30,13 @@
 				</label>
 				<a href="/owned" target="_blank" rel="noopener" class="btn">Manage Owned Library</a>
 			</form>
+			<div class="muted" style="font-size:12px; margin-top:-.25rem;">Tip: Locked cards are respected on reruns in Step 5.</div>
 							<div style="margin-top:1rem; display:flex; gap:.5rem;">
 								<form action="/build/step5/start" method="post" hx-post="/build/step5/start" hx-target="#wizard" hx-swap="innerHTML" style="display:inline; margin:0;">
 									<button type="submit" class="btn-continue" data-action="continue">Build Deck</button>
 								</form>
 								<button type="button" class="btn-back" data-action="back" hx-get="/build/step3" hx-target="#wizard" hx-swap="innerHTML">Back</button>
-								<form action="/build" method="get" style="display:inline; margin:0;">
+								<form hx-post="/build/reset-all" hx-target="#wizard" hx-swap="innerHTML" style="display:inline; margin:0;">
 									<button type="submit">Start over</button>
 								</form>
 							</div>

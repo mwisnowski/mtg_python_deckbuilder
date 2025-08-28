@@ -343,22 +343,31 @@ class ReportingMixin:
                     return candidate
                 i += 1
         if filename is None:
-            cmdr = getattr(self, 'commander_name', '') or getattr(self, 'commander', '') or ''
-            cmdr_slug = _slug(cmdr) if isinstance(cmdr, str) and cmdr else 'deck'
-            # Collect themes in order
-            themes: List[str] = []
-            if getattr(self, 'selected_tags', None):
-                themes = [str(t) for t in self.selected_tags if isinstance(t, str) and t.strip()]
-            else:
-                for t in [getattr(self, 'primary_tag', None), getattr(self, 'secondary_tag', None), getattr(self, 'tertiary_tag', None)]:
-                    if isinstance(t, str) and t.strip():
-                        themes.append(t)
-            theme_parts = [_slug(t) for t in themes if t]
-            if not theme_parts:
-                theme_parts = ['notheme']
-            theme_slug = '_'.join(theme_parts)
+            # Build a filename stem from either custom export base or commander/themes
+            try:
+                custom_base = getattr(self, 'custom_export_base', None)
+            except Exception:
+                custom_base = None
             date_part = _dt.date.today().strftime('%Y%m%d')
-            filename = f"{cmdr_slug}_{theme_slug}_{date_part}.csv"
+            if isinstance(custom_base, str) and custom_base.strip():
+                stem = f"{_slug(custom_base.strip())}_{date_part}"
+            else:
+                cmdr = getattr(self, 'commander_name', '') or getattr(self, 'commander', '') or ''
+                cmdr_slug = _slug(cmdr) if isinstance(cmdr, str) and cmdr else 'deck'
+                # Collect themes in order
+                themes: List[str] = []
+                if getattr(self, 'selected_tags', None):
+                    themes = [str(t) for t in self.selected_tags if isinstance(t, str) and t.strip()]
+                else:
+                    for t in [getattr(self, 'primary_tag', None), getattr(self, 'secondary_tag', None), getattr(self, 'tertiary_tag', None)]:
+                        if isinstance(t, str) and t.strip():
+                            themes.append(t)
+                theme_parts = [_slug(t) for t in themes if t]
+                if not theme_parts:
+                    theme_parts = ['notheme']
+                theme_slug = '_'.join(theme_parts)
+                stem = f"{cmdr_slug}_{theme_slug}_{date_part}"
+            filename = f"{stem}.csv"
         fname = _unique_path(os.path.join(directory, filename))
 
         full_df = getattr(self, '_full_cards_df', None)
@@ -534,21 +543,30 @@ class ReportingMixin:
                     return candidate
                 i += 1
         if filename is None:
-            cmdr = getattr(self, 'commander_name', '') or getattr(self, 'commander', '') or ''
-            cmdr_slug = _slug(cmdr) if isinstance(cmdr, str) and cmdr else 'deck'
-            themes: List[str] = []
-            if getattr(self, 'selected_tags', None):
-                themes = [str(t) for t in self.selected_tags if isinstance(t, str) and t.strip()]
-            else:
-                for t in [getattr(self, 'primary_tag', None), getattr(self, 'secondary_tag', None), getattr(self, 'tertiary_tag', None)]:
-                    if isinstance(t, str) and t.strip():
-                        themes.append(t)
-            theme_parts = [_slug(t) for t in themes if t]
-            if not theme_parts:
-                theme_parts = ['notheme']
-            theme_slug = '_'.join(theme_parts)
+            # Prefer custom export base if provided; else fall back to commander/themes
+            try:
+                custom_base = getattr(self, 'custom_export_base', None)
+            except Exception:
+                custom_base = None
             date_part = _dt.date.today().strftime('%Y%m%d')
-            filename = f"{cmdr_slug}_{theme_slug}_{date_part}.txt"
+            if isinstance(custom_base, str) and custom_base.strip():
+                stem = f"{_slug(custom_base.strip())}_{date_part}"
+            else:
+                cmdr = getattr(self, 'commander_name', '') or getattr(self, 'commander', '') or ''
+                cmdr_slug = _slug(cmdr) if isinstance(cmdr, str) and cmdr else 'deck'
+                themes: List[str] = []
+                if getattr(self, 'selected_tags', None):
+                    themes = [str(t) for t in self.selected_tags if isinstance(t, str) and t.strip()]
+                else:
+                    for t in [getattr(self, 'primary_tag', None), getattr(self, 'secondary_tag', None), getattr(self, 'tertiary_tag', None)]:
+                        if isinstance(t, str) and t.strip():
+                            themes.append(t)
+                theme_parts = [_slug(t) for t in themes if t]
+                if not theme_parts:
+                    theme_parts = ['notheme']
+                theme_slug = '_'.join(theme_parts)
+                stem = f"{cmdr_slug}_{theme_slug}_{date_part}"
+            filename = f"{stem}.txt"
         if not filename.lower().endswith('.txt'):
             filename = filename + '.txt'
         path = _unique_path(os.path.join(directory, filename))
@@ -643,21 +661,30 @@ class ReportingMixin:
                 i += 1
 
         if filename is None:
-            cmdr = getattr(self, 'commander_name', '') or getattr(self, 'commander', '') or ''
-            cmdr_slug = _slug(cmdr) if isinstance(cmdr, str) and cmdr else 'deck'
-            themes: List[str] = []
-            if getattr(self, 'selected_tags', None):
-                themes = [str(t) for t in self.selected_tags if isinstance(t, str) and t.strip()]
-            else:
-                for t in [getattr(self, 'primary_tag', None), getattr(self, 'secondary_tag', None), getattr(self, 'tertiary_tag', None)]:
-                    if isinstance(t, str) and t.strip():
-                        themes.append(t)
-            theme_parts = [_slug(t) for t in themes if t]
-            if not theme_parts:
-                theme_parts = ['notheme']
-            theme_slug = '_'.join(theme_parts)
+            # Prefer a custom export base when present; else commander/themes
+            try:
+                custom_base = getattr(self, 'custom_export_base', None)
+            except Exception:
+                custom_base = None
             date_part = _dt.date.today().strftime('%Y%m%d')
-            filename = f"{cmdr_slug}_{theme_slug}_{date_part}.json"
+            if isinstance(custom_base, str) and custom_base.strip():
+                stem = f"{_slug(custom_base.strip())}_{date_part}"
+            else:
+                cmdr = getattr(self, 'commander_name', '') or getattr(self, 'commander', '') or ''
+                cmdr_slug = _slug(cmdr) if isinstance(cmdr, str) and cmdr else 'deck'
+                themes: List[str] = []
+                if getattr(self, 'selected_tags', None):
+                    themes = [str(t) for t in self.selected_tags if isinstance(t, str) and t.strip()]
+                else:
+                    for t in [getattr(self, 'primary_tag', None), getattr(self, 'secondary_tag', None), getattr(self, 'tertiary_tag', None)]:
+                        if isinstance(t, str) and t.strip():
+                            themes.append(t)
+                theme_parts = [_slug(t) for t in themes if t]
+                if not theme_parts:
+                    theme_parts = ['notheme']
+                theme_slug = '_'.join(theme_parts)
+                stem = f"{cmdr_slug}_{theme_slug}_{date_part}"
+            filename = f"{stem}.json"
 
         path = _unique_path(os.path.join(directory, filename))
 

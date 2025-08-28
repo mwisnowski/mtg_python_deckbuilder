@@ -38,6 +38,8 @@ services:
       # Speed up setup/tagging in Web UI via parallel workers
       - WEB_TAG_PARALLEL=1
       - WEB_TAG_WORKERS=4
+      # Enable virtualization + lazy image tweaks in Step 5
+      - WEB_VIRTUALIZE=1
     volumes:
       - ${PWD}/deck_files:/app/deck_files
       - ${PWD}/logs:/app/logs

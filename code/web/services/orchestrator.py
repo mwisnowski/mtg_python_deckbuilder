@@ -781,6 +781,13 @@ def run_build(commander: str, tags: List[str], bracket: int, ideals: Dict[str, i
         except Exception as e:
             out(f"Reporting phase failed: {e}")
         try:
+            # If a custom export base is threaded via environment/session in web, we can respect env var
+            try:
+                custom_base = os.getenv('WEB_CUSTOM_EXPORT_BASE')
+                if custom_base:
+                    setattr(b, 'custom_export_base', custom_base)
+            except Exception:
+                pass
             if hasattr(b, 'export_decklist_csv'):
                 csv_path = b.export_decklist_csv()  # type: ignore[attr-defined]
         except Exception as e:
@@ -819,6 +826,13 @@ def run_build(commander: str, tags: List[str], bracket: int, ideals: Dict[str, i
                     "csv": csv_path,
                     "txt": txt_path,
                 }
+                # Attach custom deck name if provided
+                try:
+                    custom_base = getattr(b, 'custom_export_base', None)
+                except Exception:
+                    custom_base = None
+                if isinstance(custom_base, str) and custom_base.strip():
+                    meta["name"] = custom_base.strip()
                 payload = {"meta": meta, "summary": summary}
                 with open(sidecar, 'w', encoding='utf-8') as f:
                     _json.dump(payload, f, ensure_ascii=False, indent=2)
@@ -898,6 +912,8 @@ def start_build_ctx(
     use_owned_only: bool | None = None,
     prefer_owned: bool | None = None,
     owned_names: List[str] | None = None,
+    locks: List[str] | None = None,
+    custom_export_base: str | None = None,
 ) -> Dict[str, Any]:
     logs: List[str] = []
 
@@ -974,6 +990,9 @@ def start_build_ctx(
         "csv_path": None,
         "txt_path": None,
         "snapshot": None,
+    "history": [],  # list of {i, key, label, snapshot}
+        "locks": {str(n).strip().lower() for n in (locks or []) if str(n).strip()},
+    "custom_export_base": str(custom_export_base).strip() if isinstance(custom_export_base, str) and custom_export_base.strip() else None,
     }
     return ctx
 
@@ -1021,13 +1040,21 @@ def _restore_builder(b: DeckBuilder, snap: Dict[str, Any]) -> None:
     b._spell_pip_cache_dirty = bool(snap.get("_spell_pip_cache_dirty", True))
 
 
-def run_stage(ctx: Dict[str, Any], rerun: bool = False, show_skipped: bool = False) -> Dict[str, Any]:
+def run_stage(ctx: Dict[str, Any], rerun: bool = False, show_skipped: bool = False, *, replace: bool = False) -> Dict[str, Any]:
     b: DeckBuilder = ctx["builder"]
     stages: List[Dict[str, Any]] = ctx["stages"]
     logs: List[str] = ctx["logs"]
+    locks_set: set[str] = set(ctx.get("locks") or [])
 
     # If all stages done, finalize exports (interactive/manual build)
     if ctx["idx"] >= len(stages):
+        # Apply custom export base if present in context
+        try:
+            custom_base = ctx.get("custom_export_base")
+            if custom_base:
+                setattr(b, 'custom_export_base', str(custom_base))
+        except Exception:
+            pass
         if not ctx.get("csv_path") and hasattr(b, 'export_decklist_csv'):
             try:
                 ctx["csv_path"] = b.export_decklist_csv()  # type: ignore[attr-defined]
@@ -1045,6 +1072,36 @@ def run_stage(ctx: Dict[str, Any], rerun: bool = False, show_skipped: bool = Fal
                     pass
             except Exception as e:
                 logs.append(f"Text export failed: {e}")
+        # Final lock enforcement before finishing
+        try:
+            for lname in locks_set:
+                try:
+                    # If locked card missing, attempt to add a placeholder entry
+                    if lname not in {str(n).strip().lower() for n in getattr(b, 'card_library', {}).keys()}:
+                        # Try to find exact name in dataframes
+                        target_name = None
+                        try:
+                            df = getattr(b, '_combined_cards_df', None)
+                            if df is not None and not df.empty:
+                                row = df[df['name'].astype(str).str.lower() == lname]
+                                if not row.empty:
+                                    target_name = str(row.iloc[0]['name'])
+                        except Exception:
+                            target_name = None
+                        if target_name is None:
+                            # As fallback, use the locked name as-is (display only)
+                            target_name = lname
+                        b.card_library[target_name] = {
+                            'Count': 1,
+                            'Role': 'Locked',
+                            'SubRole': '',
+                            'AddedBy': 'Lock',
+                            'TriggerTag': '',
+                        }
+                except Exception:
+                    continue
+        except Exception:
+            pass
         # Build structured summary for UI
         summary = None
         try:
@@ -1067,6 +1124,12 @@ def run_stage(ctx: Dict[str, Any], rerun: bool = False, show_skipped: bool = Fal
                     "csv": ctx.get("csv_path"),
                     "txt": ctx.get("txt_path"),
                 }
+                try:
+                    custom_base = getattr(b, 'custom_export_base', None)
+                except Exception:
+                    custom_base = None
+                if isinstance(custom_base, str) and custom_base.strip():
+                    meta["name"] = custom_base.strip()
                 payload = {"meta": meta, "summary": summary}
                 with open(sidecar, 'w', encoding='utf-8') as f:
                     _json.dump(payload, f, ensure_ascii=False, indent=2)
@@ -1095,8 +1158,8 @@ def run_stage(ctx: Dict[str, Any], rerun: bool = False, show_skipped: bool = Fal
         label = stage["label"]
         runner_name = stage["runner_name"]
 
-        # Take snapshot before executing; for rerun, restore first if we have one
-        if rerun and ctx.get("snapshot") is not None and i == max(0, int(ctx.get("last_visible_idx", ctx["idx"]) or 1) - 1):
+        # Take snapshot before executing; for rerun with replace, restore first if we have one
+        if rerun and replace and ctx.get("snapshot") is not None and i == max(0, int(ctx.get("last_visible_idx", ctx["idx"]) or 1) - 1):
             _restore_builder(b, ctx["snapshot"])  # restore to pre-stage state
         snap_before = _snapshot_builder(b)
 
@@ -1111,6 +1174,36 @@ def run_stage(ctx: Dict[str, Any], rerun: bool = False, show_skipped: bool = Fal
         else:
             logs.append(f"Runner not available: {runner_name}")
         delta_log = "\n".join(logs[start_log:])
+
+        # Enforce locks immediately after the stage runs so they appear in added list
+        try:
+            for lname in locks_set:
+                try:
+                    lib_keys_lower = {str(n).strip().lower(): str(n) for n in getattr(b, 'card_library', {}).keys()}
+                    if lname not in lib_keys_lower:
+                        # Try to resolve canonical name from DF
+                        target_name = None
+                        try:
+                            df = getattr(b, '_combined_cards_df', None)
+                            if df is not None and not df.empty:
+                                row = df[df['name'].astype(str).str.lower() == lname]
+                                if not row.empty:
+                                    target_name = str(row.iloc[0]['name'])
+                        except Exception:
+                            target_name = None
+                        if target_name is None:
+                            target_name = lname
+                        b.card_library[target_name] = {
+                            'Count': 1,
+                            'Role': 'Locked',
+                            'SubRole': '',
+                            'AddedBy': 'Lock',
+                            'TriggerTag': '',
+                        }
+                except Exception:
+                    continue
+        except Exception:
+            pass
 
         # Compute added cards based on snapshot
         try:
@@ -1170,6 +1263,15 @@ def run_stage(ctx: Dict[str, Any], rerun: bool = False, show_skipped: bool = Fal
             except Exception:
                 added_total = 0
             ctx["snapshot"] = snap_before  # snapshot for rerun
+            try:
+                (ctx.setdefault("history", [])).append({
+                    "i": i + 1,
+                    "key": stage.get("key"),
+                    "label": label,
+                    "snapshot": snap_before,
+                })
+            except Exception:
+                pass
             ctx["idx"] = i + 1
             ctx["last_visible_idx"] = i + 1
             return {
@@ -1196,6 +1298,15 @@ def run_stage(ctx: Dict[str, Any], rerun: bool = False, show_skipped: bool = Fal
             except Exception:
                 total_cards = None
             ctx["snapshot"] = snap_before
+            try:
+                (ctx.setdefault("history", [])).append({
+                    "i": i + 1,
+                    "key": stage.get("key"),
+                    "label": label,
+                    "snapshot": snap_before,
+                })
+            except Exception:
+                pass
             ctx["idx"] = i + 1
             ctx["last_visible_idx"] = i + 1
             return {
@@ -1210,12 +1321,19 @@ def run_stage(ctx: Dict[str, Any], rerun: bool = False, show_skipped: bool = Fal
                 "added_total": 0,
             }
 
-        # No cards added and not showing skipped: advance to next
+        # No cards added and not showing skipped: advance to next stage and continue loop
         i += 1
         # Continue loop to auto-advance
 
     # If we reached here, all remaining stages were no-ops; finalize exports
     ctx["idx"] = len(stages)
+    # Apply custom export base if present
+    try:
+        custom_base = ctx.get("custom_export_base")
+        if custom_base:
+            setattr(b, 'custom_export_base', str(custom_base))
+    except Exception:
+        pass
     if not ctx.get("csv_path") and hasattr(b, 'export_decklist_csv'):
         try:
             ctx["csv_path"] = b.export_decklist_csv()  # type: ignore[attr-defined]
@@ -1255,6 +1373,12 @@ def run_stage(ctx: Dict[str, Any], rerun: bool = False, show_skipped: bool = Fal
                 "csv": ctx.get("csv_path"),
                 "txt": ctx.get("txt_path"),
             }
+            try:
+                custom_base = getattr(b, 'custom_export_base', None)
+            except Exception:
+                custom_base = None
+            if isinstance(custom_base, str) and custom_base.strip():
+                meta["name"] = custom_base.strip()
             payload = {"meta": meta, "summary": summary}
             with open(sidecar, 'w', encoding='utf-8') as f:
                 _json.dump(payload, f, ensure_ascii=False, indent=2)

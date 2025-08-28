@@ -130,6 +130,11 @@ small, .muted{ color: var(--muted); }
 	text-align:center;
 }
 .card-tile.game-changer{ border-color: var(--red-main); box-shadow: 0 0 0 1px rgba(211,32,42,.35) inset; }
+.card-tile.locked{
+	/* Subtle yellow/goldish-white accent for locked cards */
+	border-color: #f5e6a8; /* soft parchment gold */
+	box-shadow: 0 0 0 2px rgba(245,230,168,.28) inset;
+}
 .card-tile img{ width:160px; height:auto; border-radius:6px; box-shadow: 0 6px 18px rgba(0,0,0,.35); background:#111; }
 .card-tile .name{ font-weight:600; margin-top:.25rem; font-size:.92rem; }
 .card-tile .reason{ color:var(--muted); font-size:.85rem; margin-top:.15rem; }
@@ -174,6 +179,9 @@ small, .muted{ color: var(--muted); }
 /* Deck summary: highlight game changers */
 .game-changer { color: var(--green-main); }
 .stack-card.game-changer { outline: 2px solid var(--green-main); }
+
+/* Image button inside card tiles */
+.card-tile .img-btn{ display:block; padding:0; background:transparent; border:none; cursor:pointer; width:100%; }
 
 /* Stage Navigator */
 .stage-nav { margin:.5rem 0 1rem; }
@@ -221,3 +229,19 @@ small, .muted{ color: var(--muted); }
 /* Inline error banner */
 .inline-error-banner{ background:#1a0f10; border:1px solid #b91c1c; color:#fca5a5; padding:.5rem .6rem; border-radius:8px; margin-bottom:.5rem; }
 .inline-error-banner .muted{ color:#fda4af; }
+
+/* Alternatives panel */
+.alts ul{ list-style:none; padding:0; margin:0; }
+.alts li{ display:flex; align-items:center; gap:.4rem; }
+/* LQIP blur/fade-in for thumbnails */
+img.lqip { filter: blur(8px); opacity: .6; transition: filter .25s ease-out, opacity .25s ease-out; }
+img.lqip.loaded { filter: blur(0); opacity: 1; }
+
+/* Respect reduced motion: avoid blur/fade transitions for users who prefer less motion */
+@media (prefers-reduced-motion: reduce) {
+	* { scroll-behavior: auto !important; }
+	img.lqip { transition: none !important; filter: none !important; opacity: 1 !important; }
+}
+
+/* Virtualization wrapper should mirror grid to keep multi-column flow */
+.virt-wrapper { display: grid; }

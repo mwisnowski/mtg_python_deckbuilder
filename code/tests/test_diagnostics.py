@@ -67,7 +67,11 @@ def test_status_sys_summary_and_flags():
         SHOW_LOGS="1",
         SHOW_DIAGNOSTICS="1",
         SHOW_SETUP="1",
+        ENABLE_THEMES="1",
+        ENABLE_PWA="1",
+        ENABLE_PRESETS="1",
         APP_VERSION="testver",
+        THEME="dark",
     )
     client = TestClient(app_module.app)
     r = client.get("/status/sys")
@@ -80,3 +84,8 @@ def test_status_sys_summary_and_flags():
     assert flags.get("SHOW_LOGS") is True
     assert flags.get("SHOW_DIAGNOSTICS") is True
     assert flags.get("SHOW_SETUP") is True
+    # Theme-related flags
+    assert flags.get("ENABLE_THEMES") is True
+    assert flags.get("ENABLE_PWA") is True
+    assert flags.get("ENABLE_PRESETS") is True
+    assert flags.get("DEFAULT_THEME") == "dark"

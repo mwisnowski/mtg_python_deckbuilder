@@ -48,6 +48,15 @@ SHOW_LOGS = _as_bool(os.getenv("SHOW_LOGS"), False)
 SHOW_SETUP = _as_bool(os.getenv("SHOW_SETUP"), True)
 SHOW_DIAGNOSTICS = _as_bool(os.getenv("SHOW_DIAGNOSTICS"), False)
 SHOW_VIRTUALIZE = _as_bool(os.getenv("WEB_VIRTUALIZE"), False)
+ENABLE_THEMES = _as_bool(os.getenv("ENABLE_THEMES"), False)
+ENABLE_PWA = _as_bool(os.getenv("ENABLE_PWA"), False)
+ENABLE_PRESETS = _as_bool(os.getenv("ENABLE_PRESETS"), False)
+
+# Theme default from environment: THEME=light|dark|system (case-insensitive). Defaults to system.
+_THEME_ENV = (os.getenv("THEME") or "").strip().lower()
+DEFAULT_THEME = "system"
+if _THEME_ENV in {"light", "dark", "system"}:
+    DEFAULT_THEME = _THEME_ENV
 
 # Expose as Jinja globals so all templates can reference without passing per-view
 templates.env.globals.update({
@@ -55,6 +64,10 @@ templates.env.globals.update({
     "show_setup": SHOW_SETUP,
     "show_diagnostics": SHOW_DIAGNOSTICS,
     "virtualize": SHOW_VIRTUALIZE,
+    "enable_themes": ENABLE_THEMES,
+    "enable_pwa": ENABLE_PWA,
+    "enable_presets": ENABLE_PRESETS,
+    "default_theme": DEFAULT_THEME,
 })
 
 # --- Simple fragment cache for template partials (low-risk, TTL-based) ---
@@ -132,6 +145,10 @@ async def status_sys():
                 "SHOW_LOGS": bool(SHOW_LOGS),
                 "SHOW_SETUP": bool(SHOW_SETUP),
                 "SHOW_DIAGNOSTICS": bool(SHOW_DIAGNOSTICS),
+                "ENABLE_THEMES": bool(ENABLE_THEMES),
+                "ENABLE_PWA": bool(ENABLE_PWA),
+                "ENABLE_PRESETS": bool(ENABLE_PRESETS),
+                "DEFAULT_THEME": DEFAULT_THEME,
             },
         }
     except Exception:

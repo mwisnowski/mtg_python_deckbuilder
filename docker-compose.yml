@@ -1,27 +1,27 @@
 services:
-  mtg-deckbuilder:
-    build: .
-    container_name: mtg-deckbuilder-main
-    stdin_open: true          # Equivalent to docker run -i
-    tty: true                 # Equivalent to docker run -t
-    volumes:
-      - ${PWD}/deck_files:/app/deck_files
-      - ${PWD}/logs:/app/logs
-      - ${PWD}/csv_files:/app/csv_files
-      # Optional: mount a config directory for headless JSON and owned cards
-      - ${PWD}/config:/app/config
-      - ${PWD}/owned_cards:/app/owned_cards
-    environment:
-      - PYTHONUNBUFFERED=1
-      - TERM=xterm-256color
-      - DEBIAN_FRONTEND=noninteractive
-    # Set DECK_MODE=headless to auto-run non-interactive mode on start
-    # - DECK_MODE=headless
-    # Optional headless configuration (examples):
-    # - DECK_CONFIG=/app/config/deck.json
-    # - DECK_COMMANDER=Pantlaza
-    # Ensure proper cleanup
-    restart: "no"
+  # mtg-deckbuilder:
+  #   build: .
+  #   container_name: mtg-deckbuilder-main
+  #   stdin_open: true          # Equivalent to docker run -i
+  #   tty: true                 # Equivalent to docker run -t
+  #   volumes:
+  #     - ${PWD}/deck_files:/app/deck_files
+  #     - ${PWD}/logs:/app/logs
+  #     - ${PWD}/csv_files:/app/csv_files
+  #     # Optional: mount a config directory for headless JSON and owned cards
+  #     - ${PWD}/config:/app/config
+  #     - ${PWD}/owned_cards:/app/owned_cards
+  #   environment:
+  #     - PYTHONUNBUFFERED=1
+  #     - TERM=xterm-256color
+  #     - DEBIAN_FRONTEND=noninteractive
+  #   # Set DECK_MODE=headless to auto-run non-interactive mode on start
+  #   # - DECK_MODE=headless
+  #   # Optional headless configuration (examples):
+  #   # - DECK_CONFIG=/app/config/deck.json
+  #   # - DECK_COMMANDER=Pantlaza
+  #   # Ensure proper cleanup
+  #   restart: "no"
 
   web:
     build: .
@@ -32,9 +32,14 @@ services:
       - PYTHONUNBUFFERED=1
       - TERM=xterm-256color
       - DEBIAN_FRONTEND=noninteractive
+      # Default theme for first-time visitors (no local preference yet): system|light|dark
+      # When set to 'light', it maps to the consolidated Light (Blend) palette in the UI
+      # - ENABLE_THEMES=1
+      # - THEME=dark
       # Logging and error utilities
       # - SHOW_LOGS=1
       # - SHOW_DIAGNOSTICS=1
+      # - ENABLE_PWA=1
       # Speed up setup/tagging in Web UI via parallel workers
       - WEB_TAG_PARALLEL=1
       - WEB_TAG_WORKERS=4

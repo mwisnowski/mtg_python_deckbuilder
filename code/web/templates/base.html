@@ -1,11 +1,36 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="{% if default_theme == 'light' %}light-blend{% elif default_theme == 'dark' %}dark{% else %}light-blend{% endif %}">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>MTG Deckbuilder</title>
     <script src="https://unpkg.com/htmx.org@1.9.12" onerror="var s=document.createElement('script');s.src='/static/vendor/htmx-1.9.12.min.js';document.head.appendChild(s);"></script>
-  <link rel="stylesheet" href="/static/styles.css?v=20250826-4" />
+    <script>
+      (function(){
+        // Pre-CSS theme bootstrapping to avoid flash/mismatch on first paint
+        try{
+          var root = document.documentElement;
+          var KEY = 'mtg:theme';
+          var SERVER_DEFAULT = '{{ default_theme }}';
+          var params = new URLSearchParams(window.location.search || '');
+          var urlTheme = (params.get('theme') || '').toLowerCase();
+          var stored = localStorage.getItem(KEY);
+          function resolveSystem(){
+            var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+            return prefersDark ? 'dark' : 'light-blend';
+          }
+          function mapTheme(v){
+            var x = (v || 'system').toLowerCase();
+            if (x === 'system') return resolveSystem();
+            if (x === 'light') return 'light-blend';
+            return x;
+          }
+          var initial = urlTheme || ((stored && stored.trim()) ? stored : (SERVER_DEFAULT || 'system'));
+          root.setAttribute('data-theme', mapTheme(initial));
+        }catch(_){ }
+      })();
+    </script>
+  <link rel="stylesheet" href="/static/styles.css?v=20250828-14" />
   <!-- Performance hints -->
   <link rel="preconnect" href="https://api.scryfall.com" crossorigin>
   <link rel="dns-prefetch" href="https://api.scryfall.com">
@@ -13,6 +38,9 @@
   <link rel="icon" type="image/png" href="/static/favicon.png" />
   <link rel="shortcut icon" href="/favicon.ico" />
   <link rel="apple-touch-icon" href="/static/favicon.png" />
+  {% if enable_pwa %}
+  <link rel="manifest" href="/static/manifest.webmanifest" />
+  {% endif %}
   </head>
   <body data-diag="{% if show_diagnostics %}1{% else %}0{% endif %}" data-virt="{% if virtualize %}1{% else %}0{% endif %}">
     <header class="top-banner">
@@ -21,8 +49,23 @@
         <div style="display:flex; align-items:center; gap:.5rem">
           <span id="health-dot" class="health-dot" title="Health"></span>
           <div id="banner-status" class="banner-status">{% block banner_subtitle %}{% endblock %}</div>
-          <button type="button" class="btn" style="margin-left:.5rem;" title="Open a saved permalink"
+          <button type="button" class="btn" title="Open a saved permalink"
             onclick="(function(){try{var token = prompt('Paste a /build/from?state=... URL or token:'); if(!token) return; var m = token.match(/state=([^&]+)/); var t = m? m[1] : token.trim(); if(!t) return; window.location.href = '/build/from?state=' + encodeURIComponent(t); }catch(_){}})()">Open Permalink…</button>
+          {% if enable_themes %}
+          <label style="margin:0 .5rem; align-items:flex-start; margin-left:auto">
+            <span class="muted" style="font-size:11px">Theme</span>
+            <select id="theme-select" aria-label="Theme selector">
+              <option value="system">System</option>
+              <option value="light">Light</option>
+              <option value="dark">Dark</option>
+              <option value="high-contrast">High contrast</option>
+              <option value="cb-friendly">Color-blind</option>
+            </select>
+          </label>
+          <button type="button" id="theme-reset" class="btn" title="Reset theme preference" style="background: transparent; color: var(--surface-banner-text); border:1px solid var(--border);">
+            Reset
+          </button>
+          {% endif %}
         </div>
       </div>
     </header>
@@ -60,16 +103,17 @@
     <style>
       .card-hover { position: fixed; pointer-events: none; z-index: 9999; display: none; }
       .card-hover-inner { display:flex; gap:12px; align-items:flex-start; }
-      .card-hover img { width: 320px; height: auto; display: block; border-radius: 8px; box-shadow: 0 6px 18px rgba(0,0,0,.55); border: 1px solid var(--border); background:#0f1115; }
-  .card-meta { background: #0f1115; color: #e5e7eb; border: 1px solid var(--border); border-radius: 8px; padding: .5rem .6rem; max-width: 320px; font-size: 13px; line-height: 1.4; box-shadow: 0 6px 18px rgba(0,0,0,.35); }
+    .card-hover img { width: 320px; height: auto; display: block; border-radius: 8px; box-shadow: 0 6px 18px rgba(0,0,0,.55); border: 1px solid var(--border); background: var(--panel); }
+  .card-meta { background: var(--panel); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: .5rem .6rem; max-width: 320px; font-size: 13px; line-height: 1.4; box-shadow: 0 6px 18px rgba(0,0,0,.35); }
   .card-meta ul { margin:.25rem 0; padding-left: 1.1rem; list-style: disc; }
   .card-meta li { margin:.1rem 0; }
   .card-meta .themes-list { font-size: 18px; line-height: 1.35; }
   .card-meta .label { color:#94a3b8; text-transform: uppercase; font-size: 10px; letter-spacing: .04em; display:block; margin-bottom:.15rem; }
-  .card-meta .themes-label { color:#f3f4f6; font-size: 20px; letter-spacing: .05em; }
+  .card-meta .themes-label { color: var(--text); font-size: 20px; letter-spacing: .05em; }
       .card-meta .line + .line { margin-top:.35rem; }
-      .site-footer { margin: 12px 16px 0; padding: 8px 12px; border-top: 1px solid var(--border); color: #94a3b8; font-size: 12px; text-align: center; }
+  .site-footer { margin: 8px 16px; padding: 8px 12px; border-top: 1px solid var(--border); color: #94a3b8; font-size: 12px; text-align: center; }
       .site-footer a { color: #cbd5e1; text-decoration: underline; }
+  footer.site-footer { flex-shrink: 0; }
     </style>
     <script>
       (function(){
@@ -267,6 +311,109 @@
       })();
     </script>
   <script src="/static/app.js?v=20250826-4"></script>
+  {% if enable_themes %}
+  <script>
+    (function(){
+      try{
+        var sel = document.getElementById('theme-select');
+  var resetBtn = document.getElementById('theme-reset');
+        var root = document.documentElement;
+        var KEY = 'mtg:theme';
+        var SERVER_DEFAULT = '{{ default_theme }}';
+        function mapLight(v){ return v === 'light' ? 'light-blend' : v; }
+        function resolveSystem(){
+          var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+          return prefersDark ? 'dark' : 'light-blend';
+        }
+        function normalizeUiValue(v){
+          var x = (v||'system').toLowerCase();
+          if (x === 'light-blend' || x === 'light-slate' || x === 'light-parchment') return 'light';
+          return x;
+        }
+        function apply(val){
+          var v = (val || 'system').toLowerCase();
+          if (v === 'system') v = resolveSystem();
+          v = mapLight(v);
+          root.setAttribute('data-theme', v);
+        }
+        // Optional URL override: ?theme=system|light|dark|high-contrast|cb-friendly
+        var params = new URLSearchParams(window.location.search || '');
+        var urlTheme = (params.get('theme') || '').toLowerCase();
+        if (urlTheme) {
+          // Persist the UI value, not the mapped CSS token
+          localStorage.setItem(KEY, normalizeUiValue(urlTheme));
+          // Clean the URL so reloads don't keep overriding
+          try { var u = new URL(window.location.href); u.searchParams.delete('theme'); window.history.replaceState({}, document.title, u.toString()); } catch(_){ }
+        }
+        // Determine initial selection: URL -> localStorage -> server default -> system
+        var stored = localStorage.getItem(KEY);
+        var initial = urlTheme || ((stored && stored.trim()) ? stored : (SERVER_DEFAULT || 'system'));
+        apply(initial);
+        if (sel){
+          sel.value = normalizeUiValue(initial);
+          sel.addEventListener('change', function(){
+            var v = sel.value || 'system';
+            localStorage.setItem(KEY, v);
+            apply(v);
+          });
+        }
+        if (resetBtn){
+          resetBtn.addEventListener('click', function(){
+            try{ localStorage.removeItem(KEY); }catch(_){ }
+            var v = SERVER_DEFAULT || 'system';
+            apply(v);
+            if (sel) sel.value = normalizeUiValue(v);
+          });
+        }
+        // React to system changes when set to system
+        if (window.matchMedia){
+          var mq = window.matchMedia('(prefers-color-scheme: dark)');
+          mq.addEventListener && mq.addEventListener('change', function(){
+            var cur = localStorage.getItem(KEY) || (SERVER_DEFAULT || 'system');
+            if (cur === 'system') apply('system');
+          });
+        }
+      }catch(_){ }
+    })();
+  </script>
+  {% endif %}
+  {% if not enable_themes %}
+  <script>
+    (function(){
+      try{
+        // Apply THEME env even when the selector is disabled. Resolve 'system' to OS preference.
+        var root = document.documentElement;
+        var SERVER_DEFAULT = '{{ default_theme }}';
+        function resolveSystem(){
+          var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+          return prefersDark ? 'dark' : 'light-blend';
+        }
+        var v = (SERVER_DEFAULT || 'system').toLowerCase();
+        if (v === 'system') v = resolveSystem();
+        if (v === 'light') v = 'light-blend';
+        root.setAttribute('data-theme', v);
+        // Track OS changes when using system
+        if ((SERVER_DEFAULT||'system').toLowerCase() === 'system' && window.matchMedia){
+          var mq = window.matchMedia('(prefers-color-scheme: dark)');
+          mq.addEventListener && mq.addEventListener('change', function(){ root.setAttribute('data-theme', resolveSystem()); });
+        }
+      }catch(_){ }
+    })();
+  </script>
+  {% endif %}
+  {% if enable_pwa %}
+  <script>
+    (function(){
+      try{
+        if ('serviceWorker' in navigator){
+          navigator.serviceWorker.register('/static/sw.js').then(function(reg){
+            window.__pwaStatus = { registered: true, scope: reg.scope };
+          }).catch(function(){ window.__pwaStatus = { registered: false }; });
+        }
+      }catch(_){ }
+    })();
+  </script>
+  {% endif %}
   <script>
     // Show pending toast after full page reloads when actions replace the whole document
     (function(){

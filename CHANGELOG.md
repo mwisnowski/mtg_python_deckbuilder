@@ -12,6 +12,8 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 
 ## [Unreleased]
 
+## [2.0.1] - 2025-08-28
+
 ### Added
 - Web UI performance: optional virtualized grids/lists in Step 5 and Owned (enable with `WEB_VIRTUALIZE=1`).
 - Virtualization diagnostics overlay (when `SHOW_DIAGNOSTICS=1`); press `v` to toggle per‑grid overlays and a global summary bubble with visible range, totals, render time, and counters.
@@ -49,6 +51,7 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
  - Request-ID middleware assigns `X-Request-ID` to all responses and includes it in JSON error payloads
  - `/status/logs?tail=N` endpoint (read-only) to fetch a recent log tail for quick diagnostics
  - Tooltip Copy action on chart tooltips (Pips/Sources) for quick sharing of per-color card lists
+- Theme UX: Header includes a Reset Theme control to clear browser preference and reapply server default (THEME) or system mapping. Diagnostics page shows resolved theme and stored preference with a reset action.
 
 Roadmap and usage for Web UI features are tracked in `logs/web-ui-upgrade-outline.md`.
 
@@ -77,6 +80,7 @@ Roadmap and usage for Web UI features are tracked in `logs/web-ui-upgrade-outlin
  - 404s from Starlette now render the HTML 404 page when requested from a browser (Accept: text/html)
  - Owned page UX: full-size preview now pops on thumbnail hover (not the name); selection highlight tightened to the thumbnail only and changed to white for better contrast; Themes in the hover popout render as a larger bullet list with a brighter "THEMES" label
  - Image robustness: standardized `data-card-name` on all Scryfall images and centralized retry logic (thumbnails + previews) with version fallbacks (small/normal/large) and a single cache-bust refresh on final failure; removed the previous hover-image cache to reduce complexity and overhead
+- Layout polish: fixed sidebar remains full-height under the banner with a subtle right-edge shadow for depth; grid updated to prevent content squish; extra scroll removed; footer pinned when content is short.
  - Deck Summary list view: rows use fixed tracks for count, ×, name, and owned columns (monospace tabular numerals) to ensure perfect alignment; highlight is an inset box-shadow on the name to avoid layout shifts; long names ellipsize with a tooltip; list starts directly under the type header and remains stable on full-screen widths
 
 ### Fixed

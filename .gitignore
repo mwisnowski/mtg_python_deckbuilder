@@ -13,3 +13,4 @@ dist/
 logs/
 !config/deck.json
 RELEASE_NOTES.md
+*.bkp

@@ -47,6 +47,7 @@ Run the browser UI by mapping a port and starting uvicorn:
 docker run --rm `
   -p 8080:8080 `
   -e WEB_VIRTUALIZE=1 ` # optional virtualization
+  -e ENABLE_THEMES=1 -e THEME=system ` # optional theme selector and default
   -v "${PWD}/deck_files:/app/deck_files" `
   -v "${PWD}/logs:/app/logs" `
   -v "${PWD}/csv_files:/app/csv_files" `
@@ -56,6 +57,8 @@ docker run --rm `
   bash -lc "cd /app && uvicorn code.web.app:app --host 0.0.0.0 --port 8080"
 ```
 Then open http://localhost:8080
+
+Tip: The header includes a Reset Theme control to clear your browser’s saved preference and re-apply the server’s default (or OS when THEME=system).
 
 ## Method 2: Command Prompt
 ```cmd

@@ -6,6 +6,7 @@
 - Headless improvements: `tag_mode` (AND/OR) accepted via JSON and environment; interactive exports include `tag_mode` in the run-config.
 - Owned cards workflow: Prompt after commander to "Use only owned cards?"; supports `.txt`/`.csv` lists in `owned_cards/`. Owned-only builds filter the pool; if the deck can't reach 100, it remains incomplete and notes it. When not owned-only, owned cards are marked with an `Owned` column in the final CSV.
 - Exports: CSV/TXT always; JSON run-config exported for interactive runs and optionally in headless (`HEADLESS_EXPORT_JSON=1`).
+- Theming: Consolidated Light (Blend) as the only light palette; default THEME can be system|light|dark. Header includes a Reset Theme control to clear saved preference; diagnostics shows resolved theme and stored preference.
 - Data freshness: Auto-refreshes `cards.csv` if missing or older than 7 days and re-tags when needed using `.tagging_complete.json`.
 - Web setup speed: initial tagging runs in parallel by default for the Web UI. Configure with `WEB_TAG_PARALLEL=1|0` and `WEB_TAG_WORKERS=<N>` (compose default: 4). Falls back to sequential if parallel init fails.
  - Phase 8 UI upgrade: Unified “New Deck” modal (steps 1–3), Locks, Replace flow, Compare builds, and shareable Permalinks. Optional Name field becomes the export filename stem and display name.
@@ -30,6 +31,7 @@
 - All responses include `X-Request-ID`; JSON error payloads include `request_id` for correlation.
 - Friendly HTML error pages for 404/4xx/500 with a "Go home" link (browser requests).
 - Feature flags: `SHOW_DIAGNOSTICS=1` to enable a diagnostics page with test tools; `SHOW_LOGS=1` to enable a logs page and `/status/logs?tail=N`.
+ - Diagnostics page surfaces resolved theme and preference, with a Reset preference action.
 
 ## What’s new
 - Web UI: Staged run with a new "Creatures: All-Theme" phase in AND mode; shows matched selected themes per card for explainability. Step 2 UI clarifies AND/OR with a tooltip and restyled Why panel.

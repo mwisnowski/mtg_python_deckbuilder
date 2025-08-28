@@ -3,11 +3,15 @@
 <section>
   <h2>Diagnostics</h2>
   <p class="muted">Use these tools to verify error handling surfaces.</p>
-  <div class="card" style="background:#0f1115; border:1px solid var(--border); border-radius:10px; padding:.75rem; margin-bottom:.75rem">
+  <div class="card" style="background: var(--panel); border:1px solid var(--border); border-radius:10px; padding:.75rem; margin-bottom:.75rem">
     <h3 style="margin-top:0">System summary</h3>
     <div id="sysSummary" class="muted">Loading…</div>
+    <div id="themeSummary" style="margin-top:.5rem"></div>
+    <div style="margin-top:.35rem">
+      <button class="btn" id="diag-theme-reset">Reset theme preference</button>
+    </div>
   </div>
-  <div class="card" style="background:#0f1115; border:1px solid var(--border); border-radius:10px; padding:.75rem; margin-bottom:.75rem">
+  <div class="card" style="background: var(--panel); border:1px solid var(--border); border-radius:10px; padding:.75rem; margin-bottom:.75rem">
     <h3 style="margin-top:0">Performance (local)</h3>
     <div class="muted" style="margin-bottom:.35rem">Scroll the Step 5 list; this panel shows a rough FPS estimate and virtualization renders.</div>
     <div style="display:flex; gap:1rem; flex-wrap:wrap">
@@ -16,7 +20,13 @@
       <div><strong>Render count:</strong> <span id="perf-renders">0</span></div>
     </div>
   </div>
-  <div class="card" style="background:#0f1115; border:1px solid var(--border); border-radius:10px; padding:.75rem;">
+  {% if enable_pwa %}
+  <div class="card" style="background:#0f1115; border:1px solid var(--border); border-radius:10px; padding:.75rem; margin-bottom:.75rem">
+    <h3 style="margin-top:0">PWA status</h3>
+    <div id="pwaStatus" class="muted">Checking…</div>
+  </div>
+  {% endif %}
+  <div class="card" style="background: var(--panel); border:1px solid var(--border); border-radius:10px; padding:.75rem;">
   <h3 style="margin-top:0">Error triggers</h3>
     <div class="row" style="display:flex; gap:.5rem; align-items:center">
   <button class="btn" hx-get="/diagnostics/trigger-error" hx-trigger="click" hx-target="this" hx-swap="none">Trigger HTTP error (418)</button>
@@ -48,6 +58,46 @@
     try { fetch('/status/sys', { cache: 'no-store' }).then(function(r){ return r.json(); }).then(render).catch(function(){ el.textContent='Unavailable'; }); } catch(_){ el.textContent='Unavailable'; }
   }
   load();
+  // Theme status and reset
+  try{
+    var tEl = document.getElementById('themeSummary');
+    var resetBtn = document.getElementById('diag-theme-reset');
+    function renderTheme(){
+      if (!tEl) return;
+      var key = 'mtg:theme';
+      var stored = localStorage.getItem(key);
+      var html = '';
+      var resolved = document.documentElement.getAttribute('data-theme') || '';
+      html += '<div><strong>Resolved theme:</strong> ' + resolved + '</div>';
+      html += '<div><strong>Preference:</strong> ' + (stored ? stored : '(none)') + '</div>';
+      tEl.innerHTML = html;
+    }
+    renderTheme();
+    if (resetBtn){
+      resetBtn.addEventListener('click', function(){
+        try{ localStorage.removeItem('mtg:theme'); }catch(_){ }
+        // Re-apply from server default via base script by simulating system apply
+        try{
+          var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+          var v = prefersDark ? 'dark' : 'light-blend';
+          document.documentElement.setAttribute('data-theme', v);
+        }catch(_){ }
+        renderTheme();
+      });
+    }
+  }catch(_){ }
+  try{
+    var p = document.getElementById('pwaStatus');
+    if (p){
+      function renderPwa(){
+        try{
+          var st = window.__pwaStatus || {};
+          p.innerHTML = '<div><strong>Registered:</strong> '+ (st.registered? 'Yes':'No') +'</div>' + (st.scope? '<div><strong>Scope:</strong> '+ st.scope +'</div>' : '');
+        }catch(_){ p.textContent = 'Unavailable'; }
+      }
+      setTimeout(renderPwa, 500);
+    }
+  }catch(_){ }
   // Perf probe: listen to scroll on a card grid if present
   try{
     var fpsEl = document.getElementById('perf-fps');

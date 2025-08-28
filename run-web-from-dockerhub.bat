@@ -17,11 +17,16 @@ if "%SHOW_DIAGNOSTICS%"=="" set SHOW_DIAGNOSTICS=1
 if "%WEB_VIRTUALIZE%"=="" set WEB_VIRTUALIZE=0
 
 echo Starting Web UI on http://localhost:8080
-printf Flags: SHOW_LOGS=%SHOW_LOGS%  SHOW_DIAGNOSTICS=%SHOW_DIAGNOSTICS%  WEB_VIRTUALIZE=%WEB_VIRTUALIZE%
+echo Flags: SHOW_LOGS=%SHOW_LOGS%  SHOW_DIAGNOSTICS=%SHOW_DIAGNOSTICS%  WEB_VIRTUALIZE=%WEB_VIRTUALIZE%  THEME=%THEME%  ENABLE_THEMES=%ENABLE_THEMES%
+
+REM Optional theme flags (set before running):
+REM   set THEME=system|light|dark
+REM   set ENABLE_THEMES=1
 
 docker run --rm ^
   -p 8080:8080 ^
   -e SHOW_LOGS=%SHOW_LOGS% -e SHOW_DIAGNOSTICS=%SHOW_DIAGNOSTICS% -e WEB_VIRTUALIZE=%WEB_VIRTUALIZE% ^
+  -e THEME=%THEME% -e ENABLE_THEMES=%ENABLE_THEMES% ^
   -v "%cd%\deck_files:/app/deck_files" ^
   -v "%cd%\logs:/app/logs" ^
   -v "%cd%\csv_files:/app/csv_files" ^

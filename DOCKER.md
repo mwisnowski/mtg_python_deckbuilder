@@ -34,7 +34,7 @@ Then open http://localhost:8080
 
 Volumes are the same as the CLI service, so deck exports/logs/configs persist in your working folder.
 The app serves a favicon at `/favicon.ico` and exposes a health endpoint at `/healthz`.
-Compare view offers a Copy summary button to copy a plain-text diff of two runs.
+Compare view offers a Copy summary button to copy a plain-text diff of two runs. The sidebar has a subtle depth shadow for clearer separation.
 
 Web UI feature highlights:
 - Locks: Click a card or the lock control in Step 5; locks persist across reruns.
@@ -87,7 +87,7 @@ Docker Hub (PowerShell) example:
 ```powershell
 docker run --rm `
     -p 8080:8080 `
-    -e SHOW_LOGS=1 -e SHOW_DIAGNOSTICS=1 `
+    -e SHOW_LOGS=1 -e SHOW_DIAGNOSTICS=1 -e ENABLE_THEMES=1 -e THEME=system `
     -v "${PWD}/deck_files:/app/deck_files" `
     -v "${PWD}/logs:/app/logs" `
     -v "${PWD}/csv_files:/app/csv_files" `
@@ -124,6 +124,8 @@ Health check:
 ```text
 GET http://localhost:8080/healthz  ->  { "status": "ok", "version": "dev", "uptime_seconds": 123 }
 ```
+
+Theme preference reset (client-side): use the header’s Reset Theme control to clear the saved browser preference; the server default (THEME) applies on next paint.
 
 ## Volumes
 - `/app/deck_files` ↔ `./deck_files`

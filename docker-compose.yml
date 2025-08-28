@@ -1,4 +1,5 @@
 services:
+  # Command line driven build
   # mtg-deckbuilder:
   #   build: .
   #   container_name: mtg-deckbuilder-main

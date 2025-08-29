@@ -1,4 +1,4 @@
-from typing import Dict, List, Final, Tuple, Union, Callable
+from typing import Dict, List, Final, Tuple, Union, Callable, Any as _Any
 from settings import CARD_DATA_COLUMNS as CSV_REQUIRED_COLUMNS  # unified
 
 __all__ = [
@@ -517,3 +517,205 @@ GAME_CHANGERS: Final[List[str]] = [
     'Underworld Breach', 'Urza, Lord High Artificer', 'Vampiric Tutor', 'Vorinclex, Voice of Hunger',
     'Winota, Joiner of Forces', 'Worldly Tutor', 'Yuriko, the Tiger\'s Shadow'
 ]
+
+# ---------------------------------------------------------------------------
+# Multi-copy archetype configuration (centralized source of truth)
+# ---------------------------------------------------------------------------
+# Each entry describes a supported multi-copy archetype eligible for the choose-one flow.
+# Fields:
+# - id: machine id
+# - name: card name
+# - color_identity: list[str] of required color letters (subset must be in commander CI)
+# - printed_cap: int | None (None means no printed cap)
+# - exclusive_group: str | None (at most one from the same group)
+# - triggers: { tags_any: list[str], tags_all: list[str] }
+# - default_count: int (default 25)
+# - rec_window: tuple[int,int] (recommendation window)
+# - thrumming_stone_synergy: bool
+# - type_hint: 'creature' | 'noncreature'
+MULTI_COPY_ARCHETYPES: Final[dict[str, dict[str, _Any]]] = {
+    'cid_timeless_artificer': {
+        'id': 'cid_timeless_artificer',
+        'name': 'Cid, Timeless Artificer',
+        'color_identity': ['U','W'],
+        'printed_cap': None,
+        'exclusive_group': None,
+        'triggers': {
+            'tags_any': ['artificer kindred', 'hero kindred', 'artifacts matter'],
+            'tags_all': []
+        },
+        'default_count': 25,
+        'rec_window': (20,30),
+        'thrumming_stone_synergy': True,
+        'type_hint': 'creature'
+    },
+    'dragons_approach': {
+        'id': 'dragons_approach',
+        'name': "Dragon's Approach",
+        'color_identity': ['R'],
+        'printed_cap': None,
+        'exclusive_group': None,
+        'triggers': {
+            'tags_any': ['burn','spellslinger','prowess','storm','copy','cascade','impulse draw','treasure','ramp','graveyard','mill','discard','recursion'],
+            'tags_all': []
+        },
+        'default_count': 25,
+        'rec_window': (20,30),
+        'thrumming_stone_synergy': True,
+        'type_hint': 'noncreature'
+    },
+    'hare_apparent': {
+        'id': 'hare_apparent',
+        'name': 'Hare Apparent',
+        'color_identity': ['W'],
+        'printed_cap': None,
+        'exclusive_group': None,
+        'triggers': {
+            'tags_any': ['rabbit kindred','tokens matter','aggro'],
+            'tags_all': []
+        },
+        'default_count': 25,
+        'rec_window': (20,30),
+        'thrumming_stone_synergy': True,
+        'type_hint': 'creature'
+    },
+    'slime_against_humanity': {
+        'id': 'slime_against_humanity',
+        'name': 'Slime Against Humanity',
+        'color_identity': ['G'],
+        'printed_cap': None,
+        'exclusive_group': None,
+        'triggers': {
+            'tags_any': ['tokens','tokens matter','go-wide','exile matters','ooze kindred','spells matter','spellslinger','graveyard','mill','discard','recursion','domain','self-mill','delirium','descend'],
+            'tags_all': []
+        },
+        'default_count': 25,
+        'rec_window': (20,30),
+        'thrumming_stone_synergy': True,
+        'type_hint': 'noncreature'
+    },
+    'relentless_rats': {
+        'id': 'relentless_rats',
+        'name': 'Relentless Rats',
+        'color_identity': ['B'],
+        'printed_cap': None,
+        'exclusive_group': 'rats',
+        'triggers': {
+            'tags_any': ['rats','swarm','aristocrats','sacrifice','devotion-b','lifedrain','graveyard','recursion'],
+            'tags_all': []
+        },
+        'default_count': 25,
+        'rec_window': (20,30),
+        'thrumming_stone_synergy': True,
+        'type_hint': 'creature'
+    },
+    'rat_colony': {
+        'id': 'rat_colony',
+        'name': 'Rat Colony',
+        'color_identity': ['B'],
+        'printed_cap': None,
+        'exclusive_group': 'rats',
+        'triggers': {
+            'tags_any': ['rats','swarm','aristocrats','sacrifice','devotion-b','lifedrain','graveyard','recursion'],
+            'tags_all': []
+        },
+        'default_count': 25,
+        'rec_window': (20,30),
+        'thrumming_stone_synergy': True,
+        'type_hint': 'creature'
+    },
+    'seven_dwarves': {
+        'id': 'seven_dwarves',
+        'name': 'Seven Dwarves',
+        'color_identity': ['R'],
+        'printed_cap': 7,
+        'exclusive_group': None,
+        'triggers': {
+            'tags_any': ['dwarf kindred','treasure','equipment','tokens','go-wide','tribal'],
+            'tags_all': []
+        },
+        'default_count': 7,
+        'rec_window': (7,7),
+        'thrumming_stone_synergy': True,
+        'type_hint': 'creature'
+    },
+    'persistent_petitioners': {
+        'id': 'persistent_petitioners',
+        'name': 'Persistent Petitioners',
+        'color_identity': ['U'],
+        'printed_cap': None,
+        'exclusive_group': None,
+        'triggers': {
+            'tags_any': ['mill','advisor kindred','control','defenders','walls','draw-go'],
+            'tags_all': []
+        },
+        'default_count': 25,
+        'rec_window': (20,30),
+        'thrumming_stone_synergy': True,
+        'type_hint': 'creature'
+    },
+    'shadowborn_apostle': {
+        'id': 'shadowborn_apostle',
+        'name': 'Shadowborn Apostle',
+        'color_identity': ['B'],
+        'printed_cap': None,
+        'exclusive_group': None,
+        'triggers': {
+            'tags_any': ['demon kindred','aristocrats','sacrifice','recursion','lifedrain'],
+            'tags_all': []
+        },
+        'default_count': 25,
+        'rec_window': (20,30),
+        'thrumming_stone_synergy': True,
+        'type_hint': 'creature'
+    },
+    'nazgul': {
+        'id': 'nazgul',
+        'name': 'Nazgûl',
+        'color_identity': ['B'],
+        'printed_cap': 9,
+        'exclusive_group': None,
+        'triggers': {
+            'tags_any': ['wraith kindred','ring','amass','orc','menace','aristocrats','sacrifice','devotion-b'],
+            'tags_all': []
+        },
+        'default_count': 9,
+        'rec_window': (9,9),
+        'thrumming_stone_synergy': True,
+        'type_hint': 'creature'
+    },
+    'tempest_hawk': {
+        'id': 'tempest_hawk',
+        'name': 'Tempest Hawk',
+        'color_identity': ['W'],
+        'printed_cap': None,
+        'exclusive_group': None,
+        'triggers': {
+            'tags_any': ['bird kindred','aggro'],
+            'tags_all': []
+        },
+        'default_count': 25,
+        'rec_window': (20,30),
+        'thrumming_stone_synergy': True,
+        'type_hint': 'creature'
+    },
+    'templar_knight': {
+        'id': 'templar_knight',
+        'name': 'Templar Knight',
+        'color_identity': ['W'],
+        'printed_cap': None,
+        'exclusive_group': None,
+        'triggers': {
+            'tags_any': ['aggro','human kindred','knight kindred','historic matters','artifacts matter'],
+            'tags_all': []
+        },
+        'default_count': 25,
+        'rec_window': (20,30),
+        'thrumming_stone_synergy': True,
+        'type_hint': 'creature'
+    },
+}
+
+EXCLUSIVE_GROUPS: Final[dict[str, list[str]]] = {
+    'rats': ['relentless_rats', 'rat_colony']
+}

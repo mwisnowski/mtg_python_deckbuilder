@@ -26,6 +26,7 @@
     </aside>
     <div class="grow" data-skeleton>
   <div hx-get="/build/banner" hx-trigger="load"></div>
+      <div hx-get="/build/multicopy/check" hx-trigger="load" hx-swap="afterend"></div>
 
       <p>Commander: <strong>{{ commander }}</strong></p>
       <p>Tags: {{ tags|default([])|join(', ') }}</p>
@@ -48,6 +49,12 @@
   {% if added_total is not none %}
   <span class="chip"><span class="dot" style="background: var(--blue-main);"></span> Added {{ added_total }}</span>
   {% endif %}
+  {% if clamped_overflow is defined and clamped_overflow and (clamped_overflow > 0) %}
+  <span class="chip" title="Trimmed overflow from this stage"><span class="dot" style="background: var(--red-main);"></span> Clamped {{ clamped_overflow }}</span>
+  {% endif %}
+  {% if stage_label and stage_label == 'Multi-Copy Package' and mc_summary is defined and mc_summary %}
+  <span class="chip" title="Multi-Copy package summary"><span class="dot" style="background: var(--purple-main);"></span> {{ mc_summary }}</span>
+  {% endif %}
   <span id="locks-chip">{% if locks and locks|length > 0 %}<span class="chip" title="Locked cards">🔒 {{ locks|length }} locked</span>{% endif %}</span>
   <button type="button" class="btn" style="margin-left:auto;" title="Copy permalink"
       onclick="(async()=>{try{const r=await fetch('/build/permalink');const j=await r.json();const url=(j.permalink?location.origin+j.permalink:location.href+'#'+btoa(JSON.stringify(j.state||{}))); await navigator.clipboard.writeText(url); toast && toast('Permalink copied');}catch(e){alert('Copied state to console'); console.log(e);}})()">Copy Permalink</button>
@@ -59,6 +66,10 @@
       <div class="progress{% if added_cards is defined and added_cards is not none and (added_cards|length == 0) and (status and not status.startswith('Build complete')) %} flash{% endif %}" aria-label="Deck progress" title="{{ deck_count }} of 100 cards" style="margin:.25rem 0 1rem 0;" data-pct="{{ pct_int }}">
         <div class="bar"></div>
       </div>
+
+  {% if mc_adjustments is defined and mc_adjustments and stage_label and stage_label == 'Multi-Copy Package' %}
+  <div class="muted" style="margin:.35rem 0 .25rem 0;">Adjusted targets: {{ mc_adjustments|join(', ') }}</div>
+  {% endif %}
 
       {% if status %}
       <div style="margin-top:1rem;">
@@ -216,7 +227,7 @@
                   sizes="160px" />
               </button>
               <div class="owned-badge" title="{{ 'Owned' if owned else 'Not owned' }}" aria-label="{{ 'Owned' if owned else 'Not owned' }}">{% if owned %}✔{% else %}✖{% endif %}</div>
-              <div class="name">{{ c.name }}{% if c.count and c.count > 1 %} ×{{ c.count }}{% endif %}</div>
+              <div class="name">{{ c.name|safe }}{% if c.count and c.count > 1 %} ×{{ c.count }}{% endif %}</div>
     <div class="lock-box" id="lock-{{ group_idx }}-{{ loop.index0 }}" style="display:flex; justify-content:center; gap:.25rem; margin-top:.25rem;">
   <button type="button" class="btn-lock" title="{{ 'Unlock this card (kept across reruns)' if is_locked else 'Lock this card (keep across reruns)' }}" aria-pressed="{{ 'true' if is_locked else 'false' }}"
       hx-post="/build/lock" hx-target="closest .lock-box" hx-swap="innerHTML"
@@ -254,7 +265,7 @@
                 sizes="160px" />
             </button>
             <div class="owned-badge" title="{{ 'Owned' if owned else 'Not owned' }}" aria-label="{{ 'Owned' if owned else 'Not owned' }}">{% if owned %}✔{% else %}✖{% endif %}</div>
-            <div class="name">{{ c.name }}{% if c.count and c.count > 1 %} ×{{ c.count }}{% endif %}</div>
+            <div class="name">{{ c.name|safe }}{% if c.count and c.count > 1 %} ×{{ c.count }}{% endif %}</div>
     <div class="lock-box" id="lock-{{ loop.index0 }}" style="display:flex; justify-content:center; gap:.25rem; margin-top:.25rem;">
   <button type="button" class="btn-lock" title="{{ 'Unlock this card (kept across reruns)' if is_locked else 'Lock this card (keep across reruns)' }}" aria-pressed="{{ 'true' if is_locked else 'false' }}"
           hx-post="/build/lock" hx-target="closest .lock-box" hx-swap="innerHTML"

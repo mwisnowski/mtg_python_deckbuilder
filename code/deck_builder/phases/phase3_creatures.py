@@ -335,9 +335,39 @@ class CreatureAdditionMixin:
     def _creature_count_in_library(self) -> int:
         total = 0
         try:
-            for _n, entry in getattr(self, 'card_library', {}).items():
-                if str(entry.get('Role') or '').strip() == 'creature':
-                    total += int(entry.get('Count', 1))
+            lib = getattr(self, 'card_library', {}) or {}
+            for name, entry in lib.items():
+                # Skip the commander from creature counts to preserve historical behavior
+                try:
+                    if bool(entry.get('Commander')):
+                        continue
+                except Exception:
+                    pass
+                is_creature = False
+                # Prefer explicit Card Type recorded on the entry
+                try:
+                    ctype = str(entry.get('Card Type') or '')
+                    if ctype:
+                        is_creature = ('creature' in ctype.lower())
+                except Exception:
+                    is_creature = False
+                # Fallback: look up type from the combined dataframe snapshot
+                if not is_creature:
+                    try:
+                        df = getattr(self, '_combined_cards_df', None)
+                        if df is not None and not getattr(df, 'empty', True) and 'name' in df.columns:
+                            row = df[df['name'].astype(str).str.lower() == str(name).strip().lower()]
+                            if not row.empty:
+                                tline = str(row.iloc[0].get('type', row.iloc[0].get('type_line', '')) or '')
+                                if 'creature' in tline.lower():
+                                    is_creature = True
+                    except Exception:
+                        pass
+                if is_creature:
+                    try:
+                        total += int(entry.get('Count', 1))
+                    except Exception:
+                        total += 1
         except Exception:
             pass
         return total

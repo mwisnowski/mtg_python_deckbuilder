@@ -849,7 +849,16 @@ def run_build(commander: str, tags: List[str], bracket: int, ideals: Dict[str, i
 # -----------------
 def _make_stages(b: DeckBuilder) -> List[Dict[str, Any]]:
     stages: List[Dict[str, Any]] = []
+    # Run Multi-Copy before land steps (per web-first flow preference)
+    mc_selected = False
+    try:
+        mc_selected = bool(getattr(b, '_web_multi_copy', None))
+    except Exception:
+        mc_selected = False
     # Web UI: skip theme confirmation stages (CLI-only pauses)
+    # Multi-Copy package first (if selected) so lands & targets can account for it
+    if mc_selected:
+        stages.append({"key": "multicopy", "label": "Multi-Copy Package", "runner_name": "__add_multi_copy__"})
     # Land steps 1..8 (if present)
     for i in range(1, 9):
         fn = getattr(b, f"run_land_step{i}", None)
@@ -914,6 +923,7 @@ def start_build_ctx(
     owned_names: List[str] | None = None,
     locks: List[str] | None = None,
     custom_export_base: str | None = None,
+    multi_copy: Dict[str, Any] | None = None,
 ) -> Dict[str, Any]:
     logs: List[str] = []
 
@@ -979,6 +989,11 @@ def start_build_ctx(
     # Data load
     b.determine_color_identity()
     b.setup_dataframes()
+    # Thread multi-copy selection onto builder for stage generation/runner
+    try:
+        b._web_multi_copy = (multi_copy or None)
+    except Exception:
+        pass
     # Stages
     stages = _make_stages(b)
     ctx = {
@@ -1166,7 +1181,134 @@ def run_stage(ctx: Dict[str, Any], rerun: bool = False, show_skipped: bool = Fal
         # Run the stage and capture logs delta
         start_log = len(logs)
         fn = getattr(b, runner_name, None)
-        if callable(fn):
+        if runner_name == '__add_multi_copy__':
+            try:
+                sel = getattr(b, '_web_multi_copy', None) or {}
+                card_name = str(sel.get('name') or '').strip()
+                count = int(sel.get('count') or 0)
+                add_thrum = bool(sel.get('thrumming'))
+                sel_id = str(sel.get('id') or '').strip()
+                # Look up archetype meta for type hints
+                try:
+                    from deck_builder import builder_constants as _bc
+                    meta = (_bc.MULTI_COPY_ARCHETYPES or {}).get(sel_id, {})
+                    type_hint = str(meta.get('type_hint') or '').strip().lower()
+                except Exception:
+                    type_hint = ''
+                added_any = False
+                mc_adjustments: list[str] = []
+                # Helper: resolve display name via combined DF if possible for correct casing
+                def _resolve_name(nm: str) -> str:
+                    try:
+                        df = getattr(b, '_combined_cards_df', None)
+                        if df is not None and not df.empty:
+                            row = df[df['name'].astype(str).str.lower() == str(nm).strip().lower()]
+                            if not row.empty:
+                                return str(row.iloc[0]['name'])
+                    except Exception:
+                        pass
+                    return nm
+                # Helper: enrich library entry with type and mana cost from DF when possible
+                def _enrich_from_df(entry: dict, nm: str) -> None:
+                    try:
+                        df = getattr(b, '_combined_cards_df', None)
+                        if df is None or getattr(df, 'empty', True):
+                            return
+                        row = df[df['name'].astype(str).str.lower() == str(nm).strip().lower()]
+                        if row.empty:
+                            return
+                        r0 = row.iloc[0]
+                        tline = str(r0.get('type', r0.get('type_line', '')) or '')
+                        if tline:
+                            entry['Card Type'] = tline
+                        mc = r0.get('mana_cost', r0.get('manaCost'))
+                        if isinstance(mc, str) and mc:
+                            entry['Mana Cost'] = mc
+                    except Exception:
+                        return
+                mc_summary_parts: list[str] = []
+                if card_name and count > 0:
+                    dn = _resolve_name(card_name)
+                    entry = b.card_library.get(dn)
+                    prev = int(entry.get('Count', 0)) if isinstance(entry, dict) else 0
+                    new_count = prev + count
+                    new_entry = {
+                        'Count': new_count,
+                        'Role': 'Theme',
+                        'SubRole': 'Multi-Copy',
+                        'AddedBy': 'MultiCopy',
+                        'TriggerTag': ''
+                    }
+                    _enrich_from_df(new_entry, dn)
+                    b.card_library[dn] = new_entry
+                    logs.append(f"Added multi-copy package: {dn} x{count} (total {new_count}).")
+                    mc_summary_parts.append(f"{dn} ×{count}")
+                    added_any = True
+                if add_thrum:
+                    try:
+                        tn = _resolve_name('Thrumming Stone')
+                        e2 = b.card_library.get(tn)
+                        prev2 = int(e2.get('Count', 0)) if isinstance(e2, dict) else 0
+                        new_e2 = {
+                            'Count': prev2 + 1,
+                            'Role': 'Support',
+                            'SubRole': 'Multi-Copy',
+                            'AddedBy': 'MultiCopy',
+                            'TriggerTag': ''
+                        }
+                        _enrich_from_df(new_e2, tn)
+                        b.card_library[tn] = new_e2
+                        logs.append("Included Thrumming Stone (1x).")
+                        mc_summary_parts.append("Thrumming Stone ×1")
+                        added_any = True
+                    except Exception:
+                        pass
+                # Adjust ideal targets to prevent overfilling later phases
+                try:
+                    # Reduce creature target when the multi-copy is a creature-type archetype
+                    if type_hint == 'creature':
+                        cur = int(getattr(b, 'ideal_counts', {}).get('creatures', 0))
+                        new_val = max(0, cur - max(0, count))
+                        b.ideal_counts['creatures'] = new_val
+                        logs.append(f"Adjusted target: creatures {cur} -> {new_val} due to multi-copy ({count}).")
+                        mc_adjustments.append(f"creatures {cur}→{new_val}")
+                    else:
+                        # Spread reduction across spell categories in a stable order
+                        to_spread = max(0, count + (1 if add_thrum else 0))
+                        order = ['card_advantage', 'protection', 'removal', 'wipes']
+                        for key in order:
+                            if to_spread <= 0:
+                                break
+                            try:
+                                cur = int(getattr(b, 'ideal_counts', {}).get(key, 0))
+                            except Exception:
+                                cur = 0
+                            if cur <= 0:
+                                continue
+                            take = min(cur, to_spread)
+                            b.ideal_counts[key] = cur - take
+                            to_spread -= take
+                            logs.append(f"Adjusted target: {key} {cur} -> {cur - take} due to multi-copy.")
+                            mc_adjustments.append(f"{key} {cur}→{cur - take}")
+                except Exception:
+                    pass
+                # Surface adjustments for Step 5 UI
+                try:
+                    if mc_adjustments:
+                        ctx.setdefault('mc_adjustments', mc_adjustments)
+                except Exception:
+                    pass
+                # Surface a concise summary for UI chip
+                try:
+                    if mc_summary_parts:
+                        ctx['mc_summary'] = ' + '.join(mc_summary_parts)
+                except Exception:
+                    pass
+                if not added_any:
+                    logs.append("No multi-copy additions (empty selection).")
+            except Exception as e:
+                logs.append(f"Stage '{label}' failed: {e}")
+        elif callable(fn):
             try:
                 fn()
             except Exception as e:
@@ -1245,6 +1387,65 @@ def run_stage(ctx: Dict[str, Any], rerun: bool = False, show_skipped: bool = Fal
         except Exception:
             added_cards = []
 
+        # Final safety clamp: keep total deck size <= 100 by trimming this stage's additions first
+        clamped_overflow = 0
+        # Compute current total_cards upfront (used below and in response)
+        try:
+            total_cards = 0
+            for _n, _e in getattr(b, 'card_library', {}).items():
+                try:
+                    total_cards += int(_e.get('Count', 1))
+                except Exception:
+                    total_cards += 1
+        except Exception:
+            total_cards = None
+        try:
+            overflow = max(0, int(total_cards) - 100)
+            if overflow > 0 and added_cards:
+                # Trim from added cards without reducing below pre-stage counts; skip locked names
+                remaining = overflow
+                for ac in reversed(added_cards):
+                    if remaining <= 0:
+                        break
+                    try:
+                        name = str(ac.get('name'))
+                        if not name:
+                            continue
+                        if name.strip().lower() in locks_set:
+                            continue
+                        prev_entry = (snap_before.get('card_library') or {}).get(name)
+                        prev_cnt = int(prev_entry.get('Count', 0)) if isinstance(prev_entry, dict) else 0
+                        cur_entry = getattr(b, 'card_library', {}).get(name)
+                        cur_cnt = int(cur_entry.get('Count', 1)) if isinstance(cur_entry, dict) else 1
+                        can_reduce = max(0, cur_cnt - prev_cnt)
+                        if can_reduce <= 0:
+                            continue
+                        take = min(can_reduce, remaining, int(ac.get('count', 0) or 0))
+                        if take <= 0:
+                            continue
+                        new_cnt = cur_cnt - take
+                        if new_cnt <= 0:
+                            try:
+                                del b.card_library[name]
+                            except Exception:
+                                pass
+                        else:
+                            cur_entry['Count'] = new_cnt
+                        ac['count'] = max(0, int(ac.get('count', 0) or 0) - take)
+                        remaining -= take
+                        clamped_overflow += take
+                    except Exception:
+                        continue
+                # Drop any zero-count added rows
+                added_cards = [x for x in added_cards if int(x.get('count', 0) or 0) > 0]
+                if clamped_overflow > 0:
+                    try:
+                        logs.append(f"Clamped {clamped_overflow} card(s) from this stage to remain at 100.")
+                    except Exception:
+                        pass
+        except Exception:
+            clamped_overflow = 0
+
         # If this stage added cards, present it and advance idx
         if added_cards:
             # Progress counts
@@ -1283,6 +1484,9 @@ def run_stage(ctx: Dict[str, Any], rerun: bool = False, show_skipped: bool = Fal
                 "total": len(stages),
                 "total_cards": total_cards,
                 "added_total": added_total,
+                "mc_adjustments": ctx.get('mc_adjustments'),
+                "clamped_overflow": clamped_overflow,
+                "mc_summary": ctx.get('mc_summary'),
             }
 
         # No cards added: either skip or surface as a 'skipped' stage

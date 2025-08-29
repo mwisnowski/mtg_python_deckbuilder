@@ -8,6 +8,8 @@ from ..services import orchestrator as orch
 from ..services import owned_store
 from ..services.tasks import get_session, new_sid
 from html import escape as _esc
+from deck_builder.builder import DeckBuilder
+from deck_builder import builder_utils as bu
 
 router = APIRouter(prefix="/build")
 
@@ -29,6 +31,76 @@ def _alts_set_cached(key: tuple[str, str, bool], html: str) -> None:
         _ALTS_CACHE[key] = (_t.time(), html)
     except Exception:
         pass
+
+
+def _rebuild_ctx_with_multicopy(sess: dict) -> None:
+    """Rebuild the staged context so Multi-Copy runs first, avoiding overfill.
+
+    This ensures the added cards are accounted for before lands and later phases,
+    which keeps totals near targets and shows the multi-copy additions ahead of basics.
+    """
+    try:
+        if not sess or not sess.get("commander"):
+            return
+        # Build fresh ctx with the same options, threading multi_copy explicitly
+        opts = orch.bracket_options()
+        default_bracket = (opts[0]["level"] if opts else 1)
+        bracket_val = sess.get("bracket")
+        try:
+            safe_bracket = int(bracket_val) if bracket_val is not None else int(default_bracket)
+        except Exception:
+            safe_bracket = int(default_bracket)
+        ideals_val = sess.get("ideals") or orch.ideal_defaults()
+        use_owned = bool(sess.get("use_owned_only"))
+        prefer = bool(sess.get("prefer_owned"))
+        owned_names = owned_store.get_names() if (use_owned or prefer) else None
+        locks = list(sess.get("locks", []))
+        sess["build_ctx"] = orch.start_build_ctx(
+            commander=sess.get("commander"),
+            tags=sess.get("tags", []),
+            bracket=safe_bracket,
+            ideals=ideals_val,
+            tag_mode=sess.get("tag_mode", "AND"),
+            use_owned_only=use_owned,
+            prefer_owned=prefer,
+            owned_names=owned_names,
+            locks=locks,
+            custom_export_base=sess.get("custom_export_base"),
+            multi_copy=sess.get("multi_copy"),
+        )
+    except Exception:
+        # If rebuild fails (e.g., commander not found in test), fall back to injecting
+        # a minimal Multi-Copy stage on the existing builder so the UI can render additions.
+        try:
+            ctx = sess.get("build_ctx")
+            if not isinstance(ctx, dict):
+                return
+            b = ctx.get("builder")
+            if b is None:
+                return
+            # Thread selection onto the builder; runner will be resilient without full DFs
+            try:
+                setattr(b, "_web_multi_copy", sess.get("multi_copy") or None)
+            except Exception:
+                pass
+            # Ensure minimal structures exist
+            try:
+                if not isinstance(getattr(b, "card_library", None), dict):
+                    b.card_library = {}
+            except Exception:
+                pass
+            try:
+                if not isinstance(getattr(b, "ideal_counts", None), dict):
+                    b.ideal_counts = {}
+            except Exception:
+                pass
+            # Inject a single Multi-Copy stage
+            ctx["stages"] = [{"key": "multi_copy", "label": "Multi-Copy Package", "runner_name": "__add_multi_copy__"}]
+            ctx["idx"] = 0
+            ctx["last_visible_idx"] = 0
+        except Exception:
+            # Leave existing context untouched on unexpected failure
+            pass
 
 
 @router.get("/", response_class=HTMLResponse)
@@ -61,6 +133,158 @@ async def build_index(request: Request) -> HTMLResponse:
     )
     resp.set_cookie("sid", sid, httponly=True, samesite="lax")
     return resp
+
+
+# --- Multi-copy archetype suggestion modal (Web-first flow) ---
+
+@router.get("/multicopy/check", response_class=HTMLResponse)
+async def multicopy_check(request: Request) -> HTMLResponse:
+    """If current commander/tags suggest a multi-copy archetype, render a choose-one modal.
+
+    Returns empty content when not applicable to avoid flashing a modal unnecessarily.
+    """
+    sid = request.cookies.get("sid") or new_sid()
+    sess = get_session(sid)
+    commander = str(sess.get("commander") or "").strip()
+    tags = list(sess.get("tags") or [])
+    if not commander:
+        return HTMLResponse("")
+    # Avoid re-prompting repeatedly for the same selection context
+    key = commander + "||" + ",".join(sorted([str(t).strip().lower() for t in tags if str(t).strip()]))
+    seen = set(sess.get("mc_seen_keys", []) or [])
+    if key in seen:
+        return HTMLResponse("")
+    # Build a light DeckBuilder seeded with commander + tags (no heavy data load required)
+    try:
+        tmp = DeckBuilder(output_func=lambda *_: None, input_func=lambda *_: "", headless=True)
+        df = tmp.load_commander_data()
+        row = df[df["name"].astype(str) == commander]
+        if row.empty:
+            return HTMLResponse("")
+        tmp._apply_commander_selection(row.iloc[0])
+        tmp.selected_tags = list(tags or [])
+        try:
+            tmp.primary_tag = tmp.selected_tags[0] if len(tmp.selected_tags) > 0 else None
+            tmp.secondary_tag = tmp.selected_tags[1] if len(tmp.selected_tags) > 1 else None
+            tmp.tertiary_tag = tmp.selected_tags[2] if len(tmp.selected_tags) > 2 else None
+        except Exception:
+            pass
+        # Establish color identity from the selected commander
+        try:
+            tmp.determine_color_identity()
+        except Exception:
+            pass
+        # Detect viable archetypes
+        results = bu.detect_viable_multi_copy_archetypes(tmp) or []
+        if not results:
+            # Remember this key to avoid re-checking until tags/commander change
+            try:
+                seen.add(key)
+                sess["mc_seen_keys"] = list(seen)
+            except Exception:
+                pass
+            return HTMLResponse("")
+        # Render modal template with top N (cap small for UX)
+        items = results[:5]
+        ctx = {
+            "request": request,
+            "items": items,
+            "commander": commander,
+            "tags": tags,
+        }
+        return templates.TemplateResponse("build/_multi_copy_modal.html", ctx)
+    except Exception:
+        return HTMLResponse("")
+
+
+@router.post("/multicopy/save", response_class=HTMLResponse)
+async def multicopy_save(
+    request: Request,
+    choice_id: str = Form(None),
+    count: int = Form(None),
+    thrumming: str | None = Form(None),
+    skip: str | None = Form(None),
+) -> HTMLResponse:
+    """Persist user selection (or skip) for multi-copy archetype in session and close modal.
+
+    Returns a tiny confirmation chip via OOB swap (optional) and removes the modal.
+    """
+    sid = request.cookies.get("sid") or new_sid()
+    sess = get_session(sid)
+    commander = str(sess.get("commander") or "").strip()
+    tags = list(sess.get("tags") or [])
+    key = commander + "||" + ",".join(sorted([str(t).strip().lower() for t in tags if str(t).strip()]))
+    # Update seen set to avoid re-prompt next load
+    seen = set(sess.get("mc_seen_keys", []) or [])
+    seen.add(key)
+    sess["mc_seen_keys"] = list(seen)
+    # Handle skip explicitly
+    if skip and str(skip).strip() in ("1","true","on","yes"):
+        # Clear any prior choice for this run
+        try:
+            if sess.get("multi_copy"):
+                del sess["multi_copy"]
+            if sess.get("mc_applied_key"):
+                del sess["mc_applied_key"]
+        except Exception:
+            pass
+        # Return nothing (modal will be removed client-side)
+        # Also emit an OOB chip indicating skip
+        chip = (
+            '<div id="last-action" hx-swap-oob="true">'
+            '<span class="chip" title="Click to dismiss">Dismissed multi-copy suggestions</span>'
+            '</div>'
+        )
+        return HTMLResponse(chip)
+    # Persist selection when provided
+    payload = None
+    try:
+        meta = bc.MULTI_COPY_ARCHETYPES.get(str(choice_id), {})
+        name = meta.get("name") or str(choice_id)
+        printed_cap = meta.get("printed_cap")
+        # Coerce count with bounds: default -> rec_window[0], cap by printed_cap when present
+        if count is None:
+            count = int(meta.get("default_count", 25))
+        try:
+            count = int(count)
+        except Exception:
+            count = int(meta.get("default_count", 25))
+        if isinstance(printed_cap, int) and printed_cap > 0:
+            count = max(1, min(printed_cap, count))
+        payload = {
+            "id": str(choice_id),
+            "name": name,
+            "count": int(count),
+            "thrumming": True if (thrumming and str(thrumming).strip() in ("1","true","on","yes")) else False,
+        }
+        sess["multi_copy"] = payload
+        # Mark as not yet applied so the next build start/continue can account for it once
+        try:
+            if sess.get("mc_applied_key"):
+                del sess["mc_applied_key"]
+        except Exception:
+            pass
+        # If there's an active build context, rebuild it so Multi-Copy runs first
+        if sess.get("build_ctx"):
+            _rebuild_ctx_with_multicopy(sess)
+    except Exception:
+        payload = None
+    # Return OOB chip summarizing the selection
+    if payload:
+        chip = (
+            '<div id="last-action" hx-swap-oob="true">'
+            f'<span class="chip" title="Click to dismiss">Selected multi-copy: '
+            f"<strong>{_esc(payload.get('name',''))}</strong> x{int(payload.get('count',0))}"
+            f"{' + Thrumming Stone' if payload.get('thrumming') else ''}</span>"
+            '</div>'
+        )
+    else:
+        chip = (
+            '<div id="last-action" hx-swap-oob="true">'
+            '<span class="chip" title="Click to dismiss">Saved</span>'
+            '</div>'
+        )
+    return HTMLResponse(chip)
 
 
 # Unified "New Deck" modal (steps 1–3 condensed)
@@ -199,6 +423,13 @@ async def build_new_submit(
                 del sess[k]
             except Exception:
                 pass
+    # Reset multi-copy suggestion debounce and selection for a fresh run
+    for k in ["mc_seen_keys", "multi_copy"]:
+        if k in sess:
+            try:
+                del sess[k]
+            except Exception:
+                pass
     # Persist optional custom export base name
     if isinstance(name, str) and name.strip():
         sess["custom_export_base"] = name.strip()
@@ -233,6 +464,7 @@ async def build_new_submit(
         owned_names=owned_names,
         locks=list(sess.get("locks", [])),
         custom_export_base=sess.get("custom_export_base"),
+        multi_copy=sess.get("multi_copy"),
     )
     res = orch.run_stage(sess["build_ctx"], rerun=False, show_skipped=False)
     status = "Build complete" if res.get("done") else "Stage complete"
@@ -262,6 +494,9 @@ async def build_new_submit(
             "show_skipped": False,
             "total_cards": res.get("total_cards"),
             "added_total": res.get("added_total"),
+            "mc_adjustments": res.get("mc_adjustments"),
+            "clamped_overflow": res.get("clamped_overflow"),
+            "mc_summary": res.get("mc_summary"),
             "skipped": bool(res.get("skipped")),
             "locks": list(sess.get("locks", [])),
             "replace_mode": bool(sess.get("replace_mode", True)),
@@ -361,7 +596,7 @@ async def build_step1_confirm(request: Request, name: str = Form(...)) -> HTMLRe
     sid = request.cookies.get("sid") or new_sid()
     sess = get_session(sid)
     # Reset sticky selections from previous runs
-    for k in ["tags", "ideals", "bracket", "build_ctx", "last_step", "tag_mode"]:
+    for k in ["tags", "ideals", "bracket", "build_ctx", "last_step", "tag_mode", "mc_seen_keys", "multi_copy"]:
         try:
             if k in sess:
                 del sess[k]
@@ -471,6 +706,7 @@ async def build_step5_rewind(request: Request, to: str = Form(...)) -> HTMLRespo
             owned_names=owned_names,
             locks=list(sess.get("locks", [])),
             custom_export_base=sess.get("custom_export_base"),
+            multi_copy=sess.get("multi_copy"),
         )
         ctx = sess["build_ctx"]
         # Run forward until reaching target
@@ -505,6 +741,9 @@ async def build_step5_rewind(request: Request, to: str = Form(...)) -> HTMLRespo
             "show_skipped": True,
             "total_cards": res.get("total_cards"),
             "added_total": res.get("added_total"),
+            "mc_adjustments": res.get("mc_adjustments"),
+            "clamped_overflow": res.get("clamped_overflow"),
+            "mc_summary": res.get("mc_summary"),
             "skipped": bool(res.get("skipped")),
             "locks": list(sess.get("locks", [])),
             "replace_mode": bool(sess.get("replace_mode", True)),
@@ -594,6 +833,16 @@ async def build_step2_submit(
     sess["tags"] = [t for t in [primary_tag, secondary_tag, tertiary_tag] if t]
     sess["tag_mode"] = (tag_mode or "AND").upper()
     sess["bracket"] = int(bracket)
+    # Clear multi-copy seen/selection to re-evaluate on Step 3
+    try:
+        if "mc_seen_keys" in sess:
+            del sess["mc_seen_keys"]
+        if "multi_copy" in sess:
+            del sess["multi_copy"]
+        if "mc_applied_key" in sess:
+            del sess["mc_applied_key"]
+    except Exception:
+        pass
     # Proceed to Step 3 placeholder for now
     sess["last_step"] = 3
     resp = templates.TemplateResponse(
@@ -675,6 +924,12 @@ async def build_step3_submit(
     sid = request.cookies.get("sid") or new_sid()
     sess = get_session(sid)
     sess["ideals"] = submitted
+    # Any change to ideals should clear the applied marker, we may want to re-stage
+    try:
+        if "mc_applied_key" in sess:
+            del sess["mc_applied_key"]
+    except Exception:
+        pass
 
     # Proceed to review (Step 4)
     sess["last_step"] = 4
@@ -842,7 +1097,46 @@ async def build_step5_continue(request: Request) -> HTMLResponse:
             owned_names=owned_names,
             locks=list(sess.get("locks", [])),
             custom_export_base=sess.get("custom_export_base"),
+            multi_copy=sess.get("multi_copy"),
         )
+    else:
+        # If context exists already, rebuild ONLY when the multi-copy selection changed or hasn't been applied yet
+        try:
+            mc = sess.get("multi_copy") or None
+            selkey = None
+            if mc:
+                selkey = f"{mc.get('id','')}|{int(mc.get('count',0))}|{1 if mc.get('thrumming') else 0}"
+            applied = sess.get("mc_applied_key") if mc else None
+            if mc and (not applied or applied != selkey):
+                _rebuild_ctx_with_multicopy(sess)
+            # If we still have no stages (e.g., minimal test context), inject a minimal multi-copy stage inline
+            try:
+                ctx = sess.get("build_ctx") or {}
+                stages = ctx.get("stages") if isinstance(ctx, dict) else None
+                if (not stages or len(stages) == 0) and mc:
+                    b = ctx.get("builder") if isinstance(ctx, dict) else None
+                    if b is not None:
+                        try:
+                            setattr(b, "_web_multi_copy", mc)
+                        except Exception:
+                            pass
+                        try:
+                            if not isinstance(getattr(b, "card_library", None), dict):
+                                b.card_library = {}
+                        except Exception:
+                            pass
+                        try:
+                            if not isinstance(getattr(b, "ideal_counts", None), dict):
+                                b.ideal_counts = {}
+                        except Exception:
+                            pass
+                        ctx["stages"] = [{"key": "multicopy", "label": "Multi-Copy Package", "runner_name": "__add_multi_copy__"}]
+                        ctx["idx"] = 0
+                        ctx["last_visible_idx"] = 0
+            except Exception:
+                pass
+        except Exception:
+            pass
     # Read show_skipped from either query or form safely
     show_skipped = True if (request.query_params.get('show_skipped') == '1') else False
     try:
@@ -856,6 +1150,13 @@ async def build_step5_continue(request: Request) -> HTMLResponse:
     stage_label = res.get("label")
     log = res.get("log_delta", "")
     added_cards = res.get("added_cards", [])
+    # If we just applied Multi-Copy, stamp the applied key so we don't rebuild again
+    try:
+        if stage_label == "Multi-Copy Package" and sess.get("multi_copy"):
+            mc = sess.get("multi_copy")
+            sess["mc_applied_key"] = f"{mc.get('id','')}|{int(mc.get('count',0))}|{1 if mc.get('thrumming') else 0}"
+    except Exception:
+        pass
     # Progress & downloads
     i = res.get("idx")
     n = res.get("total")
@@ -889,6 +1190,9 @@ async def build_step5_continue(request: Request) -> HTMLResponse:
             "show_skipped": show_skipped,
             "total_cards": total_cards,
             "added_total": added_total,
+            "mc_adjustments": res.get("mc_adjustments"),
+            "clamped_overflow": res.get("clamped_overflow"),
+            "mc_summary": res.get("mc_summary"),
             "skipped": bool(res.get("skipped")),
             "locks": list(sess.get("locks", [])),
             "replace_mode": bool(sess.get("replace_mode", True)),
@@ -930,6 +1234,8 @@ async def build_step5_rerun(request: Request) -> HTMLResponse:
             prefer_owned=prefer,
             owned_names=owned_names,
             locks=list(sess.get("locks", [])),
+            custom_export_base=sess.get("custom_export_base"),
+            multi_copy=sess.get("multi_copy"),
         )
     else:
         # Ensure latest locks are reflected in the existing context
@@ -1049,6 +1355,9 @@ async def build_step5_rerun(request: Request) -> HTMLResponse:
             "show_skipped": show_skipped,
             "total_cards": total_cards,
             "added_total": added_total,
+            "mc_adjustments": res.get("mc_adjustments"),
+            "clamped_overflow": res.get("clamped_overflow"),
+            "mc_summary": res.get("mc_summary"),
             "skipped": bool(res.get("skipped")),
             "locks": list(sess.get("locks", [])),
             "replace_mode": bool(sess.get("replace_mode", True)),
@@ -1098,6 +1407,7 @@ async def build_step5_start(request: Request) -> HTMLResponse:
             owned_names=owned_names,
             locks=list(sess.get("locks", [])),
             custom_export_base=sess.get("custom_export_base"),
+            multi_copy=sess.get("multi_copy"),
         )
         show_skipped = False
         try:
@@ -1110,6 +1420,13 @@ async def build_step5_start(request: Request) -> HTMLResponse:
         stage_label = res.get("label")
         log = res.get("log_delta", "")
         added_cards = res.get("added_cards", [])
+        # If Multi-Copy ran first, mark applied to prevent redundant rebuilds on Continue
+        try:
+            if stage_label == "Multi-Copy Package" and sess.get("multi_copy"):
+                mc = sess.get("multi_copy")
+                sess["mc_applied_key"] = f"{mc.get('id','')}|{int(mc.get('count',0))}|{1 if mc.get('thrumming') else 0}"
+        except Exception:
+            pass
         i = res.get("idx")
         n = res.get("total")
         csv_path = res.get("csv_path") if res.get("done") else None
@@ -1139,6 +1456,9 @@ async def build_step5_start(request: Request) -> HTMLResponse:
                 "summary": summary,
                 "game_changers": bc.GAME_CHANGERS,
                 "show_skipped": show_skipped,
+                "mc_adjustments": res.get("mc_adjustments"),
+                "clamped_overflow": res.get("clamped_overflow"),
+                "mc_summary": res.get("mc_summary"),
                 "locks": list(sess.get("locks", [])),
                 "replace_mode": bool(sess.get("replace_mode", True)),
             },

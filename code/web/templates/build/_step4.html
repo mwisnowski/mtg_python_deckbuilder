@@ -6,8 +6,9 @@
 				<img src="https://api.scryfall.com/cards/named?fuzzy={{ commander|urlencode }}&format=image&version=normal" alt="{{ commander }} card image" data-card-name="{{ commander }}" />
 			</a>
 		</aside>
-		<div class="grow" data-skeleton>
+			<div class="grow" data-skeleton>
 			<div hx-get="/build/banner" hx-trigger="load"></div>
+				<div hx-get="/build/multicopy/check" hx-trigger="load" hx-swap="afterend"></div>
 			{% if locks_restored and locks_restored > 0 %}
 			  <div class="muted" style="margin:.35rem 0;">
 			    <span class="chip" title="Locks restored from permalink">🔒 {{ locks_restored }} locks restored</span>

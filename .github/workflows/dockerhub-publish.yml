@@ -32,12 +32,33 @@ jobs:
           # Escape newlines for label usage
           DESC=$(awk 'BEGIN{ORS="\\n"} {print}' RELEASE_NOTES.md)
           echo "desc=$DESC" >> $GITHUB_OUTPUT
+          echo "version=$VERSION_REF" >> $GITHUB_OUTPUT
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
+
+      - name: Smoke test image boots Web UI by default (amd64)
+        shell: bash
+        run: |
+          # Build a local test image (amd64) and load into docker
+          docker buildx build --platform linux/amd64 --load -t mtg-deckbuilder:test --build-arg APP_VERSION=${{ steps.notes.outputs.version }} .
+          # Run container and wait for it to serve on 8080
+          docker rm -f mtg-smoke 2>/dev/null || true
+          docker run -d --name mtg-smoke -p 8080:8080 mtg-deckbuilder:test
+          echo "Waiting for Web UI..."
+          for i in {1..30}; do
+            if curl -fsS http://localhost:8080/ >/dev/null; then echo "Up"; break; fi
+            sleep 2
+          done
+          # Final assert; print logs on failure
+          if ! curl -fsS http://localhost:8080/ >/dev/null; then
+            echo "Web UI did not start in time. Container logs:" && docker logs mtg-smoke || true
+            exit 1
+          fi
+          docker rm -f mtg-smoke >/dev/null 2>&1 || true
 
       - name: Docker Hub login
         uses: docker/login-action@v3
@@ -58,6 +79,7 @@ jobs:
             org.opencontainers.image.title=MTG Python Deckbuilder
             org.opencontainers.image.version=${{ github.ref_name }}
             org.opencontainers.image.description=${{ steps.notes.outputs.desc }}
+            org.opencontainers.image.revision=${{ github.sha }}
 
       - name: Build and push
         uses: docker/build-push-action@v6
@@ -68,4 +90,6 @@ jobs:
           platforms: linux/amd64,linux/arm64
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            APP_VERSION=${{ steps.notes.outputs.version }}
 

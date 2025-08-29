@@ -7,6 +7,8 @@ WORKDIR /app
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
+ARG APP_VERSION=dev
+ENV APP_VERSION=${APP_VERSION}
 
 # Install system dependencies if needed
 RUN apt-get update && apt-get install -y \
@@ -46,12 +48,25 @@ RUN cd /app/code && ls -la deck_files logs csv_files config owned_cards
 # Set the working directory to code for proper imports
 WORKDIR /app/code
 
-# Run the application
-CMD ["python", "main.py"]
+# Add a tiny entrypoint to select Web UI (default) or CLI
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 
 # Expose web port for the optional Web UI
 EXPOSE 8080
 
+# Container health check: verify Web UI health endpoint (skip if APP_MODE=cli)
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD python -c "import os,sys,json,urllib.request;\
+m=os.getenv('APP_MODE','web');\
+\
+\
+\
+sys.exit(0) if m=='cli' else None;\
+d=urllib.request.urlopen('http://127.0.0.1:8080/healthz', timeout=3).read();\
+sys.exit(0 if json.loads(d.decode()).get('status')=='ok' else 1)"
+
 # Note: For the Web UI, start uvicorn in your orchestrator (compose/run) like:
-#   uvicorn code.web.app:app --host 0.0.0.0 --port 8080
+#   (now default) container starts Web UI automatically; to run CLI set APP_MODE=cli
 # Phase 9: enable web list virtualization with env WEB_VIRTUALIZE=1

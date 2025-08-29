@@ -12,6 +12,17 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 
 ## [Unreleased]
 
+## [2.1.1] - 2025-08-29
+### Added
+- Multi-copy archetypes (Web): opt-in modal suggests packages like Persistent Petitioners, Dragon's Approach, and Shadowborn Apostle when viable; choose quantity and optionally add Thrumming Stone. Applied as the first stage with ideal count adjustments and a per-stage 100-card safety clamp. UI surfaces adjustments and a clamp chip.
+
+### Changed
+- Multi-copy modal now appears immediately after commander selection (pre-build) in Step 2. This reduces surprise and lets users make a choice earlier.
+- Stage order updated so the Multi-Copy package is applied first in Step 5, with land steps following on the next Continue. Lands now account for the package additions when filling.
+
+### Fixed
+- Ensured apostrophes in multi-copy card names remain safe in templates while rendering correctly in the UI.
+
 ## [2.0.1] - 2025-08-28
 
 ### Added

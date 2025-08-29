@@ -215,6 +215,7 @@ __all__ = [
 	'compute_spell_pip_weights',
 	'parse_theme_tags',
 	'normalize_theme_list',
+	'detect_viable_multi_copy_archetypes',
 	'prefer_owned_first',
 	'compute_adjusted_target',
 	'normalize_tag_cell',
@@ -474,6 +475,114 @@ def sort_by_priority(df, columns: list[str]):
 	if not present:
 		return df
 	return df.sort_values(by=present, ascending=[True]*len(present), na_position='last')
+
+
+def _normalize_tags_list(tags: list[str]) -> list[str]:
+	out: list[str] = []
+	seen = set()
+	for t in tags or []:
+		tt = str(t).strip().lower()
+		if tt and tt not in seen:
+			out.append(tt)
+			seen.add(tt)
+	return out
+
+
+def _color_subset_ok(required: list[str], commander_ci: list[str]) -> bool:
+	if not required:
+		return True
+	ci = {c.upper() for c in commander_ci}
+	need = {c.upper() for c in required}
+	return need.issubset(ci)
+
+
+def detect_viable_multi_copy_archetypes(builder) -> list[dict]:
+	"""Return ranked viable multi-copy archetypes for the given builder.
+
+	Output items: { id, name, printed_cap, type_hint, score, reasons }
+	Never raises; returns [] on missing data.
+	"""
+	try:
+		from . import builder_constants as bc
+	except Exception:
+		return []
+	# Commander color identity and tags
+	try:
+		ci = list(getattr(builder, 'color_identity', []) or [])
+	except Exception:
+		ci = []
+	# Gather tags from selected + commander summary
+	tags: list[str] = []
+	try:
+		tags.extend([t for t in getattr(builder, 'selected_tags', []) or []])
+	except Exception:
+		pass
+	try:
+		cmd = getattr(builder, 'commander_dict', {}) or {}
+		themes = cmd.get('Themes', [])
+		if isinstance(themes, list):
+			tags.extend(themes)
+	except Exception:
+		pass
+	tags_norm = _normalize_tags_list(tags)
+	out: list[dict] = []
+	# Exclusivity prep: if multiple in same group qualify, we still compute score, suppression happens in consumer or by taking top one.
+	for aid, meta in getattr(bc, 'MULTI_COPY_ARCHETYPES', {}).items():
+		try:
+			# Color gate
+			if not _color_subset_ok(meta.get('color_identity', []), ci):
+				continue
+			# Tag triggers
+			trig = meta.get('triggers', {}) or {}
+			any_tags = _normalize_tags_list(trig.get('tags_any', []) or [])
+			all_tags = _normalize_tags_list(trig.get('tags_all', []) or [])
+			score = 0
+			reasons: list[str] = []
+			# +2 for color match baseline
+			if meta.get('color_identity'):
+				score += 2
+				reasons.append('color identity fits')
+			# +1 per matched any tag (cap small to avoid dwarfing)
+			matches_any = [t for t in any_tags if t in tags_norm]
+			if matches_any:
+				bump = min(3, len(matches_any))
+				score += bump
+				reasons.append('tags: ' + ', '.join(matches_any[:3]))
+			# +1 if all required tags matched
+			if all_tags and all(t in tags_norm for t in all_tags):
+				score += 1
+				reasons.append('all required tags present')
+			if score <= 0:
+				continue
+			out.append({
+				'id': aid,
+				'name': meta.get('name', aid),
+				'printed_cap': meta.get('printed_cap'),
+				'type_hint': meta.get('type_hint', 'noncreature'),
+				'exclusive_group': meta.get('exclusive_group'),
+				'default_count': meta.get('default_count', 25),
+				'rec_window': meta.get('rec_window', (20,30)),
+				'thrumming_stone_synergy': bool(meta.get('thrumming_stone_synergy', True)),
+				'score': score,
+				'reasons': reasons,
+			})
+		except Exception:
+			continue
+	# Suppress lower-scored siblings within the same exclusive group, keep the highest per group
+	grouped: dict[str, list[dict]] = {}
+	rest: list[dict] = []
+	for item in out:
+		grp = item.get('exclusive_group')
+		if grp:
+			grouped.setdefault(grp, []).append(item)
+		else:
+			rest.append(item)
+	kept: list[dict] = rest[:]
+	for grp, items in grouped.items():
+		items.sort(key=lambda d: d.get('score', 0), reverse=True)
+		kept.append(items[0])
+	kept.sort(key=lambda d: d.get('score', 0), reverse=True)
+	return kept
 
 
 def prefer_owned_first(df, owned_names_lower: set[str], name_col: str = 'name'):

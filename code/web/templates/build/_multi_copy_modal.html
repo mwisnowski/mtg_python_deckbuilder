@@ -1,0 +1,79 @@
+<div class="modal" role="dialog" aria-modal="true" aria-labelledby="mcTitle" style="position:fixed; inset:0; z-index:1000; display:flex; align-items:center; justify-content:center;">
+  <div class="modal-backdrop" style="position:absolute; inset:0; background:rgba(0,0,0,.6);"></div>
+  <div class="modal-content" style="position:relative; max-width:620px; width:clamp(320px, 90vw, 620px); background:#0f1115; border:1px solid var(--border); border-radius:10px; box-shadow:0 10px 30px rgba(0,0,0,.5); padding:1rem;">
+    <div class="modal-header" style="display:flex; align-items:center; justify-content:space-between; gap:.5rem;">
+      <h3 id="mcTitle" style="margin:0;">Consider a multi-copy package?</h3>
+      <button type="button" class="btn" aria-label="Close" onclick="try{this.closest('.modal').remove();}catch(_){ }">×</button>
+    </div>
+    <form hx-post="/build/multicopy/save" hx-target="closest .modal" hx-swap="outerHTML" onsubmit="return validateMultiCopyForm(this);">
+      <fieldset>
+        <legend>Choose one archetype</legend>
+        <div style="display:grid; gap:.5rem;">
+          {% for it in items %}
+          <label class="mc-option" style="display:grid; grid-template-columns: auto 1fr; gap:.5rem; align-items:flex-start; padding:.5rem; border:1px solid var(--border); border-radius:8px; background:#0b0d12;">
+            <input type="radio" name="choice_id" value="{{ it.id }}" {% if loop.first %}checked{% endif %} />
+            <div>
+              <div><strong>{{ it.name }}</strong> {% if it.printed_cap %}<span class="muted">(Cap: {{ it.printed_cap }})</span>{% endif %}</div>
+              {% if it.reasons %}
+              <div class="muted" style="font-size:12px;">Signals: {{ ', '.join(it.reasons) }}</div>
+              {% endif %}
+            </div>
+          </label>
+          {% endfor %}
+        </div>
+      </fieldset>
+      <fieldset style="margin-top:.5rem;">
+        <legend>How many copies?</legend>
+        {% set first = items[0] %}
+        {% set cap = first.printed_cap %}
+        {% set rec = first.rec_window if first.rec_window else (20,30) %}
+        <div id="mc-count-row" class="mc-count" style="display:flex; align-items:center; gap:.5rem; flex-wrap:wrap;">
+          <input type="number" min="1" name="count" value="{{ first.default_count or 25 }}" />
+          {% if cap %}
+          <small class="muted">Max {{ cap }}</small>
+          {% else %}
+          <small class="muted">Suggested {{ rec[0] }}–{{ rec[1] }}</small>
+          {% endif %}
+        </div>
+        <div id="mc-thrum-row" style="margin-top:.35rem;">
+          <label title="Adds 1 copy of Thrumming Stone if applicable.">
+            <input type="checkbox" name="thrumming" value="1" {% if first.thrumming_stone_synergy %}checked{% endif %} /> Include Thrumming Stone
+          </label>
+        </div>
+      </fieldset>
+      <div class="modal-footer" style="display:flex; gap:.5rem; justify-content:flex-end; margin-top:1rem;">
+        <button type="button" class="btn" onclick="this.closest('.modal').remove()">Cancel</button>
+        <button type="submit" class="btn-continue">Save</button>
+        <button type="submit" class="btn" name="skip" value="1" title="Don't ask again for this commander/theme combo">Skip</button>
+      </div>
+    </form>
+  </div>
+</div>
+<script>
+  (function(){
+    function qs(sel, root){ return (root||document).querySelector(sel); }
+    var modal = document.currentScript && document.currentScript.previousElementSibling ? document.currentScript.previousElementSibling.previousElementSibling : document.querySelector('.modal');
+    var form = modal ? modal.querySelector('form') : null;
+    function updateForChoice(choice){
+      try {
+        var countRow = qs('#mc-count-row', modal);
+        var thrumRow = qs('#mc-thrum-row', modal);
+        if (!choice || !countRow) return;
+        // Server provides only items array; embed metadata via dataset for dynamic hints when switching radio
+        var metaEl = choice.closest('label.mc-option');
+        var printedCap = metaEl && metaEl.querySelector('.muted') && metaEl.querySelector('.muted').textContent.match(/Cap: (\d+)/);
+        var cap = printedCap ? parseInt(printedCap[1], 10) : null;
+        var num = countRow.querySelector('input[name="count"]');
+        if (cap){ num.max = String(cap); if (parseInt(num.value||'0',10) > cap){ num.value = String(cap); } }
+        else { num.removeAttribute('max'); }
+      } catch(_){}
+    }
+    if (form){
+      var radios = form.querySelectorAll('input[name="choice_id"]');
+      Array.prototype.forEach.call(radios, function(r){ r.addEventListener('change', function(){ updateForChoice(r); }); });
+      if (radios.length){ updateForChoice(radios[0]); }
+    }
+    window.validateMultiCopyForm = function(f){ try{ return true; }catch(_){ return true; } };
+    document.addEventListener('keydown', function(e){ if (e.key === 'Escape'){ try{ modal && modal.remove(); }catch(_){ } } });
+  })();
+</script>

@@ -79,11 +79,9 @@ FILL_NA_COLUMNS: Dict[str, Optional[str]] = {
 # ----------------------------------------------------------------------------------
 # SPECIAL CARD EXCEPTIONS
 # ----------------------------------------------------------------------------------
-MULTIPLE_COPY_CARDS = [
-    'Dragon\'s Approach', 'Hare Apparent', 'Nazgûl', 'Persistent Petitioners',
-    'Rat Colony', 'Relentless Rats', 'Seven Dwarves', 'Shadowborn Apostle',
-    'Slime Against Humanity', 'Templar Knight'
-]
+MULTIPLE_COPY_CARDS = ['Cid, Timeless Artificer', 'Dragon\'s Approach', 'Hare Apparent', 'Nazgûl',
+                       'Persistent Petitioners', 'Rat Colony', 'Relentless Rats', 'Seven Dwarves',
+                       'Shadowborn Apostle', 'Slime Against Humanity','Tempest Hawk', 'Templar Knights']
 
 # Backwards compatibility exports (older modules may still import these names)
 COLUMN_ORDER = CARD_COLUMN_ORDER
@@ -101,7 +99,3 @@ FILL_NA_COLUMNS: Dict[str, Optional[str]] = {
     'colorIdentity': 'Colorless',  # Default color identity for cards without one
     'faceName': None  # Use card's name column value when face name is not available
 }
-
-MULTIPLE_COPY_CARDS = ['Dragon\'s Approach', 'Hare Apparent', 'Nazgûl', 'Persistent Petitioners',
-                       'Rat Colony', 'Relentless Rats', 'Seven Dwarves', 'Shadowborn Apostle',
-                       'Slime Against Humanity', 'Templar Knight']

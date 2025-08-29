@@ -8,6 +8,7 @@
     </aside>
     <div class="grow" data-skeleton>
   <div hx-get="/build/banner" hx-trigger="load"></div>
+  <div hx-get="/build/multicopy/check" hx-trigger="load" hx-swap="afterend"></div>
 
       <form hx-post="/build/step2" hx-target="#wizard" hx-swap="innerHTML">
         <input type="hidden" name="commander" value="{{ commander.name }}" />

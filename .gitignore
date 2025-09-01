@@ -11,6 +11,9 @@ __pycache__/
 csv_files/
 dist/
 logs/
+deck_files/
+csv_files/
+!config/card_lists/*.json
 !config/deck.json
 RELEASE_NOTES.md
 *.bkp

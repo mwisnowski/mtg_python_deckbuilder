@@ -10,6 +10,8 @@ from ..services.tasks import get_session, new_sid
 from html import escape as _esc
 from deck_builder.builder import DeckBuilder
 from deck_builder import builder_utils as bu
+from deck_builder.combos import detect_combos as _detect_combos, detect_synergies as _detect_synergies
+from tagging.combo_schema import load_and_validate_combos as _load_combos, load_and_validate_synergies as _load_synergies
 
 router = APIRouter(prefix="/build")
 
@@ -67,6 +69,9 @@ def _rebuild_ctx_with_multicopy(sess: dict) -> None:
             locks=locks,
             custom_export_base=sess.get("custom_export_base"),
             multi_copy=sess.get("multi_copy"),
+            prefer_combos=bool(sess.get("prefer_combos")),
+            combo_target_count=int(sess.get("combo_target_count", 2)),
+            combo_balance=str(sess.get("combo_balance", "mix")),
         )
     except Exception:
         # If rebuild fails (e.g., commander not found in test), fall back to injecting
@@ -287,6 +292,8 @@ async def multicopy_save(
     return HTMLResponse(chip)
 
 
+
+
 # Unified "New Deck" modal (steps 1–3 condensed)
 @router.get("/new", response_class=HTMLResponse)
 async def build_new_modal(request: Request) -> HTMLResponse:
@@ -350,6 +357,9 @@ async def build_new_submit(
     wipes: int = Form(None),
     card_advantage: int = Form(None),
     protection: int = Form(None),
+    prefer_combos: bool = Form(False),
+    combo_count: int | None = Form(None),
+    combo_balance: str | None = Form(None),
 ) -> HTMLResponse:
     """Handle New Deck modal submit and immediately start the build (skip separate review page)."""
     sid = request.cookies.get("sid") or new_sid()
@@ -372,6 +382,9 @@ async def build_new_submit(
                 "tertiary_tag": tertiary_tag or "",
                 "tag_mode": tag_mode or "AND",
                 "bracket": bracket,
+                "combo_count": combo_count,
+                "combo_balance": (combo_balance or "mix"),
+                "prefer_combos": bool(prefer_combos),
             }
         }
         resp = templates.TemplateResponse("build/_new_deck_modal.html", ctx)
@@ -416,6 +429,24 @@ async def build_new_submit(
         except Exception:
             pass
     sess["ideals"] = ideals
+    # Persist preferences
+    try:
+        sess["prefer_combos"] = bool(prefer_combos)
+    except Exception:
+        sess["prefer_combos"] = False
+    # Combos config from modal
+    try:
+        if combo_count is not None:
+            sess["combo_target_count"] = max(0, min(10, int(combo_count)))
+    except Exception:
+        pass
+    try:
+        if combo_balance:
+            bval = str(combo_balance).strip().lower()
+            if bval in ("early","late","mix"):
+                sess["combo_balance"] = bval
+    except Exception:
+        pass
     # Clear any old staged build context
     for k in ["build_ctx", "locks", "replace_mode"]:
         if k in sess:
@@ -465,6 +496,9 @@ async def build_new_submit(
         locks=list(sess.get("locks", [])),
         custom_export_base=sess.get("custom_export_base"),
         multi_copy=sess.get("multi_copy"),
+        prefer_combos=bool(sess.get("prefer_combos")),
+        combo_target_count=int(sess.get("combo_target_count", 2)),
+        combo_balance=str(sess.get("combo_balance", "mix")),
     )
     res = orch.run_stage(sess["build_ctx"], rerun=False, show_skipped=False)
     status = "Build complete" if res.get("done") else "Stage complete"
@@ -500,6 +534,9 @@ async def build_new_submit(
             "skipped": bool(res.get("skipped")),
             "locks": list(sess.get("locks", [])),
             "replace_mode": bool(sess.get("replace_mode", True)),
+            "prefer_combos": bool(sess.get("prefer_combos")),
+            "combo_target_count": int(sess.get("combo_target_count", 2)),
+            "combo_balance": str(sess.get("combo_balance", "mix")),
         },
     )
     resp.set_cookie("sid", sid, httponly=True, samesite="lax")
@@ -707,6 +744,9 @@ async def build_step5_rewind(request: Request, to: str = Form(...)) -> HTMLRespo
             locks=list(sess.get("locks", [])),
             custom_export_base=sess.get("custom_export_base"),
             multi_copy=sess.get("multi_copy"),
+            prefer_combos=bool(sess.get("prefer_combos")),
+            combo_target_count=int(sess.get("combo_target_count", 2)),
+            combo_balance=str(sess.get("combo_balance", "mix")),
         )
         ctx = sess["build_ctx"]
         # Run forward until reaching target
@@ -748,6 +788,9 @@ async def build_step5_rewind(request: Request, to: str = Form(...)) -> HTMLRespo
             "locks": list(sess.get("locks", [])),
             "replace_mode": bool(sess.get("replace_mode", True)),
             "history": ctx.get("history", []),
+            "prefer_combos": bool(sess.get("prefer_combos")),
+            "combo_target_count": int(sess.get("combo_target_count", 2)),
+            "combo_balance": str(sess.get("combo_balance", "mix")),
         },
     )
     resp.set_cookie("sid", sid, httponly=True, samesite="lax")
@@ -990,6 +1033,183 @@ async def build_step4_get(request: Request) -> HTMLResponse:
     )
 
 
+# --- Combos & Synergies panel (M3) ---
+def _get_current_deck_names(sess: dict) -> list[str]:
+    try:
+        ctx = sess.get("build_ctx") or {}
+        b = ctx.get("builder")
+        lib = getattr(b, "card_library", {}) if b is not None else {}
+        names = [str(n) for n in lib.keys()]
+        return sorted(dict.fromkeys(names))
+    except Exception:
+        return []
+
+
+@router.get("/combos", response_class=HTMLResponse)
+async def build_combos_panel(request: Request) -> HTMLResponse:
+    sid = request.cookies.get("sid") or new_sid()
+    sess = get_session(sid)
+    names = _get_current_deck_names(sess)
+    if not names:
+        # No active build; render nothing to avoid UI clutter
+        return HTMLResponse("")
+
+    # Preferences (persisted in session)
+    policy = (sess.get("combos_policy") or "neutral").lower()
+    if policy not in {"avoid", "neutral", "prefer"}:
+        policy = "neutral"
+    try:
+        target = int(sess.get("combos_target") or 0)
+    except Exception:
+        target = 0
+    if target < 0:
+        target = 0
+
+    # Load lists and run detection
+    try:
+        combos_model = _load_combos("config/card_lists/combos.json")
+    except Exception:
+        combos_model = None
+    try:
+        combos = _detect_combos(names, combos_path="config/card_lists/combos.json")
+    except Exception:
+        combos = []
+    try:
+        synergies = _detect_synergies(names, synergies_path="config/card_lists/synergies.json")
+    except Exception:
+        synergies = []
+    try:
+        synergies_model = _load_synergies("config/card_lists/synergies.json")
+    except Exception:
+        synergies_model = None
+
+    # Suggestions
+    suggestions: list[dict] = []
+    present = {s.strip().lower() for s in names}
+    suggested_names: set[str] = set()
+    if combos_model is not None:
+        # Prefer policy: suggest adding a missing partner to hit target count
+        if policy == "prefer":
+            try:
+                for p in combos_model.pairs:
+                    a = str(p.a).strip()
+                    b = str(p.b).strip()
+                    a_in = a.lower() in present
+                    b_in = b.lower() in present
+                    if a_in ^ b_in:  # exactly one present
+                        missing = b if a_in else a
+                        have = a if a_in else b
+                        item = {
+                            "kind": "add",
+                            "have": have,
+                            "name": missing,
+                            "cheap_early": bool(getattr(p, "cheap_early", False)),
+                            "setup_dependent": bool(getattr(p, "setup_dependent", False)),
+                        }
+                        key = str(missing).strip().lower()
+                        if key not in present and key not in suggested_names:
+                            suggestions.append(item)
+                            suggested_names.add(key)
+                # Rank: cheap/early first, then setup-dependent, then name
+                suggestions.sort(key=lambda s: (0 if s.get("cheap_early") else 1, 0 if s.get("setup_dependent") else 1, str(s.get("name")).lower()))
+                # If we still have room below target, add synergy-based suggestions
+                rem = (max(0, int(target)) if target > 0 else 8) - len(suggestions)
+                if rem > 0 and synergies_model is not None:
+                    # lightweight tag weights to bias common engines
+                    weights = {
+                        "treasure": 3.0, "tokens": 2.8, "landfall": 2.6, "card draw": 2.5, "ramp": 2.3,
+                        "engine": 2.2, "value": 2.1, "artifacts": 2.0, "enchantress": 2.0, "spellslinger": 1.9,
+                        "counters": 1.8, "equipment": 1.7, "tribal": 1.6, "lifegain": 1.5, "mill": 1.4,
+                        "damage": 1.3, "stax": 1.2
+                    }
+                    syn_sugs: list[dict] = []
+                    for p in synergies_model.pairs:
+                        a = str(p.a).strip()
+                        b = str(p.b).strip()
+                        a_in = a.lower() in present
+                        b_in = b.lower() in present
+                        if a_in ^ b_in:
+                            missing = b if a_in else a
+                            have = a if a_in else b
+                            mkey = missing.strip().lower()
+                            if mkey in present or mkey in suggested_names:
+                                continue
+                            tags = list(getattr(p, "tags", []) or [])
+                            score = 1.0 + sum(weights.get(str(t).lower(), 1.0) for t in tags) / max(1, len(tags) or 1)
+                            syn_sugs.append({
+                                "kind": "add",
+                                "have": have,
+                                "name": missing,
+                                "cheap_early": False,
+                                "setup_dependent": False,
+                                "tags": tags,
+                                "_score": score,
+                            })
+                            suggested_names.add(mkey)
+                    # rank by score desc then name
+                    syn_sugs.sort(key=lambda s: (-float(s.get("_score", 0.0)), str(s.get("name")).lower()))
+                    if rem > 0:
+                        suggestions.extend(syn_sugs[:rem])
+                # Finally trim to target or default cap
+                cap = (int(target) if target > 0 else 8)
+                suggestions = suggestions[:cap]
+            except Exception:
+                suggestions = []
+        elif policy == "avoid":
+            # Avoid policy: suggest cutting one piece from detected combos
+            try:
+                for c in combos:
+                    # pick the second card as default cut to vary suggestions
+                    suggestions.append({
+                        "kind": "cut",
+                        "name": c.b,
+                        "partner": c.a,
+                        "cheap_early": bool(getattr(c, "cheap_early", False)),
+                        "setup_dependent": bool(getattr(c, "setup_dependent", False)),
+                    })
+                # Rank: cheap/early first
+                suggestions.sort(key=lambda s: (0 if s.get("cheap_early") else 1, 0 if s.get("setup_dependent") else 1, str(s.get("name")).lower()))
+                if target > 0:
+                    suggestions = suggestions[: target]
+                else:
+                    suggestions = suggestions[: 8]
+            except Exception:
+                suggestions = []
+
+    ctx = {
+        "request": request,
+        "policy": policy,
+        "target": target,
+        "combos": combos,
+        "synergies": synergies,
+        "versions": {
+            "combos": getattr(combos_model, "list_version", None) if combos_model else None,
+            "synergies": getattr(synergies_model, "list_version", None) if synergies_model else None,
+        },
+        "suggestions": suggestions,
+    }
+    return templates.TemplateResponse("build/_combos_panel.html", ctx)
+
+
+@router.post("/combos/prefs", response_class=HTMLResponse)
+async def build_combos_save_prefs(request: Request, policy: str = Form("neutral"), target: int = Form(0)) -> HTMLResponse:
+    sid = request.cookies.get("sid") or new_sid()
+    sess = get_session(sid)
+    pol = (policy or "neutral").strip().lower()
+    if pol not in {"avoid", "neutral", "prefer"}:
+        pol = "neutral"
+    try:
+        tgt = int(target)
+    except Exception:
+        tgt = 0
+    if tgt < 0:
+        tgt = 0
+    sess["combos_policy"] = pol
+    sess["combos_target"] = tgt
+    # Re-render the panel
+    return await build_combos_panel(request)
+
+
 @router.post("/toggle-owned-review", response_class=HTMLResponse)
 async def build_toggle_owned_review(
     request: Request,
@@ -1056,6 +1276,9 @@ async def build_step5_get(request: Request) -> HTMLResponse:
             "skipped": False,
             "game_changers": bc.GAME_CHANGERS,
             "replace_mode": bool(sess.get("replace_mode", True)),
+            "prefer_combos": bool(sess.get("prefer_combos")),
+            "combo_target_count": int(sess.get("combo_target_count", 2)),
+            "combo_balance": str(sess.get("combo_balance", "mix")),
         },
     )
     resp.set_cookie("sid", sid, httponly=True, samesite="lax")
@@ -1098,6 +1321,9 @@ async def build_step5_continue(request: Request) -> HTMLResponse:
             locks=list(sess.get("locks", [])),
             custom_export_base=sess.get("custom_export_base"),
             multi_copy=sess.get("multi_copy"),
+            prefer_combos=bool(sess.get("prefer_combos")),
+            combo_target_count=int(sess.get("combo_target_count", 2)),
+            combo_balance=str(sess.get("combo_balance", "mix")),
         )
     else:
         # If context exists already, rebuild ONLY when the multi-copy selection changed or hasn't been applied yet
@@ -1196,6 +1422,9 @@ async def build_step5_continue(request: Request) -> HTMLResponse:
             "skipped": bool(res.get("skipped")),
             "locks": list(sess.get("locks", [])),
             "replace_mode": bool(sess.get("replace_mode", True)),
+            "prefer_combos": bool(sess.get("prefer_combos")),
+            "combo_target_count": int(sess.get("combo_target_count", 2)),
+            "combo_balance": str(sess.get("combo_balance", "mix")),
         },
     )
     resp.set_cookie("sid", sid, httponly=True, samesite="lax")
@@ -1236,6 +1465,9 @@ async def build_step5_rerun(request: Request) -> HTMLResponse:
             locks=list(sess.get("locks", [])),
             custom_export_base=sess.get("custom_export_base"),
             multi_copy=sess.get("multi_copy"),
+            prefer_combos=bool(sess.get("prefer_combos")),
+            combo_target_count=int(sess.get("combo_target_count", 2)),
+            combo_balance=str(sess.get("combo_balance", "mix")),
         )
     else:
         # Ensure latest locks are reflected in the existing context
@@ -1408,6 +1640,9 @@ async def build_step5_start(request: Request) -> HTMLResponse:
             locks=list(sess.get("locks", [])),
             custom_export_base=sess.get("custom_export_base"),
             multi_copy=sess.get("multi_copy"),
+            prefer_combos=bool(sess.get("prefer_combos")),
+            combo_target_count=int(sess.get("combo_target_count", 2)),
+            combo_balance=str(sess.get("combo_balance", "mix")),
         )
         show_skipped = False
         try:
@@ -1572,11 +1807,13 @@ async def build_step5_reset_stage(request: Request) -> HTMLResponse:
             "skipped": False,
             "locks": list(sess.get("locks", [])),
             "replace_mode": bool(sess.get("replace_mode")),
+            "prefer_combos": bool(sess.get("prefer_combos")),
+            "combo_target_count": int(sess.get("combo_target_count", 2)),
+            "combo_balance": str(sess.get("combo_balance", "mix")),
         },
     )
     resp.set_cookie("sid", sid, httponly=True, samesite="lax")
     return resp
-
 
 # --- Phase 8: Lock/Replace/Compare/Permalink minimal API ---
 

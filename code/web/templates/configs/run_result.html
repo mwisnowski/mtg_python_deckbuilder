@@ -39,7 +39,7 @@
       
 
       {% if summary %}
-        {{ render_cached('partials/deck_summary.html', cfg_name, request=request, summary=summary, game_changers=game_changers, owned_set=owned_set) | safe }}
+  {{ render_cached('partials/deck_summary.html', cfg_name, request=request, summary=summary, game_changers=game_changers, owned_set=owned_set, combos=combos, synergies=synergies, versions=versions) | safe }}
       {% endif %}
     {% endif %}
 

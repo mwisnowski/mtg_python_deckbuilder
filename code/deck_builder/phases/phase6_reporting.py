@@ -704,6 +704,10 @@ class ReportingMixin:
             "add_lands": True,
             "add_creatures": True,
             "add_non_creature_spells": True,
+            # Combos preferences (if set during build)
+            "prefer_combos": bool(getattr(self, 'prefer_combos', False)),
+            "combo_target_count": (int(getattr(self, 'combo_target_count', 0)) if getattr(self, 'prefer_combos', False) else None),
+            "combo_balance": (getattr(self, 'combo_balance', None) if getattr(self, 'prefer_combos', False) else None),
             # chosen fetch land count (others intentionally omitted for variance)
             "fetch_count": chosen_fetch,
             # actual ideal counts used for this run

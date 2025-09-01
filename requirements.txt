@@ -11,4 +11,7 @@ uvicorn[standard]>=0.28.0
 Jinja2>=3.1.0
 python-multipart>=0.0.9
 
+# Config/schema validation
+pydantic>=2.5.0
+
 # Development dependencies are in requirements-dev.txt

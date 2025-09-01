@@ -668,7 +668,7 @@ def _ensure_setup_ready(out, force: bool = False) -> None:
         _write_status({"running": False, "phase": "error", "message": "Setup check failed"})
 
 
-def run_build(commander: str, tags: List[str], bracket: int, ideals: Dict[str, int], tag_mode: str | None = None, *, use_owned_only: bool | None = None, prefer_owned: bool | None = None, owned_names: List[str] | None = None) -> Dict[str, Any]:
+def run_build(commander: str, tags: List[str], bracket: int, ideals: Dict[str, int], tag_mode: str | None = None, *, use_owned_only: bool | None = None, prefer_owned: bool | None = None, owned_names: List[str] | None = None, prefer_combos: bool | None = None, combo_target_count: int | None = None, combo_balance: str | None = None) -> Dict[str, Any]:
     """Run the deck build end-to-end with provided selections and capture logs.
 
     Returns: { ok: bool, log: str, csv_path: Optional[str], txt_path: Optional[str], error: Optional[str] }
@@ -751,6 +751,19 @@ def run_build(commander: str, tags: List[str], bracket: int, ideals: Dict[str, i
         except Exception as e:
             out(f"Failed to load color identity/card pool: {e}")
 
+        # Thread combo preferences (if provided)
+        try:
+            if prefer_combos is not None:
+                b.prefer_combos = bool(prefer_combos)  # type: ignore[attr-defined]
+            if combo_target_count is not None:
+                b.combo_target_count = int(combo_target_count)  # type: ignore[attr-defined]
+            if combo_balance:
+                bal = str(combo_balance).strip().lower()
+                if bal in ('early','late','mix'):
+                    b.combo_balance = bal  # type: ignore[attr-defined]
+        except Exception:
+            pass
+
         try:
             b._run_land_build_steps()
         except Exception as e:
@@ -763,6 +776,126 @@ def run_build(commander: str, tags: List[str], bracket: int, ideals: Dict[str, i
             out(f"Creature phase failed: {e}")
         try:
             if hasattr(b, 'add_spells_phase'):
+                # When combos are preferred, run auto-complete before bulk spells so additions aren't clamped
+                try:
+                    if bool(getattr(b, 'prefer_combos', False)):
+                        # Re-use the staged runner logic for auto-combos
+                        _ = run_stage  # anchor for mypy
+                        # Minimal inline runner: mimic '__auto_complete_combos__' block
+                        try:
+                            # Load curated combos
+                            from tagging.combo_schema import load_and_validate_combos as _load_combos
+                            combos_model = None
+                            try:
+                                combos_model = _load_combos("config/card_lists/combos.json")
+                            except Exception:
+                                combos_model = None
+                            # Build current name set including commander
+                            names: list[str] = []
+                            try:
+                                names.extend(list(getattr(b, 'card_library', {}).keys()))
+                            except Exception:
+                                pass
+                            try:
+                                cmd = getattr(b, 'commander_name', None)
+                                if cmd:
+                                    names.append(cmd)
+                            except Exception:
+                                pass
+                            # Count existing completed combos to reduce target budget
+                            existing_pairs = 0
+                            try:
+                                if combos_model:
+                                    present = {str(x).strip().lower() for x in names if str(x).strip()}
+                                    for p in combos_model.pairs:
+                                        a = str(p.a).strip().lower()
+                                        bnm = str(p.b).strip().lower()
+                                        if a in present and bnm in present:
+                                            existing_pairs += 1
+                            except Exception:
+                                existing_pairs = 0
+                            # Determine target and balance
+                            try:
+                                target_total = int(getattr(b, 'combo_target_count', 2))
+                            except Exception:
+                                target_total = 2
+                            try:
+                                balance = str(getattr(b, 'combo_balance', 'mix')).strip().lower()
+                            except Exception:
+                                balance = 'mix'
+                            if balance not in ('early','late','mix'):
+                                balance = 'mix'
+                            remaining_pairs = max(0, target_total - existing_pairs)
+                            lib_lower = {str(n).strip().lower() for n in getattr(b, 'card_library', {}).keys()}
+                            added_any = False
+                            # Determine missing partners
+                            candidates: list[tuple[int, str]] = []
+                            for p in (combos_model.pairs if combos_model else []):
+                                a = str(p.a).strip()
+                                bnm = str(p.b).strip()
+                                a_l = a.lower()
+                                b_l = bnm.lower()
+                                has_a = (a_l in lib_lower) or (a_l == str(getattr(b, 'commander_name', '')).lower())
+                                has_b = (b_l in lib_lower) or (b_l == str(getattr(b, 'commander_name', '')).lower())
+                                target: str | None = None
+                                if has_a and not has_b:
+                                    target = bnm
+                                elif has_b and not has_a:
+                                    target = a
+                                if not target:
+                                    continue
+                                # Score per balance
+                                score = 0
+                                try:
+                                    if balance == 'early':
+                                        score += (5 if getattr(p, 'cheap_early', False) else 0)
+                                        score += (0 if getattr(p, 'setup_dependent', False) else 1)
+                                    elif balance == 'late':
+                                        score += (4 if getattr(p, 'setup_dependent', False) else 0)
+                                        score += (0 if getattr(p, 'cheap_early', False) else 1)
+                                    else:
+                                        score += (3 if getattr(p, 'cheap_early', False) else 0)
+                                        score += (2 if getattr(p, 'setup_dependent', False) else 0)
+                                except Exception:
+                                    pass
+                                candidates.append((score, target))
+                            candidates.sort(key=lambda x: (-x[0], x[1].lower()))
+                            for _ in range(remaining_pairs):
+                                if not candidates:
+                                    break
+                                _score, pick = candidates.pop(0)
+                                # Resolve in current pool; enrich type/mana
+                                try:
+                                    df_pool = getattr(b, '_combined_cards_df', None)
+                                    df_full = getattr(b, '_full_cards_df', None)
+                                    row = None
+                                    for df in (df_pool, df_full):
+                                        if df is not None and not df.empty and 'name' in df.columns:
+                                            r = df[df['name'].astype(str).str.lower() == pick.lower()]
+                                            if not r.empty:
+                                                row = r
+                                                break
+                                    if row is None or row.empty:
+                                        continue
+                                    pick = str(row.iloc[0]['name'])
+                                    card_type = str(row.iloc[0].get('type', row.iloc[0].get('type_line', '')) or '')
+                                    mana_cost = str(row.iloc[0].get('mana_cost', row.iloc[0].get('manaCost', '')) or '')
+                                except Exception:
+                                    card_type = ''
+                                    mana_cost = ''
+                                try:
+                                    b.add_card(pick, card_type=card_type, mana_cost=mana_cost, role='Support', sub_role='Combo Partner', added_by='AutoCombos')
+                                    out(f"Auto-Complete Combos: added '{pick}' to complete a detected pair.")
+                                    added_any = True
+                                    lib_lower.add(pick.lower())
+                                except Exception:
+                                    continue
+                            if not added_any:
+                                out("No combo partners added.")
+                        except Exception as _e:
+                            out(f"Auto-Complete Combos failed: {_e}")
+                except Exception:
+                    pass
                 b.add_spells_phase()
         except Exception as e:
             out(f"Spell phase failed: {e}")
@@ -859,6 +992,7 @@ def _make_stages(b: DeckBuilder) -> List[Dict[str, Any]]:
     # Multi-Copy package first (if selected) so lands & targets can account for it
     if mc_selected:
         stages.append({"key": "multicopy", "label": "Multi-Copy Package", "runner_name": "__add_multi_copy__"})
+    # Note: Combos auto-complete now runs late (near theme autofill), so we defer adding it here.
     # Land steps 1..8 (if present)
     for i in range(1, 9):
         fn = getattr(b, f"run_land_step{i}", None)
@@ -896,10 +1030,23 @@ def _make_stages(b: DeckBuilder) -> List[Dict[str, Any]]:
                 # Web UI: omit confirm stages; show only the action stage
                 label_action = label.replace("Confirm ", "")
                 stages.append({"key": f"spells_{key}", "label": label_action, "runner_name": runner})
+        # When combos are preferred, run Auto-Complete Combos BEFORE final theme fill so there is room to add partners.
+        try:
+            prefer_c = bool(getattr(b, 'prefer_combos', False))
+        except Exception:
+            prefer_c = False
+        if prefer_c:
+            stages.append({"key": "autocombos", "label": "Auto-Complete Combos", "runner_name": "__auto_complete_combos__"})
         # Ensure we include the theme filler step to top up to 100 cards
         if callable(getattr(b, 'fill_remaining_theme_spells', None)):
             stages.append({"key": "spells_fill", "label": "Theme Spell Fill", "runner_name": "fill_remaining_theme_spells"})
     elif hasattr(b, 'add_spells_phase'):
+        # For monolithic spells, insert combos BEFORE the big spells stage so additions aren't clamped away
+        try:
+            if bool(getattr(b, 'prefer_combos', False)):
+                stages.append({"key": "autocombos", "label": "Auto-Complete Combos", "runner_name": "__auto_complete_combos__"})
+        except Exception:
+            pass
         stages.append({"key": "spells", "label": "Spells", "runner_name": "add_spells_phase"})
     # Post-adjust
     if hasattr(b, 'post_spell_land_adjust'):
@@ -924,6 +1071,9 @@ def start_build_ctx(
     locks: List[str] | None = None,
     custom_export_base: str | None = None,
     multi_copy: Dict[str, Any] | None = None,
+    prefer_combos: bool | None = None,
+    combo_target_count: int | None = None,
+    combo_balance: str | None = None,
 ) -> Dict[str, Any]:
     logs: List[str] = []
 
@@ -992,6 +1142,24 @@ def start_build_ctx(
     # Thread multi-copy selection onto builder for stage generation/runner
     try:
         b._web_multi_copy = (multi_copy or None)
+    except Exception:
+        pass
+    # Preference flags
+    try:
+        b.prefer_combos = bool(prefer_combos)
+    except Exception:
+        pass
+    # Thread combo config
+    try:
+        if combo_target_count is not None:
+            b.combo_target_count = int(combo_target_count)  # type: ignore[attr-defined]
+    except Exception:
+        pass
+    try:
+        if combo_balance:
+            bal = str(combo_balance).strip().lower()
+            if bal in ('early','late','mix'):
+                b.combo_balance = bal  # type: ignore[attr-defined]
     except Exception:
         pass
     # Stages
@@ -1308,6 +1476,143 @@ def run_stage(ctx: Dict[str, Any], rerun: bool = False, show_skipped: bool = Fal
                     logs.append("No multi-copy additions (empty selection).")
             except Exception as e:
                 logs.append(f"Stage '{label}' failed: {e}")
+        elif runner_name == '__auto_complete_combos__':
+            try:
+                # Load curated combos
+                from tagging.combo_schema import load_and_validate_combos as _load_combos
+                combos_model = None
+                try:
+                    combos_model = _load_combos("config/card_lists/combos.json")
+                except Exception:
+                    combos_model = None
+                # Build current name set including commander
+                names: list[str] = []
+                try:
+                    names.extend(list(getattr(b, 'card_library', {}).keys()))
+                except Exception:
+                    pass
+                try:
+                    cmd = getattr(b, 'commander_name', None)
+                    if cmd:
+                        names.append(cmd)
+                except Exception:
+                    pass
+                # Count existing completed combos to reduce target budget
+                existing_pairs = 0
+                try:
+                    if combos_model:
+                        present = {str(x).strip().lower() for x in names if str(x).strip()}
+                        for p in combos_model.pairs:
+                            a = str(p.a).strip().lower()
+                            bnm = str(p.b).strip().lower()
+                            if a in present and bnm in present:
+                                existing_pairs += 1
+                except Exception:
+                    existing_pairs = 0
+                # Determine target and balance
+                try:
+                    target_total = int(getattr(b, 'combo_target_count', 2))
+                except Exception:
+                    target_total = 2
+                try:
+                    balance = str(getattr(b, 'combo_balance', 'mix')).strip().lower()
+                except Exception:
+                    balance = 'mix'
+                if balance not in ('early','late','mix'):
+                    balance = 'mix'
+                # Remaining pairs to aim for
+                remaining_pairs = max(0, target_total - existing_pairs)
+                # Determine missing partners for any pair where exactly one is present
+                lib_lower = {str(n).strip().lower() for n in getattr(b, 'card_library', {}).keys()}
+                locks_lower = locks_set
+                added_any = False
+                if remaining_pairs <= 0:
+                    logs.append("Combo plan met by existing pairs; no additions needed.")
+                # Build candidate list with scoring for balance
+                candidates: list[tuple[int, str, dict]] = []  # (score, target_name, enrich_meta)
+                for p in (combos_model.pairs if combos_model else []):
+                    a = str(p.a).strip()
+                    bname = str(p.b).strip()
+                    a_l = a.lower()
+                    b_l = bname.lower()
+                    has_a = (a_l in lib_lower) or (a_l == str(getattr(b, 'commander_name', '')).lower())
+                    has_b = (b_l in lib_lower) or (b_l == str(getattr(b, 'commander_name', '')).lower())
+                    # If exactly one side present, attempt to add the other
+                    target: str | None = None
+                    if has_a and not has_b:
+                        target = bname
+                    elif has_b and not has_a:
+                        target = a
+                    if not target:
+                        continue
+                    # Respect locks
+                    if target.lower() in locks_lower:
+                        continue
+                    # Owned-only check
+                    try:
+                        if getattr(b, 'use_owned_only', False):
+                            owned = getattr(b, 'owned_card_names', set()) or set()
+                            if owned and target.lower() not in {n.lower() for n in owned}:
+                                continue
+                    except Exception:
+                        pass
+                    # Score per balance
+                    score = 0
+                    try:
+                        if balance == 'early':
+                            score += (5 if getattr(p, 'cheap_early', False) else 0)
+                            score += (0 if getattr(p, 'setup_dependent', False) else 1)
+                        elif balance == 'late':
+                            score += (4 if getattr(p, 'setup_dependent', False) else 0)
+                            score += (0 if getattr(p, 'cheap_early', False) else 1)
+                        else:  # mix
+                            score += (3 if getattr(p, 'cheap_early', False) else 0)
+                            score += (2 if getattr(p, 'setup_dependent', False) else 0)
+                    except Exception:
+                        pass
+                    # Prefer targets that aren't already in library (already ensured), and stable name sort as tiebreaker
+                    score_tuple = (score, target.lower(), {})
+                    candidates.append(score_tuple)
+                # Sort candidates descending by score then name asc
+                candidates.sort(key=lambda x: (-x[0], x[1]))
+                # Add up to remaining_pairs partners
+                for _ in range(remaining_pairs):
+                    if not candidates:
+                        break
+                    _score, pick, meta = candidates.pop(0)
+                    # Resolve display name and enrich type/mana
+                    card_type = ''
+                    mana_cost = ''
+                    try:
+                        # Only consider the current filtered pool first (color-identity compliant).
+                        df_pool = getattr(b, '_combined_cards_df', None)
+                        df_full = getattr(b, '_full_cards_df', None)
+                        row = None
+                        for df in (df_pool, df_full):
+                            if df is not None and not df.empty and 'name' in df.columns:
+                                r = df[df['name'].astype(str).str.lower() == pick.lower()]
+                                if not r.empty:
+                                    row = r
+                                    break
+                        if row is None or row.empty:
+                            # Skip if we cannot resolve in current pool (likely off-color/unavailable)
+                            continue
+                        pick = str(row.iloc[0]['name'])
+                        card_type = str(row.iloc[0].get('type', row.iloc[0].get('type_line', '')) or '')
+                        mana_cost = str(row.iloc[0].get('mana_cost', row.iloc[0].get('manaCost', '')) or '')
+                    except Exception:
+                        pass
+                    try:
+                        b.add_card(pick, card_type=card_type, mana_cost=mana_cost, role='Support', sub_role='Combo Partner', added_by='AutoCombos')
+                        logs.append(f"Auto-Complete Combos: added '{pick}' to complete a detected pair.")
+                        added_any = True
+                        lib_lower.add(pick.lower())
+                    except Exception:
+                        continue
+                if not added_any:
+                    logs.append("No combo partners added.")
+            except Exception as e:
+                logs.append(f"Stage '{label}' failed: {e}")
         elif callable(fn):
             try:
                 fn()
@@ -1331,12 +1636,26 @@ def run_stage(ctx: Dict[str, Any], rerun: bool = False, show_skipped: bool = Fal
                                 row = df[df['name'].astype(str).str.lower() == lname]
                                 if not row.empty:
                                     target_name = str(row.iloc[0]['name'])
+                                    target_type = str(row.iloc[0].get('type', row.iloc[0].get('type_line', '')) or '')
+                                    target_cost = str(row.iloc[0].get('mana_cost', row.iloc[0].get('manaCost', '')) or '')
+                                else:
+                                    target_type = ''
+                                    target_cost = ''
+                            else:
+                                target_type = ''
+                                target_cost = ''
                         except Exception:
                             target_name = None
+                            target_type = ''
+                            target_cost = ''
+                        # Only add a lock placeholder if we can resolve this name in the current pool
                         if target_name is None:
-                            target_name = lname
+                            # Unresolvable (likely off-color or unavailable) -> skip placeholder
+                            continue
                         b.card_library[target_name] = {
                             'Count': 1,
+                            'Card Type': target_type,
+                            'Mana Cost': target_cost,
                             'Role': 'Locked',
                             'SubRole': '',
                             'AddedBy': 'Lock',

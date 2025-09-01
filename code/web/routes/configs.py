@@ -8,6 +8,8 @@ import json
 from ..app import templates
 from ..services import owned_store
 from ..services import orchestrator as orch
+from deck_builder.combos import detect_combos as _detect_combos, detect_synergies as _detect_synergies
+from tagging.combo_schema import load_and_validate_combos as _load_combos, load_and_validate_synergies as _load_synergies
 from deck_builder import builder_constants as bc
 
 
@@ -143,6 +145,33 @@ async def configs_run(request: Request, name: str = Form(...), use_owned_only: s
 
     owned_names = owned_store.get_names() if owned_flag else None
 
+    # Optional combos preferences
+    prefer_combos = False
+    try:
+        pc = cfg.get("prefer_combos")
+        if isinstance(pc, bool):
+            prefer_combos = pc
+        elif isinstance(pc, str):
+            prefer_combos = pc.strip().lower() in ("1","true","yes","on")
+    except Exception:
+        prefer_combos = False
+    combo_target_count = None
+    try:
+        ctc = cfg.get("combo_target_count")
+        if isinstance(ctc, int):
+            combo_target_count = ctc
+        elif isinstance(ctc, str) and ctc.strip().isdigit():
+            combo_target_count = int(ctc.strip())
+    except Exception:
+        combo_target_count = None
+    combo_balance = None
+    try:
+        cb = cfg.get("combo_balance")
+        if isinstance(cb, str) and cb.strip().lower() in ("early","late","mix"):
+            combo_balance = cb.strip().lower()
+    except Exception:
+        combo_balance = None
+
     # Run build headlessly with orchestrator
     res = orch.run_build(
         commander=commander,
@@ -152,6 +181,10 @@ async def configs_run(request: Request, name: str = Form(...), use_owned_only: s
         tag_mode=tag_mode,
     use_owned_only=owned_flag,
         owned_names=owned_names,
+        # Thread combo prefs through staged headless run
+        prefer_combos=prefer_combos,
+        combo_target_count=combo_target_count,
+        combo_balance=combo_balance,
     )
     if not res.get("ok"):
         return templates.TemplateResponse(
@@ -183,6 +216,23 @@ async def configs_run(request: Request, name: str = Form(...), use_owned_only: s
             "use_owned_only": owned_flag,
             "owned_set": {n.lower() for n in owned_store.get_names()},
             "game_changers": bc.GAME_CHANGERS,
+            # Combos & Synergies for summary panel
+            **(lambda _sum: (lambda names: (lambda _cm,_sm: {
+                "combos": (_detect_combos(names, combos_path="config/card_lists/combos.json") if names else []),
+                "synergies": (_detect_synergies(names, synergies_path="config/card_lists/synergies.json") if names else []),
+                "versions": {
+                    "combos": getattr(_cm, 'list_version', None) if _cm else None,
+                    "synergies": getattr(_sm, 'list_version', None) if _sm else None,
+                }
+            })(
+                (lambda: (_load_combos("config/card_lists/combos.json")))(),
+                (lambda: (_load_synergies("config/card_lists/synergies.json")))(),
+            ))(
+                (lambda s, cmd: (lambda names_set: sorted(names_set | ({cmd} if cmd else set())))(
+                    set([str((c.get('name') if isinstance(c, dict) else getattr(c, 'name', ''))) for _t, cl in (((s or {}).get('type_breakdown', {}) or {}).get('cards', {}).items()) for c in (cl or []) if (c.get('name') if isinstance(c, dict) else getattr(c, 'name', ''))])
+                    | set([str((c.get('name') if isinstance(c, dict) else getattr(c, 'name', ''))) for _b, cl in ((((s or {}).get('mana_curve', {}) or {}).get('cards', {}) or {}).items()) for c in (cl or []) if (c.get('name') if isinstance(c, dict) else getattr(c, 'name', ''))])
+                ))(_sum, commander)
+            ))(res.get("summary"))
         },
     )
 

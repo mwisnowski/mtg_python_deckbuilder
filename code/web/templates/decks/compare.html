@@ -7,7 +7,7 @@
 <form method="get" action="/decks/compare" class="panel" style="display:flex; gap:.5rem; align-items:center; flex-wrap:wrap;">
   <label>Deck A
     <select name="A" required>
-      <option value="">Choose…</option>
+  <option value="" data-mtime="0">Choose…</option>
       {% for opt in options %}
         <option value="{{ opt.name }}" data-mtime="{{ opt.mtime }}" {% if A == opt.name %}selected{% endif %}>{{ opt.label }}</option>
       {% endfor %}
@@ -15,7 +15,7 @@
   </label>
   <label>Deck B
     <select name="B" required>
-      <option value="">Choose…</option>
+  <option value="" data-mtime="0">Choose…</option>
       {% for opt in options %}
         <option value="{{ opt.name }}" data-mtime="{{ opt.mtime }}" {% if B == opt.name %}selected{% endif %}>{{ opt.label }}</option>
       {% endfor %}

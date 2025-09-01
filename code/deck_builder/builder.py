@@ -1024,6 +1024,24 @@ class DeckBuilder(
                     return
         except Exception:
             pass
+
+        # Enforce color identity / card-pool legality: if the card is not present in the
+        # current dataframes snapshot (which is filtered by color identity), skip it.
+        # Allow the commander to bypass this check.
+        try:
+            if not is_commander:
+                df_src = self._full_cards_df if self._full_cards_df is not None else self._combined_cards_df
+                if df_src is not None and not df_src.empty and 'name' in df_src.columns:
+                    if df_src[df_src['name'].astype(str).str.lower() == str(card_name).lower()].empty:
+                        # Not in the legal pool (likely off-color or unavailable)
+                        try:
+                            self.output_func(f"Skipped illegal/off-pool card: {card_name}")
+                        except Exception:
+                            pass
+                        return
+        except Exception:
+            # If any unexpected error occurs, fall through (do not block legitimate adds)
+            pass
         if creature_types is None:
             creature_types = []
         if tags is None:
@@ -1092,6 +1110,19 @@ class DeckBuilder(
                                 # tolerate comma separated
                                 parts = [p.strip().strip("'\"") for p in raw_tags.split(',')]
                                 tags = [p for p in parts if p]
+                except Exception:
+                    pass
+            # Enrich missing type and mana_cost for accurate categorization
+            if (not card_type) or (not mana_cost):
+                try:
+                    df_src = self._full_cards_df if self._full_cards_df is not None else self._combined_cards_df
+                    if df_src is not None and not df_src.empty and 'name' in df_src.columns:
+                        row_match2 = df_src[df_src['name'].astype(str).str.lower() == str(card_name).lower()]
+                        if not row_match2.empty:
+                            if not card_type:
+                                card_type = str(row_match2.iloc[0].get('type', row_match2.iloc[0].get('type_line', '')) or '')
+                            if not mana_cost:
+                                mana_cost = str(row_match2.iloc[0].get('mana_cost', row_match2.iloc[0].get('manaCost', '')) or '')
                 except Exception:
                     pass
             # Normalize & dedupe tags

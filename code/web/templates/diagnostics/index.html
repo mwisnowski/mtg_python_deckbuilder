@@ -20,6 +20,16 @@
       <div><strong>Render count:</strong> <span id="perf-renders">0</span></div>
     </div>
   </div>
+  <div class="card" style="background: var(--panel); border:1px solid var(--border); border-radius:10px; padding:.75rem; margin-bottom:.75rem">
+    <h3 style="margin-top:0">Combos & Synergies (ad-hoc)</h3>
+    <div class="muted" style="margin-bottom:.35rem">Paste card names (one per line) and detect two-card combos and synergies using current lists.</div>
+    <textarea id="diag-combos-input" rows="6" style="width:100%; resize:vertical; font-family: var(--mono);"></textarea>
+    <div style="margin-top:.5rem; display:flex; gap:.5rem; align-items:center">
+      <button class="btn" id="diag-combos-run">Detect</button>
+      <small class="muted">Runs in diagnostics mode only.</small>
+    </div>
+    <pre id="diag-combos-out" style="margin-top:.5rem; white-space:pre-wrap"></pre>
+  </div>
   {% if enable_pwa %}
   <div class="card" style="background:#0f1115; border:1px solid var(--border); border-radius:10px; padding:.75rem; margin-bottom:.75rem">
     <h3 style="margin-top:0">PWA status</h3>
@@ -85,6 +95,48 @@
         renderTheme();
       });
     }
+  }catch(_){ }
+  // Combos & synergies ad-hoc tester
+  try{
+    var runBtn = document.getElementById('diag-combos-run');
+    var ta = document.getElementById('diag-combos-input');
+    var out = document.getElementById('diag-combos-out');
+    function parseLines(){
+      var v = (ta && ta.value) || '';
+      return v.split(/\r?\n/).map(function(s){ return s.trim(); }).filter(Boolean);
+    }
+    async function run(){
+      if (!ta || !out) return;
+      out.textContent = 'Running…';
+      try{
+        var resp = await fetch('/diagnostics/combos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ names: parseLines() })});
+        if (!resp.ok){ out.textContent = 'Error '+resp.status; return; }
+        var data = await resp.json();
+        var lines = [];
+        // Versions
+        try{
+          if (data.versions){
+            var vLine = 'List versions: ';
+            if (data.versions.combos) vLine += 'combos v'+ String(data.versions.combos);
+            if (data.versions.synergies) vLine += (data.versions.combos? ', ' : '') + 'synergies v'+ String(data.versions.synergies);
+            lines.push(vLine);
+          }
+        }catch(_){ }
+        lines.push('Combos: '+ data.counts.combos);
+        (data.combos||[]).forEach(function(c){
+          var badges = [];
+          if (c.cheap_early) badges.push('cheap/early');
+          if (c.setup_dependent) badges.push('setup-dependent');
+          var tagStr = (c.tags && c.tags.length? ' ['+c.tags.join(', ')+']' : '');
+          var badgeStr = badges.length ? ' {'+badges.join(', ')+'}' : '';
+          lines.push(' - '+c.a+' + '+c.b+ tagStr + badgeStr);
+        });
+        lines.push('Synergies: '+ data.counts.synergies);
+        (data.synergies||[]).forEach(function(s){ lines.push(' - '+s.a+' + '+s.b+(s.tags && s.tags.length? ' ['+s.tags.join(', ')+']':'')); });
+        out.textContent = lines.join('\n');
+      }catch(e){ out.textContent = 'Failed: '+ (e && e.message? e.message : 'Unknown error'); }
+    }
+    if (runBtn){ runBtn.addEventListener('click', run); }
   }catch(_){ }
   try{
     var p = document.getElementById('pwaStatus');

@@ -12,6 +12,21 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 
 ## [Unreleased]
 
+## [2.2.1] - 2025-09-01
+### Added
+- Combos & Synergies: detect curated two-card combos/synergies and surface them in a chip-style panel with badges (cheap/early, setup) on Step 5 and Finished Decks.
+- Dual hover previews for combo rows: hovering a combo shows both cards side-by-side in the standard preview popout; individual names still preview a single card.
+- Headless (Web Configs): JSON configs now persist and honor combo preferences:
+  - `prefer_combos` (bool)
+  - `combo_target_count` (int)
+  - `combo_balance` ("early" | "late" | "mix")
+  Exported interactive run-config JSON includes these fields when used.
+- Finished Deck summary includes detected combos/synergies and curated list version badges.
+- When `prefer_combos` is enabled, Auto-Complete Combos runs before theme fill/monolithic spells so partners aren’t clamped away. Existing completed pairs count toward the target before adding partners.
+- Step 5 Combos panel updated to the same chip-style as Finished Decks for consistency.
+- Auto-combos respect color identity by resolving from the filtered pool only; off-color/unavailable partners are skipped.
+- Added type/mana enrichment for auto-added partners and lock placeholders to avoid “Other” category leakage.
+
 ## [2.1.1] - 2025-08-29
 ### Added
 - Multi-copy archetypes (Web): opt-in modal suggests packages like Persistent Petitioners, Dragon's Approach, and Shadowborn Apostle when viable; choose quantity and optionally add Thrumming Stone. Applied as the first stage with ideal count adjustments and a per-stage 100-card safety clamp. UI surfaces adjustments and a clamp chip.

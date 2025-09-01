@@ -36,7 +36,7 @@ services:
       # Default theme for first-time visitors (no local preference yet): system|light|dark
       # When set to 'light', it maps to the consolidated Light (Blend) palette in the UI
       # - ENABLE_THEMES=1
-      # - THEME=dark
+      - THEME=dark
       # Logging and error utilities
       # - SHOW_LOGS=1
       # - SHOW_DIAGNOSTICS=1
@@ -46,6 +46,10 @@ services:
       - WEB_TAG_WORKERS=4
       # Enable virtualization + lazy image tweaks in Step 5
       - WEB_VIRTUALIZE=1
+      # Version label (optional; shown in footer/diagnostics)
+      - APP_VERSION=v2.2.1
+      # EDHRec scraping
+      # - EDHREC_FETCH=1
     volumes:
       - ${PWD}/deck_files:/app/deck_files
       - ${PWD}/logs:/app/logs

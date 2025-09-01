@@ -2,6 +2,11 @@ from __future__ import annotations
 
 from fastapi import FastAPI, Request, HTTPException, Query
 from fastapi.responses import HTMLResponse, FileResponse, PlainTextResponse, JSONResponse, Response
+from deck_builder.combos import (
+    detect_combos as _detect_combos,
+    detect_synergies as _detect_synergies,
+)
+from tagging.combo_schema import load_and_validate_combos as _load_combos, load_and_validate_synergies as _load_synergies
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
@@ -396,3 +401,42 @@ async def diagnostics_perf(request: Request) -> HTMLResponse:
     if not SHOW_DIAGNOSTICS:
         raise HTTPException(status_code=404, detail="Not Found")
     return templates.TemplateResponse("diagnostics/perf.html", {"request": request})
+
+# --- Diagnostics: combos & synergies ---
+@app.post("/diagnostics/combos")
+async def diagnostics_combos(request: Request) -> JSONResponse:
+    if not SHOW_DIAGNOSTICS:
+        raise HTTPException(status_code=404, detail="Diagnostics disabled")
+    try:
+        payload = await request.json()
+    except Exception:
+        payload = {}
+    names = payload.get("names") or []
+    combos_path = payload.get("combos_path") or "config/card_lists/combos.json"
+    synergies_path = payload.get("synergies_path") or "config/card_lists/synergies.json"
+
+    combos_model = _load_combos(combos_path)
+    synergies_model = _load_synergies(synergies_path)
+    combos = _detect_combos(names, combos_path=combos_path)
+    synergies = _detect_synergies(names, synergies_path=synergies_path)
+
+    def as_dict_combo(c):
+        return {
+            "a": c.a,
+            "b": c.b,
+            "cheap_early": bool(c.cheap_early),
+            "setup_dependent": bool(c.setup_dependent),
+            "tags": list(c.tags or []),
+        }
+
+    def as_dict_syn(s):
+        return {"a": s.a, "b": s.b, "tags": list(s.tags or [])}
+
+    return JSONResponse(
+        {
+            "counts": {"combos": len(combos), "synergies": len(synergies)},
+            "versions": {"combos": combos_model.list_version, "synergies": synergies_model.list_version},
+            "combos": [as_dict_combo(c) for c in combos],
+            "synergies": [as_dict_syn(s) for s in synergies],
+        }
+    )

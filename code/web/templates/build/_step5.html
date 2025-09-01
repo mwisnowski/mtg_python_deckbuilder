@@ -26,7 +26,7 @@
     </aside>
     <div class="grow" data-skeleton>
   <div hx-get="/build/banner" hx-trigger="load"></div>
-      <div hx-get="/build/multicopy/check" hx-trigger="load" hx-swap="afterend"></div>
+  <div hx-get="/build/multicopy/check" hx-trigger="load" hx-swap="afterend"></div>
 
       <p>Commander: <strong>{{ commander }}</strong></p>
       <p>Tags: {{ tags|default([])|join(', ') }}</p>
@@ -48,6 +48,9 @@
   <span class="chip"><span class="dot" style="background: var(--green-main);"></span> Deck {{ deck_count }}/100</span>
   {% if added_total is not none %}
   <span class="chip"><span class="dot" style="background: var(--blue-main);"></span> Added {{ added_total }}</span>
+  {% endif %}
+  {% if prefer_combos %}
+  <span class="chip" title="Combos plan"><span class="dot" style="background: var(--orange-main);"></span> Combos: {{ combo_target_count }} ({{ combo_balance }})</span>
   {% endif %}
   {% if clamped_overflow is defined and clamped_overflow and (clamped_overflow > 0) %}
   <span class="chip" title="Trimmed overflow from this stage"><span class="dot" style="background: var(--red-main);"></span> Clamped {{ clamped_overflow }}</span>
@@ -76,6 +79,10 @@
         <strong>Status:</strong> {{ status }}{% if stage_label %} — <em>{{ stage_label }}</em>{% endif %}
       </div>
       {% endif %}
+
+  {% if status and status.startswith('Build complete') %}
+  <div hx-get="/build/combos" hx-trigger="load" hx-swap="afterend"></div>
+  {% endif %}
 
       {% if locked_cards is defined and locked_cards %}
       <details id="locked-section" style="margin-top:.5rem;">

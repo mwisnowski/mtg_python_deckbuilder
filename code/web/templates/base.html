@@ -104,6 +104,9 @@
       .card-hover { position: fixed; pointer-events: none; z-index: 9999; display: none; }
       .card-hover-inner { display:flex; gap:12px; align-items:flex-start; }
     .card-hover img { width: 320px; height: auto; display: block; border-radius: 8px; box-shadow: 0 6px 18px rgba(0,0,0,.55); border: 1px solid var(--border); background: var(--panel); }
+    .card-hover .dual {
+      display:flex; gap:12px; align-items:flex-start;
+    }
   .card-meta { background: var(--panel); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: .5rem .6rem; max-width: 320px; font-size: 13px; line-height: 1.4; box-shadow: 0 6px 18px rgba(0,0,0,.35); }
   .card-meta ul { margin:.25rem 0; padding-left: 1.1rem; list-style: disc; }
   .card-meta li { margin:.1rem 0; }
@@ -180,9 +183,15 @@
             inner.className = 'card-hover-inner';
             var img = document.createElement('img');
             img.alt = 'Card preview';
+            var img2 = document.createElement('img');
+            img2.alt = 'Card preview'; img2.style.display = 'none';
             var meta = document.createElement('div');
             meta.className = 'card-meta';
-            inner.appendChild(img);
+            var dual = document.createElement('div');
+            dual.className = 'dual';
+            dual.appendChild(img);
+            dual.appendChild(img2);
+            inner.appendChild(dual);
             inner.appendChild(meta);
             pop.appendChild(inner);
             document.body.appendChild(pop);
@@ -259,12 +268,14 @@
           if (x + rect.width + 8 > vw) cardPop.style.left = (e.clientX - rect.width - 16) + 'px';
           if (y + rect.height + 8 > vh) cardPop.style.top = (e.clientY - rect.height - 16) + 'px';
         }
-        function attachCardHover() {
+    function attachCardHover() {
           document.querySelectorAll('[data-card-name]').forEach(function(el) {
             if (el.__cardHoverBound) return; // avoid duplicate bindings
             el.__cardHoverBound = true;
             el.addEventListener('mouseenter', function(e) {
-              var img = cardPop.querySelector('img');
+      var img = cardPop.querySelector('.card-hover-inner img');
+      var img2 = cardPop.querySelector('.card-hover-inner .dual img:nth-child(2)');
+      if (img2) img2.style.display = 'none';
               var meta = cardPop.querySelector('.card-meta');
               var name = el.getAttribute('data-card-name') || '';
               var vi = 0; // always start at 'normal' on hover
@@ -303,6 +314,33 @@
             });
             el.addEventListener('mousemove', positionCard);
             el.addEventListener('mouseleave', function() { cardPop.style.display = 'none'; });
+          });
+          // Dual-card hover for combo rows
+          document.querySelectorAll('[data-combo-names]').forEach(function(el){
+            if (el.__comboHoverBound) return; el.__comboHoverBound = true;
+            el.addEventListener('mouseenter', function(e){
+              var namesAttr = el.getAttribute('data-combo-names') || '';
+              var parts = namesAttr.split('||');
+              var a = (parts[0]||'').trim(); var b = (parts[1]||'').trim();
+              if (!a || !b) return;
+              var img = cardPop.querySelector('.card-hover-inner img');
+              var img2 = cardPop.querySelector('.card-hover-inner .dual img:nth-child(2)');
+              var meta = cardPop.querySelector('.card-meta');
+              if (img2) img2.style.display = '';
+              var vi1 = 0, vi2 = 0; var triedNoCache1 = false, triedNoCache2 = false;
+              img.src = buildCardUrl(a, PREVIEW_VERSIONS[vi1], false);
+              img2.src = buildCardUrl(b, PREVIEW_VERSIONS[vi2], false);
+              function err1(){ if (vi1 < PREVIEW_VERSIONS.length - 1){ vi1 += 1; img.src = buildCardUrl(a, PREVIEW_VERSIONS[vi1], false);} else if (!triedNoCache1){ triedNoCache1 = true; img.src = buildCardUrl(a, PREVIEW_VERSIONS[vi1], true);} else { img.removeEventListener('error', err1);} }
+              function err2(){ if (vi2 < PREVIEW_VERSIONS.length - 1){ vi2 += 1; img2.src = buildCardUrl(b, PREVIEW_VERSIONS[vi2], false);} else if (!triedNoCache2){ triedNoCache2 = true; img2.src = buildCardUrl(b, PREVIEW_VERSIONS[vi2], true);} else { img2.removeEventListener('error', err2);} }
+              img.addEventListener('error', err1, { once:false });
+              img2.addEventListener('error', err2, { once:false });
+              img.addEventListener('load', function on1(){ img.removeEventListener('load', on1); img.removeEventListener('error', err1); });
+              img2.addEventListener('load', function on2(){ img2.removeEventListener('load', on2); img2.removeEventListener('error', err2); });
+              meta.style.display = 'none'; meta.innerHTML = '';
+              positionCard(e);
+            });
+            el.addEventListener('mousemove', positionCard);
+            el.addEventListener('mouseleave', function(){ cardPop.style.display='none'; });
           });
         }
         attachCardHover();

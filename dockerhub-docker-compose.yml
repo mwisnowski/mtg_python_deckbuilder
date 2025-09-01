@@ -1,7 +1,7 @@
 services:
   web:
     image: mwisnowski/mtg-python-deckbuilder:latest
-  # Tip: pin to a specific tag when available, e.g. :2.0.2 (defaults to Web UI)
+  # Tip: pin to a specific tag when available, e.g. :2.2.1
     container_name: mtg-deckbuilder-web
     ports:
       - "8080:8080"  # Host:Container — open http://localhost:8080
@@ -21,7 +21,7 @@ services:
                               # Note: THEME still applies as the default even if selector is hidden
 
       # Version label (optional; shown in footer/diagnostics)
-      # - APP_VERSION=v2.0.2
+      - APP_VERSION=v2.2.1
 
     volumes:
       # Persist app data locally; ensure these directories exist next to this compose file

@@ -58,7 +58,7 @@
           </div>
         </div>
       {% endif %}
-  {{ render_cached('partials/deck_summary.html', name, request=request, summary=summary, game_changers=game_changers, owned_set=owned_set) | safe }}
+  {{ render_cached('partials/deck_summary.html', name, request=request, summary=summary, game_changers=game_changers, owned_set=owned_set, combos=combos, synergies=synergies, versions=versions) | safe }}
     {% else %}
       <div class="muted">No summary available.</div>
     {% endif %}

@@ -49,6 +49,32 @@
           </label>
         </div>
       </fieldset>
+      <fieldset>
+        <legend>Preferences</legend>
+        <label title="When enabled, the builder will try to auto-complete missing combo partners near the end of the build (respecting owned-only and locks).">
+          <input type="checkbox" name="prefer_combos" id="pref-combos-chk" /> Prioritize combos (auto-complete partners)
+        </label>
+        <div id="pref-combos-config" style="margin-top:.5rem; padding:.5rem; border:1px solid var(--border); border-radius:8px; display:none;">
+          <div style="display:flex; gap:1rem; align-items:center; flex-wrap:wrap;">
+            <label>
+              <span>How many combos?</span>
+              <input type="number" name="combo_count" min="0" max="10" step="1" value="{{ form.combo_count if form and form.combo_count is not none else 2 }}" style="width:6rem; margin-left:.5rem;" />
+            </label>
+            <div>
+              <div class="muted" style="font-size:12px; margin-bottom:.25rem;">Balance of early vs late-game</div>
+              <label style="display:inline-flex; align-items:center; gap:.25rem; margin-right:.5rem;">
+                <input type="radio" name="combo_balance" value="early" {% if form and form.combo_balance == 'early' %}checked{% endif %}/> Early
+              </label>
+              <label style="display:inline-flex; align-items:center; gap:.25rem; margin-right:.5rem;">
+                <input type="radio" name="combo_balance" value="late" {% if form and form.combo_balance == 'late' %}checked{% endif %}/> Late
+              </label>
+              <label style="display:inline-flex; align-items:center; gap:.25rem;">
+                <input type="radio" name="combo_balance" value="mix" {% if not form or (form and (not form.combo_balance or form.combo_balance == 'mix')) %}checked{% endif %}/> Mix
+              </label>
+            </div>
+          </div>
+        </div>
+      </fieldset>
       <details style="margin-top:.5rem;">
         <summary>Advanced options (ideals)</summary>
         <div style="display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap:.5rem; margin-top:.5rem;">
@@ -145,5 +171,19 @@
     function closeModal(){ try{ var m = document.querySelector('.modal'); if(m){ m.remove(); document.removeEventListener('keydown', onKey); } }catch(_){} }
     function onKey(e){ if (e.key === 'Escape'){ e.preventDefault(); closeModal(); } }
     document.addEventListener('keydown', onKey);
+  })();
+
+  // Toggle combos config visibility based on checkbox
+  (function(){
+    try {
+      var form = document.querySelector('.modal form');
+      var chk = form && form.querySelector('#pref-combos-chk');
+      var box = form && form.querySelector('#pref-combos-config');
+      if (!chk || !box) return;
+      function sync(){ box.style.display = chk.checked ? 'block' : 'none'; }
+      chk.addEventListener('change', sync);
+      // Initial state
+      sync();
+    } catch(_){}
   })();
 </script>

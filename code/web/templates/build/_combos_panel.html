@@ -1,0 +1,76 @@
+<div class="panel" style="margin-top:1rem;">
+  <div style="display:flex; align-items:center; gap:.5rem; flex-wrap:wrap;">
+    <h3 style="margin:0;">Combos & Synergies</h3>
+    {% if versions and (versions.combos or versions.synergies) %}
+      <span class="muted">lists v{{ versions.combos }}{% if versions.synergies %} / {{ versions.synergies }}{% endif %}</span>
+    {% endif %}
+  </div>
+
+  <section style="margin-top:.5rem;">
+    <div class="muted" style="font-weight:600; margin-bottom:.25rem;">Detected combos ({{ combos|length }})</div>
+    {% if combos and combos|length %}
+      <ul style="list-style:none; padding:0; margin:0; display:grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap:.25rem .75rem;">
+        {% for c in combos %}
+          <li style="border:1px solid var(--border); border-radius:8px; padding:.35rem .5rem; background:#0f1115;" data-combo-names="{{ c.a }}||{{ c.b }}">
+            <span data-card-name="{{ c.a }}">{{ c.a }}</span>
+            <span class="muted"> + </span>
+            <span data-card-name="{{ c.b }}">{{ c.b }}</span>
+            {% if c.cheap_early or c.setup_dependent %}
+              <span class="muted" style="margin-left:.4rem; font-size:12px;">
+                {% if c.cheap_early %}<span title="Cheap/Early" style="border:1px solid var(--border); padding:.05rem .35rem; border-radius:999px;">cheap/early</span>{% endif %}
+                {% if c.setup_dependent %}<span title="Setup Dependent" style="border:1px solid var(--border); padding:.05rem .35rem; border-radius:999px; margin-left:.25rem;">setup</span>{% endif %}
+              </span>
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <div class="muted">None found.</div>
+    {% endif %}
+  </section>
+
+  <section style="margin-top:.5rem;">
+    <div class="muted" style="font-weight:600; margin-bottom:.25rem;">Detected synergies ({{ synergies|length }})</div>
+    {% if synergies and synergies|length %}
+      <ul style="list-style:none; padding:0; margin:0; display:grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap:.25rem .75rem;">
+        {% for s in synergies %}
+          <li style="border:1px solid var(--border); border-radius:8px; padding:.35rem .5rem; background:#0f1115;" data-combo-names="{{ s.a }}||{{ s.b }}">
+            <span data-card-name="{{ s.a }}">{{ s.a }}</span>
+            <span class="muted"> + </span>
+            <span data-card-name="{{ s.b }}">{{ s.b }}</span>
+            {% if s.tags %}
+              <span class="muted" style="margin-left:.4rem; font-size:12px;">
+                {% for t in s.tags %}<span style="border:1px solid var(--border); padding:.05rem .35rem; border-radius:999px; margin-right:.25rem;">{{ t }}</span>{% endfor %}
+              </span>
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <div class="muted">None found.</div>
+    {% endif %}
+  </section>
+  {% if suggestions and suggestions|length %}
+  <div style="margin-top:.75rem;">
+    <h4 style="margin:0 0 .25rem 0;">Suggestions</h4>
+    <ul style="list-style:none; padding:0; margin:0; display:grid; gap:.25rem;">
+      {% for s in suggestions %}
+        <li style="border:1px solid var(--border); border-radius:8px; padding:.35rem .5rem; background:#0f1115;">
+          {% if s.kind == 'add' %}Add <strong data-card-name="{{ s.name }}">{{ s.name }}</strong> (partner: <span data-card-name="{{ s.have }}">{{ s.have }}</span>)
+          {% elif s.kind == 'cut' %}Cut <strong data-card-name="{{ s.name }}">{{ s.name }}</strong> (pairs with <span data-card-name="{{ s.partner }}">{{ s.partner }}</span>)
+          {% else %}{{ s.kind|title }} <strong data-card-name="{{ s.name }}">{{ s.name }}</strong>{% endif %}
+          {% set badges = [] %}
+          {% if s.cheap_early %}{% set _ = badges.append('cheap/early') %}{% endif %}
+          {% if s.setup_dependent %}{% set _ = badges.append('setup-dependent') %}{% endif %}
+          {% if badges and badges|length %}
+            <span class="muted">{ {{ badges|join(', ') }} }</span>
+          {% endif %}
+          {% if s.tags and s.tags|length %}
+            <span class="muted">[{{ s.tags|join(', ') }}]</span>
+          {% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+</div>

@@ -12,10 +12,10 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5.0.0
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v5.6.0
         with:
           python-version: '3.11'
 
@@ -38,7 +38,7 @@ jobs:
           if (!(Test-Path dist/mtg-deckbuilder.exe)) { throw 'Build failed: dist/mtg-deckbuilder.exe not found' }
 
       - name: Upload artifact (Windows EXE)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v4.6.2
         with:
           name: mtg-deckbuilder-windows
           path: dist/mtg-deckbuilder.exe
@@ -50,7 +50,7 @@ jobs:
       contents: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5.0.0
 
       - name: Prepare release notes
         id: notes
@@ -70,13 +70,13 @@ jobs:
           echo "notes_file=RELEASE_NOTES.md" >> $GITHUB_OUTPUT
 
       - name: Download build artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5.0.0
         with:
           name: mtg-deckbuilder-windows
           path: artifacts
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v2.3.2
         with:
           tag_name: ${{ steps.notes.outputs.version }}
           name: ${{ steps.notes.outputs.version }}

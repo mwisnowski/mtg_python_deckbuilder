@@ -2,37 +2,30 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Request, Form, Query
 from fastapi.responses import HTMLResponse, JSONResponse
+from ..services.build_utils import (
+    step5_ctx_from_result,
+    step5_error_ctx,
+    step5_empty_ctx,
+    start_ctx_from_session,
+    owned_set as owned_set_helper,
+    builder_present_names,
+    builder_display_map,
+)
 from ..app import templates
 from deck_builder import builder_constants as bc
 from ..services import orchestrator as orch
-from ..services import owned_store
+from ..services.orchestrator import is_setup_ready as _is_setup_ready, is_setup_stale as _is_setup_stale  # type: ignore
+from ..services.build_utils import owned_names as owned_names_helper
 from ..services.tasks import get_session, new_sid
 from html import escape as _esc
 from deck_builder.builder import DeckBuilder
 from deck_builder import builder_utils as bu
-from deck_builder.combos import detect_combos as _detect_combos, detect_synergies as _detect_synergies
-from tagging.combo_schema import load_and_validate_combos as _load_combos, load_and_validate_synergies as _load_synergies
+from ..services.combo_utils import detect_all as _detect_all
+from ..services.alts_utils import get_cached as _alts_get_cached, set_cached as _alts_set_cached
 
 router = APIRouter(prefix="/build")
 
-# --- lightweight in-memory TTL cache for alternatives (Phase 9 planned item) ---
-_ALTS_CACHE: dict[tuple[str, str, bool], tuple[float, str]] = {}
-_ALTS_TTL_SECONDS = 60.0  # short TTL; avoids stale UI while helping burst traffic
-def _alts_get_cached(key: tuple[str, str, bool]) -> str | None:
-    try:
-        ts, html = _ALTS_CACHE.get(key, (0.0, ""))
-        import time as _t
-        if ts and (_t.time() - ts) < _ALTS_TTL_SECONDS:
-            return html
-    except Exception:
-        return None
-    return None
-def _alts_set_cached(key: tuple[str, str, bool], html: str) -> None:
-    try:
-        import time as _t
-        _ALTS_CACHE[key] = (_t.time(), html)
-    except Exception:
-        pass
+# Alternatives cache moved to services/alts_utils
 
 
 def _rebuild_ctx_with_multicopy(sess: dict) -> None:
@@ -49,13 +42,13 @@ def _rebuild_ctx_with_multicopy(sess: dict) -> None:
         default_bracket = (opts[0]["level"] if opts else 1)
         bracket_val = sess.get("bracket")
         try:
-            safe_bracket = int(bracket_val) if bracket_val is not None else int(default_bracket)
+            safe_bracket = int(bracket_val) if bracket_val is not None else default_bracket
         except Exception:
             safe_bracket = int(default_bracket)
         ideals_val = sess.get("ideals") or orch.ideal_defaults()
         use_owned = bool(sess.get("use_owned_only"))
         prefer = bool(sess.get("prefer_owned"))
-        owned_names = owned_store.get_names() if (use_owned or prefer) else None
+        owned_names = owned_names_helper() if (use_owned or prefer) else None
         locks = list(sess.get("locks", []))
         sess["build_ctx"] = orch.start_build_ctx(
             commander=sess.get("commander"),
@@ -470,75 +463,43 @@ async def build_new_submit(
                 del sess["custom_export_base"]
             except Exception:
                 pass
+    # If setup/tagging is not ready or stale, show a modal prompt instead of auto-running.
+    try:
+        if not _is_setup_ready():
+            return templates.TemplateResponse(
+                "build/_setup_prompt_modal.html",
+                {
+                    "request": request,
+                    "title": "Setup required",
+                    "message": "The card database and tags need to be prepared before building a deck.",
+                    "action_url": "/setup/running?start=1&next=/build",
+                    "action_label": "Run Setup",
+                },
+            )
+        if _is_setup_stale():
+            return templates.TemplateResponse(
+                "build/_setup_prompt_modal.html",
+                {
+                    "request": request,
+                    "title": "Data refresh recommended",
+                    "message": "Your card database is stale. Refreshing ensures up-to-date results.",
+                    "action_url": "/setup/running?start=1&force=1&next=/build",
+                    "action_label": "Refresh Now",
+                },
+            )
+    except Exception:
+        # If readiness check fails, continue and let downstream handling surface errors
+        pass
     # Immediately initialize a build context and run the first stage, like hitting Build Deck on review
     if "replace_mode" not in sess:
         sess["replace_mode"] = True
-    opts = orch.bracket_options()
-    default_bracket = (opts[0]["level"] if opts else 1)
-    bracket_val = sess.get("bracket")
-    try:
-        safe_bracket = int(bracket_val) if bracket_val is not None else int(default_bracket)
-    except Exception:
-        safe_bracket = int(default_bracket)
-    ideals_val = sess.get("ideals") or orch.ideal_defaults()
-    use_owned = bool(sess.get("use_owned_only"))
-    prefer = bool(sess.get("prefer_owned"))
-    owned_names = owned_store.get_names() if (use_owned or prefer) else None
-    sess["build_ctx"] = orch.start_build_ctx(
-        commander=sess.get("commander"),
-        tags=sess.get("tags", []),
-        bracket=safe_bracket,
-        ideals=ideals_val,
-        tag_mode=sess.get("tag_mode", "AND"),
-        use_owned_only=use_owned,
-        prefer_owned=prefer,
-        owned_names=owned_names,
-        locks=list(sess.get("locks", [])),
-        custom_export_base=sess.get("custom_export_base"),
-        multi_copy=sess.get("multi_copy"),
-        prefer_combos=bool(sess.get("prefer_combos")),
-        combo_target_count=int(sess.get("combo_target_count", 2)),
-        combo_balance=str(sess.get("combo_balance", "mix")),
-    )
+    # Centralized staged context creation
+    sess["build_ctx"] = start_ctx_from_session(sess)
     res = orch.run_stage(sess["build_ctx"], rerun=False, show_skipped=False)
     status = "Build complete" if res.get("done") else "Stage complete"
     sess["last_step"] = 5
-    resp = templates.TemplateResponse(
-        "build/_step5.html",
-        {
-            "request": request,
-            "commander": sess.get("commander"),
-            "name": sess.get("custom_export_base"),
-            "tags": sess.get("tags", []),
-            "bracket": sess.get("bracket"),
-            "values": sess.get("ideals", orch.ideal_defaults()),
-            "owned_only": bool(sess.get("use_owned_only")),
-            "prefer_owned": bool(sess.get("prefer_owned")),
-            "owned_set": {n.lower() for n in owned_store.get_names()},
-            "status": status,
-            "stage_label": res.get("label"),
-            "log": res.get("log_delta", ""),
-            "added_cards": res.get("added_cards", []),
-            "i": res.get("idx"),
-            "n": res.get("total"),
-            "csv_path": res.get("csv_path") if res.get("done") else None,
-            "txt_path": res.get("txt_path") if res.get("done") else None,
-            "summary": res.get("summary") if res.get("done") else None,
-            "game_changers": bc.GAME_CHANGERS,
-            "show_skipped": False,
-            "total_cards": res.get("total_cards"),
-            "added_total": res.get("added_total"),
-            "mc_adjustments": res.get("mc_adjustments"),
-            "clamped_overflow": res.get("clamped_overflow"),
-            "mc_summary": res.get("mc_summary"),
-            "skipped": bool(res.get("skipped")),
-            "locks": list(sess.get("locks", [])),
-            "replace_mode": bool(sess.get("replace_mode", True)),
-            "prefer_combos": bool(sess.get("prefer_combos")),
-            "combo_target_count": int(sess.get("combo_target_count", 2)),
-            "combo_balance": str(sess.get("combo_balance", "mix")),
-        },
-    )
+    ctx = step5_ctx_from_result(request, sess, res, status_text=status, show_skipped=False)
+    resp = templates.TemplateResponse("build/_step5.html", ctx)
     resp.set_cookie("sid", sid, httponly=True, samesite="lax")
     return resp
 
@@ -721,33 +682,7 @@ async def build_step5_rewind(request: Request, to: str = Form(...)) -> HTMLRespo
             ctx["last_visible_idx"] = int(target_i) - 1
     except Exception:
         # As a fallback, restart ctx and run forward until target
-        opts = orch.bracket_options()
-        default_bracket = (opts[0]["level"] if opts else 1)
-        bracket_val = sess.get("bracket")
-        try:
-            safe_bracket = int(bracket_val) if bracket_val is not None else int(default_bracket)
-        except Exception:
-            safe_bracket = int(default_bracket)
-        ideals_val = sess.get("ideals") or orch.ideal_defaults()
-        use_owned = bool(sess.get("use_owned_only"))
-        prefer = bool(sess.get("prefer_owned"))
-        owned_names = owned_store.get_names() if (use_owned or prefer) else None
-        sess["build_ctx"] = orch.start_build_ctx(
-            commander=sess.get("commander"),
-            tags=sess.get("tags", []),
-            bracket=safe_bracket,
-            ideals=ideals_val,
-            tag_mode=sess.get("tag_mode", "AND"),
-            use_owned_only=use_owned,
-            prefer_owned=prefer,
-            owned_names=owned_names,
-            locks=list(sess.get("locks", [])),
-            custom_export_base=sess.get("custom_export_base"),
-            multi_copy=sess.get("multi_copy"),
-            prefer_combos=bool(sess.get("prefer_combos")),
-            combo_target_count=int(sess.get("combo_target_count", 2)),
-            combo_balance=str(sess.get("combo_balance", "mix")),
-        )
+        sess["build_ctx"] = start_ctx_from_session(sess)
         ctx = sess["build_ctx"]
         # Run forward until reaching target
         while True:
@@ -757,42 +692,16 @@ async def build_step5_rewind(request: Request, to: str = Form(...)) -> HTMLRespo
             if res.get("done"):
                 break
     # Finally show the target stage by running it with show_skipped True to get a view
-    res = orch.run_stage(ctx, rerun=False, show_skipped=True)
-    status = "Stage (rewound)" if not res.get("done") else "Build complete"
-    resp = templates.TemplateResponse(
-        "build/_step5.html",
-        {
-            "request": request,
-            "commander": sess.get("commander"),
-            "name": sess.get("custom_export_base"),
-            "tags": sess.get("tags", []),
-            "bracket": sess.get("bracket"),
-            "values": sess.get("ideals", orch.ideal_defaults()),
-            "owned_only": bool(sess.get("use_owned_only")),
-            "prefer_owned": bool(sess.get("prefer_owned")),
-            "owned_set": {n.lower() for n in owned_store.get_names()},
-            "status": status,
-            "stage_label": res.get("label"),
-            "log": res.get("log_delta", ""),
-            "added_cards": res.get("added_cards", []),
-            "i": res.get("idx"),
-            "n": res.get("total"),
-            "game_changers": bc.GAME_CHANGERS,
-            "show_skipped": True,
-            "total_cards": res.get("total_cards"),
-            "added_total": res.get("added_total"),
-            "mc_adjustments": res.get("mc_adjustments"),
-            "clamped_overflow": res.get("clamped_overflow"),
-            "mc_summary": res.get("mc_summary"),
-            "skipped": bool(res.get("skipped")),
-            "locks": list(sess.get("locks", [])),
-            "replace_mode": bool(sess.get("replace_mode", True)),
+    try:
+        res = orch.run_stage(ctx, rerun=False, show_skipped=True)
+        status = "Stage (rewound)" if not res.get("done") else "Build complete"
+        ctx_resp = step5_ctx_from_result(request, sess, res, status_text=status, show_skipped=True, extras={
             "history": ctx.get("history", []),
-            "prefer_combos": bool(sess.get("prefer_combos")),
-            "combo_target_count": int(sess.get("combo_target_count", 2)),
-            "combo_balance": str(sess.get("combo_balance", "mix")),
-        },
-    )
+        })
+    except Exception as e:
+        sess["last_step"] = 5
+        ctx_resp = step5_error_ctx(request, sess, f"Failed to rewind: {e}")
+    resp = templates.TemplateResponse("build/_step5.html", ctx_resp)
     resp.set_cookie("sid", sid, httponly=True, samesite="lax")
     return resp
 
@@ -1066,22 +975,11 @@ async def build_combos_panel(request: Request) -> HTMLResponse:
         target = 0
 
     # Load lists and run detection
-    try:
-        combos_model = _load_combos("config/card_lists/combos.json")
-    except Exception:
-        combos_model = None
-    try:
-        combos = _detect_combos(names, combos_path="config/card_lists/combos.json")
-    except Exception:
-        combos = []
-    try:
-        synergies = _detect_synergies(names, synergies_path="config/card_lists/synergies.json")
-    except Exception:
-        synergies = []
-    try:
-        synergies_model = _load_synergies("config/card_lists/synergies.json")
-    except Exception:
-        synergies_model = None
+    _det = _detect_all(names)
+    combos = _det.get("combos", [])
+    synergies = _det.get("synergies", [])
+    combos_model = _det.get("combos_model")
+    synergies_model = _det.get("synergies_model")
 
     # Suggestions
     suggestions: list[dict] = []
@@ -1182,10 +1080,7 @@ async def build_combos_panel(request: Request) -> HTMLResponse:
         "target": target,
         "combos": combos,
         "synergies": synergies,
-        "versions": {
-            "combos": getattr(combos_model, "list_version", None) if combos_model else None,
-            "synergies": getattr(synergies_model, "list_version", None) if synergies_model else None,
-        },
+        "versions": _det.get("versions", {}),
         "suggestions": suggestions,
     }
     return templates.TemplateResponse("build/_combos_panel.html", ctx)
@@ -1251,36 +1146,8 @@ async def build_step5_get(request: Request) -> HTMLResponse:
     # Default replace-mode to ON unless explicitly toggled off
     if "replace_mode" not in sess:
         sess["replace_mode"] = True
-    resp = templates.TemplateResponse(
-        "build/_step5.html",
-        {
-            "request": request,
-            "commander": sess.get("commander"),
-            "name": sess.get("custom_export_base"),
-            "tags": sess.get("tags", []),
-            "bracket": sess.get("bracket"),
-            "values": sess.get("ideals", orch.ideal_defaults()),
-            "owned_only": bool(sess.get("use_owned_only")),
-            "prefer_owned": bool(sess.get("prefer_owned")),
-            "owned_set": {n.lower() for n in owned_store.get_names()},
-            "locks": list(sess.get("locks", [])),
-            "status": None,
-            "stage_label": None,
-            "log": None,
-            "added_cards": [],
-            "i": None,
-            "n": None,
-            "total_cards": None,
-            "added_total": 0,
-            "show_skipped": False,
-            "skipped": False,
-            "game_changers": bc.GAME_CHANGERS,
-            "replace_mode": bool(sess.get("replace_mode", True)),
-            "prefer_combos": bool(sess.get("prefer_combos")),
-            "combo_target_count": int(sess.get("combo_target_count", 2)),
-            "combo_balance": str(sess.get("combo_balance", "mix")),
-        },
-    )
+    base = step5_empty_ctx(request, sess)
+    resp = templates.TemplateResponse("build/_step5.html", base)
     resp.set_cookie("sid", sid, httponly=True, samesite="lax")
     return resp
     
@@ -1297,34 +1164,7 @@ async def build_step5_continue(request: Request) -> HTMLResponse:
         return resp
     # Ensure build context exists; if not, start it first
     if not sess.get("build_ctx"):
-        opts = orch.bracket_options()
-        default_bracket = (opts[0]["level"] if opts else 1)
-        bracket_val = sess.get("bracket")
-        try:
-            safe_bracket = int(bracket_val) if bracket_val is not None else int(default_bracket)
-        except Exception:
-            safe_bracket = int(default_bracket)
-        ideals_val = sess.get("ideals") or orch.ideal_defaults()
-        # Owned-only integration for staged builds
-        use_owned = bool(sess.get("use_owned_only"))
-        prefer = bool(sess.get("prefer_owned"))
-        owned_names = owned_store.get_names() if (use_owned or prefer) else None
-        sess["build_ctx"] = orch.start_build_ctx(
-            commander=sess.get("commander"),
-            tags=sess.get("tags", []),
-            bracket=safe_bracket,
-            ideals=ideals_val,
-            tag_mode=sess.get("tag_mode", "AND"),
-            use_owned_only=use_owned,
-            prefer_owned=prefer,
-            owned_names=owned_names,
-            locks=list(sess.get("locks", [])),
-            custom_export_base=sess.get("custom_export_base"),
-            multi_copy=sess.get("multi_copy"),
-            prefer_combos=bool(sess.get("prefer_combos")),
-            combo_target_count=int(sess.get("combo_target_count", 2)),
-            combo_balance=str(sess.get("combo_balance", "mix")),
-        )
+        sess["build_ctx"] = start_ctx_from_session(sess)
     else:
         # If context exists already, rebuild ONLY when the multi-copy selection changed or hasn't been applied yet
         try:
@@ -1371,11 +1211,16 @@ async def build_step5_continue(request: Request) -> HTMLResponse:
             show_skipped = True
     except Exception:
         pass
-    res = orch.run_stage(sess["build_ctx"], rerun=False, show_skipped=show_skipped)
-    status = "Build complete" if res.get("done") else "Stage complete"
+    try:
+        res = orch.run_stage(sess["build_ctx"], rerun=False, show_skipped=show_skipped)
+        status = "Build complete" if res.get("done") else "Stage complete"
+    except Exception as e:
+        sess["last_step"] = 5
+        err_ctx = step5_error_ctx(request, sess, f"Failed to continue: {e}")
+        resp = templates.TemplateResponse("build/_step5.html", err_ctx)
+        resp.set_cookie("sid", sid, httponly=True, samesite="lax")
+        return resp
     stage_label = res.get("label")
-    log = res.get("log_delta", "")
-    added_cards = res.get("added_cards", [])
     # If we just applied Multi-Copy, stamp the applied key so we don't rebuild again
     try:
         if stage_label == "Multi-Copy Package" and sess.get("multi_copy"):
@@ -1383,50 +1228,9 @@ async def build_step5_continue(request: Request) -> HTMLResponse:
             sess["mc_applied_key"] = f"{mc.get('id','')}|{int(mc.get('count',0))}|{1 if mc.get('thrumming') else 0}"
     except Exception:
         pass
-    # Progress & downloads
-    i = res.get("idx")
-    n = res.get("total")
-    csv_path = res.get("csv_path") if res.get("done") else None
-    txt_path = res.get("txt_path") if res.get("done") else None
-    summary = res.get("summary") if res.get("done") else None
-    total_cards = res.get("total_cards")
-    added_total = res.get("added_total")
     sess["last_step"] = 5
-    resp = templates.TemplateResponse(
-        "build/_step5.html",
-        {
-            "request": request,
-            "commander": sess.get("commander"),
-            "tags": sess.get("tags", []),
-            "bracket": sess.get("bracket"),
-            "values": sess.get("ideals", orch.ideal_defaults()),
-            "owned_only": bool(sess.get("use_owned_only")),
-            "prefer_owned": bool(sess.get("prefer_owned")),
-            "owned_set": {n.lower() for n in owned_store.get_names()},
-            "status": status,
-            "stage_label": stage_label,
-            "log": log,
-            "added_cards": added_cards,
-            "i": i,
-            "n": n,
-            "csv_path": csv_path,
-            "txt_path": txt_path,
-            "summary": summary,
-            "game_changers": bc.GAME_CHANGERS,
-            "show_skipped": show_skipped,
-            "total_cards": total_cards,
-            "added_total": added_total,
-            "mc_adjustments": res.get("mc_adjustments"),
-            "clamped_overflow": res.get("clamped_overflow"),
-            "mc_summary": res.get("mc_summary"),
-            "skipped": bool(res.get("skipped")),
-            "locks": list(sess.get("locks", [])),
-            "replace_mode": bool(sess.get("replace_mode", True)),
-            "prefer_combos": bool(sess.get("prefer_combos")),
-            "combo_target_count": int(sess.get("combo_target_count", 2)),
-            "combo_balance": str(sess.get("combo_balance", "mix")),
-        },
-    )
+    ctx2 = step5_ctx_from_result(request, sess, res, status_text=status, show_skipped=show_skipped)
+    resp = templates.TemplateResponse("build/_step5.html", ctx2)
     resp.set_cookie("sid", sid, httponly=True, samesite="lax")
     return resp
 
@@ -1442,33 +1246,7 @@ async def build_step5_rerun(request: Request) -> HTMLResponse:
         return resp
     # Rerun requires an existing context; if missing, create it and run first stage as rerun
     if not sess.get("build_ctx"):
-        opts = orch.bracket_options()
-        default_bracket = (opts[0]["level"] if opts else 1)
-        bracket_val = sess.get("bracket")
-        try:
-            safe_bracket = int(bracket_val) if bracket_val is not None else int(default_bracket)
-        except Exception:
-            safe_bracket = int(default_bracket)
-        ideals_val = sess.get("ideals") or orch.ideal_defaults()
-        use_owned = bool(sess.get("use_owned_only"))
-        prefer = bool(sess.get("prefer_owned"))
-        owned_names = owned_store.get_names() if (use_owned or prefer) else None
-        sess["build_ctx"] = orch.start_build_ctx(
-            commander=sess.get("commander"),
-            tags=sess.get("tags", []),
-            bracket=safe_bracket,
-            ideals=ideals_val,
-            tag_mode=sess.get("tag_mode", "AND"),
-            use_owned_only=use_owned,
-            prefer_owned=prefer,
-            owned_names=owned_names,
-            locks=list(sess.get("locks", [])),
-            custom_export_base=sess.get("custom_export_base"),
-            multi_copy=sess.get("multi_copy"),
-            prefer_combos=bool(sess.get("prefer_combos")),
-            combo_target_count=int(sess.get("combo_target_count", 2)),
-            combo_balance=str(sess.get("combo_balance", "mix")),
-        )
+        sess["build_ctx"] = start_ctx_from_session(sess)
     else:
         # Ensure latest locks are reflected in the existing context
         try:
@@ -1484,75 +1262,26 @@ async def build_step5_rerun(request: Request) -> HTMLResponse:
     # If replace-mode is OFF, keep the stage visible even if no new cards were added
     if not bool(sess.get("replace_mode", True)):
         show_skipped = True
-    res = orch.run_stage(sess["build_ctx"], rerun=True, show_skipped=show_skipped, replace=bool(sess.get("replace_mode", True)))
-    status = "Stage rerun complete" if not res.get("done") else "Build complete"
-    stage_label = res.get("label")
-    log = res.get("log_delta", "")
-    added_cards = res.get("added_cards", [])
-    i = res.get("idx")
-    n = res.get("total")
-    csv_path = res.get("csv_path") if res.get("done") else None
-    txt_path = res.get("txt_path") if res.get("done") else None
-    summary = res.get("summary") if res.get("done") else None
-    total_cards = res.get("total_cards")
-    added_total = res.get("added_total")
+    try:
+        res = orch.run_stage(sess["build_ctx"], rerun=True, show_skipped=show_skipped, replace=bool(sess.get("replace_mode", True)))
+        status = "Stage rerun complete" if not res.get("done") else "Build complete"
+    except Exception as e:
+        sess["last_step"] = 5
+        err_ctx = step5_error_ctx(request, sess, f"Failed to rerun stage: {e}")
+        resp = templates.TemplateResponse("build/_step5.html", err_ctx)
+        resp.set_cookie("sid", sid, httponly=True, samesite="lax")
+        return resp
     sess["last_step"] = 5
     # Build locked cards list with ownership and in-deck presence
     locked_cards = []
     try:
         ctx = sess.get("build_ctx") or {}
         b = ctx.get("builder") if isinstance(ctx, dict) else None
-        present: set[str] = set()
-        def _add_names(x):
-            try:
-                if not x:
-                    return
-                if isinstance(x, dict):
-                    for k, v in x.items():
-                        if isinstance(k, str) and k.strip():
-                            present.add(k.strip().lower())
-                        elif isinstance(v, dict) and v.get('name'):
-                            present.add(str(v.get('name')).strip().lower())
-                elif isinstance(x, (list, tuple, set)):
-                    for item in x:
-                        if isinstance(item, str):
-                            present.add(item.strip().lower())
-                        elif isinstance(item, dict) and item.get('name'):
-                            present.add(str(item.get('name')).strip().lower())
-                        else:
-                            try:
-                                nm = getattr(item, 'name', None)
-                                if isinstance(nm, str) and nm.strip():
-                                    present.add(nm.strip().lower())
-                            except Exception:
-                                pass
-            except Exception:
-                pass
-        if b is not None:
-            for attr in (
-                'current_deck', 'deck', 'final_deck', 'final_cards',
-                'chosen_cards', 'selected_cards', 'picked_cards', 'cards_in_deck',
-            ):
-                _add_names(getattr(b, attr, None))
-            for attr in ('current_names', 'deck_names', 'final_names'):
-                val = getattr(b, attr, None)
-                if isinstance(val, (list, tuple, set)):
-                    for n in val:
-                        if isinstance(n, str) and n.strip():
-                            present.add(n.strip().lower())
+        present: set[str] = builder_present_names(b) if b is not None else set()
         # Display-map via combined df when available
-        display_map: dict[str, str] = {}
-        try:
-            if b is not None:
-                df = getattr(b, "_combined_cards_df", None)
-                if df is not None and not df.empty:
-                    lock_lower = {str(x).strip().lower() for x in (sess.get("locks", []) or [])}
-                    sub = df[df["name"].astype(str).str.lower().isin(lock_lower)]
-                    for _idx, row in sub.iterrows():
-                        display_map[str(row["name"]).strip().lower()] = str(row["name"]).strip()
-        except Exception:
-            display_map = {}
-        owned_lower = {str(n).strip().lower() for n in owned_store.get_names()}
+        lock_lower = {str(x).strip().lower() for x in (sess.get("locks", []) or [])}
+        display_map: dict[str, str] = builder_display_map(b, lock_lower) if b is not None else {}
+        owned_lower = owned_set_helper()
         for nm in (sess.get("locks", []) or []):
             key = str(nm).strip().lower()
             disp = display_map.get(key, nm)
@@ -1563,39 +1292,9 @@ async def build_step5_rerun(request: Request) -> HTMLResponse:
             })
     except Exception:
         locked_cards = []
-    resp = templates.TemplateResponse(
-        "build/_step5.html",
-        {
-            "request": request,
-            "commander": sess.get("commander"),
-            "tags": sess.get("tags", []),
-            "bracket": sess.get("bracket"),
-            "values": sess.get("ideals", orch.ideal_defaults()),
-            "owned_only": bool(sess.get("use_owned_only")),
-            "prefer_owned": bool(sess.get("prefer_owned")),
-            "owned_set": {n.lower() for n in owned_store.get_names()},
-            "status": status,
-            "stage_label": stage_label,
-            "log": log,
-            "added_cards": added_cards,
-            "i": i,
-            "n": n,
-            "csv_path": csv_path,
-            "txt_path": txt_path,
-            "summary": summary,
-            "game_changers": bc.GAME_CHANGERS,
-            "show_skipped": show_skipped,
-            "total_cards": total_cards,
-            "added_total": added_total,
-            "mc_adjustments": res.get("mc_adjustments"),
-            "clamped_overflow": res.get("clamped_overflow"),
-            "mc_summary": res.get("mc_summary"),
-            "skipped": bool(res.get("skipped")),
-            "locks": list(sess.get("locks", [])),
-            "replace_mode": bool(sess.get("replace_mode", True)),
-        "locked_cards": locked_cards,
-        },
-    )
+    ctx3 = step5_ctx_from_result(request, sess, res, status_text=status, show_skipped=show_skipped)
+    ctx3["locked_cards"] = locked_cards
+    resp = templates.TemplateResponse("build/_step5.html", ctx3)
     resp.set_cookie("sid", sid, httponly=True, samesite="lax")
     return resp
 
@@ -1617,33 +1316,7 @@ async def build_step5_start(request: Request) -> HTMLResponse:
         return resp
     try:
         # Initialize step-by-step build context and run first stage
-        opts = orch.bracket_options()
-        default_bracket = (opts[0]["level"] if opts else 1)
-        bracket_val = sess.get("bracket")
-        try:
-            safe_bracket = int(bracket_val) if bracket_val is not None else int(default_bracket)
-        except Exception:
-            safe_bracket = int(default_bracket)
-        ideals_val = sess.get("ideals") or orch.ideal_defaults()
-        use_owned = bool(sess.get("use_owned_only"))
-        prefer = bool(sess.get("prefer_owned"))
-        owned_names = owned_store.get_names() if (use_owned or prefer) else None
-        sess["build_ctx"] = orch.start_build_ctx(
-            commander=commander,
-            tags=sess.get("tags", []),
-            bracket=safe_bracket,
-            ideals=ideals_val,
-            tag_mode=sess.get("tag_mode", "AND"),
-            use_owned_only=use_owned,
-            prefer_owned=prefer,
-            owned_names=owned_names,
-            locks=list(sess.get("locks", [])),
-            custom_export_base=sess.get("custom_export_base"),
-            multi_copy=sess.get("multi_copy"),
-            prefer_combos=bool(sess.get("prefer_combos")),
-            combo_target_count=int(sess.get("combo_target_count", 2)),
-            combo_balance=str(sess.get("combo_balance", "mix")),
-        )
+        sess["build_ctx"] = start_ctx_from_session(sess)
         show_skipped = False
         try:
             form = await request.form()
@@ -1652,78 +1325,29 @@ async def build_step5_start(request: Request) -> HTMLResponse:
             pass
         res = orch.run_stage(sess["build_ctx"], rerun=False, show_skipped=show_skipped)
         status = "Stage complete" if not res.get("done") else "Build complete"
-        stage_label = res.get("label")
-        log = res.get("log_delta", "")
-        added_cards = res.get("added_cards", [])
         # If Multi-Copy ran first, mark applied to prevent redundant rebuilds on Continue
         try:
-            if stage_label == "Multi-Copy Package" and sess.get("multi_copy"):
+            if res.get("label") == "Multi-Copy Package" and sess.get("multi_copy"):
                 mc = sess.get("multi_copy")
                 sess["mc_applied_key"] = f"{mc.get('id','')}|{int(mc.get('count',0))}|{1 if mc.get('thrumming') else 0}"
         except Exception:
             pass
-        i = res.get("idx")
-        n = res.get("total")
-        csv_path = res.get("csv_path") if res.get("done") else None
-        txt_path = res.get("txt_path") if res.get("done") else None
-        summary = res.get("summary") if res.get("done") else None
         sess["last_step"] = 5
-        resp = templates.TemplateResponse(
-            "build/_step5.html",
-            {
-                "request": request,
-                "commander": commander,
-                "name": sess.get("custom_export_base"),
-                "tags": sess.get("tags", []),
-                "bracket": sess.get("bracket"),
-                "values": sess.get("ideals", orch.ideal_defaults()),
-                "owned_only": bool(sess.get("use_owned_only")),
-                "prefer_owned": bool(sess.get("prefer_owned")),
-                "owned_set": {n.lower() for n in owned_store.get_names()},
-                "status": status,
-                "stage_label": stage_label,
-                "log": log,
-                "added_cards": added_cards,
-                "i": i,
-                "n": n,
-                "csv_path": csv_path,
-                "txt_path": txt_path,
-                "summary": summary,
-                "game_changers": bc.GAME_CHANGERS,
-                "show_skipped": show_skipped,
-                "mc_adjustments": res.get("mc_adjustments"),
-                "clamped_overflow": res.get("clamped_overflow"),
-                "mc_summary": res.get("mc_summary"),
-                "locks": list(sess.get("locks", [])),
-                "replace_mode": bool(sess.get("replace_mode", True)),
-            },
-        )
+        ctx = step5_ctx_from_result(request, sess, res, status_text=status, show_skipped=show_skipped)
+        resp = templates.TemplateResponse("build/_step5.html", ctx)
         resp.set_cookie("sid", sid, httponly=True, samesite="lax")
         return resp
     except Exception as e:
-        # Surface a friendly error on the step 5 screen
-        resp = templates.TemplateResponse(
-            "build/_step5.html",
-            {
-                "request": request,
-                "commander": commander,
-                "tags": sess.get("tags", []),
-                "bracket": sess.get("bracket"),
-                "values": sess.get("ideals", orch.ideal_defaults()),
-                "owned_only": bool(sess.get("use_owned_only")),
-                "owned_set": {n.lower() for n in owned_store.get_names()},
-                "status": "Error",
-                "stage_label": None,
-                "log": f"Failed to start build: {e}",
-                "added_cards": [],
-                "i": None,
-                "n": None,
-                "csv_path": None,
-                "txt_path": None,
-                "summary": None,
-                "game_changers": bc.GAME_CHANGERS,
-            },
+        # Surface a friendly error on the step 5 screen with normalized context
+        err_ctx = step5_error_ctx(
+            request,
+            sess,
+            f"Failed to start build: {e}",
+            include_name=False,
         )
+        # Ensure commander stays visible if set
+        err_ctx["commander"] = commander
+        resp = templates.TemplateResponse("build/_step5.html", err_ctx)
         resp.set_cookie("sid", sid, httponly=True, samesite="lax")
         return resp
 
@@ -1783,35 +1407,12 @@ async def build_step5_reset_stage(request: Request) -> HTMLResponse:
     except Exception:
         return await build_step5_get(request)
     # Re-render step 5 with cleared added list
-    resp = templates.TemplateResponse(
-        "build/_step5.html",
-        {
-            "request": request,
-            "commander": sess.get("commander"),
-            "tags": sess.get("tags", []),
-            "bracket": sess.get("bracket"),
-            "values": sess.get("ideals", orch.ideal_defaults()),
-            "owned_only": bool(sess.get("use_owned_only")),
-            "prefer_owned": bool(sess.get("prefer_owned")),
-            "owned_set": {n.lower() for n in owned_store.get_names()},
-            "status": "Stage reset",
-            "stage_label": None,
-            "log": None,
-            "added_cards": [],
-            "i": ctx.get("idx"),
-            "n": len(ctx.get("stages", [])),
-            "game_changers": bc.GAME_CHANGERS,
-            "show_skipped": False,
-            "total_cards": None,
-            "added_total": 0,
-            "skipped": False,
-            "locks": list(sess.get("locks", [])),
-            "replace_mode": bool(sess.get("replace_mode")),
-            "prefer_combos": bool(sess.get("prefer_combos")),
-            "combo_target_count": int(sess.get("combo_target_count", 2)),
-            "combo_balance": str(sess.get("combo_balance", "mix")),
-        },
-    )
+    base = step5_empty_ctx(request, sess, extras={
+        "status": "Stage reset",
+        "i": ctx.get("idx"),
+        "n": len(ctx.get("stages", [])),
+    })
+    resp = templates.TemplateResponse("build/_step5.html", base)
     resp.set_cookie("sid", sid, httponly=True, samesite="lax")
     return resp
 
@@ -1887,13 +1488,11 @@ async def build_alternatives(request: Request, name: str, stage: str | None = No
     ctx = sess.get("build_ctx") or {}
     b = ctx.get("builder") if isinstance(ctx, dict) else None
     # Owned library
-    owned_set = {str(n).strip().lower() for n in owned_store.get_names()}
+    owned_set = owned_set_helper()
     require_owned = bool(int(owned_only or 0)) or bool(sess.get("use_owned_only"))
     # If builder context missing, show a guidance message
     if not b:
-        html = (
-            '<div class="alts"><div class="muted">Start the build to see alternatives.</div></div>'
-        )
+        html = '<div class="alts"><div class="muted">Start the build to see alternatives.</div></div>'
         return HTMLResponse(html)
     try:
         name_l = str(name).strip().lower()
@@ -1911,52 +1510,10 @@ async def build_alternatives(request: Request, name: str, stage: str | None = No
         lib = getattr(b, "card_library", {}) or {}
         lib_entry = lib.get(name) or lib.get(name_l)
         # Best-effort set of names currently in the deck to avoid duplicates
-        in_deck: set[str] = set()
-        try:
-            def _add_names(x):
-                try:
-                    if not x:
-                        return
-                    if isinstance(x, dict):
-                        for k, v in x.items():
-                            # dict of name->count or name->obj
-                            if isinstance(k, str) and k.strip():
-                                in_deck.add(k.strip().lower())
-                            elif isinstance(v, dict) and v.get('name'):
-                                in_deck.add(str(v.get('name')).strip().lower())
-                    elif isinstance(x, (list, tuple, set)):
-                        for item in x:
-                            if isinstance(item, str):
-                                in_deck.add(item.strip().lower())
-                            elif isinstance(item, dict) and item.get('name'):
-                                in_deck.add(str(item.get('name')).strip().lower())
-                            else:
-                                try:
-                                    nm = getattr(item, 'name', None)
-                                    if isinstance(nm, str) and nm.strip():
-                                        in_deck.add(nm.strip().lower())
-                                except Exception:
-                                    pass
-                except Exception:
-                    pass
-            # Probe a few likely attributes; ignore if missing
-            for attr in (
-                'current_deck', 'deck', 'final_deck', 'final_cards',
-                'chosen_cards', 'selected_cards', 'picked_cards', 'cards_in_deck',
-            ):
-                _add_names(getattr(b, attr, None))
-            # Some builders may expose a flat set of names
-            for attr in ('current_names', 'deck_names', 'final_names'):
-                val = getattr(b, attr, None)
-                if isinstance(val, (list, tuple, set)):
-                    for n in val:
-                        if isinstance(n, str) and n.strip():
-                            in_deck.add(n.strip().lower())
-        except Exception:
-            in_deck = set()
+        in_deck: set[str] = builder_present_names(b)
         # Build candidate pool from tags overlap
         all_names = set(tags_idx.keys())
-        candidates: list[tuple[str,int]] = []  # (name, score)
+        candidates: list[tuple[str, int]] = []  # (name, score)
         for nm in all_names:
             if nm == name_l:
                 continue
@@ -1992,63 +1549,32 @@ async def build_alternatives(request: Request, name: str, stage: str | None = No
             return nm in owned_set
         candidates.sort(key=lambda x: (-x[1], 0 if _owned(x[0]) else 1, x[0]))
         # Map back to display names using combined DF when possible for proper casing
-        display_map: dict[str, str] = {}
-        try:
-            df = getattr(b, "_combined_cards_df", None)
-            if df is not None and not df.empty:
-                # Build lower->original map limited to candidate pool for speed
-                pool_lower = {nm for (nm, _s) in candidates}
-                sub = df[df["name"].astype(str).str.lower().isin(pool_lower)]
-                for _idx, row in sub.iterrows():
-                    display_map[str(row["name"]).strip().lower()] = str(row["name"]).strip()
-        except Exception:
-            display_map = {}
-        # Apply owned filter and cap list
-        items_html: list[str] = []
+        pool_lower = {nm for (nm, _s) in candidates}
+        display_map: dict[str, str] = builder_display_map(b, pool_lower)
+        # Build structured items for the partial
+        items: list[dict] = []
         seen = set()
-        count = 0
         for nm, score in candidates:
             if nm in seen:
                 continue
             seen.add(nm)
-            disp = display_map.get(nm, nm)
             is_owned = (nm in owned_set)
             if require_owned and not is_owned:
                 continue
-            badge = "✔" if is_owned else "✖"
-            title = "Owned" if is_owned else "Not owned"
-            # Replace button posts to /build/replace; we'll update locks and prompt rerun
-            # Provide hover-preview metadata so moving the mouse over the alternative shows that card
-            cand_tags = tags_idx.get(nm) or []
-            data_tags = ", ".join([str(t) for t in cand_tags])
-            items_html.append(
-                f'<li><span class="owned-badge" title="{title}">{badge}</span> '
-                f'<button class="btn" data-card-name="{_esc(disp)}" data-tags="{_esc(data_tags)}" hx-post="/build/replace" '
-                f'hx-vals=' + "'" + f'{{"old":"{name}", "new":"{disp}"}}' + "'" + ' '
-                f'hx-target="closest .alts" hx-swap="outerHTML" title="Lock this alternative and unlock the current pick">Replace with {_esc(disp)}</button></li>'
-            )
-            count += 1
-            if count >= 10:
+            disp = display_map.get(nm, nm)
+            items.append({
+                "name": disp,
+                "name_lower": nm,
+                "owned": is_owned,
+                "tags": list(tags_idx.get(nm) or []),
+            })
+            if len(items) >= 10:
                 break
-        # Build HTML
-        if not items_html:
-            owned_msg = " (owned only)" if require_owned else ""
-            html = f'<div class="alts"><div class="muted">No alternatives found{owned_msg}.</div></div>'
-        else:
-            toggle_q = "0" if require_owned else "1"
-            toggle_label = ("Owned only: On" if require_owned else "Owned only: Off")
-            html = (
-                '<div class="alts" style="margin-top:.35rem; padding:.5rem; border:1px solid var(--border); border-radius:8px; background:#0f1115;">'
-                f'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.25rem;"><strong>Alternatives</strong>'
-                f'<button class="btn" hx-get="/build/alternatives?name={name}&owned_only={toggle_q}" hx-target="closest .alts" hx-swap="outerHTML">{toggle_label}</button></div>'
-                '<ul style="list-style:none; padding:0; margin:0; display:grid; gap:.25rem;">'
-                + "".join(items_html) +
-                '</ul>'
-                '</div>'
-            )
-        # Save to cache and return
-        _alts_set_cached(cache_key, html)
-        return HTMLResponse(html)
+        # Render partial via Jinja template and cache it
+        ctx2 = {"request": request, "name": name, "require_owned": require_owned, "items": items}
+        html_str = templates.get_template("build/_alternatives.html").render(ctx2)
+        _alts_set_cached(cache_key, html_str)
+        return HTMLResponse(html_str)
     except Exception as e:
         return HTMLResponse(f'<div class="alts"><div class="muted">No alternatives: {e}</div></div>')
 

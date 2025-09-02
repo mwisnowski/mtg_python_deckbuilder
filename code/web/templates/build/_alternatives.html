@@ -1,0 +1,34 @@
+{# Alternatives panel partial.
+  Expects: name (seed display), require_owned (bool), items = [
+    { 'name': display_name, 'name_lower': lower, 'owned': bool, 'tags': list[str] }
+  ]
+#}
+<div class="alts" style="margin-top:.35rem; padding:.5rem; border:1px solid var(--border); border-radius:8px; background:#0f1115;">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.25rem;">
+    <strong>Alternatives</strong>
+    {% set toggle_q = '0' if require_owned else '1' %}
+    {% set toggle_label = 'Owned only: On' if require_owned else 'Owned only: Off' %}
+    <button class="btn" hx-get="/build/alternatives?name={{ name|urlencode }}&owned_only={{ toggle_q }}"
+            hx-target="closest .alts" hx-swap="outerHTML">{{ toggle_label }}</button>
+  </div>
+  {% if not items or items|length == 0 %}
+    <div class="muted">No alternatives found{{ ' (owned only)' if require_owned else '' }}.</div>
+  {% else %}
+    <ul style="list-style:none; padding:0; margin:0; display:grid; gap:.25rem;">
+      {% for it in items %}
+        {% set badge = '✔' if it.owned else '✖' %}
+        {% set title = 'Owned' if it.owned else 'Not owned' %}
+        {% set tags = (it.tags or []) %}
+        <li>
+          <span class="owned-badge" title="{{ title }}">{{ badge }}</span>
+          <button class="btn" data-card-name="{{ it.name }}"
+                  data-tags="{{ tags|join(', ') }}" hx-post="/build/replace"
+                  hx-vals='{"old":"{{ name }}", "new":"{{ it.name }}"}'
+                  hx-target="closest .alts" hx-swap="outerHTML" title="Lock this alternative and unlock the current pick">
+            Replace with {{ it.name }}
+          </button>
+        </li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+</div>

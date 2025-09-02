@@ -484,6 +484,91 @@ def ideal_labels() -> Dict[str, str]:
     }
 
 
+def _is_truthy_env(name: str, default: str = '1') -> bool:
+    try:
+        val = os.getenv(name, default)
+        return str(val).strip().lower() in {"1", "true", "yes", "on"}
+    except Exception:
+        return default in {"1", "true", "yes", "on"}
+
+
+def is_setup_ready() -> bool:
+    """Fast readiness check: required files present and tagging completed.
+
+    We consider the system ready if csv_files/cards.csv exists and the
+    .tagging_complete.json flag exists. Freshness (mtime) is enforced only
+    during auto-refresh inside _ensure_setup_ready, not here.
+    """
+    try:
+        cards_path = os.path.join('csv_files', 'cards.csv')
+        flag_path = os.path.join('csv_files', '.tagging_complete.json')
+        return os.path.exists(cards_path) and os.path.exists(flag_path)
+    except Exception:
+        return False
+
+
+def is_setup_stale() -> bool:
+    """Return True if cards.csv exists but is older than the auto-refresh threshold.
+
+    This does not imply not-ready; it is a hint for the UI to recommend a refresh.
+    """
+    try:
+        # Refresh threshold (treat <=0 as "never stale")
+        try:
+            days = int(os.getenv('WEB_AUTO_REFRESH_DAYS', '7'))
+        except Exception:
+            days = 7
+        if days <= 0:
+            return False
+        refresh_age_seconds = max(0, days) * 24 * 60 * 60
+
+        # If setup is currently running, avoid prompting a refresh loop
+        try:
+            status_path = os.path.join('csv_files', '.setup_status.json')
+            if os.path.exists(status_path):
+                with open(status_path, 'r', encoding='utf-8') as f:
+                    st = json.load(f) or {}
+                if bool(st.get('running')):
+                    return False
+                # If we recently finished, honor finished_at (or updated) as a freshness signal
+                ts_str = st.get('finished_at') or st.get('updated') or st.get('started_at')
+                if isinstance(ts_str, str) and ts_str.strip():
+                    try:
+                        ts = _dt.fromisoformat(ts_str.strip())
+                        if (time.time() - ts.timestamp()) <= refresh_age_seconds:
+                            return False
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+
+        # If tagging completed recently, treat as fresh regardless of cards.csv mtime
+        try:
+            tag_flag = os.path.join('csv_files', '.tagging_complete.json')
+            if os.path.exists(tag_flag):
+                with open(tag_flag, 'r', encoding='utf-8') as f:
+                    tf = json.load(f) or {}
+                tstr = tf.get('tagged_at')
+                if isinstance(tstr, str) and tstr.strip():
+                    try:
+                        tdt = _dt.fromisoformat(tstr.strip())
+                        if (time.time() - tdt.timestamp()) <= refresh_age_seconds:
+                            return False
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+
+        # Fallback: compare cards.csv mtime
+        cards_path = os.path.join('csv_files', 'cards.csv')
+        if not os.path.exists(cards_path):
+            return False
+        age_seconds = time.time() - os.path.getmtime(cards_path)
+        return age_seconds > refresh_age_seconds
+    except Exception:
+        return False
+
+
 def _ensure_setup_ready(out, force: bool = False) -> None:
     """Ensure card CSVs exist and tagging has completed; bootstrap if needed.
 
@@ -515,6 +600,13 @@ def _ensure_setup_ready(out, force: bool = False) -> None:
     try:
         cards_path = os.path.join('csv_files', 'cards.csv')
         flag_path = os.path.join('csv_files', '.tagging_complete.json')
+        auto_setup_enabled = _is_truthy_env('WEB_AUTO_SETUP', '1')
+        # Allow tuning of time-based refresh; default 7 days
+        try:
+            days = int(os.getenv('WEB_AUTO_REFRESH_DAYS', '7'))
+            refresh_age_seconds = max(0, days) * 24 * 60 * 60
+        except Exception:
+            refresh_age_seconds = 7 * 24 * 60 * 60
         refresh_needed = bool(force)
         if force:
             _write_status({"running": True, "phase": "setup", "message": "Forcing full setup and tagging...", "started_at": _dt.now().isoformat(timespec='seconds'), "percent": 0})
@@ -526,7 +618,7 @@ def _ensure_setup_ready(out, force: bool = False) -> None:
         else:
             try:
                 age_seconds = time.time() - os.path.getmtime(cards_path)
-                if age_seconds > 7 * 24 * 60 * 60 and not force:
+                if age_seconds > refresh_age_seconds and not force:
                     out("cards.csv is older than 7 days. Refreshing data (setup + tagging)...")
                     _write_status({"running": True, "phase": "setup", "message": "Refreshing card database (initial setup)...", "started_at": _dt.now().isoformat(timespec='seconds'), "percent": 0})
                     refresh_needed = True
@@ -540,6 +632,10 @@ def _ensure_setup_ready(out, force: bool = False) -> None:
             refresh_needed = True
 
         if refresh_needed:
+            if not auto_setup_enabled and not force:
+                out("Setup/tagging required, but WEB_AUTO_SETUP=0. Please run Setup from the UI.")
+                _write_status({"running": False, "phase": "requires_setup", "message": "Setup required (auto disabled)."})
+                return
             try:
                 from file_setup.setup import initial_setup  # type: ignore
                 # Always run initial_setup when forced or when cards are missing/stale
@@ -1082,8 +1178,13 @@ def start_build_ctx(
 
     # Provide a no-op input function so staged web builds never block on input
     b = DeckBuilder(output_func=out, input_func=lambda _prompt: "", headless=True)
-    # Ensure setup/tagging present before staged build
-    _ensure_setup_ready(out)
+    # Ensure setup/tagging present before staged build, but respect WEB_AUTO_SETUP
+    if not is_setup_ready():
+        if _is_truthy_env('WEB_AUTO_SETUP', '1'):
+            _ensure_setup_ready(out)
+        else:
+            out("Setup/tagging not ready. Please run Setup first (WEB_AUTO_SETUP=0).")
+            raise RuntimeError("Setup required (WEB_AUTO_SETUP disabled)")
     # Commander selection
     df = b.load_commander_data()
     row = df[df["name"].astype(str) == str(commander)]

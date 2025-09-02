@@ -2,11 +2,6 @@ from __future__ import annotations
 
 from fastapi import FastAPI, Request, HTTPException, Query
 from fastapi.responses import HTMLResponse, FileResponse, PlainTextResponse, JSONResponse, Response
-from deck_builder.combos import (
-    detect_combos as _detect_combos,
-    detect_synergies as _detect_synergies,
-)
-from tagging.combo_schema import load_and_validate_combos as _load_combos, load_and_validate_synergies as _load_synergies
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
@@ -17,7 +12,8 @@ import uuid
 import logging
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.gzip import GZipMiddleware
-from typing import Any, Tuple
+from typing import Any
+from .services.combo_utils import detect_all as _detect_all
 
 # Resolve template/static dirs relative to this file
 _THIS_DIR = Path(__file__).resolve().parent
@@ -76,7 +72,7 @@ templates.env.globals.update({
 })
 
 # --- Simple fragment cache for template partials (low-risk, TTL-based) ---
-_FRAGMENT_CACHE: dict[Tuple[str, str], tuple[float, str]] = {}
+_FRAGMENT_CACHE: dict[tuple[str, str], tuple[float, str]] = {}
 _FRAGMENT_TTL_SECONDS = 60.0
 
 def render_cached(template_name: str, cache_key: str | None, /, **ctx: Any) -> str:
@@ -415,10 +411,10 @@ async def diagnostics_combos(request: Request) -> JSONResponse:
     combos_path = payload.get("combos_path") or "config/card_lists/combos.json"
     synergies_path = payload.get("synergies_path") or "config/card_lists/synergies.json"
 
-    combos_model = _load_combos(combos_path)
-    synergies_model = _load_synergies(synergies_path)
-    combos = _detect_combos(names, combos_path=combos_path)
-    synergies = _detect_synergies(names, synergies_path=synergies_path)
+    det = _detect_all(names, combos_path=combos_path, synergies_path=synergies_path)
+    combos = det.get("combos", [])
+    synergies = det.get("synergies", [])
+    versions = det.get("versions", {"combos": None, "synergies": None})
 
     def as_dict_combo(c):
         return {
@@ -435,7 +431,7 @@ async def diagnostics_combos(request: Request) -> JSONResponse:
     return JSONResponse(
         {
             "counts": {"combos": len(combos), "synergies": len(synergies)},
-            "versions": {"combos": combos_model.list_version, "synergies": synergies_model.list_version},
+            "versions": {"combos": versions.get("combos"), "synergies": versions.get("synergies")},
             "combos": [as_dict_combo(c) for c in combos],
             "synergies": [as_dict_syn(s) for s in synergies],
         }

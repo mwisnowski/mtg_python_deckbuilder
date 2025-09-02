@@ -8,10 +8,8 @@ import os
 from typing import Dict, List, Tuple, Optional
 
 from ..app import templates
-from ..services import owned_store
-from deck_builder.combos import detect_combos as _detect_combos, detect_synergies as _detect_synergies
-from tagging.combo_schema import load_and_validate_combos as _load_combos, load_and_validate_synergies as _load_synergies
-from deck_builder import builder_constants as bc
+# from ..services import owned_store
+from ..services.summary_utils import summary_ctx
 
 
 router = APIRouter(prefix="/decks")
@@ -294,61 +292,6 @@ async def decks_view(request: Request, name: str) -> HTMLResponse:
         parts = stem.split('_')
         commander_name = parts[0] if parts else ''
 
-    # Prepare combos/synergies detections for summary panel
-    combos = []
-    synergies = []
-    versions = {"combos": None, "synergies": None}
-    try:
-        # Collect deck card names from summary (types + curve) and include commander
-        names_set: set[str] = set()
-        try:
-            tb = (summary or {}).get('type_breakdown', {})
-            cards_by_type = tb.get('cards', {}) if isinstance(tb, dict) else {}
-            for _typ, clist in (cards_by_type.items() if isinstance(cards_by_type, dict) else []):
-                for c in (clist or []):
-                    n = str(c.get('name') if isinstance(c, dict) else getattr(c, 'name', ''))
-                    if n:
-                        names_set.add(n)
-        except Exception:
-            pass
-        # Also pull from mana curve cards for robustness
-        try:
-            mc = (summary or {}).get('mana_curve', {})
-            curve_cards = mc.get('cards', {}) if isinstance(mc, dict) else {}
-            for _bucket, clist in (curve_cards.items() if isinstance(curve_cards, dict) else []):
-                for c in (clist or []):
-                    n = str(c.get('name') if isinstance(c, dict) else getattr(c, 'name', ''))
-                    if n:
-                        names_set.add(n)
-        except Exception:
-            pass
-        # Ensure commander is included
-        if commander_name:
-            names_set.add(str(commander_name))
-
-        names = sorted(names_set)
-        if names:
-            try:
-                combos = _detect_combos(names, combos_path="config/card_lists/combos.json")
-            except Exception:
-                combos = []
-            try:
-                synergies = _detect_synergies(names, synergies_path="config/card_lists/synergies.json")
-            except Exception:
-                synergies = []
-        try:
-            cm = _load_combos("config/card_lists/combos.json")
-            versions["combos"] = getattr(cm, 'list_version', None)
-        except Exception:
-            pass
-        try:
-            sm = _load_synergies("config/card_lists/synergies.json")
-            versions["synergies"] = getattr(sm, 'list_version', None)
-        except Exception:
-            pass
-    except Exception:
-        pass
-
     ctx = {
         "request": request,
         "name": p.name,
@@ -358,12 +301,8 @@ async def decks_view(request: Request, name: str) -> HTMLResponse:
         "commander": commander_name,
         "tags": tags,
         "display_name": display_name,
-    "game_changers": bc.GAME_CHANGERS,
-    "owned_set": {n.lower() for n in owned_store.get_names()},
-        "combos": combos,
-        "synergies": synergies,
-        "versions": versions,
     }
+    ctx.update(summary_ctx(summary=summary, commander=commander_name, tags=tags))
     return templates.TemplateResponse("decks/view.html", ctx)
 
 

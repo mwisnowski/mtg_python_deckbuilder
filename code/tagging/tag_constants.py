@@ -496,7 +496,18 @@ REMOVAL_TEXT_PATTERNS: List[str] = [
 
 REMOVAL_SPECIFIC_CARDS: List[str] = ['from.*graveyard.*hand']
 
-REMOVAL_EXCLUSION_PATTERNS: List[str] = []
+REMOVAL_EXCLUSION_PATTERNS: List[str] = [
+    # Ignore self-targeting effects so they aren't tagged as spot removal
+    # Exile self
+    r'exile target.*you control',
+    r'exiles target.*you control',
+    # Destroy self
+    r'destroy target.*you control',
+    r'destroys target.*you control',
+    # Bounce self to hand
+    r'return target.*you control.*to.*hand',
+    r'returns target.*you control.*to.*hand',
+]
 
 REMOVAL_KEYWORDS: List[str] = []
 

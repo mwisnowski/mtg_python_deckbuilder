@@ -33,6 +33,8 @@
 - Existing completed pairs are counted toward the target; only missing partners are added.
 - No changes to CLI inputs for this feature in this release.
 - Headless: `tag_mode` supported from JSON/env and exported in interactive run-config JSON.
+- Logic for removal tagging causing self-targetting cards (e.g. Conjurer's Closet) to be tagged as removal (2.2.3)
 
 ## Fixes
 - Fixed an issue with the Docker Hub image not having the config files for combos/synergies/default deck json example
+- Bug causing basic lands to no longer be added due to combined dataframe not including basics (2.2.3)

@@ -21,7 +21,7 @@ services:
                                # Note: THEME still applies as the default even if selector is hidden
 
       # Version label (optional; shown in footer/diagnostics)
-      APP_VERSION: "v2.2.2"
+      APP_VERSION: "v2.2.3"
 
     volumes:
       # Persist app data locally; ensure these directories exist next to this compose file

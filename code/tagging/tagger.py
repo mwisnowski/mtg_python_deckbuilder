@@ -6775,9 +6775,10 @@ def tag_for_removal(df: pd.DataFrame, color: str) -> None:
 
         # Create masks for different removal patterns
         text_mask = create_removal_text_mask(df)
+        exclude_mask = create_removal_exclusion_mask(df)
 
-        # Combine masks
-        final_mask = text_mask
+        # Combine masks (and exclude self-targeting effects like 'target permanent you control')
+        final_mask = text_mask & (~exclude_mask)
 
         # Apply tags via rules engine
         tag_utils.apply_rules(df, rules=[

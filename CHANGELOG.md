@@ -12,6 +12,13 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 
 ## [Unreleased]
 
+## [2.2.3] - 2025-09-01
+### Fixes
+- Bug causing basic lands to no longer be added due to combined dataframe not including basics
+
+### Changed
+- Logic for removal tagging causing self-targetting cards (e.g. Conjurer's Closet) to be tagged as removal
+
 ## [2.2.2] - 2025-09-01
 ### Fixed
 - Ensure default config files are available when running with bind-mounted config directories:

@@ -1030,15 +1030,25 @@ class DeckBuilder(
         # Allow the commander to bypass this check.
         try:
             if not is_commander:
-                df_src = self._full_cards_df if self._full_cards_df is not None else self._combined_cards_df
-                if df_src is not None and not df_src.empty and 'name' in df_src.columns:
-                    if df_src[df_src['name'].astype(str).str.lower() == str(card_name).lower()].empty:
-                        # Not in the legal pool (likely off-color or unavailable)
-                        try:
-                            self.output_func(f"Skipped illegal/off-pool card: {card_name}")
-                        except Exception:
-                            pass
-                        return
+                # Permit basic lands even if they aren't present in the current CSV pool.
+                # Some distributions may omit basics from the per-color card CSVs, but they are
+                # always legal within color identity. We therefore bypass pool filtering for
+                # basic/snow basic lands and Wastes.
+                try:
+                    basic_names = bu.basic_land_names()
+                except Exception:
+                    basic_names = set()
+
+                if str(card_name) not in basic_names:
+                    df_src = self._full_cards_df if self._full_cards_df is not None else self._combined_cards_df
+                    if df_src is not None and not df_src.empty and 'name' in df_src.columns:
+                        if df_src[df_src['name'].astype(str).str.lower() == str(card_name).lower()].empty:
+                            # Not in the legal pool (likely off-color or unavailable)
+                            try:
+                                self.output_func(f"Skipped illegal/off-pool card: {card_name}")
+                            except Exception:
+                                pass
+                            return
         except Exception:
             # If any unexpected error occurs, fall through (do not block legitimate adds)
             pass

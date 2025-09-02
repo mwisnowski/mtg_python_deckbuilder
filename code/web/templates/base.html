@@ -30,7 +30,7 @@
         }catch(_){ }
       })();
     </script>
-  <link rel="stylesheet" href="/static/styles.css?v=20250828-14" />
+  <link rel="stylesheet" href="/static/styles.css?v=20250902-3" />
   <!-- Performance hints -->
   <link rel="preconnect" href="https://api.scryfall.com" crossorigin>
   <link rel="dns-prefetch" href="https://api.scryfall.com">
@@ -45,7 +45,12 @@
   <body data-diag="{% if show_diagnostics %}1{% else %}0{% endif %}" data-virt="{% if virtualize %}1{% else %}0{% endif %}">
     <header class="top-banner">
       <div class="top-inner">
-        <h1>MTG Deckbuilder</h1>
+        <div style="display:flex; align-items:center; gap:.5rem; padding-left: 1rem;">
+          <button type="button" id="nav-toggle" class="btn" aria-controls="sidebar" aria-expanded="true" title="Show/Hide navigation" style="background: transparent; color: var(--surface-banner-text); border:1px solid var(--border);">
+            ☰ Menu
+          </button>
+          <h1 style="margin:0;">MTG Deckbuilder</h1>
+        </div>
         <div style="display:flex; align-items:center; gap:.5rem">
           <span id="health-dot" class="health-dot" title="Health"></span>
           <div id="banner-status" class="banner-status">{% block banner_subtitle %}{% endblock %}</div>
@@ -70,7 +75,7 @@
       </div>
     </header>
     <div class="layout">
-      <aside class="sidebar">
+      <aside id="sidebar" class="sidebar" aria-label="Primary navigation">
         <div class="brand">
           <div class="mana-dots" aria-hidden="true">
             <span class="dot green"></span>
@@ -117,9 +122,49 @@
   .site-footer { margin: 8px 16px; padding: 8px 12px; border-top: 1px solid var(--border); color: #94a3b8; font-size: 12px; text-align: center; }
       .site-footer a { color: #cbd5e1; text-decoration: underline; }
   footer.site-footer { flex-shrink: 0; }
+  /* Hide hover preview on narrow screens to avoid covering content */
+  @media (max-width: 900px){
+    .card-hover{ display: none !important; }
+  }
     </style>
     <script>
       (function(){
+        // Sidebar toggle and persistence
+        try{
+          var BODY = document.body;
+          var SIDEBAR = document.getElementById('sidebar');
+          var TOGGLE = document.getElementById('nav-toggle');
+          var KEY = 'mtg:navCollapsed';
+          function apply(collapsed){
+            if (collapsed){
+              BODY.classList.add('nav-collapsed');
+              TOGGLE && TOGGLE.setAttribute('aria-expanded', 'false');
+              SIDEBAR && SIDEBAR.setAttribute('aria-hidden', 'true');
+            } else {
+              BODY.classList.remove('nav-collapsed');
+              TOGGLE && TOGGLE.setAttribute('aria-expanded', 'true');
+              SIDEBAR && SIDEBAR.setAttribute('aria-hidden', 'false');
+            }
+          }
+          // Initial state: respect saved pref, else collapse on small screens
+          var saved = localStorage.getItem(KEY);
+          var initialCollapsed = (saved === '1') || (saved === null && (window.innerWidth || 0) < 900);
+          apply(initialCollapsed);
+          if (TOGGLE){
+            TOGGLE.addEventListener('click', function(){
+              var isCollapsed = BODY.classList.contains('nav-collapsed');
+              apply(!isCollapsed);
+              try{ localStorage.setItem(KEY, (!isCollapsed) ? '1' : '0'); }catch(_){ }
+            });
+          }
+          // Keep ARIA in sync on resize for first-load default when no pref yet
+          window.addEventListener('resize', function(){
+            // Do not override if user has an explicit preference saved
+            if (localStorage.getItem(KEY) !== null) return;
+            apply((window.innerWidth || 0) < 900);
+          });
+        }catch(_){ }
+
         // Setup/Tagging status poller
         var statusEl;
         function ensureStatusEl(){

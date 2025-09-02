@@ -94,6 +94,8 @@
     }catch(_){ }
     function apply(container){ if(!container) return; var chips = container.querySelectorAll('button.chip'); chips.forEach(function(btn){ var tag=btn.dataset.tag||''; var active=getSel().indexOf(tag)>=0; btn.classList.toggle('active', active); btn.setAttribute('aria-pressed', active?'true':'false'); }); }
     apply(list); apply(reco);
+  // Notify parent modal so it can refresh multi-copy suggestions
+  try{ document.dispatchEvent(new CustomEvent('newdeck:tagsChanged')); }catch(_){ }
   }
   if (resetBtn) resetBtn.addEventListener('click', function(){ setSel([]); });
   list.querySelectorAll('button.chip').forEach(function(btn){ var tag=btn.dataset.tag||''; btn.addEventListener('click', function(){ toggle(tag); }); });

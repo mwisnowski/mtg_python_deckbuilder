@@ -1,6 +1,6 @@
-<div class="modal" role="dialog" aria-modal="true" aria-labelledby="newDeckTitle" style="position:fixed; inset:0; z-index:1000; display:flex; align-items:center; justify-content:center;">
-  <div class="modal-backdrop" style="position:absolute; inset:0; background:rgba(0,0,0,.6);"></div>
-  <div class="modal-content" style="position:relative; max-width:720px; width:clamp(320px, 90vw, 720px); background:#0f1115; border:1px solid var(--border); border-radius:10px; box-shadow:0 10px 30px rgba(0,0,0,.5); padding:1rem;">
+<div class="modal" role="dialog" aria-modal="true" aria-labelledby="newDeckTitle" style="position:fixed; inset:0; z-index:1000; display:flex; align-items:flex-start; justify-content:center; padding:1rem; overflow:auto;">
+  <div class="modal-backdrop" style="position:fixed; inset:0; background:rgba(0,0,0,.6);"></div>
+  <div class="modal-content" style="position:relative; max-width:720px; width:clamp(320px, 90vw, 720px); background:#0f1115; border:1px solid var(--border); border-radius:10px; box-shadow:0 10px 30px rgba(0,0,0,.5); padding:1rem; max-height:min(92vh, 100%); overflow:auto; -webkit-overflow-scrolling:touch;">
     <div class="modal-header">
   <h3 id="newDeckTitle">Build a New Deck</h3>
     </div>
@@ -10,7 +10,7 @@
   <form hx-post="/build/new" hx-target="#wizard" hx-swap="innerHTML" hx-on="htmx:afterRequest: (function(evt){ try{ if(evt && evt.detail && evt.detail.elt === this){ var m=this.closest('.modal'); if(m){ m.remove(); } } }catch(_){} }).call(this, event)" autocomplete="off">
       <fieldset>
         <legend>Basics</legend>
-        <div class="basics-grid" style="display:grid; grid-template-columns: 2fr 1fr; gap:1rem; align-items:start;">
+  <div class="basics-grid" style="display:grid; grid-template-columns: 2fr 1fr; gap:1rem; align-items:start;">
           <div>
             <label style="display:block; margin-bottom:.5rem;">
               <span class="muted">Optional name (used for file names)</span>
@@ -39,6 +39,7 @@
           <input type="hidden" name="tertiary_tag" />
           <input type="hidden" name="tag_mode" value="AND" />
         </div>
+  <div id="newdeck-multicopy-slot" class="muted" style="margin-top:.5rem; min-height:1rem;"></div>
         <div style="margin-top:.5rem;">
           <label>Bracket
             <select name="bracket">
@@ -53,6 +54,10 @@
         <legend>Preferences</legend>
         <label title="When enabled, the builder will try to auto-complete missing combo partners near the end of the build (respecting owned-only and locks).">
           <input type="checkbox" name="prefer_combos" id="pref-combos-chk" /> Prioritize combos (auto-complete partners)
+        </label>
+        <div style="margin-top:.35rem;"></div>
+        <label title="When enabled, include a Multi-Copy package for matching archetypes (e.g., tokens/tribal).">
+          <input type="checkbox" name="enable_multicopy" id="pref-mc-chk" /> Enable Multi-Copy package
         </label>
         <div id="pref-combos-config" style="margin-top:.5rem; padding:.5rem; border:1px solid var(--border); border-radius:8px; display:none;">
           <div style="display:flex; gap:1rem; align-items:center; flex-wrap:wrap;">
@@ -95,14 +100,42 @@
 
 <script>
   (function(){
+    // Backdrop click to close
+    try{
+      var modal = document.currentScript && document.currentScript.previousElementSibling ? document.currentScript.previousElementSibling.previousElementSibling : document.querySelector('.modal');
+      var backdrop = modal ? modal.querySelector('.modal-backdrop') : null;
+      if (backdrop){ backdrop.addEventListener('click', function(){ try{ modal.remove(); }catch(_){} }); }
+    }catch(_){ }
     var modal = document.currentScript && document.currentScript.previousElementSibling ? document.currentScript.previousElementSibling.previousElementSibling : document.querySelector('.modal');
     // Prevent Enter in text inputs from submitting the form
     try {
       var form = modal ? modal.querySelector('form') : document.querySelector('.modal form');
       if (form){
-        // Prevent Enter in name field from submitting
+        // Form-level Enter: if suggestions exist, pick the first by default
+        form.addEventListener('keydown', function(e){
+          try{
+            if (e.key !== 'Enter' || e.shiftKey || e.altKey || e.ctrlKey || e.metaKey) return;
+            var list = document.getElementById('newdeck-candidates');
+            var first = list && list.querySelector('button.candidate-btn');
+            if (first){
+              e.preventDefault(); e.stopPropagation(); first.click();
+            } else {
+              // No suggestions: allow normal form submit
+            }
+          }catch(_){ }
+        }, true);
+        // Name field: only block Enter if suggestions exist; otherwise allow submit
         var nameEl = form.querySelector('input[name="name"]');
-        if (nameEl){ nameEl.addEventListener('keydown', function(e){ if (e.key === 'Enter'){ e.preventDefault(); } }); }
+        if (nameEl){
+          nameEl.addEventListener('keydown', function(e){
+            if (e.key !== 'Enter') return;
+            try{
+              var list = document.getElementById('newdeck-candidates');
+              var hasBtns = !!(list && list.querySelector('button.candidate-btn'));
+              if (hasBtns){ e.preventDefault(); e.stopPropagation(); }
+            }catch(_){ }
+          });
+        }
         // In commander field, Enter picks the first candidate (if any) without closing the modal
         var cmdEl = form.querySelector('input[name=\"commander\"]');
         if (cmdEl){
@@ -186,4 +219,62 @@
       sync();
     } catch(_){}
   })();
+
+  // Integrated Multi-Copy: fetch suggestions once commander + tags are present
+  (function(){
+    function fetchMulti(){
+      try{
+        var slot = document.getElementById('newdeck-multicopy-slot');
+        var form = document.querySelector('.modal form');
+        if (!slot || !form) return;
+        var enable = form.querySelector('#pref-mc-chk');
+        if (!enable || !enable.checked){ slot.innerHTML = ''; return; }
+        var cmd = form.querySelector('input[name="commander"]').value.trim();
+        var p = form.querySelector('input[name="primary_tag"]').value.trim();
+        var s = form.querySelector('input[name="secondary_tag"]').value.trim();
+        var t = form.querySelector('input[name="tertiary_tag"]').value.trim();
+        var mode = form.querySelector('input[name="tag_mode"]').value.trim() || 'AND';
+        if (!cmd) { slot.innerHTML = ''; return; }
+        // Only fetch if at least one tag is present (to avoid noise)
+        if (!(p || s || t)) { slot.innerHTML = ''; return; }
+        var params = new URLSearchParams({ commander: cmd, tag_mode: mode });
+        if (p) params.append('primary_tag', p); if (s) params.append('secondary_tag', s); if (t) params.append('tertiary_tag', t);
+        fetch('/build/new/multicopy?' + params.toString(), { headers: { 'HX-Request': 'true' } })
+          .then(function(r){ return r.text(); })
+          .then(function(html){ slot.innerHTML = html; })
+          .catch(function(){ slot.innerHTML = ''; });
+      }catch(_){ }
+    }
+    // Listen for OOB updates to the tags slot to trigger fetch
+    document.body.addEventListener('htmx:afterSwap', function(ev){
+      try{
+        var tgt = ev && ev.detail && ev.detail.target ? ev.detail.target : null;
+        if (tgt && tgt.id === 'newdeck-tags-slot'){ fetchMulti(); }
+      }catch(_){ }
+    });
+  // Respond to explicit tag-change signal from the tags partial
+  try{ document.addEventListener('newdeck:tagsChanged', fetchMulti); }catch(_){ }
+    // Also debounce on commander input changes
+    try{
+      var cmdEl = document.querySelector('.modal form input[name="commander"]');
+      var timer;
+      if (cmdEl){ cmdEl.addEventListener('input', function(){ clearTimeout(timer); timer = setTimeout(fetchMulti, 300); }); }
+    }catch(_){ }
+    // React to preference toggle
+    try{
+      var mcChk = document.querySelector('.modal form #pref-mc-chk');
+      if (mcChk){ mcChk.addEventListener('change', fetchMulti); }
+    }catch(_){ }
+  })();
 </script>
+
+<style>
+/* Modal responsive tweaks (scoped) */
+@media (max-width: 720px){
+  .modal .basics-grid{ grid-template-columns: 1fr !important; }
+  #newdeck-commander-slot{ max-width: 100% !important; }
+  #newdeck-commander-slot aside.card-preview{ max-width: 100% !important; }
+  #newdeck-commander-slot img{ width: 100% !important; max-width: 260px; height: auto; margin: 0 auto; display: block; }
+  .modal .modal-content{ width: min(95vw, 560px) !important; }
+}
+</style>

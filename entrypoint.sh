@@ -14,11 +14,6 @@ seed_defaults() {
         [ -f /app/config/card_lists/combos.json ] || cp "/.defaults/config/card_lists/combos.json" "/app/config/card_lists/combos.json" 2>/dev/null || true
         [ -f /app/config/card_lists/synergies.json ] || cp "/.defaults/config/card_lists/synergies.json" "/app/config/card_lists/synergies.json" 2>/dev/null || true
     fi
-
-    # Back-compat: if someone expects combo.json, symlink to combos.json when present
-    if [ ! -e /app/config/card_lists/combo.json ] && [ -f /app/config/card_lists/combos.json ]; then
-        ln -s "combos.json" "/app/config/card_lists/combo.json" 2>/dev/null || true
-    fi
 }
 
 seed_defaults

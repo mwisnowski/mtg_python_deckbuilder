@@ -12,6 +12,49 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 
 ## [Unreleased]
 
+### Added
+- Web: Setup/Refresh prompt modal shown on Create when environment is missing or stale; routes to `/setup/running` (force on stale) and transitions into the progress view. Template: `web/templates/build/_setup_prompt_modal.html`.
+- Orchestrator helpers: `is_setup_ready()` and `is_setup_stale()` for non-invasive readiness/staleness checks from the UI.
+- Env flags for setup behavior: `WEB_AUTO_SETUP` (default 1) to enable/disable auto setup, and `WEB_AUTO_REFRESH_DAYS` (default 7) to tune staleness.
+ - Step 5 error context helper: `web/services/build_utils.step5_error_ctx()` to standardize error payloads for `_step5.html`.
+ - Templates: reusable lock/unlock button macro at `web/templates/partials/_macros.html`.
+ - Templates: Alternatives panel partial at `web/templates/build/_alternatives.html` (renders candidates with Owned-only toggle and Replace actions).
+
+### Tests
+- Added smoke/unit tests covering:
+  - `summary_utils.summary_ctx()`
+  - `build_utils.start_ctx_from_session()` (monkeypatched orchestrator)
+  - `orchestrator` staleness/setup paths
+  - `build_utils.step5_error_ctx()` shape and flags
+
+### Changed
+- Web cleanup: centralized combos/synergies detection and model/version loading in `web/services/combo_utils.py` and refactored routes to use it:
+  - `routes/build.py` (Combos panel), `routes/configs.py` (run results), `routes/decks.py` (finished/compare), and diagnostics endpoint in `app.py`.
+- Create (New Deck) flow: no longer auto-runs setup on submit; instead presents a modal prompt to run setup/refresh when needed.
+- Step 5 builder flow: deduplicated template context assembly via `web/services/build_utils.py` helpers and refactored `web/routes/build.py` accordingly (fewer repeated dicts, consistent fields).
+- Staged build context creation centralized via `web/services/build_utils.start_ctx_from_session` and applied across Step 5 flows in `web/routes/build.py` (New submit, Continue, Start, Rerun, Rewind).
+- Owned-cards set creation centralized via `web/services/build_utils.owned_set()` and used in `web/routes/build.py`, `web/routes/configs.py`, and `web/routes/decks.py`.
+ - Step 5: replaced ad-hoc empty context assembly with `web/services/build_utils.step5_empty_ctx()` in GET `/build/step5` and `reset-stage`.
+ - Builder introspection: adopted `builder_present_names()` and `builder_display_map()` helpers in `web/routes/build.py` for locked-cards and alternatives, reducing duplication and improving casing consistency.
+ - Alternatives endpoint now renders the new partial (`build/_alternatives.html`) via Jinja and caches the HTML (no more string-built HTML in the route).
+
+### Added
+- Deck summary: introduced `web/services/summary_utils.summary_ctx()` to unify summary context (owned_set, game_changers, combos/synergies, versions).
+ - Alternatives cache helper extracted to `web/services/alts_utils.py`.
+
+### Changed
+- Decks and Configs routes now use `summary_ctx()` to render deck summaries, reducing duplication and ensuring consistent fields.
+- Build: routed owned names via helper and fixed `_rebuild_ctx_with_multicopy` context indentation.
+ - Build: moved alternatives TTL cache into `services/alts_utils` for readability.
+ - Build: Step 5 start error path now uses `step5_error_ctx()` for a consistent UI.
+  - Build: Extended Step 5 error handling to Continue, Rerun, and Rewind using `step5_error_ctx()`.
+
+### Fixed
+- Docker: normalized line endings for `entrypoint.sh` during image build to avoid `env: 'sh\r': No such file or directory` on Windows checkouts.
+
+### Removed
+- Duplicate root route removed: `web/routes/home.py` was deleted; the app root is served by `web/app.py`.
+
 ## [2.2.3] - 2025-09-01
 ### Fixes
 - Bug causing basic lands to no longer be added due to combined dataframe not including basics

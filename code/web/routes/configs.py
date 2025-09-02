@@ -6,11 +6,9 @@ from pathlib import Path
 import os
 import json
 from ..app import templates
-from ..services import owned_store
+from ..services.build_utils import owned_set as owned_set_helper, owned_names as owned_names_helper
+from ..services.summary_utils import summary_ctx
 from ..services import orchestrator as orch
-from deck_builder.combos import detect_combos as _detect_combos, detect_synergies as _detect_synergies
-from tagging.combo_schema import load_and_validate_combos as _load_combos, load_and_validate_synergies as _load_synergies
-from deck_builder import builder_constants as bc
 
 
 router = APIRouter(prefix="/configs")
@@ -143,7 +141,7 @@ async def configs_run(request: Request, name: str = Form(...), use_owned_only: s
     if use_owned_only is not None:
         owned_flag = str(use_owned_only).strip().lower() in ("1","true","yes","on")
 
-    owned_names = owned_store.get_names() if owned_flag else None
+    owned_names = owned_names_helper() if owned_flag else None
 
     # Optional combos preferences
     prefer_combos = False
@@ -198,43 +196,24 @@ async def configs_run(request: Request, name: str = Form(...), use_owned_only: s
                 "commander": commander,
                 "tag_mode": tag_mode,
                 "use_owned_only": owned_flag,
-                "owned_set": {n.lower() for n in owned_store.get_names()},
+                "owned_set": owned_set_helper(),
             },
         )
-    return templates.TemplateResponse(
-        "configs/run_result.html",
-        {
-            "request": request,
-            "ok": True,
-            "log": res.get("log", ""),
-            "csv_path": res.get("csv_path"),
-            "txt_path": res.get("txt_path"),
-            "summary": res.get("summary"),
-            "cfg_name": p.name,
-            "commander": commander,
-            "tag_mode": tag_mode,
-            "use_owned_only": owned_flag,
-            "owned_set": {n.lower() for n in owned_store.get_names()},
-            "game_changers": bc.GAME_CHANGERS,
-            # Combos & Synergies for summary panel
-            **(lambda _sum: (lambda names: (lambda _cm,_sm: {
-                "combos": (_detect_combos(names, combos_path="config/card_lists/combos.json") if names else []),
-                "synergies": (_detect_synergies(names, synergies_path="config/card_lists/synergies.json") if names else []),
-                "versions": {
-                    "combos": getattr(_cm, 'list_version', None) if _cm else None,
-                    "synergies": getattr(_sm, 'list_version', None) if _sm else None,
-                }
-            })(
-                (lambda: (_load_combos("config/card_lists/combos.json")))(),
-                (lambda: (_load_synergies("config/card_lists/synergies.json")))(),
-            ))(
-                (lambda s, cmd: (lambda names_set: sorted(names_set | ({cmd} if cmd else set())))(
-                    set([str((c.get('name') if isinstance(c, dict) else getattr(c, 'name', ''))) for _t, cl in (((s or {}).get('type_breakdown', {}) or {}).get('cards', {}).items()) for c in (cl or []) if (c.get('name') if isinstance(c, dict) else getattr(c, 'name', ''))])
-                    | set([str((c.get('name') if isinstance(c, dict) else getattr(c, 'name', ''))) for _b, cl in ((((s or {}).get('mana_curve', {}) or {}).get('cards', {}) or {}).items()) for c in (cl or []) if (c.get('name') if isinstance(c, dict) else getattr(c, 'name', ''))])
-                ))(_sum, commander)
-            ))(res.get("summary"))
-        },
-    )
+    ctx = {
+        "request": request,
+        "ok": True,
+        "log": res.get("log", ""),
+        "csv_path": res.get("csv_path"),
+        "txt_path": res.get("txt_path"),
+        "summary": res.get("summary"),
+        "cfg_name": p.name,
+        "commander": commander,
+        "tag_mode": tag_mode,
+        "use_owned_only": owned_flag,
+    }
+    ctx.update(summary_ctx(summary=res.get("summary"), commander=commander, tags=tags))
+    return templates.TemplateResponse("configs/run_result.html", ctx)
+
 
 
 @router.post("/upload", response_class=HTMLResponse)

@@ -1,0 +1,13 @@
+{# Reusable Jinja macros for UI elements #}
+
+{% macro lock_button(name, locked=False, from_list=False, target_selector='closest .lock-box') -%}
+  {# Emits a lock/unlock button with correct hx-vals and aria state. #}
+  <button type="button" class="btn-lock"
+          title="{{ 'Unlock this card (kept across reruns)' if locked else 'Lock this card (keep across reruns)' }}"
+          aria-pressed="{{ 'true' if locked else 'false' }}"
+          data-locked="{{ '1' if locked else '0' }}"
+          hx-post="/build/lock" hx-target="{{ target_selector }}" hx-swap="innerHTML"
+          hx-vals='{"name": "{{ name }}", "locked": "{{ '0' if locked else '1' }}"{% if from_list %}, "from_list": "1"{% endif %}}'>
+    {{ '🔒 Unlock' if locked else '🔓 Lock' }}
+  </button>
+{%- endmacro %}

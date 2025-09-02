@@ -1,0 +1,21 @@
+<div class="modal" role="dialog" aria-modal="true" aria-labelledby="setupPromptTitle" style="position:fixed; inset:0; z-index:1000; display:flex; align-items:center; justify-content:center;">
+  <div class="modal-backdrop" style="position:absolute; inset:0; background:rgba(0,0,0,.6);"></div>
+  <div class="modal-content" style="position:relative; max-width:560px; width:clamp(320px, 90vw, 560px); background:#0f1115; border:1px solid var(--border); border-radius:10px; box-shadow:0 10px 30px rgba(0,0,0,.5); padding:1rem;">
+    <div class="modal-header">
+      <h3 id="setupPromptTitle">{{ title or 'Setup required' }}</h3>
+    </div>
+    <div class="modal-body">
+      <p>{{ message or 'The card database and tags need to be prepared before building a deck.' }}</p>
+    </div>
+    <div class="modal-footer" style="display:flex; gap:.5rem; justify-content:flex-end; margin-top:1rem;">
+      <button type="button" class="btn" onclick="this.closest('.modal').remove()">Cancel</button>
+      <a class="btn-continue" href="{{ action_url }}" hx-boost="true" hx-target="body" hx-swap="innerHTML">{{ action_label or 'Run Setup' }}</a>
+    </div>
+  </div>
+</div>
+<script>
+  (function(){
+    function onKey(e){ if (e.key === 'Escape'){ e.preventDefault(); try{ var m=document.querySelector('.modal'); if(m){ m.remove(); document.removeEventListener('keydown', onKey); } }catch(_){ } } }
+    document.addEventListener('keydown', onKey);
+  })();
+</script>

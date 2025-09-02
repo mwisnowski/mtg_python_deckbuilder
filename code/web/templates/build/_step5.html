@@ -85,6 +85,7 @@
   {% endif %}
 
       {% if locked_cards is defined and locked_cards %}
+      {% from 'partials/_macros.html' import lock_button %}
       <details id="locked-section" style="margin-top:.5rem;">
         <summary>Locked cards (always kept)</summary>
         <ul id="locked-list" style="list-style:none; padding:0; margin:.35rem 0 0; display:grid; gap:.35rem;">
@@ -93,12 +94,9 @@
             <span class="chip"><span class="dot"></span> {{ lk.name }}</span>
             <span class="muted">{% if lk.owned %}✔ Owned{% else %}✖ Not owned{% endif %}</span>
             {% if lk.in_deck %}<span class="muted">• In deck</span>{% else %}<span class="muted">• Will be included on rerun</span>{% endif %}
-            <form hx-post="/build/lock" hx-target="closest li" hx-swap="outerHTML" onsubmit="try{toast('Unlocked {{ lk.name }}');}catch(_){}" style="display:inline; margin-left:auto;">
-              <input type="hidden" name="name" value="{{ lk.name }}" />
-              <input type="hidden" name="locked" value="0" />
-              <input type="hidden" name="from_list" value="1" />
-              <button type="submit" class="btn" title="Unlock" aria-pressed="true">Unlock</button>
-            </form>
+            <div class="lock-box" style="display:inline; margin-left:auto;">
+              {{ lock_button(lk.name, True, from_list=True, target_selector='closest li') }}
+            </div>
           </li>
           {% endfor %}
         </ul>
@@ -236,10 +234,9 @@
               <div class="owned-badge" title="{{ 'Owned' if owned else 'Not owned' }}" aria-label="{{ 'Owned' if owned else 'Not owned' }}">{% if owned %}✔{% else %}✖{% endif %}</div>
               <div class="name">{{ c.name|safe }}{% if c.count and c.count > 1 %} ×{{ c.count }}{% endif %}</div>
     <div class="lock-box" id="lock-{{ group_idx }}-{{ loop.index0 }}" style="display:flex; justify-content:center; gap:.25rem; margin-top:.25rem;">
-  <button type="button" class="btn-lock" title="{{ 'Unlock this card (kept across reruns)' if is_locked else 'Lock this card (keep across reruns)' }}" aria-pressed="{{ 'true' if is_locked else 'false' }}"
-      hx-post="/build/lock" hx-target="closest .lock-box" hx-swap="innerHTML"
-                        hx-vals='{"name": "{{ c.name }}", "locked": "{{ '0' if is_locked else '1' }}"}'>{{ '🔒 Unlock' if is_locked else '🔓 Lock' }}</button>
-              </div>
+      {% from 'partials/_macros.html' import lock_button %}
+      {{ lock_button(c.name, is_locked) }}
+    </div>
               {% if c.reason %}
                 <div style="display:flex; justify-content:center; margin-top:.25rem; gap:.35rem; flex-wrap:wrap;">
                   <button type="button" class="btn-why" aria-expanded="false">Why?</button>
@@ -274,10 +271,9 @@
             <div class="owned-badge" title="{{ 'Owned' if owned else 'Not owned' }}" aria-label="{{ 'Owned' if owned else 'Not owned' }}">{% if owned %}✔{% else %}✖{% endif %}</div>
             <div class="name">{{ c.name|safe }}{% if c.count and c.count > 1 %} ×{{ c.count }}{% endif %}</div>
     <div class="lock-box" id="lock-{{ loop.index0 }}" style="display:flex; justify-content:center; gap:.25rem; margin-top:.25rem;">
-  <button type="button" class="btn-lock" title="{{ 'Unlock this card (kept across reruns)' if is_locked else 'Lock this card (keep across reruns)' }}" aria-pressed="{{ 'true' if is_locked else 'false' }}"
-          hx-post="/build/lock" hx-target="closest .lock-box" hx-swap="innerHTML"
-                      hx-vals='{"name": "{{ c.name }}", "locked": "{{ '0' if is_locked else '1' }}"}'>{{ '🔒 Unlock' if is_locked else '🔓 Lock' }}</button>
-            </div>
+      {% from 'partials/_macros.html' import lock_button %}
+      {{ lock_button(c.name, is_locked) }}
+    </div>
             {% if c.reason %}
               <div style="display:flex; justify-content:center; margin-top:.25rem; gap:.35rem; flex-wrap:wrap;">
                 <button type="button" class="btn-why" aria-expanded="false">Why?</button>

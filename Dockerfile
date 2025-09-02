@@ -55,7 +55,9 @@ WORKDIR /app/code
 
 # Add a tiny entrypoint to select Web UI (default) or CLI
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
-RUN chmod +x /usr/local/bin/entrypoint.sh
+# Normalize line endings in case the file was checked out with CRLF on Windows
+RUN sed -i 's/\r$//' /usr/local/bin/entrypoint.sh && \
+    chmod +x /usr/local/bin/entrypoint.sh
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 
 # Expose web port for the optional Web UI

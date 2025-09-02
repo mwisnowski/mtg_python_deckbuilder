@@ -84,7 +84,7 @@ body {
 .top-banner{ min-height: var(--banner-h); }
 .top-banner .top-inner{ margin:0; padding:.5rem 0; display:grid; grid-template-columns: var(--sidebar-w) 1fr; align-items:center; }
 .top-banner h1{ font-size: 1.1rem; margin:0; padding-left: 1rem; }
-.banner-status{ color: var(--muted); font-size:.9rem; text-align:left; padding-left: 1.5rem; padding-right: 1.5rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.banner-status{ color: var(--muted); font-size:.9rem; text-align:left; padding-left: 1.5rem; padding-right: 1.5rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; }
 .banner-status.busy{ color:#fbbf24; }
 .health-dot{ width:10px; height:10px; border-radius:50%; display:inline-block; background:#10b981; box-shadow:0 0 0 2px rgba(16,185,129,.25) inset; }
 .health-dot[data-state="bad"]{ background:#ef4444; box-shadow:0 0 0 2px rgba(239,68,68,.3) inset; }
@@ -107,6 +107,27 @@ body {
 }
 .content{ padding: 1.25rem 1.5rem; grid-column: 2; min-width: 0; }
 
+/* Collapsible sidebar behavior */
+body.nav-collapsed .layout{ grid-template-columns: 0 minmax(0, 1fr); }
+body.nav-collapsed .sidebar{ transform: translateX(-100%); visibility: hidden; }
+body.nav-collapsed .content{ grid-column: 2; }
+body.nav-collapsed .top-banner .top-inner{ grid-template-columns: auto 1fr; }
+body.nav-collapsed .top-banner .top-inner{ padding-left: .5rem; padding-right: .5rem; }
+/* Smooth hide/show on mobile while keeping fixed positioning */
+.sidebar{ transition: transform .2s ease-out, visibility .2s linear; }
+
+/* Mobile tweaks */
+@media (max-width: 900px){
+	:root{ --sidebar-w: 240px; }
+	.top-banner .top-inner{ grid-template-columns: 1fr; row-gap: .35rem; padding:.4rem .5rem; }
+	.banner-status{ padding-left: .5rem; }
+	.layout{ grid-template-columns: 0 1fr; }
+	.sidebar{ transform: translateX(-100%); visibility: hidden; }
+	body:not(.nav-collapsed) .layout{ grid-template-columns: var(--sidebar-w) 1fr; }
+	body:not(.nav-collapsed) .sidebar{ transform: translateX(0); visibility: visible; }
+	.content{ padding: .9rem .8rem; }
+}
+
 .brand h1{ display:none; }
 .mana-dots{ display:flex; gap:.35rem; margin-bottom:.5rem; }
 .mana-dots .dot{ width:12px; height:12px; border-radius:50%; display:inline-block; border:1px solid rgba(0,0,0,.35); box-shadow:0 1px 2px rgba(0,0,0,.3) inset; }
@@ -128,6 +149,13 @@ body {
 
 /* Left-rail variant puts the image first */
 .two-col.two-col-left-rail{ grid-template-columns: 320px 1fr; }
+/* Ensure left-rail variant also collapses to 1 column on small screens */
+@media (max-width: 900px){
+	.two-col.two-col-left-rail{ grid-template-columns: 1fr; }
+	/* So the commander image doesn't dominate on mobile */
+	.two-col .card-preview{ max-width: 360px; margin: 0 auto; }
+	.two-col .card-preview img{ width: 100%; height: auto; }
+}
 .card-preview.card-sm{ max-width:200px; }
 
 /* Buttons, inputs */
@@ -183,6 +211,11 @@ small, .muted{ color: var(--muted); }
 	gap: .5rem;
 	margin-top:.5rem;
 	justify-content: start; /* pack as many as possible per row */
+}
+@media (max-width: 420px){
+	.card-grid{ grid-template-columns: repeat(2, minmax(0, 1fr)); }
+	.card-tile{ width: 100%; }
+	.card-tile img{ width: 100%; max-width: 160px; margin: 0 auto; }
 }
 .card-tile{
 	width:170px;
@@ -256,9 +289,14 @@ small, .muted{ color: var(--muted); }
 .stage-nav .idx { display:inline-grid; place-items:center; width:20px; height:20px; border-radius:50%; background:#1f2937; font-size:12px; }
 .stage-nav .name { font-size:12px; }
 
-/* Build controls sticky box tweaks for small screens */
+/* Build controls sticky box tweaks */
+.build-controls { top: calc(var(--banner-offset, 48px) + 6px); }
 @media (max-width: 720px){
-	.build-controls { position: sticky; top: 0; border-radius: 0; margin-left: -1.5rem; margin-right: -1.5rem; }
+	:root { --banner-offset: 56px; }
+	.build-controls { position: sticky; border-radius: 8px; margin-left: 0; margin-right: 0; }
+}
+@media (min-width: 721px){
+	:root { --banner-offset: 48px; }
 }
 
 /* Progress bar */

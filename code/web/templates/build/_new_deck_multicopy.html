@@ -1,0 +1,59 @@
+{% if items and items|length %}
+<fieldset id="mc-integrated" style="margin-top:.75rem;">
+  <legend>Optional: Multi-Copy package</legend>
+  <div class="muted" style="font-size:12px; margin-bottom:.35rem;">We detected a viable multi-copy archetype for your commander/themes. Choose one or skip.</div>
+  <div style="display:grid; gap:.5rem;">
+    {% for it in items %}
+    <label class="mc-option" style="display:grid; grid-template-columns: auto 1fr; gap:.5rem; align-items:flex-start; padding:.5rem; border:1px solid var(--border); border-radius:8px; background:#0b0d12;">
+      <input type="radio" name="multi_choice_id" value="{{ it.id }}" {% if loop.first %}checked{% endif %} />
+      <div>
+        <div><strong>{{ it.name }}</strong> {% if it.printed_cap %}<span class="muted">(Cap: {{ it.printed_cap }})</span>{% endif %}</div>
+        {% if it.reasons %}
+        <div class="muted" style="font-size:12px;">Signals: {{ ', '.join(it.reasons) }}</div>
+        {% endif %}
+      </div>
+    </label>
+    {% endfor %}
+  </div>
+  {% set first = items[0] %}
+  {% set cap = first.printed_cap %}
+  {% set rec = first.rec_window if first.rec_window else (20,30) %}
+  <div id="mc-count-row" class="mc-count" style="display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; margin-top:.5rem;">
+    <label>Copies <input type="number" min="1" name="multi_count" value="{{ first.default_count or 25 }}" style="width:6rem; margin-left:.35rem;"></label>
+    {% if cap %}
+    <small class="muted">Max {{ cap }}</small>
+    {% else %}
+    <small class="muted">Suggested {{ rec[0] }}–{{ rec[1] }}</small>
+    {% endif %}
+  </div>
+  <div id="mc-thrum-row" style="margin-top:.35rem;">
+    <label title="Adds 1 copy of Thrumming Stone if applicable.">
+      <input type="checkbox" name="multi_thrumming" value="1" {% if first.thrumming_stone_synergy %}checked{% endif %} /> Include Thrumming Stone
+    </label>
+  </div>
+  <div class="muted" style="font-size:12px; margin-top:.35rem;">You can leave this unselected to skip multi-copy for this build.</div>
+</fieldset>
+<script>
+(function(){
+  var root = document.currentScript && document.currentScript.previousElementSibling ? document.currentScript.previousElementSibling : document;
+  var container = root.querySelector ? root : document;
+  var fieldset = container.querySelector('#mc-integrated');
+  if (!fieldset) return;
+  function updateForChoice(){
+    try{
+      var checked = fieldset.querySelector('input[name="multi_choice_id"]:checked');
+      var count = fieldset.querySelector('input[name="multi_count"]');
+      if (!checked || !count) return;
+      // Use label text to parse Cap when present
+      var label = checked.closest('label.mc-option');
+      var capEl = label && label.querySelector('.muted');
+      var m = capEl && capEl.textContent && capEl.textContent.match(/Cap:\s*(\d+)/);
+      if (m){ var cap = parseInt(m[1],10); count.max = String(cap); if (parseInt(count.value||'0',10) > cap) count.value = String(cap); }
+      else { count.removeAttribute('max'); }
+    }catch(_){}
+  }
+  fieldset.querySelectorAll('input[name="multi_choice_id"]').forEach(function(r){ r.addEventListener('change', updateForChoice); });
+  updateForChoice();
+})();
+</script>
+{% endif %}

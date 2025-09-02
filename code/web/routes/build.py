@@ -332,6 +332,73 @@ async def build_new_inspect(request: Request, name: str = Query(...)) -> HTMLRes
     return templates.TemplateResponse("build/_new_deck_tags.html", ctx)
 
 
+@router.get("/new/multicopy", response_class=HTMLResponse)
+async def build_new_multicopy(
+    request: Request,
+    commander: str = Query(""),
+    primary_tag: str | None = Query(None),
+    secondary_tag: str | None = Query(None),
+    tertiary_tag: str | None = Query(None),
+    tag_mode: str | None = Query("AND"),
+) -> HTMLResponse:
+    """Return multi-copy suggestions for the New Deck modal based on commander + selected tags.
+
+    This does not mutate the session; it simply renders a form snippet that posts with the main modal.
+    """
+    name = (commander or "").strip()
+    if not name:
+        return HTMLResponse("")
+    try:
+        tmp = DeckBuilder(output_func=lambda *_: None, input_func=lambda *_: "", headless=True)
+        df = tmp.load_commander_data()
+        row = df[df["name"].astype(str) == name]
+        if row.empty:
+            return HTMLResponse("")
+        tmp._apply_commander_selection(row.iloc[0])
+        tags = [t for t in [primary_tag, secondary_tag, tertiary_tag] if t]
+        tmp.selected_tags = list(tags or [])
+        try:
+            tmp.primary_tag = tmp.selected_tags[0] if len(tmp.selected_tags) > 0 else None
+            tmp.secondary_tag = tmp.selected_tags[1] if len(tmp.selected_tags) > 1 else None
+            tmp.tertiary_tag = tmp.selected_tags[2] if len(tmp.selected_tags) > 2 else None
+        except Exception:
+            pass
+        try:
+            tmp.determine_color_identity()
+        except Exception:
+            pass
+        results = bu.detect_viable_multi_copy_archetypes(tmp) or []
+        # For the New Deck modal, only show suggestions where the matched tags intersect
+        # the explicitly selected tags (ignore commander-default themes).
+        sel_tags = {str(t).strip().lower() for t in (tags or []) if str(t).strip()}
+        def _matched_reason_tags(item: dict) -> set[str]:
+            out = set()
+            try:
+                for r in item.get('reasons', []) or []:
+                    if not isinstance(r, str):
+                        continue
+                    rl = r.strip().lower()
+                    if rl.startswith('tags:'):
+                        body = rl.split('tags:', 1)[1].strip()
+                        parts = [p.strip() for p in body.split(',') if p.strip()]
+                        out.update(parts)
+            except Exception:
+                return set()
+            return out
+        if sel_tags:
+            results = [it for it in results if (_matched_reason_tags(it) & sel_tags)]
+        else:
+            # If no selected tags, do not show any multi-copy suggestions in the modal
+            results = []
+        if not results:
+            return HTMLResponse("")
+        items = results[:5]
+        ctx = {"request": request, "items": items}
+        return templates.TemplateResponse("build/_new_deck_multicopy.html", ctx)
+    except Exception:
+        return HTMLResponse("")
+
+
 @router.post("/new", response_class=HTMLResponse)
 async def build_new_submit(
     request: Request,
@@ -353,6 +420,11 @@ async def build_new_submit(
     prefer_combos: bool = Form(False),
     combo_count: int | None = Form(None),
     combo_balance: str | None = Form(None),
+    enable_multicopy: bool = Form(False),
+    # Integrated Multi-Copy (optional)
+    multi_choice_id: str | None = Form(None),
+    multi_count: int | None = Form(None),
+    multi_thrumming: str | None = Form(None),
 ) -> HTMLResponse:
     """Handle New Deck modal submit and immediately start the build (skip separate review page)."""
     sid = request.cookies.get("sid") or new_sid()
@@ -440,6 +512,39 @@ async def build_new_submit(
                 sess["combo_balance"] = bval
     except Exception:
         pass
+    # Multi-Copy selection from modal (opt-in)
+    try:
+        # Clear any prior selection first; this flow should define it explicitly when present
+        if "multi_copy" in sess:
+            del sess["multi_copy"]
+        if enable_multicopy and multi_choice_id and str(multi_choice_id).strip():
+            meta = bc.MULTI_COPY_ARCHETYPES.get(str(multi_choice_id), {})
+            printed_cap = meta.get("printed_cap")
+            cnt: int
+            if multi_count is None:
+                cnt = int(meta.get("default_count", 25))
+            else:
+                try:
+                    cnt = int(multi_count)
+                except Exception:
+                    cnt = int(meta.get("default_count", 25))
+            if isinstance(printed_cap, int) and printed_cap > 0:
+                cnt = max(1, min(printed_cap, cnt))
+            sess["multi_copy"] = {
+                "id": str(multi_choice_id),
+                "name": meta.get("name") or str(multi_choice_id),
+                "count": int(cnt),
+                "thrumming": True if (multi_thrumming and str(multi_thrumming).strip() in ("1","true","on","yes")) else False,
+            }
+        else:
+            # Ensure disabled when not opted-in
+            if "multi_copy" in sess:
+                del sess["multi_copy"]
+        # Reset the applied marker so the run can account for the new selection
+        if "mc_applied_key" in sess:
+            del sess["mc_applied_key"]
+    except Exception:
+        pass
     # Clear any old staged build context
     for k in ["build_ctx", "locks", "replace_mode"]:
         if k in sess:
@@ -447,13 +552,12 @@ async def build_new_submit(
                 del sess[k]
             except Exception:
                 pass
-    # Reset multi-copy suggestion debounce and selection for a fresh run
-    for k in ["mc_seen_keys", "multi_copy"]:
-        if k in sess:
-            try:
-                del sess[k]
-            except Exception:
-                pass
+    # Reset multi-copy suggestion debounce for a fresh run (keep selected choice)
+    if "mc_seen_keys" in sess:
+        try:
+            del sess["mc_seen_keys"]
+        except Exception:
+            pass
     # Persist optional custom export base name
     if isinstance(name, str) and name.strip():
         sess["custom_export_base"] = name.strip()
@@ -496,6 +600,13 @@ async def build_new_submit(
     # Centralized staged context creation
     sess["build_ctx"] = start_ctx_from_session(sess)
     res = orch.run_stage(sess["build_ctx"], rerun=False, show_skipped=False)
+    # If Multi-Copy ran first, mark applied to prevent redundant rebuilds on Continue
+    try:
+        if res.get("label") == "Multi-Copy Package" and sess.get("multi_copy"):
+            mc = sess.get("multi_copy")
+            sess["mc_applied_key"] = f"{mc.get('id','')}|{int(mc.get('count',0))}|{1 if mc.get('thrumming') else 0}"
+    except Exception:
+        pass
     status = "Build complete" if res.get("done") else "Stage complete"
     sess["last_step"] = 5
     ctx = step5_ctx_from_result(request, sess, res, status_text=status, show_skipped=False)

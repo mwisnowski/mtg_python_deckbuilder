@@ -26,7 +26,7 @@
     </aside>
     <div class="grow" data-skeleton>
   <div hx-get="/build/banner" hx-trigger="load"></div>
-  <div hx-get="/build/multicopy/check" hx-trigger="load" hx-swap="afterend"></div>
+  
 
       <p>Commander: <strong>{{ commander }}</strong></p>
       <p>Tags: {{ tags|default([])|join(', ') }}</p>
@@ -137,7 +137,7 @@
       </div>
 
   <!-- Sticky build controls on mobile -->
-      <div class="build-controls" style="position:sticky; top:0; z-index:5; background:linear-gradient(180deg, rgba(15,17,21,.95), rgba(15,17,21,.85)); border:1px solid var(--border); border-radius:10px; padding:.5rem; margin-top:1rem; display:flex; gap:.5rem; flex-wrap:wrap; align-items:center;">
+  <div class="build-controls" style="position:sticky; z-index:5; background:linear-gradient(180deg, rgba(15,17,21,.95), rgba(15,17,21,.85)); border:1px solid var(--border); border-radius:10px; padding:.5rem; margin-top:1rem; display:flex; gap:.5rem; flex-wrap:wrap; align-items:center;">
         <form hx-post="/build/step5/start" hx-target="#wizard" hx-swap="innerHTML" style="display:inline; margin-right:.5rem; display:flex; align-items:center; gap:.5rem;" onsubmit="try{ toast('Restarting build…'); }catch(_){}">
           <input type="hidden" name="show_skipped" value="{{ '1' if show_skipped else '0' }}" />
           <button type="submit" class="btn-continue" data-action="continue">Restart Build</button>

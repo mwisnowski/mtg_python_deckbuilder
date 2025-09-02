@@ -13,12 +13,22 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 ## [Unreleased]
 
 ### Added
+
+### Changed
+
+### Fixed
+
+## [2.2.4] - 2025-09-02
+
+### Added
+- Mobile: Collapsible left sidebar with persisted state; sticky build controls adjusted for mobile header.
+- New Deck modal integrates Multi-Copy suggestions (opt-in) and commander/theme preview.
 - Web: Setup/Refresh prompt modal shown on Create when environment is missing or stale; routes to `/setup/running` (force on stale) and transitions into the progress view. Template: `web/templates/build/_setup_prompt_modal.html`.
 - Orchestrator helpers: `is_setup_ready()` and `is_setup_stale()` for non-invasive readiness/staleness checks from the UI.
 - Env flags for setup behavior: `WEB_AUTO_SETUP` (default 1) to enable/disable auto setup, and `WEB_AUTO_REFRESH_DAYS` (default 7) to tune staleness.
- - Step 5 error context helper: `web/services/build_utils.step5_error_ctx()` to standardize error payloads for `_step5.html`.
- - Templates: reusable lock/unlock button macro at `web/templates/partials/_macros.html`.
- - Templates: Alternatives panel partial at `web/templates/build/_alternatives.html` (renders candidates with Owned-only toggle and Replace actions).
+- Step 5 error context helper: `web/services/build_utils.step5_error_ctx()` to standardize error payloads for `_step5.html`.
+- Templates: reusable lock/unlock button macro at `web/templates/partials/_macros.html`.
+- Templates: Alternatives panel partial at `web/templates/build/_alternatives.html` (renders candidates with Owned-only toggle and Replace actions).
 
 ### Tests
 - Added smoke/unit tests covering:
@@ -28,6 +38,8 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
   - `build_utils.step5_error_ctx()` shape and flags
 
 ### Changed
+- Mobile UI scaling and layout fixed across steps; overlap in DevTools emulation resolved with CSS variable offsets for sticky elements.
+- Multi-Copy is now explicitly opt-in from the New Deck modal; suggestions are filtered to only show archetypes whose matched tags intersect the user-selected themes (e.g., Rabbit Kindred shows only Hare Apparent).
 - Web cleanup: centralized combos/synergies detection and model/version loading in `web/services/combo_utils.py` and refactored routes to use it:
   - `routes/build.py` (Combos panel), `routes/configs.py` (run results), `routes/decks.py` (finished/compare), and diagnostics endpoint in `app.py`.
 - Create (New Deck) flow: no longer auto-runs setup on submit; instead presents a modal prompt to run setup/refresh when needed.
@@ -50,6 +62,8 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
   - Build: Extended Step 5 error handling to Continue, Rerun, and Rewind using `step5_error_ctx()`.
 
 ### Fixed
+- Continue button responsiveness on mobile fixed (eliminated sticky overlap); Multi-Copy application preserved across New Deck submit; emulator misclicks resolved.
+- Banner subtitle now stays inline inside the header when the menu is collapsed (no overhang/wrap to a new row).
 - Docker: normalized line endings for `entrypoint.sh` during image build to avoid `env: 'sh\r': No such file or directory` on Windows checkouts.
 
 ### Removed

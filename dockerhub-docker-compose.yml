@@ -1,27 +1,27 @@
 services:
   web:
     image: mwisnowski/mtg-python-deckbuilder:latest
-  # Tip: pin to a specific tag when available, e.g. :2.2.1
+  # Tip: pin to a specific tag when available, e.g. :2.2.2
     container_name: mtg-deckbuilder-web
     ports:
       - "8080:8080"  # Host:Container — open http://localhost:8080
     environment:
       # UI features/flags (all optional)
-      - SHOW_LOGS=1           # 1=enable /logs page; 0=hide (default off if unset)
-      - SHOW_DIAGNOSTICS=1    # 1=enable /diagnostics & /diagnostics/perf; 0=hide (default off)
-      - ENABLE_PWA=0          # 1=serve manifest/service worker (experimental); 0=disabled
-      - WEB_VIRTUALIZE=1      # 1=enable list virtualization/lazy tweaks in Web UI; 0=off
-      - WEB_TAG_PARALLEL=1    # 1=parallelize heavy tagging steps in Web UI; 0=serial
-      - WEB_TAG_WORKERS=4     # Worker count for parallel tagging (only used if WEB_TAG_PARALLEL=1)
+      SHOW_LOGS: "1"          # 1=enable /logs page; 0=hide (default off if unset)
+      SHOW_DIAGNOSTICS: "1"   # 1=enable /diagnostics & /diagnostics/perf; 0=hide (default off)
+      ENABLE_PWA: "0"         # 1=serve manifest/service worker (experimental); 0=disabled
+      WEB_VIRTUALIZE: "1"     # 1=enable list virtualization/lazy tweaks in Web UI; 0=off
+      WEB_TAG_PARALLEL: "1"   # 1=parallelize heavy tagging steps in Web UI; 0=serial
+      WEB_TAG_WORKERS: "4"    # Worker count for parallel tagging (only used if WEB_TAG_PARALLEL=1)
 
       # Theming (optional)
-      - THEME=system          # Default theme for first-time visitors: system|light|dark
-                              # 'light' maps to the consolidated Light (Blend) palette
-      - ENABLE_THEMES=1       # 1=show theme selector in header; 0=hide selector
-                              # Note: THEME still applies as the default even if selector is hidden
+      THEME: "system"         # Default theme for first-time visitors: system|light|dark
+                               # 'light' maps to the consolidated Light (Blend) palette
+      ENABLE_THEMES: "1"      # 1=show theme selector in header; 0=hide selector
+                               # Note: THEME still applies as the default even if selector is hidden
 
       # Version label (optional; shown in footer/diagnostics)
-      - APP_VERSION=v2.2.1
+      APP_VERSION: "v2.2.2"
 
     volumes:
       # Persist app data locally; ensure these directories exist next to this compose file

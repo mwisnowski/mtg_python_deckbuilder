@@ -33,3 +33,6 @@
 - Existing completed pairs are counted toward the target; only missing partners are added.
 - No changes to CLI inputs for this feature in this release.
 - Headless: `tag_mode` supported from JSON/env and exported in interactive run-config JSON.
+
+## Fixes
+- Fixed an issue with the Docker Hub image not having the config files for combos/synergies/default deck json example

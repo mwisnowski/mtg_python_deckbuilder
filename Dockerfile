@@ -24,11 +24,16 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application code
 COPY code/ ./code/
 COPY mypy.ini .
+
+# Copy default configs in two locations:
+# 1) /app/config is the live path (may be overlaid by a volume)
+# 2) /app/.defaults/config is preserved in the image for first-run seeding when a volume is mounted
 COPY config/ ./config/
+COPY config/ /.defaults/config/
 RUN mkdir -p owned_cards
 
 # Create necessary directories as mount points
-RUN mkdir -p deck_files logs csv_files config
+RUN mkdir -p deck_files logs csv_files config /.defaults
 
 # Create volumes for persistent data
 VOLUME ["/app/deck_files", "/app/logs", "/app/csv_files", "/app/config", "/app/owned_cards"]

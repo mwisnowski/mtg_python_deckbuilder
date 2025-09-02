@@ -12,6 +12,17 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 
 ## [Unreleased]
 
+## [2.2.2] - 2025-09-01
+### Fixed
+- Ensure default config files are available when running with bind-mounted config directories:
+  - Dockerfile now preserves a copy of defaults at `/.defaults/config` in the image.
+  - Entrypoint seeds missing files into `/app/config` on container start (`deck.json`, `card_lists/combos.json`, `card_lists/synergies.json`).
+  - Adds a back-compat symlink `combo.json -> combos.json` if missing.
+  This resolves cases where a blank host `config/` overlay made files appear missing.
+
+### Changed
+- Example compose files updated to use `APP_VERSION=v2.2.2`.
+
 ## [2.2.1] - 2025-09-01
 ### Added
 - Combos & Synergies: detect curated two-card combos/synergies and surface them in a chip-style panel with badges (cheap/early, setup) on Step 5 and Finished Decks.

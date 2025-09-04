@@ -79,7 +79,14 @@
         <strong>Status:</strong> {{ status }}{% if stage_label %} — <em>{{ stage_label }}</em>{% endif %}
       </div>
       {% endif %}
+      {% if gated and (not status or not status.startswith('Build complete')) %}
+      <div class="alert" style="margin-top:.5rem; color:#fecaca; background:#7f1d1d; border:1px solid #991b1b; padding:.5rem .75rem; border-radius:8px;">
+        Compliance gating active — resolve violations above (replace or remove cards) to continue.
+      </div>
+      {% endif %}
 
+  {# Load compliance panel as soon as the page renders, regardless of final status #}
+  <div hx-get="/build/compliance" hx-trigger="load" hx-swap="afterend"></div>
   {% if status and status.startswith('Build complete') %}
   <div hx-get="/build/combos" hx-trigger="load" hx-swap="afterend"></div>
   {% endif %}
@@ -144,11 +151,11 @@
         </form>
         <form hx-post="/build/step5/continue" hx-target="#wizard" hx-swap="innerHTML" style="display:inline; display:flex; align-items:center; gap:.5rem;" onsubmit="try{ toast('Continuing…'); }catch(_){}">
           <input type="hidden" name="show_skipped" value="{{ '1' if show_skipped else '0' }}" />
-          <button type="submit" class="btn-continue" data-action="continue" {% if status and status.startswith('Build complete') %}disabled{% endif %}>Continue</button>
+          <button type="submit" class="btn-continue" data-action="continue" {% if (status and status.startswith('Build complete')) or gated %}disabled{% endif %}>Continue</button>
         </form>
         <form hx-post="/build/step5/rerun" hx-target="#wizard" hx-swap="innerHTML" style="display:inline; display:flex; align-items:center; gap:.5rem;" onsubmit="try{ toast('Rerunning stage…'); }catch(_){}">
           <input type="hidden" name="show_skipped" value="{{ '1' if show_skipped else '0' }}" />
-          <button type="submit" class="btn-rerun" data-action="rerun" {% if status and status.startswith('Build complete') %}disabled{% endif %}>Rerun Stage</button>
+          <button type="submit" class="btn-rerun" data-action="rerun" {% if (status and status.startswith('Build complete')) or gated %}disabled{% endif %}>Rerun Stage</button>
         </form>
         <span class="sep"></span>
     <div class="replace-toggle" role="group" aria-label="Replace toggle">
@@ -305,10 +312,8 @@
 
   <!-- controls now above -->
 
-      {% if status and status.startswith('Build complete') %}
-      {% if summary %}
+      {% if status and status.startswith('Build complete') and summary %}
         {% include "partials/deck_summary.html" %}
-      {% endif %}
       {% endif %}
     </div>
   </div>

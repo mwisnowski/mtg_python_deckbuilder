@@ -14,6 +14,163 @@ import unicodedata
 from glob import glob
 
 
+def _global_prune_disallowed_pool(b: DeckBuilder) -> None:
+    """Hard-prune disallowed categories from the working pool based on bracket limits.
+
+    This is a defensive, pool-level filter to ensure headless/JSON builds also
+    honor hard bans (e.g., no Game Changers in brackets 1–2). It complements
+    per-stage pre-filters and is safe to apply immediately after dataframes are
+    set up.
+    """
+    try:
+        limits = getattr(b, 'bracket_limits', {}) or {}
+
+        def _prune_df(df):
+            try:
+                if df is None or getattr(df, 'empty', True):
+                    return df
+                cols = getattr(df, 'columns', [])
+                name_col = 'name' if 'name' in cols else ('Card Name' if 'Card Name' in cols else None)
+                if name_col is None:
+                    return df
+                work = df
+                # 1) Game Changers: filter by authoritative name list regardless of tag presence
+                try:
+                    lim_gc = limits.get('game_changers')
+                    if lim_gc is not None and int(lim_gc) == 0 and getattr(bc, 'GAME_CHANGERS', None):
+                        gc_lower = {str(n).strip().lower() for n in getattr(bc, 'GAME_CHANGERS', [])}
+                        work = work[~work[name_col].astype(str).str.lower().isin(gc_lower)]
+                except Exception:
+                    pass
+                # 2) Additional categories rely on tags if present; skip if tag column missing
+                try:
+                    if 'themeTags' in getattr(work, 'columns', []):
+                        # Normalize a lowercase tag list column
+                        from deck_builder import builder_utils as _bu
+                        if '_ltags' not in work.columns:
+                            work = work.copy()
+                            work['_ltags'] = work['themeTags'].apply(_bu.normalize_tag_cell)
+
+                        def _has_any(lst, needles):
+                            try:
+                                return any(any(nd in t for nd in needles) for t in (lst or []))
+                            except Exception:
+                                return False
+
+                        # Build disallow map
+                        disallow = {
+                            'extra_turns': (limits.get('extra_turns') is not None and int(limits.get('extra_turns')) == 0),
+                            'mass_land_denial': (limits.get('mass_land_denial') is not None and int(limits.get('mass_land_denial')) == 0),
+                            'tutors_nonland': (limits.get('tutors_nonland') is not None and int(limits.get('tutors_nonland')) == 0),
+                        }
+                        syn = {
+                            'extra_turns': {'bracket:extraturn', 'extra turn', 'extra turns', 'extraturn'},
+                            'mass_land_denial': {'bracket:masslanddenial', 'mass land denial', 'mld', 'masslanddenial'},
+                            'tutors_nonland': {'bracket:tutornonland', 'tutor', 'tutors', 'nonland tutor', 'non-land tutor'},
+                        }
+                        if any(disallow.values()):
+                            mask_keep = [True] * len(work)
+                            tags_series = work['_ltags']
+                            for key, dis in disallow.items():
+                                if not dis:
+                                    continue
+                                needles = syn.get(key, set())
+                                drop_idx = tags_series.apply(lambda lst, nd=needles: _has_any(lst, nd))
+                                mask_keep = [mk and (not di) for mk, di in zip(mask_keep, drop_idx.tolist())]
+                            try:
+                                import pandas as _pd  # type: ignore
+                                mask_keep = _pd.Series(mask_keep, index=work.index)
+                            except Exception:
+                                pass
+                            work = work[mask_keep]
+                except Exception:
+                    pass
+
+                return work
+            except Exception:
+                return df
+
+        # Apply to both pools used by phases
+        try:
+            b._combined_cards_df = _prune_df(getattr(b, '_combined_cards_df', None))
+        except Exception:
+            pass
+        try:
+            b._full_cards_df = _prune_df(getattr(b, '_full_cards_df', None))
+        except Exception:
+            pass
+    except Exception:
+        return
+
+
+def _attach_enforcement_plan(b: DeckBuilder, comp: Dict[str, Any] | None) -> Dict[str, Any] | None:
+    """When compliance FAILs, attach a non-destructive enforcement plan to show swaps in UI.
+
+    Builds a list of candidate removals per over-limit category (no mutations), then
+    attaches comp['enforcement'] with 'swaps' entries of the form
+    {removed: name, added: None, role: role} and summaries of removed names.
+    """
+    try:
+        if not isinstance(comp, dict):
+            return comp
+        if str(comp.get('overall', 'PASS')).upper() != 'FAIL':
+            return comp
+        cats = comp.get('categories') or {}
+        lib = getattr(b, 'card_library', {}) or {}
+        # Case-insensitive lookup for library names
+        lib_lower_to_orig = {str(k).strip().lower(): k for k in lib.keys()}
+        # Scoring helper mirroring enforcement: worse (higher rank) trimmed first
+        df = getattr(b, '_combined_cards_df', None)
+        def _score(name: str) -> tuple[int, float, str]:
+            try:
+                if df is not None and not getattr(df, 'empty', True) and 'name' in getattr(df, 'columns', []):
+                    r = df[df['name'].astype(str) == str(name)]
+                    if not r.empty:
+                        rank = int(r.iloc[0].get('edhrecRank') or 10**9)
+                        mv = float(r.iloc[0].get('manaValue') or r.iloc[0].get('cmc') or 0.0)
+                        return (rank, mv, str(name))
+            except Exception:
+                pass
+            return (10**9, 99.0, str(name))
+        to_remove: list[str] = []
+        for key in ('game_changers', 'extra_turns', 'mass_land_denial', 'tutors_nonland'):
+            cat = cats.get(key) or {}
+            lim = cat.get('limit')
+            cnt = int(cat.get('count', 0) or 0)
+            if lim is None or cnt <= int(lim):
+                continue
+            flagged = [n for n in (cat.get('flagged') or []) if isinstance(n, str)]
+            # Map flagged names to the canonical in-deck key (case-insensitive)
+            present_mapped: list[str] = []
+            for n in flagged:
+                n_key = str(n).strip()
+                if n_key in lib:
+                    present_mapped.append(n_key)
+                    continue
+                lk = n_key.lower()
+                if lk in lib_lower_to_orig:
+                    present_mapped.append(lib_lower_to_orig[lk])
+            present = present_mapped
+            if not present:
+                continue
+            over = cnt - int(lim)
+            present_sorted = sorted(present, key=_score, reverse=True)
+            to_remove.extend(present_sorted[:over])
+        if not to_remove:
+            return comp
+        swaps = []
+        for nm in to_remove:
+            entry = lib.get(nm) or {}
+            swaps.append({"removed": nm, "added": None, "role": entry.get('Role')})
+        enf = comp.setdefault('enforcement', {})
+        enf['removed'] = list(dict.fromkeys(to_remove))
+        enf['added'] = []
+        enf['swaps'] = swaps
+        return comp
+    except Exception:
+        return comp
+
+
 def commander_names() -> List[str]:
     tmp = DeckBuilder()
     df = tmp.load_commander_data()
@@ -777,6 +934,12 @@ def run_build(commander: str, tags: List[str], bracket: int, ideals: Dict[str, i
         except Exception:
             pass
 
+    # Defaults for return payload
+    csv_path = None
+    txt_path = None
+    summary = None
+    compliance_obj = None
+
     try:
         # Provide a no-op input function so any leftover prompts auto-accept defaults
         b = DeckBuilder(output_func=out, input_func=lambda _prompt: "", headless=True)
@@ -844,6 +1007,8 @@ def run_build(commander: str, tags: List[str], bracket: int, ideals: Dict[str, i
         try:
             b.determine_color_identity()
             b.setup_dataframes()
+            # Global safety prune of disallowed categories (e.g., Game Changers) for headless builds
+            _global_prune_disallowed_pool(b)
         except Exception as e:
             out(f"Failed to load color identity/card pool: {e}")
 
@@ -1001,9 +1166,7 @@ def run_build(commander: str, tags: List[str], bracket: int, ideals: Dict[str, i
         except Exception as e:
             out(f"Post-spell land adjust failed: {e}")
 
-        # Reporting/exports
-        csv_path = None
-        txt_path = None
+    # Reporting/exports
         try:
             if hasattr(b, 'run_reporting_phase'):
                 b.run_reporting_phase()
@@ -1031,11 +1194,38 @@ def run_build(commander: str, tags: List[str], bracket: int, ideals: Dict[str, i
                     b._display_txt_contents(txt_path)
                 except Exception:
                     pass
+                # Compute bracket compliance and save JSON alongside exports
+                try:
+                    if hasattr(b, 'compute_and_print_compliance'):
+                        rep0 = b.compute_and_print_compliance(base_stem=base)  # type: ignore[attr-defined]
+                        # Attach planning preview (no mutation) and only auto-enforce if explicitly enabled
+                        rep0 = _attach_enforcement_plan(b, rep0)
+                        try:
+                            import os as __os
+                            _auto = str(__os.getenv('WEB_AUTO_ENFORCE', '0')).strip().lower() in {"1","true","yes","on"}
+                        except Exception:
+                            _auto = False
+                        if _auto and isinstance(rep0, dict) and rep0.get('overall') == 'FAIL' and hasattr(b, 'enforce_and_reexport'):
+                            b.enforce_and_reexport(base_stem=base, mode='auto')  # type: ignore[attr-defined]
+                except Exception:
+                    pass
+                # Load compliance JSON for UI consumption
+                try:
+                    # Prefer the in-memory report (with enforcement plan) when available
+                    if rep0 is not None:
+                        compliance_obj = rep0
+                    else:
+                        import json as _json
+                        comp_path = _os.path.join('deck_files', f"{base}_compliance.json")
+                        if _os.path.exists(comp_path):
+                            with open(comp_path, 'r', encoding='utf-8') as _cf:
+                                compliance_obj = _json.load(_cf)
+                except Exception:
+                    compliance_obj = None
         except Exception as e:
             out(f"Text export failed: {e}")
 
         # Build structured summary for UI
-        summary = None
         try:
             if hasattr(b, 'build_deck_summary'):
                 summary = b.build_deck_summary()  # type: ignore[attr-defined]
@@ -1067,7 +1257,8 @@ def run_build(commander: str, tags: List[str], bracket: int, ideals: Dict[str, i
                     _json.dump(payload, f, ensure_ascii=False, indent=2)
         except Exception:
             pass
-        return {"ok": True, "log": "\n".join(logs), "csv_path": csv_path, "txt_path": txt_path, "summary": summary}
+        # Success return
+        return {"ok": True, "log": "\n".join(logs), "csv_path": csv_path, "txt_path": txt_path, "summary": summary, "compliance": compliance_obj}
     except Exception as e:
         logs.append(f"Build failed: {e}")
         return {"ok": False, "error": str(e), "log": "\n".join(logs)}
@@ -1131,7 +1322,15 @@ def _make_stages(b: DeckBuilder) -> List[Dict[str, Any]]:
             prefer_c = bool(getattr(b, 'prefer_combos', False))
         except Exception:
             prefer_c = False
-        if prefer_c:
+        # Respect bracket limits: if two-card combos are disallowed (limit == 0), skip auto-combos stage
+        allow_combos = True
+        try:
+            lim = getattr(b, 'bracket_limits', {}).get('two_card_combos')
+            if lim is not None and int(lim) == 0:
+                allow_combos = False
+        except Exception:
+            allow_combos = True
+        if prefer_c and allow_combos:
             stages.append({"key": "autocombos", "label": "Auto-Complete Combos", "runner_name": "__auto_complete_combos__"})
         # Ensure we include the theme filler step to top up to 100 cards
         if callable(getattr(b, 'fill_remaining_theme_spells', None)):
@@ -1139,7 +1338,15 @@ def _make_stages(b: DeckBuilder) -> List[Dict[str, Any]]:
     elif hasattr(b, 'add_spells_phase'):
         # For monolithic spells, insert combos BEFORE the big spells stage so additions aren't clamped away
         try:
-            if bool(getattr(b, 'prefer_combos', False)):
+            prefer_c = bool(getattr(b, 'prefer_combos', False))
+            allow_combos = True
+            try:
+                lim = getattr(b, 'bracket_limits', {}).get('two_card_combos')
+                if lim is not None and int(lim) == 0:
+                    allow_combos = False
+            except Exception:
+                allow_combos = True
+            if prefer_c and allow_combos:
                 stages.append({"key": "autocombos", "label": "Auto-Complete Combos", "runner_name": "__auto_complete_combos__"})
         except Exception:
             pass
@@ -1240,6 +1447,8 @@ def start_build_ctx(
     # Data load
     b.determine_color_identity()
     b.setup_dataframes()
+    # Apply the same global pool pruning in interactive builds for consistency
+    _global_prune_disallowed_pool(b)
     # Thread multi-copy selection onto builder for stage generation/runner
     try:
         b._web_multi_copy = (multi_copy or None)
@@ -1339,7 +1548,7 @@ def run_stage(ctx: Dict[str, Any], rerun: bool = False, show_skipped: bool = Fal
                 setattr(b, 'custom_export_base', str(custom_base))
         except Exception:
             pass
-        if not ctx.get("csv_path") and hasattr(b, 'export_decklist_csv'):
+        if not ctx.get("txt_path") and hasattr(b, 'export_decklist_text'):
             try:
                 ctx["csv_path"] = b.export_decklist_csv()  # type: ignore[attr-defined]
             except Exception as e:
@@ -1354,6 +1563,33 @@ def run_stage(ctx: Dict[str, Any], rerun: bool = False, show_skipped: bool = Fal
                     b.export_run_config_json(directory='config', filename=base + '.json')  # type: ignore[attr-defined]
                 except Exception:
                     pass
+                # Compute bracket compliance and save JSON alongside exports
+                try:
+                    if hasattr(b, 'compute_and_print_compliance'):
+                        rep0 = b.compute_and_print_compliance(base_stem=base)  # type: ignore[attr-defined]
+                        rep0 = _attach_enforcement_plan(b, rep0)
+                        try:
+                            import os as __os
+                            _auto = str(__os.getenv('WEB_AUTO_ENFORCE', '0')).strip().lower() in {"1","true","yes","on"}
+                        except Exception:
+                            _auto = False
+                        if _auto and isinstance(rep0, dict) and rep0.get('overall') == 'FAIL' and hasattr(b, 'enforce_and_reexport'):
+                            b.enforce_and_reexport(base_stem=base, mode='auto')  # type: ignore[attr-defined]
+                except Exception:
+                    pass
+                # Load compliance JSON for UI consumption
+                try:
+                    # Prefer in-memory report if available
+                    if rep0 is not None:
+                        ctx["compliance"] = rep0
+                    else:
+                        import json as _json
+                        comp_path = _os.path.join('deck_files', f"{base}_compliance.json")
+                        if _os.path.exists(comp_path):
+                            with open(comp_path, 'r', encoding='utf-8') as _cf:
+                                ctx["compliance"] = _json.load(_cf)
+                except Exception:
+                    ctx["compliance"] = None
             except Exception as e:
                 logs.append(f"Text export failed: {e}")
         # Final lock enforcement before finishing
@@ -1428,6 +1664,7 @@ def run_stage(ctx: Dict[str, Any], rerun: bool = False, show_skipped: bool = Fal
             "csv_path": ctx.get("csv_path"),
             "txt_path": ctx.get("txt_path"),
             "summary": summary,
+            "compliance": ctx.get("compliance"),
         }
 
     # Determine which stage index to run (rerun last visible, else current)
@@ -1435,6 +1672,52 @@ def run_stage(ctx: Dict[str, Any], rerun: bool = False, show_skipped: bool = Fal
         i = max(0, int(ctx.get("last_visible_idx", ctx["idx"]) or 1) - 1)
     else:
         i = ctx["idx"]
+
+    # If compliance gating is active for the current stage, do not rerun the stage; block advancement until PASS
+    try:
+        gating = ctx.get('gating') or None
+        if gating and isinstance(gating, dict) and int(gating.get('stage_idx', -1)) == int(i):
+            # Recompute compliance snapshot
+            comp_now = None
+            try:
+                if hasattr(b, 'compute_and_print_compliance'):
+                    comp_now = b.compute_and_print_compliance(base_stem=None)  # type: ignore[attr-defined]
+            except Exception:
+                comp_now = None
+            try:
+                if comp_now:
+                    comp_now = _attach_enforcement_plan(b, comp_now)  # type: ignore[attr-defined]
+            except Exception:
+                pass
+            # If still FAIL, return the saved result without advancing or rerunning
+            try:
+                if comp_now and str(comp_now.get('overall', 'PASS')).upper() == 'FAIL':
+                    # Update total_cards live before returning saved result
+                    try:
+                        total_cards = 0
+                        for _n, _e in getattr(b, 'card_library', {}).items():
+                            try:
+                                total_cards += int(_e.get('Count', 1))
+                            except Exception:
+                                total_cards += 1
+                    except Exception:
+                        total_cards = None
+                    saved = gating.get('res') or {}
+                    saved['total_cards'] = total_cards
+                    saved['gated'] = True
+                    return saved
+            except Exception:
+                pass
+            # Gating cleared: advance to the next stage without rerunning the gated one
+            try:
+                del ctx['gating']
+            except Exception:
+                ctx['gating'] = None
+            i = i + 1
+            ctx['idx'] = i
+            # continue into loop with advanced index
+    except Exception:
+        pass
 
     # Iterate forward until we find a stage that adds cards, skipping no-ops
     while i < len(stages):
@@ -1866,6 +2149,45 @@ def run_stage(ctx: Dict[str, Any], rerun: bool = False, show_skipped: bool = Fal
         except Exception:
             clamped_overflow = 0
 
+        # Compute compliance after this stage and apply gating when FAIL
+        comp = None
+        try:
+            if hasattr(b, 'compute_and_print_compliance'):
+                comp = b.compute_and_print_compliance(base_stem=None)  # type: ignore[attr-defined]
+        except Exception:
+            comp = None
+        try:
+            if comp:
+                comp = _attach_enforcement_plan(b, comp)
+        except Exception:
+            pass
+
+        # If FAIL, do not advance; save gating state and return current stage results
+        try:
+            if comp and str(comp.get('overall', 'PASS')).upper() == 'FAIL':
+                # Save a snapshot of the response to reuse while gated
+                res_hold = {
+                    "done": False,
+                    "label": label,
+                    "log_delta": delta_log,
+                    "added_cards": added_cards,
+                    "idx": i + 1,
+                    "total": len(stages),
+                    "total_cards": total_cards,
+                    "added_total": sum(int(c.get('count', 0) or 0) for c in added_cards) if added_cards else 0,
+                    "mc_adjustments": ctx.get('mc_adjustments'),
+                    "clamped_overflow": clamped_overflow,
+                    "mc_summary": ctx.get('mc_summary'),
+                    "gated": True,
+                }
+                ctx['gating'] = {"stage_idx": i, "label": label, "res": res_hold}
+                # Keep current index (do not advance)
+                ctx["snapshot"] = snap_before
+                ctx["last_visible_idx"] = i + 1
+                return res_hold
+        except Exception:
+            pass
+
         # If this stage added cards, present it and advance idx
         if added_cards:
             # Progress counts
@@ -1911,6 +2233,38 @@ def run_stage(ctx: Dict[str, Any], rerun: bool = False, show_skipped: bool = Fal
 
         # No cards added: either skip or surface as a 'skipped' stage
         if show_skipped:
+            # Compute compliance even when skipped; gate progression if FAIL
+            comp = None
+            try:
+                if hasattr(b, 'compute_and_print_compliance'):
+                    comp = b.compute_and_print_compliance(base_stem=None)  # type: ignore[attr-defined]
+            except Exception:
+                comp = None
+            try:
+                if comp:
+                    comp = _attach_enforcement_plan(b, comp)
+            except Exception:
+                pass
+            try:
+                if comp and str(comp.get('overall', 'PASS')).upper() == 'FAIL':
+                    res_hold = {
+                        "done": False,
+                        "label": label,
+                        "log_delta": delta_log,
+                        "added_cards": [],
+                        "skipped": True,
+                        "idx": i + 1,
+                        "total": len(stages),
+                        "total_cards": total_cards,
+                        "added_total": 0,
+                        "gated": True,
+                    }
+                    ctx['gating'] = {"stage_idx": i, "label": label, "res": res_hold}
+                    ctx["snapshot"] = snap_before
+                    ctx["last_visible_idx"] = i + 1
+                    return res_hold
+            except Exception:
+                pass
             # Progress counts even when skipped
             try:
                 total_cards = 0
@@ -1945,7 +2299,39 @@ def run_stage(ctx: Dict[str, Any], rerun: bool = False, show_skipped: bool = Fal
                 "added_total": 0,
             }
 
-        # No cards added and not showing skipped: advance to next stage and continue loop
+        # No cards added and not showing skipped: advance to next stage unless compliance FAIL gates progression
+        try:
+            comp = None
+            try:
+                if hasattr(b, 'compute_and_print_compliance'):
+                    comp = b.compute_and_print_compliance(base_stem=None)  # type: ignore[attr-defined]
+            except Exception:
+                comp = None
+            try:
+                if comp:
+                    comp = _attach_enforcement_plan(b, comp)
+            except Exception:
+                pass
+            if comp and str(comp.get('overall', 'PASS')).upper() == 'FAIL':
+                # Gate here with a skipped stage result
+                res_hold = {
+                    "done": False,
+                    "label": label,
+                    "log_delta": delta_log,
+                    "added_cards": [],
+                    "skipped": True,
+                    "idx": i + 1,
+                    "total": len(stages),
+                    "total_cards": total_cards,
+                    "added_total": 0,
+                    "gated": True,
+                }
+                ctx['gating'] = {"stage_idx": i, "label": label, "res": res_hold}
+                ctx["snapshot"] = snap_before
+                ctx["last_visible_idx"] = i + 1
+                return res_hold
+        except Exception:
+            pass
         i += 1
         # Continue loop to auto-advance
 
@@ -1973,6 +2359,32 @@ def run_stage(ctx: Dict[str, Any], rerun: bool = False, show_skipped: bool = Fal
                 b.export_run_config_json(directory='config', filename=base + '.json')  # type: ignore[attr-defined]
             except Exception:
                 pass
+            # Compute bracket compliance and save JSON alongside exports
+            try:
+                if hasattr(b, 'compute_and_print_compliance'):
+                    rep0 = b.compute_and_print_compliance(base_stem=base)  # type: ignore[attr-defined]
+                    rep0 = _attach_enforcement_plan(b, rep0)
+                    try:
+                        import os as __os
+                        _auto = str(__os.getenv('WEB_AUTO_ENFORCE', '0')).strip().lower() in {"1","true","yes","on"}
+                    except Exception:
+                        _auto = False
+                    if _auto and isinstance(rep0, dict) and rep0.get('overall') == 'FAIL' and hasattr(b, 'enforce_and_reexport'):
+                        b.enforce_and_reexport(base_stem=base, mode='auto')  # type: ignore[attr-defined]
+            except Exception:
+                pass
+            # Load compliance JSON for UI consumption
+            try:
+                if rep0 is not None:
+                    ctx["compliance"] = rep0
+                else:
+                    import json as _json
+                    comp_path = _os.path.join('deck_files', f"{base}_compliance.json")
+                    if _os.path.exists(comp_path):
+                        with open(comp_path, 'r', encoding='utf-8') as _cf:
+                            ctx["compliance"] = _json.load(_cf)
+            except Exception:
+                ctx["compliance"] = None
         except Exception as e:
             logs.append(f"Text export failed: {e}")
     # Build structured summary for UI
@@ -2029,4 +2441,5 @@ def run_stage(ctx: Dict[str, Any], rerun: bool = False, show_skipped: bool = Fal
         "summary": summary,
         "total_cards": total_cards,
         "added_total": 0,
+        "compliance": ctx.get("compliance"),
     }

@@ -1,34 +1,77 @@
 services:
   web:
     image: mwisnowski/mtg-python-deckbuilder:latest
-  # Tip: pin to a specific tag when available, e.g. :2.2.2
     container_name: mtg-deckbuilder-web
     ports:
       - "8080:8080"  # Host:Container — open http://localhost:8080
     environment:
-      # UI features/flags (all optional)
-      SHOW_LOGS: "1"          # 1=enable /logs page; 0=hide (default off if unset)
-      SHOW_DIAGNOSTICS: "1"   # 1=enable /diagnostics & /diagnostics/perf; 0=hide (default off)
-      ENABLE_PWA: "0"         # 1=serve manifest/service worker (experimental); 0=disabled
-      WEB_VIRTUALIZE: "1"     # 1=enable list virtualization/lazy tweaks in Web UI; 0=off
-      WEB_TAG_PARALLEL: "1"   # 1=parallelize heavy tagging steps in Web UI; 0=serial
-      WEB_TAG_WORKERS: "4"    # Worker count for parallel tagging (only used if WEB_TAG_PARALLEL=1)
+      PYTHONUNBUFFERED: "1"
+      TERM: "xterm-256color"
+      DEBIAN_FRONTEND: "noninteractive"
 
-      # Theming (optional)
-      THEME: "system"         # Default theme for first-time visitors: system|light|dark
-                               # 'light' maps to the consolidated Light (Blend) palette
-      ENABLE_THEMES: "1"      # 1=show theme selector in header; 0=hide selector
-                               # Note: THEME still applies as the default even if selector is hidden
+      # UI features/flags
+      SHOW_LOGS: "1"
+      SHOW_SETUP: "1"
+      SHOW_DIAGNOSTICS: "1"
+      ENABLE_PWA: "0"
+      ENABLE_THEMES: "1"
+      ENABLE_PRESETS: "0"
+      WEB_VIRTUALIZE: "1"
 
-      # Version label (optional; shown in footer/diagnostics)
-      APP_VERSION: "v2.2.3"
+      # Theming
+      THEME: "system"
 
+      # Setup/Tagging performance
+      WEB_AUTO_SETUP: "1"
+      WEB_AUTO_REFRESH_DAYS: "7"
+      WEB_TAG_PARALLEL: "1"
+      WEB_TAG_WORKERS: "4"
+
+      # Compliance/exports
+      WEB_AUTO_ENFORCE: "0"
+      APP_VERSION: "v2.2.5"
+      # WEB_CUSTOM_EXPORT_BASE: ""
+
+      # Paths (optional overrides)
+      # DECK_EXPORTS: "/app/deck_files"
+      # DECK_CONFIG: "/app/config"
+      # OWNED_CARDS_DIR: "/app/owned_cards"
+      # CARD_LIBRARY_DIR: "/app/owned_cards"
+
+      # Headless-only settings
+      # DECK_MODE: "headless"
+      # HEADLESS_EXPORT_JSON: "1"
+      # DECK_COMMANDER: ""
+      # DECK_PRIMARY_CHOICE: "1"
+      # DECK_SECONDARY_CHOICE: ""
+      # DECK_TERTIARY_CHOICE: ""
+      # DECK_PRIMARY_TAG: ""
+      # DECK_SECONDARY_TAG: ""
+      # DECK_TERTIARY_TAG: ""
+      # DECK_BRACKET_LEVEL: "3"
+      # DECK_ADD_LANDS: "1"
+      # DECK_ADD_CREATURES: "1"
+      # DECK_ADD_NON_CREATURE_SPELLS: "1"
+      # DECK_ADD_RAMP: "1"
+      # DECK_ADD_REMOVAL: "1"
+      # DECK_ADD_WIPES: "1"
+      # DECK_ADD_CARD_ADVANTAGE: "1"
+      # DECK_ADD_PROTECTION: "1"
+      # DECK_FETCH_COUNT: "3"
+      # DECK_DUAL_COUNT: ""
+      # DECK_TRIPLE_COUNT: ""
+      # DECK_UTILITY_COUNT: ""
+      # DECK_TAG_MODE: "AND"
+
+      # Entrypoint knobs
+      # APP_MODE: "web"
+      # HOST: "0.0.0.0"
+      # PORT: "8080"
+      # WORKERS: "1"
     volumes:
-      # Persist app data locally; ensure these directories exist next to this compose file
       - ${PWD}/deck_files:/app/deck_files
       - ${PWD}/logs:/app/logs
       - ${PWD}/csv_files:/app/csv_files
       - ${PWD}/config:/app/config
       - ${PWD}/owned_cards:/app/owned_cards
-
     restart: unless-stopped

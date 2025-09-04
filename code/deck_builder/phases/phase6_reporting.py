@@ -26,6 +26,176 @@ class ReportingMixin:
         self.print_card_library(table=True)
     """Phase 6: Reporting, summaries, and export helpers."""
 
+    def enforce_and_reexport(self, base_stem: str | None = None, mode: str = "prompt") -> dict:
+        """Run bracket enforcement, then re-export CSV/TXT and recompute compliance.
+
+        mode: 'prompt' for CLI interactive; 'auto' for headless/web.
+        Returns the final compliance report dict.
+        """
+        try:
+            # Lazy import to avoid cycles
+            from deck_builder.enforcement import enforce_bracket_compliance  # type: ignore
+        except Exception:
+            self.output_func("Enforcement module unavailable.")
+            return {}
+
+        # Enforce
+        report = enforce_bracket_compliance(self, mode=mode)
+        # If enforcement removed cards without enough replacements, top up to 100 using theme filler
+        try:
+            total_cards = 0
+            for _n, _e in getattr(self, 'card_library', {}).items():
+                try:
+                    total_cards += int(_e.get('Count', 1))
+                except Exception:
+                    total_cards += 1
+            if int(total_cards) < 100 and hasattr(self, 'fill_remaining_theme_spells'):
+                before = int(total_cards)
+                try:
+                    self.fill_remaining_theme_spells()  # type: ignore[attr-defined]
+                except Exception:
+                    pass
+                # Recompute after filler
+                try:
+                    total_cards = 0
+                    for _n, _e in getattr(self, 'card_library', {}).items():
+                        try:
+                            total_cards += int(_e.get('Count', 1))
+                        except Exception:
+                            total_cards += 1
+                except Exception:
+                    total_cards = before
+                try:
+                    self.output_func(f"Topped up deck to {total_cards}/100 after enforcement.")
+                except Exception:
+                    pass
+        except Exception:
+            pass
+        # Print what changed
+        try:
+            enf = report.get('enforcement') or {}
+            removed = list(enf.get('removed') or [])
+            added = list(enf.get('added') or [])
+            if removed or added:
+                self.output_func("\nEnforcement Summary (swaps):")
+                if removed:
+                    self.output_func("Removed:")
+                    for n in removed:
+                        self.output_func(f"  - {n}")
+                if added:
+                    self.output_func("Added:")
+                    for n in added:
+                        self.output_func(f"  + {n}")
+        except Exception:
+            pass
+        # Re-export using same base, if provided
+        try:
+            import os as _os
+            import json as _json
+            if isinstance(base_stem, str) and base_stem.strip():
+                # Mirror CSV/TXT export naming
+                csv_name = base_stem + ".csv"
+                txt_name = base_stem + ".txt"
+                # Overwrite exports with updated library
+                self.export_decklist_csv(directory='deck_files', filename=csv_name, suppress_output=True)  # type: ignore[attr-defined]
+                self.export_decklist_text(directory='deck_files', filename=txt_name, suppress_output=True)  # type: ignore[attr-defined]
+                # Recompute and write compliance next to them
+                self.compute_and_print_compliance(base_stem=base_stem)  # type: ignore[attr-defined]
+                # Inject enforcement details into the saved compliance JSON for UI transparency
+                comp_path = _os.path.join('deck_files', f"{base_stem}_compliance.json")
+                try:
+                    if _os.path.exists(comp_path) and isinstance(report, dict) and report.get('enforcement'):
+                        with open(comp_path, 'r', encoding='utf-8') as _f:
+                            comp_obj = _json.load(_f)
+                        comp_obj['enforcement'] = report.get('enforcement')
+                        with open(comp_path, 'w', encoding='utf-8') as _f:
+                            _json.dump(comp_obj, _f, indent=2)
+                except Exception:
+                    pass
+            else:
+                # Fall back to default export flow
+                csv_path = self.export_decklist_csv()  # type: ignore[attr-defined]
+                try:
+                    base, _ = _os.path.splitext(csv_path)
+                    base_only = _os.path.basename(base)
+                except Exception:
+                    base_only = None
+                self.export_decklist_text(filename=(base_only + '.txt') if base_only else None)  # type: ignore[attr-defined]
+                if base_only:
+                    self.compute_and_print_compliance(base_stem=base_only)  # type: ignore[attr-defined]
+                    # Inject enforcement into written JSON as above
+                    try:
+                        comp_path = _os.path.join('deck_files', f"{base_only}_compliance.json")
+                        if _os.path.exists(comp_path) and isinstance(report, dict) and report.get('enforcement'):
+                            with open(comp_path, 'r', encoding='utf-8') as _f:
+                                comp_obj = _json.load(_f)
+                            comp_obj['enforcement'] = report.get('enforcement')
+                            with open(comp_path, 'w', encoding='utf-8') as _f:
+                                _json.dump(comp_obj, _f, indent=2)
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+        return report
+
+    def compute_and_print_compliance(self, base_stem: str | None = None) -> dict:
+        """Compute bracket compliance, print a compact summary, and optionally write a JSON report.
+
+        If base_stem is provided, writes deck_files/{base_stem}_compliance.json.
+        Returns the compliance report dict.
+        """
+        try:
+            # Late import to avoid circulars in some environments
+            from deck_builder.brackets_compliance import evaluate_deck  # type: ignore
+        except Exception:
+            self.output_func("Bracket compliance module unavailable.")
+            return {}
+
+        try:
+            bracket_key = str(getattr(self, 'bracket_name', '') or getattr(self, 'bracket_level', 'core')).lower()
+            commander = getattr(self, 'commander_name', None)
+            report = evaluate_deck(self.card_library, commander_name=commander, bracket=bracket_key)
+        except Exception as e:
+            self.output_func(f"Compliance evaluation failed: {e}")
+            return {}
+
+        # Print concise summary
+        try:
+            self.output_func("\nBracket Compliance:")
+            self.output_func(f"  Overall: {report.get('overall', 'PASS')}")
+            cats = report.get('categories', {}) or {}
+            order = [
+                ('game_changers', 'Game Changers'),
+                ('mass_land_denial', 'Mass Land Denial'),
+                ('extra_turns', 'Extra Turns'),
+                ('tutors_nonland', 'Nonland Tutors'),
+                ('two_card_combos', 'Two-Card Combos'),
+            ]
+            for key, label in order:
+                c = cats.get(key, {}) or {}
+                cnt = int(c.get('count', 0) or 0)
+                lim = c.get('limit')
+                status = str(c.get('status') or 'PASS')
+                lim_txt = ('Unlimited' if lim is None else str(int(lim)))
+                self.output_func(f"  {label:<16} {cnt} / {lim_txt}  [{status}]")
+        except Exception:
+            pass
+
+        # Optionally write JSON report next to exports
+        if isinstance(base_stem, str) and base_stem.strip():
+            try:
+                import os as _os
+                _os.makedirs('deck_files', exist_ok=True)
+                path = _os.path.join('deck_files', f"{base_stem}_compliance.json")
+                import json as _json
+                with open(path, 'w', encoding='utf-8') as f:
+                    _json.dump(report, f, indent=2)
+                self.output_func(f"Compliance report saved to {path}")
+            except Exception:
+                pass
+
+        return report
+
     def _wrap_cell(self, text: str, width: int = 28) -> str:
         """Wraps a string to a specified width for table display.
         Used for pretty-printing card names, roles, and tags in tabular output.

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Dict, List, TypedDict, Union
+from typing import Dict, List, TypedDict, Union, Optional, Literal
 import pandas as pd
 
 class CardDict(TypedDict):
@@ -48,3 +48,24 @@ InstantDF = pd.DataFrame
 PlaneswalkerDF = pd.DataFrame
 NonPlaneswalkerDF = pd.DataFrame
 SorceryDF = pd.DataFrame
+
+# Bracket compliance typing
+Verdict = Literal["PASS", "WARN", "FAIL"]
+
+class CategoryFinding(TypedDict, total=False):
+    count: int
+    limit: Optional[int]
+    flagged: List[str]
+    status: Verdict
+    notes: List[str]
+
+class ComplianceReport(TypedDict, total=False):
+    bracket: str
+    level: int
+    enforcement: Literal["validate", "prefer", "strict"]
+    overall: Verdict
+    commander_flagged: bool
+    categories: Dict[str, CategoryFinding]
+    combos: List[Dict[str, Union[str, bool]]]
+    list_versions: Dict[str, Optional[str]]
+    messages: List[str]

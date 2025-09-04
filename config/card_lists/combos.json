@@ -1,6 +1,6 @@
 {
   "list_version": "0.3.0",
-  "generated_at": null,
+  "generated_at": "2025-09-03T15:30:32+00:00",
   "pairs": [
     { "a": "Thassa's Oracle", "b": "Demonic Consultation", "cheap_early": true, "setup_dependent": false, "tags": ["wincon"] },
     { "a": "Thassa's Oracle", "b": "Tainted Pact", "cheap_early": true, "setup_dependent": false, "tags": ["wincon"] },

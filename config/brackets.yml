@@ -1,0 +1,47 @@
+# Bracket policy limits (None means unlimited)
+# Mirrors defaults in code.deck_builder.phases.phase0_core.BRACKET_DEFINITIONS
+exhibition:
+  level: 1
+  name: Exhibition
+  limits:
+    game_changers: 0
+    mass_land_denial: 0
+    extra_turns: 0
+    tutors_nonland: 3
+    two_card_combos: 0
+core:
+  level: 2
+  name: Core
+  limits:
+    game_changers: 0
+    mass_land_denial: 0
+    extra_turns: 3
+    tutors_nonland: 3
+    two_card_combos: 0
+upgraded:
+  level: 3
+  name: Upgraded
+  limits:
+    game_changers: 3
+    mass_land_denial: 0
+    extra_turns: 3
+    tutors_nonland: null
+    two_card_combos: 0
+optimized:
+  level: 4
+  name: Optimized
+  limits:
+    game_changers: null
+    mass_land_denial: null
+    extra_turns: null
+    tutors_nonland: null
+    two_card_combos: null
+cedh:
+  level: 5
+  name: cEDH
+  limits:
+    game_changers: null
+    mass_land_denial: null
+    extra_turns: null
+    tutors_nonland: null
+    two_card_combos: null

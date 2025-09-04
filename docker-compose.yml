@@ -1,29 +1,4 @@
 services:
-  # Command line driven build
-  # mtg-deckbuilder:
-  #   build: .
-  #   container_name: mtg-deckbuilder-main
-  #   stdin_open: true          # Equivalent to docker run -i
-  #   tty: true                 # Equivalent to docker run -t
-  #   volumes:
-  #     - ${PWD}/deck_files:/app/deck_files
-  #     - ${PWD}/logs:/app/logs
-  #     - ${PWD}/csv_files:/app/csv_files
-  #     # Optional: mount a config directory for headless JSON and owned cards
-  #     - ${PWD}/config:/app/config
-  #     - ${PWD}/owned_cards:/app/owned_cards
-  #   environment:
-  #     - PYTHONUNBUFFERED=1
-  #     - TERM=xterm-256color
-  #     - DEBIAN_FRONTEND=noninteractive
-  #   # Set DECK_MODE=headless to auto-run non-interactive mode on start
-  #   # - DECK_MODE=headless
-  #   # Optional headless configuration (examples):
-  #   # - DECK_CONFIG=/app/config/deck.json
-  #   # - DECK_COMMANDER=Pantlaza
-  #   # Ensure proper cleanup
-  #   restart: "no"
-
   web:
     build: .
     container_name: mtg-deckbuilder-web
@@ -33,21 +8,66 @@ services:
       PYTHONUNBUFFERED: "1"
       TERM: "xterm-256color"
       DEBIAN_FRONTEND: "noninteractive"
-      # Default theme for first-time visitors (no local preference yet): system|light|dark
-      # When set to 'light', it maps to the consolidated Light (Blend) palette in the UI
-      # ENABLE_THEMES: "1"
-      THEME: "dark"
-      # Logging and error utilities
-      SHOW_LOGS: "1"
-      SHOW_DIAGNOSTICS: "1"
-      # ENABLE_PWA: "1"
-      # Speed up setup/tagging in Web UI via parallel workers
-      WEB_TAG_PARALLEL: "1"
-      WEB_TAG_WORKERS: "4"
-      # Enable virtualization + lazy image tweaks in Step 5
-      WEB_VIRTUALIZE: "1"
-      # Version label (optional; shown in footer/diagnostics)
-      APP_VERSION: "v2.2.3"
+
+      # UI features/flags
+      SHOW_LOGS: "1"                # 1=enable /logs page; 0=hide
+      SHOW_SETUP: "1"               # 1=show Setup/Tagging card; 0=hide (still runs if WEB_AUTO_SETUP=1)
+      SHOW_DIAGNOSTICS: "1"         # 1=enable /diagnostics & /diagnostics/perf; 0=hide
+      ENABLE_PWA: "0"               # 1=serve manifest/service worker (experimental)
+      ENABLE_THEMES: "1"            # 1=expose theme selector; 0=hide (THEME still applied)
+      ENABLE_PRESETS: "0"           # 1=show presets section
+      WEB_VIRTUALIZE: "1"           # 1=enable list virtualization in Step 5
+
+      # Theming
+      THEME: "dark"                 # system|light|dark
+
+      # Setup/Tagging performance
+      WEB_AUTO_SETUP: "1"           # 1=auto-run setup/tagging when needed
+      WEB_AUTO_REFRESH_DAYS: "7"    # Refresh cards.csv if older than N days; 0=never
+      WEB_TAG_PARALLEL: "1"         # 1=parallelize tagging
+      WEB_TAG_WORKERS: "4"          # Worker count when parallel tagging
+
+      # Compliance/exports
+      WEB_AUTO_ENFORCE: "0"         # 1=auto-apply bracket enforcement and re-export
+      APP_VERSION: "v2.2.5"         # Optional label shown in footer
+      # WEB_CUSTOM_EXPORT_BASE: ""   # Optional custom export basename
+
+      # Paths (optional overrides)
+      # DECK_EXPORTS: "/app/deck_files"     # Where the deck browser looks for exports
+      # DECK_CONFIG: "/app/config"          # Where the config browser looks for *.json
+      # OWNED_CARDS_DIR: "/app/owned_cards" # Preferred path for owned inventory uploads
+      # CARD_LIBRARY_DIR: "/app/owned_cards" # Back-compat alias for OWNED_CARDS_DIR
+
+      # Headless-only settings
+      # DECK_MODE: "headless"               # Auto-run headless flow in CLI mode
+      # HEADLESS_EXPORT_JSON: "1"           # 1=export resolved run config JSON
+      # DECK_COMMANDER: ""                  # Commander name query
+      # DECK_PRIMARY_CHOICE: "1"            # Primary tag index (1-based)
+      # DECK_SECONDARY_CHOICE: ""           # Optional secondary index
+      # DECK_TERTIARY_CHOICE: ""            # Optional tertiary index
+      # DECK_PRIMARY_TAG: ""                # Or tag names instead of indices
+      # DECK_SECONDARY_TAG: ""
+      # DECK_TERTIARY_TAG: ""
+      # DECK_BRACKET_LEVEL: "3"             # 1–5
+      # DECK_ADD_LANDS: "1"
+      # DECK_ADD_CREATURES: "1"
+      # DECK_ADD_NON_CREATURE_SPELLS: "1"
+      # DECK_ADD_RAMP: "1"
+      # DECK_ADD_REMOVAL: "1"
+      # DECK_ADD_WIPES: "1"
+      # DECK_ADD_CARD_ADVANTAGE: "1"
+      # DECK_ADD_PROTECTION: "1"
+      # DECK_FETCH_COUNT: "3"
+      # DECK_DUAL_COUNT: ""
+      # DECK_TRIPLE_COUNT: ""
+      # DECK_UTILITY_COUNT: ""
+      # DECK_TAG_MODE: "AND"                # AND|OR (if supported)
+
+      # Entrypoint knobs (only if you change the entrypoint behavior)
+      # APP_MODE: "web"                     # web|cli — selects uvicorn vs CLI
+      # HOST: "0.0.0.0"                     # Uvicorn bind host
+      # PORT: "8080"                        # Uvicorn port
+      # WORKERS: "1"                        # Uvicorn workers
     volumes:
       - ${PWD}/deck_files:/app/deck_files
       - ${PWD}/logs:/app/logs

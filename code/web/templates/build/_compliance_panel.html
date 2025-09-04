@@ -1,0 +1,46 @@
+{% if compliance %}
+<details id="compliance-panel" style="margin-top:.75rem;">
+  <summary>Bracket compliance</summary>
+  <div class="muted" style="margin:.35rem 0;">Overall: <strong>{{ compliance.overall }}</strong> (Bracket: {{ compliance.bracket|title }}{{ ' #' ~ compliance.level if compliance.level is defined }})</div>
+  {% if compliance.messages and compliance.messages|length > 0 %}
+    <ul style="margin:.25rem 0; padding-left:1.25rem;">
+      {% for m in compliance.messages %}
+      <li>{{ m }}</li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+
+  {# Flagged tiles by category, in the same card grid style #}
+  {% if flagged_meta and flagged_meta|length > 0 %}
+    <h5 style="margin:.75rem 0 .35rem 0;">Flagged cards</h5>
+    <div class="card-grid">
+      {% for f in flagged_meta %}
+      <div class="card-tile" data-card-name="{{ f.name }}" data-role="{{ f.role or '' }}">
+        <a href="https://scryfall.com/search?q={{ f.name|urlencode }}" target="_blank" rel="noopener" class="img-btn" title="{{ f.name }}">
+          <img class="card-thumb" src="https://api.scryfall.com/cards/named?fuzzy={{ f.name|urlencode }}&format=image&version=normal" alt="{{ f.name }} image" width="160" loading="lazy" decoding="async" data-lqip="1"
+            srcset="https://api.scryfall.com/cards/named?fuzzy={{ f.name|urlencode }}&format=image&version=small 160w, https://api.scryfall.com/cards/named?fuzzy={{ f.name|urlencode }}&format=image&version=normal 488w, https://api.scryfall.com/cards/named?fuzzy={{ f.name|urlencode }}&format=image&version=large 672w"
+            sizes="160px" />
+        </a>
+        <div class="owned-badge" title="{{ 'Owned' if f.owned else 'Not owned' }}" aria-label="{{ 'Owned' if f.owned else 'Not owned' }}">{% if f.owned %}✔{% else %}✖{% endif %}</div>
+        <div class="name">{{ f.name }}</div>
+        <div class="muted" style="text-align:center; font-size:12px;">{{ f.category }}{% if f.role %} • {{ f.role }}{% endif %}</div>
+        <div style="display:flex; justify-content:center; margin-top:.25rem;">
+          {# Role-aware alternatives: pass the flagged name; server will infer role and exclude in-deck/locked #}
+          <button type="button" class="btn" hx-get="/build/alternatives" hx-vals='{"name": "{{ f.name }}"}' hx-target="#alts-flag-{{ loop.index0 }}" hx-swap="innerHTML" title="Suggest role-consistent replacements">Pick replacement…</button>
+        </div>
+        <div id="alts-flag-{{ loop.index0 }}" class="alts" style="margin-top:.25rem;"></div>
+      </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  {% if compliance.enforcement %}
+    <div style="margin-top:.75rem; display:flex; gap:1rem; flex-wrap:wrap; align-items:center;">
+      <form hx-post="/build/enforce/apply" hx-target="#wizard" hx-swap="innerHTML" style="display:inline;">
+        <button type="submit" class="btn-rerun">Apply enforcement now</button>
+      </form>
+      <div class="muted">Tip: pick replacements first; your choices are honored during enforcement.</div>
+    </div>
+  {% endif %}
+</details>
+{% endif %}

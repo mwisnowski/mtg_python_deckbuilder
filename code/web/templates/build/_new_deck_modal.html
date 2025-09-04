@@ -40,11 +40,13 @@
           <input type="hidden" name="tag_mode" value="AND" />
         </div>
   <div id="newdeck-multicopy-slot" class="muted" style="margin-top:.5rem; min-height:1rem;"></div>
-        <div style="margin-top:.5rem;">
+        <div style="margin-top:.5rem;" id="newdeck-bracket-slot">
           <label>Bracket
             <select name="bracket">
               {% for b in brackets %}
-              <option value="{{ b.level }}" {% if (form and form.bracket and form.bracket == b.level) or (not form and b.level == 3) %}selected{% endif %}>Bracket {{ b.level }}: {{ b.name }}</option>
+                {% if not gc_commander or b.level >= 3 %}
+                <option value="{{ b.level }}" {% if (form and form.bracket and form.bracket == b.level) or (not form and b.level == 3) %}selected{% endif %}>Bracket {{ b.level }}: {{ b.name }}</option>
+                {% endif %}
               {% endfor %}
             </select>
           </label>

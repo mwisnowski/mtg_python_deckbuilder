@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import math
 from typing import List, Dict
+import os
 
 from .. import builder_utils as bu
 from .. import builder_constants as bc
@@ -15,6 +16,99 @@ class SpellAdditionMixin:
     Extracted intact from monolithic builder. Logic intentionally unchanged; future refinements
     (e.g., further per-category sub-mixins) can split this class if complexity grows.
     """
+
+    def _apply_bracket_pre_filters(self, df):
+        """Preemptively filter disallowed categories for the current bracket.
+
+        Excludes when bracket limit == 0 for a category:
+        - Game Changers
+        - Extra Turns
+        - Mass Land Denial (MLD)
+        - Nonland Tutors
+        """
+        try:
+            if df is None or getattr(df, 'empty', False):
+                return df
+            limits = getattr(self, 'bracket_limits', {}) or {}
+            # Determine which categories are hard-disallowed
+            disallow = {
+                'game_changers': (limits.get('game_changers') is not None and int(limits.get('game_changers')) == 0),
+                'extra_turns': (limits.get('extra_turns') is not None and int(limits.get('extra_turns')) == 0),
+                'mass_land_denial': (limits.get('mass_land_denial') is not None and int(limits.get('mass_land_denial')) == 0),
+                'tutors_nonland': (limits.get('tutors_nonland') is not None and int(limits.get('tutors_nonland')) == 0),
+            }
+            if not any(disallow.values()):
+                return df
+            # Normalize tags helper
+            def norm_tags(val):
+                try:
+                    return [str(t).strip().lower() for t in (val or [])]
+                except Exception:
+                    return []
+            # Build predicate masks only if column exists
+            if '_ltags' not in df.columns:
+                try:
+                    from .. import builder_utils as _bu
+                    if 'themeTags' in df.columns:
+                        df = df.copy()
+                        df['_ltags'] = df['themeTags'].apply(_bu.normalize_tag_cell)
+                except Exception:
+                    pass
+            def has_any(tags, needles):
+                return any((nd in t) for t in tags for nd in needles)
+            tag_col = '_ltags' if '_ltags' in df.columns else ('themeTags' if 'themeTags' in df.columns else None)
+            if not tag_col:
+                return df
+            # Define synonyms per category
+            syn = {
+                'game_changers': { 'bracket:gamechanger', 'gamechanger', 'game-changer', 'game changer' },
+                'extra_turns': { 'bracket:extraturn', 'extra turn', 'extra turns', 'extraturn' },
+                'mass_land_denial': { 'bracket:masslanddenial', 'mass land denial', 'mld', 'masslanddenial' },
+                'tutors_nonland': { 'bracket:tutornonland', 'tutor', 'tutors', 'nonland tutor', 'non-land tutor' },
+            }
+            # Build exclusion mask
+            mask_keep = [True] * len(df)
+            tags_series = df[tag_col].apply(norm_tags)
+            for cat, dis in disallow.items():
+                if not dis:
+                    continue
+                needles = syn.get(cat, set())
+                drop_idx = tags_series.apply(lambda lst, nd=needles: any(any(n in t for n in nd) for t in lst))
+                # Combine into keep mask
+                mask_keep = [mk and (not di) for mk, di in zip(mask_keep, drop_idx.tolist())]
+            try:
+                import pandas as _pd  # type: ignore
+                mask_keep = _pd.Series(mask_keep, index=df.index)
+            except Exception:
+                pass
+            return df[mask_keep]
+        except Exception:
+            return df
+
+    def _debug_dump_pool(self, df, label: str) -> None:
+        """If DEBUG_SPELL_POOLS_WRITE is set, write the pool to logs/pool_{label}_{timestamp}.csv"""
+        try:
+            if str(os.getenv('DEBUG_SPELL_POOLS_WRITE', '')).strip().lower() not in {"1","true","yes","on"}:
+                return
+            import os as _os
+            from datetime import datetime as _dt
+            _os.makedirs('logs', exist_ok=True)
+            ts = getattr(self, 'timestamp', _dt.now().strftime('%Y%m%d%H%M%S'))
+            path = _os.path.join('logs', f"pool_{label}_{ts}.csv")
+            cols = [c for c in ['name','type','manaValue','manaCost','edhrecRank','themeTags'] if c in df.columns]
+            try:
+                if cols:
+                    df[cols].to_csv(path, index=False, encoding='utf-8')
+                else:
+                    df.to_csv(path, index=False, encoding='utf-8')
+            except Exception:
+                df.to_csv(path, index=False)
+            try:
+                self.output_func(f"[DEBUG] Wrote pool CSV: {path} ({len(df)})")
+            except Exception:
+                pass
+        except Exception:
+            pass
 
     # ---------------------------
     # Ramp
@@ -56,7 +150,16 @@ class SpellAdditionMixin:
         commander_name = getattr(self, 'commander', None)
         if commander_name:
             work = work[work['name'] != commander_name]
+        work = self._apply_bracket_pre_filters(work)
         work = bu.sort_by_priority(work, ['edhrecRank','manaValue'])
+        self._debug_dump_pool(work, 'ramp_all')
+        # Debug: print ramp pool details
+        try:
+            if str(os.getenv('DEBUG_SPELL_POOLS', '')).strip().lower() in {"1","true","yes","on"}:
+                names = work['name'].astype(str).head(30).tolist()
+                self.output_func(f"[DEBUG][Ramp] Total pool (non-lands): {len(work)}; top {len(names)}: {', '.join(names)}")
+        except Exception:
+            pass
         # Prefer-owned bias: stable reorder to put owned first while preserving prior sort
         if getattr(self, 'prefer_owned', False):
             owned_set = getattr(self, 'owned_card_names', None)
@@ -97,10 +200,24 @@ class SpellAdditionMixin:
             return added_now
 
         rocks_pool = work[work['type'].fillna('').str.contains('Artifact', case=False, na=False)]
+        try:
+            if str(os.getenv('DEBUG_SPELL_POOLS', '')).strip().lower() in {"1","true","yes","on"}:
+                rnames = rocks_pool['name'].astype(str).head(25).tolist()
+                self.output_func(f"[DEBUG][Ramp] Rocks pool: {len(rocks_pool)}; sample: {', '.join(rnames)}")
+        except Exception:
+            pass
+        self._debug_dump_pool(rocks_pool, 'ramp_rocks')
         if rocks_target > 0:
             add_from_pool(rocks_pool, rocks_target, added_rocks, 'Rocks')
 
         dorks_pool = work[work['type'].fillna('').str.contains('Creature', case=False, na=False)]
+        try:
+            if str(os.getenv('DEBUG_SPELL_POOLS', '')).strip().lower() in {"1","true","yes","on"}:
+                dnames = dorks_pool['name'].astype(str).head(25).tolist()
+                self.output_func(f"[DEBUG][Ramp] Dorks pool: {len(dorks_pool)}; sample: {', '.join(dnames)}")
+        except Exception:
+            pass
+        self._debug_dump_pool(dorks_pool, 'ramp_dorks')
         if dorks_target > 0:
             add_from_pool(dorks_pool, dorks_target, added_dorks, 'Dorks')
 
@@ -108,6 +225,13 @@ class SpellAdditionMixin:
         remaining = target_total - current_total
         if remaining > 0:
             general_pool = work[~work['name'].isin(added_rocks + added_dorks)]
+            try:
+                if str(os.getenv('DEBUG_SPELL_POOLS', '')).strip().lower() in {"1","true","yes","on"}:
+                    gnames = general_pool['name'].astype(str).head(25).tolist()
+                    self.output_func(f"[DEBUG][Ramp] General pool (remaining): {len(general_pool)}; sample: {', '.join(gnames)}")
+            except Exception:
+                pass
+            self._debug_dump_pool(general_pool, 'ramp_general')
             add_from_pool(general_pool, remaining, added_general, 'General')
 
         total_added_now = len(added_rocks)+len(added_dorks)+len(added_general)
@@ -148,7 +272,15 @@ class SpellAdditionMixin:
         commander_name = getattr(self, 'commander', None)
         if commander_name:
             pool = pool[pool['name'] != commander_name]
+        pool = self._apply_bracket_pre_filters(pool)
         pool = bu.sort_by_priority(pool, ['edhrecRank','manaValue'])
+        self._debug_dump_pool(pool, 'removal')
+        try:
+            if str(os.getenv('DEBUG_SPELL_POOLS', '')).strip().lower() in {"1","true","yes","on"}:
+                names = pool['name'].astype(str).head(40).tolist()
+                self.output_func(f"[DEBUG][Removal] Pool size: {len(pool)}; top {len(names)}: {', '.join(names)}")
+        except Exception:
+            pass
         if getattr(self, 'prefer_owned', False):
             owned_set = getattr(self, 'owned_card_names', None)
             if owned_set:
@@ -210,7 +342,15 @@ class SpellAdditionMixin:
         commander_name = getattr(self, 'commander', None)
         if commander_name:
             pool = pool[pool['name'] != commander_name]
+        pool = self._apply_bracket_pre_filters(pool)
         pool = bu.sort_by_priority(pool, ['edhrecRank','manaValue'])
+        self._debug_dump_pool(pool, 'wipes')
+        try:
+            if str(os.getenv('DEBUG_SPELL_POOLS', '')).strip().lower() in {"1","true","yes","on"}:
+                names = pool['name'].astype(str).head(30).tolist()
+                self.output_func(f"[DEBUG][Wipes] Pool size: {len(pool)}; sample: {', '.join(names)}")
+        except Exception:
+            pass
         if getattr(self, 'prefer_owned', False):
             owned_set = getattr(self, 'owned_card_names', None)
             if owned_set:
@@ -278,6 +418,7 @@ class SpellAdditionMixin:
         def is_draw(tags):
             return any(('draw' in t) or ('card advantage' in t) for t in tags)
         df = df[df['_ltags'].apply(is_draw)]
+        df = self._apply_bracket_pre_filters(df)
         df = df[~df['type'].fillna('').str.contains('Land', case=False, na=False)]
         commander_name = getattr(self, 'commander', None)
         if commander_name:
@@ -291,6 +432,19 @@ class SpellAdditionMixin:
             return bu.sort_by_priority(d, ['edhrecRank','manaValue'])
         conditional_df = sortit(conditional_df)
         unconditional_df = sortit(unconditional_df)
+        self._debug_dump_pool(conditional_df, 'card_advantage_conditional')
+        self._debug_dump_pool(unconditional_df, 'card_advantage_unconditional')
+        try:
+            if str(os.getenv('DEBUG_SPELL_POOLS', '')).strip().lower() in {"1","true","yes","on"}:
+                c_names = conditional_df['name'].astype(str).head(30).tolist()
+                u_names = unconditional_df['name'].astype(str).head(30).tolist()
+                self.output_func(f"[DEBUG][CardAdv] Total pool: {len(df)}; conditional: {len(conditional_df)}; unconditional: {len(unconditional_df)}")
+                if c_names:
+                    self.output_func(f"[DEBUG][CardAdv] Conditional sample: {', '.join(c_names)}")
+                if u_names:
+                    self.output_func(f"[DEBUG][CardAdv] Unconditional sample: {', '.join(u_names)}")
+        except Exception:
+            pass
         if getattr(self, 'prefer_owned', False):
             owned_set = getattr(self, 'owned_card_names', None)
             if owned_set:
@@ -368,7 +522,15 @@ class SpellAdditionMixin:
         commander_name = getattr(self, 'commander', None)
         if commander_name:
             pool = pool[pool['name'] != commander_name]
+        pool = self._apply_bracket_pre_filters(pool)
         pool = bu.sort_by_priority(pool, ['edhrecRank','manaValue'])
+        self._debug_dump_pool(pool, 'protection')
+        try:
+            if str(os.getenv('DEBUG_SPELL_POOLS', '')).strip().lower() in {"1","true","yes","on"}:
+                names = pool['name'].astype(str).head(30).tolist()
+                self.output_func(f"[DEBUG][Protection] Pool size: {len(pool)}; sample: {', '.join(names)}")
+        except Exception:
+            pass
         if getattr(self, 'prefer_owned', False):
             owned_set = getattr(self, 'owned_card_names', None)
             if owned_set:
@@ -467,6 +629,7 @@ class SpellAdditionMixin:
             ~df['type'].str.contains('Land', case=False, na=False)
             & ~df['type'].str.contains('Creature', case=False, na=False)
         ].copy()
+        spells_df = self._apply_bracket_pre_filters(spells_df)
         if spells_df.empty:
             return
         selected_tags_lower = [t.lower() for _r, t in themes_ordered]
@@ -521,6 +684,7 @@ class SpellAdditionMixin:
                 if owned_set:
                     subset = bu.prefer_owned_first(subset, {str(n).lower() for n in owned_set})
             pool = subset.head(top_n).copy()
+            pool = self._apply_bracket_pre_filters(pool)
             pool = pool[~pool['name'].isin(self.card_library.keys())]
             if pool.empty:
                 continue
@@ -563,6 +727,7 @@ class SpellAdditionMixin:
         if total_added < remaining:
             need = remaining - total_added
             multi_pool = spells_df[~spells_df['name'].isin(self.card_library.keys())].copy()
+            multi_pool = self._apply_bracket_pre_filters(multi_pool)
             if combine_mode == 'AND' and len(selected_tags_lower) > 1:
                 prioritized = multi_pool[multi_pool['_multiMatch'] >= 2]
                 if prioritized.empty:
@@ -607,6 +772,7 @@ class SpellAdditionMixin:
         if total_added < remaining:
             extra_needed = remaining - total_added
             leftover = spells_df[~spells_df['name'].isin(self.card_library.keys())].copy()
+            leftover = self._apply_bracket_pre_filters(leftover)
             if not leftover.empty:
                 if '_normTags' not in leftover.columns:
                     leftover['_normTags'] = leftover['themeTags'].apply(

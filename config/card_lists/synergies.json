@@ -1,6 +1,6 @@
 {
   "list_version": "0.4.0",
-  "generated_at": null,
+  "generated_at": "2025-09-03T15:30:40+00:00",
   "pairs": [
     { "a": "Grave Pact", "b": "Phyrexian Altar", "tags": ["aristocrats", "value"], "notes": "Sacrifice enables repeated edicts" },
     { "a": "Panharmonicon", "b": "Mulldrifter", "tags": ["etb", "value"], "notes": "Amplifies ETB triggers" }

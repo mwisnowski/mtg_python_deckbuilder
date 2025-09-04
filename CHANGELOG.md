@@ -13,10 +13,16 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 ## [Unreleased]
 
 ### Added
+- Bracket policy enforcement: global pool-level prune for disallowed categories when limits are 0 (e.g., Game Changers in Brackets 1–2). Applies to both Web and headless runs.
+- Inline enforcement UI: violations surface before the summary; Continue/Rerun disabled until you replace or remove flagged cards. Alternatives are role-consistent and exclude commander/locked/in-deck cards.
+- Auto-enforce option: `WEB_AUTO_ENFORCE=1` to apply the enforcement plan and re-export when compliance fails.
 
 ### Changed
+- Spells and creatures phases apply bracket-aware pre-filters to reduce violations proactively.
+- Compliance detection for Game Changers falls back to in-code constants when `config/card_lists/game_changers.json` is empty.
 
 ### Fixed
+- Summary/export mismatch in headless JSON runs where disallowed cards could be pruned from exports but appear in summaries; global prune ensures consistent state across phases and reports.
 
 ## [2.2.4] - 2025-09-02
 

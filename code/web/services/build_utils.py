@@ -118,6 +118,7 @@ def step5_ctx_from_result(
         "csv_path": res.get("csv_path") if done else None,
         "txt_path": res.get("txt_path") if done else None,
         "summary": res.get("summary") if done else None,
+    "compliance": res.get("compliance") if done else None,
         "show_skipped": bool(show_skipped),
         "total_cards": res.get("total_cards"),
         "added_total": res.get("added_total"),
@@ -125,6 +126,7 @@ def step5_ctx_from_result(
         "clamped_overflow": res.get("clamped_overflow"),
         "mc_summary": res.get("mc_summary"),
         "skipped": bool(res.get("skipped")),
+    "gated": bool(res.get("gated")),
     }
     if extras:
         ctx.update(extras)
@@ -238,6 +240,15 @@ def builder_present_names(builder: Any) -> set[str]:
             'chosen_cards', 'selected_cards', 'picked_cards', 'cards_in_deck',
         ):
             _add_names(getattr(builder, attr, None))
+        # Also include names present in the library itself, which is the authoritative deck source post-build
+        try:
+            lib = getattr(builder, 'card_library', None)
+            if isinstance(lib, dict) and lib:
+                for k in lib.keys():
+                    if isinstance(k, str) and k.strip():
+                        present.add(k.strip().lower())
+        except Exception:
+            pass
         for attr in ('current_names', 'deck_names', 'final_names'):
             val = getattr(builder, attr, None)
             if isinstance(val, (list, tuple, set)):

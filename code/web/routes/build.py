@@ -133,7 +133,11 @@ async def build_index(request: Request) -> HTMLResponse:
     return resp
 
 
-# --- Multi-copy archetype suggestion modal (Web-first flow) ---
+# Support /build without trailing slash
+@router.get("", response_class=HTMLResponse)
+async def build_index_alias(request: Request) -> HTMLResponse:
+    return await build_index(request)
+
 
 @router.get("/multicopy/check", response_class=HTMLResponse)
 async def multicopy_check(request: Request) -> HTMLResponse:
@@ -322,12 +326,20 @@ async def build_new_inspect(request: Request, name: str = Query(...)) -> HTMLRes
     recommended = orch.recommended_tags_for_commander(info["name"]) if tags else []
     recommended_reasons = orch.recommended_tag_reasons_for_commander(info["name"]) if tags else {}
     # Render tags slot content and OOB commander preview simultaneously
+    # Game Changer flag for this commander (affects bracket UI in modal via tags partial consumer)
+    is_gc = False
+    try:
+        is_gc = bool(info["name"] in getattr(bc, 'GAME_CHANGERS', []))
+    except Exception:
+        is_gc = False
     ctx = {
         "request": request,
         "commander": {"name": info["name"]},
         "tags": tags,
         "recommended": recommended,
         "recommended_reasons": recommended_reasons,
+        "gc_commander": is_gc,
+        "brackets": orch.bracket_options(),
     }
     return templates.TemplateResponse("build/_new_deck_tags.html", ctx)
 
@@ -455,6 +467,17 @@ async def build_new_submit(
         resp = templates.TemplateResponse("build/_new_deck_modal.html", ctx)
         resp.set_cookie("sid", sid, httponly=True, samesite="lax")
         return resp
+    # Enforce GC bracket restriction before saving session (silently coerce to 3)
+    try:
+        is_gc = bool((sel.get("name") or commander) in getattr(bc, 'GAME_CHANGERS', []))
+    except Exception:
+        is_gc = False
+    if is_gc:
+        try:
+            if int(bracket) < 3:
+                bracket = 3
+        except Exception:
+            bracket = 3
     # Save to session
     sess["commander"] = sel.get("name") or commander
     tags = [t for t in [primary_tag, secondary_tag, tertiary_tag] if t]
@@ -654,6 +677,8 @@ async def build_step1_search(
                         "recommended": orch.recommended_tags_for_commander(res["name"]),
                         "recommended_reasons": orch.recommended_tag_reasons_for_commander(res["name"]),
                         "brackets": orch.bracket_options(),
+                        "gc_commander": (res.get("name") in getattr(bc, 'GAME_CHANGERS', [])),
+                        "selected_bracket": (3 if (res.get("name") in getattr(bc, 'GAME_CHANGERS', [])) else None),
                         "clear_persisted": True,
                     },
                 )
@@ -712,6 +737,12 @@ async def build_step1_confirm(request: Request, name: str = Form(...)) -> HTMLRe
         except Exception:
             pass
     sess["last_step"] = 2
+    # Determine if commander is a Game Changer to drive bracket UI hiding
+    is_gc = False
+    try:
+        is_gc = bool(res.get("name") in getattr(bc, 'GAME_CHANGERS', []))
+    except Exception:
+        is_gc = False
     resp = templates.TemplateResponse(
         "build/_step2.html",
         {
@@ -721,6 +752,8 @@ async def build_step1_confirm(request: Request, name: str = Form(...)) -> HTMLRe
             "recommended": orch.recommended_tags_for_commander(res["name"]),
             "recommended_reasons": orch.recommended_tag_reasons_for_commander(res["name"]),
             "brackets": orch.bracket_options(),
+            "gc_commander": is_gc,
+            "selected_bracket": (3 if is_gc else None),
             # Signal that this navigation came from a fresh commander confirmation,
             # so the Step 2 UI should clear any localStorage theme persistence.
             "clear_persisted": True,
@@ -830,6 +863,20 @@ async def build_step2_get(request: Request) -> HTMLResponse:
         return resp
     tags = orch.tags_for_commander(commander)
     selected = sess.get("tags", [])
+    # Determine if the selected commander is considered a Game Changer (affects bracket choices)
+    is_gc = False
+    try:
+        is_gc = bool(commander in getattr(bc, 'GAME_CHANGERS', []))
+    except Exception:
+        is_gc = False
+    # Selected bracket: if GC commander and bracket < 3 or missing, default to 3
+    sel_br = sess.get("bracket")
+    try:
+        sel_br = int(sel_br) if sel_br is not None else None
+    except Exception:
+        sel_br = None
+    if is_gc and (sel_br is None or int(sel_br) < 3):
+        sel_br = 3
     resp = templates.TemplateResponse(
         "build/_step2.html",
         {
@@ -842,8 +889,9 @@ async def build_step2_get(request: Request) -> HTMLResponse:
             "primary_tag": selected[0] if len(selected) > 0 else "",
             "secondary_tag": selected[1] if len(selected) > 1 else "",
             "tertiary_tag": selected[2] if len(selected) > 2 else "",
-            "selected_bracket": sess.get("bracket"),
+            "selected_bracket": sel_br,
             "tag_mode": sess.get("tag_mode", "AND"),
+            "gc_commander": is_gc,
             # If there are no server-side tags for this commander, let the client clear any persisted ones
             # to avoid themes sticking between fresh runs.
             "clear_persisted": False if selected else True,
@@ -869,6 +917,18 @@ async def build_step2_submit(
         sid = request.cookies.get("sid") or new_sid()
         sess = get_session(sid)
         sess["last_step"] = 2
+        # Compute GC flag to hide disallowed brackets on error
+        is_gc = False
+        try:
+            is_gc = bool(commander in getattr(bc, 'GAME_CHANGERS', []))
+        except Exception:
+            is_gc = False
+        try:
+            sel_br = int(bracket) if bracket is not None else None
+        except Exception:
+            sel_br = None
+        if is_gc and (sel_br is None or sel_br < 3):
+            sel_br = 3
         resp = templates.TemplateResponse(
             "build/_step2.html",
             {
@@ -882,12 +942,25 @@ async def build_step2_submit(
                 "primary_tag": primary_tag or "",
                 "secondary_tag": secondary_tag or "",
                 "tertiary_tag": tertiary_tag or "",
-                "selected_bracket": int(bracket) if bracket is not None else None,
+                "selected_bracket": sel_br,
                 "tag_mode": (tag_mode or "AND"),
+                "gc_commander": is_gc,
             },
         )
         resp.set_cookie("sid", sid, httponly=True, samesite="lax")
         return resp
+
+    # Enforce bracket restrictions for Game Changer commanders (silently coerce to 3 if needed)
+    try:
+        is_gc = bool(commander in getattr(bc, 'GAME_CHANGERS', []))
+    except Exception:
+        is_gc = False
+    if is_gc:
+        try:
+            if int(bracket) < 3:
+                bracket = 3  # coerce silently
+        except Exception:
+            bracket = 3
 
     # Save selection to session (basic MVP; real build will use this later)
     sid = request.cookies.get("sid") or new_sid()
@@ -1339,6 +1412,7 @@ async def build_step5_continue(request: Request) -> HTMLResponse:
             sess["mc_applied_key"] = f"{mc.get('id','')}|{int(mc.get('count',0))}|{1 if mc.get('thrumming') else 0}"
     except Exception:
         pass
+    # Note: no redirect; the inline compliance panel will render inside Step 5
     sess["last_step"] = 5
     ctx2 = step5_ctx_from_result(request, sess, res, status_text=status, show_skipped=show_skipped)
     resp = templates.TemplateResponse("build/_step5.html", ctx2)
@@ -1443,6 +1517,7 @@ async def build_step5_start(request: Request) -> HTMLResponse:
                 sess["mc_applied_key"] = f"{mc.get('id','')}|{int(mc.get('count',0))}|{1 if mc.get('thrumming') else 0}"
         except Exception:
             pass
+    # Note: no redirect; the inline compliance panel will render inside Step 5
         sess["last_step"] = 5
         ctx = step5_ctx_from_result(request, sess, res, status_text=status, show_skipped=show_skipped)
         resp = templates.TemplateResponse("build/_step5.html", ctx)
@@ -1590,9 +1665,17 @@ async def build_lock_toggle(request: Request, name: str = Form(...), locked: str
 
 @router.get("/alternatives", response_class=HTMLResponse)
 async def build_alternatives(request: Request, name: str, stage: str | None = None, owned_only: int = Query(0)) -> HTMLResponse:
-    """Suggest alternative cards for a given card name using tag overlap and availability.
+    """Suggest alternative cards for a given card name, preferring role-specific pools.
 
-    Returns a small HTML snippet listing up to ~10 alternatives with Replace buttons.
+    Strategy:
+    1) Determine the seed card's role from the current deck (Role field) or optional `stage` hint.
+    2) Build a candidate pool from the combined DataFrame using the same filters as the build phase
+       for that role (ramp/removal/wipes/card_advantage/protection).
+    3) Exclude commander, lands (where applicable), in-deck, locked, and the seed itself; then sort
+       by edhrecRank/manaValue. Apply owned-only filter if requested.
+    4) Fall back to tag-overlap similarity when role cannot be determined or data is missing.
+
+    Returns an HTML partial listing up to ~10 alternatives with Replace buttons.
     """
     sid = request.cookies.get("sid") or new_sid()
     sess = get_session(sid)
@@ -1606,45 +1689,212 @@ async def build_alternatives(request: Request, name: str, stage: str | None = No
         html = '<div class="alts"><div class="muted">Start the build to see alternatives.</div></div>'
         return HTMLResponse(html)
     try:
-        name_l = str(name).strip().lower()
+        name_disp = str(name).strip()
+        name_l = name_disp.lower()
         commander_l = str((sess.get("commander") or "")).strip().lower()
         locked_set = {str(x).strip().lower() for x in (sess.get("locks", []) or [])}
-        # Check cache: key = (seed, commander, require_owned)
-        cache_key = (name_l, commander_l, require_owned)
+        # Exclusions from prior inline replacements
+        alts_exclude = {str(x).strip().lower() for x in (sess.get("alts_exclude", []) or [])}
+        alts_exclude_v = int(sess.get("alts_exclude_v") or 0)
+
+        # Resolve role from stage hint or current library entry
+        stage_hint = (stage or "").strip().lower()
+        stage_map = {
+            "ramp": "ramp",
+            "removal": "removal",
+            "wipes": "wipe",
+            "wipe": "wipe",
+            "board_wipe": "wipe",
+            "card_advantage": "card_advantage",
+            "draw": "card_advantage",
+            "protection": "protection",
+            # Additional mappings for creature stages
+            "creature": "creature",
+            "creatures": "creature",
+            "primary": "creature",
+            "secondary": "creature",
+        }
+        hinted_role = stage_map.get(stage_hint) if stage_hint else None
+        lib = getattr(b, "card_library", {}) or {}
+        # Case-insensitive lookup in deck library
+        lib_key = None
+        try:
+            if name_disp in lib:
+                lib_key = name_disp
+            else:
+                lm = {str(k).strip().lower(): k for k in lib.keys()}
+                lib_key = lm.get(name_l)
+        except Exception:
+            lib_key = None
+        entry = lib.get(lib_key) if lib_key else None
+        role = hinted_role or (entry.get("Role") if isinstance(entry, dict) else None)
+        if isinstance(role, str):
+            role = role.strip().lower()
+
+        # Build role-specific pool from combined DataFrame
+        items: list[dict] = []
+        used_role = role if isinstance(role, str) and role else None
+        df = getattr(b, "_combined_cards_df", None)
+
+        # Compute current deck fingerprint to avoid stale cached alternatives after stage changes
+        in_deck: set[str] = builder_present_names(b)
+        try:
+            import hashlib as _hl
+            deck_fp = _hl.md5(
+                ("|".join(sorted(in_deck)) if in_deck else "").encode("utf-8")
+            ).hexdigest()[:8]
+        except Exception:
+            deck_fp = str(len(in_deck))
+
+        # Use a cache key that includes the exclusions version and deck fingerprint
+        cache_key = (name_l, commander_l, used_role or "_fallback_", require_owned, alts_exclude_v, deck_fp)
         cached = _alts_get_cached(cache_key)
         if cached is not None:
             return HTMLResponse(cached)
-        # Tags index provides quick similarity candidates
+
+        def _render_and_cache(_items: list[dict]):
+            html_str = templates.get_template("build/_alternatives.html").render({
+                "request": request,
+                "name": name_disp,
+                "require_owned": require_owned,
+                "items": _items,
+            })
+            try:
+                _alts_set_cached(cache_key, html_str)
+            except Exception:
+                pass
+            return HTMLResponse(html_str)
+
+        # Helper: map display names
+        def _display_map_for(lower_pool: set[str]) -> dict[str, str]:
+            try:
+                return builder_display_map(b, lower_pool)  # type: ignore[arg-type]
+            except Exception:
+                return {nm: nm for nm in lower_pool}
+
+        # Common exclusions
+    # in_deck already computed above
+
+        def _exclude(df0):
+            out = df0.copy()
+            if "name" in out.columns:
+                out["_lname"] = out["name"].astype(str).str.strip().str.lower()
+                mask = ~out["_lname"].isin({name_l} | in_deck | locked_set | alts_exclude | ({commander_l} if commander_l else set()))
+                out = out[mask]
+            return out
+
+        # If we have data and a recognized role, mirror the phase logic
+        if df is not None and hasattr(df, "copy") and (used_role in {"ramp","removal","wipe","card_advantage","protection","creature"}):
+            pool = df.copy()
+            try:
+                pool["_ltags"] = pool.get("themeTags", []).apply(bu.normalize_tag_cell)
+            except Exception:
+                # best-effort normalize
+                pool["_ltags"] = pool.get("themeTags", []).apply(lambda x: [str(t).strip().lower() for t in (x or [])] if isinstance(x, list) else [])
+            # Exclude lands for all these roles
+            if "type" in pool.columns:
+                pool = pool[~pool["type"].fillna("").str.contains("Land", case=False, na=False)]
+            # Exclude commander explicitly
+            if "name" in pool.columns and commander_l:
+                pool = pool[pool["name"].astype(str).str.strip().str.lower() != commander_l]
+            # Role-specific filter
+            def _is_wipe(tags: list[str]) -> bool:
+                return any(("board wipe" in t) or ("mass removal" in t) for t in tags)
+            def _is_removal(tags: list[str]) -> bool:
+                return any(("removal" in t) or ("spot removal" in t) for t in tags)
+            def _is_draw(tags: list[str]) -> bool:
+                return any(("draw" in t) or ("card advantage" in t) for t in tags)
+            def _matches_selected(tags: list[str]) -> bool:
+                try:
+                    sel = [str(t).strip().lower() for t in (sess.get("tags") or []) if str(t).strip()]
+                    if not sel:
+                        return True
+                    st = set(sel)
+                    return any(any(s in t for s in st) for t in tags)
+                except Exception:
+                    return True
+            if used_role == "ramp":
+                pool = pool[pool["_ltags"].apply(lambda tags: any("ramp" in t for t in tags))]
+            elif used_role == "removal":
+                pool = pool[pool["_ltags"].apply(_is_removal) & ~pool["_ltags"].apply(_is_wipe)]
+            elif used_role == "wipe":
+                pool = pool[pool["_ltags"].apply(_is_wipe)]
+            elif used_role == "card_advantage":
+                pool = pool[pool["_ltags"].apply(_is_draw)]
+            elif used_role == "protection":
+                pool = pool[pool["_ltags"].apply(lambda tags: any("protection" in t for t in tags))]
+            elif used_role == "creature":
+                # Keep only creatures; bias toward selected theme tags when available
+                if "type" in pool.columns:
+                    pool = pool[pool["type"].fillna("").str.contains("Creature", case=False, na=False)]
+                try:
+                    pool = pool[pool["_ltags"].apply(_matches_selected)]
+                except Exception:
+                    pass
+            # Sort by priority like the builder
+            try:
+                pool = bu.sort_by_priority(pool, ["edhrecRank","manaValue"])  # type: ignore[arg-type]
+            except Exception:
+                pass
+            # Exclusions and ownership
+            pool = _exclude(pool)
+            # Prefer-owned bias: stable reorder to put owned first if user prefers owned
+            try:
+                if bool(sess.get("prefer_owned")) and getattr(b, "owned_card_names", None):
+                    pool = bu.prefer_owned_first(pool, {str(n).lower() for n in getattr(b, "owned_card_names", set())})
+            except Exception:
+                pass
+            # Build final items
+            lower_pool: list[str] = []
+            try:
+                lower_pool = pool["name"].astype(str).str.strip().str.lower().tolist()
+            except Exception:
+                lower_pool = []
+            display_map = _display_map_for(set(lower_pool))
+            for nm_l in lower_pool:
+                is_owned = (nm_l in owned_set)
+                if require_owned and not is_owned:
+                    continue
+                # Extra safety: exclude the seed card or anything already in deck
+                if nm_l == name_l or (in_deck and nm_l in in_deck):
+                    continue
+                items.append({
+                    "name": display_map.get(nm_l, nm_l),
+                    "name_lower": nm_l,
+                    "owned": is_owned,
+                    "tags": [],  # can be filled from index below if needed
+                })
+                if len(items) >= 10:
+                    break
+            # If we collected role-aware items, render
+            if items:
+                return _render_and_cache(items)
+
+        # Fallback: tag-similarity suggestions (previous behavior)
         tags_idx = getattr(b, "_card_name_tags_index", {}) or {}
         seed_tags = set(tags_idx.get(name_l) or [])
-        # Fallback: use the card's role/sub-role from current library if available
-        lib = getattr(b, "card_library", {}) or {}
-        lib_entry = lib.get(name) or lib.get(name_l)
-        # Best-effort set of names currently in the deck to avoid duplicates
-        in_deck: set[str] = builder_present_names(b)
-        # Build candidate pool from tags overlap
         all_names = set(tags_idx.keys())
         candidates: list[tuple[str, int]] = []  # (name, score)
         for nm in all_names:
             if nm == name_l:
                 continue
-            # Exclude commander and any names we believe are already in the current deck
             if commander_l and nm == commander_l:
                 continue
             if in_deck and nm in in_deck:
                 continue
-            # Also exclude any card currently locked (these are intended to be kept)
             if locked_set and nm in locked_set:
+                continue
+            if nm in alts_exclude:
                 continue
             tgs = set(tags_idx.get(nm) or [])
             score = len(seed_tags & tgs)
             if score <= 0:
                 continue
             candidates.append((nm, score))
-        # If no tag-based candidates, try using same trigger tag if present
-        if not candidates and isinstance(lib_entry, dict):
+        # If no tag-based candidates, try shared trigger tag from library entry
+        if not candidates and isinstance(entry, dict):
             try:
-                trig = str(lib_entry.get("TriggerTag") or "").strip().lower()
+                trig = str(entry.get("TriggerTag") or "").strip().lower()
             except Exception:
                 trig = ""
             if trig:
@@ -1655,15 +1905,11 @@ async def build_alternatives(request: Request, name: str, stage: str | None = No
                         continue
                     if trig in {str(t).strip().lower() for t in (tglist or [])}:
                         candidates.append((nm, 1))
-        # Sort by score desc, then owned-first, then name asc
         def _owned(nm: str) -> bool:
             return nm in owned_set
         candidates.sort(key=lambda x: (-x[1], 0 if _owned(x[0]) else 1, x[0]))
-        # Map back to display names using combined DF when possible for proper casing
         pool_lower = {nm for (nm, _s) in candidates}
-        display_map: dict[str, str] = builder_display_map(b, pool_lower)
-        # Build structured items for the partial
-        items: list[dict] = []
+        display_map = _display_map_for(pool_lower)
         seen = set()
         for nm, score in candidates:
             if nm in seen:
@@ -1672,36 +1918,34 @@ async def build_alternatives(request: Request, name: str, stage: str | None = No
             is_owned = (nm in owned_set)
             if require_owned and not is_owned:
                 continue
-            disp = display_map.get(nm, nm)
             items.append({
-                "name": disp,
+                "name": display_map.get(nm, nm),
                 "name_lower": nm,
                 "owned": is_owned,
                 "tags": list(tags_idx.get(nm) or []),
             })
             if len(items) >= 10:
                 break
-        # Render partial via Jinja template and cache it
-        ctx2 = {"request": request, "name": name, "require_owned": require_owned, "items": items}
-        html_str = templates.get_template("build/_alternatives.html").render(ctx2)
-        _alts_set_cached(cache_key, html_str)
-        return HTMLResponse(html_str)
+        return _render_and_cache(items)
     except Exception as e:
         return HTMLResponse(f'<div class="alts"><div class="muted">No alternatives: {e}</div></div>')
 
 
 @router.post("/replace", response_class=HTMLResponse)
 async def build_replace(request: Request, old: str = Form(...), new: str = Form(...)) -> HTMLResponse:
-    """Update locks to prefer `new` over `old` and prompt the user to rerun the stage with Replace enabled.
+    """Inline replace: swap `old` with `new` in the current builder when possible, and suppress `old` from future alternatives.
 
-    This does not immediately mutate the builder; users should click Rerun Stage (Replace: On) to apply.
+    Falls back to lock-and-rerun guidance if no active builder is present.
     """
     sid = request.cookies.get("sid") or new_sid()
     sess = get_session(sid)
+    o_disp = str(old).strip()
+    n_disp = str(new).strip()
+    o = o_disp.lower()
+    n = n_disp.lower()
+
+    # Maintain locks to bias future picks and enforcement
     locks = set(sess.get("locks", []))
-    o = str(old).strip().lower()
-    n = str(new).strip().lower()
-    # Always ensure new is locked and old is unlocked
     locks.discard(o)
     locks.add(n)
     sess["locks"] = list(locks)
@@ -1710,36 +1954,213 @@ async def build_replace(request: Request, old: str = Form(...), new: str = Form(
         sess["last_replace"] = {"old": o, "new": n}
     except Exception:
         pass
-    if sess.get("build_ctx"):
+    ctx = sess.get("build_ctx") or {}
+    try:
+        ctx["locks"] = {str(x) for x in locks}
+    except Exception:
+        pass
+    # Record preferred replacements
+    try:
+        pref = ctx.get("preferred_replacements") if isinstance(ctx, dict) else None
+        if not isinstance(pref, dict):
+            pref = {}
+            ctx["preferred_replacements"] = pref
+        pref[o] = n
+    except Exception:
+        pass
+    b: DeckBuilder | None = ctx.get("builder") if isinstance(ctx, dict) else None
+    if b is not None:
         try:
-            sess["build_ctx"]["locks"] = {str(x) for x in locks}
+            lib = getattr(b, "card_library", {}) or {}
+            # Find the exact key for `old` in a case-insensitive manner
+            old_key = None
+            if o_disp in lib:
+                old_key = o_disp
+            else:
+                for k in list(lib.keys()):
+                    if str(k).strip().lower() == o:
+                        old_key = k
+                        break
+            if old_key is None:
+                raise KeyError("old card not in deck")
+            old_info = dict(lib.get(old_key) or {})
+            role = str(old_info.get("Role") or "").strip()
+            subrole = str(old_info.get("SubRole") or "").strip()
+            try:
+                count = int(old_info.get("Count", 1))
+            except Exception:
+                count = 1
+            # Remove old entry
+            try:
+                del lib[old_key]
+            except Exception:
+                pass
+            # Resolve canonical name and info for new
+            df = getattr(b, "_combined_cards_df", None)
+            new_key = n_disp
+            card_type = ""
+            mana_cost = ""
+            trigger_tag = str(old_info.get("TriggerTag") or "")
+            if df is not None:
+                try:
+                    row = df[df["name"].astype(str).str.strip().str.lower() == n]
+                    if not row.empty:
+                        new_key = str(row.iloc[0]["name"]) or n_disp
+                        card_type = str(row.iloc[0].get("type", row.iloc[0].get("type_line", "")) or "")
+                        mana_cost = str(row.iloc[0].get("mana_cost", row.iloc[0].get("manaCost", "")) or "")
+                except Exception:
+                    pass
+            lib[new_key] = {
+                "Count": count,
+                "Card Type": card_type,
+                "Mana Cost": mana_cost,
+                "Role": role,
+                "SubRole": subrole,
+                "AddedBy": "Replace",
+                "TriggerTag": trigger_tag,
+            }
+            # Mirror preferred replacements onto the builder for enforcement
+            try:
+                cur = getattr(b, "preferred_replacements", {}) or {}
+                cur[str(o)] = str(n)
+                setattr(b, "preferred_replacements", cur)
+            except Exception:
+                pass
+            # Update alternatives exclusion set and bump version to invalidate caches
+            try:
+                ex = {str(x).strip().lower() for x in (sess.get("alts_exclude", []) or [])}
+                ex.add(o)
+                sess["alts_exclude"] = list(ex)
+                sess["alts_exclude_v"] = int(sess.get("alts_exclude_v") or 0) + 1
+            except Exception:
+                pass
+            # Success panel and OOB updates (refresh compliance panel)
+            # Compute ownership of the new card for UI badge update
+            is_owned = (n in owned_set_helper())
+            html = (
+                '<div class="alts" style="margin-top:.35rem; padding:.5rem; border:1px solid var(--border); border-radius:8px; background:#0f1115;">'
+                f'<div>Replaced <strong>{o_disp}</strong> with <strong>{new_key}</strong>.</div>'
+                '<div class="muted" style="margin-top:.35rem;">Compliance panel will refresh.</div>'
+                '<div style="margin-top:.35rem; display:flex; gap:.5rem; align-items:center; flex-wrap:wrap;">'
+                '<button type="button" class="btn" onclick="try{this.closest(\'.alts\').remove();}catch(_){}">Close</button>'
+                '</div>'
+                '</div>'
+            )
+            # Inline mutate the nearest card tile to reflect the new card without a rerun
+            mutator = """
+<script>
+(function(){
+    try{
+        var panel = document.currentScript && document.currentScript.previousElementSibling && document.currentScript.previousElementSibling.classList && document.currentScript.previousElementSibling.classList.contains('alts') ? document.currentScript.previousElementSibling : null;
+        if(!panel){ return; }
+        var oldName = panel.getAttribute('data-old') || '';
+        var newName = panel.getAttribute('data-new') || '';
+        var isOwned = panel.getAttribute('data-owned') === '1';
+        var isLocked = panel.getAttribute('data-locked') === '1';
+        var tile = panel.closest('.card-tile');
+        if(!tile) return;
+        tile.setAttribute('data-card-name', newName);
+        var img = tile.querySelector('img.card-thumb');
+        if(img){
+            var base = 'https://api.scryfall.com/cards/named?fuzzy=' + encodeURIComponent(newName) + '&format=image&version=';
+            img.src = base + 'normal';
+            img.setAttribute('srcset',
+                'https://api.scryfall.com/cards/named?fuzzy=' + encodeURIComponent(newName) + '&format=image&version=small 160w, ' +
+                'https://api.scryfall.com/cards/named?fuzzy=' + encodeURIComponent(newName) + '&format=image&version=normal 488w, ' +
+                'https://api.scryfall.com/cards/named?fuzzy=' + encodeURIComponent(newName) + '&format=image&version=large 672w'
+            );
+            img.setAttribute('alt', newName + ' image');
+            img.setAttribute('data-card-name', newName);
+        }
+        var nameEl = tile.querySelector('.name');
+        if(nameEl){ nameEl.textContent = newName; }
+        var own = tile.querySelector('.owned-badge');
+        if(own){
+            own.textContent = isOwned ? '✔' : '✖';
+            own.title = isOwned ? 'Owned' : 'Not owned';
+            tile.setAttribute('data-owned', isOwned ? '1' : '0');
+        }
+        tile.classList.toggle('locked', isLocked);
+        var imgBtn = tile.querySelector('.img-btn');
+        if(imgBtn){
+            try{
+                var valsAttr = imgBtn.getAttribute('hx-vals') || '{}';
+                var obj = JSON.parse(valsAttr.replace(/&quot;/g, '"'));
+                obj.name = newName;
+                imgBtn.setAttribute('hx-vals', JSON.stringify(obj));
+            }catch(e){}
+        }
+        var lockBtn = tile.querySelector('.lock-box .btn-lock');
+        if(lockBtn){
+            try{
+                var v = lockBtn.getAttribute('hx-vals') || '{}';
+                var o = JSON.parse(v.replace(/&quot;/g, '"'));
+                o.name = newName;
+                lockBtn.setAttribute('hx-vals', JSON.stringify(o));
+            }catch(e){}
+        }
+    }catch(_){}
+})();
+</script>
+"""
+            chip = (
+                f'<div id="last-action" hx-swap-oob="true">'
+                f'<span class="chip" title="Click to dismiss">Replaced <strong>{o_disp}</strong> → <strong>{new_key}</strong></span>'
+                f'</div>'
+            )
+            # OOB fetch to refresh compliance panel
+            refresher = (
+                '<div hx-get="/build/compliance" hx-target="#compliance-panel" hx-swap="outerHTML" '
+                'hx-trigger="load" hx-swap-oob="true"></div>'
+            )
+            # Include data attributes on the panel div for the mutator script
+            data_owned = '1' if is_owned else '0'
+            data_locked = '1' if (n in locks) else '0'
+            prefix = '<div class="alts"'
+            replacement = (
+                '<div class="alts" ' 
+                + 'data-old="' + _esc(o_disp) + '" ' 
+                + 'data-new="' + _esc(new_key) + '" '
+                + 'data-owned="' + data_owned + '" '
+                + 'data-locked="' + data_locked + '"'
+            )
+            html = html.replace(prefix, replacement, 1)
+            return HTMLResponse(html + mutator + chip + refresher)
         except Exception:
+            # Fall back to rerun guidance if inline swap fails
             pass
-    # Return a small confirmation with a shortcut to rerun
+    # Fallback: advise rerun
     hint = (
         '<div class="alts" style="margin-top:.35rem; padding:.5rem; border:1px solid var(--border); border-radius:8px; background:#0f1115;">'
         f'<div>Locked <strong>{new}</strong> and unlocked <strong>{old}</strong>.</div>'
-    '<div class="muted" style="margin-top:.35rem;">Now click <em>Rerun Stage</em> with Replace: On to apply this change.</div>'
+        '<div class="muted" style="margin-top:.35rem;">Now click <em>Rerun Stage</em> with Replace: On to apply this change.</div>'
         '<div style="margin-top:.35rem; display:flex; gap:.5rem; align-items:center; flex-wrap:wrap;">'
         '<form hx-post="/build/step5/rerun" hx-target="#wizard" hx-swap="innerHTML" style="display:inline;">'
         '<input type="hidden" name="show_skipped" value="1" />'
         '<button type="submit" class="btn-rerun">Rerun stage</button>'
         '</form>'
-    '<form hx-post="/build/replace/undo" hx-target="closest .alts" hx-swap="outerHTML" style="display:inline; margin:0;">'
-    f'<input type="hidden" name="old" value="{old}" />'
-    f'<input type="hidden" name="new" value="{new}" />'
-    '<button type="submit" class="btn" title="Undo this replace">Undo</button>'
-    '</form>'
+        '<form hx-post="/build/replace/undo" hx-target="closest .alts" hx-swap="outerHTML" style="display:inline; margin:0;">'
+        f'<input type="hidden" name="old" value="{old}" />'
+        f'<input type="hidden" name="new" value="{new}" />'
+        '<button type="submit" class="btn" title="Undo this replace">Undo</button>'
+        '</form>'
         '<button type="button" class="btn" onclick="try{this.closest(\'.alts\').remove();}catch(_){}">Close</button>'
         '</div>'
         '</div>'
     )
-    # Also emit an OOB last-action chip
     chip = (
         f'<div id="last-action" hx-swap-oob="true">'
         f'<span class="chip" title="Click to dismiss">Replaced <strong>{old}</strong> → <strong>{new}</strong></span>'
         f'</div>'
     )
+    # Also add old to exclusions and bump version for future alt calls
+    try:
+        ex = {str(x).strip().lower() for x in (sess.get("alts_exclude", []) or [])}
+        ex.add(o)
+        sess["alts_exclude"] = list(ex)
+        sess["alts_exclude_v"] = int(sess.get("alts_exclude_v") or 0) + 1
+    except Exception:
+        pass
     return HTMLResponse(hint + chip)
 
 
@@ -1802,6 +2223,288 @@ async def build_replace_undo(request: Request, old: str = Form(None), new: str =
 async def build_compare(runA: str, runB: str):
     """Stub: return empty diffs; later we can diff summary files under deck_files."""
     return JSONResponse({"ok": True, "added": [], "removed": [], "changed": []})
+
+
+@router.get("/compliance", response_class=HTMLResponse)
+async def build_compliance_panel(request: Request) -> HTMLResponse:
+    """Render a live Bracket compliance panel with manual enforcement controls.
+
+    Computes compliance against the current builder state without exporting, attaches a non-destructive
+    enforcement plan (swaps with added=None) when FAIL, and returns a reusable HTML partial.
+    Returns empty content when no active build context exists.
+    """
+    sid = request.cookies.get("sid") or new_sid()
+    sess = get_session(sid)
+    ctx = sess.get("build_ctx") or {}
+    b: DeckBuilder | None = ctx.get("builder") if isinstance(ctx, dict) else None
+    if not b:
+        return HTMLResponse("")
+    # Compute compliance snapshot in-memory and attach planning preview
+    comp = None
+    try:
+        if hasattr(b, 'compute_and_print_compliance'):
+            comp = b.compute_and_print_compliance(base_stem=None)  # type: ignore[attr-defined]
+    except Exception:
+        comp = None
+    try:
+        if comp:
+            from ..services import orchestrator as orch
+            comp = orch._attach_enforcement_plan(b, comp)  # type: ignore[attr-defined]
+    except Exception:
+        pass
+    if not comp:
+        return HTMLResponse("")
+    # Build flagged metadata (role, owned) for visual tiles and role-aware alternatives
+    # For combo violations, expand pairs into individual cards (exclude commander) so each can be replaced.
+    flagged_meta: list[dict] = []
+    try:
+        cats = comp.get('categories') or {}
+        owned_lower = owned_set_helper()
+        lib = getattr(b, 'card_library', {}) or {}
+        commander_l = str((sess.get('commander') or '')).strip().lower()
+        # map category key -> display label
+        labels = {
+            'game_changers': 'Game Changers',
+            'extra_turns': 'Extra Turns',
+            'mass_land_denial': 'Mass Land Denial',
+            'tutors_nonland': 'Nonland Tutors',
+            'two_card_combos': 'Two-Card Combos',
+        }
+        seen_lower: set[str] = set()
+        for key, cat in cats.items():
+            try:
+                lim = cat.get('limit')
+                cnt = int(cat.get('count', 0) or 0)
+                if lim is None or cnt <= int(lim):
+                    continue
+                # For two-card combos, split pairs into individual cards and skip commander
+                if key == 'two_card_combos':
+                    # Prefer the structured combos list to ensure we only expand counted pairs
+                    pairs = []
+                    try:
+                        for p in (comp.get('combos') or []):
+                            if p.get('cheap_early'):
+                                pairs.append((str(p.get('a') or '').strip(), str(p.get('b') or '').strip()))
+                    except Exception:
+                        pairs = []
+                    # Fallback to parsing flagged strings like "A + B"
+                    if not pairs:
+                        try:
+                            for s in (cat.get('flagged') or []):
+                                if not isinstance(s, str):
+                                    continue
+                                parts = [x.strip() for x in s.split('+') if x and x.strip()]
+                                if len(parts) == 2:
+                                    pairs.append((parts[0], parts[1]))
+                        except Exception:
+                            pass
+                    for a, bname in pairs:
+                        for nm in (a, bname):
+                            if not nm:
+                                continue
+                            nm_l = nm.strip().lower()
+                            if nm_l == commander_l:
+                                # Don't prompt replacing the commander
+                                continue
+                            if nm_l in seen_lower:
+                                continue
+                            seen_lower.add(nm_l)
+                            entry = lib.get(nm) or lib.get(nm_l) or lib.get(str(nm).strip()) or {}
+                            role = entry.get('Role') or ''
+                            flagged_meta.append({
+                                'name': nm,
+                                'category': labels.get(key, key.replace('_',' ').title()),
+                                'role': role,
+                                'owned': (nm_l in owned_lower),
+                            })
+                    continue
+                # Default handling for list/tag categories
+                names = [n for n in (cat.get('flagged') or []) if isinstance(n, str)]
+                for nm in names:
+                    nm_l = str(nm).strip().lower()
+                    if nm_l in seen_lower:
+                        continue
+                    seen_lower.add(nm_l)
+                    entry = lib.get(nm) or lib.get(str(nm).strip()) or lib.get(nm_l) or {}
+                    role = entry.get('Role') or ''
+                    flagged_meta.append({
+                        'name': nm,
+                        'category': labels.get(key, key.replace('_',' ').title()),
+                        'role': role,
+                        'owned': (nm_l in owned_lower),
+                    })
+            except Exception:
+                continue
+    except Exception:
+        flagged_meta = []
+    # Render partial
+    ctx2 = {"request": request, "compliance": comp, "flagged_meta": flagged_meta}
+    return templates.TemplateResponse("build/_compliance_panel.html", ctx2)
+
+
+@router.post("/enforce/apply", response_class=HTMLResponse)
+async def build_enforce_apply(request: Request) -> HTMLResponse:
+    """Apply bracket enforcement now using current locks as user guidance.
+
+    This adds lock placeholders if needed, runs enforcement + re-export, reloads compliance, and re-renders Step 5.
+    """
+    sid = request.cookies.get("sid") or new_sid()
+    sess = get_session(sid)
+    # Ensure build context exists
+    ctx = sess.get("build_ctx") or {}
+    b: DeckBuilder | None = ctx.get("builder") if isinstance(ctx, dict) else None
+    if not b:
+        # No active build: show Step 5 with an error
+        err_ctx = step5_error_ctx(request, sess, "No active build context to enforce.")
+        resp = templates.TemplateResponse("build/_step5.html", err_ctx)
+        resp.set_cookie("sid", sid, httponly=True, samesite="lax")
+        return resp
+    # Ensure we have a CSV base stem for consistent re-exports
+    base_stem = None
+    try:
+        csv_path = ctx.get("csv_path")
+        if isinstance(csv_path, str) and csv_path:
+            import os as _os
+            base_stem = _os.path.splitext(_os.path.basename(csv_path))[0]
+    except Exception:
+        base_stem = None
+    # If missing, export once to establish base
+    if not base_stem:
+        try:
+            ctx["csv_path"] = b.export_decklist_csv()  # type: ignore[attr-defined]
+            import os as _os
+            base_stem = _os.path.splitext(_os.path.basename(ctx["csv_path"]))[0]
+            # Also produce a text export for completeness
+            ctx["txt_path"] = b.export_decklist_text(filename=base_stem + '.txt')  # type: ignore[attr-defined]
+        except Exception:
+            base_stem = None
+    # Add lock placeholders into the library before enforcement so user choices are present
+    try:
+        locks = {str(x).strip().lower() for x in (sess.get("locks", []) or [])}
+        if locks:
+            df = getattr(b, "_combined_cards_df", None)
+            lib_l = {str(n).strip().lower() for n in getattr(b, 'card_library', {}).keys()}
+            for lname in locks:
+                if lname in lib_l:
+                    continue
+                target_name = None
+                card_type = ''
+                mana_cost = ''
+                try:
+                    if df is not None and not df.empty:
+                        row = df[df['name'].astype(str).str.lower() == lname]
+                        if not row.empty:
+                            target_name = str(row.iloc[0]['name'])
+                            card_type = str(row.iloc[0].get('type', row.iloc[0].get('type_line', '')) or '')
+                            mana_cost = str(row.iloc[0].get('mana_cost', row.iloc[0].get('manaCost', '')) or '')
+                except Exception:
+                    target_name = None
+                if target_name:
+                    b.card_library[target_name] = {
+                        'Count': 1,
+                        'Card Type': card_type,
+                        'Mana Cost': mana_cost,
+                        'Role': 'Locked',
+                        'SubRole': '',
+                        'AddedBy': 'Lock',
+                        'TriggerTag': '',
+                    }
+    except Exception:
+        pass
+    # Thread preferred replacements from context onto builder so enforcement can honor them
+    try:
+        pref = ctx.get("preferred_replacements") if isinstance(ctx, dict) else None
+        if isinstance(pref, dict):
+            setattr(b, 'preferred_replacements', dict(pref))
+    except Exception:
+        pass
+    # Run enforcement + re-exports (tops up to 100 internally)
+    try:
+        rep = b.enforce_and_reexport(base_stem=base_stem, mode='auto')  # type: ignore[attr-defined]
+    except Exception as e:
+        err_ctx = step5_error_ctx(request, sess, f"Enforcement failed: {e}")
+        resp = templates.TemplateResponse("build/_step5.html", err_ctx)
+        resp.set_cookie("sid", sid, httponly=True, samesite="lax")
+        return resp
+    # Reload compliance JSON and summary
+    compliance = None
+    try:
+        if base_stem:
+            import os as _os
+            import json as _json
+            comp_path = _os.path.join('deck_files', f"{base_stem}_compliance.json")
+            if _os.path.exists(comp_path):
+                with open(comp_path, 'r', encoding='utf-8') as _cf:
+                    compliance = _json.load(_cf)
+    except Exception:
+        compliance = None
+    # Rebuild Step 5 context (done state)
+    # Ensure csv/txt paths on ctx reflect current base
+    try:
+        import os as _os
+        ctx["csv_path"] = _os.path.join('deck_files', f"{base_stem}.csv") if base_stem else ctx.get("csv_path")
+        ctx["txt_path"] = _os.path.join('deck_files', f"{base_stem}.txt") if base_stem else ctx.get("txt_path")
+    except Exception:
+        pass
+    # Compute total_cards
+    try:
+        total_cards = 0
+        for _n, _e in getattr(b, 'card_library', {}).items():
+            try:
+                total_cards += int(_e.get('Count', 1))
+            except Exception:
+                total_cards += 1
+    except Exception:
+        total_cards = None
+    res = {
+        "done": True,
+        "label": "Complete",
+        "log_delta": "",
+        "idx": len(ctx.get("stages", []) or []),
+        "total": len(ctx.get("stages", []) or []),
+        "csv_path": ctx.get("csv_path"),
+        "txt_path": ctx.get("txt_path"),
+        "summary": getattr(b, 'build_deck_summary', lambda: None)(),
+        "total_cards": total_cards,
+        "added_total": 0,
+        "compliance": compliance or rep,
+    }
+    page_ctx = step5_ctx_from_result(request, sess, res, status_text="Build complete", show_skipped=True)
+    resp = templates.TemplateResponse("build/_step5.html", page_ctx)
+    resp.set_cookie("sid", sid, httponly=True, samesite="lax")
+    return resp
+
+
+@router.get("/enforcement", response_class=HTMLResponse)
+async def build_enforcement_fullpage(request: Request) -> HTMLResponse:
+    """Full-page enforcement review: show compliance panel with swaps and controls."""
+    sid = request.cookies.get("sid") or new_sid()
+    sess = get_session(sid)
+    ctx = sess.get("build_ctx") or {}
+    b: DeckBuilder | None = ctx.get("builder") if isinstance(ctx, dict) else None
+    if not b:
+        # No active build
+        base = step5_empty_ctx(request, sess)
+        resp = templates.TemplateResponse("build/_step5.html", base)
+        resp.set_cookie("sid", sid, httponly=True, samesite="lax")
+        return resp
+    # Compute compliance snapshot and attach planning preview
+    comp = None
+    try:
+        if hasattr(b, 'compute_and_print_compliance'):
+            comp = b.compute_and_print_compliance(base_stem=None)  # type: ignore[attr-defined]
+    except Exception:
+        comp = None
+    try:
+        if comp:
+            from ..services import orchestrator as orch
+            comp = orch._attach_enforcement_plan(b, comp)  # type: ignore[attr-defined]
+    except Exception:
+        pass
+    ctx2 = {"request": request, "compliance": comp}
+    resp = templates.TemplateResponse("build/enforcement.html", ctx2)
+    resp.set_cookie("sid", sid, httponly=True, samesite="lax")
+    return resp
 
 
 @router.get("/permalink")

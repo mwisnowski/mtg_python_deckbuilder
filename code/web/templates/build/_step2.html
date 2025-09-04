@@ -76,10 +76,12 @@
           <legend>Budget/Power Bracket</legend>
           <div style="display:grid; gap:.5rem;">
             {% for b in brackets %}
+              {% if not gc_commander or b.level >= 3 %}
               <label style="display:flex; gap:.5rem; align-items:flex-start;">
                 <input type="radio" name="bracket" value="{{ b.level }}" {% if (selected_bracket is defined and selected_bracket == b.level) or (selected_bracket is not defined and loop.first) %}checked{% endif %} />
                 <span><strong>{{ b.name }}</strong> — <small>{{ b.desc }}</small></span>
               </label>
+              {% endif %}
             {% endfor %}
           </div>
           <div class="muted" style="margin-top:.35rem; font-size:.9em;">

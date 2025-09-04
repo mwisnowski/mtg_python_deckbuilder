@@ -62,6 +62,22 @@
   </div>
 </div>
 
+{# Always update the bracket dropdown on commander change; hide 1–2 only when gc_commander is true #}
+<div id="newdeck-bracket-slot" hx-swap-oob="true">
+  <label>Bracket
+    <select name="bracket">
+      {% for b in brackets %}
+        {% if not gc_commander or b.level >= 3 %}
+        <option value="{{ b.level }}" {% if b.level == 3 %}selected{% endif %}>Bracket {{ b.level }}: {{ b.name }}</option>
+        {% endif %}
+      {% endfor %}
+    </select>
+  </label>
+  {% if gc_commander %}
+    <div class="muted" style="font-size:12px; margin-top:.25rem;">Commander is a Game Changer; brackets 1–2 are unavailable.</div>
+  {% endif %}
+</div>
+
 <script>
 (function(){
   var list = document.getElementById('modal-tag-list');

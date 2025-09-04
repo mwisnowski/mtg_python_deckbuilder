@@ -11,6 +11,7 @@ import pandas as pd
 # Local application imports
 from . import tag_utils
 from . import tag_constants
+from .bracket_policy_applier import apply_bracket_policy_tags
 from settings import CSV_DIRECTORY, MULTIPLE_COPY_CARDS, COLORS
 import logging_util
 from file_setup import setup
@@ -163,6 +164,10 @@ def tag_by_color(df: pd.DataFrame, color: str) -> None:
     tag_for_interaction(df, color)
     print('\n====================\n')
     
+    # Apply bracket policy tags (from config/card_lists/*.json)
+    apply_bracket_policy_tags(df)
+    print('\n====================\n')
+
     # Lastly, sort all theme tags for easier reading and reorder columns
     df = sort_theme_tags(df, color)
     df.to_csv(f'{CSV_DIRECTORY}/{color}_cards.csv', index=False)

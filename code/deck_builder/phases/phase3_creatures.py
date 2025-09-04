@@ -380,6 +380,8 @@ class CreatureAdditionMixin:
         commander_name = getattr(self, 'commander', None) or getattr(self, 'commander_name', None)
         if commander_name and 'name' in creature_df.columns:
             creature_df = creature_df[creature_df['name'] != commander_name]
+        # Apply bracket-based pre-filters (e.g., disallow game changers or tutors when bracket limit == 0)
+        creature_df = self._apply_bracket_pre_filters(creature_df)
         if creature_df.empty:
             return None
         if '_parsedThemeTags' not in creature_df.columns:
@@ -391,6 +393,66 @@ class CreatureAdditionMixin:
                 selected_tags_lower.append(t.lower())
         creature_df['_multiMatch'] = creature_df['_normTags'].apply(lambda lst: sum(1 for t in selected_tags_lower if t in lst))
         return creature_df
+
+    def _apply_bracket_pre_filters(self, df):
+        """Preemptively filter disallowed categories for the current bracket for creatures.
+
+        Excludes when bracket limit == 0 for a category:
+        - Game Changers
+        - Nonland Tutors
+
+        Note: Extra Turns and Mass Land Denial generally don't apply to creature cards,
+        but if present as tags, they'll be respected too.
+        """
+        try:
+            if df is None or getattr(df, 'empty', False):
+                return df
+            limits = getattr(self, 'bracket_limits', {}) or {}
+            disallow = {
+                'game_changers': (limits.get('game_changers') is not None and int(limits.get('game_changers')) == 0),
+                'tutors_nonland': (limits.get('tutors_nonland') is not None and int(limits.get('tutors_nonland')) == 0),
+                'extra_turns': (limits.get('extra_turns') is not None and int(limits.get('extra_turns')) == 0),
+                'mass_land_denial': (limits.get('mass_land_denial') is not None and int(limits.get('mass_land_denial')) == 0),
+            }
+            if not any(disallow.values()):
+                return df
+            def norm_tags(val):
+                try:
+                    return [str(t).strip().lower() for t in (val or [])]
+                except Exception:
+                    return []
+            if '_ltags' not in df.columns:
+                try:
+                    if 'themeTags' in df.columns:
+                        df = df.copy()
+                        df['_ltags'] = df['themeTags'].apply(bu.normalize_tag_cell)
+                except Exception:
+                    pass
+            tag_col = '_ltags' if '_ltags' in df.columns else ('themeTags' if 'themeTags' in df.columns else None)
+            if not tag_col:
+                return df
+            syn = {
+                'game_changers': { 'bracket:gamechanger', 'gamechanger', 'game-changer', 'game changer' },
+                'tutors_nonland': { 'bracket:tutornonland', 'tutor', 'tutors', 'nonland tutor', 'non-land tutor' },
+                'extra_turns': { 'bracket:extraturn', 'extra turn', 'extra turns', 'extraturn' },
+                'mass_land_denial': { 'bracket:masslanddenial', 'mass land denial', 'mld', 'masslanddenial' },
+            }
+            tags_series = df[tag_col].apply(norm_tags)
+            mask_keep = [True] * len(df)
+            for cat, dis in disallow.items():
+                if not dis:
+                    continue
+                needles = syn.get(cat, set())
+                drop_idx = tags_series.apply(lambda lst, nd=needles: any(any(n in t for n in nd) for t in lst))
+                mask_keep = [mk and (not di) for mk, di in zip(mask_keep, drop_idx.tolist())]
+            try:
+                import pandas as _pd  # type: ignore
+                mask_keep = _pd.Series(mask_keep, index=df.index)
+            except Exception:
+                pass
+            return df[mask_keep]
+        except Exception:
+            return df
 
     def _add_creatures_for_role(self, role: str):
         """Add creatures for a single theme role ('primary'|'secondary'|'tertiary')."""

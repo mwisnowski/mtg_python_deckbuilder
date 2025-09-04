@@ -119,6 +119,19 @@ class DeckBuilder(
             # Modular reporting phase
             if hasattr(self, 'run_reporting_phase'):
                 self.run_reporting_phase()
+            # Immediately after content additions and summary, if compliance is enforced later,
+            # we want to display what would be swapped. For interactive runs, surface a dry prompt.
+            try:
+                # Compute a quick compliance snapshot here to hint at upcoming enforcement
+                if hasattr(self, 'compute_and_print_compliance') and not getattr(self, 'headless', False):
+                    from deck_builder.brackets_compliance import evaluate_deck as _eval  # type: ignore
+                    bracket_key = str(getattr(self, 'bracket_name', '') or getattr(self, 'bracket_level', 'core')).lower()
+                    commander = getattr(self, 'commander_name', None)
+                    snap = _eval(self.card_library, commander_name=commander, bracket=bracket_key)
+                    if snap.get('overall') == 'FAIL':
+                        self.output_func("\nNote: Limits exceeded. You'll get a chance to review swaps next.")
+            except Exception:
+                pass
             if hasattr(self, 'export_decklist_csv'):
                 # If user opted out of owned-only, silently load all owned files for marking
                 try:
@@ -133,6 +146,25 @@ class DeckBuilder(
                     txt_path = self.export_decklist_text(filename=base + '.txt')  # type: ignore[attr-defined]
                     # Display the text file contents for easy copy/paste to online deck builders
                     self._display_txt_contents(txt_path)
+                    # Compute bracket compliance and save a JSON report alongside exports
+                    try:
+                        if hasattr(self, 'compute_and_print_compliance'):
+                            report0 = self.compute_and_print_compliance(base_stem=base)  # type: ignore[attr-defined]
+                            # If non-compliant and interactive, offer enforcement now
+                            try:
+                                if isinstance(report0, dict) and report0.get('overall') == 'FAIL' and not getattr(self, 'headless', False):
+                                    from deck_builder.phases.phase6_reporting import ReportingMixin as _RM  # type: ignore
+                                    if isinstance(self, _RM) and hasattr(self, 'enforce_and_reexport'):
+                                        self.output_func("One or more bracket limits exceeded. Enter to auto-resolve, or Ctrl+C to skip.")
+                                        try:
+                                            _ = self.input_func("")
+                                        except Exception:
+                                            pass
+                                        self.enforce_and_reexport(base_stem=base, mode='prompt')  # type: ignore[attr-defined]
+                            except Exception:
+                                pass
+                    except Exception:
+                        pass
                     # If owned-only build is incomplete, generate recommendations
                     try:
                         total_cards = sum(int(v.get('Count', 1)) for v in self.card_library.values())

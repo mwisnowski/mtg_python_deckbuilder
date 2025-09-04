@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section>
+  <h2>Bracket compliance — Enforcement review</h2>
+  <p class="muted">Choose replacements for flagged cards, then click Apply enforcement.</p>
+  <div style="margin:.5rem 0 1rem 0;">
+    <a href="/build" class="btn">Back to Builder</a>
+  </div>
+  {% include "build/_compliance_panel.html" %}
+</section>
+<script>
+// In full-page mode, submit enforcement as a normal form POST (not HTMX swap)
+try{
+  document.querySelectorAll('form[hx-post="/build/enforce/apply"]').forEach(function(f){
+    f.removeAttribute('hx-post');
+    f.removeAttribute('hx-target');
+    f.removeAttribute('hx-swap');
+    f.setAttribute('action', '/build/enforce/apply');
+    f.setAttribute('method', 'post');
+  });
+}catch(_){ }
+// Auto-open the compliance details when shown on this dedicated page
+try{
+  var det = document.querySelector('details');
+  if(det){ det.setAttribute('open', 'open'); }
+}catch(_){ }
+</script>
+{% endblock %}

@@ -4,9 +4,45 @@ import argparse
 import json
 import os
 from typing import Any, Dict, List, Optional
+import time
 
+
+import sys
+import os
 from deck_builder.builder import DeckBuilder
 from deck_builder import builder_constants as bc
+from file_setup.setup import initial_setup
+from tagging import tagger
+
+def _is_stale(file1: str, file2: str) -> bool:
+    """Return True if file2 is missing or older than file1."""
+    if not os.path.isfile(file2):
+        return True
+    if not os.path.isfile(file1):
+        return True
+    return os.path.getmtime(file2) < os.path.getmtime(file1)
+
+def _ensure_data_ready():
+    cards_csv = os.path.join("csv_files", "cards.csv")
+    tagging_json = os.path.join("csv_files", ".tagging_complete.json")
+    # If cards.csv is missing, run full setup+tagging
+    if not os.path.isfile(cards_csv):
+        print("cards.csv not found, running full setup and tagging...")
+        initial_setup()
+        tagger.run_tagging()
+        _write_tagging_flag(tagging_json)
+    # If tagging_complete is missing or stale, run tagging
+    elif not os.path.isfile(tagging_json) or _is_stale(cards_csv, tagging_json):
+        print(".tagging_complete.json missing or stale, running tagging...")
+        tagger.run_tagging()
+        _write_tagging_flag(tagging_json)
+
+def _write_tagging_flag(tagging_json):
+    import json
+    from datetime import datetime
+    os.makedirs(os.path.dirname(tagging_json), exist_ok=True)
+    with open(tagging_json, 'w', encoding='utf-8') as f:
+        json.dump({'tagged_at': datetime.now().isoformat(timespec='seconds')}, f)
 
 def run(
     command_name: str = "",
@@ -273,6 +309,7 @@ def _resolve_value(
 
 
 def _main() -> int:
+    _ensure_data_ready()
     parser = _build_arg_parser()
     args = parser.parse_args()
     # Optional config discovery (no prompts)

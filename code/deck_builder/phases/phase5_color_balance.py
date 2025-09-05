@@ -45,12 +45,13 @@ class ColorBalanceMixin:
         Uses the color source matrix to aggregate counts for each color.
         """
         matrix = self._compute_color_source_matrix()
-        counts = {c:0 for c in ['W','U','B','R','G']}
+        # Track only WUBRG here; ignore colorless 'C' and any other markers for this computation.
+        counts = {c: 0 for c in ['W', 'U', 'B', 'R', 'G']}
         for name, colors in matrix.items():
             entry = self.card_library.get(name, {})
-            copies = entry.get('Count',1)
+            copies = entry.get('Count', 1)
             for c, v in colors.items():
-                if v:
+                if v and c in counts:
                     counts[c] += copies
         return counts
 

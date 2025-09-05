@@ -100,10 +100,19 @@ def _canonicalize(name: str | None) -> str:
     return s.casefold()
 
 
-def _status_for(count: int, limit: Optional[int]) -> str:
+def _status_for(count: int, limit: Optional[int], warn: Optional[int] = None) -> str:
+    # Unlimited hard limit -> always PASS (no WARN semantics without a cap)
     if limit is None:
         return "PASS"
-    return "PASS" if count <= int(limit) else "FAIL"
+    if count > int(limit):
+        return "FAIL"
+    # Soft guidance: if warn threshold provided and met, surface WARN
+    try:
+        if warn is not None and int(warn) > 0 and count >= int(warn):
+            return "WARN"
+    except Exception:
+        pass
+    return "PASS"
 
 
 def evaluate_deck(
@@ -155,7 +164,13 @@ def evaluate_deck(
         flagged_names_disp = sorted({deck_canon_to_display.get(cn, cn) for cn in flagged_set})
         c = len(flagged_set)
         lim = limits.get(key)
-        status = _status_for(c, lim)
+        # Optional warn thresholds live alongside limits as "<key>_warn"
+        try:
+            warn_key = f"{key}_warn"
+            warn_val = limits.get(warn_key)
+        except Exception:
+            warn_val = None
+        status = _status_for(c, lim, warn=warn_val)
         cat: CategoryFinding = {
             "count": c,
             "limit": lim,
@@ -166,12 +181,27 @@ def evaluate_deck(
         categories[key] = cat
         if status == "FAIL":
             messages.append(f"{key.replace('_',' ').title()}: {c} exceeds limit {lim}")
+        elif status == "WARN":
+            try:
+                if warn_val is not None:
+                    messages.append(f"{key.replace('_',' ').title()}: {c} present (discouraged for this bracket)")
+            except Exception:
+                pass
+        # Conservative fallback: for low brackets (levels 1–2), tutors/extra-turns should WARN when present
+        # even if a warn threshold was not provided in YAML.
+        if status == "PASS" and level in (1, 2) and key in ("tutors_nonland", "extra_turns"):
+            try:
+                if (warn_val is None) and (lim is not None) and c > 0 and c <= int(lim):
+                    categories[key]["status"] = "WARN"
+                    messages.append(f"{key.replace('_',' ').title()}: {c} present (discouraged for this bracket)")
+            except Exception:
+                pass
 
     # Two-card combos detection
     combos = detect_combos(deck_cards.keys(), combos_path=combos_path)
     cheap_early_pairs = [p for p in combos if p.cheap_early]
     c_limit = limits.get("two_card_combos")
-    combos_status = _status_for(len(cheap_early_pairs), c_limit)
+    combos_status = _status_for(len(cheap_early_pairs), c_limit, warn=None)
     categories["two_card_combos"] = {
         "count": len(cheap_early_pairs),
         "limit": c_limit,

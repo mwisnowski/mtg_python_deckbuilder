@@ -9,6 +9,9 @@ exhibition:
     extra_turns: 0
     tutors_nonland: 3
     two_card_combos: 0
+  # Soft-warning guidance (does not affect FAIL threshold):
+  # Tutors are discouraged at this level; warn if any are present.
+  tutors_nonland_warn: 1
 core:
   level: 2
   name: Core
@@ -18,6 +21,10 @@ core:
     extra_turns: 3
     tutors_nonland: 3
     two_card_combos: 0
+  # Soft-warning guidance: extra turns and tutors are allowed sparsely.
+  # Warn when any appear, fail only when exceeding the hard limit above.
+  extra_turns_warn: 1
+  tutors_nonland_warn: 1
 upgraded:
   level: 3
   name: Upgraded

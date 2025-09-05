@@ -12,6 +12,8 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 
 ## [Unreleased]
 
+## [2.2.6] - 2025-09-04
+
 ### Added
 - Bracket policy enforcement: global pool-level prune for disallowed categories when limits are 0 (e.g., Game Changers in Brackets 1–2). Applies to both Web and headless runs.
 - Inline enforcement UI: violations surface before the summary; Continue/Rerun disabled until you replace or remove flagged cards. Alternatives are role-consistent and exclude commander/locked/in-deck cards.
@@ -20,9 +22,28 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 ### Changed
 - Spells and creatures phases apply bracket-aware pre-filters to reduce violations proactively.
 - Compliance detection for Game Changers falls back to in-code constants when `config/card_lists/game_changers.json` is empty.
+- Data refresh: updated static lists used by bracket compliance/enforcement with current card names and metadata:
+  - `config/card_lists/extra_turns.json`
+  - `config/card_lists/game_changers.json`
+  - `config/card_lists/mass_land_denial.json`
+  - `config/card_lists/tutors_nonland.json`
+  Each list includes `list_version: "manual-2025-09-04"` and `generated_at`.
 
 ### Fixed
 - Summary/export mismatch in headless JSON runs where disallowed cards could be pruned from exports but appear in summaries; global prune ensures consistent state across phases and reports.
+
+### Notes
+- These lists underpin the bracket enforcement feature introduced in 2.2.5; shipping them as a follow-up release ensures consistent results across Web and headless runs.
+
+## [2.2.5] - 2025-09-03
+
+### Added
+- Bracket WARN thresholds: `config/brackets.yml` supports optional `<category>_warn` keys (e.g., `tutors_nonland_warn`, `extra_turns_warn`). Compliance now returns PASS/WARN/FAIL; low brackets (1–2) conservatively WARN on presence of tutors/extra_turns when thresholds aren’t provided.
+- Web UI compliance polish: the panel auto-opens on non-compliance (WARN/FAIL) and shows a colored overall status chip (green/WARN amber/red). WARN items now render as tiles with a subtle amber style and a WARN badge; tiles and enforcement actions remain FAIL-only.
+- Tests: added coverage to ensure WARN thresholds from YAML are applied and that fallback WARN behavior appears for low brackets.
+
+### Changed
+- Web: flagged metadata now includes WARN categories with a `severity` field to support softer UI rendering for advisory cases.
 
 ## [2.2.4] - 2025-09-02
 

@@ -1,7 +1,18 @@
 {% if compliance %}
-<details id="compliance-panel" style="margin-top:.75rem;">
+{% set non_compliant = compliance.overall is defined and (compliance.overall|string|lower != 'pass') %}
+<details id="compliance-panel" style="margin-top:.75rem;" {% if non_compliant %}open{% endif %}>
   <summary>Bracket compliance</summary>
-  <div class="muted" style="margin:.35rem 0;">Overall: <strong>{{ compliance.overall }}</strong> (Bracket: {{ compliance.bracket|title }}{{ ' #' ~ compliance.level if compliance.level is defined }})</div>
+  {% set ov = compliance.overall|string|lower %}
+  <div class="muted" style="margin:.35rem 0;">Overall:
+    {% if ov == 'fail' %}
+      <span class="chip" title="Overall bracket status"><span class="dot" style="background: var(--red-main);"></span> FAIL</span>
+    {% elif ov == 'warn' %}
+      <span class="chip" title="Overall bracket status"><span class="dot" style="background: var(--orange-main);"></span> WARN</span>
+    {% else %}
+      <span class="chip" title="Overall bracket status"><span class="dot" style="background: var(--green-main);"></span> PASS</span>
+    {% endif %}
+    (Bracket: {{ compliance.bracket|title }}{{ ' #' ~ compliance.level if compliance.level is defined }})
+  </div>
   {% if compliance.messages and compliance.messages|length > 0 %}
     <ul style="margin:.25rem 0; padding-left:1.25rem;">
       {% for m in compliance.messages %}
@@ -15,7 +26,8 @@
     <h5 style="margin:.75rem 0 .35rem 0;">Flagged cards</h5>
     <div class="card-grid">
       {% for f in flagged_meta %}
-      <div class="card-tile" data-card-name="{{ f.name }}" data-role="{{ f.role or '' }}">
+      {% set sev = (f.severity or 'FAIL')|upper %}
+      <div class="card-tile" data-card-name="{{ f.name }}" data-role="{{ f.role or '' }}" {% if sev == 'FAIL' %}style="border-color: var(--red-main);"{% elif sev == 'WARN' %}style="border-color: var(--orange-main);"{% endif %}>
         <a href="https://scryfall.com/search?q={{ f.name|urlencode }}" target="_blank" rel="noopener" class="img-btn" title="{{ f.name }}">
           <img class="card-thumb" src="https://api.scryfall.com/cards/named?fuzzy={{ f.name|urlencode }}&format=image&version=normal" alt="{{ f.name }} image" width="160" loading="lazy" decoding="async" data-lqip="1"
             srcset="https://api.scryfall.com/cards/named?fuzzy={{ f.name|urlencode }}&format=image&version=small 160w, https://api.scryfall.com/cards/named?fuzzy={{ f.name|urlencode }}&format=image&version=normal 488w, https://api.scryfall.com/cards/named?fuzzy={{ f.name|urlencode }}&format=image&version=large 672w"
@@ -23,7 +35,14 @@
         </a>
         <div class="owned-badge" title="{{ 'Owned' if f.owned else 'Not owned' }}" aria-label="{{ 'Owned' if f.owned else 'Not owned' }}">{% if f.owned %}✔{% else %}✖{% endif %}</div>
         <div class="name">{{ f.name }}</div>
-        <div class="muted" style="text-align:center; font-size:12px;">{{ f.category }}{% if f.role %} • {{ f.role }}{% endif %}</div>
+        <div class="muted" style="text-align:center; font-size:12px; display:flex; gap:.35rem; justify-content:center; align-items:center; flex-wrap:wrap;">
+          <span>{{ f.category }}{% if f.role %} • {{ f.role }}{% endif %}</span>
+          {% if sev == 'FAIL' %}
+            <span class="chip" title="Severity: FAIL"><span class="dot" style="background: var(--red-main);"></span> FAIL</span>
+          {% elif sev == 'WARN' %}
+            <span class="chip" title="Severity: WARN"><span class="dot" style="background: var(--orange-main);"></span> WARN</span>
+          {% endif %}
+        </div>
         <div style="display:flex; justify-content:center; margin-top:.25rem;">
           {# Role-aware alternatives: pass the flagged name; server will infer role and exclude in-deck/locked #}
           <button type="button" class="btn" hx-get="/build/alternatives" hx-vals='{"name": "{{ f.name }}"}' hx-target="#alts-flag-{{ loop.index0 }}" hx-swap="innerHTML" title="Suggest role-consistent replacements">Pick replacement…</button>

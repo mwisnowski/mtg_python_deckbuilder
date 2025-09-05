@@ -2273,12 +2273,12 @@ async def build_compliance_panel(request: Request) -> HTMLResponse:
         seen_lower: set[str] = set()
         for key, cat in cats.items():
             try:
-                lim = cat.get('limit')
-                cnt = int(cat.get('count', 0) or 0)
-                if lim is None or cnt <= int(lim):
+                status = str(cat.get('status') or '').upper()
+                # Only surface tiles for WARN and FAIL
+                if status not in {"WARN", "FAIL"}:
                     continue
                 # For two-card combos, split pairs into individual cards and skip commander
-                if key == 'two_card_combos':
+                if key == 'two_card_combos' and status == 'FAIL':
                     # Prefer the structured combos list to ensure we only expand counted pairs
                     pairs = []
                     try:
@@ -2316,6 +2316,7 @@ async def build_compliance_panel(request: Request) -> HTMLResponse:
                                 'category': labels.get(key, key.replace('_',' ').title()),
                                 'role': role,
                                 'owned': (nm_l in owned_lower),
+                                'severity': status,
                             })
                     continue
                 # Default handling for list/tag categories
@@ -2332,6 +2333,7 @@ async def build_compliance_panel(request: Request) -> HTMLResponse:
                         'category': labels.get(key, key.replace('_',' ').title()),
                         'role': role,
                         'owned': (nm_l in owned_lower),
+                        'severity': status,
                     })
             except Exception:
                 continue

@@ -51,3 +51,33 @@ def test_two_card_combination_detection_respects_cheap_early():
     rep2 = evaluate_deck(deck, commander_name=None, bracket="optimized")
     assert rep2["categories"]["two_card_combos"]["limit"] is None
     assert rep2["overall"] == "PASS"
+
+
+def test_warn_thresholds_in_yaml_are_applied():
+    # Exhibition: tutors_nonland_warn=1 -> WARN when a single tutor present (hard limit 3)
+    deck1 = {
+        # Use a non-"Game Changer" tutor to avoid hard fail in Exhibition
+        "Solve the Equation": _mk_card(["Bracket:TutorNonland"]),
+        "Cultivate": _mk_card([]),
+    }
+    rep1 = evaluate_deck(deck1, commander_name=None, bracket="exhibition")
+    assert rep1["level"] == 1
+    assert rep1["categories"]["tutors_nonland"]["status"] == "WARN"
+    assert rep1["overall"] == "WARN"
+
+    # Core: extra_turns_warn=1 -> WARN at 1, PASS at 0, FAIL above hard limit 3
+    deck2 = {
+        "Time Warp": _mk_card(["Bracket:ExtraTurn"]),
+        "Explore": _mk_card([]),
+    }
+    rep2 = evaluate_deck(deck2, commander_name=None, bracket="core")
+    assert rep2["level"] == 2
+    assert rep2["categories"]["extra_turns"]["limit"] == 3
+    assert rep2["categories"]["extra_turns"]["status"] in {"WARN", "PASS"}
+    # With two extra turns, still <= limit, but should at least WARN
+    deck3 = {
+        "Time Warp": _mk_card(["Bracket:ExtraTurn"]),
+        "Temporal Manipulation": _mk_card(["Bracket:ExtraTurn"]),
+    }
+    rep3 = evaluate_deck(deck3, commander_name=None, bracket="core")
+    assert rep3["categories"]["extra_turns"]["status"] == "WARN"

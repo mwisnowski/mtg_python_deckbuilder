@@ -17,3 +17,4 @@ csv_files/
 !config/deck.json
 RELEASE_NOTES.md
 *.bkp
+.github/*.md

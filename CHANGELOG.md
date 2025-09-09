@@ -12,6 +12,24 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 
 ## [Unreleased]
 
+### Added
+- Include/exclude card lists feature with `ALLOW_MUST_HAVES=true` environment variable flag
+- Phase 1 exclude-only implementation: filter cards from deck building pool before construction
+- Web UI "Advanced Options" section with exclude cards textarea and file upload (.txt)
+- Live validation for exclude cards with count and limit warnings (max 15 excludes)
+- JSON export/import support preserving exclude_cards in permalink system
+- Fuzzy card name matching with punctuation/spacing normalization
+- Comprehensive backward compatibility tests ensuring existing workflows unchanged
+- Performance benchmarks: exclude filtering <50ms for 20k+ cards, validation API <100ms
+- File upload deduplication and user feedback for exclude lists
+- Extended DeckBuilder schema with full include/exclude configuration support
+- Include/exclude validation with fuzzy matching, strict enforcement, and comprehensive diagnostics
+- Full JSON round-trip functionality preserving all include/exclude configuration in headless and web modes
+- Comprehensive test suite covering validation, persistence, fuzzy matching, and backward compatibility
+
+### Fixed
+- JSON config files are now properly re-exported after bracket compliance enforcement and auto-swapping
+
 ## [2.2.6] - 2025-09-04
 
 ### Added

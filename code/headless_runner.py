@@ -63,6 +63,12 @@ def run(
     utility_count: Optional[int] = None,
     ideal_counts: Optional[Dict[str, int]] = None,
     bracket_level: Optional[int] = None,
+    # Include/Exclude configuration (M1: Config + Validation + Persistence)
+    include_cards: Optional[List[str]] = None,
+    exclude_cards: Optional[List[str]] = None,
+    enforcement_mode: str = "warn",
+    allow_illegal: bool = False,
+    fuzzy_matching: bool = True,
 ) -> DeckBuilder:
     """Run a scripted non-interactive deck build and return the DeckBuilder instance."""
     scripted_inputs: List[str] = []
@@ -112,6 +118,17 @@ def run(
         builder.headless = True  # type: ignore[attr-defined]
     except Exception:
         pass
+    
+    # Configure include/exclude settings (M1: Config + Validation + Persistence)
+    try:
+        builder.include_cards = list(include_cards or [])  # type: ignore[attr-defined]
+        builder.exclude_cards = list(exclude_cards or [])  # type: ignore[attr-defined] 
+        builder.enforcement_mode = enforcement_mode  # type: ignore[attr-defined]
+        builder.allow_illegal = allow_illegal  # type: ignore[attr-defined]
+        builder.fuzzy_matching = fuzzy_matching  # type: ignore[attr-defined]
+    except Exception:
+        pass
+        
     # If ideal_counts are provided (from JSON), use them as the current defaults
     # so the step 2 prompts will show these values and our blank entries will accept them.
     if isinstance(ideal_counts, dict) and ideal_counts:
@@ -358,6 +375,17 @@ def _main() -> int:
     except Exception:
         ideal_counts_json = {}
 
+    # Pull include/exclude configuration from JSON (M1: Config + Validation + Persistence)
+    include_cards_json = []
+    exclude_cards_json = []
+    try:
+        if isinstance(json_cfg.get("include_cards"), list):
+            include_cards_json = [str(x) for x in json_cfg["include_cards"] if x]
+        if isinstance(json_cfg.get("exclude_cards"), list):
+            exclude_cards_json = [str(x) for x in json_cfg["exclude_cards"] if x]
+    except Exception:
+        pass
+
     resolved = {
         "command_name": _resolve_value(args.commander, "DECK_COMMANDER", json_cfg, "commander", defaults["command_name"]),
         "add_creatures": _resolve_value(args.add_creatures, "DECK_ADD_CREATURES", json_cfg, "add_creatures", defaults["add_creatures"]),
@@ -370,13 +398,19 @@ def _main() -> int:
         "primary_choice": _resolve_value(args.primary_choice, "DECK_PRIMARY_CHOICE", json_cfg, "primary_choice", defaults["primary_choice"]),
         "secondary_choice": _resolve_value(args.secondary_choice, "DECK_SECONDARY_CHOICE", json_cfg, "secondary_choice", defaults["secondary_choice"]),
         "tertiary_choice": _resolve_value(args.tertiary_choice, "DECK_TERTIARY_CHOICE", json_cfg, "tertiary_choice", defaults["tertiary_choice"]),
-    "bracket_level": _resolve_value(args.bracket_level, "DECK_BRACKET_LEVEL", json_cfg, "bracket_level", None),
+        "bracket_level": _resolve_value(args.bracket_level, "DECK_BRACKET_LEVEL", json_cfg, "bracket_level", None),
         "add_lands": _resolve_value(args.add_lands, "DECK_ADD_LANDS", json_cfg, "add_lands", defaults["add_lands"]),
         "fetch_count": _resolve_value(args.fetch_count, "DECK_FETCH_COUNT", json_cfg, "fetch_count", defaults["fetch_count"]),
         "dual_count": _resolve_value(args.dual_count, "DECK_DUAL_COUNT", json_cfg, "dual_count", defaults["dual_count"]),
-    "triple_count": _resolve_value(args.triple_count, "DECK_TRIPLE_COUNT", json_cfg, "triple_count", defaults["triple_count"]),
-    "utility_count": _resolve_value(args.utility_count, "DECK_UTILITY_COUNT", json_cfg, "utility_count", defaults["utility_count"]),
-    "ideal_counts": ideal_counts_json,
+        "triple_count": _resolve_value(args.triple_count, "DECK_TRIPLE_COUNT", json_cfg, "triple_count", defaults["triple_count"]),
+        "utility_count": _resolve_value(args.utility_count, "DECK_UTILITY_COUNT", json_cfg, "utility_count", defaults["utility_count"]),
+        "ideal_counts": ideal_counts_json,
+        # Include/Exclude configuration (M1: Config + Validation + Persistence)
+        "include_cards": include_cards_json,
+        "exclude_cards": exclude_cards_json,
+        "enforcement_mode": json_cfg.get("enforcement_mode", "warn"),
+        "allow_illegal": bool(json_cfg.get("allow_illegal", False)),
+        "fuzzy_matching": bool(json_cfg.get("fuzzy_matching", True)),
     }
 
     if args.dry_run:

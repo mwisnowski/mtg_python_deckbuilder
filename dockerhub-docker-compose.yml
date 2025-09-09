@@ -17,6 +17,7 @@ services:
       ENABLE_THEMES: "1"
       ENABLE_PRESETS: "0"
       WEB_VIRTUALIZE: "1"
+      ALLOW_MUST_HAVES: "1"         # 1=enable must-include/must-exclude cards feature; 0=disable
 
       # Theming
       THEME: "system"

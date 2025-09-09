@@ -99,6 +99,9 @@ class ReportingMixin:
                 # Overwrite exports with updated library
                 self.export_decklist_csv(directory='deck_files', filename=csv_name, suppress_output=True)  # type: ignore[attr-defined]
                 self.export_decklist_text(directory='deck_files', filename=txt_name, suppress_output=True)  # type: ignore[attr-defined]
+                # Re-export the JSON config to reflect any changes from enforcement
+                json_name = base_stem + ".json"
+                self.export_run_config_json(directory='config', filename=json_name, suppress_output=True)  # type: ignore[attr-defined]
                 # Recompute and write compliance next to them
                 self.compute_and_print_compliance(base_stem=base_stem)  # type: ignore[attr-defined]
                 # Inject enforcement details into the saved compliance JSON for UI transparency
@@ -121,6 +124,9 @@ class ReportingMixin:
                 except Exception:
                     base_only = None
                 self.export_decklist_text(filename=(base_only + '.txt') if base_only else None)  # type: ignore[attr-defined]
+                # Re-export JSON config after enforcement changes
+                if base_only:
+                    self.export_run_config_json(directory='config', filename=base_only + '.json', suppress_output=True)  # type: ignore[attr-defined]
                 if base_only:
                     self.compute_and_print_compliance(base_stem=base_only)  # type: ignore[attr-defined]
                     # Inject enforcement into written JSON as above
@@ -878,6 +884,12 @@ class ReportingMixin:
             "prefer_combos": bool(getattr(self, 'prefer_combos', False)),
             "combo_target_count": (int(getattr(self, 'combo_target_count', 0)) if getattr(self, 'prefer_combos', False) else None),
             "combo_balance": (getattr(self, 'combo_balance', None) if getattr(self, 'prefer_combos', False) else None),
+            # Include/Exclude configuration (M1: Config + Validation + Persistence)
+            "include_cards": list(getattr(self, 'include_cards', [])),
+            "exclude_cards": list(getattr(self, 'exclude_cards', [])),
+            "enforcement_mode": getattr(self, 'enforcement_mode', 'warn'),
+            "allow_illegal": bool(getattr(self, 'allow_illegal', False)),
+            "fuzzy_matching": bool(getattr(self, 'fuzzy_matching', True)),
             # chosen fetch land count (others intentionally omitted for variance)
             "fetch_count": chosen_fetch,
             # actual ideal counts used for this run

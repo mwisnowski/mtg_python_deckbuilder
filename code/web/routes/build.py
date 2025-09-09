@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Request, Form, Query
 from fastapi.responses import HTMLResponse, JSONResponse
+from ..app import ALLOW_MUST_HAVES  # Import feature flag
 from ..services.build_utils import (
     step5_ctx_from_result,
     step5_error_ctx,
@@ -301,6 +302,7 @@ async def build_new_modal(request: Request) -> HTMLResponse:
         "brackets": orch.bracket_options(),
         "labels": orch.ideal_labels(),
         "defaults": orch.ideal_defaults(),
+        "allow_must_haves": ALLOW_MUST_HAVES,  # Add feature flag
     }
     resp = templates.TemplateResponse("build/_new_deck_modal.html", ctx)
     resp.set_cookie("sid", sid, httponly=True, samesite="lax")
@@ -437,6 +439,8 @@ async def build_new_submit(
     multi_choice_id: str | None = Form(None),
     multi_count: int | None = Form(None),
     multi_thrumming: str | None = Form(None),
+    # Must-haves/excludes (optional)
+    exclude_cards: str = Form(""),
 ) -> HTMLResponse:
     """Handle New Deck modal submit and immediately start the build (skip separate review page)."""
     sid = request.cookies.get("sid") or new_sid()
@@ -451,6 +455,7 @@ async def build_new_submit(
             "brackets": orch.bracket_options(),
             "labels": orch.ideal_labels(),
             "defaults": orch.ideal_defaults(),
+            "allow_must_haves": ALLOW_MUST_HAVES,  # Add feature flag
             "form": {
                 "name": name,
                 "commander": commander,
@@ -462,6 +467,7 @@ async def build_new_submit(
                 "combo_count": combo_count,
                 "combo_balance": (combo_balance or "mix"),
                 "prefer_combos": bool(prefer_combos),
+                "exclude_cards": exclude_cards or "",
             }
         }
         resp = templates.TemplateResponse("build/_new_deck_modal.html", ctx)
@@ -568,6 +574,43 @@ async def build_new_submit(
             del sess["mc_applied_key"]
     except Exception:
         pass
+    
+    # Process exclude cards (M0.5: Phase 1 - Exclude Only)
+    try:
+        from deck_builder.include_exclude_utils import parse_card_list_input, IncludeExcludeDiagnostics
+        
+        # Clear any old exclude data
+        for k in ["exclude_cards", "exclude_diagnostics"]:
+            if k in sess:
+                del sess[k]
+        
+        if exclude_cards and exclude_cards.strip():
+            # Parse the exclude list
+            exclude_list = parse_card_list_input(exclude_cards.strip())
+            
+            # Store in session for the build engine
+            sess["exclude_cards"] = exclude_list
+            
+            # Create diagnostics (for future status display)
+            diagnostics = IncludeExcludeDiagnostics(
+                missing_includes=[],
+                ignored_color_identity=[],
+                illegal_dropped=[],
+                illegal_allowed=[],
+                excluded_removed=exclude_list,
+                duplicates_collapsed={},
+                include_added=[],
+                include_over_ideal={},
+                fuzzy_corrections={},
+                confirmation_needed=[],
+                list_size_warnings={"excludes_count": len(exclude_list), "excludes_limit": 15}
+            )
+            sess["exclude_diagnostics"] = diagnostics.__dict__
+    except Exception as e:
+        # If exclude parsing fails, log but don't block the build
+        import logging
+        logging.warning(f"Failed to parse exclude cards: {e}")
+        
     # Clear any old staged build context
     for k in ["build_ctx", "locks", "replace_mode"]:
         if k in sess:
@@ -2526,6 +2569,10 @@ async def build_permalink(request: Request):
         },
         "locks": list(sess.get("locks", [])),
     }
+    
+    # Add exclude_cards if feature is enabled and present
+    if ALLOW_MUST_HAVES and sess.get("exclude_cards"):
+        payload["exclude_cards"] = sess.get("exclude_cards")
     try:
         import base64
         import json as _json
@@ -2559,6 +2606,11 @@ async def build_from(request: Request, state: str | None = None) -> HTMLResponse
             sess["use_owned_only"] = bool(flags.get("owned_only"))
             sess["prefer_owned"] = bool(flags.get("prefer_owned"))
             sess["locks"] = list(data.get("locks", []))
+            
+            # Import exclude_cards if feature is enabled and present
+            if ALLOW_MUST_HAVES and data.get("exclude_cards"):
+                sess["exclude_cards"] = data.get("exclude_cards")
+                
             sess["last_step"] = 4
         except Exception:
             pass
@@ -2578,3 +2630,42 @@ async def build_from(request: Request, state: str | None = None) -> HTMLResponse
     })
     resp.set_cookie("sid", sid, httponly=True, samesite="lax")
     return resp
+
+
+@router.post("/validate/exclude_cards")
+async def validate_exclude_cards(
+    request: Request,
+    exclude_cards: str = Form(default=""),
+    commander: str = Form(default="")
+):
+    """Validate exclude cards list and return diagnostics."""
+    if not ALLOW_MUST_HAVES:
+        return JSONResponse({"error": "Feature not enabled"}, status_code=404)
+    
+    try:
+        from deck_builder.include_exclude_utils import parse_card_list_input
+        
+        # Parse the input
+        card_list = parse_card_list_input(exclude_cards)
+        
+        # Basic validation
+        total_count = len(card_list)
+        max_excludes = 15
+        
+        # For now, just return count and limit info
+        # Future: add fuzzy matching validation, commander color identity checks
+        result = {
+            "count": total_count,
+            "limit": max_excludes,
+            "over_limit": total_count > max_excludes,
+            "cards": card_list[:10] if len(card_list) <= 10 else card_list[:7] + ["..."],  # Show preview
+            "warnings": []
+        }
+        
+        if total_count > max_excludes:
+            result["warnings"].append(f"Too many excludes: {total_count}/{max_excludes}")
+        
+        return JSONResponse(result)
+        
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=400)

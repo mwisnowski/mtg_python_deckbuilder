@@ -1377,6 +1377,7 @@ def start_build_ctx(
     prefer_combos: bool | None = None,
     combo_target_count: int | None = None,
     combo_balance: str | None = None,
+    exclude_cards: List[str] | None = None,
 ) -> Dict[str, Any]:
     logs: List[str] = []
 
@@ -1449,6 +1450,19 @@ def start_build_ctx(
     b.setup_dataframes()
     # Apply the same global pool pruning in interactive builds for consistency
     _global_prune_disallowed_pool(b)
+    
+    # Apply exclude cards (M0.5: Phase 1 - Exclude Only)
+    try:
+        if exclude_cards:
+            b.exclude_cards = list(exclude_cards)
+            # The filtering is already applied in setup_dataframes(), but we need
+            # to call it again after setting exclude_cards
+            b._combined_cards_df = None  # Clear cache to force rebuild
+            b.setup_dataframes()  # This will now apply the exclude filtering
+            out(f"Applied exclude filtering for {len(exclude_cards)} patterns")
+    except Exception as e:
+        out(f"Failed to apply exclude cards: {e}")
+    
     # Thread multi-copy selection onto builder for stage generation/runner
     try:
         b._web_multi_copy = (multi_copy or None)

@@ -91,6 +91,28 @@
           </label>
           {% endfor %}
         </div>
+        {% if allow_must_haves %}
+        <div style="margin-top:1rem;">
+          <label style="display:block;">
+            <span class="muted">Cards to exclude (one per line)</span>
+            <textarea name="exclude_cards" id="exclude_cards_textarea" placeholder="Sol Ring&#10;Rhystic Study&#10;Smothering Tithe" 
+              style="width:100%; min-height:60px; resize:vertical; font-family:monospace; font-size:12px;"
+              autocomplete="off" autocapitalize="off" spellcheck="false">{{ form.exclude_cards if form and form.exclude_cards else '' }}</textarea>
+          </label>
+          <div style="display:flex; align-items:center; gap:.5rem; margin-top:.5rem;">
+            <label for="exclude_file_upload" class="btn" style="cursor:pointer; font-size:12px; padding:.25rem .5rem;">
+              📄 Upload .txt file
+            </label>
+            <input type="file" id="exclude_file_upload" accept=".txt" style="display:none;" 
+              onchange="handleExcludeFileUpload(this)" />
+            <small class="muted">or enter cards manually above</small>
+          </div>
+          <small class="muted" style="display:block; margin-top:.25rem;">
+            Enter one card name per line. Names will be fuzzy-matched against the card database.
+          </small>
+          <div id="exclude_validation" style="margin-top:.5rem; font-size:12px;"></div>
+        </div>
+        {% endif %}
       </details>
       <div class="modal-footer" style="display:flex; gap:.5rem; justify-content:flex-end; margin-top:1rem;">
         <button type="button" class="btn" onclick="this.closest('.modal').remove()">Cancel</button>
@@ -101,8 +123,122 @@
 </div>
 
 <script>
+  // Handle exclude cards file upload
+  function handleExcludeFileUpload(input) {
+    if (input.files && input.files[0]) {
+      const file = input.files[0];
+      if (!file.name.toLowerCase().endsWith('.txt')) {
+        alert('Please select a .txt file');
+        input.value = '';
+        return;
+      }
+      
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const textarea = document.getElementById('exclude_cards_textarea');
+        const fileContent = e.target.result;
+        const newlineRegex = /\r?\n/;
+        const lines = fileContent.split(newlineRegex).map(function(line) { return line.trim(); }).filter(function(line) { return line; });
+        
+        // Merge with existing content (if any)
+        const existingContent = textarea.value.trim();
+        const existingLines = existingContent ? existingContent.split(newlineRegex).map(function(line) { return line.trim(); }).filter(function(line) { return line; }) : [];
+        
+        // Combine and deduplicate
+        const allLinesSet = new Set([].concat(existingLines).concat(lines));
+        const allLines = Array.from(allLinesSet);
+        textarea.value = allLines.join('\n');
+        
+        // Show feedback
+        const validation = document.getElementById('exclude_validation');
+        if (validation) {
+          validation.innerHTML = '<span style="color: #4ade80;">✓ Loaded ' + lines.length + ' cards from file</span>';
+          setTimeout(function() { validation.innerHTML = ''; }, 3000);
+        }
+        
+        // Clear file input for re-upload
+        input.value = '';
+      };
+      reader.readAsText(file);
+    }
+  }
+  
+  // Live validation for exclude cards
+  function validateExcludeCards() {
+    const textarea = document.getElementById('exclude_cards_textarea');
+    const validation = document.getElementById('exclude_validation');
+    
+    if (!textarea || !validation) return;
+    
+    const content = textarea.value.trim();
+    
+    if (!content) {
+      validation.innerHTML = '';
+      return;
+    }
+    
+    // Show loading state
+    validation.innerHTML = '<span style="color: #6b7280;">Validating...</span>';
+    
+    // Use fetch instead of HTMX for this simple case
+    const formData = new FormData();
+    formData.append('exclude_cards', content);
+    
+    fetch('/build/validate/exclude_cards', {
+      method: 'POST',
+      body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.error) {
+        validation.innerHTML = '<span style="color: #ef4444;">Error: ' + data.error + '</span>';
+        return;
+      }
+      
+      let html = '';
+      const count = data.count || 0;
+      const limit = data.limit || 15;
+      
+      if (count === 0) {
+        validation.innerHTML = '';
+        return;
+      }
+      
+      // Count display
+      const countColor = data.over_limit ? '#ef4444' : (count > limit * 0.8 ? '#f59e0b' : '#4ade80');
+      html += '<span style="color: ' + countColor + ';">📊 ' + count + '/' + limit + ' cards</span>';
+      
+      // Warnings
+      if (data.warnings && data.warnings.length > 0) {
+        html += ' <span style="color: #ef4444;">⚠ ' + data.warnings[0] + '</span>';
+      }
+      
+      validation.innerHTML = html;
+    })
+    .catch(error => {
+      validation.innerHTML = '<span style="color: #ef4444;">Validation failed</span>';
+    });
+  }
+  
+  // Set up live validation on textarea changes
+  document.addEventListener('DOMContentLoaded', function() {
+    const textarea = document.getElementById('exclude_cards_textarea');
+    if (textarea) {
+      let validationTimer;
+      textarea.addEventListener('input', function() {
+        clearTimeout(validationTimer);
+        validationTimer = setTimeout(validateExcludeCards, 500); // Debounce 500ms
+      });
+      
+      // Initial validation if there's content
+      if (textarea.value.trim()) {
+        validateExcludeCards();
+      }
+    }
+  });
+  
+  // Auto deck name generation on commander change
   (function(){
-    // Backdrop click to close
     try{
       var modal = document.currentScript && document.currentScript.previousElementSibling ? document.currentScript.previousElementSibling.previousElementSibling : document.querySelector('.modal');
       var backdrop = modal ? modal.querySelector('.modal-backdrop') : null;

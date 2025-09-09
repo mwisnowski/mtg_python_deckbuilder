@@ -52,6 +52,7 @@ SHOW_VIRTUALIZE = _as_bool(os.getenv("WEB_VIRTUALIZE"), False)
 ENABLE_THEMES = _as_bool(os.getenv("ENABLE_THEMES"), False)
 ENABLE_PWA = _as_bool(os.getenv("ENABLE_PWA"), False)
 ENABLE_PRESETS = _as_bool(os.getenv("ENABLE_PRESETS"), False)
+ALLOW_MUST_HAVES = _as_bool(os.getenv("ALLOW_MUST_HAVES"), False)
 
 # Theme default from environment: THEME=light|dark|system (case-insensitive). Defaults to system.
 _THEME_ENV = (os.getenv("THEME") or "").strip().lower()
@@ -68,6 +69,7 @@ templates.env.globals.update({
     "enable_themes": ENABLE_THEMES,
     "enable_pwa": ENABLE_PWA,
     "enable_presets": ENABLE_PRESETS,
+    "allow_must_haves": ALLOW_MUST_HAVES,
     "default_theme": DEFAULT_THEME,
 })
 
@@ -149,6 +151,7 @@ async def status_sys():
                 "ENABLE_THEMES": bool(ENABLE_THEMES),
                 "ENABLE_PWA": bool(ENABLE_PWA),
                 "ENABLE_PRESETS": bool(ENABLE_PRESETS),
+                "ALLOW_MUST_HAVES": bool(ALLOW_MUST_HAVES),
                 "DEFAULT_THEME": DEFAULT_THEME,
             },
         }

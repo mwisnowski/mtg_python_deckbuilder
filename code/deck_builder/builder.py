@@ -1045,6 +1045,9 @@ class DeckBuilder(
         # Apply exclude card filtering (M0.5: Phase 1 - Exclude Only)
         if hasattr(self, 'exclude_cards') and self.exclude_cards:
             try:
+                import time  # M5: Performance monitoring
+                exclude_start_time = time.perf_counter()
+                
                 from deck_builder.include_exclude_utils import normalize_punctuation
                 
                 # Find name column
@@ -1078,22 +1081,36 @@ class DeckBuilder(
                                         'similarity': 1.0
                                     })
                                     exclude_mask[idx] = True
+                                    # M5: Structured logging for exclude decisions
+                                    logger.info(f"EXCLUDE_FILTER: {card_name} (pattern: {original_pattern}, pool_stage: setup)")
                                     break  # Found a match, no need to check other patterns
                     
                     # Apply the exclusions in one operation
                     if exclude_mask.any():
                         combined = combined[~exclude_mask].copy()
+                        # M5: Structured logging for exclude filtering summary
+                        logger.info(f"EXCLUDE_SUMMARY: filtered={len(excluded_matches)} pool_before={original_count} pool_after={len(combined)}")
                         self.output_func(f"Excluded {len(excluded_matches)} cards from pool (was {original_count}, now {len(combined)})")
                         for match in excluded_matches[:5]:  # Show first 5 matches
                             self.output_func(f"  - Excluded '{match['matched_card']}' (pattern: '{match['pattern']}', similarity: {match['similarity']:.2f})")
                         if len(excluded_matches) > 5:
                             self.output_func(f"  - ... and {len(excluded_matches) - 5} more")
                     else:
+                        # M5: Structured logging for no exclude matches
+                        logger.info(f"EXCLUDE_NO_MATCHES: patterns={len(self.exclude_cards)} pool_size={original_count}")
                         self.output_func(f"No cards matched exclude patterns: {', '.join(self.exclude_cards)}")
+                    
+                    # M5: Performance monitoring for exclude filtering
+                    exclude_duration = (time.perf_counter() - exclude_start_time) * 1000  # Convert to ms
+                    logger.info(f"EXCLUDE_PERFORMANCE: duration_ms={exclude_duration:.2f} pool_size={original_count} exclude_patterns={len(self.exclude_cards)}")
                 else:
                     self.output_func("Exclude mode: no recognizable name column to filter on; skipping exclude filter.")
+                    # M5: Structured logging for exclude filtering issues
+                    logger.warning("EXCLUDE_ERROR: no_name_column_found")
             except Exception as e:
                 self.output_func(f"Exclude mode: failed to filter excluded cards: {e}")
+                # M5: Structured logging for exclude filtering errors
+                logger.error(f"EXCLUDE_ERROR: exception={str(e)}")
                 import traceback
                 self.output_func(f"Exclude traceback: {traceback.format_exc()}")
         
@@ -1268,6 +1285,9 @@ class DeckBuilder(
         Returns:
             IncludeExcludeDiagnostics: Complete diagnostics of processing results
         """
+        import time  # M5: Performance monitoring
+        process_start_time = time.perf_counter()
+        
         # Initialize diagnostics
         diagnostics = IncludeExcludeDiagnostics(
             missing_includes=[],
@@ -1331,9 +1351,13 @@ class DeckBuilder(
                         "suggestions": match_result.suggestions,
                         "confidence": match_result.confidence
                     })
+                    # M5: Metrics counter for fuzzy confirmations
+                    logger.info(f"FUZZY_CONFIRMATION_NEEDED: {card_name} (confidence: {match_result.confidence:.3f})")
                 else:
                     # No good matches found
                     diagnostics.missing_includes.append(card_name)
+                    # M5: Metrics counter for missing includes
+                    logger.info(f"INCLUDE_CARD_MISSING: {card_name} (no_matches_found)")
             else:
                 # Direct matching or fuzzy disabled
                 processed_includes.append(card_name)
@@ -1349,6 +1373,8 @@ class DeckBuilder(
         for include in processed_includes:
             if include in self.exclude_cards:
                 diagnostics.excluded_removed.append(include)
+                # M5: Structured logging for include/exclude conflicts
+                logger.info(f"INCLUDE_EXCLUDE_CONFLICT: {include} (resolution: excluded)")
                 self.output_func(f"Card '{include}' appears in both include and exclude lists - excluding takes precedence")
             else:
                 final_includes.append(include)
@@ -1358,6 +1384,11 @@ class DeckBuilder(
 
         # Store diagnostics for later use
         self.include_exclude_diagnostics = diagnostics.__dict__
+        
+        # M5: Performance monitoring for include/exclude processing
+        process_duration = (time.perf_counter() - process_start_time) * 1000  # Convert to ms
+        total_cards = len(self.include_cards) + len(self.exclude_cards)
+        logger.info(f"INCLUDE_EXCLUDE_PERFORMANCE: duration_ms={process_duration:.2f} total_cards={total_cards} includes={len(self.include_cards)} excludes={len(self.exclude_cards)}")
 
         return diagnostics
 
@@ -1395,7 +1426,12 @@ class DeckBuilder(
         missing = self.include_exclude_diagnostics.get('missing_includes', [])
         if missing:
             missing_str = ', '.join(missing)
+            # M5: Structured logging for strict mode enforcement
+            logger.error(f"STRICT_MODE_FAILURE: missing_includes={len(missing)} cards={missing_str}")
             raise RuntimeError(f"Strict mode: Failed to include required cards: {missing_str}")
+        else:
+            # M5: Structured logging for strict mode success
+            logger.info("STRICT_MODE_SUCCESS: all_includes_satisfied=true")
 
     # ---------------------------
     # Card Library Management

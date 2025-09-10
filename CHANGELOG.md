@@ -21,6 +21,17 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 ### Fixed
 - (placeholder)
 
+## [2.2.8] - 2025-09-10
+
+### Added
+- (placeholder)
+
+### Changed
+- (placeholder)
+
+### Fixed
+- (placeholder)
+
 ## [2.2.7] - 2025-09-10
 
 ### Added

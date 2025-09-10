@@ -1,10 +1,11 @@
 [build-system]
-requires = ["setuptools>=61.0", "wheel"]
+# Bumped setuptools minimum to avoid older vulnerable releases; wheel bumped for newer build metadata support
+requires = ["setuptools>=70.0.0", "wheel>=0.43.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "mtg-deckbuilder"
-version = "2.2.7"
+version = "2.2.8"
 description = "A command-line tool for building and analyzing Magic: The Gathering decks"
 readme = "README.md"
 license = {file = "LICENSE"}

@@ -74,6 +74,7 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 - Mobile UI setup status stuttering eliminated by removing temporary "Setup complete" message displays
 - Mobile build controls accessibility improved with bottom-floating positioning for thumb navigation
 - Mobile viewport breakpoint expanded from 720px to 1024px for broader device compatibility
+- Docker image: expanded entrypoint seeding now copies all default card list JSON files (extra_turns, game_changers, mass_land_denial, tutors_nonland, etc.) and brackets.yml when missing, preventing missing list issues with mounted blank config volumes
 
 ## [2.2.6] - 2025-09-04
 

@@ -126,7 +126,7 @@ jobs:
     needs: prepare
     permissions:
       contents: read
-    timeout-minutes: 20
+    timeout-minutes: 10
     continue-on-error: true
     steps:
       - name: Checkout

@@ -3,122 +3,122 @@
   "generated_at": "2025-09-03T15:30:40+00:00",
   "pairs": [
     { "a": "Grave Pact", "b": "Phyrexian Altar", "tags": ["aristocrats", "value"], "notes": "Sacrifice enables repeated edicts" },
-    { "a": "Panharmonicon", "b": "Mulldrifter", "tags": ["etb", "value"], "notes": "Amplifies ETB triggers" }
-  ,{ "a": "Doubling Season", "b": "+1/+1 counters", "tags": ["counters", "value"], "notes": "Generic synergy placeholder for counters decks" }
-  ,{ "a": "Skullclamp", "b": "Bitterblossom", "tags": ["card draw", "tokens"], "notes": "Token fodder into draw" }
-  ,{ "a": "Pitiless Plunderer", "b": "Grim Haruspex", "tags": ["aristocrats", "value"], "notes": "Death triggers generate mana and cards" }
-  ,{ "a": "Smothering Tithe", "b": "Wheel of Fortune", "tags": ["treasure", "value"], "notes": "Wheel effects with Tithe produce piles of treasure" }
-  ,{ "a": "Concordant Crossroads", "b": "Craterhoof Behemoth", "tags": ["haste", "finishers"], "notes": "Global haste + overrun finisher" }
-  ,{ "a": "Ashnod's Altar", "b": "Nim Deathmantle", "tags": ["loop"], "notes": "Classic deathmantle loop with ETB/LTB creatures" }
-  ,{ "a": "Anointed Procession", "b": "Smothering Tithe", "tags": ["tokens", "treasure"], "notes": "Doubles Treasure token output" }
-  ,{ "a": "Parallel Lives", "b": "Smothering Tithe", "tags": ["tokens", "treasure"], "notes": "Token doublers amplify Treasure" }
-  ,{ "a": "Mondrak, Glory Dominus", "b": "Smothering Tithe", "tags": ["tokens", "treasure"], "notes": "Doubles opponents' Treasure output to you" }
-  ,{ "a": "Academy Manufactor", "b": "Tireless Provisioner", "tags": ["tokens", "treasure"], "notes": "Each Treasure becomes Food/Clue/Treasure" }
-  ,{ "a": "Academy Manufactor", "b": "Lonis, Cryptozoologist", "tags": ["tokens", "clues"], "notes": "Clues become all three tokens" }
-  ,{ "a": "Academy Manufactor", "b": "Bootleggers' Stash", "tags": ["tokens", "treasure"], "notes": "Lands make Treasures which become all three" }
-  ,{ "a": "Ophiomancer", "b": "Skullclamp", "tags": ["card draw", "tokens"], "notes": "Recurring 1/1 tokens feed Clamp" }
-  ,{ "a": "Pitiless Plunderer", "b": "Ophiomancer", "tags": ["aristocrats", "treasure"], "notes": "Free sac fodder into Treasure every turn" }
-  ,{ "a": "Purphoros, God of the Forge", "b": "Avenger of Zendikar", "tags": ["damage", "tokens"], "notes": "Go-wide ETB burns table" }
-  ,{ "a": "Impact Tremors", "b": "Avenger of Zendikar", "tags": ["damage", "tokens"], "notes": "Budget Purphoros line" }
-  ,{ "a": "Hardened Scales", "b": "Walking Ballista", "tags": ["counters"], "notes": "Extra counters for more pings" }
-  ,{ "a": "Hardened Scales", "b": "The Ozolith", "tags": ["counters"], "notes": "Store and move counters more efficiently" }
-  ,{ "a": "The Ozolith", "b": "Arcbound Ravager", "tags": ["counters", "artifacts"], "notes": "Modular and counter storage play well" }
-  ,{ "a": "Winding Constrictor", "b": "Hangarback Walker", "tags": ["counters"], "notes": "Bigger on entry and dies into more Thopters" }
-  ,{ "a": "Sun Titan", "b": "Altar of Dementia", "tags": ["etb", "mill"], "notes": "Recur 3-drop permanents, mill self/opponents" }
-  ,{ "a": "Sun Titan", "b": "Eternal Witness", "tags": ["recursion", "value"], "notes": "Classic recursion value engine" }
-  ,{ "a": "Muldrotha, the Gravetide", "b": "Seal of Primordium", "tags": ["graveyard", "removal"], "notes": "Repeatable enchantment removal from yard" }
-  ,{ "a": "Meren of Clan Nel Toth", "b": "Sakura-Tribe Elder", "tags": ["graveyard", "ramp"], "notes": "Recurring ramp and experience counters" }
-  ,{ "a": "Phyrexian Reclamation", "b": "Fleshbag Marauder", "tags": ["removal", "graveyard"], "notes": "Repeatable edicts via recursion" }
-  ,{ "a": "Young Pyromancer", "b": "Opt", "tags": ["spellslinger", "tokens"], "notes": "Cheap cantrips fuel token production" }
-  ,{ "a": "Talrand, Sky Summoner", "b": "Opt", "tags": ["spellslinger", "tokens"], "notes": "Drakes on every instant/sorcery" }
-  ,{ "a": "Archmage Emeritus", "b": "Opt", "tags": ["spellslinger", "card draw"], "notes": "Learn triggers on low-cost spells" }
-  ,{ "a": "Storm-Kiln Artist", "b": "Big Score", "tags": ["treasure", "spellslinger"], "notes": "Treasure refunds the spells" }
-  ,{ "a": "Krark-Clan Ironworks", "b": "Myr Retriever", "tags": ["artifacts", "value"], "notes": "Sac outlets plus recursion parts" }
-  ,{ "a": "Scrap Trawler", "b": "Ichor Wellspring", "tags": ["artifacts", "card draw"], "notes": "Dies-to-draw plus Trawler chains" }
-  ,{ "a": "Goblin Engineer", "b": "Wurmcoil Engine", "tags": ["artifacts", "tutor"], "notes": "Entomb and recur big artifact threats" }
-  ,{ "a": "Inspiring Statuary", "b": "Smothering Tithe", "tags": ["artifacts", "treasure"], "notes": "Treasure fuels improvise for non-artifacts" }
-  ,{ "a": "Tireless Tracker", "b": "Evolving Wilds", "tags": ["landfall", "card draw"], "notes": "Crackable Clues on fetch lands" }
-  ,{ "a": "Tireless Provisioner", "b": "Evolving Wilds", "tags": ["landfall", "treasure"], "notes": "Landfall ramps with fetch triggers" }
-  ,{ "a": "Scute Swarm", "b": "Cultivate", "tags": ["landfall", "tokens"], "notes": "Ramp spells explode token count" }
-  ,{ "a": "Avenger of Zendikar", "b": "Scapeshift", "tags": ["landfall", "tokens"], "notes": "Mass landfall into massive board" }
-  ,{ "a": "Sythis, Harvest's Hand", "b": "Wild Growth", "tags": ["enchantress", "ramp"], "notes": "Draw and ramp on cheap auras" }
-  ,{ "a": "Enchantress's Presence", "b": "Utopia Sprawl", "tags": ["enchantress", "ramp"], "notes": "Cantrip ramp aura" }
-  ,{ "a": "Stoneforge Mystic", "b": "Skullclamp", "tags": ["equipment", "tutor"], "notes": "Tutor powerful draw equipment" }
-  ,{ "a": "Puresteel Paladin", "b": "Colossus Hammer", "tags": ["equipment", "card draw"], "notes": "Free equips and cards on cheap equips" }
-  ,{ "a": "Sigarda's Aid", "b": "Colossus Hammer", "tags": ["equipment", "tempo"], "notes": "Flash in and auto-equip the Hammer" }
-  ,{ "a": "Sram, Senior Edificer", "b": "Swiftfoot Boots", "tags": ["equipment", "card draw"], "notes": "Cheap equipment keep cards flowing" }
-  ,{ "a": "Waste Not", "b": "Windfall", "tags": ["discard", "value"], "notes": "Wheel fuels Waste Not payoffs" }
-  ,{ "a": "Nekusar, the Mindrazer", "b": "Wheel of Fortune", "tags": ["damage", "wheels"], "notes": "Wheels turn into burn" }
-  ,{ "a": "Bone Miser", "b": "Wheel of Misfortune", "tags": ["discard", "value"], "notes": "Discard payoffs go wild on wheels" }
-  ,{ "a": "Winter Orb", "b": "Urza, Lord High Artificer", "tags": ["stax", "artifacts"], "notes": "Tap Orb on opponents' turns to break parity" }
-  ,{ "a": "Static Orb", "b": "Tangle Wire", "tags": ["stax"], "notes": "Stacking tap/untap tax pieces" }
-  ,{ "a": "Atraxa, Praetors' Voice", "b": "Evolution Sage", "tags": ["proliferate", "counters"], "notes": "Extra proliferate with lands" }
-  ,{ "a": "Tekuthal, Inquiry Dominus", "b": "Karn's Bastion", "tags": ["proliferate", "counters"], "notes": "Repeatable proliferate engine" }
-  ,{ "a": "Xorn", "b": "Smothering Tithe", "tags": ["treasure", "tokens"], "notes": "More treasures per draw" }
-  ,{ "a": "Academy Manufactor", "b": "Xorn", "tags": ["treasure", "tokens"], "notes": "Token multipliers stack" }
-  ,{ "a": "Professional Face-Breaker", "b": "Bitterblossom", "tags": ["treasure", "combat"], "notes": "Evasive tokens turn hits into Treasure" }
-  ,{ "a": "Chatterfang, Squirrel General", "b": "Pitiless Plunderer", "tags": ["aristocrats", "tokens"], "notes": "Squirrels plus Treasure on death" }
-  ,{ "a": "Chatterfang, Squirrel General", "b": "Parallel Lives", "tags": ["tokens"], "notes": "Token doublers scale Chatterfang" }
-  ,{ "a": "Mayhem Devil", "b": "Pitiless Plunderer", "tags": ["aristocrats", "damage"], "notes": "Sac/death pings stack up" }
-  ,{ "a": "Soul Warden", "b": "Ajani's Pridemate", "tags": ["lifegain", "counters"], "notes": "Gain triggers grow Pridemate" }
-  ,{ "a": "Well of Lost Dreams", "b": "Ajani's Pridemate", "tags": ["lifegain", "card draw"], "notes": "Convert lifegain into cards while growing" }
-  ,{ "a": "Ephemerate", "b": "Mulldrifter", "tags": ["blink", "value"], "notes": "Cheap repeated blink for draw" }
-  ,{ "a": "Deadeye Navigator", "b": "Mulldrifter", "tags": ["blink", "value"], "notes": "Soulbond to blink for cards" }
-  ,{ "a": "Cloudstone Curio", "b": "Elvish Visionary", "tags": ["bounce", "value"], "notes": "Loop cheap ETB cantrips" }
-  ,{ "a": "Kor Spiritdancer", "b": "Ethereal Armor", "tags": ["auras", "card draw"], "notes": "Grow and draw on auras" }
-  ,{ "a": "Sram, Senior Edificer", "b": "Ethereal Armor", "tags": ["auras", "card draw"], "notes": "Cheap aura cantrips" }
-  ,{ "a": "Light-Paws, Emperor's Voice", "b": "All That Glitters", "tags": ["auras", "tutor"], "notes": "Tutor and cheat auras" }
-  ,{ "a": "Entomb", "b": "Reanimate", "tags": ["reanimator", "tutor"], "notes": "Classic yard setup and reanimate" }
-  ,{ "a": "Buried Alive", "b": "Victimize", "tags": ["reanimator", "value"], "notes": "Load the yard, reanimate two" }
-  ,{ "a": "Animate Dead", "b": "Dockside Extortionist", "tags": ["reanimator", "treasure"], "notes": "Reanimate ETB ramp threat" }
-  ,{ "a": "Aesi, Tyrant of Gyre Strait", "b": "Exploration", "tags": ["landfall", "card draw"], "notes": "Extra lands draw extra cards" }
-  ,{ "a": "Tatyova, Benthic Druid", "b": "Exploration", "tags": ["landfall", "card draw"], "notes": "Draw on extra land drops" }
-  ,{ "a": "Crucible of Worlds", "b": "Strip Mine", "tags": ["stax", "lands"], "notes": "Soft lock on lands recursion" }
-  ,{ "a": "Ramunap Excavator", "b": "Evolving Wilds", "tags": ["lands", "value"], "notes": "Repeatable fetchland utility" }
-  ,{ "a": "Life from the Loam", "b": "Lonely Sandbar", "tags": ["dredge", "card draw"], "notes": "Cycling lands plus Loam" }
-  ,{ "a": "Life from the Loam", "b": "Barren Moor", "tags": ["dredge", "card draw"], "notes": "Cycle and recur pattern" }
-  ,{ "a": "Field of the Dead", "b": "Evolving Wilds", "tags": ["landfall", "tokens"], "notes": "Fetchlands trigger Field tokens" }
-  ,{ "a": "Maskwood Nexus", "b": "Kindred Discovery", "tags": ["tribal", "card draw"], "notes": "All creatures share a type for draw" }
-  ,{ "a": "Krenko, Mob Boss", "b": "Skullclamp", "tags": ["goblins", "card draw"], "notes": "Go wide and convert to cards" }
-  ,{ "a": "Krenko, Mob Boss", "b": "Impact Tremors", "tags": ["goblins", "damage"], "notes": "Tokens ping table on entry" }
-  ,{ "a": "Tendershoot Dryad", "b": "Parallel Lives", "tags": ["tokens"], "notes": "Saprolings scale quickly" }
-  ,{ "a": "Mycoloth", "b": "Parallel Lives", "tags": ["tokens"], "notes": "Devour grows exponential tokens" }
-  ,{ "a": "Risen Reef", "b": "Omnath, Locus of the Roil", "tags": ["elementals", "value"], "notes": "Elemental ETBs chain value" }
-  ,{ "a": "Beast Whisperer", "b": "Elvish Mystic", "tags": ["elves", "card draw"], "notes": "Cheap creatures keep cards flowing" }
-  ,{ "a": "Birgi, God of Storytelling", "b": "Runaway Steam-Kin", "tags": ["spellslinger", "mana"], "notes": "Spells return mana and counters" }
-  ,{ "a": "Niv-Mizzet, Parun", "b": "Teferi's Ageless Insight", "tags": ["card draw", "damage"], "notes": "Extra cards fuel more pings" }
-  ,{ "a": "Throne of the God-Pharaoh", "b": "Bitterblossom", "tags": ["tokens", "damage"], "notes": "Tapped tokens drain opponents" }
-  ,{ "a": "Goblin Bombardment", "b": "Ophiomancer", "tags": ["aristocrats", "damage"], "notes": "Recurring sac fodder becomes pings" }
-  ,{ "a": "Urza, Lord High Artificer", "b": "Thopter Foundry", "tags": ["artifacts", "tokens"], "notes": "Thopters feed Urza mana" }
-  ,{ "a": "Urza, Lord High Artificer", "b": "Sword of the Meek", "tags": ["artifacts", "tokens"], "notes": "Sword returns with Thopter tokens" }
-  ,{ "a": "Cathars' Crusade", "b": "Avenger of Zendikar", "tags": ["tokens", "counters"], "notes": "Mass ETB puts counters on everything" }
-  ,{ "a": "Cathars' Crusade", "b": "Scute Swarm", "tags": ["tokens", "counters"], "notes": "Token explosions grow the team" }
-  ,{ "a": "Felidar Retreat", "b": "Evolving Wilds", "tags": ["landfall", "tokens"], "notes": "Fetchlands double-trigger retreat" }
-  ,{ "a": "Skullclamp", "b": "Endrek Sahr, Master Breeder", "tags": ["card draw", "tokens"], "notes": "Clamp the Thrulls for a draw engine" }
-  ,{ "a": "Earthcraft", "b": "Squirrel Nest", "tags": ["tokens", "ramp"], "notes": "Tap the enchanted land to make more squirrels" }
-  ,{ "a": "Bitterblossom", "b": "Contamination", "tags": ["stax", "tokens"], "notes": "Upkeep fodder to maintain the lock" }
-  ,{ "a": "Smokestack", "b": "Ophiomancer", "tags": ["stax", "tokens"], "notes": "Serpents feed sac requirements" }
-  ,{ "a": "Goblin Welder", "b": "Spine of Ish Sah", "tags": ["artifacts", "removal"], "notes": "Repeatable Vindicate with Welder loops" }
-  ,{ "a": "Goblin Welder", "b": "Ichor Wellspring", "tags": ["artifacts", "card draw"], "notes": "Weld for cards and value" }
-  ,{ "a": "Feldon of the Third Path", "b": "Wurmcoil Engine", "tags": ["artifacts", "value"], "notes": "Token copies generate lifelink/deathtouch tokens" }
-  ,{ "a": "Brago, King Eternal", "b": "Strionic Resonator", "tags": ["blink", "engine"], "notes": "Copy Brago's trigger to chain blinks" }
-  ,{ "a": "Sanctum Weaver", "b": "Enchantress's Presence", "tags": ["enchantress", "ramp"], "notes": "Big mana plus steady card draw" }
-  ,{ "a": "Setessan Champion", "b": "Rancor", "tags": ["auras", "card draw"], "notes": "Cheap aura cantrips and sticks around" }
-  ,{ "a": "Invisible Stalker", "b": "All That Glitters", "tags": ["voltron", "auras"], "notes": "Hexproof evasive body for big aura" }
-  ,{ "a": "Hammer of Nazahn", "b": "Colossus Hammer", "tags": ["equipment", "tempo"], "notes": "Auto-equip and protect the carrier" }
-  ,{ "a": "Aetherflux Reservoir", "b": "Storm-Kiln Artist", "tags": ["storm", "lifegain"], "notes": "Treasure refunds spells to grow life total" }
-  ,{ "a": "Dauthi Voidwalker", "b": "Wheel of Fortune", "tags": ["discard", "value"], "notes": "Exile discards and cast best spell" }
-  ,{ "a": "Sheoldred, the Apocalypse", "b": "Windfall", "tags": ["wheels", "lifedrain"], "notes": "Opponents draw many, you gain and they lose" }
-  ,{ "a": "Syr Konrad, the Grim", "b": "Mesmeric Orb", "tags": ["mill", "damage"], "notes": "Self-mill drains table" }
-  ,{ "a": "Syr Konrad, the Grim", "b": "Altar of Dementia", "tags": ["mill", "aristocrats"], "notes": "Sac to mill and drain" }
-  ,{ "a": "Ruin Crab", "b": "Evolving Wilds", "tags": ["mill", "landfall"], "notes": "Fetch lands double mill triggers" }
-  ,{ "a": "Narset, Parter of Veils", "b": "Wheel of Fortune", "tags": ["wheels", "stax"], "notes": "Wheels become one-sided" }
-  ,{ "a": "Narset, Parter of Veils", "b": "Echo of Eons", "tags": ["wheels", "stax"], "notes": "Self-flashback Time Spiral with Narset" }
-  ,{ "a": "Bolas's Citadel", "b": "Aetherflux Reservoir", "tags": ["lifegain", "engine"], "notes": "Casting from top grows life to fuel Citadel" }
-  ,{ "a": "Bolas's Citadel", "b": "Sensei's Divining Top", "tags": ["topdeck", "engine"], "notes": "Top manipulates Citadel flips" }
-  ,{ "a": "Mystic Forge", "b": "Sensei's Divining Top", "tags": ["artifacts", "topdeck"], "notes": "Look/cast from top with Top selection" }
-  ,{ "a": "Amulet of Vigor", "b": "Simic Growth Chamber", "tags": ["lands", "ramp"], "notes": "Bounce lands untap for extra mana" }
-  ,{ "a": "Dryad of the Ilysian Grove", "b": "Valakut, the Molten Pinnacle", "tags": ["lands", "damage"], "notes": "Valakut online in any colors" }
-  ,{ "a": "Azusa, Lost but Seeking", "b": "Valakut, the Molten Pinnacle", "tags": ["lands", "damage"], "notes": "Extra land drops power Valakut" }
+    { "a": "Panharmonicon", "b": "Mulldrifter", "tags": ["etb", "value"], "notes": "Amplifies ETB triggers" },
+    { "a": "Doubling Season", "b": "+1/+1 counters", "tags": ["counters", "value"], "notes": "Generic synergy placeholder for counters decks" },
+    { "a": "Skullclamp", "b": "Bitterblossom", "tags": ["card draw", "tokens"], "notes": "Token fodder into draw" },
+    { "a": "Pitiless Plunderer", "b": "Grim Haruspex", "tags": ["aristocrats", "value"], "notes": "Death triggers generate mana and cards" },
+    { "a": "Smothering Tithe", "b": "Wheel of Fortune", "tags": ["treasure", "value"], "notes": "Wheel effects with Tithe produce piles of treasure" },
+    { "a": "Concordant Crossroads", "b": "Craterhoof Behemoth", "tags": ["haste", "finishers"], "notes": "Global haste + overrun finisher" },
+    { "a": "Ashnod's Altar", "b": "Nim Deathmantle", "tags": ["loop"], "notes": "Classic deathmantle loop with ETB/LTB creatures" },
+    { "a": "Anointed Procession", "b": "Smothering Tithe", "tags": ["tokens", "treasure"], "notes": "Doubles Treasure token output" },
+    { "a": "Parallel Lives", "b": "Smothering Tithe", "tags": ["tokens", "treasure"], "notes": "Token doublers amplify Treasure" },
+    { "a": "Mondrak, Glory Dominus", "b": "Smothering Tithe", "tags": ["tokens", "treasure"], "notes": "Doubles opponents' Treasure output to you" },
+    { "a": "Academy Manufactor", "b": "Tireless Provisioner", "tags": ["tokens", "treasure"], "notes": "Each Treasure becomes Food/Clue/Treasure" },
+    { "a": "Academy Manufactor", "b": "Lonis, Cryptozoologist", "tags": ["tokens", "clues"], "notes": "Clues become all three tokens" },
+    { "a": "Academy Manufactor", "b": "Bootleggers' Stash", "tags": ["tokens", "treasure"], "notes": "Lands make Treasures which become all three" },
+    { "a": "Ophiomancer", "b": "Skullclamp", "tags": ["card draw", "tokens"], "notes": "Recurring 1/1 tokens feed Clamp" },
+    { "a": "Pitiless Plunderer", "b": "Ophiomancer", "tags": ["aristocrats", "treasure"], "notes": "Free sac fodder into Treasure every turn" },
+    { "a": "Purphoros, God of the Forge", "b": "Avenger of Zendikar", "tags": ["damage", "tokens"], "notes": "Go-wide ETB burns table" },
+    { "a": "Impact Tremors", "b": "Avenger of Zendikar", "tags": ["damage", "tokens"], "notes": "Budget Purphoros line" },
+    { "a": "Hardened Scales", "b": "Walking Ballista", "tags": ["counters"], "notes": "Extra counters for more pings" },
+    { "a": "Hardened Scales", "b": "The Ozolith", "tags": ["counters"], "notes": "Store and move counters more efficiently" },
+    { "a": "The Ozolith", "b": "Arcbound Ravager", "tags": ["counters", "artifacts"], "notes": "Modular and counter storage play well" },
+    { "a": "Winding Constrictor", "b": "Hangarback Walker", "tags": ["counters"], "notes": "Bigger on entry and dies into more Thopters" },
+    { "a": "Sun Titan", "b": "Altar of Dementia", "tags": ["etb", "mill"], "notes": "Recur 3-drop permanents, mill self/opponents" },
+    { "a": "Sun Titan", "b": "Eternal Witness", "tags": ["recursion", "value"], "notes": "Classic recursion value engine" },
+    { "a": "Muldrotha, the Gravetide", "b": "Seal of Primordium", "tags": ["graveyard", "removal"], "notes": "Repeatable enchantment removal from yard" },
+    { "a": "Meren of Clan Nel Toth", "b": "Sakura-Tribe Elder", "tags": ["graveyard", "ramp"], "notes": "Recurring ramp and experience counters" },
+    { "a": "Phyrexian Reclamation", "b": "Fleshbag Marauder", "tags": ["removal", "graveyard"], "notes": "Repeatable edicts via recursion" },
+    { "a": "Young Pyromancer", "b": "Opt", "tags": ["spellslinger", "tokens"], "notes": "Cheap cantrips fuel token production" },
+    { "a": "Talrand, Sky Summoner", "b": "Opt", "tags": ["spellslinger", "tokens"], "notes": "Drakes on every instant/sorcery" },
+    { "a": "Archmage Emeritus", "b": "Opt", "tags": ["spellslinger", "card draw"], "notes": "Learn triggers on low-cost spells" },
+    { "a": "Storm-Kiln Artist", "b": "Big Score", "tags": ["treasure", "spellslinger"], "notes": "Treasure refunds the spells" },
+    { "a": "Krark-Clan Ironworks", "b": "Myr Retriever", "tags": ["artifacts", "value"], "notes": "Sac outlets plus recursion parts" },
+    { "a": "Scrap Trawler", "b": "Ichor Wellspring", "tags": ["artifacts", "card draw"], "notes": "Dies-to-draw plus Trawler chains" },
+    { "a": "Goblin Engineer", "b": "Wurmcoil Engine", "tags": ["artifacts", "tutor"], "notes": "Entomb and recur big artifact threats" },
+    { "a": "Inspiring Statuary", "b": "Smothering Tithe", "tags": ["artifacts", "treasure"], "notes": "Treasure fuels improvise for non-artifacts" },
+    { "a": "Tireless Tracker", "b": "Evolving Wilds", "tags": ["landfall", "card draw"], "notes": "Crackable Clues on fetch lands" },
+    { "a": "Tireless Provisioner", "b": "Evolving Wilds", "tags": ["landfall", "treasure"], "notes": "Landfall ramps with fetch triggers" },
+    { "a": "Scute Swarm", "b": "Cultivate", "tags": ["landfall", "tokens"], "notes": "Ramp spells explode token count" },
+    { "a": "Avenger of Zendikar", "b": "Scapeshift", "tags": ["landfall", "tokens"], "notes": "Mass landfall into massive board" },
+    { "a": "Sythis, Harvest's Hand", "b": "Wild Growth", "tags": ["enchantress", "ramp"], "notes": "Draw and ramp on cheap auras" },
+    { "a": "Enchantress's Presence", "b": "Utopia Sprawl", "tags": ["enchantress", "ramp"], "notes": "Cantrip ramp aura" },
+    { "a": "Stoneforge Mystic", "b": "Skullclamp", "tags": ["equipment", "tutor"], "notes": "Tutor powerful draw equipment" },
+    { "a": "Puresteel Paladin", "b": "Colossus Hammer", "tags": ["equipment", "card draw"], "notes": "Free equips and cards on cheap equips" },
+    { "a": "Sigarda's Aid", "b": "Colossus Hammer", "tags": ["equipment", "tempo"], "notes": "Flash in and auto-equip the Hammer" },
+    { "a": "Sram, Senior Edificer", "b": "Swiftfoot Boots", "tags": ["equipment", "card draw"], "notes": "Cheap equipment keep cards flowing" },
+    { "a": "Waste Not", "b": "Windfall", "tags": ["discard", "value"], "notes": "Wheel fuels Waste Not payoffs" },
+    { "a": "Nekusar, the Mindrazer", "b": "Wheel of Fortune", "tags": ["damage", "wheels"], "notes": "Wheels turn into burn" },
+    { "a": "Bone Miser", "b": "Wheel of Misfortune", "tags": ["discard", "value"], "notes": "Discard payoffs go wild on wheels" },
+    { "a": "Winter Orb", "b": "Urza, Lord High Artificer", "tags": ["stax", "artifacts"], "notes": "Tap Orb on opponents' turns to break parity" },
+    { "a": "Static Orb", "b": "Tangle Wire", "tags": ["stax"], "notes": "Stacking tap/untap tax pieces" },
+    { "a": "Atraxa, Praetors' Voice", "b": "Evolution Sage", "tags": ["proliferate", "counters"], "notes": "Extra proliferate with lands" },
+    { "a": "Tekuthal, Inquiry Dominus", "b": "Karn's Bastion", "tags": ["proliferate", "counters"], "notes": "Repeatable proliferate engine" },
+    { "a": "Xorn", "b": "Smothering Tithe", "tags": ["treasure", "tokens"], "notes": "More treasures per draw" },
+    { "a": "Academy Manufactor", "b": "Xorn", "tags": ["treasure", "tokens"], "notes": "Token multipliers stack" },
+    { "a": "Professional Face-Breaker", "b": "Bitterblossom", "tags": ["treasure", "combat"], "notes": "Evasive tokens turn hits into Treasure" },
+    { "a": "Chatterfang, Squirrel General", "b": "Pitiless Plunderer", "tags": ["aristocrats", "tokens"], "notes": "Squirrels plus Treasure on death" },
+    { "a": "Chatterfang, Squirrel General", "b": "Parallel Lives", "tags": ["tokens"], "notes": "Token doublers scale Chatterfang" },
+    { "a": "Mayhem Devil", "b": "Pitiless Plunderer", "tags": ["aristocrats", "damage"], "notes": "Sac/death pings stack up" },
+    { "a": "Soul Warden", "b": "Ajani's Pridemate", "tags": ["lifegain", "counters"], "notes": "Gain triggers grow Pridemate" },
+    { "a": "Well of Lost Dreams", "b": "Ajani's Pridemate", "tags": ["lifegain", "card draw"], "notes": "Convert lifegain into cards while growing" },
+    { "a": "Ephemerate", "b": "Mulldrifter", "tags": ["blink", "value"], "notes": "Cheap repeated blink for draw" },
+    { "a": "Deadeye Navigator", "b": "Mulldrifter", "tags": ["blink", "value"], "notes": "Soulbond to blink for cards" },
+    { "a": "Cloudstone Curio", "b": "Elvish Visionary", "tags": ["bounce", "value"], "notes": "Loop cheap ETB cantrips" },
+    { "a": "Kor Spiritdancer", "b": "Ethereal Armor", "tags": ["auras", "card draw"], "notes": "Grow and draw on auras" },
+    { "a": "Sram, Senior Edificer", "b": "Ethereal Armor", "tags": ["auras", "card draw"], "notes": "Cheap aura cantrips" },
+    { "a": "Light-Paws, Emperor's Voice", "b": "All That Glitters", "tags": ["auras", "tutor"], "notes": "Tutor and cheat auras" },
+    { "a": "Entomb", "b": "Reanimate", "tags": ["reanimator", "tutor"], "notes": "Classic yard setup and reanimate" },
+    { "a": "Buried Alive", "b": "Victimize", "tags": ["reanimator", "value"], "notes": "Load the yard, reanimate two" },
+    { "a": "Animate Dead", "b": "Dockside Extortionist", "tags": ["reanimator", "treasure"], "notes": "Reanimate ETB ramp threat" },
+    { "a": "Aesi, Tyrant of Gyre Strait", "b": "Exploration", "tags": ["landfall", "card draw"], "notes": "Extra lands draw extra cards" },
+    { "a": "Tatyova, Benthic Druid", "b": "Exploration", "tags": ["landfall", "card draw"], "notes": "Draw on extra land drops" },
+    { "a": "Crucible of Worlds", "b": "Strip Mine", "tags": ["stax", "lands"], "notes": "Soft lock on lands recursion" },
+    { "a": "Ramunap Excavator", "b": "Evolving Wilds", "tags": ["lands", "value"], "notes": "Repeatable fetchland utility" },
+    { "a": "Life from the Loam", "b": "Lonely Sandbar", "tags": ["dredge", "card draw"], "notes": "Cycling lands plus Loam" },
+    { "a": "Life from the Loam", "b": "Barren Moor", "tags": ["dredge", "card draw"], "notes": "Cycle and recur pattern" },
+    { "a": "Field of the Dead", "b": "Evolving Wilds", "tags": ["landfall", "tokens"], "notes": "Fetchlands trigger Field tokens" },
+    { "a": "Maskwood Nexus", "b": "Kindred Discovery", "tags": ["tribal", "card draw"], "notes": "All creatures share a type for draw" },
+    { "a": "Krenko, Mob Boss", "b": "Skullclamp", "tags": ["goblins", "card draw"], "notes": "Go wide and convert to cards" },
+    { "a": "Krenko, Mob Boss", "b": "Impact Tremors", "tags": ["goblins", "damage"], "notes": "Tokens ping table on entry" },
+    { "a": "Tendershoot Dryad", "b": "Parallel Lives", "tags": ["tokens"], "notes": "Saprolings scale quickly" },
+    { "a": "Mycoloth", "b": "Parallel Lives", "tags": ["tokens"], "notes": "Devour grows exponential tokens" },
+    { "a": "Risen Reef", "b": "Omnath, Locus of the Roil", "tags": ["elementals", "value"], "notes": "Elemental ETBs chain value" },
+    { "a": "Beast Whisperer", "b": "Elvish Mystic", "tags": ["elves", "card draw"], "notes": "Cheap creatures keep cards flowing" },
+    { "a": "Birgi, God of Storytelling", "b": "Runaway Steam-Kin", "tags": ["spellslinger", "mana"], "notes": "Spells return mana and counters" },
+    { "a": "Niv-Mizzet, Parun", "b": "Teferi's Ageless Insight", "tags": ["card draw", "damage"], "notes": "Extra cards fuel more pings" },
+    { "a": "Throne of the God-Pharaoh", "b": "Bitterblossom", "tags": ["tokens", "damage"], "notes": "Tapped tokens drain opponents" },
+    { "a": "Goblin Bombardment", "b": "Ophiomancer", "tags": ["aristocrats", "damage"], "notes": "Recurring sac fodder becomes pings" },
+    { "a": "Urza, Lord High Artificer", "b": "Thopter Foundry", "tags": ["artifacts", "tokens"], "notes": "Thopters feed Urza mana" },
+    { "a": "Urza, Lord High Artificer", "b": "Sword of the Meek", "tags": ["artifacts", "tokens"], "notes": "Sword returns with Thopter tokens" },
+    { "a": "Cathars' Crusade", "b": "Avenger of Zendikar", "tags": ["tokens", "counters"], "notes": "Mass ETB puts counters on everything" },
+    { "a": "Cathars' Crusade", "b": "Scute Swarm", "tags": ["tokens", "counters"], "notes": "Token explosions grow the team" },
+    { "a": "Felidar Retreat", "b": "Evolving Wilds", "tags": ["landfall", "tokens"], "notes": "Fetchlands double-trigger retreat" },
+    { "a": "Skullclamp", "b": "Endrek Sahr, Master Breeder", "tags": ["card draw", "tokens"], "notes": "Clamp the Thrulls for a draw engine" },
+    { "a": "Earthcraft", "b": "Squirrel Nest", "tags": ["tokens", "ramp"], "notes": "Tap the enchanted land to make more squirrels" },
+    { "a": "Bitterblossom", "b": "Contamination", "tags": ["stax", "tokens"], "notes": "Upkeep fodder to maintain the lock" },
+    { "a": "Smokestack", "b": "Ophiomancer", "tags": ["stax", "tokens"], "notes": "Serpents feed sac requirements" },
+    { "a": "Goblin Welder", "b": "Spine of Ish Sah", "tags": ["artifacts", "removal"], "notes": "Repeatable Vindicate with Welder loops" },
+    { "a": "Goblin Welder", "b": "Ichor Wellspring", "tags": ["artifacts", "card draw"], "notes": "Weld for cards and value" },
+    { "a": "Feldon of the Third Path", "b": "Wurmcoil Engine", "tags": ["artifacts", "value"], "notes": "Token copies generate lifelink/deathtouch tokens" },
+    { "a": "Brago, King Eternal", "b": "Strionic Resonator", "tags": ["blink", "engine"], "notes": "Copy Brago's trigger to chain blinks" },
+    { "a": "Sanctum Weaver", "b": "Enchantress's Presence", "tags": ["enchantress", "ramp"], "notes": "Big mana plus steady card draw" },
+    { "a": "Setessan Champion", "b": "Rancor", "tags": ["auras", "card draw"], "notes": "Cheap aura cantrips and sticks around" },
+    { "a": "Invisible Stalker", "b": "All That Glitters", "tags": ["voltron", "auras"], "notes": "Hexproof evasive body for big aura" },
+    { "a": "Hammer of Nazahn", "b": "Colossus Hammer", "tags": ["equipment", "tempo"], "notes": "Auto-equip and protect the carrier" },
+    { "a": "Aetherflux Reservoir", "b": "Storm-Kiln Artist", "tags": ["storm", "lifegain"], "notes": "Treasure refunds spells to grow life total" },
+    { "a": "Dauthi Voidwalker", "b": "Wheel of Fortune", "tags": ["discard", "value"], "notes": "Exile discards and cast best spell" },
+    { "a": "Sheoldred, the Apocalypse", "b": "Windfall", "tags": ["wheels", "lifedrain"], "notes": "Opponents draw many, you gain and they lose" },
+    { "a": "Syr Konrad, the Grim", "b": "Mesmeric Orb", "tags": ["mill", "damage"], "notes": "Self-mill drains table" },
+    { "a": "Syr Konrad, the Grim", "b": "Altar of Dementia", "tags": ["mill", "aristocrats"], "notes": "Sac to mill and drain" },
+    { "a": "Ruin Crab", "b": "Evolving Wilds", "tags": ["mill", "landfall"], "notes": "Fetch lands double mill triggers" },
+    { "a": "Narset, Parter of Veils", "b": "Wheel of Fortune", "tags": ["wheels", "stax"], "notes": "Wheels become one-sided" },
+    { "a": "Narset, Parter of Veils", "b": "Echo of Eons", "tags": ["wheels", "stax"], "notes": "Self-flashback Time Spiral with Narset" },
+    { "a": "Bolas's Citadel", "b": "Aetherflux Reservoir", "tags": ["lifegain", "engine"], "notes": "Casting from top grows life to fuel Citadel" },
+    { "a": "Bolas's Citadel", "b": "Sensei's Divining Top", "tags": ["topdeck", "engine"], "notes": "Top manipulates Citadel flips" },
+    { "a": "Mystic Forge", "b": "Sensei's Divining Top", "tags": ["artifacts", "topdeck"], "notes": "Look/cast from top with Top selection" },
+    { "a": "Amulet of Vigor", "b": "Simic Growth Chamber", "tags": ["lands", "ramp"], "notes": "Bounce lands untap for extra mana" },
+    { "a": "Dryad of the Ilysian Grove", "b": "Valakut, the Molten Pinnacle", "tags": ["lands", "damage"], "notes": "Valakut online in any colors" },
+    { "a": "Azusa, Lost but Seeking", "b": "Valakut, the Molten Pinnacle", "tags": ["lands", "damage"], "notes": "Extra land drops power Valakut" }
   ]
 }

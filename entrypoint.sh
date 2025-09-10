@@ -10,9 +10,16 @@ seed_defaults() {
     if [ -d "/.defaults/config" ]; then
         # deck.json
         [ -f /app/config/deck.json ] || cp "/.defaults/config/deck.json" "/app/config/deck.json" 2>/dev/null || true
-        # combos.json and synergies.json
-        [ -f /app/config/card_lists/combos.json ] || cp "/.defaults/config/card_lists/combos.json" "/app/config/card_lists/combos.json" 2>/dev/null || true
-        [ -f /app/config/card_lists/synergies.json ] || cp "/.defaults/config/card_lists/synergies.json" "/app/config/card_lists/synergies.json" 2>/dev/null || true
+        # brackets.yml (power brackets) if present
+        [ -f /app/config/brackets.yml ] || { [ -f "/.defaults/config/brackets.yml" ] && cp "/.defaults/config/brackets.yml" "/app/config/brackets.yml"; } 2>/dev/null || true
+        # Copy any default card list JSONs that are missing (generic loop)
+        if [ -d "/.defaults/config/card_lists" ]; then
+            for f in /.defaults/config/card_lists/*.json; do
+                [ -f "$f" ] || continue
+                base=$(basename "$f")
+                [ -f "/app/config/card_lists/$base" ] || cp "$f" "/app/config/card_lists/$base" 2>/dev/null || true
+            done
+        fi
     fi
 }
 

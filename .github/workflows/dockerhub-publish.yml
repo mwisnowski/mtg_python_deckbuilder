@@ -71,7 +71,8 @@ jobs:
         run: |
           echo "Generating amd64 tag variants" >&2
           TAGS='${{ needs.prepare.outputs.tags }}'
-          echo "$TAGS" | sed 's/$/-amd64/' | grep . > tags.txt
+          # Exclude 'latest' so we don't leave latest-amd64 dangling; only final manifest will produce plain 'latest'
+          echo "$TAGS" | grep -v ':latest$' | sed 's/$/-amd64/' | grep . > tags.txt
           echo "Computed tags:" >&2; cat tags.txt >&2
           echo "tags<<EOF" >> $GITHUB_OUTPUT
           cat tags.txt >> $GITHUB_OUTPUT
@@ -125,6 +126,7 @@ jobs:
     needs: prepare
     permissions:
       contents: read
+    timeout-minutes: 20
     continue-on-error: true
     steps:
       - name: Checkout
@@ -136,7 +138,8 @@ jobs:
         run: |
           echo "Generating arm64 tag variants (native)" >&2
           TAGS='${{ needs.prepare.outputs.tags }}'
-          echo "$TAGS" | sed 's/$/-arm64/' | grep . > tags.txt
+          # Exclude 'latest' so only final manifest produces plain 'latest'
+          echo "$TAGS" | grep -v ':latest$' | sed 's/$/-arm64/' | grep . > tags.txt
           echo "Computed tags:" >&2; cat tags.txt >&2
           echo "tags<<EOF" >> $GITHUB_OUTPUT
           cat tags.txt >> $GITHUB_OUTPUT
@@ -168,7 +171,8 @@ jobs:
     name: Build (arm64 emulated fallback)
     runs-on: ubuntu-latest
     needs: [prepare, build_arm64_native]
-    if: needs.build_arm64_native.result == 'failure'
+    # Run if native arm64 did NOT succeed (failure, cancelled, or skipped)
+    if: needs.build_arm64_native.result != 'success'
     permissions:
       contents: read
     steps:
@@ -181,7 +185,8 @@ jobs:
         run: |
           echo "Generating arm64 tag variants (fallback)" >&2
           TAGS='${{ needs.prepare.outputs.tags }}'
-          echo "$TAGS" | sed 's/$/-arm64/' | grep . > tags.txt
+          # Exclude 'latest' so only final manifest produces plain 'latest'
+          echo "$TAGS" | grep -v ':latest$' | sed 's/$/-arm64/' | grep . > tags.txt
           echo "tags<<EOF" >> $GITHUB_OUTPUT
           cat tags.txt >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
@@ -227,13 +232,20 @@ jobs:
           TAGS: ${{ needs.prepare.outputs.tags }}
         run: |
           echo "Creating multi-arch manifests (native preferred, fallback if needed)..."
+          VERSION_PRIMARY=$(echo "$TAGS" | grep -v ':latest$' | head -n1)
           echo "$TAGS" | while read -r tag; do
             [ -z "$tag" ] && continue
             echo "Processing $tag"
-            SOURCES="${tag}-amd64"
-            if docker buildx imagetools inspect "${tag}-arm64" >/dev/null 2>&1; then
-              echo "Found arm64 image tag: ${tag}-arm64"
-              SOURCES="$SOURCES ${tag}-arm64"
+            # For 'latest', reuse the version tag's arch images (we did not push latest-amd64/-arm64)
+            if [[ "$tag" == *":latest" ]]; then
+              BASE="$VERSION_PRIMARY"
+            else
+              BASE="$tag"
+            fi
+            SOURCES="${BASE}-amd64"
+            if docker buildx imagetools inspect "${BASE}-arm64" >/dev/null 2>&1; then
+              echo "Found arm64 image tag: ${BASE}-arm64"
+              SOURCES="$SOURCES ${BASE}-arm64"
             else
               echo "No arm64 image found for $tag (skipping arm64 in manifest)" >&2
             fi

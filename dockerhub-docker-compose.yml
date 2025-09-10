@@ -1,6 +1,7 @@
 services:
   web:
-    image: mwisnowski/mtg-python-deckbuilder:latest
+    # image: mwisnowski/mtg-python-deckbuilder:latest-arm64 # Use for arm64
+    # image: mwisnowski/mtg-python-deckbuilder:latest-amd64 # use for amd64
     container_name: mtg-deckbuilder-web
     ports:
       - "8080:8080"  # Host:Container — open http://localhost:8080

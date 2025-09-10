@@ -1,0 +1,195 @@
+{% if summary and summary.include_exclude_summary %}
+{% set ie_summary = summary.include_exclude_summary %}
+{% set has_data = (ie_summary.include_cards|length > 0) or (ie_summary.exclude_cards|length > 0) or (ie_summary.include_added|length > 0) or (ie_summary.excluded_removed|length > 0) %}
+
+{% if has_data %}
+<section style="margin-top:1rem;">
+  <h5>Include/Exclude Impact</h5>
+  <div style="margin:.5rem 0;">
+    
+    <!-- Include Cards Impact -->
+    {% if ie_summary.include_cards|length > 0 %}
+    <div class="impact-panel" style="border:1px solid var(--border); border-radius:8px; padding:.6rem; background:#0f1115; margin-bottom:.75rem;">
+      <div class="muted" style="margin-bottom:.35rem; font-weight:600; color:#4ade80;">
+        ✓ Must Include Cards ({{ ie_summary.include_cards|length }})
+      </div>
+      
+      <!-- Successfully added includes -->
+      {% if ie_summary.include_added|length > 0 %}
+      <div style="margin:.25rem 0;">
+        <div class="muted" style="font-size:12px; color:#10b981; margin-bottom:.25rem;">
+          ✓ Successfully Included ({{ ie_summary.include_added|length }})
+        </div>
+        <div class="ie-chips" style="display:flex; gap:.35rem; flex-wrap:wrap;">
+          {% for card in ie_summary.include_added %}
+          <span class="chip" style="background:#dcfce7; color:#166534; border:1px solid #bbf7d0;" data-card-name="{{ card }}">{{ card }}</span>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+      
+      <!-- Missing includes -->
+      {% if ie_summary.missing_includes|length > 0 %}
+      <div style="margin:.25rem 0;">
+        <div class="muted" style="font-size:12px; color:#ef4444; margin-bottom:.25rem;">
+          ⚠ Could Not Include ({{ ie_summary.missing_includes|length }})
+        </div>
+        <div class="ie-chips" style="display:flex; gap:.35rem; flex-wrap:wrap;">
+          {% for card in ie_summary.missing_includes %}
+          <span class="chip" style="background:#fee2e2; color:#dc2626; border:1px solid #fecaca;" data-card-name="{{ card }}">{{ card }}</span>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+      
+      <!-- Fuzzy corrections for includes -->
+      {% if ie_summary.fuzzy_corrections %}
+      <div style="margin:.25rem 0;">
+        <div class="muted" style="font-size:12px; color:#f59e0b; margin-bottom:.25rem;">
+          ⚡ Fuzzy Matched
+        </div>
+        <div class="ie-chips" style="display:flex; gap:.35rem; flex-wrap:wrap;">
+          {% for original, corrected in ie_summary.fuzzy_corrections.items() %}
+          <span class="chip" style="background:#fef3c7; color:#92400e; border:1px solid #fde68a;" title="Original: {{ original }}">
+            {{ original }} → {{ corrected }}
+          </span>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
+    
+    <!-- Exclude Cards Impact -->
+    {% if ie_summary.exclude_cards|length > 0 %}
+    <div class="impact-panel" style="border:1px solid var(--border); border-radius:8px; padding:.6rem; background:#0f1115; margin-bottom:.75rem;">
+      <div class="muted" style="margin-bottom:.35rem; font-weight:600; color:#ef4444;">
+        ✗ Must Exclude Cards ({{ ie_summary.exclude_cards|length }})
+      </div>
+      
+      <!-- Successfully excluded cards -->
+      {% if ie_summary.excluded_removed|length > 0 %}
+      <div style="margin:.25rem 0;">
+        <div class="muted" style="font-size:12px; color:#10b981; margin-bottom:.25rem;">
+          ✓ Successfully Excluded ({{ ie_summary.excluded_removed|length }})
+        </div>
+        <div class="ie-chips" style="display:flex; gap:.35rem; flex-wrap:wrap;">
+          {% for card in ie_summary.excluded_removed %}
+          <span class="chip" style="background:#dcfce7; color:#166534; border:1px solid #bbf7d0;" data-card-name="{{ card }}">{{ card }}</span>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+      
+      <!-- Show patterns for reference -->
+      <div style="margin:.25rem 0;">
+        <div class="muted" style="font-size:12px; margin-bottom:.25rem;">
+          Exclude Patterns
+        </div>
+        <div class="ie-chips" style="display:flex; gap:.35rem; flex-wrap:wrap;">
+          {% for pattern in ie_summary.exclude_cards %}
+          <span class="chip" style="background:#374151; color:#e5e7eb; border:1px solid #4b5563;">{{ pattern }}</span>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+    {% endif %}
+    
+    <!-- Validation Issues -->
+    {% set has_issues = (ie_summary.illegal_dropped|length > 0) or (ie_summary.illegal_allowed|length > 0) or (ie_summary.ignored_color_identity|length > 0) or (ie_summary.duplicates_collapsed|length > 0) %}
+    {% if has_issues %}
+    <div class="impact-panel" style="border:1px solid var(--border); border-radius:8px; padding:.6rem; background:#0f1115;">
+      <div class="muted" style="margin-bottom:.35rem; font-weight:600; color:#f59e0b;">
+        ⚠ Validation Issues
+      </div>
+      
+      <!-- Illegal cards dropped -->
+      {% if ie_summary.illegal_dropped|length > 0 %}
+      <div style="margin:.25rem 0;">
+        <div class="muted" style="font-size:12px; color:#ef4444; margin-bottom:.25rem;">
+          Illegal Cards Dropped ({{ ie_summary.illegal_dropped|length }})
+        </div>
+        <div class="ie-chips" style="display:flex; gap:.35rem; flex-wrap:wrap;">
+          {% for card in ie_summary.illegal_dropped %}
+          <span class="chip" style="background:#fee2e2; color:#dc2626; border:1px solid #fecaca;" data-card-name="{{ card }}">{{ card }}</span>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+      
+      <!-- Illegal cards allowed -->
+      {% if ie_summary.illegal_allowed|length > 0 %}
+      <div style="margin:.25rem 0;">
+        <div class="muted" style="font-size:12px; color:#f59e0b; margin-bottom:.25rem;">
+          Illegal Cards Allowed ({{ ie_summary.illegal_allowed|length }})
+        </div>
+        <div class="ie-chips" style="display:flex; gap:.35rem; flex-wrap:wrap;">
+          {% for card in ie_summary.illegal_allowed %}
+          <span class="chip" style="background:#fef3c7; color:#92400e; border:1px solid #fde68a;" data-card-name="{{ card }}">{{ card }}</span>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+      
+      <!-- Color identity issues -->
+      {% if ie_summary.ignored_color_identity|length > 0 %}
+      <div style="margin:.25rem 0;">
+        <div class="muted" style="font-size:12px; color:#f59e0b; margin-bottom:.25rem;">
+          Color Identity Mismatches ({{ ie_summary.ignored_color_identity|length }})
+        </div>
+        <div class="ie-chips" style="display:flex; gap:.35rem; flex-wrap:wrap;">
+          {% for card in ie_summary.ignored_color_identity %}
+          <span class="chip" style="background:#fef3c7; color:#92400e; border:1px solid #fde68a;" data-card-name="{{ card }}">{{ card }}</span>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+      
+      <!-- Duplicate collapses -->
+      {% if ie_summary.duplicates_collapsed|length > 0 %}
+      <div style="margin:.25rem 0;">
+        <div class="muted" style="font-size:12px; color:#6366f1; margin-bottom:.25rem;">
+          Duplicates Collapsed ({{ ie_summary.duplicates_collapsed|length }} groups)
+        </div>
+        <div class="ie-chips" style="display:flex; gap:.35rem; flex-wrap:wrap;">
+          {% for card, count in ie_summary.duplicates_collapsed.items() %}
+          <span class="chip" style="background:#e0e7ff; color:#4338ca; border:1px solid #c7d2fe;" data-card-name="{{ card }}">
+            {{ card }} ({{ count }}x)
+          </span>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
+    
+  </div>
+</section>
+
+<!-- Mobile responsive styles for include/exclude summary (M3: Mobile Responsive Testing) -->
+<style>
+@media (max-width: 768px) {
+  .impact-panel {
+    padding: .5rem !important;
+  }
+  .ie-chips {
+    gap: .25rem !important;
+  }
+  .ie-chips .chip {
+    font-size: 12px !important;
+    padding: 2px 6px !important;
+    word-break: break-word;
+  }
+}
+@media (max-width: 480px) {
+  .impact-panel {
+    padding: .4rem !important;
+  }
+  .ie-chips .chip {
+    font-size: 11px !important;
+    padding: 1px 4px !important;
+  }
+}
+</style>
+{% endif %}
+{% endif %}

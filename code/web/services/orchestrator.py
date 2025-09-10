@@ -1030,6 +1030,23 @@ def run_build(commander: str, tags: List[str], bracket: int, ideals: Dict[str, i
         except Exception as e:
             out(f"Land build failed: {e}")
 
+        # M3: Inject includes after lands, before creatures/spells (matching CLI behavior)
+        try:
+            if hasattr(b, '_inject_includes_after_lands'):
+                print(f"DEBUG WEB: About to inject includes. Include cards: {getattr(b, 'include_cards', [])}")
+                # Use builder's logger if available
+                if hasattr(b, 'logger'):
+                    b.logger.info(f"DEBUG WEB: About to inject includes. Include cards: {getattr(b, 'include_cards', [])}")
+                b._inject_includes_after_lands()
+                print(f"DEBUG WEB: Finished injecting includes. Current deck size: {len(getattr(b, 'card_library', {}))}")
+                if hasattr(b, 'logger'):
+                    b.logger.info(f"DEBUG WEB: Finished injecting includes. Current deck size: {len(getattr(b, 'card_library', {}))}")
+        except Exception as e:
+            out(f"Include injection failed: {e}")
+            print(f"Include injection failed: {e}")
+            if hasattr(b, 'logger'):
+                b.logger.error(f"Include injection failed: {e}")
+
         try:
             if hasattr(b, 'add_creatures_phase'):
                 b.add_creatures_phase()
@@ -1285,6 +1302,10 @@ def _make_stages(b: DeckBuilder) -> List[Dict[str, Any]]:
         fn = getattr(b, f"run_land_step{i}", None)
         if callable(fn):
             stages.append({"key": f"land{i}", "label": f"Lands (Step {i})", "runner_name": f"run_land_step{i}"})
+    
+    # M3: Include injection stage after lands, before creatures
+    if hasattr(b, '_inject_includes_after_lands') and getattr(b, 'include_cards', None):
+        stages.append({"key": "inject_includes", "label": "Include Cards", "runner_name": "__inject_includes__"})
     # Creatures split into theme sub-stages for web confirm
     # AND-mode pre-pass: add cards that match ALL selected themes first
     try:
@@ -1377,6 +1398,8 @@ def start_build_ctx(
     prefer_combos: bool | None = None,
     combo_target_count: int | None = None,
     combo_balance: str | None = None,
+    include_cards: List[str] | None = None,
+    exclude_cards: List[str] | None = None,
 ) -> Dict[str, Any]:
     logs: List[str] = []
 
@@ -1449,6 +1472,30 @@ def start_build_ctx(
     b.setup_dataframes()
     # Apply the same global pool pruning in interactive builds for consistency
     _global_prune_disallowed_pool(b)
+    
+    # Apply include/exclude cards (M3: Phase 2 - Full Include/Exclude)
+    try:
+        out(f"DEBUG ORCHESTRATOR: include_cards parameter: {include_cards}")
+        out(f"DEBUG ORCHESTRATOR: exclude_cards parameter: {exclude_cards}")
+        
+        if include_cards:
+            b.include_cards = list(include_cards)
+            out(f"Applied include cards: {len(include_cards)} cards")
+            out(f"DEBUG ORCHESTRATOR: Set builder.include_cards to: {b.include_cards}")
+        else:
+            out("DEBUG ORCHESTRATOR: No include cards to apply")
+        if exclude_cards:
+            b.exclude_cards = list(exclude_cards)
+            # The filtering is already applied in setup_dataframes(), but we need
+            # to call it again after setting exclude_cards
+            b._combined_cards_df = None  # Clear cache to force rebuild
+            b.setup_dataframes()  # This will now apply the exclude filtering
+            out(f"Applied exclude filtering for {len(exclude_cards)} patterns")
+        else:
+            out("DEBUG ORCHESTRATOR: No exclude cards to apply")
+    except Exception as e:
+        out(f"Failed to apply include/exclude cards: {e}")
+    
     # Thread multi-copy selection onto builder for stage generation/runner
     try:
         b._web_multi_copy = (multi_copy or None)
@@ -1860,6 +1907,18 @@ def run_stage(ctx: Dict[str, Any], rerun: bool = False, show_skipped: bool = Fal
                     logs.append("No multi-copy additions (empty selection).")
             except Exception as e:
                 logs.append(f"Stage '{label}' failed: {e}")
+        elif runner_name == '__inject_includes__':
+            try:
+                if hasattr(b, '_inject_includes_after_lands'):
+                    b._inject_includes_after_lands()
+                    include_count = len(getattr(b, 'include_cards', []))
+                    logs.append(f"Include injection completed: {include_count} cards processed")
+                else:
+                    logs.append("Include injection method not available")
+            except Exception as e:
+                logs.append(f"Include injection failed: {e}")
+                if hasattr(b, 'logger'):
+                    b.logger.error(f"Include injection failed: {e}")
         elif runner_name == '__auto_complete_combos__':
             try:
                 # Load curated combos

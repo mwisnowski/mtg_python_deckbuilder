@@ -76,13 +76,15 @@ def start_ctx_from_session(sess: dict, *, set_on_session: bool = True) -> Dict[s
         tag_mode=sess.get("tag_mode", "AND"),
         use_owned_only=use_owned,
         prefer_owned=prefer,
-    owned_names=owned_names_list,
+        owned_names=owned_names_list,
         locks=list(sess.get("locks", [])),
         custom_export_base=sess.get("custom_export_base"),
         multi_copy=sess.get("multi_copy"),
         prefer_combos=bool(sess.get("prefer_combos")),
         combo_target_count=int(sess.get("combo_target_count", 2)),
         combo_balance=str(sess.get("combo_balance", "mix")),
+        include_cards=sess.get("include_cards"),
+        exclude_cards=sess.get("exclude_cards"),
     )
     if set_on_session:
         sess["build_ctx"] = ctx

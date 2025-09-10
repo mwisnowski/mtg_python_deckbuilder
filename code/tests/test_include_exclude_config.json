@@ -1,0 +1,19 @@
+{
+    "commander": "Alania, Divergent Storm",
+    "primary_tag": "Spellslinger",
+    "secondary_tag": "Otter Kindred",
+    "bracket_level": 3,
+    "include_cards": [
+        "Sol Ring",
+        "Lightning Bolt",
+        "Counterspell"
+    ],
+    "exclude_cards": [
+        "Mana Crypt",
+        "Brainstorm",
+        "Force of Will"
+    ],
+    "enforcement_mode": "warn",
+    "allow_illegal": false,
+    "fuzzy_matching": true
+}

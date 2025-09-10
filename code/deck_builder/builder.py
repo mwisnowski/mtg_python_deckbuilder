@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Optional, List, Dict, Any, Callable, Tuple
+from typing import Optional, List, Dict, Any, Callable, Tuple, Set
 import pandas as pd
 import math
 import random
@@ -16,6 +16,13 @@ from .phases.phase0_core import (
     _full_ratio, _top_matches,
     EXACT_NAME_THRESHOLD, FIRST_WORD_THRESHOLD, MAX_PRESENTED_CHOICES,
     BracketDefinition
+)
+# Include/exclude utilities (M1: Config + Validation + Persistence)
+from .include_exclude_utils import (
+    IncludeExcludeDiagnostics,
+    fuzzy_match_card_name,
+    validate_list_sizes,
+    collapse_duplicates
 )
 from .phases.phase1_commander import CommanderSelectionMixin
 from .phases.phase2_lands_basics import LandBasicsMixin
@@ -110,6 +117,10 @@ class DeckBuilder(
             self.run_deck_build_step1()
             self.run_deck_build_step2()
             self._run_land_build_steps()
+            # M2: Inject includes after lands, before creatures/spells
+            logger.info(f"DEBUG BUILD: About to inject includes. Include cards: {self.include_cards}")
+            self._inject_includes_after_lands()
+            logger.info(f"DEBUG BUILD: Finished injecting includes. Current deck size: {len(self.card_library)}")
             if hasattr(self, 'add_creatures_phase'):
                 self.add_creatures_phase()
             if hasattr(self, 'add_spells_phase'):
@@ -343,6 +354,15 @@ class DeckBuilder(
     owned_files_selected: List[str] = field(default_factory=list)
     # Soft preference: bias selection toward owned names without excluding others
     prefer_owned: bool = False
+
+    # Include/Exclude Cards (M1: Full Configuration Support)
+    include_cards: List[str] = field(default_factory=list)
+    exclude_cards: List[str] = field(default_factory=list)
+    enforcement_mode: str = "warn"  # "warn" | "strict"
+    allow_illegal: bool = False
+    fuzzy_matching: bool = True
+    # Diagnostics storage for include/exclude processing
+    include_exclude_diagnostics: Optional[Dict[str, Any]] = None
 
     # Deck library (cards added so far) mapping name->record
     card_library: Dict[str, Dict[str, Any]] = field(default_factory=dict)
@@ -1021,11 +1041,462 @@ class DeckBuilder(
             except Exception as _e:
                 self.output_func(f"Owned-only mode: failed to filter combined pool: {_e}")
     # Soft prefer-owned does not filter the pool; biasing is applied later at selection time
+        
+        # Apply exclude card filtering (M0.5: Phase 1 - Exclude Only)
+        if hasattr(self, 'exclude_cards') and self.exclude_cards:
+            try:
+                import time  # M5: Performance monitoring
+                exclude_start_time = time.perf_counter()
+                
+                from deck_builder.include_exclude_utils import normalize_punctuation
+                
+                # Find name column
+                name_col = None
+                if 'name' in combined.columns:
+                    name_col = 'name'
+                elif 'Card Name' in combined.columns:
+                    name_col = 'Card Name'
+                    
+                if name_col is not None:
+                    excluded_matches = []
+                    original_count = len(combined)
+                    
+                    # Normalize exclude patterns for matching (with punctuation normalization)
+                    normalized_excludes = {normalize_punctuation(pattern): pattern for pattern in self.exclude_cards}
+                    
+                    # Create a mask to track which rows to exclude
+                    exclude_mask = pd.Series([False] * len(combined), index=combined.index)
+                    
+                    # Check each card against exclude patterns
+                    for idx, card_name in combined[name_col].items():
+                        if not exclude_mask[idx]:  # Only check if not already excluded
+                            normalized_card = normalize_punctuation(str(card_name))
+                            
+                            # Check if this card matches any exclude pattern
+                            for normalized_exclude, original_pattern in normalized_excludes.items():
+                                if normalized_card == normalized_exclude:
+                                    excluded_matches.append({
+                                        'pattern': original_pattern,
+                                        'matched_card': str(card_name),
+                                        'similarity': 1.0
+                                    })
+                                    exclude_mask[idx] = True
+                                    # M5: Structured logging for exclude decisions
+                                    logger.info(f"EXCLUDE_FILTER: {card_name} (pattern: {original_pattern}, pool_stage: setup)")
+                                    break  # Found a match, no need to check other patterns
+                    
+                    # Apply the exclusions in one operation
+                    if exclude_mask.any():
+                        combined = combined[~exclude_mask].copy()
+                        # M5: Structured logging for exclude filtering summary
+                        logger.info(f"EXCLUDE_SUMMARY: filtered={len(excluded_matches)} pool_before={original_count} pool_after={len(combined)}")
+                        self.output_func(f"Excluded {len(excluded_matches)} cards from pool (was {original_count}, now {len(combined)})")
+                        for match in excluded_matches[:5]:  # Show first 5 matches
+                            self.output_func(f"  - Excluded '{match['matched_card']}' (pattern: '{match['pattern']}', similarity: {match['similarity']:.2f})")
+                        if len(excluded_matches) > 5:
+                            self.output_func(f"  - ... and {len(excluded_matches) - 5} more")
+                    else:
+                        # M5: Structured logging for no exclude matches
+                        logger.info(f"EXCLUDE_NO_MATCHES: patterns={len(self.exclude_cards)} pool_size={original_count}")
+                        self.output_func(f"No cards matched exclude patterns: {', '.join(self.exclude_cards)}")
+                    
+                    # M5: Performance monitoring for exclude filtering
+                    exclude_duration = (time.perf_counter() - exclude_start_time) * 1000  # Convert to ms
+                    logger.info(f"EXCLUDE_PERFORMANCE: duration_ms={exclude_duration:.2f} pool_size={original_count} exclude_patterns={len(self.exclude_cards)}")
+                else:
+                    self.output_func("Exclude mode: no recognizable name column to filter on; skipping exclude filter.")
+                    # M5: Structured logging for exclude filtering issues
+                    logger.warning("EXCLUDE_ERROR: no_name_column_found")
+            except Exception as e:
+                self.output_func(f"Exclude mode: failed to filter excluded cards: {e}")
+                # M5: Structured logging for exclude filtering errors
+                logger.error(f"EXCLUDE_ERROR: exception={str(e)}")
+                import traceback
+                self.output_func(f"Exclude traceback: {traceback.format_exc()}")
+        
         self._combined_cards_df = combined
         # Preserve original snapshot for enrichment across subsequent removals
+        # Note: This snapshot should also exclude filtered cards to prevent them from being accessible
         if self._full_cards_df is None:
             self._full_cards_df = combined.copy()
         return combined
+
+    # ---------------------------
+    # Include/Exclude Processing (M1: Config + Validation + Persistence)
+    # ---------------------------
+    def _inject_includes_after_lands(self) -> None:
+        """
+        M2: Inject valid include cards after land selection, before creature/spell fill.
+        
+        This method:
+        1. Processes include/exclude lists if not already done
+        2. Injects valid include cards that passed validation
+        3. Tracks diagnostics for category limit overrides
+        4. Ensures excluded cards cannot re-enter via downstream heuristics
+        """
+        # Skip if no include cards specified
+        if not getattr(self, 'include_cards', None):
+            return
+            
+        # Process includes/excludes if not already done
+        if not getattr(self, 'include_exclude_diagnostics', None):
+            self._process_includes_excludes()
+        
+        # Get validated include cards
+        validated_includes = self.include_cards  # Already processed by _process_includes_excludes
+        if not validated_includes:
+            return
+            
+        # Initialize diagnostics if not present
+        if not self.include_exclude_diagnostics:
+            self.include_exclude_diagnostics = {}
+            
+        # Track cards that will be injected
+        injected_cards = []
+        over_ideal_tracking = {}
+        
+        logger.info(f"INCLUDE_INJECTION: Starting injection of {len(validated_includes)} include cards")
+        
+        # Inject each valid include card
+        for card_name in validated_includes:
+            if not card_name or card_name in self.card_library:
+                continue  # Skip empty names or already added cards
+                
+            # Attempt to find card in available pool for metadata enrichment
+            card_info = self._find_card_in_pool(card_name)
+            if not card_info:
+                # Card not found in pool - could be missing or already excluded
+                continue
+                
+            # Extract metadata
+            card_type = card_info.get('type', card_info.get('type_line', ''))
+            mana_cost = card_info.get('mana_cost', card_info.get('manaCost', ''))
+            mana_value = card_info.get('mana_value', card_info.get('manaValue', card_info.get('cmc', None)))
+            creature_types = card_info.get('creatureTypes', [])
+            theme_tags = card_info.get('themeTags', [])
+            
+            # Normalize theme tags
+            if isinstance(theme_tags, str):
+                theme_tags = [t.strip() for t in theme_tags.split(',') if t.strip()]
+            elif not isinstance(theme_tags, list):
+                theme_tags = []
+                
+            # Determine card category for over-ideal tracking
+            category = self._categorize_card_for_limits(card_type)
+            if category:
+                # Check if this include would exceed ideal counts
+                current_count = self._count_cards_in_category(category)
+                ideal_count = getattr(self, 'ideal_counts', {}).get(category, float('inf'))
+                if current_count >= ideal_count:
+                    if category not in over_ideal_tracking:
+                        over_ideal_tracking[category] = []
+                    over_ideal_tracking[category].append(card_name)
+            
+            # Add the include card
+            self.add_card(
+                card_name=card_name,
+                card_type=card_type,
+                mana_cost=mana_cost,
+                mana_value=mana_value,
+                creature_types=creature_types,
+                tags=theme_tags,
+                role='include',
+                added_by='include_injection'
+            )
+            
+            injected_cards.append(card_name)
+            logger.info(f"INCLUDE_ADD: {card_name} (category: {category or 'unknown'})")
+            
+        # Update diagnostics
+        self.include_exclude_diagnostics['include_added'] = injected_cards
+        self.include_exclude_diagnostics['include_over_ideal'] = over_ideal_tracking
+        
+        # Output summary
+        if injected_cards:
+            self.output_func(f"\nInclude Cards Injected ({len(injected_cards)}):")
+            for card in injected_cards:
+                self.output_func(f"  + {card}")
+            if over_ideal_tracking:
+                self.output_func("\nCategory Limit Overrides:")
+                for category, cards in over_ideal_tracking.items():
+                    self.output_func(f"  {category}: {', '.join(cards)}")
+        else:
+            self.output_func("No include cards were injected (already present or invalid)")
+
+    def _find_card_in_pool(self, card_name: str) -> Optional[Dict[str, any]]:
+        """Find a card in the current card pool and return its metadata."""
+        if not card_name:
+            return None
+            
+        # Check combined cards dataframe first
+        df = getattr(self, '_combined_cards_df', None)
+        if df is not None and not df.empty and 'name' in df.columns:
+            matches = df[df['name'].str.lower() == card_name.lower()]
+            if not matches.empty:
+                return matches.iloc[0].to_dict()
+        
+        # Fallback to full cards dataframe if no match in combined
+        df_full = getattr(self, '_full_cards_df', None)
+        if df_full is not None and not df_full.empty and 'name' in df_full.columns:
+            matches = df_full[df_full['name'].str.lower() == card_name.lower()]
+            if not matches.empty:
+                return matches.iloc[0].to_dict()
+                
+        return None
+
+    def _categorize_card_for_limits(self, card_type: str) -> Optional[str]:
+        """Categorize a card type for ideal count tracking."""
+        if not card_type:
+            return None
+            
+        type_lower = card_type.lower()
+        
+        if 'creature' in type_lower:
+            return 'creatures'
+        elif 'land' in type_lower:
+            return 'lands'
+        elif any(spell_type in type_lower for spell_type in ['instant', 'sorcery', 'enchantment', 'artifact', 'planeswalker']):
+            # For spells, we could get more specific, but for now group as general spells
+            return 'spells'
+        else:
+            return 'other'
+
+    def _count_cards_in_category(self, category: str) -> int:
+        """Count cards currently in deck library by category."""
+        if not category or not self.card_library:
+            return 0
+            
+        count = 0
+        for name, entry in self.card_library.items():
+            card_type = entry.get('Card Type', '')
+            if not card_type:
+                continue
+                
+            entry_category = self._categorize_card_for_limits(card_type)
+            if entry_category == category:
+                count += entry.get('Count', 1)
+                
+        return count
+
+    def _process_includes_excludes(self) -> IncludeExcludeDiagnostics:
+        """
+        Process and validate include/exclude card lists with fuzzy matching.
+        
+        Returns:
+            IncludeExcludeDiagnostics: Complete diagnostics of processing results
+        """
+        import time  # M5: Performance monitoring
+        process_start_time = time.perf_counter()
+        
+        # Initialize diagnostics
+        diagnostics = IncludeExcludeDiagnostics(
+            missing_includes=[],
+            ignored_color_identity=[],
+            illegal_dropped=[],
+            illegal_allowed=[],
+            excluded_removed=[],
+            duplicates_collapsed={},
+            include_added=[],
+            include_over_ideal={},
+            fuzzy_corrections={},
+            confirmation_needed=[],
+            list_size_warnings={}
+        )
+
+        # 1. Collapse duplicates for both lists
+        include_unique, include_dupes = collapse_duplicates(self.include_cards)
+        exclude_unique, exclude_dupes = collapse_duplicates(self.exclude_cards)
+        
+        # Update internal lists with unique versions
+        self.include_cards = include_unique
+        self.exclude_cards = exclude_unique
+        
+        # Track duplicates in diagnostics
+        diagnostics.duplicates_collapsed.update(include_dupes)
+        diagnostics.duplicates_collapsed.update(exclude_dupes)
+
+        # 2. Validate list sizes
+        size_validation = validate_list_sizes(self.include_cards, self.exclude_cards)
+        if not size_validation['valid']:
+            # List too long - this is a critical error
+            for error in size_validation['errors']:
+                self.output_func(f"List size error: {error}")
+        
+        diagnostics.list_size_warnings = size_validation.get('warnings', {})
+
+        # 3. Get available card names for fuzzy matching
+        available_cards = set()
+        if self._combined_cards_df is not None and not self._combined_cards_df.empty:
+            name_col = 'name' if 'name' in self._combined_cards_df.columns else 'Card Name'
+            if name_col in self._combined_cards_df.columns:
+                available_cards = set(self._combined_cards_df[name_col].astype(str))
+
+        # 4. Process includes with fuzzy matching and color identity validation
+        processed_includes = []
+        for card_name in self.include_cards:
+            if not card_name.strip():
+                continue
+                
+            # Fuzzy match if enabled
+            if self.fuzzy_matching and available_cards:
+                match_result = fuzzy_match_card_name(card_name, available_cards)
+                if match_result.auto_accepted and match_result.matched_name:
+                    if match_result.matched_name != card_name:
+                        diagnostics.fuzzy_corrections[card_name] = match_result.matched_name
+                    processed_includes.append(match_result.matched_name)
+                elif match_result.suggestions:
+                    # Needs user confirmation
+                    diagnostics.confirmation_needed.append({
+                        "input": card_name,
+                        "suggestions": match_result.suggestions,
+                        "confidence": match_result.confidence
+                    })
+                    # M5: Metrics counter for fuzzy confirmations
+                    logger.info(f"FUZZY_CONFIRMATION_NEEDED: {card_name} (confidence: {match_result.confidence:.3f})")
+                else:
+                    # No good matches found
+                    diagnostics.missing_includes.append(card_name)
+                    # M5: Metrics counter for missing includes
+                    logger.info(f"INCLUDE_CARD_MISSING: {card_name} (no_matches_found)")
+            else:
+                # Direct matching or fuzzy disabled
+                processed_includes.append(card_name)
+
+        # 5. Color identity validation for includes
+        if processed_includes and hasattr(self, 'color_identity') and self.color_identity:
+            validated_includes = []
+            for card_name in processed_includes:
+                if self._validate_card_color_identity(card_name):
+                    validated_includes.append(card_name)
+                else:
+                    diagnostics.ignored_color_identity.append(card_name)
+                    # M5: Structured logging for color identity violations
+                    logger.warning(f"INCLUDE_COLOR_VIOLATION: card={card_name} commander_colors={self.color_identity}")
+                    self.output_func(f"Card '{card_name}' has invalid color identity for commander (ignored)")
+            processed_includes = validated_includes
+
+        # 6. Handle exclude conflicts (exclude overrides include)
+        final_includes = []
+        for include in processed_includes:
+            if include in self.exclude_cards:
+                diagnostics.excluded_removed.append(include)
+                # M5: Structured logging for include/exclude conflicts
+                logger.info(f"INCLUDE_EXCLUDE_CONFLICT: {include} (resolution: excluded)")
+                self.output_func(f"Card '{include}' appears in both include and exclude lists - excluding takes precedence")
+            else:
+                final_includes.append(include)
+
+        # Update processed lists
+        self.include_cards = final_includes
+
+        # Store diagnostics for later use
+        self.include_exclude_diagnostics = diagnostics.__dict__
+        
+        # M5: Performance monitoring for include/exclude processing
+        process_duration = (time.perf_counter() - process_start_time) * 1000  # Convert to ms
+        total_cards = len(self.include_cards) + len(self.exclude_cards)
+        logger.info(f"INCLUDE_EXCLUDE_PERFORMANCE: duration_ms={process_duration:.2f} total_cards={total_cards} includes={len(self.include_cards)} excludes={len(self.exclude_cards)}")
+
+        return diagnostics
+
+    def _get_fuzzy_suggestions(self, input_name: str, available_cards: Set[str], max_suggestions: int = 3) -> List[str]:
+        """
+        Get fuzzy match suggestions for a card name.
+        
+        Args:
+            input_name: User input card name
+            available_cards: Set of available card names
+            max_suggestions: Maximum number of suggestions to return
+            
+        Returns:
+            List of suggested card names
+        """
+        if not input_name or not available_cards:
+            return []
+            
+        match_result = fuzzy_match_card_name(input_name, available_cards)
+        return match_result.suggestions[:max_suggestions]
+
+    def _enforce_includes_strict(self) -> None:
+        """
+        Enforce strict mode for includes - raise error if any valid includes are missing.
+        
+        Raises:
+            RuntimeError: If enforcement_mode is 'strict' and includes are missing
+        """
+        if self.enforcement_mode != "strict":
+            return
+            
+        if not self.include_exclude_diagnostics:
+            return
+            
+        missing = self.include_exclude_diagnostics.get('missing_includes', [])
+        if missing:
+            missing_str = ', '.join(missing)
+            # M5: Structured logging for strict mode enforcement
+            logger.error(f"STRICT_MODE_FAILURE: missing_includes={len(missing)} cards={missing_str}")
+            raise RuntimeError(f"Strict mode: Failed to include required cards: {missing_str}")
+        else:
+            # M5: Structured logging for strict mode success
+            logger.info("STRICT_MODE_SUCCESS: all_includes_satisfied=true")
+
+    def _validate_card_color_identity(self, card_name: str) -> bool:
+        """
+        Check if a card's color identity is legal for this commander.
+        
+        Args:
+            card_name: Name of the card to validate
+            
+        Returns:
+            True if card is legal for commander's color identity, False otherwise
+        """
+        if not hasattr(self, 'color_identity') or not self.color_identity:
+            # No commander color identity set, allow all cards
+            return True
+            
+        # Get card data from our dataframes
+        if hasattr(self, '_full_cards_df') and self._full_cards_df is not None:
+            # Handle both possible column names
+            name_col = 'name' if 'name' in self._full_cards_df.columns else 'Name'
+            card_matches = self._full_cards_df[self._full_cards_df[name_col].str.lower() == card_name.lower()]
+            if not card_matches.empty:
+                card_row = card_matches.iloc[0]
+                card_color_identity = card_row.get('colorIdentity', '')
+                
+                # Parse card's color identity
+                if isinstance(card_color_identity, str) and card_color_identity.strip():
+                    # Handle "Colorless" as empty color identity
+                    if card_color_identity.lower() == 'colorless':
+                        card_colors = []
+                    elif ',' in card_color_identity:
+                        # Handle format like "R, U" or "W, U, B"
+                        card_colors = [c.strip() for c in card_color_identity.split(',') if c.strip()]
+                    elif card_color_identity.startswith('[') and card_color_identity.endswith(']'):
+                        # Handle format like "['W']" or "['U','R']"
+                        import ast
+                        try:
+                            card_colors = ast.literal_eval(card_color_identity)
+                        except Exception:
+                            # Fallback parsing
+                            card_colors = [c.strip().strip("'\"") for c in card_color_identity.strip('[]').split(',') if c.strip()]
+                    else:
+                        # Handle simple format like "W" or single color
+                        card_colors = [card_color_identity.strip()]
+                elif isinstance(card_color_identity, list):
+                    card_colors = card_color_identity
+                else:
+                    # No color identity or colorless
+                    card_colors = []
+                
+                # Check if card's colors are subset of commander's colors
+                commander_colors = set(self.color_identity)
+                card_colors_set = set(c.upper() for c in card_colors if c)
+                
+                return card_colors_set.issubset(commander_colors)
+        
+        # If we can't find the card or determine its color identity, assume it's illegal
+        # (This is safer for validation purposes)
+        return False
 
     # ---------------------------
     # Card Library Management
@@ -1046,7 +1517,21 @@ class DeckBuilder(
         """Add (or increment) a card in the deck library.
 
         Stores minimal metadata; duplicates increment Count. Basic lands allowed unlimited.
+        M2: Prevents re-entry of excluded cards via downstream heuristics.
         """
+        # M2: Exclude re-entry prevention - check if card is in exclude list
+        if not is_commander and hasattr(self, 'exclude_cards') and self.exclude_cards:
+            from .include_exclude_utils import normalize_punctuation
+            
+            # Normalize the card name for comparison (with punctuation normalization)
+            normalized_card = normalize_punctuation(card_name)
+            normalized_excludes = {normalize_punctuation(exc): exc for exc in self.exclude_cards}
+            
+            if normalized_card in normalized_excludes:
+                # Log the prevention but don't output to avoid spam
+                logger.info(f"EXCLUDE_REENTRY_PREVENTED: Blocked re-addition of excluded card '{card_name}' (pattern: '{normalized_excludes[normalized_card]}')")
+                return
+        
         # In owned-only mode, block adding cards not in owned list (except the commander itself)
         try:
             if getattr(self, 'use_owned_only', False) and not is_commander:
@@ -1072,7 +1557,9 @@ class DeckBuilder(
                     basic_names = set()
 
                 if str(card_name) not in basic_names:
-                    df_src = self._full_cards_df if self._full_cards_df is not None else self._combined_cards_df
+                    # Use filtered pool (_combined_cards_df) instead of unfiltered (_full_cards_df)
+                    # This ensures exclude filtering is respected during card addition
+                    df_src = self._combined_cards_df if self._combined_cards_df is not None else self._full_cards_df
                     if df_src is not None and not df_src.empty and 'name' in df_src.columns:
                         if df_src[df_src['name'].astype(str).str.lower() == str(card_name).lower()].empty:
                             # Not in the legal pool (likely off-color or unavailable)
@@ -1138,9 +1625,11 @@ class DeckBuilder(
             if synergy is not None:
                 entry['Synergy'] = synergy
         else:
-            # If no tags passed attempt enrichment from full snapshot / combined pool
+            # If no tags passed attempt enrichment from filtered pool first, then full snapshot
             if not tags:
-                df_src = self._full_cards_df if self._full_cards_df is not None else self._combined_cards_df
+                # Use filtered pool (_combined_cards_df) instead of unfiltered (_full_cards_df)
+                # This ensures exclude filtering is respected during card enrichment
+                df_src = self._combined_cards_df if self._combined_cards_df is not None else self._full_cards_df
                 try:
                     if df_src is not None and not df_src.empty and 'name' in df_src.columns:
                         row_match = df_src[df_src['name'] == card_name]
@@ -1157,7 +1646,9 @@ class DeckBuilder(
             # Enrich missing type and mana_cost for accurate categorization
             if (not card_type) or (not mana_cost):
                 try:
-                    df_src = self._full_cards_df if self._full_cards_df is not None else self._combined_cards_df
+                    # Use filtered pool (_combined_cards_df) instead of unfiltered (_full_cards_df)
+                    # This ensures exclude filtering is respected during card enrichment
+                    df_src = self._combined_cards_df if self._combined_cards_df is not None else self._full_cards_df
                     if df_src is not None and not df_src.empty and 'name' in df_src.columns:
                         row_match2 = df_src[df_src['name'].astype(str).str.lower() == str(card_name).lower()]
                         if not row_match2.empty:

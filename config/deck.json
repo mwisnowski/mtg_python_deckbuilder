@@ -18,5 +18,10 @@
     "wipes": 2,
     "card_advantage": 10,
     "protection": 8
-  }
+  },
+  "include_cards": ["Sol Ring", "Lightning Bolt"],
+  "exclude_cards": ["Chaos Orb"],
+  "enforcement_mode": "warn",
+  "allow_illegal": false,
+  "fuzzy_matching": true
 }

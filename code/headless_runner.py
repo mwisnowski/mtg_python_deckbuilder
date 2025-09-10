@@ -4,11 +4,7 @@ import argparse
 import json
 import os
 from typing import Any, Dict, List, Optional
-import time
 
-
-import sys
-import os
 from deck_builder.builder import DeckBuilder
 from deck_builder import builder_constants as bc
 from file_setup.setup import initial_setup
@@ -63,6 +59,12 @@ def run(
     utility_count: Optional[int] = None,
     ideal_counts: Optional[Dict[str, int]] = None,
     bracket_level: Optional[int] = None,
+    # Include/Exclude configuration (M1: Config + Validation + Persistence)
+    include_cards: Optional[List[str]] = None,
+    exclude_cards: Optional[List[str]] = None,
+    enforcement_mode: str = "warn",
+    allow_illegal: bool = False,
+    fuzzy_matching: bool = True,
 ) -> DeckBuilder:
     """Run a scripted non-interactive deck build and return the DeckBuilder instance."""
     scripted_inputs: List[str] = []
@@ -112,6 +114,17 @@ def run(
         builder.headless = True  # type: ignore[attr-defined]
     except Exception:
         pass
+    
+    # Configure include/exclude settings (M1: Config + Validation + Persistence)
+    try:
+        builder.include_cards = list(include_cards or [])  # type: ignore[attr-defined]
+        builder.exclude_cards = list(exclude_cards or [])  # type: ignore[attr-defined] 
+        builder.enforcement_mode = enforcement_mode  # type: ignore[attr-defined]
+        builder.allow_illegal = allow_illegal  # type: ignore[attr-defined]
+        builder.fuzzy_matching = fuzzy_matching  # type: ignore[attr-defined]
+    except Exception:
+        pass
+        
     # If ideal_counts are provided (from JSON), use them as the current defaults
     # so the step 2 prompts will show these values and our blank entries will accept them.
     if isinstance(ideal_counts, dict) and ideal_counts:
@@ -190,7 +203,97 @@ def run(
 def _should_export_json_headless() -> bool:
     return os.getenv('HEADLESS_EXPORT_JSON', '').strip().lower() in {'1','true','yes','on'}
 
+def _print_include_exclude_summary(builder: DeckBuilder) -> None:
+    """Print include/exclude summary to console (M4: Extended summary printing)."""
+    if not hasattr(builder, 'include_exclude_diagnostics') or not builder.include_exclude_diagnostics:
+        return
+    
+    diagnostics = builder.include_exclude_diagnostics
+    
+    # Skip if no include/exclude activity
+    if not any([
+        diagnostics.get('include_cards'),
+        diagnostics.get('exclude_cards'), 
+        diagnostics.get('include_added'),
+        diagnostics.get('excluded_removed')
+    ]):
+        return
+    
+    print("\n" + "=" * 50)
+    print("INCLUDE/EXCLUDE SUMMARY")
+    print("=" * 50)
+    
+    # Include cards impact
+    include_cards = diagnostics.get('include_cards', [])
+    if include_cards:
+        print(f"\n✓ Must Include Cards ({len(include_cards)}):")
+        
+        include_added = diagnostics.get('include_added', [])
+        if include_added:
+            print(f"  ✓ Successfully Added ({len(include_added)}):")
+            for card in include_added:
+                print(f"    • {card}")
+        
+        missing_includes = diagnostics.get('missing_includes', [])
+        if missing_includes:
+            print(f"  ⚠ Could Not Include ({len(missing_includes)}):")
+            for card in missing_includes:
+                print(f"    • {card}")
+    
+    # Exclude cards impact
+    exclude_cards = diagnostics.get('exclude_cards', [])
+    if exclude_cards:
+        print(f"\n✗ Must Exclude Cards ({len(exclude_cards)}):")
+        
+        excluded_removed = diagnostics.get('excluded_removed', [])
+        if excluded_removed:
+            print(f"  ✓ Successfully Excluded ({len(excluded_removed)}):")
+            for card in excluded_removed:
+                print(f"    • {card}")
+        
+        print("  Patterns:")
+        for pattern in exclude_cards:
+            print(f"    • {pattern}")
+    
+    # Validation issues
+    issues = []
+    fuzzy_corrections = diagnostics.get('fuzzy_corrections', {})
+    if fuzzy_corrections:
+        issues.append(f"Fuzzy Matched ({len(fuzzy_corrections)})")
+        
+    duplicates = diagnostics.get('duplicates_collapsed', {})
+    if duplicates:
+        issues.append(f"Duplicates Collapsed ({len(duplicates)})")
+        
+    illegal_dropped = diagnostics.get('illegal_dropped', [])
+    if illegal_dropped:
+        issues.append(f"Illegal Cards Dropped ({len(illegal_dropped)})")
+    
+    if issues:
+        print("\n⚠ Validation Issues:")
+        
+        if fuzzy_corrections:
+            print("  ⚡ Fuzzy Matched:")
+            for original, corrected in fuzzy_corrections.items():
+                print(f"    • {original} → {corrected}")
+        
+        if duplicates:
+            print("  Duplicates Collapsed:")
+            for card, count in duplicates.items():
+                print(f"    • {card} ({count}x)")
+        
+        if illegal_dropped:
+            print("  Illegal Cards Dropped:")
+            for card in illegal_dropped:
+                print(f"    • {card}")
+    
+    print("=" * 50)
+
+
 def _export_outputs(builder: DeckBuilder) -> None:
+    # M4: Print include/exclude summary to console
+    _print_include_exclude_summary(builder)
+    
     csv_path: Optional[str] = None
     try:
         csv_path = builder.export_decklist_csv() if hasattr(builder, "export_decklist_csv") else None
@@ -235,6 +338,24 @@ def _parse_bool(val: Optional[str | bool | int]) -> Optional[bool]:
     return None
 
 
+def _parse_card_list(val: Optional[str]) -> List[str]:
+    """Parse comma or semicolon-separated card list from CLI argument."""
+    if not val:
+        return []
+    
+    # Support semicolon separation for card names with commas
+    if ';' in val:
+        return [card.strip() for card in val.split(';') if card.strip()]
+    
+    # Use the intelligent parsing for comma-separated (handles card names with commas)
+    try:
+        from deck_builder.include_exclude_utils import parse_card_list_input
+        return parse_card_list_input(val)
+    except ImportError:
+        # Fallback to simple comma split if import fails
+        return [card.strip() for card in val.split(',') if card.strip()]
+
+
 def _parse_opt_int(val: Optional[str | int]) -> Optional[int]:
     if val is None:
         return None
@@ -261,27 +382,94 @@ def _load_json_config(path: Optional[str]) -> Dict[str, Any]:
 
 def _build_arg_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description="Headless deck builder runner")
-    p.add_argument("--config", default=os.getenv("DECK_CONFIG"), help="Path to JSON config file")
-    p.add_argument("--commander", default=None)
-    p.add_argument("--primary-choice", type=int, default=None)
-    p.add_argument("--secondary-choice", type=_parse_opt_int, default=None)
-    p.add_argument("--tertiary-choice", type=_parse_opt_int, default=None)
-    p.add_argument("--bracket-level", type=int, default=None)
-    p.add_argument("--add-lands", type=_parse_bool, default=None)
-    p.add_argument("--fetch-count", type=_parse_opt_int, default=None)
-    p.add_argument("--dual-count", type=_parse_opt_int, default=None)
-    p.add_argument("--triple-count", type=_parse_opt_int, default=None)
-    p.add_argument("--utility-count", type=_parse_opt_int, default=None)
-    # no seed support
-    # Booleans
-    p.add_argument("--add-creatures", type=_parse_bool, default=None)
-    p.add_argument("--add-non-creature-spells", type=_parse_bool, default=None)
-    p.add_argument("--add-ramp", type=_parse_bool, default=None)
-    p.add_argument("--add-removal", type=_parse_bool, default=None)
-    p.add_argument("--add-wipes", type=_parse_bool, default=None)
-    p.add_argument("--add-card-advantage", type=_parse_bool, default=None)
-    p.add_argument("--add-protection", type=_parse_bool, default=None)
-    p.add_argument("--dry-run", action="store_true", help="Print resolved config and exit")
+    p.add_argument("--config", metavar="PATH", default=os.getenv("DECK_CONFIG"), 
+                   help="Path to JSON config file (string)")
+    p.add_argument("--commander", metavar="NAME", default=None,
+                   help="Commander name to search for (string)")
+    p.add_argument("--primary-choice", metavar="INT", type=int, default=None,
+                   help="Primary theme tag choice number (integer)")
+    p.add_argument("--secondary-choice", metavar="INT", type=_parse_opt_int, default=None,
+                   help="Secondary theme tag choice number (integer, optional)")
+    p.add_argument("--tertiary-choice", metavar="INT", type=_parse_opt_int, default=None,
+                   help="Tertiary theme tag choice number (integer, optional)")
+    p.add_argument("--primary-tag", metavar="NAME", default=None,
+                   help="Primary theme tag name (string, alternative to --primary-choice)")
+    p.add_argument("--secondary-tag", metavar="NAME", default=None,
+                   help="Secondary theme tag name (string, alternative to --secondary-choice)")
+    p.add_argument("--tertiary-tag", metavar="NAME", default=None,
+                   help="Tertiary theme tag name (string, alternative to --tertiary-choice)")
+    p.add_argument("--bracket-level", metavar="1-5", type=int, default=None,
+                   help="Power bracket level 1-5 (integer)")
+    
+    # Ideal count arguments - new feature!
+    ideal_group = p.add_argument_group("Ideal Deck Composition", 
+                                     "Override default target counts for deck categories")
+    ideal_group.add_argument("--ramp-count", metavar="INT", type=int, default=None,
+                           help="Target number of ramp spells (integer, default: 8)")
+    ideal_group.add_argument("--land-count", metavar="INT", type=int, default=None,
+                           help="Target total number of lands (integer, default: 35)")
+    ideal_group.add_argument("--basic-land-count", metavar="INT", type=int, default=None,
+                           help="Minimum number of basic lands (integer, default: 15)")
+    ideal_group.add_argument("--creature-count", metavar="INT", type=int, default=None,
+                           help="Target number of creatures (integer, default: 25)")
+    ideal_group.add_argument("--removal-count", metavar="INT", type=int, default=None,
+                           help="Target number of spot removal spells (integer, default: 10)")
+    ideal_group.add_argument("--wipe-count", metavar="INT", type=int, default=None,
+                           help="Target number of board wipes (integer, default: 2)")
+    ideal_group.add_argument("--card-advantage-count", metavar="INT", type=int, default=None,
+                           help="Target number of card advantage pieces (integer, default: 10)")
+    ideal_group.add_argument("--protection-count", metavar="INT", type=int, default=None,
+                           help="Target number of protection spells (integer, default: 8)")
+    
+    # Land-specific counts
+    land_group = p.add_argument_group("Land Configuration", 
+                                    "Control specific land type counts and options")
+    land_group.add_argument("--add-lands", metavar="BOOL", type=_parse_bool, default=None,
+                          help="Whether to add lands (bool: true/false/1/0)")
+    land_group.add_argument("--fetch-count", metavar="INT", type=_parse_opt_int, default=None,
+                          help="Number of fetch lands to include (integer, optional)")
+    land_group.add_argument("--dual-count", metavar="INT", type=_parse_opt_int, default=None,
+                          help="Number of dual lands to include (integer, optional)")
+    land_group.add_argument("--triple-count", metavar="INT", type=_parse_opt_int, default=None,
+                          help="Number of triple lands to include (integer, optional)")
+    land_group.add_argument("--utility-count", metavar="INT", type=_parse_opt_int, default=None,
+                          help="Number of utility lands to include (integer, optional)")
+    
+    # Card type toggles
+    toggle_group = p.add_argument_group("Card Type Toggles", 
+                                      "Enable/disable adding specific card types")
+    toggle_group.add_argument("--add-creatures", metavar="BOOL", type=_parse_bool, default=None,
+                            help="Add creatures to deck (bool: true/false/1/0)")
+    toggle_group.add_argument("--add-non-creature-spells", metavar="BOOL", type=_parse_bool, default=None,
+                            help="Add non-creature spells to deck (bool: true/false/1/0)")
+    toggle_group.add_argument("--add-ramp", metavar="BOOL", type=_parse_bool, default=None,
+                            help="Add ramp spells to deck (bool: true/false/1/0)")
+    toggle_group.add_argument("--add-removal", metavar="BOOL", type=_parse_bool, default=None,
+                            help="Add removal spells to deck (bool: true/false/1/0)")
+    toggle_group.add_argument("--add-wipes", metavar="BOOL", type=_parse_bool, default=None,
+                            help="Add board wipes to deck (bool: true/false/1/0)")
+    toggle_group.add_argument("--add-card-advantage", metavar="BOOL", type=_parse_bool, default=None,
+                            help="Add card advantage pieces to deck (bool: true/false/1/0)")
+    toggle_group.add_argument("--add-protection", metavar="BOOL", type=_parse_bool, default=None,
+                            help="Add protection spells to deck (bool: true/false/1/0)")
+    
+    # Include/Exclude configuration
+    include_group = p.add_argument_group("Include/Exclude Cards", 
+                                       "Force include or exclude specific cards")
+    include_group.add_argument("--include-cards", metavar="CARDS", 
+                             help='Cards to force include (string: comma-separated, max 10). For cards with commas in names like "Krenko, Mob Boss", use semicolons or JSON config.')
+    include_group.add_argument("--exclude-cards", metavar="CARDS", 
+                             help='Cards to exclude from deck (string: comma-separated, max 15). For cards with commas in names like "Krenko, Mob Boss", use semicolons or JSON config.')
+    include_group.add_argument("--enforcement-mode", metavar="MODE", choices=["warn", "strict"], default=None, 
+                             help="How to handle missing includes (string: warn=continue, strict=abort)")
+    include_group.add_argument("--allow-illegal", metavar="BOOL", type=_parse_bool, default=None,
+                             help="Allow illegal cards in includes/excludes (bool: true/false/1/0)")
+    include_group.add_argument("--fuzzy-matching", metavar="BOOL", type=_parse_bool, default=None,
+                             help="Enable fuzzy card name matching (bool: true/false/1/0)")
+    
+    # Utility
+    p.add_argument("--dry-run", action="store_true", 
+                   help="Print resolved configuration and exit without building")
     return p
 
 
@@ -358,6 +546,129 @@ def _main() -> int:
     except Exception:
         ideal_counts_json = {}
 
+    # Build ideal_counts dict from CLI args, JSON, or defaults
+    ideal_counts_resolved = {}
+    ideal_mappings = [
+        ("ramp_count", "ramp", 8),
+        ("land_count", "lands", 35), 
+        ("basic_land_count", "basic_lands", 15),
+        ("creature_count", "creatures", 25),
+        ("removal_count", "removal", 10),
+        ("wipe_count", "wipes", 2),
+        ("card_advantage_count", "card_advantage", 10),
+        ("protection_count", "protection", 8),
+    ]
+    
+    for cli_key, json_key, default_val in ideal_mappings:
+        cli_val = getattr(args, cli_key, None)
+        if cli_val is not None:
+            ideal_counts_resolved[json_key] = cli_val
+        elif json_key in ideal_counts_json:
+            ideal_counts_resolved[json_key] = ideal_counts_json[json_key]
+        # Don't set defaults here - let the builder use its own defaults
+
+    # Pull include/exclude configuration from JSON (M1: Config + Validation + Persistence)
+    include_cards_json = []
+    exclude_cards_json = []
+    try:
+        if isinstance(json_cfg.get("include_cards"), list):
+            include_cards_json = [str(x) for x in json_cfg["include_cards"] if x]
+        if isinstance(json_cfg.get("exclude_cards"), list):
+            exclude_cards_json = [str(x) for x in json_cfg["exclude_cards"] if x]
+    except Exception:
+        pass
+
+    # M4: Parse CLI include/exclude card lists
+    cli_include_cards = _parse_card_list(args.include_cards) if hasattr(args, 'include_cards') else []
+    cli_exclude_cards = _parse_card_list(args.exclude_cards) if hasattr(args, 'exclude_cards') else []
+
+    # Resolve tag names to indices BEFORE building resolved dict (so they can override defaults)
+    resolved_primary_choice = args.primary_choice
+    resolved_secondary_choice = args.secondary_choice  
+    resolved_tertiary_choice = args.tertiary_choice
+    
+    try:
+        # Collect tag names from CLI, JSON, and environment (CLI takes precedence)
+        primary_tag_name = (
+            args.primary_tag or 
+            (str(os.getenv("DECK_PRIMARY_TAG") or "").strip()) or 
+            str(json_cfg.get("primary_tag", "")).strip()
+        )
+        secondary_tag_name = (
+            args.secondary_tag or 
+            (str(os.getenv("DECK_SECONDARY_TAG") or "").strip()) or 
+            str(json_cfg.get("secondary_tag", "")).strip()
+        )
+        tertiary_tag_name = (
+            args.tertiary_tag or 
+            (str(os.getenv("DECK_TERTIARY_TAG") or "").strip()) or 
+            str(json_cfg.get("tertiary_tag", "")).strip()
+        )
+        
+        tag_names = [t for t in [primary_tag_name, secondary_tag_name, tertiary_tag_name] if t]
+        if tag_names:
+            # Load commander name to resolve tags
+            commander_name = _resolve_value(args.commander, "DECK_COMMANDER", json_cfg, "commander", "")
+            if commander_name:
+                try:
+                    # Load commander tags to compute indices
+                    tmp = DeckBuilder()
+                    df = tmp.load_commander_data()
+                    row = df[df["name"] == commander_name]
+                    if not row.empty:
+                        original = list(dict.fromkeys(row.iloc[0].get("themeTags", []) or []))
+                        
+                        # Step 1: primary from original
+                        if primary_tag_name:
+                            for i, t in enumerate(original, start=1):
+                                if str(t).strip().lower() == primary_tag_name.strip().lower():
+                                    resolved_primary_choice = i
+                                    break
+                        
+                        # Step 2: secondary from remaining after primary
+                        if secondary_tag_name:
+                            if resolved_primary_choice is not None:
+                                # Create remaining list after removing primary choice
+                                remaining_1 = [t for j, t in enumerate(original, start=1) if j != resolved_primary_choice]
+                                for i2, t in enumerate(remaining_1, start=1):
+                                    if str(t).strip().lower() == secondary_tag_name.strip().lower():
+                                        resolved_secondary_choice = i2
+                                        break
+                            else:
+                                # If no primary set, secondary maps directly to original list
+                                for i, t in enumerate(original, start=1):
+                                    if str(t).strip().lower() == secondary_tag_name.strip().lower():
+                                        resolved_secondary_choice = i
+                                        break
+                        
+                        # Step 3: tertiary from remaining after primary+secondary
+                        if tertiary_tag_name:
+                            if resolved_primary_choice is not None and resolved_secondary_choice is not None:
+                                # reconstruct remaining after removing primary then secondary as displayed
+                                remaining_1 = [t for j, t in enumerate(original, start=1) if j != resolved_primary_choice]
+                                remaining_2 = [t for j, t in enumerate(remaining_1, start=1) if j != resolved_secondary_choice]
+                                for i3, t in enumerate(remaining_2, start=1):
+                                    if str(t).strip().lower() == tertiary_tag_name.strip().lower():
+                                        resolved_tertiary_choice = i3
+                                        break
+                            elif resolved_primary_choice is not None:
+                                # Only primary set, tertiary from remaining after primary
+                                remaining_1 = [t for j, t in enumerate(original, start=1) if j != resolved_primary_choice]
+                                for i, t in enumerate(remaining_1, start=1):
+                                    if str(t).strip().lower() == tertiary_tag_name.strip().lower():
+                                        resolved_tertiary_choice = i
+                                        break
+                            else:
+                                # No primary or secondary set, tertiary maps directly to original list
+                                for i, t in enumerate(original, start=1):
+                                    if str(t).strip().lower() == tertiary_tag_name.strip().lower():
+                                        resolved_tertiary_choice = i
+                                        break
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
     resolved = {
         "command_name": _resolve_value(args.commander, "DECK_COMMANDER", json_cfg, "commander", defaults["command_name"]),
         "add_creatures": _resolve_value(args.add_creatures, "DECK_ADD_CREATURES", json_cfg, "add_creatures", defaults["add_creatures"]),
@@ -367,65 +678,27 @@ def _main() -> int:
         "add_wipes": _resolve_value(args.add_wipes, "DECK_ADD_WIPES", json_cfg, "add_wipes", defaults["add_wipes"]),
         "add_card_advantage": _resolve_value(args.add_card_advantage, "DECK_ADD_CARD_ADVANTAGE", json_cfg, "add_card_advantage", defaults["add_card_advantage"]),
         "add_protection": _resolve_value(args.add_protection, "DECK_ADD_PROTECTION", json_cfg, "add_protection", defaults["add_protection"]),
-        "primary_choice": _resolve_value(args.primary_choice, "DECK_PRIMARY_CHOICE", json_cfg, "primary_choice", defaults["primary_choice"]),
-        "secondary_choice": _resolve_value(args.secondary_choice, "DECK_SECONDARY_CHOICE", json_cfg, "secondary_choice", defaults["secondary_choice"]),
-        "tertiary_choice": _resolve_value(args.tertiary_choice, "DECK_TERTIARY_CHOICE", json_cfg, "tertiary_choice", defaults["tertiary_choice"]),
-    "bracket_level": _resolve_value(args.bracket_level, "DECK_BRACKET_LEVEL", json_cfg, "bracket_level", None),
+        "primary_choice": _resolve_value(resolved_primary_choice, "DECK_PRIMARY_CHOICE", json_cfg, "primary_choice", defaults["primary_choice"]),
+        "secondary_choice": _resolve_value(resolved_secondary_choice, "DECK_SECONDARY_CHOICE", json_cfg, "secondary_choice", defaults["secondary_choice"]),
+        "tertiary_choice": _resolve_value(resolved_tertiary_choice, "DECK_TERTIARY_CHOICE", json_cfg, "tertiary_choice", defaults["tertiary_choice"]),
+        "bracket_level": _resolve_value(args.bracket_level, "DECK_BRACKET_LEVEL", json_cfg, "bracket_level", None),
         "add_lands": _resolve_value(args.add_lands, "DECK_ADD_LANDS", json_cfg, "add_lands", defaults["add_lands"]),
         "fetch_count": _resolve_value(args.fetch_count, "DECK_FETCH_COUNT", json_cfg, "fetch_count", defaults["fetch_count"]),
         "dual_count": _resolve_value(args.dual_count, "DECK_DUAL_COUNT", json_cfg, "dual_count", defaults["dual_count"]),
-    "triple_count": _resolve_value(args.triple_count, "DECK_TRIPLE_COUNT", json_cfg, "triple_count", defaults["triple_count"]),
-    "utility_count": _resolve_value(args.utility_count, "DECK_UTILITY_COUNT", json_cfg, "utility_count", defaults["utility_count"]),
-    "ideal_counts": ideal_counts_json,
+        "triple_count": _resolve_value(args.triple_count, "DECK_TRIPLE_COUNT", json_cfg, "triple_count", defaults["triple_count"]),
+        "utility_count": _resolve_value(args.utility_count, "DECK_UTILITY_COUNT", json_cfg, "utility_count", defaults["utility_count"]),
+        "ideal_counts": ideal_counts_resolved,
+        # M4: Include/Exclude configuration (CLI + JSON + Env priority)
+        "include_cards": cli_include_cards or include_cards_json,
+        "exclude_cards": cli_exclude_cards or exclude_cards_json,
+        "enforcement_mode": args.enforcement_mode or json_cfg.get("enforcement_mode", "warn"),
+        "allow_illegal": args.allow_illegal if args.allow_illegal is not None else bool(json_cfg.get("allow_illegal", False)),
+        "fuzzy_matching": args.fuzzy_matching if args.fuzzy_matching is not None else bool(json_cfg.get("fuzzy_matching", True)),
     }
 
     if args.dry_run:
         print(json.dumps(resolved, indent=2))
         return 0
-
-    # Optional: map tag names from JSON/env to numeric indices for this commander
-    try:
-        primary_tag_name = (str(os.getenv("DECK_PRIMARY_TAG") or "").strip()) or str(json_cfg.get("primary_tag", "")).strip()
-        secondary_tag_name = (str(os.getenv("DECK_SECONDARY_TAG") or "").strip()) or str(json_cfg.get("secondary_tag", "")).strip()
-        tertiary_tag_name = (str(os.getenv("DECK_TERTIARY_TAG") or "").strip()) or str(json_cfg.get("tertiary_tag", "")).strip()
-        tag_names = [t for t in [primary_tag_name, secondary_tag_name, tertiary_tag_name] if t]
-        if tag_names:
-            try:
-                # Load commander tags to compute indices
-                tmp = DeckBuilder()
-                df = tmp.load_commander_data()
-                row = df[df["name"] == resolved["command_name"]]
-                if not row.empty:
-                    original = list(dict.fromkeys(row.iloc[0].get("themeTags", []) or []))
-                    # Step 1: primary from original
-                    if primary_tag_name:
-                        for i, t in enumerate(original, start=1):
-                            if str(t).strip().lower() == primary_tag_name.strip().lower():
-                                resolved["primary_choice"] = i
-                                break
-                    # Step 2: secondary from remaining after primary
-                    if secondary_tag_name:
-                        primary_idx = resolved.get("primary_choice")
-                        remaining_1 = [t for j, t in enumerate(original, start=1) if j != primary_idx]
-                        for i2, t in enumerate(remaining_1, start=1):
-                            if str(t).strip().lower() == secondary_tag_name.strip().lower():
-                                resolved["secondary_choice"] = i2
-                                break
-                    # Step 3: tertiary from remaining after primary+secondary
-                    if tertiary_tag_name and resolved.get("secondary_choice") is not None:
-                        primary_idx = resolved.get("primary_choice")
-                        secondary_idx = resolved.get("secondary_choice")
-                        # reconstruct remaining after removing primary then secondary as displayed
-                        remaining_1 = [t for j, t in enumerate(original, start=1) if j != primary_idx]
-                        remaining_2 = [t for j, t in enumerate(remaining_1, start=1) if j != secondary_idx]
-                        for i3, t in enumerate(remaining_2, start=1):
-                            if str(t).strip().lower() == tertiary_tag_name.strip().lower():
-                                resolved["tertiary_choice"] = i3
-                                break
-            except Exception:
-                pass
-    except Exception:
-        pass
 
     if not str(resolved.get("command_name", "")).strip():
         print("Error: commander is required. Provide --commander or a JSON config with a 'commander' field.")

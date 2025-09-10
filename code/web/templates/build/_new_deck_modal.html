@@ -54,34 +54,138 @@
       </fieldset>
       <fieldset>
         <legend>Preferences</legend>
-        <label title="When enabled, the builder will try to auto-complete missing combo partners near the end of the build (respecting owned-only and locks).">
-          <input type="checkbox" name="prefer_combos" id="pref-combos-chk" /> Prioritize combos (auto-complete partners)
-        </label>
-        <div style="margin-top:.35rem;"></div>
-        <label title="When enabled, include a Multi-Copy package for matching archetypes (e.g., tokens/tribal).">
-          <input type="checkbox" name="enable_multicopy" id="pref-mc-chk" /> Enable Multi-Copy package
-        </label>
-        <div id="pref-combos-config" style="margin-top:.5rem; padding:.5rem; border:1px solid var(--border); border-radius:8px; display:none;">
-          <div style="display:flex; gap:1rem; align-items:center; flex-wrap:wrap;">
-            <label>
-              <span>How many combos?</span>
-              <input type="number" name="combo_count" min="0" max="10" step="1" value="{{ form.combo_count if form and form.combo_count is not none else 2 }}" style="width:6rem; margin-left:.5rem;" />
+        <div style="text-align: left;">
+          <div style="margin-bottom: 1rem;">
+            <label style="display: inline-flex; align-items: center; gap: 0.5rem; margin: 0;" title="When enabled, the builder will try to auto-complete missing combo partners near the end of the build (respecting owned-only and locks).">
+              <input type="checkbox" name="prefer_combos" id="pref-combos-chk" style="margin: 0;" />
+              <span>Prioritize combos</span>
             </label>
-            <div>
-              <div class="muted" style="font-size:12px; margin-bottom:.25rem;">Balance of early vs late-game</div>
-              <label style="display:inline-flex; align-items:center; gap:.25rem; margin-right:.5rem;">
-                <input type="radio" name="combo_balance" value="early" {% if form and form.combo_balance == 'early' %}checked{% endif %}/> Early
-              </label>
-              <label style="display:inline-flex; align-items:center; gap:.25rem; margin-right:.5rem;">
-                <input type="radio" name="combo_balance" value="late" {% if form and form.combo_balance == 'late' %}checked{% endif %}/> Late
-              </label>
-              <label style="display:inline-flex; align-items:center; gap:.25rem;">
-                <input type="radio" name="combo_balance" value="mix" {% if not form or (form and (not form.combo_balance or form.combo_balance == 'mix')) %}checked{% endif %}/> Mix
-              </label>
+            <div id="pref-combos-config" style="margin-top: 0.5rem; margin-left: 1.5rem; padding: 0.5rem; border: 1px solid var(--border); border-radius: 8px; display: none;">
+              <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+                <label>
+                  <span>How many combos?</span>
+                  <input type="number" name="combo_count" min="0" max="10" step="1" value="{{ form.combo_count if form and form.combo_count is not none else 2 }}" style="width: 6rem; margin-left: 0.5rem;" />
+                </label>
+                <div>
+                  <div class="muted" style="font-size: 12px; margin-bottom: 0.25rem;">Balance of early vs late-game</div>
+                  <label style="display: inline-flex; align-items: center; gap: 0.25rem; margin-right: 0.5rem;">
+                    <input type="radio" name="combo_balance" value="early" {% if form and form.combo_balance == 'early' %}checked{% endif %} /> Early
+                  </label>
+                  <label style="display: inline-flex; align-items: center; gap: 0.25rem; margin-right: 0.5rem;">
+                    <input type="radio" name="combo_balance" value="late" {% if form and form.combo_balance == 'late' %}checked{% endif %} /> Late
+                  </label>
+                  <label style="display: inline-flex; align-items: center; gap: 0.25rem;">
+                    <input type="radio" name="combo_balance" value="mix" {% if not form or (form and (not form.combo_balance or form.combo_balance == 'mix')) %}checked{% endif %} /> Mix
+                  </label>
+                </div>
+              </div>
             </div>
+          </div>
+          <div style="margin-bottom: 1rem;">
+            <label style="display: inline-flex; align-items: center; gap: 0.5rem; margin: 0;" title="When enabled, include a Multi-Copy package for matching archetypes (e.g., tokens/tribal).">
+              <input type="checkbox" name="enable_multicopy" id="pref-mc-chk" style="margin: 0;" />
+              <span>Enable Multi-Copy package</span>
+            </label>
           </div>
         </div>
       </fieldset>
+      {% if allow_must_haves %}
+      <fieldset>
+        <legend>Include/Exclude Cards</legend>
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:1rem; margin-top:.5rem;" class="include-exclude-grid">
+          <!-- Include Cards Column (Left, Green) -->
+          <div>
+            <label style="display:block; margin-bottom:.5rem;">
+              <span style="color: #4ade80; font-weight: 500;">✓ Must Include Cards</span>
+              <small class="muted" style="display:block; font-size:11px; margin-top:.25rem;">Cards that must appear in your deck</small>
+            </label>
+            <textarea name="include_cards" id="include_cards_textarea" 
+              placeholder="Lightning Bolt&#10;Counterspell&#10;Swords to Plowshares" 
+              style="width:100%; min-height:60px; resize:vertical; font-family:monospace; font-size:12px; border-left: 3px solid #4ade80;"
+              autocomplete="off" autocapitalize="off" spellcheck="false">{{ form.include_cards if form and form.include_cards else '' }}</textarea>
+            <!-- Include Cards Chips Container -->
+            <div id="include_chips_container" style="margin-top:.5rem; min-height:30px; border:1px solid #4ade80; border-radius:6px; padding:.5rem; background:rgba(74, 222, 128, 0.05); display:flex; flex-wrap:wrap; gap:.25rem; align-items:flex-start;">
+              <div id="include_chips" style="display:flex; flex-wrap:wrap; gap:.25rem; flex:1;"></div>
+              <div style="color:#6b7280; font-size:11px; font-style:italic;" id="include_chips_placeholder">Enter card names above to see them as removable tags</div>
+            </div>
+            <div style="display:flex; align-items:center; gap:.5rem; margin-top:.5rem; font-size:12px;">
+              <label for="include_file_upload" class="btn" style="cursor:pointer; font-size:11px; padding:.25rem .5rem; background:#065f46; border-color:#059669;">
+                📄 Upload .txt
+              </label>
+              <input type="file" id="include_file_upload" accept=".txt" style="display:none;" 
+                onchange="handleIncludeFileUpload(this)" />
+              <button type="button" onclick="clearIncludes()" class="btn" style="font-size:11px; padding:.25rem .5rem; background:#7f1d1d; border-color:#dc2626;">
+                🗑 Clear All
+              </button>
+              <div id="include_count" class="muted" style="font-size:11px;">0/10</div>
+              <div id="include_badges" style="display:flex; gap:.25rem; font-size:10px;"></div>
+            </div>
+            <div id="include_validation" style="margin-top:.5rem; font-size:12px;"></div>
+          </div>
+          <!-- Exclude Cards Column (Right, Red) -->
+          <div>
+            <label style="display:block; margin-bottom:.5rem;">
+              <span style="color: #ef4444; font-weight: 500;">✗ Must Exclude Cards</span>
+              <small class="muted" style="display:block; font-size:11px; margin-top:.25rem;">Cards to avoid in your deck</small>
+            </label>
+            <textarea name="exclude_cards" id="exclude_cards_textarea" 
+              placeholder="Sol Ring&#10;Rhystic Study&#10;Smothering Tithe" 
+              style="width:100%; min-height:60px; resize:vertical; font-family:monospace; font-size:12px; border-left: 3px solid #ef4444;"
+              autocomplete="off" autocapitalize="off" spellcheck="false">{{ form.exclude_cards if form and form.exclude_cards else '' }}</textarea>
+            <!-- Exclude Cards Chips Container -->
+            <div id="exclude_chips_container" style="margin-top:.5rem; min-height:30px; border:1px solid #ef4444; border-radius:6px; padding:.5rem; background:rgba(239, 68, 68, 0.05); display:flex; flex-wrap:wrap; gap:.25rem; align-items:flex-start;">
+              <div id="exclude_chips" style="display:flex; flex-wrap:wrap; gap:.25rem; flex:1;"></div>
+              <div style="color:#6b7280; font-size:11px; font-style:italic;" id="exclude_chips_placeholder">Enter card names above to see them as removable tags</div>
+            </div>
+            <div style="display:flex; align-items:center; gap:.5rem; margin-top:.5rem; font-size:12px;">
+              <label for="exclude_file_upload" class="btn" style="cursor:pointer; font-size:11px; padding:.25rem .5rem; background:#7f1d1d; border-color:#dc2626;">
+                📄 Upload .txt
+              </label>
+              <input type="file" id="exclude_file_upload" accept=".txt" style="display:none;" 
+                onchange="handleExcludeFileUpload(this)" />
+              <button type="button" onclick="clearExcludes()" class="btn" style="font-size:11px; padding:.25rem .5rem; background:#7f1d1d; border-color:#dc2626;">
+                🗑 Clear All
+              </button>
+              <div id="exclude_count" class="muted" style="font-size:11px;">0/15</div>
+              <div id="exclude_badges" style="display:flex; gap:.25rem; font-size:10px;"></div>
+            </div>
+            <div id="exclude_validation" style="margin-top:.5rem; font-size:12px;"></div>
+          </div>
+        </div>
+        <div style="margin-top:.75rem; padding:.5rem; background:rgba(59, 130, 246, 0.1); border:1px solid rgba(59, 130, 246, 0.3); border-radius:6px;">
+          <details>
+            <summary style="cursor:pointer; font-size:12px; color:#60a5fa;">Advanced Options</summary>
+            <div style="margin-top:.5rem; font-size:12px; line-height:1.5;">
+              <div style="margin-bottom:.5rem;">
+                <label style="display:inline-flex; align-items:center; margin-right:1rem; cursor:pointer; line-height:1;">
+                  <input type="radio" name="enforcement_mode" value="warn" {% if not form or (form and (not form.enforcement_mode or form.enforcement_mode == 'warn')) %}checked{% endif %} style="margin:0 4px 0 0; flex-shrink:0;" />
+                  <span>Warn mode</span>
+                  <small class="muted" style="margin-left:.25rem;">(proceed if cards missing)</small>
+                </label>
+                <label style="display:inline-flex; align-items:center; margin-right:1rem; cursor:pointer; line-height:1;">
+                  <input type="radio" name="enforcement_mode" value="strict" {% if form and form.enforcement_mode == 'strict' %}checked{% endif %} style="margin:0 4px 0 0; flex-shrink:0;" />
+                  <span>Strict mode</span>
+                  <small class="muted" style="margin-left:.25rem;">(abort if cards missing)</small>
+                </label>
+              </div>
+              <div>
+                <label style="display:inline-flex; align-items:center; margin-right:1rem; cursor:pointer; line-height:1;">
+                  <input type="checkbox" name="allow_illegal" {% if form and form.allow_illegal %}checked{% endif %} style="margin:0 4px 0 0; flex-shrink:0;" />
+                  <span>Allow illegal cards</span>
+                </label>
+                <label style="display:inline-flex; align-items:center; margin-right:1rem; cursor:pointer; line-height:1;">
+                  <input type="checkbox" name="fuzzy_matching" {% if not form or (form and (form.fuzzy_matching is none or form.fuzzy_matching)) %}checked{% endif %} style="margin:0 4px 0 0; flex-shrink:0;" />
+                  <span>Fuzzy name matching</span>
+                </label>
+              </div>
+            </div>
+          </details>
+        </div>
+        <small class="muted" style="display:block; margin-top:.5rem; font-size:11px; text-align:center;">
+          Enter one card name per line. Cards are validated against the database with smart name matching.
+        </small>
+      </fieldset>
+      {% endif %}
       <details style="margin-top:.5rem;">
         <summary>Advanced options (ideals)</summary>
         <div style="display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap:.5rem; margin-top:.5rem;">
@@ -101,8 +205,675 @@
 </div>
 
 <script>
+  // Utility function for parsing card lists
+  function parseCardList(content) {
+    const newlineRegex = /\r?\n/;
+    return content.split(newlineRegex)
+      .map(function(line) { return line.trim(); })
+      .filter(function(line) { return line; });
+  }
+
+  // Handle include cards file upload
+  function handleIncludeFileUpload(input) {
+    if (input.files && input.files[0]) {
+      const file = input.files[0];
+      if (!file.name.toLowerCase().endsWith('.txt')) {
+        alert('Please select a .txt file');
+        input.value = '';
+        return;
+      }
+      
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const textarea = document.getElementById('include_cards_textarea');
+        const fileContent = e.target.result;
+        const lines = parseCardList(fileContent);
+        
+        // Merge with existing content (if any)
+        const existingContent = textarea.value.trim();
+        const existingLines = existingContent ? parseCardList(existingContent) : [];
+        
+        // Combine and deduplicate
+        const allLinesSet = new Set([].concat(existingLines).concat(lines));
+        const allLines = Array.from(allLinesSet);
+        textarea.value = allLines.join('\n');
+        
+        // Show feedback and update count
+        const validation = document.getElementById('include_validation');
+        if (validation) {
+          validation.innerHTML = '<span style="color: #4ade80;">✓ Loaded ' + lines.length + ' cards from file</span>';
+          setTimeout(function() { validation.innerHTML = ''; }, 3000);
+        }
+        updateIncludeCount();
+        updateChips('include');
+        
+        // Clear file input for re-upload
+        input.value = '';
+        
+        // Trigger validation
+        validateIncludeExcludeCards();
+      };
+      reader.readAsText(file);
+    }
+  }
+
+  // Handle exclude cards file upload
+  function handleExcludeFileUpload(input) {
+    if (input.files && input.files[0]) {
+      const file = input.files[0];
+      if (!file.name.toLowerCase().endsWith('.txt')) {
+        alert('Please select a .txt file');
+        input.value = '';
+        return;
+      }
+      
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const textarea = document.getElementById('exclude_cards_textarea');
+        const fileContent = e.target.result;
+        const lines = parseCardList(fileContent);
+        
+        // Merge with existing content (if any)
+        const existingContent = textarea.value.trim();
+        const existingLines = existingContent ? parseCardList(existingContent) : [];
+        
+        // Combine and deduplicate
+        const allLinesSet = new Set([].concat(existingLines).concat(lines));
+        const allLines = Array.from(allLinesSet);
+        textarea.value = allLines.join('\n');
+        
+        // Show feedback and update count
+        const validation = document.getElementById('exclude_validation');
+        if (validation) {
+          validation.innerHTML = '<span style="color: #4ade80;">✓ Loaded ' + lines.length + ' cards from file</span>';
+          setTimeout(function() { validation.innerHTML = ''; }, 3000);
+        }
+        updateExcludeCount();
+        updateChips('exclude');
+        
+        // Clear file input for re-upload
+        input.value = '';
+        
+        // Trigger validation
+        validateIncludeExcludeCards();
+      };
+      reader.readAsText(file);
+    }
+  }
+
+  // Clear all includes
+  function clearIncludes() {
+    const textarea = document.getElementById('include_cards_textarea');
+    const validation = document.getElementById('include_validation');
+    if (textarea) {
+      textarea.value = '';
+      updateIncludeCount();
+      updateChips('include');
+    }
+    if (validation) {
+      validation.innerHTML = '';
+    }
+    validateIncludeExcludeCards();
+  }
+
+  // Clear all excludes
+  function clearExcludes() {
+    const textarea = document.getElementById('exclude_cards_textarea');
+    const validation = document.getElementById('exclude_validation');
+    if (textarea) {
+      textarea.value = '';
+      updateExcludeCount();
+      updateChips('exclude');
+    }
+    if (validation) {
+      validation.innerHTML = '';
+    }
+    validateIncludeExcludeCards();
+  }
+
+  // Chips Management Functions
+  function createChip(cardName, type) {
+    const chip = document.createElement('div');
+    chip.className = 'card-chip';
+    chip.setAttribute('data-card-name', cardName);
+    chip.style.cssText = `
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      padding: 0.25rem 0.5rem;
+      font-size: 11px;
+      border-radius: 12px;
+      cursor: default;
+      user-select: none;
+      ${type === 'include' ? 
+        'background: #dcfce7; border: 1px solid #4ade80; color: #166534;' : 
+        'background: #fef2f2; border: 1px solid #ef4444; color: #991b1b;'
+      }
+    `;
+    
+    const cardText = document.createElement('span');
+    cardText.textContent = cardName;
+    
+    const removeBtn = document.createElement('button');
+    removeBtn.textContent = '×';
+    removeBtn.type = 'button';
+    removeBtn.style.cssText = `
+      background: none;
+      border: none;
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
+      padding: 0;
+      margin: 0;
+      width: 16px;
+      height: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      color: ${type === 'include' ? '#166534' : '#991b1b'};
+    `;
+    removeBtn.title = 'Remove ' + cardName;
+    removeBtn.onmouseover = () => removeBtn.style.background = type === 'include' ? '#bbf7d0' : '#fee2e2';
+    removeBtn.onmouseout = () => removeBtn.style.background = 'none';
+    removeBtn.onclick = () => removeChip(cardName, type);
+    
+    chip.appendChild(cardText);
+    chip.appendChild(removeBtn);
+    return chip;
+  }
+
+  function removeChip(cardName, type) {
+    const textareaId = type === 'include' ? 'include_cards_textarea' : 'exclude_cards_textarea';
+    const textarea = document.getElementById(textareaId);
+    if (!textarea) return;
+    
+    const cards = parseCardList(textarea.value);
+    const filtered = cards.filter(card => card.toLowerCase() !== cardName.toLowerCase());
+    textarea.value = filtered.join('\n');
+    
+    updateChips(type);
+    if (type === 'include') {
+      updateIncludeCount();
+    } else {
+      updateExcludeCount();
+    }
+    validateIncludeExcludeCards();
+  }
+
+  function updateChips(type) {
+    const textareaId = type === 'include' ? 'include_cards_textarea' : 'exclude_cards_textarea';
+    const chipsId = type === 'include' ? 'include_chips' : 'exclude_chips';
+    const placeholderId = type === 'include' ? 'include_chips_placeholder' : 'exclude_chips_placeholder';
+    
+    const textarea = document.getElementById(textareaId);
+    const chipsContainer = document.getElementById(chipsId);
+    const placeholder = document.getElementById(placeholderId);
+    
+    if (!textarea || !chipsContainer || !placeholder) return;
+    
+    const cards = parseCardList(textarea.value);
+    
+    // Clear existing chips
+    chipsContainer.innerHTML = '';
+    
+    if (cards.length === 0) {
+      placeholder.style.display = 'block';
+    } else {
+      placeholder.style.display = 'none';
+      cards.forEach(cardName => {
+        if (cardName.trim()) {
+          const chip = createChip(cardName.trim(), type);
+          chipsContainer.appendChild(chip);
+        }
+      });
+    }
+  }
+
+  function initializeChips() {
+    updateChips('include');
+    updateChips('exclude');
+  }
+
+  // Update include count display
+  function updateIncludeCount() {
+    const textarea = document.getElementById('include_cards_textarea');
+    const counter = document.getElementById('include_count');
+    if (!textarea || !counter) return;
+    
+    const content = textarea.value.trim();
+    const count = content ? parseCardList(content).length : 0;
+    const limit = 10;
+    
+    let warningIcon = '';
+    let warningClass = '';
+    
+    if (count > limit) {
+      warningIcon = '⚠️ ';
+      warningClass = 'color: #ef4444; font-weight: bold;';
+    } else if (count > limit * 0.8) {
+      warningIcon = '⚡ ';
+      warningClass = 'color: #f59e0b; font-weight: 500;';
+    } else {
+      warningClass = 'color: #6b7280;';
+    }
+    
+    counter.innerHTML = `${warningIcon}${count}/${limit}`;
+    counter.style.cssText = `font-size:11px; ${warningClass}`;
+  }
+
+  // Update exclude count display
+  function updateExcludeCount() {
+    const textarea = document.getElementById('exclude_cards_textarea');
+    const counter = document.getElementById('exclude_count');
+    if (!textarea || !counter) return;
+    
+    const content = textarea.value.trim();
+    const count = content ? parseCardList(content).length : 0;
+    const limit = 15;
+    
+    let warningIcon = '';
+    let warningClass = '';
+    
+    if (count > limit) {
+      warningIcon = '⚠️ ';
+      warningClass = 'color: #ef4444; font-weight: bold;';
+    } else if (count > limit * 0.8) {  // 12+ excludes
+      warningIcon = '⚡ ';
+      warningClass = 'color: #f59e0b; font-weight: 500;';
+    } else {
+      warningClass = 'color: #6b7280;';
+    }
+    
+    counter.innerHTML = `${warningIcon}${count}/${limit}`;
+    counter.style.cssText = `font-size:11px; ${warningClass}`;
+  }
+
+  // Update include validation badges
+  function updateIncludeBadges(includeData) {
+    const badgeContainer = document.getElementById('include_badges');
+    if (!badgeContainer || !includeData) return;
+    
+    let badges = '';
+    
+    if (includeData.count === 0) {
+      badgeContainer.innerHTML = '';
+      return;
+    }
+    
+    // Legal cards badge
+    if (includeData.legal && includeData.legal.length > 0) {
+      badges += `<span style="background:#dcfce7; color:#166534; padding:2px 6px; border-radius:12px; border:1px solid #bbf7d0;">✓ ${includeData.legal.length} legal</span>`;
+    }
+    
+    // Invalid cards badge (includes color mismatches and not found cards)
+    if (includeData.illegal && includeData.illegal.length > 0) {
+      badges += `<span style="background:#fee2e2; color:#dc2626; padding:2px 6px; border-radius:12px; border:1px solid #fecaca;">✗ ${includeData.illegal.length} illegal</span>`;
+    }
+    
+    // Duplicates badge
+    if (includeData.duplicates && Object.keys(includeData.duplicates).length > 0) {
+      const dupeCount = Object.keys(includeData.duplicates).length;
+      badges += `<span style="background:#e0e7ff; color:#3730a3; padding:2px 6px; border-radius:12px; border:1px solid #c7d2fe;">📋 ${dupeCount} dupes</span>`;
+    }
+    
+    badgeContainer.innerHTML = badges;
+    
+    // Update chip colors based on validation status
+    updateChipColors('include', includeData);
+  }
+
+  // Update chip colors based on validation status
+  function updateChipColors(type, validationData) {
+    if (!validationData) return;
+    
+    const container = document.getElementById(`${type}_chips`);
+    if (!container) return;
+    
+    const chips = container.querySelectorAll('.card-chip');
+    chips.forEach(chip => {
+      const cardName = chip.getAttribute('data-card-name');
+      if (!cardName) return;
+      
+      // Determine status
+      let isLegal = false;
+      let isIllegal = false;
+      
+      if (validationData.legal && validationData.legal.includes(cardName)) {
+        isLegal = true;
+      }
+      if (validationData.illegal && validationData.illegal.includes(cardName)) {
+        isIllegal = true;
+      }
+      
+      // Apply styling based on status (prioritize illegal over legal)
+      if (isIllegal) {
+        // Red styling for illegal cards
+        chip.style.background = '#fee2e2';
+        chip.style.border = '1px solid #fecaca';
+        chip.style.color = '#dc2626';
+        
+        // Update remove button color too
+        const removeBtn = chip.querySelector('button');
+        if (removeBtn) {
+          removeBtn.style.color = '#dc2626';
+          removeBtn.onmouseover = () => removeBtn.style.background = '#fee2e2';
+        }
+      } else if (isLegal) {
+        // Green styling for legal cards
+        chip.style.background = '#dcfce7';
+        chip.style.border = '1px solid #bbf7d0';
+        chip.style.color = '#166534';
+        
+        // Update remove button color too
+        const removeBtn = chip.querySelector('button');
+        if (removeBtn) {
+          removeBtn.style.color = '#166534';
+          removeBtn.onmouseover = () => removeBtn.style.background = '#bbf7d0';
+        }
+      }
+      // If no status info, keep default styling
+    });
+  }
+
+  // Update exclude validation badges
+  function updateExcludeBadges(excludeData) {
+    const badgeContainer = document.getElementById('exclude_badges');
+    if (!badgeContainer || !excludeData) return;
+    
+    let badges = '';
+    
+    if (excludeData.count === 0) {
+      badgeContainer.innerHTML = '';
+      return;
+    }
+    
+    // Legal cards badge
+    if (excludeData.legal && excludeData.legal.length > 0) {
+      badges += `<span style="background:#dcfce7; color:#166534; padding:2px 6px; border-radius:12px; border:1px solid #bbf7d0;">✓ ${excludeData.legal.length} legal</span>`;
+    }
+    
+    // Invalid cards badge
+    if (excludeData.illegal && excludeData.illegal.length > 0) {
+      badges += `<span style="background:#fee2e2; color:#dc2626; padding:2px 6px; border-radius:12px; border:1px solid #fecaca;">✗ ${excludeData.illegal.length} invalid</span>`;
+    }
+    
+    // Duplicates badge
+    if (excludeData.duplicates && Object.keys(excludeData.duplicates).length > 0) {
+      const dupeCount = Object.keys(excludeData.duplicates).length;
+      badges += `<span style="background:#e0e7ff; color:#3730a3; padding:2px 6px; border-radius:12px; border:1px solid #c7d2fe;">📋 ${dupeCount} dupes</span>`;
+    }
+    
+    badgeContainer.innerHTML = badges;
+    
+    // Update chip colors based on validation status
+    updateChipColors('exclude', excludeData);
+  }
+
+  // Comprehensive validation for both include and exclude cards
+  function validateIncludeExcludeCards() {
+    console.log('validateIncludeExcludeCards called');
+    const includeTextarea = document.getElementById('include_cards_textarea');
+    const excludeTextarea = document.getElementById('exclude_cards_textarea');
+    const includeValidation = document.getElementById('include_validation');
+    const excludeValidation = document.getElementById('exclude_validation');
+    
+    if (!includeTextarea || !excludeTextarea) {
+      console.log('Missing textareas');
+      return;
+    }
+    
+    const includeContent = includeTextarea.value.trim();
+    const excludeContent = excludeTextarea.value.trim();
+    
+    console.log('Include content:', includeContent);
+    console.log('Exclude content:', excludeContent);
+    
+    // Update counts
+    updateIncludeCount();
+    updateExcludeCount();
+    
+    // If both are empty, clear validations
+    if (!includeContent && !excludeContent) {
+      console.log('Both empty, clearing validation');
+      if (includeValidation) includeValidation.innerHTML = '';
+      if (excludeValidation) excludeValidation.innerHTML = '';
+      
+      // Clear badges
+      const includeBadges = document.getElementById('include_badges');
+      const excludeBadges = document.getElementById('exclude_badges');
+      if (includeBadges) includeBadges.innerHTML = '';
+      if (excludeBadges) excludeBadges.innerHTML = '';
+      return;
+    }
+    
+    // Show loading state
+    console.log('Setting loading state');
+    if (includeValidation) includeValidation.innerHTML = '<span style="color: #6b7280;">Validating...</span>';
+    if (excludeValidation) excludeValidation.innerHTML = '<span style="color: #6b7280;">Validating...</span>';
+    
+    // Get commander for advanced validation
+    const commanderInput = document.querySelector('input[name="commander"]');
+    const commander = commanderInput ? commanderInput.value.trim() : '';
+    
+    // Get advanced options
+    const enforcementMode = document.querySelector('input[name="enforcement_mode"]:checked');
+    const allowIllegal = document.querySelector('input[name="allow_illegal"]');
+    const fuzzyMatching = document.querySelector('input[name="fuzzy_matching"]');
+    
+    // Build form data
+    const formData = new FormData();
+    formData.append('include_cards', includeContent);
+    formData.append('exclude_cards', excludeContent);
+    formData.append('commander', commander);
+    formData.append('enforcement_mode', enforcementMode ? enforcementMode.value : 'warn');
+    formData.append('allow_illegal', allowIllegal ? allowIllegal.checked : false);
+    formData.append('fuzzy_matching', fuzzyMatching ? fuzzyMatching.checked : true);
+    
+    console.log('Making fetch request to /build/validate/include_exclude');
+    fetch('/build/validate/include_exclude', {
+      method: 'POST',
+      body: formData
+    })
+    .then(response => {
+      console.log('Received response:', response);
+      return response.json();
+    })
+    .then(data => {
+      console.log('Validation response data:', data);
+      if (data.error) {
+        if (includeValidation) includeValidation.innerHTML = '<span style="color: #ef4444;">Error: ' + data.error + '</span>';
+        if (excludeValidation) excludeValidation.innerHTML = '<span style="color: #ef4444;">Error: ' + data.error + '</span>';
+        return;
+      }
+      
+      // Update include validation and badges
+      updateIncludeBadges(data.includes);
+      if (includeValidation) {
+        let html = '';
+        const includeData = data.includes;
+        
+        if (includeData.count === 0) {
+          html = '';
+        } else {
+          if (includeData.warnings && includeData.warnings.length > 0) {
+            html += '<span style="color: #f59e0b;">⚠ ' + includeData.warnings[0] + '</span>';
+          }
+        }
+        includeValidation.innerHTML = html;
+      }
+      
+      // Update exclude validation and badges  
+      updateExcludeBadges(data.excludes);
+      if (excludeValidation) {
+        let html = '';
+        const excludeData = data.excludes;
+        
+        if (excludeData.count === 0) {
+          html = '';
+        } else {
+          if (excludeData.warnings && excludeData.warnings.length > 0) {
+            html += '<span style="color: #f59e0b;">⚠ ' + excludeData.warnings[0] + '</span>';
+          }
+        }
+        excludeValidation.innerHTML = html;
+      }
+      
+      // Show conflicts if any
+      if (data.conflicts && data.conflicts.length > 0) {
+        const conflictMsg = '<span style="color: #f59e0b;">⚠ Conflict: ' + data.conflicts.slice(0, 2).join(', ') + (data.conflicts.length > 2 ? '...' : '') + '</span>';
+        if (includeValidation && includeValidation.innerHTML) {
+          includeValidation.innerHTML += '<br>' + conflictMsg;
+        }
+        if (excludeValidation && excludeValidation.innerHTML) {
+          excludeValidation.innerHTML += '<br>' + conflictMsg;
+        }
+      }
+      
+      // Handle fuzzy match confirmations
+      if (data.confirmation_needed && data.confirmation_needed.length > 0) {
+        showFuzzyMatchConfirmationModal(data.confirmation_needed);
+      }
+    })
+    .catch(error => {
+      console.error('Validation fetch error:', error);
+      if (includeValidation) includeValidation.innerHTML = '<span style="color: #ef4444;">Validation failed</span>';
+      if (excludeValidation) excludeValidation.innerHTML = '<span style="color: #ef4444;">Validation failed</span>';
+    });
+  }
+  
+  // Set up event listeners when page loads
+  document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOMContentLoaded fired');
+    // Initialize chips on page load
+    initializeChips();
+    
+    // Set up live validation on textarea changes
+    const includeTextarea = document.getElementById('include_cards_textarea');
+    const excludeTextarea = document.getElementById('exclude_cards_textarea');
+    
+    console.log('Include textarea found:', includeTextarea);
+    console.log('Exclude textarea found:', excludeTextarea);
+    
+    let validationTimer;
+    
+    if (includeTextarea) {
+      console.log('Setting up include textarea event listener');
+      includeTextarea.addEventListener('input', function() {
+        console.log('Include textarea input event fired');
+        clearTimeout(validationTimer);
+        updateIncludeCount(); // Update count immediately
+        console.log('Setting validation timer for 500ms');
+        // Delay chips update until typing pauses
+        validationTimer = setTimeout(function() {
+          updateChips('include');
+          validateIncludeExcludeCards();
+        }, 500);
+      });
+      
+      // Update chips immediately on Enter
+      includeTextarea.addEventListener('keyup', function(e) {
+        if (e.key === 'Enter') {
+          console.log('Enter pressed - updating chips immediately');
+          clearTimeout(validationTimer);
+          updateChips('include');
+          updateIncludeCount();
+          // Still validate after Enter
+          validationTimer = setTimeout(validateIncludeExcludeCards, 300);
+        }
+      });
+      
+      // Initial count and validation if there's content
+      if (includeTextarea.value.trim()) {
+        updateIncludeCount();
+        validateIncludeExcludeCards();
+      }
+    }
+    
+    if (excludeTextarea) {
+      console.log('Setting up exclude textarea event listener');
+      excludeTextarea.addEventListener('input', function() {
+        console.log('Exclude textarea input event fired');
+        clearTimeout(validationTimer);
+        updateExcludeCount(); // Update count immediately
+        // Delay chips update until typing pauses
+        validationTimer = setTimeout(function() {
+          updateChips('exclude');
+          validateIncludeExcludeCards();
+        }, 500);
+      });
+      
+      // Update chips immediately on Enter
+      excludeTextarea.addEventListener('keyup', function(e) {
+        if (e.key === 'Enter') {
+          console.log('Enter pressed - updating chips immediately');
+          clearTimeout(validationTimer);
+          updateChips('exclude');
+          updateExcludeCount();
+          // Still validate after Enter
+          validationTimer = setTimeout(validateIncludeExcludeCards, 300);
+        }
+      });
+      
+      // Initial count and validation if there's content
+      if (excludeTextarea.value.trim()) {
+        updateExcludeCount();
+        validateIncludeExcludeCards();
+      }
+    }
+    
+    // Listen for changes in advanced options
+    const advancedOptions = document.querySelectorAll('input[name="enforcement_mode"], input[name="allow_illegal"], input[name="fuzzy_matching"]');
+    advancedOptions.forEach(function(input) {
+      input.addEventListener('change', function() {
+        clearTimeout(validationTimer);
+        validationTimer = setTimeout(validateIncludeExcludeCards, 200);
+      });
+    });
+    
+    // Set up combo config toggle
+    const comboChk = document.getElementById('pref-combos-chk');
+    const comboConfig = document.getElementById('pref-combos-config');
+    if (comboChk && comboConfig) {
+      function syncComboConfig() {
+        console.log('Combo checkbox changed:', comboChk.checked); // Debug log
+        comboConfig.style.display = comboChk.checked ? 'block' : 'none';
+      }
+      comboChk.addEventListener('change', syncComboConfig);
+      // Set initial state
+      syncComboConfig();
+    } else {
+      console.log('Combo elements not found:', { comboChk, comboConfig }); // Debug log
+    }
+  });
+
+  //Additional standalone combo toggle (backup)
+  (function() {
+    function setupComboToggle() {
+      const chk = document.getElementById('pref-combos-chk');
+      const config = document.getElementById('pref-combos-config');
+      if (chk && config) {
+        console.log('Setting up combo toggle (standalone)'); // Debug log
+        function toggle() {
+          console.log('Combo toggle triggered:', chk.checked); // Debug log
+          config.style.display = chk.checked ? 'block' : 'none';
+        }
+        chk.addEventListener('change', toggle);
+        toggle(); // Set initial state
+      } else {
+        console.log('Combo elements missing:', { chk, config }); // Debug log
+      }
+    }
+    
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', setupComboToggle);
+    } else {
+      setupComboToggle();
+    }
+  })();
+  
+  // Auto deck name generation on commander change
   (function(){
-    // Backdrop click to close
     try{
       var modal = document.currentScript && document.currentScript.previousElementSibling ? document.currentScript.previousElementSibling.previousElementSibling : document.querySelector('.modal');
       var backdrop = modal ? modal.querySelector('.modal-backdrop') : null;
@@ -117,6 +888,12 @@
         form.addEventListener('keydown', function(e){
           try{
             if (e.key !== 'Enter' || e.shiftKey || e.altKey || e.ctrlKey || e.metaKey) return;
+            // Allow Enter in include/exclude textareas for newlines
+            if (document.activeElement && 
+                (document.activeElement.id === 'include_cards_textarea' || 
+                 document.activeElement.id === 'exclude_cards_textarea')) {
+              return;
+            }
             var list = document.getElementById('newdeck-candidates');
             var first = list && list.querySelector('button.candidate-btn');
             if (first){
@@ -172,6 +949,12 @@
       // Global fallback: capture keydown at the document level so Enter never slips through when the commander input is focused
           document.addEventListener('keydown', function(e){
             try{
+              // Allow Enter in include/exclude textareas for newlines
+              if (document.activeElement && 
+                  (document.activeElement.id === 'include_cards_textarea' || 
+                   document.activeElement.id === 'exclude_cards_textarea')) {
+                return;
+              }
               if (document.activeElement !== cmdEl) return;
         if (e.key !== 'Enter') return;
               var list = document.getElementById('newdeck-candidates');
@@ -208,19 +991,7 @@
     document.addEventListener('keydown', onKey);
   })();
 
-  // Toggle combos config visibility based on checkbox
-  (function(){
-    try {
-      var form = document.querySelector('.modal form');
-      var chk = form && form.querySelector('#pref-combos-chk');
-      var box = form && form.querySelector('#pref-combos-config');
-      if (!chk || !box) return;
-      function sync(){ box.style.display = chk.checked ? 'block' : 'none'; }
-      chk.addEventListener('change', sync);
-      // Initial state
-      sync();
-    } catch(_){}
-  })();
+
 
   // Integrated Multi-Copy: fetch suggestions once commander + tags are present
   (function(){
@@ -267,7 +1038,374 @@
       var mcChk = document.querySelector('.modal form #pref-mc-chk');
       if (mcChk){ mcChk.addEventListener('change', fetchMulti); }
     }catch(_){ }
+    
+    // Immediate setup for include/exclude textareas (fallback if DOMContentLoaded already fired)
+    try {
+      console.log('Attempting immediate textarea setup');
+      const includeTextarea = document.getElementById('include_cards_textarea');
+      const excludeTextarea = document.getElementById('exclude_cards_textarea');
+      
+      console.log('Immediate - Include textarea found:', includeTextarea);
+      console.log('Immediate - Exclude textarea found:', excludeTextarea);
+      
+      if (includeTextarea && !includeTextarea.hasAttribute('data-events-attached')) {
+        console.log('Setting up immediate include textarea event listener');
+        includeTextarea.setAttribute('data-events-attached', 'true');
+        let validationTimer;
+        
+        includeTextarea.addEventListener('input', function() {
+          console.log('Immediate - Include textarea input event fired');
+          clearTimeout(validationTimer);
+          updateIncludeCount(); // Update count immediately
+          // Delay chips update until typing pauses
+          validationTimer = setTimeout(function() {
+            updateChips('include');
+            validateIncludeExcludeCards();
+          }, 500);
+        });
+        
+        includeTextarea.addEventListener('keyup', function(e) {
+          if (e.key === 'Enter') {
+            console.log('Enter pressed - updating chips immediately');
+            clearTimeout(validationTimer);
+            updateChips('include');
+            updateIncludeCount();
+            // Still validate after Enter
+            validationTimer = setTimeout(validateIncludeExcludeCards, 300);
+          }
+        });
+      }
+      
+      if (excludeTextarea && !excludeTextarea.hasAttribute('data-events-attached')) {
+        console.log('Setting up immediate exclude textarea event listener');
+        excludeTextarea.setAttribute('data-events-attached', 'true');
+        let validationTimer;
+        
+        excludeTextarea.addEventListener('input', function() {
+          console.log('Immediate - Exclude textarea input event fired');
+          clearTimeout(validationTimer);
+          updateExcludeCount(); // Update count immediately
+          // Delay chips update until typing pauses
+          validationTimer = setTimeout(function() {
+            updateChips('exclude');
+            validateIncludeExcludeCards();
+          }, 500);
+        });
+        
+        excludeTextarea.addEventListener('keyup', function(e) {
+          if (e.key === 'Enter') {
+            console.log('Enter pressed - updating chips immediately');
+            clearTimeout(validationTimer);
+            updateChips('exclude');
+            updateExcludeCount();
+            // Still validate after Enter
+            validationTimer = setTimeout(validateIncludeExcludeCards, 300);
+          }
+        });
+      }
+      
+      // Initialize chips immediately if textareas exist
+      if (includeTextarea || excludeTextarea) {
+        initializeChips();
+      }
+    } catch(e) {
+      console.error('Immediate textarea setup failed:', e);
+    }
   })();
+
+  // Fuzzy match confirmation modal
+  function showFuzzyMatchConfirmationModal(confirmationItems) {
+    if (!confirmationItems || confirmationItems.length === 0) return;
+    
+    const item = confirmationItems[0]; // Process one at a time
+    const modal = document.createElement('div');
+    modal.className = 'fuzzy-confirmation-modal';
+    modal.innerHTML = `
+      <div class="fuzzy-confirmation-overlay">
+        <div class="fuzzy-confirmation-content">
+          <h3>Card Match Confirmation</h3>
+          <p>Did you mean one of these cards?</p>
+          <div class="fuzzy-input-card">
+            <strong>You typed:</strong> "${item.input}"
+          </div>
+          <div class="fuzzy-suggestions">
+            ${item.suggestions.map((suggestion, index) => `
+              <div class="fuzzy-suggestion" data-card="${suggestion}">
+                <span class="suggestion-name">${suggestion}</span>
+                <span class="suggestion-confidence">${Math.round(item.confidence * 100)}% match</span>
+              </div>
+            `).join('')}
+          </div>
+          <div class="fuzzy-actions">
+            <button class="fuzzy-btn fuzzy-btn-cancel">Skip This Card</button>
+            <button class="fuzzy-btn fuzzy-btn-none">None of These</button>
+          </div>
+        </div>
+      </div>
+    `;
+    
+    // Add dark theme compatible styles
+    const style = document.createElement('style');
+    style.textContent = `
+      .fuzzy-confirmation-modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 10000;
+      }
+      .fuzzy-confirmation-overlay {
+        background: rgba(0, 0, 0, 0.7);
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+      }
+      .fuzzy-confirmation-content {
+        background: var(--bg-color, #1a1a1a);
+        color: var(--text-color, #e5e5e5);
+        border: 1px solid var(--border-color, #404040);
+        border-radius: 8px;
+        padding: 24px;
+        max-width: 500px;
+        width: 100%;
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.4);
+      }
+      .fuzzy-confirmation-content h3 {
+        margin: 0 0 12px 0;
+        font-size: 18px;
+        font-weight: 600;
+        color: var(--text-color, #e5e5e5);
+      }
+      .fuzzy-confirmation-content p {
+        margin: 0 0 16px 0;
+        color: var(--text-muted, #a0a0a0);
+      }
+      .fuzzy-input-card {
+        background: var(--input-bg, #2a2a2a);
+        color: var(--text-color, #e5e5e5);
+        padding: 12px;
+        border-radius: 6px;
+        margin-bottom: 16px;
+        font-family: monospace;
+        border: 1px solid var(--border-color, #404040);
+      }
+      .fuzzy-suggestions {
+        margin-bottom: 20px;
+      }
+      .fuzzy-suggestion {
+        border: 2px solid var(--border-color, #404040);
+        background: var(--card-bg, #2a2a2a);
+        color: var(--text-color, #e5e5e5);
+        border-radius: 6px;
+        padding: 12px;
+        margin-bottom: 8px;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .fuzzy-suggestion:hover {
+        border-color: var(--primary-color, #3b82f6);
+        background: var(--hover-bg, #3a3a3a);
+      }
+      .fuzzy-suggestion.selected {
+        border-color: var(--success-color, #10b981);
+        background: var(--success-bg, #064e3b);
+      }
+      .suggestion-name {
+        font-weight: 500;
+        color: var(--text-color, #e5e5e5);
+      }
+      .suggestion-confidence {
+        color: var(--text-muted, #a0a0a0);
+        font-size: 14px;
+      }
+      .fuzzy-actions {
+        display: flex;
+        gap: 12px;
+        justify-content: flex-end;
+      }
+      .fuzzy-btn {
+        padding: 8px 16px;
+        border-radius: 6px;
+        border: none;
+        cursor: pointer;
+        font-weight: 500;
+        transition: all 0.2s;
+      }
+      .fuzzy-btn-cancel {
+        background: var(--secondary-bg, #4a4a4a);
+        color: var(--text-color, #e5e5e5);
+      }
+      .fuzzy-btn-cancel:hover {
+        background: var(--secondary-hover, #5a5a5a);
+      }
+      .fuzzy-btn-none {
+        background: var(--danger-color, #ef4444);
+        color: white;
+      }
+      .fuzzy-btn-none:hover {
+        background: var(--danger-hover, #dc2626);
+      }
+      .fuzzy-btn-accept {
+        background: var(--success-color, #10b981);
+        color: white;
+      }
+      .fuzzy-btn-accept:hover {
+        background: var(--success-hover, #059669);
+      }
+      /* Enhanced mobile responsive styles (M3: Mobile Responsive Testing) */
+      @media (max-width: 520px) {
+        .fuzzy-confirmation-overlay {
+          padding: 10px;
+        }
+        .fuzzy-confirmation-content {
+          margin: 0;
+          max-width: none;
+          padding: 16px;
+          max-height: 90vh;
+          overflow-y: auto;
+        }
+        .fuzzy-confirmation-content h3 {
+          font-size: 16px;
+        }
+        .fuzzy-suggestion {
+          flex-direction: column;
+          align-items: flex-start;
+          text-align: left;
+        }
+        .suggestion-confidence {
+          margin-top: 4px;
+        }
+        .fuzzy-actions {
+          flex-direction: column;
+          gap: 8px;
+        }
+        .fuzzy-btn {
+          width: 100%;
+          padding: 12px 16px;
+          text-align: center;
+        }
+      }
+      @media (max-width: 380px) {
+        .fuzzy-confirmation-content {
+          padding: 12px;
+        }
+        .fuzzy-input-card {
+          padding: 8px;
+          font-size: 14px;
+        }
+        .fuzzy-suggestion {
+          padding: 8px;
+        }
+        .suggestion-name {
+          font-size: 14px;
+        }
+        .suggestion-confidence {
+          font-size: 12px;
+        }
+      }
+    `;
+    
+    document.head.appendChild(style);
+    document.body.appendChild(modal);
+    
+    // Add click handlers for suggestions
+    const suggestions = modal.querySelectorAll('.fuzzy-suggestion');
+    let selectedCard = null;
+    
+    suggestions.forEach(suggestion => {
+      suggestion.addEventListener('click', () => {
+        // Clear previous selection
+        suggestions.forEach(s => s.classList.remove('selected'));
+        suggestion.classList.add('selected');
+        selectedCard = suggestion.dataset.card;
+        
+        // Add/update accept button
+        let acceptBtn = modal.querySelector('.fuzzy-btn-accept');
+        if (!acceptBtn) {
+          acceptBtn = document.createElement('button');
+          acceptBtn.className = 'fuzzy-btn fuzzy-btn-accept';
+          modal.querySelector('.fuzzy-actions').appendChild(acceptBtn);
+        }
+        acceptBtn.textContent = `Use "${selectedCard}"`;
+        
+        acceptBtn.onclick = () => {
+          acceptFuzzyMatch(item, selectedCard);
+          closeFuzzyModal(modal, style);
+          // Process remaining items
+          if (confirmationItems.length > 1) {
+            showFuzzyMatchConfirmationModal(confirmationItems.slice(1));
+          }
+        };
+      });
+    });
+    
+    // Cancel button
+    modal.querySelector('.fuzzy-btn-cancel').onclick = () => {
+      closeFuzzyModal(modal, style);
+      // Process remaining items
+      if (confirmationItems.length > 1) {
+        showFuzzyMatchConfirmationModal(confirmationItems.slice(1));
+      }
+    };
+    
+    // None of these button
+    modal.querySelector('.fuzzy-btn-none').onclick = () => {
+      closeFuzzyModal(modal, style);
+      // Process remaining items  
+      if (confirmationItems.length > 1) {
+        showFuzzyMatchConfirmationModal(confirmationItems.slice(1));
+      }
+    };
+    
+    // Close on overlay click
+    modal.querySelector('.fuzzy-confirmation-overlay').onclick = (e) => {
+      if (e.target === e.currentTarget) {
+        closeFuzzyModal(modal, style);
+        // Process remaining items
+        if (confirmationItems.length > 1) {
+          showFuzzyMatchConfirmationModal(confirmationItems.slice(1));
+        }
+      }
+    };
+  }
+  
+  function closeFuzzyModal(modal, style) {
+    document.body.removeChild(modal);
+    document.head.removeChild(style);
+  }
+  
+  function acceptFuzzyMatch(item, selectedCard) {
+    const isInclude = item.type === 'include';
+    const textarea = isInclude ? 
+      document.getElementById('include_cards_textarea') : 
+      document.getElementById('exclude_cards_textarea');
+    
+    if (textarea) {
+      // Replace the original input with the selected card
+      let content = textarea.value;
+      content = content.replace(item.input, selectedCard);
+      textarea.value = content;
+      
+      // Update chips and validation
+      if (isInclude) {
+        updateIncludeChips();
+      } else {
+        updateExcludeChips();
+      }
+      
+      // Re-validate after a short delay
+      setTimeout(() => {
+        validateIncludeExcludeCards();
+      }, 100);
+    }
+  }
 </script>
 
 <style>

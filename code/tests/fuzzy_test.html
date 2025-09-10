@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Fuzzy Match Modal Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .test-section { margin: 20px 0; padding: 20px; border: 1px solid #ccc; border-radius: 8px; }
+        button { padding: 10px 20px; margin: 10px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        .result { margin: 10px 0; padding: 10px; background: #f8f9fa; border-radius: 4px; }
+        .success { border-left: 4px solid #28a745; }
+        .error { border-left: 4px solid #dc3545; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Fuzzy Match Modal Test</h1>
+    
+    <div class="test-section">
+        <h2>Test Fuzzy Match Validation</h2>
+        <button onclick="testFuzzyMatch()">Test "lightn" (should trigger modal)</button>
+        <button onclick="testExactMatch()">Test "Lightning Bolt" (should not trigger modal)</button>
+        <div id="testResults"></div>
+    </div>
+
+    <script>
+        async function testFuzzyMatch() {
+            const results = document.getElementById('testResults');
+            results.innerHTML = 'Testing fuzzy match...';
+            
+            try {
+                const response = await fetch('/build/validate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        cards: ['lightn'],
+                        commander: '',
+                        format: 'commander'
+                    })
+                });
+                
+                const data = await response.json();
+                
+                let html = '<div class="result success">';
+                html += '<h3>✅ Fuzzy Match Test Results:</h3>';
+                html += `<p><strong>Status:</strong> ${response.status}</p>`;
+                
+                if (data.confirmation_needed && data.confirmation_needed.length > 0) {
+                    html += '<p><strong>✅ Confirmation Modal Should Trigger!</strong></p>';
+                    html += `<p><strong>Items needing confirmation:</strong> ${data.confirmation_needed.length}</p>`;
+                    
+                    data.confirmation_needed.forEach(item => {
+                        html += `<p>• Input: "${item.input}" → Best match: "${item.best_match}" (${(item.confidence * 100).toFixed(1)}%)</p>`;
+                        if (item.suggestions) {
+                            html += `<p>  Suggestions: ${item.suggestions.slice(0, 3).map(s => s.name).join(', ')}</p>`;
+                        }
+                    });
+                } else {
+                    html += '<p><strong>❌ No confirmation needed - modal won\'t trigger</strong></p>';
+                }
+                
+                html += '</div>';
+                results.innerHTML = html;
+                
+            } catch (error) {
+                results.innerHTML = `<div class="result error"><h3>❌ Error:</h3><p>${error.message}</p></div>`;
+            }
+        }
+        
+        async function testExactMatch() {
+            const results = document.getElementById('testResults');
+            results.innerHTML = 'Testing exact match...';
+            
+            try {
+                const response = await fetch('/build/validate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        cards: ['Lightning Bolt'],
+                        commander: '',
+                        format: 'commander'
+                    })
+                });
+                
+                const data = await response.json();
+                
+                let html = '<div class="result success">';
+                html += '<h3>✅ Exact Match Test Results:</h3>';
+                html += `<p><strong>Status:</strong> ${response.status}</p>`;
+                
+                if (data.confirmation_needed && data.confirmation_needed.length > 0) {
+                    html += '<p><strong>❌ Unexpected confirmation needed</strong></p>';
+                } else {
+                    html += '<p><strong>✅ No confirmation needed - correct for exact match</strong></p>';
+                }
+                
+                if (data.valid && data.valid.length > 0) {
+                    html += `<p><strong>Valid cards found:</strong> ${data.valid.map(c => c.name).join(', ')}</p>`;
+                }
+                
+                html += '</div>';
+                results.innerHTML = html;
+                
+            } catch (error) {
+                results.innerHTML = `<div class="result error"><h3>❌ Error:</h3><p>${error.message}</p></div>`;
+            }
+        }
+    </script>
+</body>
+</html>

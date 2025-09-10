@@ -17,6 +17,7 @@ services:
       ENABLE_THEMES: "1"            # 1=expose theme selector; 0=hide (THEME still applied)
       ENABLE_PRESETS: "0"           # 1=show presets section
       WEB_VIRTUALIZE: "1"           # 1=enable list virtualization in Step 5
+      ALLOW_MUST_HAVES: "1"         # 1=enable must-include/must-exclude cards feature; 0=disable
 
       # Theming
       THEME: "dark"                 # system|light|dark

@@ -37,6 +37,8 @@
     {% else %}
       <div class="notice">Build completed{% if commander %} — <strong>{{ commander }}</strong>{% endif %}</div>
       
+      <!-- Include/Exclude Summary Panel (M3: Include/Exclude Summary Panel) -->
+      {% include "partials/include_exclude_summary.html" %}
 
       {% if summary %}
   {{ render_cached('partials/deck_summary.html', cfg_name, request=request, summary=summary, game_changers=game_changers, owned_set=owned_set, combos=combos, synergies=synergies, versions=versions) | safe }}

@@ -313,6 +313,9 @@
   <!-- controls now above -->
 
       {% if status and status.startswith('Build complete') and summary %}
+        <!-- Include/Exclude Summary Panel (M3: Include/Exclude Summary Panel) -->
+        {% include "partials/include_exclude_summary.html" %}
+        
         {% include "partials/deck_summary.html" %}
       {% endif %}
     </div>

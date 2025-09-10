@@ -13,6 +13,17 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 ## [Unreleased]
 
 ### Added
+- (placeholder)
+
+### Changed
+- (placeholder)
+
+### Fixed
+- (placeholder)
+
+## [2.2.7] - 2025-09-10
+
+### Added
 - Comprehensive structured logging for include/exclude operations with event tracking
 - Include/exclude card lists feature with `ALLOW_MUST_HAVES=true` environment variable flag
 - Phase 1 exclude-only implementation: filter cards from deck building pool before construction

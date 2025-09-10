@@ -30,7 +30,7 @@ services:
 
       # Compliance/exports
       WEB_AUTO_ENFORCE: "0"         # 1=auto-apply bracket enforcement and re-export
-      APP_VERSION: "v2.2.6"         # Optional label shown in footer
+      APP_VERSION: "v2.2.7"         # Optional label shown in footer
       # WEB_CUSTOM_EXPORT_BASE: ""   # Optional custom export basename
 
       # Paths (optional overrides)

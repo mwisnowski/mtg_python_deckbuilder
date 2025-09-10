@@ -29,6 +29,11 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 - Engine integration with include injection after lands, before creatures/spells with ordering tests
 - Exclude re-entry prevention ensuring blocked cards cannot re-enter via downstream heuristics
 - Web UI enhancement with two-column layout, chips/tag UI, and real-time validation
+- **CLI enhancement: Enhanced help text with type indicators** - All CLI arguments now show expected value types (PATH, NAME, INT, BOOL) and organized into logical groups
+- **CLI enhancement: Ideal count arguments** - New CLI flags for deck composition: `--ramp-count`, `--land-count`, `--basic-land-count`, `--creature-count`, `--removal-count`, `--wipe-count`, `--card-advantage-count`, `--protection-count`
+- **CLI enhancement: Theme tag name support** - Theme selection by name instead of index: `--primary-tag`, `--secondary-tag`, `--tertiary-tag` as alternatives to numeric choices
+- **CLI enhancement: Include/exclude CLI support** - Full CLI parity for include/exclude with `--include-cards`, `--exclude-cards`, `--enforcement-mode`, `--allow-illegal`, `--fuzzy-matching`
+- **CLI enhancement: Console summary printing** - Detailed include/exclude summary output for headless builds with diagnostics and validation results
 - Enhanced fuzzy matching with 300+ Commander-legal card knowledge base and popular/iconic card prioritization
 - Card constants refactored to dedicated `builder_constants.py` with functional organization
 - Fuzzy match confirmation modal with dark theme support and card preview functionality

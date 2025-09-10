@@ -2,6 +2,8 @@
 
 ## Highlights
 - **Include/Exclude Cards Feature Complete**: Full implementation with enhanced web UI, intelligent fuzzy matching, and performance optimization. Users can now specify must-include and must-exclude cards with comprehensive card knowledge base and excellent performance.
+- **Enhanced CLI with Type Safety**: Comprehensive CLI enhancement with type indicators, ideal count arguments, and theme tag name support making headless operation more user-friendly and discoverable.
+- **Theme Tag Name Selection**: Intelligent theme selection by name instead of index numbers, automatically resolving to correct choices accounting for selection ordering.
 - **Enhanced Fuzzy Matching**: Advanced algorithm with 300+ Commander-legal card knowledge base, popular/iconic card prioritization, and dark theme confirmation modal for optimal user experience.
 - **Mobile Responsive Design**: Optimized mobile experience with bottom-floating build controls, two-column grid layout, and horizontal scrolling prevention for improved thumb navigation.
 - **Enhanced Visual Validation**: List size validation UI with warning icons (⚠️ over-limit, ⚡ approaching limit) and color coding providing clear feedback on usage limits.
@@ -9,6 +11,13 @@
 - **Dual Architecture Support**: Seamless functionality across both web interface (staging system) and CLI (direct build) with proper include injection timing.
 
 ## What's new
+- **Enhanced CLI Experience**
+  - Type-safe help text with value indicators (PATH, NAME, INT, BOOL) and organized argument groups
+  - Ideal count CLI arguments: `--ramp-count`, `--land-count`, `--creature-count`, etc. for deck composition control
+  - Theme tag name support: `--primary-tag "Airbending"` instead of `--primary-choice 1` with intelligent resolution
+  - Include/exclude CLI parity: `--include-cards`, `--exclude-cards` with semicolon support for comma-containing card names
+  - Console summary output with detailed diagnostics and validation results for headless builds
+  - Priority system: CLI > JSON Config > Environment Variables > Defaults
 - **Enhanced Visual Validation**
   - List size validation UI with visual warning system using icons and color coding
   - Live validation badges showing count/limit status with clear visual indicators

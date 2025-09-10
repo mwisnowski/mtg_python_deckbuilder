@@ -9,7 +9,7 @@ import os
 
 class TestConfig:
     """Test configuration"""
-    BASE_URL = os.getenv('TEST_BASE_URL', 'http://localhost:8000')
+    BASE_URL = os.getenv('TEST_BASE_URL', 'http://localhost:8080')
     TIMEOUT = 30000  # 30 seconds
     
     # Test data

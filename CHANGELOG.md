@@ -13,6 +13,7 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 ## [Unreleased]
 
 ### Added
+- Comprehensive structured logging for include/exclude operations with event tracking
 - Include/exclude card lists feature with `ALLOW_MUST_HAVES=true` environment variable flag
 - Phase 1 exclude-only implementation: filter cards from deck building pool before construction
 - Web UI "Advanced Options" section with exclude cards textarea and file upload (.txt)
@@ -29,6 +30,10 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 - Engine integration with include injection after lands, before creatures/spells with ordering tests
 - Exclude re-entry prevention ensuring blocked cards cannot re-enter via downstream heuristics
 - Web UI enhancement with two-column layout, chips/tag UI, and real-time validation
+- EDH format compliance checking for include/exclude cards against commander color identity
+
+### Changed
+- **Test organization**: Moved all test files from project root to centralized `code/tests/` directory for better structure
 - **CLI enhancement: Enhanced help text with type indicators** - All CLI arguments now show expected value types (PATH, NAME, INT, BOOL) and organized into logical groups
 - **CLI enhancement: Ideal count arguments** - New CLI flags for deck composition: `--ramp-count`, `--land-count`, `--basic-land-count`, `--creature-count`, `--removal-count`, `--wipe-count`, `--card-advantage-count`, `--protection-count`
 - **CLI enhancement: Theme tag name support** - Theme selection by name instead of index: `--primary-tag`, `--secondary-tag`, `--tertiary-tag` as alternatives to numeric choices

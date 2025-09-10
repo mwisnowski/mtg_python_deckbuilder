@@ -1364,9 +1364,16 @@ class DeckBuilder(
 
         # 5. Color identity validation for includes
         if processed_includes and hasattr(self, 'color_identity') and self.color_identity:
-            # This would need commander color identity checking logic
-            # For now, accept all includes (color validation can be added later)
-            pass
+            validated_includes = []
+            for card_name in processed_includes:
+                if self._validate_card_color_identity(card_name):
+                    validated_includes.append(card_name)
+                else:
+                    diagnostics.ignored_color_identity.append(card_name)
+                    # M5: Structured logging for color identity violations
+                    logger.warning(f"INCLUDE_COLOR_VIOLATION: card={card_name} commander_colors={self.color_identity}")
+                    self.output_func(f"Card '{card_name}' has invalid color identity for commander (ignored)")
+            processed_includes = validated_includes
 
         # 6. Handle exclude conflicts (exclude overrides include)
         final_includes = []
@@ -1432,6 +1439,64 @@ class DeckBuilder(
         else:
             # M5: Structured logging for strict mode success
             logger.info("STRICT_MODE_SUCCESS: all_includes_satisfied=true")
+
+    def _validate_card_color_identity(self, card_name: str) -> bool:
+        """
+        Check if a card's color identity is legal for this commander.
+        
+        Args:
+            card_name: Name of the card to validate
+            
+        Returns:
+            True if card is legal for commander's color identity, False otherwise
+        """
+        if not hasattr(self, 'color_identity') or not self.color_identity:
+            # No commander color identity set, allow all cards
+            return True
+            
+        # Get card data from our dataframes
+        if hasattr(self, '_full_cards_df') and self._full_cards_df is not None:
+            # Handle both possible column names
+            name_col = 'name' if 'name' in self._full_cards_df.columns else 'Name'
+            card_matches = self._full_cards_df[self._full_cards_df[name_col].str.lower() == card_name.lower()]
+            if not card_matches.empty:
+                card_row = card_matches.iloc[0]
+                card_color_identity = card_row.get('colorIdentity', '')
+                
+                # Parse card's color identity
+                if isinstance(card_color_identity, str) and card_color_identity.strip():
+                    # Handle "Colorless" as empty color identity
+                    if card_color_identity.lower() == 'colorless':
+                        card_colors = []
+                    elif ',' in card_color_identity:
+                        # Handle format like "R, U" or "W, U, B"
+                        card_colors = [c.strip() for c in card_color_identity.split(',') if c.strip()]
+                    elif card_color_identity.startswith('[') and card_color_identity.endswith(']'):
+                        # Handle format like "['W']" or "['U','R']"
+                        import ast
+                        try:
+                            card_colors = ast.literal_eval(card_color_identity)
+                        except Exception:
+                            # Fallback parsing
+                            card_colors = [c.strip().strip("'\"") for c in card_color_identity.strip('[]').split(',') if c.strip()]
+                    else:
+                        # Handle simple format like "W" or single color
+                        card_colors = [card_color_identity.strip()]
+                elif isinstance(card_color_identity, list):
+                    card_colors = card_color_identity
+                else:
+                    # No color identity or colorless
+                    card_colors = []
+                
+                # Check if card's colors are subset of commander's colors
+                commander_colors = set(self.color_identity)
+                card_colors_set = set(c.upper() for c in card_colors if c)
+                
+                return card_colors_set.issubset(commander_colors)
+        
+        # If we can't find the card or determine its color identity, assume it's illegal
+        # (This is safer for validation purposes)
+        return False
 
     # ---------------------------
     # Card Library Management

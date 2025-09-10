@@ -2786,85 +2786,26 @@ async def validate_include_exclude_cards(
         elif len(exclude_unique) > MAX_EXCLUDES * 0.8:  # 80% capacity warning
             result["excludes"]["warnings"].append(f"Approaching limit: {len(exclude_unique)}/{MAX_EXCLUDES}")
         
-        # Do fuzzy matching regardless of commander (for basic card validation)
-        if fuzzy_matching and (include_unique or exclude_unique):
-            print(f"DEBUG: Attempting fuzzy matching with {len(include_unique)} includes, {len(exclude_unique)} excludes")
-            try:
-                # Get card names directly from CSV without requiring commander setup
-                import pandas as pd
-                cards_df = pd.read_csv('csv_files/cards.csv')
-                print(f"DEBUG: CSV columns: {list(cards_df.columns)}")
-                
-                # Try to find the name column
-                name_column = None
-                for col in ['Name', 'name', 'card_name', 'CardName']:
-                    if col in cards_df.columns:
-                        name_column = col
-                        break
-                
-                if name_column is None:
-                    raise ValueError(f"Could not find name column. Available columns: {list(cards_df.columns)}")
-                
-                available_cards = set(cards_df[name_column].tolist())
-                print(f"DEBUG: Loaded {len(available_cards)} available cards")
-                
-                # Validate includes with fuzzy matching
-                for card_name in include_unique:
-                    print(f"DEBUG: Testing include card: {card_name}")
-                    match_result = fuzzy_match_card_name(card_name, available_cards)
-                    print(f"DEBUG: Match result - name: {match_result.matched_name}, auto_accepted: {match_result.auto_accepted}, confidence: {match_result.confidence}")
-                    
-                    if match_result.matched_name and match_result.auto_accepted:
-                        # Exact or high-confidence match
-                        result["includes"]["fuzzy_matches"][card_name] = match_result.matched_name
-                        result["includes"]["legal"].append(match_result.matched_name)
-                    elif not match_result.auto_accepted and match_result.suggestions:
-                        # Needs confirmation - has suggestions but low confidence
-                        print(f"DEBUG: Adding confirmation for {card_name}")
-                        result["confirmation_needed"].append({
-                            "input": card_name,
-                            "suggestions": match_result.suggestions,
-                            "confidence": match_result.confidence,
-                            "type": "include"
-                        })
-                    else:
-                        # No match found at all, add to illegal
-                        result["includes"]["illegal"].append(card_name)
-                
-                # Validate excludes with fuzzy matching
-                for card_name in exclude_unique:
-                    match_result = fuzzy_match_card_name(card_name, available_cards)
-                    if match_result.matched_name:
-                        if match_result.auto_accepted:
-                            result["excludes"]["fuzzy_matches"][card_name] = match_result.matched_name
-                            result["excludes"]["legal"].append(match_result.matched_name)
-                        else:
-                            # Needs confirmation
-                            result["confirmation_needed"].append({
-                                "input": card_name,
-                                "suggestions": match_result.suggestions,
-                                "confidence": match_result.confidence,
-                                "type": "exclude"
-                            })
-                    else:
-                        # No match found, add to illegal
-                        result["excludes"]["illegal"].append(card_name)
-                        
-            except Exception as fuzzy_error:
-                print(f"DEBUG: Fuzzy matching error: {str(fuzzy_error)}")
-                import traceback
-                traceback.print_exc()
-                result["overall_warnings"].append(f"Fuzzy matching unavailable: {str(fuzzy_error)}")
-        
         # If we have a commander, do advanced validation (color identity, etc.)
         if commander and commander.strip():
             try:
-                # Create a temporary builder to get available card names
+                # Create a temporary builder
                 builder = DeckBuilder()
+                
+                # Set up commander FIRST (before setup_dataframes)
+                df = builder.load_commander_data()
+                commander_rows = df[df["name"] == commander.strip()]
+                
+                if not commander_rows.empty:
+                    # Apply commander selection (this sets commander_row properly)
+                    builder._apply_commander_selection(commander_rows.iloc[0])
+                
+                # Now setup dataframes (this will use the commander info)
                 builder.setup_dataframes()
                 
                 # Get available card names for fuzzy matching
-                available_cards = set(builder._full_cards_df['Name'].tolist())
+                name_col = 'name' if 'name' in builder._full_cards_df.columns else 'Name'
+                available_cards = set(builder._full_cards_df[name_col].tolist())
                 
                 # Validate includes with fuzzy matching
                 for card_name in include_unique:
@@ -2915,10 +2856,85 @@ async def validate_include_exclude_cards(
                             result["excludes"]["legal"].append(card_name)
                         else:
                             result["excludes"]["illegal"].append(card_name)
+                
+                # Color identity validation for includes (only if we have a valid commander with colors)
+                commander_colors = getattr(builder, 'color_identity', [])
+                if commander_colors:
+                    color_validated_includes = []
+                    for card_name in result["includes"]["legal"]:
+                        if builder._validate_card_color_identity(card_name):
+                            color_validated_includes.append(card_name)
+                        else:
+                            # Add color-mismatched cards to illegal instead of separate category
+                            result["includes"]["illegal"].append(card_name)
+                    
+                    # Update legal includes to only those that pass color identity
+                    result["includes"]["legal"] = color_validated_includes
                             
             except Exception as validation_error:
                 # Advanced validation failed, but return basic validation
                 result["overall_warnings"].append(f"Advanced validation unavailable: {str(validation_error)}")
+        else:
+            # No commander provided, do basic fuzzy matching only
+            if fuzzy_matching and (include_unique or exclude_unique):
+                try:
+                    # Get card names directly from CSV without requiring commander setup
+                    import pandas as pd
+                    cards_df = pd.read_csv('csv_files/cards.csv')
+                    
+                    # Try to find the name column
+                    name_column = None
+                    for col in ['Name', 'name', 'card_name', 'CardName']:
+                        if col in cards_df.columns:
+                            name_column = col
+                            break
+                    
+                    if name_column is None:
+                        raise ValueError(f"Could not find name column. Available columns: {list(cards_df.columns)}")
+                    
+                    available_cards = set(cards_df[name_column].tolist())
+                    
+                    # Validate includes with fuzzy matching
+                    for card_name in include_unique:
+                        match_result = fuzzy_match_card_name(card_name, available_cards)
+                        
+                        if match_result.matched_name and match_result.auto_accepted:
+                            # Exact or high-confidence match
+                            result["includes"]["fuzzy_matches"][card_name] = match_result.matched_name
+                            result["includes"]["legal"].append(match_result.matched_name)
+                        elif not match_result.auto_accepted and match_result.suggestions:
+                            # Needs confirmation - has suggestions but low confidence
+                            result["confirmation_needed"].append({
+                                "input": card_name,
+                                "suggestions": match_result.suggestions,
+                                "confidence": match_result.confidence,
+                                "type": "include"
+                            })
+                        else:
+                            # No match found at all, add to illegal
+                            result["includes"]["illegal"].append(card_name)
+                    
+                    # Validate excludes with fuzzy matching
+                    for card_name in exclude_unique:
+                        match_result = fuzzy_match_card_name(card_name, available_cards)
+                        if match_result.matched_name:
+                            if match_result.auto_accepted:
+                                result["excludes"]["fuzzy_matches"][card_name] = match_result.matched_name
+                                result["excludes"]["legal"].append(match_result.matched_name)
+                            else:
+                                # Needs confirmation
+                                result["confirmation_needed"].append({
+                                    "input": card_name,
+                                    "suggestions": match_result.suggestions,
+                                    "confidence": match_result.confidence,
+                                    "type": "exclude"
+                                })
+                        else:
+                            # No match found, add to illegal
+                            result["excludes"]["illegal"].append(card_name)
+                            
+                except Exception as fuzzy_error:
+                    result["overall_warnings"].append(f"Fuzzy matching unavailable: {str(fuzzy_error)}")
         
         return JSONResponse(result)
         

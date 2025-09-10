@@ -18,7 +18,7 @@ python tests/e2e/run_e2e_tests.py --install-browsers
 
 ### Quick Smoke Test (Recommended)
 ```bash
-# Assumes server is already running on localhost:8000
+# Assumes server is already running on localhost:8080
 python tests/e2e/run_e2e_tests.py --quick
 ```
 
@@ -47,7 +47,7 @@ pytest test_web_smoke.py -v
 
 ## Environment Variables
 
-- `TEST_BASE_URL`: Base URL for testing (default: http://localhost:8000)
+- `TEST_BASE_URL`: Base URL for testing (default: http://localhost:8080)
 
 ## Test Coverage
 

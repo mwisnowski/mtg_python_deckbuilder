@@ -24,7 +24,7 @@ class E2ETestRunner:
     def __init__(self):
         self.project_root = Path(__file__).parent.parent
         self.server_process = None
-        self.base_url = os.getenv('TEST_BASE_URL', 'http://localhost:8000')
+        self.base_url = os.getenv('TEST_BASE_URL', 'http://localhost:8080')
         
     def start_dev_server(self):
         """Start the development server"""
@@ -36,7 +36,7 @@ class E2ETestRunner:
             "-m", "uvicorn",
             "code.web.app:app",
             "--host", "0.0.0.0",
-            "--port", "8000",
+            "--port", "8080",
             "--reload"
         ]
         

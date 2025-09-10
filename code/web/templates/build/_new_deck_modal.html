@@ -506,14 +506,9 @@
       badges += `<span style="background:#dcfce7; color:#166534; padding:2px 6px; border-radius:12px; border:1px solid #bbf7d0;">✓ ${includeData.legal.length} legal</span>`;
     }
     
-    // Invalid cards badge  
+    // Invalid cards badge (includes color mismatches and not found cards)
     if (includeData.illegal && includeData.illegal.length > 0) {
-      badges += `<span style="background:#fee2e2; color:#dc2626; padding:2px 6px; border-radius:12px; border:1px solid #fecaca;">✗ ${includeData.illegal.length} invalid</span>`;
-    }
-    
-    // Color mismatch badge
-    if (includeData.color_mismatched && includeData.color_mismatched.length > 0) {
-      badges += `<span style="background:#fef3c7; color:#92400e; padding:2px 6px; border-radius:12px; border:1px solid #fde68a;">⚠ ${includeData.color_mismatched.length} off-color</span>`;
+      badges += `<span style="background:#fee2e2; color:#dc2626; padding:2px 6px; border-radius:12px; border:1px solid #fecaca;">✗ ${includeData.illegal.length} illegal</span>`;
     }
     
     // Duplicates badge
@@ -523,6 +518,62 @@
     }
     
     badgeContainer.innerHTML = badges;
+    
+    // Update chip colors based on validation status
+    updateChipColors('include', includeData);
+  }
+
+  // Update chip colors based on validation status
+  function updateChipColors(type, validationData) {
+    if (!validationData) return;
+    
+    const container = document.getElementById(`${type}_chips`);
+    if (!container) return;
+    
+    const chips = container.querySelectorAll('.card-chip');
+    chips.forEach(chip => {
+      const cardName = chip.getAttribute('data-card-name');
+      if (!cardName) return;
+      
+      // Determine status
+      let isLegal = false;
+      let isIllegal = false;
+      
+      if (validationData.legal && validationData.legal.includes(cardName)) {
+        isLegal = true;
+      }
+      if (validationData.illegal && validationData.illegal.includes(cardName)) {
+        isIllegal = true;
+      }
+      
+      // Apply styling based on status (prioritize illegal over legal)
+      if (isIllegal) {
+        // Red styling for illegal cards
+        chip.style.background = '#fee2e2';
+        chip.style.border = '1px solid #fecaca';
+        chip.style.color = '#dc2626';
+        
+        // Update remove button color too
+        const removeBtn = chip.querySelector('button');
+        if (removeBtn) {
+          removeBtn.style.color = '#dc2626';
+          removeBtn.onmouseover = () => removeBtn.style.background = '#fee2e2';
+        }
+      } else if (isLegal) {
+        // Green styling for legal cards
+        chip.style.background = '#dcfce7';
+        chip.style.border = '1px solid #bbf7d0';
+        chip.style.color = '#166534';
+        
+        // Update remove button color too
+        const removeBtn = chip.querySelector('button');
+        if (removeBtn) {
+          removeBtn.style.color = '#166534';
+          removeBtn.onmouseover = () => removeBtn.style.background = '#bbf7d0';
+        }
+      }
+      // If no status info, keep default styling
+    });
   }
 
   // Update exclude validation badges
@@ -554,6 +605,9 @@
     }
     
     badgeContainer.innerHTML = badges;
+    
+    // Update chip colors based on validation status
+    updateChipColors('exclude', excludeData);
   }
 
   // Comprehensive validation for both include and exclude cards

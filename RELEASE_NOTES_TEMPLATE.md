@@ -1,7 +1,8 @@
 # MTG Python Deckbuilder ${VERSION}
 
 ## Highlights
-- **Include/Exclude Cards Feature Complete**: Full implementation with enhanced web UI, intelligent fuzzy matching, and performance optimization. Users can now specify must-include and must-exclude cards with comprehensive card knowledge base and excellent performance.
+- **Quality & Observability Complete**: Comprehensive structured logging system with event tracking for include/exclude operations providing detailed diagnostics and operational insights.
+- **Include/Exclude Cards Feature Complete**: Full implementation with enhanced web UI, intelligent fuzzy matching, color identity validation, and performance optimization. Users can now specify must-include and must-exclude cards with comprehensive EDH format compliance.
 - **Enhanced CLI with Type Safety**: Comprehensive CLI enhancement with type indicators, ideal count arguments, and theme tag name support making headless operation more user-friendly and discoverable.
 - **Theme Tag Name Selection**: Intelligent theme selection by name instead of index numbers, automatically resolving to correct choices accounting for selection ordering.
 - **Enhanced Fuzzy Matching**: Advanced algorithm with 300+ Commander-legal card knowledge base, popular/iconic card prioritization, and dark theme confirmation modal for optimal user experience.
@@ -11,6 +12,10 @@
 - **Dual Architecture Support**: Seamless functionality across both web interface (staging system) and CLI (direct build) with proper include injection timing.
 
 ## What's new
+- **Quality & Observability**
+  - Structured logging with event types: EXCLUDE_FILTER, INCLUDE_EXCLUDE_CONFLICT, STRICT_MODE_SUCCESS/FAILURE, INCLUDE_COLOR_VIOLATION
+  - Comprehensive diagnostics for include/exclude operations with performance metrics and validation results
+  - Enhanced error tracking and operational visibility for debugging and monitoring
 - **Enhanced CLI Experience**
   - Type-safe help text with value indicators (PATH, NAME, INT, BOOL) and organized argument groups
   - Ideal count CLI arguments: `--ramp-count`, `--land-count`, `--creature-count`, etc. for deck composition control
@@ -28,7 +33,7 @@
   - Enhanced fuzzy matching algorithm with 300+ Commander-legal card knowledge base
   - Popular cards (184) and iconic cards (102) prioritization for improved matching accuracy
   - Dark theme confirmation modal with card preview and top 3 alternatives for <90% confidence matches
-  - Color identity validation ensuring included cards match commander colors
+  - **EDH color identity validation**: Automatic checking of included cards against commander color identity with clear illegal status feedback
   - File upload support (.txt) with deduplication and user feedback
   - JSON export/import preserving all include/exclude configuration via permalink system
 - **Web Interface Enhancement**

@@ -467,6 +467,23 @@ class ReportingMixin:
             curve_cards[bucket].append({'name': name, 'count': cnt})
             total_spells += cnt
 
+        # Include/exclude impact summary (M3: Include/Exclude Summary Panel)
+        include_exclude_summary = {}
+        diagnostics = getattr(self, 'include_exclude_diagnostics', None)
+        if diagnostics:
+            include_exclude_summary = {
+                'include_cards': list(getattr(self, 'include_cards', [])),
+                'exclude_cards': list(getattr(self, 'exclude_cards', [])),
+                'include_added': diagnostics.get('include_added', []),
+                'missing_includes': diagnostics.get('missing_includes', []),
+                'excluded_removed': diagnostics.get('excluded_removed', []),
+                'fuzzy_corrections': diagnostics.get('fuzzy_corrections', {}),
+                'illegal_dropped': diagnostics.get('illegal_dropped', []),
+                'illegal_allowed': diagnostics.get('illegal_allowed', []),
+                'ignored_color_identity': diagnostics.get('ignored_color_identity', []),
+                'duplicates_collapsed': diagnostics.get('duplicates_collapsed', {}),
+            }
+
         return {
             'type_breakdown': {
                 'counts': type_counts,
@@ -490,6 +507,7 @@ class ReportingMixin:
                 'cards': curve_cards,
             },
             'colors': list(getattr(self, 'color_identity', []) or []),
+            'include_exclude_summary': include_exclude_summary,
         }
     def export_decklist_csv(self, directory: str = 'deck_files', filename: str | None = None, suppress_output: bool = False) -> str:
         """Export current decklist to CSV (enriched).

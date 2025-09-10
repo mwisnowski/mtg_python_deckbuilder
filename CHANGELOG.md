@@ -26,9 +26,33 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 - Include/exclude validation with fuzzy matching, strict enforcement, and comprehensive diagnostics
 - Full JSON round-trip functionality preserving all include/exclude configuration in headless and web modes
 - Comprehensive test suite covering validation, persistence, fuzzy matching, and backward compatibility
+- Engine integration with include injection after lands, before creatures/spells with ordering tests
+- Exclude re-entry prevention ensuring blocked cards cannot re-enter via downstream heuristics
+- Web UI enhancement with two-column layout, chips/tag UI, and real-time validation
+- Enhanced fuzzy matching with 300+ Commander-legal card knowledge base and popular/iconic card prioritization
+- Card constants refactored to dedicated `builder_constants.py` with functional organization
+- Fuzzy match confirmation modal with dark theme support and card preview functionality
+- Include/exclude summary panel showing build impact with success/failure indicators and validation issues
+- Comprehensive Playwright end-to-end test suite covering all major user flows and mobile layouts
+- Mobile responsive design with bottom-floating build controls for improved thumb navigation
+- Two-column grid layout for mobile build controls reducing vertical space usage by ~50%
+- Mobile horizontal scrolling prevention with viewport overflow controls and setup status optimization
+- Enhanced visual feedback with warning indicators (⚠️ over-limit, ⚡ approaching limit) and color coding
+- Performance test framework tracking validation and UI response times
+- Advanced list size validation with live count displays and visual warnings
+- Enhanced validation endpoint with comprehensive diagnostics and conflict detection
+- Chips/tag UI for per-card removal with visual distinction (green includes, red excludes)
+- Staging system architecture support with custom include injection runner for web UI
+- Complete include/exclude functionality working end-to-end across both web UI and CLI interfaces
+- Enhanced list size validation UI with visual warning system (⚠️ over-limit, ⚡ approaching limit) and color coding
+- Legacy endpoint transformation maintaining exact message formats for seamless integration with existing workflows
 
 ### Fixed
 - JSON config files are now properly re-exported after bracket compliance enforcement and auto-swapping
+- Mobile horizontal scrolling issues resolved with global viewport overflow controls
+- Mobile UI setup status stuttering eliminated by removing temporary "Setup complete" message displays
+- Mobile build controls accessibility improved with bottom-floating positioning for thumb navigation
+- Mobile viewport breakpoint expanded from 720px to 1024px for broader device compatibility
 
 ## [2.2.6] - 2025-09-04
 

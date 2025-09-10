@@ -118,7 +118,9 @@ class DeckBuilder(
             self.run_deck_build_step2()
             self._run_land_build_steps()
             # M2: Inject includes after lands, before creatures/spells
+            logger.info(f"DEBUG BUILD: About to inject includes. Include cards: {self.include_cards}")
             self._inject_includes_after_lands()
+            logger.info(f"DEBUG BUILD: Finished injecting includes. Current deck size: {len(self.card_library)}")
             if hasattr(self, 'add_creatures_phase'):
                 self.add_creatures_phase()
             if hasattr(self, 'add_spells_phase'):

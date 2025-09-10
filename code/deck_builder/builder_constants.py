@@ -719,3 +719,133 @@ MULTI_COPY_ARCHETYPES: Final[dict[str, dict[str, _Any]]] = {
 EXCLUSIVE_GROUPS: Final[dict[str, list[str]]] = {
     'rats': ['relentless_rats', 'rat_colony']
 }
+
+# Popular and iconic cards for fuzzy matching prioritization
+POPULAR_CARDS: Final[set[str]] = {
+    # Most played removal spells
+    'Lightning Bolt', 'Swords to Plowshares', 'Path to Exile', 'Counterspell',
+    'Assassinate', 'Murder', 'Go for the Throat', 'Fatal Push', 'Doom Blade',
+    'Naturalize', 'Disenchant', 'Beast Within', 'Chaos Warp', 'Generous Gift',
+    'Anguished Unmaking', 'Vindicate', 'Putrefy', 'Terminate', 'Abrupt Decay',
+    
+    # Board wipes
+    'Wrath of God', 'Day of Judgment', 'Damnation', 'Pyroclasm', 'Anger of the Gods',
+    'Supreme Verdict', 'Austere Command', 'Cyclonic Rift', 'Toxic Deluge',
+    'Blasphemous Act', 'Starstorm', 'Earthquake', 'Hurricane', 'Pernicious Deed',
+    
+    # Card draw engines
+    'Rhystic Study', 'Mystic Remora', 'Phyrexian Arena', 'Necropotence',
+    'Sylvan Library', 'Consecrated Sphinx', 'Mulldrifter', 'Divination',
+    'Sign in Blood', 'Night\'s Whisper', 'Harmonize', 'Concentrate',
+    'Mind Spring', 'Stroke of Genius', 'Blue Sun\'s Zenith', 'Pull from Tomorrow',
+    
+    # Ramp spells
+    'Sol Ring', 'Rampant Growth', 'Cultivate', 'Kodama\'s Reach', 'Farseek',
+    'Nature\'s Lore', 'Three Visits', 'Sakura-Tribe Elder', 'Wood Elves',
+    'Farhaven Elf', 'Solemn Simulacrum', 'Commander\'s Sphere', 'Arcane Signet',
+    'Talisman of Progress', 'Talisman of Dominance', 'Talisman of Indulgence',
+    'Talisman of Impulse', 'Talisman of Unity', 'Fellwar Stone', 'Mind Stone',
+    'Thought Vessel', 'Worn Powerstone', 'Thran Dynamo', 'Gilded Lotus',
+    
+    # Tutors
+    'Demonic Tutor', 'Vampiric Tutor', 'Mystical Tutor', 'Enlightened Tutor',
+    'Worldly Tutor', 'Survival of the Fittest', 'Green Sun\'s Zenith',
+    'Chord of Calling', 'Natural Order', 'Idyllic Tutor', 'Steelshaper\'s Gift',
+    
+    # Protection
+    'Counterspell', 'Negate', 'Swan Song', 'Dispel', 'Force of Will',
+    'Force of Negation', 'Fierce Guardianship', 'Deflecting Swat',
+    'Teferi\'s Protection', 'Heroic Intervention', 'Boros Charm', 'Simic Charm',
+    
+    # Value creatures
+    'Eternal Witness', 'Snapcaster Mage', 'Mulldrifter', 'Acidic Slime',
+    'Reclamation Sage', 'Wood Elves', 'Farhaven Elf', 'Solemn Simulacrum',
+    'Oracle of Mul Daya', 'Azusa, Lost but Seeking', 'Ramunap Excavator',
+    'Courser of Kruphix', 'Titania, Protector of Argoth', 'Avenger of Zendikar',
+    
+    # Planeswalkers
+    'Jace, the Mind Sculptor', 'Liliana of the Veil', 'Elspeth, Sun\'s Champion',
+    'Chandra, Torch of Defiance', 'Garruk Wildspeaker', 'Ajani, Mentor of Heroes',
+    'Teferi, Hero of Dominaria', 'Vraska, Golgari Queen', 'Domri, Anarch of Bolas',
+    
+    # Combo pieces
+    'Thassa\'s Oracle', 'Laboratory Maniac', 'Jace, Wielder of Mysteries',
+    'Demonic Consultation', 'Tainted Pact', 'Ad Nauseam', 'Angel\'s Grace',
+    'Underworld Breach', 'Brain Freeze', 'Gaea\'s Cradle', 'Cradle of Vitality',
+    
+    # Equipment
+    'Lightning Greaves', 'Swiftfoot Boots', 'Sword of Fire and Ice',
+    'Sword of Light and Shadow', 'Sword of Feast and Famine', 'Umezawa\'s Jitte',
+    'Skullclamp', 'Cranial Plating', 'Bonesplitter', 'Loxodon Warhammer',
+    
+    # Enchantments
+    'Rhystic Study', 'Smothering Tithe', 'Phyrexian Arena', 'Sylvan Library',
+    'Mystic Remora', 'Necropotence', 'Doubling Season', 'Parallel Lives',
+    'Cathars\' Crusade', 'Impact Tremors', 'Purphoros, God of the Forge',
+    
+    # Artifacts (Commander-legal only)
+    'Sol Ring', 'Mana Vault', 'Chrome Mox', 'Mox Diamond',
+    'Lotus Petal', 'Lion\'s Eye Diamond', 'Sensei\'s Divining Top',
+    'Scroll Rack', 'Aetherflux Reservoir', 'Bolas\'s Citadel', 'The One Ring',
+    
+    # Lands
+    'Command Tower', 'Exotic Orchard', 'Reflecting Pool', 'City of Brass',
+    'Mana Confluence', 'Forbidden Orchard', 'Ancient Tomb', 'Reliquary Tower',
+    'Bojuka Bog', 'Strip Mine', 'Wasteland', 'Ghost Quarter', 'Tectonic Edge',
+    'Maze of Ith', 'Kor Haven', 'Riptide Laboratory', 'Academy Ruins',
+    
+    # Multicolored staples
+    'Lightning Helix', 'Electrolyze', 'Fire // Ice', 'Terminate', 'Putrefy',
+    'Vindicate', 'Anguished Unmaking', 'Abrupt Decay', 'Maelstrom Pulse',
+    'Sphinx\'s Revelation', 'Cruel Ultimatum', 'Nicol Bolas, Planeswalker',
+    
+    # Token generators
+    'Avenger of Zendikar', 'Hornet Queen', 'Tendershoot Dryad', 'Elspeth, Sun\'s Champion',
+    'Secure the Wastes', 'White Sun\'s Zenith', 'Decree of Justice', 'Empty the Warrens',
+    'Goblin Rabblemaster', 'Siege-Gang Commander', 'Krenko, Mob Boss',
+}
+
+ICONIC_CARDS: Final[set[str]] = {
+    # Classic and iconic Magic cards that define the game (Commander-legal only)
+    
+    # Foundational spells
+    'Lightning Bolt', 'Counterspell', 'Swords to Plowshares', 'Dark Ritual',
+    'Giant Growth', 'Wrath of God', 'Fireball', 'Control Magic', 'Terror',
+    'Disenchant', 'Regrowth', 'Brainstorm', 'Force of Will', 'Wasteland',
+    
+    # Iconic creatures
+    'Tarmogoyf', 'Delver of Secrets', 'Snapcaster Mage', 'Dark Confidant',
+    'Psychatog', 'Morphling', 'Shivan Dragon', 'Serra Angel', 'Llanowar Elves',
+    'Birds of Paradise', 'Noble Hierarch', 'Deathrite Shaman', 'True-Name Nemesis',
+    
+    # Game-changing planeswalkers
+    'Jace, the Mind Sculptor', 'Liliana of the Veil', 'Elspeth, Knight-Errant',
+    'Chandra, Pyromaster', 'Garruk Wildspeaker', 'Ajani Goldmane',
+    'Nicol Bolas, Planeswalker', 'Karn Liberated', 'Ugin, the Spirit Dragon',
+    
+    # Combo enablers and engines
+    'Necropotence', 'Yawgmoth\'s Will', 'Show and Tell', 'Natural Order',
+    'Survival of the Fittest', 'Earthcraft', 'Squirrel Nest', 'High Tide',
+    'Reset', 'Time Spiral', 'Wheel of Fortune', 'Memory Jar', 'Windfall',
+    
+    # Iconic artifacts
+    'Sol Ring', 'Mana Vault', 'Winter Orb', 'Static Orb', 'Sphere of Resistance',
+    'Trinisphere', 'Chalice of the Void', 'Null Rod', 'Stony Silence',
+    'Crucible of Worlds', 'Sensei\'s Divining Top', 'Scroll Rack', 'Skullclamp',
+    
+    # Powerful lands
+    'Strip Mine', 'Mishra\'s Factory', 'Maze of Ith', 'Gaea\'s Cradle',
+    'Serra\'s Sanctum', 'Cabal Coffers', 'Urborg, Tomb of Yawgmoth',
+    'Fetchlands', 'Dual Lands', 'Shock Lands', 'Check Lands',
+    
+    # Magic history and format-defining cards
+    'Mana Drain', 'Daze', 'Ponder', 'Preordain', 'Path to Exile',
+    'Dig Through Time', 'Treasure Cruise', 'Gitaxian Probe', 'Cabal Therapy',
+    'Thoughtseize', 'Hymn to Tourach', 'Chain Lightning', 'Price of Progress',
+    'Stoneforge Mystic', 'Bloodbraid Elf', 'Vendilion Clique', 'Cryptic Command',
+    
+    # Commander format staples
+    'Command Tower', 'Rhystic Study', 'Cyclonic Rift', 'Demonic Tutor',
+    'Vampiric Tutor', 'Mystical Tutor', 'Enlightened Tutor', 'Worldly Tutor',
+    'Eternal Witness', 'Solemn Simulacrum', 'Consecrated Sphinx', 'Avenger of Zendikar',
+}

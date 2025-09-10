@@ -178,8 +178,10 @@
       el.innerHTML = '<strong>Setup/Tagging:</strong> ' + msg + ' <a href="/setup/running" style="margin-left:.5rem;">View progress</a>';
             el.classList.add('busy');
           } else if (data && data.phase === 'done') {
-            el.innerHTML = '<span class="muted">Setup complete.</span>';
-            setTimeout(function(){ el.innerHTML = ''; el.classList.remove('busy'); }, 3000);
+            // Don't show "Setup complete" message to avoid UI stuttering
+            // Just clear any existing content and remove busy state
+            el.innerHTML = '';
+            el.classList.remove('busy');
           } else if (data && data.phase === 'error') {
             el.innerHTML = '<span class="error">Setup error.</span>';
             setTimeout(function(){ el.innerHTML = ''; el.classList.remove('busy'); }, 5000);

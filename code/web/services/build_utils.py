@@ -83,6 +83,7 @@ def start_ctx_from_session(sess: dict, *, set_on_session: bool = True) -> Dict[s
         prefer_combos=bool(sess.get("prefer_combos")),
         combo_target_count=int(sess.get("combo_target_count", 2)),
         combo_balance=str(sess.get("combo_balance", "mix")),
+        include_cards=sess.get("include_cards"),
         exclude_cards=sess.get("exclude_cards"),
     )
     if set_on_session:

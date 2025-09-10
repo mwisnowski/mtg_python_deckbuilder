@@ -12,9 +12,11 @@ import re
 from typing import List, Dict, Set, Tuple, Optional
 from dataclasses import dataclass
 
+from .builder_constants import POPULAR_CARDS, ICONIC_CARDS
+
 
 # Fuzzy matching configuration
-FUZZY_CONFIDENCE_THRESHOLD = 0.90  # 90% confidence for auto-acceptance
+FUZZY_CONFIDENCE_THRESHOLD = 0.95  # 95% confidence for auto-acceptance (more conservative)
 MAX_SUGGESTIONS = 3  # Maximum suggestions to show for fuzzy matches
 MAX_INCLUDES = 10  # Maximum include cards allowed
 MAX_EXCLUDES = 15  # Maximum exclude cards allowed
@@ -162,15 +164,77 @@ def fuzzy_match_card_name(
             auto_accepted=True
         )
     
-    # Fuzzy matching using difflib
-    matches = difflib.get_close_matches(
-        normalized_input, 
-        normalized_names, 
-        n=MAX_SUGGESTIONS + 1,  # Get one extra in case best match is below threshold
-        cutoff=0.6  # Lower cutoff to get more candidates
-    )
+    # Enhanced fuzzy matching with intelligent prefix prioritization
+    input_lower = normalized_input.lower()
     
-    if not matches:
+    # Convert constants to lowercase for matching
+    popular_cards_lower = {card.lower() for card in POPULAR_CARDS}
+    iconic_cards_lower = {card.lower() for card in ICONIC_CARDS}
+    
+    # Collect candidates with different scoring strategies
+    candidates = []
+    
+    for name in normalized_names:
+        name_lower = name.lower()
+        base_score = difflib.SequenceMatcher(None, input_lower, name_lower).ratio()
+        
+        # Skip very low similarity matches early
+        if base_score < 0.3:
+            continue
+            
+        final_score = base_score
+        
+        # Strong boost for exact prefix matches (input is start of card name)
+        if name_lower.startswith(input_lower):
+            final_score = min(1.0, base_score + 0.5)
+        
+        # Moderate boost for word-level prefix matches  
+        elif any(word.startswith(input_lower) for word in name_lower.split()):
+            final_score = min(1.0, base_score + 0.3)
+            
+        # Special case: if input could be abbreviation of first word, boost heavily
+        elif len(input_lower) <= 6:
+            first_word = name_lower.split()[0] if name_lower.split() else ""
+            if first_word and first_word.startswith(input_lower):
+                final_score = min(1.0, base_score + 0.4)
+        
+        # Boost for cards where input is contained as substring
+        elif input_lower in name_lower:
+            final_score = min(1.0, base_score + 0.2)
+        
+        # Special boost for very short inputs that are obvious abbreviations
+        if len(input_lower) <= 4:
+            # For short inputs, heavily favor cards that start with the input
+            if name_lower.startswith(input_lower):
+                final_score = min(1.0, final_score + 0.3)
+        
+        # Popularity boost for well-known cards
+        if name_lower in popular_cards_lower:
+            final_score = min(1.0, final_score + 0.25)
+        
+        # Extra boost for super iconic cards like Lightning Bolt (only when relevant)
+        if name_lower in iconic_cards_lower:
+            # Only boost if there's some relevance to the input
+            if any(word[:3] in input_lower or input_lower[:3] in word for word in name_lower.split()):
+                final_score = min(1.0, final_score + 0.3)
+            # Extra boost for Lightning Bolt when input is 'lightning' or similar
+            if name_lower == 'lightning bolt' and input_lower in ['lightning', 'lightn', 'light']:
+                final_score = min(1.0, final_score + 0.2)
+            
+        # Special handling for Lightning Bolt variants
+        if 'lightning' in name_lower and 'bolt' in name_lower:
+            if input_lower in ['bolt', 'lightn', 'lightning']:
+                final_score = min(1.0, final_score + 0.4)
+        
+        # Simplicity boost: prefer shorter, simpler card names for short inputs
+        if len(input_lower) <= 6:
+            # Boost shorter card names slightly
+            if len(name_lower) <= len(input_lower) * 2:
+                final_score = min(1.0, final_score + 0.05)
+        
+        candidates.append((final_score, name))
+    
+    if not candidates:
         return FuzzyMatchResult(
             input_name=input_name,
             matched_name=None,
@@ -179,12 +243,15 @@ def fuzzy_match_card_name(
             auto_accepted=False
         )
     
-    # Calculate actual confidence for best match
-    best_match = matches[0]
-    confidence = difflib.SequenceMatcher(None, normalized_input, best_match).ratio()
+    # Sort candidates by score (highest first)
+    candidates.sort(key=lambda x: x[0], reverse=True)
     
-    # Convert back to original names
-    suggestions = [normalized_to_original[match] for match in matches[:MAX_SUGGESTIONS]]
+    # Get best match and confidence
+    best_score, best_match = candidates[0]
+    confidence = best_score
+    
+    # Convert back to original names, preserving score-based order
+    suggestions = [normalized_to_original[match] for _, match in candidates[:MAX_SUGGESTIONS]]
     best_original = normalized_to_original[best_match]
     
     # Auto-accept if confidence is high enough
@@ -289,11 +356,11 @@ def parse_card_list_input(input_text: str) -> List[str]:
     
     Supports:
     - Newline separated (preferred for cards with commas in names)
-    - Comma separated (only when no newlines present)
+    - Comma separated only for simple lists without newlines
     - Whitespace cleanup
     
-    Note: If input contains both newlines and commas, newlines take precedence
-    to avoid splitting card names that contain commas.
+    Note: Always prioritizes newlines over commas to avoid splitting card names 
+    that contain commas like "Byrke, Long ear Of the Law".
     
     Args:
         input_text: Raw user input text
@@ -304,13 +371,33 @@ def parse_card_list_input(input_text: str) -> List[str]:
     if not input_text:
         return []
     
-    # If input contains newlines, split only on newlines
-    # This prevents breaking card names with commas like "Krenko, Mob Boss"
-    if '\n' in input_text:
-        names = input_text.split('\n')
+    # Always split on newlines first - this is the preferred format
+    # and prevents breaking card names with commas
+    lines = input_text.split('\n')
+    
+    # If we only have one line and it contains commas, 
+    # then it might be comma-separated input vs a single card name with commas
+    if len(lines) == 1 and ',' in lines[0]:
+        text = lines[0].strip()
+        
+        # Better heuristic: if there are no spaces around commas AND
+        # the text contains common MTG name patterns, treat as single card
+        # Common patterns: "Name, Title", "First, Last Name", etc.
+        import re
+        
+        # Check for patterns that suggest it's a single card name:
+        # 1. Comma followed by a capitalized word (title/surname pattern)
+        # 2. Single comma with reasonable length text on both sides
+        title_pattern = re.search(r'^[^,]{2,30},\s+[A-Z][^,]{2,30}$', text.strip())
+        
+        if title_pattern:
+            # This looks like "Byrke, Long ear Of the Law" - single card
+            names = [text]
+        else:
+            # This looks like "Card1,Card2" or "Card1, Card2" - multiple cards
+            names = text.split(',')
     else:
-        # Only split on commas if no newlines present
-        names = input_text.split(',')
+        names = lines  # Use newline split
     
     # Clean up each name
     cleaned = []

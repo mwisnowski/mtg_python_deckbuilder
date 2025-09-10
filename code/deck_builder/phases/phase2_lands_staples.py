@@ -143,6 +143,11 @@ class LandStaplesMixin:
         """Public wrapper for adding generic staple nonbasic lands (excluding kindred)."""
         self.add_staple_lands()
         self._enforce_land_cap(step_label="Staples (Step 2)")  # type: ignore[attr-defined]
+        try:
+            from .. import builder_utils as _bu
+            _bu.export_current_land_pool(self, '2')
+        except Exception:
+            pass
 
 
 __all__ = [

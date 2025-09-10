@@ -1,6 +1,7 @@
 from __future__ import annotations
 from typing import Dict, Optional
 from .. import builder_constants as bc
+import os
 
 """Phase 2 (part 1): Basic land addition logic (Land Step 1).
 
@@ -38,6 +39,33 @@ class LandBasicsMixin:
             except Exception as e:  # pragma: no cover - defensive
                 self.output_func(f"Cannot add basics until color identity resolved: {e}")
                 return
+
+        # DEBUG EXPORT: write full land pool snapshot the first time basics are added
+        # Purpose: allow inspection of all candidate land cards before other land steps mutate state.
+        try:  # pragma: no cover (diagnostic aid)
+            full_df = getattr(self, '_combined_cards_df', None)
+            marker_attr = '_land_debug_export_done'
+            if full_df is not None and not getattr(self, marker_attr, False):
+                land_df = full_df
+                # Prefer 'type' column (common) else attempt 'type_line'
+                col = 'type' if 'type' in land_df.columns else ('type_line' if 'type_line' in land_df.columns else None)
+                if col:
+                    work = land_df[land_df[col].fillna('').str.contains('Land', case=False, na=False)].copy()
+                    if not work.empty:
+                        os.makedirs(os.path.join('logs', 'debug'), exist_ok=True)
+                        export_cols = [c for c in ['name','type','type_line','manaValue','edhrecRank','colorIdentity','manaCost','themeTags','oracleText'] if c in work.columns]
+                        path = os.path.join('logs','debug','land_test.csv')
+                        try:
+                            if export_cols:
+                                work[export_cols].to_csv(path, index=False, encoding='utf-8')
+                            else:
+                                work.to_csv(path, index=False, encoding='utf-8')
+                        except Exception:
+                            work.to_csv(path, index=False)
+                        self.output_func(f"[DEBUG] Wrote land_test.csv ({len(work)} rows)")
+                        setattr(self, marker_attr, True)
+        except Exception:
+            pass
 
         # Ensure ideal counts (for min basics & total lands)
         basic_min: Optional[int] = None
@@ -108,6 +136,11 @@ class LandBasicsMixin:
     def run_land_step1(self):  # type: ignore[override]
         """Public wrapper to execute land building step 1 (basics)."""
         self.add_basic_lands()
+        try:
+            from .. import builder_utils as _bu
+            _bu.export_current_land_pool(self, '1')
+        except Exception:
+            pass
 
 
 __all__ = [

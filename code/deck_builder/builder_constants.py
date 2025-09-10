@@ -167,6 +167,77 @@ MISC_LAND_MAX_COUNT: Final[int] = 10  # Maximum number of miscellaneous lands to
 MISC_LAND_POOL_SIZE: Final[int] = 100  # Maximum size of initial land pool to select from
 MISC_LAND_TOP_POOL_SIZE: Final[int] = 30  # For utility step: sample from top N by EDHREC rank
 MISC_LAND_COLOR_FIX_PRIORITY_WEIGHT: Final[int] = 2  # Weight multiplier for color-fixing candidates
+MISC_LAND_USE_FULL_POOL: Final[bool] = True  # If True, ignore TOP_POOL_SIZE and use entire remaining land pool for misc step
+MISC_LAND_EDHREC_KEEP_PERCENT: Final[float] = 0.80  # Legacy single-value fallback if min/max not set
+# When both min & max are defined (0<min<=max<=1), Step 7 will roll a random % in [min,max]
+# using the builder RNG to keep that share of top EDHREC-ranked candidates, injecting variety.
+MISC_LAND_EDHREC_KEEP_PERCENT_MIN: Final[float] = 0.75
+MISC_LAND_EDHREC_KEEP_PERCENT_MAX: Final[float] = 1.00
+
+# Theme-based misc land weighting (applied after all reductions)
+MISC_LAND_THEME_MATCH_ENABLED: Final[bool] = True
+MISC_LAND_THEME_MATCH_BASE: Final[float] = 1.4          # Multiplier if at least one theme tag matches
+MISC_LAND_THEME_MATCH_PER_EXTRA: Final[float] = 0.15    # Additional multiplier increment per extra matching tag beyond first
+MISC_LAND_THEME_MATCH_CAP: Final[float] = 2.0           # Maximum total multiplier cap for theme boosting
+
+# Mono-color extra rainbow filtering (text-based)
+MONO_COLOR_EXCLUDE_RAINBOW_TEXT: Final[bool] = True  # If True, exclude lands whose rules text implies any-color mana in mono decks (beyond explicit list)
+MONO_COLOR_RAINBOW_TEXT_EXTRA: Final[List[str]] = [  # Additional substrings (lowercased) checked besides ANY_COLOR_MANA_PHRASES
+    'add one mana of any type',
+    'choose a color',
+    'add one mana of any color',
+    'add one mana of any color that a gate',
+    'add one mana of any color among',  # e.g., Plaza of Harmony style variants (kept list overrides)
+]
+
+# Mono-color misc land exclusion (utility/rainbow) logic
+# Lands in this list will be excluded from the Step 7 misc/utility selection pool
+# when the deck is mono-colored UNLESS they appear in MONO_COLOR_MISC_LAND_KEEP_ALWAYS
+# or are detected as kindred lands (see KINDRED_* constants below).
+MONO_COLOR_MISC_LAND_EXCLUDE: Final[List[str]] = [
+    'Command Tower',
+    'Mana Confluence',
+    'City of Brass',
+    'Grand Coliseum',
+    'Tarnished Citadel',
+    'Gemstone Mine',
+    'Aether Hub',
+    'Spire of Industry',
+    'Exotic Orchard',
+    'Reflecting Pool',
+    'Plaza of Harmony',
+    'Pillar of the Paruns',
+    'Cascading Cataracts',
+    'Crystal Quarry',
+    'The World Tree',
+    # Thriving cycle – functionally useless / invalid in strict mono-color builds
+    'Thriving Bluff',
+    'Thriving Grove',
+    'Thriving Isle',
+    'Thriving Heath',
+    'Thriving Moor'
+]
+
+# Mono-color always-keep exceptions (never excluded by the above rule)
+MONO_COLOR_MISC_LAND_KEEP_ALWAYS: Final[List[str]] = [
+    'Forbidden Orchard',
+    'Plaza of Heroes',
+    'Path of Ancestry',
+    'Lotus Field',
+    'Lotus Vale'
+]
+
+## Kindred / creature-type / legend-supporting lands (single unified list)
+# Consolidates former KINDRED_STAPLE_LANDS + KINDRED_MISC_LAND_NAMES + Plaza of Heroes
+# Order is not semantically important; kept readable.
+KINDRED_LAND_NAMES: Final[List[str]] = [
+    'Path of Ancestry',
+    'Three Tree City',
+    'Cavern of Souls',
+    'Unclaimed Territory',
+    'Secluded Courtyard',
+    'Plaza of Heroes'
+]
 
 # Default fetch land count & cap
 FETCH_LAND_DEFAULT_COUNT: Final[int] = 3  # Default number of fetch lands to include
@@ -285,18 +356,11 @@ GENERIC_FETCH_LANDS: Final[List[str]] = [
     'Prismatic Vista'
 ]
 
-# Kindred land constants
+## Backwards compatibility: expose prior names as derived values
 KINDRED_STAPLE_LANDS: Final[List[Dict[str, str]]] = [
-    {
-        'name': 'Path of Ancestry',
-        'type': 'Land'
-    },
-    {
-        'name': 'Three Tree City',
-        'type': 'Legendary Land'
-    },
-    {'name': 'Cavern of Souls', 'type': 'Land'}
+    {'name': n, 'type': 'Land'} for n in KINDRED_LAND_NAMES
 ]
+KINDRED_ALL_LAND_NAMES: Final[List[str]] = list(KINDRED_LAND_NAMES)
 
 # Color-specific fetch land mappings
 COLOR_TO_FETCH_LANDS: Final[Dict[str, List[str]]] = {
@@ -361,7 +425,7 @@ STAPLE_LAND_CONDITIONS: Final[Dict[str, Callable[[List[str], List[str], int], bo
 LAND_REMOVAL_MAX_ATTEMPTS: Final[int] = 3
 
 # Protected lands that cannot be removed during land removal process
-PROTECTED_LANDS: Final[List[str]] = BASIC_LANDS + [land['name'] for land in KINDRED_STAPLE_LANDS]
+PROTECTED_LANDS: Final[List[str]] = BASIC_LANDS + KINDRED_LAND_NAMES
 
 # Other defaults
 DEFAULT_CREATURE_COUNT: Final[int] = 25  # Default number of creatures

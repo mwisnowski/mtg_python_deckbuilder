@@ -1786,6 +1786,13 @@ async def build_alternatives(request: Request, name: str, stage: str | None = No
             "creatures": "creature",
             "primary": "creature",
             "secondary": "creature",
+            # Land-related hints
+            "land": "land",
+            "lands": "land",
+            "utility": "land",
+            "misc": "land",
+            "fetch": "land",
+            "dual": "land",
         }
         hinted_role = stage_map.get(stage_hint) if stage_hint else None
         lib = getattr(b, "card_library", {}) or {}
@@ -1807,6 +1814,14 @@ async def build_alternatives(request: Request, name: str, stage: str | None = No
         # Build role-specific pool from combined DataFrame
         items: list[dict] = []
         used_role = role if isinstance(role, str) and role else None
+        # Promote to 'land' role when the seed card is a land (regardless of stored role)
+        try:
+            if entry and isinstance(entry, dict):
+                ctype = str(entry.get("Card Type") or entry.get("Type") or "").lower()
+                if "land" in ctype:
+                    used_role = "land"
+        except Exception:
+            pass
         df = getattr(b, "_combined_cards_df", None)
 
         # Compute current deck fingerprint to avoid stale cached alternatives after stage changes
@@ -1821,7 +1836,8 @@ async def build_alternatives(request: Request, name: str, stage: str | None = No
 
         # Use a cache key that includes the exclusions version and deck fingerprint
         cache_key = (name_l, commander_l, used_role or "_fallback_", require_owned, alts_exclude_v, deck_fp)
-        cached = _alts_get_cached(cache_key)
+        # Disable caching for land alternatives to keep randomness per request
+        cached = None if used_role == 'land' else _alts_get_cached(cache_key)
         if cached is not None:
             return HTMLResponse(cached)
 
@@ -1832,10 +1848,12 @@ async def build_alternatives(request: Request, name: str, stage: str | None = No
                 "require_owned": require_owned,
                 "items": _items,
             })
-            try:
-                _alts_set_cached(cache_key, html_str)
-            except Exception:
-                pass
+            # Skip caching when used_role == land for per-call randomness
+            if used_role != 'land':
+                try:
+                    _alts_set_cached(cache_key, html_str)
+                except Exception:
+                    pass
             return HTMLResponse(html_str)
 
         # Helper: map display names
@@ -1857,16 +1875,126 @@ async def build_alternatives(request: Request, name: str, stage: str | None = No
             return out
 
         # If we have data and a recognized role, mirror the phase logic
-        if df is not None and hasattr(df, "copy") and (used_role in {"ramp","removal","wipe","card_advantage","protection","creature"}):
+        if df is not None and hasattr(df, "copy") and (used_role in {"ramp","removal","wipe","card_advantage","protection","creature","land"}):
             pool = df.copy()
             try:
                 pool["_ltags"] = pool.get("themeTags", []).apply(bu.normalize_tag_cell)
             except Exception:
                 # best-effort normalize
                 pool["_ltags"] = pool.get("themeTags", []).apply(lambda x: [str(t).strip().lower() for t in (x or [])] if isinstance(x, list) else [])
-            # Exclude lands for all these roles
-            if "type" in pool.columns:
-                pool = pool[~pool["type"].fillna("").str.contains("Land", case=False, na=False)]
+            # Role-specific base filtering
+            if used_role != "land":
+                # Exclude lands for non-land roles
+                if "type" in pool.columns:
+                    pool = pool[~pool["type"].fillna("").str.contains("Land", case=False, na=False)]
+            else:
+                # Keep only lands
+                if "type" in pool.columns:
+                    pool = pool[pool["type"].fillna("").str.contains("Land", case=False, na=False)]
+                # Seed info to guide filtering
+                seed_is_basic = False
+                try:
+                    seed_is_basic = bool(name_l in {b.strip().lower() for b in getattr(bc, 'BASIC_LANDS', [])})
+                except Exception:
+                    seed_is_basic = False
+                if seed_is_basic:
+                    # For basics: show other basics (different colors) to allow quick swaps
+                    try:
+                        pool = pool[pool['name'].astype(str).str.strip().str.lower().isin({x.lower() for x in getattr(bc, 'BASIC_LANDS', [])})]
+                    except Exception:
+                        pass
+                else:
+                    # For non-basics: prefer other non-basics
+                    try:
+                        pool = pool[~pool['name'].astype(str).str.strip().str.lower().isin({x.lower() for x in getattr(bc, 'BASIC_LANDS', [])})]
+                    except Exception:
+                        pass
+                # Apply mono-color misc land filters (no debug CSV dependency)
+                try:
+                    colors = list(getattr(b, 'color_identity', []) or [])
+                    mono = len(colors) <= 1
+                    mono_exclude = {n.lower() for n in getattr(bc, 'MONO_COLOR_MISC_LAND_EXCLUDE', [])}
+                    mono_keep = {n.lower() for n in getattr(bc, 'MONO_COLOR_MISC_LAND_KEEP_ALWAYS', [])}
+                    kindred_all = {n.lower() for n in getattr(bc, 'KINDRED_ALL_LAND_NAMES', [])}
+                    any_color_phrases = [s.lower() for s in getattr(bc, 'ANY_COLOR_MANA_PHRASES', [])]
+                    extra_rainbow_terms = [s.lower() for s in getattr(bc, 'MONO_COLOR_RAINBOW_TEXT_EXTRA', [])]
+                    fetch_names = set()
+                    for seq in getattr(bc, 'COLOR_TO_FETCH_LANDS', {}).values():
+                        for nm in seq:
+                            fetch_names.add(nm.lower())
+                    for nm in getattr(bc, 'GENERIC_FETCH_LANDS', []):
+                        fetch_names.add(nm.lower())
+                    # World Tree check needs all five colors
+                    need_all_colors = {'w','u','b','r','g'}
+                    def _illegal_world_tree(nm: str) -> bool:
+                        return nm == 'the world tree' and set(c.lower() for c in colors) != need_all_colors
+                    # Text column fallback
+                    text_col = 'text'
+                    if text_col not in pool.columns:
+                        for c in pool.columns:
+                            if 'text' in c.lower():
+                                text_col = c
+                                break
+                    def _exclude_row(row) -> bool:
+                        nm_l = str(row['name']).strip().lower()
+                        if mono and nm_l in mono_exclude and nm_l not in mono_keep and nm_l not in kindred_all:
+                            return True
+                        if mono and nm_l not in mono_keep and nm_l not in kindred_all:
+                            try:
+                                txt = str(row.get(text_col, '') or '').lower()
+                                if any(p in txt for p in any_color_phrases + extra_rainbow_terms):
+                                    return True
+                            except Exception:
+                                pass
+                        if nm_l in fetch_names:
+                            return True
+                        if _illegal_world_tree(nm_l):
+                            return True
+                        return False
+                    pool = pool[~pool.apply(_exclude_row, axis=1)]
+                except Exception:
+                    pass
+                # Optional sub-role filtering (only if enough depth)
+                try:
+                    subrole = str((entry or {}).get('SubRole') or '').strip().lower()
+                    if subrole:
+                        # Heuristic categories for grouping
+                        cat_map = {
+                            'fetch': 'fetch',
+                            'dual': 'dual',
+                            'triple': 'triple',
+                            'misc': 'misc',
+                            'utility': 'misc',
+                            'basic': 'basic'
+                        }
+                        target_cat = None
+                        for key, val in cat_map.items():
+                            if key in subrole:
+                                target_cat = val
+                                break
+                        if target_cat and len(pool) > 25:
+                            # Lightweight textual filter using known markers
+                            def _cat_row(rname: str, rtype: str) -> str:
+                                rl = rname.lower()
+                                rt = rtype.lower()
+                                if any(k in rl for k in ('vista','strand','delta','mire','heath','rainforest','mesa','foothills','catacombs','tarn','flat','expanse','wilds','landscape','tunnel','terrace','vista')):
+                                    return 'fetch'
+                                if 'triple' in rt or 'three' in rt:
+                                    return 'triple'
+                                if any(t in rt for t in ('forest','plains','island','swamp','mountain')) and any(sym in rt for sym in ('forest','plains','island','swamp','mountain')) and 'land' in rt:
+                                    # Basic-check crude
+                                    return 'basic'
+                                return 'misc'
+                            try:
+                                tmp = pool.copy()
+                                tmp['_cat'] = tmp.apply(lambda r: _cat_row(str(r.get('name','')), str(r.get('type',''))), axis=1)
+                                sub_pool = tmp[tmp['_cat'] == target_cat]
+                                if len(sub_pool) >= 10:
+                                    pool = sub_pool.drop(columns=['_cat'])
+                            except Exception:
+                                pass
+                except Exception:
+                    pass
             # Exclude commander explicitly
             if "name" in pool.columns and commander_l:
                 pool = pool[pool["name"].astype(str).str.strip().str.lower() != commander_l]
@@ -1904,44 +2032,90 @@ async def build_alternatives(request: Request, name: str, stage: str | None = No
                     pool = pool[pool["_ltags"].apply(_matches_selected)]
                 except Exception:
                     pass
+            elif used_role == "land":
+                # Already constrained to lands; no additional tag filter needed
+                pass
             # Sort by priority like the builder
             try:
                 pool = bu.sort_by_priority(pool, ["edhrecRank","manaValue"])  # type: ignore[arg-type]
             except Exception:
                 pass
-            # Exclusions and ownership
+            # Exclusions and ownership (for non-random roles this stays before slicing)
             pool = _exclude(pool)
-            # Prefer-owned bias: stable reorder to put owned first if user prefers owned
             try:
                 if bool(sess.get("prefer_owned")) and getattr(b, "owned_card_names", None):
                     pool = bu.prefer_owned_first(pool, {str(n).lower() for n in getattr(b, "owned_card_names", set())})
             except Exception:
                 pass
-            # Build final items
-            lower_pool: list[str] = []
-            try:
-                lower_pool = pool["name"].astype(str).str.strip().str.lower().tolist()
-            except Exception:
-                lower_pool = []
-            display_map = _display_map_for(set(lower_pool))
-            for nm_l in lower_pool:
-                is_owned = (nm_l in owned_set)
-                if require_owned and not is_owned:
-                    continue
-                # Extra safety: exclude the seed card or anything already in deck
-                if nm_l == name_l or (in_deck and nm_l in in_deck):
-                    continue
-                items.append({
-                    "name": display_map.get(nm_l, nm_l),
-                    "name_lower": nm_l,
-                    "owned": is_owned,
-                    "tags": [],  # can be filled from index below if needed
-                })
-                if len(items) >= 10:
-                    break
-            # If we collected role-aware items, render
-            if items:
-                return _render_and_cache(items)
+            # Land role: random 12 from top 60-100 window
+            if used_role == 'land':
+                import random as _rnd
+                total = len(pool)
+                if total == 0:
+                    pass
+                else:
+                    cap = min(100, total)
+                    floor = min(60, cap)  # if fewer than 60 just use all
+                    if cap <= 12:
+                        window_size = cap
+                    else:
+                        if cap == floor:
+                            window_size = cap
+                        else:
+                            rng_obj = getattr(b, 'rng', None)
+                            if rng_obj:
+                                window_size = rng_obj.randint(floor, cap)
+                            else:
+                                window_size = _rnd.randint(floor, cap)
+                    window_df = pool.head(window_size)
+                    names = window_df['name'].astype(str).str.strip().tolist()
+                    # Random sample up to 12 distinct names
+                    sample_n = min(12, len(names))
+                    if sample_n > 0:
+                        if getattr(b, 'rng', None):
+                            chosen = getattr(b,'rng').sample(names, sample_n) if len(names) >= sample_n else names
+                        else:
+                            chosen = _rnd.sample(names, sample_n) if len(names) >= sample_n else names
+                        lower_map = {n.strip().lower(): n for n in chosen}
+                        display_map = _display_map_for(set(k for k in lower_map.keys()))
+                        for nm_lc, orig in lower_map.items():
+                            is_owned = (nm_lc in owned_set)
+                            if require_owned and not is_owned:
+                                continue
+                            if nm_lc == name_l or (in_deck and nm_lc in in_deck):
+                                continue
+                            items.append({
+                                'name': display_map.get(nm_lc, orig),
+                                'name_lower': nm_lc,
+                                'owned': is_owned,
+                                'tags': []
+                            })
+                if items:
+                    return _render_and_cache(items)
+            else:
+                # Default deterministic top-N (increase to 12 for parity)
+                lower_pool: list[str] = []
+                try:
+                    lower_pool = pool["name"].astype(str).str.strip().str.lower().tolist()
+                except Exception:
+                    lower_pool = []
+                display_map = _display_map_for(set(lower_pool))
+                for nm_l in lower_pool:
+                    is_owned = (nm_l in owned_set)
+                    if require_owned and not is_owned:
+                        continue
+                    if nm_l == name_l or (in_deck and nm_l in in_deck):
+                        continue
+                    items.append({
+                        "name": display_map.get(nm_l, nm_l),
+                        "name_lower": nm_l,
+                        "owned": is_owned,
+                        "tags": [],
+                    })
+                    if len(items) >= 12:
+                        break
+                if items:
+                    return _render_and_cache(items)
 
         # Fallback: tag-similarity suggestions (previous behavior)
         tags_idx = getattr(b, "_card_name_tags_index", {}) or {}

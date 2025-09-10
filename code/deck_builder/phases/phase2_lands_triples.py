@@ -230,3 +230,8 @@ class LandTripleMixin:
     def run_land_step6(self, requested_count: Optional[int] = None):
         self.add_triple_lands(requested_count=requested_count)
         self._enforce_land_cap(step_label="Triples (Step 6)")
+        try:
+            from .. import builder_utils as _bu
+            _bu.export_current_land_pool(self, '6')
+        except Exception:
+            pass

@@ -1,82 +1,57 @@
 # MTG Python Deckbuilder ${VERSION}
 
 ## Highlights
-- **Quality & Observability Complete**: Comprehensive structured logging system with event tracking for include/exclude operations providing detailed diagnostics and operational insights.
-- **Include/Exclude Cards Feature Complete**: Full implementation with enhanced web UI, intelligent fuzzy matching, color identity validation, and performance optimization. Users can now specify must-include and must-exclude cards with comprehensive EDH format compliance.
-- **Enhanced CLI with Type Safety**: Comprehensive CLI enhancement with type indicators, ideal count arguments, and theme tag name support making headless operation more user-friendly and discoverable.
-- **Theme Tag Name Selection**: Intelligent theme selection by name instead of index numbers, automatically resolving to correct choices accounting for selection ordering.
-- **Enhanced Fuzzy Matching**: Advanced algorithm with 300+ Commander-legal card knowledge base, popular/iconic card prioritization, and dark theme confirmation modal for optimal user experience.
-- **Mobile Responsive Design**: Optimized mobile experience with bottom-floating build controls, two-column grid layout, and horizontal scrolling prevention for improved thumb navigation.
-- **Enhanced Visual Validation**: List size validation UI with warning icons (⚠️ over-limit, ⚡ approaching limit) and color coding providing clear feedback on usage limits.
-- **Performance Optimized**: All operations exceed performance targets with 100% pass rate - exclude filtering 92% under target, UI operations 70% under target, full validation cycle 95% under target.
-- **Dual Architecture Support**: Seamless functionality across both web interface (staging system) and CLI (direct build) with proper include injection timing.
+- Dynamic misc utility land variety: EDHREC keep percentage now randomly rolls between configurable min/max each build (defaults 75%–100%).
+- Land alternatives overhaul: land-aware suggestions (basics→basics, non-basics→non-basics) plus randomized 12-card window (random slice of top 60–100) for per-request variety.
+- Cleaner mono-color utility land pools: rainbow/any-color filler and fetch lands excluded after their dedicated phases; explicit allow-list preserves strategic exceptions.
+- Theme-aware misc land weighting with configurable multipliers (base + per-extra + cap) via new environment overrides.
+- Production-friendly diagnostics: misc land debug CSVs gated behind `MISC_LAND_DEBUG` or diagnostics flag (off by default).
+- UI polish & stability: eliminated Step 5 bottom-of-grid scroll flicker (overscroll containment + skip virtualization for small grids <80 items).
+- Documentation & compose updates: all new tuning variables surfaced in README, compose files, and sample env.
 
-## What's new
-- **Quality & Observability**
-  - Structured logging with event types: EXCLUDE_FILTER, INCLUDE_EXCLUDE_CONFLICT, STRICT_MODE_SUCCESS/FAILURE, INCLUDE_COLOR_VIOLATION
-  - Comprehensive diagnostics for include/exclude operations with performance metrics and validation results
-  - Enhanced error tracking and operational visibility for debugging and monitoring
-- **Enhanced CLI Experience**
-  - Type-safe help text with value indicators (PATH, NAME, INT, BOOL) and organized argument groups
-  - Ideal count CLI arguments: `--ramp-count`, `--land-count`, `--creature-count`, etc. for deck composition control
-  - Theme tag name support: `--primary-tag "Airbending"` instead of `--primary-choice 1` with intelligent resolution
-  - Include/exclude CLI parity: `--include-cards`, `--exclude-cards` with semicolon support for comma-containing card names
-  - Console summary output with detailed diagnostics and validation results for headless builds
-  - Priority system: CLI > JSON Config > Environment Variables > Defaults
-- **Enhanced Visual Validation**
-  - List size validation UI with visual warning system using icons and color coding
-  - Live validation badges showing count/limit status with clear visual indicators
-  - Performance-optimized validation with all targets exceeded (100% pass rate)
-  - Backward compatibility verification ensuring existing modals/flows unchanged
-- **Include/Exclude Lists**
-  - Must-include cards (max 10) and must-exclude cards (max 15) with strict/warn enforcement modes
-  - Enhanced fuzzy matching algorithm with 300+ Commander-legal card knowledge base
-  - Popular cards (184) and iconic cards (102) prioritization for improved matching accuracy
-  - Dark theme confirmation modal with card preview and top 3 alternatives for <90% confidence matches
-  - **EDH color identity validation**: Automatic checking of included cards against commander color identity with clear illegal status feedback
-  - File upload support (.txt) with deduplication and user feedback
-  - JSON export/import preserving all include/exclude configuration via permalink system
-- **Web Interface Enhancement**
-  - Two-column layout with visual distinction: green for includes, red for excludes
-  - Chips/tag UI allowing per-card removal with real-time textarea synchronization
-  - Enhanced validation endpoint with comprehensive diagnostics and conflict detection
-  - Debounced validation (500ms) for improved performance during typing
-  - Enter key handling fixes preventing accidental form submission in textareas
-  - Mobile responsive design with bottom-floating build controls and two-column grid layout
-  - Mobile horizontal scrolling prevention and setup status optimization
-  - Expanded mobile viewport breakpoint (720px → 1024px) for broader device compatibility
-- **Engine Integration**
-  - Include injection after land selection, before creature/spell fill ensuring proper deck composition
-  - Exclude re-entry prevention blocking filtered cards from re-entering via downstream heuristics
-  - Staging system architecture with custom `__inject_includes__` runner for web UI builds
-  - Comprehensive logging and diagnostics for observability and debugging
+## Added
+- Land alternatives: land-only mode with parity filtering (mono-color exclusions, rainbow text heuristics, fetch exclusion, World Tree legality check).
+- Randomized land alternative selection: 12 suggestions from a random window size inside the top 60–100 ranked candidates (uncached for variety).
+- Dynamic EDHREC keep range: `MISC_LAND_EDHREC_KEEP_PERCENT_MIN/MAX` (falls back to legacy single `MISC_LAND_EDHREC_KEEP_PERCENT` if min/max unset).
+- Misc land theme weighting overrides: `MISC_LAND_THEME_MATCH_BASE`, `MISC_LAND_THEME_MATCH_PER_EXTRA`, `MISC_LAND_THEME_MATCH_CAP`.
+- Debug gating: `MISC_LAND_DEBUG=1` to emit misc land candidate/post-filter CSVs (otherwise only when diagnostics enabled).
 
-## Performance Benchmarks (Complete)
-- **Exclude filtering**: 4.0ms (target: ≤50ms) - 92% under target ✅
-- **Fuzzy matching**: 0.1ms (target: ≤200ms) - 99.9% under target ✅
-- **Include injection**: 14.8ms (target: ≤100ms) - 85% under target ✅
-- **Full validation cycle**: 26.0ms (target: ≤500ms) - 95% under target ✅
-- **UI operations**: 15.0ms (target: ≤50ms) - 70% under target ✅
-- **Overall pass rate**: 5/5 (100%) with excellent performance margins
+## Changed
+- Fetch lands fully excluded from misc land (utility) step; they are handled earlier and no longer appear as filler.
+- Mono-color pass prunes broad rainbow/any-color lands (except allow-list) using expanded text phrase heuristics.
+- Alternatives endpoint skips caching for land role to preserve per-request randomness; non-land roles retain cache.
+- Compose / README / .env example updated with new land tuning variables.
+- Virtualization system now skips small grids (<80 items) to reduce overhead and prevent layout-induced scroll snapping.
 
-## Technical Details
-- **Architecture**: Dual implementation supporting web UI staging system and CLI direct build paths
-- **Performance**: All operations well under target response times with comprehensive testing framework
-- **Backward Compatibility**: Legacy endpoint transformation maintaining exact message formats for seamless integration
-- **Feature Flag**: `ALLOW_MUST_HAVES=true` environment variable for controlled rollout
+## Fixed
+- Step 5 scroll flicker / bounce when reaching bottom of short grids (overscroll containment + virtualization threshold).
+- Random land alternatives previously surfacing excluded or fetch lands—now aligned with misc step filters.
 
-## Notes
-- Include cards are injected after lands but before normal creature/spell selection to ensure optimal deck composition
-- Exclude cards are globally filtered from all card pools preventing any possibility of inclusion
-- Enhanced fuzzy matching handles common variations and prioritizes popular Commander staples like Lightning Bolt, Sol Ring, Counterspell
-- Fuzzy match confirmation modal provides card preview and suggestions when confidence is below 90%
-- Card knowledge base contains 300+ Commander-legal cards organized by function rather than competitive format
-- Strict mode will abort builds if any valid include cards cannot be added; warn mode continues with diagnostics
-- Visual warning system provides clear feedback when approaching or exceeding list size limits
+## Environment Variables (new / updated)
+| Variable | Purpose | Default |
+|----------|---------|---------|
+| MISC_LAND_EDHREC_KEEP_PERCENT_MIN | Lower bound for dynamic EDHREC keep % (0–1) | 0.75 |
+| MISC_LAND_EDHREC_KEEP_PERCENT_MAX | Upper bound for dynamic EDHREC keep % (0–1) | 1.0 |
+| MISC_LAND_EDHREC_KEEP_PERCENT | Legacy single fixed keep % (fallback) | 0.80 |
+| MISC_LAND_DEBUG | Emit misc land debug CSVs | Off |
+| MISC_LAND_THEME_MATCH_BASE | Base multiplier for first theme match | 1.4 |
+| MISC_LAND_THEME_MATCH_PER_EXTRA | Increment per additional matching theme | 0.15 |
+| MISC_LAND_THEME_MATCH_CAP | Cap on total theme multiplier | 2.0 |
 
-## Fixes
-- Resolved critical architecture mismatch where web UI and CLI used different build paths
-- Fixed form submission issues where include cards weren't saving properly
-- Corrected comma parsing that was breaking card names containing commas
-- Fixed backward compatibility test failures with warning message format standardization
-- Eliminated debug and emergency logging messages for production readiness
+## Upgrade Notes
+1. No migration steps required; defaults mirror prior behavior but introduce controlled randomness for utility land variety.
+2. To restore pre-random behavior, set MIN=MAX=1.0 (or rely on legacy `MISC_LAND_EDHREC_KEEP_PERCENT`).
+3. If deterministic land alternatives are needed for testing, consider temporarily disabling randomness (future flag can be added).
+4. To analyze utility land selection, enable diagnostics or set `MISC_LAND_DEBUG=1` before running a build; CSVs appear under `logs/` (or diagnostic export path) only when enabled.
+
+## Testing & Quality
+- Existing fast test suite passes (include/exclude + summary utilities). Additional targeted tests for randomized window selection can be added in a follow-up if deterministic mode is introduced.
+- Manual validation: multiple builds confirm varied utility land pools and land alternatives without fetch/rainbow leakage.
+
+## Future Follow-ups (Optional)
+- Deterministic toggle for land alternative randomization (e.g., `LAND_ALTS_DETERMINISTIC=1`).
+- Unit tests focusing on edge-case mono-color filtering and theme weighting bounds.
+- Potential adaptive virtualization row-height measurement per column for further smoothness (currently fixed estimate works acceptably).
+
+---
+Generated template ready for tagging release `${VERSION}` (update actual version number in CI/CD pipeline or tagging script).

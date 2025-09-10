@@ -4751,7 +4751,6 @@ def create_burn_damage_mask(df: pd.DataFrame) -> pd.Series:
 
     # Create general damage trigger patterns
     trigger_patterns = [
-        'deals combat damage',
         'deals damage',
         'deals noncombat damage', 
         'deals that much damage',

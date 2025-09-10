@@ -151,3 +151,8 @@ class LandOptimizationMixin:
         self._enforce_land_cap(step_label="Tapped Opt (Step 8)")
         if self.color_source_matrix_baseline is None:
             self.color_source_matrix_baseline = self._compute_color_source_matrix()
+        try:
+            from .. import builder_utils as _bu
+            _bu.export_current_land_pool(self, '8')
+        except Exception:
+            pass

@@ -156,6 +156,11 @@ class LandFetchMixin:
             desired = requested_count
         self.add_fetch_lands(requested_count=desired)
         self._enforce_land_cap(step_label="Fetch (Step 4)")  # type: ignore[attr-defined]
+        try:
+            from .. import builder_utils as _bu
+            _bu.export_current_land_pool(self, '4')
+        except Exception:
+            pass
 
 __all__ = [
     'LandFetchMixin'

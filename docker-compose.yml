@@ -18,6 +18,7 @@ services:
       ENABLE_PRESETS: "0"           # 1=show presets section
       WEB_VIRTUALIZE: "1"           # 1=enable list virtualization in Step 5
       ALLOW_MUST_HAVES: "1"         # 1=enable must-include/must-exclude cards feature; 0=disable
+      SHOW_MISC_POOL: "0"
 
       # Theming
       THEME: "dark"                 # system|light|dark
@@ -30,8 +31,18 @@ services:
 
       # Compliance/exports
       WEB_AUTO_ENFORCE: "0"         # 1=auto-apply bracket enforcement and re-export
-      APP_VERSION: "v2.2.8"         # Optional label shown in footer
+      APP_VERSION: "v2.2.9"         # Optional label shown in footer
       # WEB_CUSTOM_EXPORT_BASE: ""   # Optional custom export basename
+
+      # Misc land tuning (utility land selection – Step 7)
+      # MISC_LAND_DEBUG: "1"                 # 1=write misc land debug CSVs (post-filter, candidates); off by default unless SHOW_DIAGNOSTICS=1
+      # MISC_LAND_EDHREC_KEEP_PERCENT_MIN: "0.75"  # Lower bound (0–1). When both MIN & MAX set, a random keep % in [MIN,MAX] is rolled each build
+      # MISC_LAND_EDHREC_KEEP_PERCENT_MAX: "1.0"   # Upper bound (0–1) for dynamic EDHREC keep range
+      # MISC_LAND_EDHREC_KEEP_PERCENT: "0.80"      # Legacy single fixed keep % (used only if MIN/MAX not both provided)
+      # (Optional theme weighting overrides)
+      # MISC_LAND_THEME_MATCH_BASE: "1.4"          # Multiplier if at least one theme tag matches
+      # MISC_LAND_THEME_MATCH_PER_EXTRA: "0.15"    # Increment per extra matching tag beyond first
+      # MISC_LAND_THEME_MATCH_CAP: "2.0"           # Cap for total theme multiplier
 
       # Paths (optional overrides)
       # DECK_EXPORTS: "/app/deck_files"     # Where the deck browser looks for exports

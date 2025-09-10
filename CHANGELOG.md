@@ -13,13 +13,32 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 ## [Unreleased]
 
 ### Added
-- (placeholder)
+- Misc land step: dynamic EDHREC keep percentage range (roll between 75%-100%) via `MISC_LAND_EDHREC_KEEP_PERCENT_MIN/MAX` for more variety in utility land pools
+- Alternatives: initial land support – when requesting alternatives for a land, endpoint now returns land-only suggestions (basics → other basics; non-basics → other non-basics) with heuristic sub-category narrowing on large pools.
+- Land alternatives now randomize: 12 suggestions sampled each request from a randomly sized window within the top 60–100 ranked land candidates (per-card, no caching) for higher variety.
+- Misc land debug CSV exports gated behind `MISC_LAND_DEBUG` or diagnostics flag; not produced in normal runs.
 
 ### Changed
-- (placeholder)
+- Misc land step now excludes all fetch lands outright (they're handled earlier); reason recorded as `fetch-skip-misc` in diagnostics CSV
+- Legacy single-value `MISC_LAND_EDHREC_KEEP_PERCENT` retained as fallback if min/max not defined
+- Documentation: README and compose files updated with misc land tuning env vars (`MISC_LAND_DEBUG`, dynamic EDHREC keep range, theme weighting multipliers)
 
 ### Fixed
-- (placeholder)
+- (placeholder) – no current unreleased land alternatives bugs logged
+ - Step 5 card grid scroll flicker at bottom: added overscroll containment and skip virtualization for small (<80 items) grids to prevent upward jump when reaching end
+
+## [2.2.9] - 2025-09-10
+
+### Added
+- Dynamic misc utility land EDHREC keep range env docs and theme weighting overrides
+- Land alternatives randomization (12 suggestions from random top 60–100 window) and land-only parity filtering
+
+### Changed
+- Compose and README updated with new misc land tuning environment variables
+
+### Fixed
+- Step 5 scroll flicker at bottom for small grids (virtualization skip <80 items + overscroll containment)
+- Fetch lands excluded from misc land step; mono-color rainbow filtering improvements
 
 ## [2.2.8] - 2025-09-10
 

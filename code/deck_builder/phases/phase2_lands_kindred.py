@@ -145,6 +145,11 @@ class LandKindredMixin:
         """Public wrapper to add kindred-focused lands."""
         self.add_kindred_lands()
         self._enforce_land_cap(step_label="Kindred (Step 3)")  # type: ignore[attr-defined]
+        try:
+            from .. import builder_utils as _bu
+            _bu.export_current_land_pool(self, '3')
+        except Exception:
+            pass
 
 
 __all__ = [

@@ -364,7 +364,6 @@ def is_color_fixing_land(tline: str, text_lower: str) -> bool:
 	distinct = {cw for cw in bc.COLORED_MANA_SYMBOLS if cw in text_lower}
 	return len(distinct) >= 2
 
-
 # ---------------------------------------------------------------------------
 # Weighted sampling & fetch helpers
 # ---------------------------------------------------------------------------
@@ -394,6 +393,43 @@ def weighted_sample_without_replacement(pool: list[tuple[str, int | float]], k: 
 		nm, _w = working.pop(pick_idx)
 		chosen.append(nm)
 	return chosen
+
+# -----------------------------
+# Land Debug Export Helper
+# -----------------------------
+def export_current_land_pool(builder, label: str) -> None:
+	"""Write a CSV snapshot of current land candidates (full dataframe filtered to lands).
+
+	Outputs to logs/debug/land_step_{label}_test.csv. Guarded so it only runs if the combined
+	dataframe exists. Designed for diagnosing filtering shrinkage between land steps.
+	"""
+	try:  # pragma: no cover - diagnostics
+		df = getattr(builder, '_combined_cards_df', None)
+		if df is None or getattr(df, 'empty', True):
+			return
+		col = 'type' if 'type' in df.columns else ('type_line' if 'type_line' in df.columns else None)
+		if not col:
+			return
+		land_df = df[df[col].fillna('').str.contains('Land', case=False, na=False)].copy()
+		if land_df.empty:
+			return
+		import os
+		os.makedirs(os.path.join('logs','debug'), exist_ok=True)
+		export_cols = [c for c in ['name','type','type_line','manaValue','edhrecRank','colorIdentity','manaCost','themeTags','oracleText'] if c in land_df.columns]
+		path = os.path.join('logs','debug', f'land_step_{label}_test.csv')
+		try:
+			if export_cols:
+				land_df[export_cols].to_csv(path, index=False, encoding='utf-8')
+			else:
+				land_df.to_csv(path, index=False, encoding='utf-8')
+		except Exception:
+			land_df.to_csv(path, index=False)
+		try:
+			builder.output_func(f"[DEBUG] Wrote land_step_{label}_test.csv ({len(land_df)} rows)")
+		except Exception:
+			pass
+	except Exception:
+		pass
 
 
 def count_existing_fetches(card_library: dict) -> int:
@@ -437,6 +473,74 @@ def select_top_land_candidates(df, already: set[str], basics: set[str], top_n: i
 			continue
 	out.sort(key=lambda x: x[0])
 	return out[:top_n]
+
+
+# ---------------------------------------------------------------------------
+# Misc land filtering helpers (mono-color exclusions & tribal weighting)
+# ---------------------------------------------------------------------------
+def is_mono_color(builder) -> bool:
+	try:
+		ci = getattr(builder, 'color_identity', []) or []
+		return len([c for c in ci if c in ('W','U','B','R','G')]) == 1
+	except Exception:
+		return False
+
+
+def has_kindred_theme(builder) -> bool:
+	try:
+		tags = [t.lower() for t in (getattr(builder, 'selected_tags', []) or [])]
+		return any(('kindred' in t or 'tribal' in t) for t in tags)
+	except Exception:
+		return False
+
+
+def is_kindred_land(name: str) -> bool:
+	"""Return True if the land is considered kindred-oriented (unified constant)."""
+	from . import builder_constants as bc  # local import to avoid cycles
+	kindred = set(getattr(bc, 'KINDRED_LAND_NAMES', [])) or {d['name'] for d in getattr(bc, 'KINDRED_STAPLE_LANDS', [])}
+	return name in kindred
+
+
+def misc_land_excluded_in_mono(builder, name: str) -> bool:
+	"""Return True if a land should be excluded in mono-color decks per constant list.
+
+	Exclusion rules:
+	  - Only applies if deck is mono-color.
+	  - Never exclude items in MONO_COLOR_MISC_LAND_KEEP_ALWAYS.
+	  - Never exclude tribal/kindred lands (they may be down-weighted separately if no theme).
+	  - Always exclude The World Tree if not 5-color identity.
+	"""
+	from . import builder_constants as bc
+	try:
+		ci = getattr(builder, 'color_identity', []) or []
+		# World Tree legality check (needs all five colors in identity)
+		if name == 'The World Tree' and set(ci) != {'W','U','B','R','G'}:
+			return True
+		if not is_mono_color(builder):
+			return False
+		if name in getattr(bc, 'MONO_COLOR_MISC_LAND_KEEP_ALWAYS', []):
+			return False
+		if is_kindred_land(name):
+			return False
+		if name in getattr(bc, 'MONO_COLOR_MISC_LAND_EXCLUDE', []):
+			return True
+	except Exception:
+		return False
+	return False
+
+
+def adjust_misc_land_weight(builder, name: str, base_weight: int | float) -> int | float:
+	"""Adjust weight for tribal lands when no tribal theme present.
+
+	If land is tribal and no kindred theme, weight is reduced (min 1) by factor.
+	"""
+	if is_kindred_land(name) and not has_kindred_theme(builder):
+		try:
+			# Ensure we don't drop below 1 (else risk exclusion by sampling step)
+			return max(1, int(base_weight * 0.5))
+		except Exception:
+			return base_weight
+	return base_weight
 
 
 # ---------------------------------------------------------------------------

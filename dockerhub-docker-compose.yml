@@ -32,8 +32,17 @@ services:
 
       # Compliance/exports
       WEB_AUTO_ENFORCE: "0"
-      APP_VERSION: "v2.2.8"
+      APP_VERSION: "v2.2.9"
       # WEB_CUSTOM_EXPORT_BASE: ""
+
+      # Misc land tuning (utility land selection – Step 7)
+      # MISC_LAND_DEBUG: "1"                 # 1=write misc land debug CSVs (post-filter, candidates); off unless SHOW_DIAGNOSTICS=1
+      # MISC_LAND_EDHREC_KEEP_PERCENT_MIN: "0.75"  # Lower bound (0–1). When both MIN & MAX set, a random keep % in [MIN,MAX] is rolled per build
+      # MISC_LAND_EDHREC_KEEP_PERCENT_MAX: "1.0"   # Upper bound (0–1)
+      # MISC_LAND_EDHREC_KEEP_PERCENT: "0.80"      # Legacy single fixed keep % (only used if MIN/MAX not both set)
+      # MISC_LAND_THEME_MATCH_BASE: "1.4"          # Multiplier if at least one theme tag matches
+      # MISC_LAND_THEME_MATCH_PER_EXTRA: "0.15"    # Increment per extra matching tag
+      # MISC_LAND_THEME_MATCH_CAP: "2.0"           # Cap for theme multiplier
 
       # Paths (optional overrides)
       # DECK_EXPORTS: "/app/deck_files"

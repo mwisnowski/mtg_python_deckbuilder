@@ -212,6 +212,11 @@ class LandDualsMixin:
     def run_land_step5(self, requested_count: int | None = None):  # type: ignore[override]
         self.add_dual_lands(requested_count=requested_count)
         self._enforce_land_cap(step_label="Duals (Step 5)")  # type: ignore[attr-defined]
+        try:
+            from .. import builder_utils as _bu
+            _bu.export_current_land_pool(self, '5')
+        except Exception:
+            pass
 
 __all__ = [
     'LandDualsMixin'

@@ -483,6 +483,15 @@
         var ownedGrid = container.id === 'owned-box' ? container.querySelector('#owned-grid') : null;
         if (ownedGrid) { source = ownedGrid; }
         var all = Array.prototype.slice.call(source.children);
+        // Threshold: skip virtualization for small grids to avoid scroll jitter at end-of-list.
+        // Empirically flicker was reported when reaching the bottom of short grids (e.g., < 80 tiles)
+        // due to dynamic height adjustments (image loads + padding recalcs). Keeping full DOM
+        // is cheaper than the complexity for small sets.
+        var MIN_VIRT_ITEMS = 80;
+        if (all.length < MIN_VIRT_ITEMS){
+          // Mark as processed so we don't attempt again on HTMX swaps.
+          return; // children remain in place; no virtualization applied.
+        }
         var store = document.createElement('div');
         store.style.display = 'none';
         all.forEach(function(n){ store.appendChild(n); });

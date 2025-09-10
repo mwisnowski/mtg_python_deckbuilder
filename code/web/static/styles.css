@@ -219,6 +219,8 @@ small, .muted{ color: var(--muted); }
 	gap: .5rem;
 	margin-top:.5rem;
 	justify-content: start; /* pack as many as possible per row */
+	/* Prevent scroll chaining bounce that can cause flicker near bottom */
+	overscroll-behavior: contain;
 }
 @media (max-width: 420px){
 	.card-grid{ grid-template-columns: repeat(2, minmax(0, 1fr)); }

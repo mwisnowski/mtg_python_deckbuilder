@@ -1,6 +1,6 @@
 [build-system]
 # Bumped setuptools minimum to avoid older vulnerable releases; wheel bumped for newer build metadata support
-requires = ["setuptools>=70.0.0", "wheel>=0.43.0"]
+requires = ["setuptools>=78.1.1", "wheel>=0.43.0"]
 build-backend = "setuptools.build_meta"
 
 [project]

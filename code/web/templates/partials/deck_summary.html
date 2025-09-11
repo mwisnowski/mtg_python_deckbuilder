@@ -338,12 +338,13 @@
 
 <!-- Test Hand (7 random cards; duplicates allowed only for basic lands) -->
 <section style="margin-top:1rem;">
-  <h5>Test Hand</h5>
-  <div style="display:flex; gap:.5rem; align-items:center; margin-bottom:.5rem;">
+  <h5 style="margin:0 0 .35rem 0; display:flex; align-items:center; gap:.75rem; flex-wrap:wrap;">Test Hand
+    <span class="muted" style="font-size:12px; font-weight:400;">Draw 7 at random (no repeats except for basic lands).</span>
+  </h5>
+  <div style="display:flex; gap:.6rem; align-items:center; flex-wrap:wrap; margin-bottom:.5rem;">
     <button type="button" id="btn-new-hand">New Hand</button>
-    <span class="muted" style="font-size:12px;">Draw 7 at random (no repeats except for basic lands).</span>
   </div>
-  <div class="stack-wrap" id="test-hand" style="--card-w: 240px; --card-h: 336px; --overlap: .55; --cols: 7;">
+  <div class="stack-wrap hand-row-overlap" id="test-hand">
     <div class="stack-grid" id="test-hand-grid"></div>
   </div>
   <script>
@@ -415,13 +416,30 @@
         var grid = document.getElementById('test-hand-grid');
         if (!grid) return;
         grid.innerHTML = '';
-        hand.forEach(function(name){
+        var host = document.getElementById('test-hand');
+        if (host){ host.style.setProperty('--mid', (hand.length ? (hand.length - 1)/2 : 0)); host.style.setProperty('--count', hand.length); }
+        hand.forEach(function(name, idx){
           if (!name) return;
           var div = document.createElement('div');
           div.className = 'stack-card';
           if (GC_SET && GC_SET.has(name)) {
             div.className += ' game-changer';
           }
+          div.style.setProperty('--i', idx);
+          var mid = (hand.length - 1) / 2;
+          var diff = Math.abs(idx - mid);
+          var peakRaise = 22; // px raise at center (accentuate arc)
+          var dropPer = 5; // linear component per distance step
+          // Strengthen curve so the very outer cards sit lower
+          var outerExtra = 24; // quadratic downward px strongest at edges
+          var edgeBias = 8; // cubic bias for far edges
+          var norm = (mid > 0 ? diff / mid : 0); // 0..1
+          var curve = norm * norm * outerExtra; // quadratic easing
+          var curve3 = norm * norm * norm * edgeBias; // cubic accentuation
+          var y = (diff * dropPer) + curve + curve3 - peakRaise; // center negative (raised), edges positive (lower)
+          // Minor smoothing so second-from-edge isn't too low
+          if (mid >= 2 && Math.abs(diff - (mid - 1)) < 0.001) { y += 2; }
+          div.style.setProperty('--ty', y + 'px');
           div.innerHTML = (
             '<img src="https://api.scryfall.com/cards/named?fuzzy=' + encodeURIComponent(name) + '&format=image&version=normal" alt="' + name + '" data-card-name="' + name + '" />'
           );
@@ -431,9 +449,73 @@
       function newHand(){ var deck = collectDeck(); render(drawHand(deck)); }
       var btn = document.getElementById('btn-new-hand');
       if (btn) btn.addEventListener('click', newHand);
+      // Fan effect — desktop default (>=900px, hover-capable pointer)
+      var handEl = document.getElementById('test-hand');
+      (function(){
+        if(!handEl) return;
+        var onEnter = function(){ handEl.classList.add('fan'); };
+        var onLeave = function(){ handEl.classList.remove('fan'); };
+        var mq = window.matchMedia('(any-hover: hover) and (pointer: fine) and (min-width: 900px)');
+        function attach(){ handEl.addEventListener('mouseenter', onEnter); handEl.addEventListener('mouseleave', onLeave); }
+        function detach(){ handEl.removeEventListener('mouseenter', onEnter); handEl.removeEventListener('mouseleave', onLeave); }
+        // Desktop: fan is default; Mobile/tablet: no fan
+        function apply(){
+          if (mq.matches) {
+            detach();
+            handEl.classList.add('fan');
+          } else {
+            detach();
+            handEl.classList.remove('fan');
+          }
+        }
+        try {
+          if (typeof mq.addEventListener === 'function') mq.addEventListener('change', apply);
+          else if (typeof mq.addListener === 'function') mq.addListener(apply);
+        } catch(_) {}
+        apply();
+      })();
       newHand();
     })();
   </script>
+  <style>
+    /* Base overlapping hand: 160px cards (same as deck thumbnails) */
+  #test-hand.hand-row-overlap{ padding-bottom:.9rem; --fan-gap:28px; --card-w:160px; --card-h:224px; }
+    #test-hand.hand-row-overlap .stack-grid{ display:flex !important; gap:0; overflow-x:auto; scrollbar-width:thin; }
+  #test-hand.hand-row-overlap .stack-card{ width:var(--card-w); height:var(--card-h); transition: transform .25s ease, margin-left .25s ease, width .25s ease, height .25s ease; flex: 0 0 auto; }
+    /* Dynamic overlap: show ~30% of next card */
+    #test-hand.hand-row-overlap .stack-card + .stack-card{ margin-left: calc(var(--card-w) * -0.7); }
+    #test-hand.hand-row-overlap .stack-card img{ width:var(--card-w); height:var(--card-h); display:block; }
+    #test-hand.hand-row-overlap .stack-card:hover{ z-index:999; transform:translateY(-4px); }
+    /* Desktop sizing for Test Hand */
+    @media (min-width:900px){
+      #test-hand.hand-row-overlap{ --card-w:280px; --card-h:392px; --fan-gap:40px; }
+      #test-hand.hand-row-overlap .stack-card + .stack-card{ margin-left: calc(var(--card-w) * -0.7); }
+      #test-hand.hand-row-overlap.fan{ --card-w:280px; --card-h:392px; }
+    }
+    /* Hover fan-out: spread cards horizontally, enlarge if not already large */
+  #test-hand.hand-row-overlap.fan{ --fan-overlap:0.40; --fan-gap:0px; }
+  #test-hand.hand-row-overlap.fan .stack-card + .stack-card{ margin-left:0; }
+  #test-hand.hand-row-overlap.fan .stack-grid{ justify-content:center; overflow:visible; padding-left:0; }
+  /* Fan transform now applies a 40% overlap (visible width ~60%) while keeping center aligned */
+  #test-hand.hand-row-overlap.fan .stack-card{ position:relative; transform: translateX(calc((var(--i) - var(--mid)) * (var(--fan-gap) - (var(--card-w) * var(--fan-overlap))))) translateY(var(--ty,0px)) rotate(calc((var(--i) - var(--mid)) * 4deg)); }
+    /* Responsive adjustments */
+    @media (max-width:900px){
+      #test-hand.hand-row-overlap.fan{ --card-w:240px; --card-h:336px; --fan-overlap:0.40; --fan-gap:0px; }
+    }
+    @media (max-width:640px){
+      #test-hand.hand-row-overlap{ --card-w:150px; --card-h:210px; }
+      #test-hand.hand-row-overlap.fan{ --card-w:200px; --card-h:280px; --fan-overlap:0.40; --fan-gap:0px; }
+    }
+    @media (min-width:640px) and (max-width:899px){
+      #test-hand.hand-row-overlap{ --card-w:160px; --card-h:224px; }
+    }
+    @media (max-width:480px){
+      #test-hand.hand-row-overlap{ --card-w:140px; --card-h:196px; }
+      #test-hand.hand-row-overlap .stack-card + .stack-card{ margin-left: calc(var(--card-w) * -0.65); }
+  #test-hand.hand-row-overlap.fan{ --card-w:180px; --card-h:252px; --fan-overlap:0.40; --fan-gap:0px; }
+      #test-hand.hand-row-overlap.fan .stack-grid{ padding-left:0; }
+    }
+  </style>
 </section>
 <style>
   .chart-tooltip { position: fixed; pointer-events: none; background: #0f1115; color: #e5e7eb; border: 1px solid var(--border); padding: .4rem .55rem; border-radius: 6px; font-size: 12px; line-height: 1.3; white-space: pre-line; z-index: 9999; display: none; box-shadow: 0 4px 16px rgba(0,0,0,.4); }

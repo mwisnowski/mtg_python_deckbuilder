@@ -27,12 +27,9 @@ services:
       WEB_AUTO_SETUP: "1"           # 1=auto-run setup/tagging when needed
       WEB_AUTO_REFRESH_DAYS: "7"    # Refresh cards.csv if older than N days; 0=never
       WEB_TAG_PARALLEL: "1"         # 1=parallelize tagging
-      WEB_TAG_WORKERS: "4"          # Worker count when parallel tagging
+  WEB_TAG_WORKERS: "4"          # Worker count when parallel tagging
 
-      # Compliance/exports
-      WEB_AUTO_ENFORCE: "0"         # 1=auto-apply bracket enforcement and re-export
-      APP_VERSION: "v2.2.9"         # Optional label shown in footer
-      # WEB_CUSTOM_EXPORT_BASE: ""   # Optional custom export basename
+      
 
       # Misc land tuning (utility land selection – Step 7)
       # MISC_LAND_DEBUG: "1"                 # 1=write misc land debug CSVs (post-filter, candidates); off by default unless SHOW_DIAGNOSTICS=1

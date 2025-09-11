@@ -52,6 +52,3 @@
 - Deterministic toggle for land alternative randomization (e.g., `LAND_ALTS_DETERMINISTIC=1`).
 - Unit tests focusing on edge-case mono-color filtering and theme weighting bounds.
 - Potential adaptive virtualization row-height measurement per column for further smoothness (currently fixed estimate works acceptably).
-
----
-Generated template ready for tagging release `${VERSION}` (update actual version number in CI/CD pipeline or tagging script).

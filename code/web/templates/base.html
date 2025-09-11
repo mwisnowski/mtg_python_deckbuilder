@@ -30,7 +30,7 @@
         }catch(_){ }
       })();
     </script>
-  <link rel="stylesheet" href="/static/styles.css?v=20250902-3" />
+  <link rel="stylesheet" href="/static/styles.css?v=20250911-1" />
   <!-- Performance hints -->
   <link rel="preconnect" href="https://api.scryfall.com" crossorigin>
   <link rel="dns-prefetch" href="https://api.scryfall.com">
@@ -54,23 +54,9 @@
         <div style="display:flex; align-items:center; gap:.5rem">
           <span id="health-dot" class="health-dot" title="Health"></span>
           <div id="banner-status" class="banner-status">{% block banner_subtitle %}{% endblock %}</div>
-          <button type="button" class="btn" title="Open a saved permalink"
+          <button type="button" id="btn-open-permalink" class="btn" title="Open a saved permalink"
             onclick="(function(){try{var token = prompt('Paste a /build/from?state=... URL or token:'); if(!token) return; var m = token.match(/state=([^&]+)/); var t = m? m[1] : token.trim(); if(!t) return; window.location.href = '/build/from?state=' + encodeURIComponent(t); }catch(_){}})()">Open Permalink…</button>
-          {% if enable_themes %}
-          <label style="margin:0 .5rem; align-items:flex-start; margin-left:auto">
-            <span class="muted" style="font-size:11px">Theme</span>
-            <select id="theme-select" aria-label="Theme selector">
-              <option value="system">System</option>
-              <option value="light">Light</option>
-              <option value="dark">Dark</option>
-              <option value="high-contrast">High contrast</option>
-              <option value="cb-friendly">Color-blind</option>
-            </select>
-          </label>
-          <button type="button" id="theme-reset" class="btn" title="Reset theme preference" style="background: transparent; color: var(--surface-banner-text); border:1px solid var(--border);">
-            Reset
-          </button>
-          {% endif %}
+          {# Theme controls moved to sidebar #}
         </div>
       </div>
     </header>
@@ -95,6 +81,21 @@
           {% if show_diagnostics %}<a href="/diagnostics">Diagnostics</a>{% endif %}
           {% if show_logs %}<a href="/logs">Logs</a>{% endif %}
         </nav>
+        {% if enable_themes %}
+        <div class="sidebar-theme" role="group" aria-label="Theme">
+          <label class="sidebar-theme-label" for="theme-select">Theme</label>
+          <div class="sidebar-theme-row">
+            <select id="theme-select" aria-label="Theme selector">
+              <option value="system">System</option>
+              <option value="light">Light</option>
+              <option value="dark">Dark</option>
+              <option value="high-contrast">High contrast</option>
+              <option value="cb-friendly">Color-blind</option>
+            </select>
+            <button type="button" id="theme-reset" class="btn btn-ghost" title="Reset theme preference">Reset</button>
+          </div>
+        </div>
+        {% endif %}
       </aside>
   <main class="content" data-error-surface>
         {% block content %}{% endblock %}

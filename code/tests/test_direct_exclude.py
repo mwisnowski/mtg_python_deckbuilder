@@ -143,10 +143,9 @@ def test_direct_exclude_filtering():
     
     if failed_exclusions:
         print(f"\n❌ FAILED: {len(failed_exclusions)} cards were not excluded: {failed_exclusions}")
-        return False
+        assert False
     else:
         print(f"\n✅ SUCCESS: All {len(exclude_list)} cards were properly excluded")
-        return True
 
 if __name__ == "__main__":
     success = test_direct_exclude_filtering()

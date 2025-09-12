@@ -13,13 +13,15 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 ## [Unreleased]
 
 ### Added
-- (placeholder)
+- CI: additional checks to improve stability and reproducibility.
+- Tests: broader coverage for validation and web flows.
 
 ### Changed
-- (placeholder)
+- Tests: refactored to use pytest assertions and cleaned up fixtures/utilities to reduce noise and deprecations.
+- Tests: HTTP-dependent tests now skip gracefully when the local web server is unavailable.
 
 ### Fixed
-- (placeholder)
+- Tests: reduced deprecation warnings and incidental failures; improved consistency and reliability across runs.
 
 ## [2.2.10] - 2025-09-11
 

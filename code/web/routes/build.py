@@ -24,6 +24,86 @@ from deck_builder import builder_utils as bu
 from ..services.combo_utils import detect_all as _detect_all
 from ..services.alts_utils import get_cached as _alts_get_cached, set_cached as _alts_set_cached
 
+# Cache for available card names used by validation endpoints
+_AVAILABLE_CARDS_CACHE: set[str] | None = None
+_AVAILABLE_CARDS_NORM_SET: set[str] | None = None
+_AVAILABLE_CARDS_NORM_MAP: dict[str, str] | None = None
+
+def _available_cards() -> set[str]:
+    """Fast load of available card names using the csv module (no pandas).
+
+    Reads only once and caches results in memory.
+    """
+    global _AVAILABLE_CARDS_CACHE
+    if _AVAILABLE_CARDS_CACHE is not None:
+        return _AVAILABLE_CARDS_CACHE
+    try:
+        import csv
+        path = 'csv_files/cards.csv'
+        with open(path, 'r', encoding='utf-8', newline='') as f:
+            reader = csv.DictReader(f)
+            fields = reader.fieldnames or []
+            name_col = None
+            for col in ['name', 'Name', 'card_name', 'CardName']:
+                if col in fields:
+                    name_col = col
+                    break
+            if name_col is None and fields:
+                # Heuristic: pick first field containing 'name'
+                for col in fields:
+                    if 'name' in col.lower():
+                        name_col = col
+                        break
+            if name_col is None:
+                raise ValueError(f"No name-like column found in {path}: {fields}")
+            names: set[str] = set()
+            for row in reader:
+                try:
+                    v = row.get(name_col)
+                    if v:
+                        names.add(str(v))
+                except Exception:
+                    continue
+            _AVAILABLE_CARDS_CACHE = names
+            return _AVAILABLE_CARDS_CACHE
+    except Exception:
+        _AVAILABLE_CARDS_CACHE = set()
+        return _AVAILABLE_CARDS_CACHE
+
+def _available_cards_normalized() -> tuple[set[str], dict[str, str]]:
+    """Return cached normalized card names and mapping to originals."""
+    global _AVAILABLE_CARDS_NORM_SET, _AVAILABLE_CARDS_NORM_MAP
+    if _AVAILABLE_CARDS_NORM_SET is not None and _AVAILABLE_CARDS_NORM_MAP is not None:
+        return _AVAILABLE_CARDS_NORM_SET, _AVAILABLE_CARDS_NORM_MAP
+    # Build from available cards set
+    names = _available_cards()
+    try:
+        from deck_builder.include_exclude_utils import normalize_punctuation
+    except Exception:
+        # Fallback: identity normalization
+        def normalize_punctuation(x: str) -> str:  # type: ignore
+            return str(x).strip().casefold()
+    norm_map: dict[str, str] = {}
+    for name in names:
+        try:
+            n = normalize_punctuation(name)
+            if n not in norm_map:
+                norm_map[n] = name
+        except Exception:
+            continue
+    _AVAILABLE_CARDS_NORM_MAP = norm_map
+    _AVAILABLE_CARDS_NORM_SET = set(norm_map.keys())
+    return _AVAILABLE_CARDS_NORM_SET, _AVAILABLE_CARDS_NORM_MAP
+
+def warm_validation_name_cache() -> None:
+    """Pre-populate the available-cards caches to avoid first-call latency."""
+    try:
+        _ = _available_cards()
+        _ = _available_cards_normalized()
+    except Exception:
+        # Best-effort warmup; proceed silently on failure
+        pass
+
 router = APIRouter(prefix="/build")
 
 # Alternatives cache moved to services/alts_utils
@@ -120,9 +200,9 @@ async def build_index(request: Request) -> HTMLResponse:
         else:
             last_step = 1
     resp = templates.TemplateResponse(
+        request,
         "build/index.html",
         {
-            "request": request,
             "sid": sid,
             "commander": sess.get("commander"),
             "tags": sess.get("tags", []),
@@ -2719,7 +2799,7 @@ async def build_enforce_apply(request: Request) -> HTMLResponse:
         "compliance": compliance or rep,
     }
     page_ctx = step5_ctx_from_result(request, sess, res, status_text="Build complete", show_skipped=True)
-    resp = templates.TemplateResponse("build/_step5.html", page_ctx)
+    resp = templates.TemplateResponse(request, "build/_step5.html", page_ctx)
     resp.set_cookie("sid", sid, httponly=True, samesite="lax")
     return resp
 
@@ -2751,7 +2831,7 @@ async def build_enforcement_fullpage(request: Request) -> HTMLResponse:
     except Exception:
         pass
     ctx2 = {"request": request, "compliance": comp}
-    resp = templates.TemplateResponse("build/enforcement.html", ctx2)
+    resp = templates.TemplateResponse(request, "build/enforcement.html", ctx2)
     resp.set_cookie("sid", sid, httponly=True, samesite="lax")
     return resp
 
@@ -2832,8 +2912,7 @@ async def build_from(request: Request, state: str | None = None) -> HTMLResponse
         locks_restored = len(sess.get("locks", []) or [])
     except Exception:
         locks_restored = 0
-    resp = templates.TemplateResponse("build/_step4.html", {
-        "request": request,
+    resp = templates.TemplateResponse(request, "build/_step4.html", {
         "labels": orch.ideal_labels(),
         "values": sess.get("ideals") or orch.ideal_defaults(),
         "commander": sess.get("commander"),
@@ -3052,24 +3131,19 @@ async def validate_include_exclude_cards(
             # No commander provided, do basic fuzzy matching only
             if fuzzy_matching and (include_unique or exclude_unique):
                 try:
-                    # Get card names directly from CSV without requiring commander setup
-                    import pandas as pd
-                    cards_df = pd.read_csv('csv_files/cards.csv')
+                    # Use cached available cards set (1st call populates cache)
+                    available_cards = _available_cards()
                     
-                    # Try to find the name column
-                    name_column = None
-                    for col in ['Name', 'name', 'card_name', 'CardName']:
-                        if col in cards_df.columns:
-                            name_column = col
-                            break
-                    
-                    if name_column is None:
-                        raise ValueError(f"Could not find name column. Available columns: {list(cards_df.columns)}")
-                    
-                    available_cards = set(cards_df[name_column].tolist())
-                    
+                    # Fast path: normalized exact matches via cached sets
+                    norm_set, norm_map = _available_cards_normalized()
                     # Validate includes with fuzzy matching
                     for card_name in include_unique:
+                        from deck_builder.include_exclude_utils import normalize_punctuation
+                        n = normalize_punctuation(card_name)
+                        if n in norm_set:
+                            result["includes"]["fuzzy_matches"][card_name] = norm_map[n]
+                            result["includes"]["legal"].append(norm_map[n])
+                            continue
                         match_result = fuzzy_match_card_name(card_name, available_cards)
                         
                         if match_result.matched_name and match_result.auto_accepted:
@@ -3087,9 +3161,14 @@ async def validate_include_exclude_cards(
                         else:
                             # No match found at all, add to illegal
                             result["includes"]["illegal"].append(card_name)
-                    
                     # Validate excludes with fuzzy matching
                     for card_name in exclude_unique:
+                        from deck_builder.include_exclude_utils import normalize_punctuation
+                        n = normalize_punctuation(card_name)
+                        if n in norm_set:
+                            result["excludes"]["fuzzy_matches"][card_name] = norm_map[n]
+                            result["excludes"]["legal"].append(norm_map[n])
+                            continue
                         match_result = fuzzy_match_card_name(card_name, available_cards)
                         if match_result.matched_name:
                             if match_result.auto_accepted:

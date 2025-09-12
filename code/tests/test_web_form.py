@@ -4,7 +4,8 @@ Test to check if the web form is properly sending exclude_cards
 """
 
 import requests
-import re
+import pytest
+# removed unused import re
 
 def test_web_form_exclude():
     """Test that the web form properly handles exclude cards"""
@@ -14,6 +15,12 @@ def test_web_form_exclude():
     # Test 1: Check if the exclude textarea is visible
     print("1. Checking if exclude textarea is visible in new deck modal...")
     
+    # Skip if local server isn't running
+    try:
+        requests.get('http://localhost:8080/', timeout=0.5)
+    except Exception:
+        pytest.skip('Local web server is not running on http://localhost:8080; skipping HTTP-based test')
+
     try:
         response = requests.get("http://localhost:8080/build/new")
         if response.status_code == 200:
@@ -27,7 +34,7 @@ def test_web_form_exclude():
                     print("   ✅ Advanced Options section found")
                 else:
                     print("   ❌ Advanced Options section NOT found")
-                return False
+                assert False
             
             # Check if feature flag is working
             if 'allow_must_haves' in content or 'exclude_cards' in content:
@@ -37,11 +44,11 @@ def test_web_form_exclude():
                 
         else:
             print(f"   ❌ Failed to get modal: HTTP {response.status_code}")
-            return False
+            assert False
     
     except Exception as e:
         print(f"   ❌ Error checking modal: {e}")
-        return False
+        assert False
     
     # Test 2: Try to submit a form with exclude cards
     print("2. Testing form submission with exclude cards...")
@@ -68,14 +75,14 @@ def test_web_form_exclude():
                 
         else:
             print(f"   ❌ Form submission failed: HTTP {response.status_code}")
-            return False
+            assert False
             
     except Exception as e:
         print(f"   ❌ Error submitting form: {e}")
-        return False
+        assert False
     
     print("3. ✅ Web form test completed")
-    return True
+    # If we reached here without assertions, the test passed
 
 if __name__ == "__main__":
     test_web_form_exclude()

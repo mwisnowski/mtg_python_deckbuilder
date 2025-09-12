@@ -173,45 +173,49 @@ def fuzzy_match_card_name(
     
     # Collect candidates with different scoring strategies
     candidates = []
+    best_raw_similarity = 0.0
     
     for name in normalized_names:
         name_lower = name.lower()
         base_score = difflib.SequenceMatcher(None, input_lower, name_lower).ratio()
-        
+
         # Skip very low similarity matches early
         if base_score < 0.3:
             continue
-            
+
         final_score = base_score
-        
+        # Track best raw similarity to decide on true no-match vs. weak suggestions
+        if base_score > best_raw_similarity:
+            best_raw_similarity = base_score
+
         # Strong boost for exact prefix matches (input is start of card name)
         if name_lower.startswith(input_lower):
             final_score = min(1.0, base_score + 0.5)
-        
-        # Moderate boost for word-level prefix matches  
+
+        # Moderate boost for word-level prefix matches
         elif any(word.startswith(input_lower) for word in name_lower.split()):
             final_score = min(1.0, base_score + 0.3)
-            
+
         # Special case: if input could be abbreviation of first word, boost heavily
         elif len(input_lower) <= 6:
             first_word = name_lower.split()[0] if name_lower.split() else ""
             if first_word and first_word.startswith(input_lower):
                 final_score = min(1.0, base_score + 0.4)
-        
+
         # Boost for cards where input is contained as substring
         elif input_lower in name_lower:
             final_score = min(1.0, base_score + 0.2)
-        
+
         # Special boost for very short inputs that are obvious abbreviations
         if len(input_lower) <= 4:
             # For short inputs, heavily favor cards that start with the input
             if name_lower.startswith(input_lower):
                 final_score = min(1.0, final_score + 0.3)
-        
+
         # Popularity boost for well-known cards
         if name_lower in popular_cards_lower:
             final_score = min(1.0, final_score + 0.25)
-        
+
         # Extra boost for super iconic cards like Lightning Bolt (only when relevant)
         if name_lower in iconic_cards_lower:
             # Only boost if there's some relevance to the input
@@ -220,18 +224,23 @@ def fuzzy_match_card_name(
             # Extra boost for Lightning Bolt when input is 'lightning' or similar
             if name_lower == 'lightning bolt' and input_lower in ['lightning', 'lightn', 'light']:
                 final_score = min(1.0, final_score + 0.2)
-            
+
         # Special handling for Lightning Bolt variants
         if 'lightning' in name_lower and 'bolt' in name_lower:
             if input_lower in ['bolt', 'lightn', 'lightning']:
                 final_score = min(1.0, final_score + 0.4)
-        
+
         # Simplicity boost: prefer shorter, simpler card names for short inputs
         if len(input_lower) <= 6:
             # Boost shorter card names slightly
             if len(name_lower) <= len(input_lower) * 2:
                 final_score = min(1.0, final_score + 0.05)
-        
+
+        # Cap total boost to avoid over-accepting near-misses; allow only small boost
+        if final_score > base_score:
+            max_total_boost = 0.06
+            final_score = min(1.0, base_score + min(final_score - base_score, max_total_boost))
+
         candidates.append((final_score, name))
     
     if not candidates:
@@ -249,6 +258,16 @@ def fuzzy_match_card_name(
     # Get best match and confidence
     best_score, best_match = candidates[0]
     confidence = best_score
+    # If raw similarity never cleared a minimal bar, treat as no reasonable match
+    # even if boosted scores exist; return confidence 0.0 and no suggestions.
+    if best_raw_similarity < 0.35:
+        return FuzzyMatchResult(
+            input_name=input_name,
+            matched_name=None,
+            confidence=0.0,
+            suggestions=[],
+            auto_accepted=False
+        )
     
     # Convert back to original names, preserving score-based order
     suggestions = [normalized_to_original[match] for _, match in candidates[:MAX_SUGGESTIONS]]

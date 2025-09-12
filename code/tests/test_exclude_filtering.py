@@ -57,15 +57,14 @@ def test_exclude_filtering():
         for exclude_card in exclude_list:
             if exclude_card in remaining_cards:
                 print(f"ERROR: {exclude_card} was NOT excluded!")
-                return False
+                assert False
             else:
                 print(f"✓ {exclude_card} was properly excluded")
         
         print(f"\n✓ SUCCESS: All {len(exclude_list)} cards were properly excluded")
         print(f"✓ Remaining cards: {len(remaining_cards)} out of {len(test_cards_df)}")
-        return True
-    
-    return False
+    else:
+        assert False
 
 if __name__ == "__main__":
     test_exclude_filtering()

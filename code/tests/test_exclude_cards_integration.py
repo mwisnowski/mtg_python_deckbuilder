@@ -96,7 +96,10 @@ Counterspell"""
         
         # Get session cookie and export permalink
         session_cookie = r2.cookies.get('sid')
-        r3 = client.get('/build/permalink', cookies={'sid': session_cookie})
+        # Set cookie on client to avoid per-request cookies deprecation
+        if session_cookie:
+            client.cookies.set('sid', session_cookie)
+        r3 = client.get('/build/permalink')
         assert r3.status_code == 200
         
         export_data = r3.json()

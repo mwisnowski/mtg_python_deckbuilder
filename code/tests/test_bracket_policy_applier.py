@@ -26,8 +26,8 @@ def test_apply_bracket_policy_tags(tmp_path: Path, monkeypatch):
         { 'name': "Forest", 'faceName': '', 'text': '', 'type': 'Basic Land — Forest', 'keywords': '', 'creatureTypes': [], 'themeTags': [] },
     ])
 
-    # Ensure the JSON lists exist with expected names
-    lists_dir = Path('config/card_lists')
+    # Ensure the JSON lists exist with expected names IN A TEMP DIR (avoid clobbering repo files)
+    lists_dir = tmp_path / 'card_lists'
     lists_dir.mkdir(parents=True, exist_ok=True)
     (lists_dir / 'extra_turns.json').write_text(json.dumps({ 'source_url': 'test', 'generated_at': 'now', 'cards': ['Time Warp'] }), encoding='utf-8')
     (lists_dir / 'mass_land_denial.json').write_text(json.dumps({ 'source_url': 'test', 'generated_at': 'now', 'cards': ['Armageddon'] }), encoding='utf-8')
@@ -35,6 +35,13 @@ def test_apply_bracket_policy_tags(tmp_path: Path, monkeypatch):
     (lists_dir / 'game_changers.json').write_text(json.dumps({ 'source_url': 'test', 'generated_at': 'now', 'cards': [] }), encoding='utf-8')
 
     mod = _load_applier()
+    # Redirect policy file paths to the temp directory
+    monkeypatch.setattr(mod, 'POLICY_FILES', {
+        'Bracket:GameChanger': str(lists_dir / 'game_changers.json'),
+        'Bracket:ExtraTurn': str(lists_dir / 'extra_turns.json'),
+        'Bracket:MassLandDenial': str(lists_dir / 'mass_land_denial.json'),
+        'Bracket:TutorNonland': str(lists_dir / 'tutors_nonland.json'),
+    }, raising=False)
     mod.apply_bracket_policy_tags(df)
 
     row = df.set_index('name')

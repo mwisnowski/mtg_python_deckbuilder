@@ -67,15 +67,15 @@ Hare Apparent"""
             combo_balance=mock_session.get("combo_balance", "mix"),
             exclude_cards=mock_session.get("exclude_cards"),
         )
-        print(f"   ✓ Build context created successfully")
+        print("   ✓ Build context created successfully")
         print(f"   Context exclude_cards: {ctx.get('exclude_cards')}")
-        
+
         # Test running the first stage
         print("4. Running first build stage...")
         result = orch.run_stage(ctx, rerun=False, show_skipped=False)
         print(f"   ✓ Stage completed: {result.get('label', 'Unknown')}")
         print(f"   Stage done: {result.get('done', False)}")
-        
+
         # Check if there were any exclude-related messages in output
         output = result.get('output', [])
         exclude_messages = [msg for msg in output if 'exclude' in msg.lower() or 'excluded' in msg.lower()]
@@ -86,14 +86,12 @@ Hare Apparent"""
         else:
             print("5. ⚠️  No exclude-related output found in stage result")
             print("   This might indicate the filtering isn't working")
-            
-        return True
-        
+
     except Exception as e:
         print(f"❌ Error during build: {e}")
         import traceback
         traceback.print_exc()
-        return False
+        assert False
 
 if __name__ == "__main__":
     success = test_web_exclude_flow()

@@ -106,7 +106,9 @@ def test_exclude_cards_json_roundtrip(client):
     assert session_cookie is not None, "Session cookie not found"
     
     # Export permalink with exclude_cards
-    r3 = client.get('/build/permalink', cookies={'sid': session_cookie})
+    if session_cookie:
+        client.cookies.set('sid', session_cookie)
+    r3 = client.get('/build/permalink')
     assert r3.status_code == 200
     
     permalink_data = r3.json()
@@ -128,7 +130,9 @@ def test_exclude_cards_json_roundtrip(client):
     import_cookie = r4.cookies.get('sid')
     assert import_cookie is not None, "Import session cookie not found"
     
-    r5 = client.get('/build/permalink', cookies={'sid': import_cookie})
+    if import_cookie:
+        client.cookies.set('sid', import_cookie)
+    r5 = client.get('/build/permalink')
     assert r5.status_code == 200
     
     reimported_data = r5.json()

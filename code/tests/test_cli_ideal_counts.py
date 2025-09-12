@@ -27,7 +27,7 @@ def test_cli_ideal_counts():
     
     if result.returncode != 0:
         print(f"❌ Command failed: {result.stderr}")
-        return False
+        assert False
     
     try:
         config = json.loads(result.stdout)
@@ -46,16 +46,14 @@ def test_cli_ideal_counts():
             actual_val = ideal_counts.get(key)
             if actual_val != expected_val:
                 print(f"❌ {key}: expected {expected_val}, got {actual_val}")
-                return False
+                assert False
             print(f"✅ {key}: {actual_val}")
         
         print("✅ All CLI ideal count arguments working correctly!")
-        return True
-        
     except json.JSONDecodeError as e:
         print(f"❌ Failed to parse JSON output: {e}")
         print(f"Output was: {result.stdout}")
-        return False
+        assert False
 
 def test_help_contains_types():
     """Test that help text shows value types."""
@@ -66,7 +64,7 @@ def test_help_contains_types():
     
     if result.returncode != 0:
         print(f"❌ Help command failed: {result.stderr}")
-        return False
+        assert False
     
     help_text = result.stdout
     
@@ -82,7 +80,7 @@ def test_help_contains_types():
     
     if missing:
         print(f"❌ Missing type indicators: {missing}")
-        return False
+        assert False
     
     # Check for organized sections
     sections = [
@@ -99,10 +97,9 @@ def test_help_contains_types():
     
     if missing_sections:
         print(f"❌ Missing help sections: {missing_sections}")
-        return False
+        assert False
     
     print("✅ Help text contains proper type information and sections!")
-    return True
 
 if __name__ == "__main__":
     os.chdir(os.path.dirname(os.path.abspath(__file__)))

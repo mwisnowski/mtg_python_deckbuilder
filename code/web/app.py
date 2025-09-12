@@ -39,6 +39,31 @@ if _STATIC_DIR.exists():
 # Jinja templates
 templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
 
+# Compatibility shim: accept legacy TemplateResponse(name, {"request": request, ...})
+# and reorder to the new signature TemplateResponse(request, name, {...}).
+# Prevents DeprecationWarning noise in tests without touching all call sites.
+_orig_template_response = templates.TemplateResponse
+
+def _compat_template_response(*args, **kwargs):  # type: ignore[override]
+    try:
+        if args and isinstance(args[0], str):
+            name = args[0]
+            ctx = args[1] if len(args) > 1 else {}
+            req = None
+            try:
+                if isinstance(ctx, dict):
+                    req = ctx.get("request")
+            except Exception:
+                req = None
+            if req is not None:
+                return _orig_template_response(req, name, ctx, **kwargs)
+    except Exception:
+        # Fall through to original behavior on any unexpected error
+        pass
+    return _orig_template_response(*args, **kwargs)
+
+templates.TemplateResponse = _compat_template_response  # type: ignore[assignment]
+
 # Global template flags (env-driven)
 def _as_bool(val: str | None, default: bool = False) -> bool:
     if val is None:
@@ -238,6 +263,12 @@ app.include_router(config_routes.router)
 app.include_router(decks_routes.router)
 app.include_router(setup_routes.router)
 app.include_router(owned_routes.router)
+
+# Warm validation cache early to reduce first-call latency in tests and dev
+try:
+    build_routes.warm_validation_name_cache()
+except Exception:
+    pass
 
 # --- Exception handling ---
 def _wants_html(request: Request) -> bool:

@@ -4,10 +4,6 @@ Advanced integration test for exclude functionality.
 Tests that excluded cards are completely removed from all dataframe sources.
 """
 
-import sys
-import os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'code'))
-
 from code.deck_builder.builder import DeckBuilder
 
 def test_comprehensive_exclude_filtering():
@@ -74,18 +70,10 @@ def test_comprehensive_exclude_filtering():
                     print(f"   ✗ '{exclude_card}' incorrectly found in lookup: {lookup_result['name'].tolist()}")
         
         print("\n=== Test Complete ===")
-        return True
         
     except Exception as e:
         print(f"Test failed with error: {e}")
         import traceback
         print(traceback.format_exc())
-        return False
-
-if __name__ == "__main__":
-    success = test_comprehensive_exclude_filtering()
-    if success:
-        print("✅ Comprehensive exclude filtering test passed!")
-    else:
-        print("❌ Comprehensive exclude filtering test failed!")
-        sys.exit(1)
+        assert False
+ 

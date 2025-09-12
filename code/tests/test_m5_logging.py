@@ -73,7 +73,7 @@ def test_m5_structured_logging():
                 print(f"❌ Missing event: {event}")
         
         print(f"\n📋 Results: {len(found_events)}/{len(expected_events)} expected events found")
-        
+
         # Test strict mode logging
         print("\n🔒 Testing strict mode logging...")
         builder_obj.enforcement_mode = "strict"
@@ -82,14 +82,13 @@ def test_m5_structured_logging():
             print("✅ Strict mode passed (no missing includes)")
         except RuntimeError as e:
             print(f"❌ Strict mode failed: {e}")
-        
-        return len(found_events) == len(expected_events)
-        
+
+        assert len(found_events) == len(expected_events)
+
     except Exception as e:
         print(f"❌ Test failed with error: {e}")
         import traceback
         traceback.print_exc()
-        return False
     finally:
         logger.removeHandler(handler)
 
@@ -128,7 +127,7 @@ def test_m5_performance_metrics():
     else:
         print("❌ Performance metrics too slow")
     
-    return performance_acceptable
+    assert performance_acceptable
 
 
 if __name__ == "__main__":

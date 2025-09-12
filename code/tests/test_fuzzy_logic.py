@@ -34,10 +34,9 @@ def test_fuzzy_matching_direct():
     
     if result.matched_name is None and not result.auto_accepted and result.suggestions:
         print("✅ Fuzzy matching correctly triggered confirmation!")
-        return True
     else:
         print("❌ Fuzzy matching should have triggered confirmation")
-        return False
+        assert False
 
 def test_exact_match_direct():
     """Test exact matching directly."""
@@ -52,17 +51,16 @@ def test_exact_match_direct():
     
     result = fuzzy_match_card_name('Lightning Bolt', available_cards)
     
-    print(f"Input: 'Lightning Bolt'")
+    print("Input: 'Lightning Bolt'")
     print(f"Matched name: {result.matched_name}")
     print(f"Auto accepted: {result.auto_accepted}")
     print(f"Confidence: {result.confidence:.2%}")
     
     if result.matched_name and result.auto_accepted:
         print("✅ Exact match correctly auto-accepted!")
-        return True
     else:
         print("❌ Exact match should have been auto-accepted")
-        return False
+        assert False
 
 if __name__ == "__main__":
     print("🧪 Testing Fuzzy Matching Logic")

@@ -14,6 +14,7 @@ logs/
 deck_files/
 csv_files/
 !config/card_lists/*.json
+!config/themes/*.json
 !config/deck.json
 !test_exclude_cards.txt
 !test_include_exclude_config.json

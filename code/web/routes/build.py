@@ -22,6 +22,7 @@ from html import escape as _esc
 from deck_builder.builder import DeckBuilder
 from deck_builder import builder_utils as bu
 from ..services.combo_utils import detect_all as _detect_all
+from path_util import csv_dir as _csv_dir
 from ..services.alts_utils import get_cached as _alts_get_cached, set_cached as _alts_set_cached
 
 # Cache for available card names used by validation endpoints
@@ -39,7 +40,7 @@ def _available_cards() -> set[str]:
         return _AVAILABLE_CARDS_CACHE
     try:
         import csv
-        path = 'csv_files/cards.csv'
+        path = f"{_csv_dir()}/cards.csv"
         with open(path, 'r', encoding='utf-8', newline='') as f:
             reader = csv.DictReader(f)
             fields = reader.fieldnames or []
@@ -2853,6 +2854,16 @@ async def build_permalink(request: Request):
         },
         "locks": list(sess.get("locks", [])),
     }
+    # Optional: random build fields (if present in session)
+    try:
+        rb = sess.get("random_build") or {}
+        if rb:
+            # Only include known keys to avoid leaking unrelated session data
+            inc = {k: rb.get(k) for k in ("seed", "theme", "constraints") if k in rb}
+            if inc:
+                payload["random"] = inc
+    except Exception:
+        pass
     
     # Add include/exclude cards and advanced options if feature is enabled
     if ALLOW_MUST_HAVES:
@@ -2899,6 +2910,15 @@ async def build_from(request: Request, state: str | None = None) -> HTMLResponse
             sess["use_owned_only"] = bool(flags.get("owned_only"))
             sess["prefer_owned"] = bool(flags.get("prefer_owned"))
             sess["locks"] = list(data.get("locks", []))
+            # Optional random build rehydration
+            try:
+                r = data.get("random") or {}
+                if r:
+                    sess["random_build"] = {
+                        k: r.get(k) for k in ("seed", "theme", "constraints") if k in r
+                    }
+            except Exception:
+                pass
             
             # Import exclude_cards if feature is enabled and present
             if ALLOW_MUST_HAVES and data.get("exclude_cards"):

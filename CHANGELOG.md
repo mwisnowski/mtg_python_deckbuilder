@@ -1,3 +1,5 @@
+- Random Modes (alpha): added env flags RANDOM_MODES, RANDOM_UI, RANDOM_MAX_ATTEMPTS, RANDOM_TIMEOUT_MS.
+- Determinism: CSV_FILES_DIR override to point tests to csv_files/testdata; permalink now carries optional random fields (seed/theme/constraints).
 # Changelog
 
 All notable changes to this project will be documented in this file.
@@ -13,14 +15,24 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 ## [Unreleased]
 
 ### Added
+- Theme governance: whitelist configuration `config/themes/theme_whitelist.yml` (normalization, always_include, protected prefixes/suffixes, enforced synergies, synergy_cap).
+- Theme extraction: dynamic ingestion of CSV-only tags (e.g., Kindred families) and PMI-based inferred synergies (positive PMI, co-occurrence threshold) blended with curated pairs.
+- Enforced synergy injection for counters/tokens/graveyard clusters (e.g., Proliferate, Counters Matter, Graveyard Matters) before capping.
+- Test coverage: `test_theme_whitelist_and_synergy_cap.py` ensuring enforced synergies present and cap (5) respected.
+- Dependency: added PyYAML (optional runtime dependency for governance file parsing).
 - CI: additional checks to improve stability and reproducibility.
 - Tests: broader coverage for validation and web flows.
+- Randomizer groundwork: added a small seeded RNG utility (`code/random_util.py`) and determinism unit tests; threaded RNG through Phase 3 (creatures) and Phase 4 (spells) for deterministic sampling when seeded.
+- Random Modes (alpha): thin wrapper entrypoint `code/deck_builder/random_entrypoint.py` to select a commander deterministically by seed, plus a tiny frozen dataset under `csv_files/testdata/` and tests `code/tests/test_random_determinism.py`.
 
 ### Changed
+- Synergy lists for now capped at 5 entries (precedence: curated > enforced > inferred) to improve UI scannability.
+- Curated synergy matrix expanded (tokens, spells, artifacts/enchantments, counters, lands, graveyard, politics, life, tribal umbrellas) with noisy links (e.g., Burn on -1/-1 Counters) suppressed via denylist + PMI filtering.
 - Tests: refactored to use pytest assertions and cleaned up fixtures/utilities to reduce noise and deprecations.
 - Tests: HTTP-dependent tests now skip gracefully when the local web server is unavailable.
 
 ### Fixed
+- Removed one-off / low-signal themes (global frequency <=1) except those protected or explicitly always included via whitelist configuration.
 - Tests: reduced deprecation warnings and incidental failures; improved consistency and reliability across runs.
 
 ## [2.2.10] - 2025-09-11

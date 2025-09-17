@@ -121,7 +121,7 @@ class CreatureAdditionMixin:
                         if owned_lower and str(nm).lower() in owned_lower:
                             w *= owned_mult
                         weighted_pool.append((nm, w))
-                    chosen_all = bu.weighted_sample_without_replacement(weighted_pool, target_cap)
+                    chosen_all = bu.weighted_sample_without_replacement(weighted_pool, target_cap, rng=getattr(self, 'rng', None))
                     for nm in chosen_all:
                         if commander_name and nm == commander_name:
                             continue
@@ -201,7 +201,7 @@ class CreatureAdditionMixin:
                     if owned_lower and str(nm).lower() in owned_lower:
                         base_w *= owned_mult
                     weighted_pool.append((nm, base_w))
-            chosen = bu.weighted_sample_without_replacement(weighted_pool, target)
+            chosen = bu.weighted_sample_without_replacement(weighted_pool, target, rng=getattr(self, 'rng', None))
             for nm in chosen:
                 if commander_name and nm == commander_name:
                     continue
@@ -507,7 +507,7 @@ class CreatureAdditionMixin:
             return
         synergy_bonus = getattr(bc, 'THEME_PRIORITY_BONUS', 1.2)
         weighted_pool = [(nm, (synergy_bonus if mm >= 2 else 1.0)) for nm, mm in zip(pool['name'], pool['_multiMatch'])]
-        chosen = bu.weighted_sample_without_replacement(weighted_pool, target)
+        chosen = bu.weighted_sample_without_replacement(weighted_pool, target, rng=getattr(self, 'rng', None))
         added = 0
         for nm in chosen:
             row = pool[pool['name']==nm].iloc[0]
@@ -621,7 +621,7 @@ class CreatureAdditionMixin:
             if owned_lower and str(nm).lower() in owned_lower:
                 w *= owned_mult
             weighted_pool.append((nm, w))
-        chosen_all = bu.weighted_sample_without_replacement(weighted_pool, target_cap)
+        chosen_all = bu.weighted_sample_without_replacement(weighted_pool, target_cap, rng=getattr(self, 'rng', None))
         added = 0
         for nm in chosen_all:
             row = subset_all[subset_all['name'] == nm].iloc[0]

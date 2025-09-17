@@ -74,6 +74,45 @@ class DeckBuilder(
     ColorBalanceMixin,
     ReportingMixin
 ):
+    # Seedable RNG support (minimal surface area):
+    # - seed: optional seed value stored for diagnostics
+    # - _rng: internal Random instance; access via self.rng
+    seed: Optional[int] = field(default=None, repr=False)
+    _rng: Any = field(default=None, repr=False)
+
+    @property
+    def rng(self):
+        """Lazy, per-builder RNG instance. If a seed was set, use it deterministically."""
+        if self._rng is None:
+            try:
+                # If a seed was assigned pre-init, use it
+                if self.seed is not None:
+                    # Import here to avoid any heavy import cycles at module import time
+                    from random_util import set_seed as _set_seed  # type: ignore
+                    self._rng = _set_seed(int(self.seed))
+                else:
+                    self._rng = random.Random()
+            except Exception:
+                # Fallback to module random
+                self._rng = random
+        return self._rng
+
+    def set_seed(self, seed: int | str) -> None:
+        """Set deterministic seed for this builder and reset its RNG instance."""
+        try:
+            from random_util import derive_seed_from_string as _derive, set_seed as _set_seed  # type: ignore
+            s = _derive(seed)
+            self.seed = int(s)
+            self._rng = _set_seed(s)
+        except Exception:
+            try:
+                self.seed = int(seed) if not isinstance(seed, int) else seed
+                r = random.Random()
+                r.seed(self.seed)
+                self._rng = r
+            except Exception:
+                # Leave RNG as-is on unexpected error
+                pass
     def build_deck_full(self):
         """Orchestrate the full deck build process, chaining all major phases."""
         start_ts = datetime.datetime.now()
@@ -712,10 +751,8 @@ class DeckBuilder(
     # RNG Initialization
     # ---------------------------
     def _get_rng(self):  # lazy init
-        if self._rng is None:
-            import random as _r
-            self._rng = _r
-        return self._rng
+        # Delegate to seedable rng property for determinism support
+        return self.rng
 
     # ---------------------------
     # Data Loading
@@ -1003,8 +1040,10 @@ class DeckBuilder(
             self.determine_color_identity()
         dfs = []
         required = getattr(bc, 'CSV_REQUIRED_COLUMNS', [])
+        from path_util import csv_dir as _csv_dir
+        base = _csv_dir()
         for stem in self.files_to_load:
-            path = f'csv_files/{stem}_cards.csv'
+            path = f"{base}/{stem}_cards.csv"
             try:
                 df = pd.read_csv(path)
                 if required:

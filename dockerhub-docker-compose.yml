@@ -21,6 +21,12 @@ services:
       WEB_VIRTUALIZE: "1"
       ALLOW_MUST_HAVES: "1"         # 1=enable must-include/must-exclude cards feature; 0=disable
 
+      # Random Modes (feature flags)
+      RANDOM_MODES: "0"             # 1=enable random build endpoints and backend features
+      RANDOM_UI: "0"                # 1=show Surprise/Theme/Reroll/Share controls in UI
+      RANDOM_MAX_ATTEMPTS: "5"      # cap retry attempts
+      RANDOM_TIMEOUT_MS: "5000"     # per-build timeout in ms
+
       # Theming
       THEME: "system"
 

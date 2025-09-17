@@ -61,7 +61,15 @@
       el.innerHTML = '<div><strong>Version:</strong> '+String(v)+'</div>'+
         (st ? '<div><strong>Server time (UTC):</strong> '+String(st)+'</div>' : '')+
         '<div><strong>Uptime:</strong> '+String(up)+'s</div>'+
-        '<div><strong>Flags:</strong> SHOW_LOGS='+ (flags.SHOW_LOGS? '1':'0') +', SHOW_DIAGNOSTICS='+ (flags.SHOW_DIAGNOSTICS? '1':'0') +', SHOW_SETUP='+ (flags.SHOW_SETUP? '1':'0') +'</div>';
+        '<div><strong>Flags:</strong> '
+          + 'SHOW_LOGS='+ (flags.SHOW_LOGS? '1':'0')
+          + ', SHOW_DIAGNOSTICS='+ (flags.SHOW_DIAGNOSTICS? '1':'0')
+          + ', SHOW_SETUP='+ (flags.SHOW_SETUP? '1':'0')
+          + ', RANDOM_MODES='+ (flags.RANDOM_MODES? '1':'0')
+          + ', RANDOM_UI='+ (flags.RANDOM_UI? '1':'0')
+          + ', RANDOM_MAX_ATTEMPTS='+ String(flags.RANDOM_MAX_ATTEMPTS ?? '')
+          + ', RANDOM_TIMEOUT_MS='+ String(flags.RANDOM_TIMEOUT_MS ?? '')
+        + '</div>';
     } catch(_){ el.textContent = 'Unavailable'; }
   }
   function load(){

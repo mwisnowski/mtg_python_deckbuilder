@@ -65,6 +65,7 @@ def run(
     enforcement_mode: str = "warn",
     allow_illegal: bool = False,
     fuzzy_matching: bool = True,
+    seed: Optional[int | str] = None,
 ) -> DeckBuilder:
     """Run a scripted non-interactive deck build and return the DeckBuilder instance."""
     scripted_inputs: List[str] = []
@@ -109,6 +110,12 @@ def run(
         return ""
 
     builder = DeckBuilder(input_func=scripted_input)
+    # Optional deterministic seed for Random Modes (does not affect core when unset)
+    try:
+        if seed is not None:
+            builder.set_seed(seed)  # type: ignore[attr-defined]
+    except Exception:
+        pass
     # Mark this run as headless so builder can adjust exports and logging
     try:
         builder.headless = True  # type: ignore[attr-defined]

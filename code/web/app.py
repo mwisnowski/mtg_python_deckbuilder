@@ -78,6 +78,15 @@ ENABLE_THEMES = _as_bool(os.getenv("ENABLE_THEMES"), False)
 ENABLE_PWA = _as_bool(os.getenv("ENABLE_PWA"), False)
 ENABLE_PRESETS = _as_bool(os.getenv("ENABLE_PRESETS"), False)
 ALLOW_MUST_HAVES = _as_bool(os.getenv("ALLOW_MUST_HAVES"), False)
+RANDOM_MODES = _as_bool(os.getenv("RANDOM_MODES"), False)
+RANDOM_UI = _as_bool(os.getenv("RANDOM_UI"), False)
+def _as_int(val: str | None, default: int) -> int:
+    try:
+        return int(val) if val is not None and str(val).strip() != "" else default
+    except Exception:
+        return default
+RANDOM_MAX_ATTEMPTS = _as_int(os.getenv("RANDOM_MAX_ATTEMPTS"), 5)
+RANDOM_TIMEOUT_MS = _as_int(os.getenv("RANDOM_TIMEOUT_MS"), 5000)
 
 # Theme default from environment: THEME=light|dark|system (case-insensitive). Defaults to system.
 _THEME_ENV = (os.getenv("THEME") or "").strip().lower()
@@ -96,6 +105,10 @@ templates.env.globals.update({
     "enable_presets": ENABLE_PRESETS,
     "allow_must_haves": ALLOW_MUST_HAVES,
     "default_theme": DEFAULT_THEME,
+    "random_modes": RANDOM_MODES,
+    "random_ui": RANDOM_UI,
+    "random_max_attempts": RANDOM_MAX_ATTEMPTS,
+    "random_timeout_ms": RANDOM_TIMEOUT_MS,
 })
 
 # --- Simple fragment cache for template partials (low-risk, TTL-based) ---
@@ -178,10 +191,271 @@ async def status_sys():
                 "ENABLE_PRESETS": bool(ENABLE_PRESETS),
                 "ALLOW_MUST_HAVES": bool(ALLOW_MUST_HAVES),
                 "DEFAULT_THEME": DEFAULT_THEME,
+                "RANDOM_MODES": bool(RANDOM_MODES),
+                "RANDOM_UI": bool(RANDOM_UI),
+                "RANDOM_MAX_ATTEMPTS": int(RANDOM_MAX_ATTEMPTS),
+                "RANDOM_TIMEOUT_MS": int(RANDOM_TIMEOUT_MS),
             },
         }
     except Exception:
         return {"version": "unknown", "uptime_seconds": 0, "flags": {}}
+
+# --- Random Modes API ---
+@app.post("/api/random_build")
+async def api_random_build(request: Request):
+    # Gate behind feature flag
+    if not RANDOM_MODES:
+        raise HTTPException(status_code=404, detail="Random Modes disabled")
+    try:
+        body = {}
+        try:
+            body = await request.json()
+            if not isinstance(body, dict):
+                body = {}
+        except Exception:
+            body = {}
+        theme = body.get("theme")
+        constraints = body.get("constraints")
+        seed = body.get("seed")
+        attempts = body.get("attempts", int(RANDOM_MAX_ATTEMPTS))
+        timeout_ms = body.get("timeout_ms", int(RANDOM_TIMEOUT_MS))
+        # Convert ms -> seconds, clamp minimal
+        try:
+            timeout_s = max(0.1, float(timeout_ms) / 1000.0)
+        except Exception:
+            timeout_s = max(0.1, float(RANDOM_TIMEOUT_MS) / 1000.0)
+        # Import on-demand to avoid heavy costs at module import time
+        from deck_builder.random_entrypoint import build_random_deck  # type: ignore
+        res = build_random_deck(
+            theme=theme,
+            constraints=constraints,
+            seed=seed,
+            attempts=int(attempts),
+            timeout_s=float(timeout_s),
+        )
+        rid = getattr(request.state, "request_id", None)
+        return {
+            "seed": int(res.seed),
+            "commander": res.commander,
+            "theme": res.theme,
+            "constraints": res.constraints or {},
+            "attempts": int(attempts),
+            "timeout_ms": int(timeout_ms),
+            "request_id": rid,
+        }
+    except HTTPException:
+        raise
+    except Exception as ex:
+        logging.getLogger("web").error(f"random_build failed: {ex}")
+        raise HTTPException(status_code=500, detail="random_build failed")
+
+
+@app.post("/api/random_full_build")
+async def api_random_full_build(request: Request):
+    # Gate behind feature flag
+    if not RANDOM_MODES:
+        raise HTTPException(status_code=404, detail="Random Modes disabled")
+    try:
+        body = {}
+        try:
+            body = await request.json()
+            if not isinstance(body, dict):
+                body = {}
+        except Exception:
+            body = {}
+        theme = body.get("theme")
+        constraints = body.get("constraints")
+        seed = body.get("seed")
+        attempts = body.get("attempts", int(RANDOM_MAX_ATTEMPTS))
+        timeout_ms = body.get("timeout_ms", int(RANDOM_TIMEOUT_MS))
+        # Convert ms -> seconds, clamp minimal
+        try:
+            timeout_s = max(0.1, float(timeout_ms) / 1000.0)
+        except Exception:
+            timeout_s = max(0.1, float(RANDOM_TIMEOUT_MS) / 1000.0)
+
+        # Build a full deck deterministically
+        from deck_builder.random_entrypoint import build_random_full_deck  # type: ignore
+        res = build_random_full_deck(
+            theme=theme,
+            constraints=constraints,
+            seed=seed,
+            attempts=int(attempts),
+            timeout_s=float(timeout_s),
+        )
+
+        # Create a permalink token reusing the existing format from /build/permalink
+        payload = {
+            "commander": res.commander,
+            # Note: tags/bracket/ideals omitted; random modes focuses on seed replay
+            "random": {
+                "seed": int(res.seed),
+                "theme": res.theme,
+                "constraints": res.constraints or {},
+            },
+        }
+        try:
+            import base64
+            raw = _json.dumps(payload, separators=(",", ":"))
+            token = base64.urlsafe_b64encode(raw.encode("utf-8")).decode("ascii").rstrip("=")
+            permalink = f"/build/from?state={token}"
+        except Exception:
+            permalink = None
+
+        rid = getattr(request.state, "request_id", None)
+        return {
+            "seed": int(res.seed),
+            "commander": res.commander,
+            "decklist": res.decklist or [],
+            "theme": res.theme,
+            "constraints": res.constraints or {},
+            "permalink": permalink,
+            "attempts": int(attempts),
+            "timeout_ms": int(timeout_ms),
+            "request_id": rid,
+        }
+    except HTTPException:
+        raise
+    except Exception as ex:
+        logging.getLogger("web").error(f"random_full_build failed: {ex}")
+        raise HTTPException(status_code=500, detail="random_full_build failed")
+
+
+@app.post("/api/random_reroll")
+async def api_random_reroll(request: Request):
+    # Gate behind feature flag
+    if not RANDOM_MODES:
+        raise HTTPException(status_code=404, detail="Random Modes disabled")
+    try:
+        body = {}
+        try:
+            body = await request.json()
+            if not isinstance(body, dict):
+                body = {}
+        except Exception:
+            body = {}
+        theme = body.get("theme")
+        constraints = body.get("constraints")
+        last_seed = body.get("seed")
+        # Simple deterministic reroll policy: increment prior seed when provided; else generate fresh
+        try:
+            new_seed = int(last_seed) + 1 if last_seed is not None else None
+        except Exception:
+            new_seed = None
+        if new_seed is None:
+            from random_util import generate_seed  # type: ignore
+            new_seed = int(generate_seed())
+
+        # Build with the new seed
+        timeout_ms = body.get("timeout_ms", int(RANDOM_TIMEOUT_MS))
+        try:
+            timeout_s = max(0.1, float(timeout_ms) / 1000.0)
+        except Exception:
+            timeout_s = max(0.1, float(RANDOM_TIMEOUT_MS) / 1000.0)
+        attempts = body.get("attempts", int(RANDOM_MAX_ATTEMPTS))
+
+        from deck_builder.random_entrypoint import build_random_full_deck  # type: ignore
+        res = build_random_full_deck(
+            theme=theme,
+            constraints=constraints,
+            seed=new_seed,
+            attempts=int(attempts),
+            timeout_s=float(timeout_s),
+        )
+
+        payload = {
+            "commander": res.commander,
+            "random": {
+                "seed": int(res.seed),
+                "theme": res.theme,
+                "constraints": res.constraints or {},
+            },
+        }
+        try:
+            import base64
+            raw = _json.dumps(payload, separators=(",", ":"))
+            token = base64.urlsafe_b64encode(raw.encode("utf-8")).decode("ascii").rstrip("=")
+            permalink = f"/build/from?state={token}"
+        except Exception:
+            permalink = None
+
+        rid = getattr(request.state, "request_id", None)
+        return {
+            "previous_seed": (int(last_seed) if isinstance(last_seed, int) or (isinstance(last_seed, str) and str(last_seed).isdigit()) else None),
+            "seed": int(res.seed),
+            "commander": res.commander,
+            "decklist": res.decklist or [],
+            "theme": res.theme,
+            "constraints": res.constraints or {},
+            "permalink": permalink,
+            "attempts": int(attempts),
+            "timeout_ms": int(timeout_ms),
+            "request_id": rid,
+        }
+    except HTTPException:
+        raise
+    except Exception as ex:
+        logging.getLogger("web").error(f"random_reroll failed: {ex}")
+        raise HTTPException(status_code=500, detail="random_reroll failed")
+
+
+@app.post("/hx/random_reroll")
+async def hx_random_reroll(request: Request):
+    # Small HTMX endpoint returning a partial HTML fragment for in-page updates
+    if not RANDOM_UI or not RANDOM_MODES:
+        raise HTTPException(status_code=404, detail="Random UI disabled")
+    body = {}
+    try:
+        body = await request.json()
+        if not isinstance(body, dict):
+            body = {}
+    except Exception:
+        body = {}
+    last_seed = body.get("seed")
+    theme = body.get("theme")
+    constraints = body.get("constraints")
+    try:
+        new_seed = int(last_seed) + 1 if last_seed is not None else None
+    except Exception:
+        new_seed = None
+    if new_seed is None:
+        from random_util import generate_seed  # type: ignore
+        new_seed = int(generate_seed())
+
+    from deck_builder.random_entrypoint import build_random_full_deck  # type: ignore
+    res = build_random_full_deck(
+        theme=theme,
+        constraints=constraints,
+        seed=new_seed,
+        attempts=int(RANDOM_MAX_ATTEMPTS),
+        timeout_s=float(RANDOM_TIMEOUT_MS) / 1000.0,
+    )
+
+    # Render minimal fragment via Jinja2
+    try:
+        return templates.TemplateResponse(
+            "partials/random_result.html",  # type: ignore
+            {
+                "request": request,
+                "seed": int(res.seed),
+                "commander": res.commander,
+                "decklist": res.decklist or [],
+                "theme": res.theme,
+                "constraints": res.constraints or {},
+            },
+        )
+    except Exception as ex:
+        logging.getLogger("web").error(f"hx_random_reroll template error: {ex}")
+        # Fallback to JSON to avoid total failure
+        return JSONResponse(
+            {
+                "seed": int(res.seed),
+                "commander": res.commander,
+                "decklist": res.decklist or [],
+                "theme": res.theme,
+                "constraints": res.constraints or {},
+            }
+        )
 
 # Logs tail endpoint (read-only)
 @app.get("/status/logs")

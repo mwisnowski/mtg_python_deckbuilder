@@ -1,0 +1,12 @@
+<div class="random-result" hx-swap-oob="true" id="random-result">
+  <div class="random-meta">
+    <span class="seed">Seed: {{ seed }}</span>
+    {% if theme %}<span class="theme">Theme: {{ theme }}</span>{% endif %}
+  </div>
+  <h3 class="commander">{{ commander }}</h3>
+  <ul class="decklist">
+    {% for card in decklist %}
+    <li>{{ card }}</li>
+    {% endfor %}
+  </ul>
+</div>

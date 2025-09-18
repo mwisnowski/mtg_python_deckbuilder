@@ -848,7 +848,7 @@ def tag_for_loot_effects(df: pd.DataFrame, color: str) -> None:
         logger.info(f'Tagged {cycling_mask.sum()} cards with cycling effects')
 
     if blood_mask.any():
-        tag_utils.apply_tag_vectorized(df, blood_mask, ['Blood Tokens', 'Loot', 'Card Draw', 'Discard Matters'])
+        tag_utils.apply_tag_vectorized(df, blood_mask, ['Blood Token', 'Loot', 'Card Draw', 'Discard Matters'])
         logger.info(f'Tagged {blood_mask.sum()} cards with blood token effects')
 
     logger.info('Completed tagging loot-like effects')

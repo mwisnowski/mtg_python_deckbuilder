@@ -1355,7 +1355,7 @@ async def build_combos_panel(request: Request) -> HTMLResponse:
                     weights = {
                         "treasure": 3.0, "tokens": 2.8, "landfall": 2.6, "card draw": 2.5, "ramp": 2.3,
                         "engine": 2.2, "value": 2.1, "artifacts": 2.0, "enchantress": 2.0, "spellslinger": 1.9,
-                        "counters": 1.8, "equipment": 1.7, "tribal": 1.6, "lifegain": 1.5, "mill": 1.4,
+                        "counters": 1.8, "equipment matters": 1.7, "tribal": 1.6, "lifegain": 1.5, "mill": 1.4,
                         "damage": 1.3, "stax": 1.2
                     }
                     syn_sugs: list[dict] = []

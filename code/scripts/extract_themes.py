@@ -221,12 +221,11 @@ def derive_synergies_for_tags(tags: Set[str]) -> Dict[str, List[str]]:
         ("Noncreature Spells", ["Spellslinger", "Prowess"]),
         ("Prowess", ["Spellslinger", "Noncreature Spells"]),
         # Artifacts / Enchantments
-        ("Artifacts Matter", ["Treasure Token", "Equipment", "Vehicles", "Improvise"]),
+        ("Artifacts Matter", ["Treasure Token", "Equipment Matters", "Vehicles", "Improvise"]),
         ("Enchantments Matter", ["Auras", "Constellation", "Card Draw"]),
         ("Auras", ["Constellation", "Voltron", "Enchantments Matter"]),
-        ("Equipment", ["Voltron", "Double Strike", "Warriors Matter"]),
         ("Treasure Token", ["Sacrifice Matters", "Artifacts Matter", "Ramp"]),
-        ("Vehicles", ["Artifacts Matter", "Equipment"]),
+        ("Vehicles", ["Artifacts Matter", "Crew", "Vehicles"]),
         # Counters / Proliferate
         ("Counters Matter", ["Proliferate", "+1/+1 Counters", "Adapt", "Outlast"]),
         ("+1/+1 Counters", ["Proliferate", "Counters Matter", "Adapt", "Evolve"]),
@@ -237,7 +236,7 @@ def derive_synergies_for_tags(tags: Set[str]) -> Dict[str, List[str]]:
         ("Landfall", ["Lands Matter", "Ramp", "Token Creation"]),
         ("Domain", ["Lands Matter", "Ramp"]),
         # Combat / Voltron
-        ("Voltron", ["Equipment", "Auras", "Double Strike"]),
+        ("Voltron", ["Equipment Matters", "Auras", "Double Strike"]),
         # Card flow
         ("Card Draw", ["Loot", "Wheels", "Replacement Draw", "Unconditional Draw", "Conditional Draw"]),
         ("Loot", ["Card Draw", "Discard Matters", "Reanimate"]),

@@ -15,6 +15,8 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 ## [Unreleased]
 
 ### Added
+- Theme catalog Phase B: new unified merge script `code/scripts/build_theme_catalog.py` (opt-in via THEME_CATALOG_MODE=merge) combining analytics + curated YAML + whitelist governance with provenance block output.
+- Theme provenance: `theme_list.json` now includes `provenance` (mode, generated_at, curated_yaml_files, synergy_cap, inference version) when built via Phase B merge.
 - Theme governance: whitelist configuration `config/themes/theme_whitelist.yml` (normalization, always_include, protected prefixes/suffixes, enforced synergies, synergy_cap).
 - Theme extraction: dynamic ingestion of CSV-only tags (e.g., Kindred families) and PMI-based inferred synergies (positive PMI, co-occurrence threshold) blended with curated pairs.
 - Enforced synergy injection for counters/tokens/graveyard clusters (e.g., Proliferate, Counters Matter, Graveyard Matters) before capping.
@@ -24,14 +26,31 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 - Tests: broader coverage for validation and web flows.
 - Randomizer groundwork: added a small seeded RNG utility (`code/random_util.py`) and determinism unit tests; threaded RNG through Phase 3 (creatures) and Phase 4 (spells) for deterministic sampling when seeded.
 - Random Modes (alpha): thin wrapper entrypoint `code/deck_builder/random_entrypoint.py` to select a commander deterministically by seed, plus a tiny frozen dataset under `csv_files/testdata/` and tests `code/tests/test_random_determinism.py`.
+- Theme Editorial: automated example card/commander suggestion + enrichment (`code/scripts/generate_theme_editorial_suggestions.py`).
+- Synergy commanders: derive 3/2/1 candidates from top three synergies with legendary fallback; stored in `synergy_commanders` (annotated) separate from `example_commanders`.
+- Per-synergy annotations: `Name - Synergy (Synergy Theme)` applied to promoted example commanders and retained in synergy list for transparency.
+- Augmentation flag `--augment-synergies` to repair sparse `synergies` arrays (e.g., inject `Counters Matter`, `Proliferate`).
+- Lint upgrades (`code/scripts/lint_theme_editorial.py`): validates annotation correctness, filtered synergy duplicates, minimum example_commanders, and base-name deduping.
+- Pydantic schema extension (`type_definitions_theme_catalog.py`) adding `synergy_commanders` and editorial fields to catalog model.
 
 ### Changed
 - Synergy lists for now capped at 5 entries (precedence: curated > enforced > inferred) to improve UI scannability.
 - Curated synergy matrix expanded (tokens, spells, artifacts/enchantments, counters, lands, graveyard, politics, life, tribal umbrellas) with noisy links (e.g., Burn on -1/-1 Counters) suppressed via denylist + PMI filtering.
+- Synergy noise suppression: "Legends Matter" / "Historics Matter" pairs are now stripped from every other theme (they were ubiquitous due to all legendary & historic cards carrying both tags). Only mutual linkage between the two themes themselves is retained.
+- Theme merge build now always forces per-theme YAML export so `config/themes/catalog/*.yml` stays synchronized with `theme_list.json`. New env `THEME_YAML_FAST_SKIP=1` allows skipping YAML regeneration only on fast-path refreshes (never on full builds) if desired.
 - Tests: refactored to use pytest assertions and cleaned up fixtures/utilities to reduce noise and deprecations.
 - Tests: HTTP-dependent tests now skip gracefully when the local web server is unavailable.
+- `synergy_commanders` now excludes any commanders already promoted into `example_commanders` (deduped by base name after annotation).
+- Promotion logic ensures a configurable minimum (default 5) example commanders via annotated synergy promotions.
+- Regenerated per-theme YAML files are environment-dependent (card pool + tags); README documents that bulk committing the entire regenerated catalog is discouraged to avoid churn.
 
 ### Fixed
+- Commander eligibility logic was overly permissive. Now only:
+- Missing secondary synergies (e.g., `Proliferate` on counter subthemes) restored via augmentation heuristic preventing empty synergy follow-ons.
+  - Legendary Creatures (includes Artifact/Enchantment Creatures)
+  - Legendary Artifact Vehicles / Spacecraft that have printed power & toughness
+  - Any card whose rules text contains "can be your commander" (covers specific planeswalkers, artifacts, others)
+  are auto‑eligible. Plain Legendary Enchantments (non‑creature), Legendary Planeswalkers without the explicit text, and generic Legendary Artifacts are no longer incorrectly included.
 - Removed one-off / low-signal themes (global frequency <=1) except those protected or explicitly always included via whitelist configuration.
 - Tests: reduced deprecation warnings and incidental failures; improved consistency and reliability across runs.
 

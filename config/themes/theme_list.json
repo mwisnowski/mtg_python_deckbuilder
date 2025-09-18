@@ -3,10 +3,10 @@
     {
       "theme": "+1/+1 Counters",
       "synergies": [
-        "Proliferate",
-        "Counters Matter",
         "Adapt",
         "Evolve",
+        "Proliferate",
+        "Counters Matter",
         "Hydra Kindred"
       ],
       "primary_color": "Green",
@@ -15,28 +15,36 @@
     {
       "theme": "-0/-1 Counters",
       "synergies": [
-        "Counters Matter",
-        "Proliferate"
+        "Counters Matter"
       ],
       "primary_color": "Black",
       "secondary_color": "Blue"
     },
     {
       "theme": "-0/-2 Counters",
-      "synergies": [
-        "Counters Matter",
-        "Proliferate"
-      ],
+      "synergies": [],
       "primary_color": "Black"
     },
     {
       "theme": "-1/-1 Counters",
       "synergies": [
-        "Proliferate",
-        "Counters Matter",
         "Wither",
         "Persist",
-        "Infect"
+        "Infect",
+        "Proliferate",
+        "Counters Matter",
+        "Poison Counters",
+        "Planeswalkers",
+        "Super Friends",
+        "Phyrexian Kindred",
+        "Ore Counters",
+        "Advisor Kindred",
+        "Horror Kindred",
+        "+1/+1 Counters",
+        "Insect Kindred",
+        "Burn",
+        "Elemental Kindred",
+        "Demon Kindred"
       ],
       "primary_color": "Black",
       "secondary_color": "Green"
@@ -78,11 +86,11 @@
     {
       "theme": "Advisor Kindred",
       "synergies": [
-        "Historics Matter",
-        "Legends Matter",
         "-1/-1 Counters",
         "Conditional Draw",
-        "Human Kindred"
+        "Human Kindred",
+        "Toughness Matters",
+        "Draw Triggers"
       ],
       "primary_color": "Blue",
       "secondary_color": "White"
@@ -106,7 +114,7 @@
         "Artifacts Matter",
         "Big Mana",
         "Flying",
-        "Historics Matter"
+        "Stax"
       ],
       "primary_color": "Blue",
       "secondary_color": "Red"
@@ -148,11 +156,11 @@
     {
       "theme": "Age Counters",
       "synergies": [
-        "Counters Matter",
-        "Proliferate",
         "Cumulative upkeep",
         "Storage Counters",
-        "Enchantments Matter"
+        "Counters Matter",
+        "Enchantments Matter",
+        "Lands Matter"
       ],
       "primary_color": "Blue",
       "secondary_color": "Green"
@@ -330,11 +338,11 @@
     {
       "theme": "Artifact Tokens",
       "synergies": [
-        "Tokens Matter",
         "Treasure",
         "Servo Kindred",
         "Powerstone Token",
-        "Fabricate"
+        "Fabricate",
+        "Junk Token"
       ],
       "primary_color": "Red",
       "secondary_color": "Black"
@@ -343,7 +351,7 @@
       "theme": "Artifacts Matter",
       "synergies": [
         "Treasure Token",
-        "Equipment",
+        "Equipment Matters",
         "Vehicles",
         "Improvise",
         "Artifact Tokens"
@@ -411,7 +419,7 @@
         "Blink",
         "Enter the Battlefield",
         "Leave the Battlefield",
-        "Burn"
+        "Big Mana"
       ],
       "primary_color": "White",
       "secondary_color": "Red"
@@ -476,10 +484,10 @@
       "theme": "Backgrounds Matter",
       "synergies": [
         "Choose a background",
-        "Historics Matter",
-        "Legends Matter",
         "Treasure",
-        "Treasure Token"
+        "Treasure Token",
+        "Dragon Kindred",
+        "Enchantments Matter"
       ],
       "primary_color": "Blue",
       "secondary_color": "Red"
@@ -520,8 +528,8 @@
         "Haste",
         "Human Kindred",
         "Discard Matters",
-        "Historics Matter",
-        "Legends Matter"
+        "Blink",
+        "Enter the Battlefield"
       ],
       "primary_color": "Red",
       "secondary_color": "Black"
@@ -541,10 +549,10 @@
     {
       "theme": "Bargain",
       "synergies": [
+        "Burn",
         "Blink",
         "Enter the Battlefield",
         "Leave the Battlefield",
-        "Burn",
         "Spells Matter"
       ],
       "primary_color": "Black",
@@ -622,8 +630,8 @@
         "Druid Kindred",
         "Trample",
         "Creature Tokens",
-        "Historics Matter",
-        "Legends Matter"
+        "Token Creation",
+        "Tokens Matter"
       ],
       "primary_color": "Green",
       "secondary_color": "Black"
@@ -716,10 +724,7 @@
     },
     {
       "theme": "Blaze Counters",
-      "synergies": [
-        "Counters Matter",
-        "Proliferate"
-      ],
+      "synergies": [],
       "primary_color": "Red"
     },
     {
@@ -749,26 +754,14 @@
     {
       "theme": "Blood Token",
       "synergies": [
-        "Tokens Matter",
-        "Blood Tokens",
         "Bloodthirst",
         "Bloodrush",
-        "Sacrifice to Draw"
+        "Sacrifice to Draw",
+        "Vampire Kindred",
+        "Loot"
       ],
       "primary_color": "Red",
       "secondary_color": "Black"
-    },
-    {
-      "theme": "Blood Tokens",
-      "synergies": [
-        "Tokens Matter",
-        "Blood Token",
-        "Sacrifice to Draw",
-        "Loot",
-        "Vampire Kindred"
-      ],
-      "primary_color": "Black",
-      "secondary_color": "Red"
     },
     {
       "theme": "Bloodrush",
@@ -785,9 +778,9 @@
       "synergies": [
         "Blood Token",
         "+1/+1 Counters",
+        "Burn",
         "Warrior Kindred",
-        "Counters Matter",
-        "Burn"
+        "Counters Matter"
       ],
       "primary_color": "Red",
       "secondary_color": "Green"
@@ -842,10 +835,7 @@
     },
     {
       "theme": "Bounty Counters",
-      "synergies": [
-        "Counters Matter",
-        "Proliferate"
-      ],
+      "synergies": [],
       "primary_color": "Black"
     },
     {
@@ -865,8 +855,8 @@
         "Bracket:TutorNonland",
         "Draw Triggers",
         "Wheels",
-        "Historics Matter",
-        "Legends Matter"
+        "Topdeck",
+        "Stax"
       ],
       "primary_color": "Blue",
       "secondary_color": "Black"
@@ -905,9 +895,9 @@
       "synergies": [
         "Pingers",
         "Bloodthirst",
-        "Renown",
         "Wither",
-        "Cipher"
+        "Afflict",
+        "Extort"
       ],
       "primary_color": "Red",
       "secondary_color": "Black"
@@ -918,8 +908,8 @@
         "Samurai Kindred",
         "Fox Kindred",
         "Human Kindred",
-        "Historics Matter",
-        "Legends Matter"
+        "Little Fellas",
+        "Toughness Matters"
       ],
       "primary_color": "White",
       "secondary_color": "Red"
@@ -976,7 +966,19 @@
         "Wheels",
         "Replacement Draw",
         "Unconditional Draw",
-        "Conditional Draw"
+        "Conditional Draw",
+        "Draw Triggers",
+        "Cantrips",
+        "Cycling",
+        "Sacrifice to Draw",
+        "Connive",
+        "Landcycling",
+        "Learn",
+        "Hellbent",
+        "Blitz",
+        "Dredge",
+        "Basic landcycling",
+        "Plainscycling"
       ],
       "primary_color": "Blue",
       "secondary_color": "Black"
@@ -1091,8 +1093,8 @@
         "Spirit Kindred",
         "Cost Reduction",
         "Lands Matter",
-        "Historics Matter",
-        "Legends Matter"
+        "Artifacts Matter",
+        "Enchantments Matter"
       ],
       "primary_color": "Green",
       "secondary_color": "Blue"
@@ -1100,11 +1102,11 @@
     {
       "theme": "Charge Counters",
       "synergies": [
-        "Counters Matter",
-        "Proliferate",
         "Station",
         "Mana Rock",
-        "Artifacts Matter"
+        "Counters Matter",
+        "Artifacts Matter",
+        "Ramp"
       ],
       "primary_color": "Red",
       "secondary_color": "Blue"
@@ -1127,10 +1129,10 @@
       "theme": "Choose a background",
       "synergies": [
         "Backgrounds Matter",
-        "Historics Matter",
-        "Legends Matter",
         "Elf Kindred",
-        "Cleric Kindred"
+        "Cleric Kindred",
+        "Enchantments Matter",
+        "Artifact Tokens"
       ],
       "primary_color": "Blue",
       "secondary_color": "Red"
@@ -1144,7 +1146,6 @@
     {
       "theme": "Cipher",
       "synergies": [
-        "Burn",
         "Aggro",
         "Combat Matters",
         "Spells Matter",
@@ -1230,11 +1231,11 @@
     {
       "theme": "Clue Token",
       "synergies": [
-        "Tokens Matter",
         "Investigate",
         "Detective Kindred",
         "Sacrifice to Draw",
-        "Artifact Tokens"
+        "Artifact Tokens",
+        "Cantrips"
       ],
       "primary_color": "Blue",
       "secondary_color": "White"
@@ -1302,8 +1303,8 @@
         "Max speed",
         "Start your engines!",
         "Blitz",
-        "Blood Tokens",
-        "Clue Token"
+        "Clue Token",
+        "Investigate"
       ],
       "primary_color": "Blue",
       "secondary_color": "Green"
@@ -1408,10 +1409,7 @@
     },
     {
       "theme": "Corpse Counters",
-      "synergies": [
-        "Counters Matter",
-        "Proliferate"
-      ],
+      "synergies": [],
       "primary_color": "Black"
     },
     {
@@ -1463,10 +1461,10 @@
     {
       "theme": "Counters Matter",
       "synergies": [
-        "Proliferate",
         "+1/+1 Counters",
         "Adapt",
         "Outlast",
+        "Proliferate",
         "-1/-1 Counters"
       ],
       "primary_color": "Green",
@@ -1475,11 +1473,11 @@
     {
       "theme": "Counterspells",
       "synergies": [
-        "Counters Matter",
-        "Proliferate",
         "Control",
         "Stax",
-        "Interaction"
+        "Interaction",
+        "Spells Matter",
+        "Spellslinger"
       ],
       "primary_color": "Blue",
       "secondary_color": "White"
@@ -1535,9 +1533,9 @@
     {
       "theme": "Creature Tokens",
       "synergies": [
-        "Tokens Matter",
         "Token Creation",
         "Populate",
+        "Tokens Matter",
         "For Mirrodin!",
         "Endure"
       ],
@@ -1680,19 +1678,13 @@
     },
     {
       "theme": "Defense Counters",
-      "synergies": [
-        "Counters Matter",
-        "Proliferate"
-      ],
+      "synergies": [],
       "primary_color": "Black",
       "secondary_color": "Green"
     },
     {
       "theme": "Delay Counters",
-      "synergies": [
-        "Counters Matter",
-        "Proliferate"
-      ],
+      "synergies": [],
       "primary_color": "Blue",
       "secondary_color": "White"
     },
@@ -1723,8 +1715,6 @@
     {
       "theme": "Demigod Kindred",
       "synergies": [
-        "Historics Matter",
-        "Legends Matter",
         "Enchantments Matter"
       ],
       "primary_color": "Black",
@@ -1755,9 +1745,8 @@
     {
       "theme": "Depletion Counters",
       "synergies": [
-        "Counters Matter",
-        "Proliferate",
-        "Lands Matter"
+        "Lands Matter",
+        "Counters Matter"
       ],
       "primary_color": "Blue",
       "secondary_color": "White"
@@ -1837,10 +1826,7 @@
     },
     {
       "theme": "Devotion Counters",
-      "synergies": [
-        "Counters Matter",
-        "Proliferate"
-      ],
+      "synergies": [],
       "primary_color": "Black",
       "secondary_color": "White"
     },
@@ -1919,11 +1905,11 @@
     {
       "theme": "Divinity Counters",
       "synergies": [
-        "Counters Matter",
-        "Proliferate",
         "Protection",
         "Spirit Kindred",
-        "Historics Matter"
+        "Counters Matter",
+        "Interaction",
+        "Big Mana"
       ],
       "primary_color": "White",
       "secondary_color": "Black"
@@ -1947,7 +1933,7 @@
         "Sagas Matter",
         "Lore Counters",
         "Ore Counters",
-        "Historics Matter"
+        "Human Kindred"
       ],
       "primary_color": "White",
       "secondary_color": "Blue"
@@ -1957,9 +1943,9 @@
       "synergies": [
         "Doctor Kindred",
         "Sagas Matter",
-        "Historics Matter",
-        "Legends Matter",
-        "Human Kindred"
+        "Human Kindred",
+        "Little Fellas",
+        "Card Draw"
       ],
       "primary_color": "White",
       "secondary_color": "Blue"
@@ -1990,10 +1976,7 @@
     },
     {
       "theme": "Doom Counters",
-      "synergies": [
-        "Counters Matter",
-        "Proliferate"
-      ],
+      "synergies": [],
       "primary_color": "Red"
     },
     {
@@ -2160,9 +2143,9 @@
       "synergies": [
         "Dinosaur Kindred",
         "Dragon Kindred",
-        "Historics Matter",
-        "Legends Matter",
-        "Flying"
+        "Flying",
+        "Big Mana",
+        "Aggro"
       ],
       "primary_color": "Black",
       "secondary_color": "Blue"
@@ -2276,11 +2259,11 @@
     {
       "theme": "Enchantment Tokens",
       "synergies": [
-        "Tokens Matter",
         "Role token",
         "Inspired",
         "Hero Kindred",
-        "Equipment Matters"
+        "Equipment Matters",
+        "Scry"
       ],
       "primary_color": "White",
       "secondary_color": "Blue"
@@ -2336,11 +2319,11 @@
     {
       "theme": "Energy Counters",
       "synergies": [
-        "Counters Matter",
-        "Proliferate",
         "Energy",
         "Resource Engine",
-        "Servo Kindred"
+        "Servo Kindred",
+        "Vedalken Kindred",
+        "Artificer Kindred"
       ],
       "primary_color": "Red",
       "secondary_color": "Blue"
@@ -2393,10 +2376,7 @@
     },
     {
       "theme": "Eon Counters",
-      "synergies": [
-        "Counters Matter",
-        "Proliferate"
-      ],
+      "synergies": [],
       "primary_color": "Black",
       "secondary_color": "Blue"
     },
@@ -2426,11 +2406,11 @@
     {
       "theme": "Equipment",
       "synergies": [
-        "Voltron",
-        "Double Strike",
-        "Warriors Matter",
         "Job select",
-        "Reconfigure"
+        "Reconfigure",
+        "For Mirrodin!",
+        "Living weapon",
+        "Equip"
       ],
       "primary_color": "Red",
       "secondary_color": "White"
@@ -2555,10 +2535,7 @@
     },
     {
       "theme": "Experience Counters",
-      "synergies": [
-        "Counters Matter",
-        "Proliferate"
-      ],
+      "synergies": [],
       "primary_color": "Blue",
       "secondary_color": "White"
     },
@@ -2604,8 +2581,8 @@
         "More Than Meets the Eye",
         "Convert",
         "Robot Kindred",
-        "Historics Matter",
-        "Legends Matter"
+        "Flying",
+        "Artifacts Matter"
       ],
       "primary_color": "Black",
       "secondary_color": "White"
@@ -2625,9 +2602,8 @@
     {
       "theme": "Fade Counters",
       "synergies": [
-        "Counters Matter",
-        "Proliferate",
         "Fading",
+        "Counters Matter",
         "Enchantments Matter",
         "Interaction"
       ],
@@ -2712,7 +2688,7 @@
         "Sagas Matter",
         "Dinosaur Kindred",
         "Ore Counters",
-        "+1/+1 Counters"
+        "Burn"
       ],
       "primary_color": "Green",
       "secondary_color": "Red"
@@ -2720,11 +2696,11 @@
     {
       "theme": "Finality Counters",
       "synergies": [
-        "Counters Matter",
-        "Proliferate",
         "Mill",
+        "Counters Matter",
         "Blink",
-        "Enter the Battlefield"
+        "Enter the Battlefield",
+        "Leave the Battlefield"
       ],
       "primary_color": "Black",
       "secondary_color": "Green"
@@ -2806,10 +2782,7 @@
     },
     {
       "theme": "Flood Counters",
-      "synergies": [
-        "Counters Matter",
-        "Proliferate"
-      ],
+      "synergies": [],
       "primary_color": "Blue"
     },
     {
@@ -2850,11 +2823,11 @@
     {
       "theme": "Food Token",
       "synergies": [
-        "Tokens Matter",
         "Forage",
         "Food",
         "Halfling Kindred",
-        "Squirrel Kindred"
+        "Squirrel Kindred",
+        "Peasant Kindred"
       ],
       "primary_color": "Green",
       "secondary_color": "Black"
@@ -2987,10 +2960,7 @@
     },
     {
       "theme": "Fungus Counters",
-      "synergies": [
-        "Counters Matter",
-        "Proliferate"
-      ],
+      "synergies": [],
       "primary_color": "Green"
     },
     {
@@ -3007,10 +2977,7 @@
     },
     {
       "theme": "Fuse Counters",
-      "synergies": [
-        "Counters Matter",
-        "Proliferate"
-      ],
+      "synergies": [],
       "primary_color": "Red"
     },
     {
@@ -3136,10 +3103,10 @@
       "theme": "God Kindred",
       "synergies": [
         "Indestructible",
-        "Historics Matter",
-        "Legends Matter",
         "Protection",
-        "Transform"
+        "Transform",
+        "Exile Matters",
+        "Topdeck"
       ],
       "primary_color": "Black",
       "secondary_color": "White"
@@ -3147,9 +3114,9 @@
     {
       "theme": "Gold Token",
       "synergies": [
-        "Tokens Matter",
         "Artifact Tokens",
         "Token Creation",
+        "Tokens Matter",
         "Artifacts Matter",
         "Aggro"
       ],
@@ -3193,10 +3160,7 @@
     },
     {
       "theme": "Grandeur",
-      "synergies": [
-        "Historics Matter",
-        "Legends Matter"
-      ],
+      "synergies": [],
       "primary_color": "Red",
       "secondary_color": "Black"
     },
@@ -3209,10 +3173,10 @@
     {
       "theme": "Graveyard Matters",
       "synergies": [
-        "Reanimate",
         "Mill",
         "Unearth",
         "Surveil",
+        "Reanimate",
         "Craft"
       ],
       "primary_color": "Black",
@@ -3250,10 +3214,7 @@
     },
     {
       "theme": "Growth Counters",
-      "synergies": [
-        "Counters Matter",
-        "Proliferate"
-      ],
+      "synergies": [],
       "primary_color": "Green"
     },
     {
@@ -3324,18 +3285,12 @@
     },
     {
       "theme": "Hatching Counters",
-      "synergies": [
-        "Counters Matter",
-        "Proliferate"
-      ],
+      "synergies": [],
       "primary_color": "Green"
     },
     {
       "theme": "Hatchling Counters",
-      "synergies": [
-        "Counters Matter",
-        "Proliferate"
-      ],
+      "synergies": [],
       "primary_color": "Black",
       "secondary_color": "Blue"
     },
@@ -3353,10 +3308,7 @@
     },
     {
       "theme": "Healing Counters",
-      "synergies": [
-        "Counters Matter",
-        "Proliferate"
-      ],
+      "synergies": [],
       "primary_color": "White"
     },
     {
@@ -3465,10 +3417,7 @@
     },
     {
       "theme": "Hit Counters",
-      "synergies": [
-        "Counters Matter",
-        "Proliferate"
-      ],
+      "synergies": [],
       "primary_color": "Black"
     },
     {
@@ -3505,9 +3454,9 @@
       "synergies": [
         "Saddle",
         "Mount Kindred",
-        "Historics Matter",
-        "Legends Matter",
-        "Blink"
+        "Blink",
+        "Enter the Battlefield",
+        "Leave the Battlefield"
       ],
       "primary_color": "White",
       "secondary_color": "Black"
@@ -3517,19 +3466,16 @@
       "synergies": [
         "Soldier Kindred",
         "Human Kindred",
-        "Historics Matter",
-        "Legends Matter",
-        "Warrior Kindred"
+        "Warrior Kindred",
+        "Big Mana",
+        "Little Fellas"
       ],
       "primary_color": "Black",
       "secondary_color": "Blue"
     },
     {
       "theme": "Hour Counters",
-      "synergies": [
-        "Counters Matter",
-        "Proliferate"
-      ],
+      "synergies": [],
       "primary_color": "Black",
       "secondary_color": "Blue"
     },
@@ -3566,8 +3512,7 @@
     {
       "theme": "Ice Counters",
       "synergies": [
-        "Counters Matter",
-        "Proliferate"
+        "Counters Matter"
       ],
       "primary_color": "Blue",
       "secondary_color": "Black"
@@ -3664,11 +3609,11 @@
     {
       "theme": "Incubator Token",
       "synergies": [
-        "Tokens Matter",
         "Incubate",
         "Transform",
         "Phyrexian Kindred",
-        "Artifact Tokens"
+        "Artifact Tokens",
+        "+1/+1 Counters"
       ],
       "primary_color": "White",
       "secondary_color": "Black"
@@ -3678,9 +3623,9 @@
       "synergies": [
         "God Kindred",
         "Protection",
-        "Historics Matter",
-        "Legends Matter",
-        "Interaction"
+        "Interaction",
+        "Lifegain",
+        "Life Matters"
       ],
       "primary_color": "White",
       "secondary_color": "Black"
@@ -3699,10 +3644,7 @@
     },
     {
       "theme": "Infection Counters",
-      "synergies": [
-        "Counters Matter",
-        "Proliferate"
-      ],
+      "synergies": [],
       "primary_color": "Black",
       "secondary_color": "Blue"
     },
@@ -3712,8 +3654,8 @@
         "Drone Kindred",
         "Devoid",
         "Eldrazi Kindred",
-        "Burn",
-        "Aggro"
+        "Aggro",
+        "Combat Matters"
       ],
       "primary_color": "Blue",
       "secondary_color": "Black"
@@ -3851,10 +3793,7 @@
     },
     {
       "theme": "Judgment Counters",
-      "synergies": [
-        "Counters Matter",
-        "Proliferate"
-      ],
+      "synergies": [],
       "primary_color": "White"
     },
     {
@@ -3889,11 +3828,11 @@
     {
       "theme": "Junk Token",
       "synergies": [
-        "Tokens Matter",
         "Junk Tokens",
         "Impulse",
         "Artifact Tokens",
-        "Exile Matters"
+        "Exile Matters",
+        "Token Creation"
       ],
       "primary_color": "Red",
       "secondary_color": "Green"
@@ -3901,11 +3840,11 @@
     {
       "theme": "Junk Tokens",
       "synergies": [
-        "Tokens Matter",
         "Junk Token",
         "Impulse",
         "Artifact Tokens",
-        "Exile Matters"
+        "Exile Matters",
+        "Token Creation"
       ],
       "primary_color": "Red",
       "secondary_color": "Green"
@@ -3925,11 +3864,10 @@
     {
       "theme": "Ki Counters",
       "synergies": [
-        "Counters Matter",
-        "Proliferate",
         "Spirit Kindred",
-        "Historics Matter",
-        "Legends Matter"
+        "Counters Matter",
+        "Human Kindred",
+        "Little Fellas"
       ],
       "primary_color": "Black",
       "secondary_color": "Blue"
@@ -3961,8 +3899,6 @@
       "synergies": [
         "Spirit Kindred",
         "Flying",
-        "Historics Matter",
-        "Legends Matter",
         "Little Fellas"
       ],
       "primary_color": "White",
@@ -4127,7 +4063,7 @@
         "Lifegain",
         "Life Matters",
         "Little Fellas",
-        "Burn"
+        "Big Mana"
       ],
       "primary_color": "Black",
       "secondary_color": "Green"
@@ -4147,11 +4083,11 @@
     {
       "theme": "Level Counters",
       "synergies": [
-        "Counters Matter",
-        "Proliferate",
         "Level Up",
+        "Counters Matter",
         "Wizard Kindred",
-        "Warrior Kindred"
+        "Warrior Kindred",
+        "Human Kindred"
       ],
       "primary_color": "Blue",
       "secondary_color": "White"
@@ -4309,9 +4245,9 @@
       "synergies": [
         "Convert",
         "Vehicles",
-        "Historics Matter",
-        "Legends Matter",
-        "Artifacts Matter"
+        "Artifacts Matter",
+        "Toughness Matters",
+        "Aggro"
       ],
       "primary_color": "Black",
       "secondary_color": "White"
@@ -4347,7 +4283,7 @@
         "Discard Matters",
         "Reanimate",
         "Cycling",
-        "Blood Tokens"
+        "Connive"
       ],
       "primary_color": "Blue",
       "secondary_color": "Black"
@@ -4355,11 +4291,11 @@
     {
       "theme": "Lore Counters",
       "synergies": [
-        "Counters Matter",
-        "Proliferate",
         "Read Ahead",
         "Sagas Matter",
-        "Ore Counters"
+        "Ore Counters",
+        "Doctor Kindred",
+        "Fight"
       ],
       "primary_color": "White",
       "secondary_color": "Green"
@@ -4367,11 +4303,11 @@
     {
       "theme": "Loyalty Counters",
       "synergies": [
-        "Counters Matter",
-        "Proliferate",
         "Superfriends",
         "Planeswalkers",
-        "Super Friends"
+        "Super Friends",
+        "Counters Matter",
+        "Draw Triggers"
       ],
       "primary_color": "White",
       "secondary_color": "Black"
@@ -4462,11 +4398,11 @@
     {
       "theme": "Map Token",
       "synergies": [
-        "Tokens Matter",
         "Explore",
         "Card Selection",
         "Artifact Tokens",
-        "Token Creation"
+        "Token Creation",
+        "Tokens Matter"
       ],
       "primary_color": "Blue",
       "secondary_color": "Green"
@@ -4777,8 +4713,7 @@
         "Convert",
         "Eye Kindred",
         "Robot Kindred",
-        "Historics Matter",
-        "Legends Matter"
+        "Artifacts Matter"
       ],
       "primary_color": "Black",
       "secondary_color": "White"
@@ -4936,10 +4871,7 @@
     },
     {
       "theme": "Net Counters",
-      "synergies": [
-        "Counters Matter",
-        "Proliferate"
-      ],
+      "synergies": [],
       "primary_color": "Blue"
     },
     {
@@ -4948,8 +4880,8 @@
         "Werewolf Kindred",
         "Control",
         "Stax",
-        "Aggro",
-        "Combat Matters"
+        "Burn",
+        "Aggro"
       ],
       "primary_color": "Green",
       "secondary_color": "Red"
@@ -4979,9 +4911,9 @@
       "synergies": [
         "Ninjutsu",
         "Rat Kindred",
-        "Burn",
         "Human Kindred",
-        "Big Mana"
+        "Big Mana",
+        "Aggro"
       ],
       "primary_color": "Blue",
       "secondary_color": "Black"
@@ -4991,9 +4923,9 @@
       "synergies": [
         "Ninja Kindred",
         "Rat Kindred",
-        "Burn",
         "Big Mana",
-        "Human Kindred"
+        "Human Kindred",
+        "Aggro"
       ],
       "primary_color": "Black",
       "secondary_color": "Blue"
@@ -5002,10 +4934,10 @@
       "theme": "Noble Kindred",
       "synergies": [
         "Vampire Kindred",
-        "Historics Matter",
-        "Legends Matter",
         "Lifelink",
-        "Elf Kindred"
+        "Elf Kindred",
+        "Human Kindred",
+        "Lifegain"
       ],
       "primary_color": "Black",
       "secondary_color": "White"
@@ -5050,10 +4982,9 @@
       "theme": "Offering",
       "synergies": [
         "Spirit Kindred",
-        "Historics Matter",
-        "Legends Matter",
         "Big Mana",
-        "Spells Matter"
+        "Spells Matter",
+        "Spellslinger"
       ],
       "primary_color": "Red",
       "secondary_color": "Black"
@@ -5085,21 +5016,18 @@
     {
       "theme": "Oil Counters",
       "synergies": [
-        "Counters Matter",
-        "Proliferate",
         "Phyrexian Kindred",
+        "Counters Matter",
         "Artifacts Matter",
-        "Warrior Kindred"
+        "Warrior Kindred",
+        "Wizard Kindred"
       ],
       "primary_color": "Red",
       "secondary_color": "Blue"
     },
     {
       "theme": "Omen Counters",
-      "synergies": [
-        "Counters Matter",
-        "Proliferate"
-      ],
+      "synergies": [],
       "primary_color": "Blue",
       "secondary_color": "White"
     },
@@ -5147,11 +5075,11 @@
     {
       "theme": "Ore Counters",
       "synergies": [
-        "Counters Matter",
-        "Proliferate",
         "Lore Counters",
         "Spore Counters",
-        "Read Ahead"
+        "Read Ahead",
+        "Sagas Matter",
+        "Saproling Kindred"
       ],
       "primary_color": "Green",
       "secondary_color": "White"
@@ -5274,9 +5202,9 @@
       "synergies": [
         "Partner with",
         "Performer Kindred",
-        "Historics Matter",
-        "Legends Matter",
-        "Pirate Kindred"
+        "Pirate Kindred",
+        "Artificer Kindred",
+        "Planeswalkers"
       ],
       "primary_color": "Blue",
       "secondary_color": "Black"
@@ -5285,10 +5213,10 @@
       "theme": "Partner with",
       "synergies": [
         "Partner",
-        "Historics Matter",
-        "Legends Matter",
         "Blink",
-        "Enter the Battlefield"
+        "Enter the Battlefield",
+        "Leave the Battlefield",
+        "Conditional Draw"
       ],
       "primary_color": "Blue",
       "secondary_color": "Red"
@@ -5319,10 +5247,10 @@
       "theme": "Performer Kindred",
       "synergies": [
         "Partner",
-        "Historics Matter",
-        "Legends Matter",
         "Blink",
-        "Enter the Battlefield"
+        "Enter the Battlefield",
+        "Leave the Battlefield",
+        "Human Kindred"
       ],
       "primary_color": "Green",
       "secondary_color": "Blue"
@@ -5405,8 +5333,8 @@
         "Extort",
         "Devil Kindred",
         "Offspring",
-        "Role token",
-        "Board Wipes"
+        "Burn",
+        "Role token"
       ],
       "primary_color": "Red",
       "secondary_color": "Black"
@@ -5425,10 +5353,7 @@
     },
     {
       "theme": "Plague Counters",
-      "synergies": [
-        "Counters Matter",
-        "Proliferate"
-      ],
+      "synergies": [],
       "primary_color": "Black"
     },
     {
@@ -5487,11 +5412,11 @@
     {
       "theme": "Poison Counters",
       "synergies": [
-        "Counters Matter",
-        "Proliferate",
         "Toxic",
         "Corrupted",
-        "Mite Kindred"
+        "Mite Kindred",
+        "Infect",
+        "Phyrexian Kindred"
       ],
       "primary_color": "Black",
       "secondary_color": "Green"
@@ -5527,11 +5452,11 @@
     {
       "theme": "Powerstone Token",
       "synergies": [
-        "Tokens Matter",
         "Artifact Tokens",
         "Artificer Kindred",
         "Mana Dork",
-        "Ramp"
+        "Ramp",
+        "Token Creation"
       ],
       "primary_color": "Blue",
       "secondary_color": "Red"
@@ -5541,9 +5466,9 @@
       "synergies": [
         "Phyrexian Kindred",
         "Transform",
-        "Historics Matter",
-        "Legends Matter",
-        "Big Mana"
+        "Big Mana",
+        "Blink",
+        "Enter the Battlefield"
       ],
       "primary_color": "Black",
       "secondary_color": "Blue"
@@ -5566,9 +5491,9 @@
     {
       "theme": "Proliferate",
       "synergies": [
-        "Counters Matter",
         "+1/+1 Counters",
         "Planeswalkers",
+        "Counters Matter",
         "Infect",
         "-1/-1 Counters"
       ],
@@ -5636,11 +5561,11 @@
     {
       "theme": "Quest Counters",
       "synergies": [
-        "Counters Matter",
-        "Proliferate",
         "Landfall",
+        "Counters Matter",
         "Enchantments Matter",
-        "Lands Matter"
+        "Lands Matter",
+        "Token Creation"
       ],
       "primary_color": "White",
       "secondary_color": "Black"
@@ -5672,11 +5597,11 @@
     {
       "theme": "Rad Counters",
       "synergies": [
-        "Counters Matter",
-        "Proliferate",
         "Mutant Kindred",
         "Zombie Kindred",
-        "Mill"
+        "Mill",
+        "Counters Matter",
+        "+1/+1 Counters"
       ],
       "primary_color": "Black",
       "secondary_color": "Green"
@@ -5795,20 +5720,13 @@
       "theme": "Reanimate",
       "synergies": [
         "Mill",
-        "Graveyard Matters",
         "Enter the Battlefield",
+        "Graveyard Matters",
         "Zombie Kindred",
         "Flashback"
       ],
       "primary_color": "Black",
       "secondary_color": "Blue"
-    },
-    {
-      "theme": "Reanimator",
-      "synergies": [
-        "Graveyard Matters",
-        "Reanimate"
-      ]
     },
     {
       "theme": "Rebel Kindred",
@@ -5906,8 +5824,8 @@
         "+1/+1 Counters",
         "Soldier Kindred",
         "Counters Matter",
-        "Burn",
-        "Voltron"
+        "Voltron",
+        "Human Kindred"
       ],
       "primary_color": "White",
       "secondary_color": "Green"
@@ -6030,11 +5948,11 @@
     {
       "theme": "Role token",
       "synergies": [
-        "Tokens Matter",
         "Enchantment Tokens",
         "Hero Kindred",
         "Equipment Matters",
-        "Auras"
+        "Auras",
+        "Scry"
       ],
       "primary_color": "Black",
       "secondary_color": "Red"
@@ -6074,9 +5992,9 @@
       "synergies": [
         "Clue Token",
         "Investigate",
-        "Blood Tokens",
         "Blood Token",
-        "Detective Kindred"
+        "Detective Kindred",
+        "Artifact Tokens"
       ],
       "primary_color": "Black",
       "secondary_color": "Blue"
@@ -6123,8 +6041,8 @@
         "Bushido",
         "Fox Kindred",
         "Equipment Matters",
-        "Historics Matter",
-        "Legends Matter"
+        "Human Kindred",
+        "Vigilance"
       ],
       "primary_color": "White",
       "secondary_color": "Red"
@@ -6179,8 +6097,6 @@
     {
       "theme": "Scientist Kindred",
       "synergies": [
-        "Historics Matter",
-        "Legends Matter",
         "Toughness Matters",
         "Human Kindred",
         "Little Fellas"
@@ -6226,10 +6142,7 @@
     },
     {
       "theme": "Scream Counters",
-      "synergies": [
-        "Counters Matter",
-        "Proliferate"
-      ],
+      "synergies": [],
       "primary_color": "Black"
     },
     {
@@ -6352,11 +6265,11 @@
     {
       "theme": "Shield Counters",
       "synergies": [
-        "Counters Matter",
-        "Proliferate",
         "Soldier Kindred",
+        "Counters Matter",
         "Lifegain",
-        "Life Matters"
+        "Life Matters",
+        "Human Kindred"
       ],
       "primary_color": "White",
       "secondary_color": "Green"
@@ -6364,8 +6277,6 @@
     {
       "theme": "Shrines Matter",
       "synergies": [
-        "Historics Matter",
-        "Legends Matter",
         "Enchantments Matter"
       ],
       "primary_color": "White",
@@ -6423,10 +6334,7 @@
     },
     {
       "theme": "Slime Counters",
-      "synergies": [
-        "Counters Matter",
-        "Proliferate"
-      ],
+      "synergies": [],
       "primary_color": "Blue",
       "secondary_color": "Green"
     },
@@ -6435,9 +6343,9 @@
       "synergies": [
         "+1/+1 Counters",
         "Counters Matter",
-        "Burn",
         "Voltron",
-        "Aggro"
+        "Aggro",
+        "Combat Matters"
       ],
       "primary_color": "Black",
       "secondary_color": "White"
@@ -6446,8 +6354,7 @@
       "theme": "Sliver Kindred",
       "synergies": [
         "Little Fellas",
-        "Pingers",
-        "Burn"
+        "Pingers"
       ],
       "primary_color": "White",
       "secondary_color": "Red"
@@ -6507,10 +6414,7 @@
     },
     {
       "theme": "Soul Counters",
-      "synergies": [
-        "Counters Matter",
-        "Proliferate"
-      ],
+      "synergies": [],
       "primary_color": "Black"
     },
     {
@@ -6566,8 +6470,8 @@
         "Draw Triggers",
         "Wheels",
         "Flying",
-        "Burn",
-        "Card Draw"
+        "Card Draw",
+        "Burn"
       ],
       "primary_color": "Black"
     },
@@ -6710,11 +6614,11 @@
     {
       "theme": "Spore Counters",
       "synergies": [
-        "Counters Matter",
-        "Proliferate",
         "Fungus Kindred",
         "Saproling Kindred",
-        "Ore Counters"
+        "Ore Counters",
+        "Creature Tokens",
+        "Token Creation"
       ],
       "primary_color": "Green",
       "secondary_color": "White"
@@ -6782,10 +6686,7 @@
     },
     {
       "theme": "Stash Counters",
-      "synergies": [
-        "Counters Matter",
-        "Proliferate"
-      ],
+      "synergies": [],
       "primary_color": "Red",
       "secondary_color": "Black"
     },
@@ -6816,10 +6717,9 @@
     {
       "theme": "Storage Counters",
       "synergies": [
-        "Counters Matter",
-        "Proliferate",
         "Age Counters",
-        "Lands Matter"
+        "Lands Matter",
+        "Counters Matter"
       ],
       "primary_color": "Black",
       "secondary_color": "Blue"
@@ -6851,10 +6751,10 @@
       "theme": "Stun Counters",
       "synergies": [
         "Counters Matter",
-        "Proliferate",
         "Stax",
         "Wizard Kindred",
-        "Blink"
+        "Blink",
+        "Enter the Battlefield"
       ],
       "primary_color": "Blue",
       "secondary_color": "White"
@@ -7072,10 +6972,7 @@
     },
     {
       "theme": "Tide Counters",
-      "synergies": [
-        "Counters Matter",
-        "Proliferate"
-      ],
+      "synergies": [],
       "primary_color": "Blue"
     },
     {
@@ -7093,11 +6990,11 @@
     {
       "theme": "Time Counters",
       "synergies": [
-        "Counters Matter",
-        "Proliferate",
         "Vanishing",
         "Time Travel",
-        "Impending"
+        "Impending",
+        "Suspend",
+        "Exile Matters"
       ],
       "primary_color": "Blue",
       "secondary_color": "White"
@@ -7116,9 +7013,9 @@
     {
       "theme": "Token Creation",
       "synergies": [
-        "Tokens Matter",
         "Creature Tokens",
         "Populate",
+        "Tokens Matter",
         "Artifact Tokens",
         "Treasure"
       ],
@@ -7128,11 +7025,11 @@
     {
       "theme": "Token Modification",
       "synergies": [
-        "Tokens Matter",
         "Clones",
         "Planeswalkers",
         "Super Friends",
-        "Token Creation"
+        "Token Creation",
+        "Tokens Matter"
       ],
       "primary_color": "White",
       "secondary_color": "Green"
@@ -7257,8 +7154,8 @@
       "theme": "Treasure Token",
       "synergies": [
         "Sacrifice Matters",
-        "Artifacts Matter",
         "Ramp",
+        "Artifacts Matter",
         "Treasure",
         "Artifact Tokens"
       ],
@@ -7437,11 +7334,11 @@
     {
       "theme": "Vampire Kindred",
       "synergies": [
-        "Blood Tokens",
         "Blood Token",
         "Lifegain Triggers",
         "Madness",
-        "Noble Kindred"
+        "Noble Kindred",
+        "Lifegain"
       ],
       "primary_color": "Black",
       "secondary_color": "Red"
@@ -7477,10 +7374,10 @@
       "theme": "Vehicles",
       "synergies": [
         "Artifacts Matter",
-        "Equipment",
         "Crew",
         "Pilot Kindred",
-        "Living metal"
+        "Living metal",
+        "Convert"
       ],
       "primary_color": "White",
       "secondary_color": "Blue"
@@ -7488,11 +7385,10 @@
     {
       "theme": "Venture into the dungeon",
       "synergies": [
-        "Historics Matter",
-        "Legends Matter",
         "Aggro",
         "Combat Matters",
-        "Artifacts Matter"
+        "Artifacts Matter",
+        "Toughness Matters"
       ],
       "primary_color": "White",
       "secondary_color": "Blue"
@@ -7501,7 +7397,6 @@
       "theme": "Verse Counters",
       "synergies": [
         "Counters Matter",
-        "Proliferate",
         "Enchantments Matter"
       ],
       "primary_color": "Blue",
@@ -7533,20 +7428,17 @@
     },
     {
       "theme": "Void Counters",
-      "synergies": [
-        "Counters Matter",
-        "Proliferate"
-      ],
+      "synergies": [],
       "primary_color": "Black"
     },
     {
       "theme": "Voltron",
       "synergies": [
-        "Equipment",
+        "Equipment Matters",
         "Auras",
         "Double Strike",
         "+1/+1 Counters",
-        "Equipment Matters"
+        "Equipment"
       ],
       "primary_color": "Green",
       "secondary_color": "White"
@@ -7687,18 +7579,12 @@
     },
     {
       "theme": "Wind Counters",
-      "synergies": [
-        "Counters Matter",
-        "Proliferate"
-      ],
+      "synergies": [],
       "primary_color": "Green"
     },
     {
       "theme": "Wish Counters",
-      "synergies": [
-        "Counters Matter",
-        "Proliferate"
-      ],
+      "synergies": [],
       "primary_color": "Black",
       "secondary_color": "Blue"
     },
@@ -7708,8 +7594,8 @@
         "-1/-1 Counters",
         "Elemental Kindred",
         "Warrior Kindred",
-        "Counters Matter",
-        "Burn"
+        "Burn",
+        "Counters Matter"
       ],
       "primary_color": "Black",
       "secondary_color": "Red"
@@ -7837,8 +7723,7 @@
     {
       "theme": "\\+0/\\+1 Counters",
       "synergies": [
-        "Counters Matter",
-        "Proliferate"
+        "Counters Matter"
       ],
       "primary_color": "White",
       "secondary_color": "Blue"
@@ -7846,18 +7731,14 @@
     {
       "theme": "\\+1/\\+0 Counters",
       "synergies": [
-        "Counters Matter",
-        "Proliferate"
+        "Counters Matter"
       ],
       "primary_color": "Red",
       "secondary_color": "Black"
     },
     {
       "theme": "\\+2/\\+2 Counters",
-      "synergies": [
-        "Counters Matter",
-        "Proliferate"
-      ],
+      "synergies": [],
       "primary_color": "Black",
       "secondary_color": "Green"
     }
@@ -7883,14 +7764,14 @@
       "Little Fellas": 1698,
       "Toughness Matters": 908,
       "Mill": 394,
-      "Spells Matter": 1155,
-      "Spellslinger": 1155,
+      "Spells Matter": 1156,
+      "Spellslinger": 1156,
       "Auras": 371,
       "Enchantments Matter": 956,
       "Cantrips": 88,
       "Card Draw": 308,
       "Combat Tricks": 215,
-      "Interaction": 1060,
+      "Interaction": 1061,
       "Unconditional Draw": 133,
       "Cost Reduction": 67,
       "Flash": 111,
@@ -7923,7 +7804,7 @@
       "Soldier Kindred": 634,
       "Warrior Kindred": 155,
       "Control": 221,
-      "Removal": 407,
+      "Removal": 408,
       "Aristocrats": 154,
       "Haunt": 4,
       "Sacrifice Matters": 154,
@@ -7941,7 +7822,7 @@
       "Bracket:TutorNonland": 58,
       "Knight Kindred": 238,
       "Battle Cry": 5,
-      "Burn": 286,
+      "Burn": 215,
       "Survival": 5,
       "Survivor Kindred": 5,
       "Artifact Tokens": 134,
@@ -8418,7 +8299,6 @@
       "Shaman Kindred": 1,
       "The Nuka-Cola Challenge": 1,
       "Blood Token": 1,
-      "Blood Tokens": 1,
       "Conjure": 1,
       "Zubera Kindred": 1,
       "Illusion Kindred": 2,
@@ -8548,7 +8428,6 @@
       "Unconditional Draw": 451,
       "Board Wipes": 56,
       "Bracket:MassLandDenial": 8,
-      "Burn": 229,
       "Equipment": 25,
       "Reconfigure": 3,
       "Charge Counters": 12,
@@ -8583,6 +8462,7 @@
       "Sacrifice to Draw": 76,
       "Servo Kindred": 1,
       "Vedalken Kindred": 55,
+      "Burn": 79,
       "Max speed": 4,
       "Start your engines!": 4,
       "Scry": 140,
@@ -9020,7 +8900,6 @@
       "Ripple": 1,
       "Surrakar Kindred": 2,
       "Blood Token": 1,
-      "Blood Tokens": 1,
       "Flurry": 2,
       "Plant Kindred": 2,
       "Imp Kindred": 1,
@@ -9089,7 +8968,7 @@
       "Interaction": 878,
       "Horror Kindred": 184,
       "Basic landcycling": 2,
-      "Burn": 1021,
+      "Burn": 907,
       "Card Draw": 643,
       "Cycling": 48,
       "Discard Matters": 230,
@@ -9324,7 +9203,6 @@
       "Mutant Kindred": 12,
       "Rad Counters": 6,
       "Kicker": 26,
-      "Blood Tokens": 18,
       "Counterspells": 7,
       "Lifegain Triggers": 20,
       "Assist": 3,
@@ -9710,22 +9588,22 @@
       "Burning Chains": 1
     },
     "red": {
-      "Burn": 1652,
+      "Burn": 1556,
       "Enchantments Matter": 578,
       "Blink": 454,
       "Enter the Battlefield": 454,
-      "Goblin Kindred": 393,
+      "Goblin Kindred": 394,
       "Guest Kindred": 4,
       "Leave the Battlefield": 454,
-      "Little Fellas": 1255,
+      "Little Fellas": 1256,
       "Mana Dork": 58,
-      "Ramp": 98,
+      "Ramp": 99,
       "Spells Matter": 1539,
       "Spellslinger": 1539,
-      "Aggro": 1416,
-      "Combat Matters": 1416,
+      "Aggro": 1417,
+      "Combat Matters": 1417,
       "Combat Tricks": 159,
-      "Discard Matters": 302,
+      "Discard Matters": 303,
       "Interaction": 653,
       "Madness": 18,
       "Mill": 341,
@@ -9733,7 +9611,7 @@
       "Flashback": 45,
       "Artifacts Matter": 699,
       "Exile Matters": 253,
-      "Human Kindred": 557,
+      "Human Kindred": 558,
       "Impulse": 143,
       "Monk Kindred": 19,
       "Prowess": 20,
@@ -9761,8 +9639,8 @@
       "Theft": 130,
       "Lands Matter": 251,
       "Control": 154,
-      "Historics Matter": 310,
-      "Legends Matter": 310,
+      "Historics Matter": 311,
+      "Legends Matter": 311,
       "Spirit Kindred": 71,
       "Clash": 5,
       "Minotaur Kindred": 73,
@@ -9770,7 +9648,7 @@
       "Vehicles": 36,
       "Berserker Kindred": 88,
       "Rampage": 4,
-      "Toughness Matters": 471,
+      "Toughness Matters": 472,
       "Beast Kindred": 88,
       "Artifact Tokens": 176,
       "Artificer Kindred": 51,
@@ -9798,7 +9676,7 @@
       "Sacrifice to Draw": 37,
       "Insect Kindred": 19,
       "Exert": 11,
-      "Haste": 330,
+      "Haste": 331,
       "Aristocrats": 200,
       "Sacrifice Matters": 194,
       "Zombie Kindred": 16,
@@ -9806,7 +9684,7 @@
       "Morph": 24,
       "Scout Kindred": 29,
       "Bird Kindred": 15,
-      "Flying": 236,
+      "Flying": 237,
       "Equipment Matters": 143,
       "Samurai Kindred": 20,
       "Shaman Kindred": 177,
@@ -9838,7 +9716,7 @@
       "Super Friends": 67,
       "Vampire Kindred": 55,
       "X Spells": 135,
-      "Land Types Matter": 30,
+      "Land Types Matter": 31,
       "Backgrounds Matter": 13,
       "Choose a background": 7,
       "Cleric Kindred": 13,
@@ -9874,7 +9752,6 @@
       "Boast": 7,
       "Raid": 16,
       "Blood Token": 32,
-      "Blood Tokens": 13,
       "Loot": 78,
       "Counterspells": 9,
       "Unearth": 11,
@@ -10326,7 +10203,6 @@
       "Token Creation": 523,
       "Tokens Matter": 532,
       "Artifacts Matter": 455,
-      "Burn": 309,
       "Heavy Power Hammer": 1,
       "Interaction": 666,
       "Little Fellas": 1385,
@@ -10390,6 +10266,7 @@
       "Proliferate": 21,
       "Super Friends": 69,
       "Vigilance": 90,
+      "Burn": 218,
       "Archer Kindred": 50,
       "Megamorph": 8,
       "Aristocrats": 183,
@@ -10895,5 +10772,13 @@
       "Plainswalk": 1
     }
   },
-  "generated_from": "tagger + constants"
+  "generated_from": "merge (analytics + curated YAML + whitelist)",
+  "provenance": {
+    "mode": "merge",
+    "generated_at": "2025-09-18T10:37:43",
+    "curated_yaml_files": 733,
+    "synergy_cap": 5,
+    "inference": "pmi",
+    "version": "phase-b-merge-v1"
+  }
 }

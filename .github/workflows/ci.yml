@@ -39,6 +39,15 @@ jobs:
         run: |
           pytest -q || true
 
+      - name: Theme catalog validation (non-strict)
+        run: |
+          python code/scripts/validate_theme_catalog.py
+
+      - name: Theme catalog strict alias check (allowed to fail until alias files removed)
+        continue-on-error: true
+        run: |
+          python code/scripts/validate_theme_catalog.py --strict-alias || true
+
       - name: Fast determinism tests (random subset)
         env:
           CSV_FILES_DIR: csv_files/testdata

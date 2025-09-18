@@ -173,24 +173,32 @@
           return statusEl;
         }
     function renderSetupStatus(data){
-          var el = ensureStatusEl(); if (!el) return;
-          if (data && data.running) {
-            var msg = (data.message || 'Preparing data...');
-      el.innerHTML = '<strong>Setup/Tagging:</strong> ' + msg + ' <a href="/setup/running" style="margin-left:.5rem;">View progress</a>';
-            el.classList.add('busy');
-          } else if (data && data.phase === 'done') {
-            // Don't show "Setup complete" message to avoid UI stuttering
-            // Just clear any existing content and remove busy state
-            el.innerHTML = '';
-            el.classList.remove('busy');
-          } else if (data && data.phase === 'error') {
-            el.innerHTML = '<span class="error">Setup error.</span>';
-            setTimeout(function(){ el.innerHTML = ''; el.classList.remove('busy'); }, 5000);
-          } else {
-            if (!el.innerHTML.trim()) el.innerHTML = '';
-            el.classList.remove('busy');
-          }
+      var el = ensureStatusEl(); if (!el) return;
+      if (data && data.running) {
+        var msg = (data.message || 'Preparing data...');
+        var pct = (typeof data.percent === 'number') ? data.percent : null;
+        // Suppress banner if we're effectively finished (>=99%) or message is purely theme catalog refreshed
+        var suppress = false;
+        if (pct !== null && pct >= 99) suppress = true;
+        var lm = (msg || '').toLowerCase();
+        if (lm.indexOf('theme catalog refreshed') >= 0) suppress = true;
+        if (suppress) {
+          if (el.innerHTML) { el.innerHTML=''; el.classList.remove('busy'); }
+          return;
         }
+        el.innerHTML = '<strong>Setup/Tagging:</strong> ' + msg + ' <a href="/setup/running" style="margin-left:.5rem;">View progress</a>';
+        el.classList.add('busy');
+      } else if (data && data.phase === 'done') {
+        el.innerHTML = '';
+        el.classList.remove('busy');
+      } else if (data && data.phase === 'error') {
+        el.innerHTML = '<span class="error">Setup error.</span>';
+        setTimeout(function(){ el.innerHTML = ''; el.classList.remove('busy'); }, 5000);
+      } else {
+        if (!el.innerHTML.trim()) el.innerHTML = '';
+        el.classList.remove('busy');
+      }
+    }
         function pollStatus(){
           try {
             fetch('/status/setup', { cache: 'no-store' })

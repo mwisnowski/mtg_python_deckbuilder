@@ -13,6 +13,7 @@ dist/
 logs/
 deck_files/
 csv_files/
+config/themes/catalog/
 !config/card_lists/*.json
 !config/themes/*.json
 !config/deck.json

@@ -12,5 +12,6 @@
 
 ### Fixed
 - Removed ultra-rare themes (frequency <=1) except those protected/always included via whitelist.
+- Corrected commander eligibility: restricts non-creature legendary permanents. Now only Legendary Creatures (incl. Artifact/Enchantment Creatures), qualifying Legendary Artifact Vehicles/Spacecraft with printed P/T, or any card explicitly stating "can be your commander" are considered. Plain Legendary Enchantments (non-creature), Planeswalkers without the text, and other Legendary Artifacts are excluded.
 
 ---

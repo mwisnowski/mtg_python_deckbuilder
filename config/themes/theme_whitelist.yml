@@ -21,7 +21,6 @@ always_include:
   - Pillowfort
   - Stax
   - Politics
-  - Reanimator
   - Reanimate
   - Graveyard Matters
   - Treasure Token
@@ -87,7 +86,6 @@ enforced_synergies:
   Token Creation: [Tokens Matter]
   Treasure Token: [Artifacts Matter]
   Reanimate: [Graveyard Matters]
-  Reanimator: [Graveyard Matters, Reanimate]
   Graveyard Matters: [Reanimate]
 
 synergy_cap: 5

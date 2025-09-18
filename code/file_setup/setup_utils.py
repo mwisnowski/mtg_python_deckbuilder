@@ -30,7 +30,6 @@ from .setup_constants import (
     CSV_PROCESSING_COLUMNS,
     CARD_TYPES_TO_EXCLUDE,
     NON_LEGAL_SETS,
-    LEGENDARY_OPTIONS,
     SORT_CONFIG,
     FILTER_CONFIG,
     COLUMN_ORDER,
@@ -325,15 +324,47 @@ def process_legendary_cards(df: pd.DataFrame) -> pd.DataFrame:
         # Step 1: Check legendary status
         try:
             with tqdm(total=1, desc='Checking legendary status') as pbar:
-                mask = filtered_df['type'].str.contains('|'.join(LEGENDARY_OPTIONS), na=False)
-                if not mask.any():
+                # Normalize type line for matching
+                type_line = filtered_df['type'].astype(str).str.lower()
+
+                # Base predicates
+                is_legendary = type_line.str.contains('legendary')
+                is_creature = type_line.str.contains('creature')
+                # Planeswalkers are only eligible if they explicitly state they can be your commander (handled in special cases step)
+                is_enchantment = type_line.str.contains('enchantment')
+                is_artifact = type_line.str.contains('artifact')
+                is_vehicle_or_spacecraft = type_line.str.contains('vehicle') | type_line.str.contains('spacecraft')
+
+                # 1. Always allow Legendary Creatures (includes artifact/enchantment creatures already)
+                allow_legendary_creature = is_legendary & is_creature
+
+                # 2. Allow Legendary Enchantment Creature (already covered by legendary creature) – ensure no plain legendary enchantments without creature type slip through
+                allow_enchantment_creature = is_legendary & is_enchantment & is_creature
+
+                # 3. Allow certain Legendary Artifacts:
+                #    a) Vehicles/Spacecraft that have printed power & toughness
+                has_power_toughness = filtered_df['power'].notna() & filtered_df['toughness'].notna()
+                allow_artifact_vehicle = is_legendary & is_artifact & is_vehicle_or_spacecraft & has_power_toughness
+
+                # (Artifacts or planeswalkers with explicit permission text will be added in special cases step.)
+
+                baseline_mask = allow_legendary_creature | allow_enchantment_creature | allow_artifact_vehicle
+                filtered_df = filtered_df[baseline_mask].copy()
+
+                if filtered_df.empty:
                     raise CommanderValidationError(
-                        "No legendary creatures found",
+                        "No baseline eligible commanders found",
                         "legendary_check",
-                        "DataFrame contains no cards matching legendary criteria"
+                        "After applying commander rules no cards qualified"
                     )
-                filtered_df = filtered_df[mask].copy()
-                logger.debug(f'Found {len(filtered_df)} legendary cards')
+
+                logger.debug(
+                    "Baseline commander counts: total=%d legendary_creatures=%d enchantment_creatures=%d artifact_vehicles=%d", 
+                    len(filtered_df),
+                    int((allow_legendary_creature).sum()),
+                    int((allow_enchantment_creature).sum()),
+                    int((allow_artifact_vehicle).sum())
+                )
                 pbar.update(1)
         except Exception as e:
             raise CommanderValidationError(
@@ -345,7 +376,8 @@ def process_legendary_cards(df: pd.DataFrame) -> pd.DataFrame:
         # Step 2: Validate special cases
         try:
             with tqdm(total=1, desc='Validating special cases') as pbar:
-                special_cases = df['text'].str.contains('can be your commander', na=False)
+                # Add any card (including planeswalkers, artifacts, non-legendary cards) that explicitly allow being a commander
+                special_cases = df['text'].str.contains('can be your commander', na=False, case=False)
                 special_commanders = df[special_cases].copy()
                 filtered_df = pd.concat([filtered_df, special_commanders]).drop_duplicates()
                 logger.debug(f'Added {len(special_commanders)} special commander cards')

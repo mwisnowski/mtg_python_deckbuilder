@@ -9,5 +9,29 @@
     <a class="action-button" href="/decks">Finished Decks</a>
   {% if show_logs %}<a class="action-button" href="/logs">View Logs</a>{% endif %}
   </div>
+  <div id="themes-quick" style="margin-top:1rem; font-size:.85rem; color:var(--text-muted);">
+    <span id="themes-quick-status">Themes: …</span>
+  </div>
 </section>
+<script>
+(function(){
+  function upd(data){
+    var el = document.getElementById('themes-quick-status');
+    if(!el) return;
+    if(!data || !data.ok){ el.textContent='Themes: unavailable'; return; }
+    var badge = '';
+    if(data.phase === 'themes' || data.phase === 'themes-fast') badge=' (refreshing)';
+    else if(data.stale) badge=' (stale)';
+    el.textContent = 'Themes: ' + (data.theme_count != null ? data.theme_count : '?') + badge;
+  }
+  function poll(){
+    fetch('/themes/status', { cache:'no-store' })
+      .then(function(r){ return r.json(); })
+      .then(upd)
+      .catch(function(){});
+  }
+  poll();
+  setInterval(poll, 7000);
+})();
+</script>
 {% endblock %}

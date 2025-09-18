@@ -78,7 +78,7 @@ ENABLE_THEMES = _as_bool(os.getenv("ENABLE_THEMES"), False)
 ENABLE_PWA = _as_bool(os.getenv("ENABLE_PWA"), False)
 ENABLE_PRESETS = _as_bool(os.getenv("ENABLE_PRESETS"), False)
 ALLOW_MUST_HAVES = _as_bool(os.getenv("ALLOW_MUST_HAVES"), False)
-RANDOM_MODES = _as_bool(os.getenv("RANDOM_MODES"), False)
+RANDOM_MODES = _as_bool(os.getenv("RANDOM_MODES"), False)  # initial snapshot (legacy)
 RANDOM_UI = _as_bool(os.getenv("RANDOM_UI"), False)
 def _as_int(val: str | None, default: int) -> int:
     try:
@@ -200,11 +200,17 @@ async def status_sys():
     except Exception:
         return {"version": "unknown", "uptime_seconds": 0, "flags": {}}
 
+def random_modes_enabled() -> bool:
+    """Dynamic check so tests that set env after import still work.
+
+    Keeps legacy global for template snapshot while allowing runtime override."""
+    return _as_bool(os.getenv("RANDOM_MODES"), bool(RANDOM_MODES))
+
 # --- Random Modes API ---
 @app.post("/api/random_build")
 async def api_random_build(request: Request):
     # Gate behind feature flag
-    if not RANDOM_MODES:
+    if not random_modes_enabled():
         raise HTTPException(status_code=404, detail="Random Modes disabled")
     try:
         body = {}
@@ -253,7 +259,7 @@ async def api_random_build(request: Request):
 @app.post("/api/random_full_build")
 async def api_random_full_build(request: Request):
     # Gate behind feature flag
-    if not RANDOM_MODES:
+    if not random_modes_enabled():
         raise HTTPException(status_code=404, detail="Random Modes disabled")
     try:
         body = {}
@@ -324,7 +330,7 @@ async def api_random_full_build(request: Request):
 @app.post("/api/random_reroll")
 async def api_random_reroll(request: Request):
     # Gate behind feature flag
-    if not RANDOM_MODES:
+    if not random_modes_enabled():
         raise HTTPException(status_code=404, detail="Random Modes disabled")
     try:
         body = {}
@@ -532,11 +538,13 @@ from .routes import configs as config_routes  # noqa: E402
 from .routes import decks as decks_routes  # noqa: E402
 from .routes import setup as setup_routes  # noqa: E402
 from .routes import owned as owned_routes  # noqa: E402
+from .routes import themes as themes_routes  # noqa: E402
 app.include_router(build_routes.router)
 app.include_router(config_routes.router)
 app.include_router(decks_routes.router)
 app.include_router(setup_routes.router)
 app.include_router(owned_routes.router)
+app.include_router(themes_routes.router)
 
 # Warm validation cache early to reduce first-call latency in tests and dev
 try:

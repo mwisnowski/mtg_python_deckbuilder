@@ -22,6 +22,16 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 - (Planned next) Removal of deprecated alias YAMLs & promotion of strict alias validation to hard fail (post grace window).
 
 ### Added
+- Phase D close-out: strict alias enforcement promoted to hard fail in CI (`validate_theme_catalog.py --strict-alias`) removing previous soft warning behavior.
+- Phase D close-out: minimum example commander enforcement (>=5) now mandatory; failing themes block CI.
+- Tagging: Added archetype detection for Pillowfort, Politics, Midrange, and Toolbox with new pattern & specific card heuristics.
+- Tagging orchestration: Extended `tag_by_color` to execute new archetype taggers in sequence before bracket policy application.
+- Governance workflows: Introduced `.github/workflows/editorial_governance.yml` and `.github/workflows/editorial_lint.yml` for isolated lint + governance checks.
+- Editorial schema: Added `editorial_quality` to both YAML theme model and catalog ThemeEntry Pydantic schemas.
+- Editorial data artifacts: Added `config/themes/description_mapping.yml`, `synergy_pairs.yml`, `theme_clusters.yml`, `theme_popularity_metrics.json`, `description_fallback_history.jsonl`.
+- Editorial tooling: New scripts for enrichment & governance: `augment_theme_yaml_from_catalog.py`, `autofill_min_examples.py`, `pad_min_examples.py`, `cleanup_placeholder_examples.py`, `purge_anchor_placeholders.py`, `ratchet_description_thresholds.py`, `report_editorial_examples.py`, `validate_description_mapping.py`, `synergy_promote_fill.py` (extension), `run_build_with_fallback.py`, `migrate_provenance_to_metadata_info.py`, `theme_example_cards_stats.py`.
+- Tests: Added governance + regression suite (`test_theme_editorial_min_examples_enforced.py`, `test_theme_description_fallback_regression.py`, `test_description_mapping_validation.py`, `test_editorial_governance_phase_d_closeout.py`, `test_synergy_pairs_and_metadata_info.py`, `test_synergy_pairs_and_provenance.py`, `test_theme_catalog_generation.py`, updated `test_theme_merge_phase_b.py` & validation Phase C test) for editorial pipeline stability.
+
 - Editorial tooling: `synergy_promote_fill.py` new flags `--no-generic-pad` (allow intentionally short example_cards without color/generic padding), `--annotate-color-fallback-commanders` (explain color fallback commander selections), and `--use-master-cards` (opt-in to consolidated `cards.csv` sourcing; shard `[color]_cards.csv` now default).
 - Name canonicalization for card ingestion: duplicate split-face variants like `Foo // Foo` collapse to `Foo`; when master enabled, prefers `faceName`.
 - Commander rebuild annotation: base-first rebuild now appends ` - Color Fallback (no on-theme commander available)` to any commander added purely by color identity.
@@ -52,6 +62,9 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 - External description mapping (Phase D): curators can now add/override auto-description rules via `config/themes/description_mapping.yml` without editing code (first match wins, `{SYNERGIES}` placeholder supported).
 
 ### Changed
+- Archetype presence test now gracefully skips when generated catalog YAML assets are absent, avoiding false negatives in minimal environments.
+- Tag constants and tagger extended; ordering ensures new archetype tags applied after interaction tagging but before bracket policy enforcement.
+- CI strict alias step now fails the build instead of continuing on error.
 - Example card population now sources exclusively from shard color CSV files by default (avoids variant noise from master `cards.csv`). Master file usage is explicit opt-in via `--use-master-cards`.
 - Heuristic text index aligned with shard-only sourcing and canonical name normalization to prevent duplicate staple leakage.
 - Terminology migration: internal model field `provenance` fully migrated to `metadata_info` across code, tests, and 700+ YAML catalog files via automated script (`migrate_provenance_to_metadata_info.py`). Backward-compatible aliasing retained temporarily; deprecation window documented.

@@ -1,0 +1,52 @@
+name: Editorial Governance
+
+on:
+  pull_request:
+    paths:
+      - 'config/themes/**'
+      - 'code/scripts/build_theme_catalog.py'
+      - 'code/scripts/validate_description_mapping.py'
+      - 'code/scripts/lint_theme_editorial.py'
+      - 'code/scripts/ratchet_description_thresholds.py'
+      - 'code/tests/test_theme_description_fallback_regression.py'
+  workflow_dispatch:
+
+jobs:
+  validate-editorial:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+            python-version: '3.11'
+      - name: Install deps
+        run: |
+          pip install -r requirements.txt
+      - name: Build catalog (alt output, seed)
+        run: |
+          python code/scripts/build_theme_catalog.py --output config/themes/theme_list_ci.json --limit 0
+        env:
+          EDITORIAL_INCLUDE_FALLBACK_SUMMARY: '1'
+          EDITORIAL_SEED: '123'
+      - name: Lint editorial YAML (enforced minimum examples)
+        run: |
+          python code/scripts/lint_theme_editorial.py --strict --min-examples 5 --enforce-min-examples
+        env:
+          EDITORIAL_REQUIRE_DESCRIPTION: '1'
+          EDITORIAL_REQUIRE_POPULARITY: '1'
+          EDITORIAL_MIN_EXAMPLES_ENFORCE: '1'
+      - name: Validate description mapping
+        run: |
+          python code/scripts/validate_description_mapping.py
+      - name: Run regression & unit tests (editorial subset + enforcement)
+        run: |
+          pytest -q code/tests/test_theme_description_fallback_regression.py code/tests/test_synergy_pairs_and_provenance.py code/tests/test_editorial_governance_phase_d_closeout.py code/tests/test_theme_editorial_min_examples_enforced.py
+      - name: Ratchet proposal (non-blocking)
+        run: |
+          python code/scripts/ratchet_description_thresholds.py > ratchet_proposal.json || true
+      - name: Upload ratchet proposal artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ratchet-proposal
+          path: ratchet_proposal.json

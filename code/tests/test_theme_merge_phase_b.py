@@ -23,16 +23,16 @@ def load_catalog():
     return data, themes
 
 
-def test_phase_b_merge_provenance_and_precedence():
+def test_phase_b_merge_metadata_info_and_precedence():
     run_builder()
     data, themes = load_catalog()
 
-    # Provenance block required
-    prov = data.get('provenance')
-    assert isinstance(prov, dict), 'Provenance block missing'
-    assert prov.get('mode') == 'merge', 'Provenance mode should be merge'
-    assert 'generated_at' in prov, 'generated_at missing in provenance'
-    assert 'curated_yaml_files' in prov, 'curated_yaml_files missing in provenance'
+    # metadata_info block required (legacy 'provenance' accepted transiently)
+    meta = data.get('metadata_info') or data.get('provenance')
+    assert isinstance(meta, dict), 'metadata_info block missing'
+    assert meta.get('mode') == 'merge', 'metadata_info mode should be merge'
+    assert 'generated_at' in meta, 'generated_at missing in metadata_info'
+    assert 'curated_yaml_files' in meta, 'curated_yaml_files missing in metadata_info'
 
     # Sample anchors to verify curated/enforced precedence not truncated under cap
     # Choose +1/+1 Counters (curated + enforced) and Reanimate (curated + enforced)
@@ -50,7 +50,7 @@ def test_phase_b_merge_provenance_and_precedence():
             assert 'Enter the Battlefield' in syn, 'Curated synergy lost due to capping'
 
     # Ensure cap respected (soft exceed allowed only if curated+enforced exceed cap)
-    cap = data.get('provenance', {}).get('synergy_cap') or 0
+    cap = (data.get('metadata_info') or {}).get('synergy_cap') or 0
     if cap:
         for t, entry in list(themes.items())[:50]:  # sample first 50 for speed
             if len(entry['synergies']) > cap:

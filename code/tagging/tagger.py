@@ -163,6 +163,16 @@ def tag_by_color(df: pd.DataFrame, color: str) -> None:
     print('\n====================\n')
     tag_for_interaction(df, color)
     print('\n====================\n')
+    # Broad archetype taggers (high-level deck identities)
+    tag_for_midrange_archetype(df, color)
+    print('\n====================\n')
+    tag_for_toolbox_archetype(df, color)
+    print('\n====================\n')
+    # Pillowfort and Politics rely on previously applied control / stax style tags
+    tag_for_pillowfort(df, color)
+    print('\n====================\n')
+    tag_for_politics(df, color)
+    print('\n====================\n')
     
     # Apply bracket policy tags (from config/card_lists/*.json)
     apply_bracket_policy_tags(df)
@@ -5874,6 +5884,102 @@ def tag_for_stax(df: pd.DataFrame, color: str) -> None:
 
     except Exception as e:
         logger.error(f'Error in tag_for_stax: {str(e)}')
+        raise
+
+## Pillowfort
+def create_pillowfort_text_mask(df: pd.DataFrame) -> pd.Series:
+    return tag_utils.create_text_mask(df, tag_constants.PILLOWFORT_TEXT_PATTERNS)
+
+def create_pillowfort_name_mask(df: pd.DataFrame) -> pd.Series:
+    return tag_utils.create_name_mask(df, tag_constants.PILLOWFORT_SPECIFIC_CARDS)
+
+def tag_for_pillowfort(df: pd.DataFrame, color: str) -> None:
+    """Tag classic deterrent / taxation defensive permanents as Pillowfort.
+
+    Heuristic: any card that either (a) appears in the specific card list or (b) contains a
+    deterrent combat pattern in its rules text. Excludes cards already tagged as Stax where
+    Stax intent is broader; we still allow overlap but do not require it.
+    """
+    try:
+        required_cols = {'text','themeTags'}
+        tag_utils.validate_dataframe_columns(df, required_cols)
+        text_mask = create_pillowfort_text_mask(df)
+        name_mask = create_pillowfort_name_mask(df)
+        final_mask = text_mask | name_mask
+        if final_mask.any():
+            tag_utils.apply_rules(df, rules=[{'mask': final_mask, 'tags': ['Pillowfort']}])
+        logger.info(f'Tagged {final_mask.sum()} cards with Pillowfort')
+    except Exception as e:
+        logger.error(f'Error in tag_for_pillowfort: {e}')
+        raise
+
+## Politics
+def create_politics_text_mask(df: pd.DataFrame) -> pd.Series:
+    return tag_utils.create_text_mask(df, tag_constants.POLITICS_TEXT_PATTERNS)
+
+def create_politics_name_mask(df: pd.DataFrame) -> pd.Series:
+    return tag_utils.create_name_mask(df, tag_constants.POLITICS_SPECIFIC_CARDS)
+
+def tag_for_politics(df: pd.DataFrame, color: str) -> None:
+    """Tag cards that promote table negotiation, shared resources, votes, or gifting.
+
+    Heuristic: match text patterns (vote, each player draws/gains, tempt offers, gifting target opponent, etc.)
+    plus a curated list of high-signal political commanders / engines.
+    """
+    try:
+        required_cols = {'text','themeTags'}
+        tag_utils.validate_dataframe_columns(df, required_cols)
+        text_mask = create_politics_text_mask(df)
+        name_mask = create_politics_name_mask(df)
+        final_mask = text_mask | name_mask
+        if final_mask.any():
+            tag_utils.apply_rules(df, rules=[{'mask': final_mask, 'tags': ['Politics']}])
+        logger.info(f'Tagged {final_mask.sum()} cards with Politics')
+    except Exception as e:
+        logger.error(f'Error in tag_for_politics: {e}')
+        raise
+
+## Control Archetype
+## (Control archetype functions removed to avoid duplication; existing tag_for_control covers it)
+
+## Midrange Archetype
+def create_midrange_text_mask(df: pd.DataFrame) -> pd.Series:
+    return tag_utils.create_text_mask(df, tag_constants.MIDRANGE_TEXT_PATTERNS)
+
+def create_midrange_name_mask(df: pd.DataFrame) -> pd.Series:
+    return tag_utils.create_name_mask(df, tag_constants.MIDRANGE_SPECIFIC_CARDS)
+
+def tag_for_midrange_archetype(df: pd.DataFrame, color: str) -> None:
+    """Tag resilient, incremental value permanents for Midrange identity."""
+    try:
+        required_cols = {'text','themeTags'}
+        tag_utils.validate_dataframe_columns(df, required_cols)
+        mask = create_midrange_text_mask(df) | create_midrange_name_mask(df)
+        if mask.any():
+            tag_utils.apply_rules(df, rules=[{'mask': mask, 'tags': ['Midrange']}])
+        logger.info(f'Tagged {mask.sum()} cards with Midrange archetype')
+    except Exception as e:
+        logger.error(f'Error in tag_for_midrange_archetype: {e}')
+        raise
+
+## Toolbox Archetype
+def create_toolbox_text_mask(df: pd.DataFrame) -> pd.Series:
+    return tag_utils.create_text_mask(df, tag_constants.TOOLBOX_TEXT_PATTERNS)
+
+def create_toolbox_name_mask(df: pd.DataFrame) -> pd.Series:
+    return tag_utils.create_name_mask(df, tag_constants.TOOLBOX_SPECIFIC_CARDS)
+
+def tag_for_toolbox_archetype(df: pd.DataFrame, color: str) -> None:
+    """Tag tutor / search engine pieces that enable a toolbox plan."""
+    try:
+        required_cols = {'text','themeTags'}
+        tag_utils.validate_dataframe_columns(df, required_cols)
+        mask = create_toolbox_text_mask(df) | create_toolbox_name_mask(df)
+        if mask.any():
+            tag_utils.apply_rules(df, rules=[{'mask': mask, 'tags': ['Toolbox']}])
+        logger.info(f'Tagged {mask.sum()} cards with Toolbox archetype')
+    except Exception as e:
+        logger.error(f'Error in tag_for_toolbox_archetype: {e}')
         raise
 
 ## Theft

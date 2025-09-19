@@ -279,7 +279,7 @@ def _augment_synergies(data: dict, base_theme: str) -> bool:
     return False
 
 
-def apply_to_yaml(suggestions: Dict[str, ThemeSuggestion], *, limit_yaml: int, force: bool, themes_filter: Set[str], commander_hits: Dict[str, List[Tuple[float, str]]], legendary_hits: Dict[str, List[Tuple[float, str]]], synergy_top=(3,2,1), min_examples: int = 5, augment_synergies: bool = False):
+def apply_to_yaml(suggestions: Dict[str, ThemeSuggestion], *, limit_yaml: int, force: bool, themes_filter: Set[str], commander_hits: Dict[str, List[Tuple[float, str]]], legendary_hits: Dict[str, List[Tuple[float, str]]], synergy_top=(3,2,1), min_examples: int = 5, augment_synergies: bool = False, treat_placeholders_missing: bool = False):
     updated = 0
     # Preload all YAML for synergy lookups (avoid repeated disk IO inside loop)
     all_yaml_cache: Dict[str, dict] = {}
@@ -312,6 +312,9 @@ def apply_to_yaml(suggestions: Dict[str, ThemeSuggestion], *, limit_yaml: int, f
             data['example_cards'] = sug.cards
             changed = True
         existing_examples: List[str] = list(data.get('example_commanders') or []) if isinstance(data.get('example_commanders'), list) else []
+        # Treat an all-placeholder (" Anchor" suffix) list as effectively empty when flag enabled
+        if treat_placeholders_missing and existing_examples and all(isinstance(e, str) and e.endswith(' Anchor') for e in existing_examples):
+            existing_examples = []
         if force or not existing_examples:
             if sug.commanders:
                 data['example_commanders'] = list(sug.commanders)
@@ -394,6 +397,7 @@ def main():  # pragma: no cover
     parser.add_argument('--force', action='store_true', help='Overwrite existing example lists')
     parser.add_argument('--min-examples', type=int, default=5, help='Minimum desired example_commanders; promote from synergy_commanders if short')
     parser.add_argument('--augment-synergies', action='store_true', help='Heuristically augment sparse synergies list before deriving synergy_commanders')
+    parser.add_argument('--treat-placeholders', action='store_true', help='Consider Anchor-only example_commanders lists as missing so they can be replaced')
     args = parser.parse_args()
 
     themes_filter: Set[str] = set()
@@ -424,7 +428,18 @@ def main():  # pragma: no cover
     if yaml is None:
         print('ERROR: PyYAML not installed; cannot apply changes.', file=sys.stderr)
         sys.exit(1)
-    updated = apply_to_yaml(suggestions, limit_yaml=args.limit_yaml, force=args.force, themes_filter=themes_filter, commander_hits=commander_hits, legendary_hits=legendary_hits, synergy_top=(3,2,1), min_examples=args.min_examples, augment_synergies=args.augment_synergies)
+    updated = apply_to_yaml(
+        suggestions,
+        limit_yaml=args.limit_yaml,
+        force=args.force,
+        themes_filter=themes_filter,
+        commander_hits=commander_hits,
+        legendary_hits=legendary_hits,
+        synergy_top=(3,2,1),
+        min_examples=args.min_examples,
+        augment_synergies=args.augment_synergies,
+        treat_placeholders_missing=args.treat_placeholders,
+    )
     print(f'[info] updated {updated} YAML files')
 
 

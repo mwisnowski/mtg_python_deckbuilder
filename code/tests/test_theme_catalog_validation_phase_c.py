@@ -86,7 +86,7 @@ def test_strict_alias_mode_passes_current_state():
 def test_synergy_cap_global():
     ensure_catalog()
     data = json.loads(CATALOG.read_text(encoding='utf-8'))
-    cap = data.get('provenance', {}).get('synergy_cap') or 0
+    cap = (data.get('metadata_info') or {}).get('synergy_cap') or 0
     if not cap:
         return
     for entry in data.get('themes', [])[:200]:  # sample subset for speed

@@ -46,16 +46,20 @@ def load_catalog_file() -> Dict:
 
 def validate_catalog(data: Dict, *, whitelist: Dict, allow_soft_exceed: bool = True) -> List[str]:
     errors: List[str] = []
-    # If provenance missing (legacy extraction output), inject synthetic one so subsequent checks can proceed
-    if 'provenance' not in data:
-        data['provenance'] = {
-            'mode': 'legacy-extraction',
-            'generated_at': 'unknown',
-            'curated_yaml_files': 0,
-            'synergy_cap': int(whitelist.get('synergy_cap', 0) or 0),
-            'inference': 'unknown',
-            'version': 'pre-merge-fallback'
-        }
+    # If metadata_info missing (legacy extraction output), inject synthetic block (legacy name: provenance)
+    if 'metadata_info' not in data:
+        legacy = data.get('provenance') if isinstance(data.get('provenance'), dict) else None
+        if legacy:
+            data['metadata_info'] = legacy
+        else:
+            data['metadata_info'] = {
+                'mode': 'legacy-extraction',
+                'generated_at': 'unknown',
+                'curated_yaml_files': 0,
+                'synergy_cap': int(whitelist.get('synergy_cap', 0) or 0),
+                'inference': 'unknown',
+                'version': 'pre-merge-fallback'
+            }
     if 'generated_from' not in data:
         data['generated_from'] = 'legacy (tagger + constants)'
     try:

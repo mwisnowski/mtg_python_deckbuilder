@@ -1,0 +1,49 @@
+import json
+import os
+from pathlib import Path
+import subprocess
+
+ROOT = Path(__file__).resolve().parents[2]
+SCRIPT = ROOT / 'code' / 'scripts' / 'build_theme_catalog.py'
+CATALOG_DIR = ROOT / 'config' / 'themes' / 'catalog'
+
+
+def run(cmd, env=None):
+    env_vars = os.environ.copy()
+    # Ensure code/ is on PYTHONPATH for script relative imports
+    existing_pp = env_vars.get('PYTHONPATH', '')
+    code_path = str(ROOT / 'code')
+    if code_path not in existing_pp.split(os.pathsep):
+        env_vars['PYTHONPATH'] = (existing_pp + os.pathsep + code_path) if existing_pp else code_path
+    if env:
+        env_vars.update(env)
+    result = subprocess.run(cmd, cwd=ROOT, env=env_vars, capture_output=True, text=True)
+    if result.returncode != 0:
+        raise AssertionError(f"Command failed: {' '.join(cmd)}\nstdout:\n{result.stdout}\nstderr:\n{result.stderr}")
+    return result.stdout, result.stderr
+
+
+def test_synergy_pairs_fallback_and_metadata_info(tmp_path):
+    """Validate that a theme with empty curated_synergies in YAML picks up fallback from
+    synergy_pairs.yml and that backfill stamps metadata_info (formerly provenance) +
+    popularity/description when forced.
+    """
+    out_path = tmp_path / 'theme_list.json'
+    run(['python', str(SCRIPT), '--output', str(out_path)], env={'EDITORIAL_SEED': '42'})
+    data = json.loads(out_path.read_text(encoding='utf-8'))
+    themes = {t['theme']: t for t in data['themes']}
+    search_pool = (
+        'Treasure','Tokens','Proliferate','Aristocrats','Sacrifice','Landfall','Graveyard','Reanimate'
+    )
+    candidate = next((name for name in search_pool if name in themes), None)
+    if not candidate:  # environment variability safeguard
+        import pytest
+        pytest.skip('No synergy pair seed theme present in catalog output')
+    candidate_entry = themes[candidate]
+    assert candidate_entry.get('synergies'), f"{candidate} has no synergies; fallback failed"
+    run(['python', str(SCRIPT), '--force-backfill-yaml', '--backfill-yaml'], env={'EDITORIAL_INCLUDE_FALLBACK_SUMMARY': '1'})
+    yaml_path = CATALOG_DIR / f"{candidate.lower().replace(' ', '-')}.yml"
+    if yaml_path.exists():
+        raw = yaml_path.read_text(encoding='utf-8').splitlines()
+        has_meta = any(line.strip().startswith(('metadata_info:','provenance:')) for line in raw)
+        assert has_meta, 'metadata_info block missing after forced backfill'

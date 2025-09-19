@@ -7,7 +7,7 @@ from typing import Optional, Dict, Any
 
 from fastapi import APIRouter
 from fastapi import BackgroundTasks
-from ..services.orchestrator import _ensure_setup_ready  # type: ignore
+from ..services.orchestrator import _ensure_setup_ready, _run_theme_metadata_enrichment  # type: ignore
 from fastapi.responses import JSONResponse
 
 router = APIRouter(prefix="/themes", tags=["themes"])  # /themes/status
@@ -117,7 +117,11 @@ async def theme_refresh(background: BackgroundTasks):
     try:
         def _runner():
             try:
-                _ensure_setup_ready(lambda _m: None, force=False)  # export fallback triggers
+                _ensure_setup_ready(lambda _m: None, force=False)
+            except Exception:
+                pass
+            try:
+                _run_theme_metadata_enrichment()
             except Exception:
                 pass
         background.add_task(_runner)

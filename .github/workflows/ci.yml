@@ -43,10 +43,9 @@ jobs:
         run: |
           python code/scripts/validate_theme_catalog.py
 
-      - name: Theme catalog strict alias check (allowed to fail until alias files removed)
-        continue-on-error: true
+      - name: Theme catalog strict alias check
         run: |
-          python code/scripts/validate_theme_catalog.py --strict-alias || true
+          python code/scripts/validate_theme_catalog.py --strict-alias
 
       - name: Fast determinism tests (random subset)
         env:

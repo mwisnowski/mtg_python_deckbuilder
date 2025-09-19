@@ -14,9 +14,20 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 
 ## [Unreleased]
 
+### Editorial / Themes
+- Enforce minimum example_commanders threshold (>=5) in CI (Phase D close-out). Lint now fails builds when a non-alias theme drops below threshold.
+- Added enforcement test `test_theme_editorial_min_examples_enforced.py` to guard regression.
+- Governance workflow updated to pass `--enforce-min-examples` and set `EDITORIAL_MIN_EXAMPLES_ENFORCE=1`.
+- Clarified lint script docstring and behavior around enforced minimums.
+- (Planned next) Removal of deprecated alias YAMLs & promotion of strict alias validation to hard fail (post grace window).
+
 ### Added
-- Theme catalog Phase B: new unified merge script `code/scripts/build_theme_catalog.py` (opt-in via THEME_CATALOG_MODE=merge) combining analytics + curated YAML + whitelist governance with provenance block output.
-- Theme provenance: `theme_list.json` now includes `provenance` (mode, generated_at, curated_yaml_files, synergy_cap, inference version) when built via Phase B merge.
+- Editorial tooling: `synergy_promote_fill.py` new flags `--no-generic-pad` (allow intentionally short example_cards without color/generic padding), `--annotate-color-fallback-commanders` (explain color fallback commander selections), and `--use-master-cards` (opt-in to consolidated `cards.csv` sourcing; shard `[color]_cards.csv` now default).
+- Name canonicalization for card ingestion: duplicate split-face variants like `Foo // Foo` collapse to `Foo`; when master enabled, prefers `faceName`.
+- Commander rebuild annotation: base-first rebuild now appends ` - Color Fallback (no on-theme commander available)` to any commander added purely by color identity.
+- Roadmap: Added `logs/roadmaps/theme_editorial_roadmap.md` documenting future enhancements & migration plan.
+- Theme catalog Phase B: new unified merge script `code/scripts/build_theme_catalog.py` (opt-in via THEME_CATALOG_MODE=merge) combining analytics + curated YAML + whitelist governance with metadata block output.
+- Theme metadata: `theme_list.json` now includes `metadata_info` (formerly `provenance`) capturing generation context (mode, generated_at, curated_yaml_files, synergy_cap, inference version). Legacy key still parsed for backward compatibility.
 - Theme governance: whitelist configuration `config/themes/theme_whitelist.yml` (normalization, always_include, protected prefixes/suffixes, enforced synergies, synergy_cap).
 - Theme extraction: dynamic ingestion of CSV-only tags (e.g., Kindred families) and PMI-based inferred synergies (positive PMI, co-occurrence threshold) blended with curated pairs.
 - Enforced synergy injection for counters/tokens/graveyard clusters (e.g., Proliferate, Counters Matter, Graveyard Matters) before capping.
@@ -32,8 +43,19 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 - Augmentation flag `--augment-synergies` to repair sparse `synergies` arrays (e.g., inject `Counters Matter`, `Proliferate`).
 - Lint upgrades (`code/scripts/lint_theme_editorial.py`): validates annotation correctness, filtered synergy duplicates, minimum example_commanders, and base-name deduping.
 - Pydantic schema extension (`type_definitions_theme_catalog.py`) adding `synergy_commanders` and editorial fields to catalog model.
+- Phase D (Deferred items progress): enumerated `deck_archetype` list + validation, derived `popularity_bucket` classification (frequency -> Rare/Niche/Uncommon/Common/Very Common), deterministic editorial seed (`EDITORIAL_SEED`) for stable inference ordering, aggressive fill mode (`EDITORIAL_AGGRESSIVE_FILL=1`) to pad ultra-sparse themes, env override `EDITORIAL_POP_BOUNDARIES` for bucket thresholds.
+- Catalog backfill: build script can now write auto-generated `description` and derived/pinned `popularity_bucket` back into individual YAML files via `--backfill-yaml` (or `EDITORIAL_BACKFILL_YAML=1`) with optional overwrite `--force-backfill-yaml`.
+- Catalog output override: new `--output <path>` flag on `build_theme_catalog.py` enables writing an alternate JSON (used by tests) without touching the canonical `theme_list.json` or performing YAML backfill.
+- Editorial lint escalation: new flags `--require-description` / `--require-popularity` (or env `EDITORIAL_REQUIRE_DESCRIPTION=1`, `EDITORIAL_REQUIRE_POPULARITY=1`) to enforce presence of description and popularity buckets; strict mode also treats them as errors.
+- Tests: added `test_theme_catalog_generation.py` covering deterministic seed reproducibility, popularity boundary overrides, absence of YAML backfill on alternate output, and presence of descriptions.
+- Editorial fallback summary: optional inclusion of `description_fallback_summary` in `theme_list.json` via `EDITORIAL_INCLUDE_FALLBACK_SUMMARY=1` for coverage metrics (generic vs specialized descriptions) and prioritization.
+- External description mapping (Phase D): curators can now add/override auto-description rules via `config/themes/description_mapping.yml` without editing code (first match wins, `{SYNERGIES}` placeholder supported).
 
 ### Changed
+- Example card population now sources exclusively from shard color CSV files by default (avoids variant noise from master `cards.csv`). Master file usage is explicit opt-in via `--use-master-cards`.
+- Heuristic text index aligned with shard-only sourcing and canonical name normalization to prevent duplicate staple leakage.
+- Terminology migration: internal model field `provenance` fully migrated to `metadata_info` across code, tests, and 700+ YAML catalog files via automated script (`migrate_provenance_to_metadata_info.py`). Backward-compatible aliasing retained temporarily; deprecation window documented.
+- Example card duplication suppression: `synergy_promote_fill.py` adds `--common-card-threshold` and `--print-dup-metrics` to filter overly common generic staples based on a pre-run global frequency map.
 - Synergy lists for now capped at 5 entries (precedence: curated > enforced > inferred) to improve UI scannability.
 - Curated synergy matrix expanded (tokens, spells, artifacts/enchantments, counters, lands, graveyard, politics, life, tribal umbrellas) with noisy links (e.g., Burn on -1/-1 Counters) suppressed via denylist + PMI filtering.
 - Synergy noise suppression: "Legends Matter" / "Historics Matter" pairs are now stripped from every other theme (they were ubiquitous due to all legendary & historic cards carrying both tags). Only mutual linkage between the two themes themselves is retained.
@@ -43,6 +65,9 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 - `synergy_commanders` now excludes any commanders already promoted into `example_commanders` (deduped by base name after annotation).
 - Promotion logic ensures a configurable minimum (default 5) example commanders via annotated synergy promotions.
 - Regenerated per-theme YAML files are environment-dependent (card pool + tags); README documents that bulk committing the entire regenerated catalog is discouraged to avoid churn.
+- Lint enhancements: archetype enumeration expanded (Combo, Aggro, Control, Midrange, Stax, Ramp, Toolbox); strict mode now promotes cornerstone missing examples to errors; popularity bucket value validation.
+- Regression thresholds tightened for generic description fallback usage (see `test_theme_description_fallback_regression.py`), lowering allowed generic total & percentage to drive continued specialization.
+- build script now auto-exports Phase A YAML catalog if missing before attempting YAML backfill (safeguard against accidental directory deletion).
 
 ### Fixed
 - Commander eligibility logic was overly permissive. Now only:
@@ -53,6 +78,9 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
   are auto‑eligible. Plain Legendary Enchantments (non‑creature), Legendary Planeswalkers without the explicit text, and generic Legendary Artifacts are no longer incorrectly included.
 - Removed one-off / low-signal themes (global frequency <=1) except those protected or explicitly always included via whitelist configuration.
 - Tests: reduced deprecation warnings and incidental failures; improved consistency and reliability across runs.
+
+### Deprecated
+- `provenance` catalog/YAML key: retained as read-only alias; will be removed after two minor releases in favor of `metadata_info`. Warnings to be added prior to removal.
 
 ## [2.2.10] - 2025-09-11
 

@@ -13,6 +13,46 @@ import re
 import unicodedata
 from glob import glob
 
+# --- Theme Metadata Enrichment Helper (Phase D+): ensure editorial scaffolding after any theme export ---
+def _run_theme_metadata_enrichment(out_func=None) -> None:
+    """Run full metadata enrichment sequence after theme catalog/YAML generation.
+
+    Idempotent: each script is safe to re-run; errors are swallowed (logged) to avoid
+    impacting primary setup/tagging pipeline. Designed to centralize logic so both
+    manual refresh (routes/themes.py) and automatic setup flows invoke identical steps.
+    """
+    try:
+        import os
+        import sys
+        import subprocess
+        root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
+        scripts_dir = os.path.join(root, 'code', 'scripts')
+        py = sys.executable
+        steps: List[List[str]] = [
+            [py, os.path.join(scripts_dir, 'autofill_min_examples.py')],
+            [py, os.path.join(scripts_dir, 'pad_min_examples.py'), '--min', os.environ.get('EDITORIAL_MIN_EXAMPLES', '5')],
+            [py, os.path.join(scripts_dir, 'cleanup_placeholder_examples.py'), '--apply'],
+            [py, os.path.join(scripts_dir, 'purge_anchor_placeholders.py'), '--apply'],
+            # Augment YAML with description / popularity buckets from the freshly built catalog
+            [py, os.path.join(scripts_dir, 'augment_theme_yaml_from_catalog.py')],
+            [py, os.path.join(scripts_dir, 'generate_theme_editorial_suggestions.py'), '--apply', '--limit-yaml', '0'],
+            [py, os.path.join(scripts_dir, 'lint_theme_editorial.py')],  # non-strict lint pass
+        ]
+        def _emit(msg: str):
+            try:
+                if out_func:
+                    out_func(msg)
+            except Exception:
+                pass
+        for cmd in steps:
+            try:
+                subprocess.run(cmd, check=True)
+            except Exception as e:
+                _emit(f"[metadata_enrich] step failed ({os.path.basename(cmd[1]) if len(cmd)>1 else cmd}): {e}")
+                continue
+    except Exception:
+        return
+
 
 def _global_prune_disallowed_pool(b: DeckBuilder) -> None:
     """Hard-prune disallowed categories from the working pool based on bracket limits.
@@ -846,22 +886,28 @@ def _ensure_setup_ready(out, force: bool = False) -> None:
                 st.update({
                     'themes_last_export_at': _dt.now().isoformat(timespec='seconds'),
                     'themes_last_export_fast_path': bool(fast_path),
-                    # Populate provenance if available (Phase B/C)
+                    # Populate theme metadata (metadata_info / legacy provenance)
                 })
                 try:
                     theme_json_path = os.path.join('config', 'themes', 'theme_list.json')
                     if os.path.exists(theme_json_path):
                         with open(theme_json_path, 'r', encoding='utf-8') as _tf:
                             _td = json.load(_tf) or {}
-                        prov = _td.get('provenance') or {}
+                        # Prefer new metadata_info; fall back to legacy provenance
+                        prov = _td.get('metadata_info') or _td.get('provenance') or {}
                         if isinstance(prov, dict):
                             for k, v in prov.items():
-                                st[f'theme_provenance_{k}'] = v
+                                st[f'theme_metadata_{k}'] = v
                 except Exception:
                     pass
                 # Write back
                 with open(status_path, 'w', encoding='utf-8') as _wf:
                     json.dump(st, _wf)
+            except Exception:
+                pass
+            # Run metadata enrichment (best-effort) after export sequence.
+            try:
+                _run_theme_metadata_enrichment(out_func)
             except Exception:
                 pass
         except Exception as _e:  # pragma: no cover - non-critical diagnostics only
@@ -1165,6 +1211,11 @@ def _ensure_setup_ready(out, force: bool = False) -> None:
             _refresh_theme_catalog(out, force=False, fast_path=True)
     except Exception:
         pass
+    else:  # If export just ran (either earlier or via fallback), ensure enrichment ran (safety double-call guard inside helper)
+        try:
+            _run_theme_metadata_enrichment(out)
+        except Exception:
+            pass
 
 
 def run_build(commander: str, tags: List[str], bracket: int, ideals: Dict[str, int], tag_mode: str | None = None, *, use_owned_only: bool | None = None, prefer_owned: bool | None = None, owned_names: List[str] | None = None, prefer_combos: bool | None = None, combo_target_count: int | None = None, combo_balance: str | None = None) -> Dict[str, Any]:

@@ -1,5 +1,22 @@
 # MTG Python Deckbuilder ${VERSION}
 
+## Unreleased (Draft)
+
+### Added
+- Editorial duplication suppression for example cards: `--common-card-threshold` (default 0.18) and `--print-dup-metrics` flags in `synergy_promote_fill.py` to reduce over-represented staples and surface diverse thematic examples.
+- Optional `description_fallback_summary` block (enabled via `EDITORIAL_INCLUDE_FALLBACK_SUMMARY=1`) capturing specialization KPIs: generic vs specialized description counts and top generic holdouts.
+
+### Changed
+- Terminology migration: `provenance` renamed to `metadata_info` across catalog JSON, per-theme YAML, models, and tests. Builder writes `metadata_info`; legacy `provenance` key still accepted temporarily.
+
+### Deprecated
+- Legacy `provenance` key retained as read-only alias; warning emitted if both keys present (suppress via `SUPPRESS_PROVENANCE_DEPRECATION=1`). Planned removal: v2.4.0.
+
+### Fixed
+- Schema evolution adjustments to accept per-theme `metadata_info` and optional fallback summary without triggering validation failures.
+
+---
+
 ### Added
 - Theme whitelist governance (`config/themes/theme_whitelist.yml`) with normalization, enforced synergies, and synergy cap (5).
 - Expanded curated synergy matrix plus PMI-based inferred synergies (data-driven) blended with curated anchors.

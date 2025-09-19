@@ -1,0 +1,95 @@
+# Theme clusters (for future filtering / analytics)
+# Each cluster: id, name, themes (list of display_name values)
+clusters:
+  - id: tokens
+    name: Tokens & Resource Generation
+    themes:
+      - Tokens
+      - Treasure
+      - Clue Tokens
+      - Food Tokens
+      - Blood Tokens
+      - Map Tokens
+      - Incubator Tokens
+      - Powerstone Tokens
+      - Role Tokens
+  - id: counters
+    name: Counters & Proliferation
+    themes:
+      - +1/+1 Counters
+      - -1/-1 Counters
+      - Proliferate
+      - Experience Counters
+      - Shield Counters
+      - Poison
+  - id: graveyard
+    name: Graveyard & Recursion
+    themes:
+      - Graveyard
+      - Reanimate
+      - Dredge
+      - Delirium
+      - Escape
+      - Flashback
+      - Aftermath
+      - Madness
+      - Threshold
+      - Retrace
+  - id: spells
+    name: Spells & Velocity
+    themes:
+      - Spellslinger
+      - Storm
+      - Prowess
+      - Magecraft
+      - Cascade
+      - Convoke
+      - Improvise
+      - Kicker
+      - Buyback
+      - Foretell
+      - Miracle
+      - Overload
+  - id: artifacts
+    name: Artifacts & Crafting
+    themes:
+      - Artifacts
+      - Artifact Tokens
+      - Equipment
+      - Improvise
+      - Metalcraft
+      - Affinity
+      - Craft
+  - id: enchantments
+    name: Enchantments & Auras
+    themes:
+      - Enchantments
+      - Constellation
+      - Shrines
+      - Sagas
+      - Role Tokens
+  - id: politics
+    name: Politics & Table Dynamics
+    themes:
+      - Group Hug
+      - Goad
+      - Monarch
+      - Initiative
+      - Pillowfort
+      - Stax
+  - id: planeswalkers
+    name: Planeswalkers & Loyalty
+    themes:
+      - Superfriends
+      - Planeswalkers
+      - Loyalty
+      - Proliferate
+  - id: combat
+    name: Combat & Pressure
+    themes:
+      - Voltron
+      - Aggro
+      - Midrange
+      - Extra Combat
+      - Tokens
+      - Vehicles

@@ -6,6 +6,10 @@
     <title>MTG Deckbuilder</title>
     <script src="https://unpkg.com/htmx.org@1.9.12" onerror="var s=document.createElement('script');s.src='/static/vendor/htmx-1.9.12.min.js';document.head.appendChild(s);"></script>
     <script>
+      // Ensure legacy hover system never initializes (set before its script executes)
+      window.__disableLegacyCardHover = true;
+    </script>
+    <script>
       (function(){
         // Pre-CSS theme bootstrapping to avoid flash/mismatch on first paint
         try{
@@ -71,13 +75,14 @@
             <span class="dot black"></span>
           </div>
         </div>
-        <nav class="nav">
+        <nav class="nav" id="primary-nav">
           <a href="/">Home</a>
           <a href="/build">Build</a>
           <a href="/configs">Build from JSON</a>
           {% if show_setup %}<a href="/setup">Setup/Tag</a>{% endif %}
           <a href="/owned">Owned Library</a>
           <a href="/decks">Finished Decks</a>
+          <a href="/themes/">Themes</a>
           {% if show_diagnostics %}<a href="/diagnostics">Diagnostics</a>{% endif %}
           {% if show_logs %}<a href="/logs">Logs</a>{% endif %}
         </nav>
@@ -117,6 +122,26 @@
   .card-meta ul { margin:.25rem 0; padding-left: 1.1rem; list-style: disc; }
   .card-meta li { margin:.1rem 0; }
   .card-meta .themes-list { font-size: 18px; line-height: 1.35; }
+  /* Global theme badge styles (moved from picker for reuse on standalone pages) */
+  .theme-badge { display:inline-block; padding:2px 6px; border-radius:12px; font-size:10px; background: var(--panel-alt); border:1px solid var(--border); letter-spacing:.5px; }
+  .theme-synergies { font-size:11px; opacity:.85; display:flex; flex-wrap:wrap; gap:4px; }
+  .badge-fallback { background:#7f1d1d; color:#fff; }
+  .badge-quality-draft { background:#4338ca; color:#fff; }
+  .badge-quality-reviewed { background:#065f46; color:#fff; }
+  .badge-quality-final { background:#065f46; color:#fff; font-weight:600; }
+  .badge-pop-vc { background:#065f46; color:#fff; }
+  .badge-pop-c { background:#047857; color:#fff; }
+  .badge-pop-u { background:#0369a1; color:#fff; }
+  .badge-pop-n { background:#92400e; color:#fff; }
+  .badge-pop-r { background:#7f1d1d; color:#fff; }
+  .badge-curated { background:#4f46e5; color:#fff; }
+  .badge-enforced { background:#334155; color:#fff; }
+  .badge-inferred { background:#57534e; color:#fff; }
+  .theme-detail-card { background:var(--panel); padding:1rem 1.1rem; border:1px solid var(--border); border-radius:10px; box-shadow:0 2px 6px rgba(0,0,0,.25); }
+  .theme-detail-card h3 { margin-top:0; margin-bottom:.4rem; }
+  .theme-detail-card .desc { margin-top:0; font-size:13px; line-height:1.45; }
+  .theme-detail-card h4 { margin-bottom:.35rem; margin-top:.85rem; font-size:13px; letter-spacing:.05em; text-transform:uppercase; opacity:.85; }
+  .breadcrumb { font-size:12px; margin-bottom:.4rem; }
   .card-meta .label { color:#94a3b8; text-transform: uppercase; font-size: 10px; letter-spacing: .04em; display:block; margin-bottom:.15rem; }
   .card-meta .themes-label { color: var(--text); font-size: 20px; letter-spacing: .05em; }
       .card-meta .line + .line { margin-top:.35rem; }
@@ -127,6 +152,51 @@
   @media (max-width: 900px){
     .card-hover{ display: none !important; }
   }
+      .card-hover .themes-list li.overlap { color:#0ea5e9; font-weight:600; }
+      .card-hover .ov-chip { display:inline-block; background:#0ea5e91a; color:#0ea5e9; border:1px solid #0ea5e9; border-radius:12px; padding:2px 6px; font-size:11px; margin-right:4px; }
+  /* Two-faced: keep full single-card width; allow wrapping on narrow viewport */
+  .card-hover .dual.two-faced img { width:320px; }
+  .card-hover .dual.two-faced { gap:8px; }
+  /* Combo (two distinct cards) keep larger but slightly reduced to fit side-by-side */
+  .card-hover .dual.combo img { width:300px; }
+  @media (max-width: 1100px){
+    .card-hover .dual.two-faced img { width:280px; }
+    .card-hover .dual.combo img { width:260px; }
+  }
+  /* Unified hover-card-panel styling parity */
+  #hover-card-panel.is-payoff { border-color: var(--accent, #38bdf8); box-shadow:0 6px 24px rgba(0,0,0,.65), 0 0 0 1px var(--accent, #38bdf8) inset; }
+  #hover-card-panel.is-payoff .hcp-img { border-color: var(--accent, #38bdf8); }
+  /* Inline theme/tag list styling (unifies legacy second panel) */
+  /* Two-column hover layout */
+  #hover-card-panel .hcp-body { display:grid; grid-template-columns: 320px 1fr; gap:18px; align-items:start; }
+  #hover-card-panel .hcp-img-wrap { grid-column:1 / 2; }
+  #hover-card-panel.compact-img .hcp-body { grid-template-columns: 120px 1fr; }
+  /* Tag list as multi-column list instead of pill chips for readability */
+  #hover-card-panel .hcp-taglist { columns:2; column-gap:18px; font-size:13px; line-height:1.3; margin:6px 0 6px; padding:0; list-style:none; max-height:180px; overflow:auto; }
+  #hover-card-panel .hcp-taglist li { break-inside:avoid; padding:2px 0 2px 0; position:relative; }
+  #hover-card-panel .hcp-taglist li.overlap { font-weight:600; color:var(--accent,#38bdf8); }
+  #hover-card-panel .hcp-taglist li.overlap::before { content:'•'; color:var(--accent,#38bdf8); position:absolute; left:-10px; }
+  #hover-card-panel .hcp-overlaps { font-size:10px; line-height:1.25; margin-top:2px; }
+  #hover-card-panel .hcp-ov-chip { display:inline-block; background:var(--accent,#38bdf8); color:#fff; border:1px solid var(--accent,#38bdf8); border-radius:10px; padding:2px 5px; font-size:9px; margin-right:4px; margin-top:2px; }
+  /* Hide modal-specific close button outside modal host */
+  #preview-close-btn { display:none; }
+  #theme-preview-modal #preview-close-btn { display:inline-flex; }
+  /* Overlay flip toggle for double-faced cards */
+  .dfc-host { position:relative; }
+  .dfc-toggle { position:absolute; top:6px; left:6px; z-index:5; background:rgba(15,23,42,.82); color:#fff; border:1px solid #475569; border-radius:50%; width:36px; height:36px; padding:0; font-size:16px; cursor:pointer; line-height:1; display:flex; align-items:center; justify-content:center; opacity:.92; backdrop-filter: blur(3px); }
+  .dfc-toggle:hover, .dfc-toggle:focus { opacity:1; box-shadow:0 0 0 2px rgba(56,189,248,.35); outline:none; }
+  .dfc-toggle:active { transform: translateY(1px); }
+  .dfc-toggle .icon { font-size:12px; }
+  .dfc-toggle[data-face='back'] { background:rgba(76,29,149,.85); }
+  .dfc-toggle[data-face='front'] { background:rgba(15,23,42,.82); }
+  .dfc-toggle[aria-pressed='true'] { box-shadow:0 0 0 2px var(--accent, #38bdf8); }
+  /* Fade transition for hover panel image */
+  #hover-card-panel .hcp-img { transition: opacity .22s ease; }
+  .sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; border:0; }
+    </style>
+    <style>
+      .nav a.active { font-weight:600; position:relative; }
+      .nav a.active::after { content:''; position:absolute; left:0; bottom:2px; width:100%; height:2px; background:var(--accent, #38bdf8); border-radius:2px; }
     </style>
     <script>
       (function(){
@@ -230,6 +300,8 @@
         pollHealth();
 
   function ensureCard() {
+    // Legacy large image hover kept for fallback; disabled in favor of unified hover-card-panel
+    if (window.__disableLegacyCardHover) return document.getElementById('card-hover') || document.createElement('div');
           var pop = document.getElementById('card-hover');
           if (!pop) {
             pop = document.createElement('div');
@@ -256,9 +328,10 @@
         }
   var cardPop = ensureCard();
         var PREVIEW_VERSIONS = ['normal','large'];
-        function buildCardUrl(name, version, nocache){
+        function buildCardUrl(name, version, nocache, face){
           var q = encodeURIComponent(name||'');
           var url = 'https://api.scryfall.com/cards/named?fuzzy=' + q + '&format=image&version=' + (version||'normal');
+          if (face === 'back') url += '&face=back';
           if (nocache) url += '&t=' + Date.now();
           return url;
         }
@@ -325,6 +398,7 @@
           if (y + rect.height + 8 > vh) cardPop.style.top = (e.clientY - rect.height - 16) + 'px';
         }
     function attachCardHover() {
+      if (window.__disableLegacyCardHover) return; // short-circuit legacy system
           document.querySelectorAll('[data-card-name]').forEach(function(el) {
             if (el.__cardHoverBound) return; // avoid duplicate bindings
             el.__cardHoverBound = true;
@@ -332,33 +406,62 @@
       var img = cardPop.querySelector('.card-hover-inner img');
       var img2 = cardPop.querySelector('.card-hover-inner .dual img:nth-child(2)');
       if (img2) img2.style.display = 'none';
+        var dualNode = cardPop.querySelector('.card-hover-inner .dual');
+        if (img2) { img2.style.display = 'none'; }
+        if (dualNode) { dualNode.classList.remove('combo','two-faced'); }
               var meta = cardPop.querySelector('.card-meta');
               var name = el.getAttribute('data-card-name') || '';
               var vi = 0; // always start at 'normal' on hover
-              img.src = buildCardUrl(name, PREVIEW_VERSIONS[vi], false);
+                img.src = buildCardUrl(name, PREVIEW_VERSIONS[vi], false, 'front');
               // Bind a one-off error handler per enter to try fallbacks
               var triedNoCache = false;
               function onErr(){
-                if (vi < PREVIEW_VERSIONS.length - 1){ vi += 1; img.src = buildCardUrl(name, PREVIEW_VERSIONS[vi], false); }
-                else if (!triedNoCache){ triedNoCache = true; img.src = buildCardUrl(name, PREVIEW_VERSIONS[vi], true); }
+                  if (vi < PREVIEW_VERSIONS.length - 1){ vi += 1; img.src = buildCardUrl(name, PREVIEW_VERSIONS[vi], false, 'front'); }
+                  else if (!triedNoCache){ triedNoCache = true; img.src = buildCardUrl(name, PREVIEW_VERSIONS[vi], true, 'front'); }
                 else { img.removeEventListener('error', onErr); }
               }
               img.addEventListener('error', onErr, { once:false });
               img.addEventListener('load', function onOk(){ img.removeEventListener('load', onOk); img.removeEventListener('error', onErr); });
+
+                // Attempt to load back face (double-faced / transform). If it fails, we silently hide.
+                if (img2) {
+                  img2.style.display = 'none';
+                  var backTriedNoCache = false;
+                  var backIdx = 0;
+                  function backErr(){
+                    if (backIdx < PREVIEW_VERSIONS.length - 1){
+                      backIdx += 1; img2.src = buildCardUrl(name, PREVIEW_VERSIONS[backIdx], false, 'back');
+                    } else if (!backTriedNoCache){
+                      backTriedNoCache = true; img2.src = buildCardUrl(name, PREVIEW_VERSIONS[backIdx], true, 'back');
+                    } else {
+                      img2.removeEventListener('error', backErr); img2.style.display='none';
+                    }
+                  }
+                  function backOk(){ img2.removeEventListener('error', backErr); img2.removeEventListener('load', backOk); if (dualNode) dualNode.classList.add('two-faced'); img2.style.display=''; }
+                  img2.addEventListener('error', backErr, { once:false });
+                  img2.addEventListener('load', backOk, { once:false });
+                  img2.src = buildCardUrl(name, PREVIEW_VERSIONS[0], false, 'back');
+                }
               var role = el.getAttribute('data-role') || '';
               var rawTags = el.getAttribute('data-tags') || '';
+              var overlapsRaw = el.getAttribute('data-overlaps') || '';
               // Clean and split tags into an array; remove brackets and quotes
               var tags = rawTags
                 .replace(/[\[\]\u2018\u2019'\u201C\u201D"]/g,'')
                 .split(/\s*,\s*/)
                 .filter(function(t){ return t && t.trim(); });
+              var overlaps = overlapsRaw.split(/\s*,\s*/).filter(function(t){ return t; });
+              var overlapSet = new Set(overlaps);
               if (role || (tags && tags.length)) {
                 var html = '';
                 if (role) {
                   html += '<div class="line"><span class="label">Role</span>' + role.replace(/</g,'&lt;') + '</div>';
                 }
                 if (tags && tags.length) {
-                  html += '<div class="line"><span class="label themes-label">Themes</span><ul class="themes-list">' + tags.map(function(t){ return '<li>' + t.replace(/</g,'&lt;') + '</li>'; }).join('') + '</ul></div>';
+                  html += '<div class="line"><span class="label themes-label">Themes</span><ul class="themes-list">' + tags.map(function(t){ var safe=t.replace(/</g,'&lt;'); return '<li'+(overlapSet.has(t)?' class="overlap"':'')+'>' + safe + '</li>'; }).join('') + '</ul></div>';
+                  if (overlaps.length){
+                    html += '<div class="line" style="margin-top:4px;"><span class="label" title="Themes shared with preview selection">Overlaps</span>' + overlaps.map(function(o){ return '<span class="ov-chip">'+o.replace(/</g,'&lt;')+'</span>'; }).join(' ') + '</div>';
+                  }
                 }
                 meta.innerHTML = html;
                 meta.style.display = '';
@@ -385,7 +488,10 @@
               if (img2) img2.style.display = '';
               var vi1 = 0, vi2 = 0; var triedNoCache1 = false, triedNoCache2 = false;
               img.src = buildCardUrl(a, PREVIEW_VERSIONS[vi1], false);
-              img2.src = buildCardUrl(b, PREVIEW_VERSIONS[vi2], false);
+              img.src = buildCardUrl(a, PREVIEW_VERSIONS[vi1], false, 'front');
+              img2.src = buildCardUrl(b, PREVIEW_VERSIONS[vi2], false, 'front');
+              var dualNode = cardPop.querySelector('.card-hover-inner .dual');
+              if (dualNode){ dualNode.classList.add('combo'); dualNode.classList.remove('two-faced'); }
               function err1(){ if (vi1 < PREVIEW_VERSIONS.length - 1){ vi1 += 1; img.src = buildCardUrl(a, PREVIEW_VERSIONS[vi1], false);} else if (!triedNoCache1){ triedNoCache1 = true; img.src = buildCardUrl(a, PREVIEW_VERSIONS[vi1], true);} else { img.removeEventListener('error', err1);} }
               function err2(){ if (vi2 < PREVIEW_VERSIONS.length - 1){ vi2 += 1; img2.src = buildCardUrl(b, PREVIEW_VERSIONS[vi2], false);} else if (!triedNoCache2){ triedNoCache2 = true; img2.src = buildCardUrl(b, PREVIEW_VERSIONS[vi2], true);} else { img2.removeEventListener('error', err2);} }
               img.addEventListener('error', err1, { once:false });
@@ -402,6 +508,114 @@
         attachCardHover();
   bindAllCardImageRetries();
   document.addEventListener('htmx:afterSwap', function() { attachCardHover(); bindAllCardImageRetries(); });
+      })();
+    </script>
+    <script>
+      // Overlay flip button + persistence + accessibility for double-faced cards
+      (function(){
+        var FACE_ATTR = 'data-current-face';
+        var LS_PREFIX = 'mtg:face:';
+        var DEBOUNCE_MS = 120; // prevent rapid flip spamming / extra fetches
+        var lastFlip = 0;
+        function hasTwoFaces(card){
+          if(!card) return false;
+          var name = (card.getAttribute('data-card-name')||'') + ' ' + (card.getAttribute('data-original-name')||'');
+          return name.indexOf('//') > -1;
+        }
+        function keyFor(card){
+          var nm = (card.getAttribute('data-card-name')|| card.getAttribute('data-original-name')||'').toLowerCase();
+          return LS_PREFIX + nm;
+        }
+        function applyStoredFace(card){
+          try {
+            var k = keyFor(card);
+            var val = localStorage.getItem(k);
+            if(val === 'front' || val === 'back') card.setAttribute(FACE_ATTR, val);
+          } catch(_){}
+        }
+        function storeFace(card, face){
+          try { localStorage.setItem(keyFor(card), face); } catch(_){}
+        }
+        function announce(face, card){
+          var live = document.getElementById('dfc-live');
+          if(!live){
+            live = document.createElement('div');
+            live.id = 'dfc-live'; live.className='sr-only'; live.setAttribute('aria-live','polite');
+            document.body.appendChild(live);
+          }
+          var nm = (card.getAttribute('data-card-name')||'').split('//')[0].trim();
+          live.textContent = 'Showing ' + (face==='front'?'front face':'back face') + ' of ' + nm;
+        }
+        function updateButton(btn, face){
+          btn.setAttribute('data-face', face);
+          btn.setAttribute('aria-label', face==='front' ? 'Flip to back face' : 'Flip to front face');
+          btn.innerHTML = '<span class="icon" aria-hidden="true" style="font-size:18px;">⥮</span>';
+        }
+        function ensureButton(card){
+          if(!hasTwoFaces(card)) return;
+          if(card.querySelector('.dfc-toggle')) return;
+          card.classList.add('dfc-host');
+          applyStoredFace(card);
+          var face = card.getAttribute(FACE_ATTR) || 'front';
+          var btn = document.createElement('button');
+          btn.type='button';
+          btn.className='dfc-toggle';
+          btn.setAttribute('aria-pressed','false');
+          btn.setAttribute('tabindex','0');
+          btn.addEventListener('click', function(ev){ ev.stopPropagation(); flip(card, btn); });
+          btn.addEventListener('keydown', function(ev){ if(ev.key==='Enter' || ev.key===' ' || ev.key==='f' || ev.key==='F'){ ev.preventDefault(); flip(card, btn); }});
+          updateButton(btn, face);
+          card.insertBefore(btn, card.firstChild);
+        }
+        function flip(card, btn){
+          var now = Date.now();
+            if(now - lastFlip < DEBOUNCE_MS) return;
+            lastFlip = now;
+          var cur = card.getAttribute(FACE_ATTR) || 'front';
+          var next = cur === 'front' ? 'back' : 'front';
+          card.setAttribute(FACE_ATTR, next);
+          storeFace(card, next);
+          if(btn) updateButton(btn, next);
+          // visual cue
+          card.style.outline='2px solid var(--accent)'; setTimeout(function(){ card.style.outline=''; }, 160);
+          announce(next, card);
+          // retrigger hover update under pointer if applicable
+          if(window.__hoverShowCard){ window.__hoverShowCard(card); }
+        }
+        function scan(){
+          document.querySelectorAll('.card-sample, .commander-cell, .card-tile, .candidate-tile').forEach(ensureButton);
+        }
+        document.addEventListener('pointermove', function(e){ window.__lastPointerEvent = e; }, { passive:true });
+        document.addEventListener('DOMContentLoaded', scan);
+        document.addEventListener('htmx:afterSwap', scan);
+        // Expose for debugging
+        window.__dfcScan = scan;
+        // MutationObserver to re-inject buttons if card tiles are replaced (e.g., HTMX swaps, dynamic filtering)
+        var moDebounce = null;
+        var observer = new MutationObserver(function(muts){
+          if(moDebounce) cancelAnimationFrame(moDebounce);
+          moDebounce = requestAnimationFrame(function(){ scan(); });
+        });
+        try { observer.observe(document.body, { childList:true, subtree:true }); } catch(_){ }
+      })();
+    </script>
+    <script>
+      (function(){
+        try {
+          var path = window.location.pathname || '/';
+          var nav = document.getElementById('primary-nav'); if(!nav) return;
+          var links = nav.querySelectorAll('a');
+          var best = null; var bestLen = -1;
+            links.forEach(function(a){
+              var href = a.getAttribute('href') || '';
+              if(!href) return;
+              // Exact match or prefix match (ignoring trailing slash)
+              if(path === href || path === href + '/' || (href !== '/' && path.startsWith(href))){
+                if(href.length > bestLen){ best = a; bestLen = href.length; }
+              }
+            });
+          if(best) best.classList.add('active');
+        } catch(_) {}
       })();
     </script>
   <script src="/static/app.js?v=20250826-4"></script>
@@ -521,5 +735,253 @@
       }catch(_){ }
     })();
   </script>
+  <script>
+    // Global delegated hover card panel initializer (ensures functionality after HTMX swaps)
+    (function(){
+      // Disable legacy multi-element hover in favor of single unified panel
+      window.__disableLegacyCardHover = true;
+      // Global delegated curated-only & reasons controls (works after HTMX swaps and inline render)
+      function findPreviewRoot(el){ return el.closest('.preview-modal-content.theme-preview-expanded') || el.closest('.preview-modal-content'); }
+      function applyCuratedFor(root){
+        var checkbox = root.querySelector('#curated-only-toggle');
+        var status = root.querySelector('#preview-status');
+        if(!checkbox) return;
+        // persist
+        try{ localStorage.setItem('mtg:preview.curatedOnly', checkbox.checked ? '1':'0'); }catch(_){ }
+        var curatedOnly = checkbox.checked;
+        var hidden=0;
+        root.querySelectorAll('.card-sample').forEach(function(card){
+          var role = card.getAttribute('data-role');
+          var isCurated = role==='example'|| role==='curated_synergy' || role==='synthetic';
+          if(curatedOnly && !isCurated){ card.style.display='none'; hidden++; } else { card.style.display=''; }
+        });
+        if(status) status.textContent = curatedOnly ? ('Hid '+hidden+' sampled cards') : '';
+      }
+      function applyReasonsFor(root){
+        var cb = root.querySelector('#reasons-toggle'); if(!cb) return;
+        try{ localStorage.setItem('mtg:preview.showReasons', cb.checked ? '1':'0'); }catch(_){ }
+        var show = cb.checked;
+        root.querySelectorAll('[data-reasons-block]').forEach(function(el){ el.style.display = show ? '' : 'none'; });
+      }
+      document.addEventListener('change', function(e){
+        if(e.target && e.target.id === 'curated-only-toggle'){
+          var root = findPreviewRoot(e.target); if(root) applyCuratedFor(root);
+        }
+      });
+      document.addEventListener('change', function(e){
+        if(e.target && e.target.id === 'reasons-toggle'){
+          var root = findPreviewRoot(e.target); if(root) applyReasonsFor(root);
+        }
+      });
+      document.addEventListener('htmx:afterSwap', function(ev){
+        var frag = ev.target;
+        if(frag && frag.querySelector){
+          if(frag.querySelector('#curated-only-toggle')) applyCuratedFor(frag);
+          if(frag.querySelector('#reasons-toggle')) applyReasonsFor(frag);
+        }
+      });
+      document.addEventListener('DOMContentLoaded', function(){
+        document.querySelectorAll('.preview-modal-content').forEach(function(root){
+          // restore persisted states before applying
+          try {
+            var cVal = localStorage.getItem('mtg:preview.curatedOnly');
+            if(cVal !== null){ var cb = root.querySelector('#curated-only-toggle'); if(cb){ cb.checked = cVal === '1'; } }
+            var rVal = localStorage.getItem('mtg:preview.showReasons');
+            if(rVal !== null){ var rb = root.querySelector('#reasons-toggle'); if(rb){ rb.checked = rVal === '1'; } }
+          }catch(_){ }
+          if(root.querySelector('#curated-only-toggle')) applyCuratedFor(root);
+          if(root.querySelector('#reasons-toggle')) applyReasonsFor(root);
+        });
+      });
+      function createPanel(){
+        var panel = document.createElement('div');
+        panel.id = 'hover-card-panel';
+        panel.setAttribute('role','dialog');
+        panel.setAttribute('aria-label','Card detail hover panel');
+        panel.setAttribute('aria-hidden','true');
+  panel.style.cssText = 'display:none;position:fixed;z-index:9999;width:560px;max-width:98vw;background:#1f2937;border:1px solid #374151;border-radius:12px;padding:18px;box-shadow:0 16px 42px rgba(0,0,0,.75);color:#f3f4f6;font-size:14px;line-height:1.45;pointer-events:none;';
+  panel.innerHTML = ''+
+   '<div class="hcp-header" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;gap:6px;">'+
+  '<div class="hcp-name" style="font-weight:600;font-size:16px;flex:1;padding-right:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">&nbsp;</div>'+ 
+  '<div class="hcp-rarity" style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;opacity:.75;"></div>'+
+   '</div>'+
+   '<div class="hcp-body">'+
+     '<div class="hcp-img-wrap" style="text-align:center;display:flex;flex-direction:column;gap:12px;">'+
+  '<img class="hcp-img" alt="Card image" style="max-width:320px;width:100%;height:auto;border-radius:10px;border:1px solid #475569;background:#0b0d12;opacity:1;" />'+
+     '</div>'+
+     '<div class="hcp-right" style="display:flex;flex-direction:column;min-width:0;">'+
+       '<div style="display:flex;align-items:center;gap:6px;margin:0 0 4px;flex-wrap:wrap;">'+
+         '<div class="hcp-role" style="display:inline-block;padding:3px 8px;font-size:11px;letter-spacing:.65px;border:1px solid #475569;border-radius:12px;background:#243044;text-transform:uppercase;">&nbsp;</div>'+
+         '<div class="hcp-overlaps" style="flex:1;min-height:14px;"></div>'+
+       '</div>'+
+       '<ul class="hcp-taglist" aria-label="Themes"></ul>'+
+  '<div class="hcp-meta" style="font-size:12px;opacity:.85;margin:2px 0 6px;"></div>'+
+  '<ul class="hcp-reasons" style="list-style:disc;margin:4px 0 8px 18px;padding:0;max-height:140px;overflow:auto;font-size:11px;line-height:1.35;"></ul>'+
+  '<div class="hcp-tags" style="font-size:11px;opacity:.55;word-break:break-word;"></div>'+
+     '</div>'+
+   '</div>';
+        document.body.appendChild(panel);
+        return panel;
+      }
+      function ensurePanel(){
+        var panel = document.getElementById('hover-card-panel');
+        if (panel) return panel;
+        // Auto-create for direct theme pages where fragment-specific markup not injected
+        return createPanel();
+      }
+      function setup(){
+        var panel = ensurePanel();
+        if(!panel || panel.__hoverInit) return;
+        panel.__hoverInit = true;
+  var imgEl = panel.querySelector('.hcp-img');
+        var nameEl = panel.querySelector('.hcp-name');
+        var rarityEl = panel.querySelector('.hcp-rarity');
+        var metaEl = panel.querySelector('.hcp-meta');
+        var reasonsList = panel.querySelector('.hcp-reasons');
+        var tagsEl = panel.querySelector('.hcp-tags');
+        function move(evt){
+          if(panel.style.display==='none') return;
+          var pad=18; var x=evt.clientX+pad, y=evt.clientY+pad;
+          var vw=window.innerWidth, vh=window.innerHeight; var r=panel.getBoundingClientRect();
+          if(x + r.width + 8 > vw) x = evt.clientX - r.width - pad;
+          if(y + r.height + 8 > vh) y = evt.clientY - r.height - pad;
+          panel.style.left = x+'px'; panel.style.top = y+'px';
+        }
+        // Lightweight image prefetch LRU cache (size 12) (P2 UI Hover image prefetch)
+        var _imgLRU=[];
+        function prefetch(src){ if(!src) return; if(_imgLRU.indexOf(src)===-1){ _imgLRU.push(src); if(_imgLRU.length>12) _imgLRU.shift(); var im=new Image(); im.src=src; } }
+        var activationDelay=120; // ms (P2 optional activation delay)
+        var hoverTimer=null;
+        function schedule(card, evt){ clearTimeout(hoverTimer); hoverTimer=setTimeout(function(){ show(card, evt); }, activationDelay); }
+        function cancelSchedule(){ clearTimeout(hoverTimer); }
+        var lastCard = null;
+        function show(card, evt){
+          if(!card) return;
+          // Prefer attributes on container, fallback to child (image) if missing
+          function attr(name){ return card.getAttribute(name) || (card.querySelector('[data-'+name.slice(5)+']') && card.querySelector('[data-'+name.slice(5)+']').getAttribute(name)) || ''; }
+          var nm = attr('data-card-name') || attr('data-original-name') || 'Card';
+          var rarity = (attr('data-rarity')||'').trim();
+          var mana = (attr('data-mana')||'').trim();
+          var role = (attr('data-role')||'').trim();
+          var reasonsRaw = attr('data-reasons')||'';
+          var tags = attr('data-tags')||'';
+          var roleEl = panel.querySelector('.hcp-role');
+          var tagListEl = panel.querySelector('.hcp-taglist');
+          var overlapsEl = panel.querySelector('.hcp-overlaps');
+          var overlapsAttr = attr('data-overlaps') || '';
+          var overlapArr = overlapsAttr.split(/\s*,\s*/).filter(Boolean);
+          nameEl.textContent = nm;
+          rarityEl.textContent = rarity;
+          metaEl.textContent = [role?('Role: '+role):'', mana?('Mana: '+mana):''].filter(Boolean).join(' • ');
+          reasonsList.innerHTML='';
+          reasonsRaw.split(';').map(function(r){return r.trim();}).filter(Boolean).forEach(function(r){ var li=document.createElement('li'); li.style.margin='2px 0'; li.textContent=r; reasonsList.appendChild(li); });
+          // Build inline tag list with overlap highlighting
+          if(tagListEl){
+            tagListEl.innerHTML='';
+            if(tags){
+              var tagArr = tags.split(/\s*,\s*/).filter(Boolean);
+              var setOverlap = new Set(overlapArr);
+              tagArr.forEach(function(t){
+                var li = document.createElement('li');
+                if(setOverlap.has(t)) li.className='overlap';
+                li.textContent = t;
+                tagListEl.appendChild(li);
+              });
+            }
+          }
+          if(overlapsEl){
+            overlapsEl.innerHTML = overlapArr.map(function(o){ return '<span class="hcp-ov-chip" title="Overlapping synergy">'+o+'</span>'; }).join('');
+          }
+          tagsEl.textContent = tags; // raw tag string fallback (legacy consumers)
+          if(roleEl){ roleEl.textContent = role || ''; }
+          panel.classList.toggle('is-payoff', role === 'payoff');
+          var fuzzy = encodeURIComponent(nm);
+          var rawName = nm || '';
+          var hasBack = rawName.indexOf('//')>-1 || (attr('data-original-name')||'').indexOf('//')>-1;
+          var storageKey = 'mtg:face:' + rawName.toLowerCase();
+          var storedFace = (function(){ try { return localStorage.getItem(storageKey); } catch(_){ return null; } })();
+          if(storedFace === 'front' || storedFace === 'back') card.setAttribute('data-current-face', storedFace);
+          var chosenFace = card.getAttribute('data-current-face') || 'front';
+          (function(){
+            var desiredVersion='large';
+            var faceParam = (chosenFace==='back') ? '&face=back' : '';
+            var currentKey = nm+':'+chosenFace+':'+desiredVersion;
+            var prevFace = imgEl.getAttribute('data-face');
+            var faceChanged = prevFace && prevFace !== chosenFace;
+            if(imgEl.getAttribute('data-current')!== currentKey){
+              var src='https://api.scryfall.com/cards/named?fuzzy='+fuzzy+'&format=image&version='+desiredVersion+faceParam;
+              if(faceChanged){ imgEl.style.opacity = 0; }
+              prefetch(src);
+              imgEl.src = src;
+              imgEl.setAttribute('data-current', currentKey);
+              imgEl.setAttribute('data-face', chosenFace);
+              imgEl.addEventListener('load', function onLoad(){ imgEl.removeEventListener('load', onLoad); requestAnimationFrame(function(){ imgEl.style.opacity = 1; }); });
+            }
+            if(!imgEl.__errBound){
+              imgEl.__errBound = true;
+              imgEl.addEventListener('error', function(){
+                var cur = imgEl.getAttribute('src')||'';
+                if(cur.indexOf('version=large')>-1){ imgEl.src = cur.replace('version=large','version=normal'); }
+                else if(cur.indexOf('version=normal')>-1){ imgEl.src = cur.replace('version=normal','version=small'); }
+              });
+            }
+          })();
+          panel.style.display='block'; panel.setAttribute('aria-hidden','false'); move(evt); lastCard = card;
+        }
+        function hide(){ panel.style.display='none'; panel.setAttribute('aria-hidden','true'); cancelSchedule(); }
+        document.addEventListener('mousemove', move);
+        function getCardFromEl(el){
+          if(!el) return null;
+          // If inside flip button
+          var btn = el.closest && el.closest('.dfc-toggle');
+          if(btn) return btn.closest('.card-sample, .commander-cell, .card-tile, .candidate-tile, .card-preview');
+          if(el.matches && el.matches('img.card-thumb')) return el.closest('.card-sample, .commander-cell, .card-tile, .candidate-tile, .card-preview');
+          return null;
+        }
+        document.addEventListener('pointerover', function(e){
+          var card = getCardFromEl(e.target);
+              if(!card) return;
+          // If hovering flip button, refresh immediately (no activation delay)
+          if(e.target.closest && e.target.closest('.dfc-toggle')){
+            show(card, e);
+            return;
+          }
+          if(lastCard === card && panel.style.display==='block') { return; }
+          schedule(card, e);
+        });
+        document.addEventListener('pointerout', function(e){
+          var relCard = getCardFromEl(e.relatedTarget);
+          if(relCard && lastCard && relCard === lastCard) return; // moving within same card (img <-> button)
+          if(!panel.contains(e.relatedTarget)){
+            cancelSchedule();
+            if(!relCard) hide();
+          }
+        });
+        // Expose show function for external refresh (flip updates)
+        window.__hoverShowCard = function(card){
+          var ev = window.__lastPointerEvent || { clientX: (card.getBoundingClientRect().left+12), clientY: (card.getBoundingClientRect().top+12) };
+          show(card, ev);
+        };
+        // Keyboard accessibility & focus traversal (P2 UI Hover keyboard accessibility)
+        document.addEventListener('focusin', function(e){ var card=e.target.closest && e.target.closest('.card-sample, .commander-cell'); if(card){ show(card, {clientX:card.getBoundingClientRect().left+10, clientY:card.getBoundingClientRect().top+10}); }});
+        document.addEventListener('focusout', function(e){ var next=e.relatedTarget && e.relatedTarget.closest && e.relatedTarget.closest('.card-sample, .commander-cell'); if(!next) hide(); });
+        document.addEventListener('keydown', function(e){ if(e.key==='Escape') hide(); });
+        // Compact mode event listener
+        document.addEventListener('mtg:hoverCompactToggle', function(){ panel.classList.toggle('compact-img', !!window.__hoverCompactMode); });
+      }
+      document.addEventListener('htmx:afterSwap', setup);
+      document.addEventListener('DOMContentLoaded', setup);
+      setup();
+    })();
+  </script>
+    <script>
+    // Global compact mode toggle function (UI Hover compact mode toggle)
+    (function(){
+      window.toggleHoverCompactMode = function(state){
+        if(typeof state==='boolean') window.__hoverCompactMode = state; else window.__hoverCompactMode = !window.__hoverCompactMode;
+        document.dispatchEvent(new CustomEvent('mtg:hoverCompactToggle'));
+      };
+    })();
+    </script>
   </body>
   </html>

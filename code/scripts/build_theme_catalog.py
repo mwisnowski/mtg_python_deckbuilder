@@ -794,13 +794,40 @@ def build_catalog(limit: int, verbose: bool) -> Dict[str, Any]:
         entries.append(entry)
 
     # Renamed from 'provenance' to 'metadata_info' (migration phase)
+    # Compute deterministic hash of YAML catalog + synergy_cap for drift detection
+    import hashlib as _hashlib  # local import to avoid top-level cost
+    def _catalog_hash() -> str:
+        h = _hashlib.sha256()
+        # Stable ordering: sort by display_name then key ordering inside dict for a subset of stable fields
+        for name in sorted(yaml_catalog.keys()):
+            yobj = yaml_catalog[name]
+            try:
+                # Compose a tuple of fields that should reflect editorial drift
+                payload = (
+                    getattr(yobj, 'id', ''),
+                    getattr(yobj, 'display_name', ''),
+                    tuple(getattr(yobj, 'curated_synergies', []) or []),
+                    tuple(getattr(yobj, 'enforced_synergies', []) or []),
+                    tuple(getattr(yobj, 'example_commanders', []) or []),
+                    tuple(getattr(yobj, 'example_cards', []) or []),
+                    getattr(yobj, 'deck_archetype', None),
+                    getattr(yobj, 'popularity_hint', None),
+                    getattr(yobj, 'description', None),
+                    getattr(yobj, 'editorial_quality', None),
+                )
+                h.update(repr(payload).encode('utf-8'))
+            except Exception:
+                continue
+        h.update(str(synergy_cap).encode('utf-8'))
+        return h.hexdigest()
     metadata_info = {
         'mode': 'merge',
         'generated_at': time.strftime('%Y-%m-%dT%H:%M:%S'),
         'curated_yaml_files': len(yaml_catalog),
         'synergy_cap': synergy_cap,
         'inference': 'pmi',
-        'version': 'phase-b-merge-v1'
+        'version': 'phase-b-merge-v1',
+        'catalog_hash': _catalog_hash(),
     }
     # Optional popularity analytics export for Phase D metrics collection
     if os.environ.get('EDITORIAL_POP_EXPORT'):

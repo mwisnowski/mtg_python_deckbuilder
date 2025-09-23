@@ -910,6 +910,18 @@ def _ensure_setup_ready(out, force: bool = False) -> None:
                 _run_theme_metadata_enrichment(out_func)
             except Exception:
                 pass
+            # Bust theme-related in-memory caches so new catalog reflects immediately
+            try:
+                from .theme_catalog_loader import bust_filter_cache  # type: ignore
+                from .theme_preview import bust_preview_cache  # type: ignore
+                bust_filter_cache("catalog_refresh")
+                bust_preview_cache("catalog_refresh")
+                try:
+                    out_func("[cache] Busted theme filter & preview caches after catalog refresh")
+                except Exception:
+                    pass
+            except Exception:
+                pass
         except Exception as _e:  # pragma: no cover - non-critical diagnostics only
             try:
                 out_func(f"Theme catalog refresh failed: {_e}")
@@ -1092,6 +1104,13 @@ def _ensure_setup_ready(out, force: bool = False) -> None:
                     duration_s = None
                 # Generate / refresh theme catalog (JSON + per-theme YAML) BEFORE marking done so UI sees progress
                 _refresh_theme_catalog(out, force=True, fast_path=False)
+                try:
+                    from .theme_catalog_loader import bust_filter_cache  # type: ignore
+                    from .theme_preview import bust_preview_cache  # type: ignore
+                    bust_filter_cache("tagging_complete")
+                    bust_preview_cache("tagging_complete")
+                except Exception:
+                    pass
                 payload = {"running": False, "phase": "done", "message": "Setup complete", "color": None, "percent": 100, "finished_at": finished, "themes_exported": True}
                 if duration_s is not None:
                     payload["duration_seconds"] = duration_s

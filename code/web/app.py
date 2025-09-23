@@ -14,13 +14,41 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.gzip import GZipMiddleware
 from typing import Any
 from .services.combo_utils import detect_all as _detect_all
+from .services.theme_catalog_loader import prewarm_common_filters  # type: ignore
 
 # Resolve template/static dirs relative to this file
 _THIS_DIR = Path(__file__).resolve().parent
 _TEMPLATES_DIR = _THIS_DIR / "templates"
 _STATIC_DIR = _THIS_DIR / "static"
 
-app = FastAPI(title="MTG Deckbuilder Web UI")
+from contextlib import asynccontextmanager
+
+
+@asynccontextmanager
+async def _lifespan(app: FastAPI):  # pragma: no cover - simple infra glue
+    """FastAPI lifespan context replacing deprecated on_event startup hooks.
+
+    Consolidates previous startup tasks:
+      - prewarm_common_filters (optional fast filter cache priming)
+      - theme preview card index warm (CSV parse avoidance for first preview)
+
+    Failures in warm tasks are intentionally swallowed to avoid blocking app start.
+    """
+    # Prewarm theme filter cache (guarded internally by env flag)
+    try:
+        prewarm_common_filters()
+    except Exception:
+        pass
+    # Warm preview card index once
+    try:  # local import to avoid cost if preview unused
+        from .services import theme_preview as _tp  # type: ignore
+        _tp._maybe_build_card_index()  # internal warm function
+    except Exception:
+        pass
+    yield  # (no shutdown tasks currently)
+
+
+app = FastAPI(title="MTG Deckbuilder Web UI", lifespan=_lifespan)
 app.add_middleware(GZipMiddleware, minimum_size=500)
 
 # Mount static if present
@@ -64,6 +92,8 @@ def _compat_template_response(*args, **kwargs):  # type: ignore[override]
 
 templates.TemplateResponse = _compat_template_response  # type: ignore[assignment]
 
+# (Startup prewarm moved to lifespan handler _lifespan)
+
 # Global template flags (env-driven)
 def _as_bool(val: str | None, default: bool = False) -> bool:
     if val is None:
@@ -80,6 +110,7 @@ ENABLE_PRESETS = _as_bool(os.getenv("ENABLE_PRESETS"), False)
 ALLOW_MUST_HAVES = _as_bool(os.getenv("ALLOW_MUST_HAVES"), False)
 RANDOM_MODES = _as_bool(os.getenv("RANDOM_MODES"), False)  # initial snapshot (legacy)
 RANDOM_UI = _as_bool(os.getenv("RANDOM_UI"), False)
+THEME_PICKER_DIAGNOSTICS = _as_bool(os.getenv("WEB_THEME_PICKER_DIAGNOSTICS"), False)
 def _as_int(val: str | None, default: int) -> int:
     try:
         return int(val) if val is not None and str(val).strip() != "" else default
@@ -109,6 +140,7 @@ templates.env.globals.update({
     "random_ui": RANDOM_UI,
     "random_max_attempts": RANDOM_MAX_ATTEMPTS,
     "random_timeout_ms": RANDOM_TIMEOUT_MS,
+    "theme_picker_diagnostics": THEME_PICKER_DIAGNOSTICS,
 })
 
 # --- Simple fragment cache for template partials (low-risk, TTL-based) ---
@@ -551,6 +583,8 @@ try:
     build_routes.warm_validation_name_cache()
 except Exception:
     pass
+
+## (Additional startup warmers consolidated into lifespan handler)
 
 # --- Exception handling ---
 def _wants_html(request: Request) -> bool:

@@ -47,6 +47,10 @@ jobs:
         run: |
           python code/scripts/validate_theme_catalog.py --strict-alias
 
+      - name: Fast path catalog presence & hash validation
+        run: |
+          python code/scripts/validate_theme_fast_path.py --strict-warn
+
       - name: Fast determinism tests (random subset)
         env:
           CSV_FILES_DIR: csv_files/testdata

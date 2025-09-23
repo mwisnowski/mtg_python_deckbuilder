@@ -1,0 +1,121 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Theme Catalog (Simple)</h2>
+<div id="theme-catalog-simple">
+  <div style="display:flex; gap:.75rem; flex-wrap:wrap; margin-bottom:.85rem; align-items:flex-end;">
+    <div style="flex:1; min-width:220px; position:relative;">
+      <label style="font-size:11px; display:block; opacity:.7;">Search</label>
+      <input type="text" id="theme-search" placeholder="Search themes" aria-label="Search" style="width:100%;" autocomplete="off" />
+      <div id="theme-search-results" class="search-suggestions" style="position:absolute; top:100%; left:0; right:0; background:var(--panel); border:1px solid var(--border); border-top:none; z-index:25; display:none; max-height:300px; overflow:auto; border-radius:0 0 8px 8px;"></div>
+    </div>
+    <div style="min-width:160px;">
+      <label style="font-size:11px; display:block; opacity:.7;">Popularity</label>
+      <select id="pop-filter" style="width:100%; font-size:13px;">
+        <option value="">All</option>
+        <option>Very Common</option>
+        <option>Common</option>
+        <option>Uncommon</option>
+        <option>Niche</option>
+        <option>Rare</option>
+      </select>
+    </div>
+    <div style="min-width:210px;">
+      <label style="font-size:11px; display:block; opacity:.7;">Colors</label>
+      <div id="color-filter" style="display:flex; gap:.45rem; font-size:12px; flex-wrap:wrap;">
+        {% for c in ['W','U','B','R','G'] %}
+        <label style="display:flex; gap:2px; align-items:center;"><input type="checkbox" value="{{ c }}"/> {{ c }}</label>
+        {% endfor %}
+      </div>
+    </div>
+    <button id="clear-search" class="btn btn-ghost" style="font-size:12px;" hidden>Clear</button>
+  </div>
+  <div id="quick-popularity" style="display:flex; gap:.4rem; flex-wrap:wrap; margin-bottom:.55rem;">
+    {% for b in ['Very Common','Common','Uncommon','Niche','Rare'] %}
+      <button class="btn btn-ghost pop-chip" data-pop="{{ b }}" style="font-size:11px; padding:2px 8px;">{{ b }}</button>
+    {% endfor %}
+  </div>
+  <div id="active-filters" style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:.55rem; font-size:11px;"></div>
+  <div id="theme-results" aria-live="polite" aria-busy="true">
+    <div style="display:flex; flex-direction:column; gap:8px;">
+      {% for i in range(6) %}<div style="height:48px; border-radius:8px; background:linear-gradient(90deg,var(--panel-alt) 25%,var(--hover) 50%,var(--panel-alt) 75%); background-size:200% 100%; animation: sk 1.2s ease-in-out infinite;"></div>{% endfor %}
+    </div>
+  </div>
+</div>
+<style>
+.search-suggestions a { display:block; padding:.5rem .6rem; font-size:13px; text-decoration:none; color:var(--text); border-bottom:1px solid var(--border); }
+.search-suggestions a:last-child { border-bottom:none; }
+.search-suggestions a:hover { background:var(--hover); }
+</style>
+<script>
+(function(){
+  const input = document.getElementById('theme-search');
+  const resultsBox = document.getElementById('theme-search-results');
+  const clearBtn = document.getElementById('clear-search');
+  const popSel = document.getElementById('pop-filter');
+  const popChips = document.querySelectorAll('.pop-chip');
+  const colorBox = document.getElementById('color-filter');
+  const activeFilters = document.getElementById('active-filters');
+  const resultsHost = document.getElementById('theme-results');
+  let lastQuery=''; let lastSearchIssued=0; const SEARCH_THROTTLE=150;
+  function hideResults(){ resultsBox.style.display='none'; resultsBox.innerHTML=''; }
+  function buildParams(){
+    const params = new URLSearchParams();
+    const q = input.value.trim(); if(q) params.set('q', q);
+    const pop = popSel.value; if(pop) params.set('bucket', pop);
+    const colors = Array.from(colorBox.querySelectorAll('input:checked')).map(c=>c.value); if(colors.length) params.set('colors', colors.join(','));
+    params.set('limit','50'); params.set('offset','0');
+    return params.toString();
+  }
+  function addChip(label, remover){
+    const span=document.createElement('span');
+    span.style.cssText='background:var(--panel-alt); border:1px solid var(--border); padding:2px 8px; border-radius:14px; display:inline-flex; align-items:center; gap:6px;';
+    span.innerHTML='<span>'+label+'</span><button style="background:none; border:none; cursor:pointer; font-size:12px;" aria-label="Remove">×</button>';
+    span.querySelector('button').addEventListener('click', remover);
+    activeFilters.appendChild(span);
+  }
+  function renderActive(){
+    activeFilters.innerHTML='';
+    const q = input.value.trim(); if(q) addChip('Search: '+q, ()=>{ input.value=''; fetchList(); });
+    const pop = popSel.value; if(pop) addChip('Popularity: '+pop, ()=>{ popSel.value=''; fetchList(); });
+    const colors = Array.from(colorBox.querySelectorAll('input:checked')).map(c=>c.value); if(colors.length) addChip('Colors: '+colors.join(','), ()=>{ colorBox.querySelectorAll('input:checked').forEach(i=>i.checked=false); fetchList(); });
+  }
+  function fetchList(){
+    const ps = buildParams();
+    resultsHost.setAttribute('aria-busy','true');
+    fetch('/themes/fragment/list_simple?'+ps, {cache:'no-store'})
+      .then(r=>r.text())
+      .then(html=>{ resultsHost.innerHTML=html; resultsHost.removeAttribute('aria-busy'); renderActive(); })
+      .catch(()=>{ resultsHost.innerHTML='<div class="empty" style="font-size:13px;">Failed to load.</div>'; resultsHost.removeAttribute('aria-busy'); });
+  }
+  function performSearch(q){
+    if(!q){ hideResults(); return; }
+    const now=Date.now(); if(now - lastSearchIssued < SEARCH_THROTTLE){ clearTimeout(window.__simpleSearchDelay); window.__simpleSearchDelay=setTimeout(()=>performSearch(q), SEARCH_THROTTLE); return; }
+    lastSearchIssued=now; const issueId=lastSearchIssued;
+    resultsBox.style.display='block';
+    resultsBox.innerHTML='<div style="padding:.5rem; font-size:12px; opacity:.7;">Searching…</div>';
+    fetch('/themes/api/search?q='+encodeURIComponent(q), {cache:'no-store'})
+      .then(r=>r.json()).then(js=>{
+        if(issueId!==lastSearchIssued) return;
+        if(!js.ok){ hideResults(); return; }
+        const items=js.items||[]; if(!items.length){ hideResults(); return; }
+        resultsBox.innerHTML=items.map(it=>`<a href="/themes/${it.id}" data-theme-id="${it.id}">${it.theme}</a>`).join('');
+        resultsBox.style.display='block';
+      }).catch(()=>hideResults());
+  }
+  input.addEventListener('input', function(){
+    const q=this.value.trim(); clearBtn.hidden=!q; if(q!==lastQuery){ lastQuery=q; performSearch(q); fetchList(); }
+  });
+  input.addEventListener('keydown', function(ev){
+    if(ev.key==='Enter' && ev.shiftKey){ const q=input.value.trim(); if(!q) return; ev.preventDefault(); fetch('/themes/api/search?q='+encodeURIComponent(q)+'&include_synergies=1',{cache:'no-store'}).then(r=>r.json()).then(js=>{ if(!js.ok) return; const items=js.items||[]; if(!items.length) return; resultsBox.innerHTML=items.map(it=>`<a href="/themes/${it.id}" data-theme-id="${it.id}">${it.theme} <span style=\"opacity:.55; font-size:10px;\">(w/ synergies)</span></a>`).join(''); resultsBox.style.display='block'; }); }
+  });
+  clearBtn.addEventListener('click', function(){ input.value=''; lastQuery=''; hideResults(); clearBtn.hidden=true; input.focus(); fetchList(); });
+  resultsBox.addEventListener('click', function(ev){ const a=ev.target.closest('a[data-theme-id]'); if(!a) return; ev.preventDefault(); window.location.href='/themes/'+a.getAttribute('data-theme-id'); });
+  resultsBox.addEventListener('mouseover', function(ev){ const a=ev.target.closest('a[data-theme-id]'); if(!a) return; const id=a.getAttribute('data-theme-id'); if(!id || a._prefetched) return; a._prefetched=true; fetch('/themes/fragment/detail/'+id,{cache:'reload'}).catch(()=>{}); });
+  document.addEventListener('click', function(ev){ if(!resultsBox.contains(ev.target) && ev.target!==input){ hideResults(); } });
+  popSel.addEventListener('change', fetchList); popChips.forEach(ch=> ch.addEventListener('click', ()=>{ popSel.value=ch.getAttribute('data-pop'); fetchList(); }));
+  colorBox.addEventListener('change', fetchList);
+  // Initial load
+  fetchList();
+})();
+</script>
+{% endblock %}

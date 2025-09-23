@@ -13,9 +13,35 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 - Link PRs/issues inline when helpful, e.g., (#123) or [#123]. Reference-style links at the bottom are encouraged for readability.
 
 ## [Unreleased]
+### Added
+- ETag header for basic client-side caching of catalog fragments.
+- Theme catalog performance optimizations: precomputed summary maps, lowercase search haystacks, memoized filtered slug cache (keyed by `(etag, params)`) for sub‑50ms warm queries.
+- Theme preview endpoint: `GET /themes/api/theme/{id}/preview` (and HTML fragment) returning representative sample (curated examples, curated synergy examples, heuristic roles: payoff / enabler / support / wildcard / synthetic).
+- Commander bias heuristics (color identity restriction, diminishing synergy overlap bonus, direct theme match bonus).
+- In‑memory TTL cache (default 600s) for previews with build time tracking.
+- Metrics endpoint `GET /themes/metrics` (diagnostics gated) exposing preview & catalog counters, cache stats, percentile build times.
+- Governance metrics: `example_enforcement_active`, `example_enforce_threshold_pct` surfaced once curated coverage passes threshold (default 90%).
+- Skeleton loading states for picker list, preview modal, and initial shell.
+- Diagnostics flag `WEB_THEME_PICKER_DIAGNOSTICS=1` enabling fallback description flag, editorial quality badges, uncapped synergy toggle, YAML fetch, metrics endpoint.
+- Cache bust hooks on catalog refresh & tagging completion clearing filter & preview caches (metrics include `preview_last_bust_at`).
+- Optional filter cache prewarm (`WEB_THEME_FILTER_PREWARM=1`) priming common filter combinations; metrics include `filter_prewarmed`.
+- Preview modal UX: role chips, condensed reasons line, hover tooltip with multiline heuristic reasons, export bar (CSV/JSON) honoring curated-only toggle.
+- Server authoritative mana & color identity ingestion (exposes `mana_cost`, `color_identity_list`, `pip_colors`) replacing client-side parsing.
+
+### Changed
+- Picker list & API use optimized fast filtering path (`filter_slugs_fast`) replacing per-request linear scans.
+- Preview sampling: curated examples pinned first, diversity quotas (~40% payoff / 40% enabler+support / 20% wildcard), synthetic placeholders only if underfilled.
+- Sampling refinements: rarity diminishing weight, splash leniency (single off-color allowance with penalty for 4–5 color commanders), role saturation penalty, refined commander overlap scaling curve.
+- Hover / DFC UX unified: single hover panel, overlay flip control (keyboard + persisted face), enlarged thumbnails (110px→165px→230px), activation limited to thumbnails.
+- Removed legacy client-side mana & color identity parsers (now server authoritative fields included in preview items and export endpoints).
+
+### Fixed
+- Removed redundant template environment instantiation causing inconsistent navigation state.
+- Ensured preview cache key includes catalog ETag to prevent stale sample reuse after catalog reload.
+- Explicit cache bust after tagging/catalog rebuild prevents stale preview exposure.
 
 ### Editorial / Themes
-- Enforce minimum example_commanders threshold (>=5) in CI (Phase D close-out). Lint now fails builds when a non-alias theme drops below threshold.
+- Enforce minimum `example_commanders` threshold (>=5) in CI; lint fails builds when a non-alias theme drops below threshold.
 - Added enforcement test `test_theme_editorial_min_examples_enforced.py` to guard regression.
 - Governance workflow updated to pass `--enforce-min-examples` and set `EDITORIAL_MIN_EXAMPLES_ENFORCE=1`.
 - Clarified lint script docstring and behavior around enforced minimums.

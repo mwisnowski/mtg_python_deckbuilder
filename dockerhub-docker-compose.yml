@@ -21,6 +21,7 @@ services:
       ENABLE_PRESETS: "0"           # 1=show presets section
       WEB_VIRTUALIZE: "1"           # 1=enable list virtualization in Step 5
       ALLOW_MUST_HAVES: "1"         # Include/Exclude feature enable
+      WEB_THEME_PICKER_DIAGNOSTICS: "0"  # 1=enable extra theme catalog diagnostics fields, uncapped synergies & /themes/metrics
 
       # ------------------------------------------------------------------
       # Random Build (Alpha) Feature Flags

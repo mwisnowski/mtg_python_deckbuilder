@@ -28,6 +28,7 @@ class ThemeEntry(BaseModel):
     # Phase D editorial enhancements (optional)
     example_commanders: List[str] = Field(default_factory=list, description="Curated example commanders illustrating the theme")
     example_cards: List[str] = Field(default_factory=list, description="Representative non-commander cards (short, curated list)")
+    synergy_example_cards: List[str] = Field(default_factory=list, description="Optional curated synergy-relevant cards distinct from general example_cards")
     synergy_commanders: List[str] = Field(default_factory=list, description="Commanders surfaced from top synergies (3/2/1 from top three synergies)")
     deck_archetype: Optional[str] = Field(
         None,
@@ -113,6 +114,7 @@ class ThemeYAMLFile(BaseModel):
     # Phase D optional editorial metadata (may be absent in existing YAMLs)
     example_commanders: List[str] = Field(default_factory=list)
     example_cards: List[str] = Field(default_factory=list)
+    synergy_example_cards: List[str] = Field(default_factory=list)
     synergy_commanders: List[str] = Field(default_factory=list)
     deck_archetype: Optional[str] = None
     popularity_hint: Optional[str] = None  # Free-form editorial note; bucket computed during merge

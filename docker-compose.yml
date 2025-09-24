@@ -25,6 +25,9 @@ services:
       ALLOW_MUST_HAVES: "1"         # 1=enable must-include/must-exclude cards feature; 0=disable
       SHOW_MISC_POOL: "0"
       WEB_THEME_PICKER_DIAGNOSTICS: "1"  # 1=enable extra theme catalog diagnostics fields, uncapped view & /themes/metrics
+  # Sampling experiments
+  # SPLASH_ADAPTIVE: "0"          # 1=enable adaptive splash penalty scaling by commander color count
+  # SPLASH_ADAPTIVE_SCALE: "1:1.0,2:1.0,3:1.0,4:0.6,5:0.35"  # override default scaling
 
       # ------------------------------------------------------------------
       # Random Build (Alpha) Feature Flags

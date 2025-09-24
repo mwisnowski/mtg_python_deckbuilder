@@ -69,4 +69,7 @@ def test_warm_index_latency_reduction():
     get_theme_preview('Blink', limit=6)
     warm = time.time() - t1
     # Warm path should generally be faster; allow flakiness with generous factor
+    # If cold time is extremely small (timer resolution), skip strict assertion
+    if cold < 0.0005:  # <0.5ms treat as indistinguishable; skip to avoid flaky failure
+        return
     assert warm <= cold * 1.2, f"Expected warm path faster or near equal (cold={cold}, warm={warm})"

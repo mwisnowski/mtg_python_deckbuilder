@@ -826,6 +826,46 @@ async def export_preview_csv(
     return Response(content=csv_text, media_type="text/csv", headers=headers)
 
 
+# --- Export preview as deck seed (lightweight) ---
+@router.get("/preview/{theme_id}/export_seed.json")
+async def export_preview_seed(
+    theme_id: str,
+    limit: int = Query(12, ge=1, le=60),
+    colors: str | None = None,
+    commander: str | None = None,
+    curated_only: bool | None = Query(False, description="If true, only curated example + curated synergy entries influence seed list"),
+):
+    """Return a minimal structure usable to bootstrap a deck build flow.
+
+    Output:
+      theme_id, theme, commander (if any), cards (list of names), curated (subset), generated_at.
+    """
+    try:
+        payload = get_theme_preview(theme_id, limit=limit, colors=colors, commander=commander)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="theme_not_found")
+    items = payload.get("sample", [])
+    def _is_curated(it: dict) -> bool:
+        roles = it.get("roles") or []
+        return any(r in {"example","curated_synergy"} for r in roles)
+    if curated_only:
+        items = [i for i in items if _is_curated(i)]
+    card_names = [i.get("name") for i in items if i.get("name") and not i.get("name").startswith("[")]
+    curated_names = [i.get("name") for i in items if _is_curated(i) and i.get("name")]  # exclude synthetic placeholders
+    return JSONResponse({
+        "ok": True,
+        "theme": payload.get("theme"),
+        "theme_id": payload.get("theme_id"),
+        "commander": commander,
+        "limit": limit,
+        "curated_only": bool(curated_only),
+        "generated_at": payload.get("generated_at"),
+        "count": len(card_names),
+        "cards": card_names,
+        "curated": curated_names,
+    })
+
+
 # --- New: Client performance marks ingestion (Section E) ---
 @router.post("/metrics/client")
 async def ingest_client_metrics(request: Request, payload: dict[str, Any] = Body(...)):

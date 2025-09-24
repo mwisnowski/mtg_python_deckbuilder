@@ -45,9 +45,10 @@
   <div class="example-card-grid" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:.85rem;">
       {% if theme.example_cards %}
         {% for c in theme.example_cards %}
-        <div class="ex-card card-sample" style="text-align:center;" data-card-name="{{ c }}" data-role="example_card" data-tags="{{ theme.synergies|join(', ') }}">
-          <img class="card-thumb" loading="lazy" decoding="async" alt="{{ c }} image" style="width:100%; height:auto; border:1px solid var(--border); border-radius:10px;" src="https://api.scryfall.com/cards/named?fuzzy={{ c|urlencode }}&format=image&version=small" />
-          <div style="font-size:11px; margin-top:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-weight:600;" class="card-ref" data-card-name="{{ c }}" data-tags="{{ theme.synergies|join(', ') }}">{{ c }}</div>
+        {% set base_c = (c.split(' - Synergy (')[0] if ' - Synergy (' in c else c) %}
+        <div class="ex-card card-sample" style="text-align:center;" data-card-name="{{ base_c }}" data-role="example_card" data-tags="{{ theme.synergies|join(', ') }}" data-original-name="{{ c }}">
+          <img class="card-thumb" loading="lazy" decoding="async" alt="{{ c }} image" style="width:100%; height:auto; border:1px solid var(--border); border-radius:10px;" src="https://api.scryfall.com/cards/named?fuzzy={{ base_c|urlencode }}&format=image&version=small" />
+          <div style="font-size:11px; margin-top:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-weight:600;" class="card-ref" data-card-name="{{ base_c }}" data-tags="{{ theme.synergies|join(', ') }}" data-original-name="{{ c }}">{{ c }}</div>
         </div>
         {% endfor %}
       {% else %}
@@ -58,9 +59,10 @@
   <div class="example-commander-grid" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:.85rem;">
       {% if theme.example_commanders %}
         {% for c in theme.example_commanders %}
-        <div class="ex-commander commander-cell" style="text-align:center;" data-card-name="{{ c }}" data-role="commander_example" data-tags="{{ theme.synergies|join(', ') }}">
-          <img class="card-thumb" loading="lazy" decoding="async" alt="{{ c }} image" style="width:100%; height:auto; border:1px solid var(--border); border-radius:10px;" src="https://api.scryfall.com/cards/named?fuzzy={{ c|urlencode }}&format=image&version=small" />
-          <div style="font-size:11px; margin-top:4px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" class="card-ref" data-card-name="{{ c }}" data-tags="{{ theme.synergies|join(', ') }}">{{ c }}</div>
+        {% set base_c = (c.split(' - Synergy (')[0] if ' - Synergy (' in c else c) %}
+        <div class="ex-commander commander-cell" style="text-align:center;" data-card-name="{{ base_c }}" data-role="commander_example" data-tags="{{ theme.synergies|join(', ') }}" data-original-name="{{ c }}">
+          <img class="card-thumb" loading="lazy" decoding="async" alt="{{ c }} image" style="width:100%; height:auto; border:1px solid var(--border); border-radius:10px;" src="https://api.scryfall.com/cards/named?fuzzy={{ base_c|urlencode }}&format=image&version=small" />
+          <div style="font-size:11px; margin-top:4px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" class="card-ref" data-card-name="{{ base_c }}" data-tags="{{ theme.synergies|join(', ') }}" data-original-name="{{ c }}">{{ c }}</div>
         </div>
         {% endfor %}
       {% else %}
@@ -80,5 +82,26 @@
 // Accessibility: automatically move focus to the detail heading after the fragment is swapped in
 (function(){
   try { var h=document.getElementById('theme-detail-heading-{{ theme.id }}'); if(h){ h.focus({preventScroll:false}); } } catch(_e){}
+})();
+// Post-render normalization: ensure any annotated ' - Synergy (...)' names use base name for Scryfall URLs
+(function(){
+  try {
+    document.querySelectorAll('.example-card-grid img.card-thumb, .example-commander-grid img.card-thumb').forEach(function(img){
+      var orig = img.getAttribute('data-original-name') || img.getAttribute('data-card-name') || '';
+      var m = /(.*?)(\s*-\s*Synergy\s*\(.*\))$/i.exec(orig);
+      if(m){
+        var base = m[1].trim();
+        if(base){
+          img.setAttribute('data-card-name', base);
+          var current = img.getAttribute('src')||'';
+          // Replace fuzzy param only if it still contains the annotated portion
+          var before = decodeURIComponent((current.split('fuzzy=')[1]||'').split('&')[0] || '');
+          if(before && before !== base){
+            img.src = 'https://api.scryfall.com/cards/named?fuzzy=' + encodeURIComponent(base) + '&format=image&version=small';
+          }
+        }
+      }
+    });
+  } catch(_){ }
 })();
 </script>

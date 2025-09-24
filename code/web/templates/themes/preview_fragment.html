@@ -9,6 +9,7 @@
   <div class="preview-controls" style="display:flex; gap:1rem; align-items:center; margin:.5rem 0 .75rem; font-size:11px;">
     <label style="display:inline-flex; gap:4px; align-items:center;"><input type="checkbox" id="curated-only-toggle"/> Curated Only</label>
     <label style="display:inline-flex; gap:4px; align-items:center;"><input type="checkbox" id="reasons-toggle" checked/> Reasons <span style="opacity:.55; font-size:10px; cursor:help;" title="Toggle why the payoff is included (i.e. overlapping themes or other reasoning)">?</span></label>
+    <label style="display:inline-flex; gap:4px; align-items:center;"><input type="checkbox" id="show-duplicates-toggle"/> Show Collapsed Duplicates</label>
     <span id="preview-status" aria-live="polite" style="opacity:.65;"></span>
   </div>
   <details id="preview-rationale" class="preview-rationale" style="margin:.25rem 0 .85rem; font-size:11px; background:var(--panel-alt); border:1px solid var(--border); padding:.55rem .7rem; border-radius:8px;">
@@ -18,7 +19,17 @@
       <span id="hover-compact-indicator" style="font-size:10px; opacity:.7;">Mode: <span data-mode>normal</span></span>
     </div>
     <ul id="rationale-points" style="margin:.5rem 0 0 .9rem; padding:0; list-style:disc; line-height:1.35;">
-      <li>Computing…</li>
+      {% if preview.commander_rationale and preview.commander_rationale|length > 0 %}
+        {% for r in preview.commander_rationale %}
+          <li>
+            <strong>{{ r.label }}</strong>: {{ r.value }}
+            {% if r.detail %}<span style="opacity:.75;">({{ r.detail|join(', ') }})</span>{% endif %}
+            {% if r.instances %}<span style="opacity:.65;"> ({{ r.instances }} instances)</span>{% endif %}
+          </li>
+        {% endfor %}
+      {% else %}
+        <li>Computing…</li>
+      {% endif %}
     </ul>
   </details>
   {% endif %}
@@ -27,9 +38,10 @@
     <div class="col-left">
   {% if not minimal %}{% if not suppress_curated %}<h4 style="margin:.25rem 0 .5rem; font-size:13px; letter-spacing:.05em; text-transform:uppercase; opacity:.8;">Example Cards</h4>{% else %}<h4 style="margin:.25rem 0 .5rem; font-size:13px; letter-spacing:.05em; text-transform:uppercase; opacity:.8;">Sampled Synergy Cards</h4>{% endif %}{% endif %}
       <hr style="border:0; border-top:1px solid var(--border); margin:.35rem 0 .6rem;" />
-  <div class="cards-flow" style="display:flex; flex-wrap:wrap; gap:10px;" data-synergies="{{ preview.synergies_used|join(',') if preview.synergies_used }}">
+  <div class="cards-flow" style="display:flex; flex-wrap:wrap; gap:10px;" data-synergies="{{ preview.synergies_used|join(',') if preview.synergies_used }}" data-pin-scope="{{ preview.theme_id }}">
   {% set inserted = {'examples': False, 'curated_synergy': False, 'payoff': False, 'enabler_support': False, 'wildcard': False} %}
   {% for c in preview.sample if (not suppress_curated and ('example' in c.roles or 'curated_synergy' in c.roles)) or 'payoff' in c.roles or 'enabler' in c.roles or 'support' in c.roles or 'wildcard' in c.roles %}
+  {% if c.dup_collapsed %}{% set dup_class = ' is-collapsed-duplicate' %}{% else %}{% set dup_class = '' %}{% endif %}
   {% set primary = c.roles[0] if c.roles else '' %}
   {% if (not suppress_curated) and 'example' in c.roles and not inserted.examples %}<div class="group-separator" data-group="examples" style="flex-basis:100%; font-size:10px; text-transform:uppercase; letter-spacing:.05em; opacity:.65; margin-top:.25rem;">Curated Examples</div>{% set _ = inserted.update({'examples': True}) %}{% endif %}
   {% if (not suppress_curated) and primary == 'curated_synergy' and not inserted.curated_synergy %}<div class="group-separator" data-group="curated_synergy" style="flex-basis:100%; font-size:10px; text-transform:uppercase; letter-spacing:.05em; opacity:.65; margin-top:.5rem;">Curated Synergy</div>{% set _ = inserted.update({'curated_synergy': True}) %}{% endif %}
@@ -40,11 +52,13 @@
         {% if preview.synergies_used and c.tags %}
           {% for tg in c.tags %}{% if tg in preview.synergies_used %}{% set _ = overlaps.append(tg) %}{% endif %}{% endfor %}
         {% endif %}
-  <div class="card-sample{% if overlaps %} has-overlap{% endif %}" style="width:230px;" data-card-name="{{ c.name }}" data-role="{{ c.roles[0] if c.roles }}" data-reasons="{{ c.reasons|join('; ') if c.reasons }}" data-tags="{{ c.tags|join(', ') if c.tags }}" data-overlaps="{{ overlaps|join(',') }}" data-mana="{{ c.mana_cost if c.mana_cost }}" data-rarity="{{ c.rarity if c.rarity }}">
+  <div class="card-sample{{ dup_class }}{% if overlaps %} has-overlap{% endif %}" style="width:230px;" data-card-name="{{ c.name }}" data-role="{{ c.roles[0] if c.roles }}" data-reasons="{{ c.reasons|join('; ') if c.reasons }}" data-tags="{{ c.tags|join(', ') if c.tags }}" data-overlaps="{{ overlaps|join(',') }}" data-mana="{{ c.mana_cost if c.mana_cost }}" data-rarity="{{ c.rarity if c.rarity }}" {% if c.dup_group_size %}data-dup-group-size="{{ c.dup_group_size }}"{% endif %} {% if c.dup_anchor %}data-dup-anchor="1"{% endif %} {% if c.dup_collapsed %}data-dup-collapsed="1" data-dup-anchor-name="{{ c.dup_anchor_name }}"{% endif %}>
           <div class="thumb-wrap" style="position:relative;">
             <img class="card-thumb" width="230" loading="lazy" decoding="async" src="https://api.scryfall.com/cards/named?fuzzy={{ c.name|urlencode }}&format=image&version=small" alt="{{ c.name }} image" data-card-name="{{ c.name }}" data-role="{{ c.roles[0] if c.roles }}" data-tags="{{ c.tags|join(', ') if c.tags }}" {% if overlaps %}data-overlaps="{{ overlaps|join(',') }}"{% endif %} data-placeholder-color="#0b0d12" style="filter:blur(4px); transition:filter .35s ease; background:linear-gradient(145deg,#0b0d12,#111b29);" onload="this.style.filter='blur(0)';" />
             <span class="role-chip role-{{ c.roles[0] if c.roles }}" title="Primary role: {{ c.roles[0] if c.roles }}">{{ c.roles[0][0]|upper if c.roles }}</span>
             {% if overlaps %}<span class="overlap-badge" title="Synergy overlaps: {{ overlaps|join(', ') }}">{{ overlaps|length }}</span>{% endif %}
+            {% if c.dup_anchor and c.dup_group_size and c.dup_group_size > 1 %}<span class="dup-badge" title="{{ c.dup_group_size - 1 }} similar cards collapsed" style="position:absolute; bottom:4px; right:4px; background:#4b5563; color:#fff; font-size:10px; padding:2px 5px; border-radius:10px;">+{{ c.dup_group_size - 1 }}</span>{% endif %}
+            <button type="button" class="pin-btn" aria-label="Pin card" title="Pin card" data-pin-btn style="position:absolute; top:4px; right:4px; background:rgba(0,0,0,0.55); color:#fff; border:1px solid var(--border); border-radius:6px; font-size:10px; padding:2px 5px; cursor:pointer;">☆</button>
           </div>
             <div class="meta" style="font-size:12px; margin-top:2px;">
             <div class="ci-ribbon" aria-label="Color identity" style="display:flex; gap:2px; margin-bottom:2px; min-height:10px;"></div>
@@ -187,6 +201,11 @@
   .theme-preview-expanded .rarity-mythic { color:#fb923c; }
   @media (max-width: 950px){ .theme-preview-expanded .two-col { grid-template-columns: 1fr; } .theme-preview-expanded .col-right { order:-1; } }
 </style>
+<style>
+  .card-sample.pinned { outline:2px solid var(--accent); outline-offset:2px; }
+  .card-sample .pin-btn.active { background:var(--accent); color:#000; }
+  .card-sample.is-collapsed-duplicate { display:none; }
+</style>
 <script>
 // sessionStorage preview fragment cache (keyed by theme + limit + commander). Stores HTML + ETag.
 (function(){ if(document.querySelector('.theme-preview-expanded.minimal-variant')) return; 
@@ -198,6 +217,68 @@
     // Attach a marker for quick retrieval
     container.setAttribute('data-preview-fragment','1');
   } catch(_){}
+})();
+</script>
+<script>
+// Collapsed duplicate toggle logic (persist in localStorage global scope)
+(function(){
+  try {
+    var toggle = document.getElementById('show-duplicates-toggle');
+    if(!toggle) return;
+    var STORE_KEY = 'preview.showCollapsedDuplicates';
+    function apply(){
+      var show = !!toggle.checked;
+      document.querySelectorAll('.card-sample.is-collapsed-duplicate').forEach(function(el){
+        el.style.display = show ? '' : 'none';
+      });
+    }
+    var saved = localStorage.getItem(STORE_KEY);
+    if(saved === '1'){ toggle.checked = true; }
+    apply();
+    toggle.addEventListener('change', function(){
+      localStorage.setItem(STORE_KEY, toggle.checked ? '1':'0');
+      apply();
+    });
+  } catch(_){}
+})();
+</script>
+<script>
+// Client-side pin/unpin personalized examples (localStorage scoped by theme_id)
+(function(){
+  try {
+    var root = document.querySelector('.cards-flow[data-pin-scope]');
+    if(!root) return;
+    var scope = root.getAttribute('data-pin-scope');
+    var storeKey = 'preview.pins.'+scope;
+    function loadPins(){
+      try { return JSON.parse(localStorage.getItem(storeKey) || '[]'); } catch(_) { return []; }
+    }
+    function savePins(pins){ try { localStorage.setItem(storeKey, JSON.stringify(pins.slice(0,100))); } catch(_){} }
+    function setState(){
+      var pins = loadPins();
+      var cards = root.querySelectorAll('.card-sample');
+      cards.forEach(function(cs){
+        var name = cs.getAttribute('data-card-name');
+        var btn = cs.querySelector('[data-pin-btn]');
+        var pinned = pins.indexOf(name) !== -1;
+        cs.classList.toggle('pinned', pinned);
+        if(btn){ btn.classList.toggle('active', pinned); btn.textContent = pinned ? '★' : '☆'; btn.setAttribute('aria-label', pinned ? 'Unpin card' : 'Pin card'); }
+      });
+    }
+    root.addEventListener('click', function(e){
+      var btn = e.target.closest('[data-pin-btn]');
+      if(!btn) return;
+      var card = btn.closest('.card-sample');
+      if(!card) return;
+      var name = card.getAttribute('data-card-name');
+      var pins = loadPins();
+      var idx = pins.indexOf(name);
+      if(idx === -1) pins.push(name); else pins.splice(idx,1);
+      savePins(pins);
+      setState();
+    });
+    setState();
+  } catch(_){ }
 })();
 </script>
 <script>

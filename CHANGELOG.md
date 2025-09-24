@@ -14,6 +14,13 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 
 ## [Unreleased]
 ### Added
+- Taxonomy snapshot CLI (`code/scripts/snapshot_taxonomy.py`): writes an auditable JSON snapshot of BRACKET_DEFINITIONS to `logs/taxonomy_snapshots/` with a deterministic SHA-256 hash; skips duplicates unless forced.
+- Optional adaptive splash penalty (feature flag): enable with `SPLASH_ADAPTIVE=1`; tuning via `SPLASH_ADAPTIVE_SCALE` (default `1:1.0,2:1.0,3:1.0,4:0.6,5:0.35`).
+- Splash penalty analytics: counters now include total off-color cards and penalty reason events; structured logs include event details to support tuning.
+- Tests: color identity edge cases (hybrid, colorless/devoid, MDFC single, adventure, color indicator) using synthetic CSV injection via `CARD_INDEX_EXTRA_CSV`.
+- Core Refactor Phase A (initial): extracted sampling pipeline (`sampling.py`) and preview cache container (`preview_cache.py`) from `theme_preview.py` with stable public API re-exports.
+ - Adaptive preview cache eviction heuristic replacing FIFO with env-tunable weights (`THEME_PREVIEW_EVICT_W_HITS`, `_W_RECENCY`, `_W_COST`, `_W_AGE`) and cost thresholds (`THEME_PREVIEW_EVICT_COST_THRESHOLDS`); metrics include eviction counters and last event metadata.
+ - Performance CI gate: warm-only p95 regression threshold (default 5%) enforced via `preview_perf_ci_check.py`; baseline refresh policy documented.
 - ETag header for basic client-side caching of catalog fragments.
 - Theme catalog performance optimizations: precomputed summary maps, lowercase search haystacks, memoized filtered slug cache (keyed by `(etag, params)`) for sub‑50ms warm queries.
 - Theme preview endpoint: `GET /themes/api/theme/{id}/preview` (and HTML fragment) returning representative sample (curated examples, curated synergy examples, heuristic roles: payoff / enabler / support / wildcard / synthetic).
@@ -27,13 +34,22 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 - Optional filter cache prewarm (`WEB_THEME_FILTER_PREWARM=1`) priming common filter combinations; metrics include `filter_prewarmed`.
 - Preview modal UX: role chips, condensed reasons line, hover tooltip with multiline heuristic reasons, export bar (CSV/JSON) honoring curated-only toggle.
 - Server authoritative mana & color identity ingestion (exposes `mana_cost`, `color_identity_list`, `pip_colors`) replacing client-side parsing.
+ - Adaptive preview cache eviction heuristic replacing FIFO: protection score combines log(hit_count), recency, build cost bucket, and age penalty with env-tunable weights (`THEME_PREVIEW_EVICT_W_HITS`, `_W_RECENCY`, `_W_COST`, `_W_AGE`) plus cost thresholds (`THEME_PREVIEW_EVICT_COST_THRESHOLDS`). Metrics now include total evictions, by-reason counts (`low_score`, `emergency_overflow`), and last eviction metadata.
+ - Scryfall name normalization regression test (`test_scryfall_name_normalization.py`) ensuring synergy annotation suffix (` - Synergy (...)`) never leaks into fuzzy/image queries.
+ - Optional multi-pass performance CI variant (`preview_perf_ci_check.py --multi-pass`) to collect cold vs warm pass stats when diagnosing divergence.
 
 ### Changed
+- Splash analytics recognize both static and adaptive penalty reasons (shared prefix handling), so existing dashboards continue to work when `SPLASH_ADAPTIVE=1`.
 - Picker list & API use optimized fast filtering path (`filter_slugs_fast`) replacing per-request linear scans.
 - Preview sampling: curated examples pinned first, diversity quotas (~40% payoff / 40% enabler+support / 20% wildcard), synthetic placeholders only if underfilled.
 - Sampling refinements: rarity diminishing weight, splash leniency (single off-color allowance with penalty for 4–5 color commanders), role saturation penalty, refined commander overlap scaling curve.
 - Hover / DFC UX unified: single hover panel, overlay flip control (keyboard + persisted face), enlarged thumbnails (110px→165px→230px), activation limited to thumbnails.
 - Removed legacy client-side mana & color identity parsers (now server authoritative fields included in preview items and export endpoints).
+- Core Refactor Phase A continued: separated sampling + cache container; card index & adaptive TTL/background refresh extraction planned (roadmap updated) to further reduce `theme_preview.py` responsibilities.
+ - Eviction: removed hard 50-entry minimum to support low-limit unit tests; production should set `THEME_PREVIEW_CACHE_MAX` accordingly.
+ - Governance: README governance appendix now documents taxonomy snapshot usage and rationale.
+ - Removed hard minimum (50) floor in eviction capacity logic to allow low-limit unit tests; operational environments should set `THEME_PREVIEW_CACHE_MAX` appropriately.
+ - Performance gating formalized: CI fails if warm p95 regression > configured threshold (default 5%). Baseline refresh policy: only update committed warm baseline when (a) intentional performance improvement >10% p95, or (b) unavoidable drift exceeds threshold and is justified in CHANGELOG entry.
 
 ### Fixed
 - Removed redundant template environment instantiation causing inconsistent navigation state.

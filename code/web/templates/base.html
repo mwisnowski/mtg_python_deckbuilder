@@ -328,7 +328,15 @@
         }
   var cardPop = ensureCard();
         var PREVIEW_VERSIONS = ['normal','large'];
+        function normalizeCardName(raw){
+          if(!raw) return raw;
+          // Strip ' - Synergy (...' annotation if present
+            var m = /(.*?)(\s*-\s*Synergy\s*\(.*\))$/i.exec(raw);
+            if(m){ return m[1].trim(); }
+          return raw;
+        }
         function buildCardUrl(name, version, nocache, face){
+          name = normalizeCardName(name);
           var q = encodeURIComponent(name||'');
           var url = 'https://api.scryfall.com/cards/named?fuzzy=' + q + '&format=image&version=' + (version||'normal');
           if (face === 'back') url += '&face=back';
@@ -337,6 +345,7 @@
         }
         // Generic Scryfall image URL builder
         function buildScryfallImageUrl(name, version, nocache){
+          name = normalizeCardName(name);
           var q = encodeURIComponent(name||'');
           var url = 'https://api.scryfall.com/cards/named?fuzzy=' + q + '&format=image&version=' + (version||'normal');
           if (nocache) url += '&t=' + Date.now();
@@ -519,11 +528,11 @@
         var lastFlip = 0;
         function hasTwoFaces(card){
           if(!card) return false;
-          var name = (card.getAttribute('data-card-name')||'') + ' ' + (card.getAttribute('data-original-name')||'');
+          var name = normalizeCardName((card.getAttribute('data-card-name')||'')) + ' ' + normalizeCardName((card.getAttribute('data-original-name')||''));
           return name.indexOf('//') > -1;
         }
         function keyFor(card){
-          var nm = (card.getAttribute('data-card-name')|| card.getAttribute('data-original-name')||'').toLowerCase();
+          var nm = normalizeCardName(card.getAttribute('data-card-name')|| card.getAttribute('data-original-name')||'').toLowerCase();
           return LS_PREFIX + nm;
         }
         function applyStoredFace(card){
@@ -543,7 +552,7 @@
             live.id = 'dfc-live'; live.className='sr-only'; live.setAttribute('aria-live','polite');
             document.body.appendChild(live);
           }
-          var nm = (card.getAttribute('data-card-name')||'').split('//')[0].trim();
+          var nm = normalizeCardName(card.getAttribute('data-card-name')||'').split('//')[0].trim();
           live.textContent = 'Showing ' + (face==='front'?'front face':'back face') + ' of ' + nm;
         }
         function updateButton(btn, face){
@@ -714,8 +723,24 @@
     (function(){
       try{
         if ('serviceWorker' in navigator){
-          navigator.serviceWorker.register('/static/sw.js').then(function(reg){
-            window.__pwaStatus = { registered: true, scope: reg.scope };
+          var ver = '{{ catalog_hash|default("dev") }}';
+          var url = '/static/sw.js?v=' + encodeURIComponent(ver);
+          navigator.serviceWorker.register(url).then(function(reg){
+            window.__pwaStatus = { registered: true, scope: reg.scope, version: ver };
+            // Listen for updates (new worker installing)
+            if(reg.waiting){ reg.waiting.postMessage({ type: 'SKIP_WAITING' }); }
+            reg.addEventListener('updatefound', function(){
+              try {
+                var nw = reg.installing; if(!nw) return;
+                nw.addEventListener('statechange', function(){
+                  if(nw.state === 'installed' && navigator.serviceWorker.controller){
+                    // New version available; reload silently for freshness
+                    try { sessionStorage.setItem('mtg:swUpdated','1'); }catch(_){ }
+                    window.location.reload();
+                  }
+                });
+              }catch(_){ }
+            });
           }).catch(function(){ window.__pwaStatus = { registered: false }; });
         }
       }catch(_){ }

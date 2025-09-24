@@ -9,8 +9,10 @@
 <div class="two-col two-col-left-rail">
   <aside class="card-preview">
     {% if commander %}
-    <a href="https://scryfall.com/search?q={{ commander|urlencode }}" target="_blank" rel="noopener">
-  <img src="https://api.scryfall.com/cards/named?fuzzy={{ commander|urlencode }}&format=image&version=normal" alt="{{ commander }} card image" width="320" data-card-name="{{ commander }}" />
+    {# Strip synergy annotation for Scryfall search and image fuzzy param #}
+    {% set commander_base = (commander.split(' - Synergy (')[0] if ' - Synergy (' in commander else commander) %}
+    <a href="https://scryfall.com/search?q={{ commander_base|urlencode }}" target="_blank" rel="noopener">
+  <img src="https://api.scryfall.com/cards/named?fuzzy={{ commander_base|urlencode }}&format=image&version=normal" alt="{{ commander }} card image" width="320" data-card-name="{{ commander_base }}" />
     </a>
     {% endif %}
     <div style="margin-top:.75rem; display:flex; gap:.35rem; flex-wrap:wrap;">

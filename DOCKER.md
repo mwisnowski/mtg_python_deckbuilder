@@ -88,6 +88,7 @@ Docker Hub (PowerShell) example:
 docker run --rm `
     -p 8080:8080 `
     -e SHOW_LOGS=1 -e SHOW_DIAGNOSTICS=1 -e ENABLE_THEMES=1 -e THEME=system `
+    -e SPLASH_ADAPTIVE=1 -e SPLASH_ADAPTIVE_SCALE="1:1.0,2:1.0,3:1.0,4:0.6,5:0.35" ` # optional experiment
     -e RANDOM_MODES=1 -e RANDOM_UI=1 -e RANDOM_MAX_ATTEMPTS=5 -e RANDOM_TIMEOUT_MS=5000 `
     -v "${PWD}/deck_files:/app/deck_files" `
     -v "${PWD}/logs:/app/logs" `
@@ -150,6 +151,16 @@ services:
         environment:
             - CSV_FILES_DIR=/app/csv_files/testdata
 ```
+
+### Taxonomy snapshot (maintainers)
+Capture the current bracket taxonomy into an auditable JSON file inside the container:
+
+```powershell
+docker compose run --rm web bash -lc "python -m code.scripts.snapshot_taxonomy"
+```
+Artifacts appear under `./logs/taxonomy_snapshots/` on your host via the mounted volume.
+
+To force a new snapshot even when the content hash matches the latest, pass `--force` to the module.
 
 ## Volumes
 - `/app/deck_files` ↔ `./deck_files`

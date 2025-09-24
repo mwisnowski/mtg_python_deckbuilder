@@ -13,6 +13,7 @@ import logging
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.gzip import GZipMiddleware
 from typing import Any
+from contextlib import asynccontextmanager
 from .services.combo_utils import detect_all as _detect_all
 from .services.theme_catalog_loader import prewarm_common_filters  # type: ignore
 
@@ -20,9 +21,6 @@ from .services.theme_catalog_loader import prewarm_common_filters  # type: ignor
 _THIS_DIR = Path(__file__).resolve().parent
 _TEMPLATES_DIR = _THIS_DIR / "templates"
 _STATIC_DIR = _THIS_DIR / "static"
-
-from contextlib import asynccontextmanager
-
 
 @asynccontextmanager
 async def _lifespan(app: FastAPI):  # pragma: no cover - simple infra glue
@@ -39,10 +37,10 @@ async def _lifespan(app: FastAPI):  # pragma: no cover - simple infra glue
         prewarm_common_filters()
     except Exception:
         pass
-    # Warm preview card index once
+    # Warm preview card index once (updated Phase A: moved to card_index module)
     try:  # local import to avoid cost if preview unused
-        from .services import theme_preview as _tp  # type: ignore
-        _tp._maybe_build_card_index()  # internal warm function
+        from .services.card_index import maybe_build_index  # type: ignore
+        maybe_build_index()
     except Exception:
         pass
     yield  # (no shutdown tasks currently)
@@ -142,6 +140,22 @@ templates.env.globals.update({
     "random_timeout_ms": RANDOM_TIMEOUT_MS,
     "theme_picker_diagnostics": THEME_PICKER_DIAGNOSTICS,
 })
+
+# Expose catalog hash (for cache versioning / service worker) – best-effort, fallback to 'dev'
+def _load_catalog_hash() -> str:
+    try:  # local import to avoid circular on early load
+        from .services.theme_catalog_loader import CATALOG_JSON  # type: ignore
+        if CATALOG_JSON.exists():
+            raw = _json.loads(CATALOG_JSON.read_text(encoding="utf-8") or "{}")
+            meta = raw.get("metadata_info") or {}
+            ch = meta.get("catalog_hash") or "dev"
+            if isinstance(ch, str) and ch:
+                return ch[:64]
+    except Exception:
+        pass
+    return "dev"
+
+templates.env.globals["catalog_hash"] = _load_catalog_hash()
 
 # --- Simple fragment cache for template partials (low-risk, TTL-based) ---
 _FRAGMENT_CACHE: dict[tuple[str, str], tuple[float, str]] = {}

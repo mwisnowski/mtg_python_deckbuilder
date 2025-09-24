@@ -3,6 +3,9 @@
 ## Unreleased (Draft)
 
 ### Added
+- Taxonomy snapshot utility (`python -m code.scripts.snapshot_taxonomy`): captures an auditable JSON of BRACKET_DEFINITIONS under `logs/taxonomy_snapshots/` with a content hash. Safe to run any time; subsequent identical snapshots are skipped.
+- Optional adaptive splash penalty (experiment): enable with `SPLASH_ADAPTIVE=1`; scale per commander color count with `SPLASH_ADAPTIVE_SCALE` (default `1:1.0,2:1.0,3:1.0,4:0.6,5:0.35`). Reasons are emitted as `splash_off_color_penalty_adaptive:<colors>:<value>`.
+	- Analytics: splash penalty counters recognize both static and adaptive reasons; compare deltas with the flag toggled.
 - Theme picker performance: precomputed summary projections + lowercase haystacks and memoized filtered slug cache (keyed by (etag, q, archetype, bucket, colors)) for sub‑50ms typical list queries on warm path.
 - Skeleton loading UI for theme picker list, preview modal, and initial shell.
 - Theme preview endpoint (`/themes/api/theme/{id}/preview` + HTML fragment) returning representative sample with roles (payoff/enabler/support/wildcard/example/curated_synergy/synthetic).
@@ -17,12 +20,14 @@
  - Server authoritative mana & color identity fields (`mana_cost`, `color_identity_list`, `pip_colors`) included in preview/export; legacy client parsers removed.
 
 ### Changed
+- Splash analytics updated to count both static and adaptive penalty reasons via a shared prefix, keeping historical dashboards intact.
 - Preview assembly now pins curated `example_cards` then `synergy_example_cards` before heuristic sampling with diversity quotas (~40% payoff, 40% enabler/support, 20% wildcard) and synthetic placeholders only when underfilled.
 - List & API filtering route migrated to optimized path avoiding repeated concatenation / casefolding work each request.
 - Hover system consolidated to one global panel; removed fragment-specific duplicate & legacy large-image hover. Thumbnails enlarged & unified (110px → 165px → 230px). Hover activation limited to thumbnails; stability improved (no dismissal over flip control); DFC markup simplified to single <img> with opacity transition.
 
 ### Deprecated
-- (None new)
+- Price / legality snippet integration deferred to Budget Mode. Any interim badges will be tracked under `logs/roadmaps/roadmap_9_budget_mode.md`.
+ - Legacy client-side mana/color identity parsers are considered deprecated; server-authoritative fields are now included in preview/export payloads.
 
 ### Fixed
 - Resolved duplicate template environment instantiation causing inconsistent navigation globals in picker fragments.

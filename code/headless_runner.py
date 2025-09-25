@@ -304,15 +304,37 @@ def _export_outputs(builder: DeckBuilder) -> None:
     csv_path: Optional[str] = None
     try:
         csv_path = builder.export_decklist_csv() if hasattr(builder, "export_decklist_csv") else None
+        # Persist for downstream reuse (e.g., random_entrypoint / reroll flows) so they don't re-export
+        if csv_path:
+            try:
+                builder.last_csv_path = csv_path  # type: ignore[attr-defined]
+            except Exception:
+                pass
     except Exception:
         csv_path = None
     try:
         if hasattr(builder, "export_decklist_text"):
             if csv_path:
                 base = os.path.splitext(os.path.basename(csv_path))[0]
-                builder.export_decklist_text(filename=base + ".txt")
+                txt_generated: Optional[str] = None
+                try:
+                    txt_generated = builder.export_decklist_text(filename=base + ".txt")
+                finally:
+                    if txt_generated:
+                        try:
+                            builder.last_txt_path = txt_generated  # type: ignore[attr-defined]
+                        except Exception:
+                            pass
             else:
-                builder.export_decklist_text()
+                txt_generated = None
+                try:
+                    txt_generated = builder.export_decklist_text()
+                finally:
+                    if txt_generated:
+                        try:
+                            builder.last_txt_path = txt_generated  # type: ignore[attr-defined]
+                        except Exception:
+                            pass
     except Exception:
         pass
     if _should_export_json_headless() and hasattr(builder, "export_run_config_json") and csv_path:

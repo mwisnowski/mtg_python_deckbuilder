@@ -198,6 +198,7 @@ To force a new snapshot even when the content hash matches the latest, pass `--f
 - RANDOM_MODES=1 (enable random build endpoints)
 - RANDOM_UI=1 (show Surprise/Theme/Reroll/Share controls)
 - RANDOM_MAX_ATTEMPTS=5 (cap retry attempts)
+- (Upcoming) Multi-theme inputs: once UI ships, Random Mode will accept `primary_theme`, `secondary_theme`, `tertiary_theme` fields; current backend already supports the cascade + diagnostics.
 - RANDOM_TIMEOUT_MS=5000 (per-build timeout in ms)
 
 Testing/determinism helper (dev):

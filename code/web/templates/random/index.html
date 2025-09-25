@@ -1,0 +1,274 @@
+{% extends "base.html" %}
+{% block content %}
+{% set enable_ui = random_ui %}
+<section id="random-modes" aria-labelledby="random-heading">
+  <h2 id="random-heading">Random Modes</h2>
+  {% if not enable_ui %}
+    <div class="notice" role="status">Random UI is disabled. Set <code>RANDOM_UI=1</code> to enable.</div>
+  {% else %}
+  <div class="controls" role="group" aria-label="Random controls" style="display:flex; gap:8px; align-items:center; flex-wrap: wrap;">
+    <label for="random-theme" class="field-label" style="margin-right:6px;">Theme</label>
+    <div style="position:relative;">
+      <input id="random-theme" name="theme" type="text" placeholder="optional (e.g., Tokens)" aria-label="Theme (optional)" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-owns="theme-suggest-box" aria-haspopup="listbox" />
+      <div id="theme-suggest-box" role="listbox" style="display:none; position:absolute; top:100%; left:0; right:0; background:var(--panel,#1e293b); border:1px solid var(--border,#334155); z-index:20; max-height:220px; overflow-y:auto; box-shadow:0 4px 10px rgba(0,0,0,.4); font-size:13px;">
+        <!-- suggestions injected here -->
+      </div>
+    </div>
+    {% if show_diagnostics %}
+      <label for="rand-attempts" style="font-size:11px;">Attempts</label>
+      <input id="rand-attempts" name="attempts" type="number" min="1" max="25" value="{{ random_max_attempts }}" style="width:60px; font-size:11px;" title="Override max attempts" />
+      <label for="rand-timeout" style="font-size:11px;">Timeout(ms)</label>
+      <input id="rand-timeout" name="timeout_ms" type="number" min="100" max="15000" step="100" value="{{ random_timeout_ms }}" style="width:80px; font-size:11px;" title="Override generation timeout in milliseconds" />
+    {% endif %}
+  <!-- Added hx-trigger with delay to provide debounce without custom JS recursion -->
+  <button id="btn-surprise" class="btn" hx-post="/hx/random_reroll" hx-vals='{"mode":"surprise"}' hx-include="#random-theme{% if show_diagnostics %},#rand-attempts,#rand-timeout{% endif %}" hx-target="#random-result" hx-swap="outerHTML" hx-trigger="click delay:150ms" hx-disabled-elt="#btn-surprise,#btn-reroll" aria-label="Surprise me">Surprise me</button>
+  <button id="btn-reroll" class="btn" hx-post="/hx/random_reroll" hx-vals='{"mode":"reroll_same_commander"}' hx-include="#current-seed,#current-commander,#random-theme{% if show_diagnostics %},#rand-attempts,#rand-timeout{% endif %}" hx-target="#random-result" hx-swap="outerHTML" hx-trigger="click delay:150ms" hx-disabled-elt="#btn-surprise,#btn-reroll" aria-label="Reroll" disabled>Reroll</button>
+    <button id="btn-share" class="btn" type="button" aria-label="Copy permalink" onclick="(async ()=>{try{const r=await fetch('/build/permalink'); const j=await r.json(); const url=(j.permalink? location.origin + j.permalink : location.href); await navigator.clipboard.writeText(url); (window.toast && toast('Permalink copied')) || alert('Permalink copied');}catch(e){console.error(e); alert('Failed to copy permalink');}})()">Share</button>
+    <span id="spinner" role="status" aria-live="polite" style="display:none; margin-left:8px;">Loading…</span>
+  </div>
+  <div id="rate-limit-banner" role="status" aria-live="polite" style="display:none; margin-top:8px; padding:6px 8px; border:1px solid #cc9900; background:#fff8e1; color:#5f4200; border-radius:4px;">
+    Too many requests. Please wait…
+  </div>
+  <div id="random-area" style="margin-top:12px;">
+    <div id="random-result" class="random-result empty" aria-live="polite">Click “Surprise me” to build a deck.</div>
+    <div id="recent-seeds" style="margin-top:10px; font-size:12px; color:var(--text-muted);">
+      <button id="btn-load-seeds" class="btn" type="button" style="font-size:11px; padding:2px 6px;">Show Recent Seeds</button>
+      <button id="btn-metrics" class="btn" type="button" style="font-size:11px; padding:2px 6px;" title="Download NDJSON metrics" {% if not random_modes %}disabled{% endif %}>Metrics</button>
+      <span id="seed-list" style="margin-left:6px;"></span>
+      <div id="favorite-seeds" style="margin-top:6px;"></div>
+    </div>
+  </div>
+  <script>
+    (function(){
+      // Typeahead: simple debounce + /themes/suggest
+      var input = document.getElementById('random-theme');
+      var listBox = document.getElementById('theme-suggest-box');
+      var to = null;
+      var cache = new Map(); // simple in-memory cache of q -> [names]
+      var activeIndex = -1; // keyboard highlight
+      function hideList(){ if(listBox){ listBox.style.display='none'; input.setAttribute('aria-expanded','false'); activeIndex=-1; } }
+      function highlight(text, q){
+        try{ if(!q) return text; var i=text.toLowerCase().indexOf(q.toLowerCase()); if(i===-1) return text; return text.substring(0,i)+'<mark style="background:#4f46e5; color:#fff; padding:0 2px; border-radius:2px;">'+text.substring(i,i+q.length)+'</mark>'+text.substring(i+q.length);}catch(e){return text;}}
+      function renderList(items, q){
+        if(!listBox) return; listBox.innerHTML=''; activeIndex=-1;
+        if(!items || !items.length){ hideList(); return; }
+        items.slice(0,50).forEach(function(it, idx){
+          var div=document.createElement('div');
+          div.setAttribute('role','option');
+          div.setAttribute('data-value', it);
+          div.innerHTML=highlight(it, q);
+          div.style.cssText='padding:4px 8px; cursor:pointer;';
+          div.addEventListener('mouseenter', function(){ setActive(idx); });
+          div.addEventListener('mousedown', function(ev){ ev.preventDefault(); pick(it); });
+          listBox.appendChild(div);
+        });
+        listBox.style.display='block';
+        input.setAttribute('aria-expanded','true');
+      }
+      function setActive(idx){
+        if(!listBox) return; var children=[...listBox.children];
+        children.forEach(function(c,i){ c.style.background = (i===idx) ? 'rgba(99,102,241,0.35)' : 'transparent'; });
+        activeIndex = idx;
+      }
+      function move(delta){
+        if(!listBox || listBox.style.display==='none'){ return; }
+        var children=[...listBox.children]; if(!children.length) return;
+        var next = activeIndex + delta; if(next < 0) next = children.length -1; if(next >= children.length) next = 0;
+        setActive(next);
+        var el = children[next]; if(el && el.scrollIntoView){ el.scrollIntoView({block:'nearest'}); }
+      }
+      function pick(value){ input.value = value; hideList(); input.dispatchEvent(new Event('change')); }
+      function updateList(items, q){ renderList(items, q); }
+      function showRateLimitBanner(seconds){
+        var b = document.getElementById('rate-limit-banner');
+        var btn1 = document.getElementById('btn-surprise');
+        var btn2 = document.getElementById('btn-reroll');
+        if(!b){ return; }
+        var secs = (typeof seconds === 'number' && !isNaN(seconds) && seconds > 0) ? Math.floor(seconds) : null;
+        var base = 'Too many requests';
+        var update = function(){
+          if(secs !== null){ b.textContent = base + ' — try again in ' + secs + 's'; }
+          else { b.textContent = base + ' — please try again shortly'; }
+        };
+        update();
+        b.style.display = 'block';
+        if(btn1) btn1.disabled = true; if(btn2) btn2.disabled = true;
+        if(secs !== null){
+          var t = setInterval(function(){
+            secs -= 1; update();
+            if(secs <= 0){ clearInterval(t); b.style.display = 'none'; if(btn1) btn1.disabled = false; if(btn2) btn2.disabled = false; }
+          }, 1000);
+        }
+      }
+
+      function highlightMatch(item, q){
+        try{
+          var idx = item.toLowerCase().indexOf(q.toLowerCase());
+          if(idx === -1) return item;
+          return item.substring(0,idx) + '[[' + item.substring(idx, idx+q.length) + ']]' + item.substring(idx+q.length);
+        }catch(e){ return item; }
+      }
+      async function fetchSuggest(q){
+        try{
+          var u = '/themes/api/suggest' + (q? ('?q=' + encodeURIComponent(q)) : '');
+          if(cache.has(q)) { updateList(cache.get(q)); return; }
+          var r = await fetch(u);
+          if(r.status === 429){
+            var ra = r.headers.get('Retry-After');
+            var secs = ra ? parseInt(ra, 10) : null;
+            var msg = 'You are being rate limited';
+            if(secs && !isNaN(secs)) msg += ' — retry in ' + secs + 's';
+            if(window.toast) { toast(msg); } else { console.warn(msg); }
+            showRateLimitBanner(secs);
+            return updateList([]);
+          }
+          if(!r.ok) return updateList([]);
+          var j = await r.json();
+          var items = (j && j.themes) || [];
+          cache.set(q, items);
+          // cap cache size to 50
+          if(cache.size > 50){
+            var firstKey = cache.keys().next().value; cache.delete(firstKey);
+          }
+          updateList(items, q);
+        }catch(e){ /* no-op */ }
+      }
+      if(input){
+        input.addEventListener('input', function(){
+          var q = input.value || '';
+          if(to) clearTimeout(to);
+          if(!q || q.length < 2){ hideList(); return; }
+          to = setTimeout(function(){ fetchSuggest(q); }, 150);
+        });
+        input.addEventListener('keydown', function(ev){
+          if(ev.key === 'ArrowDown'){ ev.preventDefault(); move(1); }
+          else if(ev.key === 'ArrowUp'){ ev.preventDefault(); move(-1); }
+          else if(ev.key === 'Enter'){ if(activeIndex >=0 && listBox && listBox.children[activeIndex]){ ev.preventDefault(); pick(listBox.children[activeIndex].getAttribute('data-value')); } }
+          else if(ev.key === 'Escape'){ hideList(); }
+        });
+        document.addEventListener('click', function(ev){ if(!listBox) return; if(ev.target === input || listBox.contains(ev.target)){ return; } hideList(); });
+      }
+      // Relying on hx-trigger delay (150ms) for soft debounce. Added hx-disabled-elt to avoid rapid spamming.
+      document.addEventListener('htmx:afterRequest', function(){
+        // Safety: ensure buttons are always re-enabled after request completes
+        var b1=document.getElementById('btn-surprise'); var b2=document.getElementById('btn-reroll');
+        if(b1) b1.disabled=false; if(b2 && document.getElementById('current-seed')) b2.disabled=false;
+      });
+      // (No configRequest hook needed; using hx-vals + hx-include for simple form-style submission.)
+      // Enable reroll once a result exists
+      document.addEventListener('htmx:afterSwap', function(ev){
+        if (ev && ev.detail && ev.detail.target && ev.detail.target.id === 'random-result'){
+          var rr = document.getElementById('btn-reroll'); if (rr) rr.disabled = false;
+          // Refresh recent seeds asynchronously
+          fetch('/api/random/seeds').then(r=>r.json()).then(function(j){
+            try{
+              if(!j || !j.seeds) return; var span=document.getElementById('seed-list'); if(!span) return;
+              span.textContent = j.seeds.join(', ');
+            }catch(e){}
+          }).catch(function(){});
+        }
+      });
+      // Simple spinner hooks
+      document.addEventListener('htmx:beforeRequest', function(){ var s=document.getElementById('spinner'); if(s) s.style.display='inline-block'; });
+      document.addEventListener('htmx:afterRequest', function(){ var s=document.getElementById('spinner'); if(s) s.style.display='none'; });
+      // HTMX-friendly rate limit message on 429 + countdown banner
+      document.addEventListener('htmx:afterOnLoad', function(ev){
+        try{
+          var xhr = ev && ev.detail && ev.detail.xhr; if(!xhr) return;
+          if(xhr.status === 429){
+            var ra = xhr.getResponseHeader('Retry-After');
+            var secs = ra ? parseInt(ra, 10) : null;
+            var msg = 'Too many requests';
+            if(secs && !isNaN(secs)) msg += ' — try again in ' + secs + 's';
+            if(window.toast) { toast(msg); } else { alert(msg); }
+            showRateLimitBanner(secs);
+          }
+        }catch(e){/* no-op */}
+      });
+
+      function favoriteButton(seed, favorites){
+        var isFav = favorites.includes(seed);
+        var b=document.createElement('button');
+        b.type='button';
+        b.textContent = isFav ? '★' : '☆';
+        b.title = isFav ? 'Remove from favorites' : 'Add to favorites';
+        b.style.cssText='font-size:12px; margin-left:2px; padding:0 4px; line-height:1;';
+        b.addEventListener('click', function(ev){
+          ev.stopPropagation();
+          fetch('/api/random/seed_favorite', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({seed: seed})})
+            .then(r=>r.json()).then(function(){
+              // refresh seeds display
+              loadSeeds(true);
+            }).catch(()=>{});
+        });
+        return b;
+      }
+      function renderFavorites(favorites){
+        var container=document.getElementById('favorite-seeds'); if(!container) return;
+        if(!favorites || !favorites.length){ container.textContent=''; return; }
+        container.innerHTML='<span style="margin-right:4px;">Favorites:</span>';
+        favorites.forEach(function(s){
+          var btn=document.createElement('button'); btn.type='button'; btn.className='btn'; btn.textContent=s; btn.style.cssText='font-size:10px; margin-right:4px; padding:2px 5px;';
+          btn.addEventListener('click', function(){
+            fetch('/hx/random_reroll', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ seed: s-1, theme: document.getElementById('random-theme').value || null }) })
+              .then(r=>r.text()).then(html=>{ var target=document.getElementById('random-result'); if(target){ target.outerHTML=html; } });
+          });
+          container.appendChild(btn);
+        });
+      }
+      function renderSeedList(seeds, favorites){
+        var span=document.getElementById('seed-list'); if(!span) return;
+        if(!seeds || !seeds.length){ span.textContent='(none yet)'; return; }
+        span.innerHTML='';
+        seeds.slice().forEach(function(s){
+          var b=document.createElement('button');
+          b.type='button';
+            b.textContent=s;
+            b.className='btn seed-btn';
+            b.style.cssText='font-size:10px; margin-right:4px; padding:2px 5px;';
+            b.setAttribute('aria-label','Rebuild using seed '+s);
+            b.addEventListener('click', function(){
+              // Post to reroll endpoint but treat as explicit seed build
+              fetch('/hx/random_reroll', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ seed: s-1, theme: document.getElementById('random-theme').value || null }) })
+                .then(r=> r.text())
+                .then(html=>{ var target=document.getElementById('random-result'); if(target){ target.outerHTML=html; } })
+                .catch(()=>{});
+            });
+            span.appendChild(b);
+            span.appendChild(favoriteButton(s, favorites || []));
+        });
+      }
+      function loadSeeds(refreshFavs){
+        fetch('/api/random/seeds').then(r=>r.json()).then(function(j){
+          if(!j){ renderSeedList([]); return; }
+          renderSeedList(j.seeds || [], j.favorites || []);
+          if(refreshFavs) renderFavorites(j.favorites || []);
+        }).catch(function(){ var span=document.getElementById('seed-list'); if(span) span.textContent='(error)'; });
+      }
+
+      // Manual load seeds button
+      var btnSeeds = document.getElementById('btn-load-seeds');
+      if(btnSeeds){ btnSeeds.addEventListener('click', function(){ loadSeeds(true); }); }
+      var btnMetrics = document.getElementById('btn-metrics');
+      if(btnMetrics){
+        btnMetrics.addEventListener('click', function(){
+          fetch('/status/random_metrics_ndjson').then(r=>r.text()).then(function(t){
+            try{ var blob=new Blob([t], {type:'application/x-ndjson'}); var url=URL.createObjectURL(blob); var a=document.createElement('a'); a.href=url; a.download='random_metrics.ndjson'; document.body.appendChild(a); a.click(); setTimeout(function(){ URL.revokeObjectURL(url); a.remove(); }, 1000);}catch(e){ console.error(e); }
+          });
+        });
+      }
+
+      // Persist last used theme in localStorage
+      try {
+        var THEME_KEY='random_last_theme';
+        if(input){
+          var prev = localStorage.getItem(THEME_KEY);
+          if(prev && !input.value){ input.value = prev; }
+          input.addEventListener('change', function(){ localStorage.setItem(THEME_KEY, input.value || ''); });
+        }
+      } catch(e) { /* ignore */ }
+    })();
+  </script>
+  {% endif %}
+</section>
+{% endblock %}

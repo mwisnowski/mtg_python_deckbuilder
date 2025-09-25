@@ -14,6 +14,14 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 
 ## [Unreleased]
 ### Added
+- Random Mode multi-theme groundwork: backend now supports `primary_theme`, `secondary_theme`, `tertiary_theme` with deterministic AND-combination cascade (P+S+T → P+S → P+T → P → synergy-overlap → full pool). Diagnostics fields (`resolved_themes`, `combo_fallback`, `synergy_fallback`, `fallback_reason`) added to `RandomBuildResult` (UI wiring pending).
+- Locked commander reroll path now produces full artifact parity (CSV, TXT, compliance JSON, summary JSON) identical to Surprise builds.
+- Random reroll tests for: commander lock invariance, artifact presence, duplicate export prevention, and form vs JSON submission.
+- Roadmap document `logs/roadmaps/random_multi_theme_roadmap.md` capturing design, fallback strategy, diagnostics, and incremental delivery plan.
+- Random Modes diagnostics: surfaced attempts, timeout_hit, and retries_exhausted in API responses and the HTMX result fragment (gated by SHOW_DIAGNOSTICS); added tests covering retries-exhausted and timeout paths and enabled friendly labels in the UI.
+- Random Full Build export parity: random full deck builds now produce the standard artifact set — `<stem>.csv`, `<stem>.txt`, `<stem>_compliance.json` (bracket policy report), and `<stem>.summary.json` (summary with `meta.random` seed/theme/constraints). The random full build API response now includes `csv_path`, `txt_path`, and `compliance` keys (paths) for immediate consumption.
+- Environment toggle (opt-out) `RANDOM_BUILD_SUPPRESS_INITIAL_EXPORT` (defaults to active automatically) lets you revert to legacy double-export behavior for debugging by setting `RANDOM_BUILD_SUPPRESS_INITIAL_EXPORT=0`.
+- Tests: added random full build export test ensuring exactly one CSV/TXT pair (no `_1` duplicates) plus sidecar JSON artifacts.
 - Taxonomy snapshot CLI (`code/scripts/snapshot_taxonomy.py`): writes an auditable JSON snapshot of BRACKET_DEFINITIONS to `logs/taxonomy_snapshots/` with a deterministic SHA-256 hash; skips duplicates unless forced.
 - Optional adaptive splash penalty (feature flag): enable with `SPLASH_ADAPTIVE=1`; tuning via `SPLASH_ADAPTIVE_SCALE` (default `1:1.0,2:1.0,3:1.0,4:0.6,5:0.35`).
 - Splash penalty analytics: counters now include total off-color cards and penalty reason events; structured logs include event details to support tuning.
@@ -39,7 +47,10 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
  - Optional multi-pass performance CI variant (`preview_perf_ci_check.py --multi-pass`) to collect cold vs warm pass stats when diagnosing divergence.
 
 ### Changed
+- Random reroll (locked commander) export flow: now reuses builder-exported artifacts when present and records `last_csv_path` / `last_txt_path` inside the headless runner to avoid duplicate suffixed files.
+- Summary sidecars for random builds include `locked_commander` flag when rerolling same commander.
 - Splash analytics recognize both static and adaptive penalty reasons (shared prefix handling), so existing dashboards continue to work when `SPLASH_ADAPTIVE=1`.
+- Random full builds now internally force `RANDOM_BUILD_SUPPRESS_INITIAL_EXPORT=1` (if unset) ensuring only the orchestrated export path executes (eliminates historical duplicate `*_1.csv` / `*_1.txt`). Set `RANDOM_BUILD_SUPPRESS_INITIAL_EXPORT=0` to intentionally restore the legacy double-export (not recommended outside debugging).
 - Picker list & API use optimized fast filtering path (`filter_slugs_fast`) replacing per-request linear scans.
 - Preview sampling: curated examples pinned first, diversity quotas (~40% payoff / 40% enabler+support / 20% wildcard), synthetic placeholders only if underfilled.
 - Sampling refinements: rarity diminishing weight, splash leniency (single off-color allowance with penalty for 4–5 color commanders), role saturation penalty, refined commander overlap scaling curve.
@@ -55,6 +66,8 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 - Removed redundant template environment instantiation causing inconsistent navigation state.
 - Ensured preview cache key includes catalog ETag to prevent stale sample reuse after catalog reload.
 - Explicit cache bust after tagging/catalog rebuild prevents stale preview exposure.
+- Random build duplicate export issue resolved: suppression of the initial builder auto-export prevents creation of suffixed duplicate decklists.
+- Random Mode UI regressions (deck summary toggle & hover preview) fixed by replacing deferred script execution with inline handlers and an HTMX load hook.
 
 ### Editorial / Themes
 - Enforce minimum `example_commanders` threshold (>=5) in CI; lint fails builds when a non-alias theme drops below threshold.

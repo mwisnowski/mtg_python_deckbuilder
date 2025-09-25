@@ -115,6 +115,82 @@ def _load_fast_theme_list() -> Optional[list[dict[str, Any]]]:
     return None
 
 
+@router.get("/suggest")
+@router.get("/api/suggest")
+async def theme_suggest(
+    request: Request,
+    q: str | None = None,
+    limit: int | None = Query(10, ge=1, le=50),
+):
+    """Lightweight theme name suggestions for typeahead.
+
+    Prefers the precomputed fast path (theme_list.json). Falls back to full index if unavailable.
+    Returns a compact JSON: {"themes": ["<name>", ...]}.
+    """
+    try:
+        # Optional rate limit using app helper if available
+        rl_result = None
+        try:
+            from ..app import rate_limit_check  # type: ignore
+            rl_result = rate_limit_check(request, "suggest")
+        except HTTPException as http_ex:  # propagate 429 with headers
+            raise http_ex
+        except Exception:
+            rl_result = None
+        lim = int(limit or 10)
+        names: list[str] = []
+        fast = _load_fast_theme_list()
+        if fast is not None:
+            try:
+                items = fast
+                if q:
+                    ql = q.lower()
+                    items = [e for e in items if isinstance(e.get("theme"), str) and ql in e["theme"].lower()]
+                for e in items[: lim * 3]:  # pre-slice before unique
+                    nm = e.get("theme")
+                    if isinstance(nm, str):
+                        names.append(nm)
+            except Exception:
+                names = []
+        if not names:
+            # Fallback to full index
+            try:
+                idx = load_index()
+                slugs = filter_slugs_fast(idx, q=q)
+                # summaries_for_slugs returns dicts including 'theme'
+                infos = summaries_for_slugs(idx, slugs[: lim * 3])
+                for inf in infos:
+                    nm = inf.get("theme")
+                    if isinstance(nm, str):
+                        names.append(nm)
+            except Exception:
+                names = []
+        # Deduplicate preserving order, then clamp
+        seen: set[str] = set()
+        out: list[str] = []
+        for nm in names:
+            if nm in seen:
+                continue
+            seen.add(nm)
+            out.append(nm)
+            if len(out) >= lim:
+                break
+        resp = JSONResponse({"themes": out})
+        if rl_result:
+            remaining, reset_epoch = rl_result
+            try:
+                resp.headers["X-RateLimit-Remaining"] = str(remaining)
+                resp.headers["X-RateLimit-Reset"] = str(reset_epoch)
+            except Exception:
+                pass
+        return resp
+    except HTTPException as e:
+        # Propagate FastAPI HTTPException (e.g., 429 with headers)
+        raise e
+    except Exception as e:
+        return JSONResponse({"themes": [], "error": str(e)}, status_code=500)
+
+
 def _load_tag_flag_time() -> Optional[float]:
     try:
         if TAG_FLAG_PATH.exists():

@@ -1,12 +1,70 @@
-<div class="random-result" hx-swap-oob="true" id="random-result">
-  <div class="random-meta">
-    <span class="seed">Seed: {{ seed }}</span>
-    {% if theme %}<span class="theme">Theme: {{ theme }}</span>{% endif %}
+<div class="random-result" id="random-result">
+  <style>
+    .diag-badges{display:inline-flex; gap:4px; margin-left:8px; flex-wrap:wrap;}
+    .diag-badge{background:var(--panel-alt,#334155); color:#fff; padding:2px 6px; border-radius:12px; font-size:10px; letter-spacing:.5px; line-height:1.2;}
+    .diag-badge.warn{background:#8a6d3b;}
+    .diag-badge.err{background:#7f1d1d;}
+    .diag-badge.fallback{background:#4f46e5;}
+    .btn-compact{font-size:11px; padding:2px 6px; line-height:1.2;}
+  </style>
+  <div class="random-meta" style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+    <span class="seed">Seed: <strong>{{ seed }}</strong></span>
+    {% if theme %}<span class="theme">Theme: <strong>{{ theme }}</strong></span>{% endif %}
+    {% if permalink %}
+      <button class="btn btn-compact" type="button" aria-label="Copy permalink for this exact build" onclick="(async()=>{try{await navigator.clipboard.writeText(location.origin + '{{ permalink }}');(window.toast&&toast('Permalink copied'))||console.log('Permalink copied');}catch(e){alert('Copy failed');}})()">Copy Permalink</button>
+    {% endif %}
+    {% if show_diagnostics and diagnostics %}
+      <span class="diag-badges" aria-label="Diagnostics" role="group">
+        <span class="diag-badge" title="Attempts tried before acceptance">Att {{ diagnostics.attempts }}</span>
+        <span class="diag-badge" title="Elapsed build time in milliseconds">{{ diagnostics.elapsed_ms }}ms</span>
+        {% if diagnostics.timeout_hit %}<span class="diag-badge warn" title="Generation loop exceeded timeout limit before success">Timeout</span>{% endif %}
+        {% if diagnostics.retries_exhausted %}<span class="diag-badge warn" title="All allotted attempts were used without an early acceptable candidate">Retries</span>{% endif %}
+        {% if fallback or diagnostics.fallback %}<span class="diag-badge fallback" title="Original theme produced no candidates; Surprise mode fallback engaged">Fallback</span>{% endif %}
+      </span>
+    {% endif %}
   </div>
-  <h3 class="commander">{{ commander }}</h3>
-  <ul class="decklist">
-    {% for card in decklist %}
-    <li>{{ card }}</li>
-    {% endfor %}
-  </ul>
+  <!-- Hidden current seed so HTMX reroll button can include it via hx-include -->
+  <input type="hidden" id="current-seed" name="seed" value="{{ seed }}" />
+  <input type="hidden" id="current-commander" name="commander" value="{{ commander }}" />
+  <div class="commander-block" style="display:flex; gap:14px; align-items:flex-start; margin-top:.75rem;">
+    <div class="commander-thumb" style="flex:0 0 auto;">
+      <img
+        src="https://api.scryfall.com/cards/named?fuzzy={{ commander|urlencode }}&format=image&version=small"
+        srcset="https://api.scryfall.com/cards/named?fuzzy={{ commander|urlencode }}&format=image&version=small 160w, https://api.scryfall.com/cards/named?fuzzy={{ commander|urlencode }}&format=image&version=normal 488w"
+        sizes="(max-width: 600px) 120px, 160px"
+        alt="{{ commander }} image"
+        width="160" height="220"
+        style="width:160px; height:auto; border-radius:8px; box-shadow:0 6px 18px rgba(0,0,0,.55); border:1px solid var(--border); background:#0f1115;"
+        class="commander-img"
+        loading="lazy" decoding="async"
+        data-card-name="{{ commander }}" />
+    </div>
+    <div style="flex:1 1 auto;">
+      <div class="muted" style="font-size:12px; font-weight:600; letter-spacing:.5px; text-transform:uppercase;">Commander</div>
+      <h3 class="commander" style="margin:.15rem 0 0 0;" data-card-name="{{ commander }}">{{ commander }}</h3>
+    </div>
+  </div>
+  {% if summary %}
+    {# Reuse the comprehensive deck summary partial #}
+    {% include "partials/deck_summary.html" %}
+  {% else %}
+    <ul class="decklist">
+      {% for card in decklist %}
+      {% if card.name %}
+        <li>{{ card.name }}{% if card.count %} ×{{ card.count }}{% endif %}</li>
+      {% else %}
+        <li>{{ card }}</li>
+      {% endif %}
+      {% endfor %}
+    </ul>
+  {% endif %}
+  <script>
+    // Re-run bindings after OOB swap so hover & view toggle work consistently
+    (function(){
+      try { if (window.bindAllCardImageRetries) window.bindAllCardImageRetries(); } catch(_) {}
+      try { if (window.attachCardHover) window.attachCardHover(); } catch(_) {}
+      // Deck summary initializer (idempotent) – will assign aria-selected
+      try { if (window.initDeckSummaryTypeView) window.initDeckSummaryTypeView(document.getElementById('random-result')); } catch(_) {}
+    })();
+  </script>
 </div>

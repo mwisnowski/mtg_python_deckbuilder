@@ -3,7 +3,11 @@
 ## Unreleased (Draft)
 
 ### Added
+- Random Mode multi-theme groundwork: backend accepts `primary_theme`, `secondary_theme`, `tertiary_theme` and computes a resolved combination with ordered fallback (triple → P+S → P+T → P → synergy token overlap → full pool). Exposes diagnostics (`resolved_themes`, `combo_fallback`, `synergy_fallback`, `fallback_reason`) for upcoming UI integration.
+- Locked commander reroll now outputs the full export artifact set (CSV, TXT, compliance, summary) with duplicate prevention.
 - Taxonomy snapshot utility (`python -m code.scripts.snapshot_taxonomy`): captures an auditable JSON of BRACKET_DEFINITIONS under `logs/taxonomy_snapshots/` with a content hash. Safe to run any time; subsequent identical snapshots are skipped.
+- Random Full Build export parity: random full builds now emit the full artifact set (`.csv`, `.txt`, `_compliance.json`, `.summary.json`) matching standard builds; API includes `csv_path`, `txt_path`, and `compliance` path fields.
+- Opt-out env var `RANDOM_BUILD_SUPPRESS_INITIAL_EXPORT` (defaults to suppressed) allows re-enabling legacy double-export for debugging when set to `0`.
 - Optional adaptive splash penalty (experiment): enable with `SPLASH_ADAPTIVE=1`; scale per commander color count with `SPLASH_ADAPTIVE_SCALE` (default `1:1.0,2:1.0,3:1.0,4:0.6,5:0.35`). Reasons are emitted as `splash_off_color_penalty_adaptive:<colors>:<value>`.
 	- Analytics: splash penalty counters recognize both static and adaptive reasons; compare deltas with the flag toggled.
 - Theme picker performance: precomputed summary projections + lowercase haystacks and memoized filtered slug cache (keyed by (etag, q, archetype, bucket, colors)) for sub‑50ms typical list queries on warm path.
@@ -20,7 +24,9 @@
  - Server authoritative mana & color identity fields (`mana_cost`, `color_identity_list`, `pip_colors`) included in preview/export; legacy client parsers removed.
 
 ### Changed
+- Random reroll export logic deduplicated by persisting `last_csv_path` / `last_txt_path` from headless runs; avoids creation of `*_1` suffixed artifacts on reroll.
 - Splash analytics updated to count both static and adaptive penalty reasons via a shared prefix, keeping historical dashboards intact.
+- Random full builds internally auto-set `RANDOM_BUILD_SUPPRESS_INITIAL_EXPORT=1` (unless explicitly provided) to eliminate duplicate suffixed decklists.
 - Preview assembly now pins curated `example_cards` then `synergy_example_cards` before heuristic sampling with diversity quotas (~40% payoff, 40% enabler/support, 20% wildcard) and synthetic placeholders only when underfilled.
 - List & API filtering route migrated to optimized path avoiding repeated concatenation / casefolding work each request.
 - Hover system consolidated to one global panel; removed fragment-specific duplicate & legacy large-image hover. Thumbnails enlarged & unified (110px → 165px → 230px). Hover activation limited to thumbnails; stability improved (no dismissal over flip control); DFC markup simplified to single <img> with opacity transition.
@@ -32,6 +38,7 @@
 ### Fixed
 - Resolved duplicate template environment instantiation causing inconsistent navigation globals in picker fragments.
 - Ensured preview cache key includes catalog ETag preventing stale samples after catalog reload.
+- Random build duplicate decklist exports removed; suppression of the initial builder auto-export prevents creation of `*_1.csv` / `*_1.txt` artifacts.
 
 ---
 

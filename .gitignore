@@ -11,6 +11,11 @@ __pycache__/
 csv_files/
 dist/
 logs/
+!logs/
+logs/*
+!logs/perf/
+logs/perf/*
+!logs/perf/theme_preview_warm_baseline.json
 deck_files/
 csv_files/
 config/themes/catalog/

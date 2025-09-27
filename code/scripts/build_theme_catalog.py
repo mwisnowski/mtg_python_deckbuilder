@@ -27,6 +27,7 @@ from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple
+import re
 
 try:  # Optional
     import yaml  # type: ignore
@@ -63,6 +64,20 @@ except ModuleNotFoundError:
     load_whitelist_config,
         should_keep_theme,
     )
+
+try:
+    from scripts.export_themes_to_yaml import slugify as slugify_theme  # type: ignore
+except Exception:
+    _SLUG_RE = re.compile(r'[^a-z0-9-]')
+
+    def slugify_theme(name: str) -> str:
+        s = name.strip().lower()
+        s = s.replace('+', 'plus')
+        s = s.replace('/', '-')
+        s = re.sub(r'[\s_]+', '-', s)
+        s = _SLUG_RE.sub('', s)
+        s = re.sub(r'-{2,}', '-', s)
+        return s.strip('-')
 
 ROOT = Path(__file__).resolve().parents[2]
 CODE_ROOT = ROOT / 'code'
@@ -729,7 +744,8 @@ def build_catalog(limit: int, verbose: bool) -> Dict[str, Any]:
         else:
             primary, secondary = _primary_secondary(theme, analytics['frequencies'])
 
-        entry = {'theme': theme, 'synergies': merged}
+        slug = getattr(y, 'id', None) or slugify_theme(theme)
+        entry = {'id': slug, 'theme': theme, 'synergies': merged}
         if primary:
             entry['primary_color'] = primary
         if secondary:

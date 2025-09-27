@@ -8,7 +8,10 @@
 test.py
 !requirements.txt
 __pycache__/
-csv_files/
+# Keep main CSV datasets out of Git, but allow the tiny deterministic fixtures used by CI.
+csv_files/*
+!csv_files/testdata/
+!csv_files/testdata/**/*
 dist/
 logs/
 !logs/
@@ -17,7 +20,6 @@ logs/*
 logs/perf/*
 !logs/perf/theme_preview_warm_baseline.json
 deck_files/
-csv_files/
 config/themes/catalog/
 !config/card_lists/*.json
 !config/themes/*.json

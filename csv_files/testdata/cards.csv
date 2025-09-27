@@ -1,0 +1,6 @@
+name,faceName,edhrecRank,colorIdentity,colors,manaCost,manaValue,type,creatureTypes,text,power,toughness,keywords,themeTags,layout,side
+Shock,,,,R,{R},1,Instant,,Deal 2 damage to any target.,,,,[Burn],normal,
+Plains,,,,W,,0,Land,,{T}: Add {W}.,,,,[Land],normal,name,faceName,edhrecRank,colorIdentity,colors,manaCost,manaValue,type,creatureTypes,text,power,toughness,keywords,themeTags,layout,side
+Sol Ring,,1,Colorless,,{1},{1},Artifact,,{T}: Add {C}{C}.,,,Mana,Utility,normal,
+Llanowar Elves,,5000,G,G,{G},{1},Creature,Elf Druid,{T}: Add {G}.,1,1,Mana,Tribal;Ramp,normal,
+Island,,9999,U,U,,,Land,,{T}: Add {U}.,,,Land,,normal,

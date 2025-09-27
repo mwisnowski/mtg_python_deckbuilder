@@ -1,0 +1,3 @@
+name,faceName,edhrecRank,colorIdentity,colors,manaCost,manaValue,type,creatureTypes,text,power,toughness,keywords,themeTags,layout,side
+Krenko, Mob Boss,,1200,R,R,{2}{R}{R},4,Legendary Creature,['Goblin'],Tap: Create X 1/1 red Goblin tokens.,3,3,,['Goblin Kindred'],normal,
+Isamaru, Hound of Konda,,2500,W,W,{W},1,Legendary Creature,['Hound'],Legendary creature.,2,2,,['Dog Kindred'],normal,

@@ -13,6 +13,9 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 - Link PRs/issues inline when helpful, e.g., (#123) or [#123]. Reference-style links at the bottom are encouraged for readability.
 
 ## [Unreleased]
+### Added
+- Included the tiny `csv_files/testdata` fixture set so CI fast determinism tests have consistent sample data.
+
 ### Changed
 - Theme catalog schema now accepts optional `id` values on entries so refreshed catalogs validate cleanly.
 - CI installs `httpx` with the rest of the web stack and runs pytest via `python -m pytest` so FastAPI tests resolve the local `code` package correctly.

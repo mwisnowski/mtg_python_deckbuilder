@@ -21,6 +21,10 @@ PopularityBucket = Literal['Very Common', 'Common', 'Uncommon', 'Niche', 'Rare']
 
 
 class ThemeEntry(BaseModel):
+    id: Optional[str] = Field(
+        None,
+        description="Stable, slugified identifier for the theme (mirrors fast-path catalog id); optional for backward compatibility.",
+    )
     theme: str = Field(..., description="Canonical theme display name")
     synergies: List[str] = Field(default_factory=list, description="Ordered synergy list (curated > enforced > inferred, possibly trimmed)")
     primary_color: Optional[str] = Field(None, description="Primary color (TitleCase) if detectable")

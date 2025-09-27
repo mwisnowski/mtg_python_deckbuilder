@@ -13,7 +13,11 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 - Link PRs/issues inline when helpful, e.g., (#123) or [#123]. Reference-style links at the bottom are encouraged for readability.
 
 ## [Unreleased]
-_No unreleased changes._
+### Changed
+- Theme catalog schema now accepts optional `id` values on entries so refreshed catalogs validate cleanly.
+
+### Fixed
+- Regenerated `logs/perf/theme_preview_warm_baseline.json` to repair preview performance CI regressions caused by a malformed baseline file and verified the regression gate passes with the refreshed data.
 
 ## [2.3.0] - 2025-09-26
 ### Added

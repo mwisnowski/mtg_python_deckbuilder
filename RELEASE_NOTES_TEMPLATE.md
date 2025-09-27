@@ -1,6 +1,7 @@
 # MTG Python Deckbuilder ${VERSION}
 
 ## Summary
+- Hardened theme catalog schema to accept optional IDs and refreshed the preview performance baseline to keep CI checks green.
 - Delivered multi-theme random builds with deterministic cascade, strict match support, and polished HTMX/UI flows.
 - Added opt-in telemetry counters, reroll throttling safeguards, and structured diagnostics exports.
 - Expanded tooling, documentation, and QA coverage for theme governance, performance profiling, and seed history management.
@@ -25,6 +26,9 @@
 - Diagnostics badge polish, recent/favorite seeds panel, seed history API, and structured logging for random builds.
 - Sidecar exports include multi-theme metadata and locked commander indicators with consistent artifact sets.
 - Manual QA checklist updates and broader pytest coverage for multi-theme flows, reroll behavior, performance, and telemetry.
+
+### Maintenance & CI
+- Theme catalog schema now accepts optional IDs and the preview performance warm baseline was regenerated to restore the regression gate.
 
 ## Detailed changes
 ### Added
@@ -61,6 +65,7 @@
 - Cache bust hooks now clear filter/preview caches on catalog refresh or tagging completion; metrics expose `preview_last_bust_at` and warm cache stats.
 - Theme normalization standardizes terms (ETB → Enter the Battlefield, Pillow Fort → Pillowfort, etc.), with synergy output capped at five entries (curated > enforced > inferred ordering).
 - README, CHANGELOG, and governance docs updated to reflect new workflows, taxonomy snapshots, and telemetry controls.
+- Theme catalog schema now allows optional `id` fields on entries so regenerated catalogs validate cleanly.
 
 ### Deprecated
 - Price/legality snippet integration remains deferred to the future Budget Mode rollout (`logs/roadmaps/roadmap_9_budget_mode.md`).
@@ -72,6 +77,7 @@
 - Suppressed legacy double-export path to prevent creation of `*_1.csv` / `*_1.txt` artifacts.
 - Removed ultra-rare themes (frequency ≤1) unless protected via whitelist, keeping results focused on supported experiences.
 - Corrected commander eligibility rules to restrict non-creature legendary permanents and honor “can be your commander” text.
+- Refreshed `logs/perf/theme_preview_warm_baseline.json` to fix preview performance CI failures stemming from malformed baseline data.
 
 ## Upgrade notes
 - Enable multi-theme random builds via existing Random Mode flags; strict matching persists automatically across UI, API, permalink, and export contexts.

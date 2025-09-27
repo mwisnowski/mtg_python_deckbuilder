@@ -3,6 +3,7 @@
 ## Summary
 - Hardened theme catalog schema to accept optional IDs and refreshed the preview performance baseline to keep CI checks green.
 - CI updates install the missing `httpx` dependency and run pytest through `python -m` to ensure the web stack tests import the local package correctly.
+- Fast-path catalog validation now tolerates empty synergy lists while still flagging missing fields or non-string entries.
 - Delivered multi-theme random builds with deterministic cascade, strict match support, and polished HTMX/UI flows.
 - Added opt-in telemetry counters, reroll throttling safeguards, and structured diagnostics exports.
 - Expanded tooling, documentation, and QA coverage for theme governance, performance profiling, and seed history management.
@@ -31,6 +32,7 @@
 ### Maintenance & CI
 - Theme catalog schema now accepts optional IDs and the preview performance warm baseline was regenerated to restore the regression gate.
 - GitHub Actions now includes `httpx` in the default dependency install and executes pytest via `python -m` so FastAPI TestClient suites run without import errors.
+- Fast path validator treats empty synergy arrays as acceptable and only warns on missing or malformed data, reducing noise during automated catalog generation.
 
 ## Detailed changes
 ### Added

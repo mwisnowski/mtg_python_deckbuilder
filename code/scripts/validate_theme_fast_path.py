@@ -62,8 +62,14 @@ def validate(data: t.Any) -> list[Problem]:
         if not th.get('theme'):
             probs.append(Problem('error', f'theme[{i}] theme missing'))
         syns = th.get('synergies')
-        if not isinstance(syns, list) or not syns:
-            probs.append(Problem('warn', f'theme[{i}] synergies empty or not list'))
+        if syns is None:
+            probs.append(Problem('warn', f'theme[{i}] synergies missing'))
+        elif not isinstance(syns, list):
+            probs.append(Problem('warn', f'theme[{i}] synergies not a list'))
+        else:
+            bad_types = [type(item).__name__ for item in syns if not isinstance(item, str)]
+            if bad_types:
+                probs.append(Problem('warn', f'theme[{i}] synergies contain non-string entries: {set(bad_types)}'))
         if 'description' not in th:
             probs.append(Problem('warn', f'theme[{i}] description missing'))
     return probs

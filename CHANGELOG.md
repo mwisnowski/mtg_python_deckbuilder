@@ -16,6 +16,7 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 ### Changed
 - Theme catalog schema now accepts optional `id` values on entries so refreshed catalogs validate cleanly.
 - CI installs `httpx` with the rest of the web stack and runs pytest via `python -m pytest` so FastAPI tests resolve the local `code` package correctly.
+- Relaxed fast-path catalog validation to allow empty synergy lists while still warning on missing or malformed data types.
 
 ### Fixed
 - Regenerated `logs/perf/theme_preview_warm_baseline.json` to repair preview performance CI regressions caused by a malformed baseline file and verified the regression gate passes with the refreshed data.

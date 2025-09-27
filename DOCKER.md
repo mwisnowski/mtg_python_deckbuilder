@@ -88,6 +88,8 @@ Docker Hub (PowerShell) example:
 docker run --rm `
     -p 8080:8080 `
     -e SHOW_LOGS=1 -e SHOW_DIAGNOSTICS=1 -e ENABLE_THEMES=1 -e THEME=system `
+    -e SPLASH_ADAPTIVE=1 -e SPLASH_ADAPTIVE_SCALE="1:1.0,2:1.0,3:1.0,4:0.6,5:0.35" ` # optional experiment
+    -e RANDOM_MODES=1 -e RANDOM_UI=1 -e RANDOM_MAX_ATTEMPTS=5 -e RANDOM_TIMEOUT_MS=5000 `
     -v "${PWD}/deck_files:/app/deck_files" `
     -v "${PWD}/logs:/app/logs" `
     -v "${PWD}/csv_files:/app/csv_files" `
@@ -127,6 +129,39 @@ GET http://localhost:8080/healthz  ->  { "status": "ok", "version": "dev", "upti
 
 Theme preference reset (client-side): use the header’s Reset Theme control to clear the saved browser preference; the server default (THEME) applies on next paint.
 
+### Random Modes (alpha) and test dataset override
+
+Enable experimental Random Modes and UI controls in Web runs by setting:
+
+```yaml
+services:
+    web:
+        environment:
+            - RANDOM_MODES=1
+            - RANDOM_UI=1
+            - RANDOM_MAX_ATTEMPTS=5
+            - RANDOM_TIMEOUT_MS=5000
+```
+
+For deterministic tests or development, you can point the app to a frozen dataset snapshot:
+
+```yaml
+services:
+    web:
+        environment:
+            - CSV_FILES_DIR=/app/csv_files/testdata
+```
+
+### Taxonomy snapshot (maintainers)
+Capture the current bracket taxonomy into an auditable JSON file inside the container:
+
+```powershell
+docker compose run --rm web bash -lc "python -m code.scripts.snapshot_taxonomy"
+```
+Artifacts appear under `./logs/taxonomy_snapshots/` on your host via the mounted volume.
+
+To force a new snapshot even when the content hash matches the latest, pass `--force` to the module.
+
 ## Volumes
 - `/app/deck_files` ↔ `./deck_files`
 - `/app/logs` ↔ `./logs`
@@ -160,6 +195,14 @@ Theme preference reset (client-side): use the header’s Reset Theme control to 
 - WEB_TAG_WORKERS=<N> (process count; set based on CPU/memory)
 - WEB_VIRTUALIZE=1 (enable virtualization)
 - SHOW_DIAGNOSTICS=1 (enables diagnostics pages and overlay hotkey `v`)
+- RANDOM_MODES=1 (enable random build endpoints)
+- RANDOM_UI=1 (show Surprise/Theme/Reroll/Share controls)
+- RANDOM_MAX_ATTEMPTS=5 (cap retry attempts)
+- (Upcoming) Multi-theme inputs: once UI ships, Random Mode will accept `primary_theme`, `secondary_theme`, `tertiary_theme` fields; current backend already supports the cascade + diagnostics.
+- RANDOM_TIMEOUT_MS=5000 (per-build timeout in ms)
+
+Testing/determinism helper (dev):
+- CSV_FILES_DIR=csv_files/testdata — override CSV base dir to a frozen set for tests
 
 ## Manual build/run
 ```powershell

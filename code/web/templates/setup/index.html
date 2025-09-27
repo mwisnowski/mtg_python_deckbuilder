@@ -24,18 +24,37 @@
 
   <div style="margin-top:1rem; display:flex; gap:.5rem; flex-wrap:wrap;">
     <form id="frm-start-setup" action="/setup/start" method="post" onsubmit="event.preventDefault(); startSetup();">
-      <button type="submit" id="btn-start-setup">Run Setup/Tagging</button>
+      <button type="submit" id="btn-start-setup" class="action-btn">Run Setup/Tagging</button>
       <label class="muted" style="margin-left:.75rem; font-size:.9rem;">
         <input type="checkbox" id="chk-force" checked /> Force run
       </label>
     </form>
     <form method="get" action="/setup/running?start=1&force=1">
-      <button type="submit">Open Progress Page</button>
+      <button type="submit" class="action-btn">Open Progress Page</button>
     </form>
+  </div>
+
+  <details style="margin-top:1.25rem;" open>
+    <summary>Theme Catalog Status</summary>
+    <div id="themes-status" style="margin-top:.5rem; padding:1rem; border:1px solid var(--border); background:#0f1115; border-radius:8px;">
+      <div class="muted">Status:</div>
+      <div id="themes-status-line" style="margin-top:.25rem;">Checking…</div>
+      <div class="muted" id="themes-meta-line" style="margin-top:.25rem; display:none;"></div>
+      <div class="muted" id="themes-stale-line" style="margin-top:.25rem; display:none; color:#f87171;"></div>
+    </div>
+  </details>
+  <div style="margin-top:.75rem;">
+    <button type="button" id="btn-refresh-themes" class="action-btn" onclick="refreshThemes()">Refresh Themes Only</button>
   </div>
 </section>
 <script>
 (function(){
+  // Minimal styling helper to unify button widths
+  try {
+    var style = document.createElement('style');
+    style.textContent = '.action-btn{min-width:180px;}';
+    document.head.appendChild(style);
+  } catch(e){}
   function update(data){
     var line = document.getElementById('setup-status-line');
     var colorEl = document.getElementById('setup-color-line');
@@ -126,7 +145,47 @@
       .then(function(r){ return r.json(); })
       .then(update)
       .catch(function(){});
+    pollThemes();
   }
+  function pollThemes(){
+    fetch('/themes/status', { cache: 'no-store' })
+      .then(function(r){ return r.json(); })
+      .then(updateThemes)
+      .catch(function(){});
+  }
+  function updateThemes(data){
+    var line = document.getElementById('themes-status-line');
+    var meta = document.getElementById('themes-meta-line');
+    var staleEl = document.getElementById('themes-stale-line');
+    var btn = document.getElementById('btn-refresh-themes');
+    if(!line) return;
+    if(!data || !data.ok){ line.textContent = 'Unavailable'; return; }
+    var parts = [];
+    if (typeof data.theme_count === 'number') parts.push('Themes: '+data.theme_count);
+    if (typeof data.yaml_file_count === 'number') parts.push('YAML: '+data.yaml_file_count);
+    if (data.last_export_at) parts.push('Last Export: '+data.last_export_at);
+    line.textContent = (data.theme_list_exists ? 'Ready' : 'Not generated');
+    if(parts.length){ meta.style.display=''; meta.textContent = parts.join(' • '); } else { meta.style.display='none'; }
+    if(data.stale){ staleEl.style.display=''; staleEl.textContent='Stale: needs refresh'; }
+    else { staleEl.style.display='none'; }
+    // Disable refresh while a theme export phase is active (in orchestrator phases 'themes' / 'themes-fast')
+    try {
+      if(btn){
+        if(data.phase === 'themes' || data.phase === 'themes-fast'){
+          btn.disabled = true; btn.textContent='Refreshing…';
+        } else {
+          if(!data.running){ btn.disabled = false; btn.textContent='Refresh Themes Only'; }
+        }
+      }
+    } catch(e){}
+  }
+  window.refreshThemes = function(){
+    var btn = document.getElementById('btn-refresh-themes');
+    if(btn) btn.disabled = true;
+    fetch('/themes/refresh', { method:'POST' })
+      .then(function(){ setTimeout(function(){ pollThemes(); if(btn) btn.disabled=false; }, 1200); })
+      .catch(function(){ if(btn) btn.disabled=false; });
+  };
   function rapidPoll(times, delay){
     var i = 0;
     function tick(){
@@ -157,6 +216,7 @@
   };
   setInterval(poll, 3000);
   poll();
+  pollThemes();
 })();
 </script>
 {% endblock %}

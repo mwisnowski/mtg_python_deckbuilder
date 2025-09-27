@@ -1,0 +1,49 @@
+name: Preview Performance Regression Gate
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'code/**'
+      - 'csv_files/**'
+      - 'logs/perf/theme_preview_warm_baseline.json'
+      - '.github/workflows/preview-perf-ci.yml'
+
+jobs:
+  preview-perf:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PYTHONUNBUFFERED: '1'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Launch app (background)
+        run: |
+          python -m uvicorn code.web.app:app --host 0.0.0.0 --port 8080 &
+          echo $! > uvicorn.pid
+          # simple wait
+          sleep 5
+      - name: Run preview performance CI check
+        run: |
+          python -m code.scripts.preview_perf_ci_check --url http://localhost:8080 --baseline logs/perf/theme_preview_warm_baseline.json --p95-threshold 5
+      - name: Upload candidate artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: preview-perf-candidate
+          path: logs/perf/theme_preview_ci_candidate.json
+      - name: Stop app
+        if: always()
+        run: |
+          if [ -f uvicorn.pid ]; then kill $(cat uvicorn.pid) || true; fi

@@ -13,6 +13,46 @@ import re
 import unicodedata
 from glob import glob
 
+# --- Theme Metadata Enrichment Helper (Phase D+): ensure editorial scaffolding after any theme export ---
+def _run_theme_metadata_enrichment(out_func=None) -> None:
+    """Run full metadata enrichment sequence after theme catalog/YAML generation.
+
+    Idempotent: each script is safe to re-run; errors are swallowed (logged) to avoid
+    impacting primary setup/tagging pipeline. Designed to centralize logic so both
+    manual refresh (routes/themes.py) and automatic setup flows invoke identical steps.
+    """
+    try:
+        import os
+        import sys
+        import subprocess
+        root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
+        scripts_dir = os.path.join(root, 'code', 'scripts')
+        py = sys.executable
+        steps: List[List[str]] = [
+            [py, os.path.join(scripts_dir, 'autofill_min_examples.py')],
+            [py, os.path.join(scripts_dir, 'pad_min_examples.py'), '--min', os.environ.get('EDITORIAL_MIN_EXAMPLES', '5')],
+            [py, os.path.join(scripts_dir, 'cleanup_placeholder_examples.py'), '--apply'],
+            [py, os.path.join(scripts_dir, 'purge_anchor_placeholders.py'), '--apply'],
+            # Augment YAML with description / popularity buckets from the freshly built catalog
+            [py, os.path.join(scripts_dir, 'augment_theme_yaml_from_catalog.py')],
+            [py, os.path.join(scripts_dir, 'generate_theme_editorial_suggestions.py'), '--apply', '--limit-yaml', '0'],
+            [py, os.path.join(scripts_dir, 'lint_theme_editorial.py')],  # non-strict lint pass
+        ]
+        def _emit(msg: str):
+            try:
+                if out_func:
+                    out_func(msg)
+            except Exception:
+                pass
+        for cmd in steps:
+            try:
+                subprocess.run(cmd, check=True)
+            except Exception as e:
+                _emit(f"[metadata_enrich] step failed ({os.path.basename(cmd[1]) if len(cmd)>1 else cmd}): {e}")
+                continue
+    except Exception:
+        return
+
 
 def _global_prune_disallowed_pool(b: DeckBuilder) -> None:
     """Hard-prune disallowed categories from the working pool based on bracket limits.
@@ -732,6 +772,8 @@ def _ensure_setup_ready(out, force: bool = False) -> None:
     Mirrors the CLI behavior used in build_deck_full: if csv_files/cards.csv is
     missing, too old, or the tagging flag is absent, run initial setup and tagging.
     """
+    # Track whether a theme catalog export actually executed during this invocation
+    theme_export_performed = False
     def _write_status(payload: dict) -> None:
         try:
             os.makedirs('csv_files', exist_ok=True)
@@ -753,6 +795,156 @@ def _ensure_setup_ready(out, force: bool = False) -> None:
                 json.dump(merged, f)
         except Exception:
             pass
+
+    def _refresh_theme_catalog(out_func, *, force: bool, fast_path: bool = False) -> None:
+        """Generate or refresh theme JSON + per-theme YAML exports.
+
+        force: when True pass --force to YAML exporter (used right after tagging).
+        fast_path: when True indicates we are refreshing without a new tagging run.
+        """
+        try:  # Broad defensive guard: never let theme export kill setup flow
+            phase_label = 'themes-fast' if fast_path else 'themes'
+            # Start with an in-progress percent below 100 so UI knows additional work remains
+            _write_status({"running": True, "phase": phase_label, "message": "Generating theme catalog...", "percent": 95})
+            # Mark that we *attempted* an export; even if it fails we won't silently skip fallback repeat
+            nonlocal theme_export_performed
+            theme_export_performed = True
+            from subprocess import run as _run
+            # Resolve absolute script paths to avoid cwd-dependent failures inside container
+            script_base = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'scripts'))
+            extract_script = os.path.join(script_base, 'extract_themes.py')
+            export_script = os.path.join(script_base, 'export_themes_to_yaml.py')
+            build_script = os.path.join(script_base, 'build_theme_catalog.py')
+            catalog_mode = os.environ.get('THEME_CATALOG_MODE', '').strip().lower()
+            # Default to merge mode if build script exists unless explicitly set to 'legacy'
+            use_merge = False
+            if os.path.exists(build_script):
+                if catalog_mode in {'merge', 'build', 'phaseb', ''} and catalog_mode != 'legacy':
+                    use_merge = True
+            import sys as _sys
+            def _emit(msg: str):
+                try:
+                    if out_func:
+                        out_func(msg)
+                except Exception:
+                    pass
+                try:
+                    print(msg)
+                except Exception:
+                    pass
+            if use_merge:
+                _emit("Attempting Phase B merged theme catalog build (build_theme_catalog.py)...")
+                try:
+                    _run([_sys.executable, build_script], check=True)
+                    _emit("Merged theme catalog build complete.")
+                    # Ensure per-theme YAML files are also updated so editorial workflows remain intact.
+                    if os.path.exists(export_script):
+                        # Optional fast-path skip: if enabled via env AND we are on fast_path AND not force.
+                        # Default behavior now: ALWAYS force export so YAML stays aligned with merged JSON output.
+                        fast_skip = False
+                        try:
+                            fast_skip = fast_path and not force and os.getenv('THEME_YAML_FAST_SKIP', '0').strip() not in {'', '0', 'false', 'False', 'no', 'NO'}
+                        except Exception:
+                            fast_skip = False
+                        if fast_skip:
+                            _emit("Per-theme YAML export skipped (fast path)")
+                        else:
+                            exp_args = [_sys.executable, export_script, '--force']  # unconditional force now
+                            try:
+                                _run(exp_args, check=True)
+                                if fast_path:
+                                    _emit("Per-theme YAML export (Phase A) completed post-merge (forced fast path).")
+                                else:
+                                    _emit("Per-theme YAML export (Phase A) completed post-merge (forced).")
+                            except Exception as yerr:
+                                _emit(f"YAML export after merge failed: {yerr}")
+                except Exception as merge_err:
+                    _emit(f"Merge build failed ({merge_err}); falling back to legacy extract/export.")
+                    use_merge = False
+            if not use_merge:
+                if not os.path.exists(extract_script):
+                    raise FileNotFoundError(f"extract script missing: {extract_script}")
+                if not os.path.exists(export_script):
+                    raise FileNotFoundError(f"export script missing: {export_script}")
+                _emit("Refreshing theme catalog ({} path)...".format('fast' if fast_path else 'post-tagging'))
+                _run([_sys.executable, extract_script], check=True)
+                args = [_sys.executable, export_script]
+                if force:
+                    args.append('--force')
+                _run(args, check=True)
+                _emit("Theme catalog (JSON + YAML) refreshed{}.".format(" (fast path)" if fast_path else ""))
+            # Mark progress complete
+            _write_status({"running": True, "phase": phase_label, "message": "Theme catalog refreshed", "percent": 99})
+            # Append status file enrichment with last export metrics
+            try:
+                status_path = os.path.join('csv_files', '.setup_status.json')
+                if os.path.exists(status_path):
+                    with open(status_path, 'r', encoding='utf-8') as _rf:
+                        st = json.load(_rf) or {}
+                else:
+                    st = {}
+                st.update({
+                    'themes_last_export_at': _dt.now().isoformat(timespec='seconds'),
+                    'themes_last_export_fast_path': bool(fast_path),
+                    # Populate theme metadata (metadata_info / legacy provenance)
+                })
+                try:
+                    theme_json_path = os.path.join('config', 'themes', 'theme_list.json')
+                    if os.path.exists(theme_json_path):
+                        with open(theme_json_path, 'r', encoding='utf-8') as _tf:
+                            _td = json.load(_tf) or {}
+                        # Prefer new metadata_info; fall back to legacy provenance
+                        prov = _td.get('metadata_info') or _td.get('provenance') or {}
+                        if isinstance(prov, dict):
+                            for k, v in prov.items():
+                                st[f'theme_metadata_{k}'] = v
+                except Exception:
+                    pass
+                # Write back
+                with open(status_path, 'w', encoding='utf-8') as _wf:
+                    json.dump(st, _wf)
+            except Exception:
+                pass
+            # Run metadata enrichment (best-effort) after export sequence.
+            try:
+                _run_theme_metadata_enrichment(out_func)
+            except Exception:
+                pass
+            # Bust theme-related in-memory caches so new catalog reflects immediately
+            try:
+                from .theme_catalog_loader import bust_filter_cache  # type: ignore
+                from .theme_preview import bust_preview_cache  # type: ignore
+                bust_filter_cache("catalog_refresh")
+                bust_preview_cache("catalog_refresh")
+                try:
+                    out_func("[cache] Busted theme filter & preview caches after catalog refresh")
+                except Exception:
+                    pass
+            except Exception:
+                pass
+        except Exception as _e:  # pragma: no cover - non-critical diagnostics only
+            try:
+                out_func(f"Theme catalog refresh failed: {_e}")
+            except Exception:
+                pass
+            try:
+                print(f"Theme catalog refresh failed: {_e}")
+            except Exception:
+                pass
+        finally:
+            try:
+                # Mark phase back to done if we were otherwise complete
+                status_path = os.path.join('csv_files', '.setup_status.json')
+                if os.path.exists(status_path):
+                    with open(status_path, 'r', encoding='utf-8') as _rf:
+                        st = json.load(_rf) or {}
+                    # Only flip phase if previous run finished
+                    if st.get('phase') in {'themes','themes-fast'}:
+                        st['phase'] = 'done'
+                        with open(status_path, 'w', encoding='utf-8') as _wf:
+                            json.dump(st, _wf)
+            except Exception:
+                pass
 
     try:
         cards_path = os.path.join('csv_files', 'cards.csv')
@@ -910,7 +1102,16 @@ def _ensure_setup_ready(out, force: bool = False) -> None:
                         duration_s = int(max(0.0, (finished_dt - start_dt).total_seconds()))
                 except Exception:
                     duration_s = None
-                payload = {"running": False, "phase": "done", "message": "Setup complete", "color": None, "percent": 100, "finished_at": finished}
+                # Generate / refresh theme catalog (JSON + per-theme YAML) BEFORE marking done so UI sees progress
+                _refresh_theme_catalog(out, force=True, fast_path=False)
+                try:
+                    from .theme_catalog_loader import bust_filter_cache  # type: ignore
+                    from .theme_preview import bust_preview_cache  # type: ignore
+                    bust_filter_cache("tagging_complete")
+                    bust_preview_cache("tagging_complete")
+                except Exception:
+                    pass
+                payload = {"running": False, "phase": "done", "message": "Setup complete", "color": None, "percent": 100, "finished_at": finished, "themes_exported": True}
                 if duration_s is not None:
                     payload["duration_seconds"] = duration_s
                 _write_status(payload)
@@ -919,6 +1120,121 @@ def _ensure_setup_ready(out, force: bool = False) -> None:
     except Exception:
         # Non-fatal; downstream loads will still attempt and surface errors in logs
         _write_status({"running": False, "phase": "error", "message": "Setup check failed"})
+    # Fast-path theme catalog refresh: if setup/tagging were already current (no refresh_needed executed)
+    # ensure theme artifacts exist and are fresh relative to the tagging flag. This runs outside the
+    # main try so that a failure here never blocks normal builds.
+    try:  # noqa: E722 - defensive broad except acceptable for non-critical refresh
+        # Only attempt if we did NOT just perform a refresh (refresh_needed False) and auto-setup enabled
+        # We detect refresh_needed by checking presence of the status flag percent=100 and phase done.
+        status_path = os.path.join('csv_files', '.setup_status.json')
+        tag_flag = os.path.join('csv_files', '.tagging_complete.json')
+        auto_setup_enabled = _is_truthy_env('WEB_AUTO_SETUP', '1')
+        if not auto_setup_enabled:
+            return
+        refresh_recent = False
+        try:
+            if os.path.exists(status_path):
+                with open(status_path, 'r', encoding='utf-8') as _rf:
+                    st = json.load(_rf) or {}
+                # If status percent just hit 100 moments ago (< 10s), we can skip fast-path work
+                if st.get('percent') == 100 and st.get('phase') == 'done':
+                    # If finished very recently we assume the main export already ran
+                    fin = st.get('finished_at') or st.get('updated')
+                    if isinstance(fin, str) and fin.strip():
+                        try:
+                            ts = _dt.fromisoformat(fin.strip())
+                            if (time.time() - ts.timestamp()) < 10:
+                                refresh_recent = True
+                        except Exception:
+                            pass
+        except Exception:
+            pass
+        if refresh_recent:
+            return
+
+        theme_json = os.path.join('config', 'themes', 'theme_list.json')
+        catalog_dir = os.path.join('config', 'themes', 'catalog')
+        need_theme_refresh = False
+        # Helper to parse ISO timestamp
+        def _parse_iso(ts: str | None):
+            if not ts:
+                return None
+            try:
+                return _dt.fromisoformat(ts.strip()).timestamp()
+            except Exception:
+                return None
+        tag_ts = None
+        try:
+            if os.path.exists(tag_flag):
+                with open(tag_flag, 'r', encoding='utf-8') as f:
+                    tag_ts = (json.load(f) or {}).get('tagged_at')
+        except Exception:
+            tag_ts = None
+        tag_time = _parse_iso(tag_ts)
+        theme_mtime = os.path.getmtime(theme_json) if os.path.exists(theme_json) else 0
+        # Determine newest YAML or build script mtime to detect editorial changes
+        newest_yaml_mtime = 0
+        try:
+            if os.path.isdir(catalog_dir):
+                for fn in os.listdir(catalog_dir):
+                    if fn.endswith('.yml'):
+                        pth = os.path.join(catalog_dir, fn)
+                        try:
+                            mt = os.path.getmtime(pth)
+                            if mt > newest_yaml_mtime:
+                                newest_yaml_mtime = mt
+                        except Exception:
+                            pass
+        except Exception:
+            newest_yaml_mtime = 0
+        build_script_path = os.path.join('code', 'scripts', 'build_theme_catalog.py')
+        build_script_mtime = 0
+        try:
+            if os.path.exists(build_script_path):
+                build_script_mtime = os.path.getmtime(build_script_path)
+        except Exception:
+            build_script_mtime = 0
+        # Conditions triggering refresh:
+        #  1. theme_list.json missing
+        #  2. catalog dir missing or unusually small (< 100 files) – indicates first run or failure
+        #  3. tagging flag newer than theme_list.json (themes stale relative to data)
+        if not os.path.exists(theme_json):
+            need_theme_refresh = True
+        elif not os.path.isdir(catalog_dir):
+            need_theme_refresh = True
+        else:
+            try:
+                yml_count = len([p for p in os.listdir(catalog_dir) if p.endswith('.yml')])
+                if yml_count < 100:  # heuristic threshold (we expect ~700+)
+                    need_theme_refresh = True
+            except Exception:
+                need_theme_refresh = True
+        # Trigger refresh if tagging newer
+        if not need_theme_refresh and tag_time and tag_time > (theme_mtime + 1):
+            need_theme_refresh = True
+        # Trigger refresh if any catalog YAML newer than theme_list.json (editorial edits)
+        if not need_theme_refresh and newest_yaml_mtime and newest_yaml_mtime > (theme_mtime + 1):
+            need_theme_refresh = True
+        # Trigger refresh if build script updated (logic changes)
+        if not need_theme_refresh and build_script_mtime and build_script_mtime > (theme_mtime + 1):
+            need_theme_refresh = True
+        if need_theme_refresh:
+            _refresh_theme_catalog(out, force=False, fast_path=True)
+    except Exception:
+        pass
+
+    # Unconditional fallback: if (for any reason) no theme export ran above, perform a fast-path export now.
+    # This guarantees that clicking Run Setup/Tagging always leaves themes current even when tagging wasn't needed.
+    try:
+        if not theme_export_performed:
+            _refresh_theme_catalog(out, force=False, fast_path=True)
+    except Exception:
+        pass
+    else:  # If export just ran (either earlier or via fallback), ensure enrichment ran (safety double-call guard inside helper)
+        try:
+            _run_theme_metadata_enrichment(out)
+        except Exception:
+            pass
 
 
 def run_build(commander: str, tags: List[str], bracket: int, ideals: Dict[str, int], tag_mode: str | None = None, *, use_owned_only: bool | None = None, prefer_owned: bool | None = None, owned_names: List[str] | None = None, prefer_combos: bool | None = None, combo_target_count: int | None = None, combo_balance: str | None = None) -> Dict[str, Any]:

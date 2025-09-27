@@ -483,6 +483,108 @@ STAX_EXCLUSION_PATTERNS: List[str] = [
     'into your hand'
 ]
 
+# Pillowfort: deterrent / taxation effects that discourage attacks without fully locking opponents
+PILLOWFORT_TEXT_PATTERNS: List[str] = [
+    'attacks you or a planeswalker you control',
+    'attacks you or a planeswalker you',
+    'can\'t attack you unless',
+    'can\'t attack you or a planeswalker you control',
+    'attack you unless',
+    'attack you or a planeswalker you control unless',
+    'creatures can\'t attack you',
+    'each opponent who attacked you',
+    'if a creature would deal combat damage to you',
+    'prevent all combat damage that would be dealt to you',
+    'whenever a creature attacks you or',
+    'whenever a creature deals combat damage to you'
+]
+
+PILLOWFORT_SPECIFIC_CARDS: List[str] = [
+    'Ghostly Prison', 'Propaganda', 'Sphere of Safety', 'Collective Restraint',
+    'Windborn Muse', 'Crawlspace', 'Mystic Barrier', 'Archangel of Tithes',
+    'Marchesa\'s Decree', 'Norn\'s Annex', 'Peacekeeper', 'Silent Arbiter'
+]
+
+# Politics / Group Hug / Table Manipulation (non-combo) – encourage shared resources, vote, gifting
+POLITICS_TEXT_PATTERNS: List[str] = [
+    'each player draws a card',
+    'each player may draw a card',
+    'each player gains',
+    'at the beginning of each player\'s upkeep that player draws',
+    'target opponent draws a card',
+    'another target player draws a card',
+    'vote for',
+    'council\'s dilemma',
+    'goad any number',
+    'you and target opponent each',
+    'choose target opponent',
+    'starting with you each player chooses',
+    'any player may',
+    'for each opponent',
+    'each opponent may'
+]
+
+POLITICS_SPECIFIC_CARDS: List[str] = [
+    'Kynaios and Tiro of Meletis', 'Zedruu the Greathearted', 'Tivit, Seller of Secrets',
+    'Queen Marchesa', 'Spectacular Showdown', 'Tempt with Discovery', 'Tempt with Vengeance',
+    'Humble Defector', 'Akroan Horse', 'Scheming Symmetry', 'Secret Rendezvous',
+    'Thantis, the Warweaver'
+]
+
+# Control archetype (broad catch-all of answers + inevitability engines)
+CONTROL_TEXT_PATTERNS: List[str] = [
+    'counter target',
+    'exile target',
+    'destroy target',
+    'return target .* to its owner',
+    'draw two cards',
+    'draw three cards',
+    'each opponent sacrifices',
+    'at the beginning of each end step.*draw',
+    'flashback',
+    'you may cast .* from your graveyard'
+]
+
+CONTROL_SPECIFIC_CARDS: List[str] = [
+    'Cyclonic Rift', 'Swords to Plowshares', 'Supreme Verdict', 'Teferi, Temporal Archmage',
+    'Rhystic Study', 'Mystic Remora', 'Force of Will', 'Narset, Parter of Veils', 'Fierce Guardianship'
+]
+
+# Midrange archetype (value-centric permanent-based incremental advantage)
+MIDRANGE_TEXT_PATTERNS: List[str] = [
+    'enters the battlefield, you may draw',
+    'enters the battlefield, create',
+    'enters the battlefield, investigate',
+    'dies, draw a card',
+    'when .* dies, return',
+    'whenever .* enters the battlefield under your control, you gain',
+    'proliferate',
+    'put a \+1/\+1 counter on each'
+]
+
+MIDRANGE_SPECIFIC_CARDS: List[str] = [
+    'Tireless Tracker', 'Bloodbraid Elf', 'Eternal Witness', 'Seasoned Dungeoneer',
+    'Siege Rhino', 'Atraxa, Praetors\' Voice', 'Yarok, the Desecrated', 'Meren of Clan Nel Toth'
+]
+
+# Toolbox archetype (tutors & modal search engines)
+TOOLBOX_TEXT_PATTERNS: List[str] = [
+    'search your library for a creature card',
+    'search your library for an artifact card',
+    'search your library for an enchantment card',
+    'search your library for a land card',
+    'search your library for a card named',
+    'choose one —',
+    'convoke.*search your library',
+    'you may reveal a creature card from among them'
+]
+
+TOOLBOX_SPECIFIC_CARDS: List[str] = [
+    'Birthing Pod', 'Prime Speaker Vannifar', 'Fauna Shaman', 'Yisan, the Wanderer Bard',
+    'Chord of Calling', "Eladamri's Call", 'Green Sun\'s Zenith', 'Ranger-Captain of Eos',
+    'Stoneforge Mystic', 'Weathered Wayfarer'
+]
+
 # Constants for removal functionality
 REMOVAL_TEXT_PATTERNS: List[str] = [
     'destroy target',

@@ -139,7 +139,14 @@ class SpellAdditionMixin:
         for name, entry in self.card_library.items():
             if any(isinstance(t, str) and 'ramp' in t.lower() for t in entry.get('Tags', [])):
                 existing_ramp += 1
-        to_add, _bonus = bu.compute_adjusted_target('Ramp', target_total, existing_ramp, self.output_func, plural_word='ramp spells')
+        to_add, _bonus = bu.compute_adjusted_target(
+            'Ramp',
+            target_total,
+            existing_ramp,
+            self.output_func,
+            plural_word='ramp spells',
+            rng=getattr(self, 'rng', None)
+        )
         if existing_ramp >= target_total and to_add == 0:
             return
         if existing_ramp < target_total:
@@ -290,7 +297,14 @@ class SpellAdditionMixin:
             lt = [str(t).lower() for t in entry.get('Tags', [])]
             if any(('removal' in t or 'spot removal' in t) for t in lt) and not any(('board wipe' in t or 'mass removal' in t) for t in lt):
                 existing += 1
-        to_add, _bonus = bu.compute_adjusted_target('Removal', target, existing, self.output_func, plural_word='removal spells')
+        to_add, _bonus = bu.compute_adjusted_target(
+            'Removal',
+            target,
+            existing,
+            self.output_func,
+            plural_word='removal spells',
+            rng=getattr(self, 'rng', None)
+        )
         if existing >= target and to_add == 0:
             return
         target = to_add if existing < target else to_add
@@ -360,7 +374,14 @@ class SpellAdditionMixin:
             tags = [str(t).lower() for t in entry.get('Tags', [])]
             if any(('board wipe' in t or 'mass removal' in t) for t in tags):
                 existing += 1
-        to_add, _bonus = bu.compute_adjusted_target('Board wipe', target, existing, self.output_func, plural_word='wipes')
+        to_add, _bonus = bu.compute_adjusted_target(
+            'Board wipe',
+            target,
+            existing,
+            self.output_func,
+            plural_word='wipes',
+            rng=getattr(self, 'rng', None)
+        )
         if existing >= target and to_add == 0:
             return
         target = to_add if existing < target else to_add
@@ -407,7 +428,14 @@ class SpellAdditionMixin:
             tags = [str(t).lower() for t in entry.get('Tags', [])]
             if any(('draw' in t) or ('card advantage' in t) for t in tags):
                 existing += 1
-        to_add_total, _bonus = bu.compute_adjusted_target('Card advantage', total_target, existing, self.output_func, plural_word='draw spells')
+        to_add_total, _bonus = bu.compute_adjusted_target(
+            'Card advantage',
+            total_target,
+            existing,
+            self.output_func,
+            plural_word='draw spells',
+            rng=getattr(self, 'rng', None)
+        )
         if existing >= total_target and to_add_total == 0:
             return
         total_target = to_add_total if existing < total_target else to_add_total
@@ -540,7 +568,14 @@ class SpellAdditionMixin:
             tags = [str(t).lower() for t in entry.get('Tags', [])]
             if any('protection' in t for t in tags):
                 existing += 1
-        to_add, _bonus = bu.compute_adjusted_target('Protection', target, existing, self.output_func, plural_word='protection spells')
+        to_add, _bonus = bu.compute_adjusted_target(
+            'Protection',
+            target,
+            existing,
+            self.output_func,
+            plural_word='protection spells',
+            rng=getattr(self, 'rng', None)
+        )
         if existing >= target and to_add == 0:
             return
         target = to_add if existing < target else to_add
@@ -705,7 +740,7 @@ class SpellAdditionMixin:
                     if owned_lower and str(nm).lower() in owned_lower:
                         base_w *= owned_mult
                     weighted_pool.append((nm, base_w))
-            chosen = bu.weighted_sample_without_replacement(weighted_pool, target)
+            chosen = bu.weighted_sample_without_replacement(weighted_pool, target, rng=getattr(self, 'rng', None))
             for nm in chosen:
                 row = pool[pool['name'] == nm].iloc[0]
                 self.add_card(

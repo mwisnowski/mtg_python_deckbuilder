@@ -1,3 +1,5 @@
+- Random Modes (alpha): added env flags RANDOM_MODES, RANDOM_UI, RANDOM_MAX_ATTEMPTS, RANDOM_TIMEOUT_MS.
+- Determinism: CSV_FILES_DIR override to point tests to csv_files/testdata; permalink now carries optional random fields (seed/theme/constraints).
 # Changelog
 
 All notable changes to this project will be documented in this file.
@@ -11,17 +13,158 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 - Link PRs/issues inline when helpful, e.g., (#123) or [#123]. Reference-style links at the bottom are encouraged for readability.
 
 ## [Unreleased]
-
 ### Added
-- CI: additional checks to improve stability and reproducibility.
-- Tests: broader coverage for validation and web flows.
+- Tests: added `test_random_reroll_throttle.py` to enforce reroll throttle behavior and `test_random_metrics_and_seed_history.py` to validate opt-in telemetry counters plus seed history exposure.
+- Random Mode curated theme pool now documents manual exclusions (`config/random_theme_exclusions.yml`) and ships a reporting script `code/scripts/report_random_theme_pool.py` (`--write-exclusions` emits Markdown/JSON) alongside `docs/random_theme_exclusions.md`. Diagnostics now show manual categories and tag index telemetry.
+- Performance guard: `code/scripts/check_random_theme_perf.py` compares the multi-theme profiler output to `config/random_theme_perf_baseline.json` and fails if timings regress beyond configurable thresholds (`--update-baseline` refreshes the file).
+- Random Modes UI/API: separate auto-fill controls for Secondary and Tertiary themes with full session, permalink, HTMX, and JSON API support (per-slot state persists across rerolls and exports, and Tertiary auto-fill now automatically enables Secondary to keep combinations valid).
+- Random Mode UI gains a lightweight “Clear themes” button that resets all theme inputs and stored preferences in one click for fast Surprise Me reruns.
+- Diagnostics: `/status/random_theme_stats` exposes cached commander theme token metrics and the diagnostics dashboard renders indexed commander coverage plus top tokens for multi-theme debugging.
+- Random Mode sidecar metadata now records multi-theme details (`primary_theme`, `secondary_theme`, `tertiary_theme`, `resolved_themes`, `combo_fallback`, `synergy_fallback`, `fallback_reason`, plus legacy aliases) in both the summary payload and exported `.summary.json` files.
+- Tests: added `test_random_multi_theme_filtering.py` covering triple success, fallback tiers (P+S, P+T, Primary-only, synergy, full pool) and sidecar metadata emission for multi-theme builds.
+- Tests: added `test_random_multi_theme_webflows.py` to exercise reroll-same-commander caching and permalink roundtrips for multi-theme runs across HTMX and API layers.
+- Random Mode multi-theme groundwork: backend now supports `primary_theme`, `secondary_theme`, `tertiary_theme` with deterministic AND-combination cascade (P+S+T → P+S → P+T → P → synergy-overlap → full pool). Diagnostics fields (`resolved_themes`, `combo_fallback`, `synergy_fallback`, `fallback_reason`) added to `RandomBuildResult` (UI wiring pending).
+- Tests: added `test_random_surprise_reroll_behavior.py` covering Surprise Me input preservation and locked commander reroll cache reuse.
+- Locked commander reroll path now produces full artifact parity (CSV, TXT, compliance JSON, summary JSON) identical to Surprise builds.
+- Random reroll tests for: commander lock invariance, artifact presence, duplicate export prevention, and form vs JSON submission.
+- Roadmap document `logs/roadmaps/random_multi_theme_roadmap.md` capturing design, fallback strategy, diagnostics, and incremental delivery plan.
+- Random Modes diagnostics: surfaced attempts, timeout_hit, and retries_exhausted in API responses and the HTMX result fragment (gated by SHOW_DIAGNOSTICS); added tests covering retries-exhausted and timeout paths and enabled friendly labels in the UI.
+- Random Full Build export parity: random full deck builds now produce the standard artifact set — `<stem>.csv`, `<stem>.txt`, `<stem>_compliance.json` (bracket policy report), and `<stem>.summary.json` (summary with `meta.random` seed/theme/constraints). The random full build API response now includes `csv_path`, `txt_path`, and `compliance` keys (paths) for immediate consumption.
+- Environment toggle (opt-out) `RANDOM_BUILD_SUPPRESS_INITIAL_EXPORT` (defaults to active automatically) lets you revert to legacy double-export behavior for debugging by setting `RANDOM_BUILD_SUPPRESS_INITIAL_EXPORT=0`.
+- Tests: added random full build export test ensuring exactly one CSV/TXT pair (no `_1` duplicates) plus sidecar JSON artifacts.
+- Taxonomy snapshot CLI (`code/scripts/snapshot_taxonomy.py`): writes an auditable JSON snapshot of BRACKET_DEFINITIONS to `logs/taxonomy_snapshots/` with a deterministic SHA-256 hash; skips duplicates unless forced.
+- Optional adaptive splash penalty (feature flag): enable with `SPLASH_ADAPTIVE=1`; tuning via `SPLASH_ADAPTIVE_SCALE` (default `1:1.0,2:1.0,3:1.0,4:0.6,5:0.35`).
+- Splash penalty analytics: counters now include total off-color cards and penalty reason events; structured logs include event details to support tuning.
+- Tests: color identity edge cases (hybrid, colorless/devoid, MDFC single, adventure, color indicator) using synthetic CSV injection via `CARD_INDEX_EXTRA_CSV`.
+- Core Refactor Phase A (initial): extracted sampling pipeline (`sampling.py`) and preview cache container (`preview_cache.py`) from `theme_preview.py` with stable public API re-exports.
+ - Adaptive preview cache eviction heuristic replacing FIFO with env-tunable weights (`THEME_PREVIEW_EVICT_W_HITS`, `_W_RECENCY`, `_W_COST`, `_W_AGE`) and cost thresholds (`THEME_PREVIEW_EVICT_COST_THRESHOLDS`); metrics include eviction counters and last event metadata.
+ - Performance CI gate: warm-only p95 regression threshold (default 5%) enforced via `preview_perf_ci_check.py`; baseline refresh policy documented.
+- ETag header for basic client-side caching of catalog fragments.
+- Theme catalog performance optimizations: precomputed summary maps, lowercase search haystacks, memoized filtered slug cache (keyed by `(etag, params)`) for sub‑50ms warm queries.
+- Theme preview endpoint: `GET /themes/api/theme/{id}/preview` (and HTML fragment) returning representative sample (curated examples, curated synergy examples, heuristic roles: payoff / enabler / support / wildcard / synthetic).
+- Commander bias heuristics (color identity restriction, diminishing synergy overlap bonus, direct theme match bonus).
+- In‑memory TTL cache (default 600s) for previews with build time tracking.
+- Metrics endpoint `GET /themes/metrics` (diagnostics gated) exposing preview & catalog counters, cache stats, percentile build times.
+- Governance metrics: `example_enforcement_active`, `example_enforce_threshold_pct` surfaced once curated coverage passes threshold (default 90%).
+- Skeleton loading states for picker list, preview modal, and initial shell.
+- Diagnostics flag `WEB_THEME_PICKER_DIAGNOSTICS=1` enabling fallback description flag, editorial quality badges, uncapped synergy toggle, YAML fetch, metrics endpoint.
+- Cache bust hooks on catalog refresh & tagging completion clearing filter & preview caches (metrics include `preview_last_bust_at`).
+- Optional filter cache prewarm (`WEB_THEME_FILTER_PREWARM=1`) priming common filter combinations; metrics include `filter_prewarmed`.
+- Preview modal UX: role chips, condensed reasons line, hover tooltip with multiline heuristic reasons, export bar (CSV/JSON) honoring curated-only toggle.
+- Server authoritative mana & color identity ingestion (exposes `mana_cost`, `color_identity_list`, `pip_colors`) replacing client-side parsing.
+ - Adaptive preview cache eviction heuristic replacing FIFO: protection score combines log(hit_count), recency, build cost bucket, and age penalty with env-tunable weights (`THEME_PREVIEW_EVICT_W_HITS`, `_W_RECENCY`, `_W_COST`, `_W_AGE`) plus cost thresholds (`THEME_PREVIEW_EVICT_COST_THRESHOLDS`). Metrics now include total evictions, by-reason counts (`low_score`, `emergency_overflow`), and last eviction metadata.
+ - Scryfall name normalization regression test (`test_scryfall_name_normalization.py`) ensuring synergy annotation suffix (` - Synergy (...)`) never leaks into fuzzy/image queries.
+ - Optional multi-pass performance CI variant (`preview_perf_ci_check.py --multi-pass`) to collect cold vs warm pass stats when diagnosing divergence.
 
 ### Changed
-- Tests: refactored to use pytest assertions and cleaned up fixtures/utilities to reduce noise and deprecations.
-- Tests: HTTP-dependent tests now skip gracefully when the local web server is unavailable.
+- Random theme pool builder loads manual exclusions and always emits `auto_filled_themes` as a list (empty when unused), while enhanced metadata powers diagnostics telemetry.
+- Random build summaries normalize multi-theme metadata before embedding in summary payloads and sidecar exports (trimming whitespace, deduplicating/normalizing resolved theme lists).
+- Random Mode strict-theme toggle is now fully stateful: the checkbox and hidden field keep session/local storage in sync, HTMX rerolls reuse the flag, and API/full-build responses plus permalinks carry `strict_theme_match` through exports and sidecars.
+- Multi-theme filtering now pre-caches lowercase tag lists and builds a reusable token index so AND-combos and synergy fallback avoid repeated pandas `.apply` passes; profiling via `code/scripts/profile_multi_theme_filter.py` shows mean ~9.3 ms / p95 ~21 ms for cascade checks (seed 42, 300 iterations).
+- Random reroll (locked commander) export flow: now reuses builder-exported artifacts when present and records `last_csv_path` / `last_txt_path` inside the headless runner to avoid duplicate suffixed files.
+- Summary sidecars for random builds include `locked_commander` flag when rerolling same commander.
+- Splash analytics recognize both static and adaptive penalty reasons (shared prefix handling), so existing dashboards continue to work when `SPLASH_ADAPTIVE=1`.
+- Random full builds now internally force `RANDOM_BUILD_SUPPRESS_INITIAL_EXPORT=1` (if unset) ensuring only the orchestrated export path executes (eliminates historical duplicate `*_1.csv` / `*_1.txt`). Set `RANDOM_BUILD_SUPPRESS_INITIAL_EXPORT=0` to intentionally restore the legacy double-export (not recommended outside debugging).
+- Multi-theme Random UI polish: fallback notices now surface high-contrast icons, focus outlines, and aria-friendly copy; diagnostics badges gain icons/labels; help tooltip converted to an accessible popover with keyboard support; Secondary/Tertiary inputs persist across sessions.
+- Picker list & API use optimized fast filtering path (`filter_slugs_fast`) replacing per-request linear scans.
+- Preview sampling: curated examples pinned first, diversity quotas (~40% payoff / 40% enabler+support / 20% wildcard), synthetic placeholders only if underfilled.
+- Sampling refinements: rarity diminishing weight, splash leniency (single off-color allowance with penalty for 4–5 color commanders), role saturation penalty, refined commander overlap scaling curve.
+- Hover / DFC UX unified: single hover panel, overlay flip control (keyboard + persisted face), enlarged thumbnails (110px→165px→230px), activation limited to thumbnails.
+- Removed legacy client-side mana & color identity parsers (now server authoritative fields included in preview items and export endpoints).
+- Core Refactor Phase A continued: separated sampling + cache container; card index & adaptive TTL/background refresh extraction planned (roadmap updated) to further reduce `theme_preview.py` responsibilities.
+ - Eviction: removed hard 50-entry minimum to support low-limit unit tests; production should set `THEME_PREVIEW_CACHE_MAX` accordingly.
+ - Governance: README governance appendix now documents taxonomy snapshot usage and rationale.
+ - Removed hard minimum (50) floor in eviction capacity logic to allow low-limit unit tests; operational environments should set `THEME_PREVIEW_CACHE_MAX` appropriately.
+ - Performance gating formalized: CI fails if warm p95 regression > configured threshold (default 5%). Baseline refresh policy: only update committed warm baseline when (a) intentional performance improvement >10% p95, or (b) unavoidable drift exceeds threshold and is justified in CHANGELOG entry.
 
 ### Fixed
+- Random UI Surprise Me rerolls now keep user-supplied theme inputs instead of adopting fallback combinations, and reroll-same-commander builds reuse cached resolved themes without re-running the filter cascade.
+- Removed redundant template environment instantiation causing inconsistent navigation state.
+- Ensured preview cache key includes catalog ETag to prevent stale sample reuse after catalog reload.
+- Explicit cache bust after tagging/catalog rebuild prevents stale preview exposure.
+- Random build duplicate export issue resolved: suppression of the initial builder auto-export prevents creation of suffixed duplicate decklists.
+- Random Mode UI regressions (deck summary toggle & hover preview) fixed by replacing deferred script execution with inline handlers and an HTMX load hook.
+
+### Editorial / Themes
+- Enforce minimum `example_commanders` threshold (>=5) in CI; lint fails builds when a non-alias theme drops below threshold.
+- Added enforcement test `test_theme_editorial_min_examples_enforced.py` to guard regression.
+- Governance workflow updated to pass `--enforce-min-examples` and set `EDITORIAL_MIN_EXAMPLES_ENFORCE=1`.
+- Clarified lint script docstring and behavior around enforced minimums.
+- (Planned next) Removal of deprecated alias YAMLs & promotion of strict alias validation to hard fail (post grace window).
+
+### Added
+- Phase D close-out: strict alias enforcement promoted to hard fail in CI (`validate_theme_catalog.py --strict-alias`) removing previous soft warning behavior.
+- Phase D close-out: minimum example commander enforcement (>=5) now mandatory; failing themes block CI.
+- Tagging: Added archetype detection for Pillowfort, Politics, Midrange, and Toolbox with new pattern & specific card heuristics.
+- Tagging orchestration: Extended `tag_by_color` to execute new archetype taggers in sequence before bracket policy application.
+- Governance workflows: Introduced `.github/workflows/editorial_governance.yml` and `.github/workflows/editorial_lint.yml` for isolated lint + governance checks.
+- Editorial schema: Added `editorial_quality` to both YAML theme model and catalog ThemeEntry Pydantic schemas.
+- Editorial data artifacts: Added `config/themes/description_mapping.yml`, `synergy_pairs.yml`, `theme_clusters.yml`, `theme_popularity_metrics.json`, `description_fallback_history.jsonl`.
+- Editorial tooling: New scripts for enrichment & governance: `augment_theme_yaml_from_catalog.py`, `autofill_min_examples.py`, `pad_min_examples.py`, `cleanup_placeholder_examples.py`, `purge_anchor_placeholders.py`, `ratchet_description_thresholds.py`, `report_editorial_examples.py`, `validate_description_mapping.py`, `synergy_promote_fill.py` (extension), `run_build_with_fallback.py`, `migrate_provenance_to_metadata_info.py`, `theme_example_cards_stats.py`.
+- Tests: Added governance + regression suite (`test_theme_editorial_min_examples_enforced.py`, `test_theme_description_fallback_regression.py`, `test_description_mapping_validation.py`, `test_editorial_governance_phase_d_closeout.py`, `test_synergy_pairs_and_metadata_info.py`, `test_synergy_pairs_and_provenance.py`, `test_theme_catalog_generation.py`, updated `test_theme_merge_phase_b.py` & validation Phase C test) for editorial pipeline stability.
+
+- Editorial tooling: `synergy_promote_fill.py` new flags `--no-generic-pad` (allow intentionally short example_cards without color/generic padding), `--annotate-color-fallback-commanders` (explain color fallback commander selections), and `--use-master-cards` (opt-in to consolidated `cards.csv` sourcing; shard `[color]_cards.csv` now default).
+- Name canonicalization for card ingestion: duplicate split-face variants like `Foo // Foo` collapse to `Foo`; when master enabled, prefers `faceName`.
+- Commander rebuild annotation: base-first rebuild now appends ` - Color Fallback (no on-theme commander available)` to any commander added purely by color identity.
+- Roadmap: Added `logs/roadmaps/theme_editorial_roadmap.md` documenting future enhancements & migration plan.
+- Theme catalog Phase B: new unified merge script `code/scripts/build_theme_catalog.py` (opt-in via THEME_CATALOG_MODE=merge) combining analytics + curated YAML + whitelist governance with metadata block output.
+- Theme metadata: `theme_list.json` now includes `metadata_info` (formerly `provenance`) capturing generation context (mode, generated_at, curated_yaml_files, synergy_cap, inference version). Legacy key still parsed for backward compatibility.
+- Theme governance: whitelist configuration `config/themes/theme_whitelist.yml` (normalization, always_include, protected prefixes/suffixes, enforced synergies, synergy_cap).
+- Theme extraction: dynamic ingestion of CSV-only tags (e.g., Kindred families) and PMI-based inferred synergies (positive PMI, co-occurrence threshold) blended with curated pairs.
+- Enforced synergy injection for counters/tokens/graveyard clusters (e.g., Proliferate, Counters Matter, Graveyard Matters) before capping.
+- Test coverage: `test_theme_whitelist_and_synergy_cap.py` ensuring enforced synergies present and cap (5) respected.
+- Dependency: added PyYAML (optional runtime dependency for governance file parsing).
+- CI: additional checks to improve stability and reproducibility.
+- Tests: broader coverage for validation and web flows.
+- Randomizer groundwork: added a small seeded RNG utility (`code/random_util.py`) and determinism unit tests; threaded RNG through Phase 3 (creatures) and Phase 4 (spells) for deterministic sampling when seeded.
+- Random Modes (alpha): thin wrapper entrypoint `code/deck_builder/random_entrypoint.py` to select a commander deterministically by seed, plus a tiny frozen dataset under `csv_files/testdata/` and tests `code/tests/test_random_determinism.py`.
+- Theme Editorial: automated example card/commander suggestion + enrichment (`code/scripts/generate_theme_editorial_suggestions.py`).
+- Synergy commanders: derive 3/2/1 candidates from top three synergies with legendary fallback; stored in `synergy_commanders` (annotated) separate from `example_commanders`.
+- Per-synergy annotations: `Name - Synergy (Synergy Theme)` applied to promoted example commanders and retained in synergy list for transparency.
+- Augmentation flag `--augment-synergies` to repair sparse `synergies` arrays (e.g., inject `Counters Matter`, `Proliferate`).
+- Lint upgrades (`code/scripts/lint_theme_editorial.py`): validates annotation correctness, filtered synergy duplicates, minimum example_commanders, and base-name deduping.
+- Pydantic schema extension (`type_definitions_theme_catalog.py`) adding `synergy_commanders` and editorial fields to catalog model.
+- Phase D (Deferred items progress): enumerated `deck_archetype` list + validation, derived `popularity_bucket` classification (frequency -> Rare/Niche/Uncommon/Common/Very Common), deterministic editorial seed (`EDITORIAL_SEED`) for stable inference ordering, aggressive fill mode (`EDITORIAL_AGGRESSIVE_FILL=1`) to pad ultra-sparse themes, env override `EDITORIAL_POP_BOUNDARIES` for bucket thresholds.
+- Catalog backfill: build script can now write auto-generated `description` and derived/pinned `popularity_bucket` back into individual YAML files via `--backfill-yaml` (or `EDITORIAL_BACKFILL_YAML=1`) with optional overwrite `--force-backfill-yaml`.
+- Catalog output override: new `--output <path>` flag on `build_theme_catalog.py` enables writing an alternate JSON (used by tests) without touching the canonical `theme_list.json` or performing YAML backfill.
+- Editorial lint escalation: new flags `--require-description` / `--require-popularity` (or env `EDITORIAL_REQUIRE_DESCRIPTION=1`, `EDITORIAL_REQUIRE_POPULARITY=1`) to enforce presence of description and popularity buckets; strict mode also treats them as errors.
+- Tests: added `test_theme_catalog_generation.py` covering deterministic seed reproducibility, popularity boundary overrides, absence of YAML backfill on alternate output, and presence of descriptions.
+- Editorial fallback summary: optional inclusion of `description_fallback_summary` in `theme_list.json` via `EDITORIAL_INCLUDE_FALLBACK_SUMMARY=1` for coverage metrics (generic vs specialized descriptions) and prioritization.
+- External description mapping (Phase D): curators can now add/override auto-description rules via `config/themes/description_mapping.yml` without editing code (first match wins, `{SYNERGIES}` placeholder supported).
+
+### Changed
+- Archetype presence test now gracefully skips when generated catalog YAML assets are absent, avoiding false negatives in minimal environments.
+- Tag constants and tagger extended; ordering ensures new archetype tags applied after interaction tagging but before bracket policy enforcement.
+- CI strict alias step now fails the build instead of continuing on error.
+- Example card population now sources exclusively from shard color CSV files by default (avoids variant noise from master `cards.csv`). Master file usage is explicit opt-in via `--use-master-cards`.
+- Heuristic text index aligned with shard-only sourcing and canonical name normalization to prevent duplicate staple leakage.
+- Terminology migration: internal model field `provenance` fully migrated to `metadata_info` across code, tests, and 700+ YAML catalog files via automated script (`migrate_provenance_to_metadata_info.py`). Backward-compatible aliasing retained temporarily; deprecation window documented.
+- Example card duplication suppression: `synergy_promote_fill.py` adds `--common-card-threshold` and `--print-dup-metrics` to filter overly common generic staples based on a pre-run global frequency map.
+- Synergy lists for now capped at 5 entries (precedence: curated > enforced > inferred) to improve UI scannability.
+- Curated synergy matrix expanded (tokens, spells, artifacts/enchantments, counters, lands, graveyard, politics, life, tribal umbrellas) with noisy links (e.g., Burn on -1/-1 Counters) suppressed via denylist + PMI filtering.
+- Synergy noise suppression: "Legends Matter" / "Historics Matter" pairs are now stripped from every other theme (they were ubiquitous due to all legendary & historic cards carrying both tags). Only mutual linkage between the two themes themselves is retained.
+- Theme merge build now always forces per-theme YAML export so `config/themes/catalog/*.yml` stays synchronized with `theme_list.json`. New env `THEME_YAML_FAST_SKIP=1` allows skipping YAML regeneration only on fast-path refreshes (never on full builds) if desired.
+- Tests: refactored to use pytest assertions and cleaned up fixtures/utilities to reduce noise and deprecations.
+- Tests: HTTP-dependent tests now skip gracefully when the local web server is unavailable.
+- `synergy_commanders` now excludes any commanders already promoted into `example_commanders` (deduped by base name after annotation).
+- Promotion logic ensures a configurable minimum (default 5) example commanders via annotated synergy promotions.
+- Regenerated per-theme YAML files are environment-dependent (card pool + tags); README documents that bulk committing the entire regenerated catalog is discouraged to avoid churn.
+- Lint enhancements: archetype enumeration expanded (Combo, Aggro, Control, Midrange, Stax, Ramp, Toolbox); strict mode now promotes cornerstone missing examples to errors; popularity bucket value validation.
+- Regression thresholds tightened for generic description fallback usage (see `test_theme_description_fallback_regression.py`), lowering allowed generic total & percentage to drive continued specialization.
+- build script now auto-exports Phase A YAML catalog if missing before attempting YAML backfill (safeguard against accidental directory deletion).
+
+### Fixed
+- Commander eligibility logic was overly permissive. Now only:
+- Missing secondary synergies (e.g., `Proliferate` on counter subthemes) restored via augmentation heuristic preventing empty synergy follow-ons.
+  - Legendary Creatures (includes Artifact/Enchantment Creatures)
+  - Legendary Artifact Vehicles / Spacecraft that have printed power & toughness
+  - Any card whose rules text contains "can be your commander" (covers specific planeswalkers, artifacts, others)
+  are auto‑eligible. Plain Legendary Enchantments (non‑creature), Legendary Planeswalkers without the explicit text, and generic Legendary Artifacts are no longer incorrectly included.
+- Removed one-off / low-signal themes (global frequency <=1) except those protected or explicitly always included via whitelist configuration.
 - Tests: reduced deprecation warnings and incidental failures; improved consistency and reliability across runs.
+
+### Deprecated
+- `provenance` catalog/YAML key: retained as read-only alias; will be removed after two minor releases in favor of `metadata_info`. Warnings to be added prior to removal.
 
 ## [2.2.10] - 2025-09-11
 

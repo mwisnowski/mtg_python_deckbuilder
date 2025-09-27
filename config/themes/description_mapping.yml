@@ -1,0 +1,184 @@
+#######################################################################
+# External mapping rules for theme auto-descriptions (FULL MIGRATION)  #
+# Each list item:
+#   triggers: [ list of lowercase substrings ]
+#   description: string; may contain {SYNERGIES} placeholder
+# Order matters: first matching trigger wins.
+# {SYNERGIES} expands to: " Synergies like X and Y reinforce the plan." (2 examples)
+# If {SYNERGIES} absent, clause is appended automatically (unless no synergies).
+#######################################################################
+
+- mapping_version: "2025-09-18-v1"
+
+- triggers: ["aristocrats", "aristocrat"]
+  description: "Sacrifices expendable creatures and tokens to trigger death payoffs, recursion, and incremental drain.{SYNERGIES}"
+- triggers: ["sacrifice"]
+  description: "Leverages sacrifice outlets and death triggers to grind incremental value and drain opponents.{SYNERGIES}"
+- triggers: ["spellslinger", "spells matter", "magecraft", "prowess"]
+  description: "Chains cheap instants & sorceries for velocity—converting triggers into scalable damage or card advantage before a finisher."
+- triggers: ["voltron"]
+  description: "Stacks auras, equipment, and protection on a single threat to push commander damage with layered resilience."
+- triggers: ["group hug"]
+  description: "Accelerates the whole table (cards / mana / tokens) to shape politics, then pivots that shared growth into asymmetric advantage."
+- triggers: ["pillowfort"]
+  description: "Deploys deterrents and taxation effects to deflect aggression while assembling a protected win route."
+- triggers: ["stax"]
+  description: "Applies asymmetric resource denial (tax, tap, sacrifice, lock pieces) to throttle opponents while advancing a resilient engine."
+- triggers: ["aggro","burn"]
+  description: "Applies early pressure and combat tempo to close the game before slower value engines stabilize."
+- triggers: ["control"]
+  description: "Trades efficiently, accrues card advantage, and wins via inevitability once the board is stabilized."
+- triggers: ["midrange"]
+  description: "Uses flexible value threats & interaction, pivoting between pressure and attrition based on table texture."
+- triggers: ["ramp","big mana"]
+  description: "Accelerates mana ahead of curve, then converts surplus into oversized threats or multi-spell bursts."
+- triggers: ["combo"]
+  description: "Assembles compact piece interactions to generate infinite or overwhelming advantage, protected by tutors & stack interaction."
+- triggers: ["storm"]
+  description: "Builds storm count with cheap spells & mana bursts, converting it into a lethal payoff turn."
+- triggers: ["wheel","wheels"]
+  description: "Loops mass draw/discard effects to refill, disrupt sculpted hands, and weaponize symmetrical replacement triggers."
+- triggers: ["mill"]
+  description: "Attacks libraries as a resource—looping self-mill or opponent mill into recursion and payoff engines."
+- triggers: ["reanimate","graveyard","dredge"]
+  description: "Loads high-impact cards into the graveyard early and reanimates them for explosive tempo or combo loops."
+- triggers: ["blink","flicker"]
+  description: "Recycles enter-the-battlefield triggers through blink/flicker loops for compounding value and soft locks."
+- triggers: ["landfall","lands matter","lands-matter"]
+  description: "Abuses extra land drops and recursion to chain Landfall triggers and scale permanent-based payoffs."
+- triggers: ["artifact tokens"]
+  description: "Generates artifact tokens as modular resources—fueling sacrifice, draw, and cost-reduction engines.{SYNERGIES}"
+- triggers: ["artifact"]
+  description: "Leverages dense artifact counts for cost reduction, recursion, and modular scaling payoffs.{SYNERGIES}"
+- triggers: ["equipment"]
+  description: "Tutors and reuses equipment to stack stats/keywords onto resilient bodies for persistent pressure.{SYNERGIES}"
+- triggers: ["constellation"]
+  description: "Chains enchantment drops to trigger constellation loops in draw, drain, or scaling effects.{SYNERGIES}"
+- triggers: ["enchant"]
+  description: "Stacks enchantment-based engines (cost reduction, constellation, aura recursion) for relentless value accrual.{SYNERGIES}"
+- triggers: ["shrines"]
+  description: "Accumulates Shrines whose upkeep triggers scale multiplicatively into inevitability."
+- triggers: ["token"]
+  description: "Goes wide with creature tokens then converts mass into damage, draw, drain, or sacrifice engines.{SYNERGIES}"
+- triggers: ["treasure"]
+  description: "Produces Treasure tokens as flexible ramp & combo fuel enabling explosive payoff turns.{SYNERGIES}"
+- triggers: ["clue","investigate"]
+  description: "Banks Clue tokens for delayed card draw while fueling artifact & token synergies.{SYNERGIES}"
+- triggers: ["food"]
+  description: "Creates Food tokens for life padding and sacrifice loops that translate into drain, draw, or recursion.{SYNERGIES}"
+- triggers: ["blood"]
+  description: "Uses Blood tokens to loot, set up graveyard recursion, and trigger discard/madness payoffs.{SYNERGIES}"
+- triggers: ["map token","map tokens","map "]
+  description: "Generates Map tokens to surveil repeatedly, sculpting draws and fueling artifact/token synergies.{SYNERGIES}"
+- triggers: ["incubate","incubator"]
+  description: "Banks Incubator tokens then transforms them into delayed board presence & artifact synergy triggers.{SYNERGIES}"
+- triggers: ["powerstone"]
+  description: "Creates Powerstones for non-creature ramp powering large artifacts and activation-heavy engines.{SYNERGIES}"
+- triggers: ["role token","role tokens","role "]
+  description: "Applies Role tokens as stackable mini-auras that generate incremental buffs or sacrifice fodder.{SYNERGIES}"
+- triggers: ["energy"]
+  description: "Accumulates Energy counters as a parallel resource spent for tempo spikes, draw, or scalable removal.{SYNERGIES}"
+- triggers: ["poison","infect","toxic"]
+  description: "Leverages Infect/Toxic pressure and proliferate to accelerate poison win thresholds.{SYNERGIES}"
+- triggers: ["proliferate"]
+  description: "Multiplies diverse counters (e.g., +1/+1, loyalty, poison) to escalate board state and inevitability.{SYNERGIES}"
+- triggers: ["+1/+1 counters","counters matter","counters-matter"]
+  description: "+1/+1 counters build across the board then get doubled, proliferated, or redistributed for exponential scaling.{SYNERGIES}"
+- triggers: ["-1/-1 counters"]
+  description: "Spreads -1/-1 counters for removal, attrition, and loop engines leveraging death & sacrifice triggers.{SYNERGIES}"
+- triggers: ["experience"]
+  description: "Builds experience counters to scale commander-centric engines into exponential payoffs.{SYNERGIES}"
+- triggers: ["loyalty","superfriends","planeswalker"]
+  description: "Protects and reuses planeswalkers—amplifying loyalty via proliferate and recursion for inevitability.{SYNERGIES}"
+- triggers: ["shield counter"]
+  description: "Applies shield counters to insulate threats and create lopsided removal trades.{SYNERGIES}"
+- triggers: ["sagas matter","sagas"]
+  description: "Loops and resets Sagas to repeatedly harvest chapter-based value sequences.{SYNERGIES}"
+- triggers: ["lifegain","life gain","life-matters"]
+  description: "Turns repeat lifegain triggers into card draw, scaling bodies, or drain-based win pressure.{SYNERGIES}"
+- triggers: ["lifeloss","life loss"]
+  description: "Channels symmetrical life loss into card flow, recursion, and inevitability drains.{SYNERGIES}"
+- triggers: ["theft","steal"]
+  description: "Acquires opponents’ permanents temporarily or permanently to convert their resources into board control.{SYNERGIES}"
+- triggers: ["devotion"]
+  description: "Concentrates colored pips to unlock Devotion payoffs and scalable static advantages.{SYNERGIES}"
+- triggers: ["domain"]
+  description: "Assembles multiple basic land types rapidly to scale Domain-based effects.{SYNERGIES}"
+- triggers: ["metalcraft"]
+  description: "Maintains ≥3 artifacts to turn on Metalcraft efficiencies and scaling bonuses.{SYNERGIES}"
+- triggers: ["affinity"]
+  description: "Reduces spell costs via board resource counts (Affinity) enabling explosive early multi-spell turns.{SYNERGIES}"
+- triggers: ["improvise"]
+  description: "Taps artifacts as pseudo-mana (Improvise) to deploy oversized non-artifact spells ahead of curve.{SYNERGIES}"
+- triggers: ["convoke"]
+  description: "Converts creature presence into mana (Convoke) accelerating large or off-color spells.{SYNERGIES}"
+- triggers: ["cascade"]
+  description: "Chains cascade triggers to convert single casts into multi-spell value bursts.{SYNERGIES}"
+- triggers: ["mutate"]
+  description: "Stacks mutate layers to reuse mutate triggers and build a resilient evolving threat.{SYNERGIES}"
+- triggers: ["evolve"]
+  description: "Sequentially upgrades creatures with Evolve counters, then leverages accumulated stats or counter synergies.{SYNERGIES}"
+- triggers: ["delirium"]
+  description: "Diversifies graveyard card types to unlock Delirium power thresholds.{SYNERGIES}"
+- triggers: ["threshold"]
+  description: "Fills the graveyard quickly to meet Threshold counts and upgrade spell/creature efficiencies.{SYNERGIES}"
+- triggers: ["vehicles","crew "]
+  description: "Leverages efficient Vehicles and crew bodies to field evasive, sweep-resilient threats.{SYNERGIES}"
+- triggers: ["goad"]
+  description: "Redirects combat outward by goading opponents’ creatures, destabilizing defenses while you build advantage.{SYNERGIES}"
+- triggers: ["monarch"]
+  description: "Claims and defends the Monarch for sustained card draw with evasion & deterrents.{SYNERGIES}"
+- triggers: ["surveil"]
+  description: "Continuously filters with Surveil to sculpt draws, fuel recursion, and enable graveyard synergies.{SYNERGIES}"
+- triggers: ["explore"]
+  description: "Uses Explore triggers to smooth draws, grow creatures, and feed graveyard-adjacent engines.{SYNERGIES}"
+- triggers: ["exploit"]
+  description: "Sacrifices creatures on ETB (Exploit) converting fodder into removal, draw, or recursion leverage.{SYNERGIES}"
+- triggers: ["venture"]
+  description: "Repeats Venture into the Dungeon steps to layer incremental room rewards into compounding advantage.{SYNERGIES}"
+- triggers: ["dungeon"]
+  description: "Progresses through dungeons repeatedly to chain room value and synergize with venture payoffs.{SYNERGIES}"
+- triggers: ["initiative"]
+  description: "Claims the Initiative, advancing the Undercity while defending control of the progression track.{SYNERGIES}"
+- triggers: ["backgrounds matter","background"]
+  description: "Pairs a Commander with Backgrounds for modular static buffs & class-style customization.{SYNERGIES}"
+- triggers: ["connive"]
+  description: "Uses Connive looting + counters to sculpt hands, grow threats, and feed recursion lines.{SYNERGIES}"
+- triggers: ["discover"]
+  description: "Leverages Discover to cheat spell mana values, chaining free cascade-like board development.{SYNERGIES}"
+- triggers: ["craft"]
+  description: "Transforms / upgrades permanents via Craft, banking latent value until a timing pivot.{SYNERGIES}"
+- triggers: ["learn"]
+  description: "Uses Learn to toolbox from side selections (or discard/draw) enhancing adaptability & consistency.{SYNERGIES}"
+- triggers: ["escape"]
+  description: "Escapes threats from the graveyard by exiling spent resources, generating recursive inevitability.{SYNERGIES}"
+- triggers: ["flashback"]
+  description: "Replays instants & sorceries from the graveyard (Flashback) for incremental spell velocity.{SYNERGIES}"
+- triggers: ["aftermath"]
+  description: "Extracts two-phase value from split Aftermath spells, maximizing flexible sequencing.{SYNERGIES}"
+- triggers: ["adventure"]
+  description: "Casts Adventure spell sides first to stack value before committing creature bodies to board.{SYNERGIES}"
+- triggers: ["foretell"]
+  description: "Foretells spells early to smooth curve, conceal information, and discount impactful future turns.{SYNERGIES}"
+- triggers: ["miracle"]
+  description: "Manipulates topdecks / draw timing to exploit Miracle cost reductions on splashy spells.{SYNERGIES}"
+- triggers: ["kicker","multikicker"]
+  description: "Kicker / Multikicker spells scale flexibly—paying extra mana for amplified late-game impact.{SYNERGIES}"
+- triggers: ["buyback"]
+  description: "Loops Buyback spells to convert excess mana into repeatable effects & inevitability.{SYNERGIES}"
+- triggers: ["suspend"]
+  description: "Suspends spells early to pay off delayed powerful effects at discounted timing.{SYNERGIES}"
+- triggers: ["retrace"]
+  description: "Turns dead land draws into fuel by recasting Retrace spells for attrition resilience.{SYNERGIES}"
+- triggers: ["rebound"]
+  description: "Uses Rebound to double-cast value spells, banking a delayed second resolution.{SYNERGIES}"
+- triggers: ["escalate"]
+  description: "Selects multiple modes on Escalate spells, trading mana/cards for flexible stacked effects.{SYNERGIES}"
+- triggers: ["overload"]
+  description: "Overloads modal spells into one-sided board impacts or mass disruption swings.{SYNERGIES}"
+- triggers: ["prowl"]
+  description: "Enables Prowl cost reductions via tribe-based combat connections, accelerating tempo sequencing.{SYNERGIES}"
+- triggers: ["delve"]
+  description: "Exiles graveyard cards to pay for Delve spells, converting stocked yard into mana efficiency.{SYNERGIES}"
+- triggers: ["madness"]
+  description: "Turns discard into mana-efficient Madness casts, leveraging looting & Blood token filtering.{SYNERGIES}"

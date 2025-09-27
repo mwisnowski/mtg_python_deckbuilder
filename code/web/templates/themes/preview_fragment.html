@@ -1,0 +1,431 @@
+{% if preview %}
+<div class="preview-modal-content theme-preview-expanded{% if minimal %} minimal-variant{% endif %}">
+  {% if not minimal %}
+  <div class="preview-header" style="display:flex; justify-content:space-between; align-items:center; gap:1rem;">
+    <h3 style="margin:0; font-size:16px;" data-preview-heading>{{ preview.theme }}</h3>
+    <button id="preview-close-btn" onclick="document.getElementById('theme-preview-modal') && document.getElementById('theme-preview-modal').remove();" class="btn btn-ghost" style="font-size:12px; line-height:1;">Close ✕</button>
+  </div>
+  {% if preview.stub %}<div class="note note-stub">Stub sample (placeholder logic)</div>{% endif %}
+  <div class="preview-controls" style="display:flex; gap:1rem; align-items:center; margin:.5rem 0 .75rem; font-size:11px;">
+    <label style="display:inline-flex; gap:4px; align-items:center;"><input type="checkbox" id="curated-only-toggle"/> Curated Only</label>
+    <label style="display:inline-flex; gap:4px; align-items:center;"><input type="checkbox" id="reasons-toggle" checked/> Reasons <span style="opacity:.55; font-size:10px; cursor:help;" title="Toggle why the payoff is included (i.e. overlapping themes or other reasoning)">?</span></label>
+    <label style="display:inline-flex; gap:4px; align-items:center;"><input type="checkbox" id="show-duplicates-toggle"/> Show Collapsed Duplicates</label>
+    <span id="preview-status" aria-live="polite" style="opacity:.65;"></span>
+  </div>
+  <details id="preview-rationale" class="preview-rationale" style="margin:.25rem 0 .85rem; font-size:11px; background:var(--panel-alt); border:1px solid var(--border); padding:.55rem .7rem; border-radius:8px;">
+    <summary style="cursor:pointer; font-weight:600; letter-spacing:.05em;">Commander Overlap & Diversity Rationale</summary>
+    <div style="display:flex; flex-wrap:wrap; gap:.75rem; align-items:center; margin-top:.4rem;">
+      <button type="button" class="btn btn-ghost" style="font-size:10px; padding:4px 8px;" onclick="toggleHoverCompactMode()" title="Toggle compact hover panel (smaller image & condensed metadata)">Hover Compact</button>
+      <span id="hover-compact-indicator" style="font-size:10px; opacity:.7;">Mode: <span data-mode>normal</span></span>
+    </div>
+    <ul id="rationale-points" style="margin:.5rem 0 0 .9rem; padding:0; list-style:disc; line-height:1.35;">
+      {% if preview.commander_rationale and preview.commander_rationale|length > 0 %}
+        {% for r in preview.commander_rationale %}
+          <li>
+            <strong>{{ r.label }}</strong>: {{ r.value }}
+            {% if r.detail %}<span style="opacity:.75;">({{ r.detail|join(', ') }})</span>{% endif %}
+            {% if r.instances %}<span style="opacity:.65;"> ({{ r.instances }} instances)</span>{% endif %}
+          </li>
+        {% endfor %}
+      {% else %}
+        <li>Computing…</li>
+      {% endif %}
+    </ul>
+  </details>
+  {% endif %}
+  <div class="two-col" style="display:grid; grid-template-columns: 1fr 480px; gap:1.25rem; align-items:start; position:relative;" role="group" aria-label="Theme preview cards and commanders">
+    <div class="col-divider" style="position:absolute; top:0; bottom:0; left:calc(100% - 480px - .75rem); width:1px; background:var(--border); opacity:.55;"></div>
+    <div class="col-left">
+  {% if not minimal %}{% if not suppress_curated %}<h4 style="margin:.25rem 0 .5rem; font-size:13px; letter-spacing:.05em; text-transform:uppercase; opacity:.8;">Example Cards</h4>{% else %}<h4 style="margin:.25rem 0 .5rem; font-size:13px; letter-spacing:.05em; text-transform:uppercase; opacity:.8;">Sampled Synergy Cards</h4>{% endif %}{% endif %}
+      <hr style="border:0; border-top:1px solid var(--border); margin:.35rem 0 .6rem;" />
+  <div class="cards-flow" style="display:flex; flex-wrap:wrap; gap:10px;" data-synergies="{{ preview.synergies_used|join(',') if preview.synergies_used }}" data-pin-scope="{{ preview.theme_id }}">
+  {% set inserted = {'examples': False, 'curated_synergy': False, 'payoff': False, 'enabler_support': False, 'wildcard': False} %}
+  {% for c in preview.sample if (not suppress_curated and ('example' in c.roles or 'curated_synergy' in c.roles)) or 'payoff' in c.roles or 'enabler' in c.roles or 'support' in c.roles or 'wildcard' in c.roles %}
+  {% if c.dup_collapsed %}{% set dup_class = ' is-collapsed-duplicate' %}{% else %}{% set dup_class = '' %}{% endif %}
+  {% set primary = c.roles[0] if c.roles else '' %}
+  {% if (not suppress_curated) and 'example' in c.roles and not inserted.examples %}<div class="group-separator" data-group="examples" style="flex-basis:100%; font-size:10px; text-transform:uppercase; letter-spacing:.05em; opacity:.65; margin-top:.25rem;">Curated Examples</div>{% set _ = inserted.update({'examples': True}) %}{% endif %}
+  {% if (not suppress_curated) and primary == 'curated_synergy' and not inserted.curated_synergy %}<div class="group-separator" data-group="curated_synergy" style="flex-basis:100%; font-size:10px; text-transform:uppercase; letter-spacing:.05em; opacity:.65; margin-top:.5rem;">Curated Synergy</div>{% set _ = inserted.update({'curated_synergy': True}) %}{% endif %}
+  {% if primary == 'payoff' and not inserted.payoff %}<div class="group-separator" data-group="payoff" style="flex-basis:100%; font-size:10px; text-transform:uppercase; letter-spacing:.05em; opacity:.65; margin-top:.5rem;">Payoffs</div>{% set _ = inserted.update({'payoff': True}) %}{% endif %}
+  {% if primary in ['enabler','support'] and not inserted.enabler_support %}<div class="group-separator" data-group="enabler_support" style="flex-basis:100%; font-size:10px; text-transform:uppercase; letter-spacing:.05em; opacity:.65; margin-top:.5rem;">Enablers & Support</div>{% set _ = inserted.update({'enabler_support': True}) %}{% endif %}
+  {% if primary == 'wildcard' and not inserted.wildcard %}<div class="group-separator" data-group="wildcard" style="flex-basis:100%; font-size:10px; text-transform:uppercase; letter-spacing:.05em; opacity:.65; margin-top:.5rem;">Wildcards</div>{% set _ = inserted.update({'wildcard': True}) %}{% endif %}
+        {% set overlaps = [] %}
+        {% if preview.synergies_used and c.tags %}
+          {% for tg in c.tags %}{% if tg in preview.synergies_used %}{% set _ = overlaps.append(tg) %}{% endif %}{% endfor %}
+        {% endif %}
+  <div class="card-sample{{ dup_class }}{% if overlaps %} has-overlap{% endif %}" style="width:230px;" data-card-name="{{ c.name }}" data-role="{{ c.roles[0] if c.roles }}" data-reasons="{{ c.reasons|join('; ') if c.reasons }}" data-tags="{{ c.tags|join(', ') if c.tags }}" data-overlaps="{{ overlaps|join(',') }}" data-mana="{{ c.mana_cost if c.mana_cost }}" data-rarity="{{ c.rarity if c.rarity }}" {% if c.dup_group_size %}data-dup-group-size="{{ c.dup_group_size }}"{% endif %} {% if c.dup_anchor %}data-dup-anchor="1"{% endif %} {% if c.dup_collapsed %}data-dup-collapsed="1" data-dup-anchor-name="{{ c.dup_anchor_name }}"{% endif %}>
+          <div class="thumb-wrap" style="position:relative;">
+            <img class="card-thumb" width="230" loading="lazy" decoding="async" src="https://api.scryfall.com/cards/named?fuzzy={{ c.name|urlencode }}&format=image&version=small" alt="{{ c.name }} image" data-card-name="{{ c.name }}" data-role="{{ c.roles[0] if c.roles }}" data-tags="{{ c.tags|join(', ') if c.tags }}" {% if overlaps %}data-overlaps="{{ overlaps|join(',') }}"{% endif %} data-placeholder-color="#0b0d12" style="filter:blur(4px); transition:filter .35s ease; background:linear-gradient(145deg,#0b0d12,#111b29);" onload="this.style.filter='blur(0)';" />
+            <span class="role-chip role-{{ c.roles[0] if c.roles }}" title="Primary role: {{ c.roles[0] if c.roles }}">{{ c.roles[0][0]|upper if c.roles }}</span>
+            {% if overlaps %}<span class="overlap-badge" title="Synergy overlaps: {{ overlaps|join(', ') }}">{{ overlaps|length }}</span>{% endif %}
+            {% if c.dup_anchor and c.dup_group_size and c.dup_group_size > 1 %}<span class="dup-badge" title="{{ c.dup_group_size - 1 }} similar cards collapsed" style="position:absolute; bottom:4px; right:4px; background:#4b5563; color:#fff; font-size:10px; padding:2px 5px; border-radius:10px;">+{{ c.dup_group_size - 1 }}</span>{% endif %}
+            <button type="button" class="pin-btn" aria-label="Pin card" title="Pin card" data-pin-btn style="position:absolute; top:4px; right:4px; background:rgba(0,0,0,0.55); color:#fff; border:1px solid var(--border); border-radius:6px; font-size:10px; padding:2px 5px; cursor:pointer;">☆</button>
+          </div>
+            <div class="meta" style="font-size:12px; margin-top:2px;">
+            <div class="ci-ribbon" aria-label="Color identity" style="display:flex; gap:2px; margin-bottom:2px; min-height:10px;"></div>
+            <div class="nm" style="font-weight:600; line-height:1.25; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="{{ c.name }}">{{ c.name }}</div>
+            <div class="mana-line" aria-label="Mana Cost" style="min-height:14px; display:flex; flex-wrap:wrap; gap:2px; font-size:10px;"></div>
+            {% if c.rarity %}<div class="rarity-badge rarity-{{ c.rarity }}" title="Rarity: {{ c.rarity }}" style="font-size:9px; letter-spacing:.5px; text-transform:uppercase; opacity:.7;">{{ c.rarity }}</div>{% endif %}
+            <div class="role" style="opacity:.75; font-size:11px; display:flex; flex-wrap:wrap; gap:3px;">
+              {% for r in c.roles %}<span class="mini-badge role-{{ r }}" title="{{ r }} role">{{ r[0]|upper }}</span>{% endfor %}
+            </div>
+            {% if c.reasons %}<div class="reasons" data-reasons-block style="font-size:9px; opacity:.55; line-height:1.15;" title="Heuristics: {{ c.reasons|join(', ') }}">{{ c.reasons|map('replace','commander_bias','cmbias')|join(' · ') }}</div>{% endif %}
+          </div>
+        </div>
+        {% endfor %}
+        {% set has_synth = false %}
+        {% for c in preview.sample %}{% if 'synthetic' in c.roles %}{% set has_synth = true %}{% endif %}{% endfor %}
+        {% if has_synth %}
+        <div style="flex-basis:100%; height:0;"></div>
+        {% for c in preview.sample %}
+          {% if 'synthetic' in c.roles %}
+          <div class="card-sample synthetic" style="width:230px; border:1px dashed var(--border); padding:8px; border-radius:10px; background:var(--panel-alt);" data-card-name="{{ c.name }}" data-role="synthetic" data-reasons="{{ c.reasons|join('; ') if c.reasons }}" data-tags="{{ c.tags|join(', ') if c.tags }}" data-overlaps="">
+            <div style="font-size:12px; font-weight:600; line-height:1.2;">{{ c.name }}</div>
+            <div style="font-size:11px; opacity:.8;">{{ c.roles|join(', ') }}</div>
+            {% if c.reasons %}<div style="font-size:10px; margin-top:2px; opacity:.6; line-height:1.15;">{{ c.reasons|join(', ') }}</div>{% endif %}
+          </div>
+          {% endif %}
+        {% endfor %}
+        {% endif %}
+      </div>
+    </div>
+    <div class="col-right">
+  {% if not minimal %}{% if not suppress_curated %}<h4 style="margin:.25rem 0 .25rem; font-size:13px; letter-spacing:.05em; text-transform:uppercase; opacity:.8;">Example Commanders</h4>{% else %}<h4 style="margin:.25rem 0 .25rem; font-size:13px; letter-spacing:.05em; text-transform:uppercase; opacity:.8;">Synergy Commanders</h4>{% endif %}{% endif %}
+      <hr style="border:0; border-top:1px solid var(--border); margin:.35rem 0 .6rem;" />
+  {% if example_commanders and not suppress_curated %}
+  <div class="commander-grid" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:1rem;">
+        {% for name in example_commanders %}
+        {# Derive per-commander overlaps; still show full theme synergy set in data-tags for context #}
+        {% set base = name %}
+        {% set overlaps = [] %}
+        {% if ' - Synergy (' in name %}
+          {% set base = name.split(' - Synergy (')[0] %}
+          {% set annot = name.split(' - Synergy (')[1].rstrip(')') %}
+          {% for sy in annot.split(',') %}{% set _ = overlaps.append(sy.strip()) %}{% endfor %}
+        {% endif %}
+        {% set tags_all = preview.synergies_used[:] if preview.synergies_used else [] %}
+        {% for ov in overlaps %}{% if ov not in tags_all %}{% set _ = tags_all.append(ov) %}{% endif %}{% endfor %}
+  <div class="commander-cell" style="display:flex; flex-direction:column; gap:.35rem; align-items:center;" data-card-name="{{ base }}" data-role="commander_example" data-tags="{{ tags_all|join(', ') if tags_all }}" data-overlaps="{{ overlaps|join(', ') if overlaps }}" data-original-name="{{ name }}">
+    <img class="card-thumb" width="230" src="https://api.scryfall.com/cards/named?fuzzy={{ base|urlencode }}&format=image&version=small" alt="{{ base }} image" loading="lazy" decoding="async" data-card-name="{{ base }}" data-role="commander_example" data-tags="{{ tags_all|join(', ') if tags_all }}" data-overlaps="{{ overlaps|join(', ') if overlaps }}" data-original-name="{{ name }}" data-placeholder-color="#0b0d12" style="filter:blur(4px); transition:filter .35s ease; background:linear-gradient(145deg,#0b0d12,#111b29);" onload="this.style.filter='blur(0)';" />
+      <div class="commander-name" style="font-size:13px; text-align:center; line-height:1.35; font-weight:600; max-width:230px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="{{ name }}">{{ name }}</div>
+        </div>
+        {% endfor %}
+      </div>
+  {% elif not suppress_curated %}
+      <div style="font-size:11px; opacity:.7;">No curated commander examples.</div>
+      {% endif %}
+  {% if synergy_commanders %}
+      <div style="margin-top:1rem;">
+        <div style="display:flex; align-items:center; gap:.4rem; margin-bottom:.4rem;">
+          <h5 style="margin:0; font-size:11px; letter-spacing:.05em; text-transform:uppercase; opacity:.75;">Synergy Commanders</h5>
+          <span title="Derived from synergy overlap heuristics" style="background:var(--panel-alt); border:1px solid var(--border); border-radius:10px; padding:2px 6px; font-size:10px; line-height:1;">Derived</span>
+        </div>
+  <div class="commander-grid" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:1rem;">
+          {% for name in synergy_commanders[:8] %}
+            {# Strip any appended ' - Synergy (...' suffix for image lookup while preserving display #}
+            {% set base = name %}
+            {% if ' - Synergy' in name %}{% set base = name.split(' - Synergy')[0] %}{% endif %}
+              {% set overlaps = [] %}
+              {% if ' - Synergy (' in name %}
+                {% set annot = name.split(' - Synergy (')[1].rstrip(')') %}
+                {% for sy in annot.split(',') %}{% set _ = overlaps.append(sy.strip()) %}{% endfor %}
+              {% endif %}
+              {% set tags_all = preview.synergies_used[:] if preview.synergies_used else [] %}
+              {% for ov in overlaps %}{% if ov not in tags_all %}{% set _ = tags_all.append(ov) %}{% endif %}{% endfor %}
+              <div class="commander-cell synergy" style="display:flex; flex-direction:column; gap:.35rem; align-items:center;" data-card-name="{{ base }}" data-role="synergy_commander" data-tags="{{ tags_all|join(', ') if tags_all }}" data-overlaps="{{ overlaps|join(', ') if overlaps }}" data-original-name="{{ name }}">
+                <img class="card-thumb" width="230" src="https://api.scryfall.com/cards/named?fuzzy={{ base|urlencode }}&format=image&version=small" alt="{{ base }} image" loading="lazy" decoding="async" data-card-name="{{ base }}" data-role="synergy_commander" data-tags="{{ tags_all|join(', ') if tags_all }}" data-overlaps="{{ overlaps|join(', ') if overlaps }}" data-original-name="{{ name }}" data-placeholder-color="#0b0d12" style="filter:blur(4px); transition:filter .35s ease; background:linear-gradient(145deg,#0b0d12,#111b29);" onload="this.style.filter='blur(0)';" />
+                <div class="commander-name" style="font-size:12px; text-align:center; line-height:1.3; font-weight:500; opacity:.92; max-width:230px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="{{ name }}">{{ name }}</div>
+              </div>
+            {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+  {% if not minimal %}<div style="margin-top:1rem; font-size:10px; opacity:.65; line-height:1.4;">Hover any card or commander for a larger preview and tag breakdown. Use Curated Only to hide sampled roles. Role chips: P=Payoff, E=Enabler, S=Support, W=Wildcard, X=Curated Example.</div>{% endif %}
+</div>
+{% else %}
+<div class="preview-modal-content">
+  <div style="display:flex; justify-content:space-between; align-items:center;">
+    <div class="sk-bar" style="height:16px; width:200px; background:var(--hover); border-radius:4px;"></div>
+    <div class="sk-bar" style="height:16px; width:60px; background:var(--hover); border-radius:4px;"></div>
+  </div>
+  <div style="display:flex; flex-wrap:wrap; gap:10px; margin-top:1rem;">
+  {% for i in range(8) %}<div style="width:230px; height:327px; background:var(--hover); border-radius:10px;"></div>{% endfor %}
+  </div>
+</div>
+{% endif %}
+<style>
+  .theme-preview-expanded .card-thumb { width:230px; height:auto; border-radius:10px; border:1px solid var(--border); background:#0b0d12; object-fit:cover; }
+  .theme-preview-expanded .role-chip { position:absolute; top:4px; left:4px; background:rgba(0,0,0,0.65); color:#fff; font-size:10px; padding:2px 5px; border-radius:10px; line-height:1; letter-spacing:.5px; }
+  .theme-preview-expanded .mini-badge { background:var(--panel-alt); border:1px solid var(--border); padding:1px 4px; font-size:9px; border-radius:8px; line-height:1; }
+  .theme-preview-expanded .role-payoff .role-chip, .mini-badge.role-payoff { background:#2563eb; color:#fff; }
+  .mini-badge.role-payoff { background:#1d4ed8; color:#fff; }
+  .mini-badge.role-enabler { background:#047857; color:#fff; }
+  .mini-badge.role-support { background:#6d28d9; color:#fff; }
+  .mini-badge.role-wildcard { background:#92400e; color:#fff; }
+  .mini-badge.role-example, .mini-badge.role-curated_synergy { background:#4f46e5; color:#fff; }
+  .theme-preview-expanded .commander-grid .card-thumb { width:230px; }
+  .theme-preview-expanded.minimal-variant .preview-header,
+  .theme-preview-expanded.minimal-variant .preview-controls,
+  .theme-preview-expanded.minimal-variant .preview-rationale { display:none !important; }
+  .theme-preview-expanded.minimal-variant h4 { display:none; }
+  .theme-preview-expanded .commander-cell.synergy .card-thumb { filter:grayscale(.15) contrast(1.05); }
+  .theme-preview-expanded .card-sample.synthetic { display:flex; flex-direction:column; justify-content:flex-start; }
+  .theme-preview-expanded .card-sample.has-overlap { outline:1px solid var(--accent); outline-offset:2px; }
+  /* Hover panel parity styling */
+  #hover-card-panel { font-family: inherit; }
+  #hover-card-panel .hcp-role { display:inline-block; margin-left:6px; padding:2px 6px; font-size:10px; letter-spacing:.5px; border:1px solid var(--border); border-radius:10px; background:var(--panel-alt); text-transform:uppercase; }
+  #hover-card-panel.is-payoff .hcp-role { background:var(--accent, #38bdf8); color:#fff; border-color:var(--accent, #38bdf8); }
+  #hover-card-panel .hcp-reasons li { margin:2px 0; }
+  #hover-card-panel .hcp-reasons { scrollbar-width:thin; }
+  #hover-card-panel .hcp-tags { font-size:10px; opacity:.75; }
+  .theme-preview-expanded .overlap-badge { position:absolute; top:4px; right:4px; background:#0f766e; color:#fff; font-size:10px; padding:2px 5px; border-radius:10px; }
+  .theme-preview-expanded .mana-symbol { width:14px; height:14px; border-radius:50%; background:#222; color:#fff; display:inline-flex; align-items:center; justify-content:center; font-size:9px; font-weight:600; box-shadow:0 0 0 1px #000 inset; }
+  .theme-preview-expanded .mana-symbol.W { background:#f3f2dc; color:#222; }
+  .theme-preview-expanded .mana-symbol.U { background:#5b8dd6; }
+  .theme-preview-expanded .mana-symbol.B { background:#2d2d2d; }
+  .theme-preview-expanded .mana-symbol.R { background:#c4472d; }
+  .theme-preview-expanded .mana-symbol.G { background:#2f6b3a; }
+  .theme-preview-expanded .mana-symbol.C { background:#555; }
+  .theme-preview-expanded .ci-ribbon .pip { width:10px; height:10px; border-radius:50%; display:inline-block; box-shadow:0 0 0 1px #000 inset; }
+  .theme-preview-expanded .ci-ribbon .pip.W { background:#f3f2dc; }
+  .theme-preview-expanded .ci-ribbon .pip.U { background:#5b8dd6; }
+  .theme-preview-expanded .ci-ribbon .pip.B { background:#2d2d2d; }
+  .theme-preview-expanded .ci-ribbon .pip.R { background:#c4472d; }
+  .theme-preview-expanded .ci-ribbon .pip.G { background:#2f6b3a; }
+  .theme-preview-expanded .tooltip-reasons ul { margin:0; padding-left:14px; }
+  .theme-preview-expanded .tooltip-reasons li { list-style:disc; margin:0; padding:0; }
+  .theme-preview-expanded .rarity-common { color:#9ca3af; }
+  .theme-preview-expanded .rarity-uncommon { color:#60a5fa; }
+  .theme-preview-expanded .rarity-rare { color:#fbbf24; }
+  .theme-preview-expanded .rarity-mythic { color:#fb923c; }
+  @media (max-width: 950px){ .theme-preview-expanded .two-col { grid-template-columns: 1fr; } .theme-preview-expanded .col-right { order:-1; } }
+</style>
+<style>
+  .card-sample.pinned { outline:2px solid var(--accent); outline-offset:2px; }
+  .card-sample .pin-btn.active { background:var(--accent); color:#000; }
+  .card-sample.is-collapsed-duplicate { display:none; }
+</style>
+<script>
+// sessionStorage preview fragment cache (keyed by theme + limit + commander). Stores HTML + ETag.
+(function(){ if(document.querySelector('.theme-preview-expanded.minimal-variant')) return; 
+  try {
+    var root = document.getElementById('theme-preview-modal');
+    if(!root) return;
+    var container = root.querySelector('.preview-modal-content');
+    if(!container) return;
+    // Attach a marker for quick retrieval
+    container.setAttribute('data-preview-fragment','1');
+  } catch(_){}
+})();
+</script>
+<script>
+// Collapsed duplicate toggle logic (persist in localStorage global scope)
+(function(){
+  try {
+    var toggle = document.getElementById('show-duplicates-toggle');
+    if(!toggle) return;
+    var STORE_KEY = 'preview.showCollapsedDuplicates';
+    function apply(){
+      var show = !!toggle.checked;
+      document.querySelectorAll('.card-sample.is-collapsed-duplicate').forEach(function(el){
+        el.style.display = show ? '' : 'none';
+      });
+    }
+    var saved = localStorage.getItem(STORE_KEY);
+    if(saved === '1'){ toggle.checked = true; }
+    apply();
+    toggle.addEventListener('change', function(){
+      localStorage.setItem(STORE_KEY, toggle.checked ? '1':'0');
+      apply();
+    });
+  } catch(_){}
+})();
+</script>
+<script>
+// Client-side pin/unpin personalized examples (localStorage scoped by theme_id)
+(function(){
+  try {
+    var root = document.querySelector('.cards-flow[data-pin-scope]');
+    if(!root) return;
+    var scope = root.getAttribute('data-pin-scope');
+    var storeKey = 'preview.pins.'+scope;
+    function loadPins(){
+      try { return JSON.parse(localStorage.getItem(storeKey) || '[]'); } catch(_) { return []; }
+    }
+    function savePins(pins){ try { localStorage.setItem(storeKey, JSON.stringify(pins.slice(0,100))); } catch(_){} }
+    function setState(){
+      var pins = loadPins();
+      var cards = root.querySelectorAll('.card-sample');
+      cards.forEach(function(cs){
+        var name = cs.getAttribute('data-card-name');
+        var btn = cs.querySelector('[data-pin-btn]');
+        var pinned = pins.indexOf(name) !== -1;
+        cs.classList.toggle('pinned', pinned);
+        if(btn){ btn.classList.toggle('active', pinned); btn.textContent = pinned ? '★' : '☆'; btn.setAttribute('aria-label', pinned ? 'Unpin card' : 'Pin card'); }
+      });
+    }
+    root.addEventListener('click', function(e){
+      var btn = e.target.closest('[data-pin-btn]');
+      if(!btn) return;
+      var card = btn.closest('.card-sample');
+      if(!card) return;
+      var name = card.getAttribute('data-card-name');
+      var pins = loadPins();
+      var idx = pins.indexOf(name);
+      if(idx === -1) pins.push(name); else pins.splice(idx,1);
+      savePins(pins);
+      setState();
+    });
+    setState();
+  } catch(_){ }
+})();
+</script>
+<script>
+// Lazy-load fallback for browsers ignoring loading=lazy (very old) + intersection observer prefetch enhancement
+(function(){
+  try {
+    if('loading' in HTMLImageElement.prototype) return; // native supported
+    var imgs = Array.prototype.slice.call(document.querySelectorAll('.theme-preview-expanded img[loading="lazy"]'));
+    imgs.forEach(function(img){
+      if(!img.dataset.src){ img.dataset.src = img.src; }
+      img.src = img.dataset.src;
+    });
+  } catch(_){}
+})();
+</script>
+<script>
+// Lightweight hover tooltip for card reasons (progressive enhancement)
+(function(){
+  var host = document.currentScript && document.currentScript.parentElement;
+  if(!host) return;
+  var tip = document.createElement('div');
+  tip.className='tooltip-reasons';
+  tip.style.position='fixed'; tip.style.pointerEvents='none'; tip.style.zIndex=9500; tip.style.padding='6px 8px'; tip.style.fontSize='11px'; tip.style.background='rgba(0,0,0,0.8)'; tip.style.color='#fff'; tip.style.border='1px solid var(--border)'; tip.style.borderRadius='6px'; tip.style.boxShadow='0 2px 8px rgba(0,0,0,0.4)'; tip.style.display='none'; maxWidth='260px';
+  document.body.appendChild(tip);
+  function show(e, html){ tip.innerHTML = html; tip.style.display='block'; move(e); }
+  function move(e){ tip.style.top=(e.clientY+14)+'px'; tip.style.left=(e.clientX+12)+'px'; }
+  function hide(){ tip.style.display='none'; }
+  host.addEventListener('mouseover', function(ev){
+    if(ev.target.closest('.thumb-wrap')) return;
+    var t = ev.target.closest('.card-sample');
+    if(!t) return;
+    var name = t.querySelector('.nm') ? t.querySelector('.nm').textContent : t.getAttribute('data-card-name');
+    var role = t.getAttribute('data-role');
+    var reasons = t.getAttribute('data-reasons') || '';
+    var tags = t.getAttribute('data-tags') || '';
+    var overlaps = t.getAttribute('data-overlaps') || '';
+    var html = '<strong>'+ (name||'') +'</strong><br/><em>'+ (role||'') +'</em>';
+    if(tags){
+      if(overlaps){
+        var tagArr = tags.split(/\s*,\s*/);
+        var overlapSet = new Set(overlaps.split(/\s*,\s*/).filter(Boolean));
+        var rendered = tagArr.map(function(x){ return overlapSet.has(x) ? '<span style="color:#0ea5e9; font-weight:600;">'+x+'</span>' : x; }).join(', ');
+        html += '<br/><span style="opacity:.85">'+ rendered +'</span>';
+      } else {
+        html += '<br/><span style="opacity:.8">'+tags+'</span>';
+      }
+    }
+    if(reasons){
+      var items = reasons.split(/;\s*/).filter(Boolean).map(function(r){ return '<li>'+r+'</li>'; }).join('');
+      html += '<div style="margin-top:4px; font-size:10px; line-height:1.25;"><ul>'+items+'</ul></div>';
+    }
+    show(ev, html);
+  });
+  host.addEventListener('mousemove', function(ev){ if(tip.style.display==='block') move(ev); });
+  host.addEventListener('mouseleave', function(ev){ if(!ev.relatedTarget || !ev.relatedTarget.closest('.card-sample')) hide(); }, true);
+  host.addEventListener('mouseout', function(ev){ if(!ev.relatedTarget || !ev.relatedTarget.closest('.card-sample')) hide(); });
+})();
+</script>
+<script>
+// Post-render safety pass: normalize commander thumbnails.
+// 1. If annotated form 'Name - Synergy (A, B)' still in data-card-name, strip to base.
+// 2. If annotation present in original name but data-tags/data-overlaps empty, populate them.
+(function(){
+  try {
+    document.querySelectorAll('.theme-preview-expanded img.card-thumb').forEach(function(img){
+      var n = img.getAttribute('data-card-name') || '';
+      var orig = img.getAttribute('data-original-name') || n;
+      // Patterns to strip: ' - Synergy (' plus any trailing text/paren and optional closing paren
+      var m = /(.*?)(\s*-\s*Synergy\b.*)$/i.exec(orig);
+      if(m){
+        var base = m[1].trim();
+        if(base && base !== n){
+          img.setAttribute('data-card-name', base);
+          img.src = 'https://api.scryfall.com/cards/named?fuzzy=' + encodeURIComponent(base) + '&format=image&version=small';
+        }
+        // Attempt to derive overlaps if not already present
+        if(!img.getAttribute('data-overlaps')){
+          var annMatch = /-\s*Synergy\s*\(([^)]+)\)/i.exec(orig);
+          if(annMatch){
+            var list = annMatch[1].split(',').map(function(x){return x.trim();}).filter(Boolean).join(', ');
+            if(list){
+              // Preserve existing broader data-tags if present; only set overlaps
+              if(!img.getAttribute('data-tags')) img.setAttribute('data-tags', list);
+              img.setAttribute('data-overlaps', list);
+            }
+          }
+        }
+      }
+    });
+  } catch(_){ }
+})();
+</script>
+<script>
+// Mana cost parser to convert {X}{2}{U}{B/P} style strings into colored symbol bubbles.
+// Removed legacy client-side mana parser (server now supplies normalized mana & pip/color metadata)
+// Placeholder: if server later supplies pre-rendered HTML we simply inject it here.
+// (Intentionally no-op; roadmap EXIT Server-side mana/rarity ingestion follow-up.)
+(()=>{})();
+</script>
+<script>
+// Color identity ribbon (simple heuristic from mana cost symbols); shown above name.
+// Removed heuristic color identity derivation (server now provides authoritative color_identity_list)
+// Future: server can inline <span class="pip W"></span> elements directly; leaving ribbon container empty if absent.
+(()=>{})();
+</script>
+<script>
+// (Removed fragment-specific large hover panel; using global unified panel in base.html)
+</script>
+<script>
+// Commander overlap & diversity rationale (client-side derivation) – Phase 1 tooltip implementation
+(function(){
+  try {
+    var listHost = document.getElementById('rationale-points');
+    if(!listHost) return;
+    var modeLabel = document.querySelector('#hover-compact-indicator [data-mode]');
+    document.addEventListener('mtg:hoverCompactToggle', function(){ if(modeLabel){ modeLabel.textContent = window.__hoverCompactMode ? 'compact' : 'normal'; }});
+    var cards = Array.from(document.querySelectorAll('.theme-preview-expanded .card-sample'))
+      .filter(c=>!(c.classList.contains('synthetic')));
+    if(!cards.length){ listHost.innerHTML='<li>No real cards in sample.</li>'; return; }
+    var roleCounts = {payoff:0,enabler:0,support:0,wildcard:0,example:0,curated_synergy:0,synthetic:0};
+    var overlapTotals = 0; var overlapSet = new Set();
+    cards.forEach(c=>{
+      var role = c.getAttribute('data-role')||'';
+      if(roleCounts[role]!==undefined) roleCounts[role]++;
+      var overlaps = (c.getAttribute('data-overlaps')||'').split(/\s*,\s*/).filter(Boolean);
+      overlaps.forEach(o=>overlapSet.add(o));
+      overlapTotals += overlaps.length;
+    });
+    var totalReal = cards.length;
+    function pct(n){ return (n/totalReal*100).toFixed(1)+'%'; }
+    var diversityScore = 0;
+    var coreRoles = ['payoff','enabler','support','wildcard'];
+    var ideal = {payoff:0.4,enabler:0.2,support:0.2,wildcard:0.2};
+    coreRoles.forEach(r=>{ var actual = roleCounts[r]/Math.max(1,totalReal); diversityScore += (1 - Math.abs(actual - ideal[r])); });
+    diversityScore = (diversityScore / coreRoles.length * 100).toFixed(1);
+    var avgOverlap = (overlapTotals / Math.max(1,totalReal)).toFixed(2);
+    var points = [];
+    points.push('Roles mix: '+coreRoles.map(r=>r[0].toUpperCase()+r.slice(1)+"="+roleCounts[r]+' ('+pct(roleCounts[r])+')').join(', '));
+    points.push('Distinct synergy overlaps represented: '+overlapSet.size);
+    points.push('Average synergy overlaps per card: '+avgOverlap);
+    points.push('Diversity heuristic score: '+diversityScore);
+    var curated = roleCounts.example + roleCounts.curated_synergy;
+    points.push('Curated cards: '+curated+' ('+pct(curated)+')');
+    // Placeholder future richer analytics (P2 roadmap): spread index, top synergy concentration
+    var spreadIndex = (overlapSet.size / Math.max(1, (cards.length))).toFixed(2);
+    points.push('Synergy spread index: '+spreadIndex);
+    listHost.innerHTML = points.map(p=>'<'+'li>'+p+'</li>').join('');
+  } catch(e){ /* silent */ }
+})();
+</script>

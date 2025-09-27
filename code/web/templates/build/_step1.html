@@ -74,8 +74,10 @@
   {% if inspect and inspect.ok %}
   <div class="two-col two-col-left-rail">
   <aside class="card-preview card-sm" data-card-name="{{ selected }}">
-      <a href="https://scryfall.com/search?q={{ selected|urlencode }}" target="_blank" rel="noopener">
-  <img src="https://api.scryfall.com/cards/named?fuzzy={{ selected|urlencode }}&format=image&version=normal" alt="{{ selected }} card image" data-card-name="{{ selected }}" />
+    {# Strip synergy annotation for Scryfall search and image fuzzy param #}
+    {% set sel_base = (selected.split(' - Synergy (')[0] if ' - Synergy (' in selected else selected) %}
+    <a href="https://scryfall.com/search?q={{ sel_base|urlencode }}" target="_blank" rel="noopener">
+  <img src="https://api.scryfall.com/cards/named?fuzzy={{ sel_base|urlencode }}&format=image&version=normal" alt="{{ selected }} card image" data-card-name="{{ sel_base }}" />
       </a>
     </aside>
     <div class="grow">

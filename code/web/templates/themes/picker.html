@@ -1,0 +1,403 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2 style="position:relative;">Theme Catalog <small id="theme-stale-indicator" style="display:none; font-size:12px; color:#b45309;">(Refreshing…)</small></h2>
+<div id="theme-picker" class="theme-picker" hx-get="/themes/fragment/list?limit=20&offset=0" hx-trigger="load" hx-target="#theme-results" hx-swap="innerHTML" role="region" aria-label="Theme picker">
+  <div class="theme-picker-controls">
+    <input type="text" id="theme-search" placeholder="Search themes or synergies" aria-label="Search" 
+           hx-get="/themes/fragment/list" hx-target="#theme-results" hx-trigger="keyup changed delay:250ms" name="q" />
+    <select id="theme-archetype" name="archetype" hx-get="/themes/fragment/list" hx-target="#theme-results" hx-trigger="change">
+      <option value="">All Archetypes</option>
+      {% if archetypes %}{% for a in archetypes %}<option value="{{ a }}">{{ a }}</option>{% endfor %}{% endif %}
+    </select>
+    <select id="theme-bucket" name="bucket" hx-get="/themes/fragment/list" hx-target="#theme-results" hx-trigger="change">
+      <option value="">All Popularity</option>
+      <option>Very Common</option>
+      <option>Common</option>
+      <option>Uncommon</option>
+      <option>Niche</option>
+      <option>Rare</option>
+    </select>
+    <select id="theme-limit" name="limit" hx-get="/themes/fragment/list" hx-target="#theme-results" hx-trigger="change" title="Themes per page">
+      <option value="20" selected>20</option>
+      <option value="30">30</option>
+      <option value="50">50</option>
+      <option value="75">75</option>
+      <option value="100">100</option>
+    </select>
+    <label title="Show full synergy list (diagnostics only)"><input type="checkbox" id="synergy-full" name="synergy_mode" value="full" hx-get="/themes/fragment/list" hx-target="#theme-results" hx-trigger="change"/> Full Synergies</label>
+    <label title="Search input responsiveness experiment">
+      Mode:
+      <select id="search-mode">
+        <option value="throttle" selected>Throttle 250ms</option>
+        <option value="debounce">Debounce 250ms</option>
+      </select>
+    </label>
+    <div class="color-filters" role="group" aria-label="Filter by primary/secondary color">
+      {% for c in ['W','U','B','R','G'] %}
+      <label><input type="checkbox" name="colors" value="{{ c }}" 
+        hx-get="/themes/fragment/list" hx-target="#theme-results" hx-trigger="change"/> {{ c }}</label>
+      {% endfor %}
+    </div>
+    {% if theme_picker_diagnostics %}
+    <label title="Show diagnostics-only badges"><input type="checkbox" id="diag-toggle" name="diagnostics" value="1" hx-get="/themes/fragment/list" hx-target="#theme-results" hx-trigger="change"/> Diagnostics</label>
+    {% endif %}
+  </div>
+  <div id="filter-chips" class="filter-chips" aria-label="Active filters" style="margin-bottom:.25rem;"></div>
+  <div id="theme-results" class="theme-results preload-hide" aria-live="polite" aria-busy="true" role="listbox" aria-label="Loading themes">
+    <div class="skeleton-table" aria-hidden="true">
+      {% for i in range(6) %}
+      <div class="skeleton-row skeleton-align">
+        <div class="sk-cell sk-col sk-theme"></div>
+        <div class="sk-cell sk-col sk-arch"></div>
+        <div class="sk-cell sk-col sk-pop"></div>
+        <div class="sk-cell sk-col sk-colors"></div>
+        <div class="sk-cell sk-col sk-cnt"></div>
+        <div class="sk-cell sk-col sk-synergies"></div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  <template id="theme-row-template"></template>
+  <div class="legend" style="margin-top:1rem; font-size:12px; line-height:1.3;">
+    <strong>Legend:</strong>
+    <span class="theme-badge badge-enforced" title="Enforced synergy (whitelist governance)">ENF</span>
+    <span class="theme-badge badge-curated" title="Curated synergy (hand authored)">CUR</span>
+    <span class="theme-badge badge-inferred" title="Inferred synergy (analytics)">INF</span>
+    <span class="theme-badge badge-pop-vc" title="Popularity: Very Common">VC</span>
+    <span class="theme-badge badge-pop-c" title="Popularity: Common">C</span>
+    <span class="theme-badge badge-pop-u" title="Popularity: Uncommon">U</span>
+    <span class="theme-badge badge-pop-n" title="Popularity: Niche">N</span>
+    <span class="theme-badge badge-pop-r" title="Popularity: Rare">R</span>
+    {% if theme_picker_diagnostics %}
+    <span class="theme-badge badge-fallback" title="Generic fallback description">⚠</span>
+    <span class="theme-badge badge-quality-draft" title="Editorial quality: draft">D</span>
+    <span class="theme-badge badge-quality-reviewed" title="Editorial quality: reviewed">R</span>
+    <span class="theme-badge badge-quality-final" title="Editorial quality: final">F</span>
+    {% endif %}
+  </div>
+  <div id="theme-preview-host"></div>
+  <div id="filter-chips" class="filter-chips" aria-label="Active filters"></div>
+</div>
+<style>
+.theme-picker-controls { display:flex; flex-wrap:wrap; gap:.5rem; margin-bottom:.75rem; }
+.theme-results table { width:100%; border-collapse: collapse; }
+.theme-results th, .theme-results td { padding:.35rem .5rem; border-bottom:1px solid var(--border); font-size:13px; }
+.theme-results tr:hover { background: var(--hover); cursor:pointer; }
+:root { --focus:#6366f1; }
+@media (prefers-contrast: more){ :root { --focus:#ff9800; } }
+.theme-row.is-active { outline:2px solid var(--focus); outline-offset:-2px; background:var(--hover); }
+/* Long theme name truncation */
+.theme-results td:first-child { max-width:260px; }
+.theme-results td:first-child span.trunc-name { display:inline-block; max-width:240px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; vertical-align:bottom; }
+/* Badge wrapping heuristics */
+.theme-synergies .theme-badge { max-width:120px; overflow:hidden; text-overflow:ellipsis; }
+.theme-synergies { font-size:11px; opacity:.85; display:flex; flex-wrap:wrap; gap:4px; }
+.theme-badge { display:inline-block; padding:2px 6px; border-radius:12px; font-size:10px; background: var(--panel-alt); border:1px solid var(--border); letter-spacing:.5px; }
+.badge-fallback { background:#7f1d1d; color:#fff; }
+.badge-quality-draft { background:#4338ca; color:#fff; }
+.badge-quality-reviewed { background:#065f46; color:#fff; }
+.badge-quality-final { background:#065f46; color:#fff; font-weight:600; }
+.badge-pop-vc { background:#065f46; color:#fff; }
+.badge-pop-c { background:#047857; color:#fff; }
+.badge-pop-u { background:#0369a1; color:#fff; }
+.badge-pop-n { background:#92400e; color:#fff; }
+.badge-pop-r { background:#7f1d1d; color:#fff; }
+.badge-curated { background:#4f46e5; color:#fff; }
+.badge-enforced { background:#334155; color:#fff; }
+.badge-inferred { background:#57534e; color:#fff; }
+/* Preview modal */
+.preview-modal { position:fixed; inset:0; background:rgba(0,0,0,0.55); display:flex; align-items:flex-start; justify-content:center; padding:4vh 2vw; z-index:9000; }
+.preview-modal-content { background:var(--panel); padding:1rem; border-radius:8px; max-width:900px; width:100%; max-height:88vh; overflow:auto; box-shadow:0 4px 18px rgba(0,0,0,0.4); }
+/* Skeleton */
+.skeleton-table { display:flex; flex-direction:column; gap:6px; }
+.skeleton-row { display:grid; grid-template-columns:22% 10% 10% 12% 12% 1fr; gap:8px; align-items:center; }
+.sk-cell { height:14px; background:linear-gradient(90deg, var(--panel-alt) 25%, var(--hover) 50%, var(--panel-alt) 75%); background-size:200% 100%; animation: sk 1.2s ease-in-out infinite; border-radius:4px; opacity:.7; }
+.skeleton-align .sk-col { height:14px; }
+.sk-synergies { height:18px; }
+/* New UX additions */
+.filter-chips { display:flex; gap:6px; flex-wrap:wrap; margin-top:.35rem; }
+.filter-chip { background:var(--panel-alt); border:1px solid var(--border); padding:2px 8px; border-radius:14px; font-size:11px; cursor:pointer; display:inline-flex; align-items:center; gap:4px; }
+.filter-chip button { background:none; border:none; color:inherit; cursor:pointer; font-size:11px; padding:0; line-height:1; }
+mark { background:#fde68a; color:inherit; padding:0 2px; border-radius:2px; }
+@keyframes sk {0%{background-position:0 0;}100%{background-position:-200% 0;}}
+</style>
+<script>
+(function(){
+  function serializeFilters(container){
+    var params = [];
+    var qs = container.querySelector('#theme-search');
+    if(qs && qs.value.trim()){ params.push('q='+encodeURIComponent(qs.value.trim())); }
+    var as = container.querySelector('#theme-archetype');
+    if(as && as.value) params.push('archetype='+encodeURIComponent(as.value));
+    var bs = container.querySelector('#theme-bucket');
+    if(bs && bs.value) params.push('bucket='+encodeURIComponent(bs.value));
+    var lim = container.querySelector('#theme-limit');
+    if(lim && lim.value) params.push('limit='+encodeURIComponent(lim.value));
+    var diag = container.querySelector('#diag-toggle');
+    if(diag && diag.checked) params.push('diagnostics=1');
+    var syFull = container.querySelector('#synergy-full');
+    if(syFull && syFull.checked) params.push('synergy_mode=full');
+    var colorChecks = container.querySelectorAll('input[name="colors"]:checked');
+    if(colorChecks.length){
+       var vals = Array.prototype.map.call(colorChecks, c=>c.value).join(',');
+       params.push('colors='+encodeURIComponent(vals));
+    }
+    return params.join('&');
+  }
+  var perfMarks={}; function mark(n){ perfMarks[n]=performance.now(); }
+  function fetchList(){
+    saveScroll();
+    var container = document.getElementById('theme-picker');
+    if(!container) return;
+    var target = document.getElementById('theme-results');
+    if(!target) return;
+    // Abort any in-flight request (resilience: rapid search)
+    if(window.__themeListAbort){ try { window.__themeListAbort.abort(); } catch(_e){} }
+    var controller = new AbortController();
+    window.__themeListAbort = controller;
+    target.setAttribute('aria-busy','true');
+    target.setAttribute('aria-label','Loading themes');
+    mark('list_render_start');
+    var base = serializeFilters(container);
+    if(base.indexOf('offset=') === -1){ base += (base ? '&' : '') + 'offset=0'; }
+    toggleRefreshBtn(true);
+    fetch('/themes/fragment/list?'+base, {cache:'no-store', signal: controller.signal})
+      .then(r=>r.text())
+      .then(html=>{ if(controller.signal.aborted) return; target.innerHTML = html; target.removeAttribute('aria-busy'); target.classList.remove('preload-hide'); listRenderComplete(); toggleRefreshBtn(false); })
+      .catch(err=>{ if(controller.signal.aborted) return; target.innerHTML = '<div class="error" role="alert">Failed loading themes. <button id="retry-fetch" class="btn btn-ghost">Retry</button></div>'; target.removeAttribute('aria-busy'); target.classList.remove('preload-hide'); attachRetry(); structuredLog('list_fetch_error'); announceResultCount(); toggleRefreshBtn(false); });
+  }
+  function attachRetry(){ var b=document.getElementById('retry-fetch'); if(!b) return; b.addEventListener('click', function(){ fetchList(); }); }
+  function listRenderComplete(){ mark('list_ready'); announceResultCount(); if(window.THEME_DIAG_ENABLED){ try { var dur=perfMarks.list_ready - perfMarks.list_render_start; if(navigator.sendBeacon){ navigator.sendBeacon('/themes/metrics/client', new Blob([JSON.stringify({events:[{name:'list_render', duration_ms:Math.round(dur)}]})], {type:'application/json'})); } } catch(_e){} } }
+  function injectPrefetchLinks(){
+    try {
+      var head=document.head; if(!head) return;
+      // Remove old dynamic prefetch links
+      Array.from(head.querySelectorAll('link[data-dynamic-prefetch]')).forEach(l=>l.remove());
+      // Choose top 5 rows (skip currently selected to bias exploration)
+      var rows = document.querySelectorAll('#theme-results tr.theme-row[data-theme-id]');
+      var current = new URL(window.location.href).searchParams.get('theme');
+      var picked=[]; rows.forEach(r=>{ var id=r.getAttribute('data-theme-id'); if(!id) return; if(id===current) return; if(picked.length<5) picked.push(id); });
+      picked.forEach(function(id){ var link=document.createElement('link'); link.rel='prefetch'; link.href='/themes/fragment/detail/'+id; link.as='fetch'; link.setAttribute('data-dynamic-prefetch','1'); head.appendChild(link); });
+    } catch(e) {}
+  }
+  function structuredLog(ev){ if(!window.THEME_DIAG_ENABLED) return; try { fetch('/themes/log',{method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({event:ev, ts:Date.now()})}); } catch(_e){} }
+  document.addEventListener('htmx:afterOnLoad', function(ev){
+    if(ev.target && ev.target.id==='theme-results'){
+      var rows = ev.target.querySelectorAll('tr.theme-row[data-theme-id]');
+      rows.forEach(function(r){
+        var id = r.getAttribute('data-theme-id');
+        if(!id) return;
+        r.addEventListener('click', function(){
+          var url = new URL(window.location.href);
+            url.searchParams.set('theme', id);
+            var filters = serializeFilters(document.getElementById('theme-picker'));
+            if(filters){ url.searchParams.set('filters', filters); }
+            history.pushState({ theme:id, filters: filters }, '', url.toString()); window._lastThemeFocusId=id;
+        }, { once:false });
+        var prefetchTimer;
+        r.addEventListener('mouseenter', function(){
+          clearTimeout(prefetchTimer);
+          prefetchTimer = setTimeout(function(){
+            fetch('/themes/fragment/detail/'+id+'?'+(document.getElementById('diag-toggle')?.checked?'diagnostics=1':''), {cache:'force-cache'}).then(function(resp){ structuredLog('prefetch_success'); return resp.text(); }).then(function(_html){ }).catch(function(){ structuredLog('prefetch_error'); });
+          }, 180);
+        });
+        r.addEventListener('mouseleave', function(){ clearTimeout(prefetchTimer); });
+      });
+      var current = new URL(window.location.href).searchParams.get('theme');
+      if(current && !document.getElementById('theme-detail')?.dataset?.loaded){
+        htmx.ajax('GET', '/themes/fragment/detail/'+current, '#theme-detail');
+      }
+      // Restore focus to previously active row if available
+      if(window._lastThemeFocusId){
+        var targetRow = ev.target.querySelector('tr.theme-row[data-theme-id="'+window._lastThemeFocusId+'"]');
+        if(targetRow){ targetRow.focus({preventScroll:false}); }
+      }
+      buildFilterChips();
+      injectPrefetchLinks();
+      restoreScroll();
+      enableKeyboardNav();
+    }
+  });
+  window.addEventListener('popstate', function(ev){
+    var state = ev.state || {};
+    if(state.filters){
+      var params = new URLSearchParams(state.filters);
+      var container = document.getElementById('theme-picker');
+      if(container){
+        if(params.get('q')) container.querySelector('#theme-search').value = decodeURIComponent(params.get('q'));
+        if(params.get('archetype')) container.querySelector('#theme-archetype').value = decodeURIComponent(params.get('archetype'));
+        if(params.get('bucket')) container.querySelector('#theme-bucket').value = decodeURIComponent(params.get('bucket'));
+        if(params.get('limit')) container.querySelector('#theme-limit').value = decodeURIComponent(params.get('limit'));
+        var colorStr = params.get('colors');
+        if(colorStr){
+          var set = new Set(colorStr.split(','));
+          container.querySelectorAll('input[name="colors"]').forEach(function(cb){ cb.checked = set.has(cb.value); });
+        }
+        if(params.get('diagnostics')==='1'){ var diag=container.querySelector('#diag-toggle'); if(diag){ diag.checked=true; } }
+        fetchList();
+      }
+    }
+    if(state.theme){
+      htmx.ajax('GET', '/themes/fragment/detail/'+state.theme, '#theme-detail');
+    }
+  });
+  window.addEventListener('load', function(){
+    var url = new URL(window.location.href);
+    var filters = url.searchParams.get('filters');
+    if(filters){
+      var params = new URLSearchParams(filters);
+      var container = document.getElementById('theme-picker');
+      if(container){
+        if(params.get('q')) container.querySelector('#theme-search').value = decodeURIComponent(params.get('q'));
+        if(params.get('archetype')) container.querySelector('#theme-archetype').value = decodeURIComponent(params.get('archetype'));
+        if(params.get('bucket')) container.querySelector('#theme-bucket').value = decodeURIComponent(params.get('bucket'));
+        if(params.get('limit')) container.querySelector('#theme-limit').value = decodeURIComponent(params.get('limit'));
+        var colorStr = params.get('colors');
+        if(colorStr){
+          var set = new Set(colorStr.split(','));
+          container.querySelectorAll('input[name="colors"]').forEach(function(cb){ cb.checked = set.has(cb.value); });
+        }
+        if(params.get('diagnostics')==='1'){ var diag=container.querySelector('#diag-toggle'); if(diag){ diag.checked=true; } }
+      }
+    }
+    var theme = url.searchParams.get('theme');
+    if(theme){ htmx.ajax('GET','/themes/fragment/detail/'+theme,'#theme-detail'); }
+    window.THEME_DIAG_ENABLED = !!document.getElementById('diag-toggle');
+  }, { once:true });
+  var lastScroll = 0;
+  function saveScroll(){ lastScroll = window.scrollY || document.documentElement.scrollTop; }
+  function restoreScroll(){ if(typeof lastScroll === 'number'){ window.scrollTo(0, lastScroll); } }
+  function buildFilterChips(){
+    var host = document.getElementById('filter-chips');
+    if(!host) return;
+    host.innerHTML='';
+    var container = document.getElementById('theme-picker');
+    if(!container) return;
+    var q = container.querySelector('#theme-search').value.trim();
+    var archetype = container.querySelector('#theme-archetype').value;
+    var bucket = container.querySelector('#theme-bucket').value;
+    var colors = Array.from(container.querySelectorAll('input[name="colors"]:checked')).map(c=>c.value).join(',');
+    var diag = container.querySelector('#diag-toggle')?.checked;
+    function addChip(label, key){
+      var chip = document.createElement('span');
+      chip.className='filter-chip';
+      chip.innerHTML = '<span>'+label+'</span><button aria-label="Remove '+key+'">×</button>';
+      chip.querySelector('button').addEventListener('click', function(){
+        if(key==='q'){ container.querySelector('#theme-search').value=''; }
+        if(key==='archetype'){ container.querySelector('#theme-archetype').value=''; }
+        if(key==='bucket'){ container.querySelector('#theme-bucket').value=''; }
+        if(key==='colors'){ container.querySelectorAll('input[name="colors"]').forEach(cb=>cb.checked=false); }
+        if(key==='diagnostics'){ var d=container.querySelector('#diag-toggle'); if(d) d.checked=false; }
+        fetchList();
+      });
+      host.appendChild(chip);
+    }
+    if(q) addChip('Search: '+q, 'q');
+    if(archetype) addChip('Archetype: '+archetype, 'archetype');
+    if(bucket) addChip('Popularity: '+bucket, 'bucket');
+    if(colors) addChip('Colors: '+colors, 'colors');
+    if(diag) addChip('Diagnostics', 'diagnostics');
+    var syFull = container.querySelector('#synergy-full')?.checked; if(syFull) addChip('Full Synergies','synergy_mode');
+  }
+  function enableKeyboardNav(){
+    var tbody = document.querySelector('#theme-results tbody');
+    if(!tbody) return; 
+    var rows = Array.from(tbody.querySelectorAll('tr.theme-row'));
+    if(!rows.length) return;
+    var activeIndex = -1;
+    function setActive(i){ rows.forEach(r=>r.classList.remove('is-active')); if(i>=0 && rows[i]){ rows[i].classList.add('is-active'); rows[i].focus({preventScroll:true}); activeIndex=i; } }
+    document.addEventListener('keydown', function(e){
+      if(['ArrowDown','ArrowUp','Enter','Escape'].indexOf(e.key)===-1) return;
+      if(e.key==='ArrowDown'){ e.preventDefault(); setActive(Math.min(activeIndex+1, rows.length-1)); }
+      else if(e.key==='ArrowUp'){ e.preventDefault(); setActive(Math.max(activeIndex-1, 0)); }
+      else if(e.key==='Enter'){ if(activeIndex>=0){ rows[activeIndex].click(); } }
+      else if(e.key==='Escape'){ setActive(-1); var detail=document.getElementById('theme-detail'); if(detail){ detail.innerHTML='Selection cleared.'; detail.setAttribute('aria-live','polite'); } }
+    }, { once:false });
+    document.addEventListener('keydown', function(e){
+      if(e.key==='Enter' && e.shiftKey){ var cb=document.getElementById('synergy-full'); if(cb){ cb.checked=!cb.checked; fetchList(); } }
+    });
+  }
+  var searchInput = document.getElementById('theme-search');
+  var searchModeSel = document.getElementById('search-mode');
+  var lastExec = 0; var pendingTimer = null; var BASE_DELAY = 250;
+  function performSearch(){ fetchList(); }
+  function throttledHandler(){ var now=Date.now(); if(now - lastExec > BASE_DELAY){ lastExec = now; performSearch(); } }
+  function debouncedHandler(){ clearTimeout(pendingTimer); pendingTimer = setTimeout(performSearch, BASE_DELAY); }
+  function attachSearchHandler(){
+    if(!searchInput) return;
+    searchInput.removeEventListener('keyup', throttledHandler);
+    searchInput.removeEventListener('keyup', debouncedHandler);
+    if(searchModeSel && searchModeSel.value==='debounce'){
+      searchInput.addEventListener('keyup', debouncedHandler);
+    } else {
+      searchInput.addEventListener('keyup', throttledHandler);
+    }
+  }
+  if(searchModeSel){ searchModeSel.addEventListener('change', attachSearchHandler); }
+  attachSearchHandler();
+  function toggleRefreshBtn(dis){ var btn=document.getElementById('catalog-refresh-btn'); if(btn){ if(dis){ btn.setAttribute('disabled','disabled'); btn.setAttribute('aria-busy','true'); } else { btn.removeAttribute('disabled'); btn.removeAttribute('aria-busy'); } } }
+  function checkStatus(){
+    fetch('/themes/status',{cache:'no-store'}).then(r=>r.json()).then(js=>{
+      if(js.stale){
+        var ind=document.getElementById('theme-stale-indicator'); if(ind){ ind.style.display='inline'; }
+        toggleRefreshBtn(true);
+        fetch('/themes/refresh',{method:'POST'}).then(()=>{
+          var attempts=0; var max=20; var iv=setInterval(()=>{
+            fetch('/themes/status',{cache:'no-store'}).then(r=>r.json()).then(s2=>{
+              if(!s2.stale){ clearInterval(iv); if(ind) ind.style.display='none'; fetchList(); }
+            }).catch(()=>{});
+            attempts++; if(attempts>max){ clearInterval(iv); }
+          },1500);
+        }).finally(()=>{ toggleRefreshBtn(false); });
+      }
+    }).catch(()=>{});
+  }
+  function announceResultCount(){ var tbody=document.querySelector('#theme-results tbody'); if(!tbody) return; var count=tbody.querySelectorAll('tr.theme-row').length; var host=document.getElementById('theme-results'); if(host){ host.setAttribute('aria-label', count+' themes'); } }
+  window.addEventListener('load', checkStatus, {once:true});
+})();
+// Preview modal retry/backoff & logging
+(function(){
+  document.addEventListener('click', function(e){ var btn=e.target.closest('button[data-preview-btn]'); if(!btn) return; var theme=btn.getAttribute('data-theme-id'); if(!theme) return; setTimeout(function(){ attach(theme); }, 40); });
+  function attach(theme){
+    var modal=document.getElementById('theme-preview-modal'); if(!modal) return;
+    var cacheKey='preview:'+theme;
+    var tStart = performance.now();
+    // Stale-While-Revalidate: show cached HTML immediately if present
+    try {
+      var cached=sessionStorage.getItem(cacheKey);
+      if(cached){ modal.innerHTML=cached; modal.setAttribute('data-swr','stale'); }
+    } catch(_e){}
+    var attempts=0,max=3,back=350; function run(){ attempts++; fetch('/themes/fragment/preview/'+theme,{cache:'no-store'}).then(function(r){ if(r.status===200) return r.text(); if(r.status===304) return ''; throw new Error('bad'); }).then(function(html){ if(!html) return; modal.innerHTML=html; structuredLog('preview_fetch_success'); try { sessionStorage.setItem(cacheKey, html); } catch(_e){} try { recordPreviewLatency(performance.now()-tStart); } catch(_e){} }).catch(function(){ structuredLog('preview_fetch_error'); try { recordPreviewLatency(performance.now()-tStart, true); } catch(_e){} if(attempts<max){ setTimeout(run, back); back*=2; } else { modal.innerHTML='<div class="preview-modal-content"><div role="alert" style="font-size:13px;">Failed to load preview.<br/><button id="retry-preview" class="btn">Retry</button></div></div>'; var rp=document.getElementById('retry-preview'); if(rp){ rp.addEventListener('click', function(){ attempts=0; back=350; run(); }); } } }); }
+    if(/Loading/.test(modal.textContent||'') || modal.getAttribute('data-swr')==='stale') run();
+    // Inject export buttons (single insertion guard)
+    setTimeout(function(){
+      try {
+        if(!modal.querySelector('.preview-export-bar') && modal.querySelector('.preview-header')){
+          var bar = document.createElement('div');
+          bar.className='preview-export-bar';
+          bar.style.cssText='margin:.5rem 0 .25rem; display:flex; gap:.5rem; flex-wrap:wrap; align-items:center; font-size:11px;';
+          bar.innerHTML = '<button class="btn btn-ghost" style="font-size:11px;padding:2px 8px;" data-exp-json>Export JSON</button>'+
+                          '<button class="btn btn-ghost" style="font-size:11px;padding:2px 8px;" data-exp-csv>Export CSV</button>'+
+                          '<span style="opacity:.6;">(Respects curated toggle)</span>';
+          var header = modal.querySelector('.preview-header');
+          header.parentNode.insertBefore(bar, header.nextSibling);
+          function curatedOnly(){ try { return localStorage.getItem('mtg:preview.curatedOnly')==='1'; } catch(_){ return false; } }
+          bar.querySelector('[data-exp-json]').addEventListener('click', function(){ window.open('/themes/preview/'+encodeURIComponent(theme)+'/export.json?curated_only='+(curatedOnly()?'1':'0'),'_blank'); });
+          bar.querySelector('[data-exp-csv]').addEventListener('click', function(){ window.open('/themes/preview/'+encodeURIComponent(theme)+'/export.csv?curated_only='+(curatedOnly()?'1':'0'),'_blank'); });
+        }
+      } catch(_e){}
+    }, 120);
+  }
+})();
+</script>
+<style>
+  #theme-results.preload-hide { visibility:hidden; }
+  #catalog-refresh-btn[disabled]{ opacity:.55; cursor:progress; }
+</style>
+<script>
+// Batch preview latency beacons every 20 events
+(function(){
+  var latSamples=[]; var errSamples=0; var BATCH=20; window.recordPreviewLatency=function(ms, isErr){ try { latSamples.push(ms); if(isErr) errSamples++; if(latSamples.length>=BATCH && window.THEME_DIAG_ENABLED){ var avg=Math.round(latSamples.reduce((a,b)=>a+b,0)/latSamples.length); var payload={events:[{name:'preview_load_batch', count:latSamples.length, avg_ms:avg, err:errSamples}]}; if(navigator.sendBeacon){ navigator.sendBeacon('/themes/metrics/client', new Blob([JSON.stringify(payload)],{type:'application/json'})); } latSamples=[]; errSamples=0; } } catch(_e){} };
+})();
+</script>
+{% endblock %}

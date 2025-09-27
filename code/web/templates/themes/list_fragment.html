@@ -1,0 +1,155 @@
+{% if items %}
+<div class="pager" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:.35rem; font-size:12px;">
+  <div>
+    Showing {{ offset + 1 }}–{{ (offset + items|length) }} of {{ total }}
+  </div>
+  <div class="pager-buttons" style="display:flex; gap:.4rem;">
+    {% if prev_offset is not none %}
+    <button hx-get="/themes/fragment/list?offset={{ prev_offset }}&limit={{ limit }}" hx-target="#theme-results" hx-swap="innerHTML" class="btn btn-ghost" style="font-size:11px; padding:2px 8px;">« Prev</button>
+    {% else %}
+    <button disabled class="btn btn-ghost" style="opacity:.3; font-size:11px; padding:2px 8px;">« Prev</button>
+    {% endif %}
+    {% if next_offset is not none %}
+    <button hx-get="/themes/fragment/list?offset={{ next_offset }}&limit={{ limit }}" hx-target="#theme-results" hx-swap="innerHTML" class="btn btn-ghost" style="font-size:11px; padding:2px 8px;">Next »</button>
+    {% else %}
+    <button disabled class="btn btn-ghost" style="opacity:.3; font-size:11px; padding:2px 8px;">Next »</button>
+    {% endif %}
+  </div>
+</div>
+<table>
+  <thead>
+    <tr>
+      <th style="width:22%">Theme</th>
+      <th style="width:10%">Primary</th>
+      <th style="width:10%">Secondary</th>
+      <th style="width:12%">Popularity</th>
+      <th style="width:12%">Archetype</th>
+      <th>Synergies</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for it in items %}
+  <tr hx-get="/themes/fragment/detail/{{ it.id }}" hx-target="#theme-detail" hx-swap="innerHTML" title="Click for details" class="theme-row" data-theme-id="{{ it.id }}" tabindex="0" role="option" aria-selected="false">
+      <td title="{{ it.short_description or '' }}">{% set q = request.query_params.get('q') %}{% set name = it.theme %}{% if q %}{% set ql = q.lower() %}{% set nl = name.lower() %}{% if ql in nl %}{% set start = nl.find(ql) %}{% set end = start + q|length %}<span class="trunc-name">{{ name[:start] }}<mark>{{ name[start:end] }}</mark>{{ name[end:] }}</span>{% else %}<span class="trunc-name">{{ name }}</span>{% endif %}{% else %}<span class="trunc-name">{{ name }}</span>{% endif %} {% if diagnostics and it.has_fallback_description %}<span class="theme-badge badge-fallback" title="Fallback description">⚠</span>{% endif %}
+        {% if diagnostics and it.editorial_quality %}
+          <span class="theme-badge badge-quality-{{ it.editorial_quality }}" title="Editorial quality: {{ it.editorial_quality }}">{{ it.editorial_quality[0]|upper }}</span>
+        {% endif %}
+      </td>
+  <td>{% if it.primary_color %}<span aria-label="Primary color: {{ it.primary_color }}">{{ it.primary_color }}</span>{% endif %}</td>
+  <td>{% if it.secondary_color %}<span aria-label="Secondary color: {{ it.secondary_color }}">{{ it.secondary_color }}</span>{% endif %}</td>
+      <td>
+        {% if it.popularity_bucket %}
+          <span class="theme-badge {% if it.popularity_bucket=='Very Common' %}badge-pop-vc{% elif it.popularity_bucket=='Common' %}badge-pop-c{% elif it.popularity_bucket=='Uncommon' %}badge-pop-u{% elif it.popularity_bucket=='Niche' %}badge-pop-n{% elif it.popularity_bucket=='Rare' %}badge-pop-r{% endif %}" title="Popularity: {{ it.popularity_bucket }}">{{ it.popularity_bucket }}</span>
+        {% endif %}
+      </td>
+      <td>{{ it.deck_archetype or '' }}</td>
+      <td>
+        <div class="theme-synergies">
+          {% for s in it.synergies %}<span class="theme-badge">{{ s }}</span>{% endfor %}
+          {% if it.synergies_capped %}<span class="theme-badge" title="Additional synergies hidden">…</span>{% endif %}
+        </div>
+        <div style="margin-top:4px;">
+          <button
+            data-preview-btn
+            data-theme-id="{{ it.id }}"
+            hx-get="/themes/fragment/preview/{{ it.id }}"
+            hx-target="#theme-preview-modal"
+            hx-swap="innerHTML"
+            onclick="(function(){var m=document.getElementById('theme-preview-modal'); if(!m){ m=document.createElement('div'); m.id='theme-preview-modal'; m.className='preview-modal'; m.innerHTML='<div class=\'preview-modal-content\'>Loading…</div>'; document.body.appendChild(m);} m.style.display='block';})();"
+            style="font-size:10px; padding:2px 6px; margin-top:2px;">Preview</button>
+          {% if it.synergies_capped %}
+            <button
+              hx-get="/themes/fragment/detail/{{ it.id }}"
+              hx-target="#theme-detail"
+              hx-swap="innerHTML"
+              title="Show full synergy list in details panel"
+              style="font-size:10px; padding:2px 6px; margin-top:2px;">+ All</button>
+          {% endif %}
+        </div>
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+<div class="pager" style="display:flex; justify-content:space-between; align-items:center; margin-top:.5rem; font-size:12px;">
+  <div>
+    Showing {{ offset + 1 }}–{{ (offset + items|length) }} of {{ total }}
+  </div>
+  <div class="pager-buttons" style="display:flex; gap:.4rem;">
+    {% if prev_offset is not none %}
+    <button hx-get="/themes/fragment/list?offset={{ prev_offset }}&limit={{ limit }}" hx-target="#theme-results" hx-swap="innerHTML" class="btn btn-ghost" style="font-size:11px; padding:2px 8px;">« Prev</button>
+    {% else %}
+    <button disabled class="btn btn-ghost" style="opacity:.3; font-size:11px; padding:2px 8px;">« Prev</button>
+    {% endif %}
+    {% if next_offset is not none %}
+    <button hx-get="/themes/fragment/list?offset={{ next_offset }}&limit={{ limit }}" hx-target="#theme-results" hx-swap="innerHTML" class="btn btn-ghost" style="font-size:11px; padding:2px 8px;">Next »</button>
+    {% else %}
+    <button disabled class="btn btn-ghost" style="opacity:.3; font-size:11px; padding:2px 8px;">Next »</button>
+    {% endif %}
+  </div>
+</div>
+<div id="theme-detail" class="theme-detail" style="margin-top:1rem;">Select a theme above to view details.</div>
+<script>
+// Enhance preview button with sessionStorage fragment cache (ETag aware) + structured logs
+(function(){
+  try {
+    var store = window.sessionStorage;
+    var buttons = document.querySelectorAll('button[data-preview-btn]');
+    function log(ev){ if(!window.THEME_DIAG_ENABLED) return; try { fetch('/themes/log',{method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({event:ev, ts:Date.now()})}); } catch(_e){} }
+    buttons.forEach(function(btn){
+      if(btn.getAttribute('data-cache-enhanced')) return;
+      btn.setAttribute('data-cache-enhanced','1');
+      btn.addEventListener('click', function(ev){
+        var theme = btn.getAttribute('data-theme-id');
+        if(!theme) return;
+        var key = 'preview:'+theme+':limit12';
+        try {
+          var cached = store.getItem(key);
+          if(cached){
+            var parsed = JSON.parse(cached);
+            if(parsed && parsed.html && parsed.etag){
+              log('cache_hit');
+              // Optimistic render cached first, then revalidate
+              var host = document.getElementById('theme-preview-modal');
+              if(host){ host.innerHTML = parsed.html; }
+              fetch('/themes/fragment/preview/'+theme, { headers:{'If-None-Match': parsed.etag}}).then(function(r){
+                if(r.status === 304) return null; return r.text().then(function(ht){ return {ht:ht, et:r.headers.get('ETag')}; });
+              }).then(function(obj){ if(!obj) return; var host2=document.getElementById('theme-preview-modal'); if(host2){ host2.innerHTML=obj.ht; } store.setItem(key, JSON.stringify({html: obj.ht, etag: obj.et || ''})); }).catch(function(){});
+              return; // short-circuit default htmx fetch (we already handled)
+            }
+          }
+          log('cache_miss');
+        } catch(_e){}
+        // No cache path: allow htmx; hook after swap to store
+        document.addEventListener('htmx:afterSwap', function handler(e){
+          if(e.target && e.target.id==='theme-preview-modal'){
+            try {
+              var et = e.detail.xhr.getResponseHeader('ETag') || '';
+              store.setItem(key, JSON.stringify({html: e.target.innerHTML, etag: et}));
+            } catch(_){}
+            document.removeEventListener('htmx:afterSwap', handler);
+          }
+        });
+      }, {capture:true});
+    });
+  } catch(_err){}
+})();
+</script>
+{% else %}
+  {% if total == 0 %}
+    <div class="empty">No themes match your filters.</div>
+  {% else %}
+    <div class="skeleton-table" style="display:flex; flex-direction:column; gap:6px;">
+      {% for i in range(6) %}
+      <div class="skeleton-row" style="display:grid; grid-template-columns:22% 10% 10% 12% 12% 1fr; gap:8px; align-items:center;">
+        <div class="sk-cell sk-wide" style="height:14px; background:var(--hover); border-radius:4px;"></div>
+        <div class="sk-cell" style="height:14px; background:var(--hover); border-radius:4px;"></div>
+        <div class="sk-cell" style="height:14px; background:var(--hover); border-radius:4px;"></div>
+        <div class="sk-cell" style="height:14px; background:var(--hover); border-radius:4px;"></div>
+        <div class="sk-cell" style="height:14px; background:var(--hover); border-radius:4px;"></div>
+        <div class="sk-cell sk-long" style="height:18px; background:var(--hover); border-radius:4px;"></div>
+      </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+{% endif %}

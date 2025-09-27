@@ -38,3 +38,22 @@ jobs:
       - name: Tests
         run: |
           pytest -q || true
+
+      - name: Theme catalog validation (non-strict)
+        run: |
+          python code/scripts/validate_theme_catalog.py
+
+      - name: Theme catalog strict alias check
+        run: |
+          python code/scripts/validate_theme_catalog.py --strict-alias
+
+      - name: Fast path catalog presence & hash validation
+        run: |
+          python code/scripts/validate_theme_fast_path.py --strict-warn
+
+      - name: Fast determinism tests (random subset)
+        env:
+          CSV_FILES_DIR: csv_files/testdata
+          RANDOM_MODES: "1"
+        run: |
+          pytest -q code/tests/test_random_determinism.py code/tests/test_random_build_api.py code/tests/test_seeded_builder_minimal.py code/tests/test_builder_rng_seeded_stream.py

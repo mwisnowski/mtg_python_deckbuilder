@@ -74,6 +74,45 @@ class DeckBuilder(
     ColorBalanceMixin,
     ReportingMixin
 ):
+    # Seedable RNG support (minimal surface area):
+    # - seed: optional seed value stored for diagnostics
+    # - _rng: internal Random instance; access via self.rng
+    seed: Optional[int] = field(default=None, repr=False)
+    _rng: Any = field(default=None, repr=False)
+
+    @property
+    def rng(self):
+        """Lazy, per-builder RNG instance. If a seed was set, use it deterministically."""
+        if self._rng is None:
+            try:
+                # If a seed was assigned pre-init, use it
+                if self.seed is not None:
+                    # Import here to avoid any heavy import cycles at module import time
+                    from random_util import set_seed as _set_seed  # type: ignore
+                    self._rng = _set_seed(int(self.seed))
+                else:
+                    self._rng = random.Random()
+            except Exception:
+                # Fallback to module random
+                self._rng = random
+        return self._rng
+
+    def set_seed(self, seed: int | str) -> None:
+        """Set deterministic seed for this builder and reset its RNG instance."""
+        try:
+            from random_util import derive_seed_from_string as _derive, set_seed as _set_seed  # type: ignore
+            s = _derive(seed)
+            self.seed = int(s)
+            self._rng = _set_seed(s)
+        except Exception:
+            try:
+                self.seed = int(seed) if not isinstance(seed, int) else seed
+                r = random.Random()
+                r.seed(self.seed)
+                self._rng = r
+            except Exception:
+                # Leave RNG as-is on unexpected error
+                pass
     def build_deck_full(self):
         """Orchestrate the full deck build process, chaining all major phases."""
         start_ts = datetime.datetime.now()
@@ -144,73 +183,94 @@ class DeckBuilder(
             except Exception:
                 pass
             if hasattr(self, 'export_decklist_csv'):
-                # If user opted out of owned-only, silently load all owned files for marking
-                try:
-                    if not self.use_owned_only and not self.owned_card_names:
-                        self._load_all_owned_silent()
-                except Exception:
-                    pass
-                csv_path = self.export_decklist_csv()
+                suppress_export = False
                 try:
                     import os as _os
-                    base, _ext = _os.path.splitext(_os.path.basename(csv_path))
-                    txt_path = self.export_decklist_text(filename=base + '.txt')  # type: ignore[attr-defined]
-                    # Display the text file contents for easy copy/paste to online deck builders
-                    self._display_txt_contents(txt_path)
-                    # Compute bracket compliance and save a JSON report alongside exports
+                    suppress_export = _os.getenv('RANDOM_BUILD_SUPPRESS_INITIAL_EXPORT') == '1'
+                except Exception:
+                    suppress_export = False
+                if not suppress_export:
+                    # If user opted out of owned-only, silently load all owned files for marking
                     try:
-                        if hasattr(self, 'compute_and_print_compliance'):
-                            report0 = self.compute_and_print_compliance(base_stem=base)  # type: ignore[attr-defined]
-                            # If non-compliant and interactive, offer enforcement now
+                        if not self.use_owned_only and not self.owned_card_names:
+                            self._load_all_owned_silent()
+                    except Exception:
+                        pass
+                    csv_path = self.export_decklist_csv()
+                    # Persist CSV path immediately (before any later potential exceptions)
+                    try:
+                        self.last_csv_path = csv_path  # type: ignore[attr-defined]
+                    except Exception:
+                        pass
+                    try:
+                        import os as _os
+                        base, _ext = _os.path.splitext(_os.path.basename(csv_path))
+                        txt_path = self.export_decklist_text(filename=base + '.txt')  # type: ignore[attr-defined]
+                        try:
+                            self.last_txt_path = txt_path  # type: ignore[attr-defined]
+                        except Exception:
+                            pass
+                        # Display the text file contents for easy copy/paste to online deck builders
+                        self._display_txt_contents(txt_path)
+                        # Compute bracket compliance and save a JSON report alongside exports
+                        try:
+                            if hasattr(self, 'compute_and_print_compliance'):
+                                report0 = self.compute_and_print_compliance(base_stem=base)  # type: ignore[attr-defined]
+                                # If non-compliant and interactive, offer enforcement now
+                                try:
+                                    if isinstance(report0, dict) and report0.get('overall') == 'FAIL' and not getattr(self, 'headless', False):
+                                        from deck_builder.phases.phase6_reporting import ReportingMixin as _RM  # type: ignore
+                                        if isinstance(self, _RM) and hasattr(self, 'enforce_and_reexport'):
+                                            self.output_func("One or more bracket limits exceeded. Enter to auto-resolve, or Ctrl+C to skip.")
+                                            try:
+                                                _ = self.input_func("")
+                                            except Exception:
+                                                pass
+                                            self.enforce_and_reexport(base_stem=base, mode='prompt')  # type: ignore[attr-defined]
+                                except Exception:
+                                    pass
+                        except Exception:
+                            pass
+                        # If owned-only build is incomplete, generate recommendations
+                        try:
+                            total_cards = sum(int(v.get('Count', 1)) for v in self.card_library.values())
+                            if self.use_owned_only and total_cards < 100:
+                                missing = 100 - total_cards
+                                rec_limit = int(math.ceil(1.5 * float(missing)))
+                                self._generate_recommendations(base_stem=base, limit=rec_limit)
+                        except Exception:
+                            pass
+                        # Also export a matching JSON config for replay (interactive builds only)
+                        if not getattr(self, 'headless', False):
                             try:
-                                if isinstance(report0, dict) and report0.get('overall') == 'FAIL' and not getattr(self, 'headless', False):
-                                    from deck_builder.phases.phase6_reporting import ReportingMixin as _RM  # type: ignore
-                                    if isinstance(self, _RM) and hasattr(self, 'enforce_and_reexport'):
-                                        self.output_func("One or more bracket limits exceeded. Enter to auto-resolve, or Ctrl+C to skip.")
-                                        try:
-                                            _ = self.input_func("")
-                                        except Exception:
-                                            pass
-                                        self.enforce_and_reexport(base_stem=base, mode='prompt')  # type: ignore[attr-defined]
+                                import os as _os
+                                cfg_path_env = _os.getenv('DECK_CONFIG')
+                                cfg_dir = None
+                                if cfg_path_env:
+                                    cfg_dir = _os.path.dirname(cfg_path_env) or '.'
+                                elif _os.path.isdir('/app/config'):
+                                    cfg_dir = '/app/config'
+                                else:
+                                    cfg_dir = 'config'
+                                if cfg_dir:
+                                    _os.makedirs(cfg_dir, exist_ok=True)
+                                    self.export_run_config_json(directory=cfg_dir, filename=base + '.json')  # type: ignore[attr-defined]
+                                if cfg_path_env:
+                                    cfg_dir2 = _os.path.dirname(cfg_path_env) or '.'
+                                    cfg_name2 = _os.path.basename(cfg_path_env)
+                                    _os.makedirs(cfg_dir2, exist_ok=True)
+                                    self.export_run_config_json(directory=cfg_dir2, filename=cfg_name2)  # type: ignore[attr-defined]
                             except Exception:
                                 pass
                     except Exception:
-                        pass
-                    # If owned-only build is incomplete, generate recommendations
+                        logger.warning("Plaintext export failed (non-fatal)")
+                else:
+                    # Mark suppression so random flow knows nothing was exported yet
                     try:
-                        total_cards = sum(int(v.get('Count', 1)) for v in self.card_library.values())
-                        if self.use_owned_only and total_cards < 100:
-                            missing = 100 - total_cards
-                            rec_limit = int(math.ceil(1.5 * float(missing)))
-                            self._generate_recommendations(base_stem=base, limit=rec_limit)
+                        self.last_csv_path = None  # type: ignore[attr-defined]
+                        self.last_txt_path = None  # type: ignore[attr-defined]
                     except Exception:
                         pass
-                    # Also export a matching JSON config for replay (interactive builds only)
-                    if not getattr(self, 'headless', False):
-                        try:
-                            # Choose config output dir: DECK_CONFIG dir > /app/config > ./config
-                            import os as _os
-                            cfg_path_env = _os.getenv('DECK_CONFIG')
-                            cfg_dir = None
-                            if cfg_path_env:
-                                cfg_dir = _os.path.dirname(cfg_path_env) or '.'
-                            elif _os.path.isdir('/app/config'):
-                                cfg_dir = '/app/config'
-                            else:
-                                cfg_dir = 'config'
-                            if cfg_dir:
-                                _os.makedirs(cfg_dir, exist_ok=True)
-                                self.export_run_config_json(directory=cfg_dir, filename=base + '.json')  # type: ignore[attr-defined]
-                            # Also, if DECK_CONFIG explicitly points to a file path, write exactly there too
-                            if cfg_path_env:
-                                cfg_dir2 = _os.path.dirname(cfg_path_env) or '.'
-                                cfg_name2 = _os.path.basename(cfg_path_env)
-                                _os.makedirs(cfg_dir2, exist_ok=True)
-                                self.export_run_config_json(directory=cfg_dir2, filename=cfg_name2)  # type: ignore[attr-defined]
-                        except Exception:
-                            pass
-                except Exception:
-                    logger.warning("Plaintext export failed (non-fatal)")
             # If owned-only and deck not complete, print a note
             try:
                 if self.use_owned_only:
@@ -712,10 +772,8 @@ class DeckBuilder(
     # RNG Initialization
     # ---------------------------
     def _get_rng(self):  # lazy init
-        if self._rng is None:
-            import random as _r
-            self._rng = _r
-        return self._rng
+        # Delegate to seedable rng property for determinism support
+        return self.rng
 
     # ---------------------------
     # Data Loading
@@ -1003,8 +1061,10 @@ class DeckBuilder(
             self.determine_color_identity()
         dfs = []
         required = getattr(bc, 'CSV_REQUIRED_COLUMNS', [])
+        from path_util import csv_dir as _csv_dir
+        base = _csv_dir()
         for stem in self.files_to_load:
-            path = f'csv_files/{stem}_cards.csv'
+            path = f"{base}/{stem}_cards.csv"
             try:
                 df = pd.read_csv(path)
                 if required:

@@ -14,11 +14,19 @@ router = APIRouter(prefix="/setup")
 
 
 def _kickoff_setup_async(force: bool = False):
+    """Start setup/tagging in a background thread.
+
+    Previously we passed a no-op output function, which hid downstream steps (e.g., theme export).
+    Using print provides visibility in container logs and helps diagnose export issues.
+    """
     def runner():
         try:
-            _ensure_setup_ready(lambda _m: None, force=force)  # type: ignore[arg-type]
-        except Exception:
-            pass
+            _ensure_setup_ready(print, force=force)  # type: ignore[arg-type]
+        except Exception as e:  # pragma: no cover - background best effort
+            try:
+                print(f"Setup thread failed: {e}")
+            except Exception:
+                pass
     t = threading.Thread(target=runner, daemon=True)
     t.start()
 

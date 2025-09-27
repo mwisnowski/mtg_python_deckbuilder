@@ -1,70 +1,15 @@
 <hr style="margin:1.25rem 0; border-color: var(--border);" />
 <h4>Deck Summary</h4>
-{% if versions and (versions.combos or versions.synergies) %}
-  <div class="muted" style="font-size:12px; margin:.1rem 0 .4rem 0;">Combos/Synergies lists: v{{ versions.combos or '?' }} / v{{ versions.synergies or '?' }}</div>
-{% endif %}
-<div class="muted" style="font-size:12px; margin:.15rem 0 .4rem 0; display:flex; gap:.75rem; align-items:center; flex-wrap:wrap;">
-  <span>Legend:</span>
-  <span><span class="game-changer" style="font-weight:600;">Game Changer</span> <span class="muted" style="opacity:.8;">(green highlight)</span></span>
-  <span><span class="owned-flag" style="margin:0 .25rem 0 .1rem;">✔</span>Owned • <span class="owned-flag" style="margin:0 .25rem 0 .1rem;">✖</span>Not owned</span>
-</div>
-
-<!-- Detected Combos & Synergies (top) -->
-{% if combos or synergies %}
-<section style="margin-top:.25rem;">
-  <h5>Combos & Synergies</h5>
-  {% if combos %}
-    <div style="margin:.25rem 0 .5rem 0;">
-      <div class="muted" style="font-weight:600; margin-bottom:.25rem;">Detected Combos ({{ combos|length }})</div>
-      <ul style="list-style:none; padding:0; margin:0; display:grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap:.25rem .75rem;">
-        {% for c in combos %}
-          <li style="border:1px solid var(--border); border-radius:8px; padding:.35rem .5rem; background:#0f1115;" data-combo-names="{{ c.a }}||{{ c.b }}">
-            <span data-card-name="{{ c.a }}">{{ c.a }}</span>
-            <span class="muted"> + </span>
-            <span data-card-name="{{ c.b }}">{{ c.b }}</span>
-            {% if c.cheap_early or c.setup_dependent %}
-              <span class="muted" style="margin-left:.4rem; font-size:12px;">
-                {% if c.cheap_early %}<span title="Cheap/Early" style="border:1px solid var(--border); padding:.05rem .35rem; border-radius:999px;">cheap/early</span>{% endif %}
-                {% if c.setup_dependent %}<span title="Setup Dependent" style="border:1px solid var(--border); padding:.05rem .35rem; border-radius:999px; margin-left:.25rem;">setup</span>{% endif %}
-              </span>
-            {% endif %}
-          </li>
-        {% endfor %}
-      </ul>
-    </div>
-  {% endif %}
-  {% if synergies %}
-    <div style="margin:.25rem 0 .5rem 0;">
-      <div class="muted" style="font-weight:600; margin-bottom:.25rem;">Detected Synergies ({{ synergies|length }})</div>
-      <ul style="list-style:none; padding:0; margin:0; display:grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap:.25rem .75rem;">
-        {% for s in synergies %}
-          <li style="border:1px solid var(--border); border-radius:8px; padding:.35rem .5rem; background:#0f1115;" data-combo-names="{{ s.a }}||{{ s.b }}">
-            <span data-card-name="{{ s.a }}">{{ s.a }}</span>
-            <span class="muted"> + </span>
-            <span data-card-name="{{ s.b }}">{{ s.b }}</span>
-            {% if s.tags %}
-              <span class="muted" style="margin-left:.4rem; font-size:12px;">
-                {% for t in s.tags %}<span style="border:1px solid var(--border); padding:.05rem .35rem; border-radius:999px; margin-right:.25rem;">{{ t }}</span>{% endfor %}
-              </span>
-            {% endif %}
-          </li>
-        {% endfor %}
-      </ul>
-    </div>
-  {% endif %}
-</section>
-{% endif %}
-
-<!-- Card Type Breakdown with names-only list and hover preview -->
 <section style="margin-top:.5rem;">
   <h5>Card Types</h5>
   <div style="margin:.5rem 0 .25rem 0; display:flex; gap:.5rem; align-items:center;">
     <span class="muted">View:</span>
     <div class="seg" role="tablist" aria-label="Type view">
-      <button type="button" class="seg-btn" data-view="list" aria-selected="true">List</button>
-      <button type="button" class="seg-btn" data-view="thumbs">Thumbnails</button>
+      <button type="button" class="seg-btn" data-view="list" aria-selected="true" onclick="(function(btn){var list=document.getElementById('typeview-list');var thumbs=document.getElementById('typeview-thumbs');if(!list||!thumbs)return;list.classList.remove('hidden');thumbs.classList.add('hidden');btn.setAttribute('aria-selected','true');var other=btn.parentElement.querySelector('.seg-btn[data-view=thumbs]');if(other)other.setAttribute('aria-selected','false');try{localStorage.setItem('summaryTypeView','list');}catch(e){}})(this)">List</button>
+      <button type="button" class="seg-btn" data-view="thumbs" onclick="(function(btn){var list=document.getElementById('typeview-list');var thumbs=document.getElementById('typeview-thumbs');if(!list||!thumbs)return;list.classList.add('hidden');thumbs.classList.remove('hidden');btn.setAttribute('aria-selected','true');var other=btn.parentElement.querySelector('.seg-btn[data-view=list]');if(other)other.setAttribute('aria-selected','false');try{localStorage.setItem('summaryTypeView','thumbs');}catch(e){}; (function(){var tv=document.getElementById('typeview-thumbs'); if(!tv) return; tv.querySelectorAll('.stack-wrap').forEach(function(sw){var grid=sw.querySelector('.stack-grid'); if(!grid) return; var cs=getComputedStyle(sw); var cardW=parseFloat(cs.getPropertyValue('--card-w'))||160; var gap=10; var width=sw.clientWidth; if(!width||width<cardW){ sw.style.setProperty('--cols','1'); return;} var cols=Math.max(1,Math.floor((width+gap)/(cardW+gap))); sw.style.setProperty('--cols',String(cols));}); })();})(this)">Thumbnails</button>
     </div>
   </div>
+  <div style="display:none" hx-on:load="(function(){try{var mode=localStorage.getItem('summaryTypeView')||'list';if(mode==='thumbs'){var list=document.getElementById('typeview-list');var thumbs=document.getElementById('typeview-thumbs');if(list&&thumbs){list.classList.add('hidden');thumbs.classList.remove('hidden');var lb=document.querySelector('.seg-btn[data-view=list]');var tb=document.querySelector('.seg-btn[data-view=thumbs]');if(lb&&tb){lb.setAttribute('aria-selected','false');tb.setAttribute('aria-selected','true');}thumbs.querySelectorAll('.stack-wrap').forEach(function(sw){var grid=sw.querySelector('.stack-grid');if(!grid)return;var cs=getComputedStyle(sw);var cardW=parseFloat(cs.getPropertyValue('--card-w'))||160;var gap=10;var width=sw.clientWidth;if(!width||width<cardW){sw.style.setProperty('--cols','1');return;}var cols=Math.max(1,Math.floor((width+gap)/(cardW+gap)));sw.style.setProperty('--cols',String(cols));});}}catch(e){}})()"></div>
   {% set tb = summary.type_breakdown %}
   {% if tb and tb.counts %}
     <style>
@@ -149,58 +94,7 @@
   {% endif %}
 </section>
 
-<script>
-  (function(){
-    var listBtn = document.querySelector('.seg-btn[data-view="list"]');
-    var thumbsBtn = document.querySelector('.seg-btn[data-view="thumbs"]');
-    var listView = document.getElementById('typeview-list');
-    var thumbsView = document.getElementById('typeview-thumbs');
-
-    function recalcThumbCols() {
-      if (thumbsView.classList.contains('hidden')) return;
-      var wraps = thumbsView.querySelectorAll('.stack-wrap');
-      wraps.forEach(function(sw){
-        var grid = sw.querySelector('.stack-grid');
-        if (!grid) return;
-        var gridStyles = window.getComputedStyle(grid);
-        var gap = parseFloat(gridStyles.columnGap) || 10;
-        var swStyles = window.getComputedStyle(sw);
-        var cardW = parseFloat(swStyles.getPropertyValue('--card-w')) || 160;
-        var width = sw.clientWidth;
-        if (!width || width < cardW) {
-          sw.style.setProperty('--cols', '1');
-          return;
-        }
-        var cols = Math.max(1, Math.floor((width + gap) / (cardW + gap)));
-        sw.style.setProperty('--cols', String(cols));
-      });
-    }
-
-    function debounce(fn, ms){ var t; return function(){ clearTimeout(t); t = setTimeout(fn, ms); }; }
-    var debouncedRecalc = debounce(recalcThumbCols, 100);
-    window.addEventListener('resize', debouncedRecalc);
-    document.addEventListener('htmx:afterSwap', debouncedRecalc);
-
-    function applyMode(mode){
-      var isList = (mode !== 'thumbs');
-      listView.classList.toggle('hidden', !isList);
-      thumbsView.classList.toggle('hidden', isList);
-      if (listBtn) listBtn.setAttribute('aria-selected', isList ? 'true' : 'false');
-      if (thumbsBtn) thumbsBtn.setAttribute('aria-selected', isList ? 'false' : 'true');
-      try { localStorage.setItem('summaryTypeView', mode); } catch(e) {}
-      if (!isList) recalcThumbCols();
-    }
-
-    if (listBtn && thumbsBtn) {
-      listBtn.addEventListener('click', function(){ applyMode('list'); });
-      thumbsBtn.addEventListener('click', function(){ applyMode('thumbs'); });
-    }
-    var initial = 'list';
-    try { initial = localStorage.getItem('summaryTypeView') || 'list'; } catch(e) {}
-    applyMode(initial);
-    if (initial === 'thumbs') recalcThumbCols();
-  })();
-</script>
+<!-- Deck Summary initializer script moved below markup for proper element availability -->
 
 <!-- Mana Overview Row: Pips • Sources • Curve -->
 <section style="margin-top:1rem;">

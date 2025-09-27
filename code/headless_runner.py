@@ -65,6 +65,7 @@ def run(
     enforcement_mode: str = "warn",
     allow_illegal: bool = False,
     fuzzy_matching: bool = True,
+    seed: Optional[int | str] = None,
 ) -> DeckBuilder:
     """Run a scripted non-interactive deck build and return the DeckBuilder instance."""
     scripted_inputs: List[str] = []
@@ -109,6 +110,12 @@ def run(
         return ""
 
     builder = DeckBuilder(input_func=scripted_input)
+    # Optional deterministic seed for Random Modes (does not affect core when unset)
+    try:
+        if seed is not None:
+            builder.set_seed(seed)  # type: ignore[attr-defined]
+    except Exception:
+        pass
     # Mark this run as headless so builder can adjust exports and logging
     try:
         builder.headless = True  # type: ignore[attr-defined]
@@ -297,15 +304,37 @@ def _export_outputs(builder: DeckBuilder) -> None:
     csv_path: Optional[str] = None
     try:
         csv_path = builder.export_decklist_csv() if hasattr(builder, "export_decklist_csv") else None
+        # Persist for downstream reuse (e.g., random_entrypoint / reroll flows) so they don't re-export
+        if csv_path:
+            try:
+                builder.last_csv_path = csv_path  # type: ignore[attr-defined]
+            except Exception:
+                pass
     except Exception:
         csv_path = None
     try:
         if hasattr(builder, "export_decklist_text"):
             if csv_path:
                 base = os.path.splitext(os.path.basename(csv_path))[0]
-                builder.export_decklist_text(filename=base + ".txt")
+                txt_generated: Optional[str] = None
+                try:
+                    txt_generated = builder.export_decklist_text(filename=base + ".txt")
+                finally:
+                    if txt_generated:
+                        try:
+                            builder.last_txt_path = txt_generated  # type: ignore[attr-defined]
+                        except Exception:
+                            pass
             else:
-                builder.export_decklist_text()
+                txt_generated = None
+                try:
+                    txt_generated = builder.export_decklist_text()
+                finally:
+                    if txt_generated:
+                        try:
+                            builder.last_txt_path = txt_generated  # type: ignore[attr-defined]
+                        except Exception:
+                            pass
     except Exception:
         pass
     if _should_export_json_headless() and hasattr(builder, "export_run_config_json") and csv_path:

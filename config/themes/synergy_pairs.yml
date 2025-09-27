@@ -1,0 +1,48 @@
+# Curated synergy pair baseline (externalized)
+# Only applied for a theme if its per-theme YAML lacks curated_synergies.
+# Keys: theme display_name; Values: list of synergy theme names.
+# Keep list concise (<=8) and focused on high-signal relationships.
+synergy_pairs:
+  Tokens:
+    - Treasure
+    - Sacrifice
+    - Aristocrats
+    - Proliferate
+  Treasure:
+    - Artifact Tokens
+    - Sacrifice
+    - Combo
+    - Tokens
+  Proliferate:
+    - +1/+1 Counters
+    - Poison
+    - Planeswalker Loyalty
+    - Tokens
+  Aristocrats:
+    - Sacrifice
+    - Tokens
+    - Treasure
+  Sacrifice:
+    - Aristocrats
+    - Tokens
+    - Treasure
+  Landfall:
+    - Ramp
+    - Graveyard
+    - Tokens
+  Graveyard:
+    - Reanimate
+    - Delve
+    - Escape
+  Reanimate:
+    - Graveyard
+    - Sacrifice
+    - Aristocrats
+  Spellslinger:
+    - Prowess
+    - Storm
+    - Card Draw
+  Storm:
+    - Spellslinger
+    - Rituals
+    - Copy Spells

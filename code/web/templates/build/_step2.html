@@ -2,8 +2,10 @@
   {# Step phases removed #}
   <div class="two-col two-col-left-rail">
   <aside class="card-preview" data-card-name="{{ commander.name }}">
-      <a href="https://scryfall.com/search?q={{ commander.name|urlencode }}" target="_blank" rel="noopener">
-  <img src="https://api.scryfall.com/cards/named?fuzzy={{ commander.name|urlencode }}&format=image&version=normal" alt="{{ commander.name }} card image" data-card-name="{{ commander.name }}" />
+    {# Strip synergy annotation for Scryfall search and image fuzzy param #}
+    {% set commander_base = (commander.name.split(' - Synergy (')[0] if ' - Synergy (' in commander.name else commander.name) %}
+    <a href="https://scryfall.com/search?q={{ commander_base|urlencode }}" target="_blank" rel="noopener">
+  <img src="https://api.scryfall.com/cards/named?fuzzy={{ commander_base|urlencode }}&format=image&version=normal" alt="{{ commander.name }} card image" data-card-name="{{ commander_base }}" />
       </a>
     </aside>
     <div class="grow" data-skeleton>

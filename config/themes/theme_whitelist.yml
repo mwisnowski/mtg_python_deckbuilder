@@ -1,0 +1,97 @@
+# Theme whitelist & governance configuration
+# This file stabilizes the public theme taxonomy and synergy output.
+#
+# Sections:
+#  always_include: themes that must always appear even if frequency is low or zero
+#  protected_prefixes: any theme starting with one of these prefixes is never pruned
+#  protected_suffixes: any theme ending with one of these suffixes is never pruned
+#  min_frequency_overrides: per-theme minimum frequency required to retain (overrides global >1 rule)
+#  normalization: canonical name mapping (old -> new)
+#  exclusions: themes forcibly removed after normalization
+#  enforced_synergies: mapping of theme -> list of synergies that must be injected (before capping)
+#  synergy_cap: integer maximum number of synergies to emit per theme (after merging curated/enforced/inferred)
+#  notes: free-form documentation
+#
+# IMPORTANT: After editing, re-run:  python code/scripts/extract_themes.py
+
+always_include:
+  - Superfriends
+  - Storm
+  - Group Hug
+  - Pillowfort
+  - Stax
+  - Politics
+  - Reanimate
+  - Graveyard Matters
+  - Treasure Token
+  - Tokens Matter
+  - Counters Matter
+  - +1/+1 Counters
+  - -1/-1 Counters
+  - Landfall
+  - Lands Matter
+  - Outlaw Kindred
+
+protected_prefixes:
+  - Angel
+  - Dragon
+  - Elf
+  - Goblin
+  - Zombie
+  - Soldier
+  - Vampire
+  - Wizard
+  - Merfolk
+  - Spirit
+  - Sliver
+  - Dinosaur
+  - Construct
+  - Warrior
+  - Demon
+  - Hydra
+  - Treefolk
+
+protected_suffixes:
+  - Kindred
+
+min_frequency_overrides:
+  Storm: 0
+  Group Hug: 0
+  Pillowfort: 0
+  Politics: 0
+  Treasure Token: 0
+  Monarch: 0
+  Initiative: 0
+  Pillow Fort: 0  # alias that may appear; normalization may fold it
+
+normalization:
+  ETB: Enter the Battlefield
+  Self Mill: Mill
+  Pillow Fort: Pillowfort
+  Reanimator: Reanimate  # unify under single anchor; both appear in always_include for safety
+
+exclusions:
+  - Draw Triggers
+  - Placeholder
+  - Test Tag
+
+# Mandatory synergy injections independent of curated or inferred values.
+# These are merged before the synergy cap is enforced.
+enforced_synergies:
+  Counters Matter: [Proliferate]
+  +1/+1 Counters: [Proliferate, Counters Matter]
+  -1/-1 Counters: [Proliferate, Counters Matter]
+  Proliferate: [Counters Matter]
+  Creature Tokens: [Tokens Matter]
+  Token Creation: [Tokens Matter]
+  Treasure Token: [Artifacts Matter]
+  Reanimate: [Graveyard Matters]
+  Graveyard Matters: [Reanimate]
+
+synergy_cap: 5
+
+notes: |
+  The synergy_cap trims verbose or noisy lists to improve UI scannability.
+  Precedence order when capping: curated > enforced > inferred (PMI).
+  Enforced synergies are guaranteed inclusion (unless they duplicate existing entries).
+  Protected prefixes/suffixes prevent pruning of tribal / kindred families even if low frequency.

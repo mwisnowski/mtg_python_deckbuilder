@@ -1,0 +1,107 @@
+{% if theme %}
+<div class="theme-detail-card">
+  {% if standalone_page %}
+  <div class="breadcrumb"><a href="/themes/" class="btn btn-ghost" style="font-size:11px; padding:2px 6px;">← Catalog</a></div>
+  {% endif %}
+  <h3 id="theme-detail-heading-{{ theme.id }}" tabindex="-1">{{ theme.theme }}
+    {% if diagnostics and yaml_available %}
+      <a href="/themes/yaml/{{ theme.id }}" target="_blank" style="font-size:11px; font-weight:400; margin-left:.5rem;">(YAML)</a>
+    {% endif %}
+  </h3>
+  {% if theme.description %}
+  <p class="desc">{{ theme.description }}</p>
+  {% else %}
+    {% if theme.synergies %}
+    <p class="desc" data-fallback-desc="1">Built around {{ theme.synergies[:6]|join(', ') }}.</p>
+    {% else %}
+    <p class="desc" data-fallback-desc="1">No description.</p>
+    {% endif %}
+  {% endif %}
+  <div style="font-size:12px; margin-bottom:.5rem; display:flex; gap:8px; flex-wrap:wrap;">
+  {% if theme.popularity_bucket %}<span class="theme-badge {% if theme.popularity_bucket=='Very Common' %}badge-pop-vc{% elif theme.popularity_bucket=='Common' %}badge-pop-c{% elif theme.popularity_bucket=='Uncommon' %}badge-pop-u{% elif theme.popularity_bucket=='Niche' %}badge-pop-n{% elif theme.popularity_bucket=='Rare' %}badge-pop-r{% endif %}" title="Popularity: {{ theme.popularity_bucket }}" aria-label="Popularity bucket: {{ theme.popularity_bucket }}">{{ theme.popularity_bucket }}</span>{% endif %}
+  {% if diagnostics and theme.editorial_quality %}<span class="theme-badge badge-quality-{{ theme.editorial_quality }}" title="Editorial quality: {{ theme.editorial_quality }}" aria-label="Editorial quality: {{ theme.editorial_quality }}">{{ theme.editorial_quality }}</span>{% endif %}
+  {% if diagnostics and theme.has_fallback_description %}<span class="theme-badge badge-fallback" title="Fallback generic description" aria-label="Fallback generic description">Fallback</span>{% endif %}
+  </div>
+  <div class="synergy-section">
+    <h4>Synergies {% if not uncapped %}(capped){% endif %}</h4>
+    <div class="theme-synergies">
+      {% for s in theme.synergies %}<span class="theme-badge">{{ s }}</span>{% endfor %}
+    </div>
+    {% if diagnostics %}
+      {% if not uncapped and theme.uncapped_synergies %}
+        <button hx-get="/themes/fragment/detail/{{ theme.id }}?diagnostics=1&uncapped=1" hx-target="#theme-detail" hx-swap="innerHTML" style="margin-top:.5rem;">Show Uncapped ({{ theme.uncapped_synergies|length }})</button>
+      {% elif uncapped %}
+        <button hx-get="/themes/fragment/detail/{{ theme.id }}?diagnostics=1" hx-target="#theme-detail" hx-swap="innerHTML" style="margin-top:.5rem;">Hide Uncapped</button>
+        {% if theme.uncapped_synergies %}
+        <div class="theme-synergies" style="margin-top:.4rem;">
+           {% for s in theme.uncapped_synergies %}<span class="theme-badge">{{ s }}</span>{% endfor %}
+        </div>
+        {% endif %}
+      {% endif %}
+    {% endif %}
+  </div>
+  <div class="examples" style="margin-top:.75rem;">
+    <h4 style="margin-bottom:.4rem;">Example Cards</h4>
+  <div class="example-card-grid" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:.85rem;">
+      {% if theme.example_cards %}
+        {% for c in theme.example_cards %}
+        {% set base_c = (c.split(' - Synergy (')[0] if ' - Synergy (' in c else c) %}
+        <div class="ex-card card-sample" style="text-align:center;" data-card-name="{{ base_c }}" data-role="example_card" data-tags="{{ theme.synergies|join(', ') }}" data-original-name="{{ c }}">
+          <img class="card-thumb" loading="lazy" decoding="async" alt="{{ c }} image" style="width:100%; height:auto; border:1px solid var(--border); border-radius:10px;" src="https://api.scryfall.com/cards/named?fuzzy={{ base_c|urlencode }}&format=image&version=small" />
+          <div style="font-size:11px; margin-top:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-weight:600;" class="card-ref" data-card-name="{{ base_c }}" data-tags="{{ theme.synergies|join(', ') }}" data-original-name="{{ c }}">{{ c }}</div>
+        </div>
+        {% endfor %}
+      {% else %}
+        <div style="font-size:12px; opacity:.7;">No curated example cards.</div>
+      {% endif %}
+    </div>
+    <h4 style="margin:.9rem 0 .4rem;">Example Commanders</h4>
+  <div class="example-commander-grid" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:.85rem;">
+      {% if theme.example_commanders %}
+        {% for c in theme.example_commanders %}
+        {% set base_c = (c.split(' - Synergy (')[0] if ' - Synergy (' in c else c) %}
+        <div class="ex-commander commander-cell" style="text-align:center;" data-card-name="{{ base_c }}" data-role="commander_example" data-tags="{{ theme.synergies|join(', ') }}" data-original-name="{{ c }}">
+          <img class="card-thumb" loading="lazy" decoding="async" alt="{{ c }} image" style="width:100%; height:auto; border:1px solid var(--border); border-radius:10px;" src="https://api.scryfall.com/cards/named?fuzzy={{ base_c|urlencode }}&format=image&version=small" />
+          <div style="font-size:11px; margin-top:4px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" class="card-ref" data-card-name="{{ base_c }}" data-tags="{{ theme.synergies|join(', ') }}" data-original-name="{{ c }}">{{ c }}</div>
+        </div>
+        {% endfor %}
+      {% else %}
+        <div style="font-size:12px; opacity:.7;">No curated commander examples.</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% else %}
+<div class="empty">Theme not found.</div>
+{% endif %}
+<style>
+  .card-ref { cursor:pointer; text-decoration:underline dotted; }
+  .card-ref:hover { color:var(--accent); }
+</style>
+<script>
+// Accessibility: automatically move focus to the detail heading after the fragment is swapped in
+(function(){
+  try { var h=document.getElementById('theme-detail-heading-{{ theme.id }}'); if(h){ h.focus({preventScroll:false}); } } catch(_e){}
+})();
+// Post-render normalization: ensure any annotated ' - Synergy (...)' names use base name for Scryfall URLs
+(function(){
+  try {
+    document.querySelectorAll('.example-card-grid img.card-thumb, .example-commander-grid img.card-thumb').forEach(function(img){
+      var orig = img.getAttribute('data-original-name') || img.getAttribute('data-card-name') || '';
+      var m = /(.*?)(\s*-\s*Synergy\s*\(.*\))$/i.exec(orig);
+      if(m){
+        var base = m[1].trim();
+        if(base){
+          img.setAttribute('data-card-name', base);
+          var current = img.getAttribute('src')||'';
+          // Replace fuzzy param only if it still contains the annotated portion
+          var before = decodeURIComponent((current.split('fuzzy=')[1]||'').split('&')[0] || '');
+          if(before && before !== base){
+            img.src = 'https://api.scryfall.com/cards/named?fuzzy=' + encodeURIComponent(base) + '&format=image&version=small';
+          }
+        }
+      }
+    });
+  } catch(_){ }
+})();
+</script>

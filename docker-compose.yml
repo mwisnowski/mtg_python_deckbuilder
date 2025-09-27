@@ -9,6 +9,11 @@ services:
       TERM: "xterm-256color"
       DEBIAN_FRONTEND: "noninteractive"
 
+      # ------------------------------------------------------------------
+      # Core UI Feature Toggles
+      # (Enable/disable visibility of sections; most default to off in code)
+      # ------------------------------------------------------------------
+
       # UI features/flags
       SHOW_LOGS: "1"                # 1=enable /logs page; 0=hide
       SHOW_SETUP: "1"               # 1=show Setup/Tagging card; 0=hide (still runs if WEB_AUTO_SETUP=1)
@@ -19,15 +24,69 @@ services:
       WEB_VIRTUALIZE: "1"           # 1=enable list virtualization in Step 5
       ALLOW_MUST_HAVES: "1"         # 1=enable must-include/must-exclude cards feature; 0=disable
       SHOW_MISC_POOL: "0"
+      WEB_THEME_PICKER_DIAGNOSTICS: "1"  # 1=enable extra theme catalog diagnostics fields, uncapped view & /themes/metrics
+      # Sampling experiments
+      # SPLASH_ADAPTIVE: "0"          # 1=enable adaptive splash penalty scaling by commander color count
+      # SPLASH_ADAPTIVE_SCALE: "1:1.0,2:1.0,3:1.0,4:0.6,5:0.35"  # override default scaling
+      # Rarity weighting (advanced; default weights tuned for variety)
+      # RARITY_W_MYTHIC: "1.2"
+      # RARITY_W_RARE: "0.9"
+      # RARITY_W_UNCOMMON: "0.65"
+      # RARITY_W_COMMON: "0.4"
+      # Diversity targets (optional): e.g., "mythic:0-1,rare:0-2,uncommon:0-4,common:0-6"
+      # RARITY_DIVERSITY_TARGETS: ""
+      # Penalty if exceeding diversity targets (negative lowers score)
+      # RARITY_DIVERSITY_OVER_PENALTY: "-0.5"
+
+      # ------------------------------------------------------------------
+      # Random Build (Alpha) Feature Flags
+      # RANDOM_MODES: backend enablement (seeded selection endpoints)
+      # RANDOM_UI: enable Surprise/Reroll controls in UI
+      # RANDOM_MAX_ATTEMPTS: safety cap on retries for constraints
+      # RANDOM_TIMEOUT_MS: per-attempt timeout (ms) before giving up
+      # ------------------------------------------------------------------
+
+      # Random Modes (feature flags)
+      RANDOM_MODES: "1"             # 1=enable random build endpoints and backend features
+      RANDOM_UI: "1"               # 1=show Surprise/Theme/Reroll/Share controls in UI
+      RANDOM_MAX_ATTEMPTS: "5"      # cap retry attempts
+      RANDOM_TIMEOUT_MS: "5000"     # per-build timeout in ms
+      # RANDOM_BUILD_SUPPRESS_INITIAL_EXPORT: "1" # (now defaults to 1 automatically for random builds; set to 0 to force legacy double-export behavior)
 
       # Theming
       THEME: "dark"                 # system|light|dark
+
+      # ------------------------------------------------------------------
+      # Setup / Tagging / Catalog Controls
+      # WEB_AUTO_SETUP: auto-run initial tagging & theme generation when needed
+      # WEB_AUTO_REFRESH_DAYS: refresh card data if older than N days (0=never)
+      # WEB_TAG_PARALLEL + WEB_TAG_WORKERS: parallel tag extraction
+      # THEME_CATALOG_MODE: merge (Phase B) | legacy | build | phaseb (merge synonyms)
+      # WEB_AUTO_ENFORCE: 1=run bracket/legal compliance auto-export JSON after builds
+      # WEB_CUSTOM_EXPORT_BASE: override export path base (optional)
+      # APP_VERSION: surfaced in UI/health endpoints
+      # ------------------------------------------------------------------
 
       # Setup/Tagging performance
       WEB_AUTO_SETUP: "1"           # 1=auto-run setup/tagging when needed
       WEB_AUTO_REFRESH_DAYS: "7"    # Refresh cards.csv if older than N days; 0=never
       WEB_TAG_PARALLEL: "1"         # 1=parallelize tagging
       WEB_TAG_WORKERS: "4"          # Worker count when parallel tagging
+      THEME_CATALOG_MODE: "merge"   # Use merged Phase B catalog builder (with YAML export)
+      THEME_YAML_FAST_SKIP: "0"     # 1=allow skipping per-theme YAML on fast path (rare; default always export)
+      # Live YAML scan interval in seconds for change detection (dev convenience)
+      # THEME_CATALOG_YAML_SCAN_INTERVAL_SEC: "2.0"
+      # Prewarm common theme filters at startup (speeds first interactions)
+      # WEB_THEME_FILTER_PREWARM: "0"
+      WEB_AUTO_ENFORCE: "0"         # 1=auto-run compliance export after builds
+      WEB_CUSTOM_EXPORT_BASE: ""    # Optional: custom base dir for deck export artifacts
+      APP_VERSION: "dev"            # Displayed version label (set per release/tag)
+
+      # ------------------------------------------------------------------
+      # Misc / Land Selection (Step 7) Environment Tuning
+      # Uncomment to fine-tune utility land heuristics. Theme weighting allows
+      # matching candidate lands to selected themes for bias.
+      # ------------------------------------------------------------------
 
       # Misc land tuning (utility land selection – Step 7)
       # MISC_LAND_DEBUG: "1"                 # 1=write misc land debug CSVs (post-filter, candidates); off by default unless SHOW_DIAGNOSTICS=1
@@ -39,11 +98,27 @@ services:
       # MISC_LAND_THEME_MATCH_PER_EXTRA: "0.15"    # Increment per extra matching tag beyond first
       # MISC_LAND_THEME_MATCH_CAP: "2.0"           # Cap for total theme multiplier
 
+      # ------------------------------------------------------------------
+      # Deck Export / Directory Overrides (headless & web browsing paths)
+      # DECK_EXPORTS / DECK_CONFIG: override mount points inside container
+      # OWNED_CARDS_DIR / CARD_LIBRARY_DIR: inventory upload path (alias preserved)
+      # ------------------------------------------------------------------
+
       # Paths (optional overrides)
       # DECK_EXPORTS: "/app/deck_files"     # Where the deck browser looks for exports
       # DECK_CONFIG: "/app/config"          # Where the config browser looks for *.json
       # OWNED_CARDS_DIR: "/app/owned_cards" # Preferred path for owned inventory uploads
       # CARD_LIBRARY_DIR: "/app/owned_cards" # Back-compat alias for OWNED_CARDS_DIR
+      # CSV base directory override (useful for testing with frozen snapshots)
+      # CSV_FILES_DIR: "/app/csv_files"
+      # Inject a one-off synthetic CSV for index testing without altering shards
+      # CARD_INDEX_EXTRA_CSV: ""
+
+      # ------------------------------------------------------------------
+      # Headless / Non-interactive Build Configuration
+      # Provide commander or tag indices/names; toggles for which phases to include
+      # Counts optionally tune land/fetch/ramp/etc targets.
+      # ------------------------------------------------------------------
 
       # Headless-only settings
       # DECK_MODE: "headless"               # Auto-run headless flow in CLI mode
@@ -75,6 +150,52 @@ services:
       # HOST: "0.0.0.0"                     # Uvicorn bind host
       # PORT: "8080"                        # Uvicorn port
       # WORKERS: "1"                        # Uvicorn workers
+      # (HOST/PORT honored by entrypoint; WORKERS for multi-worker uvicorn if desired)
+
+      # ------------------------------------------------------------------
+      # Testing / Diagnostics Specific (rarely changed in compose)
+      # SHOW_MISC_POOL: "1"   # (already above) expose misc pool debug UI if implemented
+      # ------------------------------------------------------------------
+
+      # ------------------------------------------------------------------
+      # Editorial / Theme Catalog Controls
+      # These drive automated description generation, popularity bucketing,
+      # YAML backfilling, and regression / metrics exports. Normally only
+      # used during catalog curation or CI.
+      # ------------------------------------------------------------------
+      # EDITORIAL_SEED: "1234"                 # Deterministic seed for description & inference ordering.
+      # EDITORIAL_AGGRESSIVE_FILL: "0"          # 1=borrow extra synergies for sparse themes (<2 curated/enforced).
+      # EDITORIAL_POP_BOUNDARIES: "50,120,250,600" # Override popularity bucket boundaries (4 comma ints).
+      # EDITORIAL_POP_EXPORT: "0"              # 1=emit theme_popularity_metrics.json alongside theme_list.json.
+      # EDITORIAL_BACKFILL_YAML: "0"           # 1=enable YAML metadata backfill (description/popularity) on build.
+      # EDITORIAL_INCLUDE_FALLBACK_SUMMARY: "0" # 1=include description_fallback_summary block in JSON output.
+      # EDITORIAL_REQUIRE_DESCRIPTION: "0"      # (lint script) 1=fail if a theme lacks description.
+      # EDITORIAL_REQUIRE_POPULARITY: "0"       # (lint script) 1=fail if a theme lacks popularity bucket.
+      # EDITORIAL_MIN_EXAMPLES: "0"            # (future) minimum curated example commanders/cards (guard rails).
+      # EDITORIAL_MIN_EXAMPLES_ENFORCE: "0"     # (future) 1=enforce above threshold; else warn only.
+
+      # ------------------------------------------------------------------
+      # Theme Preview Cache & Redis (optional)
+      # Controls for the theme preview caching layer; defaults are sane for most users.
+      # Uncomment to tune or enable Redis read-through/write-through caching.
+      # ------------------------------------------------------------------
+      # In-memory cache sizing and logging
+      # THEME_PREVIEW_CACHE_MAX: "400"          # Max previews cached in memory
+      # WEB_THEME_PREVIEW_LOG: "0"              # 1=verbose preview cache logs
+      # Adaptive eviction/background refresh
+      # THEME_PREVIEW_ADAPTIVE: "0"             # 1=enable adaptive cache policy
+      # THEME_PREVIEW_EVICT_COST_THRESHOLDS: "5,15,40"  # cost thresholds for eviction tiers
+      # THEME_PREVIEW_BG_REFRESH: "0"           # 1=background refresh worker
+      # THEME_PREVIEW_BG_REFRESH_INTERVAL: "120" # seconds between background refresh sweeps
+      # TTL policy (advanced)
+      # THEME_PREVIEW_TTL_BASE: "300"           # base seconds
+      # THEME_PREVIEW_TTL_MIN: "60"
+      # THEME_PREVIEW_TTL_MAX: "900"
+      # THEME_PREVIEW_TTL_BANDS: "0.2,0.5,0.8"  # low_critical, low_moderate, high_grow (fractions)
+      # THEME_PREVIEW_TTL_STEPS: "2,4,2,3,1"    # step counts for band progression
+      # Redis backend (optional)
+      # THEME_PREVIEW_REDIS_URL: "redis://redis:6379/0"
+      # THEME_PREVIEW_REDIS_DISABLE: "0"        # 1=force disable redis even if URL is set
     volumes:
       - ${PWD}/deck_files:/app/deck_files
       - ${PWD}/logs:/app/logs

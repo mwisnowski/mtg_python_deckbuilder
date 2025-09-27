@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mtg-deckbuilder"
-version = "2.2.10"
+version = "2.3.0"
 description = "A command-line tool for building and analyzing Magic: The Gathering decks"
 readme = "README.md"
 license = {file = "LICENSE"}

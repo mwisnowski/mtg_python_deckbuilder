@@ -13,6 +13,9 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 - Link PRs/issues inline when helpful, e.g., (#123) or [#123]. Reference-style links at the bottom are encouraged for readability.
 
 ## [Unreleased]
+_No unreleased changes._
+
+## [2.3.0] - 2025-09-26
 ### Added
 - Tests: added `test_random_reroll_throttle.py` to enforce reroll throttle behavior and `test_random_metrics_and_seed_history.py` to validate opt-in telemetry counters plus seed history exposure.
 - Random Mode curated theme pool now documents manual exclusions (`config/random_theme_exclusions.yml`) and ships a reporting script `code/scripts/report_random_theme_pool.py` (`--write-exclusions` emits Markdown/JSON) alongside `docs/random_theme_exclusions.md`. Diagnostics now show manual categories and tag index telemetry.

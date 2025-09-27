@@ -1,11 +1,19 @@
 <div class="random-result" id="random-result">
   <style>
-    .diag-badges{display:inline-flex; gap:4px; margin-left:8px; flex-wrap:wrap;}
-    .diag-badge{background:var(--panel-alt,#334155); color:#fff; padding:2px 6px; border-radius:12px; font-size:10px; letter-spacing:.5px; line-height:1.2;}
-    .diag-badge.warn{background:#8a6d3b;}
+    .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;}
+    .diag-badges{display:inline-flex; gap:4px; margin-left:8px; flex-wrap:wrap; align-items:center;}
+    .diag-badge{background:var(--panel-alt,#334155); color:#fff; padding:3px 7px; border-radius:12px; font-size:10px; letter-spacing:.5px; line-height:1.3; display:inline-flex; align-items:center; gap:4px;}
+    .diag-badge.warn{background:#814c14;}
     .diag-badge.err{background:#7f1d1d;}
-    .diag-badge.fallback{background:#4f46e5;}
+    .diag-badge.fallback{background:#4338ca;}
+    .diag-badge .badge-icon{font-size:12px; display:inline-block;}
     .btn-compact{font-size:11px; padding:2px 6px; line-height:1.2;}
+    .fallback-notice{margin-top:8px; padding:10px 12px; border-radius:6px; font-size:13px; line-height:1.45; border-left:4px solid currentColor; display:flex; gap:8px; align-items:flex-start;}
+    .fallback-notice.info{background:rgba(79,70,229,0.18); color:#2c2891; border:1px solid rgba(79,70,229,0.45);}
+    .fallback-notice.warn{background:#fff0d6; color:#6c4505; border:1px solid #d89b32;}
+    .fallback-notice.danger{background:#fef2f2; color:#7f1d1d; border:1px solid rgba(127,29,29,0.5);}
+    .fallback-notice:focus-visible{outline:2px solid currentColor; outline-offset:2px;}
+    .fallback-notice .notice-icon{font-size:16px; line-height:1; margin-top:2px;}
   </style>
   <div class="random-meta" style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
     <span class="seed">Seed: <strong>{{ seed }}</strong></span>
@@ -14,18 +22,90 @@
       <button class="btn btn-compact" type="button" aria-label="Copy permalink for this exact build" onclick="(async()=>{try{await navigator.clipboard.writeText(location.origin + '{{ permalink }}');(window.toast&&toast('Permalink copied'))||console.log('Permalink copied');}catch(e){alert('Copy failed');}})()">Copy Permalink</button>
     {% endif %}
     {% if show_diagnostics and diagnostics %}
-      <span class="diag-badges" aria-label="Diagnostics" role="group">
-        <span class="diag-badge" title="Attempts tried before acceptance">Att {{ diagnostics.attempts }}</span>
-        <span class="diag-badge" title="Elapsed build time in milliseconds">{{ diagnostics.elapsed_ms }}ms</span>
-        {% if diagnostics.timeout_hit %}<span class="diag-badge warn" title="Generation loop exceeded timeout limit before success">Timeout</span>{% endif %}
-        {% if diagnostics.retries_exhausted %}<span class="diag-badge warn" title="All allotted attempts were used without an early acceptable candidate">Retries</span>{% endif %}
-        {% if fallback or diagnostics.fallback %}<span class="diag-badge fallback" title="Original theme produced no candidates; Surprise mode fallback engaged">Fallback</span>{% endif %}
+      <span class="diag-badges" aria-label="Diagnostics" role="status" aria-live="polite" aria-atomic="true">
+        <span class="diag-badge" title="Attempts tried before acceptance" aria-label="Attempts tried before acceptance">
+          <span class="badge-icon" aria-hidden="true">⟳</span>
+          <span aria-hidden="true">Att {{ diagnostics.attempts }}</span>
+        </span>
+        <span class="diag-badge" title="Elapsed build time in milliseconds" aria-label="Elapsed build time in milliseconds">
+          <span class="badge-icon" aria-hidden="true">⏱</span>
+          <span aria-hidden="true">{{ diagnostics.elapsed_ms }}ms</span>
+        </span>
+        {% if diagnostics.timeout_hit %}
+          <span class="diag-badge warn" title="Generation loop exceeded timeout limit before success" aria-label="Generation exceeded timeout limit before success">
+            <span class="badge-icon" aria-hidden="true">⚠</span>
+            <span aria-hidden="true">Timeout</span>
+          </span>
+        {% endif %}
+        {% if diagnostics.retries_exhausted %}
+          <span class="diag-badge warn" title="All allotted attempts were used without an early acceptable candidate" aria-label="All attempts were used without an early acceptable candidate">
+            <span class="badge-icon" aria-hidden="true">↺</span>
+            <span aria-hidden="true">Retries</span>
+          </span>
+        {% endif %}
+        {% if fallback or diagnostics.fallback %}
+          <span class="diag-badge fallback" title="Original theme produced no candidates; Surprise mode fallback engaged" aria-label="Fallback engaged after theme produced no candidates">
+            <span class="badge-icon" aria-hidden="true">★</span>
+            <span aria-hidden="true">Fallback</span>
+          </span>
+        {% endif %}
       </span>
     {% endif %}
   </div>
+  {% set display_list = display_themes or resolved_themes or [] %}
+  {% set resolved_list = display_list %}
+  {% set has_primary = primary_theme or secondary_theme or tertiary_theme %}
+  {% if resolved_list or has_primary %}
+    <div class="resolved-themes" style="margin-top:6px; font-size:13px; color:var(--text-muted,#94a3b8);" role="status" aria-live="polite">
+      {% if resolved_list %}
+        Resolved themes: <strong>{{ resolved_list|join(' + ') }}</strong>
+      {% else %}
+        Resolved themes: <strong>Full pool fallback</strong>
+      {% endif %}
+    </div>
+  {% endif %}
+  {% if auto_fill_applied and auto_filled_themes %}
+    <div class="auto-fill-note" style="margin-top:4px; font-size:12px; color:var(--text-muted,#94a3b8);" role="status" aria-live="polite">
+      Auto-filled: <strong>{{ auto_filled_themes|join(', ') }}</strong>
+    </div>
+  {% endif %}
+  {% if fallback_reason %}
+    {% if synergy_fallback and (not resolved_list) %}
+      {% set notice_class = 'danger' %}
+    {% elif synergy_fallback %}
+      {% set notice_class = 'warn' %}
+    {% else %}
+      {% set notice_class = 'info' %}
+    {% endif %}
+    {% if notice_class == 'danger' %}
+      {% set notice_icon = '⛔' %}
+    {% elif notice_class == 'warn' %}
+      {% set notice_icon = '⚠️' %}
+    {% else %}
+      {% set notice_icon = 'ℹ️' %}
+    {% endif %}
+    <div class="fallback-notice {{ notice_class }}" role="status" aria-live="assertive" aria-atomic="true" tabindex="0">
+      <span class="notice-icon" aria-hidden="true">{{ notice_icon }}</span>
+      <span>
+        <strong>Heads up:</strong>
+        <span id="fallback-reason-text">{{ fallback_reason }}.</span>
+        <span class="sr-only">You can tweak secondary or tertiary themes for different mixes, or reroll to explore more options.</span>
+        <span aria-hidden="true"> Try tweaking Secondary or Tertiary themes for different mixes, or reroll to explore more options.</span>
+      </span>
+    </div>
+  {% endif %}
   <!-- Hidden current seed so HTMX reroll button can include it via hx-include -->
   <input type="hidden" id="current-seed" name="seed" value="{{ seed }}" />
   <input type="hidden" id="current-commander" name="commander" value="{{ commander }}" />
+  <input type="hidden" id="current-primary-theme" name="primary_theme" value="{{ primary_theme or '' }}" />
+  <input type="hidden" id="current-secondary-theme" name="secondary_theme" value="{{ secondary_theme or '' }}" />
+  <input type="hidden" id="current-tertiary-theme" name="tertiary_theme" value="{{ tertiary_theme or '' }}" />
+  <input type="hidden" id="current-resolved-themes" name="resolved_themes" value="{{ resolved_list|join('||') }}" />
+  <input type="hidden" id="current-auto-fill-enabled" name="auto_fill_enabled" value="{{ 'true' if auto_fill_enabled else 'false' }}" />
+  <input type="hidden" id="current-auto-fill-secondary-enabled" name="auto_fill_secondary_enabled" value="{{ 'true' if auto_fill_secondary_enabled else 'false' }}" />
+  <input type="hidden" id="current-auto-fill-tertiary-enabled" name="auto_fill_tertiary_enabled" value="{{ 'true' if auto_fill_tertiary_enabled else 'false' }}" />
+  <input type="hidden" id="current-auto-filled-themes" name="auto_filled_themes" value="{{ auto_filled_themes|join('||') if auto_filled_themes else '' }}" />
+  <input type="hidden" id="current-strict-theme-match" name="strict_theme_match" value="{{ 'true' if strict_theme_match else 'false' }}" />
   <div class="commander-block" style="display:flex; gap:14px; align-items:flex-start; margin-top:.75rem;">
     <div class="commander-thumb" style="flex:0 0 auto;">
       <img

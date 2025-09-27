@@ -3,28 +3,20 @@
 ## Unreleased (Draft)
 
 ### Added
-- Random Mode multi-theme groundwork: backend accepts `primary_theme`, `secondary_theme`, `tertiary_theme` and computes a resolved combination with ordered fallback (triple → P+S → P+T → P → synergy token overlap → full pool). Exposes diagnostics (`resolved_themes`, `combo_fallback`, `synergy_fallback`, `fallback_reason`) for upcoming UI integration.
-- Locked commander reroll now outputs the full export artifact set (CSV, TXT, compliance, summary) with duplicate prevention.
-- Taxonomy snapshot utility (`python -m code.scripts.snapshot_taxonomy`): captures an auditable JSON of BRACKET_DEFINITIONS under `logs/taxonomy_snapshots/` with a content hash. Safe to run any time; subsequent identical snapshots are skipped.
-- Random Full Build export parity: random full builds now emit the full artifact set (`.csv`, `.txt`, `_compliance.json`, `.summary.json`) matching standard builds; API includes `csv_path`, `txt_path`, and `compliance` path fields.
-- Opt-out env var `RANDOM_BUILD_SUPPRESS_INITIAL_EXPORT` (defaults to suppressed) allows re-enabling legacy double-export for debugging when set to `0`.
-- Optional adaptive splash penalty (experiment): enable with `SPLASH_ADAPTIVE=1`; scale per commander color count with `SPLASH_ADAPTIVE_SCALE` (default `1:1.0,2:1.0,3:1.0,4:0.6,5:0.35`). Reasons are emitted as `splash_off_color_penalty_adaptive:<colors>:<value>`.
+	- Tests: added `test_random_reroll_throttle.py` to guard reroll throttle behavior and `test_random_metrics_and_seed_history.py` to verify opt-in telemetry counters and seed history API output.
 	- Analytics: splash penalty counters recognize both static and adaptive reasons; compare deltas with the flag toggled.
-- Theme picker performance: precomputed summary projections + lowercase haystacks and memoized filtered slug cache (keyed by (etag, q, archetype, bucket, colors)) for sub‑50ms typical list queries on warm path.
-- Skeleton loading UI for theme picker list, preview modal, and initial shell.
-- Theme preview endpoint (`/themes/api/theme/{id}/preview` + HTML fragment) returning representative sample with roles (payoff/enabler/support/wildcard/example/curated_synergy/synthetic).
-- Commander bias heuristics in preview sampling (color identity filtering + overlap/theme bonuses) for context-aware suggestions.
-- In‑memory TTL (600s) preview cache with metrics (requests, cache hits, average build ms) exposed at diagnostics endpoint.
-- Web UI: Double-faced card (DFC) hover support with single-image overlay flip control (top-left button, keyboard (Enter/Space/F), aria-live), persisted face (localStorage), and immediate refresh post-flip.
-- Diagnostics flag `WEB_THEME_PICKER_DIAGNOSTICS=1` gating fallback description flag, editorial quality badges, uncapped synergy lists, raw YAML fetch, and metrics endpoint (`/themes/metrics`).
-- Catalog & preview metrics endpoint combining filter + preview counters & cache stats.
-- Performance headers on list & API responses: `X-ThemeCatalog-Filter-Duration-ms` and `ETag` for conditional requests.
+- Random Mode curated pool now loads manual exclusions (`config/random_theme_exclusions.yml`), includes reporting helpers (`code/scripts/report_random_theme_pool.py --write-exclusions`), and ships documentation (`docs/random_theme_exclusions.md`). Diagnostics cards show manual categories and tag index telemetry.
+- Added `code/scripts/check_random_theme_perf.py` guard that compares the multi-theme profiler (`code/scripts/profile_multi_theme_filter.py`) against `config/random_theme_perf_baseline.json` with optional `--update-baseline`.
+- Random Mode UI adds a “Clear themes” control that resets Primary/Secondary/Tertiary inputs plus local persistence in a single click.
+	- Diagnostics: Added `/status/random_theme_stats` and a diagnostics dashboard card surfacing commander/theme token coverage and top tokens for multi-theme debugging.
  - Cache bust hooks tied to catalog refresh & tagging completion clear filter/preview caches (metrics now include last bust timestamps).
  - Governance metrics: `example_enforcement_active`, `example_enforce_threshold_pct` (threshold default 90%) signal when curated coverage enforcement is active.
  - Server authoritative mana & color identity fields (`mana_cost`, `color_identity_list`, `pip_colors`) included in preview/export; legacy client parsers removed.
 
 ### Changed
-- Random reroll export logic deduplicated by persisting `last_csv_path` / `last_txt_path` from headless runs; avoids creation of `*_1` suffixed artifacts on reroll.
+### Added
+- Tests: added `test_random_multi_theme_webflows.py` validating reroll-same-commander caching and permalink roundtrips for multi-theme runs across HTMX and API layers.
+- Multi-theme filtering now reuses a cached lowercase tag column and builds a reusable token index so combination checks and synergy fallback avoid repeated pandas `.apply` passes; new script `code/scripts/profile_multi_theme_filter.py` reports mean ~9.3 ms / p95 ~21 ms cascade timings on the current catalog (seed 42, 300 iterations).
 - Splash analytics updated to count both static and adaptive penalty reasons via a shared prefix, keeping historical dashboards intact.
 - Random full builds internally auto-set `RANDOM_BUILD_SUPPRESS_INITIAL_EXPORT=1` (unless explicitly provided) to eliminate duplicate suffixed decklists.
 - Preview assembly now pins curated `example_cards` then `synergy_example_cards` before heuristic sampling with diversity quotas (~40% payoff, 40% enabler/support, 20% wildcard) and synthetic placeholders only when underfilled.
@@ -45,6 +37,7 @@
 ### Added
 - Theme whitelist governance (`config/themes/theme_whitelist.yml`) with normalization, enforced synergies, and synergy cap (5).
 - Expanded curated synergy matrix plus PMI-based inferred synergies (data-driven) blended with curated anchors.
+- Random UI polish: fallback notices gain accessible icons, focus outlines, and aria copy; diagnostics badges now include icons/labels; the theme help tooltip is an accessible popover with keyboard controls; secondary/tertiary theme inputs persist via localStorage so repeat builds start with previous choices.
 - Test: `test_theme_whitelist_and_synergy_cap.py` validates enforced synergy presence and cap compliance.
 - PyYAML dependency for governance parsing.
 

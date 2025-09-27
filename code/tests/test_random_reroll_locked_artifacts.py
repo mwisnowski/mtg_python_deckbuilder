@@ -35,7 +35,7 @@ def test_locked_reroll_generates_summary_and_compliance():
     start = time.time()
     # Locked reroll via HTMX path (form style)
     form_body = f"seed={seed}&commander={commander}&mode=reroll_same_commander"
-    r2 = c.post('/hx/random_reroll', data=form_body, headers={'Content-Type':'application/x-www-form-urlencoded'})
+    r2 = c.post('/hx/random_reroll', content=form_body, headers={'Content-Type':'application/x-www-form-urlencoded'})
     assert r2.status_code == 200, r2.text
 
     # Look for new sidecar/compliance created after start

@@ -19,7 +19,7 @@ def test_locked_reroll_single_export():
     commander = r.json()['commander']
     before_csvs = set(glob.glob('deck_files/*.csv'))
     form_body = f"seed={seed}&commander={commander}&mode=reroll_same_commander"
-    r2 = c.post('/hx/random_reroll', data=form_body, headers={'Content-Type':'application/x-www-form-urlencoded'})
+    r2 = c.post('/hx/random_reroll', content=form_body, headers={'Content-Type':'application/x-www-form-urlencoded'})
     assert r2.status_code == 200
     after_csvs = set(glob.glob('deck_files/*.csv'))
     new_csvs = after_csvs - before_csvs

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Request, Form, Query
 from fastapi.responses import HTMLResponse, JSONResponse
+from typing import Any
 from ..app import ALLOW_MUST_HAVES  # Import feature flag
 from ..services.build_utils import (
     step5_ctx_from_result,
@@ -2859,7 +2860,35 @@ async def build_permalink(request: Request):
         rb = sess.get("random_build") or {}
         if rb:
             # Only include known keys to avoid leaking unrelated session data
-            inc = {k: rb.get(k) for k in ("seed", "theme", "constraints") if k in rb}
+            inc: dict[str, Any] = {}
+            for key in ("seed", "theme", "constraints", "primary_theme", "secondary_theme", "tertiary_theme"):
+                if rb.get(key) is not None:
+                    inc[key] = rb.get(key)
+            resolved_list = rb.get("resolved_themes")
+            if isinstance(resolved_list, list):
+                inc["resolved_themes"] = list(resolved_list)
+            resolved_info = rb.get("resolved_theme_info")
+            if isinstance(resolved_info, dict):
+                inc["resolved_theme_info"] = dict(resolved_info)
+            if rb.get("combo_fallback") is not None:
+                inc["combo_fallback"] = bool(rb.get("combo_fallback"))
+            if rb.get("synergy_fallback") is not None:
+                inc["synergy_fallback"] = bool(rb.get("synergy_fallback"))
+            if rb.get("fallback_reason") is not None:
+                inc["fallback_reason"] = rb.get("fallback_reason")
+            requested = rb.get("requested_themes")
+            if isinstance(requested, dict):
+                inc["requested_themes"] = dict(requested)
+            if rb.get("auto_fill_enabled") is not None:
+                inc["auto_fill_enabled"] = bool(rb.get("auto_fill_enabled"))
+            if rb.get("auto_fill_applied") is not None:
+                inc["auto_fill_applied"] = bool(rb.get("auto_fill_applied"))
+            auto_filled = rb.get("auto_filled_themes")
+            if isinstance(auto_filled, list):
+                inc["auto_filled_themes"] = list(auto_filled)
+            display = rb.get("display_themes")
+            if isinstance(display, list):
+                inc["display_themes"] = list(display)
             if inc:
                 payload["random"] = inc
     except Exception:
@@ -2914,9 +2943,43 @@ async def build_from(request: Request, state: str | None = None) -> HTMLResponse
             try:
                 r = data.get("random") or {}
                 if r:
-                    sess["random_build"] = {
-                        k: r.get(k) for k in ("seed", "theme", "constraints") if k in r
-                    }
+                    rb_payload: dict[str, Any] = {}
+                    for key in ("seed", "theme", "constraints", "primary_theme", "secondary_theme", "tertiary_theme"):
+                        if r.get(key) is not None:
+                            rb_payload[key] = r.get(key)
+                    if isinstance(r.get("resolved_themes"), list):
+                        rb_payload["resolved_themes"] = list(r.get("resolved_themes") or [])
+                    if isinstance(r.get("resolved_theme_info"), dict):
+                        rb_payload["resolved_theme_info"] = dict(r.get("resolved_theme_info"))
+                    if r.get("combo_fallback") is not None:
+                        rb_payload["combo_fallback"] = bool(r.get("combo_fallback"))
+                    if r.get("synergy_fallback") is not None:
+                        rb_payload["synergy_fallback"] = bool(r.get("synergy_fallback"))
+                    if r.get("fallback_reason") is not None:
+                        rb_payload["fallback_reason"] = r.get("fallback_reason")
+                    if isinstance(r.get("requested_themes"), dict):
+                        requested_payload = dict(r.get("requested_themes"))
+                        if "auto_fill_enabled" in requested_payload:
+                            requested_payload["auto_fill_enabled"] = bool(requested_payload.get("auto_fill_enabled"))
+                        rb_payload["requested_themes"] = requested_payload
+                    if r.get("auto_fill_enabled") is not None:
+                        rb_payload["auto_fill_enabled"] = bool(r.get("auto_fill_enabled"))
+                    if r.get("auto_fill_applied") is not None:
+                        rb_payload["auto_fill_applied"] = bool(r.get("auto_fill_applied"))
+                    auto_filled = r.get("auto_filled_themes")
+                    if isinstance(auto_filled, list):
+                        rb_payload["auto_filled_themes"] = list(auto_filled)
+                    display = r.get("display_themes")
+                    if isinstance(display, list):
+                        rb_payload["display_themes"] = list(display)
+                    if "seed" in rb_payload:
+                        try:
+                            seed_int = int(rb_payload["seed"])
+                            rb_payload["seed"] = seed_int
+                            rb_payload.setdefault("recent_seeds", [seed_int])
+                        except Exception:
+                            rb_payload.setdefault("recent_seeds", [])
+                    sess["random_build"] = rb_payload
             except Exception:
                 pass
             

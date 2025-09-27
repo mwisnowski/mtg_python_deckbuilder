@@ -23,14 +23,14 @@ def test_reroll_keeps_commander():
     # First reroll with commander lock
     headers = {'Content-Type': 'application/json'}
     body = json.dumps({'seed': seed, 'commander': commander, 'mode': 'reroll_same_commander'})
-    r2 = client.post('/hx/random_reroll', data=body, headers=headers)
+    r2 = client.post('/hx/random_reroll', content=body, headers=headers)
     assert r2.status_code == 200
     html1 = r2.text
     assert commander in html1
 
     # Second reroll should keep same commander (seed increments so prior +1 used on server)
     body2 = json.dumps({'seed': seed + 1, 'commander': commander, 'mode': 'reroll_same_commander'})
-    r3 = client.post('/hx/random_reroll', data=body2, headers=headers)
+    r3 = client.post('/hx/random_reroll', content=body2, headers=headers)
     assert r3.status_code == 200
     html2 = r3.text
     assert commander in html2

@@ -1,0 +1,35 @@
+# Curated exclusions for Random Mode auto-fill suggestions
+#
+# Each entry lists a set of tokens we explicitly remove from the curated
+# random theme pool along with the reason. These tokens remain searchable
+# via manual text entry; they are excluded only from surprise/random
+# suggestions and auto-fill assistance.
+
+manual_exclusions:
+  - category: ubiquitous_baseline
+    summary: Baseline game actions that nearly every Commander deck shares.
+    tokens:
+      - card advantage
+      - card draw
+      - removal
+      - interaction
+    notes: Manual typing will still find these, but surfacing them in surprise mode is not actionable.
+
+  - category: degenerate_catchall
+    summary: Broad "good stuff"/"value" descriptors that do not communicate a cohesive plan.
+    tokens:
+      - value
+      - good stuff
+      - goodstuff
+      - good-stuff
+      - midrange value
+    notes: Users should choose the underlying themes they actually want instead of generic catch-alls.
+
+  - category: non_theme_qualifiers
+    summary: Tags that describe constraints outside of theme-building.
+    tokens:
+      - budget
+      - competitive
+      - cedh
+      - high power
+    notes: These categories belong in power settings rather than surprise theme suggestions.

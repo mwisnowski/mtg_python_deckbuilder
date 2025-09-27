@@ -20,12 +20,12 @@ def test_reroll_keeps_commander_form_encoded():
     seed = data1['seed']
 
     form_body = f"seed={seed}&commander={quote_plus(commander)}&mode=reroll_same_commander"
-    r2 = client.post('/hx/random_reroll', data=form_body, headers={'Content-Type': 'application/x-www-form-urlencoded'})
+    r2 = client.post('/hx/random_reroll', content=form_body, headers={'Content-Type': 'application/x-www-form-urlencoded'})
     assert r2.status_code == 200
     assert commander in r2.text
 
     # second reroll with incremented seed
     form_body2 = f"seed={seed+1}&commander={quote_plus(commander)}&mode=reroll_same_commander"
-    r3 = client.post('/hx/random_reroll', data=form_body2, headers={'Content-Type': 'application/x-www-form-urlencoded'})
+    r3 = client.post('/hx/random_reroll', content=form_body2, headers={'Content-Type': 'application/x-www-form-urlencoded'})
     assert r3.status_code == 200
     assert commander in r3.text

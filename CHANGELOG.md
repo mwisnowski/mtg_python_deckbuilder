@@ -14,7 +14,17 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 
 ## [Unreleased]
 ### Added
+- Tests: added `test_random_reroll_throttle.py` to enforce reroll throttle behavior and `test_random_metrics_and_seed_history.py` to validate opt-in telemetry counters plus seed history exposure.
+- Random Mode curated theme pool now documents manual exclusions (`config/random_theme_exclusions.yml`) and ships a reporting script `code/scripts/report_random_theme_pool.py` (`--write-exclusions` emits Markdown/JSON) alongside `docs/random_theme_exclusions.md`. Diagnostics now show manual categories and tag index telemetry.
+- Performance guard: `code/scripts/check_random_theme_perf.py` compares the multi-theme profiler output to `config/random_theme_perf_baseline.json` and fails if timings regress beyond configurable thresholds (`--update-baseline` refreshes the file).
+- Random Modes UI/API: separate auto-fill controls for Secondary and Tertiary themes with full session, permalink, HTMX, and JSON API support (per-slot state persists across rerolls and exports, and Tertiary auto-fill now automatically enables Secondary to keep combinations valid).
+- Random Mode UI gains a lightweight “Clear themes” button that resets all theme inputs and stored preferences in one click for fast Surprise Me reruns.
+- Diagnostics: `/status/random_theme_stats` exposes cached commander theme token metrics and the diagnostics dashboard renders indexed commander coverage plus top tokens for multi-theme debugging.
+- Random Mode sidecar metadata now records multi-theme details (`primary_theme`, `secondary_theme`, `tertiary_theme`, `resolved_themes`, `combo_fallback`, `synergy_fallback`, `fallback_reason`, plus legacy aliases) in both the summary payload and exported `.summary.json` files.
+- Tests: added `test_random_multi_theme_filtering.py` covering triple success, fallback tiers (P+S, P+T, Primary-only, synergy, full pool) and sidecar metadata emission for multi-theme builds.
+- Tests: added `test_random_multi_theme_webflows.py` to exercise reroll-same-commander caching and permalink roundtrips for multi-theme runs across HTMX and API layers.
 - Random Mode multi-theme groundwork: backend now supports `primary_theme`, `secondary_theme`, `tertiary_theme` with deterministic AND-combination cascade (P+S+T → P+S → P+T → P → synergy-overlap → full pool). Diagnostics fields (`resolved_themes`, `combo_fallback`, `synergy_fallback`, `fallback_reason`) added to `RandomBuildResult` (UI wiring pending).
+- Tests: added `test_random_surprise_reroll_behavior.py` covering Surprise Me input preservation and locked commander reroll cache reuse.
 - Locked commander reroll path now produces full artifact parity (CSV, TXT, compliance JSON, summary JSON) identical to Surprise builds.
 - Random reroll tests for: commander lock invariance, artifact presence, duplicate export prevention, and form vs JSON submission.
 - Roadmap document `logs/roadmaps/random_multi_theme_roadmap.md` capturing design, fallback strategy, diagnostics, and incremental delivery plan.
@@ -47,10 +57,15 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
  - Optional multi-pass performance CI variant (`preview_perf_ci_check.py --multi-pass`) to collect cold vs warm pass stats when diagnosing divergence.
 
 ### Changed
+- Random theme pool builder loads manual exclusions and always emits `auto_filled_themes` as a list (empty when unused), while enhanced metadata powers diagnostics telemetry.
+- Random build summaries normalize multi-theme metadata before embedding in summary payloads and sidecar exports (trimming whitespace, deduplicating/normalizing resolved theme lists).
+- Random Mode strict-theme toggle is now fully stateful: the checkbox and hidden field keep session/local storage in sync, HTMX rerolls reuse the flag, and API/full-build responses plus permalinks carry `strict_theme_match` through exports and sidecars.
+- Multi-theme filtering now pre-caches lowercase tag lists and builds a reusable token index so AND-combos and synergy fallback avoid repeated pandas `.apply` passes; profiling via `code/scripts/profile_multi_theme_filter.py` shows mean ~9.3 ms / p95 ~21 ms for cascade checks (seed 42, 300 iterations).
 - Random reroll (locked commander) export flow: now reuses builder-exported artifacts when present and records `last_csv_path` / `last_txt_path` inside the headless runner to avoid duplicate suffixed files.
 - Summary sidecars for random builds include `locked_commander` flag when rerolling same commander.
 - Splash analytics recognize both static and adaptive penalty reasons (shared prefix handling), so existing dashboards continue to work when `SPLASH_ADAPTIVE=1`.
 - Random full builds now internally force `RANDOM_BUILD_SUPPRESS_INITIAL_EXPORT=1` (if unset) ensuring only the orchestrated export path executes (eliminates historical duplicate `*_1.csv` / `*_1.txt`). Set `RANDOM_BUILD_SUPPRESS_INITIAL_EXPORT=0` to intentionally restore the legacy double-export (not recommended outside debugging).
+- Multi-theme Random UI polish: fallback notices now surface high-contrast icons, focus outlines, and aria-friendly copy; diagnostics badges gain icons/labels; help tooltip converted to an accessible popover with keyboard support; Secondary/Tertiary inputs persist across sessions.
 - Picker list & API use optimized fast filtering path (`filter_slugs_fast`) replacing per-request linear scans.
 - Preview sampling: curated examples pinned first, diversity quotas (~40% payoff / 40% enabler+support / 20% wildcard), synthetic placeholders only if underfilled.
 - Sampling refinements: rarity diminishing weight, splash leniency (single off-color allowance with penalty for 4–5 color commanders), role saturation penalty, refined commander overlap scaling curve.
@@ -63,6 +78,7 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
  - Performance gating formalized: CI fails if warm p95 regression > configured threshold (default 5%). Baseline refresh policy: only update committed warm baseline when (a) intentional performance improvement >10% p95, or (b) unavoidable drift exceeds threshold and is justified in CHANGELOG entry.
 
 ### Fixed
+- Random UI Surprise Me rerolls now keep user-supplied theme inputs instead of adopting fallback combinations, and reroll-same-commander builds reuse cached resolved themes without re-running the filter cascade.
 - Removed redundant template environment instantiation causing inconsistent navigation state.
 - Ensured preview cache key includes catalog ETag to prevent stale sample reuse after catalog reload.
 - Explicit cache bust after tagging/catalog rebuild prevents stale preview exposure.

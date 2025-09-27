@@ -7,6 +7,7 @@
     <h3 style="margin-top:0">System summary</h3>
     <div id="sysSummary" class="muted">Loading…</div>
     <div id="themeSummary" style="margin-top:.5rem"></div>
+    <div id="themeTokenStats" class="muted" style="margin-top:.5rem">Loading theme stats…</div>
     <div style="margin-top:.35rem">
       <button class="btn" id="diag-theme-reset">Reset theme preference</button>
     </div>
@@ -76,6 +77,121 @@
     try { fetch('/status/sys', { cache: 'no-store' }).then(function(r){ return r.json(); }).then(render).catch(function(){ el.textContent='Unavailable'; }); } catch(_){ el.textContent='Unavailable'; }
   }
   load();
+  var tokenEl = document.getElementById('themeTokenStats');
+  function renderTokens(payload){
+    if (!tokenEl) return;
+    try {
+      if (!payload || payload.ok !== true) {
+        tokenEl.textContent = 'Theme stats unavailable';
+        return;
+      }
+      var stats = payload.stats || {};
+      var top = Array.isArray(stats.top_tokens) ? stats.top_tokens.slice(0, 5) : [];
+      var html = '';
+  var commanders = (stats && stats.commanders != null) ? stats.commanders : '0';
+  var withTags = (stats && stats.with_tags != null) ? stats.with_tags : '0';
+  var uniqueTokens = (stats && stats.unique_tokens != null) ? stats.unique_tokens : '0';
+  var assignments = (stats && stats.total_assignments != null) ? stats.total_assignments : '0';
+  var avgTokens = (stats && stats.avg_tokens_per_commander != null) ? stats.avg_tokens_per_commander : '0';
+  var medianTokens = (stats && stats.median_tokens_per_commander != null) ? stats.median_tokens_per_commander : '0';
+  html += '<div><strong>Commanders indexed:</strong> ' + String(commanders) + ' (' + String(withTags) + ' with tags)</div>';
+  html += '<div><strong>Theme tokens:</strong> ' + String(uniqueTokens) + ' unique; ' + String(assignments) + ' assignments</div>';
+  html += '<div><strong>Tokens per commander:</strong> avg ' + String(avgTokens) + ', median ' + String(medianTokens) + '</div>';
+      if (top.length) {
+        var parts = [];
+        top.forEach(function(item){
+          parts.push(String(item.token) + ' (' + String(item.count) + ')');
+        });
+        html += '<div><strong>Top tokens:</strong> ' + parts.join(', ') + '</div>';
+      }
+      var pool = stats.random_pool || {};
+      if (pool && typeof pool.size !== 'undefined'){
+        var coveragePct = null;
+        if (pool.coverage_ratio != null){
+          var cov = Number(pool.coverage_ratio);
+          if (!Number.isNaN(cov)){ coveragePct = (cov * 100).toFixed(1); }
+        }
+        html += '<div style="margin-top:0.35rem;"><strong>Curated random pool:</strong> ' + String(pool.size) + ' tokens';
+        if (coveragePct !== null){ html += ' (' + coveragePct + '% of catalog tokens)'; }
+        html += '</div>';
+        var rules = pool.rules || {};
+        var threshold = rules.overrepresented_share_threshold;
+        if (threshold != null){
+          var thrPct = Number(threshold);
+          if (!Number.isNaN(thrPct)){ html += '<div style="font-size:11px;">Over-represented threshold: ≥ ' + (thrPct * 100).toFixed(1) + '% of commanders</div>'; }
+        }
+        var excludedCounts = pool.excluded_counts || {};
+        var reasonKeys = Object.keys(excludedCounts);
+        if (reasonKeys.length){
+          var badges = reasonKeys.map(function(reason){
+            return reason + ' (' + excludedCounts[reason] + ')';
+          });
+          html += '<div style="font-size:11px;">Exclusions: ' + badges.join(', ') + '</div>';
+        }
+        var samples = pool.excluded_samples || {};
+        var sampleKeys = Object.keys(samples);
+        if (sampleKeys.length){
+          var sampleLines = [];
+          sampleKeys.slice(0, 3).forEach(function(reason){
+            var tokens = samples[reason] || [];
+            var sampleTokens = (tokens || []).slice(0, 3);
+            var remainder = Math.max((tokens || []).length - sampleTokens.length, 0);
+            var tokenLabel = sampleTokens.join(', ');
+            if (remainder > 0){ tokenLabel += ' +' + remainder; }
+            sampleLines.push(reason + ': ' + tokenLabel);
+          });
+          html += '<div style="font-size:11px; opacity:0.75;">Samples → ' + sampleLines.join(' | ') + '</div>';
+        }
+        var manualDetail = pool.manual_exclusion_detail || {};
+        var manualKeys = Object.keys(manualDetail);
+        if (manualKeys.length){
+          var manualSamples = manualKeys.slice(0, 3).map(function(token){
+            var info = manualDetail[token] || {};
+            var label = info.display || token;
+            var cat = info.category ? (' [' + info.category + ']') : '';
+            return label + cat;
+          });
+          var manualRemainder = Math.max(manualKeys.length - manualSamples.length, 0);
+          var manualLine = manualSamples.join(', ');
+          if (manualRemainder > 0){ manualLine += ' +' + manualRemainder; }
+          html += '<div style="font-size:11px;">Manual exclusions: ' + manualLine + '</div>';
+        }
+  var manualGroups = Array.isArray(rules.manual_exclusions) ? rules.manual_exclusions : [];
+        if (manualGroups.length){
+          var categoryList = manualGroups.map(function(group){ return group.category || 'manual'; });
+          html += '<div style="font-size:11px; opacity:0.75;">Manual categories: ' + categoryList.join(', ') + '</div>';
+        }
+      }
+      var telemetry = stats.index_telemetry || {};
+      if (telemetry && typeof telemetry.token_count !== 'undefined'){
+        var hitRate = telemetry.hit_rate != null ? Number(telemetry.hit_rate) : null;
+        var hitPct = (hitRate !== null && !Number.isNaN(hitRate)) ? (hitRate * 100).toFixed(1) : null;
+        var teleLine = '<div style="font-size:11px; margin-top:0.25rem;">Tag index: ' + String(telemetry.token_count || 0) + ' tokens · lookups ' + String(telemetry.lookups || 0);
+        if (hitPct !== null){ teleLine += ' · hit rate ' + hitPct + '%'; }
+        if (telemetry.substring_checks){ teleLine += ' · substring checks ' + String(telemetry.substring_checks || 0); }
+        teleLine += '</div>';
+        html += teleLine;
+      }
+      tokenEl.innerHTML = html;
+    } catch(_){
+      tokenEl.textContent = 'Theme stats unavailable';
+    }
+  }
+  function loadTokenStats(){
+    if (!tokenEl) return;
+    tokenEl.textContent = 'Loading theme stats…';
+    fetch('/status/random_theme_stats', { cache: 'no-store' })
+      .then(function(resp){
+        if (resp.status === 404) {
+          tokenEl.textContent = 'Diagnostics disabled (stats unavailable)';
+          return null;
+        }
+        return resp.json();
+      })
+      .then(function(data){ if (data) renderTokens(data); })
+      .catch(function(){ tokenEl.textContent = 'Theme stats unavailable'; });
+  }
+  loadTokenStats();
   // Theme status and reset
   try{
     var tEl = document.getElementById('themeSummary');

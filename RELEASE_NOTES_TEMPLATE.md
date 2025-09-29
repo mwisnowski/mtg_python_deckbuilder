@@ -8,6 +8,7 @@
 - Delivered multi-theme random builds with deterministic cascade, strict match support, and polished HTMX/UI flows.
 - Added opt-in telemetry counters, reroll throttling safeguards, and structured diagnostics exports.
 - Expanded tooling, documentation, and QA coverage for theme governance, performance profiling, and seed history management.
+- Hardened the headless runner against owned-card prompt loops with optional automation overrides and regression coverage.
 
 ## Highlights
 ### Multi-theme random builds
@@ -29,6 +30,7 @@
 - Diagnostics badge polish, recent/favorite seeds panel, seed history API, and structured logging for random builds.
 - Sidecar exports include multi-theme metadata and locked commander indicators with consistent artifact sets.
 - Manual QA checklist updates and broader pytest coverage for multi-theme flows, reroll behavior, performance, and telemetry.
+- Headless runner now auto-resolves owned-card prompts in headless mode with env-overridable defaults and a regression test.
 
 ### Maintenance & CI
 - Theme catalog schema now accepts optional IDs and the preview performance warm baseline was regenerated to restore the regression gate.
@@ -44,6 +46,7 @@
 	- `test_random_multi_theme_webflows.py` covering reroll-same-commander caching and permalink round-trips for multi-theme runs.
 	- `test_random_multi_theme_filtering.py` ensuring deterministic cascade across success tiers and sidecar metadata.
 	- `test_random_surprise_reroll_behavior.py` protecting Surprise Me input preservation and locked-commander cache reuse.
+	- `test_headless_skips_owned_prompt_when_files_present.py` ensuring headless builds stay non-interactive when owned card lists are present.
 - **Random mode tooling & docs**
 	- Curated theme pool exclusions at `config/random_theme_exclusions.yml`, reporting helper `code/scripts/report_random_theme_pool.py --write-exclusions`, and companion docs in `docs/random_theme_exclusions.md`.
 	- Performance guard `code/scripts/check_random_theme_perf.py` comparing profiler output (`code/scripts/profile_multi_theme_filter.py`) with `config/random_theme_perf_baseline.json` (`--update-baseline` refreshes the file).
@@ -84,6 +87,7 @@
 - Removed ultra-rare themes (frequency ≤1) unless protected via whitelist, keeping results focused on supported experiences.
 - Corrected commander eligibility rules to restrict non-creature legendary permanents and honor “can be your commander” text.
 - Refreshed `logs/perf/theme_preview_warm_baseline.json` to fix preview performance CI failures stemming from malformed baseline data.
+- Prevented the headless runner from looping on bracket selection when owned card files exist by scripting prompt responses and exposing `HEADLESS_USE_OWNED_ONLY` / `HEADLESS_OWNED_SELECTION` overrides.
 
 ## Upgrade notes
 - Enable multi-theme random builds via existing Random Mode flags; strict matching persists automatically across UI, API, permalink, and export contexts.

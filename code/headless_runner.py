@@ -40,6 +40,31 @@ def _write_tagging_flag(tagging_json):
     with open(tagging_json, 'w', encoding='utf-8') as f:
         json.dump({'tagged_at': datetime.now().isoformat(timespec='seconds')}, f)
 
+
+def _headless_owned_cards_dir() -> str:
+    env_dir = os.getenv("OWNED_CARDS_DIR") or os.getenv("CARD_LIBRARY_DIR")
+    if env_dir:
+        return env_dir
+    if os.path.isdir("owned_cards"):
+        return "owned_cards"
+    if os.path.isdir("card_library"):
+        return "card_library"
+    return "owned_cards"
+
+
+def _headless_list_owned_files() -> List[str]:
+    folder = _headless_owned_cards_dir()
+    entries: List[str] = []
+    try:
+        if os.path.isdir(folder):
+            for name in os.listdir(folder):
+                path = os.path.join(folder, name)
+                if os.path.isfile(path) and name.lower().endswith((".txt", ".csv")):
+                    entries.append(path)
+    except Exception:
+        return []
+    return sorted(entries)
+
 def run(
     command_name: str = "",
     add_creatures: bool = True,
@@ -68,6 +93,17 @@ def run(
     seed: Optional[int | str] = None,
 ) -> DeckBuilder:
     """Run a scripted non-interactive deck build and return the DeckBuilder instance."""
+    owned_prompt_inputs: List[str] = []
+    owned_files_available = _headless_list_owned_files()
+    if owned_files_available:
+        use_owned_flag = _parse_bool(os.getenv("HEADLESS_USE_OWNED_ONLY"))
+        if use_owned_flag:
+            owned_prompt_inputs.append("y")
+            selection = (os.getenv("HEADLESS_OWNED_SELECTION") or "").strip()
+            owned_prompt_inputs.append(selection)
+        else:
+            owned_prompt_inputs.append("n")
+
     scripted_inputs: List[str] = []
     # Commander query & selection
     scripted_inputs.append(command_name)        # initial query
@@ -85,6 +121,7 @@ def run(
             scripted_inputs.append("0")
     else:
         scripted_inputs.append("0")  # stop at primary
+    scripted_inputs.extend(owned_prompt_inputs)
     # Bracket (meta power / style) selection; default to 3 if not provided
     scripted_inputs.append(str(bracket_level if isinstance(bracket_level, int) and 1 <= bracket_level <= 5 else 3))
     # Ideal count prompts (press Enter for defaults). Include fetch_lands if present.

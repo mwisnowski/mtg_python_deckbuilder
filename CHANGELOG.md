@@ -14,6 +14,7 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 
 ## [Unreleased]
 ### Added
+- Tests: added `test_headless_skips_owned_prompt_when_files_present` to guard the headless runner against regressions when owned card lists are present.
 - Included the tiny `csv_files/testdata` fixture set so CI fast determinism tests have consistent sample data.
 
 ### Changed
@@ -22,6 +23,7 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 - Relaxed fast-path catalog validation to allow empty synergy lists while still warning on missing or malformed data types.
 
 ### Fixed
+- Headless runner no longer loops on the power bracket prompt when owned card files exist; scripted responses now auto-select defaults with optional `HEADLESS_USE_OWNED_ONLY` / `HEADLESS_OWNED_SELECTION` overrides for automation flows.
 - Regenerated `logs/perf/theme_preview_warm_baseline.json` to repair preview performance CI regressions caused by a malformed baseline file and verified the regression gate passes with the refreshed data.
 
 ## [2.3.0] - 2025-09-26

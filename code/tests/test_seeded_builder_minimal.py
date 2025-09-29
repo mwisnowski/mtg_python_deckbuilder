@@ -16,3 +16,26 @@ def test_headless_seed_threads_into_builder(monkeypatch):
     # Basic sanity: commander selection should have occurred
     assert isinstance(getattr(out1, "commander_name", ""), str)
     assert isinstance(getattr(out2, "commander_name", ""), str)
+
+
+def test_headless_skips_owned_prompt_when_files_present(monkeypatch, tmp_path):
+    monkeypatch.setenv("CSV_FILES_DIR", os.path.join("csv_files", "testdata"))
+    owned_dir = tmp_path / "owned"
+    owned_dir.mkdir()
+    (owned_dir / "my_cards.txt").write_text("1 Sol Ring\n", encoding="utf-8")
+    monkeypatch.setenv("OWNED_CARDS_DIR", str(owned_dir))
+
+    builder = run(
+        command_name="Krenko",
+        add_lands=False,
+        add_creatures=False,
+        add_non_creature_spells=False,
+        add_ramp=False,
+        add_removal=False,
+        add_wipes=False,
+        add_card_advantage=False,
+        add_protection=False,
+    )
+
+    assert getattr(builder, "bracket_level", None) in {None, 3}
+    assert getattr(builder, "use_owned_only", False) is False

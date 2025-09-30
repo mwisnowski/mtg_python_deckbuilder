@@ -103,8 +103,9 @@ def _as_bool(val: str | None, default: bool = False) -> bool:
 SHOW_LOGS = _as_bool(os.getenv("SHOW_LOGS"), False)
 SHOW_SETUP = _as_bool(os.getenv("SHOW_SETUP"), True)
 SHOW_DIAGNOSTICS = _as_bool(os.getenv("SHOW_DIAGNOSTICS"), False)
+SHOW_COMMANDERS = _as_bool(os.getenv("SHOW_COMMANDERS"), True)
 SHOW_VIRTUALIZE = _as_bool(os.getenv("WEB_VIRTUALIZE"), False)
-ENABLE_THEMES = _as_bool(os.getenv("ENABLE_THEMES"), False)
+ENABLE_THEMES = _as_bool(os.getenv("ENABLE_THEMES"), True)
 ENABLE_PWA = _as_bool(os.getenv("ENABLE_PWA"), False)
 ENABLE_PRESETS = _as_bool(os.getenv("ENABLE_PRESETS"), False)
 ALLOW_MUST_HAVES = _as_bool(os.getenv("ALLOW_MUST_HAVES"), False)
@@ -231,6 +232,7 @@ templates.env.globals.update({
     "show_logs": SHOW_LOGS,
     "show_setup": SHOW_SETUP,
     "show_diagnostics": SHOW_DIAGNOSTICS,
+    "show_commanders": SHOW_COMMANDERS,
     "virtualize": SHOW_VIRTUALIZE,
     "enable_themes": ENABLE_THEMES,
     "enable_pwa": ENABLE_PWA,
@@ -815,6 +817,7 @@ async def status_sys():
             "flags": {
                 "SHOW_LOGS": bool(SHOW_LOGS),
                 "SHOW_SETUP": bool(SHOW_SETUP),
+                "SHOW_COMMANDERS": bool(SHOW_COMMANDERS),
                 "SHOW_DIAGNOSTICS": bool(SHOW_DIAGNOSTICS),
                 "ENABLE_THEMES": bool(ENABLE_THEMES),
                 "ENABLE_PWA": bool(ENABLE_PWA),
@@ -2128,12 +2131,14 @@ from .routes import decks as decks_routes  # noqa: E402
 from .routes import setup as setup_routes  # noqa: E402
 from .routes import owned as owned_routes  # noqa: E402
 from .routes import themes as themes_routes  # noqa: E402
+from .routes import commanders as commanders_routes  # noqa: E402
 app.include_router(build_routes.router)
 app.include_router(config_routes.router)
 app.include_router(decks_routes.router)
 app.include_router(setup_routes.router)
 app.include_router(owned_routes.router)
 app.include_router(themes_routes.router)
+app.include_router(commanders_routes.router)
 
 # Warm validation cache early to reduce first-call latency in tests and dev
 try:
@@ -2190,6 +2195,7 @@ async def http_exception_handler(request: Request, exc: HTTPException):
         "error": True,
         "status": exc.status_code,
         "detail": exc.detail,
+        "request_id": rid,
         "path": str(request.url.path),
     }, headers=headers)
 

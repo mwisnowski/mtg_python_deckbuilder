@@ -1,0 +1,56 @@
+{# Commander row partial fed by CommanderView entries #}
+{% from "partials/_macros.html" import color_identity %}
+{% set record = entry.record %}
+<article class="commander-row" data-commander-slug="{{ record.slug }}" data-hover-simple="true">
+  <div class="commander-thumb">
+    {% set small = record.image_small_url or record.image_normal_url %}
+    <img
+      src="{{ small }}"
+      srcset="{{ small }} 160w, {{ record.image_normal_url or small }} 488w"
+      sizes="160px"
+      alt="{{ record.display_name }} card art"
+      loading="lazy"
+      decoding="async"
+      data-card-name="{{ record.display_name }}"
+      data-hover-simple="true"
+    />
+  </div>
+  <div class="commander-main">
+    <div class="commander-header">
+      <h3 class="commander-name">{{ record.display_name }}</h3>
+      {{ color_identity(record.color_identity, record.is_colorless, entry.color_aria_label, entry.color_label) }}
+    </div>
+    <p class="commander-context muted">{{ record.type_line or 'Legendary Creature' }}</p>
+    {% if entry.themes %}
+      <div class="commander-themes" role="list">
+        {% for theme in entry.themes %}
+          {% set summary = theme.summary or 'Summary unavailable' %}
+          <button type="button"
+                  class="commander-theme-chip"
+                  role="listitem"
+                  data-theme-name="{{ theme.name }}"
+                  data-theme-slug="{{ theme.slug }}"
+                  data-theme-summary="{{ summary }}"
+                  title="{{ summary }}"
+                  aria-label="{{ theme.name }} theme: {{ summary }}">
+            {{ theme.name }}
+          </button>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="commander-themes commander-themes-empty">
+        <span class="muted">No themes linked yet.</span>
+      </div>
+    {% endif %}
+    {% if entry.partner_summary %}
+      <div class="commander-partners muted">
+        {% for note in entry.partner_summary %}
+          <span>{{ note }}</span>{% if not loop.last %}<span aria-hidden="true" class="commander-partner-sep">•</span>{% endif %}
+        {% endfor %}
+      </div>
+    {% endif %}
+  </div>
+  <div class="commander-cta">
+    <a class="btn" href="/build?commander={{ record.display_name|urlencode }}&return={{ return_url|urlencode }}" data-commander="{{ record.slug }}">Build</a>
+  </div>
+</article>

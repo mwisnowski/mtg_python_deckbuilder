@@ -25,6 +25,8 @@ from deck_builder import builder_utils as bu
 from ..services.combo_utils import detect_all as _detect_all
 from path_util import csv_dir as _csv_dir
 from ..services.alts_utils import get_cached as _alts_get_cached, set_cached as _alts_set_cached
+from ..services.telemetry import log_commander_create_deck
+from urllib.parse import urlparse
 
 # Cache for available card names used by validation endpoints
 _AVAILABLE_CARDS_CACHE: set[str] | None = None
@@ -188,6 +190,39 @@ def _rebuild_ctx_with_multicopy(sess: dict) -> None:
 async def build_index(request: Request) -> HTMLResponse:
     sid = request.cookies.get("sid") or new_sid()
     sess = get_session(sid)
+    # Seed commander from query string when arriving from commander browser
+    q_commander = None
+    try:
+        q_commander = request.query_params.get("commander")
+        if q_commander:
+            # Persist a human-friendly commander name into session for the wizard
+            sess["commander"] = str(q_commander)
+    except Exception:
+        pass
+    return_url = None
+    try:
+        raw_return = request.query_params.get("return")
+        if raw_return:
+            parsed = urlparse(raw_return)
+            if not parsed.scheme and not parsed.netloc and parsed.path:
+                safe_path = parsed.path if parsed.path.startswith("/") else f"/{parsed.path}"
+                safe_return = safe_path
+                if parsed.query:
+                    safe_return += f"?{parsed.query}"
+                if parsed.fragment:
+                    safe_return += f"#{parsed.fragment}"
+                return_url = safe_return
+    except Exception:
+        return_url = None
+    if q_commander:
+        try:
+            log_commander_create_deck(
+                request,
+                commander=str(q_commander),
+                return_url=return_url,
+            )
+        except Exception:
+            pass
     # Determine last step (fallback heuristics if not set)
     last_step = sess.get("last_step")
     if not last_step:
@@ -210,6 +245,7 @@ async def build_index(request: Request) -> HTMLResponse:
             "tags": sess.get("tags", []),
             "name": sess.get("custom_export_base"),
             "last_step": last_step,
+            "return_url": return_url,
         },
     )
     resp.set_cookie("sid", sid, httponly=True, samesite="lax")

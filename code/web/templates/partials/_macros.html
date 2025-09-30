@@ -11,3 +11,19 @@
     {{ '🔒 Unlock' if locked else '🔓 Lock' }}
   </button>
 {%- endmacro %}
+
+{% macro color_identity(colors, is_colorless=False, aria_label='', title_text='') -%}
+  <div class="color-identity" role="img"
+       aria-label="{{ aria_label }}"
+       data-colorless="{{ '1' if is_colorless or not (colors and colors|length) else '0' }}"
+       {% if title_text %}title="{{ title_text }}"{% endif %}>
+    {% if colors and colors|length %}
+      {% for color in colors %}
+        <span class="mana mana-{{ color }}" aria-hidden="true"></span>
+      {% endfor %}
+    {% else %}
+      <span class="mana mana-C" aria-hidden="true"></span>
+    {% endif %}
+    <span class="sr-only">{{ aria_label }}</span>
+  </div>
+{%- endmacro %}

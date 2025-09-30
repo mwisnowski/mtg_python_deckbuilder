@@ -14,13 +14,26 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 
 ## [Unreleased]
 ### Added
-- _No changes yet._
+- Commander browser skeleton page at `/commanders` with HTMX-capable filtering and catalog-backed commander rows.
+- Shared color-identity macro and accessible theme chips powering the commander browser UI.
+- Commander browser QA walkthrough documenting desktop and mobile validation steps (`docs/qa/commander_browser_walkthrough.md`).
+- Home screen actions now surface Commander Browser and Diagnostics shortcuts when the corresponding feature flags are enabled.
+- Manual QA pass (2025-09-30) recorded in project docs, covering desktop/mobile flows and edge cases.
 
 ### Changed
-- _No changes yet._
+- Commander browser now paginates results in 20-commander pages with accessible navigation controls and range summaries to keep the catalog responsive.
+- Commander hover preview collapses to a card-only view when browsing commanders, and all theme chips display without the previous “+ more” overflow badge.
+- Added a Content Security Policy upgrade directive so proxied HTTPS deployments safely rewrite commander pagination requests to HTTPS, preventing mixed-content blocks.
+- Commander thumbnails use a fixed-width 160px frame (scaling down on small screens) to eliminate inconsistent image sizing across the catalog.
+- Commander list pagination controls now appear above and below the results and automatically scroll to the top when switching pages for quicker navigation.
+- Mobile commander rows now feature larger thumbnails and a centered preview modal with expanded card art for improved readability.
+- Preview performance CI check now waits for `/healthz` and retries theme catalog pagination fetches to dodge transient 500s during cold starts.
 
 ### Fixed
 - _No changes yet._
+
+### Removed
+- Preview performance GitHub Actions workflow (`.github/workflows/preview-perf-ci.yml`) retired after persistent cold-start failures; run the regression helper script manually as needed.
 
 ## [2.3.2] - 2025-09-30
 ### Fixed

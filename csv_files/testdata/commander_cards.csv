@@ -1,3 +1,5 @@
 name,faceName,edhrecRank,colorIdentity,colors,manaCost,manaValue,type,creatureTypes,text,power,toughness,keywords,themeTags,layout,side
-Krenko, Mob Boss,,1200,R,R,{2}{R}{R},4,Legendary Creature,['Goblin'],Tap: Create X 1/1 red Goblin tokens.,3,3,,['Goblin Kindred'],normal,
-Isamaru, Hound of Konda,,2500,W,W,{W},1,Legendary Creature,['Hound'],Legendary creature.,2,2,,['Dog Kindred'],normal,
+"Krenko, Mob Boss","Krenko, Mob Boss",1200,R,R,{2}{R}{R},4,"Legendary Creature — Goblin","['Goblin']","Tap: Create X 1/1 red Goblin tokens.",3,3,,"['Goblin Kindred']",normal,
+"Isamaru, Hound of Konda","Isamaru, Hound of Konda",2500,W,W,{W},1,"Legendary Creature — Hound","['Hound']","Legendary creature.",2,2,,"['Dog Kindred']",normal,
+"Traxos, Scourge of Kroog","Traxos, Scourge of Kroog",3500,Colorless,,{4},4,"Legendary Artifact Creature — Construct","['Construct']","Trample\nTraxos enters the battlefield tapped and doesn't untap during your untap step.\nWhenever you cast a historic spell, untap Traxos.",7,7,Trample,"['Artifacts Matter']",normal,
+"Atraxa, Praetors' Voice","Atraxa, Praetors' Voice",150,"B, G, U, W","B, G, U, W",{1}{G}{W}{U}{B},4,"Legendary Creature — Phyrexian Angel Horror","['Angel', 'Horror', 'Phyrexian']","Flying, vigilance, deathtouch, lifelink\nAt the beginning of your end step, proliferate.",4,4,"Deathtouch, Flying, Lifelink, Vigilance","['Counters Matter', 'Proliferate']",normal,

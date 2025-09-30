@@ -37,6 +37,27 @@ def _fetch_json(url: str) -> Dict[str, Any]:
     return json.loads(data)  # type: ignore[return-value]
 
 
+def _fetch_json_with_retry(url: str, attempts: int = 3, delay: float = 0.6) -> Dict[str, Any]:
+    last_error: Exception | None = None
+    for attempt in range(1, attempts + 1):
+        try:
+            return _fetch_json(url)
+        except Exception as exc:  # pragma: no cover - network variability
+            last_error = exc
+            if attempt < attempts:
+                print(json.dumps({  # noqa: T201
+                    "event": "preview_perf_fetch_retry",
+                    "url": url,
+                    "attempt": attempt,
+                    "max_attempts": attempts,
+                    "error": str(exc),
+                }))
+                time.sleep(delay * attempt)
+            else:
+                raise
+    raise last_error  # pragma: no cover - defensive; should be unreachable
+
+
 def select_theme_slugs(base_url: str, count: int) -> List[str]:
     """Discover theme slugs for benchmarking.
 
@@ -86,12 +107,31 @@ def fetch_all_theme_slugs(base_url: str, page_limit: int = 200) -> List[str]:
     slugs: List[str] = []
     offset = 0
     seen: set[str] = set()
+    page_attempts = 5
+    page_delay = 1.2
     while True:
-        try:
-            url = f"{base_url.rstrip('/')}/themes/api/themes?limit={page_limit}&offset={offset}"
-            data = _fetch_json(url)
-        except Exception as e:  # pragma: no cover - network variability
-            raise SystemExit(f"Failed fetching themes page offset={offset}: {e}")
+        url = f"{base_url.rstrip('/')}/themes/api/themes?limit={page_limit}&offset={offset}"
+        data: Dict[str, Any] | None = None
+        last_error: Exception | None = None
+        for attempt in range(1, page_attempts + 1):
+            try:
+                data = _fetch_json_with_retry(url, attempts=4, delay=0.75)
+                break
+            except Exception as exc:  # pragma: no cover - network variability
+                last_error = exc
+                if attempt < page_attempts:
+                    print(json.dumps({  # noqa: T201
+                        "event": "preview_perf_page_retry",
+                        "offset": offset,
+                        "attempt": attempt,
+                        "max_attempts": page_attempts,
+                        "error": str(exc),
+                    }))
+                    time.sleep(page_delay * attempt)
+                else:
+                    raise SystemExit(f"Failed fetching themes page offset={offset}: {exc}")
+        if data is None:  # pragma: no cover - defensive
+            raise SystemExit(f"Failed fetching themes page offset={offset}: {last_error}")
         items = data.get("items") or []
         for it in items:
             if not isinstance(it, dict):

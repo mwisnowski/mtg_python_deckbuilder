@@ -22,7 +22,8 @@ logs/perf/*
 deck_files/
 config/themes/catalog/
 !config/card_lists/*.json
-!config/themes/*.json
+!config/themes/*.yml
+config/themes/theme_list.json
 !config/deck.json
 !test_exclude_cards.txt
 !test_include_exclude_config.json

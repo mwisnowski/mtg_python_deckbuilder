@@ -22,6 +22,11 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 ### Fixed
 - _No changes yet._
 
+## [2.3.2] - 2025-09-30
+### Fixed
+- Theme catalog pagination reprocesses HTMX fragments after Ajax loads so the “Next” button behaves correctly in the picker and simple catalog views.
+- Docker entrypoint now seeds the default `config/themes` files (e.g., `synergy_pairs.yml`, `theme_clusters.yml`, `theme_whitelist.yml`) into mounted volumes so Docker Hub images start with the expected theme catalog baseline.
+
 ## [2.3.1] - 2025-09-29
 ### Added
 - Headless runner parity: added `--random-mode` and accompanying `--random-*` flags to mirror the web Surprise/Reroll builder (multi-theme inputs, auto-fill overrides, deterministic seeds, constraints, and optional JSON payload export).

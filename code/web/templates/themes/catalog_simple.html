@@ -84,7 +84,14 @@
     resultsHost.setAttribute('aria-busy','true');
     fetch('/themes/fragment/list_simple?'+ps, {cache:'no-store'})
       .then(r=>r.text())
-      .then(html=>{ resultsHost.innerHTML=html; resultsHost.removeAttribute('aria-busy'); renderActive(); })
+      .then(html=>{
+        resultsHost.innerHTML=html;
+        if(window.htmx && typeof window.htmx.process==='function'){
+          window.htmx.process(resultsHost);
+        }
+        resultsHost.removeAttribute('aria-busy');
+        renderActive();
+      })
       .catch(()=>{ resultsHost.innerHTML='<div class="empty" style="font-size:13px;">Failed to load.</div>'; resultsHost.removeAttribute('aria-busy'); });
   }
   function performSearch(q){

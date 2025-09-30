@@ -4,7 +4,7 @@ set -e
 # Seed default config files into /app/config if missing (handles first-run with mounted volume)
 seed_defaults() {
     # Ensure base config directory exists
-    mkdir -p /app/config /app/config/card_lists
+    mkdir -p /app/config /app/config/card_lists /app/config/themes
 
     # Copy from baked-in defaults if targets are missing
     if [ -d "/.defaults/config" ]; then
@@ -18,6 +18,21 @@ seed_defaults() {
                 [ -f "$f" ] || continue
                 base=$(basename "$f")
                 [ -f "/app/config/card_lists/$base" ] || cp "$f" "/app/config/card_lists/$base" 2>/dev/null || true
+            done
+        fi
+        # Seed theme catalog defaults (e.g., synergy pairs, clusters, whitelist)
+        if [ -d "/.defaults/config/themes" ]; then
+            for f in /.defaults/config/themes/*; do
+                [ -e "$f" ] || continue
+                base=$(basename "$f")
+                dest="/app/config/themes/$base"
+                if [ -d "$f" ]; then
+                    if [ ! -d "$dest" ]; then
+                        cp -r "$f" "$dest" 2>/dev/null || true
+                    fi
+                else
+                    [ -f "$dest" ] || cp "$f" "$dest" 2>/dev/null || true
+                fi
             done
         fi
     fi

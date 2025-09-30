@@ -163,7 +163,17 @@ mark { background:#fde68a; color:inherit; padding:0 2px; border-radius:2px; }
     toggleRefreshBtn(true);
     fetch('/themes/fragment/list?'+base, {cache:'no-store', signal: controller.signal})
       .then(r=>r.text())
-      .then(html=>{ if(controller.signal.aborted) return; target.innerHTML = html; target.removeAttribute('aria-busy'); target.classList.remove('preload-hide'); listRenderComplete(); toggleRefreshBtn(false); })
+      .then(html=>{
+        if(controller.signal.aborted) return;
+        target.innerHTML = html;
+        if(window.htmx && typeof window.htmx.process==='function'){
+          window.htmx.process(target);
+        }
+        target.removeAttribute('aria-busy');
+        target.classList.remove('preload-hide');
+        listRenderComplete();
+        toggleRefreshBtn(false);
+      })
       .catch(err=>{ if(controller.signal.aborted) return; target.innerHTML = '<div class="error" role="alert">Failed loading themes. <button id="retry-fetch" class="btn btn-ghost">Retry</button></div>'; target.removeAttribute('aria-busy'); target.classList.remove('preload-hide'); attachRetry(); structuredLog('list_fetch_error'); announceResultCount(); toggleRefreshBtn(false); });
   }
   function attachRetry(){ var b=document.getElementById('retry-fetch'); if(!b) return; b.addEventListener('click', function(){ fetchList(); }); }

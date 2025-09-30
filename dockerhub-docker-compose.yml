@@ -73,7 +73,7 @@ services:
       # WEB_THEME_FILTER_PREWARM: "0"
       WEB_AUTO_ENFORCE: "0"         # 1=auto compliance JSON export after builds
       WEB_CUSTOM_EXPORT_BASE: ""     # Optional export base override
-      APP_VERSION: "v2.3.1"        # Displayed in footer/health
+      APP_VERSION: "v2.3.2"        # Displayed in footer/health
 
       # ------------------------------------------------------------------
       # Misc Land Selection Tuning (Step 7)

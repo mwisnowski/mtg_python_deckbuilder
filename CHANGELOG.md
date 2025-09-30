@@ -31,6 +31,7 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 - Finished deck commander preview now mirrors builder hover behavior with deck-selected overlap chips, the full commander theme list, and suppresses the external Scryfall link so tapping the thumbnail consistently opens the in-app panel across desktop and mobile.
 
 ### Fixed
+- Editorial governance workflow now installs development dependencies (including pytest) so editorial tests run in CI.
 - Hover card role badge is hidden when no role metadata is available, eliminating the empty pill shown in owned library popovers.
 - Random Mode fallback warning no longer displays when all theme inputs are blank.
 - Reinstated flip controls for double-faced cards in the hover preview and ensured the overlay button stays in sync with card faces.

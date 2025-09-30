@@ -6,6 +6,7 @@
 - Fast-path catalog validation now tolerates empty synergy lists while still flagging missing fields or non-string entries.
 - Committed deterministic CSV fixtures under `csv_files/testdata` so CI random-mode checks have a stable dataset.
 - Owned Cards library tiles are larger, virtualization only kicks in for very large libraries, and popovers no longer show empty role pills.
+- File setup now keeps Hero creature type cards instead of filtering them with the non-Commander-legal Hero card type.
 - Random Mode fallback warning remains hidden when no theme filters are provided, keeping Surprise Me runs noise-free.
 - Hover previews regained the double-faced card flip button with state synced to the main tile, highlight only the themes that triggered inclusion, and present a mobile-friendly tap layout with centered positioning plus a close control.
 - Deck summary text view exposes inline flip toggles for double-faced cards so counts and face switching stay in sync.
@@ -16,6 +17,7 @@
 - Added opt-in telemetry counters, reroll throttling safeguards, and structured diagnostics exports.
 - Expanded tooling, documentation, and QA coverage for theme governance, performance profiling, and seed history management.
 - Hardened the headless runner against owned-card prompt loops with optional automation overrides and regression coverage.
+- Headless runner random mode now mirrors the web UI configuration surface with CLI flag documentation, dry-run summaries, and JSON export parity.
 
 ## Highlights
 ### Multi-theme random builds
@@ -43,6 +45,7 @@
 - Random theme exclusion catalog with reporting script and documentation, alongside a multi-theme performance profiler and regression guard.
 - Taxonomy snapshot tooling, splash penalty analytics, and governance documentation updated for strict alias and example enforcement.
 - README, CHANGELOG, and release notes refreshed to cover the random modes feature set.
+- Headless runner documentation now covers random mode CLI flags, env precedence, and parity with the web builder.
 
 ### Observability & QA
 - Diagnostics badge polish, recent/favorite seeds panel, seed history API, and structured logging for random builds.
@@ -55,6 +58,7 @@
 - GitHub Actions now includes `httpx` in the default dependency install and executes pytest via `python -m` so FastAPI TestClient suites run without import errors.
 - Fast path validator treats empty synergy arrays as acceptable and only warns on missing or malformed data, reducing noise during automated catalog generation.
 - Tracked the tiny `csv_files/testdata` dataset in Git to guarantee fast determinism tests run against a consistent fixture set.
+- File setup retains cards tagged with the Hero creature type while continuing to skip the non-Commander-legal Hero card type.
 
 ## Detailed changes
 ### Added
@@ -92,6 +96,7 @@
 - Cache bust hooks now clear filter/preview caches on catalog refresh or tagging completion; metrics expose `preview_last_bust_at` and warm cache stats.
 - Theme normalization standardizes terms (ETB → Enter the Battlefield, Pillow Fort → Pillowfort, etc.), with synergy output capped at five entries (curated > enforced > inferred ordering).
 - README, CHANGELOG, and governance docs updated to reflect new workflows, taxonomy snapshots, and telemetry controls.
+- Headless runner random mode uses shared configuration resolution, emits summary/payload artifacts, and exposes CLI flags matching the web UI.
 - Theme catalog schema now allows optional `id` fields on entries so regenerated catalogs validate cleanly.
 
 ### Deprecated
@@ -106,10 +111,12 @@
 - Corrected commander eligibility rules to restrict non-creature legendary permanents and honor “can be your commander” text.
 - Refreshed `logs/perf/theme_preview_warm_baseline.json` to fix preview performance CI failures stemming from malformed baseline data.
 - Prevented the headless runner from looping on bracket selection when owned card files exist by scripting prompt responses and exposing `HEADLESS_USE_OWNED_ONLY` / `HEADLESS_OWNED_SELECTION` overrides.
+- Fixed file setup filtering so Hero creature type cards remain available even though the Hero card type stays disallowed for Commander.
 
 ## Upgrade notes
 - Enable multi-theme random builds via existing Random Mode flags; strict matching persists automatically across UI, API, permalink, and export contexts.
 - Opt into telemetry by setting `RANDOM_TELEMETRY=1`; reroll throttle defaults are active but can be tuned through environment overrides.
+- Run headless random builds with `HEADLESS_RANDOM_MODE=1` or the new CLI `--random-*` flags to mirror Surprise Me behavior, optionally persisting outputs via `--random-output-json`.
 - Refresh performance baselines with `code/scripts/check_random_theme_perf.py --update-baseline` when catalog changes materially affect timings.
 
 ## Testing

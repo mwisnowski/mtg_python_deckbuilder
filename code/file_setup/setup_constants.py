@@ -33,7 +33,15 @@ BANNED_CARDS: List[str] = [
     'Trade Secrets', 'Upheaval', "Yawgmoth's Bargain",
     # Problematic / culturally sensitive or banned in other formats
     'Invoke Prejudice', 'Cleanse', 'Stone-Throwing Devils', 'Pradesh Gypsies',
-    'Jihad', 'Imprison', 'Crusade'
+    'Jihad', 'Imprison', 'Crusade',
+    # Cards of the Hero type (non creature)
+    "The Protector", "The Hunter", "The Savant", "The Explorer",
+    "The Philosopher", "The Harvester", "The Tyrant", "The Vanquisher",
+    "The Avenger", "The Slayer", "The Warmonger", "The Destined",
+    "The Warrior", "The General", "The Provider", "The Champion",
+    # Hero Equipment
+    "Spear of the General", "Lash of the Tyrant", "Bow of the Hunter",
+    "Cloak of the Philosopher", "Axe of the Warmonger"
 ]
 
 # Constants for setup and CSV processing
@@ -60,7 +68,6 @@ CARD_TYPES_TO_EXCLUDE: List[str] = [
     'Phenomenon',
     'Stickers',
     'Attraction',
-    'Hero',
     'Contraption'
 ]
 

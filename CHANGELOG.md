@@ -14,10 +14,22 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 
 ## [Unreleased]
 ### Added
+- _No changes yet._
+
+### Changed
+- _No changes yet._
+
+### Fixed
+- _No changes yet._
+
+## [2.3.1] - 2025-09-29
+### Added
+- Headless runner parity: added `--random-mode` and accompanying `--random-*` flags to mirror the web Surprise/Reroll builder (multi-theme inputs, auto-fill overrides, deterministic seeds, constraints, and optional JSON payload export).
 - Tests: added `test_headless_skips_owned_prompt_when_files_present` to guard the headless runner against regressions when owned card lists are present.
 - Included the tiny `csv_files/testdata` fixture set so CI fast determinism tests have consistent sample data.
 
 ### Changed
+- Configuration docs: docker compose manifests, `.env.example`, and README now enumerate all supported random-mode environment variables with sensible defaults and refreshed flag documentation for the headless runner.
 - Owned Cards library tiles now use larger thumbnails and wider columns, and virtualization only activates when more than 800 cards are present to keep scrolling smooth.
 - Theme catalog schema now accepts optional `id` values on entries so refreshed catalogs validate cleanly.
 - CI installs `httpx` with the rest of the web stack and runs pytest via `python -m pytest` so FastAPI tests resolve the local `code` package correctly.
@@ -40,6 +52,7 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 - Duplicate overlap highlighting on desktop hover has been removed; theme pills now render once without stray bullets even when multiple overlaps are present.
 - Headless runner no longer loops on the power bracket prompt when owned card files exist; scripted responses now auto-select defaults with optional `HEADLESS_USE_OWNED_ONLY` / `HEADLESS_OWNED_SELECTION` overrides for automation flows.
 - Regenerated `logs/perf/theme_preview_warm_baseline.json` to repair preview performance CI regressions caused by a malformed baseline file and verified the regression gate passes with the refreshed data.
+- File setup now keeps cards with the Hero creature type; previously they were filtered out alongside the non-Commander-legal Hero card type.
 
 ## [2.3.0] - 2025-09-26
 ### Added

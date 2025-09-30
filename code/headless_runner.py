@@ -3,7 +3,8 @@ from __future__ import annotations
 import argparse
 import json
 import os
-from typing import Any, Dict, List, Optional
+from dataclasses import asdict, dataclass, field
+from typing import Any, Dict, List, Optional, Tuple
 
 from deck_builder.builder import DeckBuilder
 from deck_builder import builder_constants as bc
@@ -64,6 +65,25 @@ def _headless_list_owned_files() -> List[str]:
     except Exception:
         return []
     return sorted(entries)
+
+
+@dataclass
+class RandomRunConfig:
+    """Runtime options for the headless random build flow."""
+
+    legacy_theme: Optional[str] = None
+    primary_theme: Optional[str] = None
+    secondary_theme: Optional[str] = None
+    tertiary_theme: Optional[str] = None
+    auto_fill_missing: bool = False
+    auto_fill_secondary: Optional[bool] = None
+    auto_fill_tertiary: Optional[bool] = None
+    strict_theme_match: bool = False
+    attempts: int = 5
+    timeout_ms: int = 5000
+    seed: Optional[int | str] = None
+    constraints: Dict[str, Any] = field(default_factory=dict)
+    output_json: Optional[str] = None
 
 def run(
     command_name: str = "",
@@ -446,6 +466,574 @@ def _load_json_config(path: Optional[str]) -> Dict[str, Any]:
         raise
 
 
+def _load_constraints_spec(spec: Any) -> Dict[str, Any]:
+    """Load random constraints from a dict, JSON string, or file path."""
+
+    if not spec:
+        return {}
+    if isinstance(spec, dict):
+        return dict(spec)
+
+    try:
+        text = str(spec).strip()
+    except Exception:
+        return {}
+
+    if not text:
+        return {}
+
+    # Treat existing file paths as JSON documents
+    if os.path.isfile(text):
+        try:
+            with open(text, "r", encoding="utf-8") as fh:
+                loaded = json.load(fh)
+            if isinstance(loaded, dict):
+                return loaded
+        except Exception as exc:
+            print(f"Warning: failed to load constraints from '{text}': {exc}")
+        return {}
+
+    # Fallback: parse inline JSON
+    try:
+        parsed = json.loads(text)
+        if isinstance(parsed, dict):
+            return parsed
+    except Exception as exc:
+        print(f"Warning: failed to parse inline constraints '{text}': {exc}")
+    return {}
+
+
+def _try_convert_seed(value: Any) -> Optional[int | str]:
+    if value is None:
+        return None
+    if isinstance(value, int):
+        return value
+    try:
+        text = str(value).strip()
+    except Exception:
+        return None
+    if not text:
+        return None
+    try:
+        return int(text)
+    except ValueError:
+        return text
+
+
+def _resolve_pathish_target(target: str, seed: Any) -> str:
+    """Return a concrete file path for an output target, creating directories as needed."""
+
+    if not target:
+        raise ValueError("Empty output path provided")
+
+    normalized = target.strip()
+    if not normalized:
+        raise ValueError("Blank output path provided")
+
+    looks_dir = normalized.endswith(("/", "\\"))
+    if os.path.isdir(normalized) or looks_dir:
+        base_dir = normalized.rstrip("/\\") or "."
+        os.makedirs(base_dir, exist_ok=True)
+        seed_suffix = str(seed) if seed is not None else "latest"
+        filename = f"random_build_{seed_suffix}.json"
+        return os.path.join(base_dir, filename)
+
+    base_dir = os.path.dirname(normalized)
+    if base_dir:
+        os.makedirs(base_dir, exist_ok=True)
+    return normalized
+
+
+def _resolve_random_bool(
+    cli_value: Optional[bool],
+    env_name: str,
+    random_section: Dict[str, Any],
+    json_key: str,
+    default: Optional[bool],
+) -> Optional[bool]:
+    if cli_value is not None:
+        return bool(cli_value)
+    env_val = os.getenv(env_name)
+    result = _parse_bool(env_val) if env_val is not None else None
+    if result is not None:
+        return result
+    if json_key in random_section:
+        result = _parse_bool(random_section.get(json_key))
+        if result is not None:
+            return result
+    return default
+
+
+def _resolve_random_str(
+    cli_value: Optional[str],
+    env_name: str,
+    random_section: Dict[str, Any],
+    json_key: str,
+    default: Optional[str] = None,
+) -> Optional[str]:
+    candidates: Tuple[Any, ...] = (
+        cli_value,
+        os.getenv(env_name),
+        random_section.get(json_key),
+        default,
+    )
+    for candidate in candidates:
+        if candidate is None:
+            continue
+        try:
+            text = str(candidate).strip()
+        except Exception:
+            continue
+        if text:
+            return text
+    return None
+
+
+def _resolve_random_int(
+    cli_value: Optional[int],
+    env_name: str,
+    random_section: Dict[str, Any],
+    json_key: str,
+    default: int,
+) -> int:
+    if cli_value is not None:
+        try:
+            return int(cli_value)
+        except Exception:
+            pass
+
+    env_val = os.getenv(env_name)
+    if env_val is not None and str(env_val).strip() != "":
+        try:
+            return int(float(str(env_val).strip()))
+        except Exception:
+            pass
+
+    if json_key in random_section:
+        value = random_section.get(json_key)
+        try:
+            if isinstance(value, str):
+                value = value.strip()
+                if value:
+                    return int(float(value))
+            elif value is not None:
+                return int(value)
+        except Exception:
+            pass
+    return default
+
+
+def _resolve_random_seed(cli_value: Optional[str], random_section: Dict[str, Any]) -> Optional[int | str]:
+    seed = _try_convert_seed(cli_value)
+    if seed is not None:
+        return seed
+    seed = _try_convert_seed(os.getenv("RANDOM_SEED"))
+    if seed is not None:
+        return seed
+    return _try_convert_seed(random_section.get("seed"))
+
+
+def _extract_random_section(json_cfg: Dict[str, Any]) -> Dict[str, Any]:
+    section = json_cfg.get("random")
+    if isinstance(section, dict):
+        return dict(section)
+    alt = json_cfg.get("random_config")
+    if isinstance(alt, dict):
+        return dict(alt)
+    return {}
+
+
+def _should_run_random_mode(args: argparse.Namespace, json_cfg: Dict[str, Any], random_section: Dict[str, Any]) -> bool:
+    if getattr(args, "random_mode", False):
+        return True
+    if _parse_bool(os.getenv("HEADLESS_RANDOM_MODE")):
+        return True
+    if (os.getenv("DECK_MODE") or "").strip().lower() == "random":
+        return True
+    if _parse_bool(json_cfg.get("random_mode")):
+        return True
+    if _parse_bool(random_section.get("enabled")):
+        return True
+
+    # Detect CLI or env hints that imply random mode even without explicit flag
+    cli_indicators = (
+        getattr(args, "random_theme", None),
+        getattr(args, "random_primary_theme", None),
+        getattr(args, "random_secondary_theme", None),
+        getattr(args, "random_tertiary_theme", None),
+        getattr(args, "random_seed", None),
+        getattr(args, "random_auto_fill", None),
+        getattr(args, "random_auto_fill_secondary", None),
+        getattr(args, "random_auto_fill_tertiary", None),
+        getattr(args, "random_strict_theme_match", None),
+        getattr(args, "random_attempts", None),
+        getattr(args, "random_timeout_ms", None),
+        getattr(args, "random_constraints", None),
+        getattr(args, "random_output_json", None),
+    )
+    if any(value is not None for value in cli_indicators):
+        return True
+
+    for env_name in (
+        "RANDOM_THEME",
+        "RANDOM_PRIMARY_THEME",
+        "RANDOM_SECONDARY_THEME",
+        "RANDOM_TERTIARY_THEME",
+        "RANDOM_CONSTRAINTS",
+        "RANDOM_CONSTRAINTS_PATH",
+        "RANDOM_OUTPUT_JSON",
+    ):
+        if os.getenv(env_name):
+            return True
+
+    noteworthy_keys = (
+        "theme",
+        "primary_theme",
+        "secondary_theme",
+        "tertiary_theme",
+        "seed",
+        "auto_fill",
+        "auto_fill_secondary",
+        "auto_fill_tertiary",
+        "strict_theme_match",
+        "attempts",
+        "timeout_ms",
+        "constraints",
+        "constraints_path",
+        "output_json",
+    )
+    if any(random_section.get(key) for key in noteworthy_keys):
+        return True
+
+    return False
+
+
+def _resolve_random_config(args: argparse.Namespace, json_cfg: Dict[str, Any]) -> Tuple[RandomRunConfig, Dict[str, Any]]:
+    random_section = _extract_random_section(json_cfg)
+    cfg = RandomRunConfig()
+
+    cfg.legacy_theme = _resolve_random_str(
+        getattr(args, "random_theme", None),
+        "RANDOM_THEME",
+        random_section,
+        "theme",
+        None,
+    )
+    cfg.primary_theme = _resolve_random_str(
+        getattr(args, "random_primary_theme", None),
+        "RANDOM_PRIMARY_THEME",
+        random_section,
+        "primary_theme",
+        cfg.legacy_theme,
+    )
+    cfg.secondary_theme = _resolve_random_str(
+        getattr(args, "random_secondary_theme", None),
+        "RANDOM_SECONDARY_THEME",
+        random_section,
+        "secondary_theme",
+        None,
+    )
+    cfg.tertiary_theme = _resolve_random_str(
+        getattr(args, "random_tertiary_theme", None),
+        "RANDOM_TERTIARY_THEME",
+        random_section,
+        "tertiary_theme",
+        None,
+    )
+
+    auto_fill_flag = _resolve_random_bool(
+        getattr(args, "random_auto_fill", None),
+        "RANDOM_AUTO_FILL",
+        random_section,
+        "auto_fill",
+        False,
+    )
+    cfg.auto_fill_missing = bool(auto_fill_flag)
+    cfg.auto_fill_secondary = _resolve_random_bool(
+        getattr(args, "random_auto_fill_secondary", None),
+        "RANDOM_AUTO_FILL_SECONDARY",
+        random_section,
+        "auto_fill_secondary",
+        None,
+    )
+    cfg.auto_fill_tertiary = _resolve_random_bool(
+        getattr(args, "random_auto_fill_tertiary", None),
+        "RANDOM_AUTO_FILL_TERTIARY",
+        random_section,
+        "auto_fill_tertiary",
+        None,
+    )
+
+    cfg.strict_theme_match = bool(
+        _resolve_random_bool(
+            getattr(args, "random_strict_theme_match", None),
+            "RANDOM_STRICT_THEME_MATCH",
+            random_section,
+            "strict_theme_match",
+            False,
+        )
+    )
+
+    cfg.attempts = max(
+        1,
+        _resolve_random_int(
+            getattr(args, "random_attempts", None),
+            "RANDOM_MAX_ATTEMPTS",
+            random_section,
+            "attempts",
+            5,
+        ),
+    )
+    cfg.timeout_ms = max(
+        100,
+        _resolve_random_int(
+            getattr(args, "random_timeout_ms", None),
+            "RANDOM_TIMEOUT_MS",
+            random_section,
+            "timeout_ms",
+            5000,
+        ),
+    )
+
+    cfg.seed = _resolve_random_seed(getattr(args, "random_seed", None), random_section)
+
+    # Resolve constraints in precedence order: CLI > env JSON > env path > config dict > config path
+    constraints_candidates: Tuple[Any, ...] = (
+        getattr(args, "random_constraints", None),
+        os.getenv("RANDOM_CONSTRAINTS"),
+        os.getenv("RANDOM_CONSTRAINTS_PATH"),
+        random_section.get("constraints"),
+        random_section.get("constraints_path"),
+    )
+    for candidate in constraints_candidates:
+        loaded = _load_constraints_spec(candidate)
+        if loaded:
+            cfg.constraints = loaded
+            break
+
+    cfg.output_json = _resolve_random_str(
+        getattr(args, "random_output_json", None),
+        "RANDOM_OUTPUT_JSON",
+        random_section,
+        "output_json",
+        None,
+    )
+
+    if cfg.primary_theme is None:
+        cfg.primary_theme = cfg.legacy_theme
+    if cfg.primary_theme and not cfg.legacy_theme:
+        cfg.legacy_theme = cfg.primary_theme
+
+    if cfg.auto_fill_missing:
+        if cfg.auto_fill_secondary is None:
+            cfg.auto_fill_secondary = True
+        if cfg.auto_fill_tertiary is None:
+            cfg.auto_fill_tertiary = True
+
+    return cfg, random_section
+
+
+def _print_random_summary(result: Any, config: RandomRunConfig) -> None:
+    print("\n" + "=" * 60)
+    print("RANDOM MODE BUILD")
+    print("=" * 60)
+    commander = getattr(result, "commander", None) or "(unknown)"
+    print(f"Commander       : {commander}")
+    seed_value = getattr(result, "seed", config.seed)
+    print(f"Seed            : {seed_value}")
+
+    display_themes = list(getattr(result, "display_themes", []) or [])
+    if not display_themes:
+        primary = getattr(result, "primary_theme", config.primary_theme)
+        if primary:
+            display_themes.append(primary)
+        for extra in (
+            getattr(result, "secondary_theme", config.secondary_theme),
+            getattr(result, "tertiary_theme", config.tertiary_theme),
+        ):
+            if extra:
+                display_themes.append(extra)
+    if display_themes:
+        print(f"Themes          : {', '.join(display_themes)}")
+    else:
+        print("Themes          : (none)")
+
+    fallback_kinds: List[str] = []
+    if getattr(result, "combo_fallback", False):
+        fallback_kinds.append("combo")
+    if getattr(result, "synergy_fallback", False):
+        fallback_kinds.append("synergy")
+    fallback_reason = getattr(result, "fallback_reason", None)
+    print(f"Fallback        : {('/'.join(fallback_kinds)) if fallback_kinds else 'none'}")
+    if fallback_reason:
+        print(f"Fallback reason : {fallback_reason}")
+
+    auto_secondary = getattr(result, "auto_fill_secondary_enabled", config.auto_fill_secondary or False)
+    auto_tertiary = getattr(result, "auto_fill_tertiary_enabled", config.auto_fill_tertiary or False)
+    print(
+        "Auto-fill       : secondary={} | tertiary={}".format(
+            "on" if auto_secondary else "off",
+            "on" if auto_tertiary else "off",
+        )
+    )
+    print(f"Strict match    : {'on' if config.strict_theme_match else 'off'}")
+
+    attempts_used = getattr(result, "attempts_tried", None)
+    if attempts_used is None:
+        attempts_used = config.attempts
+    print(f"Attempts used   : {attempts_used} / {config.attempts}")
+    timeout_hit = getattr(result, "timeout_hit", False)
+    print(f"Timeout (ms)    : {config.timeout_ms} (timeout_hit={timeout_hit})")
+
+    if config.constraints:
+        try:
+            print("Constraints     :")
+            print(json.dumps(config.constraints, indent=2))
+        except Exception:
+            print(f"Constraints     : {config.constraints}")
+
+    csv_path = getattr(result, "csv_path", None)
+    if csv_path:
+        print(f"Deck CSV        : {csv_path}")
+    txt_path = getattr(result, "txt_path", None)
+    if txt_path:
+        print(f"Deck TXT        : {txt_path}")
+    compliance = getattr(result, "compliance", None)
+    if compliance:
+        if isinstance(compliance, dict) and compliance.get("path"):
+            print(f"Compliance JSON : {compliance['path']}")
+        else:
+            try:
+                print("Compliance data :")
+                print(json.dumps(compliance, indent=2))
+            except Exception:
+                print(f"Compliance data : {compliance}")
+
+    summary = getattr(result, "summary", None)
+    if summary:
+        try:
+            rendered = json.dumps(summary, indent=2)
+        except Exception:
+            rendered = str(summary)
+        preview = rendered[:1000]
+        print("Summary preview :")
+        print(preview + ("..." if len(rendered) > len(preview) else ""))
+
+    decklist = getattr(result, "decklist", None)
+    if decklist:
+        try:
+            print(f"Decklist cards  : {len(decklist)}")
+        except Exception:
+            pass
+
+    print("=" * 60)
+
+
+def _write_random_payload(config: RandomRunConfig, result: Any) -> None:
+    if not config.output_json:
+        return
+    try:
+        path = _resolve_pathish_target(config.output_json, getattr(result, "seed", config.seed))
+    except Exception as exc:
+        print(f"Warning: unable to resolve random output path '{config.output_json}': {exc}")
+        return
+
+    seed_value = getattr(result, "seed", config.seed)
+    try:
+        normalized_seed = int(seed_value) if seed_value is not None else None
+    except Exception:
+        normalized_seed = seed_value
+
+    payload: Dict[str, Any] = {
+        "seed": normalized_seed,
+        "commander": getattr(result, "commander", None),
+        "themes": {
+            "primary": getattr(result, "primary_theme", config.primary_theme),
+            "secondary": getattr(result, "secondary_theme", config.secondary_theme),
+            "tertiary": getattr(result, "tertiary_theme", config.tertiary_theme),
+            "resolved": list(getattr(result, "resolved_themes", []) or []),
+            "display": list(getattr(result, "display_themes", []) or []),
+            "auto_filled": list(getattr(result, "auto_filled_themes", []) or []),
+        },
+        "strict_theme_match": bool(config.strict_theme_match),
+        "auto_fill": {
+            "missing": bool(config.auto_fill_missing),
+            "secondary": bool(getattr(result, "auto_fill_secondary_enabled", config.auto_fill_secondary or False)),
+            "tertiary": bool(getattr(result, "auto_fill_tertiary_enabled", config.auto_fill_tertiary or False)),
+            "applied": bool(getattr(result, "auto_fill_applied", False)),
+        },
+        "attempts": {
+            "configured": config.attempts,
+            "used": int(getattr(result, "attempts_tried", config.attempts) or config.attempts),
+            "timeout_ms": config.timeout_ms,
+            "timeout_hit": bool(getattr(result, "timeout_hit", False)),
+            "retries_exhausted": bool(getattr(result, "retries_exhausted", False)),
+        },
+        "fallback": {
+            "combo": bool(getattr(result, "combo_fallback", False)),
+            "synergy": bool(getattr(result, "synergy_fallback", False)),
+            "reason": getattr(result, "fallback_reason", None),
+        },
+        "constraints": config.constraints,
+        "csv_path": getattr(result, "csv_path", None),
+        "txt_path": getattr(result, "txt_path", None),
+        "compliance": getattr(result, "compliance", None),
+        "summary": getattr(result, "summary", None),
+        "decklist": getattr(result, "decklist", None),
+    }
+
+    try:
+        with open(path, "w", encoding="utf-8") as fh:
+            json.dump(payload, fh, indent=2)
+        print(f"Random build payload written to {path}")
+    except Exception as exc:
+        print(f"Warning: failed to write random payload '{path}': {exc}")
+
+
+def _run_random_mode(config: RandomRunConfig) -> int:
+    try:
+        from deck_builder.random_entrypoint import (
+            RandomConstraintsImpossibleError,
+            RandomThemeNoMatchError,
+            build_random_full_deck,
+        )  # type: ignore
+    except Exception as exc:
+        print(f"Random mode unavailable: {exc}")
+        return 1
+
+    timeout_ms = max(100, int(config.timeout_ms))
+    attempts = max(1, int(config.attempts))
+
+    try:
+        result = build_random_full_deck(
+            theme=config.legacy_theme,
+            constraints=config.constraints or None,
+            seed=config.seed,
+            attempts=attempts,
+            timeout_s=float(timeout_ms) / 1000.0,
+            primary_theme=config.primary_theme,
+            secondary_theme=config.secondary_theme,
+            tertiary_theme=config.tertiary_theme,
+            auto_fill_missing=config.auto_fill_missing,
+            auto_fill_secondary=config.auto_fill_secondary,
+            auto_fill_tertiary=config.auto_fill_tertiary,
+            strict_theme_match=config.strict_theme_match,
+        )
+    except RandomThemeNoMatchError as exc:
+        print(f"Random mode failed: strict theme match produced no results ({exc})")
+        return 3
+    except RandomConstraintsImpossibleError as exc:
+        print(f"Random mode constraints impossible: {exc}")
+        return 4
+    except Exception as exc:
+        print(f"Random mode encountered an unexpected error: {exc}")
+        return 1
+
+    _print_random_summary(result, config)
+    _write_random_payload(config, result)
+    return 0
+
+
 def _build_arg_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description="Headless deck builder runner")
     p.add_argument("--config", metavar="PATH", default=os.getenv("DECK_CONFIG"), 
@@ -533,6 +1121,101 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     include_group.add_argument("--fuzzy-matching", metavar="BOOL", type=_parse_bool, default=None,
                              help="Enable fuzzy card name matching (bool: true/false/1/0)")
     
+    # Random mode configuration (parity with web random builder)
+    random_group = p.add_argument_group(
+        "Random Mode",
+        "Generate decks using the random web builder flow",
+    )
+    random_group.add_argument(
+        "--random-mode",
+        action="store_true",
+        help="Force random-mode build even if other inputs are provided",
+    )
+    random_group.add_argument(
+        "--random-theme",
+        metavar="THEME",
+        default=None,
+        help="Legacy random theme (maps to primary theme if unspecified)",
+    )
+    random_group.add_argument(
+        "--random-primary-theme",
+        metavar="THEME",
+        default=None,
+        help="Primary theme slug for random mode",
+    )
+    random_group.add_argument(
+        "--random-secondary-theme",
+        metavar="THEME",
+        default=None,
+        help="Secondary theme slug for random mode",
+    )
+    random_group.add_argument(
+        "--random-tertiary-theme",
+        metavar="THEME",
+        default=None,
+        help="Tertiary theme slug for random mode",
+    )
+    random_group.add_argument(
+        "--random-auto-fill",
+        metavar="BOOL",
+        type=_parse_bool,
+        default=None,
+        help="Enable auto-fill assistance for missing theme slots",
+    )
+    random_group.add_argument(
+        "--random-auto-fill-secondary",
+        metavar="BOOL",
+        type=_parse_bool,
+        default=None,
+        help="Enable auto-fill specifically for secondary theme",
+    )
+    random_group.add_argument(
+        "--random-auto-fill-tertiary",
+        metavar="BOOL",
+        type=_parse_bool,
+        default=None,
+        help="Enable auto-fill specifically for tertiary theme",
+    )
+    random_group.add_argument(
+        "--random-strict-theme-match",
+        metavar="BOOL",
+        type=_parse_bool,
+        default=None,
+        help="Require strict theme matches when selecting commanders",
+    )
+    random_group.add_argument(
+        "--random-attempts",
+        metavar="INT",
+        type=int,
+        default=None,
+        help="Maximum attempts before giving up (default 5)",
+    )
+    random_group.add_argument(
+        "--random-timeout-ms",
+        metavar="INT",
+        type=int,
+        default=None,
+        help="Timeout in milliseconds for theme search (default 5000)",
+    )
+    random_group.add_argument(
+        "--random-seed",
+        metavar="SEED",
+        default=None,
+        help="Seed value for deterministic random builds",
+    )
+    random_group.add_argument(
+        "--random-constraints",
+        metavar="JSON_OR_PATH",
+        default=None,
+        help="Random constraints as JSON or a path to a JSON file",
+    )
+    random_group.add_argument(
+        "--random-output-json",
+        metavar="PATH",
+        default=None,
+        help="Write random build payload JSON to PATH (directory or file)",
+    )
+
     # Utility
     p.add_argument("--dry-run", action="store_true", 
                    help="Print resolved configuration and exit without building")
@@ -583,6 +1266,13 @@ def _main() -> int:
                 json_cfg = _load_json_config(chosen)
                 os.environ["DECK_CONFIG"] = chosen
                 break
+
+    random_config, random_section = _resolve_random_config(args, json_cfg)
+    if _should_run_random_mode(args, json_cfg, random_section):
+        if args.dry_run:
+            print(json.dumps({"random_mode": True, "config": asdict(random_config)}, indent=2))
+            return 0
+        return _run_random_mode(random_config)
 
     # Defaults mirror run() signature
     defaults = dict(

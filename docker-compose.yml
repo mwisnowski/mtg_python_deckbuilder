@@ -51,6 +51,18 @@ services:
       RANDOM_UI: "1"               # 1=show Surprise/Theme/Reroll/Share controls in UI
       RANDOM_MAX_ATTEMPTS: "5"      # cap retry attempts
       RANDOM_TIMEOUT_MS: "5000"     # per-build timeout in ms
+      RANDOM_THEME: ""              # optional legacy theme alias (maps to primary theme)
+      RANDOM_PRIMARY_THEME: ""      # optional primary theme slug override
+      RANDOM_SECONDARY_THEME: ""    # optional secondary theme slug override
+      RANDOM_TERTIARY_THEME: ""     # optional tertiary theme slug override
+      RANDOM_AUTO_FILL: "0"         # when 1, auto-fill missing secondary/tertiary themes
+      RANDOM_AUTO_FILL_SECONDARY: ""  # override secondary auto-fill (blank inherits from RANDOM_AUTO_FILL)
+      RANDOM_AUTO_FILL_TERTIARY: ""   # override tertiary auto-fill (blank inherits from RANDOM_AUTO_FILL)
+      RANDOM_STRICT_THEME_MATCH: "0"  # require strict theme matches for commanders when 1
+      RANDOM_CONSTRAINTS: ""        # inline JSON constraints for random builds (optional)
+      RANDOM_CONSTRAINTS_PATH: ""   # path to JSON constraints file (takes precedence)
+      RANDOM_SEED: ""               # deterministic random seed (int or string)
+      RANDOM_OUTPUT_JSON: ""        # path or directory for random build output payload
       # RANDOM_BUILD_SUPPRESS_INITIAL_EXPORT: "1" # (now defaults to 1 automatically for random builds; set to 0 to force legacy double-export behavior)
 
       # Theming
@@ -80,7 +92,7 @@ services:
       # WEB_THEME_FILTER_PREWARM: "0"
       WEB_AUTO_ENFORCE: "0"         # 1=auto-run compliance export after builds
       WEB_CUSTOM_EXPORT_BASE: ""    # Optional: custom base dir for deck export artifacts
-      APP_VERSION: "dev"            # Displayed version label (set per release/tag)
+      APP_VERSION: "2.3.1"          # Displayed version label (set per release/tag)
 
       # ------------------------------------------------------------------
       # Misc / Land Selection (Step 7) Environment Tuning
@@ -144,6 +156,7 @@ services:
       # DECK_TRIPLE_COUNT: ""
       # DECK_UTILITY_COUNT: ""
       # DECK_TAG_MODE: "AND"                # AND|OR (if supported)
+      # HEADLESS_RANDOM_MODE: "0"           # 1=force headless random mode instead of scripted build
 
       # Entrypoint knobs (only if you change the entrypoint behavior)
       # APP_MODE: "web"                     # web|cli — selects uvicorn vs CLI

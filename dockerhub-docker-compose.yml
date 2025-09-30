@@ -42,6 +42,18 @@ services:
       RANDOM_UI: "0"                # 1=UI Surprise/Reroll controls
       RANDOM_MAX_ATTEMPTS: "5"      # Retry cap for constrained random builds
       RANDOM_TIMEOUT_MS: "5000"     # Per-attempt timeout (ms)
+      RANDOM_THEME: ""              # optional legacy theme alias (maps to primary theme)
+      RANDOM_PRIMARY_THEME: ""      # optional primary theme slug override
+      RANDOM_SECONDARY_THEME: ""    # optional secondary theme slug override
+      RANDOM_TERTIARY_THEME: ""     # optional tertiary theme slug override
+      RANDOM_AUTO_FILL: "0"         # when 1, auto-fill missing secondary/tertiary themes
+      RANDOM_AUTO_FILL_SECONDARY: ""  # override secondary auto-fill (blank inherits from RANDOM_AUTO_FILL)
+      RANDOM_AUTO_FILL_TERTIARY: ""   # override tertiary auto-fill (blank inherits from RANDOM_AUTO_FILL)
+      RANDOM_STRICT_THEME_MATCH: "0"  # require strict theme matches when 1
+      RANDOM_CONSTRAINTS: ""        # inline JSON constraints for random builds (optional)
+      RANDOM_CONSTRAINTS_PATH: ""   # path to JSON constraints file (takes precedence)
+      RANDOM_SEED: ""               # deterministic random seed (int or string)
+      RANDOM_OUTPUT_JSON: ""        # path or directory for random build payload export
 
       # Theming
       THEME: "system"               # system|light|dark default theme
@@ -61,7 +73,7 @@ services:
       # WEB_THEME_FILTER_PREWARM: "0"
       WEB_AUTO_ENFORCE: "0"         # 1=auto compliance JSON export after builds
       WEB_CUSTOM_EXPORT_BASE: ""     # Optional export base override
-      APP_VERSION: "v2.2.10"        # Displayed in footer/health
+      APP_VERSION: "v2.3.1"        # Displayed in footer/health
 
       # ------------------------------------------------------------------
       # Misc Land Selection Tuning (Step 7)
@@ -112,6 +124,7 @@ services:
       # DECK_TRIPLE_COUNT: ""
       # DECK_UTILITY_COUNT: ""
       # DECK_TAG_MODE: "AND"
+      # HEADLESS_RANDOM_MODE: "0"           # 1=force headless random mode instead of scripted build
 
       # ------------------------------------------------------------------
       # Entrypoint / Server knobs
@@ -158,7 +171,7 @@ services:
       # THEME_PREVIEW_TTL_STEPS: "2,4,2,3,1"    # step counts for band progression
       # Redis backend (optional)
       # THEME_PREVIEW_REDIS_URL: "redis://redis:6379/0"
-  # THEME_PREVIEW_REDIS_DISABLE: "0"        # 1=force disable redis even if URL is set
+    # THEME_PREVIEW_REDIS_DISABLE: "0"        # 1=force disable redis even if URL is set
     volumes:
       - ${PWD}/deck_files:/app/deck_files
       - ${PWD}/logs:/app/logs

@@ -25,7 +25,7 @@ import time
 import urllib.error
 import urllib.request
 from pathlib import Path
-def _wait_for_service(base_url: str, attempts: int = 8, delay: float = 1.5) -> bool:
+def _wait_for_service(base_url: str, attempts: int = 12, delay: float = 1.5) -> bool:
     health_url = base_url.rstrip("/") + "/healthz"
     last_error: Exception | None = None
     for attempt in range(1, attempts + 1):
@@ -40,7 +40,7 @@ def _wait_for_service(base_url: str, attempts: int = 8, delay: float = 1.5) -> b
                 break
         except Exception as exc:  # pragma: no cover - network variability
             last_error = exc
-        time.sleep(delay)
+    time.sleep(delay * attempt)
     print(json.dumps({
         "event": "ci_perf_error",
         "stage": "startup",

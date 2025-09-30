@@ -32,6 +32,9 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 ### Fixed
 - _No changes yet._
 
+### Removed
+- Preview performance GitHub Actions workflow (`.github/workflows/preview-perf-ci.yml`) retired after persistent cold-start failures; run the regression helper script manually as needed.
+
 ## [2.3.2] - 2025-09-30
 ### Fixed
 - Theme catalog pagination reprocesses HTMX fragments after Ajax loads so the “Next” button behaves correctly in the picker and simple catalog views.

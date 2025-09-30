@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Iterable, Optional
 from fastapi import Request
 from ..services import owned_store
 from . import orchestrator as orch
@@ -91,6 +91,141 @@ def start_ctx_from_session(sess: dict, *, set_on_session: bool = True) -> Dict[s
     return ctx
 
 
+def _extend_sources(target: list[Any], values: Any) -> None:
+    if not values:
+        return
+    if isinstance(values, (list, tuple, set)):
+        for item in values:
+            if item is None:
+                continue
+            target.append(item)
+    else:
+        target.append(values)
+
+
+def commander_hover_context(
+    commander_name: str | None,
+    deck_tags: Iterable[Any] | None,
+    summary: Dict[str, Any] | None,
+) -> Dict[str, Any]:
+    try:
+        from .summary_utils import format_theme_label, format_theme_list
+    except Exception:
+        # Fallbacks in the unlikely event of circular import issues
+        def format_theme_label(value: Any) -> str:  # type: ignore[redef]
+            text = str(value or "").strip().replace("_", " ")
+            if not text:
+                return ""
+            parts = []
+            for chunk in text.split():
+                if chunk.isupper():
+                    parts.append(chunk)
+                else:
+                    parts.append(chunk[:1].upper() + chunk[1:].lower())
+            return " ".join(parts)
+
+        def format_theme_list(values: Iterable[Any]) -> list[str]:  # type: ignore[redef]
+            seen: set[str] = set()
+            result: list[str] = []
+            for raw in values or []:  # type: ignore[arg-type]
+                label = format_theme_label(raw)
+                if not label or len(label) <= 1:
+                    continue
+                key = label.casefold()
+                if key in seen:
+                    continue
+                seen.add(key)
+                result.append(label)
+            return result
+
+    deck_theme_sources: list[Any] = []
+    _extend_sources(deck_theme_sources, list(deck_tags or []))
+    meta_info: Dict[str, Any] = {}
+    if isinstance(summary, dict):
+        meta_info = summary.get("meta") or {}
+        if isinstance(meta_info, dict):
+            for key in (
+                "display_themes",
+                "resolved_themes",
+                "auto_filled_themes",
+                "random_display_themes",
+                "random_resolved_themes",
+                "random_auto_filled_themes",
+                "primary_theme",
+                "secondary_theme",
+                "tertiary_theme",
+            ):
+                _extend_sources(deck_theme_sources, meta_info.get(key))
+    deck_theme_tags = format_theme_list(deck_theme_sources)
+
+    commander_theme_sources: list[Any] = []
+    if isinstance(meta_info, dict):
+        for key in (
+            "commander_tags",
+            "commander_theme_tags",
+            "commander_themes",
+            "commander_tag_list",
+            "primary_commander_theme",
+            "secondary_commander_theme",
+        ):
+            _extend_sources(commander_theme_sources, meta_info.get(key))
+        commander_meta = meta_info.get("commander") if isinstance(meta_info, dict) else {}
+        if isinstance(commander_meta, dict):
+            _extend_sources(commander_theme_sources, commander_meta.get("tags"))
+            _extend_sources(commander_theme_sources, commander_meta.get("themes"))
+
+    commander_theme_tags = format_theme_list(commander_theme_sources)
+    if commander_name and not commander_theme_tags:
+        try:
+            commander_theme_tags = format_theme_list(orch.tags_for_commander(commander_name))
+        except Exception:
+            commander_theme_tags = []
+
+    combined_tags: list[str] = []
+    combined_seen: set[str] = set()
+    for source in (commander_theme_tags, deck_theme_tags):
+        for label in source:
+            key = label.casefold()
+            if key in combined_seen:
+                continue
+            combined_seen.add(key)
+            combined_tags.append(label)
+
+    overlap_tags: list[str] = []
+    overlap_seen: set[str] = set()
+    combined_keys = {label.casefold() for label in combined_tags}
+    for label in deck_theme_tags:
+        key = label.casefold()
+        if key in combined_keys and key not in overlap_seen:
+            overlap_tags.append(label)
+            overlap_seen.add(key)
+
+    commander_tag_slugs: list[str] = []
+    slug_seen: set[str] = set()
+    for label in combined_tags:
+        slug = " ".join(str(label or "").strip().lower().split())
+        if not slug or slug in slug_seen:
+            continue
+        slug_seen.add(slug)
+        commander_tag_slugs.append(slug)
+
+    reason_bits: list[str] = []
+    if deck_theme_tags:
+        reason_bits.append("Deck themes: " + ", ".join(deck_theme_tags))
+    if commander_theme_tags:
+        reason_bits.append("Commander tags: " + ", ".join(commander_theme_tags))
+
+    return {
+        "deck_theme_tags": deck_theme_tags,
+        "commander_theme_tags": commander_theme_tags,
+        "commander_combined_tags": combined_tags,
+        "commander_tag_slugs": commander_tag_slugs,
+        "commander_overlap_tags": overlap_tags,
+        "commander_reason_text": "; ".join(reason_bits),
+        "commander_role_label": format_theme_label("Commander") if commander_name else "",
+    }
+
+
 def step5_ctx_from_result(
     request: Request,
     sess: dict,
@@ -132,6 +267,13 @@ def step5_ctx_from_result(
     }
     if extras:
         ctx.update(extras)
+
+    hover_meta = commander_hover_context(
+        commander_name=ctx.get("commander"),
+        deck_tags=sess.get("tags"),
+        summary=ctx.get("summary") if ctx.get("summary") else res.get("summary"),
+    )
+    ctx.update(hover_meta)
     return ctx
 
 

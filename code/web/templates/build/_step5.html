@@ -3,12 +3,39 @@
   <div class="two-col two-col-left-rail">
     <aside class="card-preview">
   {# Strip synergy annotation for Scryfall search #}
-  <a href="https://scryfall.com/search?q={{ (commander.split(' - Synergy (')[0] if ' - Synergy (' in commander else commander)|urlencode }}" target="_blank" rel="noopener">
+  {% if commander %}
   {% set commander_base = (commander.split(' - Synergy (')[0] if ' - Synergy (' in commander else commander) %}
-  <img src="https://api.scryfall.com/cards/named?fuzzy={{ commander_base|urlencode }}&format=image&version=normal" alt="{{ commander }} card image" data-card-name="{{ commander_base }}" loading="lazy" decoding="async" data-lqip="1"
-    srcset="https://api.scryfall.com/cards/named?fuzzy={{ commander_base|urlencode }}&format=image&version=small 160w, https://api.scryfall.com/cards/named?fuzzy={{ commander_base|urlencode }}&format=image&version=normal 488w, https://api.scryfall.com/cards/named?fuzzy={{ commander_base|urlencode }}&format=image&version=large 672w"
-     sizes="(max-width: 900px) 100vw, 320px" />
-      </a>
+  <div class="commander-card" tabindex="0"
+    data-card-name="{{ commander_base }}"
+    data-original-name="{{ commander }}"
+    data-role="{{ commander_role_label or 'Commander' }}"
+    {% if commander_combined_tags %}data-tags="{{ commander_combined_tags|join(', ') }}"{% endif %}
+    {% if commander_tag_slugs %}data-tags-slug="{{ commander_tag_slugs|join(' ') }}"{% endif %}
+    {% if commander_overlap_tags %}data-overlaps="{{ commander_overlap_tags|join(', ') }}"{% endif %}
+    {% if commander_reason_text %}data-reasons="{{ commander_reason_text|e }}"{% endif %}>
+    <img src="https://api.scryfall.com/cards/named?fuzzy={{ commander_base|urlencode }}&format=image&version=normal" alt="{{ commander }} card image"
+         width="320"
+         data-card-name="{{ commander_base }}"
+         data-original-name="{{ commander }}"
+         data-role="{{ commander_role_label or 'Commander' }}"
+     {% if commander_combined_tags %}data-tags="{{ commander_combined_tags|join(', ') }}"{% endif %}
+     {% if commander_tag_slugs %}data-tags-slug="{{ commander_tag_slugs|join(' ') }}"{% endif %}
+     {% if commander_overlap_tags %}data-overlaps="{{ commander_overlap_tags|join(', ') }}"{% endif %}
+   {% if commander_reason_text %}data-reasons="{{ commander_reason_text|e }}"{% endif %}
+         loading="lazy" decoding="async" data-lqip="1"
+         srcset="https://api.scryfall.com/cards/named?fuzzy={{ commander_base|urlencode }}&format=image&version=small 160w, https://api.scryfall.com/cards/named?fuzzy={{ commander_base|urlencode }}&format=image&version=normal 488w, https://api.scryfall.com/cards/named?fuzzy={{ commander_base|urlencode }}&format=image&version=large 672w"
+         sizes="(max-width: 900px) 100vw, 320px" />
+  </div>
+  <div class="muted" style="margin-top:.25rem;">
+    Commander: <span data-card-name="{{ commander }}"
+    data-original-name="{{ commander }}"
+    data-role="{{ commander_role_label or 'Commander' }}"
+      {% if commander_combined_tags %}data-tags="{{ commander_combined_tags|join(', ') }}"{% endif %}
+      {% if commander_tag_slugs %}data-tags-slug="{{ commander_tag_slugs|join(' ') }}"{% endif %}
+      {% if commander_overlap_tags %}data-overlaps="{{ commander_overlap_tags|join(', ') }}"{% endif %}
+    {% if commander_reason_text %}data-reasons="{{ commander_reason_text|e }}"{% endif %}>{{ commander }}</span>
+  </div>
+  {% endif %}
       {% if status and status.startswith('Build complete') %}
       <div style="margin-top:.75rem; display:flex; gap:.35rem; flex-wrap:wrap;">
         {% if csv_path %}
@@ -30,8 +57,21 @@
   <div hx-get="/build/banner" hx-trigger="load"></div>
   
 
-      <p>Commander: <strong>{{ commander }}</strong></p>
-      <p>Tags: {{ tags|default([])|join(', ') }}</p>
+      <p>Commander:
+        {% if commander %}
+        <strong class="commander-hover"
+          data-card-name="{{ commander }}"
+          data-original-name="{{ commander }}"
+          data-role="{{ commander_role_label or 'Commander' }}"
+          {% if commander_combined_tags %}data-tags="{{ commander_combined_tags|join(', ') }}"{% endif %}
+          {% if commander_tag_slugs %}data-tags-slug="{{ commander_tag_slugs|join(' ') }}"{% endif %}
+          {% if commander_overlap_tags %}data-overlaps="{{ commander_overlap_tags|join(', ') }}"{% endif %}
+          {% if commander_reason_text %}data-reasons="{{ commander_reason_text|e }}"{% endif %}>{{ commander }}</strong>
+        {% else %}
+        <strong>None selected</strong>
+        {% endif %}
+      </p>
+      <p>Tags: {{ deck_theme_tags|default([])|join(', ') }}</p>
       <div style="margin:.35rem 0; color: var(--muted); display:flex; gap:.5rem; align-items:center; flex-wrap:wrap;">
         <span>Owned-only: <strong>{{ 'On' if owned_only else 'Off' }}</strong></span>
           <div style="display:flex;align-items:center;gap:1rem;">
@@ -231,15 +271,13 @@
       {% for c in g.list %}
             {% set owned = (owned_set is defined and c.name and (c.name|lower in owned_set)) %}
             {% set is_locked = (locks is defined and (c.name|lower in locks)) %}
-            <div class="card-tile{% if game_changers and (c.name in game_changers) %} game-changer{% endif %}{% if is_locked %} locked{% endif %}" data-card-name="{{ c.name }}" data-role="{{ c.role or c.sub_role or '' }}" data-tags="{{ (c.tags|join(', ')) if c.tags else '' }}" data-owned="{{ '1' if owned else '0' }}">
-  <button type="button" class="img-btn" title="{{ 'Unlock this card (kept across reruns)' if is_locked else 'Lock this card (keep across reruns)' }}" aria-pressed="{{ 'true' if is_locked else 'false' }}"
-          hx-post="/build/lock" hx-target="#lock-{{ group_idx }}-{{ loop.index0 }}" hx-swap="innerHTML"
-          hx-vals='{"name": "{{ c.name }}", "locked": "{{ '0' if is_locked else '1' }}"}'
-          hx-on="htmx:afterOnLoad: (function(){try{const tile=this.closest('.card-tile');if(!tile)return;const valsAttr=this.getAttribute('hx-vals')||'{}';const sent=JSON.parse(valsAttr.replace(/&quot;/g,'\"'));const nowLocked=(sent.locked==='1');tile.classList.toggle('locked', nowLocked);const next=(nowLocked?'0':'1');this.setAttribute('hx-vals', JSON.stringify({name: sent.name, locked: next}));}catch(e){}})()">
+  <div class="card-tile{% if game_changers and (c.name in game_changers) %} game-changer{% endif %}{% if is_locked %} locked{% endif %}"
+    data-card-name="{{ c.name }}" data-role="{{ c.role or c.sub_role or '' }}" data-tags="{{ (c.tags|join(', ')) if c.tags else '' }}" data-tags-slug="{{ (c.tags_slug|join(', ')) if c.tags_slug else '' }}" data-owned="{{ '1' if owned else '0' }}"{% if c.reason %} data-reasons="{{ c.reason|e }}"{% endif %}>
+  <div class="img-btn" role="button" tabindex="0" title="Tap or click to view {{ c.name }}" aria-label="View {{ c.name }} details">
                 <img class="card-thumb" src="https://api.scryfall.com/cards/named?fuzzy={{ c.name|urlencode }}&format=image&version=normal" alt="{{ c.name }} image" width="160" data-card-name="{{ c.name }}" loading="lazy" decoding="async" data-lqip="1"
                   srcset="https://api.scryfall.com/cards/named?fuzzy={{ c.name|urlencode }}&format=image&version=small 160w, https://api.scryfall.com/cards/named?fuzzy={{ c.name|urlencode }}&format=image&version=normal 488w, https://api.scryfall.com/cards/named?fuzzy={{ c.name|urlencode }}&format=image&version=large 672w"
                   sizes="160px" />
-              </button>
+      </div>
               <div class="owned-badge" title="{{ 'Owned' if owned else 'Not owned' }}" aria-label="{{ 'Owned' if owned else 'Not owned' }}">{% if owned %}✔{% else %}✖{% endif %}</div>
               <div class="name">{{ c.name|safe }}{% if c.count and c.count > 1 %} ×{{ c.count }}{% endif %}</div>
     <div class="lock-box" id="lock-{{ group_idx }}-{{ loop.index0 }}" style="display:flex; justify-content:center; gap:.25rem; margin-top:.25rem;">
@@ -268,15 +306,13 @@
           {% for c in added_cards %}
           {% set owned = (owned_set is defined and c.name and (c.name|lower in owned_set)) %}
           {% set is_locked = (locks is defined and (c.name|lower in locks)) %}
-          <div class="card-tile{% if game_changers and (c.name in game_changers) %} game-changer{% endif %}{% if is_locked %} locked{% endif %}" data-card-name="{{ c.name }}" data-role="{{ c.role or c.sub_role or '' }}" data-tags="{{ (c.tags|join(', ')) if c.tags else '' }}" data-owned="{{ '1' if owned else '0' }}">
-  <button type="button" class="img-btn" title="{{ 'Unlock this card (kept across reruns)' if is_locked else 'Lock this card (keep across reruns)' }}" aria-pressed="{{ 'true' if is_locked else 'false' }}"
-        hx-post="/build/lock" hx-target="#lock-{{ loop.index0 }}" hx-swap="innerHTML"
-        hx-vals='{"name": "{{ c.name }}", "locked": "{{ '0' if is_locked else '1' }}"}'
-        hx-on="htmx:afterOnLoad: (function(){try{const tile=this.closest('.card-tile');if(!tile)return;const valsAttr=this.getAttribute('hx-vals')||'{}';const sent=JSON.parse(valsAttr.replace(/&quot;/g,'\"'));const nowLocked=(sent.locked==='1');tile.classList.toggle('locked', nowLocked);const next=(nowLocked?'0':'1');this.setAttribute('hx-vals', JSON.stringify({name: sent.name, locked: next}));}catch(e){}})()">
+    <div class="card-tile{% if game_changers and (c.name in game_changers) %} game-changer{% endif %}{% if is_locked %} locked{% endif %}"
+      data-card-name="{{ c.name }}" data-role="{{ c.role or c.sub_role or '' }}" data-tags="{{ (c.tags|join(', ')) if c.tags else '' }}" data-tags-slug="{{ (c.tags_slug|join(', ')) if c.tags_slug else '' }}" data-owned="{{ '1' if owned else '0' }}"{% if c.reason %} data-reasons="{{ c.reason|e }}"{% endif %}>
+  <div class="img-btn" role="button" tabindex="0" title="Tap or click to view {{ c.name }}" aria-label="View {{ c.name }} details">
               <img class="card-thumb" src="https://api.scryfall.com/cards/named?fuzzy={{ c.name|urlencode }}&format=image&version=normal" alt="{{ c.name }} image" width="160" data-card-name="{{ c.name }}" loading="lazy" decoding="async" data-lqip="1"
                 srcset="https://api.scryfall.com/cards/named?fuzzy={{ c.name|urlencode }}&format=image&version=small 160w, https://api.scryfall.com/cards/named?fuzzy={{ c.name|urlencode }}&format=image&version=normal 488w, https://api.scryfall.com/cards/named?fuzzy={{ c.name|urlencode }}&format=image&version=large 672w"
                 sizes="160px" />
-            </button>
+            </div>
             <div class="owned-badge" title="{{ 'Owned' if owned else 'Not owned' }}" aria-label="{{ 'Owned' if owned else 'Not owned' }}">{% if owned %}✔{% else %}✖{% endif %}</div>
             <div class="name">{{ c.name|safe }}{% if c.count and c.count > 1 %} ×{{ c.count }}{% endif %}</div>
     <div class="lock-box" id="lock-{{ loop.index0 }}" style="display:flex; justify-content:center; gap:.25rem; margin-top:.25rem;">
@@ -299,7 +335,7 @@
           {% endfor %}
         </div>
       {% endif %}
-  <div class="muted" style="font-size:12px; margin:.35rem 0 .25rem 0;">Tip: Click a card to lock or unlock it. Locked cards are kept across reruns and won’t be replaced unless you unlock them.</div>
+  <div class="muted" style="font-size:12px; margin:.35rem 0 .25rem 0;">Tip: Use the 🔒 Lock button under each card to keep it across reruns. Tap or click the card art to view details without changing the lock state.</div>
       <div data-empty hidden role="status" aria-live="polite" class="muted" style="margin:.5rem 0 0;">
         No cards match your filters.
       </div>
@@ -324,33 +360,31 @@
   </div>
 </section>
 <script>
-// Sync tile class and image-button toggle after lock button swaps
+// Sync tile class after lock button swaps
 document.addEventListener('htmx:afterSwap', function(ev){
   try{
     const tgt = ev.target;
     if(!tgt) return;
-    // Only act for lock-box updates
     if(!tgt.classList || !tgt.classList.contains('lock-box')) return;
     const tile = tgt.closest('.card-tile');
     if(!tile) return;
     const lockBtn = tgt.querySelector('.btn-lock');
     if(lockBtn){
       const isLocked = (lockBtn.getAttribute('data-locked') === '1');
-  tile.classList.toggle('locked', isLocked);
-      const imgBtn = tile.querySelector('.img-btn');
-      if(imgBtn){
-        try{
-          const valsAttr = imgBtn.getAttribute('hx-vals') || '{}';
-          const cur = JSON.parse(valsAttr.replace(/&quot;/g, '"'));
-          const next = isLocked ? '0' : '1';
-          // Keep name stable; fallback to tile data attribute
-          const nm = cur.name || tile.getAttribute('data-card-name') || '';
-          imgBtn.setAttribute('hx-vals', JSON.stringify({ name: nm, locked: next }));
-          imgBtn.title = 'Click to ' + (isLocked ? 'unlock' : 'lock') + ' this card';
-          try { imgBtn.setAttribute('aria-pressed', isLocked ? 'true' : 'false'); } catch(_){ }
-        }catch(_){/* noop */}
-      }
+      tile.classList.toggle('locked', isLocked);
     }
+  }catch(_){/* noop */}
+});
+// Keyboard activation for preview tile when focused
+document.addEventListener('keydown', function(ev){
+  try{
+    if(ev.key !== 'Enter' && ev.key !== ' ') return;
+    const target = ev.target;
+    if(!target || !target.classList || !target.classList.contains('img-btn')) return;
+    ev.preventDefault();
+    ev.stopPropagation();
+    const tile = target.closest('.card-tile');
+    if(tile && window.__hoverShowCard){ window.__hoverShowCard(tile); }
   }catch(_){/* noop */}
 });
 // Allow dismissing/auto-clearing the last-action chip
@@ -365,7 +399,6 @@ document.addEventListener('click', function(ev){
   }catch(_){/* noop */}
 });
 setTimeout(function(){ try{ var c=document.getElementById('last-action'); if(c && c.firstElementChild){ c.innerHTML=''; } }catch(_){} }, 6000);
-
 // Keyboard helpers: when a card-tile is focused, L toggles lock, R opens alternatives
 document.addEventListener('keydown', function(e){
   try{

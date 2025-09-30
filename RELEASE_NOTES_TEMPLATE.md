@@ -19,6 +19,7 @@
 - Content Security Policy upgrade directive ensures HTMX pagination requests remain HTTPS-safe behind proxies.
 - Commander thumbnails adopt a fixed-width 160px frame (responsive on small screens) for consistent layout.
 - Mobile commander rows now feature larger thumbnails and a centered preview modal with expanded card art for improved readability.
+- Preview performance CI check now waits for service health and retries catalog pagination fetches to smooth out transient 500s on cold boots.
 
 ## Fixed
 - Documented friendly handling for missing `commander_cards.csv` data during manual QA drills to prevent white-screen failures.

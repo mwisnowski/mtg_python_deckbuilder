@@ -37,6 +37,17 @@ def _fetch_json(url: str) -> Dict[str, Any]:
     return json.loads(data)  # type: ignore[return-value]
 
 
+def _fetch_json_with_retry(url: str, attempts: int = 3, delay: float = 0.6) -> Dict[str, Any]:
+    for attempt in range(1, attempts + 1):
+        try:
+            return _fetch_json(url)
+        except Exception:  # pragma: no cover - network variability
+            if attempt < attempts:
+                time.sleep(delay * attempt)
+            else:
+                raise
+
+
 def select_theme_slugs(base_url: str, count: int) -> List[str]:
     """Discover theme slugs for benchmarking.
 
@@ -89,7 +100,7 @@ def fetch_all_theme_slugs(base_url: str, page_limit: int = 200) -> List[str]:
     while True:
         try:
             url = f"{base_url.rstrip('/')}/themes/api/themes?limit={page_limit}&offset={offset}"
-            data = _fetch_json(url)
+            data = _fetch_json_with_retry(url)
         except Exception as e:  # pragma: no cover - network variability
             raise SystemExit(f"Failed fetching themes page offset={offset}: {e}")
         items = data.get("items") or []

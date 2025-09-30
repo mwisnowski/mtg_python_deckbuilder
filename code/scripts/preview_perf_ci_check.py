@@ -21,7 +21,35 @@ import argparse
 import json
 import subprocess
 import sys
+import time
+import urllib.error
+import urllib.request
 from pathlib import Path
+def _wait_for_service(base_url: str, attempts: int = 8, delay: float = 1.5) -> bool:
+    health_url = base_url.rstrip("/") + "/healthz"
+    last_error: Exception | None = None
+    for attempt in range(1, attempts + 1):
+        try:
+            with urllib.request.urlopen(health_url, timeout=5) as resp:  # nosec B310 local CI
+                if 200 <= resp.status < 300:
+                    return True
+        except urllib.error.HTTPError as exc:
+            last_error = exc
+            if 400 <= exc.code < 500 and exc.code != 429:
+                # Treat permanent client errors (other than rate limit) as fatal
+                break
+        except Exception as exc:  # pragma: no cover - network variability
+            last_error = exc
+        time.sleep(delay)
+    print(json.dumps({
+        "event": "ci_perf_error",
+        "stage": "startup",
+        "message": "Service health check failed",
+        "url": health_url,
+        "attempts": attempts,
+        "error": str(last_error) if last_error else None,
+    }))
+    return False
 
 def run(cmd: list[str]) -> subprocess.CompletedProcess:
     return subprocess.run(cmd, capture_output=True, text=True, check=False)
@@ -37,6 +65,9 @@ def main(argv: list[str]) -> int:
 
     if not args.baseline.exists():
         print(json.dumps({"event":"ci_perf_error","message":"Baseline not found","path":str(args.baseline)}))
+        return 3
+
+    if not _wait_for_service(args.url):
         return 3
 
     # Run candidate single-pass all-themes benchmark (no extra warm cycles to keep CI fast)

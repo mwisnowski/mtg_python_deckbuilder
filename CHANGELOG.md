@@ -27,6 +27,7 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 - Commander thumbnails use a fixed-width 160px frame (scaling down on small screens) to eliminate inconsistent image sizing across the catalog.
 - Commander list pagination controls now appear above and below the results and automatically scroll to the top when switching pages for quicker navigation.
 - Mobile commander rows now feature larger thumbnails and a centered preview modal with expanded card art for improved readability.
+- Preview performance CI check now waits for `/healthz` and retries theme catalog pagination fetches to dodge transient 500s during cold starts.
 
 ### Fixed
 - _No changes yet._

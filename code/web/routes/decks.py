@@ -5,11 +5,11 @@ from fastapi.responses import HTMLResponse
 from pathlib import Path
 import csv
 import os
-from typing import Dict, List, Tuple, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from ..app import templates
-# from ..services import owned_store
-from ..services.summary_utils import summary_ctx
+from ..services.orchestrator import tags_for_commander
+from ..services.summary_utils import format_theme_label, format_theme_list, summary_ctx
 
 
 router = APIRouter(prefix="/decks")
@@ -264,6 +264,7 @@ async def decks_view(request: Request, name: str) -> HTMLResponse:
     summary = None
     commander_name = ''
     tags: List[str] = []
+    meta_info: Dict[str, Any] = {}
     sidecar = p.with_suffix('.summary.json')
     if sidecar.exists():
         try:
@@ -273,6 +274,7 @@ async def decks_view(request: Request, name: str) -> HTMLResponse:
                 summary = payload.get('summary')
                 meta = payload.get('meta', {})
                 if isinstance(meta, dict):
+                    meta_info = meta
                     commander_name = meta.get('commander') or ''
                     _tags = meta.get('tags') or []
                     if isinstance(_tags, list):
@@ -302,7 +304,97 @@ async def decks_view(request: Request, name: str) -> HTMLResponse:
         "tags": tags,
         "display_name": display_name,
     }
-    ctx.update(summary_ctx(summary=summary, commander=commander_name, tags=tags))
+    ctx.update(summary_ctx(summary=summary, commander=commander_name, tags=tags, meta=meta_info))
+
+    def _extend_sources(values: list[Any], candidate: Any) -> None:
+        if isinstance(candidate, list):
+            values.extend(candidate)
+        elif isinstance(candidate, tuple):
+            values.extend(list(candidate))
+        elif isinstance(candidate, str):
+            values.append(candidate)
+
+    deck_theme_sources: list[Any] = list(ctx.get("synergies") or tags or [])
+    if isinstance(meta_info, dict):
+        for key in (
+            "display_themes",
+            "resolved_themes",
+            "auto_filled_themes",
+            "random_display_themes",
+            "random_resolved_themes",
+            "random_auto_filled_themes",
+            "primary_theme",
+            "secondary_theme",
+            "tertiary_theme",
+        ):
+            _extend_sources(deck_theme_sources, meta_info.get(key))
+    deck_theme_tags = format_theme_list(deck_theme_sources)
+
+    commander_theme_sources: list[Any] = []
+    if isinstance(meta_info, dict):
+        for key in (
+            "commander_tags",
+            "commander_theme_tags",
+            "commander_themes",
+            "commander_tag_list",
+            "primary_commander_theme",
+            "secondary_commander_theme",
+        ):
+            _extend_sources(commander_theme_sources, meta_info.get(key))
+        commander_meta = meta_info.get("commander", {})
+        if isinstance(commander_meta, dict):
+            _extend_sources(commander_theme_sources, commander_meta.get("tags"))
+            _extend_sources(commander_theme_sources, commander_meta.get("themes"))
+    commander_theme_tags = format_theme_list(commander_theme_sources)
+    if not commander_theme_tags and commander_name:
+        commander_theme_tags = format_theme_list(tags_for_commander(commander_name))
+
+    combined_tags: list[str] = []
+    combined_seen: set[str] = set()
+    for collection in (commander_theme_tags, deck_theme_tags):
+        for label in collection:
+            key = label.casefold()
+            if key in combined_seen:
+                continue
+            combined_seen.add(key)
+            combined_tags.append(label)
+
+    overlap_tags: list[str] = []
+    overlap_seen: set[str] = set()
+    combined_keys = {label.casefold() for label in combined_tags}
+    for label in deck_theme_tags:
+        key = label.casefold()
+        if key in combined_keys and key not in overlap_seen:
+            overlap_tags.append(label)
+            overlap_seen.add(key)
+
+    commander_tag_slugs = []
+    slug_seen: set[str] = set()
+    for label in combined_tags:
+        slug = " ".join(str(label or "").strip().lower().split())
+        if not slug or slug in slug_seen:
+            continue
+        slug_seen.add(slug)
+        commander_tag_slugs.append(slug)
+
+    reason_bits: list[str] = []
+    if deck_theme_tags:
+        reason_bits.append("Deck themes: " + ", ".join(deck_theme_tags))
+    if commander_theme_tags:
+        reason_bits.append("Commander tags: " + ", ".join(commander_theme_tags))
+    commander_reason_text = "; ".join(reason_bits)
+
+    ctx.update(
+        {
+            "deck_theme_tags": deck_theme_tags,
+            "commander_theme_tags": commander_theme_tags,
+            "commander_combined_tags": combined_tags,
+            "commander_tag_slugs": commander_tag_slugs,
+            "commander_reason_text": commander_reason_text,
+            "commander_overlap_tags": overlap_tags,
+            "commander_role_label": format_theme_label("Commander"),
+        }
+    )
     return templates.TemplateResponse("decks/view.html", ctx)
 
 

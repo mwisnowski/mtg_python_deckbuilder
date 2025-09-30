@@ -5,6 +5,13 @@
 - CI updates install the missing `httpx` dependency and run pytest through `python -m` to ensure the web stack tests import the local package correctly.
 - Fast-path catalog validation now tolerates empty synergy lists while still flagging missing fields or non-string entries.
 - Committed deterministic CSV fixtures under `csv_files/testdata` so CI random-mode checks have a stable dataset.
+- Owned Cards library tiles are larger, virtualization only kicks in for very large libraries, and popovers no longer show empty role pills.
+- Random Mode fallback warning remains hidden when no theme filters are provided, keeping Surprise Me runs noise-free.
+- Hover previews regained the double-faced card flip button with state synced to the main tile, highlight only the themes that triggered inclusion, and present a mobile-friendly tap layout with centered positioning plus a close control.
+- Deck summary text view exposes inline flip toggles for double-faced cards so counts and face switching stay in sync.
+- Finished deck summaries now reuse sanitized metadata (with a fallback to deck meta) to display overlap chips that mirror the builder view, and hover overlap pills feature larger, higher-contrast styling for readability.
+- Builder Step 5 commander preview now leverages the in-app hover panel (dropping the external Scryfall link) and the hover reasons list expands naturally without a cramped scrollbar.
+- Finished deck commander preview now mirrors the builder hover chips, showing deck-selected theme overlaps alongside the full commander theme list while keeping thumbnail taps inside the app instead of bouncing to Scryfall.
 - Delivered multi-theme random builds with deterministic cascade, strict match support, and polished HTMX/UI flows.
 - Added opt-in telemetry counters, reroll throttling safeguards, and structured diagnostics exports.
 - Expanded tooling, documentation, and QA coverage for theme governance, performance profiling, and seed history management.
@@ -20,6 +27,17 @@
 - Opt-in `RANDOM_TELEMETRY` counters capturing usage, fallback reasons, and seed history with NDJSON export endpoint.
 - Reroll throttle enforcement with banner/countdown messaging plus override hooks for attempts and timeout controls.
 - Expanded fast tests validating telemetry counters, throttle behavior, and reroll permutations.
+
+### UI polish
+- Owned Cards library grid uses 160px thumbnails, wider columns, and defers virtualization until large collections to ensure smooth scrolling.
+- Hover card popovers hide the role badge when a card has no role metadata, preventing blank pills in owned library previews.
+- Hover card previews now include a flip control for double-faced cards, stay synchronized with the tile button, highlight the active inclusion themes, and present a centered, readable mobile layout when tapped.
+- Finished deck exports render the same overlap chips as the live builder, backed by metadata fallback logic, and the hover overlap pills are larger with improved contrast.
+- Finished deck commander popovers reuse deck metadata to display overlap chips and commander theme lists, and the commander thumbnail no longer opens Scryfall so tap-to-preview is consistent on mobile.
+- Builder stage card tiles now keep the card art tap/click dedicated to previewing while the lock state is controlled solely by the 🔒 button, preventing accidental locks on touch devices.
+- Builder hover previews now use normalized theme labels (e.g., “Card Advantage”), suppress internal prefixes so build-mode pills match the finished deck summary, and the Step 5 commander preview stays in-app with hover reasons expanding without scrollbars.
+- Deck summary text rows gained inline flip buttons beside card counts to mirror thumbnail behavior for double-faced cards.
+- Random Mode fallback banner is suppressed when all theme inputs are empty so Surprise Me runs stay uncluttered.
 
 ### Tooling & docs
 - Random theme exclusion catalog with reporting script and documentation, alongside a multi-theme performance profiler and regression guard.

@@ -13,6 +13,137 @@ import re
 import unicodedata
 from glob import glob
 
+_TAG_ACRONYM_KEEP = {"EDH", "ETB", "ETBs", "CMC", "ET", "OTK"}
+_REASON_SOURCE_OVERRIDES = {
+    "creature_all_theme": "Theme Match",
+    "creature_add": "Creature Package",
+    "creature_fill": "Creature Fill",
+    "creature_phase": "Creature Stage",
+    "creatures": "Creature Stage",
+    "lands": "Lands",
+    "land_phase": "Land Stage",
+    "spells": "Spells",
+    "autocombos": "Combo Package",
+    "enforcement": "Enforcement",
+    "lock": "Lock",
+}
+
+
+def _humanize_tag_label(tag: Any) -> str:
+    """Return a human-friendly display label for a tag identifier."""
+    try:
+        raw = str(tag).strip()
+    except Exception:
+        raw = ""
+    if not raw:
+        return ""
+    # Replace common separators with spaces and collapse whitespace
+    cleaned = raw.replace("•", " ")
+    cleaned = re.sub(r"[_\-]+", " ", cleaned)
+    cleaned = re.sub(r"\s+", " ", cleaned).strip()
+    cleaned = re.sub(r"\s*:\s*", ": ", cleaned)
+    if not cleaned:
+        return ""
+
+    words = cleaned.split(" ")
+    friendly_parts: List[str] = []
+    for word in words:
+        if not word:
+            continue
+        upper_word = word.upper()
+        if upper_word in _TAG_ACRONYM_KEEP or (len(word) <= 3 and word.isupper()):
+            friendly_parts.append(upper_word)
+            continue
+        if word.isupper() or word.islower():
+            friendly_parts.append(word.capitalize())
+            continue
+        friendly_parts.append(word[0].upper() + word[1:])
+    return " ".join(friendly_parts)
+
+
+def _humanize_reason_source(value: Any) -> str:
+    try:
+        raw = str(value).strip()
+    except Exception:
+        raw = ""
+    if not raw:
+        return ""
+    key = raw.lower()
+    if key in _REASON_SOURCE_OVERRIDES:
+        return _REASON_SOURCE_OVERRIDES[key]
+    # Split camelCase before normalizing underscores
+    split_camel = re.sub(r"(?<!^)([A-Z])", r" \1", raw).replace("-", " ")
+    cleaned = split_camel.replace("_", " ")
+    cleaned = re.sub(r"\s+", " ", cleaned).strip()
+    if not cleaned:
+        return ""
+    stopwords = {"all", "step", "phase", "pkg", "package", "stage"}
+    tokens = [t for t in cleaned.split(" ") if t]
+    filtered = [t for t in tokens if t.lower() not in stopwords]
+    base = " ".join(filtered if filtered else tokens)
+    friendly = _humanize_tag_label(base)
+    return friendly
+
+
+def _split_composite_tags(value: Any) -> List[str]:
+    """Split a trigger tag style string into individual tag fragments."""
+    if not value:
+        return []
+    try:
+        raw = str(value)
+    except Exception:
+        return []
+    parts = re.split(r"[\u2022,;/]+", raw)
+    return [p.strip() for p in parts if p and p.strip()]
+
+
+def _coerce_tag_iterable(value: Any) -> List[str]:
+    """Coerce stored tag metadata into a flat list of strings."""
+    if isinstance(value, (list, tuple, set)):
+        out: List[str] = []
+        for item in value:
+            try:
+                text = str(item).strip()
+            except Exception:
+                text = ""
+            if text:
+                out.append(text)
+        return out
+    if isinstance(value, str):
+        text = value.strip()
+        if not text:
+            return []
+        # Try JSON decoding first for serialized lists
+        try:
+            parsed = json.loads(text)
+            if isinstance(parsed, (list, tuple, set)):
+                return [str(item).strip() for item in parsed if str(item).strip()]
+        except Exception:
+            pass
+        parts = re.split(r"[;,]", text)
+        return [p.strip().strip("'\"") for p in parts if p and p.strip().strip("'\"")]
+    return []
+
+
+def _display_tags_from_entry(entry: Dict[str, Any]) -> List[str]:
+    """Derive a user-facing tag list for a card entry."""
+    base_tags = _coerce_tag_iterable(entry.get('Tags'))
+    trigger_tags = _split_composite_tags(entry.get('TriggerTag'))
+    combined: List[str] = []
+    seen: set[str] = set()
+    for source in (base_tags, trigger_tags):
+        for tag in source:
+            if not tag:
+                continue
+            key = str(tag).strip().lower()
+            if not key or key in seen:
+                continue
+            seen.add(key)
+            friendly = _humanize_tag_label(tag)
+            if friendly:
+                combined.append(friendly)
+    return combined
+
 # --- Theme Metadata Enrichment Helper (Phase D+): ensure editorial scaffolding after any theme export ---
 def _run_theme_metadata_enrichment(out_func=None) -> None:
     """Run full metadata enrichment sequence after theme catalog/YAML generation.
@@ -2443,14 +2574,38 @@ def run_stage(ctx: Dict[str, Any], rerun: bool = False, show_skipped: bool = Fal
                     trig = str(entry.get('TriggerTag') or '').strip()
                     parts: list[str] = []
                     if role:
-                        parts.append(role)
+                        parts.append(_humanize_tag_label(role))
                     if sub_role:
-                        parts.append(sub_role)
-                    if added_by:
-                        parts.append(f"by {added_by}")
+                        parts.append(_humanize_tag_label(sub_role))
+                    friendly_added = _humanize_reason_source(added_by)
+                    if friendly_added:
+                        parts.append(friendly_added)
+                    friendly_trig = _humanize_tag_label(trig)
                     if trig:
-                        parts.append(f"tag: {trig}")
-                    reason = " • ".join(parts)
+                        tag_fragment = friendly_trig or str(trig).strip()
+                        if tag_fragment:
+                            parts.append(f"tag: {tag_fragment}")
+                    deduped_parts: list[str] = []
+                    seen_parts: set[str] = set()
+                    for part in parts:
+                        if not part:
+                            continue
+                        norm = part.strip().lower()
+                        if not norm or norm in seen_parts:
+                            continue
+                        seen_parts.add(norm)
+                        deduped_parts.append(part)
+                    reason = " • ".join(deduped_parts)
+                    display_tags = _display_tags_from_entry(entry)
+                    slug_tags: List[str] = []
+                    slug_seen: set[str] = set()
+                    for source_list in (_coerce_tag_iterable(entry.get('Tags')), _split_composite_tags(trig)):
+                        for tag_val in source_list:
+                            key_slug = str(tag_val).strip().lower()
+                            if not key_slug or key_slug in slug_seen:
+                                continue
+                            slug_seen.add(key_slug)
+                            slug_tags.append(str(tag_val).strip())
                     added_cards.append({
                         "name": name,
                         "count": delta_count,
@@ -2458,6 +2613,8 @@ def run_stage(ctx: Dict[str, Any], rerun: bool = False, show_skipped: bool = Fal
                         "role": role,
                         "sub_role": sub_role,
                         "trigger_tag": trig,
+                        "tags": display_tags,
+                        "tags_slug": slug_tags,
                     })
                 except Exception:
                     continue

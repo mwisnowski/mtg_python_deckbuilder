@@ -69,7 +69,7 @@
       Auto-filled: <strong>{{ auto_filled_themes|join(', ') }}</strong>
     </div>
   {% endif %}
-  {% if fallback_reason %}
+  {% if fallback_reason and has_primary %}
     {% if synergy_fallback and (not resolved_list) %}
       {% set notice_class = 'danger' %}
     {% elif synergy_fallback %}

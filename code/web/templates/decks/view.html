@@ -5,7 +5,17 @@
 {% if display_name %}
   <div><strong>{{ display_name }}</strong></div>
 {% endif %}
-<div class="muted">Commander: <strong data-card-name="{{ commander }}">{{ commander }}</strong>{% if tags and tags|length %} • Themes: {{ tags|join(', ') }}{% endif %}</div>
+<div class="muted">Commander:
+  <strong class="commander-hover"
+    data-card-name="{{ commander }}"
+    data-original-name="{{ commander }}"
+    data-role="{{ commander_role_label }}"
+    {% if commander_combined_tags %}data-tags="{{ commander_combined_tags|join(', ') }}"{% endif %}
+    {% if commander_tag_slugs %}data-tags-slug="{{ commander_tag_slugs|join(' ') }}"{% endif %}
+    {% if commander_overlap_tags %}data-overlaps="{{ commander_overlap_tags|join(', ') }}"{% endif %}
+    {% if commander_reason_text %}data-reasons="{{ commander_reason_text|e }}"{% endif %}>{{ commander }}</strong>
+  {% if tags and tags|length %} • Themes: {{ tags|join(', ') }}{% endif %}
+</div>
 <div class="muted">This view mirrors the end-of-build summary. Use the buttons to download the CSV/TXT exports.</div>
 
 <div class="two-col two-col-left-rail" style="margin-top:.75rem;">
@@ -13,10 +23,34 @@
     {% if commander %}
     {# Strip synergy annotation for Scryfall search and image fuzzy param #}
     {% set commander_base = (commander.split(' - Synergy (')[0] if ' - Synergy (' in commander else commander) %}
-    <a href="https://scryfall.com/search?q={{ commander_base|urlencode }}" target="_blank" rel="noopener">
-      <img src="https://api.scryfall.com/cards/named?fuzzy={{ commander_base|urlencode }}&format=image&version=normal" alt="{{ commander }} card image" data-card-name="{{ commander_base }}" width="320" />
-    </a>
-    <div class="muted" style="margin-top:.25rem;">Commander: <span data-card-name="{{ commander }}">{{ commander }}</span></div>
+    <div class="commander-card"
+      tabindex="0"
+      style="display:inline-block; cursor:pointer;"
+      data-card-name="{{ commander_base }}"
+      data-original-name="{{ commander }}"
+      data-role="{{ commander_role_label }}"
+      {% if commander_combined_tags %}data-tags="{{ commander_combined_tags|join(', ') }}"{% endif %}
+      {% if commander_tag_slugs %}data-tags-slug="{{ commander_tag_slugs|join(' ') }}"{% endif %}
+      {% if commander_overlap_tags %}data-overlaps="{{ commander_overlap_tags|join(', ') }}"{% endif %}
+      {% if commander_reason_text %}data-reasons="{{ commander_reason_text|e }}"{% endif %}>
+      <img src="https://api.scryfall.com/cards/named?fuzzy={{ commander_base|urlencode }}&format=image&version=normal"
+           alt="{{ commander }} card image"
+           data-card-name="{{ commander_base }}"
+           data-original-name="{{ commander }}"
+           data-role="{{ commander_role_label }}"
+       {% if commander_combined_tags %}data-tags="{{ commander_combined_tags|join(', ') }}"{% endif %}
+       {% if commander_tag_slugs %}data-tags-slug="{{ commander_tag_slugs|join(' ') }}"{% endif %}
+       {% if commander_overlap_tags %}data-overlaps="{{ commander_overlap_tags|join(', ') }}"{% endif %}
+     {% if commander_reason_text %}data-reasons="{{ commander_reason_text|e }}"{% endif %}
+           width="320" />
+    </div>
+    <div class="muted" style="margin-top:.25rem;">Commander: <span data-card-name="{{ commander }}"
+    data-original-name="{{ commander }}"
+    data-role="{{ commander_role_label }}"
+      {% if commander_combined_tags %}data-tags="{{ commander_combined_tags|join(', ') }}"{% endif %}
+      {% if commander_tag_slugs %}data-tags-slug="{{ commander_tag_slugs|join(' ') }}"{% endif %}
+      {% if commander_overlap_tags %}data-overlaps="{{ commander_overlap_tags|join(', ') }}"{% endif %}
+    {% if commander_reason_text %}data-reasons="{{ commander_reason_text|e }}"{% endif %}>{{ commander }}</span></div>
     {% endif %}
     <div style="margin-top:.75rem; display:flex; gap:.35rem; flex-wrap:wrap;">
       {% if csv_path %}

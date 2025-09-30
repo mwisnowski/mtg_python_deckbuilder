@@ -286,9 +286,10 @@
       tiles.forEach(function(tile){
         var name = (tile.getAttribute('data-card-name')||'').toLowerCase();
         var role = (tile.getAttribute('data-role')||'').toLowerCase();
-        var tags = (tile.getAttribute('data-tags')||'').toLowerCase();
+  var tags = (tile.getAttribute('data-tags')||'').toLowerCase();
+  var tagsSlug = (tile.getAttribute('data-tags-slug')||'').toLowerCase();
         var owned = tile.getAttribute('data-owned') === '1';
-        var text = name + ' ' + role + ' ' + tags;
+  var text = name + ' ' + role + ' ' + tags + ' ' + tagsSlug;
         var qOk = !query || text.indexOf(query) !== -1;
         var oOk = (ownedMode === 'all') || (ownedMode === 'owned' && owned) || (ownedMode === 'not' && !owned);
         var show = qOk && oOk;

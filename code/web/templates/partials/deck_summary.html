@@ -11,6 +11,10 @@
   </div>
   <div style="display:none" hx-on:load="(function(){try{var mode=localStorage.getItem('summaryTypeView')||'list';if(mode==='thumbs'){var list=document.getElementById('typeview-list');var thumbs=document.getElementById('typeview-thumbs');if(list&&thumbs){list.classList.add('hidden');thumbs.classList.remove('hidden');var lb=document.querySelector('.seg-btn[data-view=list]');var tb=document.querySelector('.seg-btn[data-view=thumbs]');if(lb&&tb){lb.setAttribute('aria-selected','false');tb.setAttribute('aria-selected','true');}thumbs.querySelectorAll('.stack-wrap').forEach(function(sw){var grid=sw.querySelector('.stack-grid');if(!grid)return;var cs=getComputedStyle(sw);var cardW=parseFloat(cs.getPropertyValue('--card-w'))||160;var gap=10;var width=sw.clientWidth;if(!width||width<cardW){sw.style.setProperty('--cols','1');return;}var cols=Math.max(1,Math.floor((width+gap)/(cardW+gap)));sw.style.setProperty('--cols',String(cols));});}}catch(e){}})()"></div>
   {% set tb = summary.type_breakdown %}
+  {% set synergies_norm = [] %}
+  {% if synergies %}
+    {% set synergies_norm = synergies|map('trim')|map('lower')|list %}
+  {% endif %}
   {% if tb and tb.counts %}
     <style>
       .seg { display:inline-flex; border:1px solid var(--border); border-radius:8px; overflow:hidden; }
@@ -39,20 +43,33 @@
             @media (max-width: 1199px) {
               .list-grid { grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
             }
-            .list-row { display:grid; grid-template-columns: 4ch 1.25ch minmax(0,1fr) 1.6em; align-items:center; column-gap:.45rem; width:100%; }
+            .list-row { display:grid; grid-template-columns: 4ch 1.25ch minmax(0,1fr) auto 1.6em; align-items:center; column-gap:.45rem; width:100%; }
             .list-row .count { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-variant-numeric: tabular-nums; font-feature-settings: 'tnum'; text-align:right; color:#94a3b8; }
             .list-row .times { color:#94a3b8; text-align:center; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
             .list-row .name { display:inline-block; padding: 2px 4px; border-radius: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+            .list-row .flip-slot { min-width:2.4em; display:flex; justify-content:center; align-items:center; }
             .list-row .owned-flag { width: 1.6em; min-width: 1.6em; text-align:center; display:inline-block; }
           </style>
           <div class="list-grid">
             {% for c in clist %}
-              <div class="list-row {% if (game_changers and (c.name in game_changers)) or ('game_changer' in (c.role or '') or 'Game Changer' in (c.role or '')) %}game-changer{% endif %}">
+              {# Compute overlaps with detected deck synergies when available #}
+              {% set overlaps = [] %}
+              {% if synergies_norm and c.tags %}
+                {% for tg in c.tags %}
+                  {% set tag_trim = tg|trim %}
+                  {% if tag_trim and (tag_trim|lower) in synergies_norm and tag_trim not in overlaps %}
+                    {% set _ = overlaps.append(tag_trim) %}
+                  {% endif %}
+                {% endfor %}
+              {% endif %}
+              <div class="list-row {% if (game_changers and (c.name in game_changers)) or ('game_changer' in (c.role or '') or 'Game Changer' in (c.role or '')) %}game-changer{% endif %}"
+                   data-card-name="{{ c.name }}" data-original-name="{{ c.name }}" data-role="{{ c.role }}" data-tags="{{ (c.tags|map('trim')|join(', ')) if c.tags else '' }}"{% if overlaps %} data-overlaps="{{ overlaps|join(', ') }}"{% endif %}>
                 {% set cnt = c.count if c.count else 1 %}
                 {% set owned = (owned_set is defined and c.name and (c.name|lower in owned_set)) %}
                 <span class="count">{{ cnt }}</span>
                 <span class="times">x</span>
-                <span class="name" title="{{ c.name }}" data-card-name="{{ c.name }}" data-count="{{ cnt }}" data-role="{{ c.role }}" data-tags="{{ (c.tags|join(', ')) if c.tags else '' }}">{{ c.name }}</span>
+                <span class="name dfc-anchor" title="{{ c.name }}" data-card-name="{{ c.name }}" data-count="{{ cnt }}" data-role="{{ c.role }}" data-tags="{{ (c.tags|map('trim')|join(', ')) if c.tags else '' }}"{% if overlaps %} data-overlaps="{{ overlaps|join(', ') }}"{% endif %}>{{ c.name }}</span>
+                <span class="flip-slot" aria-hidden="true"></span>
                 <span class="owned-flag" title="{{ 'Owned' if owned else 'Not owned' }}" aria-label="{{ 'Owned' if owned else 'Not owned' }}">{% if owned %}✔{% else %}✖{% endif %}</span>
               </div>
             {% endfor %}
@@ -74,8 +91,17 @@
             {% for c in clist %}
               {% set cnt = c.count if c.count else 1 %}
               {% set owned = (owned_set is defined and c.name and (c.name|lower in owned_set)) %}
+              {% set overlaps = [] %}
+              {% if synergies_norm and c.tags %}
+                {% for tg in c.tags %}
+                  {% set tag_trim = tg|trim %}
+                  {% if tag_trim and (tag_trim|lower) in synergies_norm and tag_trim not in overlaps %}
+                    {% set _ = overlaps.append(tag_trim) %}
+                  {% endif %}
+                {% endfor %}
+              {% endif %}
               <div class="stack-card {% if (game_changers and (c.name in game_changers)) or ('game_changer' in (c.role or '') or 'Game Changer' in (c.role or '')) %}game-changer{% endif %}">
-                <img class="card-thumb" loading="lazy" decoding="async" src="https://api.scryfall.com/cards/named?fuzzy={{ c.name|urlencode }}&format=image&version=normal" alt="{{ c.name }} image" data-card-name="{{ c.name }}" data-count="{{ cnt }}" data-role="{{ c.role }}" data-tags="{{ (c.tags|join(', ')) if c.tags else '' }}"
+                <img class="card-thumb" loading="lazy" decoding="async" src="https://api.scryfall.com/cards/named?fuzzy={{ c.name|urlencode }}&format=image&version=normal" alt="{{ c.name }} image" data-card-name="{{ c.name }}" data-count="{{ cnt }}" data-role="{{ c.role }}" data-tags="{{ (c.tags|map('trim')|join(', ')) if c.tags else '' }}"{% if overlaps %} data-overlaps="{{ overlaps|join(', ') }}"{% endif %}
                      srcset="https://api.scryfall.com/cards/named?fuzzy={{ c.name|urlencode }}&format=image&version=small 160w, https://api.scryfall.com/cards/named?fuzzy={{ c.name|urlencode }}&format=image&version=normal 488w, https://api.scryfall.com/cards/named?fuzzy={{ c.name|urlencode }}&format=image&version=large 672w"
                      sizes="(max-width: 1200px) 160px, 240px" />
                 <div class="count-badge">{{ cnt }}x</div>

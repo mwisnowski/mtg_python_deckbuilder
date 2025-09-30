@@ -18,11 +18,25 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 - Included the tiny `csv_files/testdata` fixture set so CI fast determinism tests have consistent sample data.
 
 ### Changed
+- Owned Cards library tiles now use larger thumbnails and wider columns, and virtualization only activates when more than 800 cards are present to keep scrolling smooth.
 - Theme catalog schema now accepts optional `id` values on entries so refreshed catalogs validate cleanly.
 - CI installs `httpx` with the rest of the web stack and runs pytest via `python -m pytest` so FastAPI tests resolve the local `code` package correctly.
 - Relaxed fast-path catalog validation to allow empty synergy lists while still warning on missing or malformed data types.
+- Deck summary list view now includes inline flip controls for double-faced cards, keeping text mode feature parity with thumbnail mode.
+- Hover panel theme chips now highlight only the themes that triggered a card’s inclusion while the full theme list displays as a muted footer without legacy bracket formatting.
+- Finished deck summaries now surface overlap chips using sanitized saved metadata with a themed fallback so exported decks match the live builder UI, and hover overlap pills adopt larger, higher-contrast styling on desktop and mobile.
+- Builder card tiles now reserve the card art tap/click for previewing; locking is handled exclusively by the dedicated 🔒 button so mobile users can open the hover panel without accidentally changing locks.
+- Builder hover tags now surface normalized theme labels (e.g., “Card Advantage”) and suppress internal `creature_add • tag:` prefixes so build-stage pills match the final deck experience.
+- Builder Step 5 commander preview now reuses the in-app hover panel (removing the external Scryfall link) and the hover reasons list auto-expands without an embedded scrollbar for easier reading on desktop and mobile.
+- Finished deck commander preview now mirrors builder hover behavior with deck-selected overlap chips, the full commander theme list, and suppresses the external Scryfall link so tapping the thumbnail consistently opens the in-app panel across desktop and mobile.
 
 ### Fixed
+- Hover card role badge is hidden when no role metadata is available, eliminating the empty pill shown in owned library popovers.
+- Random Mode fallback warning no longer displays when all theme inputs are blank.
+- Reinstated flip controls for double-faced cards in the hover preview and ensured the overlay button stays in sync with card faces.
+- Hover card panel adapts for tap-to-open mobile use with centered positioning, readable scaling, and an explicit close control.
+- Mobile hover layout now stacks theme chips beneath the artwork for better readability and cleans up theme formatting.
+- Duplicate overlap highlighting on desktop hover has been removed; theme pills now render once without stray bullets even when multiple overlaps are present.
 - Headless runner no longer loops on the power bracket prompt when owned card files exist; scripted responses now auto-select defaults with optional `HEADLESS_USE_OWNED_ONLY` / `HEADLESS_OWNED_SELECTION` overrides for automation flows.
 - Regenerated `logs/perf/theme_preview_warm_baseline.json` to repair preview performance CI regressions caused by a malformed baseline file and verified the regression gate passes with the refreshed data.
 

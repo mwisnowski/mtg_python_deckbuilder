@@ -2,12 +2,80 @@
 {% block banner_subtitle %}Build a Deck{% endblock %}
 {% block content %}
 <h2>Build a Deck</h2>
-<div style="margin:.25rem 0 1rem 0;">
+<div style="margin:.25rem 0 1rem 0; display:flex; align-items:center; gap:.75rem; flex-wrap:wrap;">
   <button type="button" class="btn" hx-get="/build/new" hx-target="body" hx-swap="beforeend">Build a New Deck…</button>
-  <span class="muted" style="margin-left:.5rem;">Quick-start wizard (name, commander, themes, ideals)</span>
+  <span class="muted" style="margin-left:.25rem;">Quick-start wizard (name, commander, themes, ideals)</span>
+  {% if return_url %}
+    <a href="{{ return_url }}" class="btn" style="margin-left:auto;">← Back to Commanders</a>
+  {% endif %}
   </div>
 <div id="wizard">
   <!-- Wizard content will load here after the modal submit starts the build. -->
   <noscript><p>Enable JavaScript to build a deck.</p></noscript>
 </div>
+{% if commander %}
+<span id="builder-init" data-commander="{{ commander|e }}" hidden></span>
+<script>
+  (function(){
+    var opened = false;
+    function openWizard(){
+      if(opened) return; opened = true;
+      try{
+        var btn = document.querySelector('button.btn[hx-get="/build/new"]');
+        if(btn){ btn.click(); }
+      }catch(_){ }
+    }
+    // Pre-fill and auto-inspect when the modal content is injected
+    function onModalLoaded(e){
+      try{
+        var target = (e && e.detail && e.detail.target) ? e.detail.target : null; if(!target) return;
+        if(!(target.tagName && target.tagName.toLowerCase() === 'body')) return;
+        var init = document.getElementById('builder-init');
+        var preset = init && init.dataset ? (init.dataset.commander || '') : '';
+        if(!preset) return;
+        var input = document.querySelector('input[name="commander"]');
+        if(input){
+          if(!input.value){ input.value = preset; }
+          try { input.dispatchEvent(new Event('input', {bubbles:true})); } catch(_){ }
+          try { input.focus(); } catch(_){ }
+        }
+        // If htmx is available, auto-load the inspect view for an exact preset name.
+        try {
+          if (window.htmx && preset && typeof window.htmx.ajax === 'function'){
+            window.htmx.ajax('GET', '/build/new/inspect?name=' + encodeURIComponent(preset), { target: '#newdeck-tags-slot', swap: 'innerHTML' });
+            // Also try to load multi-copy suggestions based on current radio defaults
+            setTimeout(function(){
+              try{
+                var mode = document.querySelector('input[name="tag_mode"]') || document.getElementById('modal_tag_mode');
+                var primary = document.getElementById('modal_primary_tag');
+                var secondary = document.getElementById('modal_secondary_tag');
+                var tertiary = document.getElementById('modal_tertiary_tag');
+                var params = new URLSearchParams();
+                params.set('commander', preset);
+                if (primary && primary.value) params.set('primary_tag', primary.value);
+                if (secondary && secondary.value) params.set('secondary_tag', secondary.value);
+                if (tertiary && tertiary.value) params.set('tertiary_tag', tertiary.value);
+                if (mode && mode.value) params.set('tag_mode', mode.value);
+                window.htmx.ajax('GET', '/build/new/multicopy?' + params.toString(), { target: '#newdeck-multicopy-slot', swap: 'innerHTML' });
+              }catch(_){ }
+            }, 250);
+          }
+        } catch(_){ }
+      }catch(_){ }
+    }
+    document.addEventListener('htmx:afterSwap', onModalLoaded);
+    // Open after DOM is ready; try a few hooks to ensure htmx is initialized
+    if (document.readyState === 'complete' || document.readyState === 'interactive') {
+      setTimeout(openWizard, 0);
+    } else {
+      document.addEventListener('DOMContentLoaded', function(){ setTimeout(openWizard, 0); });
+    }
+    if (window.htmx && typeof window.htmx.onLoad === 'function'){
+      window.htmx.onLoad(function(){ setTimeout(openWizard, 0); });
+    }
+    // Last resort: delayed attempt in case previous hooks raced htmx init
+    setTimeout(openWizard, 200);
+  })();
+</script>
+{% endif %}
 {% endblock %}

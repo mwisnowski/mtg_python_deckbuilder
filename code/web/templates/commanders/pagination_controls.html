@@ -1,0 +1,37 @@
+<nav class="commander-pagination" role="navigation" aria-label="Commander pagination" {% if pagination_position == 'bottom' %}data-bottom-controls="1"{% endif %}>
+  <div class="pagination-group">
+    <a
+      class="btn ghost commander-page-btn {% if not has_prev %}disabled{% endif %}"
+      {% if has_prev %}
+        href="{{ prev_url }}"
+        hx-get="{{ prev_url }}"
+        hx-target="#commander-results"
+        hx-push-url="true"
+        data-scroll-top-on-swap="1"
+      {% else %}
+        aria-disabled="true"
+        tabindex="-1"
+      {% endif %}
+    >
+      &larr; Previous
+    </a>
+    <span class="commander-pagination-status" aria-live="polite">
+      Page {{ page }} of {{ page_count }}
+    </span>
+    <a
+      class="btn ghost commander-page-btn {% if not has_next %}disabled{% endif %}"
+      {% if has_next %}
+        href="{{ next_url }}"
+        hx-get="{{ next_url }}"
+        hx-target="#commander-results"
+        hx-push-url="true"
+        data-scroll-top-on-swap="1"
+      {% else %}
+        aria-disabled="true"
+        tabindex="-1"
+      {% endif %}
+    >
+      Next &rarr;
+    </a>
+  </div>
+</nav>

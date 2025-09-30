@@ -1,0 +1,38 @@
+<div class="commander-results-inner" data-current-page="{{ page }}">
+  {% if error %}
+    <div class="commander-error" role="alert">{{ error }}</div>
+  {% else %}
+    <div class="commander-summary muted">
+      {% if total_count %}
+        {% if commanders %}
+          Showing {{ page_start }}&nbsp;&ndash;&nbsp;{{ page_end }} of {{ result_total }} commander{% if result_total != 1 %}s{% endif %}{% if is_filtered %} (filtered){% endif %}.
+        {% else %}
+          No commanders matched your filters.
+        {% endif %}
+      {% else %}
+        No commander data available.
+      {% endif %}
+    </div>
+    {% if commanders %}
+  {% set pagination_position = 'top' %}
+  {% include "commanders/pagination_controls.html" %}
+      <div class="commander-list" role="list">
+        {% for entry in commanders %}
+          {% include "commanders/row_wireframe.html" %}
+        {% endfor %}
+      </div>
+      {% if page_count > 1 %}
+        {% set pagination_position = 'bottom' %}
+        {% include "commanders/pagination_controls.html" %}
+      {% endif %}
+    {% else %}
+      <p class="muted commander-empty" role="status">
+        {% if total_count %}
+          No commanders matched your filters.
+        {% else %}
+          Commander catalog is empty.
+        {% endif %}
+      </p>
+    {% endif %}
+  {% endif %}
+</div>

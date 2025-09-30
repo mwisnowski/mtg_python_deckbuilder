@@ -1,9 +1,24 @@
 # MTG Python Deckbuilder ${VERSION}
 
 ## Summary
-- Theme catalog pagination buttons now re-run HTMX processing after fragment fetches so “Next” works reliably in the picker and simple catalog views.
-- Docker entrypoint seeds default theme catalog configuration files into volume-backed deployments, keeping Docker Hub images ready out of the box.
+- Introduced the Commander Browser with HTMX-powered pagination, theme surfacing, and direct Create Deck integration.
+- Shared color-identity macro and accessible theme chips power the new commander rows.
+- Manual QA walkthrough (desktop + mobile) recorded on 2025‑09‑30 with edge-case checks.
+- Home dashboard aligns its quick actions with feature flags, exposing Commanders, Diagnostics, Random, Logs, and Setup where enabled.
+
+## Added
+- Commander browser skeleton page at `/commanders` with catalog-backed rows and accessible theme chips.
+- Documented QA checklist and results for the commander browser launch in `docs/qa/commander_browser_walkthrough.md`.
+- Shared color-identity macro for reusable mana dots across commander rows and other templates.
+- Home dashboard Commander/Diagnostics shortcuts gated by feature flags so all primary destinations have quick actions.
+- Manual QA pass entered into project docs (2025-09-30) outlining desktop, mobile, and edge-case validations.
+
+## Changed
+- Commander list paginates in 20-item pages, with navigation controls mirrored above and below the results and automatic scroll-to-top.
+- Commander hover preview shows card-only panel in browser context and removes the “+ more” overflow badge from theme chips.
+- Content Security Policy upgrade directive ensures HTMX pagination requests remain HTTPS-safe behind proxies.
+- Commander thumbnails adopt a fixed-width 160px frame (responsive on small screens) for consistent layout.
+- Mobile commander rows now feature larger thumbnails and a centered preview modal with expanded card art for improved readability.
 
 ## Fixed
-- Theme catalog Next pagination button now reprocesses HTMX fragments after manual fetches, restoring navigation controls in theme picker and simple catalog modes.
-- Docker entrypoint seeds default `config/themes` YAML files (synergy pairs, clusters, whitelist, etc.) into mounted volumes so Docker Hub deployments have the expected baseline data.
+- Documented friendly handling for missing `commander_cards.csv` data during manual QA drills to prevent white-screen failures.

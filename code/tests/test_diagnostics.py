@@ -8,6 +8,18 @@ fastapi = pytest.importorskip("fastapi")  # skip tests if FastAPI isn't installe
 
 
 def load_app_with_env(**env: str) -> types.ModuleType:
+    for key in (
+        "SHOW_LOGS",
+        "SHOW_DIAGNOSTICS",
+        "SHOW_SETUP",
+        "SHOW_COMMANDERS",
+        "ENABLE_THEMES",
+        "ENABLE_PWA",
+        "ENABLE_PRESETS",
+        "APP_VERSION",
+        "THEME",
+    ):
+        os.environ.pop(key, None)
     for k, v in env.items():
         os.environ[k] = v
     import code.web.app as app_module  # type: ignore
@@ -67,6 +79,7 @@ def test_status_sys_summary_and_flags():
         SHOW_LOGS="1",
         SHOW_DIAGNOSTICS="1",
         SHOW_SETUP="1",
+        SHOW_COMMANDERS="1",
         ENABLE_THEMES="1",
         ENABLE_PWA="1",
         ENABLE_PRESETS="1",
@@ -84,8 +97,27 @@ def test_status_sys_summary_and_flags():
     assert flags.get("SHOW_LOGS") is True
     assert flags.get("SHOW_DIAGNOSTICS") is True
     assert flags.get("SHOW_SETUP") is True
+    assert flags.get("SHOW_COMMANDERS") is True
     # Theme-related flags
     assert flags.get("ENABLE_THEMES") is True
     assert flags.get("ENABLE_PWA") is True
     assert flags.get("ENABLE_PRESETS") is True
     assert flags.get("DEFAULT_THEME") == "dark"
+
+
+def test_commanders_nav_hidden_when_flag_disabled():
+    app_module = load_app_with_env(SHOW_COMMANDERS="0")
+    client = TestClient(app_module.app)
+    r = client.get("/")
+    assert r.status_code == 200
+    body = r.text
+    assert '<a href="/commanders"' not in body
+
+
+def test_commanders_nav_visible_by_default():
+    app_module = load_app_with_env()
+    client = TestClient(app_module.app)
+    r = client.get("/")
+    assert r.status_code == 200
+    body = r.text
+    assert '<a href="/commanders"' in body

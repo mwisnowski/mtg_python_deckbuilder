@@ -3,6 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests" />
     <title>MTG Deckbuilder</title>
     <script src="https://unpkg.com/htmx.org@1.9.12" onerror="var s=document.createElement('script');s.src='/static/vendor/htmx-1.9.12.min.js';document.head.appendChild(s);"></script>
     <script>
@@ -81,6 +82,7 @@
           <a href="/configs">Build from JSON</a>
           {% if show_setup %}<a href="/setup">Setup/Tag</a>{% endif %}
           <a href="/owned">Owned Library</a>
+          {% if show_commanders %}<a href="/commanders">Commanders</a>{% endif %}
           <a href="/decks">Finished Decks</a>
           <a href="/themes/">Themes</a>
           {% if random_ui %}<a href="/random">Random</a>{% endif %}
@@ -172,6 +174,10 @@
   #hover-card-panel .hcp-body { display:grid; grid-template-columns: 320px 1fr; gap:18px; align-items:start; }
   #hover-card-panel .hcp-img-wrap { grid-column:1 / 2; }
   #hover-card-panel.compact-img .hcp-body { grid-template-columns: 120px 1fr; }
+  #hover-card-panel.hcp-simple { width:auto !important; max-width:min(360px, 90vw) !important; padding:12px !important; height:auto !important; max-height:none !important; overflow:hidden !important; }
+  #hover-card-panel.hcp-simple .hcp-body { display:flex; flex-direction:column; gap:12px; align-items:center; }
+  #hover-card-panel.hcp-simple .hcp-right { display:none !important; }
+  #hover-card-panel.hcp-simple .hcp-img { max-width:100%; }
   /* Tag list as multi-column list instead of pill chips for readability */
   #hover-card-panel .hcp-taglist { columns:2; column-gap:18px; font-size:13px; line-height:1.3; margin:6px 0 6px; padding:0; list-style:none; max-height:180px; overflow:auto; }
   #hover-card-panel .hcp-taglist li { break-inside:avoid; padding:2px 0 2px 0; position:relative; }
@@ -195,9 +201,9 @@
   .list-row .dfc-toggle .icon { font-size:12px; }
   .list-row .dfc-toggle[data-face='back'] { background:rgba(76,29,149,.3); }
   .list-row .dfc-toggle[data-face='front'] { background:rgba(56,189,248,.2); }
-  #hover-card-panel.mobile { left:50% !important; top:auto !important; bottom:max(16px, 5vh); transform:translateX(-50%); width:min(92vw, 420px) !important; max-height:80vh; overflow-y:auto; padding:16px 18px; pointer-events:auto !important; }
-  #hover-card-panel.mobile .hcp-body { display:flex; flex-direction:column; gap:18px; }
-  #hover-card-panel.mobile .hcp-img { max-width:100%; margin:0 auto; }
+  #hover-card-panel.mobile { left:50% !important; top:50% !important; bottom:auto !important; transform:translate(-50%, -50%); width:min(94vw, 460px) !important; max-height:88vh; overflow-y:auto; padding:20px 22px; pointer-events:auto !important; }
+  #hover-card-panel.mobile .hcp-body { display:flex; flex-direction:column; gap:20px; }
+  #hover-card-panel.mobile .hcp-img { width:100%; max-width:min(90vw, 420px) !important; margin:0 auto; }
   #hover-card-panel.mobile .hcp-right { width:100%; display:flex; flex-direction:column; gap:10px; align-items:flex-start; }
   #hover-card-panel.mobile .hcp-header { flex-wrap:wrap; gap:8px; align-items:flex-start; }
   #hover-card-panel.mobile .hcp-role { font-size:12px; letter-spacing:.55px; }
@@ -923,12 +929,14 @@
         var panel = ensurePanel();
         if(!panel || panel.__hoverInit) return;
         panel.__hoverInit = true;
-  var imgEl = panel.querySelector('.hcp-img');
-        var nameEl = panel.querySelector('.hcp-name');
-        var rarityEl = panel.querySelector('.hcp-rarity');
-        var metaEl = panel.querySelector('.hcp-meta');
-        var reasonsList = panel.querySelector('.hcp-reasons');
-        var tagsEl = panel.querySelector('.hcp-tags');
+    var imgEl = panel.querySelector('.hcp-img');
+    var nameEl = panel.querySelector('.hcp-name');
+    var rarityEl = panel.querySelector('.hcp-rarity');
+    var metaEl = panel.querySelector('.hcp-meta');
+    var reasonsList = panel.querySelector('.hcp-reasons');
+    var tagsEl = panel.querySelector('.hcp-tags');
+  var bodyEl = panel.querySelector('.hcp-body');
+  var rightCol = panel.querySelector('.hcp-right');
         var coarseQuery = window.matchMedia('(pointer: coarse)');
         function isMobileMode(){ return (coarseQuery && coarseQuery.matches) || window.innerWidth <= 768; }
         function refreshPosition(){ if(panel.style.display==='block'){ move(window.__lastPointerEvent); } }
@@ -946,12 +954,11 @@
         function positionPanel(evt){
           if(isMobileMode()){
             panel.classList.add('mobile');
-            var bottomOffset = Math.max(16, Math.round(window.innerHeight * 0.05));
-            panel.style.bottom = bottomOffset + 'px';
+            panel.style.bottom = 'auto';
             panel.style.left = '50%';
-            panel.style.top = 'auto';
+            panel.style.top = '50%';
             panel.style.right = 'auto';
-            panel.style.transform = 'translateX(-50%)';
+            panel.style.transform = 'translate(-50%, -50%)';
             panel.style.pointerEvents = 'auto';
           } else {
             panel.classList.remove('mobile');
@@ -990,6 +997,11 @@
           if(!card) return;
           // Prefer attributes on container, fallback to child (image) if missing
           function attr(name){ return card.getAttribute(name) || (card.querySelector('[data-'+name.slice(5)+']') && card.querySelector('[data-'+name.slice(5)+']').getAttribute(name)) || ''; }
+          var simpleSource = null;
+          if(card.closest){
+            simpleSource = card.closest('[data-hover-simple]');
+          }
+          var forceSimple = (card.hasAttribute && card.hasAttribute('data-hover-simple')) || !!simpleSource;
           var nm = attr('data-card-name') || attr('data-original-name') || 'Card';
           var rarity = (attr('data-rarity')||'').trim();
           var mana = (attr('data-mana')||'').trim();
@@ -1110,6 +1122,26 @@
           }
           panel.classList.toggle('is-payoff', role === 'payoff');
           panel.classList.toggle('is-commander', isCommanderRole);
+          var hasDetails = !forceSimple && (
+            !!roleLabel || !!mana || !!rarity || (reasonsRaw && reasonsRaw.trim()) || (overlapArr && overlapArr.length) || (allTags && allTags.length)
+          );
+          panel.classList.toggle('hcp-simple', !hasDetails);
+          if(rightCol){
+            rightCol.style.display = hasDetails ? 'flex' : 'none';
+          }
+          if(bodyEl){
+            if(!hasDetails){
+              bodyEl.style.display = 'flex';
+              bodyEl.style.flexDirection = 'column';
+              bodyEl.style.alignItems = 'center';
+              bodyEl.style.gap = '12px';
+            } else {
+              bodyEl.style.display = '';
+              bodyEl.style.flexDirection = '';
+              bodyEl.style.alignItems = '';
+              bodyEl.style.gap = '';
+            }
+          }
           var fuzzy = encodeURIComponent(nm);
           var rawName = nm || '';
           var hasBack = rawName.indexOf('//')>-1 || (attr('data-original-name')||'').indexOf('//')>-1;

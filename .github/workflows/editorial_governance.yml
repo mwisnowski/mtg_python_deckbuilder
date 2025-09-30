@@ -22,7 +22,9 @@ jobs:
             python-version: '3.11'
       - name: Install deps
         run: |
+          python -m pip install --upgrade pip
           pip install -r requirements.txt
+          if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
       - name: Build catalog (alt output, seed)
         run: |
           python code/scripts/build_theme_catalog.py --output config/themes/theme_list_ci.json --limit 0

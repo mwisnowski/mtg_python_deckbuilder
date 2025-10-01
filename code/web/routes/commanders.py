@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from difflib import SequenceMatcher
 from math import ceil
 from typing import Iterable, Mapping, Sequence
 from urllib.parse import urlencode
+import re
 
 from fastapi import APIRouter, Query, Request
 from fastapi.responses import HTMLResponse
@@ -16,6 +18,11 @@ from ..services.telemetry import log_commander_page_view
 router = APIRouter(prefix="/commanders", tags=["commanders"])
 
 PAGE_SIZE = 20
+_THEME_MATCH_THRESHOLD = 0.52
+_THEME_RECOMMENDATION_FLOOR = 0.35
+_THEME_RECOMMENDATION_LIMIT = 6
+_MIN_NAME_MATCH_SCORE = 0.8
+_WORD_PATTERN = re.compile(r"[a-z0-9]+")
 
 _WUBRG_ORDER: tuple[str, ...] = ("W", "U", "B", "R", "G")
 _COLOR_NAMES: dict[str, str] = {
@@ -74,6 +81,12 @@ class CommanderView:
     color_aria_label: str
     themes: tuple[CommanderTheme, ...]
     partner_summary: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class ThemeRecommendation:
+    name: str
+    score: float
 
 
 def _is_htmx(request: Request) -> bool:
@@ -169,22 +182,203 @@ def _record_to_view(record: CommanderRecord, theme_info: Mapping[str, CommanderT
     )
 
 
-def _filter_commanders(records: Iterable[CommanderRecord], q: str | None, color: str | None) -> list[CommanderRecord]:
+def _normalize_search_text(value: str | None) -> str:
+    if not value:
+        return ""
+    tokens = _WORD_PATTERN.findall(value.lower())
+    if not tokens:
+        return ""
+    return " ".join(tokens)
+
+
+def _commander_name_candidates(record: CommanderRecord) -> tuple[str, ...]:
+    seen: set[str] = set()
+    candidates: list[str] = []
+    for raw in (record.display_name, record.face_name, record.name):
+        normalized = _normalize_search_text(raw)
+        if not normalized:
+            continue
+        if normalized not in seen:
+            seen.add(normalized)
+            candidates.append(normalized)
+    return tuple(candidates)
+
+
+def _partial_ratio(a: str, b: str) -> float:
+    if not a or not b:
+        return 0.0
+    shorter, longer = (a, b) if len(a) <= len(b) else (b, a)
+    length = len(shorter)
+    if length == 0:
+        return 0.0
+    best = 0.0
+    window_count = len(longer) - length + 1
+    for start in range(max(1, window_count)):
+        end = start + length
+        if end > len(longer):
+            segment = longer[-length:]
+        else:
+            segment = longer[start:end]
+        score = SequenceMatcher(None, shorter, segment).ratio()
+        if score > best:
+            best = score
+            if best >= 0.99:
+                break
+    return best
+
+
+def _token_scores(query_tokens: tuple[str, ...], candidate_tokens: tuple[str, ...]) -> tuple[float, float]:
+    if not query_tokens or not candidate_tokens:
+        return 0.0, 0.0
+    totals: list[float] = []
+    for token in query_tokens:
+        best = 0.0
+        for candidate in candidate_tokens:
+            score = SequenceMatcher(None, token, candidate).ratio()
+            if score > best:
+                best = score
+                if best >= 0.99:
+                    break
+        totals.append(best)
+    average = sum(totals) / len(totals) if totals else 0.0
+    minimum = min(totals) if totals else 0.0
+    return average, minimum
+
+
+def _commander_name_match_score(query: str, record: CommanderRecord) -> float:
+    normalized_query = _normalize_search_text(query)
+    if not normalized_query:
+        return 0.0
+    query_tokens = tuple(normalized_query.split())
+    best_score = 0.0
+    for candidate in _commander_name_candidates(record):
+        candidate_tokens = tuple(candidate.split())
+        base_score = SequenceMatcher(None, normalized_query, candidate).ratio()
+        partial = _partial_ratio(normalized_query, candidate)
+        token_average, token_minimum = _token_scores(query_tokens, candidate_tokens)
+
+        substring_bonus = 0.0
+        if candidate.startswith(normalized_query):
+            substring_bonus = 1.0
+        elif query_tokens and all(token in candidate_tokens for token in query_tokens):
+            substring_bonus = 0.92
+        elif normalized_query in candidate:
+            substring_bonus = 0.88
+        elif query_tokens and all(token in candidate for token in query_tokens):
+            substring_bonus = 0.8
+        elif query_tokens and any(token in candidate for token in query_tokens):
+            substring_bonus = 0.65
+
+        score = max(base_score, partial, token_average, substring_bonus)
+        if query_tokens and token_minimum < 0.45 and not candidate.startswith(normalized_query) and normalized_query not in candidate:
+            score = min(score, token_minimum)
+        if score > best_score:
+            best_score = score
+            if best_score >= 0.999:
+                break
+    return best_score
+
+
+def _collect_theme_names(records: Sequence[CommanderRecord]) -> tuple[str, ...]:
+    seen: set[str] = set()
+    ordered: list[str] = []
+    for rec in records:
+        for theme_name in rec.themes:
+            if not theme_name:
+                continue
+            if theme_name not in seen:
+                seen.add(theme_name)
+                ordered.append(theme_name)
+    ordered.sort(key=lambda name: name.lower())
+    return tuple(ordered)
+
+
+def _theme_match_score(normalized_query: str, query_tokens: tuple[str, ...], candidate: str) -> float:
+    normalized_candidate = _normalize_search_text(candidate)
+    if not normalized_candidate:
+        return 0.0
+    candidate_tokens = tuple(normalized_candidate.split())
+    base_score = SequenceMatcher(None, normalized_query, normalized_candidate).ratio()
+    partial = _partial_ratio(normalized_query, normalized_candidate)
+    token_average, token_minimum = _token_scores(query_tokens, candidate_tokens)
+
+    substring_bonus = 0.0
+    if normalized_candidate.startswith(normalized_query):
+        substring_bonus = 1.0
+    elif normalized_query in normalized_candidate:
+        substring_bonus = 0.9
+    elif query_tokens and all(token in candidate_tokens for token in query_tokens):
+        substring_bonus = 0.85
+    elif query_tokens and any(token in candidate_tokens for token in query_tokens):
+        substring_bonus = 0.7
+
+    score = max(base_score, partial, token_average, substring_bonus)
+    if query_tokens and token_minimum < 0.4 and not normalized_candidate.startswith(normalized_query) and normalized_query not in normalized_candidate:
+        score = min(score, max(token_minimum, 0.0))
+    return score
+
+
+def _best_theme_match_score(normalized_query: str, query_tokens: tuple[str, ...], record: CommanderRecord) -> float:
+    best = 0.0
+    for theme_name in record.themes:
+        score = _theme_match_score(normalized_query, query_tokens, theme_name)
+        if score > best:
+            best = score
+            if best >= 0.999:
+                break
+    return best
+
+
+def _build_theme_recommendations(theme_query: str | None, theme_names: Sequence[str]) -> tuple[ThemeRecommendation, ...]:
+    normalized_query = _normalize_search_text(theme_query)
+    if not normalized_query:
+        return tuple()
+    query_tokens = tuple(normalized_query.split())
+    scored: list[ThemeRecommendation] = []
+    for name in theme_names:
+        score = _theme_match_score(normalized_query, query_tokens, name)
+        if score <= 0.0:
+            continue
+        scored.append(ThemeRecommendation(name=name, score=score))
+    if not scored:
+        return tuple()
+    scored.sort(key=lambda item: (-item.score, item.name.lower()))
+    filtered = [item for item in scored if item.score >= _THEME_RECOMMENDATION_FLOOR]
+    if not filtered:
+        filtered = scored
+    return tuple(filtered[:_THEME_RECOMMENDATION_LIMIT])
+
+
+def _filter_commanders(records: Iterable[CommanderRecord], q: str | None, color: str | None, theme: str | None) -> list[CommanderRecord]:
     items = list(records)
     color_code = _canon_color_code(color)
     if color_code:
         items = [rec for rec in items if _record_color_code(rec) == color_code]
-    if q:
-        lowered = q.lower().strip()
-        if lowered:
-            tokens = [tok for tok in lowered.split() if tok]
-            if tokens:
-                filtered: list[CommanderRecord] = []
-                for rec in items:
-                    haystack = rec.search_haystack or ""
-                    if all(tok in haystack for tok in tokens):
-                        filtered.append(rec)
-                items = filtered
+    normalized_query = _normalize_search_text(q)
+    if normalized_query:
+        filtered: list[tuple[float, CommanderRecord]] = []
+        for rec in items:
+            score = _commander_name_match_score(normalized_query, rec)
+            if score >= _MIN_NAME_MATCH_SCORE:
+                filtered.append((score, rec))
+        if filtered:
+            filtered.sort(key=lambda pair: (-pair[0], pair[1].display_name.lower()))
+            items = [rec for _, rec in filtered]
+        else:
+            items = []
+    normalized_theme_query = _normalize_search_text(theme)
+    if normalized_theme_query and items:
+        theme_tokens = tuple(normalized_theme_query.split())
+        filtered_by_theme: list[tuple[float, CommanderRecord]] = []
+        for rec in items:
+            score = _best_theme_match_score(normalized_theme_query, theme_tokens, rec)
+            if score >= _THEME_MATCH_THRESHOLD:
+                filtered_by_theme.append((score, rec))
+        if filtered_by_theme:
+            filtered_by_theme.sort(key=lambda pair: (-pair[0], pair[1].display_name.lower()))
+            items = [rec for _, rec in filtered_by_theme]
+        else:
+            items = []
     return items
 
 
@@ -226,7 +420,11 @@ def _build_theme_info(records: Sequence[CommanderRecord]) -> dict[str, Commander
         try:
             data = idx.summary_by_slug.get(slug)
             if data:
-                summary = data.get("short_description") or data.get("description")
+                description = data.get("description") if isinstance(data, dict) else None
+                short_description = data.get("short_description") if isinstance(data, dict) else None
+                summary = description or short_description
+                if (summary is None or not summary.strip()) and short_description:
+                    summary = short_description
         except Exception:
             summary = None
         info[name] = CommanderTheme(name=name, slug=slug, summary=summary)
@@ -237,6 +435,7 @@ def _build_theme_info(records: Sequence[CommanderRecord]) -> dict[str, Commander
 async def commanders_index(
     request: Request,
     q: str | None = Query(default=None, alias="q"),
+    theme: str | None = Query(default=None, alias="theme"),
     color: str | None = Query(default=None, alias="color"),
     page: int = Query(default=1, ge=1),
 ) -> HTMLResponse:
@@ -247,7 +446,10 @@ async def commanders_index(
         entries = catalog.entries
     except FileNotFoundError:
         error = "Commander catalog is unavailable. Ensure csv_files/commander_cards.csv exists."
-    filtered = _filter_commanders(entries, q, color)
+    theme_names = _collect_theme_names(entries)
+    theme_query = (theme or "").strip()
+    filtered = _filter_commanders(entries, q, color, theme_query)
+    theme_recommendations = _build_theme_recommendations(theme_query, theme_names)
     total_filtered = len(filtered)
     page_count = max(1, ceil(total_filtered / PAGE_SIZE)) if total_filtered else 1
     if page > page_count:
@@ -268,6 +470,8 @@ async def commanders_index(
         params: dict[str, str] = {}
         if q:
             params["q"] = q
+        if theme_query:
+            params["theme"] = theme_query
         if canon_color:
             params["color"] = canon_color
         params["page"] = str(page_value)
@@ -289,8 +493,11 @@ async def commanders_index(
         "request": request,
         "commanders": views,
         "query": q or "",
+    "theme_query": theme_query,
         "color": canon_color,
         "color_options": color_options,
+    "theme_options": theme_names,
+    "theme_recommendations": theme_recommendations,
         "total_count": len(entries),
         "result_count": len(views),
         "result_total": total_filtered,
@@ -305,7 +512,7 @@ async def commanders_index(
         "next_page": next_page,
         "prev_url": prev_url,
         "next_url": next_url,
-        "is_filtered": bool((q or "").strip() or (color or "").strip()),
+        "is_filtered": bool((q or "").strip() or (color or "").strip() or theme_query),
         "error": error,
         "return_url": return_url,
     }

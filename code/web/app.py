@@ -108,9 +108,9 @@ SHOW_VIRTUALIZE = _as_bool(os.getenv("WEB_VIRTUALIZE"), False)
 ENABLE_THEMES = _as_bool(os.getenv("ENABLE_THEMES"), True)
 ENABLE_PWA = _as_bool(os.getenv("ENABLE_PWA"), False)
 ENABLE_PRESETS = _as_bool(os.getenv("ENABLE_PRESETS"), False)
-ALLOW_MUST_HAVES = _as_bool(os.getenv("ALLOW_MUST_HAVES"), False)
-RANDOM_MODES = _as_bool(os.getenv("RANDOM_MODES"), False)  # initial snapshot (legacy)
-RANDOM_UI = _as_bool(os.getenv("RANDOM_UI"), False)
+ALLOW_MUST_HAVES = _as_bool(os.getenv("ALLOW_MUST_HAVES"), True)
+RANDOM_MODES = _as_bool(os.getenv("RANDOM_MODES"), True)  # initial snapshot (legacy)
+RANDOM_UI = _as_bool(os.getenv("RANDOM_UI"), True)
 THEME_PICKER_DIAGNOSTICS = _as_bool(os.getenv("WEB_THEME_PICKER_DIAGNOSTICS"), False)
 def _as_int(val: str | None, default: int) -> int:
     try:

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import csv
+import json
 import time
 from pathlib import Path
 
@@ -69,3 +71,61 @@ def test_commander_catalog_cache_invalidation(tmp_path: Path, monkeypatch: pytes
     updated = loader.load_commander_catalog()
     assert updated is not first
     assert "zada-hedron-grinder" in updated.by_slug
+
+
+def test_commander_theme_labels_unescape(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    custom_dir = tmp_path / "csv_custom"
+    custom_dir.mkdir()
+    csv_path = custom_dir / "commander_cards.csv"
+    with csv_path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.writer(handle)
+        writer.writerow(
+            [
+                "name",
+                "faceName",
+                "edhrecRank",
+                "colorIdentity",
+                "colors",
+                "manaCost",
+                "manaValue",
+                "type",
+                "creatureTypes",
+                "text",
+                "power",
+                "toughness",
+                "keywords",
+                "themeTags",
+                "layout",
+                "side",
+            ]
+        )
+        theme_value = json.dumps([r"\+2/\+2 Counters", "+1/+1 Counters"])
+        writer.writerow(
+            [
+                "Escape Tester",
+                "Escape Tester",
+                "1234",
+                "R",
+                "R",
+                "{3}{R}",
+                "4",
+                "Legendary Creature — Archer",
+                "['Archer']",
+                "Test",
+                "2",
+                "2",
+                "",
+                theme_value,
+                "normal",
+                "",
+            ]
+        )
+
+    _set_csv_dir(monkeypatch, custom_dir)
+
+    catalog = loader.load_commander_catalog()
+    assert len(catalog.entries) == 1
+
+    record = catalog.entries[0]
+    assert record.themes == ("+2/+2 Counters", "+1/+1 Counters")
+    assert "+2/+2 counters" in record.theme_tokens

@@ -49,6 +49,7 @@ _COLOR_ALIAS = {
 }
 _WUBRG_ORDER: Tuple[str, ...] = ("W", "U", "B", "R", "G")
 _SCYRFALL_BASE = "https://api.scryfall.com/cards/named?format=image"
+_THEME_ESCAPE_PATTERN = re.compile(r"\\([+/\\-])")
 
 
 @dataclass(frozen=True, slots=True)
@@ -214,7 +215,8 @@ def _row_to_record(row: Mapping[str, object], used_slugs: Iterable[str]) -> Comm
     power = _clean_str(row.get("power")) or None
     toughness = _clean_str(row.get("toughness")) or None
     keywords = tuple(_split_to_list(row.get("keywords")))
-    themes = tuple(_parse_literal_list(row.get("themeTags")))
+    raw_themes = _parse_literal_list(row.get("themeTags"))
+    themes = tuple(filter(None, (_clean_theme_label(theme) for theme in raw_themes)))
     theme_tokens = tuple(dict.fromkeys(t.lower() for t in themes if t))
     edhrec_rank = _parse_int(row.get("edhrecRank"))
     layout = _clean_str(row.get("layout")) or "normal"
@@ -315,6 +317,14 @@ def _parse_literal_list(value: object) -> List[str]:
         pass
     parts = [part.strip() for part in text.replace(";", ",").split(",")]
     return [part for part in parts if part]
+
+
+def _clean_theme_label(value: str) -> str:
+    text = _clean_str(value)
+    if not text:
+        return ""
+    text = text.replace("\ufeff", "")
+    return _THEME_ESCAPE_PATTERN.sub(r"\1", text)
 
 
 def _split_to_list(value: object) -> List[str]:

@@ -13,16 +13,25 @@
     method="get"
     hx-get="/commanders"
     hx-target="#commander-results"
-    hx-trigger="submit, change from:#commander-color, keyup changed delay:300ms from:#commander-search"
+    hx-trigger="submit, change from:#commander-color, keyup changed delay:300ms from:#commander-search, keyup changed delay:300ms from:#commander-theme"
     hx-include="#commander-filter-form"
     hx-push-url="true"
     hx-indicator="#commander-loading"
     novalidate
   >
     <label>
-      <span class="filter-label">Search</span>
-      <input type="search" id="commander-search" name="q" value="{{ query }}" placeholder="Search commanders, themes, or text..." autocomplete="off" />
+      <span class="filter-label">Commander name</span>
+      <input type="search" id="commander-search" name="q" value="{{ query }}" placeholder="Search commander names..." autocomplete="off" />
     </label>
+    <label>
+      <span class="filter-label">Theme</span>
+      <input type="search" id="commander-theme" name="theme" value="{{ theme_query }}" placeholder="Search themes..." list="theme-suggestions" autocomplete="off" />
+    </label>
+    <datalist id="theme-suggestions">
+      {% for name in theme_options[:200] %}
+        <option value="{{ name }}"></option>
+      {% endfor %}
+    </datalist>
     <label>
       <span class="filter-label">Color identity</span>
       <select id="commander-color" name="color">
@@ -89,9 +98,9 @@
   .commander-name { margin:0; font-size:1.25rem; }
   .color-identity { display:flex; align-items:center; gap:.35rem; }
   .commander-context { margin:0; font-size:.95rem; }
-  .commander-themes { display:flex; flex-wrap:wrap; gap:.4rem; }
+  .commander-themes { display:flex; flex-wrap:wrap; gap:.45rem; width:100%; }
   .commander-themes-empty { font-size:.85rem; }
-  .commander-theme-chip { display:inline-flex; align-items:center; gap:.25rem; padding:4px 10px; border-radius:9999px; border:1px solid var(--border); background:rgba(148,163,184,.15); font-size:.75rem; letter-spacing:.03em; color:inherit; cursor:pointer; transition:background .15s ease, border-color .15s ease, transform .15s ease; appearance:none; font:inherit; }
+  .commander-theme-chip { display:inline-flex; align-items:center; justify-content:center; flex-wrap:wrap; gap:.2rem; padding:4px 12px; border-radius:9999px; border:1px solid var(--border); background:rgba(148,163,184,.15); font-size:.85rem; line-height:1.3; font-weight:600; letter-spacing:.03em; color:inherit; cursor:pointer; transition:background .18s ease, border-color .18s ease, transform .18s ease; appearance:none; font-family:inherit; white-space:normal; text-align:center; min-width:0; max-width:min(100%, 24ch); word-break:break-word; overflow-wrap: anywhere; }
   .commander-theme-chip:focus-visible { outline:2px solid var(--ring); outline-offset:2px; }
   .commander-theme-chip:hover { background:rgba(148,163,184,.25); border-color:rgba(148,163,184,.45); transform:translateY(-1px); }
   .commander-partners { display:flex; flex-wrap:wrap; gap:.4rem; font-size:.85rem; }
@@ -105,6 +114,12 @@
   .commander-pagination .commander-page-btn[disabled],
   .commander-pagination .commander-page-btn.disabled { opacity:.55; cursor:default; pointer-events:none; }
   .commander-pagination-status { font-size:.85rem; color:var(--muted); }
+  .theme-recommendations { display:flex; flex-wrap:wrap; align-items:center; gap:.6rem 1rem; margin-top:.75rem; }
+  .theme-recommendations-label { font-size:.8rem; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); }
+  .theme-recommendations-chips { display:flex; flex-wrap:wrap; gap:.4rem; }
+  .theme-suggestion-chip { display:inline-flex; align-items:center; gap:.25rem; padding:4px 10px; border-radius:9999px; border:1px solid var(--border); background:rgba(94,106,136,.18); font-size:.75rem; letter-spacing:.03em; color:inherit; cursor:pointer; transition:background .15s ease, border-color .15s ease, transform .15s ease; }
+  .theme-suggestion-chip:hover { background:rgba(94,106,136,.28); border-color:rgba(148,163,184,.45); transform:translateY(-1px); }
+  .theme-suggestion-chip:focus-visible { outline:2px solid var(--ring); outline-offset:2px; }
 
   .commander-loading { display:none; margin-top:1rem; }
   .commander-loading.htmx-request { display:block; }
@@ -123,6 +138,17 @@
   @keyframes commander-shimmer {
     0% { background-position:100% 0; }
     100% { background-position:-100% 0; }
+  }
+  .commander-theme-dialog { position:fixed; inset:0; display:none; align-items:center; justify-content:center; padding:1.5rem; background:rgba(15,23,42,.55); backdrop-filter:blur(6px); z-index:1300; }
+  .commander-theme-dialog[data-open="true"] { display:flex; }
+  .commander-theme-dialog__panel { background:var(--panel); color:var(--text); border-radius:16px; width:min(92vw, 420px); border:1px solid rgba(148,163,184,.35); box-shadow:0 24px 60px rgba(15,23,42,.42); padding:1.5rem; display:flex; flex-direction:column; gap:1rem; }
+  .commander-theme-dialog__title { margin:0; font-size:1.45rem; line-height:1.2; }
+  .commander-theme-dialog__body { margin:0; font-size:1.2rem; line-height:1.65; white-space:normal; word-break:break-word; }
+  .commander-theme-dialog__close { align-self:flex-end; min-width:0; }
+  @media (max-width: 640px) {
+    .commander-theme-dialog__panel { width:min(94vw, 360px); padding:1.25rem; }
+    .commander-theme-dialog__title { font-size:1.3rem; }
+  .commander-theme-dialog__body { font-size:1.1rem; }
   }
 
   @media (max-width: 900px) {
@@ -148,10 +174,106 @@
     if (!pageInput) return;
 
     const resetPage = () => { pageInput.value = '1'; };
+    const setLastTrigger = (value) => { form.dataset.lastTrigger = value; };
     const searchField = document.getElementById('commander-search');
     const colorField = document.getElementById('commander-color');
-    if (searchField) searchField.addEventListener('input', resetPage);
-    if (colorField) colorField.addEventListener('change', resetPage);
+    const themeField = document.getElementById('commander-theme');
+    if (searchField) {
+      searchField.addEventListener('input', () => {
+        resetPage();
+        setLastTrigger('search');
+      });
+    }
+    if (colorField) {
+      colorField.addEventListener('change', () => {
+        resetPage();
+        setLastTrigger('color');
+      });
+    }
+    if (themeField) {
+      themeField.addEventListener('input', () => {
+        resetPage();
+        setLastTrigger('theme');
+      });
+    }
+    form.addEventListener('submit', () => {
+      if (!form.dataset.lastTrigger) {
+        setLastTrigger('submit');
+      }
+    });
+
+    const coarseQuery = window.matchMedia('(pointer: coarse)');
+    const prefersThemeModal = () => (coarseQuery && coarseQuery.matches) || window.innerWidth <= 768;
+
+    let themeDialog;
+    let themeDialogTitle;
+    let themeDialogBody;
+    let themeDialogClose;
+
+    function closeThemeDialog() {
+      if (!themeDialog || themeDialog.dataset.open !== 'true') return;
+      themeDialog.dataset.open = 'false';
+      themeDialog.setAttribute('aria-hidden', 'true');
+      const invoker = themeDialog.__lastInvoker;
+      themeDialog.__lastInvoker = null;
+      if (invoker && typeof invoker.focus === 'function') {
+        try {
+          invoker.focus({ preventScroll: true });
+        } catch (_) {}
+      }
+    }
+
+    const ensureThemeDialog = () => {
+      if (themeDialog) return themeDialog;
+      themeDialog = document.getElementById('commander-theme-dialog');
+      if (!themeDialog) {
+        themeDialog = document.createElement('div');
+        themeDialog.id = 'commander-theme-dialog';
+        themeDialog.className = 'commander-theme-dialog';
+        themeDialog.setAttribute('aria-hidden', 'true');
+        themeDialog.innerHTML = `
+          <div class="commander-theme-dialog__panel" role="dialog" aria-modal="true" aria-labelledby="commander-theme-dialog-title">
+            <h3 class="commander-theme-dialog__title" id="commander-theme-dialog-title"></h3>
+            <p class="commander-theme-dialog__body"></p>
+            <button type="button" class="btn commander-theme-dialog__close">Close</button>
+          </div>
+        `;
+        document.body.appendChild(themeDialog);
+      }
+      themeDialogTitle = themeDialog.querySelector('.commander-theme-dialog__title');
+      themeDialogBody = themeDialog.querySelector('.commander-theme-dialog__body');
+      themeDialogClose = themeDialog.querySelector('.commander-theme-dialog__close');
+      if (themeDialogClose && !themeDialogClose.__bound) {
+        themeDialogClose.__bound = true;
+        themeDialogClose.addEventListener('click', () => closeThemeDialog());
+      }
+      if (!themeDialog.__backdropBound) {
+        themeDialog.__backdropBound = true;
+        themeDialog.addEventListener('click', (evt) => {
+          if (evt.target === themeDialog) {
+            closeThemeDialog();
+          }
+        });
+      }
+      return themeDialog;
+    };
+
+    const openThemeDialog = (name, summary, invoker) => {
+      ensureThemeDialog();
+      if (!themeDialog) return;
+      themeDialog.setAttribute('aria-hidden', 'false');
+      themeDialog.dataset.open = 'true';
+      themeDialog.__lastInvoker = invoker || null;
+      if (themeDialogTitle) themeDialogTitle.textContent = name || 'Theme';
+      if (themeDialogBody) themeDialogBody.textContent = summary && summary.trim() ? summary : 'Summary unavailable.';
+      requestAnimationFrame(() => {
+        if (themeDialogClose) {
+          try {
+            themeDialogClose.focus({ preventScroll: true });
+          } catch (_) {}
+        }
+      });
+    };
 
     const updatePageFromResults = (container) => {
       if (!container) return;
@@ -170,6 +292,11 @@
       const container = document.getElementById('commander-results');
       const searchEl = document.getElementById('commander-search');
       if (!container) return;
+      const lastTrigger = form.dataset.lastTrigger || '';
+      form.dataset.lastTrigger = '';
+      if (lastTrigger === 'search' || lastTrigger === 'theme') {
+        return;
+      }
       const invoker = event.detail && event.detail.elt ? event.detail.elt : null;
       const fromBottom = invoker && invoker.closest && invoker.closest('[data-bottom-controls]');
       // If not from bottom, check whether the top of the results is already within view; if so, skip scroll
@@ -196,6 +323,39 @@
     });
 
     updatePageFromResults(document.getElementById('commander-results'));
+
+    document.body.addEventListener('click', (event) => {
+      const suggestion = event.target && event.target.closest ? event.target.closest('[data-theme-suggestion]') : null;
+      if (suggestion) {
+        if (!themeField) return;
+        event.preventDefault();
+        const value = suggestion.getAttribute('data-theme-suggestion') || '';
+        themeField.value = value;
+        resetPage();
+        setLastTrigger('theme');
+        themeField.dispatchEvent(new Event('input', { bubbles: true }));
+        try {
+          form.requestSubmit();
+        } catch (_) {
+          form.submit();
+        }
+        return;
+      }
+      const chip = event.target && event.target.closest ? event.target.closest('.commander-theme-chip') : null;
+      if (chip) {
+        event.preventDefault();
+        const name = chip.getAttribute('data-theme-name') || chip.textContent.trim();
+        const summary = chip.getAttribute('data-theme-summary') || 'Summary unavailable.';
+        openThemeDialog(name, summary, chip);
+        return;
+      }
+    });
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') {
+        closeThemeDialog();
+      }
+    });
   })();
 </script>
 {% endblock %}

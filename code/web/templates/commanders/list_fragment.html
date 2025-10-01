@@ -13,6 +13,16 @@
         No commander data available.
       {% endif %}
     </div>
+    {% if theme_query and theme_recommendations %}
+      <div class="theme-recommendations" data-theme-recommendations>
+        <span class="theme-recommendations-label">Suggested themes:</span>
+        <div class="theme-recommendations-chips">
+          {% for suggestion in theme_recommendations %}
+            <button type="button" class="theme-suggestion-chip" data-theme-suggestion="{{ suggestion.name }}" data-theme-score="{{ '%.2f'|format(suggestion.score) }}">{{ suggestion.name }}</button>
+          {% endfor %}
+        </div>
+      </div>
+    {% endif %}
     {% if commanders %}
   {% set pagination_position = 'top' %}
   {% include "commanders/pagination_controls.html" %}

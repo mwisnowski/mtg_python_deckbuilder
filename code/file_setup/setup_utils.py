@@ -194,13 +194,36 @@ def filter_dataframe(df: pd.DataFrame, banned_cards: List[str]) -> pd.DataFrame:
         filtered_df = df.copy()
         filter_config: FilterConfig = FILTER_CONFIG  # Type hint for configuration
         for field, rules in filter_config.items():
+            if field not in filtered_df.columns:
+                logger.warning('Skipping filter for missing field %s', field)
+                continue
+
             for rule_type, values in rules.items():
+                if not values:
+                    continue
+
                 if rule_type == 'exclude':
                     for value in values:
-                        filtered_df = filtered_df[~filtered_df[field].str.contains(value, na=False)]
+                        mask = filtered_df[field].astype(str).str.contains(
+                            value,
+                            case=False,
+                            na=False,
+                            regex=False
+                        )
+                        filtered_df = filtered_df[~mask]
                 elif rule_type == 'require':
                     for value in values:
-                        filtered_df = filtered_df[filtered_df[field].str.contains(value, na=False)]
+                        mask = filtered_df[field].astype(str).str.contains(
+                            value,
+                            case=False,
+                            na=False,
+                            regex=False
+                        )
+                        filtered_df = filtered_df[mask]
+                else:
+                    logger.warning('Unknown filter rule type %s for field %s', rule_type, field)
+                    continue
+
                 logger.debug(f'Applied {rule_type} filter for {field}: {values}')
         
         # Remove illegal sets

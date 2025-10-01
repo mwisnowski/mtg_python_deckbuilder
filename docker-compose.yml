@@ -39,23 +39,19 @@ services:
       # RARITY_DIVERSITY_OVER_PENALTY: "-0.5"
 
       # ------------------------------------------------------------------
-      # Random Build (Alpha) Feature Flags
-      # RANDOM_MODES: backend enablement (seeded selection endpoints)
-      # RANDOM_UI: enable Surprise/Reroll controls in UI
-      # RANDOM_MAX_ATTEMPTS: safety cap on retries for constraints
-      # RANDOM_TIMEOUT_MS: per-attempt timeout (ms) before giving up
+      # Random Mode Feature Flags
       # ------------------------------------------------------------------
 
       # Random Modes (feature flags)
-      RANDOM_MODES: "1"             # 1=enable random build endpoints and backend features
-      RANDOM_UI: "1"               # 1=show Surprise/Theme/Reroll/Share controls in UI
+      # RANDOM_MODES: "1"             # 1=enable random build endpoints and backend features
+      # RANDOM_UI: "1"                # 1=show Surprise/Theme/Reroll/Share controls in UI
       RANDOM_MAX_ATTEMPTS: "5"      # cap retry attempts
       RANDOM_TIMEOUT_MS: "5000"     # per-build timeout in ms
       RANDOM_THEME: ""              # optional legacy theme alias (maps to primary theme)
       RANDOM_PRIMARY_THEME: ""      # optional primary theme slug override
       RANDOM_SECONDARY_THEME: ""    # optional secondary theme slug override
       RANDOM_TERTIARY_THEME: ""     # optional tertiary theme slug override
-      RANDOM_AUTO_FILL: "0"         # when 1, auto-fill missing secondary/tertiary themes
+      RANDOM_AUTO_FILL: "1"         # when 1, auto-fill missing secondary/tertiary themes
       RANDOM_AUTO_FILL_SECONDARY: ""  # override secondary auto-fill (blank inherits from RANDOM_AUTO_FILL)
       RANDOM_AUTO_FILL_TERTIARY: ""   # override tertiary auto-fill (blank inherits from RANDOM_AUTO_FILL)
       RANDOM_STRICT_THEME_MATCH: "0"  # require strict theme matches for commanders when 1

@@ -18,6 +18,12 @@
 - Commander hover preview shows card-only panel in browser context and removes the “+ more” overflow badge from theme chips.
 - Content Security Policy upgrade directive ensures HTMX pagination requests remain HTTPS-safe behind proxies.
 - Commander thumbnails adopt a fixed-width 160px frame (responsive on small screens) for consistent layout.
+- Commander browser now separates name vs theme search, adds fuzzy theme suggestions, and tightens commander name matching to near-exact results.
+- Commander search results stay put while filtering; typing no longer auto-scrolls the page away from the filter controls.
+- Commander theme chips are larger, wrap cleanly, and display an accessible summary dialog when tapped on mobile.
+- Theme dialogs now surface the full editorial description when available, improving longer summaries on small screens.
+- Commander theme names unescape leading punctuation (e.g., +2/+2 Counters) so labels render without stray backslashes.
+- Theme summary dialog also opens on desktop clicks, giving parity with mobile behavior.
 - Mobile commander rows now feature larger thumbnails and a centered preview modal with expanded card art for improved readability.
 - Preview performance CI check now waits for service health and retries catalog pagination fetches to smooth out transient 500s on cold boots.
 

@@ -25,6 +25,12 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 - Commander hover preview collapses to a card-only view when browsing commanders, and all theme chips display without the previous “+ more” overflow badge.
 - Added a Content Security Policy upgrade directive so proxied HTTPS deployments safely rewrite commander pagination requests to HTTPS, preventing mixed-content blocks.
 - Commander thumbnails use a fixed-width 160px frame (scaling down on small screens) to eliminate inconsistent image sizing across the catalog.
+- Commander browser search now separates commander name and theme inputs, introduces fuzzy theme suggestions, and tightens commander name matching to near-exact results.
+- Commander browser no longer auto-scrolls when typing in search fields, keeping focus anchored near the filters.
+- Commander theme chips feature larger typography, multi-line wrapping, and a mobile-friendly tap dialog for reading summaries.
+- Theme dialog now prefers full editorial descriptions, so longer summaries display completely on mobile.
+- Commander theme labels now unescape leading punctuation (e.g., +2/+2 Counters) to avoid stray backslashes in the UI.
+- Theme summary dialog now opens when clicking theme chips on desktop as well as mobile.
 - Commander list pagination controls now appear above and below the results and automatically scroll to the top when switching pages for quicker navigation.
 - Mobile commander rows now feature larger thumbnails and a centered preview modal with expanded card art for improved readability.
 - Preview performance CI check now waits for `/healthz` and retries theme catalog pagination fetches to dodge transient 500s during cold starts.

@@ -5,24 +5,29 @@ services:
     image: mwisnowski/mtg-python-deckbuilder:latest
     container_name: mtg-deckbuilder-web
     ports:
-      - "8080:8080"  # Host:Container — open http://localhost:8080
+      - "8080:8080"
     environment:
       PYTHONUNBUFFERED: "1"
       TERM: "xterm-256color"
       DEBIAN_FRONTEND: "noninteractive"
+
       # ------------------------------------------------------------------
       # Core UI Feature Toggles
+      # (Enable/disable visibility of sections; most default to off in code)
       # ------------------------------------------------------------------
+
+      # UI features/flags
       SHOW_LOGS: "1"                # 1=enable /logs page; 0=hide
-      SHOW_SETUP: "1"               # 1=show Setup/Tagging card; 0=hide
-      SHOW_DIAGNOSTICS: "1"         # 1=enable /diagnostics & /diagnostics/perf
+      SHOW_SETUP: "1"               # 1=show Setup/Tagging card; 0=hide (still runs if WEB_AUTO_SETUP=1)
+      SHOW_DIAGNOSTICS: "1"         # 1=enable /diagnostics & /diagnostics/perf; 0=hide
       ENABLE_PWA: "0"               # 1=serve manifest/service worker (experimental)
-      ENABLE_THEMES: "1"            # 1=expose theme selector; 0=hide
+      ENABLE_THEMES: "1"            # 1=expose theme selector; 0=hide (THEME still applied)
       ENABLE_PRESETS: "0"           # 1=show presets section
       WEB_VIRTUALIZE: "1"           # 1=enable list virtualization in Step 5
-      ALLOW_MUST_HAVES: "1"         # Include/Exclude feature enable
-      WEB_THEME_PICKER_DIAGNOSTICS: "0"  # 1=enable extra theme catalog diagnostics fields, uncapped synergies & /themes/metrics
-      # Sampling experiments (optional)
+      ALLOW_MUST_HAVES: "1"         # 1=enable must-include/must-exclude cards feature; 0=disable
+      SHOW_MISC_POOL: "0"
+      WEB_THEME_PICKER_DIAGNOSTICS: "1"  # 1=enable extra theme catalog diagnostics fields, uncapped view & /themes/metrics
+      # Sampling experiments
       # SPLASH_ADAPTIVE: "0"          # 1=enable adaptive splash penalty scaling by commander color count
       # SPLASH_ADAPTIVE_SCALE: "1:1.0,2:1.0,3:1.0,4:0.6,5:0.35"  # override default scaling
       # Rarity weighting (advanced; default weights tuned for variety)
@@ -36,81 +41,106 @@ services:
       # RARITY_DIVERSITY_OVER_PENALTY: "-0.5"
 
       # ------------------------------------------------------------------
-      # Random Build (Alpha) Feature Flags
+      # Random Mode Feature Flags
       # ------------------------------------------------------------------
-      RANDOM_MODES: "0"             # 1=backend random build endpoints
-      RANDOM_UI: "0"                # 1=UI Surprise/Reroll controls
-      RANDOM_MAX_ATTEMPTS: "5"      # Retry cap for constrained random builds
-      RANDOM_TIMEOUT_MS: "5000"     # Per-attempt timeout (ms)
+
+      # Random Modes (feature flags)
+      RANDOM_MODES: "1"             # 1=enable random build endpoints and backend features
+      RANDOM_UI: "1"                # 1=show Surprise/Theme/Reroll/Share controls in UI
+      RANDOM_MAX_ATTEMPTS: "5"      # cap retry attempts
+      RANDOM_TIMEOUT_MS: "5000"     # per-build timeout in ms
       RANDOM_THEME: ""              # optional legacy theme alias (maps to primary theme)
       RANDOM_PRIMARY_THEME: ""      # optional primary theme slug override
       RANDOM_SECONDARY_THEME: ""    # optional secondary theme slug override
       RANDOM_TERTIARY_THEME: ""     # optional tertiary theme slug override
-      RANDOM_AUTO_FILL: "0"         # when 1, auto-fill missing secondary/tertiary themes
+      RANDOM_AUTO_FILL: "1"         # when 1, auto-fill missing secondary/tertiary themes
       RANDOM_AUTO_FILL_SECONDARY: ""  # override secondary auto-fill (blank inherits from RANDOM_AUTO_FILL)
       RANDOM_AUTO_FILL_TERTIARY: ""   # override tertiary auto-fill (blank inherits from RANDOM_AUTO_FILL)
-      RANDOM_STRICT_THEME_MATCH: "0"  # require strict theme matches when 1
+      RANDOM_STRICT_THEME_MATCH: "0"  # require strict theme matches for commanders when 1
       RANDOM_CONSTRAINTS: ""        # inline JSON constraints for random builds (optional)
       RANDOM_CONSTRAINTS_PATH: ""   # path to JSON constraints file (takes precedence)
       RANDOM_SEED: ""               # deterministic random seed (int or string)
-      RANDOM_OUTPUT_JSON: ""        # path or directory for random build payload export
+      RANDOM_OUTPUT_JSON: ""        # path or directory for random build output payload
+      # RANDOM_BUILD_SUPPRESS_INITIAL_EXPORT: "1" # (now defaults to 1 automatically for random builds; set to 0 to force legacy double-export behavior)
 
       # Theming
-      THEME: "system"               # system|light|dark default theme
+      THEME: "dark"                 # system|light|dark
 
       # ------------------------------------------------------------------
-      # Setup / Tagging / Catalog
+      # Setup / Tagging / Catalog Controls
+      # WEB_AUTO_SETUP: auto-run initial tagging & theme generation when needed
+      # WEB_AUTO_REFRESH_DAYS: refresh card data if older than N days (0=never)
+      # WEB_TAG_PARALLEL + WEB_TAG_WORKERS: parallel tag extraction
+      # THEME_CATALOG_MODE: merge (Phase B) | legacy | build | phaseb (merge synonyms)
+      # WEB_AUTO_ENFORCE: 1=run bracket/legal compliance auto-export JSON after builds
+      # WEB_CUSTOM_EXPORT_BASE: override export path base (optional)
+      # APP_VERSION: surfaced in UI/health endpoints
       # ------------------------------------------------------------------
-      WEB_AUTO_SETUP: "1"           # Auto-run setup/tagging on demand
-      WEB_AUTO_REFRESH_DAYS: "7"    # Refresh card data if stale (days; 0=never)
-      WEB_TAG_PARALLEL: "1"         # Parallel tag extraction on
-      WEB_TAG_WORKERS: "4"          # Worker count (CPU bound; tune as needed)
-      THEME_CATALOG_MODE: "merge"   # Phase B merged theme builder
-      THEME_YAML_FAST_SKIP: "0"     # 1=allow skipping YAML export on fast path (default 0 = always export)
+
+      # Setup/Tagging performance
+      WEB_AUTO_SETUP: "1"           # 1=auto-run setup/tagging when needed
+      WEB_AUTO_REFRESH_DAYS: "7"    # Refresh cards.csv if older than N days; 0=never
+      WEB_TAG_PARALLEL: "1"         # 1=parallelize tagging
+      WEB_TAG_WORKERS: "4"          # Worker count when parallel tagging
+      THEME_CATALOG_MODE: "merge"   # Use merged Phase B catalog builder (with YAML export)
+      THEME_YAML_FAST_SKIP: "0"     # 1=allow skipping per-theme YAML on fast path (rare; default always export)
       # Live YAML scan interval in seconds for change detection (dev convenience)
       # THEME_CATALOG_YAML_SCAN_INTERVAL_SEC: "2.0"
       # Prewarm common theme filters at startup (speeds first interactions)
       # WEB_THEME_FILTER_PREWARM: "0"
-      WEB_AUTO_ENFORCE: "0"         # 1=auto compliance JSON export after builds
-      WEB_CUSTOM_EXPORT_BASE: ""     # Optional export base override
-      APP_VERSION: "v2.3.2"        # Displayed in footer/health
+      WEB_AUTO_ENFORCE: "0"         # 1=auto-run compliance export after builds
+      WEB_CUSTOM_EXPORT_BASE: ""    # Optional: custom base dir for deck export artifacts
+      APP_VERSION: "2.3.2"          # Displayed version label (set per release/tag)
 
       # ------------------------------------------------------------------
-      # Misc Land Selection Tuning (Step 7)
+      # Misc / Land Selection (Step 7) Environment Tuning
+      # Uncomment to fine-tune utility land heuristics. Theme weighting allows
+      # matching candidate lands to selected themes for bias.
       # ------------------------------------------------------------------
-      # MISC_LAND_DEBUG: "1"                 # Write debug CSVs (diagnostics only)
-      # MISC_LAND_EDHREC_KEEP_PERCENT_MIN: "0.75"
-      # MISC_LAND_EDHREC_KEEP_PERCENT_MAX: "1.0"
-      # MISC_LAND_EDHREC_KEEP_PERCENT: "0.80"      # Fallback if MIN/MAX unset
-      # MISC_LAND_THEME_MATCH_BASE: "1.4"
-      # MISC_LAND_THEME_MATCH_PER_EXTRA: "0.15"
-      # MISC_LAND_THEME_MATCH_CAP: "2.0"
+
+      # Misc land tuning (utility land selection – Step 7)
+      # MISC_LAND_DEBUG: "1"                 # 1=write misc land debug CSVs (post-filter, candidates); off by default unless SHOW_DIAGNOSTICS=1
+      # MISC_LAND_EDHREC_KEEP_PERCENT_MIN: "0.75"  # Lower bound (0–1). When both MIN & MAX set, a random keep % in [MIN,MAX] is rolled each build
+      # MISC_LAND_EDHREC_KEEP_PERCENT_MAX: "1.0"   # Upper bound (0–1) for dynamic EDHREC keep range
+      # MISC_LAND_EDHREC_KEEP_PERCENT: "0.80"      # Legacy single fixed keep % (used only if MIN/MAX not both provided)
+      # (Optional theme weighting overrides)
+      # MISC_LAND_THEME_MATCH_BASE: "1.4"          # Multiplier if at least one theme tag matches
+      # MISC_LAND_THEME_MATCH_PER_EXTRA: "0.15"    # Increment per extra matching tag beyond first
+      # MISC_LAND_THEME_MATCH_CAP: "2.0"           # Cap for total theme multiplier
 
       # ------------------------------------------------------------------
-      # Path Overrides
+      # Deck Export / Directory Overrides (headless & web browsing paths)
+      # DECK_EXPORTS / DECK_CONFIG: override mount points inside container
+      # OWNED_CARDS_DIR / CARD_LIBRARY_DIR: inventory upload path (alias preserved)
       # ------------------------------------------------------------------
-      # DECK_EXPORTS: "/app/deck_files"
-      # DECK_CONFIG: "/app/config"
-      # OWNED_CARDS_DIR: "/app/owned_cards"
-      # CARD_LIBRARY_DIR: "/app/owned_cards"   # legacy alias
+
+      # Paths (optional overrides)
+      # DECK_EXPORTS: "/app/deck_files"     # Where the deck browser looks for exports
+      # DECK_CONFIG: "/app/config"          # Where the config browser looks for *.json
+      # OWNED_CARDS_DIR: "/app/owned_cards" # Preferred path for owned inventory uploads
+      # CARD_LIBRARY_DIR: "/app/owned_cards" # Back-compat alias for OWNED_CARDS_DIR
       # CSV base directory override (useful for testing with frozen snapshots)
       # CSV_FILES_DIR: "/app/csv_files"
       # Inject a one-off synthetic CSV for index testing without altering shards
       # CARD_INDEX_EXTRA_CSV: ""
 
       # ------------------------------------------------------------------
-      # Headless / CLI Mode (optional automation)
+      # Headless / Non-interactive Build Configuration
+      # Provide commander or tag indices/names; toggles for which phases to include
+      # Counts optionally tune land/fetch/ramp/etc targets.
       # ------------------------------------------------------------------
-      # DECK_MODE: "headless"
-      # HEADLESS_EXPORT_JSON: "1"
-      # DECK_COMMANDER: ""
-      # DECK_PRIMARY_CHOICE: "1"
-      # DECK_SECONDARY_CHOICE: ""
-      # DECK_TERTIARY_CHOICE: ""
-      # DECK_PRIMARY_TAG: ""
+
+      # Headless-only settings
+      # DECK_MODE: "headless"               # Auto-run headless flow in CLI mode
+      # HEADLESS_EXPORT_JSON: "1"           # 1=export resolved run config JSON
+      # DECK_COMMANDER: ""                  # Commander name query
+      # DECK_PRIMARY_CHOICE: "1"            # Primary tag index (1-based)
+      # DECK_SECONDARY_CHOICE: ""           # Optional secondary index
+      # DECK_TERTIARY_CHOICE: ""            # Optional tertiary index
+      # DECK_PRIMARY_TAG: ""                # Or tag names instead of indices
       # DECK_SECONDARY_TAG: ""
       # DECK_TERTIARY_TAG: ""
-      # DECK_BRACKET_LEVEL: "3"
+      # DECK_BRACKET_LEVEL: "3"             # 1–5
       # DECK_ADD_LANDS: "1"
       # DECK_ADD_CREATURES: "1"
       # DECK_ADD_NON_CREATURE_SPELLS: "1"
@@ -123,32 +153,37 @@ services:
       # DECK_DUAL_COUNT: ""
       # DECK_TRIPLE_COUNT: ""
       # DECK_UTILITY_COUNT: ""
-      # DECK_TAG_MODE: "AND"
+      # DECK_TAG_MODE: "AND"                # AND|OR (if supported)
       # HEADLESS_RANDOM_MODE: "0"           # 1=force headless random mode instead of scripted build
 
+      # Entrypoint knobs (only if you change the entrypoint behavior)
+      # APP_MODE: "web"                     # web|cli — selects uvicorn vs CLI
+      # HOST: "0.0.0.0"                     # Uvicorn bind host
+      # PORT: "8080"                        # Uvicorn port
+      # WORKERS: "1"                        # Uvicorn workers
+      # (HOST/PORT honored by entrypoint; WORKERS for multi-worker uvicorn if desired)
+
       # ------------------------------------------------------------------
-      # Entrypoint / Server knobs
+      # Testing / Diagnostics Specific (rarely changed in compose)
+      # SHOW_MISC_POOL: "1"   # (already above) expose misc pool debug UI if implemented
       # ------------------------------------------------------------------
-      # APP_MODE: "web"              # web|cli
-      # HOST: "0.0.0.0"              # Bind host
-      # PORT: "8080"                 # Uvicorn port
-      # WORKERS: "1"                 # Uvicorn workers
-      
+
       # ------------------------------------------------------------------
-      # Editorial / Theme Catalog Controls (advanced / optional)
-      # These are primarily for maintainers refining automated theme
-      # descriptions & popularity analytics. Leave commented for normal use.
+      # Editorial / Theme Catalog Controls
+      # These drive automated description generation, popularity bucketing,
+      # YAML backfilling, and regression / metrics exports. Normally only
+      # used during catalog curation or CI.
       # ------------------------------------------------------------------
-      # EDITORIAL_SEED: "1234"                 # Deterministic seed for reproducible ordering.
-      # EDITORIAL_AGGRESSIVE_FILL: "0"          # 1=borrow extra synergies for sparse themes.
-      # EDITORIAL_POP_BOUNDARIES: "50,120,250,600" # Override popularity bucket thresholds (4 ints).
-      # EDITORIAL_POP_EXPORT: "0"              # 1=emit theme_popularity_metrics.json.
-      # EDITORIAL_BACKFILL_YAML: "0"           # 1=write description/popularity back to YAML (missing only).
-      # EDITORIAL_INCLUDE_FALLBACK_SUMMARY: "0" # 1=include fallback description usage summary in JSON.
-      # EDITORIAL_REQUIRE_DESCRIPTION: "0"      # (lint) 1=fail if any theme lacks description.
-      # EDITORIAL_REQUIRE_POPULARITY: "0"       # (lint) 1=fail if any theme lacks popularity bucket.
-      # EDITORIAL_MIN_EXAMPLES: "0"            # (future) minimum curated examples target.
-      # EDITORIAL_MIN_EXAMPLES_ENFORCE: "0"     # (future) enforce above threshold vs warn.
+      # EDITORIAL_SEED: "1234"                 # Deterministic seed for description & inference ordering.
+      # EDITORIAL_AGGRESSIVE_FILL: "0"          # 1=borrow extra synergies for sparse themes (<2 curated/enforced).
+      # EDITORIAL_POP_BOUNDARIES: "50,120,250,600" # Override popularity bucket boundaries (4 comma ints).
+      # EDITORIAL_POP_EXPORT: "0"              # 1=emit theme_popularity_metrics.json alongside theme_list.json.
+      # EDITORIAL_BACKFILL_YAML: "0"           # 1=enable YAML metadata backfill (description/popularity) on build.
+      # EDITORIAL_INCLUDE_FALLBACK_SUMMARY: "0" # 1=include description_fallback_summary block in JSON output.
+      # EDITORIAL_REQUIRE_DESCRIPTION: "0"      # (lint script) 1=fail if a theme lacks description.
+      # EDITORIAL_REQUIRE_POPULARITY: "0"       # (lint script) 1=fail if a theme lacks popularity bucket.
+      # EDITORIAL_MIN_EXAMPLES: "0"            # (future) minimum curated example commanders/cards (guard rails).
+      # EDITORIAL_MIN_EXAMPLES_ENFORCE: "0"     # (future) 1=enforce above threshold; else warn only.
 
       # ------------------------------------------------------------------
       # Theme Preview Cache & Redis (optional)
@@ -171,11 +206,12 @@ services:
       # THEME_PREVIEW_TTL_STEPS: "2,4,2,3,1"    # step counts for band progression
       # Redis backend (optional)
       # THEME_PREVIEW_REDIS_URL: "redis://redis:6379/0"
-    # THEME_PREVIEW_REDIS_DISABLE: "0"        # 1=force disable redis even if URL is set
+      # THEME_PREVIEW_REDIS_DISABLE: "0"        # 1=force disable redis even if URL is set
     volumes:
       - ${PWD}/deck_files:/app/deck_files
       - ${PWD}/logs:/app/logs
       - ${PWD}/csv_files:/app/csv_files
       - ${PWD}/config:/app/config
       - ${PWD}/owned_cards:/app/owned_cards
-    restart: unless-stopped
+    working_dir: /app
+    restart: "no"

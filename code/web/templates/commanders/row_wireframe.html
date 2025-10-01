@@ -25,14 +25,17 @@
       <div class="commander-themes" role="list">
         {% for theme in entry.themes %}
           {% set summary = theme.summary or 'Summary unavailable' %}
-          <button type="button"
-                  class="commander-theme-chip"
+    <button type="button"
+      class="commander-theme-chip"
                   role="listitem"
                   data-theme-name="{{ theme.name }}"
                   data-theme-slug="{{ theme.slug }}"
                   data-theme-summary="{{ summary }}"
-                  title="{{ summary }}"
-                  aria-label="{{ theme.name }} theme: {{ summary }}">
+      title="{{ summary }}"
+      aria-label="{{ theme.name }} theme: {{ summary }}"
+      data-hover-simple-target="theme"
+      data-hover-simple-name="{{ theme.name }}"
+      data-hover-simple-summary="{{ summary }}">
             {{ theme.name }}
           </button>
         {% endfor %}

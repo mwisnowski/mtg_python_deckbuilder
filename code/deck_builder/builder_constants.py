@@ -16,7 +16,11 @@ MAX_FUZZY_CHOICES: Final[int] = 5  # Maximum number of fuzzy match choices
 DUPLICATE_CARD_FORMAT: Final[str] = '{card_name} x {count}'
 COMMANDER_CSV_PATH: Final[str] = f"{csv_dir()}/commander_cards.csv"
 DECK_DIRECTORY = '../deck_files'
-COMMANDER_CONVERTERS: Final[Dict[str, str]] = {'themeTags': ast.literal_eval, 'creatureTypes': ast.literal_eval}  # CSV loading converters
+COMMANDER_CONVERTERS: Final[Dict[str, str]] = {
+    'themeTags': ast.literal_eval,
+    'creatureTypes': ast.literal_eval,
+    'roleTags': ast.literal_eval,
+}  # CSV loading converters
 COMMANDER_POWER_DEFAULT: Final[int] = 0
 COMMANDER_TOUGHNESS_DEFAULT: Final[int] = 0
 COMMANDER_MANA_VALUE_DEFAULT: Final[int] = 0

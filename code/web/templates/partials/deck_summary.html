@@ -29,6 +29,8 @@
       .stack-card:hover { z-index: 999; transform: translateY(-2px); box-shadow: 0 10px 22px rgba(0,0,0,.6); }
   .count-badge { position:absolute; top:6px; right:6px; background:rgba(17,24,39,.9); color:#e5e7eb; border:1px solid var(--border); border-radius:12px; font-size:12px; line-height:18px; height:18px; padding:0 6px; pointer-events:none; }
   .owned-badge { position:absolute; top:6px; left:6px; background:rgba(17,24,39,.9); color:#e5e7eb; border:1px solid var(--border); border-radius:12px; font-size:12px; line-height:18px; height:18px; min-width:18px; padding:0 6px; text-align:center; pointer-events:none; z-index: 2; }
+  .dfc-thumb-badge { position:absolute; bottom:8px; left:6px; background:rgba(15,23,42,.92); border:1px solid #34d399; color:#bbf7d0; border-radius:12px; font-size:11px; line-height:18px; height:18px; padding:0 6px; pointer-events:none; }
+  .dfc-thumb-badge.counts { border-color:#60a5fa; color:#bfdbfe; }
   .owned-flag { font-size:.95rem; opacity:.9; }
     </style>
     <div id="typeview-list" class="typeview">
@@ -47,8 +49,11 @@
             .list-row .count { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-variant-numeric: tabular-nums; font-feature-settings: 'tnum'; text-align:right; color:#94a3b8; }
             .list-row .times { color:#94a3b8; text-align:center; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
             .list-row .name { display:inline-block; padding: 2px 4px; border-radius: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-            .list-row .flip-slot { min-width:2.4em; display:flex; justify-content:center; align-items:center; }
+            .list-row .flip-slot { min-width:2.4em; display:flex; justify-content:flex-start; align-items:center; }
             .list-row .owned-flag { width: 1.6em; min-width: 1.6em; text-align:center; display:inline-block; }
+            .dfc-land-chip { display:inline-flex; align-items:center; gap:.25rem; padding:2px 6px; border-radius:999px; font-size:11px; font-weight:600; background:#0f172a; border:1px solid #334155; color:#e5e7eb; line-height:1; }
+            .dfc-land-chip.extra { border-color:#34d399; color:#a7f3d0; }
+            .dfc-land-chip.counts { border-color:#60a5fa; color:#bfdbfe; }
           </style>
           <div class="list-grid">
             {% for c in clist %}
@@ -69,7 +74,11 @@
                 <span class="count">{{ cnt }}</span>
                 <span class="times">x</span>
                 <span class="name dfc-anchor" title="{{ c.name }}" data-card-name="{{ c.name }}" data-count="{{ cnt }}" data-role="{{ c.role }}" data-tags="{{ (c.tags|map('trim')|join(', ')) if c.tags else '' }}"{% if overlaps %} data-overlaps="{{ overlaps|join(', ') }}"{% endif %}>{{ c.name }}</span>
-                <span class="flip-slot" aria-hidden="true"></span>
+                <span class="flip-slot" aria-hidden="true">
+                  {% if c.dfc_land %}
+                    <span class="dfc-land-chip {% if c.dfc_adds_extra_land %}extra{% else %}counts{% endif %}" title="{{ c.dfc_note or 'Modal double-faced land' }}">DFC land{% if c.dfc_adds_extra_land %} +1{% endif %}</span>
+                  {% endif %}
+                </span>
                 <span class="owned-flag" title="{{ 'Owned' if owned else 'Not owned' }}" aria-label="{{ 'Owned' if owned else 'Not owned' }}">{% if owned %}✔{% else %}✖{% endif %}</span>
               </div>
             {% endfor %}
@@ -106,6 +115,9 @@
                      sizes="(max-width: 1200px) 160px, 240px" />
                 <div class="count-badge">{{ cnt }}x</div>
                 <div class="owned-badge" title="{{ 'Owned' if owned else 'Not owned' }}" aria-label="{{ 'Owned' if owned else 'Not owned' }}">{% if owned %}✔{% else %}✖{% endif %}</div>
+                {% if c.dfc_land %}
+                  <div class="dfc-thumb-badge {% if c.dfc_adds_extra_land %}extra{% else %}counts{% endif %}" title="{{ c.dfc_note or 'Modal double-faced land' }}">DFC{% if c.dfc_adds_extra_land %}+1{% endif %}</div>
+                {% endif %}
               </div>
             {% endfor %}
             </div>
@@ -121,6 +133,60 @@
 </section>
 
 <!-- Deck Summary initializer script moved below markup for proper element availability -->
+
+<!-- Land Summary -->
+{% set land = summary.land_summary if summary else None %}
+{% if land %}
+<section style="margin-top:1rem;">
+  <h5>Land Summary</h5>
+  <div class="muted" style="font-weight:600; margin-bottom:.35rem;">
+    {{ land.headline or ('Lands: ' ~ (land.traditional or 0)) }}
+  </div>
+  <div style="display:flex; flex-wrap:wrap; gap:.75rem; align-items:flex-start;">
+    <div class="muted">Traditional land slots: <strong>{{ land.traditional or 0 }}</strong></div>
+    <div class="muted">MDFC land additions: <strong>{{ land.dfc_lands or 0 }}</strong></div>
+    <div class="muted">Total with MDFCs: <strong>{{ land.with_dfc or land.traditional or 0 }}</strong></div>
+  </div>
+  {% if land.dfc_cards %}
+    <details style="margin-top:.5rem;">
+      <summary>MDFC mana sources ({{ land.dfc_cards|length }})</summary>
+      <ul style="list-style:none; padding:0; margin:.35rem 0 0; display:grid; gap:.35rem;">
+        {% for card in land.dfc_cards %}
+          {% set extra = card.adds_extra_land or card.counts_as_extra %}
+          {% set colors = card.colors or [] %}
+          <li class="muted" style="display:flex; gap:.5rem; flex-wrap:wrap; align-items:flex-start;">
+            <span class="chip"><span class="dot" style="background:#10b981;"></span> {{ card.name }} ×{{ card.count or 1 }}</span>
+            <span>Colors: {{ colors|join(', ') if colors else '–' }}</span>
+            {% if extra %}
+              <span class="chip" style="background:#0f172a; border-color:#34d399; color:#a7f3d0;">{{ card.note or 'Adds extra land slot' }}</span>
+            {% else %}
+              <span class="chip" style="background:#111827; border-color:#60a5fa; color:#bfdbfe;">{{ card.note or 'Counts as land slot' }}</span>
+            {% endif %}
+            {% if card.faces %}
+              <ul style="list-style:none; padding:0; margin:.2rem 0 0; display:grid; gap:.15rem; flex:1 0 100%;">
+                {% for face in card.faces %}
+                  {% set face_name = face.get('face') or face.get('faceName') or 'Face' %}
+                  {% set face_type = face.get('type') or '–' %}
+                  {% set mana_cost = face.get('mana_cost') %}
+                  {% set mana_value = face.get('mana_value') %}
+                  {% set produces = face.get('produces_mana') %}
+                  <li style="font-size:0.85rem; color:#e5e7eb; opacity:.85;">
+                    <span>{{ face_name }}</span>
+                    <span>— {{ face_type }}</span>
+                    {% if mana_cost %}<span>• Mana Cost: {{ mana_cost }}</span>{% endif %}
+                    {% if mana_value is not none %}<span>• MV: {{ mana_value }}</span>{% endif %}
+                    {% if produces %}<span>• Produces mana</span>{% endif %}
+                  </li>
+                {% endfor %}
+              </ul>
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    </details>
+  {% endif %}
+</section>
+{% endif %}
 
 <!-- Mana Overview Row: Pips • Sources • Curve -->
 <section style="margin-top:1rem;">
@@ -144,7 +210,11 @@
                 {% set c_cards = (pc[color] if pc and (color in pc) else []) %}
         {% set parts = [] %}
         {% for c in c_cards %}
-      {% set _ = parts.append(c.name ~ ((" ×" ~ c.count) if c.count and c.count>1 else '')) %}
+      {% set label = c.name ~ ((" ×" ~ c.count) if c.count and c.count>1 else '') %}
+      {% if c.dfc %}
+        {% set label = label ~ ' (DFC)' %}
+      {% endif %}
+      {% set _ = parts.append(label) %}
         {% endfor %}
         {% set cards_line = parts|join(' • ') %}
                 {% set pct_f = (pd.weights[color] * 100) if pd.weights and color in pd.weights else 0 %}

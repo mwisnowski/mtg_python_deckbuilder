@@ -19,6 +19,7 @@ def _fake_session(**kw):
         "prefer_combos": False,
         "combo_target_count": 2,
         "combo_balance": "mix",
+        "swap_mdfc_basics": False,
     }
     base.update(kw)
     return base
@@ -47,6 +48,7 @@ def test_start_ctx_from_session_minimal(monkeypatch):
     assert "builder" in ctx
     assert "stages" in ctx
     assert "idx" in ctx
+    assert calls.get("swap_mdfc_basics") is False
 
 
 def test_start_ctx_from_session_sets_on_session(monkeypatch):

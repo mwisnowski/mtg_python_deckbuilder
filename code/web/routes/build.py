@@ -27,6 +27,7 @@ from path_util import csv_dir as _csv_dir
 from ..services.alts_utils import get_cached as _alts_get_cached, set_cached as _alts_set_cached
 from ..services.telemetry import log_commander_create_deck
 from urllib.parse import urlparse
+from commander_exclusions import lookup_commander_detail
 
 # Cache for available card names used by validation endpoints
 _AVAILABLE_CARDS_CACHE: set[str] | None = None
@@ -150,6 +151,7 @@ def _rebuild_ctx_with_multicopy(sess: dict) -> None:
             prefer_combos=bool(sess.get("prefer_combos")),
             combo_target_count=int(sess.get("combo_target_count", 2)),
             combo_balance=str(sess.get("combo_balance", "mix")),
+            swap_mdfc_basics=bool(sess.get("swap_mdfc_basics")),
         )
     except Exception:
         # If rebuild fails (e.g., commander not found in test), fall back to injecting
@@ -415,12 +417,22 @@ async def multicopy_save(
 async def build_new_modal(request: Request) -> HTMLResponse:
     """Return the New Deck modal content (for an overlay)."""
     sid = request.cookies.get("sid") or new_sid()
+    sess = get_session(sid)
     ctx = {
         "request": request,
         "brackets": orch.bracket_options(),
         "labels": orch.ideal_labels(),
         "defaults": orch.ideal_defaults(),
         "allow_must_haves": ALLOW_MUST_HAVES,  # Add feature flag
+        "form": {
+            "prefer_combos": bool(sess.get("prefer_combos")),
+            "combo_count": sess.get("combo_target_count"),
+            "combo_balance": sess.get("combo_balance"),
+            "enable_multicopy": bool(sess.get("multi_copy")),
+            "use_owned_only": bool(sess.get("use_owned_only")),
+            "prefer_owned": bool(sess.get("prefer_owned")),
+            "swap_mdfc_basics": bool(sess.get("swap_mdfc_basics")),
+        },
     }
     resp = templates.TemplateResponse("build/_new_deck_modal.html", ctx)
     resp.set_cookie("sid", sid, httponly=True, samesite="lax")
@@ -432,7 +444,38 @@ async def build_new_candidates(request: Request, commander: str = Query("")) -> 
     """Return a small list of commander candidates for the modal live search."""
     q = (commander or "").strip()
     items = orch.commander_candidates(q, limit=8) if q else []
-    ctx = {"request": request, "query": q, "candidates": items}
+    candidates: list[dict[str, Any]] = []
+    for name, score, colors in items:
+        detail = lookup_commander_detail(name)
+        preferred = name
+        warning = None
+        if detail:
+            eligible_raw = detail.get("eligible_faces")
+            eligible = [str(face).strip() for face in eligible_raw or [] if str(face).strip()] if isinstance(eligible_raw, list) else []
+            norm_name = str(name).strip().casefold()
+            eligible_norms = [face.casefold() for face in eligible]
+            if eligible and norm_name not in eligible_norms:
+                preferred = eligible[0]
+                primary = str(detail.get("primary_face") or detail.get("name") or name).strip()
+                if len(eligible) == 1:
+                    warning = (
+                        f"Use the back face '{preferred}' when building. Front face '{primary}' can't lead a deck."
+                    )
+                else:
+                    faces = ", ".join(f"'{face}'" for face in eligible)
+                    warning = (
+                        f"This commander only works from specific faces: {faces}."
+                    )
+        candidates.append(
+            {
+                "display": name,
+                "value": preferred,
+                "score": score,
+                "colors": colors,
+                "warning": warning,
+            }
+        )
+    ctx = {"request": request, "query": q, "candidates": candidates}
     return templates.TemplateResponse("build/_new_deck_candidates.html", ctx)
 
 
@@ -445,6 +488,7 @@ async def build_new_inspect(request: Request, name: str = Query(...)) -> HTMLRes
     tags = orch.tags_for_commander(info["name"]) or []
     recommended = orch.recommended_tags_for_commander(info["name"]) if tags else []
     recommended_reasons = orch.recommended_tag_reasons_for_commander(info["name"]) if tags else {}
+    exclusion_detail = lookup_commander_detail(info["name"])
     # Render tags slot content and OOB commander preview simultaneously
     # Game Changer flag for this commander (affects bracket UI in modal via tags partial consumer)
     is_gc = False
@@ -454,7 +498,7 @@ async def build_new_inspect(request: Request, name: str = Query(...)) -> HTMLRes
         is_gc = False
     ctx = {
         "request": request,
-        "commander": {"name": info["name"]},
+        "commander": {"name": info["name"], "exclusion": exclusion_detail},
         "tags": tags,
         "recommended": recommended,
         "recommended_reasons": recommended_reasons,
@@ -553,6 +597,9 @@ async def build_new_submit(
     combo_count: int | None = Form(None),
     combo_balance: str | None = Form(None),
     enable_multicopy: bool = Form(False),
+    use_owned_only: bool = Form(False),
+    prefer_owned: bool = Form(False),
+    swap_mdfc_basics: bool = Form(False),
     # Integrated Multi-Copy (optional)
     multi_choice_id: str | None = Form(None),
     multi_count: int | None = Form(None),
@@ -567,6 +614,57 @@ async def build_new_submit(
     """Handle New Deck modal submit and immediately start the build (skip separate review page)."""
     sid = request.cookies.get("sid") or new_sid()
     sess = get_session(sid)
+
+    def _form_state(commander_value: str) -> dict[str, Any]:
+        return {
+            "name": name,
+            "commander": commander_value,
+            "primary_tag": primary_tag or "",
+            "secondary_tag": secondary_tag or "",
+            "tertiary_tag": tertiary_tag or "",
+            "tag_mode": tag_mode or "AND",
+            "bracket": bracket,
+            "combo_count": combo_count,
+            "combo_balance": (combo_balance or "mix"),
+            "prefer_combos": bool(prefer_combos),
+            "enable_multicopy": bool(enable_multicopy),
+            "use_owned_only": bool(use_owned_only),
+            "prefer_owned": bool(prefer_owned),
+            "swap_mdfc_basics": bool(swap_mdfc_basics),
+            "include_cards": include_cards or "",
+            "exclude_cards": exclude_cards or "",
+            "enforcement_mode": enforcement_mode or "warn",
+            "allow_illegal": bool(allow_illegal),
+            "fuzzy_matching": bool(fuzzy_matching),
+        }
+
+    commander_detail = lookup_commander_detail(commander)
+    if commander_detail:
+        eligible_raw = commander_detail.get("eligible_faces")
+        eligible_faces = [str(face).strip() for face in eligible_raw or [] if str(face).strip()] if isinstance(eligible_raw, list) else []
+        if eligible_faces:
+            norm_input = str(commander).strip().casefold()
+            eligible_norms = [face.casefold() for face in eligible_faces]
+            if norm_input not in eligible_norms:
+                suggested = eligible_faces[0]
+                primary_face = str(commander_detail.get("primary_face") or commander_detail.get("name") or commander).strip()
+                faces_str = ", ".join(f"'{face}'" for face in eligible_faces)
+                error_msg = (
+                    f"'{primary_face or commander}' can't lead a deck. Use {faces_str} as the commander instead. "
+                    "We've updated the commander field for you."
+                )
+                ctx = {
+                    "request": request,
+                    "error": error_msg,
+                    "brackets": orch.bracket_options(),
+                    "labels": orch.ideal_labels(),
+                    "defaults": orch.ideal_defaults(),
+                    "allow_must_haves": ALLOW_MUST_HAVES,
+                    "form": _form_state(suggested),
+                }
+                resp = templates.TemplateResponse("build/_new_deck_modal.html", ctx)
+                resp.set_cookie("sid", sid, httponly=True, samesite="lax")
+                return resp
     # Normalize and validate commander selection (best-effort via orchestrator)
     sel = orch.commander_select(commander)
     if not sel.get("ok"):
@@ -578,23 +676,7 @@ async def build_new_submit(
             "labels": orch.ideal_labels(),
             "defaults": orch.ideal_defaults(),
             "allow_must_haves": ALLOW_MUST_HAVES,  # Add feature flag
-            "form": {
-                "name": name,
-                "commander": commander,
-                "primary_tag": primary_tag or "",
-                "secondary_tag": secondary_tag or "",
-                "tertiary_tag": tertiary_tag or "",
-                "tag_mode": tag_mode or "AND",
-                "bracket": bracket,
-                "combo_count": combo_count,
-                "combo_balance": (combo_balance or "mix"),
-                "prefer_combos": bool(prefer_combos),
-                "include_cards": include_cards or "",
-                "exclude_cards": exclude_cards or "",
-                "enforcement_mode": enforcement_mode or "warn",
-                "allow_illegal": bool(allow_illegal),
-                "fuzzy_matching": bool(fuzzy_matching),
-            }
+            "form": _form_state(commander),
         }
         resp = templates.TemplateResponse("build/_new_deck_modal.html", ctx)
         resp.set_cookie("sid", sid, httponly=True, samesite="lax")
@@ -654,6 +736,18 @@ async def build_new_submit(
         sess["prefer_combos"] = bool(prefer_combos)
     except Exception:
         sess["prefer_combos"] = False
+    try:
+        sess["use_owned_only"] = bool(use_owned_only)
+    except Exception:
+        sess["use_owned_only"] = False
+    try:
+        sess["prefer_owned"] = bool(prefer_owned)
+    except Exception:
+        sess["prefer_owned"] = False
+    try:
+        sess["swap_mdfc_basics"] = bool(swap_mdfc_basics)
+    except Exception:
+        sess["swap_mdfc_basics"] = False
     # Combos config from modal
     try:
         if combo_count is not None:
@@ -1267,6 +1361,9 @@ async def build_step3_submit(
             "labels": labels,
             "values": submitted,
             "commander": sess.get("commander"),
+            "owned_only": bool(sess.get("use_owned_only")),
+            "prefer_owned": bool(sess.get("prefer_owned")),
+            "swap_mdfc_basics": bool(sess.get("swap_mdfc_basics")),
         },
     )
     resp.set_cookie("sid", sid, httponly=True, samesite="lax")
@@ -1313,6 +1410,7 @@ async def build_step4_get(request: Request) -> HTMLResponse:
             "commander": commander,
             "owned_only": bool(sess.get("use_owned_only")),
             "prefer_owned": bool(sess.get("prefer_owned")),
+            "swap_mdfc_basics": bool(sess.get("swap_mdfc_basics")),
         },
     )
 
@@ -1485,6 +1583,7 @@ async def build_toggle_owned_review(
     request: Request,
     use_owned_only: str | None = Form(None),
     prefer_owned: str | None = Form(None),
+    swap_mdfc_basics: str | None = Form(None),
 ) -> HTMLResponse:
     """Toggle 'use owned only' and/or 'prefer owned' flags from the Review step and re-render Step 4."""
     sid = request.cookies.get("sid") or new_sid()
@@ -1492,8 +1591,10 @@ async def build_toggle_owned_review(
     sess["last_step"] = 4
     only_val = True if (use_owned_only and str(use_owned_only).strip() in ("1","true","on","yes")) else False
     pref_val = True if (prefer_owned and str(prefer_owned).strip() in ("1","true","on","yes")) else False
+    swap_val = True if (swap_mdfc_basics and str(swap_mdfc_basics).strip() in ("1","true","on","yes")) else False
     sess["use_owned_only"] = only_val
     sess["prefer_owned"] = pref_val
+    sess["swap_mdfc_basics"] = swap_val
     # Do not touch build_ctx here; user hasn't started the build yet from review
     labels = orch.ideal_labels()
     values = sess.get("ideals") or orch.ideal_defaults()
@@ -1507,6 +1608,7 @@ async def build_toggle_owned_review(
             "commander": commander,
             "owned_only": bool(sess.get("use_owned_only")),
             "prefer_owned": bool(sess.get("prefer_owned")),
+            "swap_mdfc_basics": bool(sess.get("swap_mdfc_basics")),
         },
     )
     resp.set_cookie("sid", sid, httponly=True, samesite="lax")
@@ -2888,6 +2990,7 @@ async def build_permalink(request: Request):
         "flags": {
             "owned_only": bool(sess.get("use_owned_only")),
             "prefer_owned": bool(sess.get("prefer_owned")),
+            "swap_mdfc_basics": bool(sess.get("swap_mdfc_basics")),
         },
         "locks": list(sess.get("locks", [])),
     }
@@ -2974,6 +3077,7 @@ async def build_from(request: Request, state: str | None = None) -> HTMLResponse
             flags = data.get("flags") or {}
             sess["use_owned_only"] = bool(flags.get("owned_only"))
             sess["prefer_owned"] = bool(flags.get("prefer_owned"))
+            sess["swap_mdfc_basics"] = bool(flags.get("swap_mdfc_basics"))
             sess["locks"] = list(data.get("locks", []))
             # Optional random build rehydration
             try:
@@ -3037,6 +3141,7 @@ async def build_from(request: Request, state: str | None = None) -> HTMLResponse
         "commander": sess.get("commander"),
         "owned_only": bool(sess.get("use_owned_only")),
         "prefer_owned": bool(sess.get("prefer_owned")),
+        "swap_mdfc_basics": bool(sess.get("swap_mdfc_basics")),
         "locks_restored": locks_restored,
     })
     resp.set_cookie("sid", sid, httponly=True, samesite="lax")

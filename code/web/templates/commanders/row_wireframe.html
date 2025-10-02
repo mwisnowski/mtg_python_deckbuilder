@@ -1,6 +1,7 @@
 {# Commander row partial fed by CommanderView entries #}
 {% from "partials/_macros.html" import color_identity %}
 {% set record = entry.record %}
+{% set display_label = record.name if '//' in record.name else record.display_name %}
 <article class="commander-row" data-commander-slug="{{ record.slug }}" data-hover-simple="true">
   <div class="commander-thumb">
     {% set small = record.image_small_url or record.image_normal_url %}
@@ -12,12 +13,13 @@
       loading="lazy"
       decoding="async"
       data-card-name="{{ record.display_name }}"
+      data-original-name="{{ record.name }}"
       data-hover-simple="true"
     />
   </div>
   <div class="commander-main">
     <div class="commander-header">
-      <h3 class="commander-name">{{ record.display_name }}</h3>
+      <h3 class="commander-name">{{ display_label }}</h3>
       {{ color_identity(record.color_identity, record.is_colorless, entry.color_aria_label, entry.color_label) }}
     </div>
     <p class="commander-context muted">{{ record.type_line or 'Legendary Creature' }}</p>

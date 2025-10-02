@@ -71,6 +71,10 @@ Enable internal diagnostics and a read-only logs viewer with environment flags.
 - `SHOW_DIAGNOSTICS=1` — adds a Diagnostics nav link and `/diagnostics` tools
 - `SHOW_LOGS=1` — enables `/logs` and `/status/logs?tail=200`
 
+Per-face MDFC snapshot (opt-in)
+- `DFC_PER_FACE_SNAPSHOT=1` — write merged MDFC face metadata to `logs/dfc_per_face_snapshot.json`; disable parallel tagging (`WEB_TAG_PARALLEL=0`) if you need the snapshot during setup.
+- `DFC_PER_FACE_SNAPSHOT_PATH=/app/logs/custom_snapshot.json` — optional path override for the snapshot artifact.
+
 When enabled:
 - `/logs` supports an auto-refresh toggle with interval, a level filter (All/Error/Warning/Info/Debug), and a Copy button to copy the visible tail.
 - `/status/sys` returns a simple system summary (version, uptime, UTC server time, and feature flags) and is shown on the Diagnostics page when `SHOW_DIAGNOSTICS=1`.
@@ -98,6 +102,29 @@ docker run --rm `
     mwisnowski/mtg-python-deckbuilder:latest `
     bash -lc "cd /app && uvicorn code.web.app:app --host 0.0.0.0 --port 8080"
 ```
+
+### MDFC merge rollout (staging)
+
+The web service now runs the MDFC merge by default. Set `DFC_COMPAT_SNAPSHOT=1` on the web service when you need the legacy unmerged compatibility snapshot (`csv_files/compat_faces/`). Combine this with `python -m code.scripts.refresh_commander_catalog --compat-snapshot` inside the container to regenerate the commander files before smoke testing.
+
+Follow the QA steps in `docs/qa/mdfc_staging_checklist.md` after toggling the flag.
+
+Compose example:
+
+```yaml
+services:
+    web:
+        environment:
+            - DFC_COMPAT_SNAPSHOT=1
+```
+
+Verify the refresh inside the container:
+
+```powershell
+docker compose run --rm web bash -lc "python -m code.scripts.refresh_commander_catalog"
+```
+
+Downstream consumers can diff `csv_files/compat_faces/commander_cards_unmerged.csv` against historical exports during the staging window.
 
 ### Setup speed: parallel tagging (Web)
 First-time setup or stale data triggers card tagging. The web service uses parallel workers by default.

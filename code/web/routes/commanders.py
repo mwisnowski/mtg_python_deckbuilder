@@ -528,3 +528,13 @@ async def commanders_index(
     except Exception:
         pass
     return templates.TemplateResponse(template_name, context)
+
+@router.get("", response_class=HTMLResponse)
+async def commanders_index_alias(
+    request: Request,
+    q: str | None = Query(default=None, alias="q"),
+    theme: str | None = Query(default=None, alias="theme"),
+    color: str | None = Query(default=None, alias="color"),
+    page: int = Query(default=1, ge=1),
+) -> HTMLResponse:
+    return await commanders_index(request, q=q, theme=theme, color=color, page=page)

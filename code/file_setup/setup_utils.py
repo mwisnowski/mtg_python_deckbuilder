@@ -17,13 +17,16 @@ The module integrates with settings.py for configuration and exceptions.py for e
 from __future__ import annotations
 
 # Standard library imports
+import ast
 import requests
 from pathlib import Path
-from typing import List, Optional, Union, TypedDict
+from typing import List, Optional, Union, TypedDict, Iterable, Dict, Any
 
 # Third-party imports
 import pandas as pd
 from tqdm import tqdm
+import json
+from datetime import datetime
 
 # Local application imports
 from .setup_constants import (
@@ -45,7 +48,7 @@ from exceptions import (
     CommanderValidationError
 )
 from type_definitions import CardLibraryDF
-from settings import FILL_NA_COLUMNS
+from settings import FILL_NA_COLUMNS, CSV_DIRECTORY
 import logging_util
 
 # Create logger for this module
@@ -53,6 +56,251 @@ logger = logging_util.logging.getLogger(__name__)
 logger.setLevel(logging_util.LOG_LEVEL)
 logger.addHandler(logging_util.file_handler)
 logger.addHandler(logging_util.stream_handler)
+
+
+def _is_primary_side(value: object) -> bool:
+    """Return True when the provided side marker corresponds to a primary face."""
+    try:
+        if pd.isna(value):
+            return True
+    except Exception:
+        pass
+    text = str(value).strip().lower()
+    return text in {"", "a"}
+
+
+def _summarize_secondary_face_exclusions(
+    names: Iterable[str],
+    source_df: pd.DataFrame,
+) -> List[Dict[str, Any]]:
+    summaries: List[Dict[str, Any]] = []
+    if not names:
+        return summaries
+
+    for raw_name in names:
+        name = str(raw_name)
+        group = source_df[source_df['name'] == name]
+        if group.empty:
+            continue
+
+        primary_rows = group[group['side'].apply(_is_primary_side)] if 'side' in group.columns else pd.DataFrame()
+        primary_face = (
+            str(primary_rows['faceName'].iloc[0])
+            if not primary_rows.empty and 'faceName' in primary_rows.columns
+            else ""
+        )
+        layout = str(group['layout'].iloc[0]) if 'layout' in group.columns and not group.empty else ""
+        faces = sorted(set(str(v) for v in group.get('faceName', pd.Series(dtype=str)).dropna().tolist()))
+        eligible_faces = sorted(
+            set(
+                str(v)
+                for v in group
+                .loc[~group['side'].apply(_is_primary_side) if 'side' in group.columns else [False] * len(group)]
+                .get('faceName', pd.Series(dtype=str))
+                .dropna()
+                .tolist()
+            )
+        )
+
+        summaries.append(
+            {
+                "name": name,
+                "primary_face": primary_face or name.split('//')[0].strip(),
+                "layout": layout,
+                "faces": faces,
+                "eligible_faces": eligible_faces,
+                "reason": "secondary_face_only",
+            }
+        )
+
+    return summaries
+
+
+def _write_commander_exclusions_log(entries: List[Dict[str, Any]]) -> None:
+    """Persist commander exclusion diagnostics for downstream tooling."""
+
+    path = Path(CSV_DIRECTORY) / ".commander_exclusions.json"
+
+    if not entries:
+        try:
+            path.unlink()
+        except FileNotFoundError:
+            return
+        except Exception as exc:
+            logger.debug("Unable to remove commander exclusion log: %s", exc)
+        return
+
+    payload = {
+        "generated_at": datetime.now().isoformat(timespec='seconds'),
+        "secondary_face_only": entries,
+    }
+
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open('w', encoding='utf-8') as handle:
+            json.dump(payload, handle, indent=2, ensure_ascii=False)
+    except Exception as exc:
+        logger.warning("Failed to write commander exclusion diagnostics: %s", exc)
+
+
+def _enforce_primary_face_commander_rules(
+    candidate_df: pd.DataFrame,
+    source_df: pd.DataFrame,
+) -> pd.DataFrame:
+    """Retain only primary faces and record any secondary-face-only exclusions."""
+
+    if candidate_df.empty or 'side' not in candidate_df.columns:
+        _write_commander_exclusions_log([])
+        return candidate_df
+
+    mask_primary = candidate_df['side'].apply(_is_primary_side)
+    primary_df = candidate_df[mask_primary].copy()
+    secondary_df = candidate_df[~mask_primary]
+
+    primary_names = set(str(n) for n in primary_df.get('name', pd.Series(dtype=str)))
+    secondary_only_names = sorted(
+        set(str(n) for n in secondary_df.get('name', pd.Series(dtype=str))) - primary_names
+    )
+
+    if secondary_only_names:
+        logger.info(
+            "Excluding %d commander entries where only a secondary face is eligible: %s",
+            len(secondary_only_names),
+            ", ".join(secondary_only_names),
+        )
+
+    entries = _summarize_secondary_face_exclusions(secondary_only_names, source_df)
+    _write_commander_exclusions_log(entries)
+
+    return primary_df
+
+
+def _coerce_tag_list(value: object) -> List[str]:
+    """Normalize various list-like representations into a list of strings."""
+
+    if value is None:
+        return []
+    if isinstance(value, float) and pd.isna(value):
+        return []
+    if isinstance(value, (list, tuple, set)):
+        return [str(v).strip() for v in value if str(v).strip()]
+    text = str(value).strip()
+    if not text:
+        return []
+    try:
+        parsed = ast.literal_eval(text)
+        if isinstance(parsed, (list, tuple, set)):
+            return [str(v).strip() for v in parsed if str(v).strip()]
+    except Exception:
+        pass
+    parts = [part.strip() for part in text.replace(";", ",").split(",")]
+    return [part for part in parts if part]
+
+
+def _collect_commander_tag_metadata(csv_dir: Union[str, Path]) -> Dict[str, Dict[str, List[str]]]:
+    """Aggregate theme and creature tags from color-tagged CSV files."""
+
+    path = Path(csv_dir)
+    if not path.exists():
+        return {}
+
+    combined: Dict[str, Dict[str, set[str]]] = {}
+    columns = ("themeTags", "creatureTypes", "roleTags")
+
+    for color in SETUP_COLORS:
+        color_path = path / f"{color}_cards.csv"
+        if not color_path.exists():
+            continue
+        try:
+            df = pd.read_csv(color_path, low_memory=False)
+        except Exception as exc:
+            logger.debug("Unable to read %s for commander tag enrichment: %s", color_path, exc)
+            continue
+
+        if df.empty or ("name" not in df.columns and "faceName" not in df.columns):
+            continue
+
+        for _, row in df.iterrows():
+            face_key = str(row.get("faceName", "")).strip()
+            name_key = str(row.get("name", "")).strip()
+            keys = {k for k in (face_key, name_key) if k}
+            if not keys:
+                continue
+
+            for key in keys:
+                bucket = combined.setdefault(key, {col: set() for col in columns})
+                for col in columns:
+                    if col not in row:
+                        continue
+                    values = _coerce_tag_list(row.get(col))
+                    if values:
+                        bucket[col].update(values)
+
+    enriched: Dict[str, Dict[str, List[str]]] = {}
+    for key, data in combined.items():
+        enriched[key] = {col: sorted(values) for col, values in data.items() if values}
+    return enriched
+
+
+def enrich_commander_rows_with_tags(
+    df: pd.DataFrame,
+    csv_dir: Union[str, Path],
+) -> pd.DataFrame:
+    """Attach theme and creature tag metadata to commander rows when available."""
+
+    if df.empty:
+        df = df.copy()
+        for column in ("themeTags", "creatureTypes", "roleTags"):
+            if column not in df.columns:
+                df[column] = []
+        return df
+
+    metadata = _collect_commander_tag_metadata(csv_dir)
+    if not metadata:
+        df = df.copy()
+        for column in ("themeTags", "creatureTypes", "roleTags"):
+            if column not in df.columns:
+                df[column] = [[] for _ in range(len(df))]
+        return df
+
+    df = df.copy()
+    for column in ("themeTags", "creatureTypes", "roleTags"):
+        if column not in df.columns:
+            df[column] = [[] for _ in range(len(df))]
+
+    theme_values: List[List[str]] = []
+    creature_values: List[List[str]] = []
+    role_values: List[List[str]] = []
+
+    for _, row in df.iterrows():
+        face_key = str(row.get("faceName", "")).strip()
+        name_key = str(row.get("name", "")).strip()
+
+        entry_face = metadata.get(face_key, {})
+        entry_name = metadata.get(name_key, {})
+
+        combined: Dict[str, set[str]] = {
+            "themeTags": set(_coerce_tag_list(row.get("themeTags"))),
+            "creatureTypes": set(_coerce_tag_list(row.get("creatureTypes"))),
+            "roleTags": set(_coerce_tag_list(row.get("roleTags"))),
+        }
+
+        for source in (entry_face, entry_name):
+            for column in combined:
+                combined[column].update(source.get(column, []))
+
+        theme_values.append(sorted(combined["themeTags"]))
+        creature_values.append(sorted(combined["creatureTypes"]))
+        role_values.append(sorted(combined["roleTags"]))
+
+    df["themeTags"] = theme_values
+    df["creatureTypes"] = creature_values
+    df["roleTags"] = role_values
+
+    enriched_rows = sum(1 for t, c, r in zip(theme_values, creature_values, role_values) if t or c or r)
+    logger.debug("Enriched %d commander rows with tag metadata", enriched_rows)
+
+    return df
 
 # Type definitions
 class FilterRule(TypedDict):
@@ -429,7 +677,9 @@ def process_legendary_cards(df: pd.DataFrame) -> pd.DataFrame:
                 "set_legality",
                 str(e)
             ) from e
-        logger.info(f'Commander validation complete. {len(filtered_df)} valid commanders found')
+        filtered_df = _enforce_primary_face_commander_rules(filtered_df, df)
+
+        logger.info('Commander validation complete. %d valid commanders found', len(filtered_df))
         return filtered_df
 
     except CommanderValidationError:

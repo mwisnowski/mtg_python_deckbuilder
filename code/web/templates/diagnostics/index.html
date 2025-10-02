@@ -13,6 +13,62 @@
     </div>
   </div>
   <div class="card" style="background: var(--panel); border:1px solid var(--border); border-radius:10px; padding:.75rem; margin-bottom:.75rem">
+    <h3 style="margin-top:0">Multi-face merge snapshot</h3>
+    <div class="muted" style="margin-bottom:.35rem">Pulls from <code>logs/dfc_merge_summary.json</code> to verify merge coverage.</div>
+  {% set colors = merge_summary.get('colors') if merge_summary else {} %}
+    {% if colors %}
+    <div class="muted" style="margin-bottom:.35rem">Last updated: {{ merge_summary.updated_at or 'unknown' }}</div>
+    <div style="overflow-x:auto">
+      <table style="width:100%; border-collapse:collapse; font-size:13px;">
+        <thead>
+          <tr style="border-bottom:1px solid var(--border); text-align:left;">
+            <th style="padding:.35rem .25rem;">Color</th>
+            <th style="padding:.35rem .25rem;">Groups merged</th>
+            <th style="padding:.35rem .25rem;">Faces dropped</th>
+            <th style="padding:.35rem .25rem;">Multi-face rows</th>
+            <th style="padding:.35rem .25rem;">Latest entries</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for color, payload in colors.items()|dictsort %}
+          <tr style="border-bottom:1px solid rgba(148,163,184,0.2);">
+            <td style="padding:.35rem .25rem; font-weight:600;">{{ color|title }}</td>
+            <td style="padding:.35rem .25rem;">{{ payload.group_count or 0 }}</td>
+            <td style="padding:.35rem .25rem;">{{ payload.faces_dropped or 0 }}</td>
+            <td style="padding:.35rem .25rem;">{{ payload.multi_face_rows or 0 }}</td>
+            <td style="padding:.35rem .25rem;">
+              {% set entries = payload.entries or [] %}
+              {% if entries %}
+              <details>
+                <summary style="cursor:pointer;">{{ entries|length }} recorded</summary>
+                <ul style="margin:.35rem 0 0 .75rem; padding:0; list-style:disc; max-height:180px; overflow:auto;">
+                  {% for entry in entries %}
+                    {% if loop.index0 < 5 %}
+                    <li style="margin-bottom:.25rem;">
+                      <strong>{{ entry.name }}</strong> — {{ entry.total_faces }} faces (dropped {{ entry.dropped_faces }})
+                    </li>
+                    {% elif loop.index0 == 5 %}
+                    <li style="font-size:11px; opacity:.75;">… {{ entries|length - 5 }} more entries</li>
+                    {% break %}
+                    {% endif %}
+                  {% endfor %}
+                </ul>
+              </details>
+              {% else %}
+              <span class="muted">No groups recorded</span>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="muted">No merge summary has been recorded. Run the tagger with multi-face merging enabled.</div>
+    {% endif %}
+    <div id="dfcMetrics" class="muted" style="margin-top:.5rem;">Loading MDFC metrics…</div>
+  </div>
+  <div class="card" style="background: var(--panel); border:1px solid var(--border); border-radius:10px; padding:.75rem; margin-bottom:.75rem">
     <h3 style="margin-top:0">Performance (local)</h3>
     <div class="muted" style="margin-bottom:.35rem">Scroll the Step 5 list; this panel shows a rough FPS estimate and virtualization renders.</div>
     <div style="display:flex; gap:1rem; flex-wrap:wrap">
@@ -193,6 +249,71 @@
       .catch(function(){ tokenEl.textContent = 'Theme stats unavailable'; });
   }
   loadTokenStats();
+  var dfcMetricsEl = document.getElementById('dfcMetrics');
+  function renderDfcMetrics(payload){
+    if (!dfcMetricsEl) return;
+    try {
+      if (!payload || payload.ok !== true) {
+        dfcMetricsEl.textContent = 'MDFC metrics unavailable';
+        return;
+      }
+      var metrics = payload.metrics || {};
+      var html = '';
+      html += '<div><strong>Deck summaries observed:</strong> ' + String(metrics.total_builds || 0) + '</div>';
+      var withDfc = Number(metrics.builds_with_mdfc || 0);
+      var share = metrics.build_share != null ? Number(metrics.build_share) : null;
+      if (!Number.isNaN(share) && share !== null) {
+        share = (share * 100).toFixed(1);
+      } else {
+        share = null;
+      }
+      html += '<div><strong>With MDFCs:</strong> ' + String(withDfc);
+      if (share !== null) {
+        html += ' (' + share + '%)';
+      }
+      html += '</div>';
+      var totalLands = Number(metrics.total_mdfc_lands || 0);
+      var avg = metrics.avg_mdfc_lands != null ? Number(metrics.avg_mdfc_lands) : null;
+      html += '<div><strong>Total MDFC lands:</strong> ' + String(totalLands);
+      if (avg !== null && !Number.isNaN(avg)) {
+        html += ' (avg ' + avg.toFixed(2) + ')';
+      }
+      html += '</div>';
+      var top = metrics.top_cards || {};
+      var topKeys = Object.keys(top);
+      if (topKeys.length) {
+        var items = topKeys.slice(0, 5).map(function(name){
+          return name + ' (' + String(top[name]) + ')';
+        });
+        html += '<div style="font-size:11px;">Top MDFC sources: ' + items.join(', ') + '</div>';
+      }
+      var last = metrics.last_summary || {};
+      if (typeof last.dfc_lands !== 'undefined') {
+        html += '<div style="font-size:11px; margin-top:0.25rem;">Last summary: ' + String(last.dfc_lands || 0) + ' MDFC lands · total with MDFCs ' + String(last.with_dfc || 0) + '</div>';
+      }
+      if (metrics.last_updated) {
+        html += '<div style="font-size:11px;">Updated: ' + String(metrics.last_updated) + '</div>';
+      }
+      dfcMetricsEl.innerHTML = html;
+    } catch (_){
+      dfcMetricsEl.textContent = 'MDFC metrics unavailable';
+    }
+  }
+  function loadDfcMetrics(){
+    if (!dfcMetricsEl) return;
+    dfcMetricsEl.textContent = 'Loading MDFC metrics…';
+    fetch('/status/dfc_metrics', { cache: 'no-store' })
+      .then(function(resp){
+        if (resp.status === 404) {
+          dfcMetricsEl.textContent = 'Diagnostics disabled (metrics unavailable)';
+          return null;
+        }
+        return resp.json();
+      })
+      .then(function(data){ if (data) renderDfcMetrics(data); })
+      .catch(function(){ dfcMetricsEl.textContent = 'MDFC metrics unavailable'; });
+  }
+  loadDfcMetrics();
   // Theme status and reset
   try{
     var tEl = document.getElementById('themeSummary');

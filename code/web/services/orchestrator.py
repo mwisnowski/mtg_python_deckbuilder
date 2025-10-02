@@ -1847,6 +1847,7 @@ def start_build_ctx(
     combo_balance: str | None = None,
     include_cards: List[str] | None = None,
     exclude_cards: List[str] | None = None,
+    swap_mdfc_basics: bool | None = None,
 ) -> Dict[str, Any]:
     logs: List[str] = []
 
@@ -1911,6 +1912,11 @@ def start_build_ctx(
                     b.owned_card_names = set(str(n).strip() for n in owned_names if str(n).strip())  # type: ignore[attr-defined]
             except Exception:
                 pass
+    except Exception:
+        pass
+
+    try:
+        b.swap_mdfc_basics = bool(swap_mdfc_basics)
     except Exception:
         pass
 
@@ -1980,6 +1986,7 @@ def start_build_ctx(
     "history": [],  # list of {i, key, label, snapshot}
         "locks": {str(n).strip().lower() for n in (locks or []) if str(n).strip()},
     "custom_export_base": str(custom_export_base).strip() if isinstance(custom_export_base, str) and custom_export_base.strip() else None,
+        "swap_mdfc_basics": bool(swap_mdfc_basics),
     }
     return ctx
 

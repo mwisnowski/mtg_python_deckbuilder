@@ -662,7 +662,7 @@
         window.__dfcFlipCard = function(card){ if(!card) return; flip(card, card.querySelector('.dfc-toggle')); };
         window.__dfcGetFace = function(card){ if(!card) return 'front'; return card.getAttribute(FACE_ATTR) || 'front'; };
         function scan(){
-          document.querySelectorAll('.card-sample, .commander-cell, .card-tile, .candidate-tile, .stack-card, .card-preview, .owned-row, .list-row').forEach(ensureButton);
+          document.querySelectorAll('.card-sample, .commander-cell, .commander-thumb, .card-tile, .candidate-tile, .stack-card, .card-preview, .owned-row, .list-row').forEach(ensureButton);
         }
         document.addEventListener('pointermove', function(e){ window.__lastPointerEvent = e; }, { passive:true });
         document.addEventListener('DOMContentLoaded', scan);
@@ -1206,9 +1206,9 @@
           if(!el) return null;
           // If inside flip button
           var btn = el.closest && el.closest('.dfc-toggle');
-          if(btn) return btn.closest('.card-sample, .commander-cell, .card-tile, .candidate-tile, .card-preview, .stack-card');
+          if(btn) return btn.closest('.card-sample, .commander-cell, .commander-thumb, .card-tile, .candidate-tile, .card-preview, .stack-card');
           // Recognized container classes (add .stack-card for finished/random deck thumbnails)
-          var container = el.closest && el.closest('.card-sample, .commander-cell, .card-tile, .candidate-tile, .card-preview, .stack-card');
+          var container = el.closest && el.closest('.card-sample, .commander-cell, .commander-thumb, .card-tile, .candidate-tile, .card-preview, .stack-card');
           if(container) return container;
           // Image-based detection (any card image carrying data-card-name)
           if(el.matches && (el.matches('img.card-thumb') || el.matches('img[data-card-name]') || el.classList.contains('commander-img'))){
@@ -1264,12 +1264,12 @@
         window.hoverShowByName = function(name){
           try {
             var el = document.querySelector('[data-card-name="'+CSS.escape(name)+'"]');
-            if(el){ window.__hoverShowCard(el.closest('.card-sample, .commander-cell, .card-tile, .candidate-tile, .card-preview, .stack-card') || el); }
+            if(el){ window.__hoverShowCard(el.closest('.card-sample, .commander-cell, .commander-thumb, .card-tile, .candidate-tile, .card-preview, .stack-card') || el); }
           } catch(_) {}
         };
         // Keyboard accessibility & focus traversal (P2 UI Hover keyboard accessibility)
-        document.addEventListener('focusin', function(e){ var card=e.target.closest && e.target.closest('.card-sample, .commander-cell'); if(card){ show(card, {clientX:card.getBoundingClientRect().left+10, clientY:card.getBoundingClientRect().top+10}); }});
-        document.addEventListener('focusout', function(e){ var next=e.relatedTarget && e.relatedTarget.closest && e.relatedTarget.closest('.card-sample, .commander-cell'); if(!next) hide(); });
+  document.addEventListener('focusin', function(e){ var card=e.target.closest && e.target.closest('.card-sample, .commander-cell, .commander-thumb'); if(card){ show(card, {clientX:card.getBoundingClientRect().left+10, clientY:card.getBoundingClientRect().top+10}); }});
+  document.addEventListener('focusout', function(e){ var next=e.relatedTarget && e.relatedTarget.closest && e.relatedTarget.closest('.card-sample, .commander-cell, .commander-thumb'); if(!next) hide(); });
         document.addEventListener('keydown', function(e){ if(e.key==='Escape') hide(); });
         // Compact mode event listener
         document.addEventListener('mtg:hoverCompactToggle', function(){ panel.classList.toggle('compact-img', !!window.__hoverCompactMode); });

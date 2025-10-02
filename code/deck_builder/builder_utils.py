@@ -8,15 +8,159 @@ Only import lightweight standard library modules here to avoid import cycles.
 """
 from __future__ import annotations
 
-from typing import Dict, Iterable
+from typing import Any, Dict, Iterable, List
 import re
 import ast
 import random as _rand
+from functools import lru_cache
+from pathlib import Path
+
+import pandas as pd
 
 from . import builder_constants as bc
 import math
+from path_util import csv_dir
 
 COLOR_LETTERS = ['W', 'U', 'B', 'R', 'G']
+_MULTI_FACE_LAYOUTS = {
+	"adventure",
+	"aftermath",
+	"augment",
+	"flip",
+	"host",
+	"meld",
+	"modal_dfc",
+	"reversible_card",
+	"split",
+	"transform",
+}
+_SIDE_PRIORITY = {
+	"": 0,
+	"a": 0,
+	"front": 0,
+	"main": 0,
+	"b": 1,
+	"back": 1,
+	"c": 2,
+}
+
+
+def _detect_produces_mana(text: str) -> bool:
+	text = (text or "").lower()
+	if not text:
+		return False
+	if 'add one mana of any color' in text or 'add one mana of any colour' in text:
+		return True
+	if 'add mana of any color' in text or 'add mana of any colour' in text:
+		return True
+	if 'mana of any one color' in text or 'any color of mana' in text:
+		return True
+	if 'add' in text:
+		for sym in ('{w}', '{u}', '{b}', '{r}', '{g}', '{c}'):
+			if sym in text:
+				return True
+	return False
+
+
+def _resolved_csv_dir(base_dir: str | None = None) -> str:
+	try:
+		if base_dir:
+			return str(Path(base_dir).resolve())
+		return str(Path(csv_dir()).resolve())
+	except Exception:
+		return base_dir or csv_dir()
+
+
+@lru_cache(maxsize=None)
+def _load_multi_face_land_map(base_dir: str) -> Dict[str, Dict[str, Any]]:
+	"""Load mapping of multi-faced cards that have at least one land face."""
+	try:
+		base_path = Path(base_dir)
+		csv_path = base_path / 'cards.csv'
+		if not csv_path.exists():
+			return {}
+		usecols = ['name', 'layout', 'side', 'type', 'text', 'manaCost', 'manaValue', 'faceName']
+		df = pd.read_csv(csv_path, usecols=usecols, low_memory=False)
+	except Exception:
+		return {}
+	if df.empty or 'layout' not in df.columns or 'type' not in df.columns:
+		return {}
+	df['layout'] = df['layout'].fillna('').astype(str).str.lower()
+	multi_df = df[df['layout'].isin(_MULTI_FACE_LAYOUTS)].copy()
+	if multi_df.empty:
+		return {}
+	multi_df['type'] = multi_df['type'].fillna('').astype(str)
+	multi_df['side'] = multi_df['side'].fillna('').astype(str)
+	multi_df['text'] = multi_df['text'].fillna('').astype(str)
+	land_rows = multi_df[multi_df['type'].str.contains('land', case=False, na=False)]
+	if land_rows.empty:
+		return {}
+	mapping: Dict[str, Dict[str, Any]] = {}
+	for name, group in land_rows.groupby('name', sort=False):
+		faces: List[Dict[str, str]] = []
+		seen: set[tuple[str, str, str]] = set()
+		front_is_land = False
+		layout_val = ''
+		for _, row in group.iterrows():
+			side_raw = str(row.get('side', '') or '').strip()
+			side_key = side_raw.lower()
+			if not side_key:
+				side_key = 'a'
+			type_val = str(row.get('type', '') or '')
+			text_val = str(row.get('text', '') or '')
+			mana_cost_val = str(row.get('manaCost', '') or '')
+			mana_value_raw = row.get('manaValue', '')
+			mana_value_val = None
+			try:
+				if mana_value_raw not in (None, ''):
+					mana_value_val = float(mana_value_raw)
+					if math.isnan(mana_value_val):
+						mana_value_val = None
+			except Exception:
+				mana_value_val = None
+			face_label = str(row.get('faceName', '') or row.get('name', '') or '')
+			produces_mana = _detect_produces_mana(text_val)
+			signature = (side_key, type_val, text_val)
+			if signature in seen:
+				continue
+			seen.add(signature)
+			faces.append({
+				'face': face_label,
+				'side': side_key,
+				'type': type_val,
+				'text': text_val,
+				'mana_cost': mana_cost_val,
+				'mana_value': mana_value_val,
+				'produces_mana': produces_mana,
+				'is_land': 'land' in type_val.lower(),
+				'layout': str(row.get('layout', '') or ''),
+			})
+			if side_key in ('', 'a', 'front', 'main'):
+				front_is_land = True
+			layout_val = layout_val or str(row.get('layout', '') or '')
+		if not faces:
+			continue
+		faces.sort(key=lambda face: _SIDE_PRIORITY.get(face.get('side', ''), 3))
+		mapping[name] = {
+			'faces': faces,
+			'front_is_land': front_is_land,
+			'layout': layout_val,
+		}
+	return mapping
+
+
+def multi_face_land_info(name: str, base_dir: str | None = None) -> Dict[str, Any]:
+	return _load_multi_face_land_map(_resolved_csv_dir(base_dir)).get(name, {})
+
+
+def get_multi_face_land_faces(name: str, base_dir: str | None = None) -> List[Dict[str, str]]:
+	entry = multi_face_land_info(name, base_dir)
+	return list(entry.get('faces', []))
+
+
+def has_multi_face_land(name: str, base_dir: str | None = None) -> bool:
+	entry = multi_face_land_info(name, base_dir)
+	return bool(entry and entry.get('faces'))
 
 
 def parse_theme_tags(val) -> list[str]:
@@ -90,13 +234,49 @@ def compute_color_source_matrix(card_library: Dict[str, dict], full_df) -> Dict[
 			nm = str(r.get('name', ''))
 			if nm and nm not in lookup:
 				lookup[nm] = r
+	try:
+		dfc_map = _load_multi_face_land_map(_resolved_csv_dir())
+	except Exception:
+		dfc_map = {}
 	for name, entry in card_library.items():
 		row = lookup.get(name, {})
-		entry_type = str(entry.get('Card Type') or entry.get('Type') or '').lower()
-		tline_full = str(row.get('type', row.get('type_line', '')) or '').lower()
+		entry_type_raw = str(entry.get('Card Type') or entry.get('Type') or '')
+		entry_type = entry_type_raw.lower()
+		row_type_raw = ''
+		if hasattr(row, 'get'):
+			row_type_raw = row.get('type', row.get('type_line', '')) or ''
+		tline_full = str(row_type_raw).lower()
 		# Land or permanent that could produce mana via text
 		is_land = ('land' in entry_type) or ('land' in tline_full)
-		text_field = str(row.get('text', row.get('oracleText', '')) or '').lower()
+		base_is_land = is_land
+		text_field_raw = ''
+		if hasattr(row, 'get'):
+			text_field_raw = row.get('text', row.get('oracleText', '')) or ''
+		if pd.isna(text_field_raw):
+			text_field_raw = ''
+		text_field_raw = str(text_field_raw)
+		dfc_entry = dfc_map.get(name)
+		if dfc_entry:
+			faces = dfc_entry.get('faces', []) or []
+			if faces:
+				face_types: List[str] = []
+				face_texts: List[str] = []
+				for face in faces:
+					type_val = str(face.get('type', '') or '')
+					text_val = str(face.get('text', '') or '')
+					if type_val:
+						face_types.append(type_val)
+					if text_val:
+						face_texts.append(text_val)
+				if face_types:
+					joined_types = ' '.join(face_types)
+					tline_full = (tline_full + ' ' + joined_types.lower()).strip()
+				if face_texts:
+					joined_text = ' '.join(face_texts)
+					text_field_raw = (text_field_raw + ' ' + joined_text).strip()
+				if face_types or face_texts:
+					is_land = True
+		text_field = text_field_raw.lower().replace('\n', ' ')
 		# Skip obvious non-permanents (rituals etc.)
 		if (not is_land) and ('instant' in entry_type or 'sorcery' in entry_type or 'instant' in tline_full or 'sorcery' in tline_full):
 			continue
@@ -166,8 +346,13 @@ def compute_color_source_matrix(card_library: Dict[str, dict], full_df) -> Dict[
 			col = mapping.get(base)
 			if col:
 				colors[col] = 1
-		# Only include cards that produced at least one color
-		if any(colors.values()):
+		dfc_is_land = bool(dfc_entry and dfc_entry.get('faces'))
+		if dfc_is_land:
+			colors['_dfc_land'] = True
+			if not (base_is_land or dfc_entry.get('front_is_land')):
+				colors['_dfc_counts_as_extra'] = True
+		produces_any_color = any(colors[c] for c in ('W', 'U', 'B', 'R', 'G', 'C'))
+		if produces_any_color or colors.get('_dfc_land'):
 			matrix[name] = colors
 	return matrix
 
@@ -210,11 +395,15 @@ def compute_spell_pip_weights(card_library: Dict[str, dict], color_identity: Ite
 	return {c: (pip_counts[c] / total_colored) for c in pip_counts}
 
 
+
 __all__ = [
 	'compute_color_source_matrix',
 	'compute_spell_pip_weights',
 	'parse_theme_tags',
 	'normalize_theme_list',
+	'multi_face_land_info',
+	'get_multi_face_land_faces',
+	'has_multi_face_land',
 	'detect_viable_multi_copy_archetypes',
 	'prefer_owned_first',
 	'compute_adjusted_target',

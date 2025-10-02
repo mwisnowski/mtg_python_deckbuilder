@@ -15,6 +15,9 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.gzip import GZipMiddleware
 from typing import Any, Optional, Dict, Iterable, Mapping
 from contextlib import asynccontextmanager
+
+from code.deck_builder.summary_telemetry import get_mdfc_metrics
+from tagging.multi_face_merger import load_merge_summary
 from .services.combo_utils import detect_all as _detect_all
 from .services.theme_catalog_loader import prewarm_common_filters  # type: ignore
 from .services.tasks import get_session, new_sid, set_session_value  # type: ignore
@@ -870,6 +873,17 @@ async def status_random_theme_stats():
         raise
     except Exception as exc:  # pragma: no cover - defensive log
         logging.getLogger("web").warning("Failed to build random theme stats: %s", exc, exc_info=True)
+        return JSONResponse({"ok": False, "error": "internal_error"}, status_code=500)
+
+
+@app.get("/status/dfc_metrics")
+async def status_dfc_metrics():
+    if not SHOW_DIAGNOSTICS:
+        raise HTTPException(status_code=404, detail="Not Found")
+    try:
+        return JSONResponse({"ok": True, "metrics": get_mdfc_metrics()})
+    except Exception as exc:  # pragma: no cover - defensive log
+        logging.getLogger("web").warning("Failed to fetch MDFC metrics: %s", exc, exc_info=True)
         return JSONResponse({"ok": False, "error": "internal_error"}, status_code=500)
 
 
@@ -2352,7 +2366,13 @@ async def trigger_error(kind: str = Query("http")):
 async def diagnostics_home(request: Request) -> HTMLResponse:
     if not SHOW_DIAGNOSTICS:
         raise HTTPException(status_code=404, detail="Not Found")
-    return templates.TemplateResponse("diagnostics/index.html", {"request": request})
+    return templates.TemplateResponse(
+        "diagnostics/index.html",
+        {
+            "request": request,
+            "merge_summary": load_merge_summary(),
+        },
+    )
 
 
 @app.get("/diagnostics/perf", response_class=HTMLResponse)

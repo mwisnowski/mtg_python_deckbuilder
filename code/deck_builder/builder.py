@@ -458,6 +458,8 @@ class DeckBuilder(
     fetch_count: Optional[int] = None
     # Whether this build is running in headless mode (suppress some interactive-only exports)
     headless: bool = False
+    # Preference: swap a matching basic for modal double-faced lands when they are added
+    swap_mdfc_basics: bool = False
 
     def __post_init__(self):
         """Post-init hook to wrap the provided output function so that all user-facing
@@ -1766,6 +1768,9 @@ class DeckBuilder(
         except Exception:
             pass
 
+        # If configured, offset modal DFC land additions by trimming a matching basic
+        self._maybe_offset_basic_for_modal_land(card_name)
+
     def _remove_from_pool(self, card_name: str):
         if self._combined_cards_df is None:
             return
@@ -2274,6 +2279,59 @@ class DeckBuilder(
         """Return a basic land name to trim (highest count) or None."""
         
         return bu.choose_basic_to_trim(self.card_library)
+
+    def _maybe_offset_basic_for_modal_land(self, card_name: str) -> None:
+        """If enabled, remove one matching basic when a modal DFC land is added."""
+        if not getattr(self, 'swap_mdfc_basics', False):
+            return
+        try:
+            entry = self.card_library.get(card_name)
+            if entry and entry.get('Commander'):
+                return
+            # Force a fresh matrix so the newly added card is represented
+            self._color_source_cache_dirty = True
+            matrix = self._compute_color_source_matrix()
+        except Exception:
+            return
+        colors = matrix.get(card_name)
+        if not colors or not colors.get('_dfc_counts_as_extra'):
+            return
+        candidate_colors = [c for c in ['W', 'U', 'B', 'R', 'G', 'C'] if colors.get(c)]
+        if not candidate_colors:
+            return
+        matches: List[tuple[int, str, str]] = []
+        color_map = getattr(bc, 'COLOR_TO_BASIC_LAND', {})
+        snow_map = getattr(bc, 'SNOW_BASIC_LAND_MAPPING', {})
+        for color in candidate_colors:
+            names: List[str] = []
+            base = color_map.get(color)
+            if base:
+                names.append(base)
+            snow = snow_map.get(color)
+            if snow and snow not in names:
+                names.append(snow)
+            for nm in names:
+                entry = self.card_library.get(nm)
+                if entry and entry.get('Count', 0) > 0:
+                    matches.append((int(entry.get('Count', 0)), nm, color))
+                    break
+        if matches:
+            matches.sort(key=lambda x: x[0], reverse=True)
+            _, target_name, target_color = matches[0]
+            if self._decrement_card(target_name):
+                logger.info(
+                    "MDFC swap: %s removed %s to keep land totals aligned",
+                    card_name,
+                    target_name,
+                )
+                return
+        fallback = self._choose_basic_to_trim()
+        if fallback and self._decrement_card(fallback):
+            logger.info(
+                "MDFC swap fallback: %s trimmed %s to maintain land total",
+                card_name,
+                fallback,
+            )
 
     def _decrement_card(self, name: str) -> bool:
         entry = self.card_library.get(name)

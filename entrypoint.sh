@@ -40,15 +40,15 @@ seed_defaults() {
 
 seed_defaults
 
-# Always operate from the code directory for imports to work
-cd /app/code || exit 1
+# Ensure we're at repo root so the `code` package resolves correctly
+cd /app || exit 1
 
 # Select mode: default to Web UI
 MODE="${APP_MODE:-web}"
 
 if [ "$MODE" = "cli" ]; then
-        # Run the CLI (interactive menu; use DECK_MODE=headless for non-interactive)
-        exec python main.py
+    # Run the CLI (interactive menu; use DECK_MODE=headless for non-interactive)
+    exec python -m code.main
 fi
 
 # Web UI (FastAPI via uvicorn)
@@ -56,4 +56,4 @@ HOST="${HOST:-0.0.0.0}"
 PORT="${PORT:-8080}"
 WORKERS="${WORKERS:-1}"
 
-exec uvicorn web.app:app --host "$HOST" --port "$PORT" --workers "$WORKERS"
+exec uvicorn code.web.app:app --host "$HOST" --port "$PORT" --workers "$WORKERS"

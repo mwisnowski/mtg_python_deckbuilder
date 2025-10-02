@@ -15,6 +15,27 @@
   </script>
 </div>
 
+{% set exclusion = commander.exclusion if commander is defined and commander.exclusion is defined else None %}
+{% if exclusion %}
+  {% set eligible_raw = exclusion.eligible_faces if exclusion.eligible_faces is defined else [] %}
+  {% set eligible_list = eligible_raw if eligible_raw is iterable else [] %}
+  {% set eligible_lower = eligible_list | map('lower') | list %}
+  {% set current_lower = commander.name|lower %}
+  {% if eligible_list and (current_lower not in eligible_lower or exclusion.reason == 'secondary_face_only') %}
+    <div class="muted" style="font-size:12px; margin-top:.35rem; color:#facc15;" role="note">
+      {% if eligible_list|length == 1 %}
+        ⚠ This commander only works from '{{ eligible_list[0] }}'.
+        {% if exclusion.primary_face and exclusion.primary_face|lower != eligible_list[0]|lower %}
+          Front face '{{ exclusion.primary_face }}' can't lead a deck.
+        {% endif %}
+        We'll build using the supported face automatically.
+      {% else %}
+        ⚠ This commander only works from these faces: {{ eligible_list | join(', ') }}. We'll build using the supported faces automatically.
+      {% endif %}
+    </div>
+  {% endif %}
+{% endif %}
+
 <div>
   {% if tags and tags|length %}
   <div class="muted" style="font-size:12px; margin-bottom:.35rem;">Pick up to three themes. Toggle AND/OR to control how themes combine.</div>

@@ -1,33 +1,22 @@
 # Docker Guide
 
-Run the MTG Deckbuilder (CLI and Web UI) in Docker with persistent volumes and optional headless mode.
+Spin up the MTG Python Deckbuilder inside containers. The image defaults to the Web UI; switch to the CLI/headless runner by flipping environment variables. All commands assume Windows PowerShell.
 
-## Quick start
+## Build a Deck (Web UI)
 
-### PowerShell (recommended)
-```powershell
-docker compose build
-docker compose run --rm mtg-deckbuilder
-```
+- Build the image (first run only) and start the `web` service in detached mode:
 
-### From Docker Hub (PowerShell)
-```powershell
-docker run -it --rm `
-    -v "${PWD}/deck_files:/app/deck_files" `
-    -v "${PWD}/logs:/app/logs" `
-    -v "${PWD}/csv_files:/app/csv_files" `
-    -v "${PWD}/owned_cards:/app/owned_cards" `
-    -v "${PWD}/config:/app/config" `
-    mwisnowski/mtg-python-deckbuilder:latest
-```
-
-## Web UI (new)
-
-The web UI runs the same deckbuilding logic behind a browser-based interface.
-
-### PowerShell (recommended)
 ```powershell
 docker compose up --build --no-deps -d web
+```
+
+- Open http://localhost:8080 to use the browser experience. First launch seeds data, downloads the latest card catalog, and tags cards automatically (`WEB_AUTO_SETUP=1`, `WEB_TAG_PARALLEL=1`, `WEB_TAG_WORKERS=4` in `docker-compose.yml`).
+
+- Stop or restart the service when you're done:
+
+```powershell
+docker compose stop web
+docker compose start web
 ```
 
 Then open http://localhost:8080
@@ -87,20 +76,14 @@ environment:
     - SHOW_DIAGNOSTICS=1
 ```
 
-Docker Hub (PowerShell) example:
 ```powershell
-docker run --rm `
-    -p 8080:8080 `
-    -e SHOW_LOGS=1 -e SHOW_DIAGNOSTICS=1 -e ENABLE_THEMES=1 -e THEME=system `
-    -e SPLASH_ADAPTIVE=1 -e SPLASH_ADAPTIVE_SCALE="1:1.0,2:1.0,3:1.0,4:0.6,5:0.35" ` # optional experiment
-    -e RANDOM_MODES=1 -e RANDOM_UI=1 -e RANDOM_MAX_ATTEMPTS=5 -e RANDOM_TIMEOUT_MS=5000 `
-    -v "${PWD}/deck_files:/app/deck_files" `
-    -v "${PWD}/logs:/app/logs" `
-    -v "${PWD}/csv_files:/app/csv_files" `
-    -v "${PWD}/owned_cards:/app/owned_cards" `
-    -v "${PWD}/config:/app/config" `
-    mwisnowski/mtg-python-deckbuilder:latest `
-    bash -lc "cd /app && uvicorn code.web.app:app --host 0.0.0.0 --port 8080"
+docker run --rm -p 8080:8080 `
+  -v "${PWD}/deck_files:/app/deck_files" `
+  -v "${PWD}/logs:/app/logs" `
+  -v "${PWD}/csv_files:/app/csv_files" `
+  -v "${PWD}/config:/app/config" `
+  -v "${PWD}/owned_cards:/app/owned_cards" `
+  mwisnowski/mtg-python-deckbuilder:latest
 ```
 
 ### MDFC merge rollout (staging)
@@ -129,127 +112,204 @@ Downstream consumers can diff `csv_files/compat_faces/commander_cards_unmerged.c
 ### Setup speed: parallel tagging (Web)
 First-time setup or stale data triggers card tagging. The web service uses parallel workers by default.
 
-Configure via environment variables on the `web` service:
-- `WEB_TAG_PARALLEL=1|0` — enable/disable parallel tagging (default: 1)
-- `WEB_TAG_WORKERS=<N>` — number of worker processes (default: 4 in compose)
+## Run a JSON Config
 
-If parallel initialization fails, the service falls back to sequential tagging and continues.
-
-### From Docker Hub (PowerShell)
-If you prefer not to build locally, pull `mwisnowski/mtg-python-deckbuilder:latest` and run uvicorn:
-```powershell
-docker run --rm `
-    -p 8080:8080 `
-    -v "${PWD}/deck_files:/app/deck_files" `
-    -v "${PWD}/logs:/app/logs" `
-    -v "${PWD}/csv_files:/app/csv_files" `
-    -v "${PWD}/owned_cards:/app/owned_cards" `
-    -v "${PWD}/config:/app/config" `
-    mwisnowski/mtg-python-deckbuilder:latest `
-    bash -lc "cd /app && uvicorn code.web.app:app --host 0.0.0.0 --port 8080"
-```
-
-Health check:
-```text
-GET http://localhost:8080/healthz  ->  { "status": "ok", "version": "dev", "uptime_seconds": 123 }
-```
-
-Theme preference reset (client-side): use the header’s Reset Theme control to clear the saved browser preference; the server default (THEME) applies on next paint.
-
-### Random Modes (alpha) and test dataset override
-
-Enable experimental Random Modes and UI controls in Web runs by setting:
-
-```yaml
-services:
-    web:
-        environment:
-            - RANDOM_MODES=1
-            - RANDOM_UI=1
-            - RANDOM_MAX_ATTEMPTS=5
-            - RANDOM_TIMEOUT_MS=5000
-```
-
-For deterministic tests or development, you can point the app to a frozen dataset snapshot:
-
-```yaml
-services:
-    web:
-        environment:
-            - CSV_FILES_DIR=/app/csv_files/testdata
-```
-
-### Taxonomy snapshot (maintainers)
-Capture the current bracket taxonomy into an auditable JSON file inside the container:
+Use the homepage “Run a JSON Config” button or run the same flow in-container:
 
 ```powershell
-docker compose run --rm web bash -lc "python -m code.scripts.snapshot_taxonomy"
+docker compose run --rm `
+  -e APP_MODE=cli `
+  -e DECK_MODE=headless `
+  -e DECK_CONFIG=/app/config/deck.json `
+  web
 ```
-Artifacts appear under `./logs/taxonomy_snapshots/` on your host via the mounted volume.
 
-To force a new snapshot even when the content hash matches the latest, pass `--force` to the module.
+- `APP_MODE=cli` routes the entrypoint to the CLI menu.
+- `DECK_MODE=headless` skips prompts and calls `headless_runner`.
+- Mount JSON configs under `config/` so both the UI and CLI can pick them up.
 
-## Volumes
-- `/app/deck_files` ↔ `./deck_files`
-- `/app/logs` ↔ `./logs`
-- `/app/csv_files` ↔ `./csv_files`
-- `/app/owned_cards` ↔ `./owned_cards` (owned cards lists: .txt/.csv)
-- Optional: `/app/config` ↔ `./config` (JSON configs for headless)
+Override counts, theme tags, or include/exclude lists by setting the matching environment variables before running the container (see “Environment variables” below).
 
-## Interactive vs headless
-- Interactive: attach a TTY (compose run or `docker run -it`)
-- Headless auto-run:
-    ```powershell
-    docker compose run --rm -e DECK_MODE=headless mtg-deckbuilder
-    ```
-- Headless with JSON config:
-    ```powershell
-    docker compose run --rm `
-        -e DECK_MODE=headless `
-        -e DECK_CONFIG=/app/config/deck.json `
-        mtg-deckbuilder
-    ```
+## Initial Setup
 
-### Common env vars
-- DECK_MODE=headless
-- DECK_CONFIG=/app/config/deck.json
-- DECK_COMMANDER, DECK_PRIMARY_CHOICE
-- DECK_ADD_LANDS, DECK_FETCH_COUNT
- - DECK_TAG_MODE=AND|OR (combine mode used by the builder)
+The homepage “Initial Setup” tile appears when `SHOW_SETUP=1` (enabled in compose). It re-runs:
 
-### Web UI tuning env vars
-- WEB_TAG_PARALLEL=1|0 (parallel tagging on/off)
-- WEB_TAG_WORKERS=<N> (process count; set based on CPU/memory)
-- WEB_VIRTUALIZE=1 (enable virtualization)
-- SHOW_DIAGNOSTICS=1 (enables diagnostics pages and overlay hotkey `v`)
-- RANDOM_MODES=1 (enable random build endpoints)
-- RANDOM_UI=1 (show Surprise/Theme/Reroll/Share controls)
-- RANDOM_MAX_ATTEMPTS=5 (cap retry attempts)
-- (Upcoming) Multi-theme inputs: once UI ships, Random Mode will accept `primary_theme`, `secondary_theme`, `tertiary_theme` fields; current backend already supports the cascade + diagnostics.
-- RANDOM_TIMEOUT_MS=5000 (per-build timeout in ms)
+1. Card downloads and color-filtered CSV generation.
+2. Commander catalog rebuild (including multi-face merges).
+3. Tagging and caching.
 
-Testing/determinism helper (dev):
-- CSV_FILES_DIR=csv_files/testdata — override CSV base dir to a frozen set for tests
+To force a rebuild from the host:
 
-## Manual build/run
 ```powershell
-docker build -t mtg-deckbuilder .
-docker run -it --rm `
-    -v "${PWD}/deck_files:/app/deck_files" `
-    -v "${PWD}/logs:/app/logs" `
-    -v "${PWD}/csv_files:/app/csv_files" `
-    -v "${PWD}/owned_cards:/app/owned_cards" `
-    -v "${PWD}/config:/app/config" `
-    mtg-deckbuilder
+docker compose run --rm --entrypoint bash web -lc "python -m code.file_setup.setup"
 ```
+
+Add `--entrypoint bash ... "python -m code.scripts.refresh_commander_catalog"` when you only need the commander catalog (with MDFC merge and optional compatibility snapshot).
+
+## Owned Library
+
+Store `.txt` or `.csv` lists in `owned_cards/` (mounted to `/app/owned_cards`). The Web UI uses them for:
+
+- Owned-only or prefer-owned builds.
+- The Owned Library management page (virtualized when `WEB_VIRTUALIZE=1`).
+- Alternative suggestions that respect ownership.
+
+Use `/owned` to upload files and export enriched lists. These files persist through the `owned_cards` volume.
+
+## Browse Commanders
+
+`SHOW_COMMANDERS=1` exposes the commander browser tile.
+
+- Data lives in `csv_files/commander_cards.csv`.
+- Refresh the catalog (including MDFC merges) from within the container:
+
+```powershell
+docker compose run --rm --entrypoint bash web -lc "python -m code.scripts.refresh_commander_catalog"
+```
+
+Pass `--compat-snapshot` if you also need an unmerged compatibility CSV under `csv_files/compat_faces/`.
+
+## Finished Decks
+
+The Finished Decks page reads the `deck_files/` volume for completed builds:
+
+- Each run produces CSV, TXT, compliance JSON, and summary JSON sidecars.
+- Locks and replace history persist per deck.
+- Compare view can diff and export summaries.
+
+Ensure the deck exports volume remains mounted so these artifacts survive container restarts.
+
+## Browse Themes
+
+The Themes browser exposes the merged theme catalog with search, filters, and diagnostics.
+
+- `ENABLE_THEMES=1` keeps the selector visible.
+- `WEB_THEME_PICKER_DIAGNOSTICS=1` unlocks uncapped synergies, extra metadata, and `/themes/metrics`.
+- Regenerate the catalog manually:
+
+```powershell
+docker compose run --rm --entrypoint bash web -lc "python -m code.scripts.build_theme_catalog"
+```
+
+Advanced options (e.g., `EDITORIAL_*` variables) live in `.env.example`.
+
+## Random Build
+
+Enable the Surprise/Reroll flow by setting:
+
+- `RANDOM_MODES=1` to expose backend random endpoints.
+- `RANDOM_UI=1` to show the Random Build tile.
+- Optional tunables: `RANDOM_MAX_ATTEMPTS`, `RANDOM_TIMEOUT_MS`, `RANDOM_PRIMARY_THEME`, `RANDOM_SEED`, and auto-fill flags.
+
+Headless parity is available by pairing `APP_MODE=cli` with `DECK_MODE=headless` and the same random variables.
+
+## Diagnostics
+
+`SHOW_DIAGNOSTICS=1` unlocks `/diagnostics` for system summaries, feature flags, and performance probes. Highlights:
+
+- `/healthz` returns `{status, version, uptime_seconds}` for external monitoring.
+- Press `v` on pages with virtualized grids (when `WEB_VIRTUALIZE=1`) to toggle the range overlay.
+- `WEB_AUTO_ENFORCE=1` (optional) applies bracket enforcement automatically after each build.
+
+## View Logs
+
+`SHOW_LOGS=1` enables the logs tile and `/logs` interface:
+
+- Tail the container log with filtering and copy-to-clipboard.
+- `/status/logs?tail=200` offers a lightweight JSON endpoint.
+- Raw files live under `logs/` on the host; rotate or archive them as needed.
+
+## Environment variables (Docker quick reference)
+
+See `.env.example` for the full catalog. Common knobs:
+
+### Core mode and networking
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `APP_MODE` | `web` | Switch between Web UI (`web`) and CLI (`cli`). |
+| `DECK_MODE` | _(unset)_ | `headless` auto-runs the headless builder when the CLI starts. |
+| `DECK_CONFIG` | `/app/config/deck.json` | JSON config file or directory (auto-discovery). |
+| `HOST` / `PORT` / `WORKERS` | `0.0.0.0` / `8080` / `1` | Uvicorn binding when `APP_MODE=web`. |
+
+### Homepage visibility & UX
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `SHOW_SETUP` | `1` | Show the Initial Setup card. |
+| `SHOW_LOGS` | `1` | Enable the View Logs tile and endpoints. |
+| `SHOW_DIAGNOSTICS` | `1` | Enable Diagnostics tools and overlays. |
+| `SHOW_COMMANDERS` | `1` | Expose the commander browser. |
+| `ENABLE_THEMES` | `1` | Keep the theme selector and themes explorer visible. |
+| `WEB_VIRTUALIZE` | `1` | Opt-in to virtualized lists/grids for large result sets. |
+| `ALLOW_MUST_HAVES` | `1` | Enable include/exclude enforcement in Step 5. |
+| `THEME` | `dark` | Initial UI theme (`system`, `light`, or `dark`). |
+
+### Random build controls
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `RANDOM_MODES` | _(unset)_ | Enable random build endpoints. |
+| `RANDOM_UI` | _(unset)_ | Show the Random Build homepage tile. |
+| `RANDOM_MAX_ATTEMPTS` | `5` | Retry budget for constrained random rolls. |
+| `RANDOM_TIMEOUT_MS` | `5000` | Per-attempt timeout in milliseconds. |
+| `RANDOM_PRIMARY_THEME` / `RANDOM_SECONDARY_THEME` / `RANDOM_TERTIARY_THEME` | _(blank)_ | Override theme slots for random runs. |
+| `RANDOM_SEED` | _(blank)_ | Deterministic seed. |
+| `RANDOM_AUTO_FILL` | `1` | Allow automatic backfill of missing theme slots. |
+
+### Automation & performance
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `WEB_AUTO_SETUP` | `1` | Auto-run data setup when artifacts are missing or stale. |
+| `WEB_AUTO_REFRESH_DAYS` | `7` | Refresh `cards.csv` if older than N days. |
+| `WEB_TAG_PARALLEL` | `1` | Use parallel workers during tagging. |
+| `WEB_TAG_WORKERS` | `4` | Worker count for parallel tagging. |
+| `WEB_AUTO_ENFORCE` | `0` | Re-export decks after auto-applying compliance fixes. |
+| `WEB_THEME_PICKER_DIAGNOSTICS` | `1` | Enable theme diagnostics endpoints. |
+
+### Paths and data overrides
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `CSV_FILES_DIR` | `/app/csv_files` | Point the app at an alternate dataset (e.g., test snapshots). |
+| `DECK_EXPORTS` | `/app/deck_files` | Override where the web UI looks for exports. |
+| `OWNED_CARDS_DIR` / `CARD_LIBRARY_DIR` | `/app/owned_cards` | Override owned library directory. |
+| `CARD_INDEX_EXTRA_CSV` | _(blank)_ | Inject a synthetic CSV into the card index for testing. |
+
+Advanced editorial and theme-catalog knobs (`EDITORIAL_*`, `SPLASH_ADAPTIVE`, etc.) are documented inline in `docker-compose.yml` and `.env.example`.
+
+## Shared volumes
+
+| Host path | Container path | Contents |
+| --- | --- | --- |
+| `deck_files/` | `/app/deck_files` | CSV/TXT exports, summary JSON, compliance reports. |
+| `logs/` | `/app/logs` | Application logs and taxonomy snapshots. |
+| `csv_files/` | `/app/csv_files` | Card datasets, commander catalog, tagging flags. |
+| `config/` | `/app/config` | JSON configs, bracket policy, card list overrides. |
+| `owned_cards/` | `/app/owned_cards` | Uploaded inventory files for owned-only flows. |
+
+## Maintenance commands
+
+Run ad-hoc tasks by overriding the entrypoint:
+
+```powershell
+# Theme catalog rebuild
+docker compose run --rm --entrypoint bash web -lc "python -m code.scripts.build_theme_catalog"
+
+# Snapshot taxonomy (writes logs/taxonomy_snapshots/)
+docker compose run --rm --entrypoint bash web -lc "python -m code.scripts.snapshot_taxonomy"
+
+# Preview the MDFC commander diff
+docker compose run --rm --entrypoint bash web -lc "python -m code.scripts.preview_dfc_catalog_diff"
+```
+
+Use the `--compat-snapshot` or other script arguments as needed.
 
 ## Troubleshooting
-- No prompts? Use `docker compose run --rm` (not `up`) or add `-it` to `docker run`
-- Files not saving? Verify volume mounts and that folders exist
-- Headless not picking config? Ensure `./config` is mounted to `/app/config` and `DECK_CONFIG` points to a JSON file
-- Owned-cards prompt not seeing files? Ensure `./owned_cards` is mounted to `/app/owned_cards`
 
-## Tips
-- Use `docker compose run`, not `up`, for interactive mode
-- Exported decks appear in `deck_files/`
-- JSON run-config is exported only in interactive runs; headless skips it
+- **Container starts but UI stays blank:** check `/healthz` and `/logs` (enable with `SHOW_LOGS=1`), then inspect the `logs/` volume.
+- **Files missing on the host:** ensure the host directories exist before starting Compose; Windows will create empty folders if the path is invalid.
+- **Long first boot:** dataset downloads and tagging can take several minutes the first time. Watch progress at `/setup`.
+- **Random build hangs:** lower `RANDOM_MAX_ATTEMPTS` or raise `RANDOM_TIMEOUT_MS`, and confirm your theme overrides are valid slugs via `/themes/`.
+- **Commander catalog outdated:** rerun the refresh command above or delete `csv_files/.tagging_complete.json` to force a full rebuild on next start.

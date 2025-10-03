@@ -28,5 +28,7 @@
 - QA documentation: added `docs/qa/mdfc_staging_checklist.md` outlining the staging validation pass required before removing the MDFC compatibility guard.
 
 ## Fixed
+- Documented friendly handling for missing `commander_cards.csv` data during manual QA drills to prevent white-screen failures.
+- Headless runner commander validation now accepts fuzzy commander prefixes so automated builds using short commander names keep working.
 - Setup filtering now applies security-stamp exclusions case-insensitively, preventing Acorn/Heart promo cards from entering Commander pools.
 - Commander browser thumbnails restore the double-faced flip control so MDFC commanders expose both faces directly in the catalog.

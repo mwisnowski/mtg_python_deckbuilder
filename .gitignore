@@ -1,6 +1,7 @@
 *.bkp
 *.csv
 *.json
+*.jsonl
 *.log
 *.txt
 !requirements.txt
@@ -18,8 +19,9 @@ __pycache__/
 .github/*.md
 
 config/themes/catalog/
-config/themes/
+!config/themes/
 !config/themes/*.yml
+!config/themes/theme_list.json
 !config/card_lists/*.json
 !config/deck.json
 

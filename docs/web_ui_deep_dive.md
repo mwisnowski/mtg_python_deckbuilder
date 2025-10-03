@@ -99,5 +99,6 @@ Open the Owned tile to manage uploaded inventories:
 
 ## Diagnostics and logs
 - `SHOW_DIAGNOSTICS=1` unlocks the `/diagnostics` page with system summaries (`/status/sys`), feature flags, and per-request `X-Request-ID` headers.
+- Supplemental theme telemetry lives at `/status/theme_metrics` (enabled with `ENABLE_CUSTOM_THEMES=1`); the diagnostics page renders commander themes, user-supplied themes, merged totals, and unresolved counts using the `userThemes`/`themeCatalogVersion` metadata exported from builds.
 - `SHOW_LOGS=1` turns on the `/logs` viewer with level & keyword filters, auto-refresh, and copy-to-clipboard.
 - Health probes live at `/healthz` and return `{status, version, uptime_seconds}` for integration with uptime monitors.

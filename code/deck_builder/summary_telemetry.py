@@ -8,6 +8,8 @@ from typing import Any, Dict, Iterable
 __all__ = [
     "record_land_summary",
     "get_mdfc_metrics",
+    "record_theme_summary",
+    "get_theme_metrics",
 ]
 
 
@@ -21,6 +23,16 @@ _metrics: Dict[str, Any] = {
     "last_summary": None,
 }
 _top_cards: Counter[str] = Counter()
+
+_theme_metrics: Dict[str, Any] = {
+    "total_builds": 0,
+    "with_user_themes": 0,
+    "last_updated": None,
+    "last_updated_iso": None,
+    "last_summary": None,
+}
+_user_theme_counter: Counter[str] = Counter()
+_user_theme_labels: Dict[str, str] = {}
 
 
 def _to_int(value: Any) -> int:
@@ -120,3 +132,110 @@ def _reset_metrics_for_test() -> None:
             }
         )
         _top_cards.clear()
+        _theme_metrics.update(
+            {
+                "total_builds": 0,
+                "with_user_themes": 0,
+                "last_updated": None,
+                "last_updated_iso": None,
+                "last_summary": None,
+            }
+        )
+        _user_theme_counter.clear()
+        _user_theme_labels.clear()
+
+
+def _sanitize_theme_list(values: Iterable[Any]) -> list[str]:
+    sanitized: list[str] = []
+    seen: set[str] = set()
+    for raw in values or []:  # type: ignore[arg-type]
+        text = str(raw or "").strip()
+        if not text:
+            continue
+        key = text.casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        sanitized.append(text)
+    return sanitized
+
+
+def record_theme_summary(theme_summary: Dict[str, Any] | None) -> None:
+    if not isinstance(theme_summary, dict):
+        return
+
+    commander_themes = _sanitize_theme_list(theme_summary.get("commanderThemes") or [])
+    user_themes = _sanitize_theme_list(theme_summary.get("userThemes") or [])
+    requested = _sanitize_theme_list(theme_summary.get("requested") or [])
+    resolved = _sanitize_theme_list(theme_summary.get("resolved") or [])
+    unresolved_raw = theme_summary.get("unresolved") or []
+    if isinstance(unresolved_raw, (list, tuple)):
+        unresolved = [str(item).strip() for item in unresolved_raw if str(item).strip()]
+    else:
+        unresolved = []
+    mode = str(theme_summary.get("mode") or "AND")
+    try:
+        weight = float(theme_summary.get("weight", 1.0) or 1.0)
+    except Exception:
+        weight = 1.0
+    catalog_version = theme_summary.get("themeCatalogVersion")
+    matches = theme_summary.get("matches") if isinstance(theme_summary.get("matches"), list) else []
+    fuzzy = theme_summary.get("fuzzyCorrections") if isinstance(theme_summary.get("fuzzyCorrections"), dict) else {}
+
+    merged: list[str] = []
+    seen_merge: set[str] = set()
+    for collection in (commander_themes, user_themes):
+        for item in collection:
+            key = item.casefold()
+            if key in seen_merge:
+                continue
+            seen_merge.add(key)
+            merged.append(item)
+
+    timestamp = time.time()
+    iso = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(timestamp))
+
+    with _lock:
+        _theme_metrics["total_builds"] = int(_theme_metrics.get("total_builds", 0) or 0) + 1
+        if user_themes:
+            _theme_metrics["with_user_themes"] = int(_theme_metrics.get("with_user_themes", 0) or 0) + 1
+            for label in user_themes:
+                key = label.casefold()
+                _user_theme_counter[key] += 1
+                if key not in _user_theme_labels:
+                    _user_theme_labels[key] = label
+        _theme_metrics["last_summary"] = {
+            "commanderThemes": commander_themes,
+            "userThemes": user_themes,
+            "mergedThemes": merged,
+            "requested": requested,
+            "resolved": resolved,
+            "unresolved": unresolved,
+            "unresolvedCount": len(unresolved),
+            "mode": mode,
+            "weight": weight,
+            "matches": matches,
+            "fuzzyCorrections": fuzzy,
+            "themeCatalogVersion": catalog_version,
+        }
+        _theme_metrics["last_updated"] = timestamp
+        _theme_metrics["last_updated_iso"] = iso
+
+
+def get_theme_metrics() -> Dict[str, Any]:
+    with _lock:
+        total = int(_theme_metrics.get("total_builds", 0) or 0)
+        with_user = int(_theme_metrics.get("with_user_themes", 0) or 0)
+        share = (with_user / total) if total else 0.0
+        top_user: list[Dict[str, Any]] = []
+        for key, count in _user_theme_counter.most_common(10):
+            label = _user_theme_labels.get(key, key)
+            top_user.append({"theme": label, "count": int(count)})
+        return {
+            "total_builds": total,
+            "with_user_themes": with_user,
+            "user_theme_share": share,
+            "last_summary": _theme_metrics.get("last_summary"),
+            "last_updated": _theme_metrics.get("last_updated_iso"),
+            "top_user_themes": top_user,
+        }

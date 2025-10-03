@@ -1004,6 +1004,19 @@ def _ensure_setup_ready(out, force: bool = False) -> None:
                     args.append('--force')
                 _run(args, check=True)
                 _emit("Theme catalog (JSON + YAML) refreshed{}.".format(" (fast path)" if fast_path else ""))
+            # Always attempt to generate supplemental CSV catalog from card CSVs for downstream features
+            try:
+                gen_script = os.path.join(script_base, 'generate_theme_catalog.py')
+                if os.path.exists(gen_script):
+                    csv_dir = os.getenv('CSV_FILES_DIR') or 'csv_files'
+                    output_csv = os.path.join('config', 'themes', 'theme_catalog.csv')
+                    gen_args = [_sys.executable, gen_script, '--csv-dir', csv_dir, '--output', output_csv]
+                    _run(gen_args, check=True)
+                    _emit("Supplemental CSV theme catalog generated (theme_catalog.csv).")
+                else:
+                    _emit("generate_theme_catalog.py not found; skipping CSV catalog generation.")
+            except Exception as gerr:
+                _emit(f"CSV theme catalog generation failed: {gerr}")
             # Mark progress complete
             _write_status({"running": True, "phase": phase_label, "message": "Theme catalog refreshed", "percent": 99})
             # Append status file enrichment with last export metrics
@@ -1869,7 +1882,7 @@ def start_build_ctx(
     if row.empty:
         raise ValueError(f"Commander not found: {commander}")
     b._apply_commander_selection(row.iloc[0])
-    # Tags
+    # Tags (explicit + supplemental applied upstream)
     b.selected_tags = list(tags or [])
     b.primary_tag = b.selected_tags[0] if len(b.selected_tags) > 0 else None
     b.secondary_tag = b.selected_tags[1] if len(b.selected_tags) > 1 else None

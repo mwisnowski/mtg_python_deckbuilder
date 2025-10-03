@@ -6,6 +6,7 @@ import os
 
 from .. import builder_utils as bu
 from .. import builder_constants as bc
+from ..theme_context import annotate_theme_matches
 import logging_util
 
 logger = logging_util.logging.getLogger(__name__)
@@ -620,46 +621,17 @@ class SpellAdditionMixin:
         df = getattr(self, '_combined_cards_df', None)
         if df is None or df.empty or 'type' not in df.columns:
             return
-        themes_ordered: List[tuple[str, str]] = []
-        if self.primary_tag:
-            themes_ordered.append(('primary', self.primary_tag))
-        if self.secondary_tag:
-            themes_ordered.append(('secondary', self.secondary_tag))
-        if self.tertiary_tag:
-            themes_ordered.append(('tertiary', self.tertiary_tag))
-        if not themes_ordered:
+        try:
+            context = self.get_theme_context()  # type: ignore[attr-defined]
+        except Exception:
+            context = None
+        if context is None or not getattr(context, 'ordered_targets', []):
             return
-        n_themes = len(themes_ordered)
-        if n_themes == 1:
-            base_map = {'primary': 1.0}
-        elif n_themes == 2:
-            base_map = {'primary': 0.6, 'secondary': 0.4}
-        else:
-            base_map = {'primary': 0.5, 'secondary': 0.3, 'tertiary': 0.2}
-        weights: Dict[str, float] = {}
-        boosted: set[str] = set()
-        if n_themes > 1:
-            for role, tag in themes_ordered:
-                w = base_map.get(role, 0.0)
-                lt = tag.lower()
-                if 'kindred' in lt or 'tribal' in lt:
-                    mult = getattr(bc, 'WEIGHT_ADJUSTMENT_FACTORS', {}).get(f'kindred_{role}', 1.0)
-                    w *= mult
-                    boosted.add(role)
-                weights[role] = w
-            tot = sum(weights.values())
-            if tot > 1.0:
-                for r in weights:
-                    weights[r] /= tot
-            else:
-                rem = 1.0 - tot
-                base_sum_unboosted = sum(base_map[r] for r, _ in themes_ordered if r not in boosted)
-                if rem > 1e-6 and base_sum_unboosted > 0:
-                    for r, _ in themes_ordered:
-                        if r not in boosted:
-                            weights[r] += rem * (base_map[r] / base_sum_unboosted)
-        else:
-            weights['primary'] = 1.0
+        themes_ordered = list(context.ordered_targets)
+        selected_tags_lower = context.selected_slugs()
+        if not themes_ordered or not selected_tags_lower:
+            return
+        weights: Dict[str, float] = dict(getattr(context, 'weights', {}))
         spells_df = df[
             ~df['type'].str.contains('Land', case=False, na=False)
             & ~df['type'].str.contains('Creature', case=False, na=False)
@@ -667,33 +639,33 @@ class SpellAdditionMixin:
         spells_df = self._apply_bracket_pre_filters(spells_df)
         if spells_df.empty:
             return
-        selected_tags_lower = [t.lower() for _r, t in themes_ordered]
-        if '_parsedThemeTags' not in spells_df.columns:
-            spells_df['_parsedThemeTags'] = spells_df['themeTags'].apply(bu.normalize_tag_cell)
-        spells_df['_normTags'] = spells_df['_parsedThemeTags']
-        spells_df['_multiMatch'] = spells_df['_normTags'].apply(
-            lambda lst: sum(1 for t in selected_tags_lower if t in lst)
-        )
-        combine_mode = getattr(self, 'tag_mode', 'AND')
+        spells_df = annotate_theme_matches(spells_df, context)
+        combine_mode = context.combine_mode
         base_top = 40
         top_n = int(base_top * getattr(bc, 'THEME_POOL_SIZE_MULTIPLIER', 2.0))
         synergy_bonus = getattr(bc, 'THEME_PRIORITY_BONUS', 1.2)
-        per_theme_added: Dict[str, List[str]] = {r: [] for r, _t in themes_ordered}
+        per_theme_added: Dict[str, List[str]] = {target.role: [] for target in themes_ordered}
         total_added = 0
-        for role, tag in themes_ordered:
+        bonus = getattr(context, 'match_bonus', 0.0)
+        for target in themes_ordered:
+            role = target.role
+            tag = target.display
+            slug = target.slug or (str(tag).lower() if tag else "")
+            if not slug:
+                continue
             if remaining - total_added <= 0:
                 break
-            w = weights.get(role, 0.0)
+            w = weights.get(role, target.weight if hasattr(target, 'weight') else 0.0)
             if w <= 0:
                 continue
-            target = int(math.ceil(remaining * w * self._get_rng().uniform(1.0, 1.1)))
-            target = min(target, remaining - total_added)
-            if target <= 0:
+            available = remaining - total_added
+            target_count = int(math.ceil(available * w * self._get_rng().uniform(1.0, 1.1)))
+            target_count = min(target_count, available)
+            if target_count <= 0:
                 continue
-            tnorm = tag.lower()
             subset = spells_df[
                 spells_df['_normTags'].apply(
-                    lambda lst, tn=tnorm: (tn in lst) or any(tn in x for x in lst)
+                    lambda lst, tn=slug: (tn in lst) or any(tn in (item or '') for item in lst)
                 )
             ]
             if combine_mode == 'AND' and len(selected_tags_lower) > 1:
@@ -701,18 +673,20 @@ class SpellAdditionMixin:
                     subset = subset[subset['_multiMatch'] >= 2]
             if subset.empty:
                 continue
+            sort_cols: List[str] = []
+            asc: List[bool] = []
+            if '_matchScore' in subset.columns:
+                sort_cols.append('_matchScore')
+                asc.append(False)
+            sort_cols.append('_multiMatch')
+            asc.append(False)
             if 'edhrecRank' in subset.columns:
-                subset = subset.sort_values(
-                    by=['_multiMatch', 'edhrecRank', 'manaValue'],
-                    ascending=[False, True, True],
-                    na_position='last',
-                )
-            elif 'manaValue' in subset.columns:
-                subset = subset.sort_values(
-                    by=['_multiMatch', 'manaValue'],
-                    ascending=[False, True],
-                    na_position='last',
-                )
+                sort_cols.append('edhrecRank')
+                asc.append(True)
+            if 'manaValue' in subset.columns:
+                sort_cols.append('manaValue')
+                asc.append(True)
+            subset = subset.sort_values(by=sort_cols, ascending=asc, na_position='last')
             # Prefer-owned: stable reorder before trimming to top_n
             if getattr(self, 'prefer_owned', False):
                 owned_set = getattr(self, 'owned_card_names', None)
@@ -726,23 +700,60 @@ class SpellAdditionMixin:
             # Build weighted pool with optional owned multiplier
             owned_lower = {str(n).lower() for n in getattr(self, 'owned_card_names', set())} if getattr(self, 'prefer_owned', False) else set()
             owned_mult = getattr(bc, 'PREFER_OWNED_WEIGHT_MULTIPLIER', 1.25)
-            base_pairs = list(zip(pool['name'], pool['_multiMatch']))
             weighted_pool: list[tuple[str, float]] = []
             if combine_mode == 'AND':
-                for nm, mm in base_pairs:
-                    base_w = (synergy_bonus*1.3 if mm >= 2 else (1.1 if mm == 1 else 0.8))
+                for idx, nm in enumerate(pool['name']):
+                    mm = pool.iloc[idx].get('_matchScore', pool.iloc[idx].get('_multiMatch', 0))
+                    try:
+                        mm_val = float(mm)
+                    except Exception:
+                        mm_val = 0.0
+                    base_w = (synergy_bonus * 1.3 if mm_val >= 2 else (1.1 if mm_val >= 1 else 0.8))
                     if owned_lower and str(nm).lower() in owned_lower:
                         base_w *= owned_mult
+                    if bonus > 1e-9:
+                        try:
+                            u_match = float(pool.iloc[idx].get('_userMatch', 0))
+                        except Exception:
+                            u_match = 0.0
+                        if u_match > 0:
+                            base_w *= (1.0 + bonus * u_match)
                     weighted_pool.append((nm, base_w))
             else:
-                for nm, mm in base_pairs:
-                    base_w = (synergy_bonus if mm >= 2 else 1.0)
+                for idx, nm in enumerate(pool['name']):
+                    mm = pool.iloc[idx].get('_matchScore', pool.iloc[idx].get('_multiMatch', 0))
+                    try:
+                        mm_val = float(mm)
+                    except Exception:
+                        mm_val = 0.0
+                    base_w = (synergy_bonus if mm_val >= 2 else 1.0)
                     if owned_lower and str(nm).lower() in owned_lower:
                         base_w *= owned_mult
+                    if bonus > 1e-9:
+                        try:
+                            u_match = float(pool.iloc[idx].get('_userMatch', 0))
+                        except Exception:
+                            u_match = 0.0
+                        if u_match > 0:
+                            base_w *= (1.0 + bonus * u_match)
                     weighted_pool.append((nm, base_w))
-            chosen = bu.weighted_sample_without_replacement(weighted_pool, target, rng=getattr(self, 'rng', None))
+            chosen = bu.weighted_sample_without_replacement(weighted_pool, target_count, rng=getattr(self, 'rng', None))
             for nm in chosen:
                 row = pool[pool['name'] == nm].iloc[0]
+                match_score = row.get('_matchScore', row.get('_multiMatch', 0))
+                synergy_value = None
+                try:
+                    if match_score is not None:
+                        val = float(match_score)
+                        if not math.isnan(val):
+                            synergy_value = int(round(val))
+                except Exception:
+                    synergy_value = None
+                if synergy_value is None and '_multiMatch' in row:
+                    try:
+                        synergy_value = int(row.get('_multiMatch', 0))
+                    except Exception:
+                        synergy_value = None
                 self.add_card(
                     nm,
                     card_type=row.get('type', ''),
@@ -753,7 +764,7 @@ class SpellAdditionMixin:
                     sub_role=role,
                     added_by='spell_theme_fill',
                     trigger_tag=tag,
-                    synergy=int(row.get('_multiMatch', 0)) if '_multiMatch' in row else None
+                    synergy=synergy_value
                 )
                 per_theme_added[role].append(nm)
                 total_added += 1
@@ -771,18 +782,20 @@ class SpellAdditionMixin:
             else:
                 multi_pool = multi_pool[multi_pool['_multiMatch'] > 0]
             if not multi_pool.empty:
+                sort_cols = []
+                asc = []
+                if '_matchScore' in multi_pool.columns:
+                    sort_cols.append('_matchScore')
+                    asc.append(False)
+                sort_cols.append('_multiMatch')
+                asc.append(False)
                 if 'edhrecRank' in multi_pool.columns:
-                    multi_pool = multi_pool.sort_values(
-                        by=['_multiMatch', 'edhrecRank', 'manaValue'],
-                        ascending=[False, True, True],
-                        na_position='last',
-                    )
-                elif 'manaValue' in multi_pool.columns:
-                    multi_pool = multi_pool.sort_values(
-                        by=['_multiMatch', 'manaValue'],
-                        ascending=[False, True],
-                        na_position='last',
-                    )
+                    sort_cols.append('edhrecRank')
+                    asc.append(True)
+                if 'manaValue' in multi_pool.columns:
+                    sort_cols.append('manaValue')
+                    asc.append(True)
+                multi_pool = multi_pool.sort_values(by=sort_cols, ascending=asc, na_position='last')
                 if getattr(self, 'prefer_owned', False):
                     owned_set = getattr(self, 'owned_card_names', None)
                     if owned_set:
@@ -790,6 +803,20 @@ class SpellAdditionMixin:
                 fill = multi_pool['name'].tolist()[:need]
                 for nm in fill:
                     row = multi_pool[multi_pool['name'] == nm].iloc[0]
+                    match_score = row.get('_matchScore', row.get('_multiMatch', 0))
+                    synergy_value = None
+                    try:
+                        if match_score is not None:
+                            val = float(match_score)
+                            if not math.isnan(val):
+                                synergy_value = int(round(val))
+                    except Exception:
+                        synergy_value = None
+                    if synergy_value is None and '_multiMatch' in row:
+                        try:
+                            synergy_value = int(row.get('_multiMatch', 0))
+                        except Exception:
+                            synergy_value = None
                     self.add_card(
                         nm,
                         card_type=row.get('type', ''),
@@ -799,7 +826,7 @@ class SpellAdditionMixin:
                         role='theme_spell',
                         sub_role='fill_multi',
                         added_by='spell_theme_fill',
-                        synergy=int(row.get('_multiMatch', 0)) if '_multiMatch' in row else None
+                        synergy=synergy_value
                     )
                     total_added += 1
                     if total_added >= remaining:
@@ -875,10 +902,16 @@ class SpellAdditionMixin:
                         self.output_func(f"    - {nm}")
         if total_added:
             self.output_func("\nFinal Theme Spell Fill:")
-            for role, tag in themes_ordered:
+            for target in themes_ordered:
+                role = target.role
+                tag = target.display
                 lst = per_theme_added.get(role, [])
                 if lst:
-                    self.output_func(f"  {role.title()} '{tag}': {len(lst)}")
+                    if target.source == 'user':
+                        label = target.role.replace('_', ' ').title()
+                    else:
+                        label = role.title()
+                    self.output_func(f"  {label} '{tag}': {len(lst)}")
                     for nm in lst:
                         self.output_func(f"    - {nm}")
             self.output_func(f"  Total Theme Spells Added: {total_added}")

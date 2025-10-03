@@ -10,6 +10,13 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from deck_builder.builder import DeckBuilder
 from deck_builder import builder_constants as bc
+from deck_builder.theme_resolution import (
+    ThemeResolutionInfo,
+    clean_theme_inputs,
+    normalize_theme_match_mode,
+    parse_theme_list,
+    resolve_additional_theme_inputs,
+)
 from file_setup.setup import initial_setup
 from tagging import tagger
 from exceptions import CommanderValidationError
@@ -79,6 +86,7 @@ def _tokenize_commander_name(value: Any) -> List[str]:
     if not normalized:
         return []
     return [token for token in re.split(r"[^a-z0-9]+", normalized) if token]
+
 
 
 @lru_cache(maxsize=1)
@@ -193,6 +201,10 @@ def run(
     allow_illegal: bool = False,
     fuzzy_matching: bool = True,
     seed: Optional[int | str] = None,
+    additional_themes: Optional[List[str]] = None,
+    theme_match_mode: str = "permissive",
+    user_theme_resolution: Optional[ThemeResolutionInfo] = None,
+    user_theme_weight: Optional[float] = None,
 ) -> DeckBuilder:
     """Run a scripted non-interactive deck build and return the DeckBuilder instance."""
     trimmed_commander = (command_name or "").strip()
@@ -272,6 +284,34 @@ def run(
         builder.enforcement_mode = enforcement_mode  # type: ignore[attr-defined]
         builder.allow_illegal = allow_illegal  # type: ignore[attr-defined]
         builder.fuzzy_matching = fuzzy_matching  # type: ignore[attr-defined]
+    except Exception:
+        pass
+
+    normalized_theme_mode = normalize_theme_match_mode(theme_match_mode)
+    theme_resolution = user_theme_resolution
+    if theme_resolution is None:
+        theme_resolution = resolve_additional_theme_inputs(
+            additional_themes or [],
+            normalized_theme_mode,
+        )
+    else:
+        if theme_resolution.mode != normalized_theme_mode:
+            theme_resolution = resolve_additional_theme_inputs(
+                theme_resolution.requested,
+                normalized_theme_mode,
+            )
+
+    try:
+        builder.theme_match_mode = theme_resolution.mode  # type: ignore[attr-defined]
+        builder.theme_catalog_version = theme_resolution.catalog_version  # type: ignore[attr-defined]
+        builder.user_theme_requested = list(theme_resolution.requested)  # type: ignore[attr-defined]
+        builder.user_theme_resolved = list(theme_resolution.resolved)  # type: ignore[attr-defined]
+        builder.user_theme_matches = list(theme_resolution.matches)  # type: ignore[attr-defined]
+        builder.user_theme_unresolved = list(theme_resolution.unresolved)  # type: ignore[attr-defined]
+        builder.user_theme_fuzzy_corrections = dict(theme_resolution.fuzzy_corrections)  # type: ignore[attr-defined]
+        builder.user_theme_resolution = theme_resolution  # type: ignore[attr-defined]
+        if user_theme_weight is not None:
+            builder.user_theme_weight = float(user_theme_weight)  # type: ignore[attr-defined]
     except Exception:
         pass
         
@@ -1207,6 +1247,32 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     include_group.add_argument("--fuzzy-matching", metavar="BOOL", type=_parse_bool, default=None,
                              help="Enable fuzzy card name matching (bool: true/false/1/0)")
     
+    theme_group = p.add_argument_group(
+        "Additional Themes",
+        "Supplement commander themes with catalog-backed user inputs",
+    )
+    theme_group.add_argument(
+        "--additional-themes",
+        metavar="THEMES",
+    type=parse_theme_list,
+        default=None,
+        help="Additional theme names (comma or semicolon separated)",
+    )
+    theme_group.add_argument(
+        "--theme-match-mode",
+        metavar="MODE",
+        choices=["strict", "permissive"],
+        default=None,
+        help="Theme resolution strategy (strict requires all matches)",
+    )
+    theme_group.add_argument(
+        "--user-theme-weight",
+        metavar="FLOAT",
+        type=float,
+        default=None,
+        help="Weight multiplier applied to supplemental themes (default 1.0)",
+    )
+
     # Random mode configuration (parity with web random builder)
     random_group = p.add_argument_group(
         "Random Mode",
@@ -1428,6 +1494,9 @@ def _main() -> int:
     resolved_primary_choice = args.primary_choice
     resolved_secondary_choice = args.secondary_choice  
     resolved_tertiary_choice = args.tertiary_choice
+    primary_tag_name: Optional[str] = None
+    secondary_tag_name: Optional[str] = None
+    tertiary_tag_name: Optional[str] = None
     
     try:
         # Collect tag names from CLI, JSON, and environment (CLI takes precedence)
@@ -1511,6 +1580,69 @@ def _main() -> int:
     except Exception:
         pass
 
+    additional_themes_json: List[str] = []
+    try:
+        collected: List[str] = []
+        for key in ("additional_themes", "userThemes"):
+            raw_value = json_cfg.get(key)
+            if isinstance(raw_value, list):
+                collected.extend(raw_value)
+        if collected:
+            additional_themes_json = clean_theme_inputs(collected)
+    except Exception:
+        additional_themes_json = []
+
+    cli_additional_themes: List[str] = []
+    if hasattr(args, "additional_themes") and args.additional_themes:
+        if isinstance(args.additional_themes, list):
+            cli_additional_themes = clean_theme_inputs(args.additional_themes)
+        else:
+            cli_additional_themes = parse_theme_list(str(args.additional_themes))
+
+    env_additional_themes = parse_theme_list(os.getenv("DECK_ADDITIONAL_THEMES"))
+
+    additional_theme_inputs = (
+        cli_additional_themes
+        or env_additional_themes
+        or additional_themes_json
+    )
+
+    theme_mode_value = getattr(args, "theme_match_mode", None)
+    if not theme_mode_value:
+        theme_mode_value = os.getenv("THEME_MATCH_MODE")
+    if not theme_mode_value:
+        theme_mode_value = json_cfg.get("theme_match_mode") or json_cfg.get("themeMatchMode")
+    normalized_theme_mode = normalize_theme_match_mode(theme_mode_value)
+
+    weight_value: Optional[float]
+    if hasattr(args, "user_theme_weight") and args.user_theme_weight is not None:
+        weight_value = args.user_theme_weight
+    else:
+        cfg_weight = json_cfg.get("user_theme_weight")
+        if cfg_weight is not None:
+            try:
+                weight_value = float(cfg_weight)
+            except Exception:
+                weight_value = None
+        else:
+            weight_value = None
+
+    commander_tag_names = [
+        str(tag)
+        for tag in (primary_tag_name, secondary_tag_name, tertiary_tag_name)
+        if isinstance(tag, str) and tag and str(tag).strip()
+    ]
+
+    try:
+        theme_resolution = resolve_additional_theme_inputs(
+            additional_theme_inputs,
+            normalized_theme_mode,
+            commander_tags=commander_tag_names,
+        )
+    except ValueError as exc:
+        print(str(exc))
+        return 2
+
     resolved = {
         "command_name": _resolve_value(args.commander, "DECK_COMMANDER", json_cfg, "commander", defaults["command_name"]),
         "add_creatures": _resolve_value(args.add_creatures, "DECK_ADD_CREATURES", json_cfg, "add_creatures", defaults["add_creatures"]),
@@ -1536,18 +1668,45 @@ def _main() -> int:
         "enforcement_mode": args.enforcement_mode or json_cfg.get("enforcement_mode", "warn"),
         "allow_illegal": args.allow_illegal if args.allow_illegal is not None else bool(json_cfg.get("allow_illegal", False)),
         "fuzzy_matching": args.fuzzy_matching if args.fuzzy_matching is not None else bool(json_cfg.get("fuzzy_matching", True)),
+        "additional_themes": list(theme_resolution.requested),
+        "theme_match_mode": theme_resolution.mode,
+        "user_theme_weight": weight_value,
     }
 
     if args.dry_run:
-        print(json.dumps(resolved, indent=2))
+        preview = dict(resolved)
+        preview["additional_themes_resolved"] = list(theme_resolution.resolved)
+        preview["additional_themes_unresolved"] = list(theme_resolution.unresolved)
+        preview["theme_catalog_version"] = theme_resolution.catalog_version
+        preview["fuzzy_corrections"] = dict(theme_resolution.fuzzy_corrections)
+        preview["user_theme_weight"] = weight_value
+        print(json.dumps(preview, indent=2))
         return 0
 
     if not str(resolved.get("command_name", "")).strip():
         print("Error: commander is required. Provide --commander or a JSON config with a 'commander' field.")
         return 2
 
+    if theme_resolution.requested:
+        if theme_resolution.fuzzy_corrections:
+            print("Fuzzy theme corrections applied:")
+            for original, corrected in theme_resolution.fuzzy_corrections.items():
+                print(f"  • {original} → {corrected}")
+        if theme_resolution.unresolved and theme_resolution.mode != "strict":
+            print("Warning: unresolved additional themes (permissive mode):")
+            for item in theme_resolution.unresolved:
+                suggestion_text = ", ".join(
+                    f"{s['theme']} ({s['score']:.1f})" for s in item.get("suggestions", [])
+                )
+                if suggestion_text:
+                    print(f"  • {item['input']} → suggestions: {suggestion_text}")
+                else:
+                    print(f"  • {item['input']} (no suggestions)")
+
     try:
-        run(**resolved)
+        run_kwargs = dict(resolved)
+        run_kwargs["user_theme_resolution"] = theme_resolution
+        run(**run_kwargs)
     except CommanderValidationError as exc:
         print(str(exc))
         return 2

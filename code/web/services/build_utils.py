@@ -27,6 +27,7 @@ def step5_base_ctx(request: Request, sess: dict, *, include_name: bool = True, i
         "prefer_combos": bool(sess.get("prefer_combos")),
         "combo_target_count": int(sess.get("combo_target_count", 2)),
         "combo_balance": str(sess.get("combo_balance", "mix")),
+        "swap_mdfc_basics": bool(sess.get("swap_mdfc_basics")),
     }
     if include_name:
         ctx["name"] = sess.get("custom_export_base")
@@ -85,6 +86,7 @@ def start_ctx_from_session(sess: dict, *, set_on_session: bool = True) -> Dict[s
         combo_balance=str(sess.get("combo_balance", "mix")),
         include_cards=sess.get("include_cards"),
         exclude_cards=sess.get("exclude_cards"),
+        swap_mdfc_basics=bool(sess.get("swap_mdfc_basics")),
     )
     if set_on_session:
         sess["build_ctx"] = ctx

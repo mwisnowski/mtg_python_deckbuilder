@@ -1,11 +1,14 @@
 from __future__ import annotations
 
-from typing import Dict, List
+from typing import Any, Dict, List
 import csv
 import os
 import datetime as _dt
 import re as _re
 import logging_util
+
+from code.deck_builder.summary_telemetry import record_land_summary
+from code.deck_builder.shared_copy import build_land_headline, dfc_card_note
 
 logger = logging_util.logging.getLogger(__name__)
 
@@ -285,6 +288,36 @@ class ReportingMixin:
             pct = (c / total_cards * 100) if total_cards else 0.0
             self.output_func(f"  {cat:<15} {c:>3}  ({pct:5.1f}%)")
 
+        # Surface land vs. MDFC counts for CLI users to mirror web summary copy
+        try:
+            summary = self.build_deck_summary()  # type: ignore[attr-defined]
+        except Exception:
+            summary = None
+        if isinstance(summary, dict):
+            land_summary = summary.get('land_summary') or {}
+            if isinstance(land_summary, dict) and land_summary:
+                traditional = int(land_summary.get('traditional', 0))
+                dfc_bonus = int(land_summary.get('dfc_lands', 0))
+                with_dfc = int(land_summary.get('with_dfc', traditional + dfc_bonus))
+                headline = land_summary.get('headline')
+                if not headline:
+                    headline = build_land_headline(traditional, dfc_bonus, with_dfc)
+                self.output_func(f"  {headline}")
+                dfc_cards = land_summary.get('dfc_cards') or []
+                if isinstance(dfc_cards, list) and dfc_cards:
+                    self.output_func("  MDFC sources:")
+                    for entry in dfc_cards:
+                        try:
+                            name = str(entry.get('name', ''))
+                            count = int(entry.get('count', 1))
+                        except Exception:
+                            name, count = str(entry.get('name', '')), 1
+                        colors = entry.get('colors') or []
+                        colors_txt = ', '.join(colors) if colors else '-'
+                        adds_extra = bool(entry.get('adds_extra_land') or entry.get('counts_as_extra'))
+                        note = entry.get('note') or dfc_card_note(adds_extra)
+                        self.output_func(f"    - {name} ×{count} ({colors_txt}) — {note}")
+
     # ---------------------------
     # Structured deck summary for UI (types, pips, sources, curve)
     # ---------------------------
@@ -347,6 +380,41 @@ class ReportingMixin:
                 return 'Land'
             return 'Other'
 
+        builder_utils_module = None
+        try:
+            from deck_builder import builder_utils as _builder_utils  # type: ignore
+            builder_utils_module = _builder_utils
+            color_matrix = builder_utils_module.compute_color_source_matrix(self.card_library, full_df)
+        except Exception:
+            color_matrix = {}
+        dfc_land_lookup: Dict[str, Dict[str, Any]] = {}
+        if color_matrix:
+            for name, flags in color_matrix.items():
+                if not bool(flags.get('_dfc_land')):
+                    continue
+                counts_as_extra = bool(flags.get('_dfc_counts_as_extra'))
+                note_text = dfc_card_note(counts_as_extra)
+                card_colors = [color for color in ('W', 'U', 'B', 'R', 'G', 'C') if flags.get(color)]
+                faces_meta: list[Dict[str, Any]] = []
+                layout_val = None
+                if builder_utils_module is not None:
+                    try:
+                        mf_info = builder_utils_module.multi_face_land_info(name)
+                    except Exception:
+                        mf_info = {}
+                    faces_meta = list(mf_info.get('faces', [])) if isinstance(mf_info, dict) else []
+                    layout_val = mf_info.get('layout') if isinstance(mf_info, dict) else None
+                dfc_land_lookup[name] = {
+                    'adds_extra_land': counts_as_extra,
+                    'counts_as_land': not counts_as_extra,
+                    'note': note_text,
+                    'colors': card_colors,
+                    'faces': faces_meta,
+                    'layout': layout_val,
+                }
+        else:
+            color_matrix = {}
+
         # Type breakdown (counts and per-type card lists)
         type_counts: Dict[str, int] = {}
         type_cards: Dict[str, list] = {}
@@ -364,16 +432,30 @@ class ReportingMixin:
             category = classify(base_type, name)
             type_counts[category] = type_counts.get(category, 0) + cnt
             total_cards += cnt
-            type_cards.setdefault(category, []).append({
+            card_entry = {
                 'name': name,
                 'count': cnt,
                 'role': info.get('Role', '') or '',
                 'tags': list(info.get('Tags', []) or []),
-            })
+            }
+            dfc_meta = dfc_land_lookup.get(name)
+            if dfc_meta:
+                card_entry['dfc'] = True
+                card_entry['dfc_land'] = True
+                card_entry['dfc_adds_extra_land'] = bool(dfc_meta.get('adds_extra_land'))
+                card_entry['dfc_counts_as_land'] = bool(dfc_meta.get('counts_as_land'))
+                card_entry['dfc_note'] = dfc_meta.get('note', '')
+                card_entry['dfc_colors'] = list(dfc_meta.get('colors', []))
+                card_entry['dfc_faces'] = list(dfc_meta.get('faces', []))
+            type_cards.setdefault(category, []).append(card_entry)
         # Sort cards within each type by name
         for cat, lst in type_cards.items():
             lst.sort(key=lambda x: (x['name'].lower(), -int(x['count'])))
         type_order = sorted(type_counts.keys(), key=lambda k: precedence_index.get(k, 999))
+
+        # Track multi-face land contributions for later summary display
+        dfc_details: list[dict] = []
+        dfc_extra_total = 0
 
         # Pip distribution (counts and weights) for non-land spells only
         pip_counts = {c: 0 for c in ('W','U','B','R','G')}
@@ -425,21 +507,52 @@ class ReportingMixin:
         pip_weights = {c: (pip_counts[c] / total_pips if total_pips else 0.0) for c in pip_counts}
 
         # Mana generation from lands (color sources)
-        try:
-            from deck_builder import builder_utils as _bu
-            matrix = _bu.compute_color_source_matrix(self.card_library, full_df)
-        except Exception:
-            matrix = {}
+        matrix = color_matrix
         source_counts = {c: 0 for c in ('W','U','B','R','G','C')}
         # For UI cross-highlighting: color -> list of cards that produce that color (typically lands, possibly others)
         source_cards: Dict[str, list] = {c: [] for c in ('W','U','B','R','G','C')}
         for name, flags in matrix.items():
             copies = int(self.card_library.get(name, {}).get('Count', 1))
+            is_dfc_land = bool(flags.get('_dfc_land'))
+            counts_as_extra = bool(flags.get('_dfc_counts_as_extra'))
+            dfc_meta = dfc_land_lookup.get(name)
             for c in source_counts.keys():
                 if int(flags.get(c, 0)):
                     source_counts[c] += copies
-                    source_cards[c].append({'name': name, 'count': copies})
+                    entry = {'name': name, 'count': copies, 'dfc': is_dfc_land}
+                    if dfc_meta:
+                        entry['dfc_note'] = dfc_meta.get('note', '')
+                        entry['dfc_adds_extra_land'] = bool(dfc_meta.get('adds_extra_land'))
+                    source_cards[c].append(entry)
+            if is_dfc_land:
+                card_colors = list(dfc_meta.get('colors', [])) if dfc_meta else [color for color in ('W','U','B','R','G','C') if flags.get(color)]
+                note_text = dfc_meta.get('note') if dfc_meta else dfc_card_note(counts_as_extra)
+                adds_extra = bool(dfc_meta.get('adds_extra_land')) if dfc_meta else counts_as_extra
+                counts_as_land = bool(dfc_meta.get('counts_as_land')) if dfc_meta else not counts_as_extra
+                faces_meta = list(dfc_meta.get('faces', [])) if dfc_meta else []
+                layout_val = dfc_meta.get('layout') if dfc_meta else None
+                dfc_details.append({
+                    'name': name,
+                    'count': copies,
+                    'colors': card_colors,
+                    'counts_as_land': counts_as_land,
+                    'adds_extra_land': adds_extra,
+                    'counts_as_extra': adds_extra,
+                    'note': note_text,
+                    'faces': faces_meta,
+                    'layout': layout_val,
+                })
+                if adds_extra:
+                    dfc_extra_total += copies
         total_sources = sum(source_counts.values())
+        traditional_lands = type_counts.get('Land', 0)
+        land_summary = {
+            'traditional': traditional_lands,
+            'dfc_lands': dfc_extra_total,
+            'with_dfc': traditional_lands + dfc_extra_total,
+            'dfc_cards': dfc_details,
+            'headline': build_land_headline(traditional_lands, dfc_extra_total, traditional_lands + dfc_extra_total),
+        }
 
         # Mana curve (non-land spells)
         curve_bins = ['0','1','2','3','4','5','6+']
@@ -484,7 +597,7 @@ class ReportingMixin:
                 'duplicates_collapsed': diagnostics.get('duplicates_collapsed', {}),
             }
 
-        return {
+        summary_payload = {
             'type_breakdown': {
                 'counts': type_counts,
                 'order': type_order,
@@ -506,9 +619,15 @@ class ReportingMixin:
                 'total_spells': total_spells,
                 'cards': curve_cards,
             },
+            'land_summary': land_summary,
             'colors': list(getattr(self, 'color_identity', []) or []),
             'include_exclude_summary': include_exclude_summary,
         }
+        try:
+            record_land_summary(land_summary)
+        except Exception:  # pragma: no cover - diagnostics only
+            logger.debug("Failed to record MDFC telemetry", exc_info=True)
+        return summary_payload
     def export_decklist_csv(self, directory: str = 'deck_files', filename: str | None = None, suppress_output: bool = False) -> str:
         """Export current decklist to CSV (enriched).
         Filename pattern (default): commanderFirstWord_firstTheme_YYYYMMDD.csv
@@ -574,9 +693,26 @@ class ReportingMixin:
                 if nm not in row_lookup:
                     row_lookup[nm] = r
 
+        builder_utils_module = None
+        try:
+            from deck_builder import builder_utils as builder_utils_module  # type: ignore
+            color_matrix = builder_utils_module.compute_color_source_matrix(self.card_library, full_df)
+        except Exception:
+            color_matrix = {}
+        dfc_land_lookup: Dict[str, Dict[str, Any]] = {}
+        for card_name, flags in color_matrix.items():
+            if not bool(flags.get('_dfc_land')):
+                continue
+            counts_as_extra = bool(flags.get('_dfc_counts_as_extra'))
+            note_text = dfc_card_note(counts_as_extra)
+            dfc_land_lookup[card_name] = {
+                'note': note_text,
+                'adds_extra_land': counts_as_extra,
+            }
+
         headers = [
             "Name","Count","Type","ManaCost","ManaValue","Colors","Power","Toughness",
-            "Role","SubRole","AddedBy","TriggerTag","Synergy","Tags","Text","Owned"
+            "Role","SubRole","AddedBy","TriggerTag","Synergy","Tags","Text","DFCNote","Owned"
         ]
 
         # Precedence list for sorting
@@ -680,6 +816,12 @@ class ReportingMixin:
             prec = precedence_index.get(cat, 999)
             # Alphabetical within category (no mana value sorting)
             owned_flag = 'Y' if (name.lower() in owned_set_lower) else ''
+            dfc_meta = dfc_land_lookup.get(name)
+            dfc_note = ''
+            if dfc_meta:
+                note_text = dfc_meta.get('note')
+                if note_text:
+                    dfc_note = f"MDFC: {note_text}"
             rows.append(((prec, name.lower()), [
                 name,
                 info.get('Count', 1),
@@ -696,6 +838,7 @@ class ReportingMixin:
                 info.get('Synergy') if info.get('Synergy') is not None else '',
                 tags_join,
                 text_field[:800] if isinstance(text_field, str) else str(text_field)[:800],
+                dfc_note,
                 owned_flag
             ]))
 
@@ -804,6 +947,18 @@ class ReportingMixin:
                 if nm not in row_lookup:
                     row_lookup[nm] = r
 
+        try:
+            from deck_builder import builder_utils as _builder_utils  # type: ignore
+            color_matrix = _builder_utils.compute_color_source_matrix(self.card_library, full_df)
+        except Exception:
+            color_matrix = {}
+        dfc_land_lookup: Dict[str, str] = {}
+        for card_name, flags in color_matrix.items():
+            if not bool(flags.get('_dfc_land')):
+                continue
+            counts_as_extra = bool(flags.get('_dfc_counts_as_extra'))
+            dfc_land_lookup[card_name] = dfc_card_note(counts_as_extra)
+
         sortable: List[tuple] = []
         for name, info in self.card_library.items():
             base_type = info.get('Card Type') or info.get('Type','')
@@ -814,12 +969,16 @@ class ReportingMixin:
                     base_type = row_type
             cat = classify(base_type, name)
             prec = precedence_index.get(cat, 999)
-            sortable.append(((prec, name.lower()), name, info.get('Count',1)))
+            dfc_note = dfc_land_lookup.get(name)
+            sortable.append(((prec, name.lower()), name, info.get('Count',1), dfc_note))
         sortable.sort(key=lambda x: x[0])
 
         with open(path, 'w', encoding='utf-8') as f:
-            for _, name, count in sortable:
-                f.write(f"{count} {name}\n")
+            for _, name, count, dfc_note in sortable:
+                line = f"{count} {name}"
+                if dfc_note:
+                    line += f" [MDFC: {dfc_note}]"
+                f.write(line + "\n")
         if not suppress_output:
             self.output_func(f"Plaintext deck list exported to {path}")
         return path

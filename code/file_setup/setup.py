@@ -39,6 +39,7 @@ from .setup_utils import (
     process_legendary_cards,
     check_csv_exists,
     save_color_filtered_csvs,
+    enrich_commander_rows_with_tags,
 )
 from exceptions import (
     CSVFileNotFoundError,
@@ -136,6 +137,9 @@ def determine_commanders() -> None:
         logger.info('Applying standard card filters')
         filtered_df = filter_dataframe(filtered_df, BANNED_CARDS)
         
+        logger.info('Enriching commander metadata with theme and creature tags')
+        filtered_df = enrich_commander_rows_with_tags(filtered_df, CSV_DIRECTORY)
+
         # Save commander cards
         logger.info('Saving validated commander cards')
         filtered_df.to_csv(f'{CSV_DIRECTORY}/commander_cards.csv', index=False)

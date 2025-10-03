@@ -55,9 +55,9 @@
       <fieldset>
         <legend>Preferences</legend>
         <div style="text-align: left;">
-          <div style="margin-bottom: 1rem;">
-            <label style="display: inline-flex; align-items: center; gap: 0.5rem; margin: 0;" title="When enabled, the builder will try to auto-complete missing combo partners near the end of the build (respecting owned-only and locks).">
-              <input type="checkbox" name="prefer_combos" id="pref-combos-chk" style="margin: 0;" />
+          <div style="margin-bottom: 1rem; display:flex; flex-direction:column; gap:0.75rem;">
+            <label for="pref-combos-chk" style="display:grid; grid-template-columns:auto 1fr; align-items:center; column-gap:0.5rem; margin:0; width:100%; cursor:pointer; text-align:left;" title="When enabled, the builder will try to auto-complete missing combo partners near the end of the build (respecting owned-only and locks).">
+              <input type="checkbox" name="prefer_combos" id="pref-combos-chk" value="1" style="margin:0; cursor:pointer;" {% if form and form.prefer_combos %}checked{% endif %} />
               <span>Prioritize combos</span>
             </label>
             <div id="pref-combos-config" style="margin-top: 0.5rem; margin-left: 1.5rem; padding: 0.5rem; border: 1px solid var(--border); border-radius: 8px; display: none;">
@@ -80,12 +80,24 @@
                 </div>
               </div>
             </div>
-          </div>
-          <div style="margin-bottom: 1rem;">
-            <label style="display: inline-flex; align-items: center; gap: 0.5rem; margin: 0;" title="When enabled, include a Multi-Copy package for matching archetypes (e.g., tokens/tribal).">
-              <input type="checkbox" name="enable_multicopy" id="pref-mc-chk" style="margin: 0;" />
+            <label for="pref-mc-chk" style="display:grid; grid-template-columns:auto 1fr; align-items:center; column-gap:0.5rem; margin:0; width:100%; cursor:pointer; text-align:left;" title="When enabled, include a Multi-Copy package for matching archetypes (e.g., tokens/tribal).">
+              <input type="checkbox" name="enable_multicopy" id="pref-mc-chk" value="1" style="margin:0; cursor:pointer;" {% if form and form.enable_multicopy %}checked{% endif %} />
               <span>Enable Multi-Copy package</span>
             </label>
+            <div style="display:flex; flex-direction:column; gap:0.5rem; margin-top:0.75rem;">
+              <label for="use-owned-chk" style="display:grid; grid-template-columns:auto 1fr; align-items:center; column-gap:0.5rem; margin:0; width:100%; cursor:pointer; text-align:left;" title="Limit the pool to cards you already own. Cards outside your owned library will be skipped.">
+                <input type="checkbox" name="use_owned_only" id="use-owned-chk" value="1" style="margin:0; cursor:pointer;" {% if form and form.use_owned_only %}checked{% endif %} />
+                <span>Use only owned cards</span>
+              </label>
+              <label for="prefer-owned-chk" style="display:grid; grid-template-columns:auto 1fr; align-items:center; column-gap:0.5rem; margin:0; width:100%; cursor:pointer; text-align:left;" title="Still allow unowned cards, but rank owned cards higher when choosing picks.">
+                <input type="checkbox" name="prefer_owned" id="prefer-owned-chk" value="1" style="margin:0; cursor:pointer;" {% if form and form.prefer_owned %}checked{% endif %} />
+                <span>Prefer owned cards (allow unowned fallback)</span>
+              </label>
+              <label for="swap-mdfc-chk" style="display:grid; grid-template-columns:auto 1fr; align-items:center; column-gap:0.5rem; margin:0; width:100%; cursor:pointer; text-align:left;" title="When enabled, modal DFC lands will replace a matching basic land as they are added so land counts stay level without manual trims.">
+                <input type="checkbox" name="swap_mdfc_basics" id="swap-mdfc-chk" value="1" style="margin:0; cursor:pointer;" {% if form and form.swap_mdfc_basics %}checked{% endif %} />
+                <span>Swap basics for MDFC lands</span>
+              </label>
+            </div>
           </div>
         </div>
       </fieldset>

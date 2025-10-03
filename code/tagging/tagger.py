@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 # Standard library imports
+import json
 import os
 import re
-from typing import Union
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import Any, Dict, List, Union
 
 # Third-party imports
 import pandas as pd
@@ -12,15 +15,149 @@ import pandas as pd
 from . import tag_utils
 from . import tag_constants
 from .bracket_policy_applier import apply_bracket_policy_tags
+from .multi_face_merger import merge_multi_face_rows
 from settings import CSV_DIRECTORY, MULTIPLE_COPY_CARDS, COLORS
 import logging_util
 from file_setup import setup
+from file_setup.setup_utils import enrich_commander_rows_with_tags
 
 # Create logger for this module
 logger = logging_util.logging.getLogger(__name__)
 logger.setLevel(logging_util.LOG_LEVEL)
 logger.addHandler(logging_util.file_handler)
 logger.addHandler(logging_util.stream_handler)
+
+_MERGE_FLAG_RAW = str(os.getenv("ENABLE_DFC_MERGE", "") or "").strip().lower()
+if _MERGE_FLAG_RAW in {"0", "false", "off", "disabled"}:
+    logger.warning(
+        "ENABLE_DFC_MERGE=%s is deprecated and no longer disables the merge; multi-face merge is always enabled.",
+        _MERGE_FLAG_RAW,
+    )
+elif _MERGE_FLAG_RAW:
+    logger.info(
+        "ENABLE_DFC_MERGE=%s detected (deprecated); multi-face merge now runs unconditionally.",
+        _MERGE_FLAG_RAW,
+    )
+
+_COMPAT_FLAG_RAW = os.getenv("DFC_COMPAT_SNAPSHOT")
+if _COMPAT_FLAG_RAW is not None:
+    _COMPAT_FLAG_NORMALIZED = str(_COMPAT_FLAG_RAW or "").strip().lower()
+    DFC_COMPAT_SNAPSHOT = _COMPAT_FLAG_NORMALIZED not in {"0", "false", "off", "disabled"}
+else:
+    DFC_COMPAT_SNAPSHOT = _MERGE_FLAG_RAW in {"compat", "dual", "both"}
+
+_DFC_COMPAT_DIR = Path(os.getenv("DFC_COMPAT_DIR", "csv_files/compat_faces"))
+
+_PER_FACE_SNAPSHOT_RAW = os.getenv("DFC_PER_FACE_SNAPSHOT")
+if _PER_FACE_SNAPSHOT_RAW is not None:
+    _PER_FACE_SNAPSHOT_NORMALIZED = str(_PER_FACE_SNAPSHOT_RAW or "").strip().lower()
+    DFC_PER_FACE_SNAPSHOT = _PER_FACE_SNAPSHOT_NORMALIZED not in {"0", "false", "off", "disabled"}
+else:
+    DFC_PER_FACE_SNAPSHOT = False
+
+_DFC_PER_FACE_SNAPSHOT_PATH = Path(os.getenv("DFC_PER_FACE_SNAPSHOT_PATH", "logs/dfc_per_face_snapshot.json"))
+_PER_FACE_SNAPSHOT_BUFFER: Dict[str, List[Dict[str, Any]]] = {}
+
+
+def _record_per_face_snapshot(color: str, payload: Dict[str, Any]) -> None:
+    if not DFC_PER_FACE_SNAPSHOT:
+        return
+    entries = payload.get("entries")
+    if not isinstance(entries, list):
+        return
+    bucket = _PER_FACE_SNAPSHOT_BUFFER.setdefault(color, [])
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        faces_data = []
+        raw_faces = entry.get("faces")
+        if isinstance(raw_faces, list):
+            for face in raw_faces:
+                if isinstance(face, dict):
+                    faces_data.append({k: face.get(k) for k in (
+                        "face",
+                        "side",
+                        "layout",
+                        "type",
+                        "text",
+                        "mana_cost",
+                        "mana_value",
+                        "produces_mana",
+                        "is_land",
+                        "themeTags",
+                        "roleTags",
+                    )})
+                else:
+                    faces_data.append(face)
+        primary_face = entry.get("primary_face")
+        if isinstance(primary_face, dict):
+            primary_face_copy = dict(primary_face)
+        else:
+            primary_face_copy = primary_face
+        removed_faces = entry.get("removed_faces")
+        if isinstance(removed_faces, list):
+            removed_faces_copy = [dict(face) if isinstance(face, dict) else face for face in removed_faces]
+        else:
+            removed_faces_copy = removed_faces
+        bucket.append(
+            {
+                "name": entry.get("name"),
+                "total_faces": entry.get("total_faces"),
+                "dropped_faces": entry.get("dropped_faces"),
+                "layouts": list(entry.get("layouts", [])) if isinstance(entry.get("layouts"), list) else entry.get("layouts"),
+                "primary_face": primary_face_copy,
+                "faces": faces_data,
+                "removed_faces": removed_faces_copy,
+                "theme_tags": entry.get("theme_tags"),
+                "role_tags": entry.get("role_tags"),
+            }
+        )
+
+
+def _flush_per_face_snapshot() -> None:
+    if not DFC_PER_FACE_SNAPSHOT:
+        _PER_FACE_SNAPSHOT_BUFFER.clear()
+        return
+    if not _PER_FACE_SNAPSHOT_BUFFER:
+        return
+    try:
+        colors_payload = {color: list(entries) for color, entries in _PER_FACE_SNAPSHOT_BUFFER.items()}
+        payload = {
+            "generated_at": datetime.now(UTC).isoformat(timespec="seconds"),
+            "mode": "always_on",
+            "compat_snapshot": bool(DFC_COMPAT_SNAPSHOT),
+            "colors": colors_payload,
+        }
+        _DFC_PER_FACE_SNAPSHOT_PATH.parent.mkdir(parents=True, exist_ok=True)
+        with _DFC_PER_FACE_SNAPSHOT_PATH.open("w", encoding="utf-8") as handle:
+            json.dump(payload, handle, indent=2, sort_keys=True)
+        logger.info("Wrote per-face snapshot to %s", _DFC_PER_FACE_SNAPSHOT_PATH)
+    except Exception as exc:
+        logger.warning("Failed to write per-face snapshot: %s", exc)
+    finally:
+        _PER_FACE_SNAPSHOT_BUFFER.clear()
+
+
+def _merge_summary_recorder(color: str):
+    def _recorder(payload: Dict[str, Any]) -> Dict[str, Any]:
+        enriched = dict(payload)
+        enriched["mode"] = "always_on"
+        enriched["compat_snapshot"] = bool(DFC_COMPAT_SNAPSHOT)
+        if DFC_PER_FACE_SNAPSHOT:
+            _record_per_face_snapshot(color, payload)
+        return enriched
+
+    return _recorder
+
+
+def _write_compat_snapshot(df: pd.DataFrame, color: str) -> None:
+    try:  # type: ignore[name-defined]
+        _DFC_COMPAT_DIR.mkdir(parents=True, exist_ok=True)
+        path = _DFC_COMPAT_DIR / f"{color}_cards_unmerged.csv"
+        df.to_csv(path, index=False)
+        logger.info("Wrote unmerged snapshot for %s to %s", color, path)
+    except Exception as exc:
+        logger.warning("Failed to write unmerged snapshot for %s: %s", color, exc)
 
 ### Setup
 ## Load the dataframe
@@ -177,6 +314,18 @@ def tag_by_color(df: pd.DataFrame, color: str) -> None:
     # Apply bracket policy tags (from config/card_lists/*.json)
     apply_bracket_policy_tags(df)
     print('\n====================\n')
+
+    # Merge multi-face entries before final ordering (feature-flagged)
+    if DFC_COMPAT_SNAPSHOT:
+        try:
+            _write_compat_snapshot(df.copy(deep=True), color)
+        except Exception:
+            pass
+
+    df = merge_multi_face_rows(df, color, logger=logger, recorder=_merge_summary_recorder(color))
+
+    if color == 'commander':
+        df = enrich_commander_rows_with_tags(df, CSV_DIRECTORY)
 
     # Lastly, sort all theme tags for easier reading and reorder columns
     df = sort_theme_tags(df, color)
@@ -6915,6 +7064,9 @@ def run_tagging(parallel: bool = False, max_workers: int | None = None):
     """
     start_time = pd.Timestamp.now()
 
+    if parallel and DFC_PER_FACE_SNAPSHOT:
+        logger.warning("DFC_PER_FACE_SNAPSHOT=1 detected; per-face metadata snapshots require sequential tagging. Parallel run will skip snapshot emission.")
+
     if parallel:
         try:
             import concurrent.futures as _f
@@ -6937,5 +7089,6 @@ def run_tagging(parallel: bool = False, max_workers: int | None = None):
         for color in COLORS:
             load_dataframe(color)
 
+    _flush_per_face_snapshot()
     duration = (pd.Timestamp.now() - start_time).total_seconds()
     logger.info(f'Tagged cards in {duration:.2f}s')

@@ -13,14 +13,39 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 - Link PRs/issues inline when helpful, e.g., (#123) or [#123]. Reference-style links at the bottom are encouraged for readability.
 
 ## [Unreleased]
+### Summary
+- Wrapped the Multi-Faced Card Handling roadmap (tag merge, commander eligibility, land accounting) so double-faced cards now share tags, respect primary-face commander legality, and surface accurate land/MDFC diagnostics across web, CLI, and exports.
+- Closed out MDFC follow-ups: deck summary now highlights double-faced lands with badges, per-face mana metadata flows through reporting, exports include annotations, and diagnostics can emit per-face snapshots for catalog QA.
+- Surfaced commander exclusion warnings and automatic corrections in the builder so players are guided toward the legal front face whenever only a secondary face meets commander rules.
+- Diagnostics dashboard now displays a multi-face merge snapshot plus live MDFC telemetry so catalog rebuilds and deck summaries can be verified in one place.
+- Automated commander catalog refresh now ships with `python -m code.scripts.refresh_commander_catalog`, producing merged and compatibility snapshots alongside updated documentation for downstream consumers.
 ### Added
+- Deck exporter regression coverage ensuring MDFC annotations (`DFCNote`) appear in CSV/TXT outputs, plus documentation for adding new double-faced cards to authoring workflows.
+- Optional MDFC diagnostics snapshot toggled via `DFC_PER_FACE_SNAPSHOT` (with `DFC_PER_FACE_SNAPSHOT_PATH` override) to capture merged per-face metadata for observability.
+- Structured observability for DFC merges: `multi_face_merger.py` now captures merge metrics and persists `logs/dfc_merge_summary.json` for troubleshooting.
+- Land accounting coverage: `test_land_summary_totals.py` exercises MDFC totals, CLI output, and the deck summary HTMX fragment; shared fixtures added to `code/tests/conftest.py` for reuse.
+- Tests: added `test_commander_primary_face_filter.py` to cover primary-face commander eligibility and secondary-face exclusions.
+- Tests: added `test_commander_exclusion_warnings.py` to ensure commander exclusion guidance appears in the web builder and protects against regressions.
+- Diagnostics: added a multi-face merge panel (with MDFC telemetry counters) to `/diagnostics`, powered by `summary_telemetry.py` and new land summary hooks.
 - Commander browser skeleton page at `/commanders` with HTMX-capable filtering and catalog-backed commander rows.
 - Shared color-identity macro and accessible theme chips powering the commander browser UI.
 - Commander browser QA walkthrough documenting desktop and mobile validation steps (`docs/qa/commander_browser_walkthrough.md`).
 - Home screen actions now surface Commander Browser and Diagnostics shortcuts when the corresponding feature flags are enabled.
 - Manual QA pass (2025-09-30) recorded in project docs, covering desktop/mobile flows and edge cases.
+- Commander wizard toggle to swap a matching basic land whenever modal double-faced lands are added, plus regression coverage in `test_mdfc_basic_swap.py`.
+- Automation: `python -m code.scripts.refresh_commander_catalog` refreshes commander catalogs with MDFC-aware tagging, writing both merged output and `csv_files/compat_faces/commander_cards_unmerged.csv` for downstream validation; README and commander onboarding docs updated with migration guidance.
+- Documentation: added `docs/qa/mdfc_staging_checklist.md` outlining MDFC staging QA (now updated for the always-on merge with optional compatibility snapshots).
 
 ### Changed
+- Deck summary UI renders modal double-faced land badges and per-face face details so builders can audit mana contributions at-a-glance.
+- MDFC merge flag removed: `ENABLE_DFC_MERGE` no longer gates the multi-face merge; the merge now runs unconditionally with optional `DFC_COMPAT_SNAPSHOT` compatibility snapshots.
+- New Deck modal commander search now flags secondary-face-only entries, shows inline guidance, and auto-fills the eligible face before starting a build.
+- New Deck modal Preferences block now surfaces "Use only owned", "Prefer owned", and "Swap basics for MDFC lands" checkboxes with session-backed defaults so the wizard mirrors Step 4 behavior.
+- Deck summary now surfaces "Lands: X (Y with DFC)" with an MDFC breakdown panel, and CLI summaries mirror the same copy so web/CLI diagnostics stay in sync.
+- Deck summary builder now records MDFC land telemetry for diagnostics snapshots, enabling quick verification of land contributions across builds.
+- Roadmap documentation now summarizes remaining DFC follow-ups (observability, rollout gating, and exporter/UI enhancements) with next steps and ownership notes.
+- Commander CSV enrichment now backfills `themeTags`, `creatureTypes`, and `roleTags` from the color-tagged catalogs so primary-face enforcement keeps merged tag coverage for multi-face commanders.
+- Commander CSV generation now enforces primary-face legality, dropping secondary-face-only records, writing `.commander_exclusions.json` diagnostics, and surfacing actionable headless errors when configs reference removed commanders.
 - Commander browser now paginates results in 20-commander pages with accessible navigation controls and range summaries to keep the catalog responsive.
 - Commander hover preview collapses to a card-only view when browsing commanders, and all theme chips display without the previous “+ more” overflow badge.
 - Added a Content Security Policy upgrade directive so proxied HTTPS deployments safely rewrite commander pagination requests to HTTPS, preventing mixed-content blocks.
@@ -34,9 +59,11 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 - Commander list pagination controls now appear above and below the results and automatically scroll to the top when switching pages for quicker navigation.
 - Mobile commander rows now feature larger thumbnails and a centered preview modal with expanded card art for improved readability.
 - Preview performance CI check now waits for `/healthz` and retries theme catalog pagination fetches to dodge transient 500s during cold starts.
+- Documentation now captures the MDFC staging plan: README and DOCKER guide highlight the always-on MDFC merge and the optional `DFC_COMPAT_SNAPSHOT=1` workflow for downstream QA.
 
 ### Fixed
-- Headless runner commander validation now accepts fuzzy commander prefixes (e.g., "Krenko") so partial names still resolve to eligible entries during automated builds and CI runs.
+- Setup filtering now applies security-stamp exclusions case-insensitively so Acorn and Heart promo cards stay out of Commander-legal pools, with a regression test covering the behavior.
+- Commander browser thumbnails now surface the double-faced flip control so MDFC commanders can swap faces directly from the catalog.
 
 ### Removed
 - Preview performance GitHub Actions workflow (`.github/workflows/preview-perf-ci.yml`) retired after persistent cold-start failures; run the regression helper script manually as needed.

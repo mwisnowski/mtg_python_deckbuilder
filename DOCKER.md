@@ -19,7 +19,62 @@ docker compose stop web
 docker compose start web
 ```
 
-- Prefer the public image? Pull and run it without building locally:
+Then open http://localhost:8080
+
+Volumes are the same as the CLI service, so deck exports/logs/configs persist in your working folder.
+The app serves a favicon at `/favicon.ico` and exposes a health endpoint at `/healthz`.
+Compare view offers a Copy summary button to copy a plain-text diff of two runs. The sidebar has a subtle depth shadow for clearer separation.
+
+Web UI feature highlights:
+- Locks: Click a card or the lock control in Step 5; locks persist across reruns.
+- Replace: Enable Replace in Step 5, click a card to open Alternatives (filters include Owned-only), then choose a swap.
+- Permalinks: Copy a permalink from Step 5 or a Finished deck; paste via “Open Permalink…” to restore.
+- Compare: Use the Compare page from Finished Decks; quick actions include Latest two and Swap A/B.
+
+Virtualized lists and lazy images (opt‑in)
+- Set `WEB_VIRTUALIZE=1` to enable virtualization in Step 5 grids/lists and the Owned library for smoother scrolling on large sets.
+- Example (Compose):
+    ```yaml
+    services:
+        web:
+            environment:
+                - WEB_VIRTUALIZE=1
+    ```
+- Example (Docker Hub):
+    ```powershell
+    docker run --rm -p 8080:8080 `
+        -e WEB_VIRTUALIZE=1 `
+        -v "${PWD}/deck_files:/app/deck_files" `
+        -v "${PWD}/logs:/app/logs" `
+        -v "${PWD}/csv_files:/app/csv_files" `
+        -v "${PWD}/owned_cards:/app/owned_cards" `
+        -v "${PWD}/config:/app/config" `
+    -e SHOW_DIAGNOSTICS=1 ` # optional: enables diagnostics tools and overlay
+    mwisnowski/mtg-python-deckbuilder:latest `
+        bash -lc "cd /app && uvicorn code.web.app:app --host 0.0.0.0 --port 8080"
+    ```
+
+### Diagnostics and logs (optional)
+Enable internal diagnostics and a read-only logs viewer with environment flags.
+
+- `SHOW_DIAGNOSTICS=1` — adds a Diagnostics nav link and `/diagnostics` tools
+- `SHOW_LOGS=1` — enables `/logs` and `/status/logs?tail=200`
+
+Per-face MDFC snapshot (opt-in)
+- `DFC_PER_FACE_SNAPSHOT=1` — write merged MDFC face metadata to `logs/dfc_per_face_snapshot.json`; disable parallel tagging (`WEB_TAG_PARALLEL=0`) if you need the snapshot during setup.
+- `DFC_PER_FACE_SNAPSHOT_PATH=/app/logs/custom_snapshot.json` — optional path override for the snapshot artifact.
+
+When enabled:
+- `/logs` supports an auto-refresh toggle with interval, a level filter (All/Error/Warning/Info/Debug), and a Copy button to copy the visible tail.
+- `/status/sys` returns a simple system summary (version, uptime, UTC server time, and feature flags) and is shown on the Diagnostics page when `SHOW_DIAGNOSTICS=1`.
+ - Virtualization overlay: press `v` on pages with virtualized grids to toggle per-grid overlays and a global summary bubble.
+
+Compose example (web service):
+```yaml
+environment:
+    - SHOW_LOGS=1
+    - SHOW_DIAGNOSTICS=1
+```
 
 ```powershell
 docker run --rm -p 8080:8080 `
@@ -31,7 +86,31 @@ docker run --rm -p 8080:8080 `
   mwisnowski/mtg-python-deckbuilder:latest
 ```
 
-Shared volumes persist builds, logs, configs, and owned cards on the host.
+### MDFC merge rollout (staging)
+
+The web service now runs the MDFC merge by default. Set `DFC_COMPAT_SNAPSHOT=1` on the web service when you need the legacy unmerged compatibility snapshot (`csv_files/compat_faces/`). Combine this with `python -m code.scripts.refresh_commander_catalog --compat-snapshot` inside the container to regenerate the commander files before smoke testing.
+
+Follow the QA steps in `docs/qa/mdfc_staging_checklist.md` after toggling the flag.
+
+Compose example:
+
+```yaml
+services:
+    web:
+        environment:
+            - DFC_COMPAT_SNAPSHOT=1
+```
+
+Verify the refresh inside the container:
+
+```powershell
+docker compose run --rm web bash -lc "python -m code.scripts.refresh_commander_catalog"
+```
+
+Downstream consumers can diff `csv_files/compat_faces/commander_cards_unmerged.csv` against historical exports during the staging window.
+
+### Setup speed: parallel tagging (Web)
+First-time setup or stale data triggers card tagging. The web service uses parallel workers by default.
 
 ## Run a JSON Config
 

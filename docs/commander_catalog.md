@@ -35,17 +35,16 @@ Additional columns are preserved but ignored by the browser; feel free to keep u
 ## Recommended refresh workflow
 
 1. Ensure dependencies are installed: `pip install -r requirements.txt`.
-2. Regenerate the commander CSV using the setup module:
+2. Regenerate the commander catalog with the MDFC-aware helper (multi-face merge always on):
    ```powershell
-   python -c "from file_setup.setup import regenerate_csvs_all; regenerate_csvs_all()"
+   python -m code.scripts.refresh_commander_catalog
    ```
-   This downloads the latest MTGJSON card dump (if needed), reapplies commander eligibility rules, and rewrites `commander_cards.csv`.
-3. (Optional) If you only need a fresh commander list and already have up-to-date `cards.csv`, run:
-   ```powershell
-   python -c "from file_setup.setup import determine_commanders; determine_commanders()"
-   ```
-4. Restart the web server (or your desktop app) so the cache reloads the new file.
-5. Validate with the targeted test:
+   - Pass `--compat-snapshot` when you need both `csv_files/commander_cards.csv` and `csv_files/compat_faces/commander_cards_unmerged.csv` so downstream consumers can diff the historical row-per-face layout.
+   - The legacy `--mode` argument is deprecated; it no longer disables the merge but still maps `--mode compat` to `--compat-snapshot` for older automation. Use `--skip-setup` if `determine_commanders()` has already been run and you simply need to reapply tagging.
+   - When running the web service during staging, set `DFC_COMPAT_SNAPSHOT=1` if you need the compatibility snapshot written on each rebuild. The merge itself no longer requires a feature flag.
+   - Use the staging QA checklist (`docs/qa/mdfc_staging_checklist.md`) to validate commander flows and downstream consumers before promoting the flag in production.
+3. Restart the web server (or your desktop app) so the cache reloads the new file.
+4. Validate with the targeted test:
    ```powershell
    python -m pytest -q code/tests/test_commander_catalog_loader.py
    ```

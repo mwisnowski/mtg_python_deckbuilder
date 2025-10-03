@@ -1546,7 +1546,11 @@ def _main() -> int:
         print("Error: commander is required. Provide --commander or a JSON config with a 'commander' field.")
         return 2
 
-    run(**resolved)
+    try:
+        run(**resolved)
+    except CommanderValidationError as exc:
+        print(str(exc))
+        return 2
     return 0
 
 

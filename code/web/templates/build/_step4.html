@@ -30,6 +30,10 @@
 					<input type="checkbox" name="prefer_owned" value="1" {% if prefer_owned %}checked{% endif %} onchange="this.form.requestSubmit();" />
 					Prefer owned cards (allow unowned fallback)
 				</label>
+				<label style="display:flex; align-items:center; gap:.35rem;" title="When enabled, modal DFC lands will replace a matching basic land as they are added so land counts stay level without manual trims.">
+					<input type="checkbox" name="swap_mdfc_basics" value="1" {% if swap_mdfc_basics %}checked{% endif %} onchange="this.form.requestSubmit();" />
+					Swap basics for MDFC lands
+				</label>
 				<a href="/owned" target="_blank" rel="noopener" class="btn">Manage Owned Library</a>
 			</form>
 			<div class="muted" style="font-size:12px; margin-top:-.25rem;">Tip: Locked cards are respected on reruns in Step 5.</div>

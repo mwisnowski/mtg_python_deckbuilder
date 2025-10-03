@@ -16,7 +16,7 @@ from starlette.middleware.gzip import GZipMiddleware
 from typing import Any, Optional, Dict, Iterable, Mapping
 from contextlib import asynccontextmanager
 
-from code.deck_builder.summary_telemetry import get_mdfc_metrics
+from code.deck_builder.summary_telemetry import get_mdfc_metrics, get_theme_metrics
 from tagging.multi_face_merger import load_merge_summary
 from .services.combo_utils import detect_all as _detect_all
 from .services.theme_catalog_loader import prewarm_common_filters  # type: ignore
@@ -112,6 +112,7 @@ ENABLE_THEMES = _as_bool(os.getenv("ENABLE_THEMES"), True)
 ENABLE_PWA = _as_bool(os.getenv("ENABLE_PWA"), False)
 ENABLE_PRESETS = _as_bool(os.getenv("ENABLE_PRESETS"), False)
 ALLOW_MUST_HAVES = _as_bool(os.getenv("ALLOW_MUST_HAVES"), True)
+ENABLE_CUSTOM_THEMES = _as_bool(os.getenv("ENABLE_CUSTOM_THEMES"), True)
 RANDOM_MODES = _as_bool(os.getenv("RANDOM_MODES"), True)  # initial snapshot (legacy)
 RANDOM_UI = _as_bool(os.getenv("RANDOM_UI"), True)
 THEME_PICKER_DIAGNOSTICS = _as_bool(os.getenv("WEB_THEME_PICKER_DIAGNOSTICS"), False)
@@ -130,6 +131,10 @@ RATE_LIMIT_BUILD = _as_int(os.getenv("RANDOM_RATE_LIMIT_BUILD"), 10)
 RATE_LIMIT_SUGGEST = _as_int(os.getenv("RANDOM_RATE_LIMIT_SUGGEST"), 30)
 RANDOM_STRUCTURED_LOGS = _as_bool(os.getenv("RANDOM_STRUCTURED_LOGS"), False)
 RANDOM_REROLL_THROTTLE_MS = _as_int(os.getenv("RANDOM_REROLL_THROTTLE_MS"), 350)
+USER_THEME_LIMIT = _as_int(os.getenv("USER_THEME_LIMIT"), 8)
+
+_THEME_MODE_ENV = (os.getenv("THEME_MATCH_MODE") or "").strip().lower()
+DEFAULT_THEME_MATCH_MODE = "strict" if _THEME_MODE_ENV in {"strict", "s"} else "permissive"
 
 # Simple theme input validation constraints
 _THEME_MAX_LEN = 60
@@ -240,6 +245,7 @@ templates.env.globals.update({
     "enable_themes": ENABLE_THEMES,
     "enable_pwa": ENABLE_PWA,
     "enable_presets": ENABLE_PRESETS,
+    "enable_custom_themes": ENABLE_CUSTOM_THEMES,
     "allow_must_haves": ALLOW_MUST_HAVES,
     "default_theme": DEFAULT_THEME,
     "random_modes": RANDOM_MODES,
@@ -248,6 +254,8 @@ templates.env.globals.update({
     "random_timeout_ms": RANDOM_TIMEOUT_MS,
     "random_reroll_throttle_ms": int(RANDOM_REROLL_THROTTLE_MS),
     "theme_picker_diagnostics": THEME_PICKER_DIAGNOSTICS,
+    "user_theme_limit": USER_THEME_LIMIT,
+    "default_theme_match_mode": DEFAULT_THEME_MATCH_MODE,
 })
 
 # Expose catalog hash (for cache versioning / service worker) – best-effort, fallback to 'dev'
@@ -823,10 +831,13 @@ async def status_sys():
                 "SHOW_COMMANDERS": bool(SHOW_COMMANDERS),
                 "SHOW_DIAGNOSTICS": bool(SHOW_DIAGNOSTICS),
                 "ENABLE_THEMES": bool(ENABLE_THEMES),
+                "ENABLE_CUSTOM_THEMES": bool(ENABLE_CUSTOM_THEMES),
                 "ENABLE_PWA": bool(ENABLE_PWA),
                 "ENABLE_PRESETS": bool(ENABLE_PRESETS),
                 "ALLOW_MUST_HAVES": bool(ALLOW_MUST_HAVES),
                 "DEFAULT_THEME": DEFAULT_THEME,
+                "THEME_MATCH_MODE": DEFAULT_THEME_MATCH_MODE,
+                "USER_THEME_LIMIT": int(USER_THEME_LIMIT),
                 "RANDOM_MODES": bool(RANDOM_MODES),
                 "RANDOM_UI": bool(RANDOM_UI),
                 "RANDOM_MAX_ATTEMPTS": int(RANDOM_MAX_ATTEMPTS),
@@ -834,6 +845,7 @@ async def status_sys():
                 "RANDOM_TELEMETRY": bool(RANDOM_TELEMETRY),
                 "RANDOM_STRUCTURED_LOGS": bool(RANDOM_STRUCTURED_LOGS),
                 "RANDOM_RATE_LIMIT": bool(RATE_LIMIT_ENABLED),
+                "RATE_LIMIT_ENABLED": bool(RATE_LIMIT_ENABLED),
                 "RATE_LIMIT_WINDOW_S": int(RATE_LIMIT_WINDOW_S),
                 "RANDOM_RATE_LIMIT_RANDOM": int(RATE_LIMIT_RANDOM),
                 "RANDOM_RATE_LIMIT_BUILD": int(RATE_LIMIT_BUILD),
@@ -884,6 +896,17 @@ async def status_dfc_metrics():
         return JSONResponse({"ok": True, "metrics": get_mdfc_metrics()})
     except Exception as exc:  # pragma: no cover - defensive log
         logging.getLogger("web").warning("Failed to fetch MDFC metrics: %s", exc, exc_info=True)
+        return JSONResponse({"ok": False, "error": "internal_error"}, status_code=500)
+
+
+@app.get("/status/theme_metrics")
+async def status_theme_metrics():
+    if not SHOW_DIAGNOSTICS:
+        raise HTTPException(status_code=404, detail="Not Found")
+    try:
+        return JSONResponse({"ok": True, "metrics": get_theme_metrics()})
+    except Exception as exc:  # pragma: no cover - defensive log
+        logging.getLogger("web").warning("Failed to fetch theme metrics: %s", exc, exc_info=True)
         return JSONResponse({"ok": False, "error": "internal_error"}, status_code=500)
 
 
@@ -2366,13 +2389,17 @@ async def trigger_error(kind: str = Query("http")):
 async def diagnostics_home(request: Request) -> HTMLResponse:
     if not SHOW_DIAGNOSTICS:
         raise HTTPException(status_code=404, detail="Not Found")
-    return templates.TemplateResponse(
-        "diagnostics/index.html",
-        {
-            "request": request,
-            "merge_summary": load_merge_summary(),
-        },
-    )
+    # Build a sanitized context and pre-render to surface template errors clearly
+    try:
+        summary = load_merge_summary() or {"updated_at": None, "colors": {}}
+        if not isinstance(summary, dict):
+            summary = {"updated_at": None, "colors": {}}
+        if not isinstance(summary.get("colors"), dict):
+            summary["colors"] = {}
+    except Exception:
+        summary = {"updated_at": None, "colors": {}}
+    ctx = {"request": request, "merge_summary": summary}
+    return templates.TemplateResponse("diagnostics/index.html", ctx)
 
 
 @app.get("/diagnostics/perf", response_class=HTMLResponse)

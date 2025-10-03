@@ -6,6 +6,8 @@
   <div class="card" style="background: var(--panel); border:1px solid var(--border); border-radius:10px; padding:.75rem; margin-bottom:.75rem">
     <h3 style="margin-top:0">System summary</h3>
     <div id="sysSummary" class="muted">Loading…</div>
+    <div id="envFlags" style="margin-top:.5rem"></div>
+  <div id="themeSuppMetrics" class="muted" style="margin-top:.5rem">Loading theme metrics…</div>
     <div id="themeSummary" style="margin-top:.5rem"></div>
     <div id="themeTokenStats" class="muted" style="margin-top:.5rem">Loading theme stats…</div>
     <div style="margin-top:.35rem">
@@ -15,7 +17,7 @@
   <div class="card" style="background: var(--panel); border:1px solid var(--border); border-radius:10px; padding:.75rem; margin-bottom:.75rem">
     <h3 style="margin-top:0">Multi-face merge snapshot</h3>
     <div class="muted" style="margin-bottom:.35rem">Pulls from <code>logs/dfc_merge_summary.json</code> to verify merge coverage.</div>
-  {% set colors = merge_summary.get('colors') if merge_summary else {} %}
+  {% set colors = (merge_summary.colors if merge_summary else {}) | default({}) %}
     {% if colors %}
     <div class="muted" style="margin-bottom:.35rem">Last updated: {{ merge_summary.updated_at or 'unknown' }}</div>
     <div style="overflow-x:auto">
@@ -30,28 +32,29 @@
           </tr>
         </thead>
         <tbody>
-        {% for color, payload in colors.items()|dictsort %}
+        {% for item in colors|dictsort %}
+          {% set color = item[0] %}
+          {% set payload = item[1] | default({}) %}
           <tr style="border-bottom:1px solid rgba(148,163,184,0.2);">
             <td style="padding:.35rem .25rem; font-weight:600;">{{ color|title }}</td>
             <td style="padding:.35rem .25rem;">{{ payload.group_count or 0 }}</td>
             <td style="padding:.35rem .25rem;">{{ payload.faces_dropped or 0 }}</td>
             <td style="padding:.35rem .25rem;">{{ payload.multi_face_rows or 0 }}</td>
             <td style="padding:.35rem .25rem;">
-              {% set entries = payload.entries or [] %}
+              {% set entries = (payload.entries | default([])) %}
               {% if entries %}
               <details>
                 <summary style="cursor:pointer;">{{ entries|length }} recorded</summary>
+                {% set preview = entries[:5] %}
                 <ul style="margin:.35rem 0 0 .75rem; padding:0; list-style:disc; max-height:180px; overflow:auto;">
-                  {% for entry in entries %}
-                    {% if loop.index0 < 5 %}
-                    <li style="margin-bottom:.25rem;">
-                      <strong>{{ entry.name }}</strong> — {{ entry.total_faces }} faces (dropped {{ entry.dropped_faces }})
-                    </li>
-                    {% elif loop.index0 == 5 %}
-                    <li style="font-size:11px; opacity:.75;">… {{ entries|length - 5 }} more entries</li>
-                    {% break %}
-                    {% endif %}
+                  {% for entry in preview %}
+                  <li style="margin-bottom:.25rem;">
+                    <strong>{{ entry.name }}</strong> — {{ entry.total_faces }} faces (dropped {{ entry.dropped_faces }})
+                  </li>
                   {% endfor %}
+                  {% if entries|length > preview|length %}
+                  <li style="font-size:11px; opacity:.75;">… {{ entries|length - preview|length }} more entries</li>
+                  {% endif %}
                 </ul>
               </details>
               {% else %}
@@ -134,6 +137,125 @@
     try { fetch('/status/sys', { cache: 'no-store' }).then(function(r){ return r.json(); }).then(render).catch(function(){ el.textContent='Unavailable'; }); } catch(_){ el.textContent='Unavailable'; }
   }
   load();
+  // Environment flags card
+  (function(){
+    var target = document.getElementById('envFlags');
+    if (!target) return;
+    function renderEnv(data){
+      if (!data || !data.flags) { target.textContent = 'Flags unavailable'; return; }
+      var f = data.flags;
+      function as01(v){ return (v ? '1' : '0'); }
+      var lines = [];
+      lines.push('<div><strong>Homepage & UI:</strong> '
+        + 'SHOW_SETUP=' + as01(f.SHOW_SETUP)
+        + ', SHOW_LOGS=' + as01(f.SHOW_LOGS)
+        + ', SHOW_DIAGNOSTICS=' + as01(f.SHOW_DIAGNOSTICS)
+        + ', SHOW_COMMANDERS=' + as01(f.SHOW_COMMANDERS)
+        + ', ENABLE_THEMES=' + as01(f.ENABLE_THEMES)
+        + ', ENABLE_CUSTOM_THEMES=' + as01(f.ENABLE_CUSTOM_THEMES)
+        + ', ALLOW_MUST_HAVES=' + as01(f.ALLOW_MUST_HAVES)
+        + ', THEME=' + String(f.DEFAULT_THEME || '')
+        + ', THEME_MATCH_MODE=' + String(f.THEME_MATCH_MODE || '')
+        + ', USER_THEME_LIMIT=' + String(f.USER_THEME_LIMIT || '')
+        + '</div>');
+      lines.push('<div><strong>Random:</strong> '
+        + 'RANDOM_MODES=' + as01(f.RANDOM_MODES)
+        + ', RANDOM_UI=' + as01(f.RANDOM_UI)
+        + ', RANDOM_MAX_ATTEMPTS=' + String(f.RANDOM_MAX_ATTEMPTS || '')
+        + ', RANDOM_TIMEOUT_MS=' + String(f.RANDOM_TIMEOUT_MS || '')
+        + ', RANDOM_REROLL_THROTTLE_MS=' + String(f.RANDOM_REROLL_THROTTLE_MS || '')
+        + ', RANDOM_TELEMETRY=' + as01(f.RANDOM_TELEMETRY)
+        + ', RANDOM_STRUCTURED_LOGS=' + as01(f.RANDOM_STRUCTURED_LOGS)
+        + '</div>');
+      lines.push('<div><strong>Rate limiting (random):</strong> '
+        + 'RATE_LIMIT_ENABLED=' + as01(f.RATE_LIMIT_ENABLED)
+        + ', WINDOW_S=' + String(f.RATE_LIMIT_WINDOW_S || '')
+        + ', RANDOM=' + String(f.RANDOM_RATE_LIMIT_RANDOM || '')
+        + ', BUILD=' + String(f.RANDOM_RATE_LIMIT_BUILD || '')
+        + ', SUGGEST=' + String(f.RANDOM_RATE_LIMIT_SUGGEST || '')
+        + '</div>');
+      target.innerHTML = lines.join('');
+    }
+    try { fetch('/status/sys', { cache: 'no-store' }).then(function(r){ return r.json(); }).then(renderEnv).catch(function(){ target.textContent='Flags unavailable'; }); } catch(_){ target.textContent='Flags unavailable'; }
+  })();
+  var themeSuppEl = document.getElementById('themeSuppMetrics');
+  function renderThemeSupp(payload){
+    if (!themeSuppEl) return;
+    try {
+      if (!payload || payload.ok !== true) {
+        themeSuppEl.textContent = 'Theme metrics unavailable';
+        return;
+      }
+      var metrics = payload.metrics || {};
+      var total = metrics.total_builds != null ? Number(metrics.total_builds) : 0;
+      if (!total) {
+        themeSuppEl.textContent = 'No deck builds recorded yet.';
+        return;
+      }
+      var withUser = metrics.with_user_themes != null ? Number(metrics.with_user_themes) : 0;
+      var share = metrics.user_theme_share != null ? Number(metrics.user_theme_share) : 0;
+      var sharePct = !Number.isNaN(share) ? (share * 100).toFixed(1) + '%' : '0%';
+      var summary = metrics.last_summary || {};
+      var commander = Array.isArray(summary.commanderThemes) ? summary.commanderThemes : [];
+      var user = Array.isArray(summary.userThemes) ? summary.userThemes : [];
+      var merged = Array.isArray(summary.mergedThemes) ? summary.mergedThemes : [];
+      var unresolvedCount = summary.unresolvedCount != null ? Number(summary.unresolvedCount) : 0;
+      var unresolved = Array.isArray(summary.unresolved) ? summary.unresolved : [];
+      var mode = summary.mode || 'AND';
+      var weight = summary.weight != null ? Number(summary.weight) : 1;
+      var updated = metrics.last_updated || '';
+      var topUser = Array.isArray(metrics.top_user_themes) ? metrics.top_user_themes : [];
+      function joinList(arr){
+        if (!arr || !arr.length) return '—';
+        return arr.join(', ');
+      }
+      var html = '';
+      html += '<div><strong>Total builds:</strong> ' + String(total) + ' (user themes ' + String(withUser) + '\u00a0| ' + sharePct + ')</div>';
+      if (updated) {
+        html += '<div style="font-size:11px;">Last updated: ' + String(updated) + '</div>';
+      }
+      html += '<div><strong>Commander themes:</strong> ' + joinList(commander) + '</div>';
+      html += '<div><strong>User themes:</strong> ' + joinList(user) + '</div>';
+      html += '<div><strong>Merged:</strong> ' + joinList(merged) + '</div>';
+      var unresolvedLabel = '0';
+      if (unresolvedCount > 0) {
+        unresolvedLabel = String(unresolvedCount) + ' (' + joinList(unresolved) + ')';
+      } else {
+        unresolvedLabel = '0';
+      }
+      html += '<div><strong>Unresolved:</strong> ' + unresolvedLabel + '</div>';
+      html += '<div style="font-size:11px;">Mode ' + String(mode) + ' · Weight ' + weight.toFixed(2) + '</div>';
+      if (topUser.length) {
+        var topLine = topUser.slice(0, 5).map(function(item){
+          if (!item) return '';
+          var t = item.theme != null ? String(item.theme) : '';
+          var c = item.count != null ? String(item.count) : '0';
+          return t + ' (' + c + ')';
+        }).filter(Boolean);
+        if (topLine.length) {
+          html += '<div style="font-size:11px; opacity:0.75;">Top user themes: ' + topLine.join(', ') + '</div>';
+        }
+      }
+      themeSuppEl.innerHTML = html;
+    } catch (_){
+      themeSuppEl.textContent = 'Theme metrics unavailable';
+    }
+  }
+  function loadThemeSupp(){
+    if (!themeSuppEl) return;
+    themeSuppEl.textContent = 'Loading theme metrics…';
+    fetch('/status/theme_metrics', { cache: 'no-store' })
+      .then(function(resp){
+        if (resp.status === 404) {
+          themeSuppEl.textContent = 'Diagnostics disabled (metrics unavailable)';
+          return null;
+        }
+        return resp.json();
+      })
+      .then(function(data){ if (data) renderThemeSupp(data); })
+      .catch(function(){ themeSuppEl.textContent = 'Theme metrics unavailable'; });
+  }
+  loadThemeSupp();
   var tokenEl = document.getElementById('themeTokenStats');
   function renderTokens(payload){
     if (!tokenEl) return;

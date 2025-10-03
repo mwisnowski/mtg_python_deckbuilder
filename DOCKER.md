@@ -253,6 +253,9 @@ See `.env.example` for the full catalog. Common knobs:
 | `RANDOM_UI` | _(unset)_ | Show the Random Build homepage tile. |
 | `RANDOM_MAX_ATTEMPTS` | `5` | Retry budget for constrained random rolls. |
 | `RANDOM_TIMEOUT_MS` | `5000` | Per-attempt timeout in milliseconds. |
+| `RANDOM_REROLL_THROTTLE_MS` | `350` | Minimum ms between reroll requests (client guard). |
+| `RANDOM_STRUCTURED_LOGS` | `0` | Emit structured JSON logs for random builds. |
+| `RANDOM_TELEMETRY` | `0` | Enable lightweight timing/attempt counters. |
 | `RANDOM_PRIMARY_THEME` / `RANDOM_SECONDARY_THEME` / `RANDOM_TERTIARY_THEME` | _(blank)_ | Override theme slots for random runs. |
 | `RANDOM_SEED` | _(blank)_ | Deterministic seed. |
 | `RANDOM_AUTO_FILL` | `1` | Allow automatic backfill of missing theme slots. |
@@ -276,6 +279,23 @@ See `.env.example` for the full catalog. Common knobs:
 | `DECK_EXPORTS` | `/app/deck_files` | Override where the web UI looks for exports. |
 | `OWNED_CARDS_DIR` / `CARD_LIBRARY_DIR` | `/app/owned_cards` | Override owned library directory. |
 | `CARD_INDEX_EXTRA_CSV` | _(blank)_ | Inject a synthetic CSV into the card index for testing. |
+
+### Supplemental themes
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `DECK_ADDITIONAL_THEMES` | _(blank)_ | Comma/semicolon separated list of supplemental themes for headless builds (JSON exports also include the camelCase `userThemes` alias and `themeCatalogVersion` metadata; either alias is accepted on import). |
+| `THEME_MATCH_MODE` | `permissive` | Controls fuzzy theme resolution (`strict` blocks unresolved inputs). |
+
+### Random rate limiting (optional)
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `RATE_LIMIT_ENABLED` | `0` | Enable server-side rate limiting for random endpoints. |
+| `RATE_LIMIT_WINDOW_S` | `10` | Rolling window in seconds. |
+| `RATE_LIMIT_RANDOM` | `10` | Max random attempts per window. |
+| `RATE_LIMIT_BUILD` | `10` | Max full builds per window. |
+| `RATE_LIMIT_SUGGEST` | `30` | Max suggestion calls per window. |
 
 Advanced editorial and theme-catalog knobs (`EDITORIAL_*`, `SPLASH_ADAPTIVE`, etc.) are documented inline in `docker-compose.yml` and `.env.example`.
 

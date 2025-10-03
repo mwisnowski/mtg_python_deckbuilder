@@ -7,7 +7,7 @@ import datetime as _dt
 import re as _re
 import logging_util
 
-from code.deck_builder.summary_telemetry import record_land_summary
+from code.deck_builder.summary_telemetry import record_land_summary, record_theme_summary
 from code.deck_builder.shared_copy import build_land_headline, dfc_card_note
 
 logger = logging_util.logging.getLogger(__name__)
@@ -627,6 +627,12 @@ class ReportingMixin:
             record_land_summary(land_summary)
         except Exception:  # pragma: no cover - diagnostics only
             logger.debug("Failed to record MDFC telemetry", exc_info=True)
+        try:
+            theme_payload = self.get_theme_summary_payload() if hasattr(self, "get_theme_summary_payload") else None
+            if theme_payload:
+                record_theme_summary(theme_payload)
+        except Exception:  # pragma: no cover - diagnostics only
+            logger.debug("Failed to record theme telemetry", exc_info=True)
         return summary_payload
     def export_decklist_csv(self, directory: str = 'deck_files', filename: str | None = None, suppress_output: bool = False) -> str:
         """Export current decklist to CSV (enriched).
@@ -1046,6 +1052,13 @@ class ReportingMixin:
         # Capture fetch count (others vary run-to-run and are intentionally not recorded)
         chosen_fetch = getattr(self, 'fetch_count', None)
 
+        user_themes: List[str] = [
+            str(theme)
+            for theme in getattr(self, 'user_theme_requested', [])
+            if isinstance(theme, str) and theme.strip()
+        ]
+        theme_catalog_version = getattr(self, 'theme_catalog_version', None)
+
         payload = {
             "commander": getattr(self, 'commander_name', '') or getattr(self, 'commander', '') or '',
             "primary_tag": getattr(self, 'primary_tag', None),
@@ -1067,6 +1080,12 @@ class ReportingMixin:
             "enforcement_mode": getattr(self, 'enforcement_mode', 'warn'),
             "allow_illegal": bool(getattr(self, 'allow_illegal', False)),
             "fuzzy_matching": bool(getattr(self, 'fuzzy_matching', True)),
+            "additional_themes": user_themes,
+            "theme_match_mode": getattr(self, 'theme_match_mode', 'permissive'),
+            "theme_catalog_version": theme_catalog_version,
+            # CamelCase aliases for downstream consumers (web diagnostics, external tooling)
+            "userThemes": user_themes,
+            "themeCatalogVersion": theme_catalog_version,
             # chosen fetch land count (others intentionally omitted for variance)
             "fetch_count": chosen_fetch,
             # actual ideal counts used for this run

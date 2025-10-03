@@ -3,6 +3,7 @@
 Additional details for developers and power users working with the theme catalog, editorial tooling, and diagnostics.
 
 ## Table of contents
+- [theme_catalog.csv schema](#theme_catalogcsv-schema)
 - [HTMX API endpoints](#htmx-api-endpoints)
 - [Caching, diagnostics, and metrics](#caching-diagnostics-and-metrics)
 - [Governance principles](#governance-principles)
@@ -18,7 +19,20 @@ Additional details for developers and power users working with the theme catalog
   - [Description mapping overrides](#description-mapping-overrides)
 - [Validation and schema tooling](#validation-and-schema-tooling)
 
----
+
+## theme_catalog.csv schema
+`theme_catalog.csv` is the normalized artifact consumed by headless builds, supplemental themes, and diagnostics panels. The file starts with a header comment in the format `# theme_catalog version=<hash>` followed by a standard CSV header with these columns:
+
+| Column | Description |
+| --- | --- |
+| `theme` | Normalized display label used across the app and JSON exports. |
+| `commander_count` | Number of commanders tagged with the theme in `commander_cards.csv`. |
+| `card_count` | Number of non-commander cards carrying the theme tag across primary CSVs. |
+| `source_count` | Combined count (`commander_count + card_count`) to simplify weighting heuristics. |
+| `last_generated_at` | ISO-8601 timestamp captured at generation time (UTC). Useful for verifying stale catalogs in diagnostics. |
+| `version` | Deterministic SHA-256 prefix derived from the ordered theme list; this value flows into exports as `themeCatalogVersion` and `/status/theme_metrics`. |
+
+Consumers should treat additional columns as experimental. If you add new fields, update this table and the supplemental theme tests that assert schema coverage.
 
 ## HTMX API endpoints
 The upcoming theme picker UI is powered by two FastAPI endpoints.

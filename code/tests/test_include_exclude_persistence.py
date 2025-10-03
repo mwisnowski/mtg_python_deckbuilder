@@ -6,6 +6,7 @@ back with full fidelity, supporting the persistence layer of the include/exclude
 """
 
 import json
+import hashlib
 import tempfile
 import os
 
@@ -88,6 +89,11 @@ class TestJSONRoundTrip:
             assert re_exported_config["enforcement_mode"] == "strict"
             assert re_exported_config["allow_illegal"] is True
             assert re_exported_config["fuzzy_matching"] is False
+            assert re_exported_config["additional_themes"] == []
+            assert re_exported_config["theme_match_mode"] == "permissive"
+            assert re_exported_config["theme_catalog_version"] is None
+            assert re_exported_config["userThemes"] == []
+            assert re_exported_config["themeCatalogVersion"] is None
     
     def test_empty_lists_round_trip(self):
         """Test that empty include/exclude lists are handled correctly."""
@@ -113,6 +119,8 @@ class TestJSONRoundTrip:
             assert exported_config["enforcement_mode"] == "warn"
             assert exported_config["allow_illegal"] is False
             assert exported_config["fuzzy_matching"] is True
+            assert exported_config["userThemes"] == []
+            assert exported_config["themeCatalogVersion"] is None
     
     def test_default_values_export(self):
         """Test that default values are exported correctly."""
@@ -134,6 +142,9 @@ class TestJSONRoundTrip:
             assert exported_config["enforcement_mode"] == "warn"
             assert exported_config["allow_illegal"] is False
             assert exported_config["fuzzy_matching"] is True
+            assert exported_config["additional_themes"] == []
+            assert exported_config["theme_match_mode"] == "permissive"
+            assert exported_config["theme_catalog_version"] is None
     
     def test_backward_compatibility_no_include_exclude_fields(self):
         """Test that configs without include/exclude fields still work."""
@@ -167,6 +178,63 @@ class TestJSONRoundTrip:
             assert "enforcement_mode" not in loaded_config
             assert "allow_illegal" not in loaded_config
             assert "fuzzy_matching" not in loaded_config
+            assert "additional_themes" not in loaded_config
+            assert "theme_match_mode" not in loaded_config
+            assert "theme_catalog_version" not in loaded_config
+            assert "userThemes" not in loaded_config
+            assert "themeCatalogVersion" not in loaded_config
+
+    def test_export_backward_compatibility_hash(self):
+        """Ensure exports without user themes remain hash-compatible with legacy payload."""
+        builder = DeckBuilder()
+        builder.commander_name = "Test Commander"
+        builder.include_cards = ["Sol Ring"]
+        builder.exclude_cards = []
+        builder.enforcement_mode = "warn"
+        builder.allow_illegal = False
+        builder.fuzzy_matching = True
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            exported_path = builder.export_run_config_json(directory=temp_dir, suppress_output=True)
+
+            with open(exported_path, 'r', encoding='utf-8') as f:
+                exported_config = json.load(f)
+
+        legacy_expected = {
+            "commander": "Test Commander",
+            "primary_tag": None,
+            "secondary_tag": None,
+            "tertiary_tag": None,
+            "bracket_level": None,
+            "tag_mode": "AND",
+            "use_multi_theme": True,
+            "add_lands": True,
+            "add_creatures": True,
+            "add_non_creature_spells": True,
+            "prefer_combos": False,
+            "combo_target_count": None,
+            "combo_balance": None,
+            "include_cards": ["Sol Ring"],
+            "exclude_cards": [],
+            "enforcement_mode": "warn",
+            "allow_illegal": False,
+            "fuzzy_matching": True,
+            "additional_themes": [],
+            "theme_match_mode": "permissive",
+            "theme_catalog_version": None,
+            "fetch_count": None,
+            "ideal_counts": {},
+        }
+
+        sanitized_payload = {k: exported_config.get(k) for k in legacy_expected.keys()}
+
+        assert sanitized_payload == legacy_expected
+        assert exported_config["userThemes"] == []
+        assert exported_config["themeCatalogVersion"] is None
+
+        legacy_hash = hashlib.sha256(json.dumps(legacy_expected, sort_keys=True).encode("utf-8")).hexdigest()
+        sanitized_hash = hashlib.sha256(json.dumps(sanitized_payload, sort_keys=True).encode("utf-8")).hexdigest()
+        assert sanitized_hash == legacy_hash
 
 
 if __name__ == "__main__":

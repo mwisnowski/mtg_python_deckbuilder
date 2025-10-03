@@ -41,6 +41,13 @@ from .phases.phase6_reporting import ReportingMixin
 # Local application imports
 from . import builder_constants as bc
 from . import builder_utils as bu
+from deck_builder.theme_context import (
+    ThemeContext,
+    build_theme_context,
+    default_user_theme_weight,
+    theme_summary_payload,
+)
+from deck_builder.theme_resolution import ThemeResolutionInfo
 import os
 from settings import CSV_DIRECTORY
 from file_setup.setup import initial_setup
@@ -113,6 +120,35 @@ class DeckBuilder(
             except Exception:
                 # Leave RNG as-is on unexpected error
                 pass
+
+    def _theme_context_signature(self) -> Tuple[Any, ...]:
+        resolved = tuple(
+            str(tag) for tag in getattr(self, 'user_theme_resolved', []) if isinstance(tag, str)
+        )
+        resolution = getattr(self, 'user_theme_resolution', None)
+        resolution_id = id(resolution) if resolution is not None else None
+        return (
+            str(getattr(self, 'primary_tag', '') or ''),
+            str(getattr(self, 'secondary_tag', '') or ''),
+            str(getattr(self, 'tertiary_tag', '') or ''),
+            tuple(str(tag) for tag in getattr(self, 'selected_tags', []) if isinstance(tag, str)),
+            resolved,
+            str(getattr(self, 'tag_mode', 'AND') or 'AND').upper(),
+            round(float(getattr(self, 'user_theme_weight', 1.0)), 4),
+            resolution_id,
+        )
+
+    def get_theme_context(self) -> ThemeContext:
+        signature = self._theme_context_signature()
+        if self._theme_context_cache is None or self._theme_context_cache_key != signature:
+            context = build_theme_context(self)
+            self._theme_context_cache = context
+            self._theme_context_cache_key = signature
+        return self._theme_context_cache
+
+    def get_theme_summary_payload(self) -> Dict[str, Any]:
+        context = self.get_theme_context()
+        return theme_summary_payload(context)
     def build_deck_full(self):
         """Orchestrate the full deck build process, chaining all major phases."""
         start_ts = datetime.datetime.now()
@@ -423,6 +459,19 @@ class DeckBuilder(
     fuzzy_matching: bool = True
     # Diagnostics storage for include/exclude processing
     include_exclude_diagnostics: Optional[Dict[str, Any]] = None
+
+    # Supplemental user themes (M4: Config & Headless Support)
+    user_theme_requested: List[str] = field(default_factory=list)
+    user_theme_resolved: List[str] = field(default_factory=list)
+    user_theme_matches: List[Dict[str, Any]] = field(default_factory=list)
+    user_theme_unresolved: List[Dict[str, Any]] = field(default_factory=list)
+    user_theme_fuzzy_corrections: Dict[str, str] = field(default_factory=dict)
+    theme_match_mode: str = "permissive"
+    theme_catalog_version: Optional[str] = None
+    user_theme_weight: float = field(default_factory=default_user_theme_weight)
+    user_theme_resolution: Optional[ThemeResolutionInfo] = None
+    _theme_context_cache: Optional[ThemeContext] = field(default=None, init=False, repr=False)
+    _theme_context_cache_key: Optional[Tuple[Any, ...]] = field(default=None, init=False, repr=False)
 
     # Deck library (cards added so far) mapping name->record
     card_library: Dict[str, Dict[str, Any]] = field(default_factory=dict)

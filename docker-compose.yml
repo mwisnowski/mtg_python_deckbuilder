@@ -102,7 +102,7 @@ services:
       # WEB_THEME_FILTER_PREWARM: "0"
       WEB_AUTO_ENFORCE: "0"         # 1=auto-run compliance export after builds
       WEB_CUSTOM_EXPORT_BASE: ""    # Optional: custom base dir for deck export artifacts
-      APP_VERSION: "2.4.0"          # Displayed version label (set per release/tag)
+      APP_VERSION: "2.4.1"          # Displayed version label (set per release/tag)
 
       # ------------------------------------------------------------------
       # Misc / Land Selection (Step 7) Environment Tuning

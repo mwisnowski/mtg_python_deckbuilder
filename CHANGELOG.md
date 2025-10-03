@@ -14,9 +14,13 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 
 ## [Unreleased]
 ### Summary
+- _TBD_
+
+## [2.4.1] - 2025-10-03
+### Summary
 - Theme catalog groundwork for supplemental/custom themes now ships with a generator script and focused test coverage.
 - Web builder gains an Additional Themes section with fuzzy suggestions and strict/permissive toggles for user-supplied tags.
- - Compose manifests and docs include new environment toggles for random reroll throttling, telemetry/logging, homepage commander tile, and optional random rate limiting.
+- Compose manifests and docs include new environment toggles for random reroll throttling, telemetry/logging, homepage commander tile, and optional random rate limiting.
 
 ### Added
 - Script `python -m code.scripts.generate_theme_catalog` emits a normalized `theme_catalog.csv` with commander/card counts, deterministic ordering, and a reproducible version hash for supplemental theme inputs.
@@ -29,12 +33,12 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 - Added targeted tests for additional theme parsing, strict failure handling, and permissive warning coverage.
 - Web New Deck modal renders an “Additional Themes” HTMX partial supporting add/remove, suggestion adoption, mode switching, limit enforcement, and accessible live messaging (gated by `ENABLE_CUSTOM_THEMES`).
 - Supplemental theme telemetry now records commander/user/merged theme payloads, exposes `/status/theme_metrics` for diagnostics, and surfaces user theme weighting via structured `user_theme_applied` logs and the diagnostics dashboard panel.
- - Environment variables surfaced in compose, `.env.example`, and docs:
-   - `SHOW_COMMANDERS` (default `1`): show the Commanders browser tile.
-   - `RANDOM_REROLL_THROTTLE_MS` (default `350`): client guard to prevent rapid rerolls.
-   - `RANDOM_STRUCTURED_LOGS` (default `0`): emit structured JSON logs for random builds.
-   - `RANDOM_TELEMETRY` (default `0`): enable lightweight timing/attempt counters for diagnostics.
-   - `RATE_LIMIT_ENABLED` (default `0`), `RATE_LIMIT_WINDOW_S` (`10`), `RATE_LIMIT_RANDOM` (`10`), `RATE_LIMIT_BUILD` (`10`), `RATE_LIMIT_SUGGEST` (`30`): optional server-side rate limiting for random endpoints.
+  - Environment variables surfaced in compose, `.env.example`, and docs:
+    - `SHOW_COMMANDERS` (default `1`): show the Commanders browser tile.
+    - `RANDOM_REROLL_THROTTLE_MS` (default `350`): client guard to prevent rapid rerolls.
+    - `RANDOM_STRUCTURED_LOGS` (default `0`): emit structured JSON logs for random builds.
+    - `RANDOM_TELEMETRY` (default `0`): enable lightweight timing/attempt counters for diagnostics.
+    - `RATE_LIMIT_ENABLED` (default `0`), `RATE_LIMIT_WINDOW_S` (`10`), `RATE_LIMIT_RANDOM` (`10`), `RATE_LIMIT_BUILD` (`10`), `RATE_LIMIT_SUGGEST` (`30`): optional server-side rate limiting for random endpoints.
 
 ### Changed
 - Run-config exports now surface `userThemes` and `themeCatalogVersion` metadata while retaining legacy fields; headless imports accept both aliases without changing hash-equivalent payloads when no user themes are present.

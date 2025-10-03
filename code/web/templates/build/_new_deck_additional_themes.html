@@ -1,0 +1,136 @@
+{% set state = theme_state or {} %}
+{% set resolution = state.get('resolution', {}) %}
+{% set matches = resolution.get('matches', []) or [] %}
+{% set unresolved = resolution.get('unresolved', []) or [] %}
+{% set resolved_labels = resolution.get('resolved', []) or [] %}
+{% set limit = state.get('limit', 8) %}
+{% set remaining = state.get('remaining', limit) %}
+{% set disable_add = remaining <= 0 %}
+
+<fieldset id="custom-theme-root" style="margin-top:1rem; border:1px solid var(--border); border-radius:8px; padding:0.75rem;" hx-on::afterSwap="const field=this.querySelector('[data-theme-input]'); if(field){field.value=''; field.focus();}">
+	<legend style="font-weight:600;">Additional Themes</legend>
+	<p class="muted" style="margin:0 0 .5rem 0; font-size:12px;">
+		Add up to {{ limit }} supplemental themes to guide the build.
+		<span{% if disable_add %} style="color:#fca5a5;"{% endif %}> {{ remaining }} slot{% if remaining != 1 %}s{% endif %} remaining.</span>
+	</p>
+	<div id="custom-theme-live" role="status" aria-live="polite" class="sr-only">{{ theme_message or '' }}</div>
+	{% if theme_message %}
+		{% if theme_message_level == 'success' %}
+		<div class="theme-alert" data-level="success" style="margin-bottom:.5rem; padding:.5rem; border-radius:6px; font-size:12px; background:rgba(34,197,94,0.12); border:1px solid rgba(34,197,94,0.4); color:#bbf7d0;">{{ theme_message }}</div>
+		{% elif theme_message_level == 'warning' %}
+		<div class="theme-alert" data-level="warning" style="margin-bottom:.5rem; padding:.5rem; border-radius:6px; font-size:12px; background:rgba(250,204,21,0.15); border:1px solid rgba(250,204,21,0.45); color:#facc15;">{{ theme_message }}</div>
+		{% elif theme_message_level == 'error' %}
+		<div class="theme-alert" data-level="error" style="margin-bottom:.5rem; padding:.5rem; border-radius:6px; font-size:12px; background:rgba(248,113,113,0.12); border:1px solid rgba(248,113,113,0.45); color:#fca5a5;">{{ theme_message }}</div>
+		{% else %}
+		<div class="theme-alert" data-level="info" style="margin-bottom:.5rem; padding:.5rem; border-radius:6px; font-size:12px; background:rgba(59,130,246,0.1); border:1px solid rgba(59,130,246,0.35); color:#cbd5f5;">{{ theme_message }}</div>
+		{% endif %}
+	{% endif %}
+
+	<div data-theme-add-container
+		 hx-post="/build/themes/add"
+		 hx-target="#custom-theme-root"
+		 hx-swap="outerHTML"
+		 hx-trigger="click from:button[data-theme-add-btn]"
+		 hx-include="[data-theme-input]"
+		 style="display:flex; gap:.5rem; align-items:center; flex-wrap:wrap;">
+		<label style="flex:1; min-width:220px;">
+			<span class="sr-only">Theme name</span>
+			<input type="text" name="theme" data-theme-input placeholder="e.g., Lifegain" maxlength="60" autocomplete="off" autocapitalize="off" spellcheck="false" style="width:100%; padding:.5rem; border-radius:6px; border:1px solid var(--border); background:var(--input-bg, #161921); color:var(--text-color, #f9fafb);" {% if disable_add %}disabled aria-disabled="true"{% endif %} />
+		</label>
+		<button type="button" data-theme-add-btn class="btn" style="padding:.45rem 1rem;" {% if disable_add %}disabled aria-disabled="true"{% endif %}>Add theme</button>
+	</div>
+
+	<div style="margin-top:.75rem; display:flex; gap:1rem; flex-wrap:wrap; font-size:12px; align-items:center;">
+		<span class="muted">Matching mode:</span>
+		<label style="display:inline-flex; align-items:center; gap:.35rem;">
+			<input type="radio" name="mode" value="permissive" {% if state.get('mode') == 'permissive' %}checked{% endif %}
+				 hx-trigger="change"
+				 hx-post="/build/themes/mode"
+				 hx-target="#custom-theme-root"
+				 hx-swap="outerHTML"
+				 hx-vals='{"mode":"permissive"}'
+			/> Permissive
+		</label>
+		<label style="display:inline-flex; align-items:center; gap:.35rem;">
+			<input type="radio" name="mode" value="strict" {% if state.get('mode') == 'strict' %}checked{% endif %}
+				 hx-trigger="change"
+				 hx-post="/build/themes/mode"
+				 hx-target="#custom-theme-root"
+				 hx-swap="outerHTML"
+				 hx-vals='{"mode":"strict"}'
+			/> Strict
+		</label>
+	</div>
+
+	<div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:.75rem; margin-top:1rem;">
+		<div>
+			<h4 style="font-size:12px; text-transform:uppercase; letter-spacing:.05em; margin:0 0 .5rem 0; color:var(--text-muted, #9ca3af);">Resolved</h4>
+			{% if resolved_labels %}
+			<div style="display:flex; flex-wrap:wrap; gap:.5rem;">
+				{% for match in matches %}
+				{% set matched = match.matched if match.matched is defined else match['matched'] %}
+				{% set original = match.input if match.input is defined else match['input'] %}
+				{% set score_val = match.score if match.score is defined else match['score'] %}
+				{% set score_pct = score_val if score_val is not none else None %}
+				{% set reason_code = match.reason if match.reason is defined else match['reason'] %}
+				<div class="theme-chip" style="display:inline-flex; align-items:center; gap:.35rem; padding:.35rem .6rem; background:rgba(34,197,94,0.12); border:1px solid rgba(34,197,94,0.35); border-radius:999px; font-size:12px;" title="{{ matched }}{% if score_pct is not none %} · {{ '%.0f'|format(score_pct) }}% confidence{% endif %}{% if reason_code %} ({{ reason_code|replace('_',' ')|title }}){% endif %}">
+					<span>{{ matched }}</span>
+					{% if original and original.casefold() != matched.casefold() %}
+					<span class="muted" style="font-size:11px;">(from “{{ original }}”)</span>
+					{% endif %}
+					<button type="button" hx-post="/build/themes/remove" hx-target="#custom-theme-root" hx-swap="outerHTML" hx-vals="{{ {'theme': original}|tojson }}" title="Remove theme" style="background:none; border:none; color:inherit; font-weight:bold; cursor:pointer;">×</button>
+				</div>
+				{% endfor %}
+				{% if not matches and resolved_labels %}
+					{% for label in resolved_labels %}
+					<div class="theme-chip" style="display:inline-flex; align-items:center; gap:.35rem; padding:.35rem .6rem; background:rgba(34,197,94,0.12); border:1px solid rgba(34,197,94,0.35); border-radius:999px; font-size:12px;">
+						<span>{{ label }}</span>
+					</div>
+					{% endfor %}
+				{% endif %}
+			</div>
+			{% else %}
+			<div class="muted" style="font-size:12px;">No supplemental themes yet.</div>
+			{% endif %}
+		</div>
+
+		<div>
+			<h4 style="font-size:12px; text-transform:uppercase; letter-spacing:.05em; margin:0 0 .5rem 0; color:var(--text-muted, #fbbf24);">Needs attention</h4>
+			{% if unresolved %}
+			<div style="display:flex; flex-direction:column; gap:.5rem;">
+				{% for item in unresolved %}
+				<div style="border:1px solid rgba(234,179,8,0.4); background:rgba(250,204,21,0.08); border-radius:8px; padding:.5rem; font-size:12px;">
+					<div style="display:flex; justify-content:space-between; align-items:center; gap:.5rem;">
+						<strong>{{ item.input }}</strong>
+						<button type="button" class="btn" hx-post="/build/themes/remove" hx-target="#custom-theme-root" hx-swap="outerHTML" hx-vals="{{ {'theme': item.input}|tojson }}" style="padding:.25rem .6rem; font-size:11px; background:#7f1d1d; border-color:#dc2626;">Remove</button>
+					</div>
+					{% if item.reason %}
+					<div class="muted" style="margin-top:.35rem; font-size:11px;">Reason: {{ item.reason|replace('_',' ')|title }}</div>
+					{% endif %}
+					{% if item.suggestions %}
+					<div style="margin-top:.5rem; display:flex; flex-wrap:wrap; gap:.35rem;">
+						{% for suggestion in item.suggestions[:3] %}
+						{% set suggestion_theme = suggestion.theme if suggestion.theme is defined else suggestion.get('theme') %}
+						{% set suggestion_score = suggestion.score if suggestion.score is defined else suggestion.get('score') %}
+						{% if suggestion_theme %}
+						<button type="button" class="btn" hx-post="/build/themes/choose" hx-target="#custom-theme-root" hx-swap="outerHTML" hx-vals="{{ {'original': item.input, 'choice': suggestion_theme}|tojson }}" style="padding:.25rem .5rem; font-size:11px; background:#1d4ed8; border-color:#2563eb;">
+							Use {{ suggestion_theme }}{% if suggestion_score is not none %} ({{ '%.0f'|format(suggestion_score) }}%){% endif %}
+						</button>
+						{% endif %}
+						{% endfor %}
+					</div>
+					{% else %}
+					<div class="muted" style="margin-top:.35rem; font-size:11px;">No close matches found.</div>
+					{% endif %}
+				</div>
+				{% endfor %}
+			</div>
+			{% else %}
+			<div class="muted" style="font-size:12px;">All themes resolved.</div>
+			{% endif %}
+		</div>
+	</div>
+	<div class="muted" style="margin-top:.75rem; font-size:11px;">
+		Catalog version: {{ resolution.get('catalog_version', 'unknown') }} · Mode: {{ state.get('mode', 'permissive')|title }}
+	</div>
+</fieldset>

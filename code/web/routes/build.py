@@ -3,7 +3,13 @@ from __future__ import annotations
 from fastapi import APIRouter, Request, Form, Query
 from fastapi.responses import HTMLResponse, JSONResponse
 from typing import Any
-from ..app import ALLOW_MUST_HAVES  # Import feature flag
+from ..app import (
+    ALLOW_MUST_HAVES,
+    ENABLE_CUSTOM_THEMES,
+    USER_THEME_LIMIT,
+    DEFAULT_THEME_MATCH_MODE,
+    _sanitize_theme,
+)
 from ..services.build_utils import (
     step5_ctx_from_result,
     step5_error_ctx,
@@ -23,6 +29,7 @@ from html import escape as _esc
 from deck_builder.builder import DeckBuilder
 from deck_builder import builder_utils as bu
 from ..services.combo_utils import detect_all as _detect_all
+from ..services import custom_theme_manager as theme_mgr
 from path_util import csv_dir as _csv_dir
 from ..services.alts_utils import get_cached as _alts_get_cached, set_cached as _alts_set_cached
 from ..services.telemetry import log_commander_create_deck
@@ -112,6 +119,41 @@ def warm_validation_name_cache() -> None:
 router = APIRouter(prefix="/build")
 
 # Alternatives cache moved to services/alts_utils
+
+
+def _custom_theme_context(
+    request: Request,
+    sess: dict,
+    *,
+    message: str | None = None,
+    level: str = "info",
+) -> dict[str, Any]:
+    """Assemble the Additional Themes section context for the modal."""
+
+    if not ENABLE_CUSTOM_THEMES:
+        return {
+            "request": request,
+            "theme_state": None,
+            "theme_message": message,
+            "theme_message_level": level,
+            "theme_limit": USER_THEME_LIMIT,
+            "enable_custom_themes": False,
+        }
+    theme_mgr.set_limit(sess, USER_THEME_LIMIT)
+    state = theme_mgr.get_view_state(sess, default_mode=DEFAULT_THEME_MATCH_MODE)
+    return {
+        "request": request,
+        "theme_state": state,
+        "theme_message": message,
+        "theme_message_level": level,
+        "theme_limit": USER_THEME_LIMIT,
+        "enable_custom_themes": ENABLE_CUSTOM_THEMES,
+    }
+
+
+_INVALID_THEME_MESSAGE = (
+    "Theme names can only include letters, numbers, spaces, hyphens, apostrophes, and underscores."
+)
 
 
 def _rebuild_ctx_with_multicopy(sess: dict) -> None:
@@ -418,12 +460,14 @@ async def build_new_modal(request: Request) -> HTMLResponse:
     """Return the New Deck modal content (for an overlay)."""
     sid = request.cookies.get("sid") or new_sid()
     sess = get_session(sid)
+    theme_context = _custom_theme_context(request, sess)
     ctx = {
         "request": request,
         "brackets": orch.bracket_options(),
         "labels": orch.ideal_labels(),
         "defaults": orch.ideal_defaults(),
         "allow_must_haves": ALLOW_MUST_HAVES,  # Add feature flag
+        "enable_custom_themes": ENABLE_CUSTOM_THEMES,
         "form": {
             "prefer_combos": bool(sess.get("prefer_combos")),
             "combo_count": sess.get("combo_target_count"),
@@ -434,6 +478,10 @@ async def build_new_modal(request: Request) -> HTMLResponse:
             "swap_mdfc_basics": bool(sess.get("swap_mdfc_basics")),
         },
     }
+    for key, value in theme_context.items():
+        if key == "request":
+            continue
+        ctx[key] = value
     resp = templates.TemplateResponse("build/_new_deck_modal.html", ctx)
     resp.set_cookie("sid", sid, httponly=True, samesite="lax")
     return resp
@@ -575,6 +623,91 @@ async def build_new_multicopy(
         return HTMLResponse("")
 
 
+@router.post("/themes/add", response_class=HTMLResponse)
+async def build_theme_add(request: Request, theme: str = Form("")) -> HTMLResponse:
+    if not ENABLE_CUSTOM_THEMES:
+        return HTMLResponse("", status_code=204)
+    sid = request.cookies.get("sid") or new_sid()
+    sess = get_session(sid)
+    trimmed = theme.strip()
+    sanitized = _sanitize_theme(trimmed) if trimmed else ""
+    if trimmed and not sanitized:
+        ctx = _custom_theme_context(request, sess, message=_INVALID_THEME_MESSAGE, level="error")
+    else:
+        value = sanitized if sanitized is not None else trimmed
+        _, message, level = theme_mgr.add_theme(
+            sess,
+            value,
+            commander_tags=list(sess.get("tags", [])),
+            mode=sess.get("theme_match_mode", DEFAULT_THEME_MATCH_MODE),
+            limit=USER_THEME_LIMIT,
+        )
+        ctx = _custom_theme_context(request, sess, message=message, level=level)
+    resp = templates.TemplateResponse("build/_new_deck_additional_themes.html", ctx)
+    resp.set_cookie("sid", sid, httponly=True, samesite="lax")
+    return resp
+
+
+@router.post("/themes/remove", response_class=HTMLResponse)
+async def build_theme_remove(request: Request, theme: str = Form("")) -> HTMLResponse:
+    if not ENABLE_CUSTOM_THEMES:
+        return HTMLResponse("", status_code=204)
+    sid = request.cookies.get("sid") or new_sid()
+    sess = get_session(sid)
+    value = _sanitize_theme(theme) or theme
+    _, message, level = theme_mgr.remove_theme(
+        sess,
+        value,
+        commander_tags=list(sess.get("tags", [])),
+        mode=sess.get("theme_match_mode", DEFAULT_THEME_MATCH_MODE),
+    )
+    ctx = _custom_theme_context(request, sess, message=message, level=level)
+    resp = templates.TemplateResponse("build/_new_deck_additional_themes.html", ctx)
+    resp.set_cookie("sid", sid, httponly=True, samesite="lax")
+    return resp
+
+
+@router.post("/themes/choose", response_class=HTMLResponse)
+async def build_theme_choose(
+    request: Request,
+    original: str = Form(""),
+    choice: str = Form(""),
+) -> HTMLResponse:
+    if not ENABLE_CUSTOM_THEMES:
+        return HTMLResponse("", status_code=204)
+    sid = request.cookies.get("sid") or new_sid()
+    sess = get_session(sid)
+    selection = _sanitize_theme(choice) or choice
+    _, message, level = theme_mgr.choose_suggestion(
+        sess,
+        original,
+        selection,
+        commander_tags=list(sess.get("tags", [])),
+        mode=sess.get("theme_match_mode", DEFAULT_THEME_MATCH_MODE),
+    )
+    ctx = _custom_theme_context(request, sess, message=message, level=level)
+    resp = templates.TemplateResponse("build/_new_deck_additional_themes.html", ctx)
+    resp.set_cookie("sid", sid, httponly=True, samesite="lax")
+    return resp
+
+
+@router.post("/themes/mode", response_class=HTMLResponse)
+async def build_theme_mode(request: Request, mode: str = Form("permissive")) -> HTMLResponse:
+    if not ENABLE_CUSTOM_THEMES:
+        return HTMLResponse("", status_code=204)
+    sid = request.cookies.get("sid") or new_sid()
+    sess = get_session(sid)
+    _, message, level = theme_mgr.set_mode(
+        sess,
+        mode,
+        commander_tags=list(sess.get("tags", [])),
+    )
+    ctx = _custom_theme_context(request, sess, message=message, level=level)
+    resp = templates.TemplateResponse("build/_new_deck_additional_themes.html", ctx)
+    resp.set_cookie("sid", sid, httponly=True, samesite="lax")
+    return resp
+
+
 @router.post("/new", response_class=HTMLResponse)
 async def build_new_submit(
     request: Request,
@@ -660,8 +793,14 @@ async def build_new_submit(
                     "labels": orch.ideal_labels(),
                     "defaults": orch.ideal_defaults(),
                     "allow_must_haves": ALLOW_MUST_HAVES,
+                    "enable_custom_themes": ENABLE_CUSTOM_THEMES,
                     "form": _form_state(suggested),
                 }
+                theme_ctx = _custom_theme_context(request, sess, message=error_msg, level="error")
+                for key, value in theme_ctx.items():
+                    if key == "request":
+                        continue
+                    ctx[key] = value
                 resp = templates.TemplateResponse("build/_new_deck_modal.html", ctx)
                 resp.set_cookie("sid", sid, httponly=True, samesite="lax")
                 return resp
@@ -676,8 +815,14 @@ async def build_new_submit(
             "labels": orch.ideal_labels(),
             "defaults": orch.ideal_defaults(),
             "allow_must_haves": ALLOW_MUST_HAVES,  # Add feature flag
+            "enable_custom_themes": ENABLE_CUSTOM_THEMES,
             "form": _form_state(commander),
         }
+        theme_ctx = _custom_theme_context(request, sess, message=ctx["error"], level="error")
+        for key, value in theme_ctx.items():
+            if key == "request":
+                continue
+            ctx[key] = value
         resp = templates.TemplateResponse("build/_new_deck_modal.html", ctx)
         resp.set_cookie("sid", sid, httponly=True, samesite="lax")
         return resp
@@ -694,8 +839,34 @@ async def build_new_submit(
             bracket = 3
     # Save to session
     sess["commander"] = sel.get("name") or commander
+    # 1) Start from explicitly selected tags (order preserved)
     tags = [t for t in [primary_tag, secondary_tag, tertiary_tag] if t]
-    # If commander has a tag list and primary missing, set first recommended as default
+    user_explicit = bool(tags)  # whether the user set any theme in the form
+    # 2) Consider user-added supplemental themes from the Additional Themes UI
+    additional_from_session = []
+    try:
+        # custom_theme_manager stores resolved list here on add/resolve; present before submit
+        additional_from_session = [
+            str(x) for x in (sess.get("additional_themes") or []) if isinstance(x, str) and x.strip()
+        ]
+    except Exception:
+        additional_from_session = []
+    # 3) If no explicit themes were selected, prefer additional themes as primary/secondary/tertiary
+    if not user_explicit and additional_from_session:
+        # Cap to three and preserve order
+        tags = list(additional_from_session[:3])
+    # 4) If user selected some themes, fill remaining slots with additional themes (deduping)
+    elif user_explicit and additional_from_session:
+        seen = {str(t).strip().casefold() for t in tags}
+        for name in additional_from_session:
+            key = name.strip().casefold()
+            if key in seen:
+                continue
+            tags.append(name)
+            seen.add(key)
+            if len(tags) >= 3:
+                break
+    # 5) If still empty (no explicit and no additional), fall back to commander-recommended default
     if not tags:
         try:
             rec = orch.recommended_tags_for_commander(sess["commander"]) or []
@@ -731,6 +902,33 @@ async def build_new_submit(
         except Exception:
             pass
     sess["ideals"] = ideals
+    if ENABLE_CUSTOM_THEMES:
+        try:
+            theme_mgr.refresh_resolution(
+                sess,
+                commander_tags=tags,
+                mode=sess.get("theme_match_mode", DEFAULT_THEME_MATCH_MODE),
+            )
+        except ValueError as exc:
+            error_msg = str(exc)
+            ctx = {
+                "request": request,
+                "error": error_msg,
+                "brackets": orch.bracket_options(),
+                "labels": orch.ideal_labels(),
+                "defaults": orch.ideal_defaults(),
+                "allow_must_haves": ALLOW_MUST_HAVES,
+                "enable_custom_themes": ENABLE_CUSTOM_THEMES,
+                "form": _form_state(sess.get("commander", "")),
+            }
+            theme_ctx = _custom_theme_context(request, sess, message=error_msg, level="error")
+            for key, value in theme_ctx.items():
+                if key == "request":
+                    continue
+                ctx[key] = value
+            resp = templates.TemplateResponse("build/_new_deck_modal.html", ctx)
+            resp.set_cookie("sid", sid, httponly=True, samesite="lax")
+            return resp
     # Persist preferences
     try:
         sess["prefer_combos"] = bool(prefer_combos)

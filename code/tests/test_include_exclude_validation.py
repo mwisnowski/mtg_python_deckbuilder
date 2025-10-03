@@ -264,6 +264,8 @@ class TestJSONRoundTrip:
             assert exported_data['enforcement_mode'] == "strict"
             assert exported_data['allow_illegal'] is True
             assert exported_data['fuzzy_matching'] is False
+            assert exported_data['userThemes'] == []
+            assert exported_data['themeCatalogVersion'] is None
 
 
 if __name__ == "__main__":

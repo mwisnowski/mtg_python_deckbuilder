@@ -78,6 +78,7 @@ Every tile on the homepage connects to a workflow. Use these sections as your to
 ### Build a Deck
 Start here for interactive deck creation.
 - Pick commander, themes (primary/secondary/tertiary), bracket, and optional deck name in the unified modal.
+- Add supplemental themes in the **Additional Themes** section (ENABLE_CUSTOM_THEMES): fuzzy suggestions, removable chips, and strict/permissive matching toggles respect `THEME_MATCH_MODE` and `USER_THEME_LIMIT`.
 - Locks, Replace, Compare, and Permalinks live in Step 5.
 - Exports (CSV, TXT, compliance JSON, summary JSON) land in `deck_files/` and reuse your chosen deck name when set.
 - `ALLOW_MUST_HAVES=1` (default) enables include/exclude enforcement.
@@ -88,6 +89,7 @@ Execute saved configs without manual input.
 - Place JSON configs under `config/` (see `config/deck.json` for a template).
 - Launch via homepage button or by running the container with `APP_MODE=cli` and `DECK_MODE=headless`.
 - Respect include/exclude, owned, and theme overrides defined in the config file or env vars.
+- Supplemental themes: add `"additional_themes": ["Theme A", "Theme B"]` plus `"theme_match_mode": "permissive"|"strict"`. Strict mode stops the build when a theme cannot be resolved; permissive keeps going and prints suggestions. Exported configs also include a camelCase alias (`"userThemes"`) and the active catalog version (`"themeCatalogVersion"`); either field name is accepted on import.
 
 ### Initial Setup
 Refresh data and caches when formats shift.
@@ -124,6 +126,11 @@ Investigate theme synergies and diagnostics.
   ```powershell
   docker compose run --rm --entrypoint bash web -lc "python -m code.scripts.build_theme_catalog"
   ```
+- Generate the normalized supplemental theme catalog (commander & card counts) for user-added themes:
+  ```powershell
+  python -m code.scripts.generate_theme_catalog --output config/themes/theme_catalog.csv
+  ```
+  Add `--logs-dir logs/generated` to mirror the CSV for diffing, or `--csv-dir` to point at alternate datasets.
 - Advanced editorial knobs (`EDITORIAL_*`, `SPLASH_ADAPTIVE`, etc.) live in `.env.example` and are summarized in the env table below.
 
 ### Finished Decks
@@ -195,6 +202,7 @@ Most defaults are defined in `docker-compose.yml` and documented in `.env.exampl
 | `SHOW_DIAGNOSTICS` | `1` | Unlock diagnostics views and overlays. |
 | `SHOW_COMMANDERS` | `1` | Enable the commander browser. |
 | `ENABLE_THEMES` | `1` | Keep the theme browser and selector active. |
+| `ENABLE_CUSTOM_THEMES` | `1` | Surface the Additional Themes section in the New Deck modal. |
 | `WEB_VIRTUALIZE` | `1` | Opt into virtualized lists for large datasets. |
 | `ALLOW_MUST_HAVES` | `1` | Enforce include/exclude (must-have) lists. |
 | `THEME` | `dark` | Default UI theme (`system`, `light`, or `dark`). |
@@ -206,9 +214,21 @@ Most defaults are defined in `docker-compose.yml` and documented in `.env.exampl
 | `RANDOM_UI` | _(unset)_ | Show the Random Build homepage tile. |
 | `RANDOM_MAX_ATTEMPTS` | `5` | Retry budget when constraints are tight. |
 | `RANDOM_TIMEOUT_MS` | `5000` | Per-attempt timeout in milliseconds. |
+| `RANDOM_REROLL_THROTTLE_MS` | `350` | Minimum milliseconds between reroll requests (client-side guard). |
+| `RANDOM_STRUCTURED_LOGS` | `0` | Emit structured JSON logs for random builds. |
+| `RANDOM_TELEMETRY` | `0` | Enable lightweight timing/attempt metrics for diagnostics. |
 | `RANDOM_PRIMARY_THEME` / `RANDOM_SECONDARY_THEME` / `RANDOM_TERTIARY_THEME` | _(blank)_ | Override selected themes. |
 | `RANDOM_SEED` | _(blank)_ | Deterministic seed for reproducible builds. |
 | `RANDOM_AUTO_FILL` | `1` | Allow auto-fill of missing theme slots. |
+
+### Random rate limiting (optional)
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `RATE_LIMIT_ENABLED` | `0` | Enable server-side rate limiting for random endpoints. |
+| `RATE_LIMIT_WINDOW_S` | `10` | Rolling window size in seconds. |
+| `RATE_LIMIT_RANDOM` | `10` | Max random attempts per window. |
+| `RATE_LIMIT_BUILD` | `10` | Max full builds per window. |
+| `RATE_LIMIT_SUGGEST` | `30` | Max suggestion calls per window. |
 
 ### Automation & performance
 | Variable | Default | Purpose |
@@ -227,6 +247,13 @@ Most defaults are defined in `docker-compose.yml` and documented in `.env.exampl
 | `DECK_EXPORTS` | `/app/deck_files` | Override where exports land. |
 | `OWNED_CARDS_DIR` / `CARD_LIBRARY_DIR` | `/app/owned_cards` | Override owned library path. |
 | `CARD_INDEX_EXTRA_CSV` | _(blank)_ | Inject extra CSV data into the card index. |
+
+### Supplemental themes
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `DECK_ADDITIONAL_THEMES` | _(blank)_ | Comma/semicolon separated list of supplemental themes to apply in headless builds. |
+| `THEME_MATCH_MODE` | `permissive` | Controls fuzzy resolution strictness (`strict` blocks unresolved themes) and seeds the web UI default. |
+| `USER_THEME_LIMIT` | `8` | Maximum number of user-supplied themes allowed in the web builder. |
 
 Refer to `.env.example` for advanced editorial, taxonomy, and experimentation knobs (`EDITORIAL_*`, `SPLASH_ADAPTIVE`, `WEB_THEME_FILTER_PREWARM`, etc.). Document any newly introduced variables in the README, DOCKER guide, compose files, and `.env.example`.
 

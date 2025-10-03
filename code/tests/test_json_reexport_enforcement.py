@@ -89,6 +89,8 @@ def test_enforce_and_reexport_includes_json_reexport():
                 assert 'include_cards' in json_data, "JSON should contain include_cards field"
                 assert 'exclude_cards' in json_data, "JSON should contain exclude_cards field"
                 assert 'enforcement_mode' in json_data, "JSON should contain enforcement_mode field"
+                assert 'userThemes' in json_data, "JSON should surface userThemes alias"
+                assert 'themeCatalogVersion' in json_data, "JSON should surface themeCatalogVersion alias"
                 
             except Exception:
                 # If enforce_and_reexport fails completely, that's also fine for this test

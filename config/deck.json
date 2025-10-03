@@ -23,5 +23,9 @@
   "exclude_cards": ["Chaos Orb"],
   "enforcement_mode": "warn",
   "allow_illegal": false,
-  "fuzzy_matching": true
+  "fuzzy_matching": true,
+  "additional_themes": [],
+  "theme_match_mode": "permissive",
+  "userThemes": [],
+  "themeCatalogVersion": null
 }

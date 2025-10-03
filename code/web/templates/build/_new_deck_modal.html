@@ -40,6 +40,9 @@
           <input type="hidden" name="tag_mode" value="AND" />
         </div>
   <div id="newdeck-multicopy-slot" class="muted" style="margin-top:.5rem; min-height:1rem;"></div>
+        {% if enable_custom_themes %}
+        {% include "build/_new_deck_additional_themes.html" %}
+        {% endif %}
         <div style="margin-top:.5rem;" id="newdeck-bracket-slot">
           <label>Bracket
             <select name="bracket">

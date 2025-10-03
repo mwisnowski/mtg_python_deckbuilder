@@ -20,8 +20,11 @@ services:
       SHOW_LOGS: "1"                # 1=enable /logs page; 0=hide
       SHOW_SETUP: "1"               # 1=show Setup/Tagging card; 0=hide (still runs if WEB_AUTO_SETUP=1)
       SHOW_DIAGNOSTICS: "1"         # 1=enable /diagnostics & /diagnostics/perf; 0=hide
+      SHOW_COMMANDERS: "1"         # 1=show Commanders browser/pages
       ENABLE_PWA: "0"               # 1=serve manifest/service worker (experimental)
       ENABLE_THEMES: "1"            # 1=expose theme selector; 0=hide (THEME still applied)
+      ENABLE_CUSTOM_THEMES: "1"     # 1=expose Additional Themes panel for user-supplied tags
+      USER_THEME_LIMIT: "8"         # Maximum number of user-supplied supplemental themes stored in session
       ENABLE_PRESETS: "0"           # 1=show presets section
       WEB_VIRTUALIZE: "1"           # 1=enable list virtualization in Step 5
       ALLOW_MUST_HAVES: "1"         # 1=enable must-include/must-exclude cards feature; 0=disable
@@ -49,6 +52,9 @@ services:
       RANDOM_UI: "1"                # 1=show Surprise/Theme/Reroll/Share controls in UI
       RANDOM_MAX_ATTEMPTS: "5"      # cap retry attempts
       RANDOM_TIMEOUT_MS: "5000"     # per-build timeout in ms
+      RANDOM_REROLL_THROTTLE_MS: "350"  # minimum ms between reroll requests (client guard)
+      RANDOM_STRUCTURED_LOGS: "0"   # 1=emit structured JSON logs for random builds
+      RANDOM_TELEMETRY: "0"        # 1=emit lightweight timing/attempt metrics (dev/diagnostics)
       RANDOM_THEME: ""              # optional legacy theme alias (maps to primary theme)
       RANDOM_PRIMARY_THEME: ""      # optional primary theme slug override
       RANDOM_SECONDARY_THEME: ""    # optional secondary theme slug override
@@ -63,8 +69,16 @@ services:
       RANDOM_OUTPUT_JSON: ""        # path or directory for random build output payload
       # RANDOM_BUILD_SUPPRESS_INITIAL_EXPORT: "1" # (now defaults to 1 automatically for random builds; set to 0 to force legacy double-export behavior)
 
+      # Random rate limiting (optional; protects from abuse or accidental hammers)
+      RATE_LIMIT_ENABLED: "0"       # 1=enable server-side rate limiting for random endpoints
+      RATE_LIMIT_WINDOW_S: "10"     # window size in seconds
+      RATE_LIMIT_RANDOM: "10"       # max random attempts per window
+      RATE_LIMIT_BUILD: "10"        # max builds per window
+      RATE_LIMIT_SUGGEST: "30"      # max suggestions per window
+
       # Theming
       THEME: "dark"                 # system|light|dark
+      THEME_MATCH_MODE: "permissive" # permissive|strict fuzzy match mode for supplemental themes
 
       # ------------------------------------------------------------------
       # Setup / Tagging / Catalog Controls
@@ -123,6 +137,8 @@ services:
       # CSV_FILES_DIR: "/app/csv_files"
       # Inject a one-off synthetic CSV for index testing without altering shards
       # CARD_INDEX_EXTRA_CSV: ""
+      # DECK_ADDITIONAL_THEMES: ""
+      # THEME_MATCH_MODE: "permissive"
 
       # ------------------------------------------------------------------
       # Headless / Non-interactive Build Configuration

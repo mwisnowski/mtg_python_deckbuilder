@@ -3,7 +3,9 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 from dataclasses import asdict, dataclass, field
+from functools import lru_cache
 from typing import Any, Dict, List, Optional, Tuple
 
 from deck_builder.builder import DeckBuilder
@@ -11,7 +13,6 @@ from deck_builder import builder_constants as bc
 from file_setup.setup import initial_setup
 from tagging import tagger
 from exceptions import CommanderValidationError
-from commander_exclusions import lookup_commander_detail
 
 def _is_stale(file1: str, file2: str) -> bool:
     """Return True if file2 is missing or older than file1."""
@@ -73,7 +74,15 @@ def _normalize_commander_name(value: Any) -> str:
     return str(value or "").strip().casefold()
 
 
-def _load_commander_name_lookup() -> set[str]:
+def _tokenize_commander_name(value: Any) -> List[str]:
+    normalized = _normalize_commander_name(value)
+    if not normalized:
+        return []
+    return [token for token in re.split(r"[^a-z0-9]+", normalized) if token]
+
+
+@lru_cache(maxsize=1)
+def _load_commander_name_lookup() -> Tuple[set[str], Tuple[str, ...]]:
     builder = DeckBuilder(
         headless=True,
         log_outputs=False,
@@ -81,16 +90,19 @@ def _load_commander_name_lookup() -> set[str]:
         input_func=lambda *_: "",
     )
     df = builder.load_commander_data()
-    names: set[str] = set()
+    raw_names: List[str] = []
     for column in ("name", "faceName"):
         if column not in df.columns:
             continue
         series = df[column].dropna().astype(str)
-        for raw in series:
-            normalized = _normalize_commander_name(raw)
-            if normalized:
-                names.add(normalized)
-    return names
+        raw_names.extend(series.tolist())
+    normalized = {
+        norm
+        for norm in (_normalize_commander_name(name) for name in raw_names)
+        if norm
+    }
+    ordered_raw = tuple(dict.fromkeys(raw_names))
+    return normalized, ordered_raw
 
 
 def _validate_commander_available(command_name: str) -> None:
@@ -98,11 +110,27 @@ def _validate_commander_available(command_name: str) -> None:
     if not normalized:
         return
 
-    available = _load_commander_name_lookup()
+    available, raw_names = _load_commander_name_lookup()
     if normalized in available:
         return
 
-    info = lookup_commander_detail(command_name)
+    query_tokens = _tokenize_commander_name(command_name)
+    for candidate in raw_names:
+        candidate_norm = _normalize_commander_name(candidate)
+        if not candidate_norm:
+            continue
+        if candidate_norm.startswith(normalized):
+            return
+        candidate_tokens = _tokenize_commander_name(candidate)
+        if query_tokens and all(token in candidate_tokens for token in query_tokens):
+            return
+
+    try:
+        from commander_exclusions import lookup_commander_detail as _lookup_commander_detail  # type: ignore[import-not-found]
+    except ImportError:  # pragma: no cover
+        _lookup_commander_detail = None
+
+    info = _lookup_commander_detail(command_name) if _lookup_commander_detail else None
     if info is not None:
         primary_face = str(info.get("primary_face") or info.get("name") or "").strip()
         eligible_faces = info.get("eligible_faces")
@@ -170,7 +198,6 @@ def run(
     trimmed_commander = (command_name or "").strip()
     if trimmed_commander:
         _validate_commander_available(trimmed_commander)
-    command_name = trimmed_commander
 
     owned_prompt_inputs: List[str] = []
     owned_files_available = _headless_list_owned_files()

@@ -29,3 +29,4 @@
 
 ## Fixed
 - Documented friendly handling for missing `commander_cards.csv` data during manual QA drills to prevent white-screen failures.
+- Headless runner commander validation now accepts fuzzy commander prefixes so automated builds using short commander names keep working.

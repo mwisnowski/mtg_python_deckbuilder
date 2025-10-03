@@ -3,13 +3,16 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 from dataclasses import asdict, dataclass, field
+from functools import lru_cache
 from typing import Any, Dict, List, Optional, Tuple
 
 from deck_builder.builder import DeckBuilder
 from deck_builder import builder_constants as bc
 from file_setup.setup import initial_setup
 from tagging import tagger
+from exceptions import CommanderValidationError
 
 def _is_stale(file1: str, file2: str) -> bool:
     """Return True if file2 is missing or older than file1."""
@@ -67,6 +70,85 @@ def _headless_list_owned_files() -> List[str]:
     return sorted(entries)
 
 
+def _normalize_commander_name(value: Any) -> str:
+    return str(value or "").strip().casefold()
+
+
+def _tokenize_commander_name(value: Any) -> List[str]:
+    normalized = _normalize_commander_name(value)
+    if not normalized:
+        return []
+    return [token for token in re.split(r"[^a-z0-9]+", normalized) if token]
+
+
+@lru_cache(maxsize=1)
+def _load_commander_name_lookup() -> Tuple[set[str], Tuple[str, ...]]:
+    builder = DeckBuilder(
+        headless=True,
+        log_outputs=False,
+        output_func=lambda *_: None,
+        input_func=lambda *_: "",
+    )
+    df = builder.load_commander_data()
+    raw_names: List[str] = []
+    for column in ("name", "faceName"):
+        if column not in df.columns:
+            continue
+        series = df[column].dropna().astype(str)
+        raw_names.extend(series.tolist())
+    normalized = {
+        norm
+        for norm in (_normalize_commander_name(name) for name in raw_names)
+        if norm
+    }
+    ordered_raw = tuple(dict.fromkeys(raw_names))
+    return normalized, ordered_raw
+
+
+def _validate_commander_available(command_name: str) -> None:
+    normalized = _normalize_commander_name(command_name)
+    if not normalized:
+        return
+
+    available, raw_names = _load_commander_name_lookup()
+    if normalized in available:
+        return
+
+    query_tokens = _tokenize_commander_name(command_name)
+    for candidate in raw_names:
+        candidate_norm = _normalize_commander_name(candidate)
+        if not candidate_norm:
+            continue
+        if candidate_norm.startswith(normalized):
+            return
+        candidate_tokens = _tokenize_commander_name(candidate)
+        if query_tokens and all(token in candidate_tokens for token in query_tokens):
+            return
+
+    try:
+        from commander_exclusions import lookup_commander_detail as _lookup_commander_detail  # type: ignore[import-not-found]
+    except ImportError:  # pragma: no cover
+        _lookup_commander_detail = None
+
+    info = _lookup_commander_detail(command_name) if _lookup_commander_detail else None
+    if info is not None:
+        primary_face = str(info.get("primary_face") or info.get("name") or "").strip()
+        eligible_faces = info.get("eligible_faces")
+        face_hint = ", ".join(str(face) for face in eligible_faces) if isinstance(eligible_faces, list) else ""
+        message = (
+            f"Commander '{command_name}' is no longer available because only a secondary face met commander eligibility."
+        )
+        if primary_face and _normalize_commander_name(primary_face) != normalized:
+            message += f" Try selecting the front face '{primary_face}' or choose a different commander."
+        elif face_hint:
+            message += f" The remaining eligible faces were: {face_hint}."
+        else:
+            message += " Choose a different commander whose front face is commander-legal."
+        raise CommanderValidationError(message, details={"commander": command_name, "reason": info})
+
+    raise CommanderValidationError(f"Commander not found: {command_name}", details={"commander": command_name})
+
+
 @dataclass
 class RandomRunConfig:
     """Runtime options for the headless random build flow."""
@@ -113,6 +195,10 @@ def run(
     seed: Optional[int | str] = None,
 ) -> DeckBuilder:
     """Run a scripted non-interactive deck build and return the DeckBuilder instance."""
+    trimmed_commander = (command_name or "").strip()
+    if trimmed_commander:
+        _validate_commander_available(trimmed_commander)
+
     owned_prompt_inputs: List[str] = []
     owned_files_available = _headless_list_owned_files()
     if owned_files_available:

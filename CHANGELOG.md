@@ -36,7 +36,7 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 - Preview performance CI check now waits for `/healthz` and retries theme catalog pagination fetches to dodge transient 500s during cold starts.
 
 ### Fixed
-- _No changes yet._
+- Headless runner commander validation now accepts fuzzy commander prefixes (e.g., "Krenko") so partial names still resolve to eligible entries during automated builds and CI runs.
 
 ### Removed
 - Preview performance GitHub Actions workflow (`.github/workflows/preview-perf-ci.yml`) retired after persistent cold-start failures; run the regression helper script manually as needed.

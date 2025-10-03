@@ -14,6 +14,10 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 
 ## [Unreleased]
 ### Summary
+- _No unreleased changes yet._
+
+## [2.4.0] - 2025-10-02
+### Summary
 - Wrapped the Multi-Faced Card Handling roadmap (tag merge, commander eligibility, land accounting) so double-faced cards now share tags, respect primary-face commander legality, and surface accurate land/MDFC diagnostics across web, CLI, and exports.
 - Closed out MDFC follow-ups: deck summary now highlights double-faced lands with badges, per-face mana metadata flows through reporting, exports include annotations, and diagnostics can emit per-face snapshots for catalog QA.
 - Surfaced commander exclusion warnings and automatic corrections in the builder so players are guided toward the legal front face whenever only a secondary face meets commander rules.

@@ -1204,6 +1204,10 @@
         document.addEventListener('mousemove', move);
         function getCardFromEl(el){
           if(!el) return null;
+          if(el.closest){
+            var altBtn = el.closest('.alts button[data-card-name]');
+            if(altBtn){ return altBtn; }
+          }
           // If inside flip button
           var btn = el.closest && el.closest('.dfc-toggle');
           if(btn) return btn.closest('.card-sample, .commander-cell, .commander-thumb, .commander-card, .card-tile, .candidate-tile, .card-preview, .stack-card');

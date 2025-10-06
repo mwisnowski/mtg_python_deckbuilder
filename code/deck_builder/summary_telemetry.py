@@ -10,6 +10,8 @@ __all__ = [
     "get_mdfc_metrics",
     "record_theme_summary",
     "get_theme_metrics",
+    "record_partner_summary",
+    "get_partner_metrics",
 ]
 
 
@@ -33,6 +35,14 @@ _theme_metrics: Dict[str, Any] = {
 }
 _user_theme_counter: Counter[str] = Counter()
 _user_theme_labels: Dict[str, str] = {}
+
+_partner_metrics: Dict[str, Any] = {
+    "total_pairs": 0,
+    "mode_counts": {},
+    "last_summary": None,
+    "last_updated": None,
+    "last_updated_iso": None,
+}
 
 
 def _to_int(value: Any) -> int:
@@ -143,6 +153,15 @@ def _reset_metrics_for_test() -> None:
         )
         _user_theme_counter.clear()
         _user_theme_labels.clear()
+        _partner_metrics.update(
+            {
+                "total_pairs": 0,
+                "mode_counts": {},
+                "last_summary": None,
+                "last_updated": None,
+                "last_updated_iso": None,
+            }
+        )
 
 
 def _sanitize_theme_list(values: Iterable[Any]) -> list[str]:
@@ -238,4 +257,58 @@ def get_theme_metrics() -> Dict[str, Any]:
             "last_summary": _theme_metrics.get("last_summary"),
             "last_updated": _theme_metrics.get("last_updated_iso"),
             "top_user_themes": top_user,
+        }
+
+
+def record_partner_summary(commander_summary: Dict[str, Any] | None) -> None:
+    if not isinstance(commander_summary, dict):
+        return
+
+    combined = commander_summary.get("combined")
+    if not isinstance(combined, dict):
+        return
+
+    mode = str(commander_summary.get("partner_mode") or combined.get("partner_mode") or "none")
+    primary = commander_summary.get("primary")
+    secondary = commander_summary.get("secondary")
+    names = commander_summary.get("names")
+    color_identity_raw = combined.get("color_identity")
+    if isinstance(color_identity_raw, (list, tuple)):
+        colors = [str(c).strip().upper() for c in color_identity_raw if str(c).strip()]
+    else:
+        colors = []
+    entry = {
+        "primary": primary,
+        "secondary": secondary,
+        "names": list(names or []) if isinstance(names, (list, tuple)) else names,
+        "partner_mode": mode,
+        "color_identity": colors,
+        "color_code": combined.get("color_code"),
+        "color_label": combined.get("color_label"),
+        "color_sources": combined.get("color_sources"),
+        "color_delta": combined.get("color_delta"),
+        "secondary_role": combined.get("secondary_role"),
+        "secondary_role_label": combined.get("secondary_role_label"),
+    }
+
+    timestamp = time.time()
+    iso = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(timestamp))
+    mode_key = mode.lower() if isinstance(mode, str) else "none"
+
+    with _lock:
+        _partner_metrics["total_pairs"] = int(_partner_metrics.get("total_pairs", 0) or 0) + 1
+        mode_counts = _partner_metrics.setdefault("mode_counts", {})
+        mode_counts[mode_key] = int(mode_counts.get(mode_key, 0) or 0) + 1
+        _partner_metrics["last_summary"] = entry
+        _partner_metrics["last_updated"] = timestamp
+        _partner_metrics["last_updated_iso"] = iso
+
+
+def get_partner_metrics() -> Dict[str, Any]:
+    with _lock:
+        return {
+            "total_pairs": int(_partner_metrics.get("total_pairs", 0) or 0),
+            "mode_counts": dict(_partner_metrics.get("mode_counts", {})),
+            "last_summary": _partner_metrics.get("last_summary"),
+            "last_updated": _partner_metrics.get("last_updated_iso"),
         }

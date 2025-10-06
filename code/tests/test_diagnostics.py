@@ -4,6 +4,8 @@ import types
 import pytest
 from starlette.testclient import TestClient
 
+from code.deck_builder.summary_telemetry import _reset_metrics_for_test, record_partner_summary
+
 fastapi = pytest.importorskip("fastapi")  # skip tests if FastAPI isn't installed
 
 
@@ -121,3 +123,51 @@ def test_commanders_nav_visible_by_default():
     assert r.status_code == 200
     body = r.text
     assert '<a href="/commanders"' in body
+
+
+def test_partner_metrics_endpoint_reports_color_sources():
+    app_module = load_app_with_env(SHOW_DIAGNOSTICS="1")
+    _reset_metrics_for_test()
+    record_partner_summary(
+        {
+            "primary": "Tana, the Bloodsower",
+            "secondary": "Nadir Kraken",
+            "names": ["Tana, the Bloodsower", "Nadir Kraken"],
+            "partner_mode": "partner",
+            "combined": {
+                "partner_mode": "partner",
+                "color_identity": ["G", "U"],
+                "color_code": "GU",
+                "color_label": "Simic (GU)",
+                "color_sources": [
+                    {"color": "G", "providers": [{"name": "Tana, the Bloodsower", "role": "primary"}]},
+                    {"color": "U", "providers": [{"name": "Nadir Kraken", "role": "partner"}]},
+                ],
+                "color_delta": {
+                    "added": ["U"],
+                    "removed": [],
+                    "primary": ["G"],
+                    "secondary": ["U"],
+                },
+                "secondary_role": "partner",
+                "secondary_role_label": "Partner commander",
+            },
+        }
+    )
+
+    client = TestClient(app_module.app)
+    resp = client.get("/status/partner_metrics")
+    assert resp.status_code == 200
+    payload = resp.json()
+    assert payload.get("ok") is True
+    metrics = payload.get("metrics") or {}
+    assert metrics.get("total_pairs", 0) >= 1
+    last = metrics.get("last_summary")
+    assert last is not None
+    sources = last.get("color_sources") or []
+    assert any(entry.get("color") == "G" for entry in sources)
+    assert any(
+        provider.get("role") == "partner"
+        for entry in sources
+        for provider in entry.get("providers", [])
+    )

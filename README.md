@@ -79,8 +79,14 @@ Every tile on the homepage connects to a workflow. Use these sections as your to
 Start here for interactive deck creation.
 - Pick commander, themes (primary/secondary/tertiary), bracket, and optional deck name in the unified modal.
 - Add supplemental themes in the **Additional Themes** section (ENABLE_CUSTOM_THEMES): fuzzy suggestions, removable chips, and strict/permissive matching toggles respect `THEME_MATCH_MODE` and `USER_THEME_LIMIT`.
+- Partner mechanics (ENABLE_PARTNER_MECHANICS): Step 2 and the quick-start modal auto-enable partner controls for eligible commanders, show only legal partner/background/Doctor options, and keep previews, warnings, and theme chips in sync.
+  - Partner suggestions (ENABLE_PARTNER_SUGGESTIONS): ranked chips appear beside the partner selector, recommending popular partner/background/Doctor pairings based on the analytics dataset; selections respect existing partner mode and lock states.
+  - Partner: pick a second commander from the filtered dropdown labeled “Partner commander”; the background picker clears automatically.
+  - Partner With: the canonical partner pre-fills and surfaces an opt-out chip so you can keep or swap the suggestion.
+  - Doctor / Doctor’s Companion: Doctors list legal companions (and vice versa) with role labels, and the opt-out chip mirrors Partner With behavior.
+  - Background: choose a Background instead of a second commander; partner selectors hide when not applicable.
 - Locks, Replace, Compare, and Permalinks live in Step 5.
-- Exports (CSV, TXT, compliance JSON, summary JSON) land in `deck_files/` and reuse your chosen deck name when set.
+- Exports (CSV, TXT, compliance JSON, summary JSON) land in `deck_files/` and reuse your chosen deck name when set. CSV/TXT headers now include commander metadata (names, partner mode, colors) so downstream tools can pick up dual-commander context without extra parsing.
 - `ALLOW_MUST_HAVES=1` (default) enables include/exclude enforcement.
 - `WEB_AUTO_ENFORCE=1` re-runs bracket enforcement automatically after each build.
 
@@ -167,6 +173,7 @@ The CLI and headless runners share the builder core.
 - Run headless (non-interactive) builds: `python code/headless_runner.py --config config/deck.json`.
 - In Docker, set `APP_MODE=cli` (and optionally `DECK_MODE=headless`) to switch the container entrypoint to the CLI.
 - Config precedence is CLI prompts > environment variables > JSON config > defaults.
+- Dual-commander support (feature-flagged): `--secondary-commander` or `--background` (mutually exclusive) can be supplied alongside `--enable-partner-mechanics true` or `ENABLE_PARTNER_MECHANICS=1`; Partner With and Doctor/Doctor’s Companion pairings auto-resolve (respecting opt-outs), dry runs echo the resolved pairing, and JSON configs may include `secondary_commander`, `background`, and `enable_partner_mechanics` keys.
 
 ---
 
@@ -179,7 +186,7 @@ The CLI and headless runners share the builder core.
 | `config/` | `/app/config` | JSON configs, bracket policies, themes, card lists |
 | `owned_cards/` | `/app/owned_cards` | Uploaded owned-card libraries |
 
-Exports follow a stable naming scheme and include a `.summary.json` sidecar containing deck metadata, resolved themes, and lock history.
+Exports follow a stable naming scheme and include a `.summary.json` sidecar containing deck metadata, resolved themes, combined commander payloads, and lock history.
 
 ---
 
@@ -193,6 +200,12 @@ Most defaults are defined in `docker-compose.yml` and documented in `.env.exampl
 | `DECK_MODE` | _(unset)_ | `headless` auto-runs the builder in CLI mode. |
 | `DECK_CONFIG` | `/app/config/deck.json` | Points the headless runner at a config file or folder. |
 | `HOST` / `PORT` / `WORKERS` | `0.0.0.0` / `8080` / `1` | Uvicorn settings for the web server. |
+
+### Partner / Background mechanics (feature-flagged)
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `ENABLE_PARTNER_MECHANICS` | `0` | Unlock partner/background commander inputs for headless runs and the web builder Step 2 UI. |
+| `ENABLE_PARTNER_SUGGESTIONS` | `0` | Surface partner/background/Doctor suggestion chips backed by `config/analytics/partner_synergy.json` (auto-regenerated when missing; override path with `PARTNER_SUGGESTIONS_DATASET`). |
 
 ### Homepage visibility & UX
 | Variable | Default | Purpose |

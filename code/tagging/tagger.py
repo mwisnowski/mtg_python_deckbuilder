@@ -249,6 +249,10 @@ def tag_by_color(df: pd.DataFrame, color: str) -> None:
     print('\n====================\n')
     tag_for_keywords(df, color)
     print('\n====================\n')
+
+    ## Tag for partner effects
+    tag_for_partner_effects(df, color)
+    print('\n====================\n')
     
     ## Tag for various effects
     tag_for_cost_reduction(df, color)
@@ -591,10 +595,27 @@ def tag_for_keywords(df: pd.DataFrame, color: str) -> None:
         if has_keywords.any():
             # Vectorized split and merge into themeTags
             keywords_df = df.loc[has_keywords, ['themeTags', 'keywords']].copy()
-            df.loc[has_keywords, 'themeTags'] = keywords_df.apply(
-                lambda r: sorted(list(set((r['themeTags'] if isinstance(r['themeTags'], list) else []) + (r['keywords'].split(', ') if isinstance(r['keywords'], str) else [])))),
-                axis=1
-            )
+            exclusion_keywords = {'partner'}
+
+            def _merge_keywords(row: pd.Series) -> list[str]:
+                base_tags = row['themeTags'] if isinstance(row['themeTags'], list) else []
+                keywords_raw = row['keywords']
+
+                if isinstance(keywords_raw, str):
+                    keywords_iterable = [part.strip() for part in keywords_raw.split(',')]
+                elif isinstance(keywords_raw, (list, tuple, set)):
+                    keywords_iterable = [str(part).strip() for part in keywords_raw]
+                else:
+                    keywords_iterable = []
+
+                filtered_keywords = [
+                    kw for kw in keywords_iterable
+                    if kw and kw.lower() not in exclusion_keywords
+                ]
+
+                return sorted(list(set(base_tags + filtered_keywords)))
+
+            df.loc[has_keywords, 'themeTags'] = keywords_df.apply(_merge_keywords, axis=1)
 
         duration = (pd.Timestamp.now() - start_time).total_seconds()
         logger.info('Tagged %d cards with keywords in %.2f seconds', has_keywords.sum(), duration)
@@ -615,6 +636,56 @@ def sort_theme_tags(df, color):
     available = [c for c in columns_to_keep if c in df.columns]
     logger.info(f'Theme tags alphabetically sorted in {color}_cards.csv.')
     return df.reindex(columns=available)
+
+### Partner Mechanics
+def tag_for_partner_effects(df: pd.DataFrame, color: str) -> None:
+    """Tag cards for partner-related keywords.
+
+    Looks for 'partner', 'partner with', and permutations in rules text and
+    applies tags accordingly.
+    """
+    logger.info(f'Tagging Partner keywords in {color}_cards.csv')
+    start_time = pd.Timestamp.now()
+
+    try:
+        rules = []
+        partner_mask = tag_utils.create_text_mask(df, r"\bpartner\b(?!\s*(?:with|[-—–]))")
+        if partner_mask.any():
+            rules.append({ 'mask': partner_mask, 'tags': ['Partner'] })
+
+        partner_with_mask = tag_utils.create_text_mask(df, 'partner with')
+        if partner_with_mask.any():
+            rules.append({ 'mask': partner_with_mask, 'tags': ['Partner with'] })
+
+        partner_survivors_mask = tag_utils.create_text_mask(df, r"Partner\s*[-—–]\s*Survivors")
+        if partner_survivors_mask.any():
+            rules.append({ 'mask': partner_survivors_mask, 'tags': ['Partner - Survivors'] })
+
+        partner_father_and_son = tag_utils.create_text_mask(df, r"Partner\s*[-—–]\s*Father\s*&\s*Son")
+        if partner_father_and_son.any():
+            rules.append({ 'mask': partner_father_and_son, 'tags': ['Partner - Father & Son'] })
+            
+        friends_forever_mask = tag_utils.create_text_mask(df, 'Friends forever')
+        if friends_forever_mask.any():
+            rules.append({ 'mask': friends_forever_mask, 'tags': ['Friends Forever'] })
+        
+        doctors_companion_mask = tag_utils.create_text_mask(df, "Doctor's companion")
+        if doctors_companion_mask.any():
+            rules.append({ 'mask': doctors_companion_mask, 'tags': ["Doctor's Companion"] })
+
+        if rules:
+            tag_utils.apply_rules(df, rules)
+            total = sum(int(r['mask'].sum()) for r in rules)
+            logger.info('Tagged %d cards with Partner keywords', total)
+        else:
+            logger.info('No Partner keywords found')
+
+        duration = (pd.Timestamp.now() - start_time).total_seconds()
+        logger.info('Completed Bending tagging in %.2fs', duration)
+
+    except Exception as e:
+        logger.error(f'Error tagging Bending keywords: {str(e)}')
+        raise
 
 ### Cost reductions
 def tag_for_cost_reduction(df: pd.DataFrame, color: str) -> None:
@@ -4677,7 +4748,11 @@ def tag_for_bending(df: pd.DataFrame, color: str) -> None:
 
         earth_mask = tag_utils.create_text_mask(df, 'earthbend')
         if earth_mask.any():
-            rules.append({ 'mask': earth_mask, 'tags': ['Earthbend', 'Lands Matter', 'Landfall'] })
+            rules.append({ 'mask': earth_mask, 'tags': ['Earthbending', 'Lands Matter', 'Landfall'] })
+        
+        bending_mask = air_mask | water_mask | fire_mask | earth_mask
+        if bending_mask.any():
+            rules.append({ 'mask': bending_mask, 'tags': ['Bending'] })
 
         if rules:
             tag_utils.apply_rules(df, rules)
@@ -5827,7 +5902,7 @@ def tag_for_planeswalkers(df: pd.DataFrame, color: str) -> None:
         tag_utils.apply_rules(df, rules=[
             {
                 'mask': final_mask,
-                'tags': ['Planeswalkers', 'Super Friends']
+                'tags': ['Planeswalkers', 'Superfriends']
             }
         ])
 

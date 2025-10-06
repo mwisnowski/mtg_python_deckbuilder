@@ -14,7 +14,55 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 
 ## [Unreleased]
 ### Summary
-- _TBD_
+- Partner suggestion service and API power Step 2 suggestion chips for partner, background, and Doctor pairings when `ENABLE_PARTNER_SUGGESTIONS` is active.
+- Headless runner now honors partner/background inputs behind the `ENABLE_PARTNER_MECHANICS` feature flag and carries regression coverage for dry-run resolution.
+- Web builder Step 2 exposes partner/background pairing when `ENABLE_PARTNER_MECHANICS` is active, including live previews and warnings for invalid combinations.
+- Quick-start modal mirrors the Step 2 partner/background controls so fast deck builds can choose a secondary commander or background without leaving the modal.
+- Partner mechanics UI auto-enables for eligible commanders, renames the secondary picker to “Partner commander,” layers in Partner With defaults with opt-out chips, adds Doctor/Doctor’s Companion pairing, and keeps modal/theme previews in sync.
+- Deck exports now surface combined commander metadata across CSV/TXT headers and JSON summaries so dual-command builds stay in sync for downstream tooling.
+
+### Added
+- Partner suggestion dataset loader, scoring service (`code/web/services/partner_suggestions.py`), FastAPI endpoint, UI chips, dataset override env (`PARTNER_SUGGESTIONS_DATASET`), auto-regeneration when the dataset is missing, and tests covering dataset flattening plus API responses.
+- CLI regression coverage (`code/tests/test_cli_partner_config.py`) verifying partner/background dry-run payloads and `ENABLE_PARTNER_MECHANICS` env gating in the headless runner.
+- Web build wizard toggle for partner mechanics with partner/background selectors, auto-pair hints, warnings, and combined color preview behind the feature flag.
+- Partner and background selections now render card art previews (with Scryfall links) in the quick-start wizard, Step 2 form, and deck summary so builders can confirm the secondary pick at a glance.
+- Quick-start modal now renders shared partner/background controls (reusing `_partner_controls.html`) whenever a commander that supports the mechanic is inspected.
+- Background catalog loader (`code/deck_builder/background_loader.py`) with memoized parsing, typed entries, and a generator utility (`python -m code.scripts.generate_background_cards`) plus coverage to ensure only legal backgrounds enter the catalog.
+- Shared `CombinedCommander` aggregation and partner/background selection helper wired through deck builds, exports, and partner preview endpoints with accompanying regression tests.
+- Script `python -m code.scripts.build_partner_suggestions` materializes commander metadata, theme indexes, and observed pairings into `config/analytics/partner_synergy.json` to seed the partner suggestion engine.
+- Partner suggestion scoring helper (`code/deck_builder/suggestions.py`) with mode-specific weights and regression tests ensuring canonical pairings rank highest across partner, background, and Doctor flows.
+- Export regression coverage (`code/tests/test_export_commander_metadata.py`) verifies commander metadata is embedded in CSV/TXT headers and summary payloads while preserving existing columns.
+- Partner suggestion telemetry emits `partner_suggestions.generated` and `partner_suggestions.selected` logs (via `code/web/services/telemetry.py`) so adoption metrics and dataset diagnostics can be monitored.
+
+### Changed
+- Partner controls hydrate suggestion chips on the web builder and quick-start modal, fetching ranked partner/backdrop recommendations while respecting active partner mode and session locks when `ENABLE_PARTNER_SUGGESTIONS=1`.
+- Partner suggestion scoring now filters out broad "Legends Matter", "Historics Matter", and Kindred themes when computing overlap or synergy so recommendations emphasize distinctive commander pairings.
+- Headless runner parsing now resolves `--secondary-commander` and `--background` inputs (mutually exclusive), applies the shared partner selection helper ahead of deck assembly, and surfaces flag-controlled behavior in exported dry-run payloads.
+- Step 2 submission now validates partner inputs, stores combined commander previews/warnings in the session, and clears prior partner state when the toggle is disabled.
+- Quick-start `/build/new` submission resolves partner selections, persists the combined commander payload, and re-renders the modal with inline partner errors when inputs conflict.
+- Partner controls mount automatically for eligible commanders, replace the manual toggle with a hidden enable flag, rename the select to “Partner commander,” and expose an opt-out chip when Partner With suggests a default.
+- Commander catalog metadata now flags Doctors and Doctor’s Companions so selectors present only legal pairings and annotate each option with its role.
+- Partner detection now distinguishes the standalone “Partner” keyword from Partner With/Doctor’s Companion/restricted variants, and the web selector filters plain-partner pools to exclude those mechanics while keeping direct Partner With pairings intact.
+- Structured partner selection logs now emit `partner_mode_selected` with commander color deltas, capturing colors before and after pairing for diagnostics parity.
+- Structured partner selection logs now tag suggestion-driven selections with a `selection_source` attribute to differentiate manual picks from suggestion chip adoption.
+- Commander setup now regenerates `background_cards.csv` alongside `commander_cards.csv`, ensuring the background picker stays synchronized after catalog refreshes or fresh installs.
+- Setup/tagging auto-refresh now runs the partner suggestion dataset builder so `config/analytics/partner_synergy.json` tracks the latest commander catalog and deck exports without manual scripts.
+- CSV/TXT deck exports append commander metadata columns, text headers include partner mode and colors, and summary sidecars embed serialized combined commander details without breaking legacy consumers.
+- Partner commander previews in Step 2 and the build summary now mirror the primary commander card layout (including hover metadata and high-res art) so both selections share identical interactions.
+
+### Fixed
+- Regenerated `background_cards.csv` and tightened background detection so the picker only lists true Background enchantments, preventing "Choose a Background" commanders from appearing as illegal partners and restoring background availability when the CSV was missing.
+- Restricted partner commanders with dash-based keywords (e.g., Partner - Survivors, Partner - Father & Son) now register as partners and surface their matching group pairings in the web selector.
+- Quick-start modal partner previews now merge theme tags with Step 2 so chips stay consistent after commander inspection.
+- Step 5 summary and quick-start commander preview now surface merged partner color identity and theme tags so pairings like Halana + Alena display both colors.
+- Partner and background builds now inject the secondary commander card automatically, keeping deck libraries, exports, and Step 5 summaries in sync with the chosen pairing.
+- Partner With commanders now restrict the dropdown to their canon companion and the preview panel adopts the wizard theme colors for better readability while live-selection previews render immediately.
+- Manual partner selections now persist across the wizard and quick-start modal, keeping recommendations and theme chips in sync without needing an extra apply step.
+- Background picker now falls back to the commander catalog when `background_cards.csv` is missing so “Choose a Background” commanders remain selectable in the web UI.
+- Partner hover previews now respect the secondary commander data so the popup matches the card you’re focusing.
+- Step 5 summary and finished deck views now surface the deck’s chosen themes (and commander hover metadata) without flooding the UI with every commander tag.
+- Doctor’s Companion commanders now surface only legal Doctor pairings, direct Partner With matches (e.g., Amy & Rory) remain available, and escaped newline text no longer breaks partner detection.
+- Partner suggestion refresh now re-attempts dataset generation when triggered from the UI and ensures the builder script loads project packages inside Docker, so missing `partner_synergy.json` files can be recreated without restarting the web app.
 
 ## [2.4.1] - 2025-10-03
 ### Summary

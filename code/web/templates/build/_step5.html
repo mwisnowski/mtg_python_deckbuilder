@@ -1,3 +1,25 @@
+{% from 'partials/_macros.html' import color_identity %}
+{% set combined = combined_commander if combined_commander else {} %}
+{% set display_commander_name = commander_display_name or commander %}
+{% if not display_commander_name %}
+  {% set display_commander_name = commander %}
+{% endif %}
+{% set color_identity_list = commander_color_identity if commander_color_identity else [] %}
+{% if not color_identity_list and summary and summary.colors %}
+  {% set color_identity_list = summary.colors %}
+{% endif %}
+{% set color_label = commander_color_label %}
+{% if not color_label and color_identity_list %}
+  {% set color_label = color_identity_list|join(' / ') %}
+{% endif %}
+{% if not color_label and (color_identity_list|length == 0) and combined %}
+  {% set color_label = 'Colorless (C)' %}
+{% endif %}
+{% set display_tags_source = deck_theme_tags if deck_theme_tags else (tags if tags else commander_combined_tags) %}
+{% set hover_tags_source = deck_theme_tags if deck_theme_tags else commander_combined_tags %}
+{% set hover_tags_joined = hover_tags_source|join(', ') %}
+{% set display_tags = display_tags_source if display_tags_source else [] %}
+{% set show_color_identity = color_label or (color_identity_list|length > 0) %}
 <section>
   {# Step phases removed #}
   <div class="two-col two-col-left-rail">
@@ -9,16 +31,16 @@
     data-card-name="{{ commander_base }}"
     data-original-name="{{ commander }}"
     data-role="{{ commander_role_label or 'Commander' }}"
-    {% if commander_combined_tags %}data-tags="{{ commander_combined_tags|join(', ') }}"{% endif %}
+  {% if hover_tags_joined %}data-tags="{{ hover_tags_joined }}"{% endif %}
     {% if commander_tag_slugs %}data-tags-slug="{{ commander_tag_slugs|join(' ') }}"{% endif %}
     {% if commander_overlap_tags %}data-overlaps="{{ commander_overlap_tags|join(', ') }}"{% endif %}
     {% if commander_reason_text %}data-reasons="{{ commander_reason_text|e }}"{% endif %}>
-    <img src="https://api.scryfall.com/cards/named?fuzzy={{ commander_base|urlencode }}&format=image&version=normal" alt="{{ commander }} card image"
+  <img src="https://api.scryfall.com/cards/named?fuzzy={{ commander_base|urlencode }}&format=image&version=normal" alt="{{ commander }} card image"
          width="320"
          data-card-name="{{ commander_base }}"
          data-original-name="{{ commander }}"
          data-role="{{ commander_role_label or 'Commander' }}"
-     {% if commander_combined_tags %}data-tags="{{ commander_combined_tags|join(', ') }}"{% endif %}
+     {% if hover_tags_joined %}data-tags="{{ hover_tags_joined }}"{% endif %}
      {% if commander_tag_slugs %}data-tags-slug="{{ commander_tag_slugs|join(' ') }}"{% endif %}
      {% if commander_overlap_tags %}data-overlaps="{{ commander_overlap_tags|join(', ') }}"{% endif %}
    {% if commander_reason_text %}data-reasons="{{ commander_reason_text|e }}"{% endif %}
@@ -30,11 +52,67 @@
     Commander: <span data-card-name="{{ commander }}"
     data-original-name="{{ commander }}"
     data-role="{{ commander_role_label or 'Commander' }}"
-      {% if commander_combined_tags %}data-tags="{{ commander_combined_tags|join(', ') }}"{% endif %}
+      {% if hover_tags_joined %}data-tags="{{ hover_tags_joined }}"{% endif %}
       {% if commander_tag_slugs %}data-tags-slug="{{ commander_tag_slugs|join(' ') }}"{% endif %}
       {% if commander_overlap_tags %}data-overlaps="{{ commander_overlap_tags|join(', ') }}"{% endif %}
-    {% if commander_reason_text %}data-reasons="{{ commander_reason_text|e }}"{% endif %}>{{ commander }}</span>
+    {% if commander_reason_text %}data-reasons="{{ commander_reason_text|e }}"{% endif %}>{{ display_commander_name or commander }}</span>
   </div>
+  {% endif %}
+  {% if combined and combined.secondary_name %}
+  {% set partner_secondary_name = combined.secondary_name %}
+  {% set partner_role_label = combined.secondary_role_label or ('Background' if (combined.partner_mode == 'background') else 'Partner commander') %}
+  {% set partner_theme_tags = combined.theme_tags if combined.theme_tags else [] %}
+  {% set partner_tags_joined = partner_theme_tags|join(', ') %}
+  {% if partner_secondary_name %}
+    {% set partner_name_base = (partner_secondary_name.split(' - Synergy (')[0] if ' - Synergy (' in partner_secondary_name else partner_secondary_name) %}
+  {% else %}
+    {% set partner_name_base = partner_secondary_name %}
+  {% endif %}
+  {% set partner_href = combined.secondary_scryfall_url or combined.scryfall_url %}
+  {% if not partner_href and partner_name_base %}
+    {% set partner_href = 'https://scryfall.com/search?q=' ~ partner_name_base|urlencode %}
+  {% endif %}
+  <div class="commander-card partner-card" tabindex="0"
+    data-card-name="{{ partner_name_base }}"
+    data-original-name="{{ partner_secondary_name }}"
+    data-role="{{ partner_role_label }}"
+    {% if partner_tags_joined %}data-tags="{{ partner_tags_joined }}" data-overlaps="{{ partner_tags_joined }}"{% endif %}>
+    {% if partner_href %}<a href="{{ partner_href }}" target="_blank" rel="noopener">{% endif %}
+    {% if partner_name_base %}
+    <img src="https://api.scryfall.com/cards/named?fuzzy={{ partner_name_base|urlencode }}&format=image&version=normal" alt="{{ (partner_secondary_name or 'Selected card') ~ ' card image' }}"
+         width="320"
+         data-card-name="{{ partner_name_base }}"
+         data-original-name="{{ partner_secondary_name }}"
+         data-role="{{ partner_role_label }}"
+         {% if partner_tags_joined %}data-tags="{{ partner_tags_joined }}" data-overlaps="{{ partner_tags_joined }}"{% endif %}
+         loading="lazy" decoding="async" data-lqip="1"
+         srcset="https://api.scryfall.com/cards/named?fuzzy={{ partner_name_base|urlencode }}&format=image&version=small 160w, https://api.scryfall.com/cards/named?fuzzy={{ partner_name_base|urlencode }}&format=image&version=normal 488w, https://api.scryfall.com/cards/named?fuzzy={{ partner_name_base|urlencode }}&format=image&version=large 672w"
+         sizes="(max-width: 900px) 100vw, 320px" />
+    {% else %}
+    <img src="{{ combined.secondary_image_url or combined.image_url }}" alt="{{ (partner_secondary_name or 'Selected card') ~ ' card image' }}" loading="lazy" decoding="async" width="320" />
+    {% endif %}
+    {% if partner_href %}</a>{% endif %}
+  </div>
+  <div class="muted partner-label" style="margin-top:.35rem;">
+    {{ partner_role_label }}:
+    <span data-card-name="{{ partner_secondary_name }}"
+          data-original-name="{{ partner_secondary_name }}"
+          data-role="{{ partner_role_label }}"
+          {% if partner_tags_joined %}data-tags="{{ partner_tags_joined }}" data-overlaps="{{ partner_tags_joined }}"{% endif %}>{{ partner_secondary_name }}</span>
+  </div>
+  <div class="muted partner-meta" style="font-size:12px; margin-top:.25rem;">
+    Pairing: {{ combined.primary_name or display_commander_name or commander }}{% if partner_secondary_name %} + {{ partner_secondary_name }}{% endif %}
+  </div>
+  {% if combined.color_label %}
+  <div class="muted partner-meta" style="font-size:12px; margin-top:.25rem;">
+    Colors: {{ combined.color_label }}
+  </div>
+  {% endif %}
+  {% if partner_theme_tags %}
+  <div class="muted partner-meta" style="font-size:12px; margin-top:.25rem;">
+    Theme emphasis: {{ partner_theme_tags|join(', ') }}
+  </div>
+  {% endif %}
   {% endif %}
       {% if status and status.startswith('Build complete') %}
       <div style="margin-top:.75rem; display:flex; gap:.35rem; flex-wrap:wrap;">
@@ -63,15 +141,21 @@
           data-card-name="{{ commander }}"
           data-original-name="{{ commander }}"
           data-role="{{ commander_role_label or 'Commander' }}"
-          {% if commander_combined_tags %}data-tags="{{ commander_combined_tags|join(', ') }}"{% endif %}
+          {% if hover_tags_joined %}data-tags="{{ hover_tags_joined }}"{% endif %}
           {% if commander_tag_slugs %}data-tags-slug="{{ commander_tag_slugs|join(' ') }}"{% endif %}
           {% if commander_overlap_tags %}data-overlaps="{{ commander_overlap_tags|join(', ') }}"{% endif %}
-          {% if commander_reason_text %}data-reasons="{{ commander_reason_text|e }}"{% endif %}>{{ commander }}</strong>
+          {% if commander_reason_text %}data-reasons="{{ commander_reason_text|e }}"{% endif %}>{{ display_commander_name or commander }}</strong>
         {% else %}
         <strong>None selected</strong>
         {% endif %}
       </p>
-      <p>Tags: {{ deck_theme_tags|default([])|join(', ') }}</p>
+      {% if show_color_identity %}
+      <div class="muted" style="display:flex; align-items:center; gap:.35rem; margin:-.35rem 0 .5rem 0;">
+        {{ color_identity(color_identity_list, is_colorless=(color_identity_list|length == 0), aria_label=color_label or '', title_text=color_label or '') }}
+        <span>{{ color_label }}</span>
+      </div>
+      {% endif %}
+      <p>Tags: {% if display_tags %}{{ display_tags|join(', ') }}{% else %}—{% endif %}</p>
       <div style="margin:.35rem 0; color: var(--muted); display:flex; gap:.5rem; align-items:center; flex-wrap:wrap;">
         <span>Owned-only: <strong>{{ 'On' if owned_only else 'Off' }}</strong></span>
           <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">

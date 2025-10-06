@@ -1550,6 +1550,28 @@ def build_random_full_deck(
             custom_base = None
         if isinstance(custom_base, str) and custom_base.strip():
             meta_payload["name"] = custom_base.strip()
+        try:
+            commander_meta = builder.get_commander_export_metadata()  # type: ignore[attr-defined]
+        except Exception:
+            commander_meta = {}
+        names = commander_meta.get("commander_names") or []
+        if names:
+            meta_payload["commander_names"] = names
+        combined_payload = commander_meta.get("combined_commander")
+        if combined_payload:
+            meta_payload["combined_commander"] = combined_payload
+        partner_mode = commander_meta.get("partner_mode")
+        if partner_mode:
+            meta_payload["partner_mode"] = partner_mode
+        color_identity = commander_meta.get("color_identity")
+        if color_identity:
+            meta_payload["color_identity"] = color_identity
+        primary_commander = commander_meta.get("primary_commander")
+        if primary_commander:
+            meta_payload["commander"] = primary_commander
+        secondary_commander = commander_meta.get("secondary_commander")
+        if secondary_commander:
+            meta_payload["secondary_commander"] = secondary_commander
         return meta_payload
 
     # Attempt to reuse existing export performed inside builder (headless run already exported)

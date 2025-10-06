@@ -7,7 +7,8 @@ import datetime as _dt
 import re as _re
 import logging_util
 
-from code.deck_builder.summary_telemetry import record_land_summary, record_theme_summary
+from code.deck_builder.summary_telemetry import record_land_summary, record_theme_summary, record_partner_summary
+from code.deck_builder.color_identity_utils import normalize_colors, canon_color_code, color_label_from_code
 from code.deck_builder.shared_copy import build_land_headline, dfc_card_note
 
 logger = logging_util.logging.getLogger(__name__)
@@ -27,6 +28,144 @@ class ReportingMixin:
         """Public method for orchestration: delegates to print_type_summary and print_card_library."""
         self.print_type_summary()
         self.print_card_library(table=True)
+
+    def get_commander_export_metadata(self) -> Dict[str, Any]:
+        """Return metadata describing the active commander configuration for export surfaces."""
+
+        def _clean(value: object) -> str:
+            try:
+                text = str(value).strip()
+            except Exception:
+                text = ""
+            return text
+
+        metadata: Dict[str, Any] = {
+            "primary_commander": None,
+            "secondary_commander": None,
+            "commander_names": [],
+            "partner_mode": None,
+            "color_identity": [],
+        }
+
+        combined = getattr(self, 'combined_commander', None)
+
+        commander_names: list[str] = []
+        primary_name = None
+        secondary_name = None
+
+        if combined is not None:
+            primary_name = _clean(getattr(combined, 'primary_name', '')) or None
+            secondary_name = _clean(getattr(combined, 'secondary_name', '')) or None
+            partner_mode_obj = getattr(combined, 'partner_mode', None)
+            partner_mode_val = getattr(partner_mode_obj, 'value', None)
+            if isinstance(partner_mode_val, str) and partner_mode_val.strip():
+                metadata["partner_mode"] = partner_mode_val.strip()
+            elif isinstance(partner_mode_obj, str) and partner_mode_obj.strip():
+                metadata["partner_mode"] = partner_mode_obj.strip()
+            if primary_name:
+                commander_names.append(primary_name)
+            if secondary_name and all(secondary_name.casefold() != n.casefold() for n in commander_names):
+                commander_names.append(secondary_name)
+            combined_identity_raw = list(getattr(combined, 'color_identity', []) or [])
+            combined_colors = normalize_colors(combined_identity_raw)
+            primary_colors = normalize_colors(getattr(combined, 'primary_color_identity', ()))
+            secondary_colors = normalize_colors(getattr(combined, 'secondary_color_identity', ()))
+            color_code = getattr(combined, 'color_code', '') or canon_color_code(combined_identity_raw)
+            color_label = getattr(combined, 'color_label', '') or color_label_from_code(color_code)
+
+            mode_lower = (metadata["partner_mode"] or "").lower() if metadata.get("partner_mode") else ""
+            if mode_lower == "background":
+                secondary_role = "background"
+            elif mode_lower == "doctor_companion":
+                secondary_role = "companion"
+            elif mode_lower == "partner_with":
+                secondary_role = "partner_with"
+            elif mode_lower == "partner":
+                secondary_role = "partner"
+            else:
+                secondary_role = "secondary"
+
+            secondary_role_label_map = {
+                "background": "Background",
+                "companion": "Doctor pairing",
+                "partner_with": "Partner With",
+                "partner": "Partner commander",
+            }
+            secondary_role_label = secondary_role_label_map.get(secondary_role, "Partner commander")
+
+            color_sources: list[Dict[str, Any]] = []
+            for color in combined_colors:
+                providers: list[Dict[str, Any]] = []
+                if primary_name and color in primary_colors:
+                    providers.append({"name": primary_name, "role": "primary"})
+                if secondary_name and color in secondary_colors:
+                    providers.append({"name": secondary_name, "role": secondary_role})
+                if not providers and primary_name:
+                    providers.append({"name": primary_name, "role": "primary"})
+                color_sources.append({"color": color, "providers": providers})
+
+            added_colors = [c for c in combined_colors if c not in primary_colors]
+            removed_colors = [c for c in primary_colors if c not in combined_colors]
+
+            combined_payload = {
+                "primary_name": primary_name,
+                "secondary_name": secondary_name,
+                "partner_mode": metadata["partner_mode"],
+                "color_identity": combined_identity_raw,
+                "theme_tags": list(getattr(combined, 'theme_tags', []) or []),
+                "raw_tags_primary": list(getattr(combined, 'raw_tags_primary', []) or []),
+                "raw_tags_secondary": list(getattr(combined, 'raw_tags_secondary', []) or []),
+                "warnings": list(getattr(combined, 'warnings', []) or []),
+                "color_code": color_code,
+                "color_label": color_label,
+                "primary_color_identity": primary_colors,
+                "secondary_color_identity": secondary_colors,
+                "secondary_role": secondary_role,
+                "secondary_role_label": secondary_role_label,
+                "color_sources": color_sources,
+                "color_delta": {
+                    "added": added_colors,
+                    "removed": removed_colors,
+                    "primary": primary_colors,
+                    "secondary": secondary_colors,
+                },
+            }
+            metadata["combined_commander"] = combined_payload
+        else:
+            primary_attr = _clean(getattr(self, 'commander_name', '') or getattr(self, 'commander', ''))
+            if primary_attr:
+                primary_name = primary_attr
+                commander_names.append(primary_attr)
+            secondary_attr = _clean(getattr(self, 'secondary_commander', ''))
+            if secondary_attr and all(secondary_attr.casefold() != n.casefold() for n in commander_names):
+                secondary_name = secondary_attr
+                commander_names.append(secondary_attr)
+            partner_mode_attr = getattr(self, 'partner_mode', None)
+            partner_mode_val = getattr(partner_mode_attr, 'value', None)
+            if isinstance(partner_mode_val, str) and partner_mode_val.strip():
+                metadata["partner_mode"] = partner_mode_val.strip()
+            elif isinstance(partner_mode_attr, str) and partner_mode_attr.strip():
+                metadata["partner_mode"] = partner_mode_attr.strip()
+
+        metadata["primary_commander"] = primary_name
+        metadata["secondary_commander"] = secondary_name
+        metadata["commander_names"] = commander_names
+
+        if metadata["partner_mode"]:
+            metadata["partner_mode"] = metadata["partner_mode"].lower()
+
+        # Prefer combined color identity when available
+        color_source = None
+        if combined is not None:
+            color_source = getattr(combined, 'color_identity', None)
+        if not color_source:
+            color_source = getattr(self, 'combined_color_identity', None)
+        if not color_source:
+            color_source = getattr(self, 'color_identity', None)
+        if color_source:
+            metadata["color_identity"] = [str(c).strip().upper() for c in color_source if str(c).strip()]
+
+        return metadata
     """Phase 6: Reporting, summaries, and export helpers."""
 
     def enforce_and_reexport(self, base_stem: str | None = None, mode: str = "prompt") -> dict:
@@ -623,6 +762,27 @@ class ReportingMixin:
             'colors': list(getattr(self, 'color_identity', []) or []),
             'include_exclude_summary': include_exclude_summary,
         }
+
+        try:
+            commander_meta = self.get_commander_export_metadata()
+        except Exception:
+            commander_meta = {}
+        commander_names = commander_meta.get('commander_names') or []
+        if commander_names:
+            summary_payload['commander'] = {
+                'names': commander_names,
+                'primary': commander_meta.get('primary_commander'),
+                'secondary': commander_meta.get('secondary_commander'),
+                'partner_mode': commander_meta.get('partner_mode'),
+                'color_identity': commander_meta.get('color_identity') or list(getattr(self, 'color_identity', []) or []),
+            }
+            combined_payload = commander_meta.get('combined_commander')
+            if combined_payload:
+                summary_payload['commander']['combined'] = combined_payload
+                try:
+                    record_partner_summary(summary_payload['commander'])
+                except Exception:  # pragma: no cover - diagnostics only
+                    logger.debug("Failed to record partner telemetry", exc_info=True)
         try:
             record_land_summary(land_summary)
         except Exception:  # pragma: no cover - diagnostics only
@@ -720,6 +880,17 @@ class ReportingMixin:
             "Name","Count","Type","ManaCost","ManaValue","Colors","Power","Toughness",
             "Role","SubRole","AddedBy","TriggerTag","Synergy","Tags","Text","DFCNote","Owned"
         ]
+
+        header_suffix: List[str] = []
+        try:
+            commander_meta = self.get_commander_export_metadata()
+        except Exception:
+            commander_meta = {}
+        commander_names = commander_meta.get('commander_names') or []
+        if commander_names:
+            header_suffix.append(f"Commanders: {', '.join(commander_names)}")
+        header_row = headers + header_suffix
+        suffix_padding = [''] * len(header_suffix)
 
         # Precedence list for sorting
         precedence_order = [
@@ -853,9 +1024,12 @@ class ReportingMixin:
 
         with open(fname, 'w', newline='', encoding='utf-8') as f:
             w = csv.writer(f)
-            w.writerow(headers)
+            w.writerow(header_row)
             for _, data_row in rows:
-                w.writerow(data_row)
+                if suffix_padding:
+                    w.writerow(data_row + suffix_padding)
+                else:
+                    w.writerow(data_row)
 
         self.output_func(f"Deck exported to {fname}")
         # Auto-generate matching plaintext list (best-effort; ignore failures)
@@ -979,7 +1153,24 @@ class ReportingMixin:
             sortable.append(((prec, name.lower()), name, info.get('Count',1), dfc_note))
         sortable.sort(key=lambda x: x[0])
 
+        try:
+            commander_meta = self.get_commander_export_metadata()
+        except Exception:
+            commander_meta = {}
+        header_lines: List[str] = []
+        commander_names = commander_meta.get('commander_names') or []
+        if commander_names:
+            header_lines.append(f"# Commanders: {', '.join(commander_names)}")
+        partner_mode = commander_meta.get('partner_mode')
+        if partner_mode and partner_mode not in (None, '', 'none'):
+            header_lines.append(f"# Partner Mode: {partner_mode}")
+        color_identity = commander_meta.get('color_identity') or []
+        if color_identity:
+            header_lines.append(f"# Colors: {', '.join(color_identity)}")
+
         with open(path, 'w', encoding='utf-8') as f:
+            if header_lines:
+                f.write("\n".join(header_lines) + "\n\n")
             for _, name, count, dfc_note in sortable:
                 line = f"{count} {name}"
                 if dfc_note:
@@ -1001,6 +1192,9 @@ class ReportingMixin:
           - add_lands, add_creatures, add_non_creature_spells (defaults True)
           - fetch_count (if determined during run)
           - ideal_counts (the actual ideal composition values used)
+          - secondary_commander (when partner mechanics apply)
+          - background (when Choose a Background is used)
+          - enable_partner_mechanics flag (bool, default False)
         """
         os.makedirs(directory, exist_ok=True)
 
@@ -1018,6 +1212,26 @@ class ReportingMixin:
                 if not os.path.exists(candidate):
                     return candidate
                 i += 1
+
+        def _clean_text(value: object | None) -> str | None:
+            if value is None:
+                return None
+            if isinstance(value, str):
+                text = value.strip()
+                if not text:
+                    return None
+                if text.lower() == "none":
+                    return None
+                return text
+            try:
+                text = str(value).strip()
+            except Exception:
+                return None
+            if not text:
+                return None
+            if text.lower() == "none":
+                return None
+            return text
 
         if filename is None:
             # Prefer a custom export base when present; else commander/themes
@@ -1059,6 +1273,57 @@ class ReportingMixin:
         ]
         theme_catalog_version = getattr(self, 'theme_catalog_version', None)
 
+        partner_enabled_flag = bool(getattr(self, 'partner_feature_enabled', False))
+        requested_secondary = _clean_text(getattr(self, 'requested_secondary_commander', None))
+        requested_background = _clean_text(getattr(self, 'requested_background', None))
+        stored_secondary = _clean_text(getattr(self, 'secondary_commander', None))
+        stored_background = _clean_text(getattr(self, 'background', None))
+
+        metadata: Dict[str, Any] = {}
+        try:
+            metadata_candidate = self.get_commander_export_metadata()
+        except Exception:
+            metadata_candidate = {}
+        if isinstance(metadata_candidate, dict):
+            metadata = metadata_candidate
+
+        partner_mode = str(metadata.get("partner_mode") or "").strip().lower() if metadata else ""
+        metadata_secondary = _clean_text(metadata.get("secondary_commander")) if metadata else None
+        combined_secondary = None
+        combined_info = metadata.get("combined_commander") if metadata else None
+        if isinstance(combined_info, dict):
+            combined_secondary = _clean_text(combined_info.get("secondary_name"))
+
+        if partner_mode and partner_mode not in {"none", ""}:
+            partner_enabled_flag = True if not partner_enabled_flag else partner_enabled_flag
+
+        secondary_for_export = None
+        background_for_export = None
+        if partner_mode == "background":
+            background_for_export = (
+                combined_secondary
+                or requested_background
+                or metadata_secondary
+                or stored_background
+                or stored_secondary
+            )
+        else:
+            secondary_for_export = (
+                combined_secondary
+                or requested_secondary
+                or metadata_secondary
+                or stored_secondary
+            )
+            background_for_export = requested_background or stored_background
+
+        secondary_for_export = _clean_text(secondary_for_export)
+        background_for_export = _clean_text(background_for_export)
+
+        if partner_mode == "background":
+            secondary_for_export = None
+
+        enable_partner_flag = bool(partner_enabled_flag)
+
         payload = {
             "commander": getattr(self, 'commander_name', '') or getattr(self, 'commander', '') or '',
             "primary_tag": getattr(self, 'primary_tag', None),
@@ -1086,6 +1351,9 @@ class ReportingMixin:
             # CamelCase aliases for downstream consumers (web diagnostics, external tooling)
             "userThemes": user_themes,
             "themeCatalogVersion": theme_catalog_version,
+            "secondary_commander": secondary_for_export,
+            "background": background_for_export,
+            "enable_partner_mechanics": enable_partner_flag,
             # chosen fetch land count (others intentionally omitted for variance)
             "fetch_count": chosen_fetch,
             # actual ideal counts used for this run

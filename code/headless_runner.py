@@ -10,6 +10,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from deck_builder.builder import DeckBuilder
 from deck_builder import builder_constants as bc
+from deck_builder.partner_selection import apply_partner_inputs
 from deck_builder.theme_resolution import (
     ThemeResolutionInfo,
     clean_theme_inputs,
@@ -205,8 +206,16 @@ def run(
     theme_match_mode: str = "permissive",
     user_theme_resolution: Optional[ThemeResolutionInfo] = None,
     user_theme_weight: Optional[float] = None,
+    secondary_commander: Optional[str] = None,
+    background: Optional[str] = None,
+    enable_partner_mechanics: bool = False,
 ) -> DeckBuilder:
-    """Run a scripted non-interactive deck build and return the DeckBuilder instance."""
+    """Run a scripted non-interactive deck build and return the DeckBuilder instance.
+
+    When ``enable_partner_mechanics`` is True, optional ``secondary_commander``
+    or ``background`` inputs are resolved into a combined commander pairing
+    before any deck-building steps execute.
+    """
     trimmed_commander = (command_name or "").strip()
     if trimmed_commander:
         _validate_commander_available(trimmed_commander)
@@ -276,6 +285,27 @@ def run(
         builder.headless = True  # type: ignore[attr-defined]
     except Exception:
         pass
+
+    partner_feature_enabled = bool(enable_partner_mechanics)
+    secondary_clean = (secondary_commander or "").strip()
+    background_clean = (background or "").strip()
+    try:
+        builder.partner_feature_enabled = partner_feature_enabled  # type: ignore[attr-defined]
+        builder.requested_secondary_commander = secondary_clean or None  # type: ignore[attr-defined]
+        builder.requested_background = background_clean or None  # type: ignore[attr-defined]
+    except Exception:
+        pass
+
+    if partner_feature_enabled and trimmed_commander:
+        combined_result = apply_partner_inputs(
+            builder,
+            primary_name=trimmed_commander,
+            secondary_name=secondary_clean or None,
+            background_name=background_clean or None,
+            feature_enabled=True,
+        )
+        if combined_result is not None:
+            _apply_combined_commander_to_builder(builder, combined_result)
     
     # Configure include/exclude settings (M1: Config + Validation + Persistence)
     try:
@@ -480,6 +510,39 @@ def _print_include_exclude_summary(builder: DeckBuilder) -> None:
     print("=" * 50)
 
 
+def _apply_combined_commander_to_builder(builder: DeckBuilder, combined_commander: Any) -> None:
+    """Attach combined commander metadata to the builder for downstream use."""
+
+    try:
+        builder.combined_commander = combined_commander  # type: ignore[attr-defined]
+    except Exception:
+        pass
+
+    try:
+        builder.partner_mode = combined_commander.partner_mode  # type: ignore[attr-defined]
+    except Exception:
+        pass
+
+    try:
+        builder.secondary_commander = combined_commander.secondary_name  # type: ignore[attr-defined]
+    except Exception:
+        pass
+
+    try:
+        builder.combined_color_identity = combined_commander.color_identity  # type: ignore[attr-defined]
+        builder.combined_theme_tags = combined_commander.theme_tags  # type: ignore[attr-defined]
+        builder.partner_warnings = combined_commander.warnings  # type: ignore[attr-defined]
+    except Exception:
+        pass
+
+    commander_dict = getattr(builder, "commander_dict", None)
+    if isinstance(commander_dict, dict):
+        try:
+            commander_dict["Partner Mode"] = combined_commander.partner_mode.value
+            commander_dict["Secondary Commander"] = combined_commander.secondary_name
+        except Exception:
+            pass
+
 def _export_outputs(builder: DeckBuilder) -> None:
     # M4: Print include/exclude summary to console
     _print_include_exclude_summary(builder)
@@ -548,6 +611,13 @@ def _parse_bool(val: Optional[str | bool | int]) -> Optional[bool]:
     if s in {"0", "false", "f", "no", "n", "off"}:
         return False
     return None
+
+
+def _parse_bool_cli(val: str) -> bool:
+    result = _parse_bool(val)
+    if result is None:
+        raise argparse.ArgumentTypeError(f"Expected a boolean value, received '{val}'")
+    return result
 
 
 def _parse_card_list(val: Optional[str]) -> List[str]:
@@ -1166,6 +1236,12 @@ def _build_arg_parser() -> argparse.ArgumentParser:
                    help="Path to JSON config file (string)")
     p.add_argument("--commander", metavar="NAME", default=None,
                    help="Commander name to search for (string)")
+    p.add_argument("--secondary-commander", metavar="NAME", default=None,
+                   help="Secondary commander name when using Partner/Partner With mechanics")
+    p.add_argument("--background", metavar="NAME", default=None,
+                   help="Background card name when choosing a Background")
+    p.add_argument("--enable-partner-mechanics", metavar="BOOL", type=_parse_bool_cli, default=None,
+                   help="Enable partner/background mechanics for this run (bool: true/false/1/0)")
     p.add_argument("--primary-choice", metavar="INT", type=int, default=None,
                    help="Primary theme tag choice number (integer)")
     p.add_argument("--secondary-choice", metavar="INT", type=_parse_opt_int, default=None,
@@ -1395,6 +1471,49 @@ def _resolve_value(
     if json_key in json_data:
         return json_data[json_key]
     return default
+
+
+def _resolve_string_option(
+    cli_value: Optional[str], env_name: str, json_data: Dict[str, Any], json_key: str
+) -> Optional[str]:
+    if cli_value is not None:
+        text = str(cli_value).strip()
+        return text or None
+
+    env_val = os.getenv(env_name)
+    if env_val:
+        text = env_val.strip()
+        if text:
+            return text
+
+    raw = json_data.get(json_key)
+    if raw is not None:
+        text = str(raw).strip()
+        if text:
+            return text
+    return None
+
+
+def _resolve_bool_option(
+    cli_value: Optional[bool], env_name: str, json_data: Dict[str, Any], json_key: str
+) -> Optional[bool]:
+    if cli_value is not None:
+        return bool(cli_value)
+
+    env_val = os.getenv(env_name)
+    if env_val is not None:
+        parsed = _parse_bool(env_val)
+        if parsed is not None:
+            return parsed
+
+    raw = json_data.get(json_key)
+    if raw is not None:
+        if isinstance(raw, bool):
+            return raw
+        parsed = _parse_bool(str(raw))
+        if parsed is not None:
+            return parsed
+    return None
 
 
 def _main() -> int:
@@ -1643,6 +1762,25 @@ def _main() -> int:
         print(str(exc))
         return 2
 
+    resolved_secondary_commander = _resolve_string_option(
+        getattr(args, "secondary_commander", None),
+        "DECK_SECONDARY_COMMANDER",
+        json_cfg,
+        "secondary_commander",
+    )
+    resolved_background = _resolve_string_option(
+        getattr(args, "background", None),
+        "DECK_BACKGROUND",
+        json_cfg,
+        "background",
+    )
+    resolved_partner_flag = _resolve_bool_option(
+        getattr(args, "enable_partner_mechanics", None),
+        "ENABLE_PARTNER_MECHANICS",
+        json_cfg,
+        "enable_partner_mechanics",
+    )
+
     resolved = {
         "command_name": _resolve_value(args.commander, "DECK_COMMANDER", json_cfg, "commander", defaults["command_name"]),
         "add_creatures": _resolve_value(args.add_creatures, "DECK_ADD_CREATURES", json_cfg, "add_creatures", defaults["add_creatures"]),
@@ -1671,6 +1809,9 @@ def _main() -> int:
         "additional_themes": list(theme_resolution.requested),
         "theme_match_mode": theme_resolution.mode,
         "user_theme_weight": weight_value,
+        "secondary_commander": resolved_secondary_commander,
+        "background": resolved_background,
+        "enable_partner_mechanics": bool(resolved_partner_flag) if resolved_partner_flag is not None else False,
     }
 
     if args.dry_run:
@@ -1706,6 +1847,7 @@ def _main() -> int:
     try:
         run_kwargs = dict(resolved)
         run_kwargs["user_theme_resolution"] = theme_resolution
+        run_kwargs["enable_partner_mechanics"] = bool(resolved_partner_flag)
         run(**run_kwargs)
     except CommanderValidationError as exc:
         print(str(exc))

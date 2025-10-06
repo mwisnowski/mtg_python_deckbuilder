@@ -12,6 +12,11 @@ from datetime import datetime as _dt
 import re
 import unicodedata
 from glob import glob
+import subprocess
+import sys
+from pathlib import Path
+from deck_builder.partner_selection import apply_partner_inputs
+from exceptions import CommanderPartnerError
 
 _TAG_ACRONYM_KEEP = {"EDH", "ETB", "ETBs", "CMC", "ET", "OTK"}
 _REASON_SOURCE_OVERRIDES = {
@@ -181,6 +186,93 @@ def _run_theme_metadata_enrichment(out_func=None) -> None:
             except Exception as e:
                 _emit(f"[metadata_enrich] step failed ({os.path.basename(cmd[1]) if len(cmd)>1 else cmd}): {e}")
                 continue
+    except Exception:
+        return
+
+
+def _maybe_refresh_partner_synergy(out_func=None, *, force: bool = False, root: str | os.PathLike[str] | None = None) -> None:
+    """Generate partner synergy dataset when missing or stale.
+
+    The helper executes the build_partner_suggestions script when the analytics
+    payload is absent or older than its source assets. Failures are logged but do
+    not block the calling workflow.
+    """
+    try:
+        root_path = Path(root) if root is not None else Path(__file__).resolve().parents[3]
+    except Exception:
+        return
+
+    try:
+        script_path = root_path / "code" / "scripts" / "build_partner_suggestions.py"
+        if not script_path.exists():
+            return
+
+        dataset_dir = root_path / "config" / "analytics"
+        output_path = dataset_dir / "partner_synergy.json"
+
+        needs_refresh = force or not output_path.exists()
+        dataset_mtime = 0.0
+        if output_path.exists():
+            try:
+                dataset_mtime = output_path.stat().st_mtime
+            except Exception:
+                dataset_mtime = 0.0
+
+        if not needs_refresh:
+            source_times: list[float] = []
+            candidates = [
+                root_path / "config" / "themes" / "theme_list.json",
+                root_path / "csv_files" / "commander_cards.csv",
+            ]
+            for candidate in candidates:
+                try:
+                    if candidate.exists():
+                        source_times.append(candidate.stat().st_mtime)
+                except Exception:
+                    continue
+            try:
+                deck_dir = root_path / "deck_files"
+                if deck_dir.is_dir():
+                    latest_deck_mtime = 0.0
+                    for pattern in ("*.json", "*.csv", "*.txt"):
+                        for entry in deck_dir.rglob(pattern):
+                            try:
+                                mt = entry.stat().st_mtime
+                            except Exception:
+                                continue
+                            if mt > latest_deck_mtime:
+                                latest_deck_mtime = mt
+                    if latest_deck_mtime:
+                        source_times.append(latest_deck_mtime)
+            except Exception:
+                pass
+
+            newest_source = max(source_times) if source_times else 0.0
+            if newest_source and dataset_mtime < newest_source:
+                needs_refresh = True
+
+        if not needs_refresh:
+            return
+
+        try:
+            dataset_dir.mkdir(parents=True, exist_ok=True)
+        except Exception:
+            pass
+
+        cmd = [sys.executable, str(script_path), "--output", str(output_path)]
+        try:
+            subprocess.run(cmd, check=True, cwd=str(root_path))
+            if out_func:
+                try:
+                    out_func("Partner suggestions dataset refreshed.")
+                except Exception:
+                    pass
+        except Exception as exc:
+            if out_func:
+                try:
+                    out_func(f"Partner suggestions dataset refresh failed: {exc}")
+                except Exception:
+                    pass
     except Exception:
         return
 
@@ -1054,6 +1146,10 @@ def _ensure_setup_ready(out, force: bool = False) -> None:
                 _run_theme_metadata_enrichment(out_func)
             except Exception:
                 pass
+            try:
+                _maybe_refresh_partner_synergy(out_func, force=force)
+            except Exception:
+                pass
             # Bust theme-related in-memory caches so new catalog reflects immediately
             try:
                 from .theme_catalog_loader import bust_filter_cache  # type: ignore
@@ -1722,6 +1818,28 @@ def run_build(commander: str, tags: List[str], bracket: int, ideals: Dict[str, i
                     "csv": csv_path,
                     "txt": txt_path,
                 }
+                try:
+                    commander_meta = b.get_commander_export_metadata()  # type: ignore[attr-defined]
+                except Exception:
+                    commander_meta = {}
+                names = commander_meta.get("commander_names") or []
+                if names:
+                    meta["commander_names"] = names
+                combined_payload = commander_meta.get("combined_commander")
+                if combined_payload:
+                    meta["combined_commander"] = combined_payload
+                partner_mode = commander_meta.get("partner_mode")
+                if partner_mode:
+                    meta["partner_mode"] = partner_mode
+                color_identity = commander_meta.get("color_identity")
+                if color_identity:
+                    meta["color_identity"] = color_identity
+                primary_commander = commander_meta.get("primary_commander")
+                if primary_commander:
+                    meta["commander"] = primary_commander
+                secondary_commander = commander_meta.get("secondary_commander")
+                if secondary_commander:
+                    meta["secondary_commander"] = secondary_commander
                 # Attach custom deck name if provided
                 try:
                     custom_base = getattr(b, 'custom_export_base', None)
@@ -1842,6 +1960,111 @@ def _make_stages(b: DeckBuilder) -> List[Dict[str, Any]]:
     return stages
 
 
+def _apply_combined_commander_to_builder(builder: DeckBuilder, combined: Any) -> None:
+    """Attach combined commander metadata to the builder."""
+
+    try:
+        builder.combined_commander = combined  # type: ignore[attr-defined]
+    except Exception:
+        pass
+    try:
+        builder.partner_mode = getattr(combined, "partner_mode", None)  # type: ignore[attr-defined]
+    except Exception:
+        pass
+    try:
+        builder.secondary_commander = getattr(combined, "secondary_name", None)  # type: ignore[attr-defined]
+    except Exception:
+        pass
+    try:
+        builder.combined_color_identity = getattr(combined, "color_identity", None)  # type: ignore[attr-defined]
+        builder.combined_theme_tags = getattr(combined, "theme_tags", None)  # type: ignore[attr-defined]
+        builder.partner_warnings = getattr(combined, "warnings", None)  # type: ignore[attr-defined]
+    except Exception:
+        pass
+    commander_dict = getattr(builder, "commander_dict", None)
+    if isinstance(commander_dict, dict):
+        try:
+            mode = getattr(getattr(combined, "partner_mode", None), "value", None)
+            commander_dict["Partner Mode"] = mode
+            commander_dict["Secondary Commander"] = getattr(combined, "secondary_name", None)
+        except Exception:
+            pass
+
+
+def _add_secondary_commander_card(builder: DeckBuilder, commander_df: Any, combined: Any) -> None:
+    """Ensure the partnered/background commander is present in the deck library."""
+
+    try:
+        secondary_name = getattr(combined, "secondary_name", None)
+    except Exception:
+        secondary_name = None
+    if not secondary_name:
+        return
+
+    try:
+        display_name = str(secondary_name).strip()
+    except Exception:
+        return
+    if not display_name:
+        return
+
+    try:
+        df = commander_df
+        if df is None:
+            return
+        match = df[df["name"].astype(str).str.casefold() == display_name.casefold()]
+        if match.empty and "faceName" in getattr(df, "columns", []):
+            match = df[df["faceName"].astype(str).str.casefold() == display_name.casefold()]
+        if match.empty:
+            return
+        row = match.iloc[0]
+    except Exception:
+        return
+
+    card_name = str(row.get("name") or display_name).strip()
+    card_type = str(row.get("type") or row.get("type_line") or "")
+    mana_cost = str(row.get("manaCost") or "")
+    mana_value = row.get("manaValue", row.get("cmc"))
+    try:
+        if mana_value in ("", None):
+            mana_value = None
+        else:
+            mana_value = float(mana_value)
+    except Exception:
+        mana_value = None
+
+    raw_creatures = row.get("creatureTypes")
+    if isinstance(raw_creatures, str):
+        creature_types = [part.strip() for part in raw_creatures.split(",") if part.strip()]
+    elif isinstance(raw_creatures, (list, tuple)):
+        creature_types = [str(part).strip() for part in raw_creatures if str(part).strip()]
+    else:
+        creature_types = []
+
+    raw_tags = row.get("themeTags")
+    if isinstance(raw_tags, str):
+        tags = [part.strip() for part in raw_tags.split(",") if part.strip()]
+    elif isinstance(raw_tags, (list, tuple)):
+        tags = [str(part).strip() for part in raw_tags if str(part).strip()]
+    else:
+        tags = []
+
+    try:
+        builder.add_card(
+            card_name=card_name,
+            card_type=card_type,
+            mana_cost=mana_cost,
+            mana_value=mana_value,
+            creature_types=creature_types,
+            tags=tags,
+            is_commander=True,
+            sub_role="Partner",
+            added_by="Partner Mechanics",
+        )
+    except Exception:
+        return
+
+
 def start_build_ctx(
     commander: str,
     tags: List[str],
@@ -1861,6 +2084,9 @@ def start_build_ctx(
     include_cards: List[str] | None = None,
     exclude_cards: List[str] | None = None,
     swap_mdfc_basics: bool | None = None,
+    partner_feature_enabled: bool | None = None,
+    secondary_commander: str | None = None,
+    background_commander: str | None = None,
 ) -> Dict[str, Any]:
     logs: List[str] = []
 
@@ -1882,6 +2108,32 @@ def start_build_ctx(
     if row.empty:
         raise ValueError(f"Commander not found: {commander}")
     b._apply_commander_selection(row.iloc[0])
+    if secondary_commander is not None:
+        secondary_commander = str(secondary_commander).strip()
+        if not secondary_commander:
+            secondary_commander = None
+    if background_commander is not None:
+        background_commander = str(background_commander).strip()
+        if not background_commander:
+            background_commander = None
+    combined_partner = None
+    if partner_feature_enabled and (secondary_commander or background_commander):
+        try:
+            combined_partner = apply_partner_inputs(
+                b,
+                primary_name=str(commander),
+                secondary_name=secondary_commander,
+                background_name=background_commander,
+                feature_enabled=True,
+            )
+        except CommanderPartnerError as exc:
+            out(f"Partner selection error: {exc}")
+        except Exception as exc:
+            out(f"Partner selection failed: {exc}")
+        else:
+            if combined_partner is not None:
+                _apply_combined_commander_to_builder(b, combined_partner)
+                _add_secondary_commander_card(b, df, combined_partner)
     # Tags (explicit + supplemental applied upstream)
     b.selected_tags = list(tags or [])
     b.primary_tag = b.selected_tags[0] if len(b.selected_tags) > 0 else None
@@ -2158,6 +2410,28 @@ def run_stage(ctx: Dict[str, Any], rerun: bool = False, show_skipped: bool = Fal
                     "csv": ctx.get("csv_path"),
                     "txt": ctx.get("txt_path"),
                 }
+                try:
+                    commander_meta = b.get_commander_export_metadata()  # type: ignore[attr-defined]
+                except Exception:
+                    commander_meta = {}
+                names = commander_meta.get("commander_names") or []
+                if names:
+                    meta["commander_names"] = names
+                combined_payload = commander_meta.get("combined_commander")
+                if combined_payload:
+                    meta["combined_commander"] = combined_payload
+                partner_mode = commander_meta.get("partner_mode")
+                if partner_mode:
+                    meta["partner_mode"] = partner_mode
+                color_identity = commander_meta.get("color_identity")
+                if color_identity:
+                    meta["color_identity"] = color_identity
+                primary_commander = commander_meta.get("primary_commander")
+                if primary_commander:
+                    meta["commander"] = primary_commander
+                secondary_commander = commander_meta.get("secondary_commander")
+                if secondary_commander:
+                    meta["secondary_commander"] = secondary_commander
                 try:
                     custom_base = getattr(b, 'custom_export_base', None)
                 except Exception:
@@ -2961,6 +3235,28 @@ def run_stage(ctx: Dict[str, Any], rerun: bool = False, show_skipped: bool = Fal
                 "csv": ctx.get("csv_path"),
                 "txt": ctx.get("txt_path"),
             }
+            try:
+                commander_meta = b.get_commander_export_metadata()  # type: ignore[attr-defined]
+            except Exception:
+                commander_meta = {}
+            names = commander_meta.get("commander_names") or []
+            if names:
+                meta["commander_names"] = names
+            combined_payload = commander_meta.get("combined_commander")
+            if combined_payload:
+                meta["combined_commander"] = combined_payload
+            partner_mode = commander_meta.get("partner_mode")
+            if partner_mode:
+                meta["partner_mode"] = partner_mode
+            color_identity = commander_meta.get("color_identity")
+            if color_identity:
+                meta["color_identity"] = color_identity
+            primary_commander = commander_meta.get("primary_commander")
+            if primary_commander:
+                meta["commander"] = primary_commander
+            secondary_commander = commander_meta.get("secondary_commander")
+            if secondary_commander:
+                meta["secondary_commander"] = secondary_commander
             try:
                 custom_base = getattr(b, 'custom_export_base', None)
             except Exception:

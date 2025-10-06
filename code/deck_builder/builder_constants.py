@@ -512,7 +512,7 @@ DEFAULT_THEME_TAGS = [
     'Enter the Battlefield', 'Equipment', 'Exile Matters', 'Infect',
     'Interaction', 'Lands Matter', 'Leave the Battlefield', 'Legends Matter',
     'Life Matters', 'Mill', 'Monarch', 'Protection', 'Ramp', 'Reanimate',
-    'Removal', 'Sacrifice Matters', 'Spellslinger', 'Stax', 'Super Friends',
+    'Removal', 'Sacrifice Matters', 'Spellslinger', 'Stax', 'Superfriends',
     'Theft', 'Token Creation', 'Tokens Matter', 'Voltron', 'X Spells'
 ]
 

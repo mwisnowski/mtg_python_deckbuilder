@@ -5,6 +5,7 @@ from fastapi import Request
 from ..services import owned_store
 from . import orchestrator as orch
 from deck_builder import builder_constants as bc
+from .. import app as app_module
 
 
 def step5_base_ctx(request: Request, sess: dict, *, include_name: bool = True, include_locks: bool = True) -> Dict[str, Any]:
@@ -21,6 +22,13 @@ def step5_base_ctx(request: Request, sess: dict, *, include_name: bool = True, i
         "values": sess.get("ideals", orch.ideal_defaults()),
         "owned_only": bool(sess.get("use_owned_only")),
         "prefer_owned": bool(sess.get("prefer_owned")),
+        "partner_enabled": bool(sess.get("partner_enabled") and app_module.ENABLE_PARTNER_MECHANICS),
+        "secondary_commander": sess.get("secondary_commander"),
+        "background": sess.get("background"),
+        "partner_mode": sess.get("partner_mode"),
+        "partner_warnings": list(sess.get("partner_warnings", []) or []),
+        "combined_commander": sess.get("combined_commander"),
+        "partner_auto_note": sess.get("partner_auto_note"),
     "owned_set": owned_set(),
         "game_changers": bc.GAME_CHANGERS,
         "replace_mode": bool(sess.get("replace_mode", True)),
@@ -69,6 +77,9 @@ def start_ctx_from_session(sess: dict, *, set_on_session: bool = True) -> Dict[s
     use_owned = bool(sess.get("use_owned_only"))
     prefer = bool(sess.get("prefer_owned"))
     owned_names_list = owned_names() if (use_owned or prefer) else None
+    partner_enabled = bool(sess.get("partner_enabled")) and app_module.ENABLE_PARTNER_MECHANICS
+    secondary_commander = sess.get("secondary_commander") if partner_enabled else None
+    background_choice = sess.get("background") if partner_enabled else None
     ctx = orch.start_build_ctx(
         commander=sess.get("commander"),
         tags=sess.get("tags", []),
@@ -87,9 +98,16 @@ def start_ctx_from_session(sess: dict, *, set_on_session: bool = True) -> Dict[s
         include_cards=sess.get("include_cards"),
         exclude_cards=sess.get("exclude_cards"),
         swap_mdfc_basics=bool(sess.get("swap_mdfc_basics")),
+        partner_feature_enabled=partner_enabled,
+        secondary_commander=secondary_commander,
+        background_commander=background_choice,
     )
     if set_on_session:
         sess["build_ctx"] = ctx
+    if partner_enabled:
+        ctx["partner_mode"] = sess.get("partner_mode")
+        ctx["combined_commander"] = sess.get("combined_commander")
+        ctx["partner_warnings"] = list(sess.get("partner_warnings", []) or [])
     return ctx
 
 
@@ -109,6 +127,7 @@ def commander_hover_context(
     commander_name: str | None,
     deck_tags: Iterable[Any] | None,
     summary: Dict[str, Any] | None,
+    combined: Any | None = None,
 ) -> Dict[str, Any]:
     try:
         from .summary_utils import format_theme_label, format_theme_list
@@ -139,6 +158,13 @@ def commander_hover_context(
                 seen.add(key)
                 result.append(label)
             return result
+
+    combined_info: Dict[str, Any]
+    if isinstance(combined, dict):
+        combined_info = combined
+    else:
+        combined_info = {}
+    has_combined = bool(combined_info)
 
     deck_theme_sources: list[Any] = []
     _extend_sources(deck_theme_sources, list(deck_tags or []))
@@ -176,6 +202,8 @@ def commander_hover_context(
             _extend_sources(commander_theme_sources, commander_meta.get("tags"))
             _extend_sources(commander_theme_sources, commander_meta.get("themes"))
 
+    _extend_sources(commander_theme_sources, combined_info.get("theme_tags"))
+
     commander_theme_tags = format_theme_list(commander_theme_sources)
     if commander_name and not commander_theme_tags:
         try:
@@ -211,6 +239,36 @@ def commander_hover_context(
         slug_seen.add(slug)
         commander_tag_slugs.append(slug)
 
+    raw_color_identity = combined_info.get("color_identity") if combined_info else None
+    commander_color_identity: list[str] = []
+    if isinstance(raw_color_identity, (list, tuple, set)):
+        for item in raw_color_identity:
+            token = str(item).strip().upper()
+            if token:
+                commander_color_identity.append(token)
+
+    commander_color_label = ""
+    if has_combined:
+        commander_color_label = str(combined_info.get("color_label") or "").strip()
+    if not commander_color_label and commander_color_identity:
+        commander_color_label = " / ".join(commander_color_identity)
+    if has_combined and not commander_color_label:
+        commander_color_label = "Colorless (C)"
+
+    commander_color_code = str(combined_info.get("color_code") or "").strip() if has_combined else ""
+    commander_partner_mode = str(combined_info.get("partner_mode") or "").strip() if has_combined else ""
+    commander_secondary_name = str(combined_info.get("secondary_name") or "").strip() if has_combined else ""
+    commander_primary_name = str(combined_info.get("primary_name") or commander_name or "").strip()
+
+    commander_display_name = commander_primary_name
+    if commander_secondary_name:
+        if commander_partner_mode == "background":
+            commander_display_name = f"{commander_primary_name} + Background: {commander_secondary_name}".strip()
+        else:
+            commander_display_name = f"{commander_primary_name} + {commander_secondary_name}".strip()
+    elif not commander_display_name:
+        commander_display_name = str(commander_name or "").strip()
+
     reason_bits: list[str] = []
     if deck_theme_tags:
         reason_bits.append("Deck themes: " + ", ".join(deck_theme_tags))
@@ -225,6 +283,13 @@ def commander_hover_context(
         "commander_overlap_tags": overlap_tags,
         "commander_reason_text": "; ".join(reason_bits),
         "commander_role_label": format_theme_label("Commander") if commander_name else "",
+        "commander_color_identity": commander_color_identity,
+        "commander_color_label": commander_color_label,
+        "commander_color_code": commander_color_code,
+        "commander_partner_mode": commander_partner_mode,
+        "commander_secondary_name": commander_secondary_name,
+        "commander_primary_name": commander_primary_name,
+        "commander_display_name": commander_display_name,
     }
 
 
@@ -274,8 +339,11 @@ def step5_ctx_from_result(
         commander_name=ctx.get("commander"),
         deck_tags=sess.get("tags"),
         summary=ctx.get("summary") if ctx.get("summary") else res.get("summary"),
+        combined=ctx.get("combined_commander"),
     )
     ctx.update(hover_meta)
+    if "commander_display_name" not in ctx or not ctx.get("commander_display_name"):
+        ctx["commander_display_name"] = ctx.get("commander")
     return ctx
 
 

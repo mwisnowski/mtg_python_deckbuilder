@@ -28,6 +28,10 @@ services:
       ALLOW_MUST_HAVES: "1"         # 1=enable must-include/must-exclude cards feature; 0=disable
       SHOW_MISC_POOL: "0"
       WEB_THEME_PICKER_DIAGNOSTICS: "1"  # 1=enable extra theme catalog diagnostics fields, uncapped view & /themes/metrics
+      # Partner / Background mechanics (feature flag)
+      ENABLE_PARTNER_MECHANICS: "1"        # 1=unlock partner/background commander inputs
+      ENABLE_PARTNER_SUGGESTIONS: "1"      # 1=enable partner suggestion API/UI (requires dataset)
+  # PARTNER_SUGGESTIONS_DATASET: "/app/config/analytics/partner_synergy.json"  # Optional override path for dataset inside container
       # Sampling experiments
       # SPLASH_ADAPTIVE: "0"          # 1=enable adaptive splash penalty scaling by commander color count
       # SPLASH_ADAPTIVE_SCALE: "1:1.0,2:1.0,3:1.0,4:0.6,5:0.35"  # override default scaling
@@ -228,4 +232,4 @@ services:
       - ${PWD}/config:/app/config
       - ${PWD}/owned_cards:/app/owned_cards
     working_dir: /app
-    restart: "no"
+    restart: unless-stopped

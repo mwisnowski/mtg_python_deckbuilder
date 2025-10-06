@@ -72,6 +72,13 @@
     <div id="dfcMetrics" class="muted" style="margin-top:.5rem;">Loading MDFC metrics…</div>
   </div>
   <div class="card" style="background: var(--panel); border:1px solid var(--border); border-radius:10px; padding:.75rem; margin-bottom:.75rem">
+    <h3 style="margin-top:0">Dual-Commander diagnostics</h3>
+    <div class="muted" style="margin-bottom:.35rem;">Latest partner, partner-with, doctor, and background pairings with color sources.</div>
+    <div id="partnerMetricsSummary" class="muted">Loading partner metrics…</div>
+    <div id="partnerMetricsModes" class="muted" style="margin-top:.5rem;"></div>
+    <div id="partnerColorSources" style="margin-top:.5rem;"></div>
+  </div>
+  <div class="card" style="background: var(--panel); border:1px solid var(--border); border-radius:10px; padding:.75rem; margin-bottom:.75rem">
     <h3 style="margin-top:0">Performance (local)</h3>
     <div class="muted" style="margin-bottom:.35rem">Scroll the Step 5 list; this panel shows a rough FPS estimate and virtualization renders.</div>
     <div style="display:flex; gap:1rem; flex-wrap:wrap">
@@ -436,6 +443,160 @@
       .catch(function(){ dfcMetricsEl.textContent = 'MDFC metrics unavailable'; });
   }
   loadDfcMetrics();
+  var partnerSummaryEl = document.getElementById('partnerMetricsSummary');
+  var partnerModesEl = document.getElementById('partnerMetricsModes');
+  var partnerSourcesEl = document.getElementById('partnerColorSources');
+  function escapeHtml(str){
+    return String(str == null ? '' : str).replace(/[&<>"']/g, function(ch){
+      return ({"&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;"}[ch]) || ch;
+    });
+  }
+  function labelForPartnerRole(role){
+    var key = role == null ? '' : String(role).toLowerCase();
+    var map = {
+      'primary': 'Primary',
+      'partner': 'Partner commander',
+      'partner_with': 'Partner With',
+      'background': 'Background',
+      'companion': "Doctor's Companion",
+      'doctor_companion': "Doctor's Companion",
+      'doctor': 'Doctor',
+      'secondary': 'Secondary',
+    };
+    if (map[key]) return map[key];
+    if (!key) return '';
+    return key.replace(/_/g, ' ').replace(/\b\w/g, function(ch){ return ch.toUpperCase(); });
+  }
+  function labelForPartnerMode(mode){
+    var key = mode == null ? 'none' : String(mode).toLowerCase();
+    var map = {
+      'none': 'Single commander',
+      'partner': 'Partner',
+      'partner_with': 'Partner With',
+      'background': 'Choose a Background',
+      'doctor_companion': "Doctor & Companion",
+      'doctor': 'Doctor',
+    };
+    return map[key] || labelForPartnerRole(key) || key;
+  }
+  function buildModeCountsHtml(modeCounts, total){
+    var html = '<div><strong>Total pairings observed:</strong> ' + String(total || 0) + '</div>';
+    var keys = Object.keys(modeCounts || {}).filter(function(k){ return Number(modeCounts[k] || 0) > 0; });
+    if (keys.length){
+      var parts = keys.sort().map(function(k){
+        return labelForPartnerMode(k) + ': ' + String(modeCounts[k]);
+      });
+      html += '<div style="font-size:12px;">Mode breakdown: ' + parts.join(' · ') + '</div>';
+    }
+    return html;
+  }
+  function renderPartnerMetrics(payload){
+    if (!partnerSummaryEl) return;
+    try{
+      if (!payload || payload.ok !== true){
+        partnerSummaryEl.textContent = 'Partner metrics unavailable';
+        if (partnerModesEl) partnerModesEl.textContent = '';
+        if (partnerSourcesEl) partnerSourcesEl.innerHTML = '';
+        return;
+      }
+      var metrics = payload.metrics || {};
+      var total = Number(metrics.total_pairs || 0);
+      var modeCounts = metrics.mode_counts || {};
+      var last = metrics.last_summary || null;
+      var updated = metrics.last_updated || '';
+      if (!total || !last){
+        partnerSummaryEl.textContent = 'No partner/background builds recorded yet.';
+        if (partnerModesEl) partnerModesEl.innerHTML = buildModeCountsHtml(modeCounts, total);
+        if (partnerSourcesEl) partnerSourcesEl.innerHTML = '';
+        return;
+      }
+      var primary = last.primary != null ? String(last.primary) : '';
+      var secondary = last.secondary != null ? String(last.secondary) : '';
+      if (!primary && Array.isArray(last.names) && last.names.length){ primary = String(last.names[0] || ''); }
+      if (!secondary && Array.isArray(last.names) && last.names.length > 1){ secondary = String(last.names[1] || ''); }
+      var header = '<div><strong>Latest pairing:</strong> ' + escapeHtml(primary || '—');
+      if (secondary){ header += ' + ' + escapeHtml(secondary); }
+      header += '</div>';
+      header += '<div><strong>Mode:</strong> ' + escapeHtml(labelForPartnerMode(last.partner_mode)) + '</div>';
+      var colorLabel = last.color_label != null ? String(last.color_label) : '';
+      var colorCode = last.color_code != null ? String(last.color_code) : '';
+      var colors = Array.isArray(last.color_identity) ? last.color_identity.filter(Boolean).map(String).join(' / ') : '';
+      if (colorLabel || colorCode || colors){
+        var labelText = colorLabel || colors || colorCode;
+        var extra = (!colorLabel && colorCode && colorCode !== labelText) ? ' (' + escapeHtml(colorCode) + ')' : '';
+        if (colorLabel && colorCode && colorLabel.indexOf(colorCode) === -1){ extra = ' (' + escapeHtml(colorCode) + ')'; }
+        header += '<div><strong>Colors:</strong> ' + escapeHtml(labelText) + extra + '</div>';
+      }
+      if (updated){
+        header += '<div style="font-size:11px; opacity:0.75;">Last updated: ' + escapeHtml(updated) + '</div>';
+      }
+      partnerSummaryEl.innerHTML = header;
+      if (partnerModesEl){
+        partnerModesEl.innerHTML = buildModeCountsHtml(modeCounts, total);
+      }
+      if (partnerSourcesEl){
+        var sources = Array.isArray(last.color_sources) ? last.color_sources : [];
+        if (!sources.length){
+          partnerSourcesEl.innerHTML = '<div class="muted">No color source breakdown recorded.</div>';
+        } else {
+          var html = '<div><strong>Color sources</strong></div>';
+          html += '<ul style="list-style:none; padding:0; margin:.35rem 0 0; display:grid; gap:.25rem;">';
+          sources.forEach(function(entry){
+            var color = entry && entry.color != null ? String(entry.color) : '?';
+            var providers = Array.isArray(entry && entry.providers) ? entry.providers : [];
+            var providerParts = providers.map(function(provider){
+              var name = provider && provider.name != null ? String(provider.name) : 'Unknown';
+              var roleLabel = labelForPartnerRole(provider && provider.role);
+              if (roleLabel){
+                return escapeHtml(name) + ' [' + escapeHtml(roleLabel) + ']';
+              }
+              return escapeHtml(name);
+            });
+            if (!providerParts.length){ providerParts.push('—'); }
+            html += '<li class="muted"><span class="chip" style="display:inline-flex; align-items:center; gap:.25rem;"><span class="dot" style="background: var(--border);"></span> ' + escapeHtml(color) + '</span> ' + providerParts.join(', ') + '</li>';
+          });
+          html += '</ul>';
+          var delta = last.color_delta || {};
+          try{
+            var deltaParts = [];
+            var added = Array.isArray(delta.added) ? delta.added.filter(Boolean) : [];
+            var removed = Array.isArray(delta.removed) ? delta.removed.filter(Boolean) : [];
+            if (added.length){ deltaParts.push('Added ' + added.map(escapeHtml).join(', ')); }
+            if (removed.length){ deltaParts.push('Removed ' + removed.map(escapeHtml).join(', ')); }
+            if (deltaParts.length){
+              html += '<div class="muted" style="font-size:12px; margin-top:.35rem;">' + deltaParts.join(' · ') + '</div>';
+            }
+          }catch(_){ }
+          partnerSourcesEl.innerHTML = html;
+        }
+      }
+    }catch(_){
+      partnerSummaryEl.textContent = 'Partner metrics unavailable';
+      if (partnerModesEl) partnerModesEl.textContent = '';
+      if (partnerSourcesEl) partnerSourcesEl.innerHTML = '';
+    }
+  }
+  function loadPartnerMetrics(){
+    if (!partnerSummaryEl) return;
+    partnerSummaryEl.textContent = 'Loading partner metrics…';
+    fetch('/status/partner_metrics', { cache: 'no-store' })
+      .then(function(resp){
+        if (resp.status === 404){
+          partnerSummaryEl.textContent = 'Diagnostics disabled (partner metrics unavailable)';
+          if (partnerModesEl) partnerModesEl.textContent = '';
+          if (partnerSourcesEl) partnerSourcesEl.innerHTML = '';
+          return null;
+        }
+        return resp.json();
+      })
+      .then(function(data){ if (data) renderPartnerMetrics(data); })
+      .catch(function(){
+        partnerSummaryEl.textContent = 'Partner metrics unavailable';
+        if (partnerModesEl) partnerModesEl.textContent = '';
+        if (partnerSourcesEl) partnerSourcesEl.innerHTML = '';
+      });
+  }
+  loadPartnerMetrics();
   // Theme status and reset
   try{
     var tEl = document.getElementById('themeSummary');

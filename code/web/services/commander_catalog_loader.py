@@ -24,12 +24,16 @@ import re
 from urllib.parse import quote
 
 from path_util import csv_dir
+from deck_builder.partner_background_utils import analyze_partner_background
 
 __all__ = [
     "CommanderRecord",
     "CommanderCatalog",
     "load_commander_catalog",
     "clear_commander_catalog_cache",
+    "find_commander_record",
+    "normalized_restricted_labels",
+    "shared_restricted_partner_label",
 ]
 
 
@@ -80,9 +84,13 @@ class CommanderRecord:
     image_small_url: str
     image_normal_url: str
     partner_with: Tuple[str, ...]
+    has_plain_partner: bool
     is_partner: bool
     supports_backgrounds: bool
     is_background: bool
+    is_doctor: bool
+    is_doctors_companion: bool
+    restricted_partner_labels: Tuple[str, ...]
     search_haystack: str
 
 
@@ -102,6 +110,36 @@ class CommanderCatalog:
 
 
 _CACHE: Dict[str, CommanderCatalog] = {}
+
+
+def normalized_restricted_labels(record: CommanderRecord | object) -> Dict[str, str]:
+    labels: Dict[str, str] = {}
+    raw_labels = getattr(record, "restricted_partner_labels", ()) or ()
+    for label in raw_labels:
+        text = str(label or "").strip()
+        if not text:
+            continue
+        key = text.casefold()
+        if key in labels:
+            continue
+        labels[key] = text
+    return labels
+
+
+def shared_restricted_partner_label(
+    primary: CommanderRecord | object,
+    candidate: CommanderRecord | object,
+) -> Optional[str]:
+    primary_labels = normalized_restricted_labels(primary)
+    if not primary_labels:
+        return None
+    candidate_labels = normalized_restricted_labels(candidate)
+    if not candidate_labels:
+        return None
+    for key, display in candidate_labels.items():
+        if key in primary_labels:
+            return display
+    return None
 
 
 def clear_commander_catalog_cache() -> None:
@@ -133,6 +171,31 @@ def load_commander_catalog(
     catalog = _build_catalog(csv_path)
     _CACHE[key] = catalog
     return catalog
+
+
+def find_commander_record(name: str | None) -> CommanderRecord | None:
+    """Return the first commander record matching the provided name.
+
+    Matching is case-insensitive and considers display name, face name, raw name,
+    and slug variants. Returns ``None`` when the commander cannot be located.
+    """
+
+    text = _clean_str(name)
+    if not text:
+        return None
+    lowered = text.casefold()
+    slug = _slugify(text)
+    try:
+        catalog = load_commander_catalog()
+    except Exception:
+        return None
+    for record in catalog.entries:
+        for candidate in (record.display_name, record.face_name, record.name):
+            if candidate and candidate.casefold() == lowered:
+                return record
+        if record.slug == slug:
+            return record
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -220,15 +283,17 @@ def _row_to_record(row: Mapping[str, object], used_slugs: Iterable[str]) -> Comm
     theme_tokens = tuple(dict.fromkeys(t.lower() for t in themes if t))
     edhrec_rank = _parse_int(row.get("edhrecRank"))
     layout = _clean_str(row.get("layout")) or "normal"
-    partner_with = tuple(_extract_partner_with(oracle_text))
-    is_partner = bool(
-        partner_with
-        or _contains_keyword(oracle_text, "partner")
-        or _contains_keyword(oracle_text, "friends forever")
-        or _contains_keyword(oracle_text, "doctor's companion")
-    )
-    supports_backgrounds = _contains_keyword(oracle_text, "choose a background")
-    is_background = "background" in (type_line.lower() if type_line else "")
+    detection = analyze_partner_background(type_line, oracle_text, raw_themes)
+    partner_with = detection.partner_with
+    if not partner_with:
+        partner_with = tuple(_parse_literal_list(row.get("partnerWith")))
+    has_plain_partner = detection.has_plain_partner
+    is_partner = detection.has_partner
+    supports_backgrounds = detection.choose_background
+    is_background = detection.is_background
+    is_doctor = detection.is_doctor
+    is_doctors_companion = detection.is_doctors_companion
+    restricted_partner_labels = tuple(detection.restricted_partner_labels)
 
     image_small_url = _build_scryfall_url(display_name, "small")
     image_normal_url = _build_scryfall_url(display_name, "normal")
@@ -261,9 +326,13 @@ def _row_to_record(row: Mapping[str, object], used_slugs: Iterable[str]) -> Comm
         image_small_url=image_small_url,
         image_normal_url=image_normal_url,
         partner_with=partner_with,
+    has_plain_partner=has_plain_partner,
         is_partner=is_partner,
         supports_backgrounds=supports_backgrounds,
         is_background=is_background,
+        is_doctor=is_doctor,
+        is_doctors_companion=is_doctors_companion,
+        restricted_partner_labels=restricted_partner_labels,
         search_haystack=search_haystack,
     )
 
@@ -277,7 +346,14 @@ def _clean_str(value: object) -> str:
 def _clean_multiline(value: object) -> str:
     if value is None:
         return ""
-    text = str(value).replace("\r\n", "\n").replace("\r", "\n")
+    text = str(value)
+    if "\\r\\n" in text or "\\n" in text or "\\r" in text:
+        text = (
+            text.replace("\\r\\n", "\n")
+            .replace("\\r", "\n")
+            .replace("\\n", "\n")
+        )
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
     return "\n".join(line.rstrip() for line in text.split("\n"))
 
 
@@ -333,35 +409,6 @@ def _split_to_list(value: object) -> List[str]:
         return []
     parts = [part.strip() for part in text.split(",")]
     return [part for part in parts if part]
-
-
-def _extract_partner_with(text: str) -> List[str]:
-    if not text:
-        return []
-    out: List[str] = []
-    for raw_line in text.splitlines():
-        line = raw_line.strip()
-        if not line:
-            continue
-        anchor = "Partner with "
-        if anchor not in line:
-            continue
-        after = line.split(anchor, 1)[1]
-        # Remove reminder text in parentheses and trailing punctuation.
-        target = after.split("(", 1)[0]
-        target = target.replace(" and ", ",")
-        for token in target.split(","):
-            cleaned = token.strip().strip(".")
-            if cleaned:
-                out.append(cleaned)
-    return out
-
-
-def _contains_keyword(text: str, needle: str) -> bool:
-    if not text:
-        return False
-    return needle.lower() in text.lower()
-
 
 def _parse_color_identity(value: object) -> Tuple[Tuple[str, ...], bool]:
     text = _clean_str(value)

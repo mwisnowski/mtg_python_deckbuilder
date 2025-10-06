@@ -23,8 +23,8 @@ jobs:
       - name: Install deps
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
+          python -m pip install -r requirements.txt
+          if [ -f requirements-dev.txt ]; then python -m pip install -r requirements-dev.txt; fi
       - name: Build catalog (alt output, seed)
         run: |
           python code/scripts/build_theme_catalog.py --output config/themes/theme_list_ci.json --limit 0
@@ -43,7 +43,7 @@ jobs:
           python code/scripts/validate_description_mapping.py
       - name: Run regression & unit tests (editorial subset + enforcement)
         run: |
-          pytest -q code/tests/test_theme_description_fallback_regression.py code/tests/test_synergy_pairs_and_provenance.py code/tests/test_editorial_governance_phase_d_closeout.py code/tests/test_theme_editorial_min_examples_enforced.py
+          python -m pytest -q code/tests/test_theme_description_fallback_regression.py code/tests/test_synergy_pairs_and_provenance.py code/tests/test_editorial_governance_phase_d_closeout.py code/tests/test_theme_editorial_min_examples_enforced.py
       - name: Ratchet proposal (non-blocking)
         run: |
           python code/scripts/ratchet_description_thresholds.py > ratchet_proposal.json || true

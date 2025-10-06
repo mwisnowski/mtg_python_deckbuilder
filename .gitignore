@@ -5,6 +5,7 @@
 *.log
 *.txt
 !requirements.txt
+!requirements-dev.txt
 
 RELEASE_NOTES.md
 test.py

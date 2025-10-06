@@ -1,0 +1,959 @@
+{% set prefix = partner_id_prefix if partner_id_prefix is defined else 'partner' %}
+{% set feature_available = partner_feature_available if partner_feature_available is defined else False %}
+{% set partner_capable = partner_capable if partner_capable is defined else False %}
+{% set partner_options = partner_options if partner_options is defined else [] %}
+{% set background_options = background_options if background_options is defined else [] %}
+{% set partner_select_label = partner_select_label if partner_select_label is defined else 'Partner commander' %}
+{% set partner_select_placeholder = partner_select_placeholder if partner_select_placeholder is defined else 'Select a partner' %}
+{% set partner_auto_assigned = partner_auto_assigned if partner_auto_assigned is defined else False %}
+{% set partner_auto_opt_out = partner_auto_opt_out if partner_auto_opt_out is defined else False %}
+{% set partner_auto_default = partner_auto_default if partner_auto_default is defined else None %}
+{% set partner_prefill_available = partner_prefill_available if partner_prefill_available is defined else False %}
+{% set partner_note_id = prefix ~ '-partner-autonote' %}
+{% set partner_warning_id = prefix ~ '-partner-warnings' %}
+{% set partner_suggestions_enabled = partner_suggestions_enabled if partner_suggestions_enabled is defined else False %}
+{% set partner_suggestions = partner_suggestions if partner_suggestions is defined else [] %}
+{% set partner_suggestions_hidden = partner_suggestions_hidden if partner_suggestions_hidden is defined else [] %}
+{% set partner_suggestions_total = partner_suggestions_total if partner_suggestions_total is defined else 0 %}
+{% set partner_suggestions_metadata = partner_suggestions_metadata if partner_suggestions_metadata is defined else {} %}
+{% set partner_suggestions_loaded = partner_suggestions_loaded if partner_suggestions_loaded is defined else False %}
+{% set partner_suggestions_error = partner_suggestions_error if partner_suggestions_error is defined else None %}
+{% set partner_suggestions_available = partner_suggestions_available if partner_suggestions_available is defined else False %}
+{% set partner_suggestions_has_hidden = partner_suggestions_has_hidden if partner_suggestions_has_hidden is defined else False %}
+{% if feature_available %}
+  <fieldset>
+    <legend>Partner Mechanics</legend>
+    {% if not partner_capable %}
+      <p class="muted" style="font-size:12px;">This commander doesn't support partner mechanics or backgrounds.</p>
+    {% else %}
+      <input type="hidden" name="partner_enabled" value="{{ partner_hidden_value or '1' }}" />
+      <input type="hidden" name="partner_auto_opt_out" value="{{ '1' if partner_auto_opt_out else '0' }}" data-partner-auto-opt="{{ prefix }}" />
+  <input type="hidden" name="partner_selection_source" value="" data-partner-selection-source="{{ prefix }}" />
+      <div class="muted" style="font-size:12px; margin-bottom:.5rem;">Choose either a partner commander or a background—never both.</div>
+      {% if partner_role_hint %}
+        <div class="muted" style="font-size:12px; margin-bottom:.35rem;">{{ partner_role_hint }}</div>
+      {% endif %}
+      {% if primary_partner_with %}
+        <div class="muted" style="font-size:12px; margin-bottom:.35rem;">
+          Pairs naturally with <strong>{{ primary_partner_with|join(', ') }}</strong>.
+        </div>
+      {% endif %}
+      {% if partner_options and partner_options|length and (not background_options or not background_options|length) %}
+        <div class="muted" style="font-size:12px; margin-bottom:.35rem;">No Backgrounds available for this commander.</div>
+      {% elif background_options and background_options|length and (not partner_options or not partner_options|length) %}
+        <div class="muted" style="font-size:12px; margin-bottom:.35rem;">This commander can't select a partner commander but can choose a Background.</div>
+      {% endif %}
+      {% if partner_error %}
+        <div style="color:#a00; margin-bottom:.5rem; font-weight:600;">{{ partner_error }}</div>
+      {% endif %}
+  <div id="{{ partner_note_id }}" class="partner-autonote" data-partner-autonote="{{ prefix }}" data-autonote="{{ partner_auto_note or '' }}" style="color:#046d1f; margin-bottom:.5rem; font-size:12px;" role="status" aria-live="polite" aria-atomic="true" aria-hidden="{{ 'false' if partner_auto_note else 'true' }}" {% if not partner_auto_note %}hidden{% endif %}>
+    <span class="sr-only">Partner pairing update:</span>
+    <span data-partner-note-copy>{% if partner_auto_note %}{{ partner_auto_note }}{% endif %}</span>
+      </div>
+      {% if partner_prefill_available and partner_auto_default %}
+        <div style="display:flex; align-items:center; gap:.5rem; margin-bottom:.5rem; flex-wrap:wrap;">
+          <button type="button" class="chip{% if not partner_auto_opt_out %} active{% endif %}" data-partner-autotoggle="{{ prefix }}" data-partner-default="{{ partner_auto_default }}" aria-pressed="{% if not partner_auto_opt_out %}true{% else %}false{% endif %}" aria-describedby="{{ partner_note_id }}">
+            {% if partner_auto_opt_out %}Enable default partner{% else %}Use default partner ({{ partner_auto_default }}){% endif %}
+          </button>
+          <span class="muted" style="font-size:12px;">Toggle to opt-out and choose a different partner.</span>
+        </div>
+      {% endif %}
+      {% if partner_suggestions_enabled %}
+        <div class="partner-suggestions" data-partner-suggestions="{{ prefix }}" data-partner-scope="{{ partner_scope if partner_scope is defined else prefix }}" data-api-endpoint="{{ partner_suggestions_endpoint if partner_suggestions_endpoint is defined else '/api/partner/suggestions' }}" data-primary-name="{{ primary_commander_display }}" data-suggestions-json='{{ partner_suggestions | tojson }}' data-hidden-json='{{ partner_suggestions_hidden | tojson }}' data-total="{{ partner_suggestions_total }}" data-loaded="{{ '1' if partner_suggestions_loaded else '0' }}" data-error="{{ partner_suggestions_error or '' }}" data-has-hidden="{{ '1' if partner_suggestions_has_hidden else '0' }}" data-available="{{ '1' if partner_suggestions_available else '0' }}" data-metadata-json='{{ partner_suggestions_metadata | tojson }}' style="display:grid; gap:.35rem; margin-bottom:.75rem;">
+          <div class="partner-suggestions__header" style="display:flex; justify-content:space-between; align-items:center; gap:.5rem; flex-wrap:wrap;">
+            <span style="font-weight:600;">Suggested partners</span>
+            <div class="partner-suggestions__controls" style="display:flex; gap:.35rem; flex-wrap:wrap;">
+              <button type="button" class="chip" data-partner-suggestions-refresh="{{ prefix }}" aria-label="Refresh partner suggestions">Refresh</button>
+              <button type="button" class="chip" data-partner-suggestions-more="{{ prefix }}" hidden>Show more</button>
+            </div>
+          </div>
+          <div class="partner-suggestions__list" data-partner-suggestions-list style="display:flex; flex-wrap:wrap; gap:.35rem;"></div>
+          <div class="partner-suggestions__meta muted" data-partner-suggestions-meta style="font-size:12px;"></div>
+        </div>
+      {% endif %}
+  <div class="partner-controls" data-partner-controls="{{ prefix }}" data-partner-scope="{{ partner_scope if partner_scope is defined else prefix }}" data-primary-name="{{ primary_commander_display }}" style="display:grid; gap:.5rem; margin-bottom:.5rem;">
+        {% if partner_options and partner_options|length %}
+        <label style="display:grid; gap:.35rem;">
+          <span>{{ partner_select_label }}</span>
+          <select name="secondary_commander" id="{{ prefix }}-partner-secondary" data-partner-select="secondary" aria-describedby="{{ partner_note_id }} {{ partner_warning_id }}">
+            <option value="">{{ partner_select_placeholder }}</option>
+            {% for opt in partner_options %}
+              {% set is_selected = (selected_secondary_commander|lower == opt.name|lower) %}
+              <option value="{{ opt.name }}" data-pairing-mode="{{ opt.pairing_mode }}" data-mode-label="{{ opt.mode_label }}" data-color-label="{{ opt.color_label }}" data-color-code="{{ opt.color_code }}" data-image-url="{{ opt.image_url or '' }}" data-scryfall-url="{{ opt.scryfall_url or '' }}" data-role-label="{{ opt.role_label or 'Partner commander' }}" {% if is_selected %}selected{% endif %}>
+                {{ opt.name }} — {{ opt.color_label }}
+                {% if opt.pairing_mode == 'partner_with' %}(Partner With){% elif opt.pairing_mode == 'partner_restricted' and opt.restriction_label %} (Partner - {{ opt.restriction_label }}){% elif opt.pairing_mode == 'doctor_companion' and opt.role_label %} ({{ opt.role_label }}){% endif %}
+              </option>
+            {% endfor %}
+          </select>
+        </label>
+        {% endif %}
+        {% if background_options and background_options|length %}
+        <label style="display:grid; gap:.35rem;">
+          <span>Background</span>
+          <select name="background" id="{{ prefix }}-partner-background" data-partner-select="background" aria-describedby="{{ partner_note_id }} {{ partner_warning_id }}">
+            <option value="">Select a background</option>
+            {% for opt in background_options %}
+              <option value="{{ opt.name }}" data-color-label="{{ opt.color_label }}" data-color-code="{{ opt.color_code if opt.color_code is defined else '' }}" data-image-url="{{ opt.image_url or '' }}" data-scryfall-url="{{ opt.scryfall_url or '' }}" data-role-label="{{ opt.role_label or 'Background' }}" {% if selected_background == opt.name %}selected{% endif %}>{{ opt.name }} — {{ opt.color_label }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        {% endif %}
+      </div>
+      <div style="display:flex; gap:.5rem; margin-bottom:.5rem; flex-wrap:wrap;">
+        <button type="button" class="chip" data-partner-clear="{{ prefix }}">Clear selection</button>
+      </div>
+      <div class="partner-preview" data-partner-preview="{{ prefix }}" {% if partner_preview %}data-preview-json='{{ partner_preview | tojson }}'{% else %}hidden{% endif %}>
+        {% if partner_preview %}
+          {% set preview_image = partner_preview.secondary_image_url or partner_preview.image_url %}
+          {% if not preview_image and partner_preview.secondary_name %}
+            {% set preview_image = 'https://api.scryfall.com/cards/named?fuzzy=' ~ partner_preview.secondary_name|urlencode ~ '&format=image&version=normal' %}
+          {% endif %}
+          {% set preview_href = partner_preview.secondary_scryfall_url or partner_preview.scryfall_url %}
+          {% if not preview_href and partner_preview.secondary_name %}
+            {% set preview_href = 'https://scryfall.com/search?q=' ~ partner_preview.secondary_name|urlencode %}
+          {% endif %}
+          {% set preview_role = partner_preview.secondary_role_label or partner_preview.role_label %}
+          {% set preview_primary = partner_preview.primary_name or primary_commander_display %}
+          {% set preview_secondary = partner_preview.secondary_name %}
+          {% set preview_themes = partner_preview.theme_tags %}
+          {% set preview_mode_label = partner_preview.partner_mode_label %}
+          {% set preview_color_label = partner_preview.color_label %}
+          <div class="partner-preview__layout">
+            {% if preview_image %}
+              <div class="partner-preview__art">
+                {% if preview_href %}<a href="{{ preview_href }}" target="_blank" rel="noopener">{% endif %}
+                <img src="{{ preview_image }}" alt="{{ (preview_secondary or 'Selected card') ~ ' card image' }}" loading="lazy" decoding="async" />
+                {% if preview_href %}</a>{% endif %}
+              </div>
+            {% endif %}
+            <div class="partner-preview__details">
+              <div class="partner-preview__header">{{ preview_mode_label }}{% if preview_color_label %} • {{ preview_color_label }}{% endif %}</div>
+              {% if preview_role %}
+              <div class="partner-preview__role">{{ preview_role }}</div>
+              {% endif %}
+              {% if preview_secondary %}
+              <div class="partner-preview__pairing">Pairing: {{ preview_primary }}{% if preview_secondary %} + {{ preview_secondary }}{% endif %}</div>
+              {% endif %}
+              {% if preview_themes %}
+              <div class="partner-preview__themes muted">Theme emphasis: {{ preview_themes|join(', ') }}</div>
+              {% endif %}
+            </div>
+          </div>
+        {% endif %}
+      </div>
+  <div id="{{ partner_warning_id }}" data-partner-warnings="{{ prefix }}" data-warnings-json='{{ (partner_warnings or []) | tojson }}' style="background:#fff7e5; border:1px solid #f0c36d; border-radius:8px; padding:.75rem; font-size:12px; color:#7a4b02;" role="alert" aria-live="polite" aria-hidden="{{ 'false' if partner_warnings and partner_warnings|length else 'true' }}" {% if not (partner_warnings and partner_warnings|length) %}hidden{% endif %}>
+        {% if partner_warnings and partner_warnings|length %}
+        <strong>Warnings</strong>
+        <ul style="margin:.35rem 0 0 1.1rem;">
+          {% for warn in partner_warnings %}
+            <li>{{ warn }}</li>
+          {% endfor %}
+        </ul>
+        {% endif %}
+      </div>
+    {% endif %}
+  </fieldset>
+  <script>
+    (function(){
+      var prefix = '{{ prefix }}';
+      var controls = document.querySelector('[data-partner-controls="' + prefix + '"]');
+      if (!controls || controls.dataset.partnerInit === '1') return;
+      controls.dataset.partnerInit = '1';
+      var scope = controls.getAttribute('data-partner-scope') || prefix;
+      var selects = Array.prototype.slice.call(controls.querySelectorAll('[data-partner-select]'));
+      var clearBtn = document.querySelector('[data-partner-clear="' + prefix + '"]');
+      var optInput = document.querySelector('input[name="partner_auto_opt_out"][data-partner-auto-opt="' + prefix + '"]');
+      var autoToggle = document.querySelector('[data-partner-autotoggle="' + prefix + '"]');
+      var defaultPartner = autoToggle ? autoToggle.getAttribute('data-partner-default') : null;
+      var previewBox = document.querySelector('[data-partner-preview="' + prefix + '"]');
+      var warningsBox = document.querySelector('[data-partner-warnings="' + prefix + '"]');
+      var autoNoteBox = document.querySelector('[data-partner-autonote="' + prefix + '"]');
+  var autoNoteCopy = autoNoteBox ? autoNoteBox.querySelector('[data-partner-note-copy]') : null;
+      var primaryName = controls.getAttribute('data-primary-name') || '';
+      var fieldset = controls.closest('fieldset');
+      var partnerEnabledInput = fieldset ? fieldset.querySelector('input[name="partner_enabled"]') : null;
+      var selectionSourceInput = fieldset ? fieldset.querySelector('input[name="partner_selection_source"][data-partner-selection-source="' + prefix + '"]') : null;
+      var initialAutoNote = autoNoteBox ? (autoNoteBox.getAttribute('data-autonote') || '') : '';
+      function setSelectionSource(value){
+        if (!selectionSourceInput) return;
+        if (value && typeof value === 'string'){
+          selectionSourceInput.value = value;
+        } else {
+          selectionSourceInput.value = '';
+        }
+      }
+        function updateSuggestionsMeta(){
+          if (!suggestionsMeta || !suggestionsState){ return; }
+          var message = '';
+          var isError = false;
+          if (suggestionsState.loading){
+            message = 'Loading partner suggestions…';
+          } else if (suggestionsState.error){
+            message = suggestionsState.error;
+            isError = true;
+          } else if (suggestionsState.visible && suggestionsState.visible.length){
+            var shown = suggestionsState.visible.length;
+            if (suggestionsState.expanded && Array.isArray(suggestionsState.hidden)){
+              shown += suggestionsState.hidden.length;
+            }
+            if (suggestionsState.total && suggestionsState.total > 0){
+              message = 'Showing ' + shown + ' of ' + suggestionsState.total + ' suggestions.';
+            } else {
+              message = 'Suggestions generated from recent deck data.';
+            }
+            var meta = suggestionsState.metadata || {};
+            if (meta.generated_at){
+              message += ' Updated ' + meta.generated_at + '.';
+            }
+          } else if (suggestionsState.loaded){
+            message = 'No partner suggestions available for this commander yet.';
+          } else {
+            message = '';
+          }
+          suggestionsMeta.textContent = message;
+          suggestionsMeta.hidden = !message;
+          if (isError){
+            suggestionsMeta.style.color = '#a00';
+          } else {
+            suggestionsMeta.style.color = '';
+          }
+        }
+
+        function markSuggestionActive(){
+          if (!suggestionsList || !suggestionsState){ return; }
+          var partnerSel = controls.querySelector('[data-partner-select="secondary"]');
+          var bgSel = controls.querySelector('[data-partner-select="background"]');
+          var partnerValue = partnerSel && partnerSel.value ? partnerSel.value.toLowerCase() : '';
+          var backgroundValue = bgSel && bgSel.value ? bgSel.value.toLowerCase() : '';
+          var buttons = suggestionsList.querySelectorAll('[data-partner-suggestion]');
+          buttons.forEach(function(btn){
+            var mode = (btn.getAttribute('data-mode') || 'partner').toLowerCase();
+            var name = (btn.getAttribute('data-name') || '').toLowerCase();
+            var active = false;
+            if (mode === 'background'){
+              active = !!backgroundValue && backgroundValue === name;
+            } else {
+              active = !!partnerValue && partnerValue === name;
+            }
+            btn.classList.toggle('active', active);
+            btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+          });
+        }
+
+        function renderSuggestions(){
+          if (!suggestionsBox || !suggestionsList || !suggestionsState){
+            return;
+          }
+          suggestionsList.innerHTML = '';
+          if (suggestionsState.error){
+            updateSuggestionsMeta();
+            if (suggestionsMoreButton){ suggestionsMoreButton.hidden = true; }
+            return;
+          }
+          var items = Array.isArray(suggestionsState.visible) ? suggestionsState.visible.slice() : [];
+          if (suggestionsState.expanded && Array.isArray(suggestionsState.hidden)){
+            items = items.concat(suggestionsState.hidden);
+          }
+          if (!items.length){
+            updateSuggestionsMeta();
+            if (suggestionsMoreButton){ suggestionsMoreButton.hidden = true; }
+            return;
+          }
+          items.forEach(function(item){
+            if (!item || !item.name) return;
+            var btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'chip partner-suggestion-chip';
+            btn.style.display = 'flex';
+            btn.style.flexDirection = 'column';
+            btn.style.alignItems = 'flex-start';
+            btn.style.gap = '2px';
+            btn.setAttribute('data-partner-suggestion', '1');
+            btn.setAttribute('data-mode', item.mode || 'partner');
+            btn.setAttribute('data-name', item.name);
+            if (item.mode_label){ btn.setAttribute('data-mode-label', item.mode_label); }
+            if (item.summary){ btn.setAttribute('data-summary', item.summary); }
+            if (typeof item.score_percent === 'number'){ btn.setAttribute('data-score', String(item.score_percent)); }
+            var titleParts = [];
+            if (item.summary){ titleParts.push(item.summary); }
+            if (Array.isArray(item.reasons) && item.reasons.length){ titleParts = titleParts.concat(item.reasons); }
+            if (titleParts.length){ btn.title = titleParts.join(' • '); }
+            var nameSpan = document.createElement('span');
+            nameSpan.className = 'partner-suggestion-chip__name';
+            nameSpan.textContent = item.name;
+            nameSpan.style.fontWeight = '600';
+            btn.appendChild(nameSpan);
+            var summaryText = '';
+            if (item.summary){ summaryText = item.summary; }
+            else if (typeof item.score_percent === 'number'){ summaryText = item.score_percent + '% match'; }
+            else if (item.mode_label){ summaryText = item.mode_label; }
+            if (summaryText){
+              var summarySpan = document.createElement('span');
+              summarySpan.className = 'partner-suggestion-chip__meta muted';
+              summarySpan.textContent = summaryText;
+              summarySpan.style.fontSize = '11px';
+              summarySpan.style.opacity = '0.85';
+              btn.appendChild(summarySpan);
+            }
+            suggestionsList.appendChild(btn);
+          });
+          if (suggestionsMoreButton){
+            if (!suggestionsState.expanded && Array.isArray(suggestionsState.hidden) && suggestionsState.hidden.length){
+              suggestionsMoreButton.hidden = false;
+              suggestionsMoreButton.textContent = 'Show more (' + suggestionsState.hidden.length + ')';
+            } else {
+              suggestionsMoreButton.hidden = true;
+            }
+          }
+          markSuggestionActive();
+          updateSuggestionsMeta();
+        }
+
+        function revealHiddenSuggestions(){
+          if (!suggestionsState){ return; }
+          if (Array.isArray(suggestionsState.hidden) && suggestionsState.hidden.length){
+            suggestionsState.expanded = true;
+            renderSuggestions();
+          } else {
+            fetchSuggestions({ includeHidden: true });
+          }
+        }
+
+        function collectSelectNames(kind){
+          var selector = '[data-partner-select="' + kind + '"]';
+          var sel = controls.querySelector(selector);
+          if (!sel){ return []; }
+          var values = [];
+          Array.prototype.forEach.call(sel.options, function(opt){
+            if (!opt || !opt.value){ return; }
+            values.push(opt.value);
+          });
+          return values;
+        }
+
+        function setSuggestionsLoading(flag){
+          if (!suggestionsState){ return; }
+          suggestionsState.loading = !!flag;
+          if (suggestionsRefreshButton){
+            if (flag){
+              suggestionsRefreshButton.classList.add('loading');
+              suggestionsRefreshButton.setAttribute('aria-busy', 'true');
+            } else {
+              suggestionsRefreshButton.classList.remove('loading');
+              suggestionsRefreshButton.removeAttribute('aria-busy');
+            }
+          }
+          updateSuggestionsMeta();
+        }
+
+  function fetchSuggestions(options){
+          if (!suggestionsBox || !suggestionsState){ return; }
+          if (typeof window === 'undefined' || typeof window.fetch !== 'function'){ return; }
+          if (!primaryName){ return; }
+          var includeHidden = !!(options && options.includeHidden);
+          try {
+            var endpoint = suggestionsBox.getAttribute('data-api-endpoint') || '/api/partner/suggestions';
+            var params = new URLSearchParams();
+            params.set('commander', primaryName);
+            var partnerNames = collectSelectNames('secondary');
+            var backgroundNames = collectSelectNames('background');
+            partnerNames.forEach(function(name){ params.append('partner', name); });
+            backgroundNames.forEach(function(name){ params.append('background', name); });
+            params.set('limit', '8');
+            params.set('visible_limit', '3');
+            var modeSet = {};
+            var modes = (options && Array.isArray(options.modes)) ? options.modes : ['partner_with', 'partner', 'doctor_companion', 'background'];
+            modes.forEach(function(mode){
+              var normalized = String(mode || '').trim();
+              if (!normalized){ return; }
+              var lower = normalized.toLowerCase();
+              if (modeSet[lower]){ return; }
+              modeSet[lower] = true;
+              params.append('mode', normalized);
+            });
+            if (includeHidden){ params.set('include_hidden', '1'); }
+            if (options && options.forceRefresh){ params.set('refresh', '1'); }
+            var fetchUrl = endpoint + (endpoint.indexOf('?') === -1 ? '?' : '&') + params.toString();
+            if (suggestionsAbort){
+              try { suggestionsAbort.abort(); } catch(_){ }
+            }
+            suggestionsAbort = new AbortController();
+            setSuggestionsLoading(true);
+            fetch(fetchUrl, {
+              method: 'GET',
+              credentials: 'same-origin',
+              headers: { 'Accept': 'application/json' },
+              signal: suggestionsAbort.signal,
+            }).then(function(resp){
+              if (!resp.ok){
+                throw new Error('suggestions request failed');
+              }
+              return resp.json();
+            }).then(function(data){
+              suggestionsAbort = null;
+              suggestionsState.error = '';
+              suggestionsState.loaded = true;
+              suggestionsState.metadata = data && data.metadata ? data.metadata : {};
+              suggestionsState.total = (data && typeof data.total === 'number') ? data.total : 0;
+              suggestionsState.visible = Array.isArray(data && data.visible) ? data.visible : [];
+              suggestionsState.hidden = Array.isArray(data && data.hidden) ? data.hidden : [];
+              suggestionsState.expanded = includeHidden && suggestionsState.hidden.length ? true : false;
+              suggestionsBox.setAttribute('data-loaded', '1');
+              suggestionsBox.setAttribute('data-error', '');
+              renderSuggestions();
+            }).catch(function(err){
+              if (err && err.name === 'AbortError'){ return; }
+              suggestionsState.error = 'Unable to load partner suggestions.';
+              suggestionsBox.setAttribute('data-error', suggestionsState.error);
+              renderSuggestions();
+            }).finally(function(){
+              setSuggestionsLoading(false);
+            });
+          } catch(_err){
+            suggestionsState.error = 'Unable to load partner suggestions.';
+            renderSuggestions();
+          }
+        }
+      var initialWarnings = [];
+      if (warningsBox && warningsBox.dataset.warningsJson){
+        try { initialWarnings = JSON.parse(warningsBox.dataset.warningsJson); }
+        catch(_){ initialWarnings = []; }
+      }
+      var serverPayload = null;
+      if (previewBox && previewBox.dataset.previewJson){
+        try{ serverPayload = JSON.parse(previewBox.dataset.previewJson); }
+        catch(_){ serverPayload = null; }
+      }
+      setServerPayload(serverPayload);
+      var suggestionsBox = document.querySelector('[data-partner-suggestions="' + prefix + '"]');
+      var suggestionsList = null;
+      var suggestionsMeta = null;
+      var suggestionsMoreButton = null;
+      var suggestionsRefreshButton = null;
+      var suggestionsAbort = null;
+      var suggestionsState = null;
+      function parseSuggestionsAttr(element, attr, fallback){
+        if (!element){ return fallback; }
+        var raw = element.getAttribute(attr);
+        if (!raw){ return fallback; }
+        try { return JSON.parse(raw); }
+        catch(_){ return fallback; }
+      }
+      if (suggestionsBox){
+        suggestionsList = suggestionsBox.querySelector('[data-partner-suggestions-list]');
+        suggestionsMeta = suggestionsBox.querySelector('[data-partner-suggestions-meta]');
+        suggestionsMoreButton = suggestionsBox.querySelector('[data-partner-suggestions-more="' + prefix + '"]');
+        suggestionsRefreshButton = suggestionsBox.querySelector('[data-partner-suggestions-refresh="' + prefix + '"]');
+        suggestionsState = {
+          visible: parseSuggestionsAttr(suggestionsBox, 'data-suggestions-json', []),
+          hidden: parseSuggestionsAttr(suggestionsBox, 'data-hidden-json', []),
+          metadata: parseSuggestionsAttr(suggestionsBox, 'data-metadata-json', {}),
+          total: parseInt(suggestionsBox.getAttribute('data-total') || '0', 10) || 0,
+          error: suggestionsBox.getAttribute('data-error') || '',
+          loaded: suggestionsBox.getAttribute('data-loaded') === '1',
+          expanded: false,
+          loading: false,
+        };
+      }
+      var modeLabels = {
+        'partner': 'Partner',
+        'partner_with': 'Partner With',
+        'doctor_companion': "Doctor & Companion",
+        'background': 'Choose a Background'
+      };
+      function buildCardImageUrl(name){
+        if (!name) return '';
+        return 'https://api.scryfall.com/cards/named?fuzzy=' + encodeURIComponent(name) + '&format=image&version=normal';
+      }
+      function buildScryfallUrl(name){
+        if (!name) return '';
+        return 'https://scryfall.com/search?q=' + encodeURIComponent(name);
+      }
+      function defaultRoleForMode(mode){
+        if (!mode) return '';
+        switch(String(mode).toLowerCase()){
+          case 'background':
+            return 'Background';
+          case 'doctor_companion':
+            return "Doctor pairing";
+          default:
+            return 'Partner commander';
+        }
+      }
+      var previewAbort = null;
+      if (typeof window !== 'undefined' && !window.partnerPreviewState){
+        try { window.partnerPreviewState = {}; } catch(_){ }
+      }
+
+      function setPreviewState(detail){
+        if (typeof window === 'undefined') return;
+        if (!detail || typeof detail !== 'object') return;
+        var scopeKey = detail.scope || scope || prefix;
+        if (!scopeKey) return;
+        var store = window.partnerPreviewState || {};
+        store[scopeKey] = {
+          theme_tags: Array.isArray(detail.theme_tags) ? detail.theme_tags.slice() : [],
+          payload: detail.payload || null,
+          warnings: Array.isArray(detail.warnings) ? detail.warnings.slice() : [],
+          auto_note: detail.auto_note || null,
+          partner_mode: detail.partner_mode || null,
+          resolved_secondary: detail.resolved_secondary || null,
+          resolved_background: detail.resolved_background || null,
+          secondary_role_label: detail.secondary_role_label || detail.role_label || null,
+        };
+        try { window.partnerPreviewState = store; } catch(_){ }
+      }
+
+      function escapeHtml(str){
+        return String(str || "").replace(/[&<>"']/g, function(ch){
+          return ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[ch]);
+        });
+      }
+
+      function clearPreview(){
+        if (!previewBox) return;
+        previewBox.hidden = true;
+        previewBox.innerHTML = '';
+        markSuggestionActive();
+      }
+
+      function renderPreview(payload){
+        if (!previewBox) return;
+        if (!payload){
+          clearPreview();
+          return;
+        }
+        var mode = payload.partner_mode || payload.mode || '';
+        var modeLabel = payload.partner_mode_label || payload.mode_label || modeLabels[mode] || 'Partner Mechanics';
+        var colorLabel = payload.color_label || '';
+        var secondaryName = payload.secondary_name || payload.name || '';
+        var primary = payload.primary_name || primaryName;
+        var themes = Array.isArray(payload.theme_tags) ? payload.theme_tags : [];
+        var imageUrl = payload.secondary_image_url || payload.image_url || '';
+        if (!imageUrl && secondaryName){
+          imageUrl = buildCardImageUrl(secondaryName);
+        }
+        var scryfallUrl = payload.secondary_scryfall_url || payload.scryfall_url || '';
+        if (!scryfallUrl && secondaryName){
+          scryfallUrl = buildScryfallUrl(secondaryName);
+        }
+        var roleLabel = payload.secondary_role_label || payload.role_label || defaultRoleForMode(mode);
+  var html = '<div class="partner-preview__layout">';
+  var normalizedTags = Array.isArray(themes) ? themes.filter(function(tag){ return tag && String(tag).trim(); }).map(function(tag){ return String(tag).trim(); }) : [];
+  themes = normalizedTags;
+        var tagString = normalizedTags.length ? normalizedTags.join(', ') : '';
+        if (imageUrl){
+          var attrParts = [];
+          if (secondaryName){
+            attrParts.push('data-card-name="' + escapeHtml(secondaryName) + '"');
+            attrParts.push('data-original-name="' + escapeHtml(secondaryName) + '"');
+          }
+          if (roleLabel){
+            attrParts.push('data-role="' + escapeHtml(roleLabel) + '"');
+          }
+          if (tagString){
+            attrParts.push('data-tags="' + escapeHtml(tagString) + '"');
+            attrParts.push('data-overlaps="' + escapeHtml(tagString) + '"');
+          }
+          html += '<div class="partner-preview__art card-preview"' + (attrParts.length ? ' ' + attrParts.join(' ') : '') + '>';
+          if (scryfallUrl){
+            html += '<a href="' + escapeHtml(scryfallUrl) + '" target="_blank" rel="noopener">';
+          }
+          html += '<img src="' + escapeHtml(imageUrl) + '" alt="' + escapeHtml((secondaryName || 'Selected card') + ' card image') + '" loading="lazy" decoding="async" data-card-name="' + escapeHtml(secondaryName || '') + '"';
+          if (roleLabel){ html += ' data-role="' + escapeHtml(roleLabel) + '"'; }
+          if (tagString){ html += ' data-tags="' + escapeHtml(tagString) + '" data-overlaps="' + escapeHtml(tagString) + '"'; }
+          html += ' />';
+          if (scryfallUrl){
+            html += '</a>';
+          }
+          html += '</div>';
+        }
+        html += '<div class="partner-preview__details">';
+        html += '<div class="partner-preview__header">' + escapeHtml(modeLabel);
+        if (colorLabel){ html += ' • ' + escapeHtml(colorLabel); }
+        html += '</div>';
+        if (roleLabel){
+          html += '<div class="partner-preview__role">' + escapeHtml(roleLabel) + '</div>';
+        }
+        if (secondaryName){
+          var pairing = escapeHtml(primary);
+          if (pairing){ pairing += ' + '; }
+          html += '<div class="partner-preview__pairing">Pairing: ' + pairing + escapeHtml(secondaryName) + '</div>';
+        }
+        if (themes && themes.length){
+          html += '<div class="partner-preview__themes muted">Theme emphasis: ' + themes.map(escapeHtml).join(', ') + '</div>';
+        }
+        html += '</div></div>';
+        previewBox.innerHTML = html;
+        previewBox.hidden = false;
+        markSuggestionActive();
+      }
+
+      function setServerPayload(payload){
+        serverPayload = (payload && typeof payload === 'object') ? payload : null;
+        if (!previewBox) return;
+        if (serverPayload){
+          try {
+            previewBox.setAttribute('data-preview-json', JSON.stringify(serverPayload));
+          } catch(_){
+            previewBox.removeAttribute('data-preview-json');
+          }
+        } else {
+          previewBox.removeAttribute('data-preview-json');
+        }
+      }
+
+      function updateAutoNote(note){
+        if (!autoNoteBox) return;
+        var text = (note && String(note).trim()) || '';
+        autoNoteBox.setAttribute('aria-live', 'polite');
+        if (autoNoteCopy){
+          autoNoteCopy.textContent = text;
+        } else {
+          autoNoteBox.textContent = text;
+        }
+        autoNoteBox.hidden = !text;
+        autoNoteBox.setAttribute('aria-hidden', (!text).toString());
+        try { autoNoteBox.setAttribute('data-autonote', text); } catch(_){ }
+      }
+
+      function updateWarnings(list){
+        if (!warningsBox) return;
+        var warnings = Array.isArray(list) ? list.filter(function(msg){ return msg && String(msg).trim(); }) : [];
+        try { warningsBox.setAttribute('data-warnings-json', JSON.stringify(warnings)); } catch(_){ }
+        if (!warnings.length){
+          warningsBox.innerHTML = '';
+          warningsBox.hidden = true;
+          warningsBox.setAttribute('aria-hidden', 'true');
+          return;
+        }
+        var html = '<strong>Warnings</strong><ul style="margin:.35rem 0 0 1.1rem;">';
+        warnings.forEach(function(msg){
+          html += '<li>' + escapeHtml(String(msg)) + '</li>';
+        });
+        html += '</ul>';
+        warningsBox.innerHTML = html;
+        warningsBox.hidden = false;
+        warningsBox.setAttribute('aria-hidden', 'false');
+      }
+
+      function dispatchPreview(detail){
+        if (typeof document === 'undefined') return;
+        setPreviewState(detail);
+        try {
+          document.dispatchEvent(new CustomEvent('partner:preview', { detail: detail }));
+        } catch(_){ }
+      }
+
+      function requestPreviewUpdate(){
+        if (typeof window === 'undefined' || typeof window.fetch !== 'function') return;
+        if (!primaryName) return;
+        var partnerSel = controls.querySelector('[data-partner-select="secondary"]');
+        var bgSel = controls.querySelector('[data-partner-select="background"]');
+        var secondaryVal = partnerSel ? (partnerSel.value || '') : '';
+        var bgVal = bgSel ? (bgSel.value || '') : '';
+        var enabledVal = partnerEnabledInput ? (partnerEnabledInput.value || '') : '1';
+        if (previewAbort){
+          try { previewAbort.abort(); } catch(_){ }
+        }
+        previewAbort = new AbortController();
+        var formData = new FormData();
+        formData.append('commander', primaryName);
+        formData.append('partner_enabled', enabledVal || '1');
+        formData.append('secondary_commander', secondaryVal);
+        formData.append('background', bgVal);
+        formData.append('partner_auto_opt_out', optInput ? (optInput.value || '0') : '0');
+        formData.append('scope', scope || prefix);
+  formData.append('selection_source', selectionSourceInput ? (selectionSourceInput.value || '') : '');
+        fetch('/build/partner/preview', {
+          method: 'POST',
+          body: formData,
+          credentials: 'same-origin',
+          headers: { 'Accept': 'application/json' },
+          signal: previewAbort.signal,
+        }).then(function(resp){
+          if (!resp.ok){ throw new Error('preview request failed'); }
+          return resp.json();
+        }).then(function(data){
+          previewAbort = null;
+          if (!data) return;
+          if (Object.prototype.hasOwnProperty.call(data, 'preview')){
+            setServerPayload(data.preview);
+            if (data.preview){ renderPreview(data.preview); }
+            else { clearPreview(); }
+          }
+          updateAutoNote(data && data.auto_note);
+          updateWarnings(data && data.warnings);
+          var evtDetail = {
+            scope: (data && data.scope) || scope || prefix,
+            payload: (data && data.preview) || null,
+            theme_tags: (data && data.theme_tags) || [],
+            warnings: (data && data.warnings) || [],
+            auto_note: (data && data.auto_note) || null,
+            partner_mode: (data && data.partner_mode) || null,
+            resolved_secondary: Object.prototype.hasOwnProperty.call(data || {}, 'resolved_secondary') ? (data && data.resolved_secondary) : undefined,
+            resolved_background: Object.prototype.hasOwnProperty.call(data || {}, 'resolved_background') ? (data && data.resolved_background) : undefined,
+            secondary_role_label: data && data.preview ? (data.preview.secondary_role_label || data.preview.role_label || null) : null,
+          };
+          dispatchPreview(evtDetail);
+          if (partnerSel && Object.prototype.hasOwnProperty.call(data, 'resolved_secondary')){
+            partnerSel.value = data.resolved_secondary || '';
+          }
+          if (bgSel && Object.prototype.hasOwnProperty.call(data, 'resolved_background')){
+            bgSel.value = data.resolved_background || '';
+          }
+        }).catch(function(err){
+          if (err && err.name === 'AbortError'){ return; }
+          previewAbort = null;
+        });
+      }
+
+      updateAutoNote(initialAutoNote);
+      updateWarnings(initialWarnings);
+      var initialHasPreview = !!(serverPayload && Array.isArray(serverPayload.theme_tags) && serverPayload.theme_tags.length);
+      if (initialHasPreview || initialWarnings.length || (initialAutoNote && initialAutoNote.trim())){
+        setTimeout(function(){
+          dispatchPreview({
+            scope: scope || prefix,
+            payload: serverPayload,
+            theme_tags: (serverPayload && serverPayload.theme_tags) || [],
+            warnings: initialWarnings,
+            auto_note: initialAutoNote || null,
+            partner_mode: serverPayload ? (serverPayload.partner_mode || serverPayload.mode || null) : null,
+            secondary_role_label: serverPayload ? (serverPayload.secondary_role_label || serverPayload.role_label || null) : null,
+          });
+        }, 0);
+      }
+
+      function renderFromServer(){
+        if (serverPayload){
+          renderPreview(serverPayload);
+        } else {
+          clearPreview();
+        }
+      }
+
+      function renderFromSelection(sel, modeOverride){
+        if (!sel){
+          if (serverPayload){ renderFromServer(); } else { clearPreview(); }
+          return;
+        }
+        var option = sel.options[sel.selectedIndex];
+        if (!option || !option.value){
+          if (serverPayload){ renderFromServer(); } else { clearPreview(); }
+          return;
+        }
+        var mode = modeOverride || option.getAttribute('data-pairing-mode') || 'partner';
+        var image = option.getAttribute('data-image-url') || '';
+        var link = option.getAttribute('data-scryfall-url') || '';
+        var role = option.getAttribute('data-role-label') || '';
+        if (!image){ image = buildCardImageUrl(option.value); }
+        if (!link){ link = buildScryfallUrl(option.value); }
+        if (!role){ role = defaultRoleForMode(mode); }
+        var payload = {
+          partner_mode: mode,
+          partner_mode_label: option.getAttribute('data-mode-label') || modeLabels[mode] || 'Partner Mechanics',
+          color_label: option.getAttribute('data-color-label') || '',
+          secondary_name: option.value,
+          primary_name: primaryName,
+          secondary_image_url: image,
+          secondary_scryfall_url: link,
+          secondary_role_label: role,
+        };
+        payload.secondary_role_label = role;
+        payload.theme_tags = payload.theme_tags || [];
+        renderPreview(payload);
+      }
+
+      function setOptOut(flag){
+        if (optInput){ optInput.value = flag ? '1' : '0'; }
+        if (autoToggle){
+          autoToggle.classList.toggle('active', !flag);
+          autoToggle.setAttribute('aria-pressed', (!flag).toString());
+          var label = flag ? 'Enable default partner' : 'Use default partner';
+          if (!flag && defaultPartner){ label += ' (' + defaultPartner + ')'; }
+          autoToggle.textContent = label;
+        }
+        markSuggestionActive();
+      }
+
+      function applySuggestionSelection(mode, name){
+        if (!name){ return; }
+        setSelectionSource('suggestion');
+        var normalizedMode = String(mode || '').toLowerCase();
+        var partnerSel = controls.querySelector('[data-partner-select="secondary"]');
+        var bgSel = controls.querySelector('[data-partner-select="background"]');
+        if (normalizedMode === 'background'){
+          if (bgSel){ bgSel.value = name; }
+          if (partnerSel){ partnerSel.value = ''; }
+          if (autoToggle){ setOptOut(true); }
+          if (bgSel){
+            renderFromSelection(bgSel, 'background');
+            requestPreviewUpdate();
+          } else {
+            renderFromServer();
+          }
+        } else {
+          if (partnerSel){ partnerSel.value = name; }
+          if (bgSel){ bgSel.value = ''; }
+          if (autoToggle){
+            syncBySelection();
+          } else if (partnerSel){
+            renderFromSelection(partnerSel);
+            requestPreviewUpdate();
+          } else {
+            renderFromServer();
+          }
+        }
+        markSuggestionActive();
+      }
+
+      function syncBySelection(){
+        var partnerSel = controls.querySelector('[data-partner-select="secondary"]');
+        if (!partnerSel || !autoToggle || !defaultPartner) return;
+        if (partnerSel.value && partnerSel.value.toLowerCase() === defaultPartner.toLowerCase()){
+          setOptOut(false);
+          renderFromSelection(partnerSel);
+          requestPreviewUpdate();
+        } else if (partnerSel.value) {
+          setOptOut(true);
+          renderFromSelection(partnerSel);
+          requestPreviewUpdate();
+        }
+      }
+
+      if (autoToggle){
+        autoToggle.addEventListener('click', function(){
+          var currentOptOut = optInput && optInput.value === '1';
+          if (currentOptOut){
+            setOptOut(false);
+            setSelectionSource('auto');
+            if (defaultPartner){
+              var partnerSel = controls.querySelector('[data-partner-select="secondary"]');
+              if (partnerSel){ partnerSel.value = defaultPartner; }
+              var bgSel = controls.querySelector('[data-partner-select="background"]');
+              if (bgSel){ bgSel.value = ''; }
+              renderFromSelection(partnerSel);
+            } else {
+              renderFromServer();
+            }
+            requestPreviewUpdate();
+          } else {
+            setOptOut(true);
+            setSelectionSource('');
+            selects.forEach(function(sel){
+              if (sel && sel.getAttribute('data-partner-select') === 'secondary'){
+                sel.value = '';
+              }
+            });
+            renderFromServer();
+            requestPreviewUpdate();
+          }
+        });
+      }
+
+      selects.forEach(function(sel){
+        sel.addEventListener('change', function(){
+          setSelectionSource('manual');
+          var key = sel.getAttribute('data-partner-select');
+          if (key === 'secondary' && sel.value){
+            var bgSel = controls.querySelector('[data-partner-select="background"]');
+            if (bgSel){ bgSel.value = ''; }
+            if (autoToggle){
+              syncBySelection();
+            } else {
+              renderFromSelection(sel);
+              requestPreviewUpdate();
+            }
+            markSuggestionActive();
+            return;
+          }
+          if (key === 'background' && sel.value){
+            var partnerSel = controls.querySelector('[data-partner-select="secondary"]');
+            if (partnerSel){ partnerSel.value = ''; }
+            if (autoToggle){ setOptOut(true); }
+            renderFromSelection(sel, 'background');
+            requestPreviewUpdate();
+            markSuggestionActive();
+            return;
+          }
+          if (!sel.value){
+            renderFromServer();
+            requestPreviewUpdate();
+          }
+          markSuggestionActive();
+        });
+      });
+
+      if (suggestionsState){
+        if (suggestionsList){
+          suggestionsList.addEventListener('click', function(evt){
+            var target = evt.target.closest('[data-partner-suggestion]');
+            if (!target){ return; }
+            evt.preventDefault();
+            var mode = target.getAttribute('data-mode') || 'partner';
+            var name = target.getAttribute('data-name') || '';
+            applySuggestionSelection(mode, name);
+          });
+        }
+        if (suggestionsMoreButton){
+          suggestionsMoreButton.addEventListener('click', function(){
+            revealHiddenSuggestions();
+          });
+        }
+        if (suggestionsRefreshButton){
+          suggestionsRefreshButton.addEventListener('click', function(){
+            fetchSuggestions({ includeHidden: suggestionsState.expanded, forceRefresh: true });
+          });
+        }
+        if (suggestionsState.visible && suggestionsState.visible.length){
+          renderSuggestions();
+        } else if (suggestionsState.error){
+          updateSuggestionsMeta();
+        } else {
+          fetchSuggestions();
+        }
+      }
+
+      if (clearBtn){
+        clearBtn.addEventListener('click', function(){
+          selects.forEach(function(sel){ if (sel){ sel.value = ''; } });
+          if (autoToggle){ setOptOut(true); }
+          setSelectionSource('');
+          renderFromServer();
+          requestPreviewUpdate();
+          markSuggestionActive();
+        });
+      }
+
+      if (typeof window !== 'undefined' && window.newDeckPartnerState){
+        try {
+          var restore = window.newDeckPartnerState;
+          var partnerSel = controls.querySelector('[data-partner-select="secondary"]');
+          var bgSel = controls.querySelector('[data-partner-select="background"]');
+          if (partnerSel && restore.secondary){ partnerSel.value = restore.secondary; }
+          if (bgSel && restore.background){ bgSel.value = restore.background; }
+          if (restore.enabled === false){ selects.forEach(function(sel){ if (sel){ sel.value = ''; } }); }
+          if (partnerSel && partnerSel.value){ renderFromSelection(partnerSel); }
+          else if (bgSel && bgSel.value){ renderFromSelection(bgSel, 'background'); }
+          delete window.newDeckPartnerState;
+        } catch(_){ }
+      }
+
+      if (optInput && optInput.value === '1'){
+        setOptOut(true);
+        renderFromServer();
+      } else {
+        setOptOut(!defaultPartner);
+        if (defaultPartner){ syncBySelection(); }
+        else if (serverPayload){ renderFromServer(); }
+      }
+      markSuggestionActive();
+
+      try {
+        var slot = document.getElementById('newdeck-tags-slot');
+        if (slot) slot.setAttribute('data-has-content', '1');
+      } catch(_){ }
+    })();
+  </script>
+{% endif %}

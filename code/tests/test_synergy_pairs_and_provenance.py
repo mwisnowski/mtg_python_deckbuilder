@@ -3,9 +3,21 @@ import os
 from pathlib import Path
 import subprocess
 
+import pytest
+
+from code.tests.editorial_test_utils import ensure_editorial_fixtures
+
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / 'code' / 'scripts' / 'build_theme_catalog.py'
 CATALOG_DIR = ROOT / 'config' / 'themes' / 'catalog'
+
+USE_FIXTURES = (
+    os.environ.get('EDITORIAL_TEST_USE_FIXTURES', '').strip().lower() in {'1', 'true', 'yes', 'on'}
+    or not CATALOG_DIR.exists()
+    or not any(CATALOG_DIR.glob('*.yml'))
+)
+
+ensure_editorial_fixtures(force=USE_FIXTURES)
 
 
 def run(cmd, env=None):
@@ -44,7 +56,6 @@ def test_synergy_pairs_fallback_and_metadata_info(tmp_path):
             candidate = name
             break
     if not candidate:  # If still none, skip test rather than fail (environmental variability)
-        import pytest
         pytest.skip('No synergy pair seed theme present in catalog output')
     candidate_entry = themes[candidate]
     # Must have at least one synergy (fallback or curated)
@@ -53,7 +64,8 @@ def test_synergy_pairs_fallback_and_metadata_info(tmp_path):
     run(['python', str(SCRIPT), '--force-backfill-yaml', '--backfill-yaml'], env={'EDITORIAL_INCLUDE_FALLBACK_SUMMARY': '1'})
     # Locate YAML and verify metadata_info (or legacy provenance) inserted
     yaml_path = CATALOG_DIR / f"{candidate.lower().replace(' ', '-')}.yml"
-    if yaml_path.exists():
-        raw = yaml_path.read_text(encoding='utf-8').splitlines()
+    if not yaml_path.exists():
+        pytest.skip('Catalog YAML directory missing expected theme; fixture was not staged.')
+    raw = yaml_path.read_text(encoding='utf-8').splitlines()
     has_meta = any(line.strip().startswith(('metadata_info:','provenance:')) for line in raw)
     assert has_meta, 'metadata_info block missing after forced backfill'

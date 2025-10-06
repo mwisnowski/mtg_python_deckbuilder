@@ -14,6 +14,10 @@ on:
 jobs:
   validate-editorial:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
@@ -23,8 +27,8 @@ jobs:
       - name: Install deps
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
+          python -m pip install -r requirements.txt
+          if [ -f requirements-dev.txt ]; then python -m pip install -r requirements-dev.txt; fi
       - name: Build catalog (alt output, seed)
         run: |
           python code/scripts/build_theme_catalog.py --output config/themes/theme_list_ci.json --limit 0
@@ -43,7 +47,9 @@ jobs:
           python code/scripts/validate_description_mapping.py
       - name: Run regression & unit tests (editorial subset + enforcement)
         run: |
-          pytest -q code/tests/test_theme_description_fallback_regression.py code/tests/test_synergy_pairs_and_provenance.py code/tests/test_editorial_governance_phase_d_closeout.py code/tests/test_theme_editorial_min_examples_enforced.py
+          python -m pytest -q code/tests/test_theme_description_fallback_regression.py code/tests/test_synergy_pairs_and_provenance.py code/tests/test_editorial_governance_phase_d_closeout.py code/tests/test_theme_editorial_min_examples_enforced.py
+        env:
+          EDITORIAL_TEST_USE_FIXTURES: '1'
       - name: Ratchet proposal (non-blocking)
         run: |
           python code/scripts/ratchet_description_thresholds.py > ratchet_proposal.json || true
@@ -53,7 +59,7 @@ jobs:
           name: ratchet-proposal
           path: ratchet_proposal.json
       - name: Post ratchet proposal PR comment
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}

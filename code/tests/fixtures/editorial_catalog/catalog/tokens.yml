@@ -1,0 +1,41 @@
+id: tokens-fixture
+display_name: Tokens Matter
+curated_synergies:
+  - Go Wide
+  - Anthem
+  - Sacrifice Fodder
+enforced_synergies:
+  - Card Draw
+inferred_synergies:
+  - Populate
+synergies:
+  - Go Wide
+  - Anthem
+  - Sacrifice Fodder
+  - Populate
+primary_color: White
+secondary_color: Green
+notes: Fixture entry to ensure metadata coverage for tests.
+example_commanders:
+  - Rhys the Redeemed
+  - Trostani, Selesnya's Voice
+  - Adeline, Resplendent Cathar
+  - Jetmir, Nexus of Revels
+  - Kyler, Sigardian Emissary
+example_cards:
+  - Anointed Procession
+  - Parallel Lives
+  - Heroic Reinforcements
+  - Secure the Wastes
+  - Beastmaster Ascension
+synergy_commanders:
+  - Chatterfang, Squirrel General - Synergy (Sacrifice Fodder)
+  - Emmara, Soul of the Accord - Synergy (Go Wide)
+  - Tana, the Bloodsower - Synergy (Populate)
+deck_archetype: Midrange
+popularity_bucket: Very Common
+description: Goes wide with creature tokens then converts mass into damage, draw, drain, or sacrifice engines.
+editorial_quality: reviewed
+metadata_info:
+  script: build_theme_catalog.py
+  last_backfill: '2024-09-02T00:00:00Z'

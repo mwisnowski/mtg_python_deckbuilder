@@ -5,12 +5,14 @@
 {% if display_name %}
   <div><strong>{{ display_name }}</strong></div>
 {% endif %}
+{% set hover_tags_source = deck_theme_tags if deck_theme_tags else (tags if tags else commander_combined_tags) %}
+{% set hover_tags_joined = hover_tags_source|join(', ') %}
 <div class="muted">Commander:
   <strong class="commander-hover"
     data-card-name="{{ commander }}"
     data-original-name="{{ commander }}"
     data-role="{{ commander_role_label }}"
-    {% if commander_combined_tags %}data-tags="{{ commander_combined_tags|join(', ') }}"{% endif %}
+      {% if hover_tags_joined %}data-tags="{{ hover_tags_joined }}"{% endif %}
     {% if commander_tag_slugs %}data-tags-slug="{{ commander_tag_slugs|join(' ') }}"{% endif %}
     {% if commander_overlap_tags %}data-overlaps="{{ commander_overlap_tags|join(', ') }}"{% endif %}
     {% if commander_reason_text %}data-reasons="{{ commander_reason_text|e }}"{% endif %}>{{ commander }}</strong>
@@ -29,7 +31,7 @@
       data-card-name="{{ commander_base }}"
       data-original-name="{{ commander }}"
       data-role="{{ commander_role_label }}"
-      {% if commander_combined_tags %}data-tags="{{ commander_combined_tags|join(', ') }}"{% endif %}
+    {% if hover_tags_joined %}data-tags="{{ hover_tags_joined }}"{% endif %}
       {% if commander_tag_slugs %}data-tags-slug="{{ commander_tag_slugs|join(' ') }}"{% endif %}
       {% if commander_overlap_tags %}data-overlaps="{{ commander_overlap_tags|join(', ') }}"{% endif %}
       {% if commander_reason_text %}data-reasons="{{ commander_reason_text|e }}"{% endif %}>
@@ -38,7 +40,7 @@
            data-card-name="{{ commander_base }}"
            data-original-name="{{ commander }}"
            data-role="{{ commander_role_label }}"
-       {% if commander_combined_tags %}data-tags="{{ commander_combined_tags|join(', ') }}"{% endif %}
+    {% if hover_tags_joined %}data-tags="{{ hover_tags_joined }}"{% endif %}
        {% if commander_tag_slugs %}data-tags-slug="{{ commander_tag_slugs|join(' ') }}"{% endif %}
        {% if commander_overlap_tags %}data-overlaps="{{ commander_overlap_tags|join(', ') }}"{% endif %}
      {% if commander_reason_text %}data-reasons="{{ commander_reason_text|e }}"{% endif %}
@@ -47,7 +49,7 @@
     <div class="muted" style="margin-top:.25rem;">Commander: <span data-card-name="{{ commander }}"
     data-original-name="{{ commander }}"
     data-role="{{ commander_role_label }}"
-      {% if commander_combined_tags %}data-tags="{{ commander_combined_tags|join(', ') }}"{% endif %}
+  {% if hover_tags_joined %}data-tags="{{ hover_tags_joined }}"{% endif %}
       {% if commander_tag_slugs %}data-tags-slug="{{ commander_tag_slugs|join(' ') }}"{% endif %}
       {% if commander_overlap_tags %}data-overlaps="{{ commander_overlap_tags|join(', ') }}"{% endif %}
     {% if commander_reason_text %}data-reasons="{{ commander_reason_text|e }}"{% endif %}>{{ commander }}</span></div>

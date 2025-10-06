@@ -62,6 +62,8 @@ min_frequency_overrides:
   Treasure Token: 0
   Monarch: 0
   Initiative: 0
+  Partner - Father & Son: 0
+  Friends Forever: 0
   Pillow Fort: 0  # alias that may appear; normalization may fold it
 
 normalization:

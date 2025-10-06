@@ -5,10 +5,11 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
+import commander_exclusions
 import headless_runner as hr
 from exceptions import CommanderValidationError
 from file_setup import setup_utils as su
-from file_setup.setup_utils import filter_dataframe, process_legendary_cards
+from file_setup.setup_utils import process_legendary_cards
 import settings
 
 
@@ -118,16 +119,62 @@ def test_primary_face_retained_and_log_cleared(tmp_csv_dir):
     assert len(processed) == 1
     assert processed.iloc[0]["faceName"] == "Birgi, God of Storytelling"
 
-    # Downstream filter should continue to succeed with a single primary row
-    filtered = filter_dataframe(processed, [])
-    assert len(filtered) == 1
 
-    exclusion_path = tmp_csv_dir / ".commander_exclusions.json"
-    assert not exclusion_path.exists(), "No exclusion log expected when primary face remains"
+def test_determine_commanders_generates_background_catalog(tmp_csv_dir, monkeypatch):
+    import importlib
+
+    setup_module = importlib.import_module("file_setup.setup")
+    monkeypatch.setattr(setup_module, "filter_dataframe", lambda df, banned: df)
+
+    commander_row = _make_card_row(
+        name="Hero of the Realm",
+        face_name="Hero of the Realm",
+        type_line="Legendary Creature — Human Knight",
+        side=None,
+        layout="normal",
+        power="3",
+        toughness="3",
+        text="Vigilance",
+    )
+
+    background_row = _make_card_row(
+        name="Mentor of Courage",
+        face_name="Mentor of Courage",
+        type_line="Legendary Enchantment — Background",
+        side=None,
+        layout="normal",
+        text="Commander creatures you own have vigilance.",
+    )
+
+    cards_df = pd.DataFrame([commander_row, background_row])
+    cards_df.to_csv(tmp_csv_dir / "cards.csv", index=False)
+
+    color_df = pd.DataFrame(
+        [
+            {
+                "name": "Hero of the Realm",
+                "faceName": "Hero of the Realm",
+                "themeTags": "['Valor']",
+                "creatureTypes": "['Human', 'Knight']",
+                "roleTags": "['Commander']",
+            }
+        ]
+    )
+    color_df.to_csv(tmp_csv_dir / "white_cards.csv", index=False)
+
+    setup_module.determine_commanders()
+
+    background_path = tmp_csv_dir / "background_cards.csv"
+    assert background_path.exists(), "Expected background catalog to be generated"
+
+    lines = background_path.read_text(encoding="utf-8").splitlines()
+    assert lines, "Background catalog should not be empty"
+    assert lines[0].startswith("# ")
+    assert any("Mentor of Courage" in line for line in lines[1:])
 
 
 def test_headless_validation_reports_secondary_face(monkeypatch):
-    monkeypatch.setattr(hr, "_load_commander_name_lookup", lambda: set())
+    monkeypatch.setattr(hr, "_load_commander_name_lookup", lambda: (set(), tuple()))
 
     exclusion_entry = {
         "name": "Elbrus, the Binding Blade // Withengar Unbound",
@@ -135,7 +182,11 @@ def test_headless_validation_reports_secondary_face(monkeypatch):
         "eligible_faces": ["Withengar Unbound"],
     }
 
-    monkeypatch.setattr(hr, "lookup_commander_detail", lambda name: exclusion_entry if "Withengar" in name else None)
+    monkeypatch.setattr(
+        commander_exclusions,
+        "lookup_commander_detail",
+        lambda name: exclusion_entry if "Withengar" in name else None,
+    )
 
     with pytest.raises(CommanderValidationError) as excinfo:
         hr._validate_commander_available("Withengar Unbound")

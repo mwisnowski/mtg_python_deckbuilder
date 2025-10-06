@@ -1,0 +1,41 @@
+id: graveyard-fixture
+display_name: Reanimate
+curated_synergies:
+  - Graveyard Loops
+  - Sacrifice
+  - Big Threats
+enforced_synergies:
+  - Tutor
+inferred_synergies:
+  - Recursion
+synergies:
+  - Graveyard Loops
+  - Sacrifice
+  - Big Threats
+  - Tutor
+primary_color: Black
+secondary_color: Blue
+notes: Fixture entry for editorial governance CI checks.
+example_commanders:
+  - Meren of Clan Nel Toth
+  - Chainer, Dementia Master
+  - The Scarab God
+  - Sheoldred, Whispering One
+  - Araumi of the Dead Tide
+example_cards:
+  - Reanimate
+  - Animate Dead
+  - Victimize
+  - Entomb
+  - Buried Alive
+synergy_commanders:
+  - Gisa and Geralf - Synergy (Graveyard Loops)
+  - Kess, Dissident Mage - Synergy (Tutor)
+  - Syr Konrad, the Grim - Synergy (Sacrifice)
+deck_archetype: Control
+popularity_bucket: Common
+description: Loads high-impact cards into the graveyard early and reanimates them for explosive tempo or combo loops.
+editorial_quality: reviewed
+metadata_info:
+  script: build_theme_catalog.py
+  last_backfill: '2024-09-03T00:00:00Z'

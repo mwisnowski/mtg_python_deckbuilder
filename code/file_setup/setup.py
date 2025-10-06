@@ -46,6 +46,27 @@ from exceptions import (
     CommanderValidationError,
     MTGJSONDownloadError
 )
+from scripts import generate_background_cards as background_cards_script
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
+def _generate_background_catalog(cards_path: str, output_path: str) -> None:
+    """Regenerate ``background_cards.csv`` from the latest cards dataset."""
+
+    logger.info('Generating background cards catalog')
+    args = [
+        '--source', cards_path,
+        '--output', output_path,
+    ]
+    try:
+        background_cards_script.main(args)
+    except Exception:  # pragma: no cover - surfaced to caller/test
+        logger.exception('Failed to generate background catalog')
+        raise
+    else:
+        logger.info('Background cards catalog generated successfully')
 
 # Create logger for this module
 logger = logging_util.logging.getLogger(__name__)
@@ -142,8 +163,12 @@ def determine_commanders() -> None:
 
         # Save commander cards
         logger.info('Saving validated commander cards')
-        filtered_df.to_csv(f'{CSV_DIRECTORY}/commander_cards.csv', index=False)
-        
+        commander_path = f'{CSV_DIRECTORY}/commander_cards.csv'
+        filtered_df.to_csv(commander_path, index=False)
+
+        background_output = f'{CSV_DIRECTORY}/background_cards.csv'
+        _generate_background_catalog(cards_file, background_output)
+
         logger.info('Commander card generation completed successfully')
         
     except (CSVFileNotFoundError, MTGJSONDownloadError) as e:

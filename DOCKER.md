@@ -127,6 +127,8 @@ docker compose run --rm `
 - `APP_MODE=cli` routes the entrypoint to the CLI menu.
 - `DECK_MODE=headless` skips prompts and calls `headless_runner`.
 - Mount JSON configs under `config/` so both the UI and CLI can pick them up.
+- Dual-commander support is feature-flagged: set `ENABLE_PARTNER_MECHANICS=1` and pass `--secondary-commander` _or_ `--background` (mutually exclusive) to layer partners/backgrounds into headless runs; Partner With and Doctor/Doctor’s Companion pairings auto-resolve (with opt-out), and `--dry-run` echoes the resolved pairing for verification.
+- Partner suggestions share the same dataset for headless and web flows; set `ENABLE_PARTNER_SUGGESTIONS=1` (and ensure `config/analytics/partner_synergy.json` exists) to expose ranked pairings in the UI and API.
 
 Override counts, theme tags, or include/exclude lists by setting the matching environment variables before running the container (see “Environment variables” below).
 
@@ -231,6 +233,13 @@ See `.env.example` for the full catalog. Common knobs:
 | `DECK_MODE` | _(unset)_ | `headless` auto-runs the headless builder when the CLI starts. |
 | `DECK_CONFIG` | `/app/config/deck.json` | JSON config file or directory (auto-discovery). |
 | `HOST` / `PORT` / `WORKERS` | `0.0.0.0` / `8080` / `1` | Uvicorn binding when `APP_MODE=web`. |
+
+### Partner mechanics & suggestions
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `ENABLE_PARTNER_MECHANICS` | `0` | Unlock partner/background commander inputs for headless runs and Step 2 of the web UI. |
+| `ENABLE_PARTNER_SUGGESTIONS` | `0` | Serve partner/background/Doctor suggestion chips based on `config/analytics/partner_synergy.json` (auto-regenerated when missing; override path with `PARTNER_SUGGESTIONS_DATASET`). |
 
 ### Homepage visibility & UX
 

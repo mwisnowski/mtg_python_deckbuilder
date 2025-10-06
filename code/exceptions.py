@@ -585,6 +585,14 @@ class CommanderThemeError(CommanderValidationError):
         """
         super().__init__(message, code="CMD_THEME_ERR", details=details)
 
+
+class CommanderPartnerError(CommanderValidationError):
+    """Raised when partner or background pairing validation fails."""
+
+    def __init__(self, message: str, details: dict | None = None):
+        super().__init__(message, details=details)
+        self.code = "CMD_PARTNER_ERR"
+
 class CommanderMoveError(DeckBuilderError):
     """Raised when there are issues moving the commander to the top of the library.
     

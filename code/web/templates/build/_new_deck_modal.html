@@ -32,12 +32,16 @@
       </fieldset>
       <fieldset>
         <legend>Themes</legend>
-        <div id="newdeck-tags-slot" class="muted">
-          <em>Select a commander to see theme recommendations and choices.</em>
-          <input type="hidden" name="primary_tag" />
-          <input type="hidden" name="secondary_tag" />
-          <input type="hidden" name="tertiary_tag" />
-          <input type="hidden" name="tag_mode" value="AND" />
+        <div id="newdeck-tags-slot"{% if not tag_slot_html %} class="muted"{% endif %}>
+          {% if tag_slot_html %}
+            {{ tag_slot_html | safe }}
+          {% else %}
+            <em>Select a commander to see theme recommendations and choices.</em>
+            <input type="hidden" name="primary_tag" />
+            <input type="hidden" name="secondary_tag" />
+            <input type="hidden" name="tertiary_tag" />
+            <input type="hidden" name="tag_mode" value="AND" />
+          {% endif %}
         </div>
   <div id="newdeck-multicopy-slot" class="muted" style="margin-top:.5rem; min-height:1rem;"></div>
         {% if enable_custom_themes %}

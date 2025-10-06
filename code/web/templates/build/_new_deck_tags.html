@@ -1,4 +1,17 @@
+{% from 'partials/_macros.html' import color_identity %}
 {% set pname = commander.name %}
+{% set partner_preview_payload = partner_preview if partner_preview else None %}
+{% set preview_colors = partner_preview_payload.color_identity if partner_preview_payload else [] %}
+{% if preview_colors is none %}
+  {% set preview_colors = [] %}
+{% endif %}
+{% set preview_label = partner_preview_payload.color_label if partner_preview_payload else '' %}
+{% if not preview_label and preview_colors %}
+  {% set preview_label = preview_colors|join(' / ') %}
+{% endif %}
+{% if not preview_label and partner_preview_payload and (preview_colors|length == 0) %}
+  {% set preview_label = 'Colorless (C)' %}
+{% endif %}
 <div id="newdeck-commander-slot" hx-swap-oob="true" style="max-width:230px;">
   <aside class="card-preview" data-card-name="{{ pname }}" style="max-width: 230px;">
     <a href="https://scryfall.com/search?q={{ pname|urlencode }}" target="_blank" rel="noopener">
@@ -6,6 +19,38 @@
     </a>
   </aside>
   <div class="muted" style="font-size:12px; margin-top:.25rem; max-width: 230px;">{{ pname }}</div>
+  {% if partner_preview_payload %}
+  {% set partner_secondary_name = partner_preview_payload.secondary_name %}
+  {% set partner_image_url = partner_preview_payload.secondary_image_url or partner_preview_payload.image_url %}
+  {% if not partner_image_url and partner_secondary_name %}
+    {% set partner_image_url = 'https://api.scryfall.com/cards/named?fuzzy=' ~ partner_secondary_name|urlencode ~ '&format=image&version=normal' %}
+  {% endif %}
+  {% set partner_href = partner_preview_payload.secondary_scryfall_url or partner_preview_payload.scryfall_url %}
+  {% if not partner_href and partner_secondary_name %}
+    {% set partner_href = 'https://scryfall.com/search?q=' ~ partner_secondary_name|urlencode %}
+  {% endif %}
+  {% if partner_image_url %}
+  <aside class="card-preview partner-card-preview" style="max-width: 230px; margin-top:.75rem;">
+    {% if partner_href %}<a href="{{ partner_href }}" target="_blank" rel="noopener">{% endif %}
+    <img src="{{ partner_image_url }}" alt="{{ (partner_secondary_name or 'Selected card') ~ ' card image' }}" data-card-name="{{ partner_secondary_name or '' }}" style="width:200px; height:auto; display:block; border-radius:6px;" loading="lazy" decoding="async" />
+    {% if partner_href %}</a>{% endif %}
+  </aside>
+  {% endif %}
+  {% if partner_secondary_name %}
+  <div class="muted" style="font-size:12px; margin-top:.25rem; max-width: 230px;">
+    {% if partner_preview_payload.secondary_role_label %}<strong>{{ partner_preview_payload.secondary_role_label }}</strong>: {% endif %}{{ partner_secondary_name }}
+  </div>
+  {% endif %}
+  <div class="muted" style="font-size:12px; margin-top:.35rem; display:flex; align-items:center; gap:.35rem; flex-wrap:wrap;">
+    {{ color_identity(preview_colors, is_colorless=(preview_colors|length == 0), aria_label=preview_label or '', title_text=preview_label or '') }}
+    <span>{{ preview_label }}</span>
+  </div>
+  {% if partner_preview_payload.theme_tags %}
+  <div class="muted" style="font-size:12px; margin-top:.25rem;">
+    Combined themes: {{ partner_preview_payload.theme_tags|join(', ') }}
+  </div>
+  {% endif %}
+  {% endif %}
   <script>
     try {
       var nm = document.querySelector('input[name="name"]');
@@ -52,18 +97,18 @@
     <button type="button" id="modal-reset-tags" class="chip" style="margin-left:.35rem;">Reset themes</button>
     <span id="modal-tag-count" class="muted" style="font-size:12px;"></span>
   </div>
-  {% if recommended and recommended|length %}
-  <div style="display:flex; align-items:center; gap:.5rem; margin:.25rem 0 .35rem 0;">
-    <div class="muted" style="font-size:12px;">Recommended</div>
+  <div id="modal-tag-reco-block" data-has-reco="{% if recommended and recommended|length %}1{% else %}0{% endif %}" {% if not (recommended and recommended|length) %}style="display:none;"{% endif %}>
+    <div class="muted" style="font-size:12px; margin:.25rem 0 .35rem 0;">Recommended</div>
+    <div id="modal-tag-reco" aria-label="Recommended themes" data-original-tags='{{ (recommended or []) | tojson }}' style="display:flex; gap:.35rem; flex-wrap:wrap; margin-bottom:.5rem;">
+      {% if recommended and recommended|length %}
+        {% for r in recommended %}
+          {% set tip = (recommended_reasons[r] if (recommended_reasons is defined and recommended_reasons and recommended_reasons.get(r)) else 'Recommended for this commander') %}
+          <button type="button" class="chip chip-reco" data-tag="{{ r }}" title="{{ tip }}">★ {{ r }}</button>
+        {% endfor %}
+      {% endif %}
+      <button type="button" id="modal-reco-select-all" class="chip" title="Add recommended up to 3" {% if not (recommended and recommended|length) %}style="display:none;"{% endif %}>Select all</button>
+    </div>
   </div>
-  <div id="modal-tag-reco" aria-label="Recommended themes" style="display:flex; gap:.35rem; flex-wrap:wrap; margin-bottom:.5rem;">
-    {% for r in recommended %}
-      {% set tip = (recommended_reasons[r] if (recommended_reasons is defined and recommended_reasons and recommended_reasons.get(r)) else 'Recommended for this commander') %}
-      <button type="button" class="chip chip-reco" data-tag="{{ r }}" title="{{ tip }}">★ {{ r }}</button>
-    {% endfor %}
-    <button type="button" id="modal-reco-select-all" class="chip" title="Add recommended up to 3">Select all</button>
-  </div>
-  {% endif %}
   <div id="modal-tag-list" aria-label="Available themes" style="display:flex; gap:.35rem; flex-wrap:wrap;">
     {% for t in tags %}
       <button type="button" class="chip" data-tag="{{ t }}">{{ t }}</button>
@@ -82,6 +127,10 @@
     <em>No themes selected yet.</em>
   </div>
 </div>
+
+{% set partner_id_prefix = 'modal' %}
+{% set partner_scope = 'modal' %}
+{% include "build/_partner_controls.html" %}
 
 {# Always update the bracket dropdown on commander change; hide 1–2 only when gc_commander is true #}
 <div id="newdeck-bracket-slot" hx-swap-oob="true">
@@ -102,6 +151,7 @@
 <script>
 (function(){
   var list = document.getElementById('modal-tag-list');
+  var recoBlock = document.getElementById('modal-tag-reco-block');
   var reco = document.getElementById('modal-tag-reco');
   var selAll = document.getElementById('modal-reco-select-all');
   var resetBtn = document.getElementById('modal-reset-tags');
@@ -112,6 +162,18 @@
   var countEl = document.getElementById('modal-tag-count');
   var selSummary = document.getElementById('modal-selected-themes');
   if (!list) return;
+  var previewScope = 'modal';
+  function readPartnerPreviewTags(){
+    if (typeof window === 'undefined') return [];
+    var store = window.partnerPreviewState;
+    if (!store) return [];
+    var state = store[previewScope];
+    if (!state) return [];
+    if (Array.isArray(state.theme_tags) && state.theme_tags.length){ return state.theme_tags.slice(); }
+    var payload = state.payload;
+    if (payload && Array.isArray(payload.theme_tags)){ return payload.theme_tags.slice(); }
+    return [];
+  }
 
   function getSel(){ var a=[]; if(p&&p.value)a.push(p.value); if(s&&s.value)a.push(s.value); if(t&&t.value)a.push(t.value); return a; }
   function setSel(a){ a = Array.from(new Set(a||[])).filter(Boolean).slice(0,3); if(p) p.value=a[0]||''; if(s) s.value=a[1]||''; if(t) t.value=a[2]||''; updateUI(); }
@@ -135,10 +197,78 @@
   try{ document.dispatchEvent(new CustomEvent('newdeck:tagsChanged')); }catch(_){ }
   }
   if (resetBtn) resetBtn.addEventListener('click', function(){ setSel([]); });
-  list.querySelectorAll('button.chip').forEach(function(btn){ var tag=btn.dataset.tag||''; btn.addEventListener('click', function(){ toggle(tag); }); });
-  if (reco){ reco.querySelectorAll('button.chip-reco').forEach(function(btn){ var tag=btn.dataset.tag||''; btn.addEventListener('click', function(){ toggle(tag); }); }); }
-  if (selAll){ selAll.addEventListener('click', function(){ try{ var cur=getSel(); var recs = reco? Array.from(reco.querySelectorAll('button.chip-reco')).map(function(b){return b.dataset.tag||'';}).filter(Boolean):[]; var combined=cur.slice(); recs.forEach(function(x){ if(combined.indexOf(x)===-1) combined.push(x); }); setSel(combined.slice(-3)); }catch(_){} }); }
+  list.addEventListener('click', function(e){
+    var btn = e.target.closest('button.chip');
+    if (!btn || !list.contains(btn)) return;
+    var tag = btn.dataset.tag || '';
+    if (tag){ toggle(tag); }
+  });
+  if (reco){
+    reco.addEventListener('click', function(e){
+      var btn = e.target.closest('button');
+      if (!btn || !reco.contains(btn)) return;
+      if (btn.id === 'modal-reco-select-all'){
+        try {
+          var cur = getSel();
+          var recs = Array.from(reco.querySelectorAll('button.chip-reco')).map(function(b){ return b.dataset.tag || ''; }).filter(Boolean);
+          var combined = cur.slice();
+          recs.forEach(function(x){ if (combined.indexOf(x) === -1) combined.push(x); });
+          setSel(combined.slice(-3));
+        } catch(_){ }
+        return;
+      }
+      if (btn.classList.contains('chip-reco')){
+        var tag = btn.dataset.tag || '';
+        if (tag){ toggle(tag); }
+      }
+    });
+  }
   document.querySelectorAll('input[name="combine_mode_radio"]').forEach(function(r){ r.addEventListener('change', function(){ if(mode){ mode.value = r.value; } }); });
+  function updatePartnerRecommendations(tags){
+    if (!reco) return;
+    Array.from(reco.querySelectorAll('button.partner-suggestion')).forEach(function(btn){ btn.remove(); });
+    var unique = [];
+    var seen = new Set();
+    (Array.isArray(tags) ? tags : []).forEach(function(tag){
+      var value = String(tag || '').trim();
+      if (!value) return;
+      var key = value.toLowerCase();
+      if (seen.has(key)) return;
+      seen.add(key);
+      unique.push(value);
+    });
+    var insertBefore = selAll && selAll.parentElement === reco ? selAll : null;
+    unique.forEach(function(tag){
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'chip chip-reco partner-suggestion';
+      btn.dataset.tag = tag;
+      btn.title = 'Synergizes with selected partner pairing';
+      btn.textContent = '★ ' + tag;
+      if (insertBefore){ reco.insertBefore(btn, insertBefore); }
+      else { reco.appendChild(btn); }
+    });
+    var hasAny = reco.querySelectorAll('button.chip-reco').length > 0;
+    if (recoBlock){
+      recoBlock.style.display = hasAny ? '' : 'none';
+      recoBlock.setAttribute('data-has-reco', hasAny ? '1' : '0');
+    }
+    if (selAll){ selAll.style.display = hasAny ? '' : 'none'; }
+    updateUI();
+  }
+
+  document.addEventListener('partner:preview', function(evt){
+    var detail = (evt && evt.detail) || {};
+    if (detail.scope && detail.scope !== previewScope) return;
+    var tags = Array.isArray(detail.theme_tags) && detail.theme_tags.length ? detail.theme_tags : [];
+    if (!tags.length && detail.payload && Array.isArray(detail.payload.theme_tags)){
+      tags = detail.payload.theme_tags;
+    }
+    updatePartnerRecommendations(tags);
+  });
+
+  var initialPartnerTags = readPartnerPreviewTags();
+  updatePartnerRecommendations(initialPartnerTags);
   updateUI();
 })();
 </script>

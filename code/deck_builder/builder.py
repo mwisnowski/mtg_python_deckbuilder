@@ -1054,26 +1054,40 @@ class DeckBuilder(
         if self.commander_row is None:
             raise RuntimeError("Commander must be selected before determining color identity.")
 
-        raw_ci = self.commander_row.get('colorIdentity')
-        if isinstance(raw_ci, list):
-            colors_list = raw_ci
-        elif isinstance(raw_ci, str) and raw_ci.strip():
-            # Could be formatted like "['B','G']" or 'BG'; attempt simple parsing
-            if ',' in raw_ci:
-                colors_list = [c.strip().strip("'[] ") for c in raw_ci.split(',') if c.strip().strip("'[] ")]
-            else:
-                colors_list = [c for c in raw_ci if c.isalpha()]
+        override_identity = getattr(self, 'combined_color_identity', None)
+        colors_list: List[str]
+        if override_identity:
+            colors_list = [str(c).strip().upper() for c in override_identity if str(c).strip()]
         else:
-            # Fallback to 'colors' field or treat as colorless
-            alt = self.commander_row.get('colors')
-            if isinstance(alt, list):
-                colors_list = alt
-            elif isinstance(alt, str) and alt.strip():
-                colors_list = [c for c in alt if c.isalpha()]
+            raw_ci = self.commander_row.get('colorIdentity')
+            if isinstance(raw_ci, list):
+                colors_list = [str(c).strip().upper() for c in raw_ci]
+            elif isinstance(raw_ci, str) and raw_ci.strip():
+                # Could be formatted like "['B','G']" or 'BG'; attempt simple parsing
+                if ',' in raw_ci:
+                    colors_list = [c.strip().strip("'[] ").upper() for c in raw_ci.split(',') if c.strip().strip("'[] ")]
+                else:
+                    colors_list = [c.upper() for c in raw_ci if c.isalpha()]
             else:
-                colors_list = []
+                # Fallback to 'colors' field or treat as colorless
+                alt = self.commander_row.get('colors')
+                if isinstance(alt, list):
+                    colors_list = [str(c).strip().upper() for c in alt]
+                elif isinstance(alt, str) and alt.strip():
+                    colors_list = [c.upper() for c in alt if c.isalpha()]
+                else:
+                    colors_list = []
 
-        self.color_identity = [c.upper() for c in colors_list]
+        deduped: List[str] = []
+        seen_tokens: set[str] = set()
+        for token in colors_list:
+            if not token:
+                continue
+            if token not in seen_tokens:
+                seen_tokens.add(token)
+                deduped.append(token)
+
+        self.color_identity = deduped
         self.color_identity_key = self._canonical_color_key(self.color_identity)
 
         # Match against maps
@@ -1097,6 +1111,14 @@ class DeckBuilder(
 
         self.color_identity_full = full
         self.files_to_load = load_files
+
+        # Synchronize commander summary metadata when partner overrides are present
+        if override_identity and self.commander_dict:
+            try:
+                self.commander_dict["Color Identity"] = list(self.color_identity)
+                self.commander_dict["Colors"] = list(self.color_identity)
+            except Exception:
+                pass
         return full, load_files
 
     def setup_dataframes(self) -> pd.DataFrame:

@@ -16,7 +16,7 @@ from starlette.middleware.gzip import GZipMiddleware
 from typing import Any, Optional, Dict, Iterable, Mapping
 from contextlib import asynccontextmanager
 
-from code.deck_builder.summary_telemetry import get_mdfc_metrics, get_theme_metrics
+from code.deck_builder.summary_telemetry import get_mdfc_metrics, get_partner_metrics, get_theme_metrics
 from tagging.multi_face_merger import load_merge_summary
 from .services.combo_utils import detect_all as _detect_all
 from .services.theme_catalog_loader import prewarm_common_filters  # type: ignore
@@ -113,6 +113,8 @@ ENABLE_PWA = _as_bool(os.getenv("ENABLE_PWA"), False)
 ENABLE_PRESETS = _as_bool(os.getenv("ENABLE_PRESETS"), False)
 ALLOW_MUST_HAVES = _as_bool(os.getenv("ALLOW_MUST_HAVES"), True)
 ENABLE_CUSTOM_THEMES = _as_bool(os.getenv("ENABLE_CUSTOM_THEMES"), True)
+ENABLE_PARTNER_MECHANICS = _as_bool(os.getenv("ENABLE_PARTNER_MECHANICS"), True)
+ENABLE_PARTNER_SUGGESTIONS = _as_bool(os.getenv("ENABLE_PARTNER_SUGGESTIONS"), True)
 RANDOM_MODES = _as_bool(os.getenv("RANDOM_MODES"), True)  # initial snapshot (legacy)
 RANDOM_UI = _as_bool(os.getenv("RANDOM_UI"), True)
 THEME_PICKER_DIAGNOSTICS = _as_bool(os.getenv("WEB_THEME_PICKER_DIAGNOSTICS"), False)
@@ -246,6 +248,8 @@ templates.env.globals.update({
     "enable_pwa": ENABLE_PWA,
     "enable_presets": ENABLE_PRESETS,
     "enable_custom_themes": ENABLE_CUSTOM_THEMES,
+    "enable_partner_mechanics": ENABLE_PARTNER_MECHANICS,
+    "enable_partner_suggestions": ENABLE_PARTNER_SUGGESTIONS,
     "allow_must_haves": ALLOW_MUST_HAVES,
     "default_theme": DEFAULT_THEME,
     "random_modes": RANDOM_MODES,
@@ -834,6 +838,7 @@ async def status_sys():
                 "ENABLE_CUSTOM_THEMES": bool(ENABLE_CUSTOM_THEMES),
                 "ENABLE_PWA": bool(ENABLE_PWA),
                 "ENABLE_PRESETS": bool(ENABLE_PRESETS),
+                "ENABLE_PARTNER_MECHANICS": bool(ENABLE_PARTNER_MECHANICS),
                 "ALLOW_MUST_HAVES": bool(ALLOW_MUST_HAVES),
                 "DEFAULT_THEME": DEFAULT_THEME,
                 "THEME_MATCH_MODE": DEFAULT_THEME_MATCH_MODE,
@@ -907,6 +912,17 @@ async def status_theme_metrics():
         return JSONResponse({"ok": True, "metrics": get_theme_metrics()})
     except Exception as exc:  # pragma: no cover - defensive log
         logging.getLogger("web").warning("Failed to fetch theme metrics: %s", exc, exc_info=True)
+        return JSONResponse({"ok": False, "error": "internal_error"}, status_code=500)
+
+
+@app.get("/status/partner_metrics")
+async def status_partner_metrics():
+    if not SHOW_DIAGNOSTICS:
+        raise HTTPException(status_code=404, detail="Not Found")
+    try:
+        return JSONResponse({"ok": True, "metrics": get_partner_metrics()})
+    except Exception as exc:  # pragma: no cover - defensive log
+        logging.getLogger("web").warning("Failed to fetch partner metrics: %s", exc, exc_info=True)
         return JSONResponse({"ok": False, "error": "internal_error"}, status_code=500)
 
 
@@ -2169,6 +2185,7 @@ from .routes import setup as setup_routes  # noqa: E402
 from .routes import owned as owned_routes  # noqa: E402
 from .routes import themes as themes_routes  # noqa: E402
 from .routes import commanders as commanders_routes  # noqa: E402
+from .routes import partner_suggestions as partner_suggestions_routes  # noqa: E402
 app.include_router(build_routes.router)
 app.include_router(config_routes.router)
 app.include_router(decks_routes.router)
@@ -2176,6 +2193,7 @@ app.include_router(setup_routes.router)
 app.include_router(owned_routes.router)
 app.include_router(themes_routes.router)
 app.include_router(commanders_routes.router)
+app.include_router(partner_suggestions_routes.router)
 
 # Warm validation cache early to reduce first-call latency in tests and dev
 try:

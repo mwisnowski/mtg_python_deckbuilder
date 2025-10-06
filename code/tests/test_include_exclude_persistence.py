@@ -47,7 +47,10 @@ class TestJSONRoundTrip:
             "exclude_cards": ["Chaos Orb", "Shahrazad", "Time Walk"],
             "enforcement_mode": "strict",
             "allow_illegal": True,
-            "fuzzy_matching": False
+            "fuzzy_matching": False,
+            "secondary_commander": "Alena, Kessig Trapper",
+            "background": None,
+            "enable_partner_mechanics": True,
         }
         
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -65,6 +68,9 @@ class TestJSONRoundTrip:
             assert loaded_config["enforcement_mode"] == "strict"
             assert loaded_config["allow_illegal"] is True
             assert loaded_config["fuzzy_matching"] is False
+            assert loaded_config["secondary_commander"] == "Alena, Kessig Trapper"
+            assert loaded_config["background"] is None
+            assert loaded_config["enable_partner_mechanics"] is True
             
             # Create a DeckBuilder with this config and export again
             builder = DeckBuilder()
@@ -75,6 +81,10 @@ class TestJSONRoundTrip:
             builder.allow_illegal = loaded_config["allow_illegal"]
             builder.fuzzy_matching = loaded_config["fuzzy_matching"]
             builder.bracket_level = loaded_config["bracket_level"]
+            builder.partner_feature_enabled = loaded_config["enable_partner_mechanics"]
+            builder.partner_mode = "partner"
+            builder.secondary_commander = loaded_config["secondary_commander"]
+            builder.requested_secondary_commander = loaded_config["secondary_commander"]
             
             # Export the configuration
             exported_path = builder.export_run_config_json(directory=temp_dir, suppress_output=True)
@@ -94,6 +104,9 @@ class TestJSONRoundTrip:
             assert re_exported_config["theme_catalog_version"] is None
             assert re_exported_config["userThemes"] == []
             assert re_exported_config["themeCatalogVersion"] is None
+            assert re_exported_config["secondary_commander"] == "Alena, Kessig Trapper"
+            assert re_exported_config["background"] is None
+            assert re_exported_config["enable_partner_mechanics"] is True
     
     def test_empty_lists_round_trip(self):
         """Test that empty include/exclude lists are handled correctly."""
@@ -121,6 +134,9 @@ class TestJSONRoundTrip:
             assert exported_config["fuzzy_matching"] is True
             assert exported_config["userThemes"] == []
             assert exported_config["themeCatalogVersion"] is None
+            assert exported_config["secondary_commander"] is None
+            assert exported_config["background"] is None
+            assert exported_config["enable_partner_mechanics"] is False
     
     def test_default_values_export(self):
         """Test that default values are exported correctly."""
@@ -145,6 +161,9 @@ class TestJSONRoundTrip:
             assert exported_config["additional_themes"] == []
             assert exported_config["theme_match_mode"] == "permissive"
             assert exported_config["theme_catalog_version"] is None
+            assert exported_config["secondary_commander"] is None
+            assert exported_config["background"] is None
+            assert exported_config["enable_partner_mechanics"] is False
     
     def test_backward_compatibility_no_include_exclude_fields(self):
         """Test that configs without include/exclude fields still work."""
@@ -235,6 +254,24 @@ class TestJSONRoundTrip:
         legacy_hash = hashlib.sha256(json.dumps(legacy_expected, sort_keys=True).encode("utf-8")).hexdigest()
         sanitized_hash = hashlib.sha256(json.dumps(sanitized_payload, sort_keys=True).encode("utf-8")).hexdigest()
         assert sanitized_hash == legacy_hash
+
+    def test_export_background_fields(self):
+        builder = DeckBuilder()
+        builder.commander_name = "Test Commander"
+        builder.partner_feature_enabled = True
+        builder.partner_mode = "background"
+        builder.secondary_commander = "Scion of Halaster"
+        builder.requested_background = "Scion of Halaster"
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            exported_path = builder.export_run_config_json(directory=temp_dir, suppress_output=True)
+
+            with open(exported_path, 'r', encoding='utf-8') as f:
+                exported_config = json.load(f)
+
+        assert exported_config["enable_partner_mechanics"] is True
+        assert exported_config["background"] == "Scion of Halaster"
+        assert exported_config["secondary_commander"] is None
 
 
 if __name__ == "__main__":

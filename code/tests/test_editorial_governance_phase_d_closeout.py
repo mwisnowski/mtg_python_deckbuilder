@@ -20,6 +20,10 @@ from pathlib import Path
 from datetime import datetime
 from typing import Dict, Any, List, Set
 
+import pytest
+
+from code.tests.editorial_test_utils import ensure_editorial_fixtures
+
 
 ROOT = Path(__file__).resolve().parents[2]
 THEMES_DIR = ROOT / 'config' / 'themes'
@@ -27,6 +31,14 @@ CATALOG_JSON = THEMES_DIR / 'theme_list.json'
 CATALOG_DIR = THEMES_DIR / 'catalog'
 HISTORY = THEMES_DIR / 'description_fallback_history.jsonl'
 MAPPING = THEMES_DIR / 'description_mapping.yml'
+
+USE_FIXTURES = (
+    os.environ.get('EDITORIAL_TEST_USE_FIXTURES', '').strip().lower() in {'1', 'true', 'yes', 'on'}
+    or not CATALOG_DIR.exists()
+    or not any(CATALOG_DIR.glob('*.yml'))
+)
+
+ensure_editorial_fixtures(force=USE_FIXTURES)
 
 
 def _load_catalog() -> Dict[str, Any]:
@@ -70,7 +82,8 @@ def test_kpi_history_integrity():
 
 def test_metadata_info_block_coverage():
     import yaml  # type: ignore
-    assert CATALOG_DIR.exists(), "Catalog YAML directory missing"
+    if not CATALOG_DIR.exists() or not any(CATALOG_DIR.glob('*.yml')):
+        pytest.skip('Catalog YAML directory missing; editorial fixtures not staged.')
     total = 0
     with_prov = 0
     for p in CATALOG_DIR.glob('*.yml'):

@@ -153,8 +153,10 @@ def _partner_summary(record: CommanderRecord) -> tuple[str, ...]:
     parts: list[str] = []
     if record.partner_with:
         parts.append("Partner with " + ", ".join(record.partner_with))
-    elif record.is_partner:
+    elif getattr(record, "has_plain_partner", False):
         parts.append("Partner available")
+    elif record.is_partner:
+        parts.append("Partner (restricted)")
     if record.supports_backgrounds:
         parts.append("Choose a Background")
     if record.is_background:

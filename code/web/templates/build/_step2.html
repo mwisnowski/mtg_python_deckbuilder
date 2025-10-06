@@ -1,5 +1,6 @@
 <section>
   {# Step phases removed #}
+  {% set partner_preview_payload = partner_preview if partner_preview else (combined_commander if combined_commander else None) %}
   <div class="two-col two-col-left-rail">
   <aside class="card-preview" data-card-name="{{ commander.name }}">
     {# Strip synergy annotation for Scryfall search and image fuzzy param #}
@@ -8,6 +9,67 @@
   <img src="https://api.scryfall.com/cards/named?fuzzy={{ commander_base|urlencode }}&format=image&version=normal" alt="{{ commander.name }} card image" data-card-name="{{ commander_base }}" />
       </a>
     </aside>
+    {% if partner_preview_payload %}
+    {% set partner_secondary_name = partner_preview_payload.secondary_name %}
+    {% set partner_role_label = partner_preview_payload.secondary_role_label or 'Partner commander' %}
+    {% set partner_theme_tags = partner_preview_payload.theme_tags if partner_preview_payload.theme_tags else [] %}
+    {% set partner_tags_joined = partner_theme_tags|join(', ') %}
+    {% set partner_primary_name = partner_preview_payload.primary_name or commander.name %}
+    {% set partner_image_url = partner_preview_payload.secondary_image_url or partner_preview_payload.image_url %}
+    {% if partner_secondary_name %}
+      {% set partner_name_base = (partner_secondary_name.split(' - Synergy (')[0] if ' - Synergy (' in partner_secondary_name else partner_secondary_name) %}
+    {% else %}
+      {% set partner_name_base = partner_secondary_name %}
+    {% endif %}
+    {% if not partner_image_url and partner_name_base %}
+      {% set partner_image_url = 'https://api.scryfall.com/cards/named?fuzzy=' ~ partner_name_base|urlencode ~ '&format=image&version=normal' %}
+    {% endif %}
+    {% set partner_href = partner_preview_payload.secondary_scryfall_url or partner_preview_payload.scryfall_url %}
+    {% if not partner_href and partner_name_base %}
+      {% set partner_href = 'https://scryfall.com/search?q=' ~ partner_name_base|urlencode %}
+    {% endif %}
+    <div class="commander-card partner-card" tabindex="0"
+      data-card-name="{{ partner_name_base }}"
+      data-original-name="{{ partner_secondary_name }}"
+      data-role="{{ partner_role_label }}"
+      {% if partner_tags_joined %}data-tags="{{ partner_tags_joined }}" data-overlaps="{{ partner_tags_joined }}"{% endif %}>
+      {% if partner_href %}<a href="{{ partner_href }}" target="_blank" rel="noopener">{% endif %}
+      {% if partner_name_base %}
+      <img src="https://api.scryfall.com/cards/named?fuzzy={{ partner_name_base|urlencode }}&format=image&version=normal" alt="{{ (partner_secondary_name or 'Selected card') ~ ' card image' }}"
+           width="320"
+           data-card-name="{{ partner_name_base }}"
+           data-original-name="{{ partner_secondary_name }}"
+           data-role="{{ partner_role_label }}"
+           {% if partner_tags_joined %}data-tags="{{ partner_tags_joined }}" data-overlaps="{{ partner_tags_joined }}"{% endif %}
+           loading="lazy" decoding="async" data-lqip="1"
+           srcset="https://api.scryfall.com/cards/named?fuzzy={{ partner_name_base|urlencode }}&format=image&version=small 160w, https://api.scryfall.com/cards/named?fuzzy={{ partner_name_base|urlencode }}&format=image&version=normal 488w, https://api.scryfall.com/cards/named?fuzzy={{ partner_name_base|urlencode }}&format=image&version=large 672w"
+           sizes="(max-width: 900px) 100vw, 320px" />
+      {% else %}
+      <img src="{{ partner_image_url }}" alt="{{ (partner_secondary_name or 'Selected card') ~ ' card image' }}" loading="lazy" decoding="async" width="320" />
+      {% endif %}
+      {% if partner_href %}</a>{% endif %}
+    </div>
+    <div class="muted partner-label" style="margin-top:.35rem;">
+      {{ partner_role_label }}:
+      <span data-card-name="{{ partner_secondary_name }}"
+            data-original-name="{{ partner_secondary_name }}"
+            data-role="{{ partner_role_label }}"
+            {% if partner_tags_joined %}data-tags="{{ partner_tags_joined }}" data-overlaps="{{ partner_tags_joined }}"{% endif %}>{{ partner_secondary_name }}</span>
+    </div>
+    <div class="muted partner-meta" style="font-size:12px; margin-top:.25rem;">
+      Pairing: {{ partner_primary_name }}{% if partner_secondary_name %} + {{ partner_secondary_name }}{% endif %}
+    </div>
+    {% if partner_preview_payload.color_label %}
+    <div class="muted partner-meta" style="font-size:12px; margin-top:.25rem;">
+      Colors: {{ partner_preview_payload.color_label }}
+    </div>
+    {% endif %}
+    {% if partner_theme_tags %}
+    <div class="muted partner-meta" style="font-size:12px; margin-top:.25rem;">
+      Theme emphasis: {{ partner_theme_tags|join(', ') }}
+    </div>
+    {% endif %}
+    {% endif %}
     <div class="grow" data-skeleton>
   <div hx-get="/build/banner" hx-trigger="load"></div>
 
@@ -40,29 +102,33 @@
           </div>
           <div id="combine-help-tip" class="muted" style="font-size:12px; margin:-.15rem 0 .5rem 0;">Tip: Choose OR for a stronger initial theme pool; switch to AND to tighten synergy.</div>
           <div id="tag-order" class="muted" style="font-size:12px; margin-bottom:.4rem;"></div>
-          {% if recommended and recommended|length %}
-          <div style="display:flex; align-items:center; gap:.5rem; margin:.25rem 0 .35rem 0;">
-            <div class="muted" style="font-size:12px;">Recommended</div>
-            <button type="button" id="reco-why" class="chip" aria-expanded="false" aria-controls="reco-why-panel" title="Why these are recommended?">Why?</button>
+          <div id="tag-reco-block" data-has-reco="{% if recommended and recommended|length %}1{% else %}0{% endif %}" {% if not (recommended and recommended|length) %}style="display:none;"{% endif %}>
+            <div id="tag-reco-header" style="display:flex; align-items:center; gap:.5rem; margin:.25rem 0 .35rem 0;">
+              <div class="muted" style="font-size:12px;">Recommended</div>
+              <button type="button" id="reco-why" class="chip" aria-expanded="false" aria-controls="reco-why-panel" title="Why these are recommended?" {% if not (recommended and recommended|length) %}style="display:none;"{% endif %}>Why?</button>
+            </div>
+            <div id="reco-why-panel" role="group" aria-label="Why Recommended" aria-hidden="true" data-default-reasons='{{ (recommended_reasons or {}) | tojson }}' style="display:none; border:1px solid #e2e2e2; border-radius:8px; padding:.75rem; margin:-.15rem 0 .5rem 0; background:#f7f7f7; box-shadow:0 2px 8px rgba(0,0,0,.06);">
+              <div class="reco-why-title" style="font-size:12px; color:#222; margin-bottom:.5rem;">Why these themes? <span class="muted" style="color:#555;">Signals from oracle text, color identity, and your local build history.</span></div>
+              <ul class="reco-why-list" style="margin:.25rem 0; padding-left:1.1rem;">
+                {% if recommended and recommended|length %}
+                  {% for r in recommended %}
+                    {% set tip = (recommended_reasons[r] if (recommended_reasons is defined and recommended_reasons and recommended_reasons.get(r)) else 'From this commander\'s theme list') %}
+                    <li style="font-size:12px; color:#222; line-height:1.35;"><strong>{{ r }}</strong>: <span style="color:#333;">{{ tip }}</span></li>
+                  {% endfor %}
+                {% endif %}
+              </ul>
+            </div>
+            <div id="tag-reco-list" aria-label="Recommended themes" data-original-tags='{{ (recommended or []) | tojson }}' style="display:flex; gap:.35rem; flex-wrap:wrap; margin-bottom:.5rem;">
+              {% if recommended and recommended|length %}
+                {% for r in recommended %}
+                  {% set is_sel_r = (r == (primary_tag or '')) or (r == (secondary_tag or '')) or (r == (tertiary_tag or '')) %}
+                  {% set tip = (recommended_reasons[r] if (recommended_reasons is defined and recommended_reasons and recommended_reasons.get(r)) else 'Recommended for this commander') %}
+                  <button type="button" class="chip chip-reco{% if is_sel_r %} active{% endif %}" data-tag="{{ r }}" aria-pressed="{% if is_sel_r %}true{% else %}false{% endif %}" title="{{ tip }}">★ {{ r }}</button>
+                {% endfor %}
+              {% endif %}
+              <button type="button" id="reco-select-all" class="chip" title="Add recommended up to 3" {% if not (recommended and recommended|length) %}style="display:none;"{% endif %}>Select all</button>
+            </div>
           </div>
-          <div id="reco-why-panel" role="group" aria-label="Why Recommended" aria-hidden="true" style="display:none; border:1px solid #e2e2e2; border-radius:8px; padding:.75rem; margin:-.15rem 0 .5rem 0; background:#f7f7f7; box-shadow:0 2px 8px rgba(0,0,0,.06);">
-            <div style="font-size:12px; color:#222; margin-bottom:.5rem;">Why these themes? <span class="muted" style="color:#555;">Signals from oracle text, color identity, and your local build history.</span></div>
-            <ul style="margin:.25rem 0; padding-left:1.1rem;">
-              {% for r in recommended %}
-                {% set tip = (recommended_reasons[r] if (recommended_reasons is defined and recommended_reasons and recommended_reasons.get(r)) else 'From this commander\'s theme list') %}
-                <li style="font-size:12px; color:#222; line-height:1.35;"><strong>{{ r }}</strong>: <span style="color:#333;">{{ tip }}</span></li>
-              {% endfor %}
-            </ul>
-          </div>
-      <div id="tag-reco-list" aria-label="Recommended themes" style="display:flex; gap:.35rem; flex-wrap:wrap; margin-bottom:.5rem;">
-            {% for r in recommended %}
-              {% set is_sel_r = (r == (primary_tag or '')) or (r == (secondary_tag or '')) or (r == (tertiary_tag or '')) %}
-        {% set tip = (recommended_reasons[r] if (recommended_reasons is defined and recommended_reasons and recommended_reasons.get(r)) else 'Recommended for this commander') %}
-        <button type="button" class="chip chip-reco{% if is_sel_r %} active{% endif %}" data-tag="{{ r }}" aria-pressed="{% if is_sel_r %}true{% else %}false{% endif %}" title="{{ tip }}">★ {{ r }}</button>
-            {% endfor %}
-            <button type="button" id="reco-select-all" class="chip" title="Add recommended up to 3">Select all</button>
-          </div>
-          {% endif %}
           <div id="tag-chip-list" aria-label="Available themes" style="display:flex; gap:.35rem; flex-wrap:wrap;">
             {% for t in tags %}
               {% set is_sel = (t == (primary_tag or '')) or (t == (secondary_tag or '')) or (t == (tertiary_tag or '')) %}
@@ -73,6 +139,10 @@
             <p>No theme tags available for this commander.</p>
           {% endif %}
         </fieldset>
+
+  {% set partner_id_prefix = 'step2' %}
+  {% set partner_scope = 'step2' %}
+        {% include "build/_partner_controls.html" %}
 
         <fieldset>
           <legend>Budget/Power Bracket</legend>
@@ -108,8 +178,8 @@
 <script>
   (function(){
     var chipHost = document.getElementById('tag-chip-list');
+  var recoBlock = document.getElementById('tag-reco-block');
   var recoHost = document.getElementById('tag-reco-list');
-  var selAll = document.getElementById('reco-select-all');
     var resetBtn = document.getElementById('reset-tags');
     var primary = document.getElementById('primary_tag');
     var secondary = document.getElementById('secondary_tag');
@@ -117,11 +187,51 @@
     var tagMode = document.getElementById('tag_mode');
     var countEl = document.getElementById('tag-count');
   var orderEl = document.getElementById('tag-order');
+  var whyBtn = document.getElementById('reco-why');
+  var whyPanel = document.getElementById('reco-why-panel');
   var commander = '{{ commander.name|e }}';
   var clearPersisted = '{{ (clear_persisted|default(false)) and "1" or "0" }}' === '1';
     if (!chipHost) return;
 
+    function escapeHtml(str){
+      return String(str || "").replace(/[&<>"']/g, function(ch){
+        return ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[ch]);
+      });
+    }
+
+    function getSelectAllBtn(){ return document.getElementById('reco-select-all'); }
+    function getRecoHost(){ return document.getElementById('tag-reco-list'); }
+    function getRecoBlock(){ return document.getElementById('tag-reco-block'); }
+    function getWhyBtn(){ return document.getElementById('reco-why'); }
+    function getWhyPanel(){ return document.getElementById('reco-why-panel'); }
+    function originalRecommendedTags(){
+      var host = getRecoHost();
+      if (!host || !host.dataset.originalTags) return [];
+      try { var parsed = JSON.parse(host.dataset.originalTags); return Array.isArray(parsed) ? parsed : []; }
+      catch(_){ return []; }
+    }
+    function defaultReasonMap(){
+      var panel = getWhyPanel();
+      if (!panel || !panel.getAttribute('data-default-reasons')) return {};
+      try { var parsed = JSON.parse(panel.getAttribute('data-default-reasons')); return parsed && typeof parsed === 'object' ? parsed : {}; }
+      catch(_){ return {}; }
+    }
+
+    var previewScope = 'step2';
+
     function storageKey(suffix){ return 'step2-' + (commander || 'unknown') + '-' + suffix; }
+
+    function readPartnerPreviewTags(){
+      if (typeof window === 'undefined') return [];
+      var store = window.partnerPreviewState;
+      if (!store) return [];
+      var state = store[previewScope];
+      if (!state) return [];
+      if (Array.isArray(state.theme_tags) && state.theme_tags.length){ return state.theme_tags.slice(); }
+      var payload = state.payload;
+      if (payload && Array.isArray(payload.theme_tags)){ return payload.theme_tags.slice(); }
+      return [];
+    }
 
     function getSelected(){
       var arr = [];
@@ -231,89 +341,194 @@
     });
   if (resetBtn) resetBtn.addEventListener('click', function(){ setSelected([]); updateChipsState(); });
 
-    // attach handlers to existing chips
-    Array.prototype.forEach.call(chipHost.querySelectorAll('button.chip'), function(btn){
+    chipHost.addEventListener('click', function(e){
+      var btn = e.target.closest('button.chip');
+      if (!btn || !chipHost.contains(btn)) return;
       var t = btn.dataset.tag || '';
-      btn.addEventListener('click', function(){ toggleTag(t); });
-      btn.addEventListener('keydown', function(e){
-        if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); toggleTag(t); }
-        else if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
-          e.preventDefault();
-          var chips = Array.prototype.slice.call(chipHost.querySelectorAll('button.chip'));
-          var ix = chips.indexOf(e.currentTarget);
-          var next = (e.key === 'ArrowRight') ? chips[Math.min(ix+1, chips.length-1)] : chips[Math.max(ix-1, 0)];
-          if (next) { try { next.focus(); } catch(_){ } }
-        }
-      });
+      if (!t) return;
+      toggleTag(t);
     });
 
-    // attach handlers to recommended chips and select-all
+    chipHost.addEventListener('keydown', function(e){
+      var btn = e.target.closest('button.chip');
+      if (!btn || !chipHost.contains(btn)) return;
+      var t = btn.dataset.tag || '';
+      if (!t) return;
+      if (e.key === ' ' || e.key === 'Enter') {
+        e.preventDefault();
+        toggleTag(t);
+      } else if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+        e.preventDefault();
+        var chips = Array.prototype.slice.call(chipHost.querySelectorAll('button.chip'));
+        var ix = chips.indexOf(btn);
+        if (ix >= 0){
+          var next = (e.key === 'ArrowRight') ? chips[Math.min(ix+1, chips.length-1)] : chips[Math.max(ix-1, 0)];
+          if (next && next.focus){
+            try { next.focus(); } catch(_){ }
+          }
+        }
+      }
+    });
+
     if (recoHost){
-      Array.prototype.forEach.call(recoHost.querySelectorAll('button.chip-reco'), function(btn){
-        var t = btn.dataset.tag || '';
-        btn.addEventListener('click', function(){ toggleTag(t); });
-      });
-      if (selAll){
-        selAll.addEventListener('click', function(){
+      recoHost.addEventListener('click', function(e){
+        var btn = e.target.closest('button');
+        if (!btn || !recoHost.contains(btn)) return;
+        if (btn.id === 'reco-select-all'){
+          e.preventDefault();
           try {
             var sel = getSelected();
             var recs = Array.prototype.slice.call(recoHost.querySelectorAll('button.chip-reco')).map(function(b){ return b.dataset.tag || ''; }).filter(Boolean);
             var combined = sel.slice();
             recs.forEach(function(t){ if (combined.indexOf(t) === -1) combined.push(t); });
-            combined = combined.slice(-3); // keep last 3
+            combined = combined.slice(-3);
             setSelected(combined);
             updateChipsState();
             updateSelectAllState();
           } catch(_){ }
-        });
-      }
-      // Why recommended panel toggle
-      var whyBtn = document.getElementById('reco-why');
-      var whyPanel = document.getElementById('reco-why-panel');
-      function setWhy(open){
-        if (!whyBtn || !whyPanel) return;
-        whyBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
-        whyPanel.style.display = open ? 'block' : 'none';
-        whyPanel.setAttribute('aria-hidden', open ? 'false' : 'true');
-      }
-      if (whyBtn && whyPanel){
-        whyBtn.addEventListener('click', function(e){
-          e.stopPropagation();
+          return;
+        }
+        if (btn.classList.contains('chip-reco')){
+          var t = btn.dataset.tag || '';
+          if (t){ toggleTag(t); }
+        }
+      });
+    }
+
+    function toggleWhyPanel(open){
+      if (!whyBtn || !whyPanel) return;
+      whyBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      whyPanel.style.display = open ? 'block' : 'none';
+      whyPanel.setAttribute('aria-hidden', open ? 'false' : 'true');
+    }
+
+    if (whyBtn && whyPanel){
+      whyBtn.addEventListener('click', function(e){
+        e.stopPropagation();
+        var isOpen = whyBtn.getAttribute('aria-expanded') === 'true';
+        toggleWhyPanel(!isOpen);
+        if (!isOpen){ try { whyPanel.focus && whyPanel.focus(); } catch(_){ } }
+      });
+      document.addEventListener('click', function(e){
+        try {
           var isOpen = whyBtn.getAttribute('aria-expanded') === 'true';
-          setWhy(!isOpen);
-          if (!isOpen){ try { whyPanel.focus && whyPanel.focus(); } catch(_){} }
-        });
-        document.addEventListener('click', function(e){
-          try {
-            var isOpen = whyBtn.getAttribute('aria-expanded') === 'true';
-            if (!isOpen) return;
-            if (whyPanel.contains(e.target) || whyBtn.contains(e.target)) return;
-            setWhy(false);
-          } catch(_){}
-        });
-        document.addEventListener('keydown', function(e){
-          if (e.key === 'Escape'){ setWhy(false); }
-        });
+          if (!isOpen) return;
+          if (whyPanel.contains(e.target) || whyBtn.contains(e.target)) return;
+          toggleWhyPanel(false);
+        } catch(_){ }
+      });
+      document.addEventListener('keydown', function(e){
+        if (e.key === 'Escape'){ toggleWhyPanel(false); }
+      });
+    }
+
+    function refreshWhyPanel(partnerTags){
+      var panel = getWhyPanel();
+      if (!panel) return;
+      var list = panel.querySelector('.reco-why-list');
+      if (!list) return;
+      var reasons = defaultReasonMap();
+      var base = originalRecommendedTags();
+      var seen = new Set();
+      var items = [];
+      base.forEach(function(tag){
+        var value = String(tag || '').trim();
+        if (!value) return;
+        var key = value.toLowerCase();
+        if (seen.has(key)) return;
+        seen.add(key);
+        var tip = reasons && reasons[value] ? reasons[value] : 'From this commander\'s theme list';
+        items.push('<li style="font-size:12px; color:#222; line-height:1.35;"><strong>' + escapeHtml(value) + '</strong>: <span style="color:#333;">' + escapeHtml(tip) + '</span></li>');
+      });
+      (Array.isArray(partnerTags) ? partnerTags : []).forEach(function(tag){
+        var value = String(tag || '').trim();
+        if (!value) return;
+        var key = value.toLowerCase();
+        if (seen.has(key)) return;
+        seen.add(key);
+        items.push('<li style="font-size:12px; color:#222; line-height:1.35;"><strong>' + escapeHtml(value) + '</strong>: <span style="color:#333;">Synergizes with selected partner pairing</span></li>');
+      });
+      list.innerHTML = items.join('');
+      if (!items.length){
+        toggleWhyPanel(false);
       }
+    }
+
+    function updatePartnerRecommendations(tags){
+      var host = getRecoHost();
+      var block = getRecoBlock();
+      if (!host || !block) return;
+      var selectAllBtn = getSelectAllBtn();
+      Array.prototype.slice.call(host.querySelectorAll('button.partner-suggestion')).forEach(function(btn){ btn.remove(); });
+      var unique = [];
+      var seen = new Set();
+      (Array.isArray(tags) ? tags : []).forEach(function(tag){
+        var value = String(tag || '').trim();
+        if (!value) return;
+        var key = value.toLowerCase();
+        if (seen.has(key)) return;
+        seen.add(key);
+        unique.push(value);
+      });
+      var insertBefore = selectAllBtn && selectAllBtn.parentElement === host ? selectAllBtn : null;
+      unique.forEach(function(tag){
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'chip chip-reco partner-suggestion';
+        btn.dataset.tag = tag;
+        btn.setAttribute('aria-pressed', getSelected().indexOf(tag) >= 0 ? 'true' : 'false');
+        btn.title = 'Synergizes with selected partner pairing';
+        btn.textContent = '★ ' + tag;
+        if (insertBefore){ host.insertBefore(btn, insertBefore); }
+        else { host.appendChild(btn); }
+      });
+      var hasAny = host.querySelectorAll('button.chip-reco').length > 0;
+      block.style.display = hasAny ? '' : 'none';
+      block.setAttribute('data-has-reco', hasAny ? '1' : '0');
+      var btnEl = getWhyBtn();
+      if (btnEl){ btnEl.style.display = hasAny ? '' : 'none'; }
+      if (selectAllBtn){ selectAllBtn.style.display = hasAny ? '' : 'none'; }
+      refreshWhyPanel(unique);
+      updateSelectAllState();
+      updateChipsState();
     }
 
     function updateSelectAllState(){
       try {
-        if (!selAll) return;
+        var selAllBtn = getSelectAllBtn();
+        if (!selAllBtn) return;
         var sel = getSelected();
-        var recs = recoHost ? Array.prototype.slice.call(recoHost.querySelectorAll('button.chip-reco')).map(function(b){ return b.dataset.tag || ''; }).filter(Boolean) : [];
+        var host = getRecoHost();
+        var recs = host ? Array.prototype.slice.call(host.querySelectorAll('button.chip-reco')).map(function(b){ return b.dataset.tag || ''; }).filter(Boolean) : [];
         var unselected = recs.filter(function(t){ return sel.indexOf(t) === -1; });
         var atCap = sel.length >= 3;
         var noNew = unselected.length === 0;
         var disable = atCap || noNew;
-        selAll.disabled = disable;
-        selAll.setAttribute('aria-disabled', disable ? 'true' : 'false');
+        selAllBtn.disabled = disable;
+        selAllBtn.setAttribute('aria-disabled', disable ? 'true' : 'false');
         if (disable){
-          selAll.title = atCap ? 'Already have 3 themes selected' : 'All recommended already selected';
+          selAllBtn.title = atCap ? 'Already have 3 themes selected' : 'All recommended already selected';
         } else {
-          selAll.title = 'Add recommended up to 3';
+          selAllBtn.title = 'Add recommended up to 3';
         }
       } catch(_){ }
+    }
+
+    document.addEventListener('partner:preview', function(evt){
+      var detail = (evt && evt.detail) || {};
+      if (detail.scope && detail.scope !== previewScope) return;
+      var tags = Array.isArray(detail.theme_tags) && detail.theme_tags.length ? detail.theme_tags : [];
+      if (!tags.length && detail.payload && Array.isArray(detail.payload.theme_tags)){
+        tags = detail.payload.theme_tags;
+      }
+      updatePartnerRecommendations(tags);
+    });
+
+    var initialPartnerTags = readPartnerPreviewTags();
+    if (initialPartnerTags.length){
+      updatePartnerRecommendations(initialPartnerTags);
+    } else {
+      refreshWhyPanel([]);
     }
 
     // initial: set from template-selected values, then maybe load persisted if none

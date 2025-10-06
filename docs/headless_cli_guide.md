@@ -39,6 +39,7 @@ Set `APP_MODE=cli` to switch from the Web UI to the textual interface. Add `DECK
 - Drop JSON files into `config/` (e.g., `config/deck.json`).
 - Headless mode auto-runs the lone JSON file; if multiple exist, the CLI lists them with summaries (commander + themes).
 - Config fields cover commander, bracket, include/exclude lists, theme preferences, owned-mode toggles, and output naming.
+- Partner mechanics are optional: set `"enable_partner_mechanics": true` and supply either `"secondary_commander"` or `"background"` for combined commander runs.
 
 ## Environment overrides
 When running in containers or automation, environment variables can override JSON settings. Typical variables include:

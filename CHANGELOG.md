@@ -14,6 +14,10 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 
 ## [Unreleased]
 ### Summary
+- _No changes yet._
+
+## [2.5.0] - 2025-10-06
+### Summary
 - Partner suggestion service and API power Step 2 suggestion chips for partner, background, and Doctor pairings when `ENABLE_PARTNER_SUGGESTIONS` is active.
 - Headless runner now honors partner/background inputs behind the `ENABLE_PARTNER_MECHANICS` feature flag and carries regression coverage for dry-run resolution.
 - Web builder Step 2 exposes partner/background pairing when `ENABLE_PARTNER_MECHANICS` is active, including live previews and warnings for invalid combinations.

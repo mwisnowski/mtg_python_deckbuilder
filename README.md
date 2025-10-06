@@ -261,6 +261,11 @@ Most defaults are defined in `docker-compose.yml` and documented in `.env.exampl
 | `OWNED_CARDS_DIR` / `CARD_LIBRARY_DIR` | `/app/owned_cards` | Override owned library path. |
 | `CARD_INDEX_EXTRA_CSV` | _(blank)_ | Inject extra CSV data into the card index. |
 
+### Testing aids
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `EDITORIAL_TEST_USE_FIXTURES` | `0` | When set to `1`, editorial governance tests stage lightweight catalog fixtures instead of requiring generated YAML/JSON data. |
+
 ### Supplemental themes
 | Variable | Default | Purpose |
 | --- | --- | --- |

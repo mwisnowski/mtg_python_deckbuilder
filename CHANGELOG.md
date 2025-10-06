@@ -49,6 +49,7 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 - Setup/tagging auto-refresh now runs the partner suggestion dataset builder so `config/analytics/partner_synergy.json` tracks the latest commander catalog and deck exports without manual scripts.
 - CSV/TXT deck exports append commander metadata columns, text headers include partner mode and colors, and summary sidecars embed serialized combined commander details without breaking legacy consumers.
 - Partner commander previews in Step 2 and the build summary now mirror the primary commander card layout (including hover metadata and high-res art) so both selections share identical interactions.
+- Editorial governance CI stages lightweight catalog fixtures when `EDITORIAL_TEST_USE_FIXTURES=1`, avoiding the need to sync `config/themes/catalog` into source control.
 
 ### Fixed
 - Regenerated `background_cards.csv` and tightened background detection so the picker only lists true Background enchantments, preventing "Choose a Background" commanders from appearing as illegal partners and restoring background availability when the CSV was missing.

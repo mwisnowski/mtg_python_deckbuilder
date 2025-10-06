@@ -1,0 +1,41 @@
+id: treasure-fixture
+display_name: Treasure
+curated_synergies:
+  - Tokens
+  - Artifacts
+  - Sacrifice
+enforced_synergies:
+  - Ramp
+inferred_synergies:
+  - Combo
+synergies:
+  - Tokens
+  - Artifacts
+  - Sacrifice
+  - Ramp
+primary_color: Red
+secondary_color: Black
+notes: Sample fixture catalog entry for CI tests.
+example_commanders:
+  - Prosper, Tome-Bound
+  - Magda, Brazen Outlaw
+  - Kalain, Reclusive Painter
+  - Marionette Master
+  - Jolene, the Plunder Queen
+example_cards:
+  - Dockside Extortionist
+  - Professional Face-Breaker
+  - Brass's Bounty
+  - Revel in Riches
+  - Pitiless Plunderer
+synergy_commanders:
+  - Brudiclad, Telchor Engineer - Synergy (Tokens)
+  - Ruthless Technomancer - Synergy (Sacrifice)
+  - Galazeth Prismari - Synergy (Artifacts)
+deck_archetype: Combo
+popularity_bucket: Common
+description: Generates Treasure tokens as flexible ramp and combo fuel enabling explosive payoff turns.
+editorial_quality: reviewed
+metadata_info:
+  script: build_theme_catalog.py
+  last_backfill: '2024-09-01T00:00:00Z'

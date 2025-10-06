@@ -44,6 +44,8 @@ jobs:
       - name: Run regression & unit tests (editorial subset + enforcement)
         run: |
           python -m pytest -q code/tests/test_theme_description_fallback_regression.py code/tests/test_synergy_pairs_and_provenance.py code/tests/test_editorial_governance_phase_d_closeout.py code/tests/test_theme_editorial_min_examples_enforced.py
+        env:
+          EDITORIAL_TEST_USE_FIXTURES: '1'
       - name: Ratchet proposal (non-blocking)
         run: |
           python code/scripts/ratchet_description_thresholds.py > ratchet_proposal.json || true

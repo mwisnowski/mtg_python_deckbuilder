@@ -56,7 +56,6 @@ def test_synergy_pairs_fallback_and_metadata_info(tmp_path):
             candidate = name
             break
     if not candidate:  # If still none, skip test rather than fail (environmental variability)
-        import pytest
         pytest.skip('No synergy pair seed theme present in catalog output')
     candidate_entry = themes[candidate]
     # Must have at least one synergy (fallback or curated)

@@ -14,6 +14,19 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 
 ## [Unreleased]
 ### Summary
+- _No changes yet_
+
+### Added
+- _None_
+
+### Changed
+- _None_
+
+### Fixed
+- _None_
+
+## [2.5.1] - 2025-10-06
+### Summary
 - Alternative suggestions in the build wizard now surface the replacement card preview immediately and reload the list after a swap.
 
 ### Added

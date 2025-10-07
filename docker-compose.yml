@@ -31,7 +31,7 @@ services:
       # Partner / Background mechanics (feature flag)
       ENABLE_PARTNER_MECHANICS: "1"        # 1=unlock partner/background commander inputs
       ENABLE_PARTNER_SUGGESTIONS: "1"      # 1=enable partner suggestion API/UI (requires dataset)
-  # PARTNER_SUGGESTIONS_DATASET: "/app/config/analytics/partner_synergy.json"  # Optional override path for dataset inside container
+      # PARTNER_SUGGESTIONS_DATASET: "/app/config/analytics/partner_synergy.json"  # Optional override path for dataset inside container
       # Sampling experiments
       # SPLASH_ADAPTIVE: "0"          # 1=enable adaptive splash penalty scaling by commander color count
       # SPLASH_ADAPTIVE_SCALE: "1:1.0,2:1.0,3:1.0,4:0.6,5:0.35"  # override default scaling
@@ -106,7 +106,7 @@ services:
       # WEB_THEME_FILTER_PREWARM: "0"
       WEB_AUTO_ENFORCE: "0"         # 1=auto-run compliance export after builds
       WEB_CUSTOM_EXPORT_BASE: ""    # Optional: custom base dir for deck export artifacts
-      APP_VERSION: "2.5.0"          # Displayed version label (set per release/tag)
+      APP_VERSION: "2.5.1"          # Displayed version label (set per release/tag)
 
       # ------------------------------------------------------------------
       # Misc / Land Selection (Step 7) Environment Tuning

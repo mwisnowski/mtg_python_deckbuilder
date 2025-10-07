@@ -356,8 +356,9 @@
       {% for c in g.list %}
             {% set owned = (owned_set is defined and c.name and (c.name|lower in owned_set)) %}
             {% set is_locked = (locks is defined and (c.name|lower in locks)) %}
-  <div class="card-tile{% if game_changers and (c.name in game_changers) %} game-changer{% endif %}{% if is_locked %} locked{% endif %}"
-    data-card-name="{{ c.name }}" data-role="{{ c.role or c.sub_role or '' }}" data-tags="{{ (c.tags|join(', ')) if c.tags else '' }}" data-tags-slug="{{ (c.tags_slug|join(', ')) if c.tags_slug else '' }}" data-owned="{{ '1' if owned else '0' }}"{% if c.reason %} data-reasons="{{ c.reason|e }}"{% endif %}>
+  <div class="card-tile{% if game_changers and (c.name in game_changers) %} game-changer{% endif %}{% if is_locked %} locked{% endif %}{% if c.must_include %} must-include{% endif %}{% if c.must_exclude %} must-exclude{% endif %}"
+    data-card-name="{{ c.name }}" data-role="{{ c.role or c.sub_role or '' }}" data-tags="{{ (c.tags|join(', ')) if c.tags else '' }}" data-tags-slug="{{ (c.tags_slug|join(', ')) if c.tags_slug else '' }}" data-owned="{{ '1' if owned else '0' }}"{% if c.reason %} data-reasons="{{ c.reason|e }}"{% endif %}
+    data-must-include="{{ '1' if c.must_include else '0' }}" data-must-exclude="{{ '1' if c.must_exclude else '0' }}">
   <div class="img-btn" role="button" tabindex="0" title="Tap or click to view {{ c.name }}" aria-label="View {{ c.name }} details">
                 <img class="card-thumb" src="https://api.scryfall.com/cards/named?fuzzy={{ c.name|urlencode }}&format=image&version=normal" alt="{{ c.name }} image" width="160" data-card-name="{{ c.name }}" loading="lazy" decoding="async" data-lqip="1"
                   srcset="https://api.scryfall.com/cards/named?fuzzy={{ c.name|urlencode }}&format=image&version=small 160w, https://api.scryfall.com/cards/named?fuzzy={{ c.name|urlencode }}&format=image&version=normal 488w, https://api.scryfall.com/cards/named?fuzzy={{ c.name|urlencode }}&format=image&version=large 672w"
@@ -369,15 +370,25 @@
       {% from 'partials/_macros.html' import lock_button %}
       {{ lock_button(c.name, is_locked) }}
     </div>
+    {% if allow_must_haves and show_must_have_buttons %}
+    <div class="must-have-controls" role="group" aria-label="Must have controls">
+      <button type="button" class="btn-chip must-have-btn include" data-toggle="include" data-card-name="{{ c.name }}" data-card-label="{{ c.must_include_label or c.name }}" data-active="{{ '1' if c.must_include else '0' }}" title="Must include forces future reruns to add this card whenever it's legal. Unlike Lock, it re-adds the card if it falls out.">Must include</button>
+      <button type="button" class="btn-chip must-have-btn exclude" data-toggle="exclude" data-card-name="{{ c.name }}" data-card-label="{{ c.must_exclude_label or c.name }}" data-active="{{ '1' if c.must_exclude else '0' }}" title="Must exclude keeps this card out of future reruns before selection. Use it when you never want the builder to pick it again.">Must exclude</button>
+    </div>
+    {% endif %}
               {% if c.reason %}
                 <div style="display:flex; justify-content:center; margin-top:.25rem; gap:.35rem; flex-wrap:wrap;">
                   <button type="button" class="btn-why" aria-expanded="false">Why?</button>
-                  <button type="button" class="btn" hx-get="/build/alternatives" hx-vals='{"name": "{{ c.name }}"}' hx-target="#alts-{{ group_idx }}-{{ loop.index0 }}" hx-swap="innerHTML" title="Suggest alternatives">Alternatives</button>
+                  <button type="button" class="btn" hx-get="/build/alternatives" hx-vals='{"name": "{{ c.name }}"}' hx-target="#alts-{{ group_idx }}-{{ loop.index0 }}" hx-swap="innerHTML" title="Suggest alternatives"
+                    data-hx-cache="1" data-hx-cache-key="alts:{{ c.name|lower }}" data-hx-cache-ttl="20000"
+                    data-hx-prefetch="/build/alternatives?name={{ c.name|urlencode }}">Alternatives</button>
                 </div>
                 <div class="reason" role="region" aria-label="Reason">{{ c.reason }}</div>
               {% else %}
                 <div style="display:flex; justify-content:center; margin-top:.25rem;">
-                  <button type="button" class="btn" hx-get="/build/alternatives" hx-vals='{"name": "{{ c.name }}"}' hx-target="#alts-{{ group_idx }}-{{ loop.index0 }}" hx-swap="innerHTML" title="Suggest alternatives">Alternatives</button>
+                  <button type="button" class="btn" hx-get="/build/alternatives" hx-vals='{"name": "{{ c.name }}"}' hx-target="#alts-{{ group_idx }}-{{ loop.index0 }}" hx-swap="innerHTML" title="Suggest alternatives"
+                    data-hx-cache="1" data-hx-cache-key="alts:{{ c.name|lower }}" data-hx-cache-ttl="20000"
+                    data-hx-prefetch="/build/alternatives?name={{ c.name|urlencode }}">Alternatives</button>
                 </div>
               {% endif %}
               <div id="alts-{{ group_idx }}-{{ loop.index0 }}" class="alts" style="margin-top:.25rem;"></div>
@@ -391,8 +402,9 @@
           {% for c in added_cards %}
           {% set owned = (owned_set is defined and c.name and (c.name|lower in owned_set)) %}
           {% set is_locked = (locks is defined and (c.name|lower in locks)) %}
-    <div class="card-tile{% if game_changers and (c.name in game_changers) %} game-changer{% endif %}{% if is_locked %} locked{% endif %}"
-      data-card-name="{{ c.name }}" data-role="{{ c.role or c.sub_role or '' }}" data-tags="{{ (c.tags|join(', ')) if c.tags else '' }}" data-tags-slug="{{ (c.tags_slug|join(', ')) if c.tags_slug else '' }}" data-owned="{{ '1' if owned else '0' }}"{% if c.reason %} data-reasons="{{ c.reason|e }}"{% endif %}>
+    <div class="card-tile{% if game_changers and (c.name in game_changers) %} game-changer{% endif %}{% if is_locked %} locked{% endif %}{% if c.must_include %} must-include{% endif %}{% if c.must_exclude %} must-exclude{% endif %}"
+      data-card-name="{{ c.name }}" data-role="{{ c.role or c.sub_role or '' }}" data-tags="{{ (c.tags|join(', ')) if c.tags else '' }}" data-tags-slug="{{ (c.tags_slug|join(', ')) if c.tags_slug else '' }}" data-owned="{{ '1' if owned else '0' }}"{% if c.reason %} data-reasons="{{ c.reason|e }}"{% endif %}
+      data-must-include="{{ '1' if c.must_include else '0' }}" data-must-exclude="{{ '1' if c.must_exclude else '0' }}">
   <div class="img-btn" role="button" tabindex="0" title="Tap or click to view {{ c.name }}" aria-label="View {{ c.name }} details">
               <img class="card-thumb" src="https://api.scryfall.com/cards/named?fuzzy={{ c.name|urlencode }}&format=image&version=normal" alt="{{ c.name }} image" width="160" data-card-name="{{ c.name }}" loading="lazy" decoding="async" data-lqip="1"
                 srcset="https://api.scryfall.com/cards/named?fuzzy={{ c.name|urlencode }}&format=image&version=small 160w, https://api.scryfall.com/cards/named?fuzzy={{ c.name|urlencode }}&format=image&version=normal 488w, https://api.scryfall.com/cards/named?fuzzy={{ c.name|urlencode }}&format=image&version=large 672w"
@@ -404,15 +416,25 @@
       {% from 'partials/_macros.html' import lock_button %}
       {{ lock_button(c.name, is_locked) }}
     </div>
+    {% if allow_must_haves and show_must_have_buttons %}
+    <div class="must-have-controls" role="group" aria-label="Must have controls">
+      <button type="button" class="btn-chip must-have-btn include" data-toggle="include" data-card-name="{{ c.name }}" data-card-label="{{ c.must_include_label or c.name }}" data-active="{{ '1' if c.must_include else '0' }}" title="Must include forces future reruns to add this card whenever it's legal. Unlike Lock, it re-adds the card if it falls out.">Must include</button>
+      <button type="button" class="btn-chip must-have-btn exclude" data-toggle="exclude" data-card-name="{{ c.name }}" data-card-label="{{ c.must_exclude_label or c.name }}" data-active="{{ '1' if c.must_exclude else '0' }}" title="Must exclude keeps this card out of future reruns before selection. Use it when you never want the builder to pick it again.">Must exclude</button>
+    </div>
+    {% endif %}
             {% if c.reason %}
               <div style="display:flex; justify-content:center; margin-top:.25rem; gap:.35rem; flex-wrap:wrap;">
                 <button type="button" class="btn-why" aria-expanded="false">Why?</button>
-                <button type="button" class="btn" hx-get="/build/alternatives" hx-vals='{"name": "{{ c.name }}"}' hx-target="#alts-{{ loop.index0 }}" hx-swap="innerHTML" title="Suggest alternatives">Alternatives</button>
+                <button type="button" class="btn" hx-get="/build/alternatives" hx-vals='{"name": "{{ c.name }}"}' hx-target="#alts-{{ loop.index0 }}" hx-swap="innerHTML" title="Suggest alternatives"
+                  data-hx-cache="1" data-hx-cache-key="alts:{{ c.name|lower }}" data-hx-cache-ttl="20000"
+                  data-hx-prefetch="/build/alternatives?name={{ c.name|urlencode }}">Alternatives</button>
               </div>
               <div class="reason" role="region" aria-label="Reason">{{ c.reason }}</div>
             {% else %}
               <div style="display:flex; justify-content:center; margin-top:.25rem;">
-                <button type="button" class="btn" hx-get="/build/alternatives" hx-vals='{"name": "{{ c.name }}"}' hx-target="#alts-{{ loop.index0 }}" hx-swap="innerHTML" title="Suggest alternatives">Alternatives</button>
+                <button type="button" class="btn" hx-get="/build/alternatives" hx-vals='{"name": "{{ c.name }}"}' hx-target="#alts-{{ loop.index0 }}" hx-swap="innerHTML" title="Suggest alternatives"
+                  data-hx-cache="1" data-hx-cache-key="alts:{{ c.name|lower }}" data-hx-cache-ttl="20000"
+                  data-hx-prefetch="/build/alternatives?name={{ c.name|urlencode }}">Alternatives</button>
               </div>
             {% endif %}
             <div id="alts-{{ loop.index0 }}" class="alts" style="margin-top:.25rem;"></div>
@@ -420,7 +442,11 @@
           {% endfor %}
         </div>
       {% endif %}
+  {% if allow_must_haves and show_must_have_buttons %}
+  <div class="muted" style="font-size:12px; margin:.35rem 0 .25rem 0;">Tip: Use the 🔒 Lock button to preserve the current copy in the deck. “Must include” will try to pull the card back in on future reruns, while “Must exclude” blocks the engine from selecting it again. Tap or click the card art to view details without changing the lock state.</div>
+  {% else %}
   <div class="muted" style="font-size:12px; margin:.35rem 0 .25rem 0;">Tip: Use the 🔒 Lock button under each card to keep it across reruns. Tap or click the card art to view details without changing the lock state.</div>
+  {% endif %}
       <div data-empty hidden role="status" aria-live="polite" class="muted" style="margin:.5rem 0 0;">
         No cards match your filters.
       </div>
@@ -435,10 +461,10 @@
 
   <!-- controls now above -->
 
-      {% if status and status.startswith('Build complete') and summary %}
-        <!-- Include/Exclude Summary Panel (M3: Include/Exclude Summary Panel) -->
+      {% if allow_must_haves %}
         {% include "partials/include_exclude_summary.html" %}
-        
+      {% endif %}
+      {% if status and status.startswith('Build complete') and summary %}
         {% include "partials/deck_summary.html" %}
       {% endif %}
     </div>

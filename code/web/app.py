@@ -19,7 +19,8 @@ from contextlib import asynccontextmanager
 from code.deck_builder.summary_telemetry import get_mdfc_metrics, get_partner_metrics, get_theme_metrics
 from tagging.multi_face_merger import load_merge_summary
 from .services.combo_utils import detect_all as _detect_all
-from .services.theme_catalog_loader import prewarm_common_filters  # type: ignore
+from .services.theme_catalog_loader import prewarm_common_filters, load_index  # type: ignore
+from .services.commander_catalog_loader import load_commander_catalog  # type: ignore
 from .services.tasks import get_session, new_sid, set_session_value  # type: ignore
 
 # Resolve template/static dirs relative to this file
@@ -40,6 +41,19 @@ async def _lifespan(app: FastAPI):  # pragma: no cover - simple infra glue
     # Prewarm theme filter cache (guarded internally by env flag)
     try:
         prewarm_common_filters()
+    except Exception:
+        pass
+    # Warm commander + theme catalogs so the first commander catalog request skips disk reads
+    try:
+        load_commander_catalog()
+    except Exception:
+        pass
+    try:
+        load_index()
+    except Exception:
+        pass
+    try:
+        commanders_routes.prewarm_default_page()  # type: ignore[attr-defined]
     except Exception:
         pass
     # Warm preview card index once (updated Phase A: moved to card_index module)
@@ -112,6 +126,7 @@ ENABLE_THEMES = _as_bool(os.getenv("ENABLE_THEMES"), True)
 ENABLE_PWA = _as_bool(os.getenv("ENABLE_PWA"), False)
 ENABLE_PRESETS = _as_bool(os.getenv("ENABLE_PRESETS"), False)
 ALLOW_MUST_HAVES = _as_bool(os.getenv("ALLOW_MUST_HAVES"), True)
+SHOW_MUST_HAVE_BUTTONS = _as_bool(os.getenv("SHOW_MUST_HAVE_BUTTONS"), False)
 ENABLE_CUSTOM_THEMES = _as_bool(os.getenv("ENABLE_CUSTOM_THEMES"), True)
 ENABLE_PARTNER_MECHANICS = _as_bool(os.getenv("ENABLE_PARTNER_MECHANICS"), True)
 ENABLE_PARTNER_SUGGESTIONS = _as_bool(os.getenv("ENABLE_PARTNER_SUGGESTIONS"), True)
@@ -251,6 +266,7 @@ templates.env.globals.update({
     "enable_partner_mechanics": ENABLE_PARTNER_MECHANICS,
     "enable_partner_suggestions": ENABLE_PARTNER_SUGGESTIONS,
     "allow_must_haves": ALLOW_MUST_HAVES,
+    "show_must_have_buttons": SHOW_MUST_HAVE_BUTTONS,
     "default_theme": DEFAULT_THEME,
     "random_modes": RANDOM_MODES,
     "random_ui": RANDOM_UI,
@@ -840,6 +856,7 @@ async def status_sys():
                 "ENABLE_PRESETS": bool(ENABLE_PRESETS),
                 "ENABLE_PARTNER_MECHANICS": bool(ENABLE_PARTNER_MECHANICS),
                 "ALLOW_MUST_HAVES": bool(ALLOW_MUST_HAVES),
+                "SHOW_MUST_HAVE_BUTTONS": bool(SHOW_MUST_HAVE_BUTTONS),
                 "DEFAULT_THEME": DEFAULT_THEME,
                 "THEME_MATCH_MODE": DEFAULT_THEME_MATCH_MODE,
                 "USER_THEME_LIMIT": int(USER_THEME_LIMIT),
@@ -2186,6 +2203,7 @@ from .routes import owned as owned_routes  # noqa: E402
 from .routes import themes as themes_routes  # noqa: E402
 from .routes import commanders as commanders_routes  # noqa: E402
 from .routes import partner_suggestions as partner_suggestions_routes  # noqa: E402
+from .routes import telemetry as telemetry_routes  # noqa: E402
 app.include_router(build_routes.router)
 app.include_router(config_routes.router)
 app.include_router(decks_routes.router)
@@ -2194,6 +2212,7 @@ app.include_router(owned_routes.router)
 app.include_router(themes_routes.router)
 app.include_router(commanders_routes.router)
 app.include_router(partner_suggestions_routes.router)
+app.include_router(telemetry_routes.router)
 
 # Warm validation cache early to reduce first-call latency in tests and dev
 try:

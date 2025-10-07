@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+from collections import OrderedDict
 from dataclasses import dataclass
 from difflib import SequenceMatcher
 from math import ceil
-from typing import Iterable, Mapping, Sequence
+from typing import Dict, Iterable, Mapping, Sequence, Tuple
 from urllib.parse import urlencode
 import re
 
@@ -11,7 +12,7 @@ from fastapi import APIRouter, Query, Request
 from fastapi.responses import HTMLResponse
 
 from ..app import templates
-from ..services.commander_catalog_loader import CommanderRecord, load_commander_catalog
+from ..services.commander_catalog_loader import CommanderCatalog, CommanderRecord, load_commander_catalog
 from ..services.theme_catalog_loader import load_index, slugify
 from ..services.telemetry import log_commander_page_view
 
@@ -89,6 +90,20 @@ class ThemeRecommendation:
     score: float
 
 
+@dataclass(slots=True)
+class CommanderFilterCacheEntry:
+    records: Tuple[CommanderRecord, ...]
+    theme_recommendations: Tuple[ThemeRecommendation, ...]
+    page_views: Dict[int, Tuple[CommanderView, ...]]
+
+
+_FILTER_CACHE_MAX = 48
+_FILTER_CACHE: "OrderedDict[tuple[str, str, str, str], CommanderFilterCacheEntry]" = OrderedDict()
+_THEME_OPTIONS_CACHE: Dict[str, Tuple[str, ...]] = {}
+_COLOR_OPTIONS_CACHE: Dict[str, Tuple[Tuple[str, str], ...]] = {}
+_LAST_SEEN_ETAG: str | None = None
+
+
 def _is_htmx(request: Request) -> bool:
     return request.headers.get("HX-Request", "").lower() == "true"
 
@@ -140,6 +155,74 @@ def _color_label_from_code(code: str) -> str:
     parts = [_COLOR_NAMES.get(ch, ch) for ch in code]
     pretty = " / ".join(parts)
     return f"{pretty} ({code})"
+
+
+def _cache_key_for_filters(etag: str, query: str | None, theme_query: str | None, color: str | None) -> tuple[str, str, str, str]:
+    def _normalize(text: str | None) -> str:
+        return (text or "").strip().lower()
+
+    return (
+        etag,
+        _normalize(query),
+        _normalize(theme_query),
+        (color or "").strip().upper(),
+    )
+
+
+def _ensure_catalog_caches(etag: str) -> None:
+    global _LAST_SEEN_ETAG
+    if _LAST_SEEN_ETAG == etag:
+        return
+    _LAST_SEEN_ETAG = etag
+    _FILTER_CACHE.clear()
+    _THEME_OPTIONS_CACHE.clear()
+    _COLOR_OPTIONS_CACHE.clear()
+
+
+def _theme_options_for_catalog(entries: Sequence[CommanderRecord], *, etag: str) -> Tuple[str, ...]:
+    cached = _THEME_OPTIONS_CACHE.get(etag)
+    if cached is not None:
+        return cached
+    options = _collect_theme_names(entries)
+    result = tuple(options)
+    _THEME_OPTIONS_CACHE[etag] = result
+    return result
+
+
+def _color_options_for_catalog(entries: Sequence[CommanderRecord], *, etag: str) -> Tuple[Tuple[str, str], ...]:
+    cached = _COLOR_OPTIONS_CACHE.get(etag)
+    if cached is not None:
+        return cached
+    options = tuple(_build_color_options(entries))
+    _COLOR_OPTIONS_CACHE[etag] = options
+    return options
+
+
+def _get_cached_filter_entry(
+    catalog: CommanderCatalog,
+    query: str | None,
+    theme_query: str | None,
+    canon_color: str | None,
+    theme_options: Sequence[str],
+) -> CommanderFilterCacheEntry:
+    key = _cache_key_for_filters(catalog.etag, query, theme_query, canon_color)
+    cached = _FILTER_CACHE.get(key)
+    if cached is not None:
+        _FILTER_CACHE.move_to_end(key)
+        return cached
+
+    filtered = tuple(_filter_commanders(catalog.entries, query, canon_color, theme_query))
+    recommendations = tuple(_build_theme_recommendations(theme_query, theme_options))
+    entry = CommanderFilterCacheEntry(
+        records=filtered,
+        theme_recommendations=recommendations,
+        page_views={},
+    )
+    _FILTER_CACHE[key] = entry
+    _FILTER_CACHE.move_to_end(key)
+    if len(_FILTER_CACHE) > _FILTER_CACHE_MAX:
+        _FILTER_CACHE.popitem(last=False)
+    return entry
 
 
 def _color_aria_label(record: CommanderRecord) -> str:
@@ -351,13 +434,19 @@ def _build_theme_recommendations(theme_query: str | None, theme_names: Sequence[
     return tuple(filtered[:_THEME_RECOMMENDATION_LIMIT])
 
 
-def _filter_commanders(records: Iterable[CommanderRecord], q: str | None, color: str | None, theme: str | None) -> list[CommanderRecord]:
-    items = list(records)
+def _filter_commanders(records: Iterable[CommanderRecord], q: str | None, color: str | None, theme: str | None) -> Sequence[CommanderRecord]:
+    items: Sequence[CommanderRecord]
+    if isinstance(records, Sequence):
+        items = records
+    else:
+        items = tuple(records)
+
     color_code = _canon_color_code(color)
     if color_code:
         items = [rec for rec in items if _record_color_code(rec) == color_code]
+
     normalized_query = _normalize_search_text(q)
-    if normalized_query:
+    if normalized_query and items:
         filtered: list[tuple[float, CommanderRecord]] = []
         for rec in items:
             score = _commander_name_match_score(normalized_query, rec)
@@ -368,6 +457,7 @@ def _filter_commanders(records: Iterable[CommanderRecord], q: str | None, color:
             items = [rec for _, rec in filtered]
         else:
             items = []
+
     normalized_theme_query = _normalize_search_text(theme)
     if normalized_theme_query and items:
         theme_tokens = tuple(normalized_theme_query.split())
@@ -381,7 +471,10 @@ def _filter_commanders(records: Iterable[CommanderRecord], q: str | None, color:
             items = [rec for _, rec in filtered_by_theme]
         else:
             items = []
-    return items
+
+    if isinstance(items, list):
+        return items
+    return tuple(items)
 
 
 def _build_color_options(records: Sequence[CommanderRecord]) -> list[tuple[str, str]]:
@@ -441,27 +534,69 @@ async def commanders_index(
     color: str | None = Query(default=None, alias="color"),
     page: int = Query(default=1, ge=1),
 ) -> HTMLResponse:
+    catalog: CommanderCatalog | None = None
     entries: Sequence[CommanderRecord] = ()
     error: str | None = None
     try:
         catalog = load_commander_catalog()
         entries = catalog.entries
+        _ensure_catalog_caches(catalog.etag)
     except FileNotFoundError:
         error = "Commander catalog is unavailable. Ensure csv_files/commander_cards.csv exists."
-    theme_names = _collect_theme_names(entries)
+    except Exception:
+        error = "Commander catalog failed to load. Check server logs."
+
     theme_query = (theme or "").strip()
-    filtered = _filter_commanders(entries, q, color, theme_query)
-    theme_recommendations = _build_theme_recommendations(theme_query, theme_names)
-    total_filtered = len(filtered)
-    page_count = max(1, ceil(total_filtered / PAGE_SIZE)) if total_filtered else 1
-    if page > page_count:
-        page = page_count
-    start_index = (page - 1) * PAGE_SIZE
-    end_index = start_index + PAGE_SIZE
-    page_records = filtered[start_index:end_index]
-    theme_info = _build_theme_info(page_records)
-    views = [_record_to_view(rec, theme_info) for rec in page_records]
-    color_options = _build_color_options(entries) if entries else []
+    query_value = (q or "").strip()
+    canon_color = _canon_color_code(color)
+
+    theme_names: Tuple[str, ...] = ()
+    color_options: Tuple[Tuple[str, str], ...] | list[Tuple[str, str]] = ()
+    filter_entry: CommanderFilterCacheEntry | None = None
+    total_filtered = 0
+    page_count = 1
+    page_records: Sequence[CommanderRecord] = ()
+    views: Tuple[CommanderView, ...] = ()
+    theme_recommendations: Tuple[ThemeRecommendation, ...] = ()
+
+    if catalog is not None:
+        theme_names = _theme_options_for_catalog(entries, etag=catalog.etag)
+        color_options = _color_options_for_catalog(entries, etag=catalog.etag)
+        filter_entry = _get_cached_filter_entry(
+            catalog,
+            query_value,
+            theme_query,
+            canon_color,
+            theme_names,
+        )
+        total_filtered = len(filter_entry.records)
+        page_count = max(1, ceil(total_filtered / PAGE_SIZE)) if total_filtered else 1
+        if page > page_count:
+            page = page_count
+        if page < 1:
+            page = 1
+        start_index = (page - 1) * PAGE_SIZE
+        end_index = start_index + PAGE_SIZE
+        page_records = filter_entry.records[start_index:end_index]
+        cached_views = filter_entry.page_views.get(page) if filter_entry else None
+        if cached_views is None:
+            theme_info = _build_theme_info(page_records)
+            computed_views = tuple(_record_to_view(rec, theme_info) for rec in page_records)
+            if filter_entry is not None:
+                filter_entry.page_views[page] = computed_views
+                if len(filter_entry.page_views) > 6:
+                    oldest_key = next(iter(filter_entry.page_views))
+                    if oldest_key != page:
+                        filter_entry.page_views.pop(oldest_key, None)
+            views = computed_views
+        else:
+            views = cached_views
+        theme_recommendations = filter_entry.theme_recommendations
+    else:
+        page = 1
+        start_index = 0
+        end_index = 0
+
     page_start = start_index + 1 if total_filtered else 0
     page_end = start_index + len(page_records)
     has_prev = page > 1
@@ -494,12 +629,12 @@ async def commanders_index(
     context = {
         "request": request,
         "commanders": views,
-        "query": q or "",
-    "theme_query": theme_query,
+        "query": query_value,
+        "theme_query": theme_query,
         "color": canon_color,
-        "color_options": color_options,
-    "theme_options": theme_names,
-    "theme_recommendations": theme_recommendations,
+        "color_options": list(color_options) if color_options else [],
+        "theme_options": theme_names,
+        "theme_recommendations": theme_recommendations,
         "total_count": len(entries),
         "result_count": len(views),
         "result_total": total_filtered,
@@ -540,3 +675,23 @@ async def commanders_index_alias(
     page: int = Query(default=1, ge=1),
 ) -> HTMLResponse:
     return await commanders_index(request, q=q, theme=theme, color=color, page=page)
+
+
+def prewarm_default_page() -> None:
+    """Prime the commander catalog caches for the default (no-filter) view."""
+
+    try:
+        catalog = load_commander_catalog()
+    except Exception:
+        return
+
+    try:
+        _ensure_catalog_caches(catalog.etag)
+        theme_options = _theme_options_for_catalog(catalog.entries, etag=catalog.etag)
+        entry = _get_cached_filter_entry(catalog, "", "", "", theme_options)
+        if 1 not in entry.page_views:
+            page_records = entry.records[:PAGE_SIZE]
+            theme_info = _build_theme_info(page_records)
+            entry.page_views[1] = tuple(_record_to_view(rec, theme_info) for rec in page_records)
+    except Exception:
+        return

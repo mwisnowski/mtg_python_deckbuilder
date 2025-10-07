@@ -45,30 +45,45 @@
     <button type="submit" class="btn filter-submit">Apply</button>
   </form>
 
-  <div id="commander-loading" class="commander-loading" role="status" aria-live="polite">
-    <span class="sr-only">Loading commanders…</span>
-    <div class="commander-skeleton-list" aria-hidden="true">
-      {% for i in range(3) %}
-      <article class="commander-skeleton">
-        <div class="skeleton-thumb shimmer"></div>
-        <div class="skeleton-main">
-          <div class="skeleton-line skeleton-title shimmer"></div>
-          <div class="skeleton-line skeleton-meta shimmer"></div>
-          <div class="skeleton-chip-row">
-            <span class="skeleton-chip shimmer"></span>
-            <span class="skeleton-chip shimmer"></span>
-            <span class="skeleton-chip shimmer"></span>
+  <div
+    id="commander-results"
+    data-skeleton
+    data-skeleton-label=""
+    data-skeleton-delay="420"
+    data-skeleton-overlay="false"
+    aria-live="polite"
+  >
+    <div
+      id="commander-loading"
+      class="commander-loading"
+      role="status"
+      aria-live="polite"
+      data-skeleton-placeholder
+    >
+      <span class="sr-only">Loading commanders…</span>
+      <div class="commander-skeleton-list" aria-hidden="true">
+        {% for i in range(3) %}
+        <article class="commander-skeleton">
+          <div class="skeleton-thumb shimmer"></div>
+          <div class="skeleton-main">
+            <div class="skeleton-line skeleton-title shimmer"></div>
+            <div class="skeleton-line skeleton-meta shimmer"></div>
+            <div class="skeleton-chip-row">
+              <span class="skeleton-chip shimmer"></span>
+              <span class="skeleton-chip shimmer"></span>
+              <span class="skeleton-chip shimmer"></span>
+            </div>
+            <div class="skeleton-line skeleton-text shimmer"></div>
           </div>
-          <div class="skeleton-line skeleton-text shimmer"></div>
-        </div>
-        <div class="skeleton-cta shimmer"></div>
-      </article>
-      {% endfor %}
+          <div class="skeleton-cta shimmer"></div>
+        </article>
+        {% endfor %}
+      </div>
     </div>
-  </div>
 
-  <div id="commander-results">
-    {% include "commanders/list_fragment.html" %}
+    <div class="commander-results-swap" data-skeleton-content>
+      {% include "commanders/list_fragment.html" %}
+    </div>
   </div>
 </section>
 
@@ -93,6 +108,11 @@
   .commander-row { display:flex; gap:1rem; padding:1rem; border:1px solid var(--border); border-radius:14px; background:var(--panel); align-items:stretch; }
   .commander-thumb { width:160px; flex:0 0 auto; position:relative; }
   .commander-thumb img { width:160px; height:auto; border-radius:10px; border:1px solid var(--border); background:#0b0d12; display:block; }
+  .commander-thumb-img.is-placeholder { animation: commander-thumb-pulse 1.2s ease-in-out infinite alternate; }
+  @keyframes commander-thumb-pulse {
+    from { filter:brightness(0.45); }
+    to { filter:brightness(0.65); }
+  }
   .commander-main { flex:1 1 auto; display:flex; flex-direction:column; gap:.6rem; min-width:0; }
   .commander-header { display:flex; flex-wrap:wrap; align-items:center; gap:.5rem .75rem; }
   .commander-name { margin:0; font-size:1.25rem; }
@@ -121,8 +141,8 @@
   .theme-suggestion-chip:hover { background:rgba(94,106,136,.28); border-color:rgba(148,163,184,.45); transform:translateY(-1px); }
   .theme-suggestion-chip:focus-visible { outline:2px solid var(--ring); outline-offset:2px; }
 
-  .commander-loading { display:none; margin-top:1rem; }
-  .commander-loading.htmx-request { display:block; }
+  .commander-loading { margin-top:1rem; gap:1rem; }
+  .commander-results-swap { display:flex; flex-direction:column; }
   .commander-skeleton-list { display:flex; flex-direction:column; gap:1rem; }
   .commander-skeleton { display:flex; gap:1rem; padding:1rem; border:1px solid var(--border); border-radius:14px; background:var(--panel); align-items:stretch; }
   .skeleton-thumb { width:160px; height:220px; border-radius:10px; }

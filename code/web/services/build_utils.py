@@ -5,7 +5,48 @@ from fastapi import Request
 from ..services import owned_store
 from . import orchestrator as orch
 from deck_builder import builder_constants as bc
-from .. import app as app_module
+
+
+_TRUE_SET = {"1", "true", "yes", "on", "y", "t"}
+_FALSE_SET = {"0", "false", "no", "off", "n", "f"}
+
+
+def _coerce_bool(value: object, default: bool) -> bool:
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return default
+    if isinstance(value, str):
+        token = value.strip().lower()
+        if not token:
+            return default
+        if token in _TRUE_SET:
+            return True
+        if token in _FALSE_SET:
+            return False
+    try:
+        return bool(value)
+    except Exception:
+        return default
+
+
+def _app_bool(name: str, default: bool = False) -> bool:
+    import os
+    import sys
+
+    env_val = os.getenv(name)
+    if env_val is not None:
+        return _coerce_bool(env_val, default)
+
+    app_module = sys.modules.get("code.web.app")
+    if app_module is not None:
+        try:
+            if hasattr(app_module, name):
+                return _coerce_bool(getattr(app_module, name), default)
+        except Exception:
+            return default
+
+    return default
 
 
 def step5_base_ctx(request: Request, sess: dict, *, include_name: bool = True, include_locks: bool = True) -> Dict[str, Any]:
@@ -14,6 +55,8 @@ def step5_base_ctx(request: Request, sess: dict, *, include_name: bool = True, i
     Includes commander/tags/bracket/values, ownership flags, owned_set, locks, replace_mode,
     combo preferences, and static game_changers. Caller can layer run-specific results.
     """
+    include_cards = list(sess.get("include_cards", []) or [])
+    exclude_cards = list(sess.get("exclude_cards", []) or [])
     ctx: Dict[str, Any] = {
         "request": request,
         "commander": sess.get("commander"),
@@ -22,25 +65,36 @@ def step5_base_ctx(request: Request, sess: dict, *, include_name: bool = True, i
         "values": sess.get("ideals", orch.ideal_defaults()),
         "owned_only": bool(sess.get("use_owned_only")),
         "prefer_owned": bool(sess.get("prefer_owned")),
-        "partner_enabled": bool(sess.get("partner_enabled") and app_module.ENABLE_PARTNER_MECHANICS),
+        "partner_enabled": bool(sess.get("partner_enabled")) and _app_bool("ENABLE_PARTNER_MECHANICS", True),
         "secondary_commander": sess.get("secondary_commander"),
         "background": sess.get("background"),
         "partner_mode": sess.get("partner_mode"),
         "partner_warnings": list(sess.get("partner_warnings", []) or []),
         "combined_commander": sess.get("combined_commander"),
         "partner_auto_note": sess.get("partner_auto_note"),
-    "owned_set": owned_set(),
+        "owned_set": owned_set(),
         "game_changers": bc.GAME_CHANGERS,
         "replace_mode": bool(sess.get("replace_mode", True)),
         "prefer_combos": bool(sess.get("prefer_combos")),
         "combo_target_count": int(sess.get("combo_target_count", 2)),
         "combo_balance": str(sess.get("combo_balance", "mix")),
         "swap_mdfc_basics": bool(sess.get("swap_mdfc_basics")),
+        "allow_must_haves": _app_bool("ALLOW_MUST_HAVES", True),
+        "show_must_have_buttons": _app_bool("SHOW_MUST_HAVE_BUTTONS", False),
+        "include_cards": include_cards,
+        "exclude_cards": exclude_cards,
     }
     if include_name:
         ctx["name"] = sess.get("custom_export_base")
     if include_locks:
         ctx["locks"] = list(sess.get("locks", []))
+    ctx["must_have_state"] = {
+        "includes": include_cards,
+        "excludes": exclude_cards,
+        "enforcement_mode": (sess.get("enforcement_mode") or "warn"),
+        "allow_illegal": bool(sess.get("allow_illegal")),
+        "fuzzy_matching": bool(sess.get("fuzzy_matching", True)),
+    }
     return ctx
 
 
@@ -77,7 +131,7 @@ def start_ctx_from_session(sess: dict, *, set_on_session: bool = True) -> Dict[s
     use_owned = bool(sess.get("use_owned_only"))
     prefer = bool(sess.get("prefer_owned"))
     owned_names_list = owned_names() if (use_owned or prefer) else None
-    partner_enabled = bool(sess.get("partner_enabled")) and app_module.ENABLE_PARTNER_MECHANICS
+    partner_enabled = bool(sess.get("partner_enabled")) and _app_bool("ENABLE_PARTNER_MECHANICS", True)
     secondary_commander = sess.get("secondary_commander") if partner_enabled else None
     background_choice = sess.get("background") if partner_enabled else None
     ctx = orch.start_build_ctx(
@@ -311,12 +365,42 @@ def step5_ctx_from_result(
     """
     base = step5_base_ctx(request, sess, include_name=include_name, include_locks=include_locks)
     done = bool(res.get("done"))
+    include_lower = {str(name).strip().lower(): str(name) for name in (sess.get("include_cards") or []) if str(name).strip()}
+    exclude_lower = {str(name).strip().lower(): str(name) for name in (sess.get("exclude_cards") or []) if str(name).strip()}
+
+    raw_added = list(res.get("added_cards", []) or [])
+    normalized_added: list[dict[str, Any]] = []
+    for item in raw_added:
+        if isinstance(item, dict):
+            entry: dict[str, Any] = dict(item)
+        else:
+            entry = {}
+            try:
+                entry.update(vars(item))  # type: ignore[arg-type]
+            except Exception:
+                pass
+            # Preserve common attributes when vars() empty
+            for attr in ("name", "role", "sub_role", "tags", "tags_slug", "reason", "count"):
+                if attr not in entry and hasattr(item, attr):
+                    try:
+                        entry[attr] = getattr(item, attr)
+                    except Exception:
+                        continue
+        name_val = str(entry.get("name") or "").strip()
+        key = name_val.lower()
+        entry["name"] = name_val
+        entry["must_include"] = key in include_lower
+        entry["must_exclude"] = key in exclude_lower
+        entry["must_include_label"] = include_lower.get(key)
+        entry["must_exclude_label"] = exclude_lower.get(key)
+        normalized_added.append(entry)
+
     ctx: Dict[str, Any] = {
         **base,
         "status": status_text,
         "stage_label": res.get("label"),
         "log": res.get("log_delta", ""),
-        "added_cards": res.get("added_cards", []),
+        "added_cards": normalized_added,
         "i": res.get("idx"),
         "n": res.get("total"),
         "csv_path": res.get("csv_path") if done else None,

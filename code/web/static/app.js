@@ -57,6 +57,36 @@
   }
   window.toastHTML = toastHTML;
 
+  var telemetryEndpoint = (function(){
+    if (typeof window.__telemetryEndpoint === 'string' && window.__telemetryEndpoint.trim()){
+      return window.__telemetryEndpoint.trim();
+    }
+    return '/telemetry/events';
+  })();
+  var telemetry = {
+    send: function(eventName, data){
+      if (!telemetryEndpoint || !eventName) return;
+      var payload;
+      try {
+        payload = JSON.stringify({ event: eventName, data: data || {}, ts: Date.now() });
+      } catch(_){ return; }
+      try {
+        if (navigator.sendBeacon){
+          var blob = new Blob([payload], { type: 'application/json' });
+          navigator.sendBeacon(telemetryEndpoint, blob);
+        } else if (window.fetch){
+          fetch(telemetryEndpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: payload,
+            keepalive: true,
+          }).catch(function(){ /* noop */ });
+        }
+      } catch(_){ }
+    }
+  };
+  window.appTelemetry = telemetry;
+
   // Global HTMX error handling => toast
   document.addEventListener('htmx:responseError', function(e){
     var detail = e.detail || {}; var xhr = detail.xhr || {};
@@ -197,14 +227,252 @@
     hideSkeletons(target);
   });
 
+  // Commander catalog image lazy loader
+  (function(){
+    var PLACEHOLDER_PIXEL = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';
+    var observer = null;
+    var supportsIO = 'IntersectionObserver' in window;
+
+    function ensureObserver(){
+      if (observer || !supportsIO) return observer;
+      observer = new IntersectionObserver(function(entries){
+        entries.forEach(function(entry){
+          if (entry.isIntersecting || entry.intersectionRatio > 0){
+            var img = entry.target;
+            load(img);
+            if (observer) observer.unobserve(img);
+          }
+        });
+      }, { rootMargin: '160px 0px', threshold: 0.05 });
+      return observer;
+    }
+
+    function load(img){
+      if (!img || img.__lazyLoaded) return;
+      var src = img.getAttribute('data-lazy-src');
+      if (src){ img.setAttribute('src', src); }
+      var srcset = img.getAttribute('data-lazy-srcset');
+      if (srcset){ img.setAttribute('srcset', srcset); }
+      var sizes = img.getAttribute('data-lazy-sizes');
+      if (sizes){ img.setAttribute('sizes', sizes); }
+      img.classList.remove('is-placeholder');
+      img.removeAttribute('data-lazy-image');
+      img.removeAttribute('data-lazy-src');
+      img.removeAttribute('data-lazy-srcset');
+      img.removeAttribute('data-lazy-sizes');
+      img.__lazyLoaded = true;
+    }
+
+    function prime(img){
+      if (!img || img.__lazyPrimed) return;
+      var desired = img.getAttribute('data-lazy-src');
+      if (!desired) return;
+      img.__lazyPrimed = true;
+      var placeholder = img.getAttribute('data-lazy-placeholder') || PLACEHOLDER_PIXEL;
+      img.setAttribute('loading', 'lazy');
+      img.setAttribute('decoding', 'async');
+      img.classList.add('is-placeholder');
+      img.removeAttribute('srcset');
+      img.removeAttribute('sizes');
+      img.setAttribute('src', placeholder);
+      if (supportsIO){
+        ensureObserver().observe(img);
+      } else {
+        var loader = window.requestIdleCallback || window.requestAnimationFrame || function(cb){ return setTimeout(cb, 0); };
+        loader(function(){ load(img); });
+      }
+    }
+
+    function collect(scope){
+      if (!scope) scope = document;
+      if (scope === document){
+        return Array.prototype.slice.call(document.querySelectorAll('[data-lazy-image]'));
+      }
+      if (scope.matches && scope.hasAttribute && scope.hasAttribute('data-lazy-image')){
+        return [scope];
+      }
+      if (scope.querySelectorAll){
+        return Array.prototype.slice.call(scope.querySelectorAll('[data-lazy-image]'));
+      }
+      return [];
+    }
+
+    function process(scope){
+      collect(scope).forEach(function(img){
+        if (img.__lazyLoaded) return;
+        prime(img);
+      });
+    }
+
+    if (document.readyState === 'loading'){
+      document.addEventListener('DOMContentLoaded', function(){ process(document); });
+    } else {
+      process(document);
+    }
+
+    document.addEventListener('htmx:afterSwap', function(evt){
+      var target = evt && evt.detail ? evt.detail.target : null;
+      process(target || document);
+    });
+  })();
+
+  var htmxCache = (function(){
+    var store = new Map();
+    function ttlFor(elt){
+      var raw = parseInt((elt && elt.getAttribute && elt.getAttribute('data-hx-cache-ttl')) || '', 10);
+      if (isNaN(raw) || raw <= 0){ return 30000; }
+      return Math.max(1000, raw);
+    }
+    function buildKey(detail, elt){
+      if (!detail) detail = {};
+      if (elt && elt.getAttribute){
+        var explicit = elt.getAttribute('data-hx-cache-key');
+        if (explicit && explicit.trim()){ return explicit.trim(); }
+      }
+      var verb = (detail.verb || 'GET').toUpperCase();
+      var path = detail.path || '';
+      var params = detail.parameters && Object.keys(detail.parameters).length ? JSON.stringify(detail.parameters) : '';
+      return verb + ' ' + path + ' ' + params;
+    }
+    function set(key, html, ttl, meta){
+      if (!key || typeof html !== 'string') return;
+      store.set(key, {
+        key: key,
+        html: html,
+        expires: Date.now() + (ttl || 30000),
+        meta: meta || {},
+      });
+    }
+    function get(key){
+      if (!key) return null;
+      var entry = store.get(key);
+      if (!entry) return null;
+      if (entry.expires && entry.expires <= Date.now()){
+        store.delete(key);
+        return null;
+      }
+      return entry;
+    }
+    function applyCached(elt, detail, entry){
+      if (!entry) return;
+      var target = detail && detail.target ? detail.target : elt;
+      if (!target) return;
+      dispatchHtmx(target, 'htmx:beforeSwap', { elt: elt, target: target, cache: true, cacheKey: entry.key });
+      var swapSpec = '';
+      try { swapSpec = (elt && elt.getAttribute && elt.getAttribute('hx-swap')) || ''; } catch(_){ }
+      swapSpec = (swapSpec || 'innerHTML').toLowerCase();
+      if (swapSpec.indexOf('outer') === 0){
+        if (target.outerHTML !== undefined){
+          target.outerHTML = entry.html;
+        }
+      } else if (target.innerHTML !== undefined){
+        target.innerHTML = entry.html;
+      }
+      if (window.htmx && typeof window.htmx.process === 'function'){
+        window.htmx.process(target);
+      }
+      dispatchHtmx(target, 'htmx:afterSwap', { elt: elt, target: target, cache: true, cacheKey: entry.key });
+      dispatchHtmx(target, 'htmx:afterRequest', { elt: elt, target: target, cache: true, cacheKey: entry.key });
+    }
+    function prefetch(url, opts){
+      if (!url) return;
+      opts = opts || {};
+      var key = opts.key || ('GET ' + url);
+      if (get(key)) return;
+      try {
+        fetch(url, {
+          headers: { 'HX-Request': 'true', 'Accept': 'text/html' },
+          cache: 'no-store',
+        }).then(function(resp){
+          if (!resp.ok) throw new Error('prefetch failed');
+          return resp.text();
+        }).then(function(html){
+          set(key, html, opts.ttl || opts.cacheTtl || 30000, { url: url, prefetch: true });
+          telemetry.send('htmx.cache.prefetch', { key: key, url: url });
+        }).catch(function(){ /* noop */ });
+      } catch(_){ }
+    }
+    return {
+      set: set,
+      get: get,
+      apply: applyCached,
+      buildKey: buildKey,
+      ttlFor: ttlFor,
+      prefetch: prefetch,
+    };
+  })();
+  window.htmxCache = htmxCache;
+
+  document.addEventListener('htmx:configRequest', function(e){
+    var detail = e && e.detail ? e.detail : {};
+    var elt = detail.elt;
+    if (!elt || !elt.getAttribute || !elt.hasAttribute('data-hx-cache')) return;
+    var verb = (detail.verb || 'GET').toUpperCase();
+    if (verb !== 'GET') return;
+    var key = htmxCache.buildKey(detail, elt);
+    elt.__hxCacheKey = key;
+    elt.__hxCacheTTL = htmxCache.ttlFor(elt);
+    detail.headers = detail.headers || {};
+    try { detail.headers['X-HTMX-Cache-Key'] = key; } catch(_){ }
+  });
+
+  document.addEventListener('htmx:beforeRequest', function(e){
+    var detail = e && e.detail ? e.detail : {};
+    var elt = detail.elt;
+    if (!elt || !elt.__hxCacheKey) return;
+    var entry = htmxCache.get(elt.__hxCacheKey);
+    if (entry){
+      telemetry.send('htmx.cache.hit', { key: elt.__hxCacheKey, path: detail.path || '' });
+      e.preventDefault();
+      htmxCache.apply(elt, detail, entry);
+    } else {
+      telemetry.send('htmx.cache.miss', { key: elt.__hxCacheKey, path: detail.path || '' });
+    }
+  });
+
+  document.addEventListener('htmx:afterSwap', function(e){
+    var detail = e && e.detail ? e.detail : {};
+    var elt = detail.elt;
+    if (!elt || !elt.__hxCacheKey) return;
+    try {
+      var xhr = detail.xhr;
+      var status = xhr && xhr.status ? xhr.status : 0;
+      if (status >= 200 && status < 300 && xhr && typeof xhr.responseText === 'string'){
+        var ttl = elt.__hxCacheTTL || 30000;
+        htmxCache.set(elt.__hxCacheKey, xhr.responseText, ttl, { path: detail.path || '' });
+        telemetry.send('htmx.cache.store', { key: elt.__hxCacheKey, path: detail.path || '', ttl: ttl });
+      }
+    } catch(_){ }
+    elt.__hxCacheKey = null;
+    elt.__hxCacheTTL = null;
+  });
+
+  (function(){
+    function handlePrefetch(evt){
+      try {
+        var el = evt.target && evt.target.closest ? evt.target.closest('[data-hx-prefetch]') : null;
+        if (!el || el.__hxPrefetched) return;
+        var url = el.getAttribute('data-hx-prefetch');
+        if (!url) return;
+        el.__hxPrefetched = true;
+        var key = el.getAttribute('data-hx-cache-key') || el.getAttribute('data-hx-prefetch-key') || ('GET ' + url);
+        var ttlAttr = parseInt((el.getAttribute('data-hx-cache-ttl') || el.getAttribute('data-hx-prefetch-ttl') || ''), 10);
+        var ttl = isNaN(ttlAttr) ? 30000 : Math.max(1000, ttlAttr);
+        htmxCache.prefetch(url, { key: key, ttl: ttl });
+      } catch(_){ }
+    }
+    document.addEventListener('pointerenter', handlePrefetch, true);
+    document.addEventListener('focusin', handlePrefetch, true);
+  })();
+
   // Centralized HTMX debounce helper (applies to inputs tagged with data-hx-debounce)
   var hxDebounceGroups = new Map();
-  function dispatchHtmx(el, evtName){
+  function dispatchHtmx(el, evtName, detail){
     if (!el) return;
     if (window.htmx && typeof window.htmx.trigger === 'function'){
-      window.htmx.trigger(el, evtName);
+      window.htmx.trigger(el, evtName, detail);
     } else {
-      try { el.dispatchEvent(new Event(evtName, { bubbles: true })); } catch(_){ }
+      try { el.dispatchEvent(new CustomEvent(evtName, { bubbles: true, detail: detail })); } catch(_){ }
     }
   }
   function bindHtmxDebounce(el){
@@ -296,6 +564,7 @@
     initCardFilters(document);
     initVirtualization(document);
     initHtmxDebounce(document);
+    initMustHaveControls(document);
   });
 
   // Hydrate progress bars with width based on data-pct
@@ -325,6 +594,7 @@
     initCardFilters(e.target);
     initVirtualization(e.target);
     initHtmxDebounce(e.target);
+    initMustHaveControls(e.target);
   });
 
   // Scroll a card-tile into view (cooperates with virtualization by re-rendering first)
@@ -785,6 +1055,137 @@
         }
       });
     }catch(_){ }
+  }
+
+  function setTileState(tile, type, active){
+    if (!tile) return;
+    var attr = 'data-must-' + type;
+    tile.setAttribute(attr, active ? '1' : '0');
+    tile.classList.toggle('must-' + type, !!active);
+    var selector = '.must-have-btn.' + (type === 'include' ? 'include' : 'exclude');
+    try {
+      var btn = tile.querySelector(selector);
+      if (btn){
+        btn.setAttribute('data-active', active ? '1' : '0');
+        btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+        btn.classList.toggle('is-active', !!active);
+      }
+    } catch(_){ }
+  }
+
+  function restoreMustHaveState(tile, state){
+    if (!tile || !state) return;
+    setTileState(tile, 'include', state.include ? 1 : 0);
+    setTileState(tile, 'exclude', state.exclude ? 1 : 0);
+  }
+
+  function applyLocalMustHave(tile, type, enabled){
+    if (!tile) return;
+    if (type === 'include'){
+      setTileState(tile, 'include', enabled ? 1 : 0);
+      if (enabled){ setTileState(tile, 'exclude', 0); }
+    } else if (type === 'exclude'){
+      setTileState(tile, 'exclude', enabled ? 1 : 0);
+      if (enabled){ setTileState(tile, 'include', 0); }
+    }
+  }
+
+  function sendMustHaveRequest(tile, type, enabled, cardName, prevState){
+    if (!window.htmx){
+      restoreMustHaveState(tile, prevState);
+      tile.setAttribute('data-must-pending', '0');
+      toast('Offline: cannot update preference', 'error', { duration: 4000 });
+      return;
+    }
+    var summaryTarget = document.getElementById('include-exclude-summary');
+    var ajaxOptions = {
+      source: tile,
+      target: summaryTarget || tile,
+      swap: summaryTarget ? 'outerHTML' : 'none',
+      values: {
+        card_name: cardName,
+        list_type: type,
+        enabled: enabled ? '1' : '0',
+      },
+    };
+    var xhr;
+    try {
+      xhr = window.htmx.ajax('POST', '/build/must-haves/toggle', ajaxOptions);
+    } catch(_){
+      restoreMustHaveState(tile, prevState);
+      tile.setAttribute('data-must-pending', '0');
+      toast('Unable to submit preference update', 'error', { duration: 4500 });
+      telemetry.send('must_have.toggle_error', { card: cardName, list: type, status: 'exception' });
+      return;
+    }
+    if (!xhr || !xhr.addEventListener){
+      tile.setAttribute('data-must-pending', '0');
+      return;
+    }
+    xhr.addEventListener('load', function(evt){
+      tile.setAttribute('data-must-pending', '0');
+      var request = evt && evt.currentTarget ? evt.currentTarget : xhr;
+      var status = request.status || 0;
+      if (status >= 400){
+        restoreMustHaveState(tile, prevState);
+        var msg = 'Failed to update preference';
+        try {
+          var data = JSON.parse(request.responseText || '{}');
+          if (data && data.error) msg = data.error;
+        } catch(_){ }
+        toast(msg, 'error', { duration: 5000 });
+        telemetry.send('must_have.toggle_error', { card: cardName, list: type, status: status });
+        return;
+      }
+      var message;
+      if (enabled){
+        message = (type === 'include') ? 'Pinned as must include' : 'Pinned as must exclude';
+      } else {
+        message = (type === 'include') ? 'Removed must include' : 'Removed must exclude';
+      }
+      toast(message + ': ' + cardName, 'success', { duration: 2400 });
+      telemetry.send('must_have.toggle', {
+        card: cardName,
+        list: type,
+        enabled: enabled,
+        requestId: request.getResponseHeader ? request.getResponseHeader('X-Request-ID') : null,
+      });
+    });
+    xhr.addEventListener('error', function(){
+      tile.setAttribute('data-must-pending', '0');
+      restoreMustHaveState(tile, prevState);
+      toast('Network error updating preference', 'error', { duration: 5000 });
+      telemetry.send('must_have.toggle_error', { card: cardName, list: type, status: 'network' });
+    });
+  }
+
+  function initMustHaveControls(root){
+    var scope = root && root.querySelectorAll ? root : document;
+    if (scope === document && document.body) scope = document.body;
+    if (!scope || !scope.querySelectorAll) return;
+    scope.querySelectorAll('.must-have-btn').forEach(function(btn){
+      if (!btn || btn.__mustHaveBound) return;
+      btn.__mustHaveBound = true;
+      var active = btn.getAttribute('data-active') === '1';
+      btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+      btn.addEventListener('click', function(ev){
+        ev.preventDefault();
+        var tile = btn.closest('.card-tile');
+        if (!tile) return;
+        if (tile.getAttribute('data-must-pending') === '1') return;
+        var type = btn.getAttribute('data-toggle');
+        if (!type) return;
+        var prevState = {
+          include: tile.getAttribute('data-must-include') === '1',
+          exclude: tile.getAttribute('data-must-exclude') === '1',
+        };
+        var nextEnabled = !(type === 'include' ? prevState.include : prevState.exclude);
+        var label = btn.getAttribute('data-card-label') || btn.getAttribute('data-card-name') || tile.getAttribute('data-card-name') || '';
+        tile.setAttribute('data-must-pending', '1');
+        applyLocalMustHave(tile, type, nextEnabled);
+        sendMustHaveRequest(tile, type, nextEnabled, label, prevState);
+      });
+    });
   }
 
   // LQIP blur/fade-in for thumbnails marked with data-lqip

@@ -10,7 +10,8 @@
     {% set toggle_label = 'Owned only: On' if require_owned else 'Owned only: Off' %}
     <div style="display:flex; gap:.35rem; flex-wrap:wrap;">
       <button class="btn" hx-get="/build/alternatives?name={{ name|urlencode }}&owned_only={{ toggle_q }}"
-              hx-target="closest .alts" hx-swap="outerHTML">{{ toggle_label }}</button>
+        hx-target="closest .alts" hx-swap="outerHTML"
+        data-hx-cache="1" data-hx-cache-key="alts:{{ name|lower }}:owned:{{ toggle_q }}" data-hx-cache-ttl="20000">{{ toggle_label }}</button>
       <button class="btn" hx-get="/build/alternatives?name={{ name|urlencode }}&owned_only={{ 1 if require_owned else 0 }}&refresh=1"
               hx-target="closest .alts" hx-swap="outerHTML" title="Request a fresh pool of alternatives">New pool</button>
     </div>

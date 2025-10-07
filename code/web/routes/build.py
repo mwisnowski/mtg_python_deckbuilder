@@ -3,9 +3,11 @@ from __future__ import annotations
 from fastapi import APIRouter, Request, Form, Query
 from fastapi.responses import HTMLResponse, JSONResponse
 from typing import Any, Iterable
+import json
 from ..app import (
     ALLOW_MUST_HAVES,
     ENABLE_CUSTOM_THEMES,
+    SHOW_MUST_HAVE_BUTTONS,
     USER_THEME_LIMIT,
     DEFAULT_THEME_MATCH_MODE,
     _sanitize_theme,
@@ -13,6 +15,7 @@ from ..app import (
     ENABLE_PARTNER_SUGGESTIONS,
 )
 from ..services.build_utils import (
+    step5_base_ctx,
     step5_ctx_from_result,
     step5_error_ctx,
     step5_empty_ctx,
@@ -37,6 +40,7 @@ from ..services.alts_utils import get_cached as _alts_get_cached, set_cached as 
 from ..services.telemetry import (
     log_commander_create_deck,
     log_partner_suggestion_selected,
+    log_include_exclude_toggle,
 )
 from ..services.partner_suggestions import get_partner_suggestions
 from urllib.parse import urlparse, quote_plus
@@ -684,6 +688,129 @@ def _resolve_partner_selection(
 
 router = APIRouter(prefix="/build")
 
+
+@router.post("/must-haves/toggle", response_class=HTMLResponse)
+async def toggle_must_haves(
+    request: Request,
+    card_name: str = Form(...),
+    list_type: str = Form(...),
+    enabled: str = Form("1"),
+):
+    if not ALLOW_MUST_HAVES:
+        return JSONResponse({"error": "Must-have lists are disabled"}, status_code=403)
+
+    name = str(card_name or "").strip()
+    if not name:
+        return JSONResponse({"error": "Card name is required"}, status_code=400)
+
+    list_key = str(list_type or "").strip().lower()
+    if list_key not in {"include", "exclude"}:
+        return JSONResponse({"error": "Unsupported toggle type"}, status_code=400)
+
+    enabled_flag = str(enabled).strip().lower() in {"1", "true", "yes", "on"}
+
+    sid = request.cookies.get("sid") or request.headers.get("X-Session-ID")
+    if not sid:
+        sid = new_sid()
+    sess = get_session(sid)
+
+    includes = list(sess.get("include_cards") or [])
+    excludes = list(sess.get("exclude_cards") or [])
+    include_lookup = {str(v).strip().lower(): str(v) for v in includes if str(v).strip()}
+    exclude_lookup = {str(v).strip().lower(): str(v) for v in excludes if str(v).strip()}
+    key = name.lower()
+    display_name = include_lookup.get(key) or exclude_lookup.get(key) or name
+
+    changed = False
+    include_limit = 10
+    exclude_limit = 15
+
+    def _remove_casefold(items: list[str], item_key: str) -> list[str]:
+        return [c for c in items if str(c).strip().lower() != item_key]
+
+    if list_key == "include":
+        if enabled_flag:
+            if key not in include_lookup:
+                if len(include_lookup) >= include_limit:
+                    return JSONResponse({"error": f"Include limit reached ({include_limit})."}, status_code=400)
+                includes.append(name)
+                include_lookup[key] = name
+                changed = True
+            if key in exclude_lookup:
+                excludes = _remove_casefold(excludes, key)
+                exclude_lookup.pop(key, None)
+                changed = True
+        else:
+            if key in include_lookup:
+                includes = _remove_casefold(includes, key)
+                include_lookup.pop(key, None)
+                changed = True
+    else:  # exclude
+        if enabled_flag:
+            if key not in exclude_lookup:
+                if len(exclude_lookup) >= exclude_limit:
+                    return JSONResponse({"error": f"Exclude limit reached ({exclude_limit})."}, status_code=400)
+                excludes.append(name)
+                exclude_lookup[key] = name
+                changed = True
+            if key in include_lookup:
+                includes = _remove_casefold(includes, key)
+                include_lookup.pop(key, None)
+                changed = True
+        else:
+            if key in exclude_lookup:
+                excludes = _remove_casefold(excludes, key)
+                exclude_lookup.pop(key, None)
+                changed = True
+
+    if changed:
+        sess["include_cards"] = includes
+        sess["exclude_cards"] = excludes
+        if "include_exclude_diagnostics" in sess:
+            try:
+                del sess["include_exclude_diagnostics"]
+            except Exception:
+                pass
+
+    must_state = {
+        "includes": includes,
+        "excludes": excludes,
+        "enforcement_mode": sess.get("enforcement_mode") or "warn",
+        "allow_illegal": bool(sess.get("allow_illegal")),
+        "fuzzy_matching": bool(sess.get("fuzzy_matching", True)),
+    }
+
+    ctx = step5_base_ctx(request, sess, include_name=False, include_locks=False)
+    ctx["must_have_state"] = must_state
+    ctx["summary"] = None
+    response = templates.TemplateResponse("partials/include_exclude_summary.html", ctx)
+    response.set_cookie("sid", sid, httponly=True, samesite="lax")
+
+    try:
+        log_include_exclude_toggle(
+            request,
+            card_name=display_name,
+            action=list_key,
+            enabled=enabled_flag,
+            include_count=len(includes),
+            exclude_count=len(excludes),
+        )
+    except Exception:
+        pass
+
+    trigger_payload = {
+        "card": display_name,
+        "list": list_key,
+        "enabled": enabled_flag,
+        "include_count": len(includes),
+        "exclude_count": len(excludes),
+    }
+    try:
+        response.headers["HX-Trigger"] = json.dumps({"must-haves:toggle": trigger_payload})
+    except Exception:
+        pass
+    return response
+
 # Alternatives cache moved to services/alts_utils
 
 
@@ -1132,6 +1259,7 @@ async def build_new_modal(request: Request) -> HTMLResponse:
         "labels": orch.ideal_labels(),
         "defaults": orch.ideal_defaults(),
         "allow_must_haves": ALLOW_MUST_HAVES,  # Add feature flag
+        "show_must_have_buttons": SHOW_MUST_HAVE_BUTTONS,
         "enable_custom_themes": ENABLE_CUSTOM_THEMES,
         "form": {
             "prefer_combos": bool(sess.get("prefer_combos")),
@@ -1531,6 +1659,7 @@ async def build_new_submit(
                     "labels": orch.ideal_labels(),
                     "defaults": orch.ideal_defaults(),
                     "allow_must_haves": ALLOW_MUST_HAVES,
+                    "show_must_have_buttons": SHOW_MUST_HAVE_BUTTONS,
                     "enable_custom_themes": ENABLE_CUSTOM_THEMES,
                     "form": _form_state(suggested),
                     "tag_slot_html": None,
@@ -1554,6 +1683,7 @@ async def build_new_submit(
             "labels": orch.ideal_labels(),
             "defaults": orch.ideal_defaults(),
             "allow_must_haves": ALLOW_MUST_HAVES,  # Add feature flag
+            "show_must_have_buttons": SHOW_MUST_HAVE_BUTTONS,
             "enable_custom_themes": ENABLE_CUSTOM_THEMES,
             "form": _form_state(commander),
             "tag_slot_html": None,
@@ -1657,6 +1787,7 @@ async def build_new_submit(
             "labels": orch.ideal_labels(),
             "defaults": orch.ideal_defaults(),
             "allow_must_haves": ALLOW_MUST_HAVES,
+            "show_must_have_buttons": SHOW_MUST_HAVE_BUTTONS,
             "enable_custom_themes": ENABLE_CUSTOM_THEMES,
             "form": _form_state(primary_commander_name),
             "tag_slot_html": tag_slot_html,
@@ -1794,6 +1925,7 @@ async def build_new_submit(
                 "labels": orch.ideal_labels(),
                 "defaults": orch.ideal_defaults(),
                 "allow_must_haves": ALLOW_MUST_HAVES,
+                "show_must_have_buttons": SHOW_MUST_HAVE_BUTTONS,
                 "enable_custom_themes": ENABLE_CUSTOM_THEMES,
                 "form": _form_state(sess.get("commander", "")),
                 "tag_slot_html": None,

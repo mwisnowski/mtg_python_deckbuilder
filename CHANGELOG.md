@@ -14,14 +14,23 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 
 ## [Unreleased]
 ### Summary
-- Phase 1 responsiveness tweaks: shared HTMX debounce helper, deferred skeleton microcopy, and containment rules for long card lists.
+- Responsiveness tweaks: shared HTMX debounce helper, deferred skeleton microcopy, and containment rules for long card lists.
+- Optimistic include/exclude experience with HTMX caching, prefetch hints, and telemetry instrumentation for must-have interactions.
+- Commander catalog skeleton placeholders and lazy commander art loading to smooth catalog fetch latency.
+- Commander catalog default view now prewarms and pulls from an in-memory cache so repeat visits respond in under 200 ms.
 
 ### Added
 - Skeleton placeholders now accept `data-skeleton-label` microcopy and only surface after ~400 ms on the build wizard, stage navigator, and alternatives panel.
+- Must-have toggle API (`/build/must-haves/toggle`), telemetry ingestion route (`/telemetry/events`), and structured logging helpers for include/exclude state changes and frontend beacons.
+- Commander catalog results wrap in a deferred skeleton list, and commander art lazy-loads via a new `IntersectionObserver` helper in `code/web/static/app.js`.
 
 ### Changed
 - Commander quick-start and theme picker searches route through a centralized `data-hx-debounce` helper so rapid keystrokes coalesce into a single HTMX request.
 - Card grids and alternative lists opt into `content-visibility`/`contain` to reduce layout churn on large decks.
+- Build wizard Step 5 now emits optimistic include/exclude updates using cached HTMX fragments, prefetch metadata, and persistent summary containers for pending must-have selections.
+- Skeleton utility supports opt-in placeholder blocks (`data-skeleton-placeholder`) and overlay suppression for complex shimmer layouts.
+- Commander catalog route caches filter results and page renders (plus startup prewarm) so repeated catalog loads avoid recomputing the entire dataset.
+- Must-have include/exclude buttons are hidden by default behind a new `SHOW_MUST_HAVE_BUTTONS` env toggle and now ship with tooltips explaining how they differ from locks.
 
 ### Fixed
 - _None_

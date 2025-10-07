@@ -66,3 +66,14 @@ def test_alternatives_filters_out_commander_in_deck_and_locked():
     assert 'alt commander' not in body
     assert 'alt in deck' not in body
     assert 'alt locked' not in body
+    assert '"owned_only":"0"' in r.text
+    assert 'New pool' in r.text
+
+
+def test_alternatives_refresh_query():
+    app_module = importlib.import_module('code.web.app')
+    client = TestClient(app_module.app)
+    _inject_fake_ctx(client, commander='Alt Commander', locks=['alt locked'])
+    r = client.get('/build/alternatives?name=Target%20Card&owned_only=0&refresh=1')
+    assert r.status_code == 200
+    assert 'New pool' in r.text

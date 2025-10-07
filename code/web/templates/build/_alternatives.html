@@ -4,12 +4,16 @@
   ]
 #}
 <div class="alts" style="margin-top:.35rem; padding:.5rem; border:1px solid var(--border); border-radius:8px; background:#0f1115;">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.25rem;">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.25rem; gap:.5rem; flex-wrap:wrap;">
     <strong>Alternatives</strong>
     {% set toggle_q = '0' if require_owned else '1' %}
     {% set toggle_label = 'Owned only: On' if require_owned else 'Owned only: Off' %}
-    <button class="btn" hx-get="/build/alternatives?name={{ name|urlencode }}&owned_only={{ toggle_q }}"
-            hx-target="closest .alts" hx-swap="outerHTML">{{ toggle_label }}</button>
+    <div style="display:flex; gap:.35rem; flex-wrap:wrap;">
+      <button class="btn" hx-get="/build/alternatives?name={{ name|urlencode }}&owned_only={{ toggle_q }}"
+              hx-target="closest .alts" hx-swap="outerHTML">{{ toggle_label }}</button>
+      <button class="btn" hx-get="/build/alternatives?name={{ name|urlencode }}&owned_only={{ 1 if require_owned else 0 }}&refresh=1"
+              hx-target="closest .alts" hx-swap="outerHTML" title="Request a fresh pool of alternatives">New pool</button>
+    </div>
   </div>
   {% if not items or items|length == 0 %}
     <div class="muted">No alternatives found{{ ' (owned only)' if require_owned else '' }}.</div>
@@ -21,9 +25,13 @@
         {% set tags = (it.tags or []) %}
         <li>
           <span class="owned-badge" title="{{ title }}">{{ badge }}</span>
-          <button class="btn" data-card-name="{{ it.name }}"
+          <button class="btn alt-option" data-card-name="{{ it.name }}"
+                  {% if it.role %}data-role="{{ it.role }}"{% endif %}
+                  {% if it.mana %}data-mana="{{ it.mana }}"{% endif %}
+                  {% if it.rarity %}data-rarity="{{ it.rarity }}"{% endif %}
+                  {% if it.hover_simple %}data-hover-simple="1"{% endif %}
                   data-tags="{{ tags|join(', ') }}" hx-post="/build/replace"
-                  hx-vals='{"old":"{{ name }}", "new":"{{ it.name }}"}'
+                  hx-vals='{"old":"{{ name }}", "new":"{{ it.name }}", "owned_only":"{{ 1 if require_owned else 0 }}"}'
                   hx-target="closest .alts" hx-swap="outerHTML" title="Lock this alternative and unlock the current pick">
             Replace with {{ it.name }}
           </button>

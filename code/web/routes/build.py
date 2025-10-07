@@ -3215,7 +3215,13 @@ async def build_lock_toggle(request: Request, name: str = Form(...), locked: str
 
 
 @router.get("/alternatives", response_class=HTMLResponse)
-async def build_alternatives(request: Request, name: str, stage: str | None = None, owned_only: int = Query(0)) -> HTMLResponse:
+async def build_alternatives(
+    request: Request,
+    name: str,
+    stage: str | None = None,
+    owned_only: int = Query(0),
+    refresh: int = Query(0),
+) -> HTMLResponse:
     """Suggest alternative cards for a given card name, preferring role-specific pools.
 
     Strategy:
@@ -3235,6 +3241,7 @@ async def build_alternatives(request: Request, name: str, stage: str | None = No
     # Owned library
     owned_set = owned_set_helper()
     require_owned = bool(int(owned_only or 0)) or bool(sess.get("use_owned_only"))
+    refresh_requested = bool(int(refresh or 0))
     # If builder context missing, show a guidance message
     if not b:
         html = '<div class="alts"><div class="muted">Start the build to see alternatives.</div></div>'
@@ -3291,6 +3298,112 @@ async def build_alternatives(request: Request, name: str, stage: str | None = No
 
         # Build role-specific pool from combined DataFrame
         items: list[dict] = []
+
+        def _clean(value: Any) -> str:
+            try:
+                if value is None:
+                    return ""
+                if isinstance(value, float) and value != value:
+                    return ""
+                text = str(value)
+                return text.strip()
+            except Exception:
+                return ""
+
+        def _normalize_tags(raw: Any) -> list[str]:
+            if not raw:
+                return []
+            if isinstance(raw, (list, tuple, set)):
+                return [str(t).strip() for t in raw if str(t).strip()]
+            if isinstance(raw, str):
+                txt = raw.strip()
+                if not txt:
+                    return []
+                if txt.startswith("[") and txt.endswith("]"):
+                    try:
+                        import json as _json
+                        parsed = _json.loads(txt)
+                        if isinstance(parsed, list):
+                            return [str(t).strip() for t in parsed if str(t).strip()]
+                    except Exception:
+                        pass
+                return [s.strip() for s in txt.split(',') if s.strip()]
+            return []
+
+        def _meta_from_row(row_obj: Any) -> dict[str, Any]:
+            meta = {
+                "mana": "",
+                "rarity": "",
+                "role": "",
+                "tags": [],
+                "hover_simple": True,
+            }
+            if row_obj is None:
+                meta["role"] = _clean(used_role or "")
+                return meta
+
+            def _pull(*keys: str) -> Any:
+                for key in keys:
+                    try:
+                        if isinstance(row_obj, dict):
+                            val = row_obj.get(key)
+                        elif hasattr(row_obj, "get"):
+                            val = row_obj.get(key)
+                        else:
+                            val = getattr(row_obj, key, None)
+                    except Exception:
+                        val = None
+                    if val not in (None, ""):
+                        if isinstance(val, float) and val != val:
+                            continue
+                        return val
+                return None
+
+            meta["mana"] = _clean(_pull("mana_cost", "manaCost", "mana", "manaValue", "cmc", "mv"))
+            meta["rarity"] = _clean(_pull("rarity"))
+            role_val = _pull("role", "primaryRole", "subRole")
+            if not role_val:
+                role_val = used_role or ""
+            meta["role"] = _clean(role_val)
+            tags_val = _pull("themeTags", "_ltags", "tags")
+            meta_tags = _normalize_tags(tags_val)
+            meta["tags"] = meta_tags
+            meta["hover_simple"] = not (meta["mana"] or meta["rarity"] or (meta_tags and len(meta_tags) > 0))
+            return meta
+
+        def _build_meta_map(df_obj) -> dict[str, dict[str, Any]]:
+            mapping: dict[str, dict[str, Any]] = {}
+            try:
+                if df_obj is None or not hasattr(df_obj, "iterrows"):
+                    return mapping
+                for _, row in df_obj.iterrows():
+                    try:
+                        nm_val = str(row.get("name") or "").strip()
+                    except Exception:
+                        nm_val = ""
+                    if not nm_val:
+                        continue
+                    key = nm_val.lower()
+                    if key in mapping:
+                        continue
+                    mapping[key] = _meta_from_row(row)
+            except Exception:
+                return mapping
+            return mapping
+
+        def _sampler(seq: list[str], limit: int) -> list[str]:
+            if limit <= 0:
+                return []
+            if len(seq) <= limit:
+                return list(seq)
+            rng = getattr(b, "rng", None)
+            try:
+                if rng is not None:
+                    return rng.sample(seq, limit) if len(seq) >= limit else list(seq)
+                import random as _rnd  # type: ignore
+                return _rnd.sample(seq, limit) if len(seq) >= limit else list(seq)
+            except Exception:
+                return list(seq[:limit])
         used_role = role if isinstance(role, str) and role else None
         # Promote to 'land' role when the seed card is a land (regardless of stored role)
         try:
@@ -3314,8 +3427,9 @@ async def build_alternatives(request: Request, name: str, stage: str | None = No
 
         # Use a cache key that includes the exclusions version and deck fingerprint
         cache_key = (name_l, commander_l, used_role or "_fallback_", require_owned, alts_exclude_v, deck_fp)
-        # Disable caching for land alternatives to keep randomness per request
-        cached = None if used_role == 'land' else _alts_get_cached(cache_key)
+        cached = None
+        if used_role != 'land' and not refresh_requested:
+            cached = _alts_get_cached(cache_key)
         if cached is not None:
             return HTMLResponse(cached)
 
@@ -3326,8 +3440,8 @@ async def build_alternatives(request: Request, name: str, stage: str | None = No
                 "require_owned": require_owned,
                 "items": _items,
             })
-            # Skip caching when used_role == land for per-call randomness
-            if used_role != 'land':
+            # Skip caching when used_role == land or refresh requested for per-call randomness
+            if used_role != 'land' and not refresh_requested:
                 try:
                     _alts_set_cached(cache_key, html_str)
                 except Exception:
@@ -3525,6 +3639,7 @@ async def build_alternatives(request: Request, name: str, stage: str | None = No
                     pool = bu.prefer_owned_first(pool, {str(n).lower() for n in getattr(b, "owned_card_names", set())})
             except Exception:
                 pass
+            row_meta = _build_meta_map(pool)
             # Land role: random 12 from top 60-100 window
             if used_role == 'land':
                 import random as _rnd
@@ -3562,11 +3677,16 @@ async def build_alternatives(request: Request, name: str, stage: str | None = No
                                 continue
                             if nm_lc == name_l or (in_deck and nm_lc in in_deck):
                                 continue
+                            meta = row_meta.get(nm_lc) or _meta_from_row(None)
                             items.append({
                                 'name': display_map.get(nm_lc, orig),
                                 'name_lower': nm_lc,
                                 'owned': is_owned,
-                                'tags': []
+                                'tags': meta.get('tags') or [],
+                                'role': meta.get('role', ''),
+                                'mana': meta.get('mana', ''),
+                                'rarity': meta.get('rarity', ''),
+                                'hover_simple': bool(meta.get('hover_simple', True)),
                             })
                 if items:
                     return _render_and_cache(items)
@@ -3578,17 +3698,29 @@ async def build_alternatives(request: Request, name: str, stage: str | None = No
                 except Exception:
                     lower_pool = []
                 display_map = _display_map_for(set(lower_pool))
-                for nm_l in lower_pool:
+                iteration_order = lower_pool
+                if refresh_requested and len(lower_pool) > 12:
+                    window_size = min(len(lower_pool), 30)
+                    window = lower_pool[:window_size]
+                    sampled = _sampler(window, min(window_size, 12))
+                    seen_sampled = set(sampled)
+                    iteration_order = sampled + [nm for nm in lower_pool if nm not in seen_sampled]
+                for nm_l in iteration_order:
                     is_owned = (nm_l in owned_set)
                     if require_owned and not is_owned:
                         continue
                     if nm_l == name_l or (in_deck and nm_l in in_deck):
                         continue
+                    meta = row_meta.get(nm_l) or _meta_from_row(None)
                     items.append({
                         "name": display_map.get(nm_l, nm_l),
                         "name_lower": nm_l,
                         "owned": is_owned,
-                        "tags": [],
+                        "tags": meta.get("tags") or [],
+                        "role": meta.get("role", ""),
+                        "mana": meta.get("mana", ""),
+                        "rarity": meta.get("rarity", ""),
+                        "hover_simple": bool(meta.get("hover_simple", True)),
                     })
                     if len(items) >= 12:
                         break
@@ -3633,6 +3765,20 @@ async def build_alternatives(request: Request, name: str, stage: str | None = No
         def _owned(nm: str) -> bool:
             return nm in owned_set
         candidates.sort(key=lambda x: (-x[1], 0 if _owned(x[0]) else 1, x[0]))
+        if refresh_requested and len(candidates) > 1:
+            name_sequence = [nm for nm, _score in candidates]
+            sampled_names = _sampler(name_sequence, min(len(name_sequence), 10))
+            sampled_set = set(sampled_names)
+            reordered: list[tuple[str, int]] = []
+            for nm in sampled_names:
+                for cand_nm, cand_score in candidates:
+                    if cand_nm == nm:
+                        reordered.append((cand_nm, cand_score))
+                        break
+            for cand_nm, cand_score in candidates:
+                if cand_nm not in sampled_set:
+                    reordered.append((cand_nm, cand_score))
+            candidates = reordered
         pool_lower = {nm for (nm, _s) in candidates}
         display_map = _display_map_for(pool_lower)
         seen = set()
@@ -3648,6 +3794,10 @@ async def build_alternatives(request: Request, name: str, stage: str | None = No
                 "name_lower": nm,
                 "owned": is_owned,
                 "tags": list(tags_idx.get(nm) or []),
+                "role": "",
+                "mana": "",
+                "rarity": "",
+                "hover_simple": True,
             })
             if len(items) >= 10:
                 break
@@ -3657,7 +3807,7 @@ async def build_alternatives(request: Request, name: str, stage: str | None = No
 
 
 @router.post("/replace", response_class=HTMLResponse)
-async def build_replace(request: Request, old: str = Form(...), new: str = Form(...)) -> HTMLResponse:
+async def build_replace(request: Request, old: str = Form(...), new: str = Form(...), owned_only: str = Form("0")) -> HTMLResponse:
     """Inline replace: swap `old` with `new` in the current builder when possible, and suppress `old` from future alternatives.
 
     Falls back to lock-and-rerun guidance if no active builder is present.
@@ -3668,6 +3818,8 @@ async def build_replace(request: Request, old: str = Form(...), new: str = Form(
     n_disp = str(new).strip()
     o = o_disp.lower()
     n = n_disp.lower()
+    owned_only_flag = str(owned_only or "").strip().lower()
+    owned_only_int = 1 if owned_only_flag in {"1", "true", "yes", "on"} else 0
 
     # Maintain locks to bias future picks and enforcement
     locks = set(sess.get("locks", []))
@@ -3762,6 +3914,12 @@ async def build_replace(request: Request, old: str = Form(...), new: str = Form(
             # Success panel and OOB updates (refresh compliance panel)
             # Compute ownership of the new card for UI badge update
             is_owned = (n in owned_set_helper())
+            refresh = (
+                '<div hx-get="/build/alternatives?name='
+                + quote_plus(new_key)
+                + f'&owned_only={owned_only_int}" hx-trigger="load delay:80ms" '
+                'hx-target="closest .alts" hx-swap="outerHTML" aria-hidden="true"></div>'
+            )
             html = (
                 '<div class="alts" style="margin-top:.35rem; padding:.5rem; border:1px solid var(--border); border-radius:8px; background:#0f1115;">'
                 f'<div>Replaced <strong>{o_disp}</strong> with <strong>{new_key}</strong>.</div>'
@@ -3769,6 +3927,7 @@ async def build_replace(request: Request, old: str = Form(...), new: str = Form(
                 '<div style="margin-top:.35rem; display:flex; gap:.5rem; align-items:center; flex-wrap:wrap;">'
                 '<button type="button" class="btn" onclick="try{this.closest(\'.alts\').remove();}catch(_){}">Close</button>'
                 '</div>'
+                + refresh +
                 '</div>'
             )
             # Inline mutate the nearest card tile to reflect the new card without a rerun

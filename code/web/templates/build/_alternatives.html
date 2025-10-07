@@ -3,7 +3,7 @@
     { 'name': display_name, 'name_lower': lower, 'owned': bool, 'tags': list[str] }
   ]
 #}
-<div class="alts" style="margin-top:.35rem; padding:.5rem; border:1px solid var(--border); border-radius:8px; background:#0f1115;">
+<div class="alts" style="margin-top:.35rem; padding:.5rem; border:1px solid var(--border); border-radius:8px; background:#0f1115;" data-skeleton data-skeleton-label="Pulling alternatives…" data-skeleton-delay="450">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.25rem; gap:.5rem; flex-wrap:wrap;">
     <strong>Alternatives</strong>
     {% set toggle_q = '0' if require_owned else '1' %}
@@ -18,7 +18,7 @@
   {% if not items or items|length == 0 %}
     <div class="muted">No alternatives found{{ ' (owned only)' if require_owned else '' }}.</div>
   {% else %}
-    <ul style="list-style:none; padding:0; margin:0; display:grid; gap:.25rem;">
+  <ul class="alt-list">
       {% for it in items %}
         {% set badge = '✔' if it.owned else '✖' %}
         {% set title = 'Owned' if it.owned else 'Not owned' %}

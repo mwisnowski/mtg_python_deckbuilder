@@ -4,7 +4,8 @@
 <div id="theme-picker" class="theme-picker" hx-get="/themes/fragment/list?limit=20&offset=0" hx-trigger="load" hx-target="#theme-results" hx-swap="innerHTML" role="region" aria-label="Theme picker">
   <div class="theme-picker-controls">
     <input type="text" id="theme-search" placeholder="Search themes or synergies" aria-label="Search" 
-           hx-get="/themes/fragment/list" hx-target="#theme-results" hx-trigger="keyup changed delay:250ms" name="q" />
+      hx-get="/themes/fragment/list" hx-target="#theme-results" hx-trigger="debouncedinput change" name="q"
+      data-hx-debounce="260" data-hx-debounce-events="input,keyup" data-hx-debounce-flush="blur" data-hx-debounce-group="theme-search" />
     <select id="theme-archetype" name="archetype" hx-get="/themes/fragment/list" hx-target="#theme-results" hx-trigger="change">
       <option value="">All Archetypes</option>
       {% if archetypes %}{% for a in archetypes %}<option value="{{ a }}">{{ a }}</option>{% endfor %}{% endif %}

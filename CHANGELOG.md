@@ -14,13 +14,14 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 
 ## [Unreleased]
 ### Summary
-- _No changes yet_
+- Phase 1 responsiveness tweaks: shared HTMX debounce helper, deferred skeleton microcopy, and containment rules for long card lists.
 
 ### Added
-- _None_
+- Skeleton placeholders now accept `data-skeleton-label` microcopy and only surface after ~400 ms on the build wizard, stage navigator, and alternatives panel.
 
 ### Changed
-- _None_
+- Commander quick-start and theme picker searches route through a centralized `data-hx-debounce` helper so rapid keystrokes coalesce into a single HTMX request.
+- Card grids and alternative lists opt into `content-visibility`/`contain` to reduce layout churn on large decks.
 
 ### Fixed
 - _None_

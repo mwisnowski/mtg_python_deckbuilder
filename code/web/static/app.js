@@ -136,19 +136,141 @@
   }
   addFocusVisible();
 
-  // Skeleton utility: swap placeholders before HTMX swaps or on explicit triggers
-  function showSkeletons(container){
-    (container || document).querySelectorAll('[data-skeleton]')
-      .forEach(function(el){ el.classList.add('is-loading'); });
+  // Skeleton utility: defer placeholders until the request lasts long enough to be noticeable
+  var SKELETON_DELAY_DEFAULT = 400;
+  var skeletonTimers = new WeakMap();
+  function gatherSkeletons(root){
+    if (!root){ return []; }
+    var list = [];
+    var scope = (root.nodeType === 9) ? root.documentElement : root;
+    if (scope && scope.matches && scope.hasAttribute('data-skeleton')){
+      list.push(scope);
+    }
+    if (scope && scope.querySelectorAll){
+      scope.querySelectorAll('[data-skeleton]').forEach(function(el){
+        if (list.indexOf(el) === -1){ list.push(el); }
+      });
+    }
+    return list;
   }
-  function hideSkeletons(container){
-    (container || document).querySelectorAll('[data-skeleton]')
-      .forEach(function(el){ el.classList.remove('is-loading'); });
+  function scheduleSkeleton(el){
+    var delayAttr = parseInt(el.getAttribute('data-skeleton-delay') || '', 10);
+    var delay = isNaN(delayAttr) ? SKELETON_DELAY_DEFAULT : Math.max(0, delayAttr);
+    clearSkeleton(el, false);
+    var timer = setTimeout(function(){
+      el.classList.add('is-loading');
+      el.setAttribute('aria-busy', 'true');
+      skeletonTimers.set(el, null);
+    }, delay);
+    skeletonTimers.set(el, timer);
+  }
+  function clearSkeleton(el, removeBusy){
+    var timer = skeletonTimers.get(el);
+    if (typeof timer === 'number'){
+      clearTimeout(timer);
+    }
+    skeletonTimers.delete(el);
+    el.classList.remove('is-loading');
+    if (removeBusy !== false){ el.removeAttribute('aria-busy'); }
+  }
+  function showSkeletons(context){
+    gatherSkeletons(context || document).forEach(function(el){ scheduleSkeleton(el); });
+  }
+  function hideSkeletons(context){
+    gatherSkeletons(context || document).forEach(function(el){ clearSkeleton(el); });
   }
   window.skeletons = { show: showSkeletons, hide: hideSkeletons };
 
-  document.addEventListener('htmx:beforeRequest', function(e){ showSkeletons(e.target); });
-  document.addEventListener('htmx:afterSwap', function(e){ hideSkeletons(e.target); });
+  document.addEventListener('htmx:beforeRequest', function(e){
+    var detail = e && e.detail ? e.detail : {};
+    var target = detail.target || detail.elt || e.target;
+    showSkeletons(target);
+  });
+  document.addEventListener('htmx:afterSwap', function(e){
+    var detail = e && e.detail ? e.detail : {};
+    var target = detail.target || detail.elt || e.target;
+    hideSkeletons(target);
+  });
+  document.addEventListener('htmx:afterRequest', function(e){
+    var detail = e && e.detail ? e.detail : {};
+    var target = detail.target || detail.elt || e.target;
+    hideSkeletons(target);
+  });
+
+  // Centralized HTMX debounce helper (applies to inputs tagged with data-hx-debounce)
+  var hxDebounceGroups = new Map();
+  function dispatchHtmx(el, evtName){
+    if (!el) return;
+    if (window.htmx && typeof window.htmx.trigger === 'function'){
+      window.htmx.trigger(el, evtName);
+    } else {
+      try { el.dispatchEvent(new Event(evtName, { bubbles: true })); } catch(_){ }
+    }
+  }
+  function bindHtmxDebounce(el){
+    if (!el || el.__hxDebounceBound) return;
+    el.__hxDebounceBound = true;
+    var delayRaw = parseInt(el.getAttribute('data-hx-debounce') || '', 10);
+    var delay = isNaN(delayRaw) ? 250 : Math.max(0, delayRaw);
+    var eventsAttr = el.getAttribute('data-hx-debounce-events') || 'input';
+    var events = eventsAttr.split(',').map(function(v){ return v.trim(); }).filter(Boolean);
+    if (!events.length){ events = ['input']; }
+    var trigger = el.getAttribute('data-hx-debounce-trigger') || 'debouncedinput';
+    var group = el.getAttribute('data-hx-debounce-group') || '';
+    var flushAttr = (el.getAttribute('data-hx-debounce-flush') || '').toLowerCase();
+    var flushOnBlur = (flushAttr === 'blur') || (flushAttr === '1') || (flushAttr === 'true');
+    function clearTimer(){
+      if (el.__hxDebounceTimer){
+        clearTimeout(el.__hxDebounceTimer);
+        el.__hxDebounceTimer = null;
+      }
+    }
+    function schedule(){
+      clearTimer();
+      if (group){
+        var prev = hxDebounceGroups.get(group);
+        if (prev && prev !== el && prev.__hxDebounceTimer){
+          clearTimeout(prev.__hxDebounceTimer);
+          prev.__hxDebounceTimer = null;
+        }
+        hxDebounceGroups.set(group, el);
+      }
+      el.__hxDebounceTimer = setTimeout(function(){
+        el.__hxDebounceTimer = null;
+        dispatchHtmx(el, trigger);
+      }, delay);
+    }
+    events.forEach(function(evt){
+      el.addEventListener(evt, schedule, { passive: true });
+    });
+    if (flushOnBlur){
+      el.addEventListener('blur', function(){
+        if (el.__hxDebounceTimer){
+          clearTimer();
+          dispatchHtmx(el, trigger);
+        }
+      });
+    }
+    el.addEventListener('htmx:beforeRequest', clearTimer);
+  }
+  function initHtmxDebounce(root){
+    var scope = root || document;
+    if (scope === document){ scope = document.body || document; }
+    if (!scope) return;
+    var seen = new Set();
+    function collect(candidate){
+      if (!candidate || seen.has(candidate)) return;
+      seen.add(candidate);
+      bindHtmxDebounce(candidate);
+    }
+    if (scope.matches && scope.hasAttribute && scope.hasAttribute('data-hx-debounce')){
+      collect(scope);
+    }
+    if (scope.querySelectorAll){
+      scope.querySelectorAll('[data-hx-debounce]').forEach(collect);
+    }
+  }
+  window.initHtmxDebounce = initHtmxDebounce;
 
   // Example: persist "show skipped" toggle if present
   document.addEventListener('change', function(e){
@@ -172,7 +294,8 @@
     hydrateProgress(document);
     syncShowSkipped(document);
     initCardFilters(document);
-  initVirtualization(document);
+    initVirtualization(document);
+    initHtmxDebounce(document);
   });
 
   // Hydrate progress bars with width based on data-pct
@@ -200,7 +323,8 @@
     hydrateProgress(e.target);
     syncShowSkipped(e.target);
     initCardFilters(e.target);
-  initVirtualization(e.target);
+    initVirtualization(e.target);
+    initHtmxDebounce(e.target);
   });
 
   // Scroll a card-tile into view (cooperates with virtualization by re-rendering first)

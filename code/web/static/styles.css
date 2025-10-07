@@ -246,6 +246,23 @@ small, .muted{ color: var(--muted); }
 	display: none;
 }
 [data-skeleton].is-loading::after{ display:block; }
+[data-skeleton].is-loading::before{
+	content: attr(data-skeleton-label);
+	position:absolute;
+	top:50%;
+	left:50%;
+	transform:translate(-50%, -50%);
+	color: var(--muted);
+	font-size:.85rem;
+	text-align:center;
+	line-height:1.4;
+	max-width:min(92%, 360px);
+	padding:.3rem .5rem;
+	pointer-events:none;
+	z-index:1;
+	filter: drop-shadow(0 2px 4px rgba(15,23,42,.45));
+}
+[data-skeleton][data-skeleton-label=""]::before{ content:''; }
 @keyframes shimmer{ 0%{ background-position: 200% 0; } 100%{ background-position: -200% 0; } }
 
 /* Banner */
@@ -268,6 +285,9 @@ small, .muted{ color: var(--muted); }
 	justify-content: start; /* pack as many as possible per row */
 	/* Prevent scroll chaining bounce that can cause flicker near bottom */
 	overscroll-behavior: contain;
+	content-visibility: auto;
+	contain: layout paint;
+	contain-intrinsic-size: 640px 420px;
 }
 @media (max-width: 420px){
 	.card-grid{ grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -292,6 +312,9 @@ small, .muted{ color: var(--muted); }
 .card-tile img{ width:160px; height:auto; border-radius:6px; box-shadow: 0 6px 18px rgba(0,0,0,.35); background:#111; }
 .card-tile .name{ font-weight:600; margin-top:.25rem; font-size:.92rem; }
 .card-tile .reason{ color:var(--muted); font-size:.85rem; margin-top:.15rem; }
+
+.group-grid{ content-visibility: auto; contain: layout paint; contain-intrinsic-size: 540px 360px; }
+.alt-list{ list-style:none; padding:0; margin:0; display:grid; gap:.25rem; content-visibility: auto; contain: layout paint; contain-intrinsic-size: 320px 220px; }
 
 /* Shared ownership badge for card tiles and stacked images */
 .owned-badge{

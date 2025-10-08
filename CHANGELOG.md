@@ -9,6 +9,19 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 
 ## [Unreleased]
 ### Summary
+- _No unreleased changes yet_
+
+### Added
+- _None_
+
+### Changed
+- _None_
+
+### Fixed
+- _None_
+
+## [2.5.2] - 2025-10-08
+### Summary
 - Responsiveness tweaks: shared HTMX debounce helper, deferred skeleton microcopy, and containment rules for long card lists.
 - Optimistic include/exclude experience with HTMX caching, prefetch hints, and telemetry instrumentation for must-have interactions.
 - Commander catalog skeleton placeholders and lazy commander art loading to smooth catalog fetch latency.
@@ -24,7 +37,7 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 - Commander catalog results wrap in a deferred skeleton list, and commander art lazy-loads via a new `IntersectionObserver` helper in `code/web/static/app.js`.
 - Collapsible accordions for Mana Overview and Test Hand sections defer content loading until expanded.
 - Click-to-pin chart tooltips with consistent corner positioning (lower-left desktop, lower-right mobile) and working copy buttons.
-- Virtualized card lists automatically render only visible items when 12+ cards are present.changes to this project will be documented in this file.
+- Virtualized card lists automatically render only visible items when 12+ cards are present.
 
 ### Changed
 - Commander search and theme picker now intelligently debounce keystrokes, preventing redundant requests while you type.

@@ -218,6 +218,7 @@ Most defaults are defined in `docker-compose.yml` and documented in `.env.exampl
 | `ENABLE_CUSTOM_THEMES` | `1` | Surface the Additional Themes section in the New Deck modal. |
 | `WEB_VIRTUALIZE` | `1` | Opt into virtualized lists for large datasets. |
 | `ALLOW_MUST_HAVES` | `1` | Enforce include/exclude (must-have) lists. |
+| `SHOW_MUST_HAVE_BUTTONS` | `0` | Reveal the must include/exclude buttons and quick-add UI (requires `ALLOW_MUST_HAVES=1`). |
 | `THEME` | `dark` | Default UI theme (`system`, `light`, or `dark`). |
 
 ### Random build tuning

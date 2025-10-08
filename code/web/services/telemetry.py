@@ -11,10 +11,14 @@ __all__ = [
     "log_commander_create_deck",
     "log_partner_suggestions_generated",
     "log_partner_suggestion_selected",
+    "log_include_exclude_toggle",
+    "log_frontend_event",
 ]
 
 _LOGGER = logging.getLogger("web.commander_browser")
 _PARTNER_LOGGER = logging.getLogger("web.partner_suggestions")
+_MUST_HAVE_LOGGER = logging.getLogger("web.must_haves")
+_FRONTEND_LOGGER = logging.getLogger("web.frontend_events")
 
 
 def _emit(logger: logging.Logger, payload: Dict[str, Any]) -> None:
@@ -217,3 +221,45 @@ def log_partner_suggestion_selected(
     if warnings:
         payload["warnings"] = list(warnings)
     _emit(_PARTNER_LOGGER, payload)
+
+
+def log_include_exclude_toggle(
+    request: Request,
+    *,
+    card_name: str,
+    action: str,
+    enabled: bool,
+    include_count: int,
+    exclude_count: int,
+) -> None:
+    payload: Dict[str, Any] = {
+        "event": "must_haves.toggle",
+        "request_id": _request_id(request),
+        "path": str(request.url.path),
+        "card": card_name,
+        "list": action,
+        "enabled": bool(enabled),
+        "include_count": int(include_count),
+        "exclude_count": int(exclude_count),
+        "client_ip": _client_ip(request),
+    }
+    _emit(_MUST_HAVE_LOGGER, payload)
+
+
+def log_frontend_event(
+    request: Request,
+    event: str,
+    data: Mapping[str, Any] | None,
+) -> None:
+    snapshot: Dict[str, Any] = {}
+    if isinstance(data, Mapping):
+        snapshot = {str(k): data[k] for k in data}
+    payload: Dict[str, Any] = {
+        "event": f"frontend.{event}",
+        "request_id": _request_id(request),
+        "path": str(request.url.path),
+        "data": snapshot,
+        "referer": request.headers.get("referer"),
+        "client_ip": _client_ip(request),
+    }
+    _emit(_FRONTEND_LOGGER, payload)

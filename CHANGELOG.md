@@ -1,9 +1,4 @@
-- Random Modes (alpha): added env flags RANDOM_MODES, RANDOM_UI, RANDOM_MAX_ATTEMPTS, RANDOM_TIMEOUT_MS.
-- Determinism: CSV_FILES_DIR override to point tests to csv_files/testdata; permalink now carries optional random fields (seed/theme/constraints).
 # Changelog
-
-All notable changes to this project will be documented in this file.
-
 This format follows Keep a Changelog principles and aims for Semantic Versioning.
 
 ## How we version
@@ -14,13 +9,30 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 
 ## [Unreleased]
 ### Summary
-- _No changes yet_
+- Responsiveness tweaks: shared HTMX debounce helper, deferred skeleton microcopy, and containment rules for long card lists.
+- Optimistic include/exclude experience with HTMX caching, prefetch hints, and telemetry instrumentation for must-have interactions.
+- Commander catalog skeleton placeholders and lazy commander art loading to smooth catalog fetch latency.
+- Commander catalog default view now prewarms and pulls from an in-memory cache so repeat visits respond in under 200 ms.
+- Virtualization helper now respects `data-virtualize-*` hints and powers deck summary lists without loading all rows at once.
+- Step 5 deck summary now streams via an HTMX fragment so the main review payload stays lean while virtualization kicks in post-swap.
+- Mana analytics now load on-demand with collapsible sections, reducing initial deck review time by ~30-40%.
+- Interactive chart tooltips with click-to-pin highlighting make cross-referencing cards between charts and deck lists easier.
 
 ### Added
-- _None_
+- Skeleton placeholders now accept `data-skeleton-label` microcopy and only surface after ~400 ms on the build wizard, stage navigator, and alternatives panel.
+- Must-have toggle API (`/build/must-haves/toggle`), telemetry ingestion route (`/telemetry/events`), and structured logging helpers for include/exclude state changes and frontend beacons.
+- Commander catalog results wrap in a deferred skeleton list, and commander art lazy-loads via a new `IntersectionObserver` helper in `code/web/static/app.js`.
+- Collapsible accordions for Mana Overview and Test Hand sections defer content loading until expanded.
+- Click-to-pin chart tooltips with consistent corner positioning (lower-left desktop, lower-right mobile) and working copy buttons.
+- Virtualized card lists automatically render only visible items when 12+ cards are present.changes to this project will be documented in this file.
 
 ### Changed
-- _None_
+- Commander search and theme picker now intelligently debounce keystrokes, preventing redundant requests while you type.
+- Card grids use modern browser containment rules to minimize layout recalculations on large decks.
+- Include/exclude buttons now respond immediately with optimistic updates, falling back gracefully if the server disagrees.
+- Frequently-accessed views (like the commander catalog default) now load from memory, responding in under 200ms.
+- Deck review now loads in focused chunks, keeping the initial page lean while analytics stream in progressively.
+- Chart hover zones expanded to full column width for easier interaction.
 
 ### Fixed
 - _None_

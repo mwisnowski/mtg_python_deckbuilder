@@ -2,7 +2,7 @@
 {% set labels = ['Choose Commander','Tags & Bracket','Ideal Counts','Review','Build'] %}
 {% set index = step_index if step_index is defined else i if i is defined else 1 %}
 {% set total = step_total if step_total is defined else n if n is defined else 5 %}
-<nav class="stage-nav" aria-label="Build stages">
+<nav class="stage-nav" aria-label="Build stages" data-skeleton data-skeleton-label="Refreshing stages…" data-skeleton-delay="400">
   <ol>
     {% for idx in range(1, total+1) %}
       {% set name = labels[idx-1] if (labels|length)>=idx else ('Step ' ~ idx) %}

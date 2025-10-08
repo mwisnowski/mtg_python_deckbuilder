@@ -24,7 +24,7 @@
   {# Flagged tiles by category, in the same card grid style #}
   {% if flagged_meta and flagged_meta|length > 0 %}
     <h5 style="margin:.75rem 0 .35rem 0;">Flagged cards</h5>
-    <div class="card-grid">
+    <div class="card-grid"{% if flagged_meta|length >= 12 %} data-virtualize="grid" data-virtualize-min="12" data-virtualize-columns="4"{% endif %}>
       {% for f in flagged_meta %}
       {% set sev = (f.severity or 'FAIL')|upper %}
       <div class="card-tile" data-card-name="{{ f.name }}" data-role="{{ f.role or '' }}" {% if sev == 'FAIL' %}style="border-color: var(--red-main);"{% elif sev == 'WARN' %}style="border-color: var(--orange-main);"{% endif %}>

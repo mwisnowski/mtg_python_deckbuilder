@@ -15,17 +15,18 @@ services:
       # ------------------------------------------------------------------
 
       # UI features/flags
-      SHOW_LOGS: "1"                # 1=enable /logs page; 0=hide
-      SHOW_SETUP: "1"               # 1=show Setup/Tagging card; 0=hide (still runs if WEB_AUTO_SETUP=1)
-      SHOW_DIAGNOSTICS: "1"         # 1=enable /diagnostics & /diagnostics/perf; 0=hide
-      SHOW_COMMANDERS: "1"         # 1=show Commanders browser/pages
-      ENABLE_PWA: "0"               # 1=serve manifest/service worker (experimental)
-      ENABLE_THEMES: "1"            # 1=expose theme selector; 0=hide (THEME still applied)
-      ENABLE_PRESETS: "0"           # 1=show presets section
-      ENABLE_CUSTOM_THEMES: "1"     # 1=expose Additional Themes panel for user-supplied tags
-      USER_THEME_LIMIT: "8"         # Maximum number of user-supplied supplemental themes stored in session
-      WEB_VIRTUALIZE: "1"           # 1=enable list virtualization in Step 5
-      ALLOW_MUST_HAVES: "1"         # 1=enable must-include/must-exclude cards feature; 0=disable
+      SHOW_LOGS: "1"                  # 1=enable /logs page; 0=hide
+      SHOW_SETUP: "1"                 # 1=show Setup/Tagging card; 0=hide (still runs if WEB_AUTO_SETUP=1)
+      SHOW_DIAGNOSTICS: "1"           # 1=enable /diagnostics & /diagnostics/perf; 0=hide
+      SHOW_COMMANDERS: "1"            # 1=show Commanders browser/pages
+      ENABLE_PWA: "0"                 # 1=serve manifest/service worker (experimental)
+      ENABLE_THEMES: "1"              # 1=expose theme selector; 0=hide (THEME still applied)
+      ENABLE_PRESETS: "0"             # 1=show presets section
+      ENABLE_CUSTOM_THEMES: "1"       # 1=expose Additional Themes panel for user-supplied tags
+      USER_THEME_LIMIT: "8"           # Maximum number of user-supplied supplemental themes stored in session
+      WEB_VIRTUALIZE: "1"             # 1=enable list virtualization in Step 5
+      ALLOW_MUST_HAVES: "1"           # 1=enable must-include/must-exclude cards feature; 0=disable
+      SHOW_MUST_HAVE_BUTTONS: "0"     # 1=show must include/exclude controls in the UI (default hidden)
       SHOW_MISC_POOL: "0"
       WEB_THEME_PICKER_DIAGNOSTICS: "1"  # 1=enable extra theme catalog diagnostics fields, uncapped view & /themes/metrics
       # Partner / Background mechanics (feature flag)

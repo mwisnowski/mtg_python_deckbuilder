@@ -252,6 +252,7 @@ See `.env.example` for the full catalog. Common knobs:
 | `ENABLE_THEMES` | `1` | Keep the theme selector and themes explorer visible. |
 | `WEB_VIRTUALIZE` | `1` | Opt-in to virtualized lists/grids for large result sets. |
 | `ALLOW_MUST_HAVES` | `1` | Enable include/exclude enforcement in Step 5. |
+| `SHOW_MUST_HAVE_BUTTONS` | `0` | Surface the must include/exclude buttons and quick-add UI (requires `ALLOW_MUST_HAVES=1`). |
 | `THEME` | `dark` | Initial UI theme (`system`, `light`, or `dark`). |
 
 ### Random build controls

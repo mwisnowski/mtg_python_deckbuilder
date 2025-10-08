@@ -3,9 +3,11 @@ from __future__ import annotations
 from fastapi import APIRouter, Request, Form, Query
 from fastapi.responses import HTMLResponse, JSONResponse
 from typing import Any, Iterable
+import json
 from ..app import (
     ALLOW_MUST_HAVES,
     ENABLE_CUSTOM_THEMES,
+    SHOW_MUST_HAVE_BUTTONS,
     USER_THEME_LIMIT,
     DEFAULT_THEME_MATCH_MODE,
     _sanitize_theme,
@@ -13,6 +15,7 @@ from ..app import (
     ENABLE_PARTNER_SUGGESTIONS,
 )
 from ..services.build_utils import (
+    step5_base_ctx,
     step5_ctx_from_result,
     step5_error_ctx,
     step5_empty_ctx,
@@ -37,6 +40,7 @@ from ..services.alts_utils import get_cached as _alts_get_cached, set_cached as 
 from ..services.telemetry import (
     log_commander_create_deck,
     log_partner_suggestion_selected,
+    log_include_exclude_toggle,
 )
 from ..services.partner_suggestions import get_partner_suggestions
 from urllib.parse import urlparse, quote_plus
@@ -134,6 +138,90 @@ def warm_validation_name_cache() -> None:
     except Exception:
         # Best-effort warmup; proceed silently on failure
         pass
+
+
+def _merge_hx_trigger(response: Any, payload: dict[str, Any]) -> None:
+    if not payload or response is None:
+        return
+    try:
+        existing = response.headers.get("HX-Trigger") if hasattr(response, "headers") else None
+    except Exception:
+        existing = None
+    try:
+        if existing:
+            try:
+                data = json.loads(existing)
+            except Exception:
+                data = {}
+            if isinstance(data, dict):
+                data.update(payload)
+                response.headers["HX-Trigger"] = json.dumps(data)
+                return
+        response.headers["HX-Trigger"] = json.dumps(payload)
+    except Exception:
+        try:
+            response.headers["HX-Trigger"] = json.dumps(payload)
+        except Exception:
+            pass
+
+
+def _step5_summary_placeholder_html(token: int, *, message: str | None = None) -> str:
+    text = message or "Deck summary will appear after the build completes."
+    return (
+        f'<div id="deck-summary" data-summary '
+        f'hx-get="/build/step5/summary?token={token}" '
+        'hx-trigger="load, step5:refresh from:body" hx-swap="outerHTML">'
+        f'<div class="muted" style="margin-top:1rem;">{_esc(text)}</div>'
+        '</div>'
+    )
+
+
+def _must_have_state(sess: dict) -> tuple[dict[str, Any], list[str], list[str]]:
+    includes = list(sess.get("include_cards") or [])
+    excludes = list(sess.get("exclude_cards") or [])
+    state = {
+        "includes": includes,
+        "excludes": excludes,
+        "enforcement_mode": (sess.get("enforcement_mode") or "warn"),
+        "allow_illegal": bool(sess.get("allow_illegal")),
+        "fuzzy_matching": bool(sess.get("fuzzy_matching", True)),
+    }
+    return state, includes, excludes
+
+
+def _render_include_exclude_summary(
+    request: Request,
+    sess: dict,
+    sid: str,
+    *,
+    state: dict[str, Any] | None = None,
+    includes: list[str] | None = None,
+    excludes: list[str] | None = None,
+) -> HTMLResponse:
+    ctx = step5_base_ctx(request, sess, include_name=False, include_locks=False)
+    if state is None or includes is None or excludes is None:
+        state, includes, excludes = _must_have_state(sess)
+    ctx["must_have_state"] = state
+    ctx["summary"] = sess.get("step5_summary") if sess.get("step5_summary_ready") else None
+    ctx["include_cards"] = includes
+    ctx["exclude_cards"] = excludes
+    response = templates.TemplateResponse("partials/include_exclude_summary.html", ctx)
+    response.set_cookie("sid", sid, httponly=True, samesite="lax")
+    return response
+
+
+def _current_builder_summary(sess: dict) -> Any | None:
+    try:
+        ctx = sess.get("build_ctx") or {}
+        builder = ctx.get("builder") if isinstance(ctx, dict) else None
+        if builder is None:
+            return None
+        summary_fn = getattr(builder, "build_deck_summary", None)
+        if callable(summary_fn):
+            return summary_fn()
+    except Exception:
+        return None
+    return None
 
 
 _COLOR_NAME_MAP = {
@@ -684,6 +772,117 @@ def _resolve_partner_selection(
 
 router = APIRouter(prefix="/build")
 
+
+@router.post("/must-haves/toggle", response_class=HTMLResponse)
+async def toggle_must_haves(
+    request: Request,
+    card_name: str = Form(...),
+    list_type: str = Form(...),
+    enabled: str = Form("1"),
+):
+    if not ALLOW_MUST_HAVES:
+        return JSONResponse({"error": "Must-have lists are disabled"}, status_code=403)
+
+    name = str(card_name or "").strip()
+    if not name:
+        return JSONResponse({"error": "Card name is required"}, status_code=400)
+
+    list_key = str(list_type or "").strip().lower()
+    if list_key not in {"include", "exclude"}:
+        return JSONResponse({"error": "Unsupported toggle type"}, status_code=400)
+
+    enabled_flag = str(enabled).strip().lower() in {"1", "true", "yes", "on"}
+
+    sid = request.cookies.get("sid") or request.headers.get("X-Session-ID")
+    if not sid:
+        sid = new_sid()
+    sess = get_session(sid)
+
+    includes = list(sess.get("include_cards") or [])
+    excludes = list(sess.get("exclude_cards") or [])
+    include_lookup = {str(v).strip().lower(): str(v) for v in includes if str(v).strip()}
+    exclude_lookup = {str(v).strip().lower(): str(v) for v in excludes if str(v).strip()}
+    key = name.lower()
+    display_name = include_lookup.get(key) or exclude_lookup.get(key) or name
+
+    changed = False
+    include_limit = 10
+    exclude_limit = 15
+
+    def _remove_casefold(items: list[str], item_key: str) -> list[str]:
+        return [c for c in items if str(c).strip().lower() != item_key]
+
+    if list_key == "include":
+        if enabled_flag:
+            if key not in include_lookup:
+                if len(include_lookup) >= include_limit:
+                    return JSONResponse({"error": f"Include limit reached ({include_limit})."}, status_code=400)
+                includes.append(name)
+                include_lookup[key] = name
+                changed = True
+            if key in exclude_lookup:
+                excludes = _remove_casefold(excludes, key)
+                exclude_lookup.pop(key, None)
+                changed = True
+        else:
+            if key in include_lookup:
+                includes = _remove_casefold(includes, key)
+                include_lookup.pop(key, None)
+                changed = True
+    else:  # exclude
+        if enabled_flag:
+            if key not in exclude_lookup:
+                if len(exclude_lookup) >= exclude_limit:
+                    return JSONResponse({"error": f"Exclude limit reached ({exclude_limit})."}, status_code=400)
+                excludes.append(name)
+                exclude_lookup[key] = name
+                changed = True
+            if key in include_lookup:
+                includes = _remove_casefold(includes, key)
+                include_lookup.pop(key, None)
+                changed = True
+        else:
+            if key in exclude_lookup:
+                excludes = _remove_casefold(excludes, key)
+                exclude_lookup.pop(key, None)
+                changed = True
+
+    if changed:
+        sess["include_cards"] = includes
+        sess["exclude_cards"] = excludes
+        if "include_exclude_diagnostics" in sess:
+            try:
+                del sess["include_exclude_diagnostics"]
+            except Exception:
+                pass
+
+    response = _render_include_exclude_summary(request, sess, sid)
+
+    try:
+        log_include_exclude_toggle(
+            request,
+            card_name=display_name,
+            action=list_key,
+            enabled=enabled_flag,
+            include_count=len(includes),
+            exclude_count=len(excludes),
+        )
+    except Exception:
+        pass
+
+    trigger_payload = {
+        "card": display_name,
+        "list": list_key,
+        "enabled": enabled_flag,
+        "include_count": len(includes),
+        "exclude_count": len(excludes),
+    }
+    try:
+        _merge_hx_trigger(response, {"must-haves:toggle": trigger_payload})
+    except Exception:
+        pass
+    return response
+
 # Alternatives cache moved to services/alts_utils
 
 
@@ -1132,6 +1331,7 @@ async def build_new_modal(request: Request) -> HTMLResponse:
         "labels": orch.ideal_labels(),
         "defaults": orch.ideal_defaults(),
         "allow_must_haves": ALLOW_MUST_HAVES,  # Add feature flag
+        "show_must_have_buttons": SHOW_MUST_HAVE_BUTTONS,
         "enable_custom_themes": ENABLE_CUSTOM_THEMES,
         "form": {
             "prefer_combos": bool(sess.get("prefer_combos")),
@@ -1531,6 +1731,7 @@ async def build_new_submit(
                     "labels": orch.ideal_labels(),
                     "defaults": orch.ideal_defaults(),
                     "allow_must_haves": ALLOW_MUST_HAVES,
+                    "show_must_have_buttons": SHOW_MUST_HAVE_BUTTONS,
                     "enable_custom_themes": ENABLE_CUSTOM_THEMES,
                     "form": _form_state(suggested),
                     "tag_slot_html": None,
@@ -1554,6 +1755,7 @@ async def build_new_submit(
             "labels": orch.ideal_labels(),
             "defaults": orch.ideal_defaults(),
             "allow_must_haves": ALLOW_MUST_HAVES,  # Add feature flag
+            "show_must_have_buttons": SHOW_MUST_HAVE_BUTTONS,
             "enable_custom_themes": ENABLE_CUSTOM_THEMES,
             "form": _form_state(commander),
             "tag_slot_html": None,
@@ -1657,6 +1859,7 @@ async def build_new_submit(
             "labels": orch.ideal_labels(),
             "defaults": orch.ideal_defaults(),
             "allow_must_haves": ALLOW_MUST_HAVES,
+            "show_must_have_buttons": SHOW_MUST_HAVE_BUTTONS,
             "enable_custom_themes": ENABLE_CUSTOM_THEMES,
             "form": _form_state(primary_commander_name),
             "tag_slot_html": tag_slot_html,
@@ -1794,6 +1997,7 @@ async def build_new_submit(
                 "labels": orch.ideal_labels(),
                 "defaults": orch.ideal_defaults(),
                 "allow_must_haves": ALLOW_MUST_HAVES,
+                "show_must_have_buttons": SHOW_MUST_HAVE_BUTTONS,
                 "enable_custom_themes": ENABLE_CUSTOM_THEMES,
                 "form": _form_state(sess.get("commander", "")),
                 "tag_slot_html": None,
@@ -2245,6 +2449,7 @@ async def build_step5_rewind(request: Request, to: str = Form(...)) -> HTMLRespo
         ctx_resp = step5_error_ctx(request, sess, f"Failed to rewind: {e}")
     resp = templates.TemplateResponse("build/_step5.html", ctx_resp)
     resp.set_cookie("sid", sid, httponly=True, samesite="lax")
+    _merge_hx_trigger(resp, {"step5:refresh": {"token": ctx_resp.get("summary_token", 0)}})
     return resp
 
 
@@ -2884,6 +3089,7 @@ async def build_step5_get(request: Request) -> HTMLResponse:
     base = step5_empty_ctx(request, sess)
     resp = templates.TemplateResponse("build/_step5.html", base)
     resp.set_cookie("sid", sid, httponly=True, samesite="lax")
+    _merge_hx_trigger(resp, {"step5:refresh": {"token": base.get("summary_token", 0)}})
     return resp
     
 @router.post("/step5/continue", response_class=HTMLResponse)
@@ -2954,6 +3160,7 @@ async def build_step5_continue(request: Request) -> HTMLResponse:
         err_ctx = step5_error_ctx(request, sess, f"Failed to continue: {e}")
         resp = templates.TemplateResponse("build/_step5.html", err_ctx)
         resp.set_cookie("sid", sid, httponly=True, samesite="lax")
+        _merge_hx_trigger(resp, {"step5:refresh": {"token": err_ctx.get("summary_token", 0)}})
         return resp
     stage_label = res.get("label")
     # If we just applied Multi-Copy, stamp the applied key so we don't rebuild again
@@ -2968,6 +3175,7 @@ async def build_step5_continue(request: Request) -> HTMLResponse:
     ctx2 = step5_ctx_from_result(request, sess, res, status_text=status, show_skipped=show_skipped)
     resp = templates.TemplateResponse("build/_step5.html", ctx2)
     resp.set_cookie("sid", sid, httponly=True, samesite="lax")
+    _merge_hx_trigger(resp, {"step5:refresh": {"token": ctx2.get("summary_token", 0)}})
     return resp
 
 @router.post("/step5/rerun", response_class=HTMLResponse)
@@ -3006,6 +3214,7 @@ async def build_step5_rerun(request: Request) -> HTMLResponse:
         err_ctx = step5_error_ctx(request, sess, f"Failed to rerun stage: {e}")
         resp = templates.TemplateResponse("build/_step5.html", err_ctx)
         resp.set_cookie("sid", sid, httponly=True, samesite="lax")
+        _merge_hx_trigger(resp, {"step5:refresh": {"token": err_ctx.get("summary_token", 0)}})
         return resp
     sess["last_step"] = 5
     # Build locked cards list with ownership and in-deck presence
@@ -3032,6 +3241,7 @@ async def build_step5_rerun(request: Request) -> HTMLResponse:
     ctx3["locked_cards"] = locked_cards
     resp = templates.TemplateResponse("build/_step5.html", ctx3)
     resp.set_cookie("sid", sid, httponly=True, samesite="lax")
+    _merge_hx_trigger(resp, {"step5:refresh": {"token": ctx3.get("summary_token", 0)}})
     return resp
 
 
@@ -3073,6 +3283,7 @@ async def build_step5_start(request: Request) -> HTMLResponse:
         ctx = step5_ctx_from_result(request, sess, res, status_text=status, show_skipped=show_skipped)
         resp = templates.TemplateResponse("build/_step5.html", ctx)
         resp.set_cookie("sid", sid, httponly=True, samesite="lax")
+        _merge_hx_trigger(resp, {"step5:refresh": {"token": ctx.get("summary_token", 0)}})
         return resp
     except Exception as e:
         # Surface a friendly error on the step 5 screen with normalized context
@@ -3086,6 +3297,7 @@ async def build_step5_start(request: Request) -> HTMLResponse:
         err_ctx["commander"] = commander
         resp = templates.TemplateResponse("build/_step5.html", err_ctx)
         resp.set_cookie("sid", sid, httponly=True, samesite="lax")
+        _merge_hx_trigger(resp, {"step5:refresh": {"token": err_ctx.get("summary_token", 0)}})
         return resp
 
 @router.get("/step5/start", response_class=HTMLResponse)
@@ -3151,7 +3363,60 @@ async def build_step5_reset_stage(request: Request) -> HTMLResponse:
     })
     resp = templates.TemplateResponse("build/_step5.html", base)
     resp.set_cookie("sid", sid, httponly=True, samesite="lax")
+    _merge_hx_trigger(resp, {"step5:refresh": {"token": base.get("summary_token", 0)}})
     return resp
+
+
+@router.get("/step5/summary", response_class=HTMLResponse)
+async def build_step5_summary(request: Request, token: int = Query(0)) -> HTMLResponse:
+    sid = request.cookies.get("sid") or request.headers.get("X-Session-ID")
+    if not sid:
+        sid = new_sid()
+    sess = get_session(sid)
+
+    try:
+        session_token = int(sess.get("step5_summary_token", 0))
+    except Exception:
+        session_token = 0
+    try:
+        requested_token = int(token)
+    except Exception:
+        requested_token = 0
+    ready = bool(sess.get("step5_summary_ready"))
+    summary_data = sess.get("step5_summary") if ready else None
+    if summary_data is None and ready:
+        summary_data = _current_builder_summary(sess)
+        if summary_data is not None:
+            try:
+                sess["step5_summary"] = summary_data
+            except Exception:
+                pass
+
+    synergies: list[str] = []
+    try:
+        raw_synergies = sess.get("step5_synergies")
+        if isinstance(raw_synergies, (list, tuple, set)):
+            synergies = [str(item) for item in raw_synergies if str(item).strip()]
+    except Exception:
+        synergies = []
+
+    active_token = session_token if session_token >= requested_token else requested_token
+
+    if not ready or summary_data is None:
+        message = "Deck summary will appear after the build completes." if not ready else "Deck summary is not available yet. Try rerunning the current stage."
+        placeholder = _step5_summary_placeholder_html(active_token, message=message)
+        response = HTMLResponse(placeholder)
+        response.set_cookie("sid", sid, httponly=True, samesite="lax")
+        return response
+
+    ctx = step5_base_ctx(request, sess)
+    ctx["summary"] = summary_data
+    ctx["synergies"] = synergies
+    ctx["summary_ready"] = True
+    ctx["summary_token"] = active_token
+    response = templates.TemplateResponse("partials/deck_summary.html", ctx)
+    response.set_cookie("sid", sid, httponly=True, samesite="lax")
+    return response
 
 # --- Phase 8: Lock/Replace/Compare/Permalink minimal API ---
 
@@ -4244,6 +4509,7 @@ async def build_enforce_apply(request: Request) -> HTMLResponse:
         err_ctx = step5_error_ctx(request, sess, "No active build context to enforce.")
         resp = templates.TemplateResponse("build/_step5.html", err_ctx)
         resp.set_cookie("sid", sid, httponly=True, samesite="lax")
+        _merge_hx_trigger(resp, {"step5:refresh": {"token": err_ctx.get("summary_token", 0)}})
         return resp
     # Ensure we have a CSV base stem for consistent re-exports
     base_stem = None
@@ -4311,6 +4577,7 @@ async def build_enforce_apply(request: Request) -> HTMLResponse:
         err_ctx = step5_error_ctx(request, sess, f"Enforcement failed: {e}")
         resp = templates.TemplateResponse("build/_step5.html", err_ctx)
         resp.set_cookie("sid", sid, httponly=True, samesite="lax")
+        _merge_hx_trigger(resp, {"step5:refresh": {"token": err_ctx.get("summary_token", 0)}})
         return resp
     # Reload compliance JSON and summary
     compliance = None
@@ -4358,6 +4625,7 @@ async def build_enforce_apply(request: Request) -> HTMLResponse:
     page_ctx = step5_ctx_from_result(request, sess, res, status_text="Build complete", show_skipped=True)
     resp = templates.TemplateResponse(request, "build/_step5.html", page_ctx)
     resp.set_cookie("sid", sid, httponly=True, samesite="lax")
+    _merge_hx_trigger(resp, {"step5:refresh": {"token": page_ctx.get("summary_token", 0)}})
     return resp
 
 
@@ -4387,9 +4655,14 @@ async def build_enforcement_fullpage(request: Request) -> HTMLResponse:
             comp = orch._attach_enforcement_plan(b, comp)  # type: ignore[attr-defined]
     except Exception:
         pass
-    ctx2 = {"request": request, "compliance": comp}
+    try:
+        summary_token = int(sess.get("step5_summary_token", 0))
+    except Exception:
+        summary_token = 0
+    ctx2 = {"request": request, "compliance": comp, "summary_token": summary_token}
     resp = templates.TemplateResponse(request, "build/enforcement.html", ctx2)
     resp.set_cookie("sid", sid, httponly=True, samesite="lax")
+    _merge_hx_trigger(resp, {"step5:refresh": {"token": ctx2.get("summary_token", 0)}})
     return resp
 
 

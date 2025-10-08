@@ -36,7 +36,7 @@
       ],
       "popularity_bucket": "Very Common",
       "editorial_quality": "draft",
-      "description": "Stacks +1/+1 counters broadly then doubles, proliferates, or redistributes them for exponential scaling."
+      "description": "+1/+1 counters build across the board then get doubled, proliferated, or redistributed for exponential scaling. Synergies like Proliferate and Counters Matter reinforce the plan."
     },
     {
       "id": "0-1-counters",
@@ -114,8 +114,8 @@
         "The Ozolith",
         "Evolution Sage",
         "Cankerbloom",
-        "Yawgmoth, Thran Physician",
         "Thrummingbird",
+        "Yawgmoth, Thran Physician",
         "Tezzeret's Gambit"
       ],
       "synergy_commanders": [
@@ -123,7 +123,7 @@
       ],
       "popularity_bucket": "Common",
       "editorial_quality": "draft",
-      "description": "Spreads -1/-1 counters for removal, attrition, and loop engines leveraging death & sacrifice triggers."
+      "description": "Spreads -1/-1 counters for removal, attrition, and loop engines leveraging death & sacrifice triggers. Synergies like Proliferate and Counters Matter reinforce the plan."
     },
     {
       "id": "adamant",
@@ -352,7 +352,7 @@
       ],
       "popularity_bucket": "Niche",
       "editorial_quality": "draft",
-      "description": "Reduces spell costs via board resource counts (Affinity) enabling explosive early multi-spell turns."
+      "description": "Reduces spell costs via board resource counts (Affinity) enabling explosive early multi-spell turns. Synergies like Cost Reduction and Artifacts Matter reinforce the plan."
     },
     {
       "id": "afflict",
@@ -416,7 +416,7 @@
         "Imperious Oligarch",
         "Seraph of the Scales",
         "Knight of the Last Breath",
-        "Syndicate Messenger"
+        "Orzhov Racketeers"
       ],
       "synergy_commanders": [
         "Sheoldred, the Apocalypse - Synergy (Aristocrats)"
@@ -458,7 +458,7 @@
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
-      "description": "Extracts two-phase value from split Aftermath spells, maximizing flexible sequencing."
+      "description": "Extracts two-phase value from split Aftermath spells, maximizing flexible sequencing. Synergies like Mill and Big Mana reinforce the plan."
     },
     {
       "id": "age-counters",
@@ -532,7 +532,7 @@
       ],
       "popularity_bucket": "Very Common",
       "editorial_quality": "draft",
-      "description": "Applies early pressure and combat tempo to close the game before slower value engines stabilize."
+      "description": "Applies early pressure and combat tempo to close the game before slower value engines stabilize. Synergies like Combat Matters and Voltron reinforce the plan."
     },
     {
       "id": "airbending",
@@ -560,11 +560,11 @@
       "id": "alien-kindred",
       "theme": "Alien Kindred",
       "synergies": [
-        "Clones",
         "Horror Kindred",
         "Exile Matters",
         "Trample",
-        "Protection"
+        "Protection",
+        "Counters Matter"
       ],
       "primary_color": "Blue",
       "secondary_color": "Green",
@@ -586,12 +586,12 @@
         "Time Beetle"
       ],
       "synergy_commanders": [
-        "Mondrak, Glory Dominus - Synergy (Clones)",
-        "Kiki-Jiki, Mirror Breaker - Synergy (Clones)",
-        "Sakashima of a Thousand Faces - Synergy (Clones)",
+        "Mondrak, Glory Dominus - Synergy (Horror Kindred)",
         "Solphim, Mayhem Dominus - Synergy (Horror Kindred)",
         "Zopandrel, Hunger Dominus - Synergy (Horror Kindred)",
-        "Etali, Primal Storm - Synergy (Exile Matters)"
+        "Etali, Primal Storm - Synergy (Exile Matters)",
+        "Ragavan, Nimble Pilferer - Synergy (Exile Matters)",
+        "Ghalta, Primal Hunger - Synergy (Trample)"
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
@@ -1084,7 +1084,7 @@
       ],
       "popularity_bucket": "Very Common",
       "editorial_quality": "draft",
-      "description": "Generates artifact tokens as modular resources—fueling sacrifice, draw, and cost-reduction engines."
+      "description": "Generates artifact tokens as modular resources—fueling sacrifice, draw, and cost-reduction engines. Synergies like Treasure and Servo Kindred reinforce the plan."
     },
     {
       "id": "artifacts-matter",
@@ -1122,7 +1122,7 @@
       ],
       "popularity_bucket": "Very Common",
       "editorial_quality": "draft",
-      "description": "Leverages dense artifact counts for cost reduction, recursion, and modular scaling payoffs."
+      "description": "Leverages dense artifact counts for cost reduction, recursion, and modular scaling payoffs. Synergies like Treasure Token and Equipment Matters reinforce the plan."
     },
     {
       "id": "artificer-kindred",
@@ -1557,7 +1557,7 @@
       ],
       "popularity_bucket": "Niche",
       "editorial_quality": "draft",
-      "description": "Pairs a Commander with Backgrounds for modular static buffs & class-style customization."
+      "description": "Pairs a Commander with Backgrounds for modular static buffs & class-style customization. Synergies like Choose a background and Treasure reinforce the plan."
     },
     {
       "id": "backup",
@@ -1628,7 +1628,7 @@
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
-      "description": "Focuses on getting a high number of Badger creatures into play with shared payoffs."
+      "description": "Focuses on getting a high number of Badger creatures into play with shared payoffs (e.g., Aggro and Combat Matters)."
     },
     {
       "id": "banding",
@@ -2316,7 +2316,7 @@
       ],
       "popularity_bucket": "Very Common",
       "editorial_quality": "draft",
-      "description": "Accelerates mana ahead of curve, then converts surplus into oversized threats or multi-spell bursts."
+      "description": "Accelerates mana ahead of curve, then converts surplus into oversized threats or multi-spell bursts. Synergies like Cost Reduction and Convoke reinforce the plan."
     },
     {
       "id": "bird-kindred",
@@ -2406,7 +2406,7 @@
       ],
       "popularity_bucket": "Very Common",
       "editorial_quality": "draft",
-      "description": "Recycles enter-the-battlefield triggers through blink/flicker loops for compounding value and soft locks."
+      "description": "Recycles enter-the-battlefield triggers through blink/flicker loops for compounding value and soft locks. Synergies like Enter the Battlefield and Flicker reinforce the plan."
     },
     {
       "id": "blitz",
@@ -2481,7 +2481,7 @@
       ],
       "popularity_bucket": "Niche",
       "editorial_quality": "draft",
-      "description": "Goes wide with creature tokens then converts mass into damage, draw, drain, or sacrifice engines."
+      "description": "Goes wide with creature tokens then converts mass into damage, draw, drain, or sacrifice engines. Synergies like Bloodthirst and Bloodrush reinforce the plan."
     },
     {
       "id": "bloodrush",
@@ -2515,7 +2515,7 @@
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
-      "description": "Uses Blood tokens to loot, set up graveyard recursion, and trigger discard/madness payoffs."
+      "description": "Uses Blood tokens to loot, set up graveyard recursion, and trigger discard/madness payoffs. Synergies like Blood Token and Aggro reinforce the plan."
     },
     {
       "id": "bloodthirst",
@@ -2552,7 +2552,7 @@
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
-      "description": "Uses Blood tokens to loot, set up graveyard recursion, and trigger discard/madness payoffs."
+      "description": "Uses Blood tokens to loot, set up graveyard recursion, and trigger discard/madness payoffs. Synergies like Blood Token and +1/+1 Counters reinforce the plan."
     },
     {
       "id": "boar-kindred",
@@ -2938,7 +2938,7 @@
       ],
       "popularity_bucket": "Very Common",
       "editorial_quality": "draft",
-      "description": "Applies early pressure and combat tempo to close the game before slower value engines stabilize."
+      "description": "Applies early pressure and combat tempo to close the game before slower value engines stabilize. Synergies like Pingers and Bloodthirst reinforce the plan."
     },
     {
       "id": "bushido",
@@ -3015,7 +3015,7 @@
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
-      "description": "Loops Buyback spells to convert excess mana into repeatable effects & inevitability."
+      "description": "Loops Buyback spells to convert excess mana into repeatable effects & inevitability. Synergies like Spells Matter and Spellslinger reinforce the plan."
     },
     {
       "id": "ctan-kindred",
@@ -3192,8 +3192,8 @@
         "Path of Discovery",
         "Worldwalker Helm",
         "Fanatical Offering",
-        "Restless Anchorage",
         "Amalia Benavides Aguirre",
+        "Restless Anchorage",
         "Seasoned Dungeoneer"
       ],
       "synergy_commanders": [
@@ -3266,7 +3266,7 @@
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
-      "description": "Chains cascade triggers to convert single casts into multi-spell value bursts."
+      "description": "Chains cascade triggers to convert single casts into multi-spell value bursts. Synergies like Exile Matters and Topdeck reinforce the plan."
     },
     {
       "id": "cases-matter",
@@ -3370,7 +3370,7 @@
       ],
       "popularity_bucket": "Common",
       "editorial_quality": "draft",
-      "description": "Focuses on getting a high number of Cat creatures into play with shared payoffs (e.g., Forestwalk and Energy Counters)."
+      "description": "Focuses on getting a high number of Cat creatures into play with shared payoffs (e.g., Forestwalk and Vigilance)."
     },
     {
       "id": "celebration",
@@ -3562,8 +3562,8 @@
       "secondary_color": "Blue",
       "example_commanders": [
         "Hearthhull, the Worldseed",
-        "Inspirit, Flagship Vessel",
         "Dawnsire, Sunstar Dreadnought",
+        "Inspirit, Flagship Vessel",
         "The Seriema",
         "Infinite Guideline Station"
       ],
@@ -3590,8 +3590,7 @@
       "id": "child-kindred",
       "theme": "Child Kindred",
       "synergies": [],
-      "primary_color": "Black",
-      "secondary_color": "Red",
+      "primary_color": "Red",
       "example_cards": [
         "Wee Champion"
       ],
@@ -3663,7 +3662,7 @@
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
-      "description": "Pairs a Commander with Backgrounds for modular static buffs & class-style customization."
+      "description": "Pairs a Commander with Backgrounds for modular static buffs & class-style customization. Synergies like Backgrounds Matter and Elf Kindred reinforce the plan."
     },
     {
       "id": "chroma",
@@ -3998,7 +3997,7 @@
       ],
       "popularity_bucket": "Niche",
       "editorial_quality": "draft",
-      "description": "Goes wide with creature tokens then converts mass into damage, draw, drain, or sacrifice engines."
+      "description": "Goes wide with creature tokens then converts mass into damage, draw, drain, or sacrifice engines. Synergies like Investigate and Detective Kindred reinforce the plan."
     },
     {
       "id": "cockatrice-kindred",
@@ -4219,19 +4218,6 @@
       "description": "Builds around Conditional Draw leveraging synergies with Max speed and Start your engines!."
     },
     {
-      "id": "conjure",
-      "theme": "Conjure",
-      "synergies": [],
-      "primary_color": "Black",
-      "secondary_color": "Blue",
-      "example_cards": [
-        "Silvanus's Invoker"
-      ],
-      "popularity_bucket": "Rare",
-      "editorial_quality": "draft",
-      "description": "Builds around the Conjure theme and its supporting synergies."
-    },
-    {
       "id": "connive",
       "theme": "Connive",
       "synergies": [
@@ -4270,7 +4256,7 @@
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
-      "description": "Uses Connive looting + counters to sculpt hands, grow threats, and feed recursion lines."
+      "description": "Uses Connive looting + counters to sculpt hands, grow threats, and feed recursion lines. Synergies like Loot and Rogue Kindred reinforce the plan."
     },
     {
       "id": "conspire",
@@ -4342,7 +4328,7 @@
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
-      "description": "Chains enchantment drops to trigger constellation loops in draw, drain, or scaling effects."
+      "description": "Chains enchantment drops to trigger constellation loops in draw, drain, or scaling effects. Synergies like Nymph Kindred and Enchantments Matter reinforce the plan."
     },
     {
       "id": "construct-kindred",
@@ -4416,7 +4402,7 @@
       ],
       "popularity_bucket": "Very Common",
       "editorial_quality": "draft",
-      "description": "Trades efficiently, accrues card advantage, and wins via inevitability once the board is stabilized."
+      "description": "Trades efficiently, accrues card advantage, and wins via inevitability once the board is stabilized. Synergies like Daybound and Nightbound reinforce the plan."
     },
     {
       "id": "converge",
@@ -4492,8 +4478,8 @@
       "id": "convoke",
       "theme": "Convoke",
       "synergies": [
-        "Big Mana",
         "Knight Kindred",
+        "Big Mana",
         "Toolbox",
         "Combat Tricks",
         "Removal"
@@ -4505,7 +4491,7 @@
         "The Wandering Rescuer",
         "Hogaak, Arisen Necropolis",
         "Kasla, the Broken Halo",
-        "Syr Konrad, the Grim - Synergy (Big Mana)"
+        "Syr Konrad, the Grim - Synergy (Knight Kindred)"
       ],
       "example_cards": [
         "Chord of Calling",
@@ -4518,15 +4504,15 @@
         "March of the Multitudes"
       ],
       "synergy_commanders": [
-        "Etali, Primal Storm - Synergy (Big Mana)",
-        "Tatyova, Benthic Druid - Synergy (Big Mana)",
         "Adeline, Resplendent Cathar - Synergy (Knight Kindred)",
         "Danitha Capashen, Paragon - Synergy (Knight Kindred)",
+        "Etali, Primal Storm - Synergy (Big Mana)",
+        "Tatyova, Benthic Druid - Synergy (Big Mana)",
         "Junji, the Midnight Sky - Synergy (Toolbox)"
       ],
       "popularity_bucket": "Niche",
       "editorial_quality": "draft",
-      "description": "Converts creature presence into mana (Convoke) accelerating large or off-color spells."
+      "description": "Converts creature presence into mana (Convoke) accelerating large or off-color spells. Synergies like Big Mana and Knight Kindred reinforce the plan."
     },
     {
       "id": "corpse-counters",
@@ -4723,7 +4709,7 @@
       ],
       "popularity_bucket": "Very Common",
       "editorial_quality": "draft",
-      "description": "Stacks +1/+1 counters broadly then doubles, proliferates, or redistributes them for exponential scaling."
+      "description": "+1/+1 counters build across the board then get doubled, proliferated, or redistributed for exponential scaling. Synergies like Proliferate and +1/+1 Counters reinforce the plan."
     },
     {
       "id": "counterspells",
@@ -4887,8 +4873,8 @@
         "Exile Matters",
         "Artifacts Matter"
       ],
-      "primary_color": "Black",
-      "secondary_color": "Blue",
+      "primary_color": "Blue",
+      "secondary_color": "Black",
       "example_commanders": [
         "Tetzin, Gnome Champion // The Golden-Gear Colossus",
         "Octavia, Living Thesis - Synergy (Graveyard Matters)",
@@ -4911,7 +4897,7 @@
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
-      "description": "Transforms / upgrades permanents via Craft, banking latent value until a timing pivot."
+      "description": "Transforms / upgrades permanents via Craft, banking latent value until a timing pivot. Synergies like Graveyard Matters and Golem Kindred reinforce the plan."
     },
     {
       "id": "creature-tokens",
@@ -4951,7 +4937,7 @@
       ],
       "popularity_bucket": "Very Common",
       "editorial_quality": "draft",
-      "description": "Goes wide with creature tokens then converts mass into damage, draw, drain, or sacrifice engines."
+      "description": "Goes wide with creature tokens then converts mass into damage, draw, drain, or sacrifice engines. Synergies like Tokens Matter and Token Creation reinforce the plan."
     },
     {
       "id": "crew",
@@ -5299,7 +5285,7 @@
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
-      "description": "Builds around Daybound leveraging synergies with Werewolf Kindred and Control."
+      "description": "Builds around Daybound leveraging synergies with Nightbound and Werewolf Kindred."
     },
     {
       "id": "deathtouch",
@@ -5444,7 +5430,7 @@
       ],
       "popularity_bucket": "Niche",
       "editorial_quality": "draft",
-      "description": "Diversifies graveyard card types to unlock Delirium power thresholds."
+      "description": "Diversifies graveyard card types to unlock Delirium power thresholds. Synergies like Reanimate and Mill reinforce the plan."
     },
     {
       "id": "delve",
@@ -5482,7 +5468,7 @@
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
-      "description": "Exiles graveyard cards to pay for Delve spells, converting stocked yard into mana efficiency."
+      "description": "Exiles graveyard cards to pay for Delve spells, converting stocked yard into mana efficiency. Synergies like Mill and Big Mana reinforce the plan."
     },
     {
       "id": "demigod-kindred",
@@ -6017,7 +6003,7 @@
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
-      "description": "Leverages Discover to cheat spell mana values, chaining free cascade-like board development."
+      "description": "Leverages Discover to cheat spell mana values, chaining free cascade-like board development. Synergies like Land Types Matter and Exile Matters reinforce the plan."
     },
     {
       "id": "disguise",
@@ -6215,7 +6201,7 @@
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
-      "description": "Focuses on getting a high number of Doctor creatures into play with shared payoffs (e.g., Doctor's companion and Sagas Matter)."
+      "description": "Focuses on getting a high number of Doctor creatures into play with shared payoffs (e.g., Doctor's Companion and Doctor's companion)."
     },
     {
       "id": "doctors-companion",
@@ -6349,7 +6335,7 @@
       ],
       "popularity_bucket": "Niche",
       "editorial_quality": "draft",
-      "description": "Assembles multiple basic land types rapidly to scale Domain-based effects."
+      "description": "Assembles multiple basic land types rapidly to scale Domain-based effects. Synergies like Lands Matter and Ramp reinforce the plan."
     },
     {
       "id": "doom-counters",
@@ -6532,7 +6518,7 @@
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
-      "description": "Loads high-impact cards into the graveyard early and reanimates them for explosive tempo or combo loops."
+      "description": "Loads high-impact cards into the graveyard early and reanimates them for explosive tempo or combo loops. Synergies like Unconditional Draw and Reanimate reinforce the plan."
     },
     {
       "id": "drone-kindred",
@@ -6681,22 +6667,6 @@
       "popularity_bucket": "Uncommon",
       "editorial_quality": "draft",
       "description": "Focuses on getting a high number of Dwarf creatures into play with shared payoffs (e.g., Servo Kindred and Berserker Kindred)."
-    },
-    {
-      "id": "earthbend",
-      "theme": "Earthbend",
-      "synergies": [
-        "Landfall",
-        "Ally Kindred",
-        "Lands Matter",
-        "+1/+1 Counters",
-        "Blink"
-      ],
-      "primary_color": "Green",
-      "secondary_color": "Black",
-      "popularity_bucket": "Rare",
-      "editorial_quality": "draft",
-      "description": "Builds around Earthbend leveraging synergies with Landfall and Ally Kindred."
     },
     {
       "id": "earthbending",
@@ -7195,7 +7165,7 @@
         "Token Creation"
       ],
       "primary_color": "Black",
-      "secondary_color": "Red",
+      "secondary_color": "Green",
       "example_commanders": [
         "Monoxa, Midway Manager",
         "Captain Rex Nebula",
@@ -7254,7 +7224,7 @@
       ],
       "popularity_bucket": "Very Common",
       "editorial_quality": "draft",
-      "description": "Stacks enchantment-based engines (cost reduction, constellation, aura recursion) for relentless value accrual."
+      "description": "Stacks enchantment-based engines (cost reduction, constellation, aura recursion) for relentless value accrual. Synergies like Umbra armor and Auras reinforce the plan."
     },
     {
       "id": "enchantment-tokens",
@@ -7292,7 +7262,7 @@
       ],
       "popularity_bucket": "Niche",
       "editorial_quality": "draft",
-      "description": "Stacks enchantment-based engines (cost reduction, constellation, aura recursion) for relentless value accrual."
+      "description": "Stacks enchantment-based engines (cost reduction, constellation, aura recursion) for relentless value accrual. Synergies like Role token and Inspired reinforce the plan."
     },
     {
       "id": "enchantments-matter",
@@ -7330,7 +7300,7 @@
       ],
       "popularity_bucket": "Very Common",
       "editorial_quality": "draft",
-      "description": "Stacks enchantment-based engines (cost reduction, constellation, aura recursion) for relentless value accrual."
+      "description": "Stacks enchantment-based engines (cost reduction, constellation, aura recursion) for relentless value accrual. Synergies like Auras and Constellation reinforce the plan."
     },
     {
       "id": "encore",
@@ -7440,7 +7410,7 @@
       ],
       "popularity_bucket": "Uncommon",
       "editorial_quality": "draft",
-      "description": "Accumulates Energy counters as a parallel resource spent for tempo spikes, draw, or scalable removal."
+      "description": "Accumulates Energy counters as a parallel resource spent for tempo spikes, draw, or scalable removal. Synergies like Resource Engine and Energy Counters reinforce the plan."
     },
     {
       "id": "energy-counters",
@@ -7476,7 +7446,7 @@
       ],
       "popularity_bucket": "Niche",
       "editorial_quality": "draft",
-      "description": "Accumulates Energy counters as a parallel resource spent for tempo spikes, draw, or scalable removal."
+      "description": "Accumulates Energy counters as a parallel resource spent for tempo spikes, draw, or scalable removal. Synergies like Energy and Resource Engine reinforce the plan."
     },
     {
       "id": "enlist",
@@ -7733,7 +7703,7 @@
       ],
       "popularity_bucket": "Uncommon",
       "editorial_quality": "draft",
-      "description": "Tutors and reuses equipment to stack stats/keywords onto resilient bodies for persistent pressure."
+      "description": "Tutors and reuses equipment to stack stats/keywords onto resilient bodies for persistent pressure. Synergies like Equip and Job select reinforce the plan."
     },
     {
       "id": "equipment-matters",
@@ -7773,7 +7743,7 @@
       ],
       "popularity_bucket": "Very Common",
       "editorial_quality": "draft",
-      "description": "Tutors and reuses equipment to stack stats/keywords onto resilient bodies for persistent pressure."
+      "description": "Tutors and reuses equipment to stack stats/keywords onto resilient bodies for persistent pressure. Synergies like Equipment and Equip reinforce the plan."
     },
     {
       "id": "escalate",
@@ -7807,7 +7777,7 @@
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
-      "description": "Selects multiple modes on Escalate spells, trading mana/cards for flexible stacked effects."
+      "description": "Selects multiple modes on Escalate spells, trading mana/cards for flexible stacked effects. Synergies like Interaction and Spells Matter reinforce the plan."
     },
     {
       "id": "escape",
@@ -7847,7 +7817,7 @@
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
-      "description": "Escapes threats from the graveyard by exiling spent resources, generating recursive inevitability."
+      "description": "Escapes threats from the graveyard by exiling spent resources, generating recursive inevitability. Synergies like Reanimate and Mill reinforce the plan."
     },
     {
       "id": "eternalize",
@@ -7952,7 +7922,7 @@
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
-      "description": "Sequentially upgrades creatures with Evolve counters, then leverages accumulated stats or counter synergies."
+      "description": "Sequentially upgrades creatures with Evolve counters, then leverages accumulated stats or counter synergies. Synergies like +1/+1 Counters and Counters Matter reinforce the plan."
     },
     {
       "id": "exalted",
@@ -8166,7 +8136,7 @@
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
-      "description": "Sacrifices creatures on ETB (Exploit) converting fodder into removal, draw, or recursion leverage."
+      "description": "Sacrifices creatures on ETB (Exploit) converting fodder into removal, draw, or recursion leverage. Synergies like Zombie Kindred and Sacrifice Matters reinforce the plan."
     },
     {
       "id": "explore",
@@ -8203,7 +8173,7 @@
       ],
       "popularity_bucket": "Niche",
       "editorial_quality": "draft",
-      "description": "Uses Explore triggers to smooth draws, grow creatures, and feed graveyard-adjacent engines."
+      "description": "Uses Explore triggers to smooth draws, grow creatures, and feed graveyard-adjacent engines. Synergies like Map Token and Card Selection reinforce the plan."
     },
     {
       "id": "extort",
@@ -8276,7 +8246,7 @@
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
-      "description": "Focuses on getting a high number of Eye creatures into play with shared payoffs (e.g., More Than Meets the Eye and Convert)."
+      "description": "Focuses on getting a high number of Eye creatures into play with shared payoffs (e.g., Convert and Living metal)."
     },
     {
       "id": "fabricate",
@@ -8664,8 +8634,8 @@
       "example_cards": [
         "Fire Lord Zuko",
         "Zuko, Exiled Prince",
-        "Avatar Aang // Aang, Master of Elements",
         "The Rise of Sozin // Fire Lord Sozin",
+        "Avatar Aang // Aang, Master of Elements",
         "Fire Nation Attacks",
         "Fire Sages",
         "Loyal Fire Sage",
@@ -8679,7 +8649,7 @@
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
-      "description": "Builds around Firebending leveraging synergies with Mana Dork and X Spells."
+      "description": "Builds around Firebending leveraging synergies with Bending and Mana Dork."
     },
     {
       "id": "first-strike",
@@ -8707,8 +8677,8 @@
         "Gisela, Blade of Goldnight",
         "Bonehoard Dracosaur",
         "Drana, Liberator of Malakir",
-        "Thalia, Heretic Cathar",
-        "Ocelot Pride"
+        "Ocelot Pride",
+        "Thalia, Heretic Cathar"
       ],
       "synergy_commanders": [
         "Ayesha Tanaka - Synergy (Banding)",
@@ -8879,7 +8849,7 @@
       ],
       "popularity_bucket": "Uncommon",
       "editorial_quality": "draft",
-      "description": "Replays instants & sorceries from the graveyard (Flashback) for incremental spell velocity."
+      "description": "Replays instants & sorceries from the graveyard (Flashback) for incremental spell velocity. Synergies like Reanimate and Mill reinforce the plan."
     },
     {
       "id": "flood-counters",
@@ -9015,7 +8985,7 @@
       ],
       "popularity_bucket": "Uncommon",
       "editorial_quality": "draft",
-      "description": "Creates Food tokens for life padding and sacrifice loops that translate into drain, draw, or recursion."
+      "description": "Creates Food tokens for life padding and sacrifice loops that translate into drain, draw, or recursion. Synergies like Food Token and Forage reinforce the plan."
     },
     {
       "id": "food-token",
@@ -9052,7 +9022,7 @@
       ],
       "popularity_bucket": "Uncommon",
       "editorial_quality": "draft",
-      "description": "Goes wide with creature tokens then converts mass into damage, draw, drain, or sacrifice engines."
+      "description": "Goes wide with creature tokens then converts mass into damage, draw, drain, or sacrifice engines. Synergies like Forage and Food reinforce the plan."
     },
     {
       "id": "for-mirrodin",
@@ -9253,11 +9223,11 @@
         "Delayed Blast Fireball",
         "Ravenform",
         "Saw It Coming",
-        "Mystic Reflection",
         "Behold the Multiverse",
+        "Mystic Reflection",
         "Cosmic Intervention",
         "Spectral Deluge",
-        "Alrund's Epiphany"
+        "Doomskar"
       ],
       "synergy_commanders": [
         "Vito, Thorn of the Dusk Rose - Synergy (Cleric Kindred)",
@@ -9266,7 +9236,7 @@
       ],
       "popularity_bucket": "Niche",
       "editorial_quality": "draft",
-      "description": "Foretells spells early to smooth curve, conceal information, and discount impactful future turns."
+      "description": "Foretells spells early to smooth curve, conceal information, and discount impactful future turns. Synergies like Exile Matters and Cleric Kindred reinforce the plan."
     },
     {
       "id": "formidable",
@@ -9341,7 +9311,7 @@
         "Goro-Goro, Disciple of Ryusei - Synergy (Samurai Kindred)",
         "Vito, Thorn of the Dusk Rose - Synergy (Cleric Kindred)"
       ],
-      "popularity_bucket": "Niche",
+      "popularity_bucket": "Rare",
       "editorial_quality": "draft",
       "description": "Focuses on getting a high number of Fox creatures into play with shared payoffs (e.g., Bushido and Samurai Kindred)."
     },
@@ -9810,7 +9780,7 @@
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
-      "description": "Focuses on getting a high number of Gnome creatures into play with shared payoffs (e.g., Artifact Tokens and Creature Tokens)."
+      "description": "Focuses on getting a high number of Gnome creatures into play with shared payoffs (e.g., Artifact Tokens and Ramp)."
     },
     {
       "id": "goad",
@@ -9850,7 +9820,7 @@
       ],
       "popularity_bucket": "Niche",
       "editorial_quality": "draft",
-      "description": "Redirects combat outward by goading opponents’ creatures, destabilizing defenses while you build advantage."
+      "description": "Redirects combat outward by goading opponents’ creatures, destabilizing defenses while you build advantage. Synergies like Theft and Rogue Kindred reinforce the plan."
     },
     {
       "id": "goat-kindred",
@@ -9983,7 +9953,7 @@
         "Golden Argosy",
         "King Macar, the Gold-Cursed",
         "Goldbug, Humanity's Ally // Goldbug, Scrappy Scout",
-        "Tetzin, Gnome Champion // The Golden-Gear Colossus"
+        "Raksha Golden Cub"
       ],
       "example_cards": [
         "Curse of Opulence",
@@ -10005,7 +9975,7 @@
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
-      "description": "Goes wide with creature tokens then converts mass into damage, draw, drain, or sacrifice engines."
+      "description": "Goes wide with creature tokens then converts mass into damage, draw, drain, or sacrifice engines. Synergies like Artifact Tokens and Token Creation reinforce the plan."
     },
     {
       "id": "golem-kindred",
@@ -10046,7 +10016,7 @@
       ],
       "popularity_bucket": "Niche",
       "editorial_quality": "draft",
-      "description": "Focuses on getting a high number of Golem creatures into play with shared payoffs (e.g., Artificer Kindred and Artifact Tokens)."
+      "description": "Focuses on getting a high number of Golem creatures into play with shared payoffs (e.g., Craft and Graveyard Matters)."
     },
     {
       "id": "gorgon-kindred",
@@ -10198,7 +10168,7 @@
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
-      "description": "Loads high-impact cards into the graveyard early and reanimates them for explosive tempo or combo loops."
+      "description": "Loads high-impact cards into the graveyard early and reanimates them for explosive tempo or combo loops. Synergies like Reanimate and Mill reinforce the plan."
     },
     {
       "id": "gremlin-kindred",
@@ -10283,7 +10253,7 @@
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
-      "description": "Accelerates the whole table (cards / mana / tokens) to shape politics, then pivots that shared growth into asymmetric advantage."
+      "description": "Accelerates the whole table (cards / mana / tokens) to shape politics, then pivots that shared growth into asymmetric advantage. Synergies like Politics and Card Draw reinforce the plan."
     },
     {
       "id": "growth-counters",
@@ -10310,7 +10280,7 @@
         "Little Fellas"
       ],
       "primary_color": "Black",
-      "secondary_color": "Red",
+      "secondary_color": "Blue",
       "example_commanders": [
         "The Most Dangerous Gamer",
         "The Space Family Goblinson",
@@ -10521,18 +10491,6 @@
       "popularity_bucket": "Common",
       "editorial_quality": "draft",
       "description": "Builds around Haste leveraging synergies with Hellion Kindred and Phoenix Kindred."
-    },
-    {
-      "id": "hatching-counters",
-      "theme": "Hatching Counters",
-      "synergies": [],
-      "primary_color": "Green",
-      "example_cards": [
-        "The Dragon-Kami Reborn // Dragon-Kami's Egg"
-      ],
-      "popularity_bucket": "Rare",
-      "editorial_quality": "draft",
-      "description": "Accumulates hatching counters to unlock scaling payoffs, removal triggers, or delayed value conversions."
     },
     {
       "id": "hatchling-counters",
@@ -11018,7 +10976,7 @@
         "Curious Homunculus // Voracious Reader",
         "Filigree Attendant",
         "Riddlekeeper",
-        "Zndrsplt, Eye of Wisdom"
+        "Bonded Fetch"
       ],
       "synergy_commanders": [
         "Ragavan, Nimble Pilferer - Synergy (Little Fellas)",
@@ -11068,7 +11026,7 @@
       ],
       "popularity_bucket": "Common",
       "editorial_quality": "draft",
-      "description": "Focuses on getting a high number of Horror creatures into play with shared payoffs (e.g., Impending and Fear)."
+      "description": "Focuses on getting a high number of Horror creatures into play with shared payoffs (e.g., Impending and Alien Kindred)."
     },
     {
       "id": "horse-kindred",
@@ -11259,8 +11217,8 @@
         "Yannik, Scavenging Sentinel",
         "Cackling Prowler",
         "Kuldotha Cackler",
-        "Hyena Pack",
         "Trusty Companion",
+        "Hyena Pack",
         "Gibbering Hyenas"
       ],
       "popularity_bucket": "Rare",
@@ -11310,7 +11268,7 @@
         "Toothy, Imaginary Friend",
         "Kianne, Corrupted Memory",
         "Pol Jamaar, Illusionist",
-        "Cromat"
+        "Lyla, Holographic Assistant"
       ],
       "example_cards": [
         "Spark Double",
@@ -11460,7 +11418,7 @@
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
-      "description": "Taps artifacts as pseudo-mana (Improvise) to deploy oversized non-artifact spells ahead of curve."
+      "description": "Taps artifacts as pseudo-mana (Improvise) to deploy oversized non-artifact spells ahead of curve. Synergies like Artifacts Matter and Big Mana reinforce the plan."
     },
     {
       "id": "impulse",
@@ -11568,7 +11526,7 @@
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
-      "description": "Banks Incubator tokens then transforms them into delayed board presence & artifact synergy triggers."
+      "description": "Banks Incubator tokens then transforms them into delayed board presence & artifact synergy triggers. Synergies like Incubator Token and Transform reinforce the plan."
     },
     {
       "id": "incubator-token",
@@ -11604,7 +11562,7 @@
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
-      "description": "Goes wide with creature tokens then converts mass into damage, draw, drain, or sacrifice engines."
+      "description": "Goes wide with creature tokens then converts mass into damage, draw, drain, or sacrifice engines. Synergies like Incubate and Transform reinforce the plan."
     },
     {
       "id": "indestructible",
@@ -11669,8 +11627,8 @@
         "Evolution Sage",
         "Cankerbloom",
         "Etali, Primal Conqueror // Etali, Primal Sickness",
-        "Yawgmoth, Thran Physician",
         "Thrummingbird",
+        "Yawgmoth, Thran Physician",
         "Tezzeret's Gambit"
       ],
       "synergy_commanders": [
@@ -11680,7 +11638,7 @@
       ],
       "popularity_bucket": "Uncommon",
       "editorial_quality": "draft",
-      "description": "Leverages Infect/Toxic pressure and proliferate to accelerate poison win thresholds."
+      "description": "Leverages Infect/Toxic pressure and proliferate to accelerate poison win thresholds. Synergies like Poison Counters and Proliferate reinforce the plan."
     },
     {
       "id": "infection-counters",
@@ -11945,7 +11903,7 @@
       ],
       "popularity_bucket": "Niche",
       "editorial_quality": "draft",
-      "description": "Banks Clue tokens for delayed card draw while fueling artifact & token synergies."
+      "description": "Banks Clue tokens for delayed card draw while fueling artifact & token synergies. Synergies like Clue Token and Detective Kindred reinforce the plan."
     },
     {
       "id": "islandcycling",
@@ -12145,18 +12103,6 @@
       "description": "Builds around the Join forces theme and its supporting synergies."
     },
     {
-      "id": "judgment-counters",
-      "theme": "Judgment Counters",
-      "synergies": [],
-      "primary_color": "White",
-      "example_cards": [
-        "Faithbound Judge // Sinner's Judgment"
-      ],
-      "popularity_bucket": "Rare",
-      "editorial_quality": "draft",
-      "description": "Accumulates judgment counters to unlock scaling payoffs, removal triggers, or delayed value conversions."
-    },
-    {
       "id": "juggernaut-kindred",
       "theme": "Juggernaut Kindred",
       "synergies": [],
@@ -12286,7 +12232,7 @@
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
-      "description": "Goes wide with creature tokens then converts mass into damage, draw, drain, or sacrifice engines."
+      "description": "Goes wide with creature tokens then converts mass into damage, draw, drain, or sacrifice engines. Synergies like Junk Tokens and Impulse reinforce the plan."
     },
     {
       "id": "junk-tokens",
@@ -12324,7 +12270,7 @@
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
-      "description": "Goes wide with creature tokens then converts mass into damage, draw, drain, or sacrifice engines."
+      "description": "Goes wide with creature tokens then converts mass into damage, draw, drain, or sacrifice engines. Synergies like Junk Token and Impulse reinforce the plan."
     },
     {
       "id": "kavu-kindred",
@@ -12439,7 +12385,7 @@
       ],
       "popularity_bucket": "Uncommon",
       "editorial_quality": "draft",
-      "description": "Kicker / Multikicker spells scale flexibly—paying extra mana for amplified late-game impact."
+      "description": "Kicker / Multikicker spells scale flexibly—paying extra mana for amplified late-game impact. Synergies like Kavu Kindred and Merfolk Kindred reinforce the plan."
     },
     {
       "id": "kinship",
@@ -12839,7 +12785,7 @@
       ],
       "popularity_bucket": "Uncommon",
       "editorial_quality": "draft",
-      "description": "Abuses extra land drops and recursion to chain Landfall triggers and scale permanent-based payoffs."
+      "description": "Abuses extra land drops and recursion to chain Landfall triggers and scale permanent-based payoffs. Synergies like Lands Matter and Ramp reinforce the plan."
     },
     {
       "id": "lands-matter",
@@ -12878,7 +12824,7 @@
       ],
       "popularity_bucket": "Very Common",
       "editorial_quality": "draft",
-      "description": "Abuses extra land drops and recursion to chain Landfall triggers and scale permanent-based payoffs."
+      "description": "Abuses extra land drops and recursion to chain Landfall triggers and scale permanent-based payoffs. Synergies like Landfall and Domain reinforce the plan."
     },
     {
       "id": "landwalk",
@@ -12951,7 +12897,7 @@
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
-      "description": "Uses Learn to toolbox from side selections (or discard/draw) enhancing adaptability & consistency."
+      "description": "Uses Learn to toolbox from side selections (or discard/draw) enhancing adaptability & consistency. Synergies like Discard Matters and Unconditional Draw reinforce the plan."
     },
     {
       "id": "leave-the-battlefield",
@@ -13062,7 +13008,7 @@
       ],
       "popularity_bucket": "Very Common",
       "editorial_quality": "draft",
-      "description": "Builds around Legends Matter leveraging synergies with Historics Matter and Superfriends."
+      "description": "Builds around Legends Matter leveraging synergies with Historics Matter and Backgrounds Matter."
     },
     {
       "id": "level-counters",
@@ -13374,7 +13320,7 @@
       ],
       "popularity_bucket": "Very Common",
       "editorial_quality": "draft",
-      "description": "Turns repeat lifegain triggers into card draw, scaling bodies, or drain-based win pressure."
+      "description": "Turns repeat lifegain triggers into card draw, scaling bodies, or drain-based win pressure. Synergies like Life Matters and Lifedrain reinforce the plan."
     },
     {
       "id": "lifegain-triggers",
@@ -13414,7 +13360,7 @@
       ],
       "popularity_bucket": "Niche",
       "editorial_quality": "draft",
-      "description": "Turns repeat lifegain triggers into card draw, scaling bodies, or drain-based win pressure."
+      "description": "Turns repeat lifegain triggers into card draw, scaling bodies, or drain-based win pressure. Synergies like Vampire Kindred and Lifelink reinforce the plan."
     },
     {
       "id": "lifelink",
@@ -13452,7 +13398,7 @@
       ],
       "popularity_bucket": "Common",
       "editorial_quality": "draft",
-      "description": "Builds around Lifelink leveraging synergies with Lifegain Triggers and Lifegain."
+      "description": "Builds around Lifelink leveraging synergies with Lifegain Triggers and Vampire Kindred."
     },
     {
       "id": "lifeloss",
@@ -13488,7 +13434,7 @@
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
-      "description": "Channels symmetrical life loss into card flow, recursion, and inevitability drains."
+      "description": "Channels symmetrical life loss into card flow, recursion, and inevitability drains. Synergies like Lifeloss Triggers and Bat Kindred reinforce the plan."
     },
     {
       "id": "lifeloss-triggers",
@@ -13524,7 +13470,7 @@
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
-      "description": "Channels symmetrical life loss into card flow, recursion, and inevitability drains."
+      "description": "Channels symmetrical life loss into card flow, recursion, and inevitability drains. Synergies like Lifeloss and Bat Kindred reinforce the plan."
     },
     {
       "id": "little-fellas",
@@ -13596,7 +13542,7 @@
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
-      "description": "Builds around Living metal leveraging synergies with Convert and Vehicles."
+      "description": "Builds around Living metal leveraging synergies with Convert and More Than Meets the Eye."
     },
     {
       "id": "living-weapon",
@@ -13682,7 +13628,7 @@
         "Connive"
       ],
       "primary_color": "Blue",
-      "secondary_color": "Black",
+      "secondary_color": "Red",
       "example_commanders": [
         "Baral, Chief of Compliance",
         "The Locust God",
@@ -13788,7 +13734,7 @@
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
-      "description": "Protects and reuses planeswalkers—amplifying loyalty via proliferate and recursion for inevitability."
+      "description": "Protects and reuses planeswalkers—amplifying loyalty via proliferate and recursion for inevitability. Synergies like Planeswalkers and Superfriends reinforce the plan."
     },
     {
       "id": "madness",
@@ -13825,7 +13771,7 @@
       ],
       "popularity_bucket": "Niche",
       "editorial_quality": "draft",
-      "description": "Turns discard into mana-efficient Madness casts, leveraging looting & Blood token filtering."
+      "description": "Turns discard into mana-efficient Madness casts, leveraging looting & Blood token filtering. Synergies like Discard Matters and Vampire Kindred reinforce the plan."
     },
     {
       "id": "magecraft",
@@ -13850,8 +13796,8 @@
         "Storm-Kiln Artist",
         "Archmage Emeritus",
         "Veyran, Voice of Duality",
-        "Professor Onyx",
         "Ashling, Flame Dancer",
+        "Professor Onyx",
         "Sedgemoor Witch",
         "Witherbloom Apprentice",
         "Octavia, Living Thesis"
@@ -13865,7 +13811,7 @@
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
-      "description": "Chains cheap instants & sorceries for velocity—converting triggers into scalable damage or card advantage before a finisher."
+      "description": "Chains cheap instants & sorceries for velocity—converting triggers into scalable damage or card advantage before a finisher. Synergies like Transform and Wizard Kindred reinforce the plan."
     },
     {
       "id": "mana-dork",
@@ -13940,7 +13886,7 @@
         "Brudiclad, Telchor Engineer - Synergy (Myr Kindred)",
         "Urtet, Remnant of Memnarch - Synergy (Myr Kindred)",
         "Hearthhull, the Worldseed - Synergy (Charge Counters)",
-        "Inspirit, Flagship Vessel - Synergy (Charge Counters)",
+        "Dawnsire, Sunstar Dreadnought - Synergy (Charge Counters)",
         "Azusa, Lost but Seeking - Synergy (Ramp)"
       ],
       "popularity_bucket": "Niche",
@@ -14089,7 +14035,7 @@
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
-      "description": "Goes wide with creature tokens then converts mass into damage, draw, drain, or sacrifice engines."
+      "description": "Goes wide with creature tokens then converts mass into damage, draw, drain, or sacrifice engines. Synergies like Explore and Card Selection reinforce the plan."
     },
     {
       "id": "max-speed",
@@ -14464,7 +14410,7 @@
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
-      "description": "Maintains ≥3 artifacts to turn on Metalcraft efficiencies and scaling bonuses."
+      "description": "Maintains ≥3 artifacts to turn on Metalcraft efficiencies and scaling bonuses. Synergies like Transform and Artifacts Matter reinforce the plan."
     },
     {
       "id": "metathran-kindred",
@@ -14528,7 +14474,7 @@
       ],
       "popularity_bucket": "Common",
       "editorial_quality": "draft",
-      "description": "Uses flexible value threats & interaction, pivoting between pressure and attrition based on table texture."
+      "description": "Uses flexible value threats & interaction, pivoting between pressure and attrition based on table texture. Synergies like Proliferate and Support reinforce the plan."
     },
     {
       "id": "mill",
@@ -14568,7 +14514,7 @@
       ],
       "popularity_bucket": "Very Common",
       "editorial_quality": "draft",
-      "description": "Attacks libraries as a resource—looping self-mill or opponent mill into recursion and payoff engines."
+      "description": "Attacks libraries as a resource—looping self-mill or opponent mill into recursion and payoff engines. Synergies like Surveil and Threshold reinforce the plan."
     },
     {
       "id": "minion-kindred",
@@ -14683,7 +14629,7 @@
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
-      "description": "Manipulates topdecks / draw timing to exploit Miracle cost reductions on splashy spells."
+      "description": "Manipulates topdecks / draw timing to exploit Miracle cost reductions on splashy spells. Synergies like Topdeck and Big Mana reinforce the plan."
     },
     {
       "id": "mite-kindred",
@@ -14893,7 +14839,7 @@
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
-      "description": "Claims and defends the Monarch for sustained card draw with evasion & deterrents."
+      "description": "Claims and defends the Monarch for sustained card draw with evasion & deterrents. Synergies like Politics and Group Hug reinforce the plan."
     },
     {
       "id": "monger-kindred",
@@ -14927,8 +14873,8 @@
       "secondary_color": "Red",
       "example_cards": [
         "Nimble Mongoose",
-        "Karoo Meerkat",
         "Blurred Mongoose",
+        "Karoo Meerkat",
         "Mongoose Lizard"
       ],
       "popularity_bucket": "Rare",
@@ -15161,7 +15107,7 @@
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
-      "description": "Builds around More Than Meets the Eye leveraging synergies with Convert and Eye Kindred."
+      "description": "Builds around More Than Meets the Eye leveraging synergies with Convert and Living metal."
     },
     {
       "id": "morph",
@@ -15378,7 +15324,7 @@
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
-      "description": "Kicker / Multikicker spells scale flexibly—paying extra mana for amplified late-game impact."
+      "description": "Kicker / Multikicker spells scale flexibly—paying extra mana for amplified late-game impact. Synergies like +1/+1 Counters and Counters Matter reinforce the plan."
     },
     {
       "id": "multiple-copies",
@@ -15484,7 +15430,7 @@
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
-      "description": "Stacks mutate layers to reuse mutate triggers and build a resilient evolving threat."
+      "description": "Stacks mutate layers to reuse mutate triggers and build a resilient evolving threat. Synergies like Beast Kindred and Flying reinforce the plan."
     },
     {
       "id": "myr-kindred",
@@ -15688,7 +15634,7 @@
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
-      "description": "Builds around Nightbound leveraging synergies with Werewolf Kindred and Control."
+      "description": "Builds around Nightbound leveraging synergies with Daybound and Werewolf Kindred."
     },
     {
       "id": "nightmare-kindred",
@@ -15875,7 +15821,7 @@
       ],
       "popularity_bucket": "Niche",
       "editorial_quality": "draft",
-      "description": "Focuses on getting a high number of Noble creatures into play with shared payoffs (e.g., Vampire Kindred and Lifelink)."
+      "description": "Focuses on getting a high number of Noble creatures into play with shared payoffs (e.g., Lore Counters and Vampire Kindred)."
     },
     {
       "id": "nomad-kindred",
@@ -16178,8 +16124,8 @@
         "Acidic Slime",
         "Scavenging Ooze",
         "Necrotic Ooze",
-        "Green Slime",
         "Felix Five-Boots",
+        "Green Slime",
         "Uchuulon",
         "Ochre Jelly",
         "Slime Against Humanity"
@@ -16513,7 +16459,7 @@
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
-      "description": "Overloads modal spells into one-sided board impacts or mass disruption swings."
+      "description": "Overloads modal spells into one-sided board impacts or mass disruption swings. Synergies like Combat Tricks and Removal reinforce the plan."
     },
     {
       "id": "ox-kindred",
@@ -16698,7 +16644,7 @@
         "+1/+1 Counters",
         "Toughness Matters"
       ],
-      "primary_color": "Blue",
+      "primary_color": "White",
       "secondary_color": "Black",
       "example_commanders": [
         "Kodama of the East Tree",
@@ -16725,15 +16671,24 @@
         "Sai, Master Thopterist - Synergy (Artificer Kindred)",
         "Lotho, Corrupt Shirriff - Synergy (Outlaw Kindred)"
       ],
-      "popularity_bucket": "Niche",
+      "popularity_bucket": "Rare",
       "editorial_quality": "draft",
-      "description": "Builds around Partner leveraging synergies with Partner with and Performer Kindred."
+      "description": "Builds around Partner leveraging synergies with Pirate Kindred and Artificer Kindred."
     },
     {
       "id": "partner-father-son",
       "theme": "Partner - Father & Son",
       "synergies": [],
+      "example_commanders": [
+        "Atreus, Impulsive Son",
+        "Kratos, Stoic Father"
+      ],
+      "example_cards": [
+        "Atreus, Impulsive Son",
+        "Kratos, Stoic Father"
+      ],
       "popularity_bucket": "Rare",
+      "editorial_quality": "draft",
       "description": "Builds around the Partner - Father & Son theme and its supporting synergies."
     },
     {
@@ -16743,8 +16698,8 @@
         "Blink",
         "Enter the Battlefield",
         "Leave the Battlefield",
-        "Conditional Draw",
-        "Warrior Kindred"
+        "Warrior Kindred",
+        "Outlaw Kindred"
       ],
       "primary_color": "Blue",
       "secondary_color": "Red",
@@ -16775,7 +16730,7 @@
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
-      "description": "Builds around Partner with leveraging synergies with Partner and Blink."
+      "description": "Builds around Partner with leveraging synergies with Blink and Enter the Battlefield."
     },
     {
       "id": "peasant-kindred",
@@ -16889,7 +16844,7 @@
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
-      "description": "Focuses on getting a high number of Performer creatures into play with shared payoffs (e.g., Partner and Blink)."
+      "description": "Focuses on getting a high number of Performer creatures into play with shared payoffs (e.g., Blink and Enter the Battlefield)."
     },
     {
       "id": "persist",
@@ -17113,7 +17068,7 @@
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
-      "description": "Deploys deterrents and taxation effects to deflect aggression while assembling a protected win route."
+      "description": "Deploys deterrents and taxation effects to deflect aggression while assembling a protected win route. Synergies like Planeswalkers and Superfriends reinforce the plan."
     },
     {
       "id": "pilot-kindred",
@@ -17163,7 +17118,7 @@
         "Devil Kindred",
         "Offspring",
         "Burn",
-        "Role token"
+        "Board Wipes"
       ],
       "primary_color": "Red",
       "secondary_color": "Black",
@@ -17200,8 +17155,8 @@
         "Siren Kindred",
         "Raid",
         "Encore",
-        "Outlaw Kindred",
-        "Explore"
+        "Explore",
+        "Outlaw Kindred"
       ],
       "primary_color": "Blue",
       "secondary_color": "Red",
@@ -17332,7 +17287,7 @@
       ],
       "popularity_bucket": "Common",
       "editorial_quality": "draft",
-      "description": "Protects and reuses planeswalkers—amplifying loyalty via proliferate and recursion for inevitability."
+      "description": "Protects and reuses planeswalkers—amplifying loyalty via proliferate and recursion for inevitability. Synergies like Proliferate and Superfriends reinforce the plan."
     },
     {
       "id": "plant-kindred",
@@ -17449,7 +17404,7 @@
       ],
       "popularity_bucket": "Uncommon",
       "editorial_quality": "draft",
-      "description": "Leverages Infect/Toxic pressure and proliferate to accelerate poison win thresholds."
+      "description": "Leverages Infect/Toxic pressure and proliferate to accelerate poison win thresholds. Synergies like Toxic and Corrupted reinforce the plan."
     },
     {
       "id": "politics",
@@ -17462,7 +17417,7 @@
         "Monger Kindred"
       ],
       "primary_color": "Black",
-      "secondary_color": "White",
+      "secondary_color": "Red",
       "example_commanders": [
         "Braids, Arisen Nightmare",
         "Loran of the Third Path",
@@ -17534,8 +17489,7 @@
       "id": "porcupine-kindred",
       "theme": "Porcupine Kindred",
       "synergies": [],
-      "primary_color": "Blue",
-      "secondary_color": "Red",
+      "primary_color": "Red",
       "example_cards": [
         "Quilled Charger"
       ],
@@ -17594,7 +17548,7 @@
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
-      "description": "Goes wide with creature tokens then converts mass into damage, draw, drain, or sacrifice engines."
+      "description": "Goes wide with creature tokens then converts mass into damage, draw, drain, or sacrifice engines. Synergies like Artifact Tokens and Artificer Kindred reinforce the plan."
     },
     {
       "id": "praetor-kindred",
@@ -17633,7 +17587,7 @@
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
-      "description": "Focuses on getting a high number of Praetor creatures into play with shared payoffs (e.g., Phyrexian Kindred and Transform)."
+      "description": "Focuses on getting a high number of Praetor creatures into play with shared payoffs (e.g., Phyrexian Kindred and Lore Counters)."
     },
     {
       "id": "primarch-kindred",
@@ -17705,8 +17659,8 @@
         "Karn's Bastion",
         "Evolution Sage",
         "Cankerbloom",
-        "Yawgmoth, Thran Physician",
         "Thrummingbird",
+        "Yawgmoth, Thran Physician",
         "Tezzeret's Gambit",
         "Inexorable Tide",
         "Flux Channeler"
@@ -17720,7 +17674,7 @@
       ],
       "popularity_bucket": "Niche",
       "editorial_quality": "draft",
-      "description": "Multiplies diverse counters (e.g., +1/+1, loyalty, poison) to escalate board state and inevitability."
+      "description": "Multiplies diverse counters (e.g., +1/+1, loyalty, poison) to escalate board state and inevitability. Synergies like Counters Matter and +1/+1 Counters reinforce the plan."
     },
     {
       "id": "protection",
@@ -17869,7 +17823,7 @@
       ],
       "popularity_bucket": "Niche",
       "editorial_quality": "draft",
-      "description": "Chains cheap instants & sorceries for velocity—converting triggers into scalable damage or card advantage before a finisher."
+      "description": "Chains cheap instants & sorceries for velocity—converting triggers into scalable damage or card advantage before a finisher. Synergies like Spellslinger and Noncreature Spells reinforce the plan."
     },
     {
       "id": "prowl",
@@ -17905,7 +17859,7 @@
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
-      "description": "Enables Prowl cost reductions via tribe-based combat connections, accelerating tempo sequencing."
+      "description": "Enables Prowl cost reductions via tribe-based combat connections, accelerating tempo sequencing. Synergies like Rogue Kindred and Outlaw Kindred reinforce the plan."
     },
     {
       "id": "quest-counters",
@@ -18204,7 +18158,7 @@
       ],
       "popularity_bucket": "Very Common",
       "editorial_quality": "draft",
-      "description": "Accelerates mana ahead of curve, then converts surplus into oversized threats or multi-spell bursts."
+      "description": "Accelerates mana ahead of curve, then converts surplus into oversized threats or multi-spell bursts. Synergies like Treasure Token and Land Tutors reinforce the plan."
     },
     {
       "id": "rampage",
@@ -18236,7 +18190,7 @@
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
-      "description": "Accelerates mana ahead of curve, then converts surplus into oversized threats or multi-spell bursts."
+      "description": "Accelerates mana ahead of curve, then converts surplus into oversized threats or multi-spell bursts. Synergies like Big Mana reinforce the plan."
     },
     {
       "id": "ranger-kindred",
@@ -18262,8 +18216,8 @@
         "Halana and Alena, Partners",
         "Quirion Ranger",
         "Cadira, Caller of the Small",
-        "Thornvault Forager",
         "Temur Battlecrier",
+        "Thornvault Forager",
         "Verge Rangers",
         "Scryb Ranger"
       ],
@@ -18467,7 +18421,7 @@
       ],
       "popularity_bucket": "Very Common",
       "editorial_quality": "draft",
-      "description": "Loads high-impact cards into the graveyard early and reanimates them for explosive tempo or combo loops."
+      "description": "Loads high-impact cards into the graveyard early and reanimates them for explosive tempo or combo loops. Synergies like Mill and Graveyard Matters reinforce the plan."
     },
     {
       "id": "rebel-kindred",
@@ -18541,7 +18495,7 @@
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
-      "description": "Uses Rebound to double-cast value spells, banking a delayed second resolution."
+      "description": "Uses Rebound to double-cast value spells, banking a delayed second resolution. Synergies like Exile Matters and Spells Matter reinforce the plan."
     },
     {
       "id": "reconfigure",
@@ -18914,7 +18868,7 @@
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
-      "description": "Turns dead land draws into fuel by recasting Retrace spells for attrition resilience."
+      "description": "Turns dead land draws into fuel by recasting Retrace spells for attrition resilience. Synergies like Mill and Spells Matter reinforce the plan."
     },
     {
       "id": "revolt",
@@ -19076,7 +19030,7 @@
         "Eye Kindred"
       ],
       "primary_color": "White",
-      "secondary_color": "Red",
+      "secondary_color": "Blue",
       "example_commanders": [
         "Codsworth, Handy Helper",
         "K-9, Mark I",
@@ -19090,8 +19044,8 @@
         "Slicer, Hired Muscle // Slicer, High-Speed Antagonist",
         "Clown Car",
         "Tezzeret, Cruel Captain",
-        "Securitron Squadron",
         "Voyager Quickwelder",
+        "Securitron Squadron",
         "Yes Man, Personal Securitron"
       ],
       "synergy_commanders": [
@@ -19103,7 +19057,7 @@
       ],
       "popularity_bucket": "Niche",
       "editorial_quality": "draft",
-      "description": "Focuses on getting a high number of Robot creatures into play with shared payoffs (e.g., More Than Meets the Eye and Clown Kindred)."
+      "description": "Focuses on getting a high number of Robot creatures into play with shared payoffs (e.g., Convert and Living metal)."
     },
     {
       "id": "rogue-kindred",
@@ -19178,7 +19132,7 @@
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
-      "description": "Goes wide with creature tokens then converts mass into damage, draw, drain, or sacrifice engines."
+      "description": "Goes wide with creature tokens then converts mass into damage, draw, drain, or sacrifice engines. Synergies like Enchantment Tokens and Hero Kindred reinforce the plan."
     },
     {
       "id": "roll-to-visit-your-attractions",
@@ -19224,7 +19178,7 @@
         "Unholy Annex // Ritual Chamber",
         "Charred Foyer // Warped Space"
       ],
-      "popularity_bucket": "Niche",
+      "popularity_bucket": "Rare",
       "editorial_quality": "draft",
       "description": "Builds around Rooms Matter leveraging synergies with Eerie and Enchantments Matter."
     },
@@ -19378,7 +19332,7 @@
       ],
       "popularity_bucket": "Uncommon",
       "editorial_quality": "draft",
-      "description": "Loops and resets Sagas to repeatedly harvest chapter-based value sequences."
+      "description": "Loops and resets Sagas to repeatedly harvest chapter-based value sequences. Synergies like Lore Counters and Read Ahead reinforce the plan."
     },
     {
       "id": "salamander-kindred",
@@ -20119,7 +20073,7 @@
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
-      "description": "Focuses on getting a high number of Shark creatures into play with shared payoffs (e.g., Stax and Toughness Matters)."
+      "description": "Focuses on getting a high number of Shark creatures into play with shared payoffs (e.g., Discard Matters and Stax)."
     },
     {
       "id": "sheep-kindred",
@@ -20178,7 +20132,7 @@
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
-      "description": "Applies shield counters to insulate threats and create lopsided removal trades."
+      "description": "Applies shield counters to insulate threats and create lopsided removal trades. Synergies like Soldier Kindred and Counters Matter reinforce the plan."
     },
     {
       "id": "shrines-matter",
@@ -20212,7 +20166,7 @@
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
-      "description": "Accumulates Shrines whose upkeep triggers scale multiplicatively into inevitability."
+      "description": "Accumulates Shrines whose upkeep triggers scale multiplicatively into inevitability. Synergies like Enchantments Matter reinforce the plan."
     },
     {
       "id": "shroud",
@@ -20261,7 +20215,7 @@
         "Outlaw Kindred",
         "Flying",
         "Artifacts Matter",
-        "Toughness Matters"
+        "Little Fellas"
       ],
       "primary_color": "Blue",
       "example_commanders": [
@@ -20278,8 +20232,8 @@
         "Spyglass Siren",
         "Storm Fleet Negotiator",
         "Malcolm, the Eyes",
-        "Zephyr Singer",
-        "Oaken Siren"
+        "Oaken Siren",
+        "Hypnotic Siren"
       ],
       "synergy_commanders": [
         "Captain Lannery Storm - Synergy (Pirate Kindred)",
@@ -20330,7 +20284,7 @@
       ],
       "popularity_bucket": "Niche",
       "editorial_quality": "draft",
-      "description": "Focuses on getting a high number of Skeleton creatures into play with shared payoffs (e.g., Outlaw Kindred and Exile Matters)."
+      "description": "Focuses on getting a high number of Skeleton creatures into play with shared payoffs (e.g., Exile Matters and Mill)."
     },
     {
       "id": "skulk",
@@ -20956,7 +20910,7 @@
       ],
       "popularity_bucket": "Very Common",
       "editorial_quality": "draft",
-      "description": "Chains cheap instants & sorceries for velocity—converting triggers into scalable damage or card advantage before a finisher."
+      "description": "Chains cheap instants & sorceries for velocity—converting triggers into scalable damage or card advantage before a finisher. Synergies like Spellslinger and Cantrips reinforce the plan."
     },
     {
       "id": "spellshaper-kindred",
@@ -21034,7 +20988,7 @@
       ],
       "popularity_bucket": "Very Common",
       "editorial_quality": "draft",
-      "description": "Chains cheap instants & sorceries for velocity—converting triggers into scalable damage or card advantage before a finisher."
+      "description": "Chains cheap instants & sorceries for velocity—converting triggers into scalable damage or card advantage before a finisher. Synergies like Spells Matter and Prowess reinforce the plan."
     },
     {
       "id": "sphinx-kindred",
@@ -21191,7 +21145,7 @@
       ],
       "popularity_bucket": "Very Common",
       "editorial_quality": "draft",
-      "description": "Focuses on getting a high number of Spirit creatures into play with shared payoffs (e.g., Soulshift and Ki Counters)."
+      "description": "Focuses on getting a high number of Spirit creatures into play with shared payoffs (e.g., Soulshift and Disturb)."
     },
     {
       "id": "splice",
@@ -21430,8 +21384,8 @@
         "Swarmyard",
         "Scurry Oak",
         "Swarmyard Massacre",
-        "Ravenous Squirrel",
         "Hazel's Brewmaster",
+        "Ravenous Squirrel",
         "Valley Rotcaller"
       ],
       "synergy_commanders": [
@@ -21536,8 +21490,8 @@
       "secondary_color": "Green",
       "example_commanders": [
         "Hearthhull, the Worldseed",
-        "Inspirit, Flagship Vessel",
         "Dawnsire, Sunstar Dreadnought",
+        "Inspirit, Flagship Vessel",
         "The Seriema",
         "Infinite Guideline Station"
       ],
@@ -21591,7 +21545,7 @@
       ],
       "popularity_bucket": "Very Common",
       "editorial_quality": "draft",
-      "description": "Applies asymmetric resource denial (tax, tap, sacrifice, lock pieces) to throttle opponents while advancing a resilient engine."
+      "description": "Applies asymmetric resource denial (tax, tap, sacrifice, lock pieces) to throttle opponents while advancing a resilient engine. Synergies like Taxing Effects and Hatebears reinforce the plan."
     },
     {
       "id": "storage-counters",
@@ -21658,7 +21612,7 @@
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
-      "description": "Builds storm count with cheap spells & mana bursts, converting it into a lethal payoff turn."
+      "description": "Builds storm count with cheap spells & mana bursts, converting it into a lethal payoff turn. Synergies like Spellslinger and Rituals reinforce the plan."
     },
     {
       "id": "strive",
@@ -21737,22 +21691,6 @@
       "description": "Accumulates stun counters to unlock scaling payoffs, removal triggers, or delayed value conversions."
     },
     {
-      "id": "super-friends",
-      "theme": "Super Friends",
-      "synergies": [
-        "Planeswalkers",
-        "Superfriends",
-        "Proliferate",
-        "Myriad",
-        "Loyalty Counters"
-      ],
-      "primary_color": "White",
-      "secondary_color": "Blue",
-      "popularity_bucket": "Common",
-      "editorial_quality": "draft",
-      "description": "Builds around Super Friends leveraging synergies with Planeswalkers and Superfriends."
-    },
-    {
       "id": "superfriends",
       "theme": "Superfriends",
       "synergies": [
@@ -21762,8 +21700,8 @@
         "Myriad",
         "Loyalty Counters"
       ],
-      "primary_color": "Red",
-      "secondary_color": "White",
+      "primary_color": "White",
+      "secondary_color": "Blue",
       "example_commanders": [
         "Adeline, Resplendent Cathar",
         "Yawgmoth, Thran Physician",
@@ -21785,9 +21723,9 @@
         "Atraxa, Praetors' Voice - Synergy (Proliferate)",
         "Ragavan, Nimble Pilferer - Synergy (Token Creation)"
       ],
-      "popularity_bucket": "Uncommon",
+      "popularity_bucket": "Common",
       "editorial_quality": "draft",
-      "description": "Protects and reuses planeswalkers—amplifying loyalty via proliferate and recursion for inevitability."
+      "description": "Protects and reuses planeswalkers—amplifying loyalty via proliferate and recursion for inevitability. Synergies like Planeswalkers and Proliferate reinforce the plan."
     },
     {
       "id": "support",
@@ -21914,7 +21852,7 @@
       ],
       "popularity_bucket": "Uncommon",
       "editorial_quality": "draft",
-      "description": "Continuously filters with Surveil to sculpt draws, fuel recursion, and enable graveyard synergies."
+      "description": "Continuously filters with Surveil to sculpt draws, fuel recursion, and enable graveyard synergies. Synergies like Mill and Reanimate reinforce the plan."
     },
     {
       "id": "survival",
@@ -22054,7 +21992,7 @@
       ],
       "popularity_bucket": "Niche",
       "editorial_quality": "draft",
-      "description": "Suspends spells early to pay off delayed powerful effects at discounted timing."
+      "description": "Suspends spells early to pay off delayed powerful effects at discounted timing. Synergies like Time Travel and Time Counters reinforce the plan."
     },
     {
       "id": "swampcycling",
@@ -22280,7 +22218,7 @@
       ],
       "popularity_bucket": "Common",
       "editorial_quality": "draft",
-      "description": "Acquires opponents’ permanents temporarily or permanently to convert their resources into board control."
+      "description": "Acquires opponents’ permanents temporarily or permanently to convert their resources into board control. Synergies like Goad and Sacrifice to Draw reinforce the plan."
     },
     {
       "id": "thopter-kindred",
@@ -22354,7 +22292,7 @@
       ],
       "popularity_bucket": "Niche",
       "editorial_quality": "draft",
-      "description": "Fills the graveyard quickly to meet Threshold counts and upgrade spell/creature efficiencies."
+      "description": "Fills the graveyard quickly to meet Threshold counts and upgrade spell/creature efficiencies. Synergies like Nomad Kindred and Minion Kindred reinforce the plan."
     },
     {
       "id": "thrull-kindred",
@@ -22555,7 +22493,7 @@
       ],
       "popularity_bucket": "Very Common",
       "editorial_quality": "draft",
-      "description": "Goes wide with creature tokens then converts mass into damage, draw, drain, or sacrifice engines."
+      "description": "Goes wide with creature tokens then converts mass into damage, draw, drain, or sacrifice engines. Synergies like Tokens Matter and Creature Tokens reinforce the plan."
     },
     {
       "id": "token-modification",
@@ -22594,7 +22532,7 @@
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
-      "description": "Goes wide with creature tokens then converts mass into damage, draw, drain, or sacrifice engines."
+      "description": "Goes wide with creature tokens then converts mass into damage, draw, drain, or sacrifice engines. Synergies like Clones and Planeswalkers reinforce the plan."
     },
     {
       "id": "tokens-matter",
@@ -22630,7 +22568,7 @@
       ],
       "popularity_bucket": "Very Common",
       "editorial_quality": "draft",
-      "description": "Goes wide with creature tokens then converts mass into damage, draw, drain, or sacrifice engines."
+      "description": "Goes wide with creature tokens then converts mass into damage, draw, drain, or sacrifice engines. Synergies like Token Creation and Creature Tokens reinforce the plan."
     },
     {
       "id": "toolbox",
@@ -22788,7 +22726,7 @@
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
-      "description": "Leverages Infect/Toxic pressure and proliferate to accelerate poison win thresholds."
+      "description": "Leverages Infect/Toxic pressure and proliferate to accelerate poison win thresholds. Synergies like Poison Counters and Infect reinforce the plan."
     },
     {
       "id": "toy-kindred",
@@ -22902,7 +22840,7 @@
       ],
       "popularity_bucket": "Very Common",
       "editorial_quality": "draft",
-      "description": "Accelerates mana ahead of curve, then converts surplus into oversized threats or multi-spell bursts."
+      "description": "Accelerates mana ahead of curve, then converts surplus into oversized threats or multi-spell bursts. Synergies like Rhino Kindred and Wurm Kindred reinforce the plan."
     },
     {
       "id": "transform",
@@ -22914,8 +22852,8 @@
         "Battles Matter",
         "Graveyard Matters"
       ],
-      "primary_color": "Black",
-      "secondary_color": "Red",
+      "primary_color": "White",
+      "secondary_color": "Blue",
       "example_commanders": [
         "Etali, Primal Conqueror // Etali, Primal Sickness",
         "Ojer Taq, Deepest Foundation // Temple of Civilization",
@@ -23012,7 +22950,7 @@
       ],
       "popularity_bucket": "Uncommon",
       "editorial_quality": "draft",
-      "description": "Produces Treasure tokens as flexible ramp & combo fuel enabling explosive payoff turns."
+      "description": "Produces Treasure tokens as flexible ramp & combo fuel enabling explosive payoff turns. Synergies like Artifact Tokens and Sacrifice reinforce the plan."
     },
     {
       "id": "treasure-token",
@@ -23052,7 +22990,7 @@
       ],
       "popularity_bucket": "Uncommon",
       "editorial_quality": "draft",
-      "description": "Goes wide with creature tokens then converts mass into damage, draw, drain, or sacrifice engines."
+      "description": "Goes wide with creature tokens then converts mass into damage, draw, drain, or sacrifice engines. Synergies like Sacrifice Matters and Artifacts Matter reinforce the plan."
     },
     {
       "id": "treefolk-kindred",
@@ -23755,7 +23693,7 @@
       ],
       "popularity_bucket": "Uncommon",
       "editorial_quality": "draft",
-      "description": "Leverages efficient Vehicles and crew bodies to field evasive, sweep-resilient threats."
+      "description": "Leverages efficient Vehicles and crew bodies to field evasive, sweep-resilient threats. Synergies like Artifacts Matter and Crew reinforce the plan."
     },
     {
       "id": "venture-into-the-dungeon",
@@ -23795,7 +23733,7 @@
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
-      "description": "Repeats Venture into the Dungeon steps to layer incremental room rewards into compounding advantage."
+      "description": "Repeats Venture into the Dungeon steps to layer incremental room rewards into compounding advantage. Synergies like Aggro and Combat Matters reinforce the plan."
     },
     {
       "id": "verse-counters",
@@ -23855,8 +23793,8 @@
         "Adeline, Resplendent Cathar",
         "Faeburrow Elder",
         "Elesh Norn, Grand Cenobite",
-        "Boromir, Warden of the Tower",
         "Enduring Vitality",
+        "Boromir, Warden of the Tower",
         "Ojer Taq, Deepest Foundation // Temple of Civilization"
       ],
       "synergy_commanders": [
@@ -23955,7 +23893,7 @@
       ],
       "popularity_bucket": "Very Common",
       "editorial_quality": "draft",
-      "description": "Stacks auras, equipment, and protection on a single threat to push commander damage with layered resilience."
+      "description": "Stacks auras, equipment, and protection on a single threat to push commander damage with layered resilience. Synergies like Equipment Matters and Auras reinforce the plan."
     },
     {
       "id": "wall-kindred",
@@ -24095,8 +24033,8 @@
         "Codsworth, Handy Helper - Synergy (Robot Kindred)"
       ],
       "example_cards": [
-        "Exalted Sunborn",
         "Weftstalker Ardent",
+        "Exalted Sunborn",
         "Haliya, Guided by Light",
         "Zoanthrope",
         "Anticausal Vestige",
@@ -24189,7 +24127,7 @@
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
-      "description": "Builds around Waterbending leveraging synergies with Cost Reduction and Card Draw."
+      "description": "Builds around Waterbending leveraging synergies with Bending and Cost Reduction."
     },
     {
       "id": "weasel-kindred",
@@ -24297,7 +24235,7 @@
         "Ill-Tempered Loner // Howlpack Avenger",
         "Avabruck Caretaker // Hollowhenge Huntmaster"
       ],
-      "popularity_bucket": "Uncommon",
+      "popularity_bucket": "Niche",
       "editorial_quality": "draft",
       "description": "Focuses on getting a high number of Werewolf creatures into play with shared payoffs (e.g., Daybound and Nightbound)."
     },
@@ -24375,7 +24313,7 @@
       ],
       "popularity_bucket": "Very Common",
       "editorial_quality": "draft",
-      "description": "Loops mass draw/discard effects to refill, disrupt sculpted hands, and weaponize symmetrical replacement triggers."
+      "description": "Loops mass draw/discard effects to refill, disrupt sculpted hands, and weaponize symmetrical replacement triggers. Synergies like Discard Matters and Card Draw reinforce the plan."
     },
     {
       "id": "will-of-the-planeswalkers",
@@ -24402,7 +24340,7 @@
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
-      "description": "Protects and reuses planeswalkers—amplifying loyalty via proliferate and recursion for inevitability."
+      "description": "Protects and reuses planeswalkers—amplifying loyalty via proliferate and recursion for inevitability. Synergies like Spells Matter and Spellslinger reinforce the plan."
     },
     {
       "id": "will-of-the-council",
@@ -24954,10 +24892,10 @@
         "Baron Sengir",
         "Dwarven Armory",
         "Tin-Wing Chimera",
-        "Fungus Elemental",
         "Brass-Talon Chimera",
-        "Lead-Belly Chimera",
-        "Iron-Heart Chimera"
+        "Fungus Elemental",
+        "Iron-Heart Chimera",
+        "Lead-Belly Chimera"
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
@@ -25573,36 +25511,36 @@
       "Strike a Deal": 1
     },
     "blue": {
-      "Blink": 573,
-      "Enter the Battlefield": 573,
+      "Blink": 569,
+      "Enter the Battlefield": 569,
       "Guest Kindred": 3,
-      "Human Kindred": 546,
-      "Leave the Battlefield": 573,
-      "Little Fellas": 1439,
-      "Outlaw Kindred": 219,
-      "Rogue Kindred": 151,
+      "Human Kindred": 540,
+      "Leave the Battlefield": 569,
+      "Little Fellas": 1430,
+      "Outlaw Kindred": 217,
+      "Rogue Kindred": 150,
       "Casualty": 5,
       "Spell Copy": 78,
-      "Spells Matter": 1726,
-      "Spellslinger": 1726,
+      "Spells Matter": 1722,
+      "Spellslinger": 1722,
       "Topdeck": 414,
       "Bird Kindred": 148,
-      "Flying": 771,
-      "Toughness Matters": 908,
-      "Aggro": 898,
+      "Flying": 767,
+      "Toughness Matters": 905,
+      "Aggro": 894,
       "Aristocrats": 119,
-      "Auras": 347,
-      "Combat Matters": 898,
-      "Enchant": 305,
-      "Enchantments Matter": 735,
+      "Auras": 346,
+      "Combat Matters": 894,
+      "Enchant": 303,
+      "Enchantments Matter": 733,
       "Midrange": 54,
       "Sacrifice Matters": 110,
       "Theft": 114,
-      "Voltron": 598,
-      "Big Mana": 1224,
+      "Voltron": 595,
+      "Big Mana": 1217,
       "Elf Kindred": 11,
-      "Mill": 564,
-      "Reanimate": 495,
+      "Mill": 562,
+      "Reanimate": 493,
       "Shaman Kindred": 11,
       "Horror Kindred": 48,
       "Insect Kindred": 7,
@@ -25612,16 +25550,16 @@
       "Manifest dread": 9,
       "Control": 666,
       "Counterspells": 348,
-      "Interaction": 899,
-      "Stax": 915,
+      "Interaction": 896,
+      "Stax": 914,
       "Fish Kindred": 43,
-      "Flash": 169,
+      "Flash": 167,
       "Probing Telepathy": 1,
       "Protection": 158,
       "Ward": 39,
       "Threshold": 9,
-      "Historics Matter": 292,
-      "Legends Matter": 292,
+      "Historics Matter": 289,
+      "Legends Matter": 289,
       "Noble Kindred": 13,
       "Octopus Kindred": 42,
       "Removal": 249,
@@ -25632,28 +25570,28 @@
       "Scion Kindred": 6,
       "Token Creation": 271,
       "Tokens Matter": 272,
-      "+1/+1 Counters": 223,
-      "Counters Matter": 478,
+      "+1/+1 Counters": 221,
+      "Counters Matter": 475,
       "Drake Kindred": 75,
       "Kicker": 29,
-      "Card Draw": 1050,
-      "Discard Matters": 326,
-      "Loot": 246,
-      "Wizard Kindred": 526,
+      "Card Draw": 1046,
+      "Discard Matters": 325,
+      "Loot": 245,
+      "Wizard Kindred": 525,
       "Cost Reduction": 144,
-      "Artifacts Matter": 621,
+      "Artifacts Matter": 620,
       "Equipment Matters": 90,
       "Lands Matter": 198,
-      "Conditional Draw": 196,
+      "Conditional Draw": 194,
       "Defender": 69,
-      "Draw Triggers": 171,
+      "Draw Triggers": 170,
       "Wall Kindred": 41,
-      "Wheels": 211,
+      "Wheels": 210,
       "Artifact Tokens": 107,
       "Thopter Kindred": 17,
-      "Cantrips": 192,
-      "Unconditional Draw": 449,
-      "Board Wipes": 56,
+      "Cantrips": 191,
+      "Unconditional Draw": 448,
+      "Board Wipes": 55,
       "Bracket:MassLandDenial": 8,
       "Equipment": 25,
       "Reconfigure": 3,
@@ -25669,12 +25607,12 @@
       "Zombie Kindred": 83,
       "Turtle Kindred": 21,
       "Avatar Kindred": 14,
-      "Exile Matters": 141,
+      "Exile Matters": 140,
       "Suspend": 24,
       "Time Counters": 32,
       "Impulse": 11,
-      "Soldier Kindred": 83,
-      "Combat Tricks": 131,
+      "Soldier Kindred": 80,
+      "Combat Tricks": 129,
       "Strive": 4,
       "Cleric Kindred": 24,
       "Enchantment Tokens": 11,
@@ -25682,7 +25620,7 @@
       "Life Matters": 38,
       "Lifegain": 38,
       "Beast Kindred": 47,
-      "Elemental Kindred": 110,
+      "Elemental Kindred": 109,
       "Toolbox": 70,
       "Energy": 24,
       "Energy Counters": 22,
@@ -25692,34 +25630,34 @@
       "Politics": 43,
       "Servo Kindred": 1,
       "Vedalken Kindred": 55,
-      "Burn": 79,
+      "Burn": 78,
       "Max speed": 4,
       "Start your engines!": 4,
       "Scry": 138,
       "X Spells": 109,
-      "Shapeshifter Kindred": 58,
+      "Shapeshifter Kindred": 57,
       "Evoke": 6,
       "Leviathan Kindred": 21,
       "Whale Kindred": 17,
       "Detective Kindred": 20,
       "Sphinx Kindred": 61,
       "Renew": 3,
-      "Advisor Kindred": 32,
+      "Advisor Kindred": 31,
       "Merfolk Kindred": 215,
       "Robot Kindred": 20,
-      "Stun Counters": 46,
+      "Stun Counters": 45,
       "Cleave": 4,
       "Spellshaper Kindred": 11,
       "Reflection Kindred": 2,
       "Storm": 9,
       "Time Travel": 3,
       "Domain": 6,
-      "Siren Kindred": 20,
+      "Siren Kindred": 19,
       "Backgrounds Matter": 13,
       "Choose a background": 7,
       "Halfling Kindred": 1,
-      "Partner with": 9,
-      "Vigilance": 50,
+      "Partner with": 8,
+      "Vigilance": 49,
       "Bracket:ExtraTurn": 29,
       "Foretell": 13,
       "God Kindred": 8,
@@ -25728,7 +25666,7 @@
       "Frog Kindred": 20,
       "Salamander Kindred": 8,
       "Encore": 4,
-      "Pirate Kindred": 68,
+      "Pirate Kindred": 67,
       "Warrior Kindred": 44,
       "Treasure": 13,
       "Treasure Token": 15,
@@ -25742,13 +25680,13 @@
       "Dragon Kindred": 45,
       "Elder Kindred": 4,
       "Hexproof": 21,
-      "Faerie Kindred": 81,
+      "Faerie Kindred": 80,
       "Mana Dork": 47,
       "Morph": 43,
-      "Pingers": 23,
+      "Pingers": 22,
       "Flood Counters": 3,
       "Manifestation Counters": 1,
-      "Clones": 145,
+      "Clones": 143,
       "Cipher": 7,
       "Prototype": 4,
       "Learn": 4,
@@ -25763,9 +25701,9 @@
       "Metalcraft": 8,
       "Addendum": 3,
       "Heroic": 10,
-      "Convoke": 11,
+      "Convoke": 10,
       "Angel Kindred": 3,
-      "Spirit Kindred": 149,
+      "Spirit Kindred": 148,
       "Nightmare Kindred": 17,
       "Role token": 6,
       "Infect": 34,
@@ -25779,7 +25717,7 @@
       "Hero Kindred": 7,
       "Job select": 4,
       "Oil Counters": 12,
-      "Alien Kindred": 8,
+      "Alien Kindred": 7,
       "Planeswalkers": 72,
       "Superfriends": 72,
       "Amass": 13,
@@ -25820,7 +25758,7 @@
       "Mana Rock": 22,
       "Overload": 6,
       "Haste": 2,
-      "Homunculus Kindred": 21,
+      "Homunculus Kindred": 20,
       "Rooms Matter": 12,
       "Card Selection": 10,
       "Explore": 10,
@@ -25874,7 +25812,7 @@
       "Awaken": 5,
       "Undaunted": 1,
       "Kavu Kindred": 2,
-      "Golem Kindred": 5,
+      "Golem Kindred": 4,
       "Warp": 7,
       "Lhurgoyf Kindred": 1,
       "Pillowfort": 4,
@@ -25944,7 +25882,7 @@
       "Freerunning": 2,
       "Tiefling Kindred": 2,
       "Two-Headed Coin": 1,
-      "Monk Kindred": 20,
+      "Monk Kindred": 19,
       "Pilot Kindred": 7,
       "Multikicker": 3,
       "Glimmer Kindred": 2,
@@ -26000,7 +25938,7 @@
       "Efreet Kindred": 4,
       "Horsemanship": 7,
       "Demon Kindred": 2,
-      "Discover": 3,
+      "Discover": 2,
       "Tide Counters": 2,
       "Camarid Kindred": 1,
       "Weird Kindred": 4,
@@ -26022,7 +25960,7 @@
       "Graveyard Matters": 5,
       "Loyalty Counters": 7,
       "Compleated": 1,
-      "Replacement Draw": 3,
+      "Replacement Draw": 2,
       "Cost Scaling": 5,
       "Modal": 5,
       "Spree": 5,
@@ -26158,8 +26096,7 @@
       "Gust of Wind": 1,
       "Coin Counters": 1,
       "Archer Kindred": 1,
-      "Hive Mind": 1,
-      "Body-print": 1
+      "Hive Mind": 1
     },
     "black": {
       "Blink": 757,
@@ -28019,370 +27956,12 @@
   "generated_from": "merge (analytics + curated YAML + whitelist)",
   "metadata_info": {
     "mode": "merge",
-    "generated_at": "2025-10-06T09:54:55",
-    "curated_yaml_files": 739,
+    "generated_at": "2025-10-07T18:22:00",
+    "curated_yaml_files": 735,
     "synergy_cap": 5,
     "inference": "pmi",
     "version": "phase-b-merge-v1",
-    "catalog_hash": "e9f1a812ddd1e5ed543e9cd233132ac8f6d1aa28f0a476d80ea6fd71fc5f74a5"
+    "catalog_hash": "ae79af02508e2f9184aa74d63db5c9987fd65cfa87ce7adb50aec2f6ae8397c5"
   },
-  "description_fallback_summary": {
-    "total_themes": 741,
-    "generic_total": 285,
-    "generic_with_synergies": 266,
-    "generic_plain": 19,
-    "generic_pct": 38.46,
-    "top_generic_by_frequency": [
-      {
-        "theme": "Little Fellas",
-        "popularity_bucket": "Very Common",
-        "synergy_count": 5,
-        "total_frequency": 7126,
-        "description": "Builds around Little Fellas leveraging synergies with Banding and Licid Kindred."
-      },
-      {
-        "theme": "Combat Matters",
-        "popularity_bucket": "Very Common",
-        "synergy_count": 5,
-        "total_frequency": 6344,
-        "description": "Builds around Combat Matters leveraging synergies with Aggro and Voltron."
-      },
-      {
-        "theme": "Interaction",
-        "popularity_bucket": "Very Common",
-        "synergy_count": 5,
-        "total_frequency": 4142,
-        "description": "Builds around Interaction leveraging synergies with Removal and Combat Tricks."
-      },
-      {
-        "theme": "Toughness Matters",
-        "popularity_bucket": "Very Common",
-        "synergy_count": 5,
-        "total_frequency": 3482,
-        "description": "Builds around Toughness Matters leveraging synergies with Defender and Egg Kindred."
-      },
-      {
-        "theme": "Leave the Battlefield",
-        "popularity_bucket": "Very Common",
-        "synergy_count": 5,
-        "total_frequency": 3092,
-        "description": "Builds around Leave the Battlefield leveraging synergies with Blink and Enter the Battlefield."
-      },
-      {
-        "theme": "Enter the Battlefield",
-        "popularity_bucket": "Very Common",
-        "synergy_count": 5,
-        "total_frequency": 3088,
-        "description": "Builds around Enter the Battlefield leveraging synergies with Blink and Reanimate."
-      },
-      {
-        "theme": "Card Draw",
-        "popularity_bucket": "Very Common",
-        "synergy_count": 17,
-        "total_frequency": 2699,
-        "description": "Builds around Card Draw leveraging synergies with Loot and Wheels."
-      },
-      {
-        "theme": "Life Matters",
-        "popularity_bucket": "Very Common",
-        "synergy_count": 5,
-        "total_frequency": 2388,
-        "description": "Builds around Life Matters leveraging synergies with Lifegain and Lifedrain."
-      },
-      {
-        "theme": "Flying",
-        "popularity_bucket": "Very Common",
-        "synergy_count": 5,
-        "total_frequency": 2213,
-        "description": "Builds around Flying leveraging synergies with Phoenix Kindred and Archon Kindred."
-      },
-      {
-        "theme": "Removal",
-        "popularity_bucket": "Very Common",
-        "synergy_count": 5,
-        "total_frequency": 1594,
-        "description": "Builds around Removal leveraging synergies with Soulshift and Interaction."
-      },
-      {
-        "theme": "Legends Matter",
-        "popularity_bucket": "Very Common",
-        "synergy_count": 5,
-        "total_frequency": 1536,
-        "description": "Builds around Legends Matter leveraging synergies with Historics Matter and Superfriends."
-      },
-      {
-        "theme": "Topdeck",
-        "popularity_bucket": "Very Common",
-        "synergy_count": 5,
-        "total_frequency": 1104,
-        "description": "Builds around Topdeck leveraging synergies with Scry and Surveil."
-      },
-      {
-        "theme": "Discard Matters",
-        "popularity_bucket": "Very Common",
-        "synergy_count": 5,
-        "total_frequency": 1050,
-        "description": "Builds around Discard Matters leveraging synergies with Loot and Wheels."
-      },
-      {
-        "theme": "Unconditional Draw",
-        "popularity_bucket": "Very Common",
-        "synergy_count": 5,
-        "total_frequency": 1045,
-        "description": "Builds around Unconditional Draw leveraging synergies with Dredge and Learn."
-      },
-      {
-        "theme": "Combat Tricks",
-        "popularity_bucket": "Very Common",
-        "synergy_count": 5,
-        "total_frequency": 857,
-        "description": "Builds around Combat Tricks leveraging synergies with Flash and Strive."
-      },
-      {
-        "theme": "Protection",
-        "popularity_bucket": "Very Common",
-        "synergy_count": 5,
-        "total_frequency": 806,
-        "description": "Builds around Protection leveraging synergies with Ward and Hexproof."
-      },
-      {
-        "theme": "Exile Matters",
-        "popularity_bucket": "Very Common",
-        "synergy_count": 5,
-        "total_frequency": 712,
-        "description": "Builds around Exile Matters leveraging synergies with Impulse and Suspend."
-      },
-      {
-        "theme": "Board Wipes",
-        "popularity_bucket": "Very Common",
-        "synergy_count": 5,
-        "total_frequency": 647,
-        "description": "Builds around Board Wipes leveraging synergies with Bracket:MassLandDenial and Pingers."
-      },
-      {
-        "theme": "Pingers",
-        "popularity_bucket": "Very Common",
-        "synergy_count": 5,
-        "total_frequency": 637,
-        "description": "Builds around Pingers leveraging synergies with Extort and Devil Kindred."
-      },
-      {
-        "theme": "Loot",
-        "popularity_bucket": "Very Common",
-        "synergy_count": 5,
-        "total_frequency": 523,
-        "description": "Builds around Loot leveraging synergies with Card Draw and Discard Matters."
-      },
-      {
-        "theme": "Cantrips",
-        "popularity_bucket": "Very Common",
-        "synergy_count": 5,
-        "total_frequency": 514,
-        "description": "Builds around Cantrips leveraging synergies with Clue Token and Investigate."
-      },
-      {
-        "theme": "X Spells",
-        "popularity_bucket": "Very Common",
-        "synergy_count": 5,
-        "total_frequency": 505,
-        "description": "Builds around X Spells leveraging synergies with Ravenous and Firebending."
-      },
-      {
-        "theme": "Conditional Draw",
-        "popularity_bucket": "Common",
-        "synergy_count": 5,
-        "total_frequency": 459,
-        "description": "Builds around Conditional Draw leveraging synergies with Max speed and Start your engines!."
-      },
-      {
-        "theme": "Toolbox",
-        "popularity_bucket": "Common",
-        "synergy_count": 5,
-        "total_frequency": 453,
-        "description": "Builds around Toolbox leveraging synergies with Entwine and Bracket:TutorNonland."
-      },
-      {
-        "theme": "Cost Reduction",
-        "popularity_bucket": "Common",
-        "synergy_count": 5,
-        "total_frequency": 431,
-        "description": "Builds around Cost Reduction leveraging synergies with Affinity and Freerunning."
-      },
-      {
-        "theme": "Flash",
-        "popularity_bucket": "Common",
-        "synergy_count": 5,
-        "total_frequency": 429,
-        "description": "Builds around Flash leveraging synergies with Evoke and Combat Tricks."
-      },
-      {
-        "theme": "Haste",
-        "popularity_bucket": "Common",
-        "synergy_count": 5,
-        "total_frequency": 396,
-        "description": "Builds around Haste leveraging synergies with Hellion Kindred and Phoenix Kindred."
-      },
-      {
-        "theme": "Lifelink",
-        "popularity_bucket": "Common",
-        "synergy_count": 5,
-        "total_frequency": 396,
-        "description": "Builds around Lifelink leveraging synergies with Lifegain Triggers and Lifegain."
-      },
-      {
-        "theme": "Vigilance",
-        "popularity_bucket": "Common",
-        "synergy_count": 5,
-        "total_frequency": 396,
-        "description": "Builds around Vigilance leveraging synergies with Angel Kindred and Mount Kindred."
-      },
-      {
-        "theme": "Counterspells",
-        "popularity_bucket": "Common",
-        "synergy_count": 5,
-        "total_frequency": 395,
-        "description": "Builds around Counterspells leveraging synergies with Control and Stax."
-      },
-      {
-        "theme": "Mana Dork",
-        "popularity_bucket": "Common",
-        "synergy_count": 5,
-        "total_frequency": 336,
-        "description": "Builds around Mana Dork leveraging synergies with Firebending and Scion Kindred."
-      },
-      {
-        "theme": "Cycling",
-        "popularity_bucket": "Common",
-        "synergy_count": 5,
-        "total_frequency": 299,
-        "description": "Builds around Cycling leveraging synergies with Landcycling and Basic landcycling."
-      },
-      {
-        "theme": "Transform",
-        "popularity_bucket": "Common",
-        "synergy_count": 5,
-        "total_frequency": 296,
-        "description": "Builds around Transform leveraging synergies with Incubator Token and Incubate."
-      },
-      {
-        "theme": "Bracket:TutorNonland",
-        "popularity_bucket": "Common",
-        "synergy_count": 5,
-        "total_frequency": 293,
-        "description": "Builds around Bracket:TutorNonland leveraging synergies with Transmute and Bracket:GameChanger."
-      },
-      {
-        "theme": "Clones",
-        "popularity_bucket": "Common",
-        "synergy_count": 5,
-        "total_frequency": 282,
-        "description": "Builds around Clones leveraging synergies with Myriad and Populate."
-      },
-      {
-        "theme": "Scry",
-        "popularity_bucket": "Common",
-        "synergy_count": 5,
-        "total_frequency": 281,
-        "description": "Builds around Scry leveraging synergies with Topdeck and Role token."
-      },
-      {
-        "theme": "Reach",
-        "popularity_bucket": "Common",
-        "synergy_count": 5,
-        "total_frequency": 274,
-        "description": "Builds around Reach leveraging synergies with Spider Kindred and Archer Kindred."
-      },
-      {
-        "theme": "First strike",
-        "popularity_bucket": "Common",
-        "synergy_count": 5,
-        "total_frequency": 248,
-        "description": "Builds around First strike leveraging synergies with Banding and Kithkin Kindred."
-      },
-      {
-        "theme": "Politics",
-        "popularity_bucket": "Common",
-        "synergy_count": 5,
-        "total_frequency": 247,
-        "description": "Builds around Politics leveraging synergies with Encore and Melee."
-      },
-      {
-        "theme": "Defender",
-        "popularity_bucket": "Common",
-        "synergy_count": 5,
-        "total_frequency": 230,
-        "description": "Builds around Defender leveraging synergies with Wall Kindred and Egg Kindred."
-      },
-      {
-        "theme": "Menace",
-        "popularity_bucket": "Common",
-        "synergy_count": 5,
-        "total_frequency": 225,
-        "description": "Builds around Menace leveraging synergies with Warlock Kindred and Blood Token."
-      },
-      {
-        "theme": "Deathtouch",
-        "popularity_bucket": "Uncommon",
-        "synergy_count": 5,
-        "total_frequency": 191,
-        "description": "Builds around Deathtouch leveraging synergies with Basilisk Kindred and Scorpion Kindred."
-      },
-      {
-        "theme": "Land Types Matter",
-        "popularity_bucket": "Uncommon",
-        "synergy_count": 5,
-        "total_frequency": 185,
-        "description": "Builds around Land Types Matter leveraging synergies with Plainscycling and Mountaincycling."
-      },
-      {
-        "theme": "Equip",
-        "popularity_bucket": "Uncommon",
-        "synergy_count": 5,
-        "total_frequency": 184,
-        "description": "Builds around Equip leveraging synergies with Job select and For Mirrodin!."
-      },
-      {
-        "theme": "Spell Copy",
-        "popularity_bucket": "Uncommon",
-        "synergy_count": 5,
-        "total_frequency": 182,
-        "description": "Builds around Spell Copy leveraging synergies with Storm and Replicate."
-      },
-      {
-        "theme": "Landwalk",
-        "popularity_bucket": "Uncommon",
-        "synergy_count": 5,
-        "total_frequency": 170,
-        "description": "Builds around Landwalk leveraging synergies with Swampwalk and Islandwalk."
-      },
-      {
-        "theme": "Impulse",
-        "popularity_bucket": "Uncommon",
-        "synergy_count": 5,
-        "total_frequency": 164,
-        "description": "Builds around Impulse leveraging synergies with Junk Tokens and Junk Token."
-      },
-      {
-        "theme": "Morph",
-        "popularity_bucket": "Uncommon",
-        "synergy_count": 5,
-        "total_frequency": 140,
-        "description": "Builds around Morph leveraging synergies with Beast Kindred and Illusion Kindred."
-      },
-      {
-        "theme": "Devoid",
-        "popularity_bucket": "Uncommon",
-        "synergy_count": 5,
-        "total_frequency": 114,
-        "description": "Builds around Devoid leveraging synergies with Ingest and Processor Kindred."
-      },
-      {
-        "theme": "Resource Engine",
-        "popularity_bucket": "Uncommon",
-        "synergy_count": 5,
-        "total_frequency": 101,
-        "description": "Builds around Resource Engine leveraging synergies with Energy and Energy Counters."
-      }
-    ]
-  }
+  "description_fallback_summary": null
 }

@@ -20,7 +20,9 @@
               <span>Commander</span>
     <input type="text" name="commander" required placeholder="Type a commander name" value="{{ form.commander if form else '' }}" autofocus autocomplete="off" autocapitalize="off" spellcheck="false"
       role="combobox" aria-autocomplete="list" aria-controls="newdeck-candidates"
-      hx-get="/build/new/candidates" hx-trigger="input changed delay:150ms" hx-target="#newdeck-candidates" hx-sync="this:replace" />
+      hx-get="/build/new/candidates" hx-trigger="debouncedinput change" hx-target="#newdeck-candidates" hx-sync="this:replace"
+      data-hx-debounce="220" data-hx-debounce-events="input"
+      data-hx-debounce-flush="blur" />
             </label>
             <small class="muted" style="display:block; margin-top:.25rem;">Start typing to see matches, then select one to load themes.</small>
             <div id="newdeck-candidates" class="muted" style="font-size:12px; min-height:1.1em;"></div>
@@ -204,6 +206,11 @@
           Enter one card name per line. Cards are validated against the database with smart name matching.
         </small>
       </fieldset>
+        {% if not show_must_have_buttons %}
+      <div class="muted" style="font-size:12px; margin-top:.75rem;">
+        Step 5 quick-add buttons are hidden (<code>SHOW_MUST_HAVE_BUTTONS=0</code>), but you can still seed must include/exclude lists here.
+      </div>
+        {% endif %}
       {% endif %}
       <details style="margin-top:.5rem;">
         <summary>Advanced options (ideals)</summary>

@@ -2,8 +2,21 @@ from __future__ import annotations
 
 from typing import Any, Dict, Iterable, List, Optional
 from deck_builder import builder_constants as bc
-from .build_utils import owned_set as owned_set_helper
 from .combo_utils import detect_for_summary as _detect_for_summary
+
+
+def _owned_set_helper() -> set[str]:
+    try:
+        from .build_utils import owned_set as _owned_set  # type: ignore
+
+        return _owned_set()
+    except Exception:
+        try:
+            from . import owned_store
+
+            return {str(n).strip().lower() for n in owned_store.get_names()}
+        except Exception:
+            return set()
 
 
 def _sanitize_tag_list(values: Iterable[Any]) -> List[str]:
@@ -148,7 +161,7 @@ def summary_ctx(
             synergy_tags.append(label)
     versions = det.get("versions", {} if include_versions else None)
     return {
-        "owned_set": owned_set_helper(),
+    "owned_set": _owned_set_helper(),
         "game_changers": bc.GAME_CHANGERS,
         "combos": combos,
         "synergies": synergy_tags,

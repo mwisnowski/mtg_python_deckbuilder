@@ -462,11 +462,16 @@
   <!-- controls now above -->
 
       {% if allow_must_haves %}
-        {% include "partials/include_exclude_summary.html" %}
+        {% include "partials/include_exclude_summary.html" with oob=False %}
       {% endif %}
-      {% if status and status.startswith('Build complete') and summary %}
-        {% include "partials/deck_summary.html" %}
-      {% endif %}
+      <div id="deck-summary" data-summary
+           hx-get="/build/step5/summary?token={{ summary_token }}"
+           hx-trigger="load, step5:refresh from:body"
+           hx-swap="outerHTML">
+        <div class="muted" style="margin-top:1rem;">
+          {% if summary_ready %}Loading deck summary…{% else %}Deck summary will appear after the build completes.{% endif %}
+        </div>
+      </div>
     </div>
   </div>
 </section>

@@ -88,6 +88,19 @@ def step5_base_ctx(request: Request, sess: dict, *, include_name: bool = True, i
         ctx["name"] = sess.get("custom_export_base")
     if include_locks:
         ctx["locks"] = list(sess.get("locks", []))
+    try:
+        ctx["summary_token"] = int(sess.get("step5_summary_token", 0))
+    except Exception:
+        ctx["summary_token"] = 0
+    ctx["summary_ready"] = bool(sess.get("step5_summary_ready"))
+    try:
+        raw_synergies = sess.get("step5_synergies")
+        if isinstance(raw_synergies, (list, tuple, set)):
+            ctx["synergies"] = [str(s) for s in raw_synergies if str(s).strip()]
+        else:
+            ctx["synergies"] = []
+    except Exception:
+        ctx["synergies"] = []
     ctx["must_have_state"] = {
         "includes": include_cards,
         "excludes": exclude_cards,
@@ -406,7 +419,7 @@ def step5_ctx_from_result(
         "csv_path": res.get("csv_path") if done else None,
         "txt_path": res.get("txt_path") if done else None,
         "summary": res.get("summary") if done else None,
-    "compliance": res.get("compliance") if done else None,
+        "compliance": res.get("compliance") if done else None,
         "show_skipped": bool(show_skipped),
         "total_cards": res.get("total_cards"),
         "added_total": res.get("added_total"),
@@ -414,7 +427,7 @@ def step5_ctx_from_result(
         "clamped_overflow": res.get("clamped_overflow"),
         "mc_summary": res.get("mc_summary"),
         "skipped": bool(res.get("skipped")),
-    "gated": bool(res.get("gated")),
+        "gated": bool(res.get("gated")),
     }
     if extras:
         ctx.update(extras)
@@ -428,6 +441,57 @@ def step5_ctx_from_result(
     ctx.update(hover_meta)
     if "commander_display_name" not in ctx or not ctx.get("commander_display_name"):
         ctx["commander_display_name"] = ctx.get("commander")
+
+    try:
+        token_val = int(sess.get("step5_summary_token", 0))
+    except Exception:
+        token_val = 0
+    summary_value = ctx.get("summary")
+    synergies_list: list[str] = []
+    if summary_value is not None:
+        try:
+            sess["step5_summary"] = summary_value
+        except Exception:
+            pass
+        if isinstance(summary_value, dict):
+            raw_synergies = summary_value.get("synergies")
+            if isinstance(raw_synergies, (list, tuple, set)):
+                synergies_list = [str(item) for item in raw_synergies if str(item).strip()]
+            else:
+                meta = summary_value.get("meta") if isinstance(summary_value.get("meta"), dict) else {}
+                if isinstance(meta, dict):
+                    raw_synergies = meta.get("synergies") or meta.get("commander_synergies")
+                    if isinstance(raw_synergies, (list, tuple, set)):
+                        synergies_list = [str(item) for item in raw_synergies if str(item).strip()]
+        token_val += 1
+        sess["step5_summary_token"] = token_val
+        sess["step5_summary_ready"] = True
+        if synergies_list:
+            sess["step5_synergies"] = synergies_list
+        else:
+            try:
+                if "step5_synergies" in sess:
+                    del sess["step5_synergies"]
+            except Exception:
+                pass
+    else:
+        token_val += 1
+        sess["step5_summary_token"] = token_val
+        sess["step5_summary_ready"] = False
+        try:
+            if "step5_summary" in sess:
+                del sess["step5_summary"]
+        except Exception:
+            pass
+        try:
+            if "step5_synergies" in sess:
+                del sess["step5_synergies"]
+        except Exception:
+            pass
+        synergies_list = []
+    ctx["summary_token"] = token_val
+    ctx["summary_ready"] = bool(sess.get("step5_summary_ready"))
+    ctx["synergies"] = synergies_list
     return ctx
 
 
@@ -463,6 +527,25 @@ def step5_error_ctx(
         "added_total": 0,
         "skipped": False,
     }
+    try:
+        token_val = int(sess.get("step5_summary_token", 0)) + 1
+    except Exception:
+        token_val = 1
+    sess["step5_summary_token"] = token_val
+    sess["step5_summary_ready"] = False
+    try:
+        if "step5_summary" in sess:
+            del sess["step5_summary"]
+    except Exception:
+        pass
+    try:
+        if "step5_synergies" in sess:
+            del sess["step5_synergies"]
+    except Exception:
+        pass
+    ctx["summary_token"] = token_val
+    ctx["summary_ready"] = False
+    ctx["synergies"] = []
     if extras:
         ctx.update(extras)
     return ctx
@@ -494,6 +577,25 @@ def step5_empty_ctx(
         "show_skipped": False,
         "skipped": False,
     }
+    try:
+        token_val = int(sess.get("step5_summary_token", 0)) + 1
+    except Exception:
+        token_val = 1
+    sess["step5_summary_token"] = token_val
+    sess["step5_summary_ready"] = False
+    try:
+        if "step5_summary" in sess:
+            del sess["step5_summary"]
+    except Exception:
+        pass
+    try:
+        if "step5_synergies" in sess:
+            del sess["step5_synergies"]
+    except Exception:
+        pass
+    ctx["summary_token"] = token_val
+    ctx["summary_ready"] = False
+    ctx["synergies"] = []
     if extras:
         ctx.update(extras)
     return ctx

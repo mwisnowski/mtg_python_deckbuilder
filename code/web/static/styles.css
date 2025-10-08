@@ -627,3 +627,54 @@ img.lqip.loaded { filter: blur(0); opacity: 1; }
 @media (min-width: 900px) {
 	#test-hand { --card-w: 280px !important; --card-h: 392px !important; }
 }
+
+/* Analytics accordion styling */
+.analytics-accordion {
+	transition: all 0.2s ease;
+}
+
+.analytics-accordion summary {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.analytics-accordion summary:hover {
+	background: #1f2937;
+	border-color: #374151;
+}
+
+.analytics-accordion summary:active {
+	transform: scale(0.99);
+}
+
+.analytics-accordion[open] summary {
+	border-bottom-left-radius: 0;
+	border-bottom-right-radius: 0;
+	margin-bottom: 0;
+}
+
+.analytics-accordion .analytics-content {
+	animation: accordion-slide-down 0.3s ease-out;
+}
+
+@keyframes accordion-slide-down {
+	from {
+		opacity: 0;
+		transform: translateY(-8px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+.analytics-placeholder .skeleton-pulse {
+	animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+	0% { background-position: -200% 0; }
+	100% { background-position: 200% 0; }
+}

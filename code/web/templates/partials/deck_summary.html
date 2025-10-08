@@ -1,3 +1,4 @@
+<div id="deck-summary" data-summary>
 <hr style="margin:1.25rem 0; border-color: var(--border);" />
 <h4>Deck Summary</h4>
 <section style="margin-top:.5rem;">
@@ -55,7 +56,7 @@
             .dfc-land-chip.extra { border-color:#34d399; color:#a7f3d0; }
             .dfc-land-chip.counts { border-color:#60a5fa; color:#bfdbfe; }
           </style>
-          <div class="list-grid">
+          <div class="list-grid"{% if virtualize %} data-virtualize="list" data-virtualize-min="90"{% endif %}>
             {% for c in clist %}
               {# Compute overlaps with detected deck synergies when available #}
               {% set overlaps = [] %}
@@ -190,7 +191,13 @@
 
 <!-- Mana Overview Row: Pips • Sources • Curve -->
 <section style="margin-top:1rem;">
-  <h5>Mana Overview</h5>
+  <details class="analytics-accordion" id="mana-overview-accordion" data-lazy-load data-analytics-type="mana">
+    <summary style="cursor:pointer; user-select:none; padding:.5rem; border:1px solid var(--border); border-radius:8px; background:#12161c; font-weight:600;">
+      <span>Mana Overview</span>
+      <span class="muted" style="font-size:12px; font-weight:400; margin-left:.5rem;">(pips • sources • curve)</span>
+    </summary>
+    <div class="analytics-content" style="margin-top:.75rem;">
+  <h5 style="margin:0 0 .5rem 0;">Mana Overview</h5>
   {% set deck_colors = summary.colors or [] %}
   <div class="mana-row" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; align-items: stretch;">
     <!-- Pips Panel -->
@@ -203,28 +210,26 @@
           {% for color in colors %}
             {% set w = (pd.weights[color] if pd.weights and color in pd.weights else 0) %}
             {% set pct = (w * 100) | int %}
-            <div style="text-align:center;">
-              <svg width="28" height="120" aria-label="{{ color }} {{ pct }}%">
-                {% set count_val = (pd.counts[color] if pd.counts and color in pd.counts else 0) %}
-                {% set pc = pd['cards'] if 'cards' in pd else None %}
-                {% set c_cards = (pc[color] if pc and (color in pc) else []) %}
-        {% set parts = [] %}
-        {% for c in c_cards %}
-      {% set label = c.name ~ ((" ×" ~ c.count) if c.count and c.count>1 else '') %}
-      {% if c.dfc %}
-        {% set label = label ~ ' (DFC)' %}
-      {% endif %}
-      {% set _ = parts.append(label) %}
-        {% endfor %}
-        {% set cards_line = parts|join(' • ') %}
-                {% set pct_f = (pd.weights[color] * 100) if pd.weights and color in pd.weights else 0 %}
-        <rect x="2" y="2" width="24" height="116" fill="#14171c" stroke="var(--border)" rx="4" ry="4"
-          data-type="pips" data-color="{{ color }}" data-count="{{ '%.1f' % count_val }}" data-pct="{{ '%.1f' % pct_f }}" data-cards="{{ cards_line }}"></rect>
+            <div style="text-align:center;" class="chart-column">
+              {% set count_val = (pd.counts[color] if pd.counts and color in pd.counts else 0) %}
+              {% set pc = pd['cards'] if 'cards' in pd else None %}
+              {% set c_cards = (pc[color] if pc and (color in pc) else []) %}
+              {% set parts = [] %}
+              {% for c in c_cards %}
+                {% set label = c.name ~ ((" ×" ~ c.count) if c.count and c.count>1 else '') %}
+                {% if c.dfc %}
+                  {% set label = label ~ ' (DFC)' %}
+                {% endif %}
+                {% set _ = parts.append(label) %}
+              {% endfor %}
+              {% set cards_line = parts|join(' • ') %}
+              {% set pct_f = (pd.weights[color] * 100) if pd.weights and color in pd.weights else 0 %}
+              <svg width="28" height="120" aria-label="{{ color }} {{ pct }}%" style="cursor:pointer;" data-type="pips" data-color="{{ color }}" data-count="{{ '%.1f' % count_val }}" data-pct="{{ '%.1f' % pct_f }}" data-cards="{{ cards_line }}">
+                <rect x="2" y="2" width="24" height="116" fill="#14171c" stroke="var(--border)" rx="4" ry="4" pointer-events="all"></rect>
                 {% set h = (pct * 1.0) | int %}
                 {% set bar_h = (h if h>2 else 2) %}
                 {% set y = 118 - bar_h %}
-        <rect x="2" y="{{ y }}" width="24" height="{{ bar_h }}" fill="#3b82f6" rx="4" ry="4"
-          data-type="pips" data-color="{{ color }}" data-count="{{ '%.1f' % count_val }}" data-pct="{{ '%.1f' % pct_f }}" data-cards="{{ cards_line }}"></rect>
+                <rect x="2" y="{{ y }}" width="24" height="{{ bar_h }}" fill="#3b82f6" rx="4" ry="4" pointer-events="all"></rect>
               </svg>
               <div class="muted" style="margin-top:.25rem;">{{ color }}</div>
             </div>
@@ -260,22 +265,20 @@
           {% for color in colors %}
             {% set val = mg.get(color, 0) %}
             {% set pct = (val * 100 / denom) | int %}
-      <div style="text-align:center;" data-color="{{ color }}">
-              <svg width="28" height="120" aria-label="{{ color }} {{ val }}">
-                {% set pct_f = (100.0 * (val / (mg.total_sources or 1))) %}
-                {% set mgc = mg['cards'] if 'cards' in mg else None %}
-                {% set c_cards = (mgc[color] if mgc and (color in mgc) else []) %}
-        {% set parts = [] %}
-        {% for c in c_cards %}
-      {% set _ = parts.append(c.name ~ ((" ×" ~ c.count) if c.count and c.count>1 else '')) %}
-        {% endfor %}
-        {% set cards_line = parts|join(' • ') %}
-        <rect x="2" y="2" width="24" height="116" fill="#14171c" stroke="var(--border)" rx="4" ry="4"
-          data-type="sources" data-color="{{ color }}" data-val="{{ val }}" data-pct="{{ '%.1f' % pct_f }}" data-cards="{{ cards_line }}"></rect>
+            {% set pct_f = (100.0 * (val / (mg.total_sources or 1))) %}
+            {% set mgc = mg['cards'] if 'cards' in mg else None %}
+            {% set c_cards = (mgc[color] if mgc and (color in mgc) else []) %}
+            {% set parts = [] %}
+            {% for c in c_cards %}
+              {% set _ = parts.append(c.name ~ ((" ×" ~ c.count) if c.count and c.count>1 else '')) %}
+            {% endfor %}
+            {% set cards_line = parts|join(' • ') %}
+            <div style="text-align:center;" class="chart-column" data-color="{{ color }}">
+              <svg width="28" height="120" aria-label="{{ color }} {{ val }}" style="cursor:pointer;" data-type="sources" data-color="{{ color }}" data-val="{{ val }}" data-pct="{{ '%.1f' % pct_f }}" data-cards="{{ cards_line }}">
+                <rect x="2" y="2" width="24" height="116" fill="#14171c" stroke="var(--border)" rx="4" ry="4" pointer-events="all"></rect>
                 {% set bar_h = (pct if pct>2 else 2) %}
                 {% set y = 118 - bar_h %}
-        <rect x="2" y="{{ y }}" width="24" height="{{ bar_h }}" fill="#10b981" rx="4" ry="4"
-          data-type="sources" data-color="{{ color }}" data-val="{{ val }}" data-pct="{{ '%.1f' % pct_f }}" data-cards="{{ cards_line }}"></rect>
+                <rect x="2" y="{{ y }}" width="24" height="{{ bar_h }}" fill="#10b981" rx="4" ry="4" pointer-events="all"></rect>
               </svg>
               <div class="muted" style="margin-top:.25rem;">{{ color }}</div>
             </div>
@@ -298,21 +301,19 @@
           {% for label in ['0','1','2','3','4','5','6+'] %}
             {% set val = mc.get(label, 0) %}
             {% set pct = (val * 100 / denom) | int %}
-            <div style="text-align:center;">
-              <svg width="28" height="120" aria-label="{{ label }} {{ val }}">
-                {% set cards = (mc.cards[label] if mc.cards and (label in mc.cards) else []) %}
-                {% set parts = [] %}
-                {% for c in cards %}
-                  {% set _ = parts.append(c.name ~ ((" ×" ~ c.count) if c.count and c.count>1 else '')) %}
-                {% endfor %}
-                {% set cards_line = parts|join(' • ') %}
-                {% set pct_f = (100.0 * (val / denom)) %}
-                <rect x="2" y="2" width="24" height="116" fill="#14171c" stroke="var(--border)" rx="4" ry="4"
-                      data-type="curve" data-label="{{ label }}" data-val="{{ val }}" data-pct="{{ '%.1f' % pct_f }}" data-cards="{{ cards_line }}"></rect>
+            {% set cards = (mc.cards[label] if mc.cards and (label in mc.cards) else []) %}
+            {% set parts = [] %}
+            {% for c in cards %}
+              {% set _ = parts.append(c.name ~ ((" ×" ~ c.count) if c.count and c.count>1 else '')) %}
+            {% endfor %}
+            {% set cards_line = parts|join(' • ') %}
+            {% set pct_f = (100.0 * (val / denom)) %}
+            <div style="text-align:center;" class="chart-column">
+              <svg width="28" height="120" aria-label="{{ label }} {{ val }}" style="cursor:pointer;" data-type="curve" data-label="{{ label }}" data-val="{{ val }}" data-pct="{{ '%.1f' % pct_f }}" data-cards="{{ cards_line }}">
+                <rect x="2" y="2" width="24" height="116" fill="#14171c" stroke="var(--border)" rx="4" ry="4" pointer-events="all"></rect>
                 {% set bar_h = (pct if pct>2 else 2) %}
                 {% set y = 118 - bar_h %}
-                <rect x="2" y="{{ y }}" width="24" height="{{ bar_h }}" fill="#f59e0b" rx="4" ry="4"
-                      data-type="curve" data-label="{{ label }}" data-val="{{ val }}" data-pct="{{ '%.1f' % pct_f }}" data-cards="{{ cards_line }}"></rect>
+                <rect x="2" y="{{ y }}" width="24" height="{{ bar_h }}" fill="#f59e0b" rx="4" ry="4" pointer-events="all"></rect>
               </svg>
               <div class="muted" style="margin-top:.25rem;">{{ label }}</div>
             </div>
@@ -324,10 +325,18 @@
       {% endif %}
     </div>
   </div>
+    </div>
+  </details>
 </section>
 
 <!-- Test Hand (7 random cards; duplicates allowed only for basic lands) -->
 <section style="margin-top:1rem;">
+  <details class="analytics-accordion" id="test-hand-accordion" data-lazy-load data-analytics-type="testhand">
+    <summary style="cursor:pointer; user-select:none; padding:.5rem; border:1px solid var(--border); border-radius:8px; background:#12161c; font-weight:600;">
+      <span>Test Hand</span>
+      <span class="muted" style="font-size:12px; font-weight:400; margin-left:.5rem;">(draw 7 random cards)</span>
+    </summary>
+    <div class="analytics-content" style="margin-top:.75rem;">
   <h5 style="margin:0 0 .35rem 0; display:flex; align-items:center; gap:.75rem; flex-wrap:wrap;">Test Hand
     <span class="muted" style="font-size:12px; font-weight:400;">Draw 7 at random (no repeats except for basic lands).</span>
   </h5>
@@ -506,15 +515,24 @@
       #test-hand.hand-row-overlap.fan .stack-grid{ padding-left:0; }
     }
   </style>
+    </div>
+  </details>
 </section>
 <style>
-  .chart-tooltip { position: fixed; pointer-events: none; background: #0f1115; color: #e5e7eb; border: 1px solid var(--border); padding: .4rem .55rem; border-radius: 6px; font-size: 12px; line-height: 1.3; white-space: pre-line; z-index: 9999; display: none; box-shadow: 0 4px 16px rgba(0,0,0,.4); }
+  .chart-tooltip { position: fixed; background: #0f1115; color: #e5e7eb; border: 1px solid var(--border); padding: .4rem .55rem; border-radius: 6px; font-size: 12px; line-height: 1.3; white-space: pre-line; z-index: 9999; display: none; box-shadow: 0 4px 16px rgba(0,0,0,.4); max-width: 90vw; }
+  /* Pinned tooltip gets pointer events for Copy button */
+  .chart-tooltip.pinned { pointer-events: auto; border-color: #f59e0b; box-shadow: 0 4px 20px rgba(245,158,11,.3); }
+  /* Unpinned tooltip has no pointer events (hover only) */
+  .chart-tooltip:not(.pinned) { pointer-events: none; }
   /* Cross-highlight from charts to cards */
   .chart-highlight { border-radius: 6px; background: rgba(245,158,11,.08); box-shadow: 0 0 0 2px #f59e0b inset; }
   /* For list view, ensure baseline padding so no layout shift on highlight */
   #typeview-list .list-row .name { display:inline-block; padding: 2px 4px; border-radius: 6px; }
   /* Ensure stack-card gets visible highlight */
   .stack-card.chart-highlight { box-shadow: 0 0 0 2px #f59e0b, 0 6px 18px rgba(0,0,0,.55); }
+  /* Chart columns get cursor pointer */
+  .chart-column svg { cursor: pointer; transition: opacity 0.15s ease; }
+  .chart-column svg:hover { opacity: 0.85; }
 </style>
 <script>
   (function() {
@@ -532,53 +550,72 @@
   var hoverTimer = null;
   var lastNames = [];
   var lastType = '';
+  var pinnedNames = [];
+  var pinnedType = '';
+  var pinnedEl = null;
   function clearHoverTimer(){ if (hoverTimer) { clearTimeout(hoverTimer); hoverTimer = null; } }
     function position(e) {
       tip.style.display = 'block';
-      var x = e.clientX + 12, y = e.clientY + 12;
-      tip.style.left = x + 'px';
-      tip.style.top = y + 'px';
-      var rect = tip.getBoundingClientRect();
       var vw = window.innerWidth || document.documentElement.clientWidth;
       var vh = window.innerHeight || document.documentElement.clientHeight;
-      if (x + rect.width + 8 > vw) tip.style.left = (e.clientX - rect.width - 12) + 'px';
-      if (y + rect.height + 8 > vh) tip.style.top = (e.clientY - rect.height - 12) + 'px';
+      var isMobile = vw < 768;
+      
+      if (isMobile) {
+        // Mobile: fixed to lower-right corner
+        tip.style.right = '8px';
+        tip.style.bottom = '8px';
+        tip.style.left = 'auto';
+        tip.style.top = 'auto';
+        tip.style.maxWidth = 'calc(100vw - 16px)';
+      } else {
+        // Desktop: fixed to lower-left corner
+        tip.style.left = '8px';
+        tip.style.bottom = '8px';
+        tip.style.right = 'auto';
+        tip.style.top = 'auto';
+        tip.style.maxWidth = '400px';
+      }
     }
-    function buildTip(el) {
-      // Render tooltip with safe DOM and a Copy button for card list
+    function buildTip(el, isPinned) {
+      // Render tooltip with safe DOM
       tip.innerHTML = '';
       var t = el.getAttribute('data-type');
       var header = document.createElement('div');
       header.style.fontWeight = '600';
       header.style.marginBottom = '.25rem';
+      header.style.display = 'flex';
+      header.style.alignItems = 'center';
+      header.style.justifyContent = 'space-between';
+      header.style.gap = '.5rem';
+      
+      var titleSpan = document.createElement('span');
       var listText = '';
       if (t === 'pips') {
-        header.textContent = el.dataset.color + ': ' + (el.dataset.count || '0') + ' (' + (el.dataset.pct || '0') + '%)';
+        titleSpan.textContent = el.dataset.color + ': ' + (el.dataset.count || '0') + ' (' + (el.dataset.pct || '0') + '%)';
         listText = (el.dataset.cards || '').split(' • ').filter(Boolean).join('\n');
       } else if (t === 'sources') {
-        header.textContent = el.dataset.color + ': ' + (el.dataset.val || '0') + ' (' + (el.dataset.pct || '0') + '%)';
+        titleSpan.textContent = el.dataset.color + ': ' + (el.dataset.val || '0') + ' (' + (el.dataset.pct || '0') + '%)';
         listText = (el.dataset.cards || '').split(' • ').filter(Boolean).join('\n');
       } else if (t === 'curve') {
-        header.textContent = el.dataset.label + ': ' + (el.dataset.val || '0') + ' (' + (el.dataset.pct || '0') + '%)';
+        titleSpan.textContent = el.dataset.label + ': ' + (el.dataset.val || '0') + ' (' + (el.dataset.pct || '0') + '%)';
         listText = (el.dataset.cards || '').split(' • ').filter(Boolean).join('\n');
       } else {
-        header.textContent = el.getAttribute('aria-label') || '';
+        titleSpan.textContent = el.getAttribute('aria-label') || '';
       }
-      tip.appendChild(header);
-      if (listText) {
-        var pre = document.createElement('pre');
-        pre.style.margin = '0 0 .35rem 0';
-        pre.style.whiteSpace = 'pre-wrap';
-        pre.textContent = listText;
-        tip.appendChild(pre);
+      header.appendChild(titleSpan);
+      
+      // Add Copy button that works with pinned tooltips
+      if (listText && isPinned) {
         var btn = document.createElement('button');
         btn.textContent = 'Copy';
-        btn.style.fontSize = '12px';
-        btn.style.padding = '.2rem .4rem';
+        btn.style.fontSize = '11px';
+        btn.style.padding = '.15rem .35rem';
         btn.style.border = '1px solid var(--border)';
         btn.style.background = '#12161c';
         btn.style.color = '#e5e7eb';
         btn.style.borderRadius = '4px';
+        btn.style.cursor = 'pointer';
+        btn.style.flexShrink = '0';
         btn.addEventListener('click', function(e){
           e.stopPropagation();
           try {
@@ -592,7 +629,28 @@
             setTimeout(function(){ btn.textContent = 'Copy'; }, 1200);
           } catch(_) {}
         });
-        tip.appendChild(btn);
+        header.appendChild(btn);
+      }
+      
+      tip.appendChild(header);
+      if (listText) {
+        var pre = document.createElement('pre');
+        pre.style.margin = '.25rem 0 0 0';
+        pre.style.whiteSpace = 'pre-wrap';
+        pre.style.fontSize = '12px';
+        pre.textContent = listText;
+        tip.appendChild(pre);
+      }
+      
+      // Add hint for pinning on desktop
+      if (!isPinned && window.innerWidth >= 768) {
+        var hint = document.createElement('div');
+        hint.style.marginTop = '.35rem';
+        hint.style.fontSize = '11px';
+        hint.style.color = '#9ca3af';
+        hint.style.fontStyle = 'italic';
+        hint.textContent = 'Click to pin';
+        tip.appendChild(hint);
       }
     }
     function normalizeList(list) {
@@ -605,41 +663,114 @@
         return s.trim();
       }).filter(Boolean);
     }
+    function unpin() {
+      if (pinnedEl) {
+        pinnedEl.style.outline = '';
+        pinnedEl = null;
+      }
+      if (pinnedNames && pinnedNames.length) {
+        highlightNames(pinnedNames, false);
+      }
+      pinnedNames = [];
+      pinnedType = '';
+      tip.classList.remove('pinned');
+      tip.style.display = 'none';
+    }
+    
+    function pin(el, e) {
+      // Unpin previous if different element
+      if (pinnedEl && pinnedEl !== el) {
+        unpin();
+      }
+      
+      // Toggle: if clicking same element, unpin
+      if (pinnedEl === el) {
+        unpin();
+        return;
+      }
+      
+      // Pin new element
+      pinnedEl = el;
+      el.style.outline = '2px solid #f59e0b';
+      el.style.outlineOffset = '2px';
+      
+      var dataType = el.getAttribute('data-type');
+      pinnedNames = normalizeList((el.dataset.cards || '').split(' • ').filter(Boolean));
+      pinnedType = dataType;
+      
+      tip.classList.add('pinned');
+      buildTip(el, true);
+      position(e);
+      highlightNames(pinnedNames, true);
+    }
+    
     function attach() {
-      document.querySelectorAll('[data-type]').forEach(function(el) {
+      // Attach to SVG elements with data-type for better hover zones
+      document.querySelectorAll('svg[data-type]').forEach(function(el) {
         el.addEventListener('mouseenter', function(e) {
-          buildTip(el);
+          // Don't show hover tooltip if this element is pinned
+          if (pinnedEl === el) return;
+          
+          clearHoverTimer();
+          buildTip(el, false);
           position(e);
           // Cross-highlight for mana curve bars -> card items
           try {
-            if (el.getAttribute('data-type') === 'curve') {
+            var dataType = el.getAttribute('data-type');
+            if (dataType === 'curve' || dataType === 'pips' || dataType === 'sources') {
               lastNames = normalizeList((el.dataset.cards || '').split(' • ').filter(Boolean));
-              lastType = 'curve';
-              highlightNames(lastNames, true);
-            } else if (el.getAttribute('data-type') === 'pips' || el.getAttribute('data-type') === 'sources') {
-              lastNames = normalizeList((el.dataset.cards || '').split(' • ').filter(Boolean));
-              lastType = el.getAttribute('data-type');
-              highlightNames(lastNames, true);
+              lastType = dataType;
+              // Only apply hover highlights if nothing is pinned
+              if (!pinnedEl) {
+                highlightNames(lastNames, true);
+              }
             }
           } catch(_) {}
         });
-        el.addEventListener('mousemove', position);
+        
+        el.addEventListener('mousemove', function(e) {
+          if (pinnedEl === el) return;
+          position(e);
+        });
+        
         el.addEventListener('mouseleave', function() {
+          // Don't hide if pinned
+          if (pinnedEl) return;
+          
           clearHoverTimer();
           hoverTimer = setTimeout(function(){
             tip.style.display = 'none';
-            try { if (lastNames && lastNames.length) highlightNames(lastNames, false); } catch(_) {}
+            try { if (lastNames && lastNames.length && !pinnedEl) highlightNames(lastNames, false); } catch(_) {}
             lastNames = []; lastType = '';
           }, 200);
         });
+        
+        el.addEventListener('click', function(e) {
+          e.preventDefault();
+          e.stopPropagation();
+          pin(el, e);
+        });
       });
-      // Keep tooltip open while hovering it
-      tip.addEventListener('mouseenter', function(){ clearHoverTimer(); });
+      // Keep tooltip open while hovering it (for pinned tooltips with Copy button)
+      tip.addEventListener('mouseenter', function(){ 
+        clearHoverTimer();
+      });
       tip.addEventListener('mouseleave', function(){
+        // Don't hide if pinned
+        if (pinnedEl) return;
         tip.style.display = 'none';
         try { if (lastNames && lastNames.length) highlightNames(lastNames, false); } catch(_) {}
         lastNames = []; lastType = '';
       });
+      
+      // Click outside to unpin
+      document.addEventListener('click', function(e) {
+        if (!pinnedEl) return;
+        // Don't unpin if clicking the tooltip itself or a chart
+        if (tip.contains(e.target) || e.target.closest('svg[data-type]')) return;
+        unpin();
+      });
+      
       // Initialize Show C toggle
       initShowCToggle();
     }
@@ -663,9 +794,9 @@
     }
   function highlightNames(names, on){
       if (!Array.isArray(names) || names.length === 0) return;
-  // List view spans
+  // List view spans - target only the .name span, not the parent .list-row
       try {
-        document.querySelectorAll('#typeview-list [data-card-name]').forEach(function(it){
+        document.querySelectorAll('#typeview-list .list-row .name[data-card-name]').forEach(function(it){
           var n = it.getAttribute('data-card-name');
           if (!n) return;
           var match = names.indexOf(n) !== -1;
@@ -696,3 +827,4 @@
     document.addEventListener('htmx:afterSwap', function() { attach(); });
   })();
 </script>
+</div>

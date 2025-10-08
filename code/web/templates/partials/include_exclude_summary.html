@@ -1,4 +1,5 @@
-<div id="include-exclude-summary" data-summary>
+{% set is_oob = oob if oob is defined else False %}
+<div id="include-exclude-summary" data-summary{% if is_oob %} hx-swap-oob="true"{% endif %}>
 {% set pending_state = must_have_state if must_have_state is defined else None %}
 {% set pending_includes = pending_state.includes if pending_state and pending_state.includes is not none else [] %}
 {% set pending_excludes = pending_state.excludes if pending_state and pending_state.excludes is not none else [] %}

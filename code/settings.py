@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 # Standard library imports
+import os
 from typing import Dict, List, Optional
 
 # ----------------------------------------------------------------------------------
@@ -99,3 +100,16 @@ FILL_NA_COLUMNS: Dict[str, Optional[str]] = {
     'colorIdentity': 'Colorless',  # Default color identity for cards without one
     'faceName': None  # Use card's name column value when face name is not available
 }
+
+# ----------------------------------------------------------------------------------
+# TAGGING REFINEMENT FEATURE FLAGS (M1-M3)
+# ----------------------------------------------------------------------------------
+
+# M1: Enable keyword normalization and singleton pruning
+TAG_NORMALIZE_KEYWORDS = os.getenv('TAG_NORMALIZE_KEYWORDS', '1').lower() not in ('0', 'false', 'off', 'disabled')
+
+# M2: Enable protection grant detection (planned)
+TAG_PROTECTION_GRANTS = os.getenv('TAG_PROTECT ION_GRANTS', '0').lower() not in ('0', 'false', 'off', 'disabled')
+
+# M3: Enable metadata/theme partition (planned)
+TAG_METADATA_SPLIT = os.getenv('TAG_METADATA_SPLIT', '0').lower() not in ('0', 'false', 'off', 'disabled')

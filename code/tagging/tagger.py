@@ -580,6 +580,11 @@ def add_creatures_to_tags(df: pd.DataFrame, color: str) -> None:
 ## Add keywords to theme tags
 def tag_for_keywords(df: pd.DataFrame, color: str) -> None:
     """Tag cards based on their keywords using vectorized operations.
+    
+    When TAG_NORMALIZE_KEYWORDS is enabled, applies normalization:
+    - Canonical mapping (e.g., "Commander Ninjutsu" -> "Ninjutsu")
+    - Singleton pruning (unless allowlisted)
+    - Case normalization
 
     Args:
         df: DataFrame containing card data
@@ -589,6 +594,20 @@ def tag_for_keywords(df: pd.DataFrame, color: str) -> None:
     start_time = pd.Timestamp.now()
 
     try:
+        from settings import TAG_NORMALIZE_KEYWORDS
+        
+        # Load frequency map if normalization is enabled
+        frequency_map: dict[str, int] = {}
+        if TAG_NORMALIZE_KEYWORDS:
+            freq_map_path = Path(__file__).parent / 'keyword_frequency_map.json'
+            if freq_map_path.exists():
+                with open(freq_map_path, 'r', encoding='utf-8') as f:
+                    frequency_map = json.load(f)
+                logger.info('Loaded keyword frequency map with %d entries', len(frequency_map))
+            else:
+                logger.warning('Keyword frequency map not found, normalization disabled for this run')
+                TAG_NORMALIZE_KEYWORDS = False
+        
         # Create mask for valid keywords
         has_keywords = pd.notna(df['keywords'])
 
@@ -608,17 +627,29 @@ def tag_for_keywords(df: pd.DataFrame, color: str) -> None:
                 else:
                     keywords_iterable = []
 
-                filtered_keywords = [
-                    kw for kw in keywords_iterable
-                    if kw and kw.lower() not in exclusion_keywords
-                ]
-
-                return sorted(list(set(base_tags + filtered_keywords)))
+                # Apply normalization if enabled
+                if TAG_NORMALIZE_KEYWORDS and frequency_map:
+                    normalized_keywords = tag_utils.normalize_keywords(
+                        keywords_iterable,
+                        tag_constants.KEYWORD_ALLOWLIST,
+                        frequency_map
+                    )
+                    return sorted(list(set(base_tags + normalized_keywords)))
+                else:
+                    # Legacy behavior: simple exclusion filter
+                    filtered_keywords = [
+                        kw for kw in keywords_iterable
+                        if kw and kw.lower() not in exclusion_keywords
+                    ]
+                    return sorted(list(set(base_tags + filtered_keywords)))
 
             df.loc[has_keywords, 'themeTags'] = keywords_df.apply(_merge_keywords, axis=1)
 
         duration = (pd.Timestamp.now() - start_time).total_seconds()
         logger.info('Tagged %d cards with keywords in %.2f seconds', has_keywords.sum(), duration)
+        
+        if TAG_NORMALIZE_KEYWORDS:
+            logger.info('Keyword normalization enabled for %s', color)
 
     except Exception as e:
         logger.error('Error tagging keywords: %s', str(e))
@@ -7000,6 +7031,9 @@ def tag_for_protection(df: pd.DataFrame, color: str) -> None:
     - Ward
     - Phase out
 
+    With TAG_PROTECTION_GRANTS=1, only tags cards that grant protection to other
+    permanents, filtering out cards with inherent protection.
+
     The function uses helper functions to identify different types of protection
     and applies tags consistently using vectorized operations.
 
@@ -7025,13 +7059,47 @@ def tag_for_protection(df: pd.DataFrame, color: str) -> None:
         required_cols = {'text', 'themeTags', 'keywords'}
         tag_utils.validate_dataframe_columns(df, required_cols)
 
-        # Create masks for different protection patterns
-        text_mask = create_protection_text_mask(df)
-        keyword_mask = create_protection_keyword_mask(df)
-        exclusion_mask = create_protection_exclusion_mask(df)
+        # Check if grant detection is enabled (M2 feature flag)
+        use_grant_detection = os.getenv('TAG_PROTECTION_GRANTS', '1').lower() in ('1', 'true', 'yes')
 
-        # Combine masks
-        final_mask = (text_mask | keyword_mask) & ~exclusion_mask
+        if use_grant_detection:
+            # M2: Use grant detection to filter out inherent-only protection
+            from code.tagging.protection_grant_detection import is_granting_protection, get_kindred_protection_tags
+            
+            # Create a grant detection mask
+            grant_mask = df.apply(
+                lambda row: is_granting_protection(
+                    str(row.get('text', '')), 
+                    str(row.get('keywords', ''))
+                ),
+                axis=1
+            )
+            
+            final_mask = grant_mask
+            logger.info(f'Using M2 grant detection (TAG_PROTECTION_GRANTS=1)')
+            
+            # Apply kindred metadata tags for creature-type-specific grants
+            kindred_count = 0
+            for idx, row in df[final_mask].iterrows():
+                text = str(row.get('text', ''))
+                kindred_tags = get_kindred_protection_tags(text)
+                
+                if kindred_tags:
+                    # Add kindred-specific metadata tags
+                    current_tags = str(row.get('metadataTags', ''))
+                    existing = set(t.strip() for t in current_tags.split(',') if t.strip())
+                    existing.update(kindred_tags)
+                    df.at[idx, 'metadataTags'] = ', '.join(sorted(existing))
+                    kindred_count += 1
+            
+            if kindred_count > 0:
+                logger.info(f'Applied kindred metadata tags to {kindred_count} cards')
+        else:
+            # Legacy: Use original text/keyword patterns
+            text_mask = create_protection_text_mask(df)
+            keyword_mask = create_protection_keyword_mask(df)
+            exclusion_mask = create_protection_exclusion_mask(df)
+            final_mask = (text_mask | keyword_mask) & ~exclusion_mask
 
         # Apply tags via rules engine
         tag_utils.apply_rules(df, rules=[

@@ -510,3 +510,76 @@ def create_mass_damage_mask(df: pd.DataFrame) -> pd.Series[bool]:
     target_mask = create_text_mask(df, target_patterns)
     
     return damage_mask & target_mask
+
+
+# ==============================================================================
+# Keyword Normalization (M1 - Tagging Refinement)
+# ==============================================================================
+
+def normalize_keywords(
+    raw: Union[List[str], Set[str], Tuple[str, ...]],
+    allowlist: Set[str],
+    frequency_map: dict[str, int]
+) -> list[str]:
+    """Normalize keyword strings for theme tagging.
+    
+    Applies normalization rules:
+    1. Case normalization (via normalization map)
+    2. Canonical mapping (e.g., "Commander Ninjutsu" -> "Ninjutsu")
+    3. Singleton pruning (unless allowlisted)
+    4. Deduplication
+    5. Exclusion of blacklisted keywords
+    
+    Args:
+        raw: Iterable of raw keyword strings
+        allowlist: Set of keywords that should survive singleton pruning
+        frequency_map: Dict mapping keywords to their occurrence count
+    
+    Returns:
+        Deduplicated list of normalized keywords
+        
+    Raises:
+        ValueError: If raw is not iterable
+        
+    Examples:
+        >>> normalize_keywords(
+        ...     ['Commander Ninjutsu', 'Flying', 'Allons-y!'],
+        ...     {'Flying', 'Ninjutsu'},
+        ...     {'Commander Ninjutsu': 2, 'Flying': 100, 'Allons-y!': 1}
+        ... )
+        ['Ninjutsu', 'Flying']  # 'Allons-y!' pruned as singleton
+    """
+    if not hasattr(raw, '__iter__') or isinstance(raw, (str, bytes)):
+        raise ValueError(f"raw must be iterable, got {type(raw)}")
+    
+    normalized_keywords: set[str] = set()
+    
+    for keyword in raw:
+        # Skip non-string entries
+        if not isinstance(keyword, str):
+            continue
+            
+        # Skip empty strings
+        keyword = keyword.strip()
+        if not keyword:
+            continue
+        
+        # Skip excluded keywords
+        if keyword.lower() in tag_constants.KEYWORD_EXCLUSION_SET:
+            continue
+        
+        # Apply normalization map
+        normalized = tag_constants.KEYWORD_NORMALIZATION_MAP.get(keyword, keyword)
+        
+        # Check if singleton (unless allowlisted)
+        frequency = frequency_map.get(keyword, 0)
+        is_singleton = frequency == 1
+        is_allowlisted = normalized in allowlist or keyword in allowlist
+        
+        # Prune singletons that aren't allowlisted
+        if is_singleton and not is_allowlisted:
+            continue
+        
+        normalized_keywords.add(normalized)
+    
+    return sorted(list(normalized_keywords))

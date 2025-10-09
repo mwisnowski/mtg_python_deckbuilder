@@ -1181,6 +1181,9 @@ def _ensure_setup_ready(out, force: bool = False) -> None:
                     # Only flip phase if previous run finished
                     if st.get('phase') in {'themes','themes-fast'}:
                         st['phase'] = 'done'
+                        # Also ensure percent is 100 when done
+                        if st.get('finished_at'):
+                            st['percent'] = 100
                         with open(status_path, 'w', encoding='utf-8') as _wf:
                             json.dump(st, _wf)
             except Exception:
@@ -1463,16 +1466,17 @@ def _ensure_setup_ready(out, force: bool = False) -> None:
     except Exception:
         pass
 
-    # Unconditional fallback: if (for any reason) no theme export ran above, perform a fast-path export now.
-    # This guarantees that clicking Run Setup/Tagging always leaves themes current even when tagging wasn't needed.
+    # Conditional fallback: only run theme export if refresh_needed was True but somehow no export performed.
+    # This avoids repeated exports when setup is already complete and _ensure_setup_ready is called again.
     try:
-        if not theme_export_performed:
+        if not theme_export_performed and refresh_needed:
             _refresh_theme_catalog(out, force=False, fast_path=True)
     except Exception:
         pass
     else:  # If export just ran (either earlier or via fallback), ensure enrichment ran (safety double-call guard inside helper)
         try:
-            _run_theme_metadata_enrichment(out)
+            if theme_export_performed or refresh_needed:
+                _run_theme_metadata_enrichment(out)
         except Exception:
             pass
 

@@ -850,3 +850,88 @@ TOPDECK_EXCLUSION_PATTERNS: List[str] = [
     'look at the top card of target player\'s library',
     'reveal the top card of target player\'s library'
 ]
+
+# ==============================================================================
+# Keyword Normalization (M1 - Tagging Refinement)
+# ==============================================================================
+
+# Keyword normalization map: variant -> canonical
+# Maps Commander-specific and variant keywords to their canonical forms
+KEYWORD_NORMALIZATION_MAP: Dict[str, str] = {
+    # Commander variants
+    'Commander ninjutsu': 'Ninjutsu',
+    'Commander Ninjutsu': 'Ninjutsu',
+    
+    # Partner variants (already excluded but mapped for reference)
+    'Partner with': 'Partner',
+    'Choose a Background': 'Choose a Background',  # Keep distinct
+    "Doctor's Companion": "Doctor's Companion",    # Keep distinct
+    
+    # Case normalization for common keywords (most are already correct)
+    'flying': 'Flying',
+    'trample': 'Trample',
+    'vigilance': 'Vigilance',
+    'haste': 'Haste',
+    'deathtouch': 'Deathtouch',
+    'lifelink': 'Lifelink',
+    'menace': 'Menace',
+    'reach': 'Reach',
+}
+
+# Keywords that should never appear in theme tags
+# Already excluded during keyword tagging, but documented here
+KEYWORD_EXCLUSION_SET: set[str] = {
+    'partner',  # Already excluded in tag_for_keywords
+}
+
+# Keyword allowlist - keywords that should survive singleton pruning
+# Seeded from top keywords and theme whitelist
+KEYWORD_ALLOWLIST: set[str] = {
+    # Evergreen keywords (top 50 from baseline)
+    'Flying', 'Enchant', 'Trample', 'Vigilance', 'Haste', 'Equip', 'Flash',
+    'Mill', 'Scry', 'Transform', 'Cycling', 'First strike', 'Reach', 'Menace',
+    'Lifelink', 'Treasure', 'Defender', 'Deathtouch', 'Kicker', 'Flashback',
+    'Protection', 'Surveil', 'Landfall', 'Crew', 'Ward', 'Morph', 'Devoid',
+    'Investigate', 'Fight', 'Food', 'Partner', 'Double strike', 'Indestructible',
+    'Threshold', 'Proliferate', 'Convoke', 'Hexproof', 'Cumulative upkeep',
+    'Goad', 'Delirium', 'Prowess', 'Suspend', 'Affinity', 'Madness', 'Manifest',
+    'Amass', 'Domain', 'Unearth', 'Explore', 'Changeling',
+    
+    # Additional important mechanics
+    'Myriad', 'Cascade', 'Storm', 'Dredge', 'Delve', 'Escape', 'Mutate',
+    'Ninjutsu', 'Overload', 'Rebound', 'Retrace', 'Bloodrush', 'Cipher',
+    'Extort', 'Evolve', 'Undying', 'Persist', 'Wither', 'Infect', 'Annihilator',
+    'Exalted', 'Phasing', 'Shadow', 'Horsemanship', 'Banding', 'Rampage',
+    'Shroud', 'Split second', 'Totem armor', 'Living weapon', 'Undaunted',
+    'Improvise', 'Surge', 'Emerge', 'Escalate', 'Meld', 'Partner', 'Afflict',
+    'Aftermath', 'Embalm', 'Eternalize', 'Exert', 'Fabricate', 'Improvise',
+    'Assist', 'Jump-start', 'Mentor', 'Riot', 'Spectacle', 'Addendum',
+    'Afterlife', 'Adapt', 'Enrage', 'Ascend', 'Learn', 'Boast', 'Foretell',
+    'Squad', 'Encore', 'Daybound', 'Nightbound', 'Disturb', 'Cleave', 'Training',
+    'Reconfigure', 'Blitz', 'Casualty', 'Connive', 'Hideaway', 'Prototype',
+    'Read ahead', 'Living metal', 'More than meets the eye', 'Ravenous',
+    'Squad', 'Toxic', 'For Mirrodin!', 'Backup', 'Bargain', 'Craft', 'Freerunning',
+    'Plot', 'Spree', 'Offspring', 'Bestow', 'Monstrosity', 'Tribute',
+    
+    # Partner mechanics (distinct types)
+    'Choose a Background', "Doctor's Companion",
+    
+    # Token types (frequently used)
+    'Blood', 'Clue', 'Food', 'Gold', 'Treasure', 'Powerstone',
+    
+    # Common ability words
+    'Landfall', 'Raid', 'Revolt', 'Threshold', 'Metalcraft', 'Morbid',
+    'Bloodthirst', 'Battalion', 'Channel', 'Grandeur', 'Kinship', 'Sweep',
+    'Radiance', 'Join forces', 'Fateful hour', 'Inspired', 'Heroic',
+    'Constellation', 'Strive', 'Prowess', 'Ferocious', 'Formidable', 'Renown',
+    'Tempting offer', 'Will of the council', 'Parley', 'Adamant', 'Devotion',
+}
+
+# Metadata tag prefixes (for M3 - metadata partition)
+# Tags matching these patterns should be classified as metadata, not themes
+METADATA_TAG_PREFIXES: List[str] = [
+    'Applied:',
+    'Bracket:',
+    'Diagnostic:',
+    'Internal:',
+]

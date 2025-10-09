@@ -99,7 +99,7 @@ Execute saved configs without manual input.
 
 ### Initial Setup
 Refresh data and caches when formats shift.
-- Runs card downloads, CSV regeneration, tagging, and commander catalog rebuilds.
+- Runs card downloads, CSV regeneration, smart tagging (keywords + protection grants), and commander catalog rebuilds.
 - Controlled by `SHOW_SETUP=1` (on by default in compose).
 - Force a rebuild manually:
   ```powershell

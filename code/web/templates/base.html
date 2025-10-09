@@ -309,7 +309,8 @@
               .catch(function(){ /* noop */ });
           } catch(e) {}
         }
-        setInterval(pollStatus, 3000);
+        // Poll every 10 seconds instead of 3 to reduce server load (only for header indicator)
+        setInterval(pollStatus, 10000);
         pollStatus();
 
         // Health indicator poller

@@ -9,16 +9,27 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 
 ## [Unreleased]
 ### Summary
-- _No unreleased changes yet_
+- Keyword normalization reduces specialty keyword noise by 96% while maintaining theme catalog quality
+- Protection tag now focuses on cards that grant shields to others, not just those with inherent protection
+- Web UI improvements: faster polling, fixed progress display, and theme refresh stability
 
 ### Added
-- _None_
+- Keyword normalization system with smart filtering of one-off specialty mechanics
+- Allowlist preserves important keywords like Flying, Myriad, and Transform
+- Protection grant detection identifies cards that give Hexproof, Ward, or Indestructible to other permanents
+- Automatic tagging for creature-type-specific protection (e.g., "Knights Gain Protection")
 
 ### Changed
-- _None_
+- Keywords now consolidate variants (e.g., "Commander ninjutsu" becomes "Ninjutsu")
+- Setup progress polling reduced from 3s to 5-10s intervals for better performance
+- Theme catalog streamlined from 753 to 736 themes (-2.3%) with improved quality
+- Protection tag refined to focus on 329 cards that grant shields (down from 1,166 with inherent effects)
 
 ### Fixed
-- _None_
+- Setup progress now shows 100% completion instead of getting stuck at 99%
+- Theme catalog no longer continuously regenerates after setup completes
+- Health indicator polling optimized to reduce server load
+- Protection detection now correctly excludes creatures with only inherent keywords
 
 ## [2.5.2] - 2025-10-08
 ### Summary

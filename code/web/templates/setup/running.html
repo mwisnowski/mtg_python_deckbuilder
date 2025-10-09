@@ -127,7 +127,8 @@
       .then(update)
       .catch(function(){});
   }
-  setInterval(poll, 3000);
+  // Poll every 5 seconds instead of 3 to reduce server load
+  setInterval(poll, 5000);
   poll();
 })();
 </script>

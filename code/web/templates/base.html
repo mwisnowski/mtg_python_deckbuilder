@@ -1012,6 +1012,7 @@
           var role = (attr('data-role')||'').trim();
           var reasonsRaw = attr('data-reasons')||'';
           var tagsRaw = attr('data-tags')||'';
+          var metadataTagsRaw = attr('data-metadata-tags')||'';  // M5: Extract metadata tags
           var reasonsRaw = attr('data-reasons')||'';
           var roleEl = panel.querySelector('.hcp-role');
           var hasFlip = !!card.querySelector('.dfc-toggle');
@@ -1116,6 +1117,14 @@
               tagsEl.style.display = 'none';
             } else {
               var tagText = allTags.map(displayLabel).join(', ');
+              // M5: Temporarily append metadata tags for debugging
+              if(metadataTagsRaw && metadataTagsRaw.trim()){
+                var metaTags = metadataTagsRaw.split(',').map(function(t){return t.trim();}).filter(Boolean);
+                if(metaTags.length){
+                  var metaText = metaTags.map(displayLabel).join(', ');
+                  tagText = tagText ? (tagText + ' | META: ' + metaText) : ('META: ' + metaText);
+                }
+              }
               tagsEl.textContent = tagText;
               tagsEl.style.display = tagText ? '' : 'none';
             }

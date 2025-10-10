@@ -539,6 +539,10 @@ class SpellAdditionMixin:
         """Add protection spells to the deck.
         Selects cards tagged as 'protection', prioritizing by EDHREC rank and mana value.
         Avoids duplicates and commander card.
+        
+        M5: When TAG_PROTECTION_SCOPE is enabled, filters to include only cards that
+        protect your board (Your Permanents:, {Type} Gain) and excludes self-only or
+        opponent protection cards.
         """
         target = self.ideal_counts.get('protection', 0)
         if target <= 0 or self._combined_cards_df is None:
@@ -546,14 +550,88 @@ class SpellAdditionMixin:
         already = {n.lower() for n in self.card_library.keys()}
         df = self._combined_cards_df.copy()
         df['_ltags'] = df.get('themeTags', []).apply(bu.normalize_tag_cell)
-        pool = df[df['_ltags'].apply(lambda tags: any('protection' in t for t in tags))]
+        
+        # M5: Apply scope-based filtering if enabled
+        import settings as s
+        if getattr(s, 'TAG_PROTECTION_SCOPE', True):
+            # Check metadata tags for scope information
+            df['_meta_tags'] = df.get('metadataTags', []).apply(bu.normalize_tag_cell)
+            
+            def is_board_relevant_protection(row):
+                """Check if protection card helps protect your board.
+                
+                Includes:
+                - Cards with "Your Permanents:" metadata (board-wide protection)
+                - Cards with "Blanket:" metadata (affects all permanents)
+                - Cards with "Targeted:" metadata (can target your stuff)
+                - Legacy cards without metadata tags
+                
+                Excludes:
+                - "Self:" protection (only protects itself)
+                - "Opponent Permanents:" protection (helps opponents)
+                - Type-specific grants like "Knights Gain" (too narrow, handled by kindred synergies)
+                """
+                theme_tags = row.get('_ltags', [])
+                meta_tags = row.get('_meta_tags', [])
+                
+                # First check if it has general protection tag
+                has_protection = any('protection' in t for t in theme_tags)
+                if not has_protection:
+                    return False
+                
+                # INCLUDE: Board-relevant scopes
+                # "Your Permanents:", "Blanket:", "Targeted:"
+                has_board_scope = any(
+                    'your permanents:' in t or 'blanket:' in t or 'targeted:' in t
+                    for t in meta_tags
+                )
+                
+                # EXCLUDE: Self-only, opponent protection, or type-specific grants
+                # Check for type-specific grants FIRST (highest priority exclusion)
+                has_type_specific = any(
+                    ' gain ' in t.lower()  # "Knights Gain", "Treefolk Gain", etc.
+                    for t in meta_tags
+                )
+                
+                has_excluded_scope = any(
+                    'self:' in t or 
+                    'opponent permanents:' in t
+                    for t in meta_tags
+                )
+                
+                # Include if board-relevant, or if no scope tags (legacy cards)
+                # ALWAYS exclude type-specific grants (too narrow for general protection)
+                if meta_tags:
+                    # Has metadata - use it for filtering
+                    # Exclude if type-specific OR self/opponent
+                    if has_type_specific or has_excluded_scope:
+                        return False
+                    # Otherwise include if board-relevant
+                    return has_board_scope
+                else:
+                    # No metadata - legacy card, include by default
+                    return True
+            
+            pool = df[df.apply(is_board_relevant_protection, axis=1)]
+            
+            # Log scope filtering stats
+            original_count = len(df[df['_ltags'].apply(lambda tags: any('protection' in t for t in tags))])
+            filtered_count = len(pool)
+            if original_count > filtered_count:
+                self.output_func(f"Protection scope filter: {filtered_count}/{original_count} cards (excluded {original_count - filtered_count} self-only/opponent cards)")
+        else:
+            # Legacy behavior: include all cards with 'protection' tag
+            pool = df[df['_ltags'].apply(lambda tags: any('protection' in t for t in tags))]
+        
         pool = pool[~pool['type'].fillna('').str.contains('Land', case=False, na=False)]
         commander_name = getattr(self, 'commander', None)
         if commander_name:
             pool = pool[pool['name'] != commander_name]
         pool = self._apply_bracket_pre_filters(pool)
         pool = bu.sort_by_priority(pool, ['edhrecRank','manaValue'])
+        
         self._debug_dump_pool(pool, 'protection')
+        
         try:
             if str(os.getenv('DEBUG_SPELL_POOLS', '')).strip().lower() in {"1","true","yes","on"}:
                 names = pool['name'].astype(str).head(30).tolist()
@@ -580,6 +658,48 @@ class SpellAdditionMixin:
         if existing >= target and to_add == 0:
             return
         target = to_add if existing < target else to_add
+        
+        # M5: Limit pool size to manageable tier-based selection
+        # Strategy: Top tier (3x target) + random deeper selection
+        # This keeps the pool focused on high-quality options (~50-70 cards typical)
+        original_pool_size = len(pool)
+        if len(pool) > 0 and target > 0:
+            try:
+                # Tier 1: Top quality cards (3x target count)
+                tier1_size = min(3 * target, len(pool))
+                tier1 = pool.head(tier1_size).copy()
+                
+                # Tier 2: Random additional cards from remaining pool (10-20 cards)
+                if len(pool) > tier1_size:
+                    remaining_pool = pool.iloc[tier1_size:].copy()
+                    tier2_size = min(
+                        self.rng.randint(10, 20) if hasattr(self, 'rng') and self.rng else 15,
+                        len(remaining_pool)
+                    )
+                    if hasattr(self, 'rng') and self.rng and len(remaining_pool) > tier2_size:
+                        # Use random.sample() to select random indices from the remaining pool
+                        tier2_indices = self.rng.sample(range(len(remaining_pool)), tier2_size)
+                        tier2 = remaining_pool.iloc[tier2_indices]
+                    else:
+                        tier2 = remaining_pool.head(tier2_size)
+                    pool = tier1._append(tier2, ignore_index=True)
+                else:
+                    pool = tier1
+                
+                if len(pool) != original_pool_size:
+                    self.output_func(f"Protection pool limited: {len(pool)}/{original_pool_size} cards (tier1: {tier1_size}, tier2: {len(pool) - tier1_size})")
+            except Exception as e:
+                self.output_func(f"Warning: Pool limiting failed, using full pool: {e}")
+        
+        # Shuffle pool for variety across builds (using seeded RNG for determinism)
+        try:
+            if hasattr(self, 'rng') and self.rng is not None:
+                pool_list = pool.to_dict('records')
+                self.rng.shuffle(pool_list)
+                import pandas as pd
+                pool = pd.DataFrame(pool_list)
+        except Exception:
+            pass
         added = 0
         added_names: List[str] = []
         for _, r in pool.iterrows():

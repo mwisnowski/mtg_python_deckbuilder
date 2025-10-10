@@ -102,14 +102,17 @@ FILL_NA_COLUMNS: Dict[str, Optional[str]] = {
 }
 
 # ----------------------------------------------------------------------------------
-# TAGGING REFINEMENT FEATURE FLAGS (M1-M3)
+# TAGGING REFINEMENT FEATURE FLAGS (M1-M5)
 # ----------------------------------------------------------------------------------
 
-# M1: Enable keyword normalization and singleton pruning
+# M1: Enable keyword normalization and singleton pruning (completed)
 TAG_NORMALIZE_KEYWORDS = os.getenv('TAG_NORMALIZE_KEYWORDS', '1').lower() not in ('0', 'false', 'off', 'disabled')
 
-# M2: Enable protection grant detection (planned)
-TAG_PROTECTION_GRANTS = os.getenv('TAG_PROTECT ION_GRANTS', '0').lower() not in ('0', 'false', 'off', 'disabled')
+# M2: Enable protection grant detection (completed)
+TAG_PROTECTION_GRANTS = os.getenv('TAG_PROTECTION_GRANTS', '1').lower() not in ('0', 'false', 'off', 'disabled')
 
-# M3: Enable metadata/theme partition (planned)
-TAG_METADATA_SPLIT = os.getenv('TAG_METADATA_SPLIT', '0').lower() not in ('0', 'false', 'off', 'disabled')
+# M3: Enable metadata/theme partition (completed)
+TAG_METADATA_SPLIT = os.getenv('TAG_METADATA_SPLIT', '1').lower() not in ('0', 'false', 'off', 'disabled')
+
+# M5: Enable protection scope filtering in deck builder (completed - Phase 1-3, in progress Phase 4+)
+TAG_PROTECTION_SCOPE = os.getenv('TAG_PROTECTION_SCOPE', '1').lower() not in ('0', 'false', 'off', 'disabled')

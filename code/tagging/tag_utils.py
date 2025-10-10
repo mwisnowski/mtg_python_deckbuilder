@@ -583,3 +583,79 @@ def normalize_keywords(
         normalized_keywords.add(normalized)
     
     return sorted(list(normalized_keywords))
+
+
+# ==============================================================================
+# M3: Metadata vs Theme Tag Classification
+# ==============================================================================
+
+def classify_tag(tag: str) -> str:
+    """Classify a tag as either 'metadata' or 'theme'.
+    
+    Metadata tags are diagnostic, bracket-related, or internal annotations that
+    should not appear in theme catalogs or player-facing tag lists. Theme tags
+    represent gameplay mechanics and deck archetypes.
+    
+    Classification rules (in order of precedence):
+    1. Prefix match: Tags starting with METADATA_TAG_PREFIXES → metadata
+    2. Exact match: Tags in METADATA_TAG_ALLOWLIST → metadata
+    3. Kindred pattern: "{Type}s Gain Protection" → metadata
+    4. Default: All other tags → theme
+    
+    Args:
+        tag: Tag string to classify
+        
+    Returns:
+        "metadata" or "theme"
+        
+    Examples:
+        >>> classify_tag("Applied: Cost Reduction")
+        'metadata'
+        >>> classify_tag("Bracket: Game Changer")
+        'metadata'
+        >>> classify_tag("Knights Gain Protection")
+        'metadata'
+        >>> classify_tag("Card Draw")
+        'theme'
+        >>> classify_tag("Spellslinger")
+        'theme'
+    """
+    # Prefix-based classification
+    for prefix in tag_constants.METADATA_TAG_PREFIXES:
+        if tag.startswith(prefix):
+            return "metadata"
+    
+    # Exact match classification
+    if tag in tag_constants.METADATA_TAG_ALLOWLIST:
+        return "metadata"
+    
+    # Kindred protection metadata patterns: "{Type} Gain {Ability}"
+    # Covers all protective abilities: Protection, Ward, Hexproof, Shroud, Indestructible
+    # Examples: "Knights Gain Protection", "Spiders Gain Ward", "Merfolk Gain Ward"
+    # Note: Checks for " Gain " pattern since some creature types like "Merfolk" don't end in 's'
+    kindred_abilities = ["Protection", "Ward", "Hexproof", "Shroud", "Indestructible"]
+    for ability in kindred_abilities:
+        if " Gain " in tag and tag.endswith(ability):
+            return "metadata"
+    
+    # Protection scope metadata patterns (M5): "{Scope}: {Ability}"
+    # Indicates whether protection applies to self, your permanents, all permanents, or opponent's permanents
+    # Examples: "Self: Hexproof", "Your Permanents: Ward", "Blanket: Indestructible"
+    # These enable deck builder to filter for board-relevant protection vs self-only
+    protection_scopes = ["Self:", "Your Permanents:", "Blanket:", "Opponent Permanents:"]
+    for scope in protection_scopes:
+        if tag.startswith(scope):
+            return "metadata"
+    
+    # Phasing scope metadata patterns: "{Scope}: Phasing"
+    # Indicates whether phasing applies to self, your permanents, all permanents, or opponents
+    # Examples: "Self: Phasing", "Your Permanents: Phasing", "Blanket: Phasing", 
+    #           "Targeted: Phasing", "Opponent Permanents: Phasing"
+    # Similar to protection scopes, enables filtering for board-relevant phasing
+    # Opponent Permanents: Phasing also triggers Removal tag (removal-style phasing)
+    if tag in ["Self: Phasing", "Your Permanents: Phasing", "Blanket: Phasing", 
+               "Targeted: Phasing", "Opponent Permanents: Phasing"]:
+        return "metadata"
+    
+    # Default: treat as theme tag
+    return "theme"

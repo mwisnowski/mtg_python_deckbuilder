@@ -159,6 +159,134 @@ def _write_compat_snapshot(df: pd.DataFrame, color: str) -> None:
     except Exception as exc:
         logger.warning("Failed to write unmerged snapshot for %s: %s", color, exc)
 
+
+def _apply_metadata_partition(df: pd.DataFrame) -> tuple[pd.DataFrame, Dict[str, Any]]:
+    """Partition tags into themeTags and metadataTags columns.
+    
+    Metadata tags are diagnostic, bracket-related, or internal annotations that
+    should not appear in theme catalogs or player-facing lists. This function:
+    1. Creates a new 'metadataTags' column
+    2. Classifies each tag in 'themeTags' as metadata or theme
+    3. Moves metadata tags to 'metadataTags' column
+    4. Keeps theme tags in 'themeTags' column
+    5. Returns summary diagnostics
+    
+    Args:
+        df: DataFrame with 'themeTags' column (list of tag strings)
+        
+    Returns:
+        Tuple of (modified DataFrame, diagnostics dict)
+        
+    Diagnostics dict contains:
+        - total_rows: number of rows processed
+        - rows_with_tags: rows that had any tags
+        - metadata_tags_moved: total count of metadata tags moved
+        - theme_tags_kept: total count of theme tags kept
+        - tag_distribution: dict mapping tag -> classification
+        - most_common_metadata: list of (tag, count) tuples
+        - most_common_themes: list of (tag, count) tuples
+        
+    Example:
+        >>> df = pd.DataFrame({'themeTags': [['Card Draw', 'Applied: Cost Reduction']]})
+        >>> df_out, diag = _apply_metadata_partition(df)
+        >>> df_out['themeTags'].iloc[0]
+        ['Card Draw']
+        >>> df_out['metadataTags'].iloc[0]
+        ['Applied: Cost Reduction']
+        >>> diag['metadata_tags_moved']
+        1
+    """
+    # Check feature flag directly from environment (not from settings module)
+    # This allows tests to monkeypatch the environment variable
+    tag_metadata_split = os.getenv('TAG_METADATA_SPLIT', '1').lower() not in ('0', 'false', 'off', 'disabled')
+    
+    # Feature flag check - return unmodified if disabled
+    if not tag_metadata_split:
+        logger.info("TAG_METADATA_SPLIT disabled, skipping metadata partition")
+        return df, {
+            "enabled": False,
+            "total_rows": len(df),
+            "message": "Feature disabled via TAG_METADATA_SPLIT=0"
+        }
+    
+    # Validate input
+    if 'themeTags' not in df.columns:
+        logger.warning("No 'themeTags' column found, skipping metadata partition")
+        return df, {
+            "enabled": True,
+            "error": "Missing themeTags column",
+            "total_rows": len(df)
+        }
+    
+    # Initialize metadataTags column
+    df['metadataTags'] = pd.Series([[] for _ in range(len(df))], index=df.index)
+    
+    # Track statistics
+    metadata_counts: Dict[str, int] = {}
+    theme_counts: Dict[str, int] = {}
+    total_metadata_moved = 0
+    total_theme_kept = 0
+    rows_with_tags = 0
+    
+    # Process each row
+    for idx in df.index:
+        tags = df.at[idx, 'themeTags']
+        
+        # Skip if not a list or empty
+        if not isinstance(tags, list) or not tags:
+            continue
+        
+        rows_with_tags += 1
+        
+        # Classify each tag
+        metadata_tags = []
+        theme_tags = []
+        
+        for tag in tags:
+            classification = tag_utils.classify_tag(tag)
+            
+            if classification == "metadata":
+                metadata_tags.append(tag)
+                metadata_counts[tag] = metadata_counts.get(tag, 0) + 1
+                total_metadata_moved += 1
+            else:
+                theme_tags.append(tag)
+                theme_counts[tag] = theme_counts.get(tag, 0) + 1
+                total_theme_kept += 1
+        
+        # Update columns
+        df.at[idx, 'themeTags'] = theme_tags
+        df.at[idx, 'metadataTags'] = metadata_tags
+    
+    # Sort tag lists for top N reporting
+    most_common_metadata = sorted(metadata_counts.items(), key=lambda x: x[1], reverse=True)[:10]
+    most_common_themes = sorted(theme_counts.items(), key=lambda x: x[1], reverse=True)[:10]
+    
+    # Build diagnostics
+    diagnostics = {
+        "enabled": True,
+        "total_rows": len(df),
+        "rows_with_tags": rows_with_tags,
+        "metadata_tags_moved": total_metadata_moved,
+        "theme_tags_kept": total_theme_kept,
+        "unique_metadata_tags": len(metadata_counts),
+        "unique_theme_tags": len(theme_counts),
+        "most_common_metadata": most_common_metadata,
+        "most_common_themes": most_common_themes
+    }
+    
+    # Log summary
+    logger.info(
+        f"Metadata partition complete: {total_metadata_moved} metadata tags moved, "
+        f"{total_theme_kept} theme tags kept across {rows_with_tags} rows"
+    )
+    
+    if most_common_metadata:
+        top_5_metadata = ', '.join([f"{tag}({ct})" for tag, ct in most_common_metadata[:5]])
+        logger.info(f"Top metadata tags: {top_5_metadata}")
+    
+    return df, diagnostics
+
 ### Setup
 ## Load the dataframe
 def load_dataframe(color: str) -> None:
@@ -211,7 +339,14 @@ def load_dataframe(color: str) -> None:
                 raise ValueError(f"Failed to add required columns: {still_missing}")
 
         # Load final dataframe with proper converters
-        df = pd.read_csv(filepath, converters={'themeTags': pd.eval, 'creatureTypes': pd.eval})
+        # M3: metadataTags is optional (may not exist in older CSVs)
+        converters = {'themeTags': pd.eval, 'creatureTypes': pd.eval}
+        
+        # Add metadataTags converter if column exists
+        if 'metadataTags' in check_df.columns:
+            converters['metadataTags'] = pd.eval
+        
+        df = pd.read_csv(filepath, converters=converters)
 
         # Process the dataframe
         tag_by_color(df, color)
@@ -331,8 +466,15 @@ def tag_by_color(df: pd.DataFrame, color: str) -> None:
     if color == 'commander':
         df = enrich_commander_rows_with_tags(df, CSV_DIRECTORY)
 
-    # Lastly, sort all theme tags for easier reading and reorder columns
+    # Sort all theme tags for easier reading and reorder columns
     df = sort_theme_tags(df, color)
+    
+    # M3: Partition metadata tags from theme tags
+    df, partition_diagnostics = _apply_metadata_partition(df)
+    if partition_diagnostics.get("enabled"):
+        logger.info(f"Metadata partition for {color}: {partition_diagnostics['metadata_tags_moved']} metadata, "
+                   f"{partition_diagnostics['theme_tags_kept']} theme tags")
+    
     df.to_csv(f'{CSV_DIRECTORY}/{color}_cards.csv', index=False)
     #print(df)
     print('\n====================\n')
@@ -6653,6 +6795,11 @@ def tag_for_interaction(df: pd.DataFrame, color: str) -> None:
         print('\n==========\n')
         
         sub_start = pd.Timestamp.now()
+        tag_for_phasing(df, color)
+        logger.info(f'Completed phasing tagging in {(pd.Timestamp.now() - sub_start).total_seconds():.2f}s')
+        print('\n==========\n')
+        
+        sub_start = pd.Timestamp.now()
         tag_for_removal(df, color)
         logger.info(f'Completed removal tagging in {(pd.Timestamp.now() - sub_start).total_seconds():.2f}s')
         print('\n==========\n')
@@ -7076,24 +7223,59 @@ def tag_for_protection(df: pd.DataFrame, color: str) -> None:
             )
             
             final_mask = grant_mask
-            logger.info(f'Using M2 grant detection (TAG_PROTECTION_GRANTS=1)')
+            logger.info('Using M2 grant detection (TAG_PROTECTION_GRANTS=1)')
             
             # Apply kindred metadata tags for creature-type-specific grants
+            # Note: These are added to themeTags first, then _apply_metadata_partition()
+            # will classify them as metadata and move them to metadataTags column
             kindred_count = 0
             for idx, row in df[final_mask].iterrows():
                 text = str(row.get('text', ''))
                 kindred_tags = get_kindred_protection_tags(text)
                 
                 if kindred_tags:
-                    # Add kindred-specific metadata tags
-                    current_tags = str(row.get('metadataTags', ''))
-                    existing = set(t.strip() for t in current_tags.split(',') if t.strip())
-                    existing.update(kindred_tags)
-                    df.at[idx, 'metadataTags'] = ', '.join(sorted(existing))
+                    # Add to themeTags temporarily - partition will move to metadataTags
+                    current_tags = row.get('themeTags', [])
+                    if not isinstance(current_tags, list):
+                        current_tags = []
+                    
+                    # Add kindred tags (they'll be classified as metadata later)
+                    updated_tags = list(set(current_tags) | set(kindred_tags))
+                    df.at[idx, 'themeTags'] = updated_tags
                     kindred_count += 1
             
             if kindred_count > 0:
-                logger.info(f'Applied kindred metadata tags to {kindred_count} cards')
+                logger.info(f'Applied kindred protection tags to {kindred_count} cards (will be moved to metadata by partition)')
+            
+            # M5: Add protection scope metadata tags (Self, Your Permanents, Blanket, Opponent)
+            # Apply to ALL cards with protection effects, not just those that passed grant filter
+            # This ensures inherent protection cards like Aysen Highway get "Self: Protection" tags
+            from code.tagging.protection_scope_detection import get_protection_scope_tags, has_any_protection
+            
+            scope_count = 0
+            for idx, row in df.iterrows():
+                text = str(row.get('text', ''))
+                name = str(row.get('name', ''))
+                keywords = str(row.get('keywords', ''))
+                
+                # Check if card has ANY protection effects (text or keywords)
+                if not has_any_protection(text) and not any(k in keywords.lower() for k in ['hexproof', 'shroud', 'indestructible', 'ward', 'protection', 'phasing']):
+                    continue
+                
+                scope_tags = get_protection_scope_tags(text, name)
+                
+                if scope_tags:
+                    current_tags = row.get('themeTags', [])
+                    if not isinstance(current_tags, list):
+                        current_tags = []
+                    
+                    # Add scope tags to themeTags (partition will move to metadataTags)
+                    updated_tags = list(set(current_tags) | set(scope_tags))
+                    df.at[idx, 'themeTags'] = updated_tags
+                    scope_count += 1
+            
+            if scope_count > 0:
+                logger.info(f'Applied protection scope tags to {scope_count} cards (will be moved to metadata by partition)')
         else:
             # Legacy: Use original text/keyword patterns
             text_mask = create_protection_text_mask(df)
@@ -7101,13 +7283,50 @@ def tag_for_protection(df: pd.DataFrame, color: str) -> None:
             exclusion_mask = create_protection_exclusion_mask(df)
             final_mask = (text_mask | keyword_mask) & ~exclusion_mask
 
-        # Apply tags via rules engine
+        # Apply generic protection tags first
         tag_utils.apply_rules(df, rules=[
             {
                 'mask': final_mask,
                 'tags': ['Protection', 'Interaction']
             }
         ])
+        
+        # Apply specific protection ability tags (Hexproof, Indestructible, etc.)
+        # These are theme tags indicating which specific protections the card provides
+        ability_tag_count = 0
+        for idx, row in df[final_mask].iterrows():
+            text = str(row.get('text', ''))
+            keywords = str(row.get('keywords', ''))
+            
+            # Detect which specific abilities are present
+            ability_tags = set()
+            text_lower = text.lower()
+            keywords_lower = keywords.lower()
+            
+            # Check for each protection ability
+            if 'hexproof' in text_lower or 'hexproof' in keywords_lower:
+                ability_tags.add('Hexproof')
+            if 'indestructible' in text_lower or 'indestructible' in keywords_lower:
+                ability_tags.add('Indestructible')
+            if 'shroud' in text_lower or 'shroud' in keywords_lower:
+                ability_tags.add('Shroud')
+            if 'ward' in text_lower or 'ward' in keywords_lower:
+                ability_tags.add('Ward')
+            if 'protection from' in text_lower or 'protection from' in keywords_lower:
+                ability_tags.add('Protection from Color')
+            
+            if ability_tags:
+                current_tags = row.get('themeTags', [])
+                if not isinstance(current_tags, list):
+                    current_tags = []
+                
+                # Add ability tags to themeTags
+                updated_tags = list(set(current_tags) | ability_tags)
+                df.at[idx, 'themeTags'] = updated_tags
+                ability_tag_count += 1
+        
+        if ability_tag_count > 0:
+            logger.info(f'Applied specific protection ability tags to {ability_tag_count} cards')
 
         # Log results
         duration = (pd.Timestamp.now() - start_time).total_seconds()
@@ -7115,6 +7334,101 @@ def tag_for_protection(df: pd.DataFrame, color: str) -> None:
 
     except Exception as e:
         logger.error(f'Error in tag_for_protection: {str(e)}')
+        raise
+
+## Phasing effects
+def tag_for_phasing(df: pd.DataFrame, color: str) -> None:
+    """Tag cards that provide phasing effects using vectorized operations.
+
+    This function identifies and tags cards with phasing effects including:
+    - Cards that phase permanents out
+    - Cards with phasing keyword
+    
+    Similar to M5 protection tagging, adds scope metadata tags:
+    - Self: Phasing (card phases itself out)
+    - Your Permanents: Phasing (phases your permanents out)
+    - Blanket: Phasing (phases all permanents out)
+
+    Args:
+        df: DataFrame containing card data
+        color: Color identifier for logging purposes
+
+    Raises:
+        ValueError: If required DataFrame columns are missing
+        TypeError: If inputs are not of correct type
+    """
+    start_time = pd.Timestamp.now()
+    logger.info(f'Starting phasing effect tagging for {color}_cards.csv')
+
+    try:
+        # Validate inputs
+        if not isinstance(df, pd.DataFrame):
+            raise TypeError("df must be a pandas DataFrame")
+        if not isinstance(color, str):
+            raise TypeError("color must be a string")
+
+        # Validate required columns
+        required_cols = {'text', 'themeTags', 'keywords'}
+        tag_utils.validate_dataframe_columns(df, required_cols)
+
+        # Create mask for cards with phasing
+        from code.tagging.phasing_scope_detection import has_phasing, get_phasing_scope_tags, is_removal_phasing
+        
+        phasing_mask = df.apply(
+            lambda row: has_phasing(str(row.get('text', ''))) or 
+                       'phasing' in str(row.get('keywords', '')).lower(),
+            axis=1
+        )
+        
+        # Apply generic "Phasing" theme tag first
+        tag_utils.apply_rules(df, rules=[
+            {
+                'mask': phasing_mask,
+                'tags': ['Phasing', 'Interaction']
+            }
+        ])
+        
+        # Add phasing scope metadata tags and removal tags
+        scope_count = 0
+        removal_count = 0
+        for idx, row in df[phasing_mask].iterrows():
+            text = str(row.get('text', ''))
+            name = str(row.get('name', ''))
+            keywords = str(row.get('keywords', ''))
+            
+            # Check if card has phasing (in text or keywords)
+            if not has_phasing(text) and 'phasing' not in keywords.lower():
+                continue
+            
+            scope_tags = get_phasing_scope_tags(text, name, keywords)
+            
+            if scope_tags:
+                current_tags = row.get('themeTags', [])
+                if not isinstance(current_tags, list):
+                    current_tags = []
+                
+                # Add scope tags to themeTags (partition will move to metadataTags)
+                updated_tags = list(set(current_tags) | scope_tags)
+                
+                # If this is removal-style phasing, add Removal tag
+                if is_removal_phasing(scope_tags):
+                    updated_tags.append('Removal')
+                    removal_count += 1
+                
+                df.at[idx, 'themeTags'] = updated_tags
+                scope_count += 1
+        
+        if scope_count > 0:
+            logger.info(f'Applied phasing scope tags to {scope_count} cards (will be moved to metadata by partition)')
+        if removal_count > 0:
+            logger.info(f'Applied Removal tag to {removal_count} cards with opponent-targeting phasing')
+
+        # Log results
+        duration = (pd.Timestamp.now() - start_time).total_seconds()
+        logger.info(f'Tagged {phasing_mask.sum()} cards with phasing effects in {duration:.2f}s')
+
+    except Exception as e:
+        logger.error(f'Error in tag_for_phasing: {str(e)}')
         raise
 
 ## Spot removal

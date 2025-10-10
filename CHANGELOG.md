@@ -9,27 +9,60 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 
 ## [Unreleased]
 ### Summary
+- Card tagging system improvements split metadata from gameplay themes for cleaner deck building experience
 - Keyword normalization reduces specialty keyword noise by 96% while maintaining theme catalog quality
 - Protection tag now focuses on cards that grant shields to others, not just those with inherent protection
 - Web UI improvements: faster polling, fixed progress display, and theme refresh stability
+- **Protection System Overhaul**: Comprehensive enhancement to protection card detection, classification, and deck building
+  - Fine-grained scope metadata distinguishes self-protection from board-wide effects ("Your Permanents: Hexproof" vs "Self: Hexproof")
+  - Enhanced grant detection with Equipment/Aura patterns, phasing support, and complex trigger handling
+  - Intelligent deck builder filtering includes board-relevant protection while excluding self-only and type-specific cards
+  - Tiered pool limiting focuses on high-quality staples while maintaining variety across builds
+  - Improved scope tagging for cards with keyword-only protection effects (no grant text, just inherent keywords)
 
 ### Added
+- Metadata partition system separates diagnostic tags from gameplay themes in card data
 - Keyword normalization system with smart filtering of one-off specialty mechanics
 - Allowlist preserves important keywords like Flying, Myriad, and Transform
 - Protection grant detection identifies cards that give Hexproof, Ward, or Indestructible to other permanents
 - Automatic tagging for creature-type-specific protection (e.g., "Knights Gain Protection")
+- New `metadataTags` column in card data for bracket annotations and internal diagnostics
+- Static phasing keyword detection from keywords field (catches creatures like Breezekeeper)
+- "Other X you control have Y" protection pattern for static ability grants
+- "Enchanted creature has phasing" pattern detection
+- Chosen type blanket phasing patterns
+- Complex trigger phasing patterns (reactive, consequent, end-of-turn)
+- Protection scope filtering in deck builder (feature flag: `TAG_PROTECTION_SCOPE`) intelligently selects board-relevant protection
+- Phasing cards with "Your Permanents:" or "Targeted:" metadata now tagged as Protection and included in protection pool
+- Metadata tags temporarily visible in card hover previews for debugging (shows scope like "Your Permanents: Hexproof")
 
 ### Changed
+- Card tags now split between themes (for deck building) and metadata (for diagnostics)
 - Keywords now consolidate variants (e.g., "Commander ninjutsu" becomes "Ninjutsu")
 - Setup progress polling reduced from 3s to 5-10s intervals for better performance
 - Theme catalog streamlined from 753 to 736 themes (-2.3%) with improved quality
 - Protection tag refined to focus on 329 cards that grant shields (down from 1,166 with inherent effects)
+- Theme catalog automatically excludes metadata tags from theme suggestions
+- Grant detection now strips reminder text before pattern matching to avoid false positives
+- Deck builder protection phase now filters by scope metadata: includes "Your Permanents:", excludes "Self:" protection
+- Protection card selection now randomized per build for variety (using seeded RNG when deterministic mode enabled)
+- Protection pool now limited to ~40-50 high-quality cards (tiered selection: top 3x target + random 10-20 extras)
 
 ### Fixed
 - Setup progress now shows 100% completion instead of getting stuck at 99%
 - Theme catalog no longer continuously regenerates after setup completes
 - Health indicator polling optimized to reduce server load
 - Protection detection now correctly excludes creatures with only inherent keywords
+- Dive Down, Glint no longer falsely identified as granting to opponents (reminder text fix)
+- Drogskol Captain, Haytham Kenway now correctly get "Your Permanents" scope tags
+- 7 cards with static Phasing keyword now properly detected (Breezekeeper, Teferi's Drake, etc.)
+- Type-specific protection grants (e.g., "Knights Gain Indestructible") now correctly excluded from general protection pool
+- Protection scope filter now properly prioritizes exclusions over inclusions (fixes Knight Exemplar in non-Knight decks)
+- Inherent protection cards (Aysen Highway, Phantom Colossus, etc.) now correctly get "Self: Protection" metadata tags
+- Scope tagging now applies to ALL cards with protection effects, not just grant cards
+- Cloak of Invisibility, Teferi's Curse now get "Your Permanents: Phasing" tags
+- Shimmer now gets "Blanket: Phasing" tag for chosen type effect
+- King of the Oathbreakers now gets "Self: Phasing" tag for reactive trigger
 
 ## [2.5.2] - 2025-10-08
 ### Summary

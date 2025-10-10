@@ -2,7 +2,23 @@
 
 This module provides the main setup functionality for the MTG Python Deckbuilder
 application. It handles initial setup tasks such as downloading card data,
-creating color-filtered card lists, and generating commander-eligible card lists.
+creating color-filtered card lists, and gener        logger.info(f'Downloading latest card data for {color} cards')
+        download_cards_csv(MTGJSON_API_URL, f'{CSV_DIRECTORY}/cards.csv')
+
+        logger.info('Loading and processing card data')
+        try:
+            df = pd.read_csv(f'{CSV_DIRECTORY}/cards.csv', low_memory=False)
+        except pd.errors.ParserError as e:
+            logger.warning(f'CSV parsing error encountered: {e}. Retrying with error handling...')
+            df = pd.read_csv(
+                f'{CSV_DIRECTORY}/cards.csv',
+                low_memory=False,
+                on_bad_lines='warn',  # Warn about malformed rows but continue
+                encoding_errors='replace'  # Replace bad encoding chars
+            )
+            logger.info('Successfully loaded card data with error handling (some rows may have been skipped)')
+
+        logger.info(f'Regenerating {color} cards CSV')der-eligible card lists.
 
 Key Features:
     - Initial setup and configuration
@@ -197,7 +213,17 @@ def regenerate_csvs_all() -> None:
         download_cards_csv(MTGJSON_API_URL, f'{CSV_DIRECTORY}/cards.csv')
         
         logger.info('Loading and processing card data')
-        df = pd.read_csv(f'{CSV_DIRECTORY}/cards.csv', low_memory=False)
+        try:
+            df = pd.read_csv(f'{CSV_DIRECTORY}/cards.csv', low_memory=False)
+        except pd.errors.ParserError as e:
+            logger.warning(f'CSV parsing error encountered: {e}. Retrying with error handling...')
+            df = pd.read_csv(
+                f'{CSV_DIRECTORY}/cards.csv',
+                low_memory=False,
+                on_bad_lines='warn',  # Warn about malformed rows but continue
+                encoding_errors='replace'  # Replace bad encoding chars
+            )
+            logger.info(f'Successfully loaded card data with error handling (some rows may have been skipped)')
         
         logger.info('Regenerating color identity sorted files')
         save_color_filtered_csvs(df, CSV_DIRECTORY)
@@ -234,7 +260,12 @@ def regenerate_csv_by_color(color: str) -> None:
         download_cards_csv(MTGJSON_API_URL, f'{CSV_DIRECTORY}/cards.csv')
 
         logger.info('Loading and processing card data')
-        df = pd.read_csv(f'{CSV_DIRECTORY}/cards.csv', low_memory=False)
+        df = pd.read_csv(
+            f'{CSV_DIRECTORY}/cards.csv',
+            low_memory=False,
+            on_bad_lines='skip',  # Skip malformed rows (MTGJSON CSV has escaping issues)
+            encoding_errors='replace'  # Replace bad encoding chars
+        )
 
         logger.info(f'Regenerating {color} cards CSV')
         # Use shared utilities to base-filter once then slice color, honoring bans

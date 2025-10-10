@@ -47,9 +47,9 @@
       "primary_color": "Black",
       "secondary_color": "Blue",
       "example_commanders": [
+        "Etali, Primal Conqueror // Etali, Primal Sickness - Synergy (Counters Matter)",
         "Rishkar, Peema Renegade - Synergy (Counters Matter)",
-        "Krenko, Tin Street Kingpin - Synergy (Counters Matter)",
-        "Yawgmoth, Thran Physician - Synergy (Counters Matter)"
+        "Krenko, Tin Street Kingpin - Synergy (Counters Matter)"
       ],
       "example_cards": [
         "Wall of Roots",
@@ -118,6 +118,9 @@
         "Yawgmoth, Thran Physician",
         "Tezzeret's Gambit"
       ],
+      "synergy_commanders": [
+        "Etali, Primal Conqueror // Etali, Primal Sickness - Synergy (Infect)"
+      ],
       "popularity_bucket": "Common",
       "editorial_quality": "draft",
       "description": "Spreads -1/-1 counters for removal, attrition, and loop engines leveraging death & sacrifice triggers. Synergies like Proliferate and Counters Matter reinforce the plan."
@@ -152,7 +155,7 @@
         "Silverflame Ritual"
       ],
       "synergy_commanders": [
-        "Yawgmoth, Thran Physician - Synergy (Counters Matter)"
+        "Etali, Primal Conqueror // Etali, Primal Sickness - Synergy (Counters Matter)"
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
@@ -188,8 +191,8 @@
         "Jetfire, Ingenious Scientist // Jetfire, Air Guardian"
       ],
       "synergy_commanders": [
+        "Etali, Primal Conqueror // Etali, Primal Sickness - Synergy (Counters Matter)",
         "Yahenni, Undying Partisan - Synergy (Counters Matter)",
-        "Heliod, Sun-Crowned - Synergy (Counters Matter)",
         "Sram, Senior Edificer - Synergy (Voltron)"
       ],
       "popularity_bucket": "Rare",
@@ -487,7 +490,7 @@
         "Cosima, God of the Voyage // The Omenkeel"
       ],
       "synergy_commanders": [
-        "Rishkar, Peema Renegade - Synergy (Counters Matter)"
+        "Etali, Primal Conqueror // Etali, Primal Sickness - Synergy (Counters Matter)"
       ],
       "popularity_bucket": "Niche",
       "editorial_quality": "draft",
@@ -722,8 +725,8 @@
         "Rishkar, Peema Renegade - Synergy (+1/+1 Counters)",
         "Krenko, Tin Street Kingpin - Synergy (+1/+1 Counters)",
         "Yawgmoth, Thran Physician - Synergy (+1/+1 Counters)",
-        "Yahenni, Undying Partisan - Synergy (Counters Matter)",
-        "Heliod, Sun-Crowned - Synergy (Counters Matter)"
+        "Etali, Primal Conqueror // Etali, Primal Sickness - Synergy (Counters Matter)",
+        "Yahenni, Undying Partisan - Synergy (Counters Matter)"
       ],
       "example_cards": [
         "Kilnmouth Dragon",
@@ -2456,21 +2459,21 @@
       "primary_color": "Red",
       "secondary_color": "Black",
       "example_commanders": [
+        "Edgar, Charmed Groom // Edgar Markov's Coffin",
         "Old Rutstein",
         "Kamber, the Plunderer",
         "Strefan, Maurer Progenitor",
-        "Anje, Maid of Dishonor",
-        "Shilgengar, Sire of Famine"
+        "Anje, Maid of Dishonor"
       ],
       "example_cards": [
         "Voldaren Estate",
         "Blood for the Blood God!",
+        "Edgar, Charmed Groom // Edgar Markov's Coffin",
         "Old Rutstein",
         "Transmutation Font",
         "Glass-Cast Heart",
         "Voldaren Epicure",
-        "Font of Agonies",
-        "Exsanguinator Cavalry"
+        "Font of Agonies"
       ],
       "synergy_commanders": [
         "Indoraptor, the Perfect Hybrid - Synergy (Bloodthirst)",
@@ -2491,9 +2494,9 @@
       "primary_color": "Red",
       "secondary_color": "Green",
       "example_commanders": [
+        "Edgar, Charmed Groom // Edgar Markov's Coffin - Synergy (Blood Token)",
         "Old Rutstein - Synergy (Blood Token)",
         "Kamber, the Plunderer - Synergy (Blood Token)",
-        "Strefan, Maurer Progenitor - Synergy (Blood Token)",
         "Etali, Primal Storm - Synergy (Aggro)",
         "Ragavan, Nimble Pilferer - Synergy (Aggro)"
       ],
@@ -2528,9 +2531,9 @@
       "secondary_color": "Green",
       "example_commanders": [
         "Indoraptor, the Perfect Hybrid",
+        "Edgar, Charmed Groom // Edgar Markov's Coffin - Synergy (Blood Token)",
         "Old Rutstein - Synergy (Blood Token)",
         "Kamber, the Plunderer - Synergy (Blood Token)",
-        "Strefan, Maurer Progenitor - Synergy (Blood Token)",
         "Rishkar, Peema Renegade - Synergy (+1/+1 Counters)"
       ],
       "example_cards": [
@@ -2595,11 +2598,11 @@
       "id": "board-wipes",
       "theme": "Board Wipes",
       "synergies": [
-        "Bracket:MassLandDenial",
         "Pingers",
         "Interaction",
         "Lore Counters",
-        "Sagas Matter"
+        "Sagas Matter",
+        "Ore Counters"
       ],
       "primary_color": "Red",
       "secondary_color": "White",
@@ -2621,13 +2624,14 @@
         "Scavenger Grounds"
       ],
       "synergy_commanders": [
-        "Hokori, Dust Drinker - Synergy (Bracket:MassLandDenial)",
-        "Myojin of Infinite Rage - Synergy (Bracket:MassLandDenial)",
-        "Elas il-Kor, Sadistic Pilgrim - Synergy (Pingers)"
+        "Elas il-Kor, Sadistic Pilgrim - Synergy (Pingers)",
+        "Niv-Mizzet, Parun - Synergy (Pingers)",
+        "Boromir, Warden of the Tower - Synergy (Interaction)",
+        "Urabrask // The Great Work - Synergy (Lore Counters)"
       ],
       "popularity_bucket": "Very Common",
       "editorial_quality": "draft",
-      "description": "Builds around Board Wipes leveraging synergies with Bracket:MassLandDenial and Pingers."
+      "description": "Builds around Board Wipes leveraging synergies with Pingers and Interaction."
     },
     {
       "id": "boast",
@@ -2701,7 +2705,7 @@
         "Yawgmoth, Thran Physician - Synergy (+1/+1 Counters)",
         "Samut, Voice of Dissent - Synergy (Combat Tricks)",
         "Naru Meha, Master Wizard - Synergy (Combat Tricks)",
-        "Yahenni, Undying Partisan - Synergy (Counters Matter)"
+        "Etali, Primal Conqueror // Etali, Primal Sickness - Synergy (Counters Matter)"
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
@@ -2728,160 +2732,6 @@
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
       "description": "Accumulates bounty counters to unlock scaling payoffs, removal triggers, or delayed value conversions."
-    },
-    {
-      "id": "bracketextraturn",
-      "theme": "Bracket:ExtraTurn",
-      "synergies": [
-        "Spells Matter",
-        "Spellslinger",
-        "Big Mana",
-        "Counters Matter"
-      ],
-      "primary_color": "Blue",
-      "secondary_color": "Red",
-      "example_commanders": [
-        "Medomai the Ageless",
-        "Ultimecia, Time Sorceress // Ultimecia, Omnipotent",
-        "Lotho, Corrupt Shirriff - Synergy (Spells Matter)",
-        "Birgi, God of Storytelling // Harnfel, Horn of Bounty - Synergy (Spells Matter)",
-        "Niv-Mizzet, Parun - Synergy (Spells Matter)"
-      ],
-      "example_cards": [
-        "Final Fortune",
-        "Time Warp",
-        "Teferi, Master of Time",
-        "Rise of the Eldrazi",
-        "Nexus of Fate",
-        "Expropriate",
-        "Time Sieve",
-        "Temporal Mastery"
-      ],
-      "synergy_commanders": [
-        "Talrand, Sky Summoner - Synergy (Spellslinger)",
-        "Mangara, the Diplomat - Synergy (Spellslinger)",
-        "Syr Konrad, the Grim - Synergy (Big Mana)"
-      ],
-      "popularity_bucket": "Rare",
-      "editorial_quality": "draft",
-      "description": "Builds around Bracket:ExtraTurn leveraging synergies with Spells Matter and Spellslinger."
-    },
-    {
-      "id": "bracketgamechanger",
-      "theme": "Bracket:GameChanger",
-      "synergies": [
-        "Bracket:TutorNonland",
-        "Draw Triggers",
-        "Wheels",
-        "Stax",
-        "Topdeck"
-      ],
-      "primary_color": "Blue",
-      "secondary_color": "Black",
-      "example_commanders": [
-        "Urza, Lord High Artificer",
-        "Kinnan, Bonder Prodigy",
-        "Tergrid, God of Fright // Tergrid's Lantern",
-        "Jin-Gitaxias, Core Augur",
-        "Vorinclex, Voice of Hunger"
-      ],
-      "example_cards": [
-        "Rhystic Study",
-        "Cyclonic Rift",
-        "Smothering Tithe",
-        "Demonic Tutor",
-        "Ancient Tomb",
-        "Fierce Guardianship",
-        "The One Ring",
-        "Teferi's Protection"
-      ],
-      "synergy_commanders": [
-        "Magda, Brazen Outlaw - Synergy (Bracket:TutorNonland)",
-        "Razaketh, the Foulblooded - Synergy (Bracket:TutorNonland)",
-        "Varragoth, Bloodsky Sire - Synergy (Bracket:TutorNonland)",
-        "Braids, Arisen Nightmare - Synergy (Draw Triggers)",
-        "Loran of the Third Path - Synergy (Draw Triggers)",
-        "Sheoldred, the Apocalypse - Synergy (Wheels)"
-      ],
-      "popularity_bucket": "Niche",
-      "editorial_quality": "draft",
-      "description": "Builds around Bracket:GameChanger leveraging synergies with Bracket:TutorNonland and Draw Triggers."
-    },
-    {
-      "id": "bracketmasslanddenial",
-      "theme": "Bracket:MassLandDenial",
-      "synergies": [
-        "Board Wipes",
-        "Interaction",
-        "Spells Matter",
-        "Spellslinger",
-        "Big Mana"
-      ],
-      "primary_color": "Red",
-      "secondary_color": "White",
-      "example_commanders": [
-        "Hokori, Dust Drinker",
-        "Myojin of Infinite Rage",
-        "Syr Konrad, the Grim - Synergy (Board Wipes)",
-        "Purphoros, God of the Forge - Synergy (Board Wipes)",
-        "Ashling, Flame Dancer - Synergy (Board Wipes)"
-      ],
-      "example_cards": [
-        "Blood Moon",
-        "Magus of the Moon",
-        "Winter Orb",
-        "Winter Moon",
-        "Armageddon",
-        "Harbinger of the Seas",
-        "Back to Basics",
-        "Static Orb"
-      ],
-      "synergy_commanders": [
-        "Boromir, Warden of the Tower - Synergy (Interaction)",
-        "Avacyn, Angel of Hope - Synergy (Interaction)",
-        "Lotho, Corrupt Shirriff - Synergy (Spells Matter)"
-      ],
-      "popularity_bucket": "Niche",
-      "editorial_quality": "draft",
-      "description": "Builds around Bracket:MassLandDenial leveraging synergies with Board Wipes and Interaction."
-    },
-    {
-      "id": "brackettutornonland",
-      "theme": "Bracket:TutorNonland",
-      "synergies": [
-        "Transmute",
-        "Bracket:GameChanger",
-        "Mercenary Kindred",
-        "Rebel Kindred",
-        "Toolbox"
-      ],
-      "primary_color": "Black",
-      "secondary_color": "Green",
-      "example_commanders": [
-        "Magda, Brazen Outlaw",
-        "Razaketh, the Foulblooded",
-        "Varragoth, Bloodsky Sire",
-        "Sidisi, Undead Vizier",
-        "Oswald Fiddlebender"
-      ],
-      "example_cards": [
-        "Demonic Tutor",
-        "Vampiric Tutor",
-        "Enlightened Tutor",
-        "Urza's Saga",
-        "Mystical Tutor",
-        "Worldly Tutor",
-        "Gamble",
-        "Diabolic Intent"
-      ],
-      "synergy_commanders": [
-        "Urza, Lord High Artificer - Synergy (Bracket:GameChanger)",
-        "Kinnan, Bonder Prodigy - Synergy (Bracket:GameChanger)",
-        "Kellogg, Dangerous Mind - Synergy (Mercenary Kindred)"
-      ],
-      "popularity_bucket": "Common",
-      "editorial_quality": "draft",
-      "description": "Builds around Bracket:TutorNonland leveraging synergies with Transmute and Bracket:GameChanger."
     },
     {
       "id": "brushwagg-kindred",
@@ -3193,6 +3043,7 @@
         "Seasoned Dungeoneer"
       ],
       "synergy_commanders": [
+        "Kellan, Daring Traveler // Journey On - Synergy (Map Token)",
         "Selvala, Heart of the Wilds - Synergy (Scout Kindred)"
       ],
       "popularity_bucket": "Niche",
@@ -3575,7 +3426,7 @@
       "synergy_commanders": [
         "Codsworth, Handy Helper - Synergy (Mana Rock)",
         "Karn, Legacy Reforged - Synergy (Mana Rock)",
-        "Rishkar, Peema Renegade - Synergy (Counters Matter)"
+        "Etali, Primal Conqueror // Etali, Primal Sickness - Synergy (Counters Matter)"
       ],
       "popularity_bucket": "Niche",
       "editorial_quality": "draft",
@@ -4541,9 +4392,9 @@
       "secondary_color": "Green",
       "example_commanders": [
         "Ixhel, Scion of Atraxa",
+        "Etali, Primal Conqueror // Etali, Primal Sickness - Synergy (Poison Counters)",
         "Skrelv, Defector Mite - Synergy (Poison Counters)",
         "Skithiryx, the Blight Dragon - Synergy (Poison Counters)",
-        "Fynn, the Fangbearer - Synergy (Poison Counters)",
         "Yawgmoth, Thran Physician - Synergy (Infect)"
       ],
       "example_cards": [
@@ -4682,11 +4533,11 @@
       "primary_color": "Green",
       "secondary_color": "White",
       "example_commanders": [
+        "Etali, Primal Conqueror // Etali, Primal Sickness",
         "Rishkar, Peema Renegade",
         "Krenko, Tin Street Kingpin",
         "Yawgmoth, Thran Physician",
-        "Yahenni, Undying Partisan",
-        "Heliod, Sun-Crowned"
+        "Yahenni, Undying Partisan"
       ],
       "example_cards": [
         "The One Ring",
@@ -4988,9 +4839,9 @@
       "example_commanders": [
         "The Pride of Hull Clade",
         "Kalakscion, Hunger Tyrant",
+        "Etali, Primal Conqueror // Etali, Primal Sickness - Synergy (Counters Matter)",
         "Rishkar, Peema Renegade - Synergy (Counters Matter)",
-        "Krenko, Tin Street Kingpin - Synergy (Counters Matter)",
-        "Yawgmoth, Thran Physician - Synergy (Counters Matter)"
+        "Krenko, Tin Street Kingpin - Synergy (Counters Matter)"
       ],
       "example_cards": [
         "The Pride of Hull Clade",
@@ -5003,8 +4854,8 @@
         "Algae Gharial"
       ],
       "synergy_commanders": [
+        "Yawgmoth, Thran Physician - Synergy (+1/+1 Counters)",
         "Yahenni, Undying Partisan - Synergy (+1/+1 Counters)",
-        "Heliod, Sun-Crowned - Synergy (+1/+1 Counters)",
         "Azusa, Lost but Seeking - Synergy (Toughness Matters)"
       ],
       "popularity_bucket": "Rare",
@@ -5041,8 +4892,8 @@
         "Elephant Grass"
       ],
       "synergy_commanders": [
+        "Etali, Primal Conqueror // Etali, Primal Sickness - Synergy (Counters Matter)",
         "Rishkar, Peema Renegade - Synergy (Counters Matter)",
-        "Krenko, Tin Street Kingpin - Synergy (Counters Matter)",
         "Sram, Senior Edificer - Synergy (Enchantments Matter)"
       ],
       "popularity_bucket": "Niche",
@@ -5585,8 +5436,8 @@
         "Azusa, Lost but Seeking - Synergy (Lands Matter)",
         "Tatyova, Benthic Druid - Synergy (Lands Matter)",
         "Sheoldred, Whispering One - Synergy (Lands Matter)",
-        "Rishkar, Peema Renegade - Synergy (Counters Matter)",
-        "Krenko, Tin Street Kingpin - Synergy (Counters Matter)"
+        "Etali, Primal Conqueror // Etali, Primal Sickness - Synergy (Counters Matter)",
+        "Rishkar, Peema Renegade - Synergy (Counters Matter)"
       ],
       "example_cards": [
         "Sandstone Needle",
@@ -5740,7 +5591,7 @@
         "Rishkar, Peema Renegade - Synergy (+1/+1 Counters)",
         "Krenko, Tin Street Kingpin - Synergy (+1/+1 Counters)",
         "Yawgmoth, Thran Physician - Synergy (+1/+1 Counters)",
-        "Yahenni, Undying Partisan - Synergy (Counters Matter)"
+        "Etali, Primal Conqueror // Etali, Primal Sickness - Synergy (Counters Matter)"
       ],
       "example_cards": [
         "Scourge of the Throne",
@@ -5753,7 +5604,7 @@
         "Marchesa's Emissary"
       ],
       "synergy_commanders": [
-        "Heliod, Sun-Crowned - Synergy (Counters Matter)",
+        "Yahenni, Undying Partisan - Synergy (Counters Matter)",
         "Sram, Senior Edificer - Synergy (Voltron)"
       ],
       "popularity_bucket": "Rare",
@@ -5862,7 +5713,7 @@
         "Rishkar, Peema Renegade - Synergy (+1/+1 Counters)",
         "Krenko, Tin Street Kingpin - Synergy (+1/+1 Counters)",
         "Yawgmoth, Thran Physician - Synergy (+1/+1 Counters)",
-        "Yahenni, Undying Partisan - Synergy (Counters Matter)"
+        "Etali, Primal Conqueror // Etali, Primal Sickness - Synergy (Counters Matter)"
       ],
       "example_cards": [
         "Mycoloth",
@@ -5875,7 +5726,7 @@
         "Voracious Dragon"
       ],
       "synergy_commanders": [
-        "Heliod, Sun-Crowned - Synergy (Counters Matter)",
+        "Yahenni, Undying Partisan - Synergy (Counters Matter)",
         "Sram, Senior Edificer - Synergy (Voltron)"
       ],
       "popularity_bucket": "Rare",
@@ -6107,8 +5958,8 @@
         "Kodama of the West Tree - Synergy (Spirit Kindred)",
         "Kodama of the East Tree - Synergy (Spirit Kindred)",
         "Junji, the Midnight Sky - Synergy (Spirit Kindred)",
+        "Etali, Primal Conqueror // Etali, Primal Sickness - Synergy (Counters Matter)",
         "Rishkar, Peema Renegade - Synergy (Counters Matter)",
-        "Krenko, Tin Street Kingpin - Synergy (Counters Matter)",
         "Syr Konrad, the Grim - Synergy (Big Mana)"
       ],
       "popularity_bucket": "Rare",
@@ -6785,7 +6636,7 @@
         "Plargg and Nassari",
         "Yusri, Fortune's Flame",
         "Najal, the Storm Runner",
-        "Niv-Mizzet, Parun - Synergy (Flying)"
+        "Uvilda, Dean of Perfection // Nassari, Dean of Expression"
       ],
       "example_cards": [
         "Veyran, Voice of Duality",
@@ -6794,10 +6645,11 @@
         "Najal, the Storm Runner",
         "Frenetic Efreet",
         "Efreet Flamepainter",
-        "Emissary of Grudges",
-        "Capricious Efreet"
+        "Uvilda, Dean of Perfection // Nassari, Dean of Expression",
+        "Emissary of Grudges"
       ],
       "synergy_commanders": [
+        "Niv-Mizzet, Parun - Synergy (Flying)",
         "Avacyn, Angel of Hope - Synergy (Flying)",
         "Old Gnawbone - Synergy (Flying)",
         "Syr Konrad, the Grim - Synergy (Burn)",
@@ -7193,7 +7045,7 @@
         "Auras",
         "Disturb",
         "Enchantments Matter",
-        "Voltron"
+        "Protection from Color"
       ],
       "primary_color": "Blue",
       "secondary_color": "White",
@@ -7895,7 +7747,7 @@
         "Rishkar, Peema Renegade - Synergy (+1/+1 Counters)",
         "Krenko, Tin Street Kingpin - Synergy (+1/+1 Counters)",
         "Yawgmoth, Thran Physician - Synergy (+1/+1 Counters)",
-        "Yahenni, Undying Partisan - Synergy (Counters Matter)"
+        "Etali, Primal Conqueror // Etali, Primal Sickness - Synergy (Counters Matter)"
       ],
       "example_cards": [
         "Gyre Sage",
@@ -7908,7 +7760,7 @@
         "Experiment One"
       ],
       "synergy_commanders": [
-        "Heliod, Sun-Crowned - Synergy (Counters Matter)",
+        "Yahenni, Undying Partisan - Synergy (Counters Matter)",
         "Sram, Senior Edificer - Synergy (Voltron)"
       ],
       "popularity_bucket": "Rare",
@@ -8020,7 +7872,7 @@
         "The Indomitable - Synergy (Vehicles)",
         "Rishkar, Peema Renegade - Synergy (+1/+1 Counters)",
         "Krenko, Tin Street Kingpin - Synergy (+1/+1 Counters)",
-        "Yawgmoth, Thran Physician - Synergy (Counters Matter)"
+        "Etali, Primal Conqueror // Etali, Primal Sickness - Synergy (Counters Matter)"
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
@@ -8159,6 +8011,7 @@
         "Nicanzil, Current Conductor"
       ],
       "synergy_commanders": [
+        "Kellan, Daring Traveler // Journey On - Synergy (Map Token)",
         "Selvala, Heart of the Wilds - Synergy (Scout Kindred)"
       ],
       "popularity_bucket": "Niche",
@@ -8285,8 +8138,8 @@
       "primary_color": "Green",
       "secondary_color": "Black",
       "example_commanders": [
+        "Etali, Primal Conqueror // Etali, Primal Sickness - Synergy (Counters Matter)",
         "Rishkar, Peema Renegade - Synergy (Counters Matter)",
-        "Krenko, Tin Street Kingpin - Synergy (Counters Matter)",
         "Sram, Senior Edificer - Synergy (Enchantments Matter)"
       ],
       "example_cards": [
@@ -8314,8 +8167,8 @@
       "primary_color": "Green",
       "secondary_color": "Black",
       "example_commanders": [
+        "Etali, Primal Conqueror // Etali, Primal Sickness - Synergy (Counters Matter)",
         "Rishkar, Peema Renegade - Synergy (Counters Matter)",
-        "Krenko, Tin Street Kingpin - Synergy (Counters Matter)",
         "Sram, Senior Edificer - Synergy (Enchantments Matter)"
       ],
       "example_cards": [
@@ -8478,7 +8331,8 @@
       "synergies": [
         "Big Mana",
         "Spells Matter",
-        "Spellslinger"
+        "Spellslinger",
+        "Interaction"
       ],
       "primary_color": "Green",
       "secondary_color": "Red",
@@ -8591,8 +8445,8 @@
         "Syr Konrad, the Grim - Synergy (Mill)",
         "Emry, Lurker of the Loch - Synergy (Mill)",
         "Sheoldred, Whispering One - Synergy (Mill)",
+        "Etali, Primal Conqueror // Etali, Primal Sickness - Synergy (Counters Matter)",
         "Rishkar, Peema Renegade - Synergy (Counters Matter)",
-        "Krenko, Tin Street Kingpin - Synergy (Counters Matter)",
         "Six - Synergy (Reanimate)"
       ],
       "popularity_bucket": "Rare",
@@ -8771,8 +8625,8 @@
         "Evoke",
         "Combat Tricks",
         "Faerie Kindred",
-        "Wolf Kindred",
-        "Equip"
+        "Hexproof",
+        "Wolf Kindred"
       ],
       "primary_color": "Blue",
       "secondary_color": "White",
@@ -8927,6 +8781,7 @@
       ],
       "synergy_commanders": [
         "Otharri, Suns' Glory - Synergy (Phoenix Kindred)",
+        "Joshua, Phoenix's Dominant // Phoenix, Warden of Fire - Synergy (Phoenix Kindred)",
         "Syrix, Carrier of the Flame - Synergy (Phoenix Kindred)",
         "Ezrim, Agency Chief - Synergy (Archon Kindred)",
         "Krond the Dawn-Clad - Synergy (Archon Kindred)",
@@ -9332,8 +9187,8 @@
       ],
       "synergy_commanders": [
         "Yawgmoth, Thran Physician - Synergy (+1/+1 Counters)",
+        "Etali, Primal Conqueror // Etali, Primal Sickness - Synergy (Counters Matter)",
         "Yahenni, Undying Partisan - Synergy (Counters Matter)",
-        "Heliod, Sun-Crowned - Synergy (Counters Matter)",
         "Sram, Senior Edificer - Synergy (Voltron)"
       ],
       "popularity_bucket": "Rare",
@@ -9920,7 +9775,7 @@
       ],
       "popularity_bucket": "Niche",
       "editorial_quality": "draft",
-      "description": "Focuses on getting a high number of God creatures into play with shared payoffs (e.g., Indestructible and Protection)."
+      "description": "Focuses on getting a high number of God creatures into play with shared payoffs (e.g., Indestructible and Transform)."
     },
     {
       "id": "gold-token",
@@ -9939,7 +9794,7 @@
         "Golden Argosy",
         "King Macar, the Gold-Cursed",
         "Goldbug, Humanity's Ally // Goldbug, Scrappy Scout",
-        "Raksha Golden Cub"
+        "Tetzin, Gnome Champion // The Golden-Gear Colossus"
       ],
       "example_cards": [
         "Curse of Opulence",
@@ -10074,7 +9929,7 @@
         "Novijen Sages"
       ],
       "synergy_commanders": [
-        "Yawgmoth, Thran Physician - Synergy (Counters Matter)"
+        "Etali, Primal Conqueror // Etali, Primal Sickness - Synergy (Counters Matter)"
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
@@ -10472,7 +10327,7 @@
         "Ulasht, the Hate Seed - Synergy (Hellion Kindred)",
         "Thromok the Insatiable - Synergy (Hellion Kindred)",
         "Otharri, Suns' Glory - Synergy (Phoenix Kindred)",
-        "Syrix, Carrier of the Flame - Synergy (Phoenix Kindred)"
+        "Joshua, Phoenix's Dominant // Phoenix, Warden of Fire - Synergy (Phoenix Kindred)"
       ],
       "popularity_bucket": "Common",
       "editorial_quality": "draft",
@@ -10700,39 +10555,41 @@
       "theme": "Hexproof",
       "synergies": [
         "Hexproof from",
-        "Stax",
-        "Beast Kindred",
-        "Elemental Kindred",
-        "Outlaw Kindred"
+        "Protection",
+        "Indestructible",
+        "Flash",
+        "Combat Tricks"
       ],
       "primary_color": "Green",
       "secondary_color": "Blue",
       "example_commanders": [
-        "General Ferrous Rokiric",
-        "Silumgar, the Drifting Death",
-        "Elenda, Saint of Dusk",
-        "Sigarda, Host of Herons",
-        "Lazav, Dimir Mastermind"
+        "Padeem, Consul of Innovation",
+        "Skrelv, Defector Mite",
+        "Shalai, Voice of Plenty",
+        "Saryth, the Viper's Fang",
+        "Odric, Lunarch Marshal"
       ],
       "example_cards": [
-        "Lotus Field",
-        "Valgavoth's Lair",
-        "Volatile Stormdrake",
-        "Sylvan Caryatid",
-        "Invisible Stalker",
-        "Slippery Bogbonder",
-        "General Ferrous Rokiric",
-        "Silumgar, the Drifting Death"
+        "Swiftfoot Boots",
+        "Heroic Intervention",
+        "Tamiyo's Safekeeping",
+        "Dawn's Truce",
+        "Plaza of Heroes",
+        "Veil of Summer",
+        "Snakeskin Veil",
+        "Tyvar's Stand"
       ],
       "synergy_commanders": [
+        "General Ferrous Rokiric - Synergy (Hexproof from)",
+        "Elenda, Saint of Dusk - Synergy (Hexproof from)",
         "Niv-Mizzet, Guildpact - Synergy (Hexproof from)",
-        "Kutzil, Malamet Exemplar - Synergy (Stax)",
-        "Lotho, Corrupt Shirriff - Synergy (Stax)",
-        "Loot, Exuberant Explorer - Synergy (Beast Kindred)"
+        "Boromir, Warden of the Tower - Synergy (Protection)",
+        "Avacyn, Angel of Hope - Synergy (Protection)",
+        "Toski, Bearer of Secrets - Synergy (Indestructible)"
       ],
       "popularity_bucket": "Niche",
       "editorial_quality": "draft",
-      "description": "Builds around Hexproof leveraging synergies with Hexproof from and Protection."
+      "description": "Builds around Hexproof leveraging synergies with Hexproof from and Stax."
     },
     {
       "id": "hexproof-from",
@@ -10760,11 +10617,13 @@
         "Niv-Mizzet, Supreme"
       ],
       "synergy_commanders": [
-        "Silumgar, the Drifting Death - Synergy (Hexproof)"
+        "Padeem, Consul of Innovation - Synergy (Hexproof)",
+        "Skrelv, Defector Mite - Synergy (Hexproof)",
+        "Shalai, Voice of Plenty - Synergy (Hexproof)"
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
-      "description": "Builds around Hexproof from leveraging synergies with Hexproof and Protection."
+      "description": "Builds around Hexproof from leveraging synergies with Hexproof."
     },
     {
       "id": "hideaway",
@@ -11215,9 +11074,9 @@
       "primary_color": "Blue",
       "secondary_color": "Black",
       "example_commanders": [
+        "Etali, Primal Conqueror // Etali, Primal Sickness - Synergy (Counters Matter)",
         "Rishkar, Peema Renegade - Synergy (Counters Matter)",
-        "Krenko, Tin Street Kingpin - Synergy (Counters Matter)",
-        "Yawgmoth, Thran Physician - Synergy (Counters Matter)"
+        "Krenko, Tin Street Kingpin - Synergy (Counters Matter)"
       ],
       "example_cards": [
         "Dark Depths",
@@ -11551,9 +11410,9 @@
       "synergies": [
         "God Kindred",
         "Protection",
-        "Lifegain",
-        "Life Matters",
-        "Stax"
+        "Hexproof",
+        "Lifelink",
+        "Interaction"
       ],
       "primary_color": "White",
       "secondary_color": "Black",
@@ -11561,24 +11420,23 @@
         "Toski, Bearer of Secrets",
         "Purphoros, God of the Forge",
         "Etali, Primal Conqueror // Etali, Primal Sickness",
-        "Avacyn, Angel of Hope",
-        "Heliod, Sun-Crowned"
+        "Boromir, Warden of the Tower",
+        "Avacyn, Angel of Hope"
       ],
       "example_cards": [
+        "Heroic Intervention",
         "The One Ring",
+        "Boros Charm",
+        "Flawless Maneuver",
+        "Akroma's Will",
         "Mithril Coat",
-        "Darksteel Citadel",
-        "Toski, Bearer of Secrets",
-        "Purphoros, God of the Forge",
-        "Etali, Primal Conqueror // Etali, Primal Sickness",
-        "Brash Taunter",
-        "Avacyn, Angel of Hope"
+        "Inspiring Call",
+        "Darksteel Citadel"
       ],
       "synergy_commanders": [
         "Birgi, God of Storytelling // Harnfel, Horn of Bounty - Synergy (God Kindred)",
         "Ojer Taq, Deepest Foundation // Temple of Civilization - Synergy (God Kindred)",
-        "Boromir, Warden of the Tower - Synergy (Protection)",
-        "Tatyova, Benthic Druid - Synergy (Lifegain)"
+        "Padeem, Consul of Innovation - Synergy (Hexproof)"
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
@@ -11597,25 +11455,25 @@
       "primary_color": "Green",
       "secondary_color": "Black",
       "example_commanders": [
+        "Etali, Primal Conqueror // Etali, Primal Sickness",
         "Yawgmoth, Thran Physician",
         "Skrelv, Defector Mite",
         "Vorinclex, Monstrous Raider",
-        "Lae'zel, Vlaakith's Champion",
-        "Tekuthal, Inquiry Dominus"
+        "Lae'zel, Vlaakith's Champion"
       ],
       "example_cards": [
         "Karn's Bastion",
         "Doubling Season",
         "Evolution Sage",
         "Cankerbloom",
+        "Etali, Primal Conqueror // Etali, Primal Sickness",
         "Thrummingbird",
         "Yawgmoth, Thran Physician",
-        "Tezzeret's Gambit",
-        "Innkeeper's Talent"
+        "Tezzeret's Gambit"
       ],
       "synergy_commanders": [
         "Skithiryx, the Blight Dragon - Synergy (Poison Counters)",
-        "Fynn, the Fangbearer - Synergy (Poison Counters)",
+        "Tekuthal, Inquiry Dominus - Synergy (Proliferate)",
         "Karumonix, the Rat King - Synergy (Toxic)"
       ],
       "popularity_bucket": "Uncommon",
@@ -11726,8 +11584,8 @@
         "Tatyova, Benthic Druid - Synergy (Landfall)",
         "Aesi, Tyrant of Gyre Strait - Synergy (Landfall)",
         "Bristly Bill, Spine Sower - Synergy (Landfall)",
+        "Etali, Primal Conqueror // Etali, Primal Sickness - Synergy (Poison Counters)",
         "Skrelv, Defector Mite - Synergy (Poison Counters)",
-        "Skithiryx, the Blight Dragon - Synergy (Poison Counters)",
         "Rishkar, Peema Renegade - Synergy (Druid Kindred)"
       ],
       "popularity_bucket": "Common",
@@ -11779,10 +11637,10 @@
         "Combat Tricks",
         "Board Wipes",
         "Counterspells",
-        "Soulshift"
+        "Protection from Color"
       ],
       "primary_color": "White",
-      "secondary_color": "Blue",
+      "secondary_color": "Black",
       "example_commanders": [
         "Syr Konrad, the Grim",
         "Purphoros, God of the Forge",
@@ -12308,8 +12166,8 @@
         "Kodama of the West Tree - Synergy (Spirit Kindred)",
         "Kodama of the East Tree - Synergy (Spirit Kindred)",
         "Junji, the Midnight Sky - Synergy (Spirit Kindred)",
-        "Rishkar, Peema Renegade - Synergy (Counters Matter)",
-        "Krenko, Tin Street Kingpin - Synergy (Counters Matter)"
+        "Etali, Primal Conqueror // Etali, Primal Sickness - Synergy (Counters Matter)",
+        "Rishkar, Peema Renegade - Synergy (Counters Matter)"
       ],
       "example_cards": [
         "Petalmane Baku",
@@ -13005,8 +12863,8 @@
       "primary_color": "Blue",
       "secondary_color": "White",
       "example_commanders": [
+        "Etali, Primal Conqueror // Etali, Primal Sickness - Synergy (Counters Matter)",
         "Rishkar, Peema Renegade - Synergy (Counters Matter)",
-        "Krenko, Tin Street Kingpin - Synergy (Counters Matter)",
         "Emry, Lurker of the Loch - Synergy (Wizard Kindred)"
       ],
       "example_cards": [
@@ -13036,8 +12894,8 @@
       "primary_color": "Blue",
       "secondary_color": "White",
       "example_commanders": [
+        "Etali, Primal Conqueror // Etali, Primal Sickness - Synergy (Counters Matter)",
         "Rishkar, Peema Renegade - Synergy (Counters Matter)",
-        "Krenko, Tin Street Kingpin - Synergy (Counters Matter)",
         "Kutzil, Malamet Exemplar - Synergy (Warrior Kindred)"
       ],
       "example_cards": [
@@ -13691,10 +13549,10 @@
       "secondary_color": "Black",
       "example_commanders": [
         "Jeska, Thrice Reborn",
+        "Ral, Monsoon Mage // Ral, Leyline Prodigy",
         "Commodore Guff",
         "Mila, Crafty Companion // Lukka, Wayward Bonder",
-        "Heart of Kiran",
-        "Adeline, Resplendent Cathar - Synergy (Planeswalkers)"
+        "Heart of Kiran"
       ],
       "example_cards": [
         "Spark Double",
@@ -13707,11 +13565,12 @@
         "Ral, Crackling Wit"
       ],
       "synergy_commanders": [
+        "Adeline, Resplendent Cathar - Synergy (Planeswalkers)",
         "Yawgmoth, Thran Physician - Synergy (Planeswalkers)",
         "Vorinclex, Monstrous Raider - Synergy (Planeswalkers)",
         "Lae'zel, Vlaakith's Champion - Synergy (Superfriends)",
         "Tekuthal, Inquiry Dominus - Synergy (Superfriends)",
-        "Rishkar, Peema Renegade - Synergy (Counters Matter)"
+        "Etali, Primal Conqueror // Etali, Primal Sickness - Synergy (Counters Matter)"
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
@@ -13994,11 +13853,11 @@
       "primary_color": "Blue",
       "secondary_color": "Green",
       "example_commanders": [
+        "Kellan, Daring Traveler // Journey On",
         "Hakbal of the Surging Soul - Synergy (Explore)",
         "Amalia Benavides Aguirre - Synergy (Explore)",
         "Nicanzil, Current Conductor - Synergy (Explore)",
-        "Astrid Peth - Synergy (Card Selection)",
-        "Francisco, Fowl Marauder - Synergy (Card Selection)"
+        "Astrid Peth - Synergy (Card Selection)"
       ],
       "example_cards": [
         "Get Lost",
@@ -14011,6 +13870,7 @@
         "Spyglass Siren"
       ],
       "synergy_commanders": [
+        "Francisco, Fowl Marauder - Synergy (Card Selection)",
         "Ragavan, Nimble Pilferer - Synergy (Artifact Tokens)"
       ],
       "popularity_bucket": "Rare",
@@ -14225,8 +14085,8 @@
         "Saryth, the Viper's Fang - Synergy (Warlock Kindred)",
         "Honest Rutstein - Synergy (Warlock Kindred)",
         "Breena, the Demagogue - Synergy (Warlock Kindred)",
+        "Edgar, Charmed Groom // Edgar Markov's Coffin - Synergy (Blood Token)",
         "Old Rutstein - Synergy (Blood Token)",
-        "Kamber, the Plunderer - Synergy (Blood Token)",
         "Ragavan, Nimble Pilferer - Synergy (Pirate Kindred)"
       ],
       "popularity_bucket": "Common",
@@ -14267,7 +14127,7 @@
         "Thalia, Heretic Cathar - Synergy (Soldier Kindred)",
         "Rishkar, Peema Renegade - Synergy (+1/+1 Counters)",
         "Krenko, Tin Street Kingpin - Synergy (+1/+1 Counters)",
-        "Yawgmoth, Thran Physician - Synergy (Counters Matter)"
+        "Etali, Primal Conqueror // Etali, Primal Sickness - Synergy (Counters Matter)"
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
@@ -14278,10 +14138,10 @@
       "theme": "Mercenary Kindred",
       "synergies": [
         "Outlaw Kindred",
-        "Bracket:TutorNonland",
         "Horror Kindred",
         "Phyrexian Kindred",
-        "Human Kindred"
+        "Human Kindred",
+        "Zombie Kindred"
       ],
       "primary_color": "Black",
       "secondary_color": "Red",
@@ -14306,13 +14166,40 @@
         "Ragavan, Nimble Pilferer - Synergy (Outlaw Kindred)",
         "Lotho, Corrupt Shirriff - Synergy (Outlaw Kindred)",
         "Captain Lannery Storm - Synergy (Outlaw Kindred)",
-        "Magda, Brazen Outlaw - Synergy (Bracket:TutorNonland)",
-        "Razaketh, the Foulblooded - Synergy (Bracket:TutorNonland)",
-        "Mondrak, Glory Dominus - Synergy (Horror Kindred)"
+        "Mondrak, Glory Dominus - Synergy (Horror Kindred)",
+        "Solphim, Mayhem Dominus - Synergy (Horror Kindred)",
+        "Sheoldred, the Apocalypse - Synergy (Phyrexian Kindred)"
       ],
       "popularity_bucket": "Niche",
       "editorial_quality": "draft",
-      "description": "Focuses on getting a high number of Mercenary creatures into play with shared payoffs (e.g., Outlaw Kindred and Bracket:TutorNonland)."
+      "description": "Focuses on getting a high number of Mercenary creatures into play with shared payoffs (e.g., Outlaw Kindred and Horror Kindred)."
+    },
+    {
+      "id": "merfolk-gain-hexproof",
+      "theme": "Merfolk Gain Hexproof",
+      "synergies": [],
+      "primary_color": "Green",
+      "popularity_bucket": "Rare",
+      "editorial_quality": "draft",
+      "description": "Builds around the Merfolk Gain Hexproof theme and its supporting synergies."
+    },
+    {
+      "id": "merfolk-gain-shroud",
+      "theme": "Merfolk Gain Shroud",
+      "synergies": [],
+      "primary_color": "Blue",
+      "popularity_bucket": "Rare",
+      "editorial_quality": "draft",
+      "description": "Builds around the Merfolk Gain Shroud theme and its supporting synergies."
+    },
+    {
+      "id": "merfolk-gain-ward",
+      "theme": "Merfolk Gain Ward",
+      "synergies": [],
+      "primary_color": "Blue",
+      "popularity_bucket": "Rare",
+      "editorial_quality": "draft",
+      "description": "Builds around the Merfolk Gain Ward theme and its supporting synergies."
     },
     {
       "id": "merfolk-kindred",
@@ -14627,8 +14514,8 @@
         "Skrelv, Defector Mite",
         "Vishgraz, the Doomhive",
         "Ria Ivor, Bane of Bladehold",
-        "Skithiryx, the Blight Dragon - Synergy (Poison Counters)",
-        "Fynn, the Fangbearer - Synergy (Poison Counters)"
+        "Etali, Primal Conqueror // Etali, Primal Sickness - Synergy (Poison Counters)",
+        "Skithiryx, the Blight Dragon - Synergy (Poison Counters)"
       ],
       "example_cards": [
         "Skrelv, Defector Mite",
@@ -14971,7 +14858,7 @@
         "Bonny Pall, Clearcutter - Synergy (Giant Kindred)",
         "Rishkar, Peema Renegade - Synergy (+1/+1 Counters)",
         "Krenko, Tin Street Kingpin - Synergy (+1/+1 Counters)",
-        "Yawgmoth, Thran Physician - Synergy (Counters Matter)"
+        "Etali, Primal Conqueror // Etali, Primal Sickness - Synergy (Counters Matter)"
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
@@ -15033,8 +14920,8 @@
         "Rishkar, Peema Renegade - Synergy (+1/+1 Counters)",
         "Krenko, Tin Street Kingpin - Synergy (+1/+1 Counters)",
         "Yawgmoth, Thran Physician - Synergy (+1/+1 Counters)",
-        "Yahenni, Undying Partisan - Synergy (Counters Matter)",
-        "Heliod, Sun-Crowned - Synergy (Counters Matter)"
+        "Etali, Primal Conqueror // Etali, Primal Sickness - Synergy (Counters Matter)",
+        "Yahenni, Undying Partisan - Synergy (Counters Matter)"
       ],
       "example_cards": [
         "Tragic Slip",
@@ -15286,7 +15173,7 @@
         "Rishkar, Peema Renegade - Synergy (+1/+1 Counters)",
         "Krenko, Tin Street Kingpin - Synergy (+1/+1 Counters)",
         "Yawgmoth, Thran Physician - Synergy (+1/+1 Counters)",
-        "Yahenni, Undying Partisan - Synergy (Counters Matter)"
+        "Etali, Primal Conqueror // Etali, Primal Sickness - Synergy (Counters Matter)"
       ],
       "example_cards": [
         "Everflowing Chalice",
@@ -15299,7 +15186,7 @@
         "Bloodhusk Ritualist"
       ],
       "synergy_commanders": [
-        "Heliod, Sun-Crowned - Synergy (Counters Matter)",
+        "Yahenni, Undying Partisan - Synergy (Counters Matter)",
         "Selvala, Heart of the Wilds - Synergy (Blink)"
       ],
       "popularity_bucket": "Rare",
@@ -16045,7 +15932,7 @@
         "Mondrak, Glory Dominus - Synergy (Phyrexian Kindred)",
         "Sheoldred, the Apocalypse - Synergy (Phyrexian Kindred)",
         "Elas il-Kor, Sadistic Pilgrim - Synergy (Phyrexian Kindred)",
-        "Rishkar, Peema Renegade - Synergy (Counters Matter)"
+        "Etali, Primal Conqueror // Etali, Primal Sickness - Synergy (Counters Matter)"
       ],
       "example_cards": [
         "Vat of Rebirth",
@@ -16058,7 +15945,7 @@
         "Sawblade Scamp"
       ],
       "synergy_commanders": [
-        "Krenko, Tin Street Kingpin - Synergy (Counters Matter)",
+        "Rishkar, Peema Renegade - Synergy (Counters Matter)",
         "Ragavan, Nimble Pilferer - Synergy (Artifacts Matter)"
       ],
       "popularity_bucket": "Rare",
@@ -16115,7 +16002,7 @@
         "Sakashima of a Thousand Faces - Synergy (Clones)",
         "Rishkar, Peema Renegade - Synergy (+1/+1 Counters)",
         "Krenko, Tin Street Kingpin - Synergy (+1/+1 Counters)",
-        "Yawgmoth, Thran Physician - Synergy (Counters Matter)"
+        "Etali, Primal Conqueror // Etali, Primal Sickness - Synergy (Counters Matter)"
       ],
       "popularity_bucket": "Niche",
       "editorial_quality": "draft",
@@ -16347,8 +16234,8 @@
         "Rishkar, Peema Renegade - Synergy (+1/+1 Counters)",
         "Krenko, Tin Street Kingpin - Synergy (+1/+1 Counters)",
         "Yawgmoth, Thran Physician - Synergy (+1/+1 Counters)",
-        "Yahenni, Undying Partisan - Synergy (Counters Matter)",
-        "Heliod, Sun-Crowned - Synergy (Counters Matter)"
+        "Etali, Primal Conqueror // Etali, Primal Sickness - Synergy (Counters Matter)",
+        "Yahenni, Undying Partisan - Synergy (Counters Matter)"
       ],
       "example_cards": [
         "Abzan Falconer",
@@ -16904,30 +16791,37 @@
       "id": "phasing",
       "theme": "Phasing",
       "synergies": [
-        "Flying",
-        "Little Fellas"
+        "Protection",
+        "Equipment Matters",
+        "Interaction",
+        "Removal",
+        "Artifacts Matter"
       ],
       "primary_color": "Blue",
       "secondary_color": "Green",
       "example_commanders": [
+        "The War Doctor",
+        "King of the Oathbreakers",
+        "Cyclonus, the Saboteur // Cyclonus, Cybertronian Fighter",
         "Taniwha",
-        "Niv-Mizzet, Parun - Synergy (Flying)",
-        "Avacyn, Angel of Hope - Synergy (Flying)",
-        "Old Gnawbone - Synergy (Flying)",
-        "Ragavan, Nimble Pilferer - Synergy (Little Fellas)"
+        "Boromir, Warden of the Tower - Synergy (Protection)"
       ],
       "example_cards": [
-        "Taniwha",
-        "Teferi's Isle",
-        "Katabatic Winds",
-        "Shimmering Efreet",
-        "Ertai's Familiar",
-        "Merfolk Raiders",
-        "Teferi's Imp",
-        "Sandbar Crocodile"
+        "Teferi's Protection",
+        "Clever Concealment",
+        "Talon Gates of Madara",
+        "Slip Out the Back",
+        "March of Swirling Mist",
+        "Ripples of Potential",
+        "Galadriel's Dismissal",
+        "Teferi, Master of Time"
       ],
       "synergy_commanders": [
-        "Azusa, Lost but Seeking - Synergy (Little Fellas)"
+        "Avacyn, Angel of Hope - Synergy (Protection)",
+        "Yawgmoth, Thran Physician - Synergy (Protection)",
+        "Sram, Senior Edificer - Synergy (Equipment Matters)",
+        "Kodama of the West Tree - Synergy (Equipment Matters)",
+        "Syr Konrad, the Grim - Synergy (Interaction)"
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
@@ -16946,22 +16840,23 @@
       "primary_color": "Red",
       "example_commanders": [
         "Otharri, Suns' Glory",
+        "Joshua, Phoenix's Dominant // Phoenix, Warden of Fire",
         "Syrix, Carrier of the Flame",
         "Aurelia, the Warleader - Synergy (Haste)",
-        "Yahenni, Undying Partisan - Synergy (Haste)",
-        "Kiki-Jiki, Mirror Breaker - Synergy (Haste)"
+        "Yahenni, Undying Partisan - Synergy (Haste)"
       ],
       "example_cards": [
         "Otharri, Suns' Glory",
         "Aurora Phoenix",
         "Phoenix Chick",
         "Jaya's Phoenix",
+        "Joshua, Phoenix's Dominant // Phoenix, Warden of Fire",
         "Detective's Phoenix",
         "Flamewake Phoenix",
-        "Everquill Phoenix",
-        "Ashcloud Phoenix"
+        "Everquill Phoenix"
       ],
       "synergy_commanders": [
+        "Kiki-Jiki, Mirror Breaker - Synergy (Haste)",
         "Niv-Mizzet, Parun - Synergy (Flying)",
         "Avacyn, Angel of Hope - Synergy (Flying)",
         "Rishkar, Peema Renegade - Synergy (Midrange)"
@@ -16987,7 +16882,7 @@
         "Sheoldred, the Apocalypse",
         "Elas il-Kor, Sadistic Pilgrim",
         "Sheoldred, Whispering One",
-        "Elesh Norn, Grand Cenobite"
+        "Etali, Primal Conqueror // Etali, Primal Sickness"
       ],
       "example_cards": [
         "Phyrexian Metamorph",
@@ -17022,9 +16917,9 @@
       "example_commanders": [
         "Baird, Steward of Argive",
         "Teysa, Envoy of Ghosts",
+        "Tamiyo, Inquisitive Student // Tamiyo, Seasoned Scholar",
         "Sivitri, Dragon Master",
-        "Isperia, Supreme Judge",
-        "Thantis, the Warweaver"
+        "Isperia, Supreme Judge"
       ],
       "example_cards": [
         "Propaganda",
@@ -17360,23 +17255,24 @@
       "primary_color": "Black",
       "secondary_color": "Green",
       "example_commanders": [
+        "Etali, Primal Conqueror // Etali, Primal Sickness",
         "Skrelv, Defector Mite",
         "Skithiryx, the Blight Dragon",
         "Fynn, the Fangbearer",
-        "Karumonix, the Rat King",
-        "Ixhel, Scion of Atraxa"
+        "Karumonix, the Rat King"
       ],
       "example_cards": [
+        "Etali, Primal Conqueror // Etali, Primal Sickness",
         "Skrelv, Defector Mite",
         "Triumph of the Hordes",
         "Vraska, Betrayal's Sting",
         "White Sun's Twilight",
         "Skrelv's Hive",
         "Plague Myr",
-        "Grafted Exoskeleton",
-        "Vraska's Fall"
+        "Grafted Exoskeleton"
       ],
       "synergy_commanders": [
+        "Ixhel, Scion of Atraxa - Synergy (Toxic)",
         "Vishgraz, the Doomhive - Synergy (Mite Kindred)"
       ],
       "popularity_bucket": "Uncommon",
@@ -17647,7 +17543,7 @@
         "Krenko, Tin Street Kingpin - Synergy (+1/+1 Counters)",
         "Adeline, Resplendent Cathar - Synergy (Planeswalkers)",
         "Vorinclex, Monstrous Raider - Synergy (Planeswalkers)",
-        "Yahenni, Undying Partisan - Synergy (Counters Matter)"
+        "Etali, Primal Conqueror // Etali, Primal Sickness - Synergy (Counters Matter)"
       ],
       "popularity_bucket": "Niche",
       "editorial_quality": "draft",
@@ -17657,11 +17553,11 @@
       "id": "protection",
       "theme": "Protection",
       "synergies": [
+        "Protection from Color",
         "Indestructible",
-        "Angel Kindred",
-        "Interaction",
-        "Knight Kindred",
-        "Combat Tricks"
+        "Phasing",
+        "Hexproof",
+        "Shroud"
       ],
       "primary_color": "White",
       "secondary_color": "Green",
@@ -17670,28 +17566,69 @@
         "Avacyn, Angel of Hope",
         "Yawgmoth, Thran Physician",
         "Padeem, Consul of Innovation",
-        "Yahenni, Undying Partisan"
+        "Skrelv, Defector Mite"
       ],
       "example_cards": [
         "Swiftfoot Boots",
         "Lightning Greaves",
         "Heroic Intervention",
         "The One Ring",
+        "Teferi's Protection",
         "Boros Charm",
         "Flawless Maneuver",
-        "Akroma's Will",
-        "Mithril Coat"
+        "Akroma's Will"
       ],
       "synergy_commanders": [
+        "Emrakul, the World Anew - Synergy (Protection from Color)",
+        "Éowyn, Fearless Knight - Synergy (Protection from Color)",
+        "Lord of the Nazgûl - Synergy (Protection from Color)",
         "Toski, Bearer of Secrets - Synergy (Indestructible)",
         "Purphoros, God of the Forge - Synergy (Indestructible)",
-        "Etali, Primal Conqueror // Etali, Primal Sickness - Synergy (Indestructible)",
-        "Aurelia, the Warleader - Synergy (Angel Kindred)",
+        "The War Doctor - Synergy (Phasing)"
+      ],
+      "popularity_bucket": "Common",
+      "editorial_quality": "draft",
+      "description": "Builds around Protection leveraging synergies with Indestructible and Angel Kindred."
+    },
+    {
+      "id": "protection-from-color",
+      "theme": "Protection from Color",
+      "synergies": [
+        "Protection",
+        "Enchant",
+        "Interaction",
+        "Auras",
+        "Cleric Kindred"
+      ],
+      "primary_color": "White",
+      "secondary_color": "Green",
+      "example_commanders": [
+        "Emrakul, the World Anew",
+        "Éowyn, Fearless Knight",
+        "Lord of the Nazgûl",
+        "Katilda, Dawnhart Martyr // Katilda's Rising Dawn",
+        "Eight-and-a-Half-Tails"
+      ],
+      "example_cards": [
+        "The One Ring",
+        "Teferi's Protection",
+        "Akroma's Will",
+        "Mother of Runes",
+        "Commander's Plate",
+        "Sword of Feast and Famine",
+        "Sword of Hearth and Home",
+        "Sejiri Shelter // Sejiri Glacier"
+      ],
+      "synergy_commanders": [
+        "Boromir, Warden of the Tower - Synergy (Protection)",
+        "Avacyn, Angel of Hope - Synergy (Protection)",
+        "Yawgmoth, Thran Physician - Synergy (Protection)",
+        "Dorothea, Vengeful Victim // Dorothea's Retribution - Synergy (Enchant)",
         "Syr Konrad, the Grim - Synergy (Interaction)"
       ],
-      "popularity_bucket": "Very Common",
+      "popularity_bucket": "Niche",
       "editorial_quality": "draft",
-      "description": "Builds around Protection leveraging synergies with Ward and Hexproof."
+      "description": "Builds around Protection from Color leveraging synergies with Protection and Enchant."
     },
     {
       "id": "prototype",
@@ -17871,8 +17808,8 @@
         "Tatyova, Benthic Druid - Synergy (Landfall)",
         "Aesi, Tyrant of Gyre Strait - Synergy (Landfall)",
         "Bristly Bill, Spine Sower - Synergy (Landfall)",
+        "Etali, Primal Conqueror // Etali, Primal Sickness - Synergy (Counters Matter)",
         "Rishkar, Peema Renegade - Synergy (Counters Matter)",
-        "Krenko, Tin Street Kingpin - Synergy (Counters Matter)",
         "Sram, Senior Edificer - Synergy (Enchantments Matter)"
       ],
       "popularity_bucket": "Rare",
@@ -18407,8 +18344,8 @@
         "For Mirrodin!",
         "Equip",
         "Equipment",
-        "Bracket:TutorNonland",
-        "Equipment Matters"
+        "Equipment Matters",
+        "Human Kindred"
       ],
       "primary_color": "White",
       "secondary_color": "Red",
@@ -18581,8 +18518,8 @@
         "Rishkar, Peema Renegade - Synergy (+1/+1 Counters)",
         "Krenko, Tin Street Kingpin - Synergy (+1/+1 Counters)",
         "Yawgmoth, Thran Physician - Synergy (+1/+1 Counters)",
-        "Yahenni, Undying Partisan - Synergy (Counters Matter)",
-        "Heliod, Sun-Crowned - Synergy (Counters Matter)"
+        "Etali, Primal Conqueror // Etali, Primal Sickness - Synergy (Counters Matter)",
+        "Yahenni, Undying Partisan - Synergy (Counters Matter)"
       ],
       "example_cards": [
         "Wren's Run Hydra",
@@ -18670,7 +18607,7 @@
         "Alchemist's Assistant"
       ],
       "synergy_commanders": [
-        "Yawgmoth, Thran Physician - Synergy (Counters Matter)"
+        "Etali, Primal Conqueror // Etali, Primal Sickness - Synergy (Counters Matter)"
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
@@ -18706,7 +18643,7 @@
         "Valeron Wardens"
       ],
       "synergy_commanders": [
-        "Yahenni, Undying Partisan - Synergy (Counters Matter)"
+        "Etali, Primal Conqueror // Etali, Primal Sickness - Synergy (Counters Matter)"
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
@@ -18952,7 +18889,7 @@
         "Rishkar, Peema Renegade - Synergy (+1/+1 Counters)",
         "Krenko, Tin Street Kingpin - Synergy (+1/+1 Counters)",
         "Yawgmoth, Thran Physician - Synergy (+1/+1 Counters)",
-        "Yahenni, Undying Partisan - Synergy (Counters Matter)"
+        "Etali, Primal Conqueror // Etali, Primal Sickness - Synergy (Counters Matter)"
       ],
       "example_cards": [
         "Spider-Punk",
@@ -18965,7 +18902,7 @@
         "Wrecking Beast"
       ],
       "synergy_commanders": [
-        "Heliod, Sun-Crowned - Synergy (Counters Matter)",
+        "Yahenni, Undying Partisan - Synergy (Counters Matter)",
         "Sram, Senior Edificer - Synergy (Voltron)"
       ],
       "popularity_bucket": "Rare",
@@ -19231,7 +19168,7 @@
         "Piper Wright, Publick Reporter - Synergy (Clue Token)",
         "Tivit, Seller of Secrets - Synergy (Investigate)",
         "Kellan, Inquisitive Prodigy // Tail the Suspect - Synergy (Investigate)",
-        "Old Rutstein - Synergy (Blood Token)"
+        "Edgar, Charmed Groom // Edgar Markov's Coffin - Synergy (Blood Token)"
       ],
       "popularity_bucket": "Common",
       "editorial_quality": "draft",
@@ -19343,7 +19280,7 @@
       "synergy_commanders": [
         "Syr Konrad, the Grim - Synergy (Mill)",
         "Emry, Lurker of the Loch - Synergy (Mill)",
-        "Rishkar, Peema Renegade - Synergy (Counters Matter)"
+        "Etali, Primal Conqueror // Etali, Primal Sickness - Synergy (Counters Matter)"
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
@@ -19540,7 +19477,7 @@
         "Sewer Shambler"
       ],
       "synergy_commanders": [
-        "Yahenni, Undying Partisan - Synergy (Counters Matter)"
+        "Etali, Primal Conqueror // Etali, Primal Sickness - Synergy (Counters Matter)"
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
@@ -20103,8 +20040,8 @@
       "synergy_commanders": [
         "Anim Pakal, Thousandth Moon - Synergy (Soldier Kindred)",
         "Thalia, Heretic Cathar - Synergy (Soldier Kindred)",
+        "Etali, Primal Conqueror // Etali, Primal Sickness - Synergy (Counters Matter)",
         "Rishkar, Peema Renegade - Synergy (Counters Matter)",
-        "Krenko, Tin Street Kingpin - Synergy (Counters Matter)",
         "Tatyova, Benthic Druid - Synergy (Lifegain)"
       ],
       "popularity_bucket": "Rare",
@@ -20149,39 +20086,41 @@
       "id": "shroud",
       "theme": "Shroud",
       "synergies": [
-        "Toughness Matters",
-        "Big Mana",
-        "Counters Matter",
-        "Little Fellas"
+        "Protection",
+        "Interaction",
+        "Enchant",
+        "Auras",
+        "Enchantments Matter"
       ],
       "primary_color": "Green",
       "secondary_color": "Blue",
       "example_commanders": [
+        "Eladamri, Lord of Leaves",
         "Multani, Maro-Sorcerer",
         "Kodama of the North Tree",
         "Autumn Willow",
-        "Azusa, Lost but Seeking - Synergy (Toughness Matters)",
-        "Sheoldred, the Apocalypse - Synergy (Toughness Matters)"
+        "Boromir, Warden of the Tower - Synergy (Protection)"
       ],
       "example_cards": [
+        "Lightning Greaves",
+        "Sylvan Safekeeper",
+        "Sterling Grove",
+        "Silver Shroud Costume",
+        "Greater Auramancy",
+        "Pemmin's Aura",
         "Argothian Enchantress",
-        "Wall of Denial",
-        "Helix Pinnacle",
-        "Inkwell Leviathan",
-        "Diplomatic Immunity",
-        "Simic Sky Swallower",
-        "Multani, Maro-Sorcerer",
-        "Neurok Commando"
+        "Scion of Oona"
       ],
       "synergy_commanders": [
-        "Vito, Thorn of the Dusk Rose - Synergy (Toughness Matters)",
-        "Syr Konrad, the Grim - Synergy (Big Mana)",
-        "Etali, Primal Storm - Synergy (Big Mana)",
-        "Rishkar, Peema Renegade - Synergy (Counters Matter)"
+        "Avacyn, Angel of Hope - Synergy (Protection)",
+        "Yawgmoth, Thran Physician - Synergy (Protection)",
+        "Syr Konrad, the Grim - Synergy (Interaction)",
+        "Purphoros, God of the Forge - Synergy (Interaction)",
+        "Katilda, Dawnhart Martyr // Katilda's Rising Dawn - Synergy (Enchant)"
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
-      "description": "Builds around Shroud leveraging synergies with Protection and Interaction."
+      "description": "Builds around Shroud leveraging synergies with Toughness Matters and Big Mana."
     },
     {
       "id": "siren-kindred",
@@ -20344,8 +20283,8 @@
         "Rishkar, Peema Renegade - Synergy (+1/+1 Counters)",
         "Krenko, Tin Street Kingpin - Synergy (+1/+1 Counters)",
         "Yawgmoth, Thran Physician - Synergy (+1/+1 Counters)",
-        "Yahenni, Undying Partisan - Synergy (Counters Matter)",
-        "Heliod, Sun-Crowned - Synergy (Counters Matter)"
+        "Etali, Primal Conqueror // Etali, Primal Sickness - Synergy (Counters Matter)",
+        "Yahenni, Undying Partisan - Synergy (Counters Matter)"
       ],
       "example_cards": [
         "Arcbound Slith",
@@ -21064,8 +21003,8 @@
         "Rishkar, Peema Renegade - Synergy (+1/+1 Counters)",
         "Krenko, Tin Street Kingpin - Synergy (+1/+1 Counters)",
         "Yawgmoth, Thran Physician - Synergy (+1/+1 Counters)",
-        "Yahenni, Undying Partisan - Synergy (Counters Matter)",
-        "Heliod, Sun-Crowned - Synergy (Counters Matter)"
+        "Etali, Primal Conqueror // Etali, Primal Sickness - Synergy (Counters Matter)",
+        "Yahenni, Undying Partisan - Synergy (Counters Matter)"
       ],
       "example_cards": [
         "Spike Feeder",
@@ -21551,7 +21490,7 @@
         "Bottomless Vault"
       ],
       "synergy_commanders": [
-        "Rishkar, Peema Renegade - Synergy (Counters Matter)"
+        "Etali, Primal Conqueror // Etali, Primal Sickness - Synergy (Counters Matter)"
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
@@ -21655,9 +21594,9 @@
         "Lulu, Stern Guardian"
       ],
       "synergy_commanders": [
+        "Etali, Primal Conqueror // Etali, Primal Sickness - Synergy (Counters Matter)",
         "Rishkar, Peema Renegade - Synergy (Counters Matter)",
         "Krenko, Tin Street Kingpin - Synergy (Counters Matter)",
-        "Yawgmoth, Thran Physician - Synergy (Counters Matter)",
         "Kutzil, Malamet Exemplar - Synergy (Stax)",
         "Lotho, Corrupt Shirriff - Synergy (Stax)",
         "Baral, Chief of Compliance - Synergy (Loot)"
@@ -21733,7 +21672,7 @@
         "Shoulder to Shoulder"
       ],
       "synergy_commanders": [
-        "Heliod, Sun-Crowned - Synergy (Counters Matter)"
+        "Etali, Primal Conqueror // Etali, Primal Sickness - Synergy (Counters Matter)"
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
@@ -22551,10 +22490,10 @@
       "theme": "Toolbox",
       "synergies": [
         "Entwine",
-        "Bracket:TutorNonland",
         "Proliferate",
         "Citizen Kindred",
-        "Removal"
+        "Removal",
+        "Convoke"
       ],
       "primary_color": "Green",
       "secondary_color": "White",
@@ -22576,13 +22515,13 @@
         "Rakdos Charm"
       ],
       "synergy_commanders": [
-        "Magda, Brazen Outlaw - Synergy (Bracket:TutorNonland)",
-        "Razaketh, the Foulblooded - Synergy (Bracket:TutorNonland)",
-        "Yawgmoth, Thran Physician - Synergy (Proliferate)"
+        "Yawgmoth, Thran Physician - Synergy (Proliferate)",
+        "Tekuthal, Inquiry Dominus - Synergy (Proliferate)",
+        "Peregrin Took - Synergy (Citizen Kindred)"
       ],
       "popularity_bucket": "Common",
       "editorial_quality": "draft",
-      "description": "Builds around Toolbox leveraging synergies with Entwine and Bracket:TutorNonland."
+      "description": "Builds around Toolbox leveraging synergies with Entwine and Proliferate."
     },
     {
       "id": "topdeck",
@@ -22694,8 +22633,8 @@
         "Karumonix, the Rat King"
       ],
       "synergy_commanders": [
+        "Etali, Primal Conqueror // Etali, Primal Sickness - Synergy (Poison Counters)",
         "Skithiryx, the Blight Dragon - Synergy (Poison Counters)",
-        "Fynn, the Fangbearer - Synergy (Poison Counters)",
         "Yawgmoth, Thran Physician - Synergy (Infect)",
         "Vorinclex, Monstrous Raider - Synergy (Infect)",
         "Mondrak, Glory Dominus - Synergy (Phyrexian Kindred)"
@@ -22771,7 +22710,7 @@
         "Yawgmoth, Thran Physician - Synergy (+1/+1 Counters)",
         "Syr Konrad, the Grim - Synergy (Human Kindred)",
         "Azusa, Lost but Seeking - Synergy (Human Kindred)",
-        "Yahenni, Undying Partisan - Synergy (Counters Matter)"
+        "Etali, Primal Conqueror // Etali, Primal Sickness - Synergy (Counters Matter)"
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
@@ -22861,7 +22800,6 @@
       "id": "transmute",
       "theme": "Transmute",
       "synergies": [
-        "Bracket:TutorNonland",
         "Toughness Matters",
         "Spells Matter",
         "Spellslinger"
@@ -22869,11 +22807,11 @@
       "primary_color": "Blue",
       "secondary_color": "Black",
       "example_commanders": [
-        "Magda, Brazen Outlaw - Synergy (Bracket:TutorNonland)",
-        "Razaketh, the Foulblooded - Synergy (Bracket:TutorNonland)",
-        "Varragoth, Bloodsky Sire - Synergy (Bracket:TutorNonland)",
         "Azusa, Lost but Seeking - Synergy (Toughness Matters)",
-        "Sheoldred, the Apocalypse - Synergy (Toughness Matters)"
+        "Sheoldred, the Apocalypse - Synergy (Toughness Matters)",
+        "Vito, Thorn of the Dusk Rose - Synergy (Toughness Matters)",
+        "Lotho, Corrupt Shirriff - Synergy (Spells Matter)",
+        "Birgi, God of Storytelling // Harnfel, Horn of Bounty - Synergy (Spells Matter)"
       ],
       "example_cards": [
         "Muddle the Mixture",
@@ -22886,11 +22824,11 @@
         "Shred Memory"
       ],
       "synergy_commanders": [
-        "Lotho, Corrupt Shirriff - Synergy (Spells Matter)"
+        "Niv-Mizzet, Parun - Synergy (Spellslinger)"
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
-      "description": "Builds around Transmute leveraging synergies with Bracket:TutorNonland and Toughness Matters."
+      "description": "Builds around Transmute leveraging synergies with Toughness Matters and Spells Matter."
     },
     {
       "id": "treasure",
@@ -23134,14 +23072,14 @@
       "synergy_commanders": [
         "Adrix and Nev, Twincasters - Synergy (Ward)",
         "Miirym, Sentinel Wyrm - Synergy (Ward)",
-        "Ulamog, the Defiler - Synergy (Ward)",
+        "Codsworth, Handy Helper - Synergy (Ward)",
         "Azusa, Lost but Seeking - Synergy (Toughness Matters)",
         "Sheoldred, the Apocalypse - Synergy (Toughness Matters)",
         "Kutzil, Malamet Exemplar - Synergy (Stax)"
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
-      "description": "Focuses on getting a high number of Turtle creatures into play with shared payoffs (e.g., Ward and Protection)."
+      "description": "Focuses on getting a high number of Turtle creatures into play with shared payoffs (e.g., Ward and Toughness Matters)."
     },
     {
       "id": "tyranid-kindred",
@@ -23468,8 +23406,8 @@
         "Hellhole Flailer"
       ],
       "synergy_commanders": [
+        "Etali, Primal Conqueror // Etali, Primal Sickness - Synergy (Counters Matter)",
         "Yahenni, Undying Partisan - Synergy (Counters Matter)",
-        "Heliod, Sun-Crowned - Synergy (Counters Matter)",
         "Sram, Senior Edificer - Synergy (Voltron)"
       ],
       "popularity_bucket": "Rare",
@@ -23533,9 +23471,9 @@
         "Twilight Prophet"
       ],
       "synergy_commanders": [
+        "Edgar, Charmed Groom // Edgar Markov's Coffin - Synergy (Blood Token)",
         "Old Rutstein - Synergy (Blood Token)",
         "Kamber, the Plunderer - Synergy (Blood Token)",
-        "Strefan, Maurer Progenitor - Synergy (Blood Token)",
         "Heliod, Sun-Crowned - Synergy (Lifegain Triggers)",
         "Emrakul, the World Anew - Synergy (Madness)"
       ],
@@ -23558,7 +23496,7 @@
         "Ojer Pakpatiq, Deepest Epoch // Temple of Cyclical Time - Synergy (Time Counters)",
         "The Tenth Doctor - Synergy (Time Counters)",
         "Jhoira of the Ghitu - Synergy (Time Counters)",
-        "Rishkar, Peema Renegade - Synergy (Counters Matter)"
+        "Etali, Primal Conqueror // Etali, Primal Sickness - Synergy (Counters Matter)"
       ],
       "example_cards": [
         "Dreamtide Whale",
@@ -23571,7 +23509,7 @@
         "Chronozoa"
       ],
       "synergy_commanders": [
-        "Krenko, Tin Street Kingpin - Synergy (Counters Matter)",
+        "Rishkar, Peema Renegade - Synergy (Counters Matter)",
         "Sram, Senior Edificer - Synergy (Enchantments Matter)"
       ],
       "popularity_bucket": "Rare",
@@ -23722,9 +23660,9 @@
       "secondary_color": "Green",
       "example_commanders": [
         "Yisan, the Wanderer Bard",
+        "Etali, Primal Conqueror // Etali, Primal Sickness - Synergy (Counters Matter)",
         "Rishkar, Peema Renegade - Synergy (Counters Matter)",
         "Krenko, Tin Street Kingpin - Synergy (Counters Matter)",
-        "Yawgmoth, Thran Physician - Synergy (Counters Matter)",
         "Sram, Senior Edificer - Synergy (Enchantments Matter)"
       ],
       "example_cards": [
@@ -23912,41 +23850,41 @@
       "theme": "Ward",
       "synergies": [
         "Turtle Kindred",
-        "Dinosaur Kindred",
-        "Dragon Kindred",
-        "Stax",
-        "Reach"
+        "Protection",
+        "Equipment",
+        "Equip",
+        "Dinosaur Kindred"
       ],
       "primary_color": "Blue",
       "secondary_color": "Green",
       "example_commanders": [
         "Adrix and Nev, Twincasters",
         "Miirym, Sentinel Wyrm",
+        "Codsworth, Handy Helper",
         "Ulamog, the Defiler",
-        "Valgavoth, Terror Eater",
-        "Sovereign Okinec Ahau"
+        "Valgavoth, Terror Eater"
       ],
       "example_cards": [
         "Roaming Throne",
+        "Flowering of the White Tree",
+        "Brotherhood Regalia",
+        "Innkeeper's Talent",
         "Kappa Cannoneer",
         "Adrix and Nev, Twincasters",
-        "Miirym, Sentinel Wyrm",
-        "Bronze Guardian",
-        "Ulamog, the Defiler",
-        "Hulking Raptor",
-        "Valgavoth, Terror Eater"
+        "Thran Power Suit",
+        "Miirym, Sentinel Wyrm"
       ],
       "synergy_commanders": [
         "Kogla and Yidaro - Synergy (Turtle Kindred)",
         "The Pride of Hull Clade - Synergy (Turtle Kindred)",
         "Archelos, Lagoon Mystic - Synergy (Turtle Kindred)",
-        "Etali, Primal Storm - Synergy (Dinosaur Kindred)",
-        "Ghalta, Primal Hunger - Synergy (Dinosaur Kindred)",
-        "Niv-Mizzet, Parun - Synergy (Dragon Kindred)"
+        "Boromir, Warden of the Tower - Synergy (Protection)",
+        "Avacyn, Angel of Hope - Synergy (Protection)",
+        "The Reality Chip - Synergy (Equipment)"
       ],
       "popularity_bucket": "Niche",
       "editorial_quality": "draft",
-      "description": "Builds around Ward leveraging synergies with Turtle Kindred and Protection."
+      "description": "Builds around Ward leveraging synergies with Turtle Kindred and Dinosaur Kindred."
     },
     {
       "id": "warlock-kindred",
@@ -24810,9 +24748,9 @@
       "primary_color": "White",
       "secondary_color": "Blue",
       "example_commanders": [
+        "Etali, Primal Conqueror // Etali, Primal Sickness - Synergy (Counters Matter)",
         "Rishkar, Peema Renegade - Synergy (Counters Matter)",
-        "Krenko, Tin Street Kingpin - Synergy (Counters Matter)",
-        "Yawgmoth, Thran Physician - Synergy (Counters Matter)"
+        "Krenko, Tin Street Kingpin - Synergy (Counters Matter)"
       ],
       "example_cards": [
         "Dwarven Armorer",
@@ -24836,9 +24774,9 @@
       "primary_color": "Red",
       "secondary_color": "Black",
       "example_commanders": [
+        "Etali, Primal Conqueror // Etali, Primal Sickness - Synergy (Counters Matter)",
         "Rishkar, Peema Renegade - Synergy (Counters Matter)",
-        "Krenko, Tin Street Kingpin - Synergy (Counters Matter)",
-        "Yawgmoth, Thran Physician - Synergy (Counters Matter)"
+        "Krenko, Tin Street Kingpin - Synergy (Counters Matter)"
       ],
       "example_cards": [
         "Dwarven Armorer",
@@ -24906,7 +24844,7 @@
       "Cantrips": 88,
       "Card Draw": 309,
       "Combat Tricks": 214,
-      "Interaction": 904,
+      "Interaction": 949,
       "Unconditional Draw": 133,
       "Bending": 5,
       "Cost Reduction": 68,
@@ -24932,7 +24870,7 @@
       "Sloth Kindred": 3,
       "Lands Matter": 169,
       "Gargoyle Kindred": 11,
-      "Protection": 231,
+      "Protection": 276,
       "Griffin Kindred": 43,
       "Cleric Kindred": 365,
       "Backgrounds Matter": 11,
@@ -24941,7 +24879,8 @@
       "Warrior Kindred": 155,
       "Control": 221,
       "Toolbox": 90,
-      "Removal": 406,
+      "Removal": 409,
+      "Protection from Color": 69,
       "Aristocrats": 155,
       "Haunt": 4,
       "Sacrifice Matters": 155,
@@ -24956,7 +24895,6 @@
       "Bolster": 13,
       "Outlast": 7,
       "Enchant": 269,
-      "Bracket:TutorNonland": 58,
       "Knight Kindred": 237,
       "Battle Cry": 5,
       "Burn": 216,
@@ -24966,6 +24904,7 @@
       "Charge Counters": 11,
       "Clones": 40,
       "Station": 5,
+      "Indestructible": 98,
       "Vampire Kindred": 35,
       "Gnome Kindred": 13,
       "Angel Kindred": 218,
@@ -24984,6 +24923,7 @@
       "First strike": 126,
       "Scout Kindred": 54,
       "Construct Kindred": 15,
+      "Hexproof": 35,
       "Convoke": 25,
       "Vehicles": 64,
       "Dwarf Kindred": 45,
@@ -25102,11 +25042,10 @@
       "Adamant": 3,
       "Oil Counters": 3,
       "Orc Kindred": 6,
-      "Bracket:MassLandDenial": 14,
       "Dinosaur Kindred": 29,
       "Sliver Kindred": 21,
       "Armadillo Kindred": 1,
-      "Ward": 12,
+      "Ward": 22,
       "Horse Kindred": 11,
       "Celebration": 5,
       "Mouse Kindred": 13,
@@ -25129,7 +25068,6 @@
       "Gold Token": 4,
       "Robot Kindred": 21,
       "Prototype": 3,
-      "Indestructible": 11,
       "Counterspells": 22,
       "Plot": 4,
       "Morph": 23,
@@ -25176,6 +25114,7 @@
       "Escalate": 3,
       "Splice": 5,
       "Hippogriff Kindred": 6,
+      "Phasing": 13,
       "Backup": 6,
       "Shield Counters": 9,
       "Blessing Counters": 1,
@@ -25193,7 +25132,7 @@
       "Possum Kindred": 1,
       "Assist": 4,
       "Horror Kindred": 13,
-      "Shroud": 1,
+      "Shroud": 14,
       "Unity Counters": 1,
       "Licid Kindred": 2,
       "Camel Kindred": 5,
@@ -25264,7 +25203,6 @@
       "Toy Kindred": 4,
       "Sculpture Kindred": 1,
       "Prowess": 5,
-      "Bracket:GameChanger": 6,
       "Coyote Kindred": 1,
       "Aftermath": 1,
       "Fear": 1,
@@ -25355,7 +25293,6 @@
       "Kinship": 2,
       "-0/-1 Counters": 1,
       "Deserter Kindred": 1,
-      "Hexproof": 2,
       "Hexproof from": 1,
       "Adapt": 1,
       "Centaur Kindred": 5,
@@ -25484,18 +25421,19 @@
       "Manifest dread": 9,
       "Control": 666,
       "Counterspells": 348,
-      "Interaction": 793,
+      "Interaction": 827,
       "Stax": 915,
       "Fish Kindred": 43,
       "Flash": 169,
-      "Ward": 39,
-      "Protection": 64,
+      "Ward": 44,
+      "Protection": 88,
+      "Shroud": 24,
       "Threshold": 9,
       "Historics Matter": 292,
       "Legends Matter": 292,
       "Noble Kindred": 13,
       "Octopus Kindred": 42,
-      "Removal": 249,
+      "Removal": 257,
       "Creature Tokens": 191,
       "Devoid": 34,
       "Eldrazi Kindred": 42,
@@ -25525,7 +25463,6 @@
       "Cantrips": 192,
       "Unconditional Draw": 449,
       "Board Wipes": 56,
-      "Bracket:MassLandDenial": 8,
       "Equipment": 25,
       "Reconfigure": 3,
       "Charge Counters": 12,
@@ -25591,7 +25528,6 @@
       "Partner": 17,
       "Partner with": 9,
       "Vigilance": 50,
-      "Bracket:ExtraTurn": 29,
       "Foretell": 13,
       "God Kindred": 8,
       "Flashback": 29,
@@ -25608,11 +25544,10 @@
       "Sagas Matter": 33,
       "Age Counters": 27,
       "Cumulative upkeep": 20,
-      "Bracket:TutorNonland": 58,
       "Crab Kindred": 35,
       "Dragon Kindred": 45,
       "Elder Kindred": 4,
-      "Hexproof": 21,
+      "Hexproof": 46,
       "Faerie Kindred": 81,
       "Mana Dork": 47,
       "Morph": 43,
@@ -25698,7 +25633,7 @@
       "Craft": 5,
       "Net Counters": 2,
       "Djinn Kindred": 35,
-      "Phasing": 10,
+      "Phasing": 36,
       "Converge": 4,
       "Hag Kindred": 2,
       "Corrupted": 2,
@@ -25710,7 +25645,6 @@
       "Assassin Kindred": 7,
       "Disguise": 4,
       "Landfall": 16,
-      "Shroud": 8,
       "Spell mastery": 4,
       "Demigod Kindred": 1,
       "Ki Counters": 2,
@@ -25751,7 +25685,6 @@
       "Roll to Visit Your Attractions": 1,
       "Aftermath": 1,
       "Surge": 6,
-      "Bracket:GameChanger": 14,
       "Replicate": 10,
       "Splice": 9,
       "Proliferate": 23,
@@ -25890,7 +25823,7 @@
       "Praetor Kindred": 3,
       "Experience Counters": 1,
       "Exhaust": 6,
-      "Indestructible": 3,
+      "Indestructible": 4,
       "Kithkin Kindred": 1,
       "Flanking": 1,
       "Minotaur Kindred": 1,
@@ -26030,7 +25963,7 @@
       "Token Creation": 415,
       "Tokens Matter": 416,
       "Combat Tricks": 174,
-      "Interaction": 805,
+      "Interaction": 808,
       "Midrange": 69,
       "Horror Kindred": 184,
       "Basic landcycling": 2,
@@ -26059,7 +25992,8 @@
       "Trample": 54,
       "Specter Kindred": 21,
       "Centaur Kindred": 3,
-      "Protection": 51,
+      "Indestructible": 32,
+      "Protection": 54,
       "Warrior Kindred": 168,
       "Intimidate": 13,
       "Spirit Kindred": 145,
@@ -26094,7 +26028,6 @@
       "Flash": 55,
       "Phyrexian Kindred": 165,
       "Shapeshifter Kindred": 11,
-      "Bracket:GameChanger": 10,
       "Topdeck": 171,
       "Crocodile Kindred": 12,
       "Druid Kindred": 6,
@@ -26113,7 +26046,7 @@
       "Ogre Kindred": 35,
       "Sacrifice to Draw": 85,
       "Constellation": 6,
-      "Removal": 480,
+      "Removal": 481,
       "Mercenary Kindred": 43,
       "Heroic": 4,
       "Backgrounds Matter": 12,
@@ -26133,7 +26066,7 @@
       "Disguise": 4,
       "Madness": 29,
       "Void": 10,
-      "Ward": 16,
+      "Ward": 17,
       "Warp": 14,
       "Skeleton Kindred": 66,
       "Charge Counters": 9,
@@ -26190,7 +26123,6 @@
       "Avatar Kindred": 18,
       "Fear": 31,
       "Mobilize": 3,
-      "Bracket:TutorNonland": 88,
       "Elf Kindred": 42,
       "Azra Kindred": 5,
       "Ninja Kindred": 17,
@@ -26213,7 +26145,6 @@
       "Dog Kindred": 17,
       "Myriad": 2,
       "Amass": 19,
-      "Indestructible": 9,
       "Suspect": 5,
       "Wurm Kindred": 9,
       "\\+2/\\+2 Counters": 2,
@@ -26298,7 +26229,6 @@
       "Read Ahead": 2,
       "Sagas Matter": 29,
       "Transmute": 5,
-      "Bracket:MassLandDenial": 4,
       "Overload": 2,
       "Encore": 5,
       "Freerunning": 6,
@@ -26487,6 +26417,7 @@
       "Ki Counters": 2,
       "Boar Kindred": 3,
       "Exhaust": 1,
+      "Phasing": 2,
       "Soul Counters": 4,
       "Monstrosity": 3,
       "Demonstrate": 1,
@@ -26513,6 +26444,7 @@
       "Plant Kindred": 2,
       "Manticore Kindred": 1,
       "Hit Counters": 2,
+      "Protection from Color": 2,
       "Cipher": 5,
       "Hour Counters": 1,
       "Processor Kindred": 2,
@@ -26569,7 +26501,6 @@
       "Spike Kindred": 1,
       "Mite Kindred": 1,
       "Ripple": 1,
-      "Bracket:ExtraTurn": 1,
       "Tempting offer": 1,
       "Prey Counters": 1,
       "Firebending": 1,
@@ -26605,7 +26536,7 @@
       "Combat Matters": 1406,
       "Combat Tricks": 160,
       "Discard Matters": 303,
-      "Interaction": 631,
+      "Interaction": 630,
       "Madness": 18,
       "Mill": 341,
       "Reanimate": 261,
@@ -26691,7 +26622,7 @@
       "Equipment Matters": 141,
       "Samurai Kindred": 20,
       "Shaman Kindred": 175,
-      "Protection": 20,
+      "Protection": 19,
       "Conditional Draw": 42,
       "Phyrexian Kindred": 44,
       "Ally Kindred": 19,
@@ -26743,7 +26674,6 @@
       "Incarnation Kindred": 3,
       "Pirate Kindred": 53,
       "Citizen Kindred": 14,
-      "Bracket:MassLandDenial": 28,
       "Spellshaper Kindred": 12,
       "Ox Kindred": 7,
       "Cat Kindred": 31,
@@ -26865,7 +26795,7 @@
       "Cumulative upkeep": 7,
       "Shark Kindred": 4,
       "Mouse Kindred": 9,
-      "Indestructible": 6,
+      "Indestructible": 8,
       "Discover": 9,
       "Card Selection": 2,
       "Explore": 1,
@@ -26905,7 +26835,6 @@
       "Rev Counters": 1,
       "Luck Counters": 1,
       "Loyalty Counters": 6,
-      "Bracket:TutorNonland": 24,
       "Champion": 3,
       "Shapeshifter Kindred": 5,
       "Harmonize": 3,
@@ -26927,6 +26856,7 @@
       "Encore": 4,
       "Domain": 6,
       "Multikicker": 4,
+      "Ward": 4,
       "Manticore Kindred": 9,
       "Treefolk Kindred": 1,
       "Licid Kindred": 2,
@@ -26954,7 +26884,6 @@
       "Charge Counters": 17,
       "Station": 4,
       "Retrace": 5,
-      "Bracket:GameChanger": 4,
       "Melee": 2,
       "Descent Counters": 1,
       "Desertwalk": 1,
@@ -26979,7 +26908,6 @@
       "Quest Counters": 5,
       "\\+0/\\+1 Counters": 1,
       "\\+2/\\+2 Counters": 1,
-      "Ward": 3,
       "Storage Counters": 2,
       "Overload": 8,
       "Eternalize": 1,
@@ -27013,7 +26941,6 @@
       "Ape Kindred": 7,
       "Manifest": 4,
       "Chroma": 3,
-      "Bracket:ExtraTurn": 3,
       "Bending": 5,
       "Firebending": 5,
       "Snake Kindred": 1,
@@ -27045,6 +26972,7 @@
       "Exalted": 1,
       "Islandwalk": 1,
       "Battle Cry": 5,
+      "Protection from Color": 1,
       "Troll Kindred": 3,
       "Meld": 1,
       "Aim Counters": 1,
@@ -27170,7 +27098,7 @@
       "Token Creation": 520,
       "Tokens Matter": 529,
       "Artifacts Matter": 449,
-      "Interaction": 538,
+      "Interaction": 549,
       "Little Fellas": 1380,
       "Mutant Kindred": 27,
       "Ravenous": 7,
@@ -27259,19 +27187,21 @@
       "Elephant Kindred": 43,
       "Cycling": 52,
       "Discard Matters": 87,
+      "Indestructible": 41,
       "Loot": 52,
-      "Protection": 96,
+      "Protection": 105,
       "Vehicles": 25,
       "Revolt": 6,
       "Scout Kindred": 97,
       "Stax": 271,
+      "Hexproof": 67,
       "Faerie Kindred": 13,
       "Soldier Kindred": 37,
       "Mount Kindred": 14,
       "Saddle": 9,
       "Troll Kindred": 29,
       "Crocodile Kindred": 11,
-      "Shroud": 21,
+      "Shroud": 28,
       "Brushwagg Kindred": 4,
       "Exile Matters": 87,
       "Outlaw Kindred": 31,
@@ -27288,13 +27218,12 @@
       "Wolf Kindred": 80,
       "Landwalk": 58,
       "Swampwalk": 10,
-      "Bracket:TutorNonland": 65,
       "Collect evidence": 6,
       "Partner": 13,
       "Treasure": 26,
       "Treasure Token": 25,
       "Turtle Kindred": 12,
-      "Ward": 25,
+      "Ward": 31,
       "Elder Kindred": 3,
       "Flying": 48,
       "Mana Rock": 16,
@@ -27321,7 +27250,6 @@
       "Clones": 41,
       "Populate": 6,
       "Sloth Kindred": 3,
-      "Hexproof": 33,
       "Defender": 40,
       "Boar Kindred": 31,
       "Landfall": 68,
@@ -27477,7 +27405,6 @@
       "Champion": 3,
       "Assist": 2,
       "Acorn Counters": 1,
-      "Bracket:MassLandDenial": 6,
       "Backup": 6,
       "Fateful hour": 2,
       "Cockatrice Kindred": 1,
@@ -27503,7 +27430,6 @@
       "Suspend": 12,
       "Time Counters": 14,
       "Rampage": 3,
-      "Bracket:GameChanger": 8,
       "Fabricate": 4,
       "Disguise": 7,
       "Horror Kindred": 27,
@@ -27522,6 +27448,7 @@
       "Pilot Kindred": 4,
       "Sand Kindred": 2,
       "Egg Kindred": 2,
+      "Protection from Color": 4,
       "Soulbond": 8,
       "Employee Kindred": 3,
       "Robot Kindred": 5,
@@ -27604,7 +27531,6 @@
       "Undying": 4,
       "Rat Kindred": 1,
       "Efreet Kindred": 2,
-      "Indestructible": 9,
       "Parley": 3,
       "Harmony Counters": 1,
       "Orc Kindred": 1,
@@ -27671,7 +27597,6 @@
       "Hag Kindred": 1,
       "Monkey Kindred": 4,
       "Undaunted": 1,
-      "Bracket:ExtraTurn": 1,
       "Map Token": 2,
       "Multiple Copies": 1,
       "Slime Against Humanity": 1,
@@ -27713,12 +27638,12 @@
   "generated_from": "merge (analytics + curated YAML + whitelist)",
   "metadata_info": {
     "mode": "merge",
-    "generated_at": "2025-10-09T00:37:26",
+    "generated_at": "2025-10-09T23:48:28",
     "curated_yaml_files": 735,
     "synergy_cap": 5,
     "inference": "pmi",
     "version": "phase-b-merge-v1",
-    "catalog_hash": "9f938ea43a438ed3d924bdb971bf4efa34b80fa3728877878729db50c9afa2fd"
+    "catalog_hash": "fd3931305d6c86535e5e9c5ec4e95b5a05bc7b125b9dd6557600a4b3cf610ce4"
   },
   "description_fallback_summary": null
 }

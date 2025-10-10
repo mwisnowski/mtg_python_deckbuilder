@@ -101,6 +101,12 @@ services:
       WEB_AUTO_REFRESH_DAYS: "7"    # Refresh cards.csv if older than N days; 0=never
       WEB_TAG_PARALLEL: "1"         # 1=parallelize tagging
       WEB_TAG_WORKERS: "4"          # Worker count when parallel tagging
+      
+      # Tagging Refinement Feature Flags
+      TAG_NORMALIZE_KEYWORDS: "1"   # 1=normalize keywords & filter specialty mechanics (recommended)
+      TAG_PROTECTION_GRANTS: "1"    # 1=Protection tag only for cards granting shields (recommended)
+      TAG_METADATA_SPLIT: "1"       # 1=separate metadata tags from themes in CSVs (recommended)
+      
       THEME_CATALOG_MODE: "merge"   # Use merged Phase B catalog builder (with YAML export)
       THEME_YAML_FAST_SKIP: "0"     # 1=allow skipping per-theme YAML on fast path (rare; default always export)
       # Live YAML scan interval in seconds for change detection (dev convenience)

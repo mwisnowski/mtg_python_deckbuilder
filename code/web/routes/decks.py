@@ -159,11 +159,18 @@ def _read_csv_summary(csv_path: Path) -> Tuple[dict, Dict[str, int], Dict[str, i
                 # Type counts/cards (exclude commander entry from distribution)
                 if not is_commander:
                     type_counts[cat] = type_counts.get(cat, 0) + cnt
+                    # M5: Extract metadata tags column if present
+                    metadata_tags_raw = ''
+                    metadata_idx = headers.index('MetadataTags') if 'MetadataTags' in headers else -1
+                    if metadata_idx >= 0 and metadata_idx < len(row):
+                        metadata_tags_raw = row[metadata_idx] or ''
+                    metadata_tags_list = [t.strip() for t in metadata_tags_raw.split(';') if t.strip()]
                     type_cards.setdefault(cat, []).append({
                         'name': name,
                         'count': cnt,
                         'role': role,
                         'tags': tags_list,
+                        'metadata_tags': metadata_tags_list,  # M5: Include metadata tags
                     })
 
                 # Curve

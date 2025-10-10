@@ -50,18 +50,23 @@ def _init_kindred_patterns():
 
 # Grant verb patterns - cards that give protection to other permanents
 # These patterns look for grant verbs that affect OTHER permanents, not self
+# M5: Added phasing support
 GRANT_VERB_PATTERNS = [
-    r'\bgain[s]?\b.*\b(hexproof|shroud|indestructible|ward|protection)\b',
-    r'\bgive[s]?\b.*\b(hexproof|shroud|indestructible|ward|protection)\b',
-    r'\bgrant[s]?\b.*\b(hexproof|shroud|indestructible|ward|protection)\b',
-    r'\bget[s]?\b.*\+.*\b(hexproof|shroud|indestructible|ward|protection)\b',  # "gets +X/+X and has" pattern
+    r'\bgain[s]?\b.*\b(hexproof|shroud|indestructible|ward|protection|phasing)\b',
+    r'\bgive[s]?\b.*\b(hexproof|shroud|indestructible|ward|protection|phasing)\b',
+    r'\bgrant[s]?\b.*\b(hexproof|shroud|indestructible|ward|protection|phasing)\b',
+    r'\bhave\b.*\b(hexproof|shroud|indestructible|ward|protection|phasing)\b',  # "have hexproof" static grants
+    r'\bget[s]?\b.*\+.*\b(hexproof|shroud|indestructible|ward|protection|phasing)\b',  # "gets +X/+X and has hexproof" direct
+    r'\bget[s]?\b.*\+.*\band\b.*\b(gain[s]?|have)\b.*\b(hexproof|shroud|indestructible|ward|protection|phasing)\b',  # "gets +X/+X and gains hexproof"
+    r'\bphases? out\b',  # M5: Direct phasing triggers (e.g., "it phases out")
 ]
 
 # Self-reference patterns that should NOT count as granting
 # Reminder text and keyword lines only
+# M5: Added phasing support
 SELF_REFERENCE_PATTERNS = [
-    r'^\s*(hexproof|shroud|indestructible|ward|protection)',  # Start of text (keyword ability)
-    r'\([^)]*\b(hexproof|shroud|indestructible|ward|protection)[^)]*\)',  # Reminder text in parens
+    r'^\s*(hexproof|shroud|indestructible|ward|protection|phasing)',  # Start of text (keyword ability)
+    r'\([^)]*\b(hexproof|shroud|indestructible|ward|protection|phasing)[^)]*\)',  # Reminder text in parens
 ]
 
 # Conditional self-grant patterns - activated/triggered abilities that grant to self
@@ -109,13 +114,22 @@ EXCLUSION_PATTERNS = [
 ]
 
 # Opponent grant patterns - grants to opponent's permanents (EXCLUDE these)
+# NOTE: "all creatures" and "all permanents" are BLANKET effects (help you too), 
+# not opponent grants. Only exclude effects that ONLY help opponents.
 OPPONENT_GRANT_PATTERNS = [
     r'target opponent',
     r'each opponent',
-    r'all creatures',  # "all creatures" without "you control"
-    r'all permanents',  # "all permanents" without "you control"
-    r'each player',
-    r'each creature',  # "each creature" without "you control"
+    r'opponents? control',  # creatures your opponents control
+    r'opponent.*permanents?.*have',  # opponent's permanents have
+]
+
+# Blanket grant patterns - affects all permanents regardless of controller
+# These are VALID protection grants that should be tagged (Blanket scope in M5)
+BLANKET_GRANT_PATTERNS = [
+    r'\ball creatures? (have|gain|get)\b',  # All creatures gain hexproof
+    r'\ball permanents? (have|gain|get)\b',  # All permanents gain indestructible
+    r'\beach creature (has|gains?|gets?)\b',  # Each creature gains ward
+    r'\beach player\b',  # Each player gains hexproof (very rare but valid blanket)
 ]
 
 # Kindred-specific grant patterns for metadata tagging
@@ -179,9 +193,16 @@ def get_kindred_protection_tags(text: str) -> Set[str]:
     """
     Identify kindred-specific protection grants for metadata tagging.
     
-    Returns a set of metadata tag names like "Knights Gain Protection".
+    Returns a set of metadata tag names like:
+    - "Knights Gain Hexproof"
+    - "Spiders Gain Ward"
+    - "Artifacts Gain Indestructible"
     
-    Uses both predefined patterns and dynamic creature type detection.
+    Uses both predefined patterns and dynamic creature type detection,
+    with specific ability detection (hexproof, ward, indestructible, shroud, protection).
+    
+    IMPORTANT: Only tags the specific abilities that appear in the same sentence
+    as the creature type grant to avoid false positives like Svyelun.
     """
     if not text:
         return set()
@@ -192,21 +213,52 @@ def get_kindred_protection_tags(text: str) -> Set[str]:
     text_lower = text.lower()
     tags = set()
     
-    # Check predefined patterns (specific kindred types we track)
-    for tag_name, patterns in KINDRED_GRANT_PATTERNS.items():
-        for pattern in patterns:
-            if re.search(pattern, text_lower, re.IGNORECASE):
-                tags.add(tag_name)
-                break  # Found match for this kindred type, move to next
-    
-    # Only check dynamic patterns if protection keywords present (performance optimization)
-    if not any(keyword in text_lower for keyword in ['hexproof', 'shroud', 'indestructible', 'ward', 'protection']):
+    # Only proceed if protective abilities are present (performance optimization)
+    protective_abilities = ['hexproof', 'shroud', 'indestructible', 'ward', 'protection']
+    if not any(keyword in text_lower for keyword in protective_abilities):
         return tags
     
+    # Check predefined patterns (specific kindred types we track)
+    for tag_base, patterns in KINDRED_GRANT_PATTERNS.items():
+        for pattern in patterns:
+            match = re.search(pattern, text_lower, re.IGNORECASE)
+            if match:
+                # Extract creature type from tag_base (e.g., "Knights" from "Knights Gain Protection")
+                creature_type = tag_base.split(' Gain ')[0]
+                # Get the matched text to check which abilities are in this specific grant
+                matched_text = match.group(0)
+                # Only tag abilities that appear in the matched phrase
+                if 'hexproof' in matched_text:
+                    tags.add(f"{creature_type} Gain Hexproof")
+                if 'shroud' in matched_text:
+                    tags.add(f"{creature_type} Gain Shroud")
+                if 'indestructible' in matched_text:
+                    tags.add(f"{creature_type} Gain Indestructible")
+                if 'ward' in matched_text:
+                    tags.add(f"{creature_type} Gain Ward")
+                if 'protection' in matched_text:
+                    tags.add(f"{creature_type} Gain Protection")
+                break  # Found match for this kindred type, move to next
+    
     # Use pre-compiled patterns for all creature types
-    for compiled_pattern, tag_name in KINDRED_PATTERNS:
-        if compiled_pattern.search(text_lower):
-            tags.add(tag_name)
+    for compiled_pattern, tag_template in KINDRED_PATTERNS:
+        match = compiled_pattern.search(text_lower)
+        if match:
+            # Extract creature type from tag_template (e.g., "Knights" from "Knights Gain Protection")
+            creature_type = tag_template.split(' Gain ')[0]
+            # Get the matched text to check which abilities are in this specific grant
+            matched_text = match.group(0)
+            # Only tag abilities that appear in the matched phrase
+            if 'hexproof' in matched_text:
+                tags.add(f"{creature_type} Gain Hexproof")
+            if 'shroud' in matched_text:
+                tags.add(f"{creature_type} Gain Shroud")
+            if 'indestructible' in matched_text:
+                tags.add(f"{creature_type} Gain Indestructible")
+            if 'ward' in matched_text:
+                tags.add(f"{creature_type} Gain Ward")
+            if 'protection' in matched_text:
+                tags.add(f"{creature_type} Gain Protection")
             # Don't break - a card could grant to multiple creature types
     
     return tags
@@ -214,23 +266,33 @@ def get_kindred_protection_tags(text: str) -> Set[str]:
 
 def is_opponent_grant(text: str) -> bool:
     """
-    Check if card grants protection to opponent's permanents or all permanents.
+    Check if card grants protection to opponent's permanents ONLY.
     
-    Returns True if this grants to opponents (should be excluded from Protection tag).
+    Returns True if this grants ONLY to opponents (should be excluded from Protection tag).
+    Does NOT exclude blanket effects like "all creatures gain hexproof" which help you too.
     """
     if not text:
         return False
     
     text_lower = text.lower()
     
-    # Check for opponent grant patterns
+    # Remove reminder text (in parentheses) to avoid false positives
+    # Reminder text often mentions "opponents control" for hexproof/shroud explanations
+    text_no_reminder = re.sub(r'\([^)]*\)', '', text_lower)
+    
+    # Check for opponent-specific grant patterns in the main text (not reminder)
     for pattern in OPPONENT_GRANT_PATTERNS:
-        if re.search(pattern, text_lower, re.IGNORECASE):
-            # Make sure it's not "target opponent" for a different effect
+        match = re.search(pattern, text_no_reminder, re.IGNORECASE)
+        if match:
             # Must be in context of granting protection
             if any(prot in text_lower for prot in ['hexproof', 'shroud', 'indestructible', 'ward', 'protection']):
-                # Check if "you control" appears in same sentence
-                if 'you control' not in text_lower.split('.')[0]:
+                # Check the context around the match
+                context_start = max(0, match.start() - 30)
+                context_end = min(len(text_no_reminder), match.end() + 70)
+                context = text_no_reminder[context_start:context_end]
+                
+                # If "you control" appears in the context, it's limiting to YOUR permanents, not opponents
+                if 'you control' not in context:
                     return True
     
     return False
@@ -372,12 +434,11 @@ def is_granting_protection(text: str, keywords: str, exclude_kindred: bool = Fal
     # Check for explicit grants with protection keywords
     found_grant = False
     
-    # Mass grant patterns (creatures you control have/gain)
-    for pattern in MASS_GRANT_PATTERNS:
+    # Blanket grant patterns (all creatures gain hexproof) - these are VALID grants
+    for pattern in BLANKET_GRANT_PATTERNS:
         match = re.search(pattern, text_lower, re.IGNORECASE)
         if match:
-            # Check if protection keyword appears in the same sentence or nearby (within 70 chars AFTER the match)
-            # This ensures we're looking at "creatures you control HAVE hexproof" not just having both phrases
+            # Check if protection keyword appears nearby
             context_start = match.start()
             context_end = min(len(text_lower), match.end() + 70)
             context = text_lower[context_start:context_end]
@@ -385,6 +446,21 @@ def is_granting_protection(text: str, keywords: str, exclude_kindred: bool = Fal
             if any(prot in context for prot in PROTECTION_KEYWORDS):
                 found_grant = True
                 break
+    
+    # Mass grant patterns (creatures you control have/gain)
+    if not found_grant:
+        for pattern in MASS_GRANT_PATTERNS:
+            match = re.search(pattern, text_lower, re.IGNORECASE)
+            if match:
+                # Check if protection keyword appears in the same sentence or nearby (within 70 chars AFTER the match)
+                # This ensures we're looking at "creatures you control HAVE hexproof" not just having both phrases
+                context_start = match.start()
+                context_end = min(len(text_lower), match.end() + 70)
+                context = text_lower[context_start:context_end]
+                
+                if any(prot in context for prot in PROTECTION_KEYWORDS):
+                    found_grant = True
+                    break
     
     # Targeted grant patterns (target creature gains)
     if not found_grant:

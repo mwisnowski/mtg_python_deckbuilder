@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from headless_runner import _resolve_additional_theme_inputs, _parse_theme_list
+from code.headless_runner import resolve_additional_theme_inputs as _resolve_additional_theme_inputs, _parse_theme_list
 
 
 def _write_catalog(path: Path) -> None:

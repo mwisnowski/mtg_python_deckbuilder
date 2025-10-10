@@ -927,11 +927,32 @@ KEYWORD_ALLOWLIST: set[str] = {
     'Tempting offer', 'Will of the council', 'Parley', 'Adamant', 'Devotion',
 }
 
-# Metadata tag prefixes (for M3 - metadata partition)
-# Tags matching these patterns should be classified as metadata, not themes
+# ==============================================================================
+# Metadata Tag Classification (M3 - Tagging Refinement)
+# ==============================================================================
+
+# Metadata tag prefixes - tags starting with these are classified as metadata
 METADATA_TAG_PREFIXES: List[str] = [
     'Applied:',
     'Bracket:',
     'Diagnostic:',
     'Internal:',
 ]
+
+# Specific metadata tags (full match) - additional tags to classify as metadata
+# These are typically diagnostic, bracket-related, or internal annotations
+METADATA_TAG_ALLOWLIST: set[str] = {
+    # Bracket annotations
+    'Bracket: Game Changer',
+    'Bracket: Staple',
+    'Bracket: Format Warping',
+    
+    # Cost reduction diagnostics (from Applied: namespace)
+    'Applied: Cost Reduction',
+    
+    # Kindred-specific protection metadata (from M2)
+    # Format: "{CreatureType}s Gain Protection"
+    # These are auto-generated for kindred-specific protection grants
+    # Example: "Knights Gain Protection", "Frogs Gain Protection"
+    # Note: These are dynamically generated, so we match via prefix in classify_tag
+}

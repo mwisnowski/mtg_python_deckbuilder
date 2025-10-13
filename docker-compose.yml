@@ -98,7 +98,7 @@ services:
       WEB_AUTO_SETUP: "1"           # 1=auto-run setup/tagging when needed
       WEB_AUTO_REFRESH_DAYS: "7"    # Refresh cards.csv if older than N days; 0=never
       WEB_TAG_PARALLEL: "1"         # 1=parallelize tagging
-      WEB_TAG_WORKERS: "8"          # Worker count when parallel tagging
+      WEB_TAG_WORKERS: "4"          # Worker count when parallel tagging
       
       # Tagging Refinement Feature Flags
       TAG_NORMALIZE_KEYWORDS: "1"   # 1=normalize keywords & filter specialty mechanics (recommended)

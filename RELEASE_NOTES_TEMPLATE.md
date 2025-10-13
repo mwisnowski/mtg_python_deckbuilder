@@ -1,61 +1,66 @@
 # MTG Python Deckbuilder ${VERSION}
 
 ## [Unreleased]
-
 ### Summary
-- Card tagging improvements separate gameplay themes from internal metadata for cleaner deck building
-- Keyword cleanup reduces specialty keyword noise by 96% while keeping important mechanics
-- Protection tag now highlights cards that grant shields to your board, not just inherent protection
-- **Protection System Overhaul**: Smarter card detection, scope-aware filtering, and focused pool selection deliver consistent, high-quality protection card recommendations
-  - Deck builder distinguishes between board-wide protection and self-only effects using fine-grained metadata
-  - Intelligent pool limiting focuses on high-quality staples while maintaining variety across builds
-  - Scope-aware filtering automatically excludes self-protection and type-specific cards that don't match your deck
-  - Enhanced detection handles Equipment, Auras, phasing effects, and complex triggers correctly
-- Web UI responsiveness upgrades with smarter caching and streamlined loading
+- Card tagging system improvements split metadata from gameplay themes for cleaner deck building experience
+- Keyword normalization reduces specialty keyword noise by 96% while maintaining theme catalog quality
+- Protection tag now focuses on cards that grant shields to others, not just those with inherent protection
+- Web UI improvements: faster polling, fixed progress display, and theme refresh stability
+- **Protection System Overhaul**: Comprehensive enhancement to protection card detection, classification, and deck building
+  - Fine-grained scope metadata distinguishes self-protection from board-wide effects ("Your Permanents: Hexproof" vs "Self: Hexproof")
+  - Enhanced grant detection with Equipment/Aura patterns, phasing support, and complex trigger handling
+  - Intelligent deck builder filtering includes board-relevant protection while excluding self-only and type-specific cards
+  - Tiered pool limiting focuses on high-quality staples while maintaining variety across builds
+  - Improved scope tagging for cards with keyword-only protection effects (no grant text, just inherent keywords)
+- **Tagging Module Refactoring**: Large-scale refactor to improve code quality and maintainability
+  - Centralized regex patterns, extracted reusable utilities, decomposed complex functions
+  - Improved code organization and readability while maintaining 100% tagging accuracy
 
 ### Added
-- Metadata partition keeps internal tags separate from gameplay themes
-- Keyword normalization filters out one-off specialty mechanics while keeping evergreen abilities
-- Protection grant detection identifies cards that give Hexproof, Ward, or other shields to your permanents
-- Creature-type-specific protection automatically tagged (e.g., "Knights Gain Protection" for tribal strategies)
-- Protection scope filtering (feature flag: `TAG_PROTECTION_SCOPE`) automatically excludes self-only protection like Svyelun
-- Phasing cards with protective effects now included in protection pool (e.g., cards that phase out your permanents)
-- Debug mode: Hover over cards to see metadata tags showing protection scope (e.g., "Your Permanents: Hexproof")
-- Skeleton placeholders with smart timing across build wizard and commander catalog
-- Must-have toggle API with telemetry tracking for include/exclude interactions
-- Commander catalog lazy-loads art and caches frequently accessed views
-- Collapsible sections for mana analytics defer loading until expanded
-- Click-to-pin chart tooltips for easier card comparisons
-- Virtualized card lists handle large decks smoothly
+- Metadata partition system separates diagnostic tags from gameplay themes in card data
+- Keyword normalization system with smart filtering of one-off specialty mechanics
+- Allowlist preserves important keywords like Flying, Myriad, and Transform
+- Protection grant detection identifies cards that give Hexproof, Ward, or Indestructible to other permanents
+- Automatic tagging for creature-type-specific protection (e.g., "Knights Gain Protection")
+- New `metadataTags` column in card data for bracket annotations and internal diagnostics
+- Static phasing keyword detection from keywords field (catches creatures like Breezekeeper)
+- "Other X you control have Y" protection pattern for static ability grants
+- "Enchanted creature has phasing" pattern detection
+- Chosen type blanket phasing patterns
+- Complex trigger phasing patterns (reactive, consequent, end-of-turn)
+- Protection scope filtering in deck builder (feature flag: `TAG_PROTECTION_SCOPE`) intelligently selects board-relevant protection
+- Phasing cards with "Your Permanents:" or "Targeted:" metadata now tagged as Protection and included in protection pool
+- Metadata tags temporarily visible in card hover previews for debugging (shows scope like "Your Permanents: Hexproof")
 
 ### Changed
 - Card tags now split between themes (for deck building) and metadata (for diagnostics)
-- Keywords consolidate variants (e.g., "Commander ninjutsu" → "Ninjutsu") for consistent theme matching
-- Protection tag refined to focus on shield-granting cards (329 cards vs 1,166 previously)
-- Deck builder protection phase filters by scope: includes "Your Permanents:", excludes "Self:" protection
-- Protection card selection randomized for variety across builds (deterministic when using seeded mode)
-- Theme catalog streamlined with improved quality (736 themes, down 2.3%)
-- Theme catalog automatically excludes metadata tags from suggestions
-- Commander search and theme picker share intelligent debounce to prevent redundant requests
-- Include/exclude buttons respond immediately with optimistic updates
-- Commander catalog default view loads from cache for sub-200ms response times
-- Deck review loads in focused chunks for faster initial page loads
-- Chart hover zones expanded for easier interaction
+- Keywords now consolidate variants (e.g., "Commander ninjutsu" becomes "Ninjutsu")
+- Setup progress polling reduced from 3s to 5-10s intervals for better performance
+- Theme catalog streamlined from 753 to 736 themes (-2.3%) with improved quality
+- Protection tag refined to focus on 329 cards that grant shields (down from 1,166 with inherent effects)
+- Protection tag renamed to "Protective Effects" throughout web interface to avoid confusion with the Magic keyword "protection"
+- Theme catalog automatically excludes metadata tags from theme suggestions
+- Grant detection now strips reminder text before pattern matching to avoid false positives
+- Deck builder protection phase now filters by scope metadata: includes "Your Permanents:", excludes "Self:" protection
+- Protection card selection now randomized per build for variety (using seeded RNG when deterministic mode enabled)
+- Protection pool now limited to ~40-50 high-quality cards (tiered selection: top 3x target + random 10-20 extras)
+- Tagging module imports standardized with consistent organization and centralized constants
 
 ### Fixed
-### Fixed
-- Setup progress correctly displays 100% upon completion
-- Theme catalog refresh stability improved after initial setup
-- Server polling optimized for reduced load
-- Protection detection accurately filters inherent vs granted effects
-- Protection scope detection improvements for 11+ cards:
-  - Dive Down, Glint no longer falsely marked as opponent grants (reminder text now stripped)
-  - Drogskol Captain and similar cards with "Other X you control have Y" patterns now tagged correctly
-  - 7 cards with static Phasing keyword now detected (Breezekeeper, Teferi's Drake, etc.)
-  - Cloak of Invisibility and Teferi's Curse now get "Your Permanents: Phasing" tags
-  - Shimmer now gets "Blanket: Phasing" for chosen type effect
-  - King of the Oathbreakers reactive trigger now properly detected
-- Type-specific protection (Knight Exemplar, Timber Protector) no longer added to non-matching decks
-- Deck builder correctly excludes "Self:" protection cards (e.g., Svyelun) from protection pool
-- Inherent protection cards (Aysen Highway, Phantom Colossus) now correctly receive scope metadata tags
-- Protection pool now intelligently limited to focus on high-quality, relevant cards for your deck
+- Setup progress now shows 100% completion instead of getting stuck at 99%
+- Theme catalog no longer continuously regenerates after setup completes
+- Health indicator polling optimized to reduce server load
+- Protection detection now correctly excludes creatures with only inherent keywords
+- Dive Down, Glint no longer falsely identified as granting to opponents (reminder text fix)
+- Drogskol Captain, Haytham Kenway now correctly get "Your Permanents" scope tags
+- 7 cards with static Phasing keyword now properly detected (Breezekeeper, Teferi's Drake, etc.)
+- Type-specific protection grants (e.g., "Knights Gain Indestructible") now correctly excluded from general protection pool
+- Protection scope filter now properly prioritizes exclusions over inclusions (fixes Knight Exemplar in non-Knight decks)
+- Inherent protection cards (Aysen Highway, Phantom Colossus, etc.) now correctly get "Self: Protection" metadata tags
+- Scope tagging now applies to ALL cards with protection effects, not just grant cards
+- Cloak of Invisibility, Teferi's Curse now get "Your Permanents: Phasing" tags
+- Shimmer now gets "Blanket: Phasing" tag for chosen type effect
+- King of the Oathbreakers now gets "Self: Phasing" tag for reactive trigger
+- Cards with static keywords (Protection, Hexproof, Ward, Indestructible) in their keywords field now get proper scope metadata tags
+- Cards with X in their mana cost now properly identified and tagged with "X Spells" theme for better deck building accuracy
+- Card tagging system enhanced with smarter pattern detection and more consistent categorization

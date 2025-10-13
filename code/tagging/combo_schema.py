@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+# Standard library imports
+import json
 from pathlib import Path
 from typing import List, Optional
 
-import json
+# Third-party imports
 from pydantic import BaseModel, Field
 
 

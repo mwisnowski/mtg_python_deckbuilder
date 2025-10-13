@@ -9,13 +9,95 @@ Detects the scope of phasing effects with multiple dimensions:
 - Blanket: Phasing (phases all permanents out)
 
 Cards can have multiple scope tags (e.g., Targeted + Your Permanents).
+
+Refactored in M2: Create Scope Detection Utilities to use generic scope detection.
 """
 
+# Standard library imports
 import re
 from typing import Set
+
+# Local application imports
+from . import scope_detection_utils as scope_utils
 from code.logging_util import get_logger
 
 logger = get_logger(__name__)
+
+
+# Phasing scope pattern definitions
+def _get_phasing_scope_patterns() -> scope_utils.ScopePatterns:
+    """
+    Build scope patterns for phasing abilities.
+    
+    Returns:
+        ScopePatterns object with compiled patterns
+    """
+    # Targeting patterns (special for phasing - detects "target...phases out")
+    targeting_patterns = [
+        re.compile(r'target\s+(?:\w+\s+)*(?:creature|permanent|artifact|enchantment|nonland\s+permanent)s?(?:[^.]*)?phases?\s+out', re.IGNORECASE),
+        re.compile(r'target\s+player\s+controls[^.]*phases?\s+out', re.IGNORECASE),
+    ]
+    
+    # Self-reference patterns
+    self_patterns = [
+        re.compile(r'this\s+(?:creature|permanent|artifact|enchantment)\s+phases?\s+out', re.IGNORECASE),
+        re.compile(r'~\s+phases?\s+out', re.IGNORECASE),
+        # Triggered self-phasing (King of the Oathbreakers)
+        re.compile(r'whenever.*(?:becomes\s+the\s+target|becomes\s+target).*(?:it|this\s+creature)\s+phases?\s+out', re.IGNORECASE),
+        # Consequent self-phasing (Cyclonus: "connive. Then...phase out")
+        re.compile(r'(?:then|,)\s+(?:it|this\s+creature)\s+phases?\s+out', re.IGNORECASE),
+        # At end of turn/combat self-phasing
+        re.compile(r'(?:at\s+(?:the\s+)?end\s+of|after).*(?:it|this\s+creature)\s+phases?\s+out', re.IGNORECASE),
+    ]
+    
+    # Opponent patterns
+    opponent_patterns = [
+        re.compile(r'target\s+(?:\w+\s+)*(?:creature|permanent)\s+an?\s+opponents?\s+controls?\s+phases?\s+out', re.IGNORECASE),
+        # Unqualified targets (can target opponents' stuff if no "you control" restriction)
+        re.compile(r'(?:up\s+to\s+)?(?:one\s+|x\s+|that\s+many\s+)?(?:other\s+)?(?:another\s+)?target\s+(?:\w+\s+)*(?:creature|permanent|artifact|enchantment|nonland\s+permanent)s?(?:[^.]*)?phases?\s+out', re.IGNORECASE),
+        re.compile(r'target\s+(?:\w+\s+)*(?:creature|permanent|artifact|enchantment|land|nonland\s+permanent)(?:,|\s+and)?\s+(?:then|and)?\s+it\s+phases?\s+out', re.IGNORECASE),
+    ]
+    
+    # Your permanents patterns
+    your_patterns = [
+        # Explicit "you control"
+        re.compile(r'(?:target\s+)?(?:creatures?|permanents?|nonland\s+permanents?)\s+you\s+control\s+phases?\s+out', re.IGNORECASE),
+        re.compile(r'(?:target\s+)?(?:other\s+)?(?:creatures?|permanents?)\s+you\s+control\s+phases?\s+out', re.IGNORECASE),
+        re.compile(r'permanents?\s+you\s+control\s+phase\s+out', re.IGNORECASE),
+        re.compile(r'(?:any|up\s+to)\s+(?:number\s+of\s+)?(?:target\s+)?(?:other\s+)?(?:creatures?|permanents?|nonland\s+permanents?)\s+you\s+control\s+phases?\s+out', re.IGNORECASE),
+        re.compile(r'all\s+(?:creatures?|permanents?)\s+you\s+control\s+phase\s+out', re.IGNORECASE),
+        re.compile(r'each\s+(?:creature|permanent)\s+you\s+control\s+phases?\s+out', re.IGNORECASE),
+        # Pronoun reference to "you control" context
+        re.compile(r'(?:creatures?|permanents?|planeswalkers?)\s+you\s+control[^.]*(?:those|the)\s+(?:creatures?|permanents?|planeswalkers?)\s+phase\s+out', re.IGNORECASE),
+        re.compile(r'creature\s+you\s+control[^.]*(?:it)\s+phases?\s+out', re.IGNORECASE),
+        re.compile(r'you\s+control.*those\s+(?:creatures?|permanents?|planeswalkers?)\s+phase\s+out', re.IGNORECASE),
+        # Equipment/Aura
+        re.compile(r'equipped\s+(?:creature|permanent)\s+(?:gets\s+[^.]*\s+and\s+)?phases?\s+out', re.IGNORECASE),
+        re.compile(r'enchanted\s+(?:creature|permanent)\s+(?:gets\s+[^.]*\s+and\s+)?phases?\s+out', re.IGNORECASE),
+        re.compile(r'enchanted\s+(?:creature|permanent)\s+(?:has|gains?)\s+phasing', re.IGNORECASE),
+        re.compile(r'(?:equipped|enchanted)\s+(?:creature|permanent)[^.]*,?\s+(?:then\s+)?that\s+(?:creature|permanent)\s+phases?\s+out', re.IGNORECASE),
+        # Target controlled by specific player
+        re.compile(r'(?:each|target)\s+(?:creature|permanent)\s+target\s+player\s+controls\s+phases?\s+out', re.IGNORECASE),
+    ]
+    
+    # Blanket patterns
+    blanket_patterns = [
+        re.compile(r'all\s+(?:nontoken\s+)?(?:creatures?|permanents?)(?:\s+of\s+that\s+type)?\s+(?:[^.]*\s+)?phase\s+out', re.IGNORECASE),
+        re.compile(r'each\s+(?:creature|permanent)\s+(?:[^.]*\s+)?phases?\s+out', re.IGNORECASE),
+        # Type-specific blanket (Shimmer)
+        re.compile(r'each\s+(?:land|creature|permanent|artifact|enchantment)\s+of\s+the\s+chosen\s+type\s+has\s+phasing', re.IGNORECASE),
+        re.compile(r'(?:lands?|creatures?|permanents?|artifacts?|enchantments?)\s+of\s+the\s+chosen\s+type\s+(?:have|has)\s+phasing', re.IGNORECASE),
+        # Pronoun reference to "all creatures"
+        re.compile(r'all\s+(?:nontoken\s+)?(?:creatures?|permanents?)[^.]*,?\s+(?:then\s+)?(?:those|the)\s+(?:creatures?|permanents?)\s+phase\s+out', re.IGNORECASE),
+    ]
+    
+    return scope_utils.ScopePatterns(
+        opponent=opponent_patterns,
+        self_ref=self_patterns,
+        your_permanents=your_patterns,
+        blanket=blanket_patterns,
+        targeted=targeting_patterns
+    )
 
 
 def get_phasing_scope_tags(text: str, card_name: str, keywords: str = '') -> Set[str]:
@@ -47,121 +129,46 @@ def get_phasing_scope_tags(text: str, card_name: str, keywords: str = '') -> Set
     # Check for static "Phasing" keyword ability (self-phasing)
     # Only add Self tag if card doesn't grant phasing to others
     if 'phasing' in keywords_lower:
-        # Remove reminder text to avoid false positives
-        text_no_reminder = re.sub(r'\([^)]*\)', '', text_lower)
-        
-        # Check if card grants phasing to others (has granting language in main text)
-        # Look for patterns like "enchanted creature has", "other X have", "target", etc.
-        grants_to_others = bool(re.search(
+        # Define patterns for checking if card grants phasing to others
+        grants_pattern = [re.compile(
             r'(other|target|each|all|enchanted|equipped|creatures? you control|permanents? you control).*phas',
-            text_no_reminder
-        ))
+            re.IGNORECASE
+        )]
         
-        # If no granting language, it's just self-phasing
-        if not grants_to_others:
+        is_static = scope_utils.check_static_keyword_legacy(
+            keywords=keywords,
+            static_keyword='phasing',
+            text=text,
+            grant_patterns=grants_pattern
+        )
+        
+        if is_static:
             tags.add('Self: Phasing')
             return tags  # Early return - static keyword only
     
-    # Check if phasing is mentioned in text (including "has phasing", "gain phasing", etc.)
-    if 'phas' not in text_lower:  # Changed from 'phase' to 'phas' to catch "phasing" too
+    # Check if phasing is mentioned in text
+    if 'phas' not in text_lower:
         return tags
     
-    # Check for targeting (any "target" + phasing)
-    # Targeting detection - must have target AND phase in same sentence/clause
-    targeting_patterns = [
-        r'target\s+(?:\w+\s+)*(?:creature|permanent|artifact|enchantment|nonland\s+permanent)s?(?:[^.]*)?phases?\s+out',
-        r'target\s+player\s+controls[^.]*phases?\s+out',
-    ]
+    # Build phasing patterns and detect scopes
+    patterns = _get_phasing_scope_patterns()
     
-    is_targeted = any(re.search(pattern, text_lower) for pattern in targeting_patterns)
+    # Detect all scopes (phasing can have multiple)
+    scopes = scope_utils.detect_multi_scope(
+        text=text,
+        card_name=card_name,
+        ability_keyword='phas',  # Use 'phas' to catch both 'phase' and 'phasing'
+        patterns=patterns,
+        check_grant_verbs=False  # Phasing doesn't need grant verb checking
+    )
     
-    if is_targeted:
-        tags.add("Targeted: Phasing")
-        logger.debug(f"Card '{card_name}': detected Targeted: Phasing")
-    
-    # Check for self-phasing
-    self_patterns = [
-        r'this\s+(?:creature|permanent|artifact|enchantment)\s+phases?\s+out',
-        r'~\s+phases?\s+out',
-        rf'\b{re.escape(card_name.lower())}\s+phases?\s+out',
-        # NEW: Triggered self-phasing (King of the Oathbreakers: "it phases out" as reactive protection)
-        r'whenever.*(?:becomes\s+the\s+target|becomes\s+target).*(?:it|this\s+creature)\s+phases?\s+out',
-        # NEW: Consequent self-phasing (Cyclonus: "connive. Then...phase out")
-        r'(?:then|,)\s+(?:it|this\s+creature)\s+phases?\s+out',
-        # NEW: At end of turn/combat self-phasing
-        r'(?:at\s+(?:the\s+)?end\s+of|after).*(?:it|this\s+creature)\s+phases?\s+out',
-    ]
-    
-    if any(re.search(pattern, text_lower) for pattern in self_patterns):
-        tags.add("Self: Phasing")
-        logger.debug(f"Card '{card_name}': detected Self: Phasing")
-    
-    # Check for opponent permanent phasing (removal effect)
-    opponent_patterns = [
-        r'target\s+(?:\w+\s+)*(?:creature|permanent)\s+an?\s+opponents?\s+controls?\s+phases?\s+out',
-    ]
-    
-    # Check for unqualified targets (can target opponents' stuff)
-    # More flexible to handle various phasing patterns
-    unqualified_target_patterns = [
-        r'(?:up\s+to\s+)?(?:one\s+|x\s+|that\s+many\s+)?(?:other\s+)?(?:another\s+)?target\s+(?:\w+\s+)*(?:creature|permanent|artifact|enchantment|nonland\s+permanent)s?(?:[^.]*)?phases?\s+out',
-        r'target\s+(?:\w+\s+)*(?:creature|permanent|artifact|enchantment|land|nonland\s+permanent)(?:,|\s+and)?\s+(?:then|and)?\s+it\s+phases?\s+out',
-    ]
-    
-    has_opponent_specific = any(re.search(pattern, text_lower) for pattern in opponent_patterns)
-    has_unqualified_target = any(re.search(pattern, text_lower) for pattern in unqualified_target_patterns)
-    
-    # If unqualified AND not restricted to "you control", can target opponents
-    if has_opponent_specific or (has_unqualified_target and 'you control' not in text_lower):
-        tags.add("Opponent Permanents: Phasing")
-        logger.debug(f"Card '{card_name}': detected Opponent Permanents: Phasing")
-    
-    # Check for your permanents phasing
-    your_patterns = [
-        # Explicit "you control"
-        r'(?:target\s+)?(?:creatures?|permanents?|nonland\s+permanents?)\s+you\s+control\s+phases?\s+out',
-        r'(?:target\s+)?(?:other\s+)?(?:creatures?|permanents?)\s+you\s+control\s+phases?\s+out',
-        r'permanents?\s+you\s+control\s+phase\s+out',
-        r'(?:any|up\s+to)\s+(?:number\s+of\s+)?(?:target\s+)?(?:other\s+)?(?:creatures?|permanents?|nonland\s+permanents?)\s+you\s+control\s+phases?\s+out',
-        r'all\s+(?:creatures?|permanents?)\s+you\s+control\s+phase\s+out',
-        r'each\s+(?:creature|permanent)\s+you\s+control\s+phases?\s+out',
-        # Pronoun reference to "you control" context
-        r'(?:creatures?|permanents?|planeswalkers?)\s+you\s+control[^.]*(?:those|the)\s+(?:creatures?|permanents?|planeswalkers?)\s+phase\s+out',
-        r'creature\s+you\s+control[^.]*(?:it)\s+phases?\s+out',
-        # "Those permanents" referring back to controlled permanents (across sentence boundaries)
-        r'you\s+control.*those\s+(?:creatures?|permanents?|planeswalkers?)\s+phase\s+out',
-        # Equipment/Aura (beneficial to your permanents)
-        r'equipped\s+(?:creature|permanent)\s+(?:gets\s+[^.]*\s+and\s+)?phases?\s+out',
-        r'enchanted\s+(?:creature|permanent)\s+(?:gets\s+[^.]*\s+and\s+)?phases?\s+out',
-        r'enchanted\s+(?:creature|permanent)\s+(?:has|gains?)\s+phasing',  # NEW: "has phasing" for Cloak of Invisibility, Teferi's Curse
-        # Pronoun reference after equipped/enchanted creature mentioned
-        r'(?:equipped|enchanted)\s+(?:creature|permanent)[^.]*,?\s+(?:then\s+)?that\s+(?:creature|permanent)\s+phases?\s+out',
-        # Target controlled by specific player
-        r'(?:each|target)\s+(?:creature|permanent)\s+target\s+player\s+controls\s+phases?\s+out',
-    ]
-    
-    if any(re.search(pattern, text_lower) for pattern in your_patterns):
-        tags.add("Your Permanents: Phasing")
-        logger.debug(f"Card '{card_name}': detected Your Permanents: Phasing")
-    
-    # Check for blanket phasing (all permanents, no ownership)
-    blanket_patterns = [
-        r'all\s+(?:nontoken\s+)?(?:creatures?|permanents?)(?:\s+of\s+that\s+type)?\s+(?:[^.]*\s+)?phase\s+out',
-        r'each\s+(?:creature|permanent)\s+(?:[^.]*\s+)?phases?\s+out',
-        # NEW: Type-specific blanket (Shimmer: "Each land of the chosen type has phasing")
-        r'each\s+(?:land|creature|permanent|artifact|enchantment)\s+of\s+the\s+chosen\s+type\s+has\s+phasing',
-        r'(?:lands?|creatures?|permanents?|artifacts?|enchantments?)\s+of\s+the\s+chosen\s+type\s+(?:have|has)\s+phasing',
-        # Pronoun reference to "all creatures"
-        r'all\s+(?:nontoken\s+)?(?:creatures?|permanents?)[^.]*,?\s+(?:then\s+)?(?:those|the)\s+(?:creatures?|permanents?)\s+phase\s+out',
-    ]
-    
-    # Only blanket if no specific ownership mentioned
-    has_blanket_pattern = any(re.search(pattern, text_lower) for pattern in blanket_patterns)
-    no_ownership = 'you control' not in text_lower and 'target player controls' not in text_lower and 'opponent' not in text_lower
-    
-    if has_blanket_pattern and no_ownership:
-        tags.add("Blanket: Phasing")
-        logger.debug(f"Card '{card_name}': detected Blanket: Phasing")
+    # Format scope tags with "Phasing" ability name
+    for scope in scopes:
+        if scope == "Targeted":
+            tags.add("Targeted: Phasing")
+        else:
+            tags.add(scope_utils.format_scope_tag(scope, "Phasing"))
+        logger.debug(f"Card '{card_name}': detected {scope}: Phasing")
     
     return tags
 

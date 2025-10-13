@@ -438,7 +438,7 @@ DEFAULT_REMOVAL_COUNT: Final[int] = 10  # Default number of spot removal spells
 DEFAULT_WIPES_COUNT: Final[int] = 2  # Default number of board wipes
 
 DEFAULT_CARD_ADVANTAGE_COUNT: Final[int] = 10  # Default number of card advantage pieces
-DEFAULT_PROTECTION_COUNT: Final[int] = 8  # Default number of protection spells
+DEFAULT_PROTECTION_COUNT: Final[int] = 8  # Default number of protective effects (hexproof, indestructible, protection, ward, etc.)
 
 # Deck composition prompts
 DECK_COMPOSITION_PROMPTS: Final[Dict[str, str]] = {
@@ -450,7 +450,7 @@ DECK_COMPOSITION_PROMPTS: Final[Dict[str, str]] = {
     'removal': 'Enter desired number of spot removal spells (default: 10):',
     'wipes': 'Enter desired number of board wipes (default: 2):',
     'card_advantage': 'Enter desired number of card advantage pieces (default: 10):',
-    'protection': 'Enter desired number of protection spells (default: 8):',
+    'protection': 'Enter desired number of protective effects (default: 8):',
     'max_deck_price': 'Enter maximum total deck price in dollars (default: 400.0):',
     'max_card_price': 'Enter maximum price per card in dollars (default: 20.0):'
 }
@@ -511,7 +511,7 @@ DEFAULT_THEME_TAGS = [
     'Combat Matters', 'Control', 'Counters Matter', 'Energy',
     'Enter the Battlefield', 'Equipment', 'Exile Matters', 'Infect',
     'Interaction', 'Lands Matter', 'Leave the Battlefield', 'Legends Matter',
-    'Life Matters', 'Mill', 'Monarch', 'Protection', 'Ramp', 'Reanimate',
+    'Life Matters', 'Mill', 'Monarch', 'Protective Effects', 'Ramp', 'Reanimate',
     'Removal', 'Sacrifice Matters', 'Spellslinger', 'Stax', 'Superfriends',
     'Theft', 'Token Creation', 'Tokens Matter', 'Voltron', 'X Spells'
 ]

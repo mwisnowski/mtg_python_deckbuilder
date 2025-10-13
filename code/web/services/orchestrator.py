@@ -900,7 +900,7 @@ def ideal_labels() -> Dict[str, str]:
         'removal': 'Spot Removal',
         'wipes': 'Board Wipes',
         'card_advantage': 'Card Advantage',
-        'protection': 'Protection',
+        'protection': 'Protective Effects',
     }
 
 
@@ -1911,7 +1911,7 @@ def _make_stages(b: DeckBuilder) -> List[Dict[str, Any]]:
         ("removal", "Confirm Removal", "add_removal"),
         ("wipes", "Confirm Board Wipes", "add_board_wipes"),
         ("card_advantage", "Confirm Card Advantage", "add_card_advantage"),
-        ("protection", "Confirm Protection", "add_protection"),
+        ("protection", "Confirm Protective Effects", "add_protection"),
     ]
     any_granular = any(callable(getattr(b, rn, None)) for _key, _label, rn in spell_categories)
     if any_granular:

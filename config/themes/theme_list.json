@@ -36,7 +36,7 @@
       ],
       "popularity_bucket": "Very Common",
       "editorial_quality": "draft",
-      "description": "+1/+1 counters build across the board then get doubled, proliferated, or redistributed for exponential scaling. Synergies like Proliferate and Counters Matter reinforce the plan."
+      "description": "+1/+1 counters build across the board then get doubled, proliferated, or redistributed for exponential scaling. Synergies like Adapt and Evolve reinforce the plan."
     },
     {
       "id": "0-1-counters",
@@ -319,10 +319,10 @@
       "theme": "Affinity",
       "synergies": [
         "Cost Reduction",
+        "X Spells",
         "Artifacts Matter",
         "Big Mana",
-        "Flying",
-        "Stax"
+        "Flying"
       ],
       "primary_color": "Blue",
       "secondary_color": "Red",
@@ -346,9 +346,9 @@
       "synergy_commanders": [
         "Ghalta, Primal Hunger - Synergy (Cost Reduction)",
         "Goreclaw, Terror of Qal Sisma - Synergy (Cost Reduction)",
-        "Ragavan, Nimble Pilferer - Synergy (Artifacts Matter)",
-        "Loran of the Third Path - Synergy (Artifacts Matter)",
-        "Syr Konrad, the Grim - Synergy (Big Mana)"
+        "Birgi, God of Storytelling // Harnfel, Horn of Bounty - Synergy (X Spells)",
+        "Danitha Capashen, Paragon - Synergy (X Spells)",
+        "Ragavan, Nimble Pilferer - Synergy (Artifacts Matter)"
       ],
       "popularity_bucket": "Niche",
       "editorial_quality": "draft",
@@ -753,7 +753,7 @@
         "Lifegain",
         "Life Matters",
         "Flying",
-        "Lifelink"
+        "Protection"
       ],
       "primary_color": "White",
       "secondary_color": "Black",
@@ -2324,9 +2324,9 @@
       "synergies": [
         "Flying",
         "Soldier Kindred",
+        "Protection",
         "Morph",
-        "Little Fellas",
-        "Landfall"
+        "Protection from Color"
       ],
       "primary_color": "White",
       "secondary_color": "Blue",
@@ -2353,7 +2353,7 @@
         "Old Gnawbone - Synergy (Flying)",
         "Boromir, Warden of the Tower - Synergy (Soldier Kindred)",
         "Anim Pakal, Thousandth Moon - Synergy (Soldier Kindred)",
-        "Akroma, Angel of Fury - Synergy (Morph)"
+        "Yawgmoth, Thran Physician - Synergy (Protection)"
       ],
       "popularity_bucket": "Common",
       "editorial_quality": "draft",
@@ -3361,9 +3361,9 @@
       "synergies": [
         "Spirit Kindred",
         "Cost Reduction",
+        "X Spells",
         "Lands Matter",
-        "Artifacts Matter",
-        "Enchantments Matter"
+        "Artifacts Matter"
       ],
       "primary_color": "Green",
       "secondary_color": "Blue",
@@ -3388,7 +3388,7 @@
         "Junji, the Midnight Sky - Synergy (Spirit Kindred)",
         "Ghalta, Primal Hunger - Synergy (Cost Reduction)",
         "Emry, Lurker of the Loch - Synergy (Cost Reduction)",
-        "Azusa, Lost but Seeking - Synergy (Lands Matter)"
+        "Birgi, God of Storytelling // Harnfel, Horn of Bounty - Synergy (X Spells)"
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
@@ -3713,12 +3713,18 @@
     {
       "id": "cloak",
       "theme": "Cloak",
-      "synergies": [],
+      "synergies": [
+        "Ward",
+        "Protective Effects"
+      ],
       "primary_color": "Blue",
       "secondary_color": "White",
       "example_commanders": [
         "Etrata, Deadly Fugitive",
-        "Vannifar, Evolved Enigma"
+        "Vannifar, Evolved Enigma",
+        "Adrix and Nev, Twincasters - Synergy (Ward)",
+        "Miirym, Sentinel Wyrm - Synergy (Ward)",
+        "Daxos, Blessed by the Sun - Synergy (Ward)"
       ],
       "example_cards": [
         "Unexplained Absence",
@@ -3729,6 +3735,10 @@
         "Become Anonymous",
         "Cryptic Coat",
         "Veiled Ascension"
+      ],
+      "synergy_commanders": [
+        "Toski, Bearer of Secrets - Synergy (Protective Effects)",
+        "Mondrak, Glory Dominus - Synergy (Protective Effects)"
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
@@ -4423,7 +4433,7 @@
         "Freerunning",
         "Waterbending",
         "Undaunted",
-        "Leech Kindred"
+        "X Spells"
       ],
       "primary_color": "Blue",
       "secondary_color": "Red",
@@ -4676,10 +4686,10 @@
       "theme": "Crab Kindred",
       "synergies": [
         "Toughness Matters",
+        "Protective Effects",
         "Mill",
         "Blink",
-        "Enter the Battlefield",
-        "Leave the Battlefield"
+        "Enter the Battlefield"
       ],
       "primary_color": "Blue",
       "secondary_color": "Black",
@@ -4701,9 +4711,9 @@
         "Hard Evidence"
       ],
       "synergy_commanders": [
-        "Syr Konrad, the Grim - Synergy (Mill)",
-        "Emry, Lurker of the Loch - Synergy (Mill)",
-        "Selvala, Heart of the Wilds - Synergy (Blink)"
+        "Toski, Bearer of Secrets - Synergy (Protective Effects)",
+        "Mondrak, Glory Dominus - Synergy (Protective Effects)",
+        "Syr Konrad, the Grim - Synergy (Mill)"
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
@@ -5320,6 +5330,8 @@
       "id": "demigod-kindred",
       "theme": "Demigod Kindred",
       "synergies": [
+        "Ward",
+        "Protective Effects",
         "Enchantments Matter"
       ],
       "primary_color": "Black",
@@ -5342,9 +5354,11 @@
         "Tymaret, Chosen from Death"
       ],
       "synergy_commanders": [
-        "Sram, Senior Edificer - Synergy (Enchantments Matter)",
-        "Purphoros, God of the Forge - Synergy (Enchantments Matter)",
-        "Jaheira, Friend of the Forest - Synergy (Enchantments Matter)"
+        "Adrix and Nev, Twincasters - Synergy (Ward)",
+        "Miirym, Sentinel Wyrm - Synergy (Ward)",
+        "Toski, Bearer of Secrets - Synergy (Protective Effects)",
+        "Mondrak, Glory Dominus - Synergy (Protective Effects)",
+        "Sram, Senior Edificer - Synergy (Enchantments Matter)"
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
@@ -5741,7 +5755,7 @@
         "Elder Kindred",
         "Fight",
         "Trample",
-        "Ward"
+        "Cycling"
       ],
       "primary_color": "Green",
       "secondary_color": "Red",
@@ -5855,11 +5869,11 @@
       "id": "disguise",
       "theme": "Disguise",
       "synergies": [
+        "Ward",
         "Detective Kindred",
+        "Protective Effects",
         "Flying",
-        "+1/+1 Counters",
-        "Lifegain",
-        "Life Matters"
+        "+1/+1 Counters"
       ],
       "primary_color": "Green",
       "secondary_color": "White",
@@ -5867,8 +5881,8 @@
         "Bayek of Siwa",
         "Arno Dorian",
         "Aveline de Grandpré",
-        "Kellan, Inquisitive Prodigy // Tail the Suspect - Synergy (Detective Kindred)",
-        "Nelly Borca, Impulsive Accuser - Synergy (Detective Kindred)"
+        "Adrix and Nev, Twincasters - Synergy (Ward)",
+        "Miirym, Sentinel Wyrm - Synergy (Ward)"
       ],
       "example_cards": [
         "Bayek of Siwa",
@@ -5881,10 +5895,10 @@
         "Boltbender"
       ],
       "synergy_commanders": [
-        "Piper Wright, Publick Reporter - Synergy (Detective Kindred)",
-        "Niv-Mizzet, Parun - Synergy (Flying)",
-        "Avacyn, Angel of Hope - Synergy (Flying)",
-        "Rishkar, Peema Renegade - Synergy (+1/+1 Counters)"
+        "Daxos, Blessed by the Sun - Synergy (Ward)",
+        "Kellan, Inquisitive Prodigy // Tail the Suspect - Synergy (Detective Kindred)",
+        "Nelly Borca, Impulsive Accuser - Synergy (Detective Kindred)",
+        "Toski, Bearer of Secrets - Synergy (Protective Effects)"
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
@@ -5932,7 +5946,9 @@
       "id": "divinity-counters",
       "theme": "Divinity Counters",
       "synergies": [
+        "Indestructible",
         "Spirit Kindred",
+        "Protective Effects",
         "Counters Matter",
         "Big Mana"
       ],
@@ -5955,12 +5971,12 @@
         "Myojin of Infinite Rage"
       ],
       "synergy_commanders": [
+        "Toski, Bearer of Secrets - Synergy (Indestructible)",
+        "Mondrak, Glory Dominus - Synergy (Indestructible)",
+        "Purphoros, God of the Forge - Synergy (Indestructible)",
         "Kodama of the West Tree - Synergy (Spirit Kindred)",
         "Kodama of the East Tree - Synergy (Spirit Kindred)",
-        "Junji, the Midnight Sky - Synergy (Spirit Kindred)",
-        "Etali, Primal Conqueror // Etali, Primal Sickness - Synergy (Counters Matter)",
-        "Rishkar, Peema Renegade - Synergy (Counters Matter)",
-        "Syr Konrad, the Grim - Synergy (Big Mana)"
+        "Etali, Primal Conqueror // Etali, Primal Sickness - Synergy (Protective Effects)"
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
@@ -7045,7 +7061,7 @@
         "Auras",
         "Disturb",
         "Enchantments Matter",
-        "Protection from Color"
+        "Voltron"
       ],
       "primary_color": "Blue",
       "secondary_color": "White",
@@ -8380,7 +8396,7 @@
         "Sagas Matter",
         "Dinosaur Kindred",
         "Ore Counters",
-        "Burn"
+        "Indestructible"
       ],
       "primary_color": "Green",
       "secondary_color": "Red",
@@ -8486,7 +8502,7 @@
         "Aang, Airbending Master - Synergy (Bending)",
         "Birgi, God of Storytelling // Harnfel, Horn of Bounty - Synergy (Mana Dork)",
         "Selvala, Heart of the Wilds - Synergy (Mana Dork)",
-        "Goreclaw, Terror of Qal Sisma - Synergy (X Spells)"
+        "Ghalta, Primal Hunger - Synergy (X Spells)"
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
@@ -8499,8 +8515,8 @@
         "Banding",
         "Kithkin Kindred",
         "Knight Kindred",
-        "Partner",
-        "Minotaur Kindred"
+        "Protection",
+        "Partner"
       ],
       "primary_color": "White",
       "secondary_color": "Red",
@@ -9743,10 +9759,10 @@
       "theme": "God Kindred",
       "synergies": [
         "Indestructible",
+        "Ward",
+        "Protective Effects",
         "Transform",
-        "Midrange",
-        "Exile Matters",
-        "Sacrifice Matters"
+        "Midrange"
       ],
       "primary_color": "Black",
       "secondary_color": "White",
@@ -9769,9 +9785,10 @@
       ],
       "synergy_commanders": [
         "Toski, Bearer of Secrets - Synergy (Indestructible)",
-        "Etali, Primal Conqueror // Etali, Primal Sickness - Synergy (Indestructible)",
-        "Veyran, Voice of Duality - Synergy (Transform)",
-        "Rishkar, Peema Renegade - Synergy (Midrange)"
+        "Mondrak, Glory Dominus - Synergy (Indestructible)",
+        "Adrix and Nev, Twincasters - Synergy (Ward)",
+        "Miirym, Sentinel Wyrm - Synergy (Ward)",
+        "Etali, Primal Conqueror // Etali, Primal Sickness - Synergy (Protective Effects)"
       ],
       "popularity_bucket": "Niche",
       "editorial_quality": "draft",
@@ -10555,10 +10572,10 @@
       "theme": "Hexproof",
       "synergies": [
         "Hexproof from",
-        "Protection",
+        "Protective Effects",
         "Indestructible",
         "Flash",
-        "Combat Tricks"
+        "Stax"
       ],
       "primary_color": "Green",
       "secondary_color": "Blue",
@@ -10572,20 +10589,20 @@
       "example_cards": [
         "Swiftfoot Boots",
         "Heroic Intervention",
+        "Shadowspear",
         "Tamiyo's Safekeeping",
         "Dawn's Truce",
         "Plaza of Heroes",
         "Veil of Summer",
-        "Snakeskin Veil",
-        "Tyvar's Stand"
+        "Snakeskin Veil"
       ],
       "synergy_commanders": [
         "General Ferrous Rokiric - Synergy (Hexproof from)",
         "Elenda, Saint of Dusk - Synergy (Hexproof from)",
         "Niv-Mizzet, Guildpact - Synergy (Hexproof from)",
-        "Boromir, Warden of the Tower - Synergy (Protection)",
-        "Avacyn, Angel of Hope - Synergy (Protection)",
-        "Toski, Bearer of Secrets - Synergy (Indestructible)"
+        "Toski, Bearer of Secrets - Synergy (Protective Effects)",
+        "Mondrak, Glory Dominus - Synergy (Protective Effects)",
+        "Purphoros, God of the Forge - Synergy (Indestructible)"
       ],
       "popularity_bucket": "Niche",
       "editorial_quality": "draft",
@@ -10595,7 +10612,8 @@
       "id": "hexproof-from",
       "theme": "Hexproof from",
       "synergies": [
-        "Hexproof"
+        "Hexproof",
+        "Protective Effects"
       ],
       "primary_color": "Black",
       "secondary_color": "Green",
@@ -10619,7 +10637,9 @@
       "synergy_commanders": [
         "Padeem, Consul of Innovation - Synergy (Hexproof)",
         "Skrelv, Defector Mite - Synergy (Hexproof)",
-        "Shalai, Voice of Plenty - Synergy (Hexproof)"
+        "Shalai, Voice of Plenty - Synergy (Hexproof)",
+        "Toski, Bearer of Secrets - Synergy (Protective Effects)",
+        "Mondrak, Glory Dominus - Synergy (Protective Effects)"
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
@@ -11033,11 +11053,11 @@
         "Ulvenwald Hydra"
       ],
       "synergy_commanders": [
+        "Ghalta, Primal Hunger - Synergy (X Spells)",
         "Birgi, God of Storytelling // Harnfel, Horn of Bounty - Synergy (X Spells)",
-        "Goreclaw, Terror of Qal Sisma - Synergy (X Spells)",
-        "Danitha Capashen, Paragon - Synergy (X Spells)",
-        "Ghalta, Primal Hunger - Synergy (Trample)",
+        "Emry, Lurker of the Loch - Synergy (X Spells)",
         "Etali, Primal Conqueror // Etali, Primal Sickness - Synergy (Trample)",
+        "Ghalta, Stampede Tyrant - Synergy (Trample)",
         "Rishkar, Peema Renegade - Synergy (+1/+1 Counters)"
       ],
       "popularity_bucket": "Niche",
@@ -11408,20 +11428,20 @@
       "id": "indestructible",
       "theme": "Indestructible",
       "synergies": [
+        "Divinity Counters",
         "God Kindred",
-        "Protection",
+        "Protective Effects",
         "Hexproof",
-        "Lifelink",
-        "Interaction"
+        "Lifelink"
       ],
       "primary_color": "White",
       "secondary_color": "Black",
       "example_commanders": [
         "Toski, Bearer of Secrets",
+        "Mondrak, Glory Dominus",
         "Purphoros, God of the Forge",
         "Etali, Primal Conqueror // Etali, Primal Sickness",
-        "Boromir, Warden of the Tower",
-        "Avacyn, Angel of Hope"
+        "Boromir, Warden of the Tower"
       ],
       "example_cards": [
         "Heroic Intervention",
@@ -11434,9 +11454,10 @@
         "Darksteel Citadel"
       ],
       "synergy_commanders": [
-        "Birgi, God of Storytelling // Harnfel, Horn of Bounty - Synergy (God Kindred)",
-        "Ojer Taq, Deepest Foundation // Temple of Civilization - Synergy (God Kindred)",
-        "Padeem, Consul of Innovation - Synergy (Hexproof)"
+        "Myojin of Life's Web - Synergy (Divinity Counters)",
+        "Myojin of Night's Reach - Synergy (Divinity Counters)",
+        "Myojin of Seeing Winds - Synergy (Divinity Counters)",
+        "Birgi, God of Storytelling // Harnfel, Horn of Bounty - Synergy (God Kindred)"
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
@@ -11556,10 +11577,10 @@
       "theme": "Insect Kindred",
       "synergies": [
         "Landfall",
+        "Shroud",
         "Poison Counters",
         "Druid Kindred",
-        "Horror Kindred",
-        "Time Counters"
+        "Horror Kindred"
       ],
       "primary_color": "Green",
       "secondary_color": "Black",
@@ -11584,9 +11605,9 @@
         "Tatyova, Benthic Druid - Synergy (Landfall)",
         "Aesi, Tyrant of Gyre Strait - Synergy (Landfall)",
         "Bristly Bill, Spine Sower - Synergy (Landfall)",
-        "Etali, Primal Conqueror // Etali, Primal Sickness - Synergy (Poison Counters)",
-        "Skrelv, Defector Mite - Synergy (Poison Counters)",
-        "Rishkar, Peema Renegade - Synergy (Druid Kindred)"
+        "Shay Cormac - Synergy (Shroud)",
+        "Eladamri, Lord of Leaves - Synergy (Shroud)",
+        "Etali, Primal Conqueror // Etali, Primal Sickness - Synergy (Poison Counters)"
       ],
       "popularity_bucket": "Common",
       "editorial_quality": "draft",
@@ -11637,7 +11658,7 @@
         "Combat Tricks",
         "Board Wipes",
         "Counterspells",
-        "Protection from Color"
+        "Phasing"
       ],
       "primary_color": "White",
       "secondary_color": "Black",
@@ -12344,9 +12365,9 @@
       "synergies": [
         "Flanking",
         "Adamant",
+        "Protection",
         "First strike",
-        "Double strike",
-        "Kithkin Kindred"
+        "Protection from Color"
       ],
       "primary_color": "White",
       "secondary_color": "Black",
@@ -12370,7 +12391,8 @@
       "synergy_commanders": [
         "Sidar Kondo of Jamuraa - Synergy (Flanking)",
         "Sidar Jabari - Synergy (Flanking)",
-        "Telim'Tor - Synergy (Flanking)"
+        "Telim'Tor - Synergy (Flanking)",
+        "Yawgmoth, Thran Physician - Synergy (Protection)"
       ],
       "popularity_bucket": "Common",
       "editorial_quality": "draft",
@@ -12462,9 +12484,9 @@
       "synergies": [
         "Draw Triggers",
         "Wheels",
+        "Protective Effects",
         "Creature Tokens",
-        "Stax",
-        "Big Mana"
+        "Stax"
       ],
       "primary_color": "Blue",
       "secondary_color": "Black",
@@ -12491,7 +12513,7 @@
         "Sheoldred, the Apocalypse - Synergy (Draw Triggers)",
         "Selvala, Heart of the Wilds - Synergy (Wheels)",
         "Niv-Mizzet, Parun - Synergy (Wheels)",
-        "Adeline, Resplendent Cathar - Synergy (Creature Tokens)"
+        "Toski, Bearer of Secrets - Synergy (Protective Effects)"
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
@@ -12780,10 +12802,10 @@
       "theme": "Leech Kindred",
       "synergies": [
         "Cost Reduction",
+        "X Spells",
         "Lifegain",
         "Life Matters",
-        "Burn",
-        "Little Fellas"
+        "Burn"
       ],
       "primary_color": "Black",
       "secondary_color": "Green",
@@ -12792,7 +12814,7 @@
         "Ghalta, Primal Hunger - Synergy (Cost Reduction)",
         "Emry, Lurker of the Loch - Synergy (Cost Reduction)",
         "Goreclaw, Terror of Qal Sisma - Synergy (Cost Reduction)",
-        "Tatyova, Benthic Druid - Synergy (Lifegain)"
+        "Birgi, God of Storytelling // Harnfel, Horn of Bounty - Synergy (X Spells)"
       ],
       "example_cards": [
         "Fumulus, the Infestation",
@@ -12805,8 +12827,8 @@
         "Monstrous War-Leech"
       ],
       "synergy_commanders": [
-        "Sheoldred, the Apocalypse - Synergy (Lifegain)",
-        "Vito, Thorn of the Dusk Rose - Synergy (Life Matters)"
+        "Danitha Capashen, Paragon - Synergy (X Spells)",
+        "Tatyova, Benthic Druid - Synergy (Lifegain)"
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
@@ -16791,8 +16813,8 @@
       "id": "phasing",
       "theme": "Phasing",
       "synergies": [
-        "Protection",
         "Equipment Matters",
+        "Protective Effects",
         "Interaction",
         "Removal",
         "Artifacts Matter"
@@ -16804,7 +16826,7 @@
         "King of the Oathbreakers",
         "Cyclonus, the Saboteur // Cyclonus, Cybertronian Fighter",
         "Taniwha",
-        "Boromir, Warden of the Tower - Synergy (Protection)"
+        "Sram, Senior Edificer - Synergy (Equipment Matters)"
       ],
       "example_cards": [
         "Teferi's Protection",
@@ -16817,10 +16839,10 @@
         "Teferi, Master of Time"
       ],
       "synergy_commanders": [
-        "Avacyn, Angel of Hope - Synergy (Protection)",
-        "Yawgmoth, Thran Physician - Synergy (Protection)",
-        "Sram, Senior Edificer - Synergy (Equipment Matters)",
         "Kodama of the West Tree - Synergy (Equipment Matters)",
+        "Danitha Capashen, Paragon - Synergy (Equipment Matters)",
+        "Toski, Bearer of Secrets - Synergy (Protective Effects)",
+        "Mondrak, Glory Dominus - Synergy (Protective Effects)",
         "Syr Konrad, the Grim - Synergy (Interaction)"
       ],
       "popularity_bucket": "Rare",
@@ -17553,38 +17575,34 @@
       "id": "protection",
       "theme": "Protection",
       "synergies": [
+        "Protection from Creature Type",
         "Protection from Color",
-        "Indestructible",
-        "Phasing",
-        "Hexproof",
-        "Shroud"
+        "Protection from Quality",
+        "Protective Effects",
+        "Knight Kindred"
       ],
       "primary_color": "White",
       "secondary_color": "Green",
       "example_commanders": [
-        "Boromir, Warden of the Tower",
-        "Avacyn, Angel of Hope",
         "Yawgmoth, Thran Physician",
-        "Padeem, Consul of Innovation",
-        "Skrelv, Defector Mite"
+        "Emrakul, the Promised End",
+        "Greensleeves, Maro-Sorcerer",
+        "Animar, Soul of Elements",
+        "Emrakul, the World Anew"
       ],
       "example_cards": [
-        "Swiftfoot Boots",
-        "Lightning Greaves",
-        "Heroic Intervention",
-        "The One Ring",
-        "Teferi's Protection",
-        "Boros Charm",
-        "Flawless Maneuver",
-        "Akroma's Will"
+        "Yawgmoth, Thran Physician",
+        "Karmic Guide",
+        "Stonecoil Serpent",
+        "Emrakul, the Promised End",
+        "Greensleeves, Maro-Sorcerer",
+        "Animar, Soul of Elements",
+        "Emrakul, the World Anew",
+        "Reaver Titan"
       ],
       "synergy_commanders": [
-        "Emrakul, the World Anew - Synergy (Protection from Color)",
-        "Éowyn, Fearless Knight - Synergy (Protection from Color)",
-        "Lord of the Nazgûl - Synergy (Protection from Color)",
-        "Toski, Bearer of Secrets - Synergy (Indestructible)",
-        "Purphoros, God of the Forge - Synergy (Indestructible)",
-        "The War Doctor - Synergy (Phasing)"
+        "Katilda, Dawnhart Prime - Synergy (Protection from Creature Type)",
+        "Katilda, Dawnhart Martyr // Katilda's Rising Dawn - Synergy (Protection from Creature Type)"
       ],
       "popularity_bucket": "Common",
       "editorial_quality": "draft",
@@ -17595,40 +17613,183 @@
       "theme": "Protection from Color",
       "synergies": [
         "Protection",
-        "Enchant",
-        "Interaction",
-        "Auras",
-        "Cleric Kindred"
+        "Protective Effects",
+        "Threshold",
+        "Knight Kindred",
+        "Angel Kindred"
       ],
       "primary_color": "White",
       "secondary_color": "Green",
       "example_commanders": [
-        "Emrakul, the World Anew",
-        "Éowyn, Fearless Knight",
+        "Greensleeves, Maro-Sorcerer",
+        "Animar, Soul of Elements",
         "Lord of the Nazgûl",
-        "Katilda, Dawnhart Martyr // Katilda's Rising Dawn",
-        "Eight-and-a-Half-Tails"
+        "Akroma, Angel of Wrath",
+        "Teysa, Envoy of Ghosts"
       ],
       "example_cards": [
-        "The One Ring",
-        "Teferi's Protection",
         "Akroma's Will",
-        "Mother of Runes",
         "Commander's Plate",
         "Sword of Feast and Famine",
         "Sword of Hearth and Home",
-        "Sejiri Shelter // Sejiri Glacier"
+        "Karmic Guide",
+        "Akroma's Memorial",
+        "Sword of Fire and Ice",
+        "Giver of Runes"
       ],
       "synergy_commanders": [
-        "Boromir, Warden of the Tower - Synergy (Protection)",
-        "Avacyn, Angel of Hope - Synergy (Protection)",
         "Yawgmoth, Thran Physician - Synergy (Protection)",
-        "Dorothea, Vengeful Victim // Dorothea's Retribution - Synergy (Enchant)",
-        "Syr Konrad, the Grim - Synergy (Interaction)"
+        "Emrakul, the Promised End - Synergy (Protection)",
+        "Toski, Bearer of Secrets - Synergy (Protective Effects)",
+        "Mondrak, Glory Dominus - Synergy (Protective Effects)",
+        "Kiora, the Rising Tide - Synergy (Threshold)"
       ],
       "popularity_bucket": "Niche",
       "editorial_quality": "draft",
       "description": "Builds around Protection from Color leveraging synergies with Protection and Enchant."
+    },
+    {
+      "id": "protection-from-creature-type",
+      "theme": "Protection from Creature Type",
+      "synergies": [
+        "Protection",
+        "Protective Effects",
+        "Human Kindred",
+        "Little Fellas"
+      ],
+      "primary_color": "White",
+      "secondary_color": "Black",
+      "example_commanders": [
+        "Yawgmoth, Thran Physician",
+        "Katilda, Dawnhart Prime",
+        "Katilda, Dawnhart Martyr // Katilda's Rising Dawn",
+        "Emrakul, the Promised End - Synergy (Protection)",
+        "Greensleeves, Maro-Sorcerer - Synergy (Protection)"
+      ],
+      "example_cards": [
+        "Yawgmoth, Thran Physician",
+        "Katilda, Dawnhart Prime",
+        "Baneslayer Angel",
+        "Katilda, Dawnhart Martyr // Katilda's Rising Dawn",
+        "Elite Inquisitor",
+        "Dragon Hunter",
+        "Dragonstalker",
+        "Grave Bramble"
+      ],
+      "synergy_commanders": [
+        "Toski, Bearer of Secrets - Synergy (Protective Effects)",
+        "Mondrak, Glory Dominus - Synergy (Protective Effects)",
+        "Syr Konrad, the Grim - Synergy (Human Kindred)"
+      ],
+      "popularity_bucket": "Rare",
+      "editorial_quality": "draft",
+      "description": "Builds around Protection from Creature Type leveraging synergies with Protection and Protective Effects."
+    },
+    {
+      "id": "protection-from-creatures",
+      "theme": "Protection from Creatures",
+      "synergies": [
+        "Protective Effects"
+      ],
+      "primary_color": "White",
+      "secondary_color": "Blue",
+      "example_commanders": [
+        "Commander Eesha",
+        "Toski, Bearer of Secrets - Synergy (Protective Effects)",
+        "Mondrak, Glory Dominus - Synergy (Protective Effects)",
+        "Purphoros, God of the Forge - Synergy (Protective Effects)"
+      ],
+      "example_cards": [
+        "Spirit Mantle",
+        "Unquestioned Authority",
+        "Seasoned Dungeoneer",
+        "Holy Mantle",
+        "Riders of Gavony",
+        "Commander Eesha",
+        "Crypsis",
+        "Beloved Chaplain"
+      ],
+      "popularity_bucket": "Rare",
+      "editorial_quality": "draft",
+      "description": "Builds around Protection from Creatures leveraging synergies with Protective Effects."
+    },
+    {
+      "id": "protection-from-quality",
+      "theme": "Protection from Quality",
+      "synergies": [
+        "Protection",
+        "Protective Effects",
+        "Cleric Kindred",
+        "Interaction",
+        "Spirit Kindred"
+      ],
+      "primary_color": "White",
+      "secondary_color": "Green",
+      "example_commanders": [
+        "Emrakul, the Promised End",
+        "Emrakul, the World Anew",
+        "Pippin, Guard of the Citadel",
+        "Éowyn, Fearless Knight",
+        "Progenitus"
+      ],
+      "example_cards": [
+        "The One Ring",
+        "Teferi's Protection",
+        "Mother of Runes",
+        "Sejiri Shelter // Sejiri Glacier",
+        "Emrakul, the Promised End",
+        "Sword of Wealth and Power",
+        "Alseid of Life's Bounty",
+        "Serra's Emissary"
+      ],
+      "synergy_commanders": [
+        "Yawgmoth, Thran Physician - Synergy (Protection)",
+        "Greensleeves, Maro-Sorcerer - Synergy (Protection)",
+        "Toski, Bearer of Secrets - Synergy (Protective Effects)",
+        "Mondrak, Glory Dominus - Synergy (Protective Effects)",
+        "Vito, Thorn of the Dusk Rose - Synergy (Cleric Kindred)"
+      ],
+      "popularity_bucket": "Niche",
+      "editorial_quality": "draft",
+      "description": "Builds around Protection from Quality leveraging synergies with Protection and Protective Effects."
+    },
+    {
+      "id": "protective-effects",
+      "theme": "Protective Effects",
+      "synergies": [
+        "Indestructible",
+        "Ward",
+        "Hexproof",
+        "Protection from Color",
+        "Protection"
+      ],
+      "primary_color": "White",
+      "secondary_color": "Green",
+      "example_commanders": [
+        "Toski, Bearer of Secrets",
+        "Mondrak, Glory Dominus",
+        "Purphoros, God of the Forge",
+        "Etali, Primal Conqueror // Etali, Primal Sickness",
+        "Boromir, Warden of the Tower"
+      ],
+      "example_cards": [
+        "Swiftfoot Boots",
+        "Lightning Greaves",
+        "Heroic Intervention",
+        "The One Ring",
+        "Teferi's Protection",
+        "Roaming Throne",
+        "Boros Charm",
+        "Flawless Maneuver"
+      ],
+      "synergy_commanders": [
+        "Adrix and Nev, Twincasters - Synergy (Ward)",
+        "Miirym, Sentinel Wyrm - Synergy (Ward)",
+        "Padeem, Consul of Innovation - Synergy (Hexproof)"
+      ],
+      "popularity_bucket": "Very Common",
+      "editorial_quality": "draft",
+      "description": "Builds around Protective Effects leveraging synergies with Indestructible and Ward."
     },
     {
       "id": "prototype",
@@ -18202,8 +18363,8 @@
         "Ghyrson Starn, Kelermorph - Synergy (Tyranid Kindred)",
         "Old One Eye - Synergy (Tyranid Kindred)",
         "Magus Lucea Kane - Synergy (Tyranid Kindred)",
-        "Birgi, God of Storytelling // Harnfel, Horn of Bounty - Synergy (X Spells)",
-        "Goreclaw, Terror of Qal Sisma - Synergy (X Spells)"
+        "Ghalta, Primal Hunger - Synergy (X Spells)",
+        "Birgi, God of Storytelling // Harnfel, Horn of Bounty - Synergy (X Spells)"
       ],
       "example_cards": [
         "Jacked Rabbit",
@@ -19742,7 +19903,7 @@
         "Cost Reduction",
         "Stax",
         "Loot",
-        "Big Mana"
+        "X Spells"
       ],
       "primary_color": "Blue",
       "secondary_color": "Red",
@@ -20086,37 +20247,38 @@
       "id": "shroud",
       "theme": "Shroud",
       "synergies": [
-        "Protection",
-        "Interaction",
+        "Protective Effects",
+        "Insect Kindred",
+        "Beast Kindred",
         "Enchant",
-        "Auras",
-        "Enchantments Matter"
+        "Auras"
       ],
       "primary_color": "Green",
       "secondary_color": "Blue",
       "example_commanders": [
+        "Shay Cormac",
         "Eladamri, Lord of Leaves",
         "Multani, Maro-Sorcerer",
         "Kodama of the North Tree",
-        "Autumn Willow",
-        "Boromir, Warden of the Tower - Synergy (Protection)"
+        "Autumn Willow"
       ],
       "example_cards": [
         "Lightning Greaves",
+        "Whispersilk Cloak",
         "Sylvan Safekeeper",
         "Sterling Grove",
+        "Arcane Lighthouse",
         "Silver Shroud Costume",
         "Greater Auramancy",
-        "Pemmin's Aura",
-        "Argothian Enchantress",
-        "Scion of Oona"
+        "Pemmin's Aura"
       ],
       "synergy_commanders": [
-        "Avacyn, Angel of Hope - Synergy (Protection)",
-        "Yawgmoth, Thran Physician - Synergy (Protection)",
-        "Syr Konrad, the Grim - Synergy (Interaction)",
-        "Purphoros, God of the Forge - Synergy (Interaction)",
-        "Katilda, Dawnhart Martyr // Katilda's Rising Dawn - Synergy (Enchant)"
+        "Toski, Bearer of Secrets - Synergy (Protective Effects)",
+        "Mondrak, Glory Dominus - Synergy (Protective Effects)",
+        "Purphoros, God of the Forge - Synergy (Protective Effects)",
+        "The Locust God - Synergy (Insect Kindred)",
+        "Mazirek, Kraul Death Priest - Synergy (Insect Kindred)",
+        "Loot, Exuberant Explorer - Synergy (Beast Kindred)"
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
@@ -22184,7 +22346,7 @@
         "Minion Kindred",
         "Rat Kindred",
         "Reanimate",
-        "Mill"
+        "Protection from Color"
       ],
       "primary_color": "Black",
       "secondary_color": "Green",
@@ -23006,8 +23168,8 @@
         "Shaman Kindred",
         "Trample",
         "Warrior Kindred",
-        "+1/+1 Counters",
-        "Counters Matter"
+        "Protective Effects",
+        "+1/+1 Counters"
       ],
       "primary_color": "Green",
       "secondary_color": "Black",
@@ -23045,10 +23207,10 @@
       "theme": "Turtle Kindred",
       "synergies": [
         "Ward",
+        "Protective Effects",
         "Toughness Matters",
         "Stax",
-        "Little Fellas",
-        "Big Mana"
+        "Little Fellas"
       ],
       "primary_color": "Blue",
       "secondary_color": "Green",
@@ -23072,10 +23234,10 @@
       "synergy_commanders": [
         "Adrix and Nev, Twincasters - Synergy (Ward)",
         "Miirym, Sentinel Wyrm - Synergy (Ward)",
-        "Codsworth, Handy Helper - Synergy (Ward)",
-        "Azusa, Lost but Seeking - Synergy (Toughness Matters)",
-        "Sheoldred, the Apocalypse - Synergy (Toughness Matters)",
-        "Kutzil, Malamet Exemplar - Synergy (Stax)"
+        "Daxos, Blessed by the Sun - Synergy (Ward)",
+        "Toski, Bearer of Secrets - Synergy (Protective Effects)",
+        "Mondrak, Glory Dominus - Synergy (Protective Effects)",
+        "Azusa, Lost but Seeking - Synergy (Toughness Matters)"
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
@@ -23111,8 +23273,8 @@
         "Aberrant"
       ],
       "synergy_commanders": [
+        "Ghalta, Primal Hunger - Synergy (X Spells)",
         "Birgi, God of Storytelling // Harnfel, Horn of Bounty - Synergy (X Spells)",
-        "Goreclaw, Terror of Qal Sisma - Synergy (X Spells)",
         "Azusa, Lost but Seeking - Synergy (Ramp)"
       ],
       "popularity_bucket": "Rare",
@@ -23197,9 +23359,9 @@
       "synergies": [
         "Politics",
         "Cost Reduction",
+        "X Spells",
         "Big Mana",
-        "Spells Matter",
-        "Spellslinger"
+        "Spells Matter"
       ],
       "primary_color": "White",
       "secondary_color": "Black",
@@ -23219,7 +23381,7 @@
         "Elspeth's Devotee"
       ],
       "synergy_commanders": [
-        "Syr Konrad, the Grim - Synergy (Big Mana)"
+        "Birgi, God of Storytelling // Harnfel, Horn of Bounty - Synergy (X Spells)"
       ],
       "popularity_bucket": "Rare",
       "editorial_quality": "draft",
@@ -23270,7 +23432,7 @@
         "Aristocrats",
         "+1/+1 Counters",
         "Zombie Kindred",
-        "Counters Matter"
+        "Blink"
       ],
       "primary_color": "Black",
       "secondary_color": "Red",
@@ -23849,38 +24011,37 @@
       "id": "ward",
       "theme": "Ward",
       "synergies": [
-        "Turtle Kindred",
-        "Protection",
-        "Equipment",
-        "Equip",
-        "Dinosaur Kindred"
+        "Demigod Kindred",
+        "Disguise",
+        "Cloak",
+        "Protective Effects",
+        "Turtle Kindred"
       ],
       "primary_color": "Blue",
       "secondary_color": "Green",
       "example_commanders": [
         "Adrix and Nev, Twincasters",
         "Miirym, Sentinel Wyrm",
+        "Daxos, Blessed by the Sun",
         "Codsworth, Handy Helper",
-        "Ulamog, the Defiler",
-        "Valgavoth, Terror Eater"
+        "Ulamog, the Defiler"
       ],
       "example_cards": [
         "Roaming Throne",
+        "Gray Merchant of Asphodel",
+        "Thassa's Oracle",
         "Flowering of the White Tree",
         "Brotherhood Regalia",
         "Innkeeper's Talent",
         "Kappa Cannoneer",
-        "Adrix and Nev, Twincasters",
-        "Thran Power Suit",
-        "Miirym, Sentinel Wyrm"
+        "Adrix and Nev, Twincasters"
       ],
       "synergy_commanders": [
-        "Kogla and Yidaro - Synergy (Turtle Kindred)",
-        "The Pride of Hull Clade - Synergy (Turtle Kindred)",
-        "Archelos, Lagoon Mystic - Synergy (Turtle Kindred)",
-        "Boromir, Warden of the Tower - Synergy (Protection)",
-        "Avacyn, Angel of Hope - Synergy (Protection)",
-        "The Reality Chip - Synergy (Equipment)"
+        "Renata, Called to the Hunt - Synergy (Demigod Kindred)",
+        "Anikthea, Hand of Erebos - Synergy (Demigod Kindred)",
+        "Bayek of Siwa - Synergy (Disguise)",
+        "Arno Dorian - Synergy (Disguise)",
+        "Etrata, Deadly Fugitive - Synergy (Cloak)"
       ],
       "popularity_bucket": "Niche",
       "editorial_quality": "draft",
@@ -24605,35 +24766,35 @@
       "id": "x-spells",
       "theme": "X Spells",
       "synergies": [
+        "Affinity",
         "Ravenous",
         "Firebending",
-        "Hydra Kindred",
-        "Tyranid Kindred",
-        "Cost Reduction"
+        "Cost Reduction",
+        "Undaunted"
       ],
       "primary_color": "Red",
       "secondary_color": "Green",
       "example_commanders": [
+        "Ghalta, Primal Hunger",
         "Birgi, God of Storytelling // Harnfel, Horn of Bounty",
+        "Emry, Lurker of the Loch",
         "Goreclaw, Terror of Qal Sisma",
-        "Danitha Capashen, Paragon",
-        "Baral, Chief of Compliance",
-        "Mikaeus, the Lunarch"
+        "Danitha Capashen, Paragon"
       ],
       "example_cards": [
+        "Blasphemous Act",
+        "Boseiju, Who Endures",
+        "Otawara, Soaring City",
         "Herald's Horn",
+        "Takenuma, Abandoned Mire",
+        "The Great Henge",
         "Foundry Inspector",
-        "Finale of Devastation",
-        "Jet Medallion",
-        "Urza's Incubator",
-        "Exsanguinate",
-        "Ruby Medallion",
-        "Etherium Sculptor"
+        "Finale of Devastation"
       ],
       "synergy_commanders": [
-        "Fire Lord Zuko - Synergy (Firebending)",
-        "Zuko, Exiled Prince - Synergy (Firebending)",
-        "The Goose Mother - Synergy (Hydra Kindred)"
+        "Urza, Chief Artificer - Synergy (Affinity)",
+        "Nahiri, Forged in Fury - Synergy (Affinity)",
+        "Fire Lord Zuko - Synergy (Firebending)"
       ],
       "popularity_bucket": "Very Common",
       "editorial_quality": "draft",
@@ -24844,7 +25005,7 @@
       "Cantrips": 88,
       "Card Draw": 309,
       "Combat Tricks": 214,
-      "Interaction": 949,
+      "Interaction": 935,
       "Unconditional Draw": 133,
       "Bending": 5,
       "Cost Reduction": 68,
@@ -24870,7 +25031,9 @@
       "Sloth Kindred": 3,
       "Lands Matter": 169,
       "Gargoyle Kindred": 11,
-      "Protection": 276,
+      "Protection": 65,
+      "Protection from Color": 95,
+      "Protective Effects": 375,
       "Griffin Kindred": 43,
       "Cleric Kindred": 365,
       "Backgrounds Matter": 11,
@@ -24879,8 +25042,7 @@
       "Warrior Kindred": 155,
       "Control": 221,
       "Toolbox": 90,
-      "Removal": 409,
-      "Protection from Color": 69,
+      "Removal": 412,
       "Aristocrats": 155,
       "Haunt": 4,
       "Sacrifice Matters": 155,
@@ -24889,7 +25051,7 @@
       "Stax": 449,
       "+1/+1 Counters": 462,
       "Spirit Kindred": 223,
-      "X Spells": 60,
+      "X Spells": 100,
       "Cat Kindred": 132,
       "Entwine": 6,
       "Bolster": 13,
@@ -24898,13 +25060,14 @@
       "Knight Kindred": 237,
       "Battle Cry": 5,
       "Burn": 216,
+      "Ward": 39,
       "Survival": 5,
       "Survivor Kindred": 5,
       "Artifact Tokens": 132,
       "Charge Counters": 11,
       "Clones": 40,
       "Station": 5,
-      "Indestructible": 98,
+      "Indestructible": 140,
       "Vampire Kindred": 35,
       "Gnome Kindred": 13,
       "Angel Kindred": 218,
@@ -24923,7 +25086,7 @@
       "First strike": 126,
       "Scout Kindred": 54,
       "Construct Kindred": 15,
-      "Hexproof": 35,
+      "Hexproof": 40,
       "Convoke": 25,
       "Vehicles": 64,
       "Dwarf Kindred": 45,
@@ -24985,6 +25148,7 @@
       "Replacement Draw": 2,
       "Wheels": 39,
       "Nymph Kindred": 4,
+      "Protection from Quality": 49,
       "Coven": 10,
       "Peasant Kindred": 19,
       "Transform": 65,
@@ -25045,7 +25209,6 @@
       "Dinosaur Kindred": 29,
       "Sliver Kindred": 21,
       "Armadillo Kindred": 1,
-      "Ward": 22,
       "Horse Kindred": 11,
       "Celebration": 5,
       "Mouse Kindred": 13,
@@ -25080,6 +25243,7 @@
       "Shapeshifter Kindred": 9,
       "Boast": 4,
       "Detain": 5,
+      "Protection from Creature Type": 7,
       "Miracle": 6,
       "Doctor Kindred": 10,
       "Doctor's Companion": 8,
@@ -25098,6 +25262,7 @@
       "Bat Kindred": 11,
       "Enrage": 3,
       "Disturb": 10,
+      "Protection from Creatures": 7,
       "Flanking": 15,
       "Banding": 19,
       "Unicorn Kindred": 25,
@@ -25398,16 +25563,16 @@
       "Bird Kindred": 148,
       "Flying": 771,
       "Toughness Matters": 908,
-      "Aggro": 898,
+      "Aggro": 897,
       "Aristocrats": 119,
       "Auras": 347,
-      "Combat Matters": 898,
+      "Combat Matters": 897,
       "Enchant": 305,
       "Enchantments Matter": 735,
       "Midrange": 54,
       "Sacrifice Matters": 110,
       "Theft": 114,
-      "Voltron": 598,
+      "Voltron": 597,
       "Big Mana": 1224,
       "Elf Kindred": 11,
       "Mill": 564,
@@ -25421,19 +25586,19 @@
       "Manifest dread": 9,
       "Control": 666,
       "Counterspells": 348,
-      "Interaction": 827,
+      "Interaction": 824,
       "Stax": 915,
       "Fish Kindred": 43,
       "Flash": 169,
-      "Ward": 44,
-      "Protection": 88,
-      "Shroud": 24,
+      "Protective Effects": 198,
+      "Ward": 58,
+      "Shroud": 34,
       "Threshold": 9,
       "Historics Matter": 292,
       "Legends Matter": 292,
       "Noble Kindred": 13,
       "Octopus Kindred": 42,
-      "Removal": 257,
+      "Removal": 258,
       "Creature Tokens": 191,
       "Devoid": 34,
       "Eldrazi Kindred": 42,
@@ -25441,7 +25606,7 @@
       "Scion Kindred": 6,
       "Token Creation": 271,
       "Tokens Matter": 272,
-      "+1/+1 Counters": 223,
+      "+1/+1 Counters": 222,
       "Counters Matter": 478,
       "Drake Kindred": 75,
       "Kicker": 29,
@@ -25450,6 +25615,7 @@
       "Loot": 246,
       "Wizard Kindred": 526,
       "Cost Reduction": 144,
+      "X Spells": 194,
       "Artifacts Matter": 621,
       "Equipment Matters": 90,
       "Lands Matter": 198,
@@ -25503,7 +25669,6 @@
       "Max speed": 4,
       "Start your engines!": 4,
       "Scry": 138,
-      "X Spells": 109,
       "Shapeshifter Kindred": 58,
       "Evoke": 6,
       "Leviathan Kindred": 21,
@@ -25547,7 +25712,7 @@
       "Crab Kindred": 35,
       "Dragon Kindred": 45,
       "Elder Kindred": 4,
-      "Hexproof": 46,
+      "Hexproof": 66,
       "Faerie Kindred": 81,
       "Mana Dork": 47,
       "Morph": 43,
@@ -25589,6 +25754,8 @@
       "Amass": 13,
       "Army Kindred": 13,
       "Embalm": 5,
+      "Protection": 14,
+      "Protection from Color": 12,
       "Scout Kindred": 29,
       "Cycling": 74,
       "Jellyfish Kindred": 21,
@@ -25599,6 +25766,7 @@
       "Peasant Kindred": 3,
       "Griffin Kindred": 3,
       "Beeble Kindred": 3,
+      "Protection from Quality": 7,
       "Venture into the dungeon": 7,
       "Improvise": 8,
       "Cloak": 2,
@@ -25704,6 +25872,7 @@
       "Umbra armor": 4,
       "Dinosaur Kindred": 7,
       "Emerge": 6,
+      "Protection from Creatures": 1,
       "Worm Kindred": 2,
       "Processor Kindred": 4,
       "Bestow": 7,
@@ -25823,7 +25992,7 @@
       "Praetor Kindred": 3,
       "Experience Counters": 1,
       "Exhaust": 6,
-      "Indestructible": 4,
+      "Indestructible": 9,
       "Kithkin Kindred": 1,
       "Flanking": 1,
       "Minotaur Kindred": 1,
@@ -25947,7 +26116,7 @@
       "Big Mana": 1197,
       "Spells Matter": 1373,
       "Spellslinger": 1373,
-      "X Spells": 81,
+      "X Spells": 129,
       "Aggro": 1210,
       "Aristocrats": 658,
       "Combat Matters": 1210,
@@ -25960,8 +26129,10 @@
       "Demon Kindred": 164,
       "Flying": 476,
       "Harpy Kindred": 11,
+      "Protective Effects": 129,
       "Token Creation": 415,
       "Tokens Matter": 416,
+      "Ward": 35,
       "Combat Tricks": 174,
       "Interaction": 808,
       "Midrange": 69,
@@ -25992,8 +26163,7 @@
       "Trample": 54,
       "Specter Kindred": 21,
       "Centaur Kindred": 3,
-      "Indestructible": 32,
-      "Protection": 54,
+      "Indestructible": 57,
       "Warrior Kindred": 168,
       "Intimidate": 13,
       "Spirit Kindred": 145,
@@ -26066,13 +26236,13 @@
       "Disguise": 4,
       "Madness": 29,
       "Void": 10,
-      "Ward": 17,
       "Warp": 14,
       "Skeleton Kindred": 66,
       "Charge Counters": 9,
       "Mana Rock": 12,
       "Craft": 4,
       "Graveyard Matters": 5,
+      "Hexproof": 9,
       "Fabricate": 5,
       "Construct Kindred": 10,
       "Insect Kindred": 79,
@@ -26171,6 +26341,8 @@
       "Horse Kindred": 9,
       "Cat Kindred": 16,
       "Land Types Matter": 36,
+      "Protection": 26,
+      "Protection from Color": 27,
       "Equip": 32,
       "Equipment": 35,
       "Job select": 4,
@@ -26237,6 +26409,7 @@
       "Undying": 8,
       "Flanking": 4,
       "Changeling": 8,
+      "Shroud": 3,
       "Horsemanship": 7,
       "Council's dilemma": 1,
       "Alien Kindred": 5,
@@ -26356,7 +26529,6 @@
       "Glimmer Kindred": 2,
       "Miracle": 2,
       "Station": 4,
-      "Hexproof": 5,
       "Hexproof from": 2,
       "Fox Kindred": 1,
       "Defense Counters": 1,
@@ -26369,6 +26541,7 @@
       "Goad": 5,
       "Learn": 3,
       "Inkling Kindred": 2,
+      "Protection from Quality": 1,
       "Map Token": 1,
       "Skulk": 5,
       "Revolt": 3,
@@ -26444,7 +26617,6 @@
       "Plant Kindred": 2,
       "Manticore Kindred": 1,
       "Hit Counters": 2,
-      "Protection from Color": 2,
       "Cipher": 5,
       "Hour Counters": 1,
       "Processor Kindred": 2,
@@ -26454,6 +26626,7 @@
       "Astartes Kindred": 4,
       "Primarch Kindred": 1,
       "Divinity Counters": 1,
+      "Protection from Creature Type": 2,
       "Feeding Counters": 1,
       "Multiple Copies": 4,
       "Nazgûl": 1,
@@ -26532,11 +26705,11 @@
       "Little Fellas": 1255,
       "Mana Dork": 57,
       "Ramp": 98,
-      "Aggro": 1406,
-      "Combat Matters": 1406,
+      "Aggro": 1405,
+      "Combat Matters": 1405,
       "Combat Tricks": 160,
       "Discard Matters": 303,
-      "Interaction": 630,
+      "Interaction": 631,
       "Madness": 18,
       "Mill": 341,
       "Reanimate": 261,
@@ -26560,10 +26733,10 @@
       "Draw Triggers": 54,
       "Tyranid Kindred": 4,
       "Wheels": 58,
-      "+1/+1 Counters": 248,
-      "Counters Matter": 435,
+      "+1/+1 Counters": 247,
+      "Counters Matter": 434,
       "Renown": 5,
-      "Voltron": 536,
+      "Voltron": 535,
       "Auras": 196,
       "Enchant": 159,
       "Goad": 29,
@@ -26622,7 +26795,9 @@
       "Equipment Matters": 141,
       "Samurai Kindred": 20,
       "Shaman Kindred": 175,
-      "Protection": 19,
+      "Protection": 15,
+      "Protection from Color": 18,
+      "Protective Effects": 58,
       "Conditional Draw": 42,
       "Phyrexian Kindred": 44,
       "Ally Kindred": 19,
@@ -26649,7 +26824,7 @@
       "Planeswalkers": 67,
       "Superfriends": 67,
       "Vampire Kindred": 54,
-      "X Spells": 136,
+      "X Spells": 187,
       "Land Types Matter": 31,
       "Backgrounds Matter": 13,
       "Choose a background": 7,
@@ -26665,6 +26840,7 @@
       "Time Counters": 24,
       "Demigod Kindred": 1,
       "Satyr Kindred": 14,
+      "Ward": 22,
       "Elder Kindred": 2,
       "Fade Counters": 1,
       "Fading": 1,
@@ -26795,7 +26971,7 @@
       "Cumulative upkeep": 7,
       "Shark Kindred": 4,
       "Mouse Kindred": 9,
-      "Indestructible": 8,
+      "Indestructible": 17,
       "Discover": 9,
       "Card Selection": 2,
       "Explore": 1,
@@ -26856,7 +27032,6 @@
       "Encore": 4,
       "Domain": 6,
       "Multikicker": 4,
-      "Ward": 4,
       "Manticore Kindred": 9,
       "Treefolk Kindred": 1,
       "Licid Kindred": 2,
@@ -26972,7 +27147,6 @@
       "Exalted": 1,
       "Islandwalk": 1,
       "Battle Cry": 5,
-      "Protection from Color": 1,
       "Troll Kindred": 3,
       "Meld": 1,
       "Aim Counters": 1,
@@ -27036,6 +27210,7 @@
       "Bargain": 3,
       "Fish Kindred": 2,
       "Job select": 3,
+      "Protection from Quality": 1,
       "Ice Counters": 1,
       "Shell Counters": 1,
       "Badger Kindred": 2,
@@ -27098,13 +27273,13 @@
       "Token Creation": 520,
       "Tokens Matter": 529,
       "Artifacts Matter": 449,
-      "Interaction": 549,
+      "Interaction": 548,
       "Little Fellas": 1380,
       "Mutant Kindred": 27,
       "Ravenous": 7,
       "Removal": 248,
       "Tyranid Kindred": 16,
-      "X Spells": 119,
+      "X Spells": 171,
       "-1/-1 Counters": 66,
       "Age Counters": 19,
       "Cumulative upkeep": 15,
@@ -27187,21 +27362,21 @@
       "Elephant Kindred": 43,
       "Cycling": 52,
       "Discard Matters": 87,
-      "Indestructible": 41,
+      "Indestructible": 65,
       "Loot": 52,
-      "Protection": 105,
+      "Protective Effects": 247,
       "Vehicles": 25,
       "Revolt": 6,
       "Scout Kindred": 97,
       "Stax": 271,
-      "Hexproof": 67,
+      "Hexproof": 80,
       "Faerie Kindred": 13,
       "Soldier Kindred": 37,
       "Mount Kindred": 14,
       "Saddle": 9,
       "Troll Kindred": 29,
       "Crocodile Kindred": 11,
-      "Shroud": 28,
+      "Shroud": 32,
       "Brushwagg Kindred": 4,
       "Exile Matters": 87,
       "Outlaw Kindred": 31,
@@ -27223,7 +27398,7 @@
       "Treasure": 26,
       "Treasure Token": 25,
       "Turtle Kindred": 12,
-      "Ward": 31,
+      "Ward": 51,
       "Elder Kindred": 3,
       "Flying": 48,
       "Mana Rock": 16,
@@ -27236,6 +27411,8 @@
       "Rooms Matter": 5,
       "Frog Kindred": 26,
       "Threshold": 22,
+      "Protection": 28,
+      "Protection from Color": 20,
       "Enrage": 10,
       "Chimera Kindred": 4,
       "Hydra Kindred": 45,
@@ -27448,7 +27625,6 @@
       "Pilot Kindred": 4,
       "Sand Kindred": 2,
       "Egg Kindred": 2,
-      "Protection from Color": 4,
       "Soulbond": 8,
       "Employee Kindred": 3,
       "Robot Kindred": 5,
@@ -27480,6 +27656,7 @@
       "Melee": 2,
       "Overload": 2,
       "Nightmare Kindred": 1,
+      "Protection from Quality": 11,
       "Fox Kindred": 2,
       "Learn": 3,
       "Encore": 1,
@@ -27513,6 +27690,7 @@
       "Skeleton Kindred": 1,
       "Undergrowth": 6,
       "Paradox": 2,
+      "Protection from Creature Type": 2,
       "Crab Kindred": 1,
       "Riot": 3,
       "Kithkin Kindred": 3,
@@ -27638,12 +27816,12 @@
   "generated_from": "merge (analytics + curated YAML + whitelist)",
   "metadata_info": {
     "mode": "merge",
-    "generated_at": "2025-10-09T23:48:28",
-    "curated_yaml_files": 735,
+    "generated_at": "2025-10-13T04:26:36",
+    "curated_yaml_files": 739,
     "synergy_cap": 5,
     "inference": "pmi",
     "version": "phase-b-merge-v1",
-    "catalog_hash": "fd3931305d6c86535e5e9c5ec4e95b5a05bc7b125b9dd6557600a4b3cf610ce4"
+    "catalog_hash": "a6ca486659ada6088f6cba7e5aab4f5dd64cf66e8d2eb31280e4fbd5b67167b8"
   },
   "description_fallback_summary": null
 }

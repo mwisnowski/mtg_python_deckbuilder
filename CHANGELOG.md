@@ -19,6 +19,9 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
   - Intelligent deck builder filtering includes board-relevant protection while excluding self-only and type-specific cards
   - Tiered pool limiting focuses on high-quality staples while maintaining variety across builds
   - Improved scope tagging for cards with keyword-only protection effects (no grant text, just inherent keywords)
+- **Tagging Module Refactoring**: Large-scale refactor to improve code quality and maintainability
+  - Centralized regex patterns, extracted reusable utilities, decomposed complex functions
+  - Improved code organization and readability while maintaining 100% tagging accuracy
 
 ### Added
 - Metadata partition system separates diagnostic tags from gameplay themes in card data
@@ -42,11 +45,13 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 - Setup progress polling reduced from 3s to 5-10s intervals for better performance
 - Theme catalog streamlined from 753 to 736 themes (-2.3%) with improved quality
 - Protection tag refined to focus on 329 cards that grant shields (down from 1,166 with inherent effects)
+- Protection tag renamed to "Protective Effects" throughout web interface to avoid confusion with the Magic keyword "protection"
 - Theme catalog automatically excludes metadata tags from theme suggestions
 - Grant detection now strips reminder text before pattern matching to avoid false positives
 - Deck builder protection phase now filters by scope metadata: includes "Your Permanents:", excludes "Self:" protection
 - Protection card selection now randomized per build for variety (using seeded RNG when deterministic mode enabled)
 - Protection pool now limited to ~40-50 high-quality cards (tiered selection: top 3x target + random 10-20 extras)
+- Tagging module imports standardized with consistent organization and centralized constants
 
 ### Fixed
 - Setup progress now shows 100% completion instead of getting stuck at 99%
@@ -63,6 +68,9 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 - Cloak of Invisibility, Teferi's Curse now get "Your Permanents: Phasing" tags
 - Shimmer now gets "Blanket: Phasing" tag for chosen type effect
 - King of the Oathbreakers now gets "Self: Phasing" tag for reactive trigger
+- Cards with static keywords (Protection, Hexproof, Ward, Indestructible) in their keywords field now get proper scope metadata tags
+- Cards with X in their mana cost now properly identified and tagged with "X Spells" theme for better deck building accuracy
+- Card tagging system enhanced with smarter pattern detection and more consistent categorization
 
 ## [2.5.2] - 2025-10-08
 ### Summary

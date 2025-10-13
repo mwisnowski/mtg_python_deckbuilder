@@ -1759,6 +1759,7 @@ class DeckBuilder(
                 entry['Synergy'] = synergy
         else:
             # If no tags passed attempt enrichment from filtered pool first, then full snapshot
+            metadata_tags: list[str] = []
             if not tags:
                 # Use filtered pool (_combined_cards_df) instead of unfiltered (_full_cards_df)
                 # This ensures exclude filtering is respected during card enrichment
@@ -1774,6 +1775,13 @@ class DeckBuilder(
                                 # tolerate comma separated
                                 parts = [p.strip().strip("'\"") for p in raw_tags.split(',')]
                                 tags = [p for p in parts if p]
+                            # M5: Extract metadata tags for web UI display
+                            raw_meta = row_match.iloc[0].get('metadataTags', [])
+                            if isinstance(raw_meta, list):
+                                metadata_tags = [str(t).strip() for t in raw_meta if str(t).strip()]
+                            elif isinstance(raw_meta, str) and raw_meta.strip():
+                                parts = [p.strip().strip("'\"") for p in raw_meta.split(',')]
+                                metadata_tags = [p for p in parts if p]
                 except Exception:
                     pass
             # Enrich missing type and mana_cost for accurate categorization
@@ -1811,6 +1819,7 @@ class DeckBuilder(
                 'Mana Value': mana_value,
                 'Creature Types': creature_types,
                 'Tags': tags,
+                'MetadataTags': metadata_tags,  # M5: Store metadata tags for web UI
                 'Commander': is_commander,
                 'Count': 1,
                 'Role': (role or ('commander' if is_commander else None)),

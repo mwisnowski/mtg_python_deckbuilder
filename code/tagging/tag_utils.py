@@ -13,18 +13,11 @@ The module is designed to work with pandas DataFrames containing card data and p
 vectorized operations for efficient processing of large card collections.
 """
 from __future__ import annotations
-
-# Standard library imports
 import re
-from typing import List, Set, Union, Any, Tuple
 from functools import lru_cache
-
+from typing import Any, List, Set, Tuple, Union
 import numpy as np
-
-# Third-party imports
 import pandas as pd
-
-# Local application imports
 from . import tag_constants
 
 
@@ -58,7 +51,6 @@ def _ensure_norm_series(df: pd.DataFrame, source_col: str, norm_col: str) -> pd.
     """
     if norm_col in df.columns:
         return df[norm_col]
-    # Create normalized string series
     series = df[source_col].fillna('') if source_col in df.columns else pd.Series([''] * len(df), index=df.index)
     series = series.astype(str)
     df[norm_col] = series
@@ -120,8 +112,6 @@ def create_type_mask(df: pd.DataFrame, type_text: Union[str, List[str]], regex: 
 
     if len(df) == 0:
         return pd.Series([], dtype=bool)
-
-    # Use normalized cached series
     type_series = _ensure_norm_series(df, 'type', '__type_s')
 
     if regex:
@@ -160,8 +150,6 @@ def create_text_mask(df: pd.DataFrame, type_text: Union[str, List[str]], regex: 
 
     if len(df) == 0:
         return pd.Series([], dtype=bool)
-
-    # Use normalized cached series
     text_series = _ensure_norm_series(df, 'text', '__text_s')
 
     if regex:
@@ -192,10 +180,7 @@ def create_keyword_mask(df: pd.DataFrame, type_text: Union[str, List[str]], rege
         TypeError: If type_text is not a string or list of strings
         ValueError: If required 'keywords' column is missing from DataFrame
     """
-    # Validate required columns
     validate_dataframe_columns(df, {'keywords'})
-
-    # Handle empty DataFrame case
     if len(df) == 0:
         return pd.Series([], dtype=bool)
 
@@ -206,8 +191,6 @@ def create_keyword_mask(df: pd.DataFrame, type_text: Union[str, List[str]], rege
         type_text = [type_text]
     elif not isinstance(type_text, list):
         raise TypeError("type_text must be a string or list of strings")
-
-    # Use normalized cached series for keywords
     keywords = _ensure_norm_series(df, 'keywords', '__keywords_s')
 
     if regex:
@@ -245,8 +228,6 @@ def create_name_mask(df: pd.DataFrame, type_text: Union[str, List[str]], regex: 
 
     if len(df) == 0:
         return pd.Series([], dtype=bool)
-
-    # Use normalized cached series
     name_series = _ensure_norm_series(df, 'name', '__name_s')
 
     if regex:
@@ -324,21 +305,14 @@ def create_tag_mask(df: pd.DataFrame, tag_patterns: Union[str, List[str]], colum
         Boolean Series indicating matching rows
 
     Examples:
-        # Match cards with draw-related tags
         >>> mask = create_tag_mask(df, ['Card Draw', 'Conditional Draw'])
         >>> mask = create_tag_mask(df, 'Unconditional Draw')
     """
     if isinstance(tag_patterns, str):
         tag_patterns = [tag_patterns]
-
-    # Handle empty DataFrame case
     if len(df) == 0:
         return pd.Series([], dtype=bool)
-
-    # Create mask for each pattern
     masks = [df[column].apply(lambda x: any(pattern in tag for tag in x)) for pattern in tag_patterns]
-    
-    # Combine masks with OR
     return pd.concat(masks, axis=1).any(axis=1)
 
 def validate_dataframe_columns(df: pd.DataFrame, required_columns: Set[str]) -> None:
@@ -365,11 +339,7 @@ def apply_tag_vectorized(df: pd.DataFrame, mask: pd.Series[bool], tags: Union[st
     """
     if not isinstance(tags, list):
         tags = [tags]
-        
-    # Get current tags for masked rows
     current_tags = df.loc[mask, 'themeTags']
-    
-    # Add new tags
     df.loc[mask, 'themeTags'] = current_tags.apply(lambda x: sorted(list(set(x + tags))))
 
 def apply_rules(df: pd.DataFrame, rules: List[dict]) -> None:
@@ -463,7 +433,6 @@ def create_numbered_phrase_mask(
         numbers = tag_constants.NUM_TO_SEARCH
     # Normalize verbs to list
     verbs = [verb] if isinstance(verb, str) else verb
-    # Build patterns
     if noun:
         patterns = [fr"{v}\s+{num}\s+{noun}" for v in verbs for num in numbers]
     else:
@@ -490,13 +459,8 @@ def create_mass_damage_mask(df: pd.DataFrame) -> pd.Series[bool]:
     Returns:
         Boolean Series indicating which cards have mass damage effects
     """
-    # Create patterns for numeric damage
     number_patterns = [create_damage_pattern(i) for i in range(1, 21)]
-    
-    # Add X damage pattern
     number_patterns.append(create_damage_pattern('X'))
-    
-    # Add patterns for damage targets
     target_patterns = [
         'to each creature',
         'to all creatures',
@@ -504,9 +468,385 @@ def create_mass_damage_mask(df: pd.DataFrame) -> pd.Series[bool]:
         'to each opponent',
         'to everything'
     ]
-    
-    # Create masks
     damage_mask = create_text_mask(df, number_patterns)
     target_mask = create_text_mask(df, target_patterns)
     
     return damage_mask & target_mask
+
+
+# ==============================================================================
+# Keyword Normalization (M1 - Tagging Refinement)
+# ==============================================================================
+
+def normalize_keywords(
+    raw: Union[List[str], Set[str], Tuple[str, ...]],
+    allowlist: Set[str],
+    frequency_map: dict[str, int]
+) -> list[str]:
+    """Normalize keyword strings for theme tagging.
+    
+    Applies normalization rules:
+    1. Case normalization (via normalization map)
+    2. Canonical mapping (e.g., "Commander Ninjutsu" -> "Ninjutsu")
+    3. Singleton pruning (unless allowlisted)
+    4. Deduplication
+    5. Exclusion of blacklisted keywords
+    
+    Args:
+        raw: Iterable of raw keyword strings
+        allowlist: Set of keywords that should survive singleton pruning
+        frequency_map: Dict mapping keywords to their occurrence count
+    
+    Returns:
+        Deduplicated list of normalized keywords
+        
+    Raises:
+        ValueError: If raw is not iterable
+        
+    Examples:
+        >>> normalize_keywords(
+        ...     ['Commander Ninjutsu', 'Flying', 'Allons-y!'],
+        ...     {'Flying', 'Ninjutsu'},
+        ...     {'Commander Ninjutsu': 2, 'Flying': 100, 'Allons-y!': 1}
+        ... )
+        ['Ninjutsu', 'Flying']  # 'Allons-y!' pruned as singleton
+    """
+    if not hasattr(raw, '__iter__') or isinstance(raw, (str, bytes)):
+        raise ValueError(f"raw must be iterable, got {type(raw)}")
+    
+    normalized_keywords: set[str] = set()
+    
+    for keyword in raw:
+        if not isinstance(keyword, str):
+            continue
+        keyword = keyword.strip()
+        if not keyword:
+            continue
+        if keyword.lower() in tag_constants.KEYWORD_EXCLUSION_SET:
+            continue
+        normalized = tag_constants.KEYWORD_NORMALIZATION_MAP.get(keyword, keyword)
+        frequency = frequency_map.get(keyword, 0)
+        is_singleton = frequency == 1
+        is_allowlisted = normalized in allowlist or keyword in allowlist
+        
+        # Prune singletons that aren't allowlisted
+        if is_singleton and not is_allowlisted:
+            continue
+        
+        normalized_keywords.add(normalized)
+    
+    return sorted(list(normalized_keywords))
+
+
+# ==============================================================================
+# M3: Metadata vs Theme Tag Classification
+# ==============================================================================
+
+def classify_tag(tag: str) -> str:
+    """Classify a tag as either 'metadata' or 'theme'.
+    
+    Metadata tags are diagnostic, bracket-related, or internal annotations that
+    should not appear in theme catalogs or player-facing tag lists. Theme tags
+    represent gameplay mechanics and deck archetypes.
+    
+    Classification rules (in order of precedence):
+    1. Prefix match: Tags starting with METADATA_TAG_PREFIXES → metadata
+    2. Exact match: Tags in METADATA_TAG_ALLOWLIST → metadata
+    3. Kindred pattern: "{Type}s Gain Protection" → metadata
+    4. Default: All other tags → theme
+    
+    Args:
+        tag: Tag string to classify
+        
+    Returns:
+        "metadata" or "theme"
+        
+    Examples:
+        >>> classify_tag("Applied: Cost Reduction")
+        'metadata'
+        >>> classify_tag("Bracket: Game Changer")
+        'metadata'
+        >>> classify_tag("Knights Gain Protection")
+        'metadata'
+        >>> classify_tag("Card Draw")
+        'theme'
+        >>> classify_tag("Spellslinger")
+        'theme'
+    """
+    # Prefix-based classification
+    for prefix in tag_constants.METADATA_TAG_PREFIXES:
+        if tag.startswith(prefix):
+            return "metadata"
+    
+    # Exact match classification
+    if tag in tag_constants.METADATA_TAG_ALLOWLIST:
+        return "metadata"
+    
+    # Kindred protection metadata patterns: "{Type} Gain {Ability}"
+    # Covers all protective abilities: Protection, Ward, Hexproof, Shroud, Indestructible
+    # Examples: "Knights Gain Protection", "Spiders Gain Ward", "Merfolk Gain Ward"
+    # Note: Checks for " Gain " pattern since some creature types like "Merfolk" don't end in 's'
+    kindred_abilities = ["Protection", "Ward", "Hexproof", "Shroud", "Indestructible"]
+    for ability in kindred_abilities:
+        if " Gain " in tag and tag.endswith(ability):
+            return "metadata"
+    
+    # Protection scope metadata patterns (M5): "{Scope}: {Ability}"
+    # Indicates whether protection applies to self, your permanents, all permanents, or opponent's permanents
+    # Examples: "Self: Hexproof", "Your Permanents: Ward", "Blanket: Indestructible"
+    # These enable deck builder to filter for board-relevant protection vs self-only
+    protection_scopes = ["Self:", "Your Permanents:", "Blanket:", "Opponent Permanents:"]
+    for scope in protection_scopes:
+        if tag.startswith(scope):
+            return "metadata"
+    
+    # Phasing scope metadata patterns: "{Scope}: Phasing"
+    # Indicates whether phasing applies to self, your permanents, all permanents, or opponents
+    # Examples: "Self: Phasing", "Your Permanents: Phasing", "Blanket: Phasing", 
+    #           "Targeted: Phasing", "Opponent Permanents: Phasing"
+    # Similar to protection scopes, enables filtering for board-relevant phasing
+    # Opponent Permanents: Phasing also triggers Removal tag (removal-style phasing)
+    if tag in ["Self: Phasing", "Your Permanents: Phasing", "Blanket: Phasing", 
+               "Targeted: Phasing", "Opponent Permanents: Phasing"]:
+        return "metadata"
+    
+    # Default: treat as theme tag
+    return "theme"
+
+
+# --- Text Processing Helpers (M0.6) ---------------------------------------------------------
+def strip_reminder_text(text: str) -> str:
+    """Remove reminder text (content in parentheses) from card text.
+    
+    Reminder text often contains keywords and patterns that can cause false positives
+    in pattern matching. This function strips all parenthetical content to focus on
+    the actual game text.
+    
+    Args:
+        text: Card text possibly containing reminder text in parentheses
+        
+    Returns:
+        Text with all parenthetical content removed
+        
+    Example:
+        >>> strip_reminder_text("Hexproof (This creature can't be the target of spells)")
+        "Hexproof "
+    """
+    if not text:
+        return text
+    return re.sub(r'\([^)]*\)', '', text)
+
+
+def extract_context_window(text: str, match_start: int, match_end: int, 
+                           window_size: int = None, include_before: bool = False) -> str:
+    """Extract a context window around a regex match for validation.
+    
+    When pattern matching finds a potential match, we often need to examine
+    the surrounding text to validate the match or check for additional keywords.
+    This function extracts a window of text around the match position.
+    
+    Args:
+        text: Full text to extract context from
+        match_start: Start position of the regex match
+        match_end: End position of the regex match
+        window_size: Number of characters to include after the match.
+                    If None, uses CONTEXT_WINDOW_SIZE from tag_constants (default: 70).
+                    To include context before the match, use include_before=True.
+        include_before: If True, includes window_size characters before the match
+                       in addition to after. If False (default), only includes after.
+        
+    Returns:
+        Substring of text containing the match plus surrounding context
+        
+    Example:
+        >>> text = "Creatures you control have hexproof and vigilance"
+        >>> match = re.search(r'creatures you control', text)
+        >>> extract_context_window(text, match.start(), match.end(), window_size=30)
+        'Creatures you control have hexproof and '
+    """
+    if not text:
+        return text
+    if window_size is None:
+        from .tag_constants import CONTEXT_WINDOW_SIZE
+        window_size = CONTEXT_WINDOW_SIZE
+    
+    # Calculate window boundaries
+    if include_before:
+        context_start = max(0, match_start - window_size)
+    else:
+        context_start = match_start
+    
+    context_end = min(len(text), match_end + window_size)
+    
+    return text[context_start:context_end]
+
+
+# --- Enhanced Tagging Utilities (M3.5/M3.6) ----------------------------------------------------
+
+def build_combined_mask(
+    df: pd.DataFrame,
+    text_patterns: Union[str, List[str], None] = None,
+    type_patterns: Union[str, List[str], None] = None,
+    keyword_patterns: Union[str, List[str], None] = None,
+    name_list: Union[List[str], None] = None,
+    exclusion_patterns: Union[str, List[str], None] = None,
+    combine_with_or: bool = True
+) -> pd.Series[bool]:
+    """Build a combined boolean mask from multiple pattern types.
+    
+    This utility reduces boilerplate when creating complex masks by combining
+    text, type, keyword, and name patterns into a single mask. Patterns are
+    combined with OR by default, but can be combined with AND.
+    
+    Args:
+        df: DataFrame to search
+        text_patterns: Patterns to match in 'text' column
+        type_patterns: Patterns to match in 'type' column  
+        keyword_patterns: Patterns to match in 'keywords' column
+        name_list: List of exact card names to match
+        exclusion_patterns: Text patterns to exclude from final mask
+        combine_with_or: If True, combine masks with OR (default).
+                        If False, combine with AND (requires all conditions)
+    
+    Returns:
+        Boolean Series combining all specified patterns
+        
+    Example:
+        >>> # Match cards with flying OR haste, exclude creatures
+        >>> mask = build_combined_mask(
+        ...     df,
+        ...     keyword_patterns=['Flying', 'Haste'],
+        ...     exclusion_patterns='Creature'
+        ... )
+    """
+    if combine_with_or:
+        result = pd.Series([False] * len(df), index=df.index)
+    else:
+        result = pd.Series([True] * len(df), index=df.index)
+    masks = []
+    
+    if text_patterns is not None:
+        masks.append(create_text_mask(df, text_patterns))
+    
+    if type_patterns is not None:
+        masks.append(create_type_mask(df, type_patterns))
+    
+    if keyword_patterns is not None:
+        masks.append(create_keyword_mask(df, keyword_patterns))
+    
+    if name_list is not None:
+        masks.append(create_name_mask(df, name_list))
+    if masks:
+        if combine_with_or:
+            for mask in masks:
+                result |= mask
+        else:
+            for mask in masks:
+                result &= mask
+    if exclusion_patterns is not None:
+        exclusion_mask = create_text_mask(df, exclusion_patterns)
+        result &= ~exclusion_mask
+    
+    return result
+
+
+def tag_with_logging(
+    df: pd.DataFrame,
+    mask: pd.Series[bool],
+    tags: Union[str, List[str]],
+    log_message: str,
+    color: str = '',
+    logger=None
+) -> int:
+    """Apply tags with standardized logging.
+    
+    This utility wraps the common pattern of applying tags and logging the count.
+    It provides consistent formatting for log messages across the tagging module.
+    
+    Args:
+        df: DataFrame to modify
+        mask: Boolean mask indicating which rows to tag
+        tags: Tag(s) to apply
+        log_message: Description of what's being tagged (e.g., "flying creatures")
+        color: Color identifier for context (optional)
+        logger: Logger instance to use (optional, uses print if None)
+    
+    Returns:
+        Count of cards tagged
+        
+    Example:
+        >>> count = tag_with_logging(
+        ...     df,
+        ...     flying_mask,
+        ...     'Flying',
+        ...     'creatures with flying ability',
+        ...     color='blue',
+        ...     logger=logger
+        ... )
+        # Logs: "Tagged 42 blue creatures with flying ability"
+    """
+    count = mask.sum()
+    if count > 0:
+        apply_tag_vectorized(df, mask, tags)
+    color_part = f'{color} ' if color else ''
+    full_message = f'Tagged {count} {color_part}{log_message}'
+    
+    if logger:
+        logger.info(full_message)
+    else:
+        print(full_message)
+    
+    return count
+
+
+def tag_with_rules_and_logging(
+    df: pd.DataFrame,
+    rules: List[dict],
+    summary_message: str,
+    color: str = '',
+    logger=None
+) -> int:
+    """Apply multiple tag rules with summarized logging.
+    
+    This utility combines apply_rules with logging, providing a summary of
+    all cards affected across multiple rules.
+    
+    Args:
+        df: DataFrame to modify
+        rules: List of rule dicts (each with 'mask' and 'tags')
+        summary_message: Overall description (e.g., "card draw effects")
+        color: Color identifier for context (optional)
+        logger: Logger instance to use (optional)
+    
+    Returns:
+        Total count of unique cards affected by any rule
+        
+    Example:
+        >>> rules = [
+        ...     {'mask': flying_mask, 'tags': ['Flying']},
+        ...     {'mask': haste_mask, 'tags': ['Haste', 'Aggro']}
+        ... ]
+        >>> count = tag_with_rules_and_logging(
+        ...     df, rules, 'evasive creatures', color='red', logger=logger
+        ... )
+    """
+    affected = pd.Series([False] * len(df), index=df.index)
+    for rule in rules:
+        mask = rule.get('mask')
+        if callable(mask):
+            mask = mask(df)
+        if mask is not None and mask.any():
+            tags = rule.get('tags', [])
+            apply_tag_vectorized(df, mask, tags)
+            affected |= mask
+    
+    count = affected.sum()
+    color_part = f'{color} ' if color else ''
+    full_message = f'Tagged {count} {color_part}{summary_message}'
+    
+    if logger:
+        logger.info(full_message)
+    else:
+        print(full_message)
+    
+    return count

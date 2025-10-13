@@ -99,15 +99,51 @@ Execute saved configs without manual input.
 
 ### Initial Setup
 Refresh data and caches when formats shift.
-- Runs card downloads, CSV regeneration, tagging, and commander catalog rebuilds.
+- Runs card downloads, CSV regeneration, smart tagging (keywords + protection grants), and commander catalog rebuilds.
 - Controlled by `SHOW_SETUP=1` (on by default in compose).
-- Force a rebuild manually:
+- **Force a full rebuild (setup + tagging)**:
   ```powershell
-  docker compose run --rm --entrypoint bash web -lc "python -m code.file_setup.setup"
+  # Docker:
+  docker compose run --rm web python -c "from code.file_setup.setup import initial_setup; from code.tagging.tagger import run_tagging; initial_setup(); run_tagging()"
+  
+  # Local (with venv activated):
+  python -c "from code.file_setup.setup import initial_setup; from code.tagging.tagger import run_tagging; initial_setup(); run_tagging()"
+  
+  # With parallel processing (faster):
+  python -c "from code.file_setup.setup import initial_setup; from code.tagging.tagger import run_tagging; initial_setup(); run_tagging(parallel=True)"
+  
+  # With parallel processing and custom worker count:
+  python -c "from code.file_setup.setup import initial_setup; from code.tagging.tagger import run_tagging; initial_setup(); run_tagging(parallel=True, max_workers=4)"
   ```
-- Rebuild only the commander catalog:
+- **Rebuild only CSVs without tagging**:
   ```powershell
-  docker compose run --rm --entrypoint bash web -lc "python -m code.scripts.refresh_commander_catalog"
+  # Docker:
+  docker compose run --rm web python -c "from code.file_setup.setup import initial_setup; initial_setup()"
+  
+  # Local:
+  python -c "from code.file_setup.setup import initial_setup; initial_setup()"
+  ```
+- **Run only tagging (CSVs must exist)**:
+  ```powershell
+  # Docker:
+  docker compose run --rm web python -c "from code.tagging.tagger import run_tagging; run_tagging()"
+  
+  # Local:
+  python -c "from code.tagging.tagger import run_tagging; run_tagging()"
+  
+  # With parallel processing (faster):
+  python -c "from code.tagging.tagger import run_tagging; run_tagging(parallel=True)"
+  
+  # With parallel processing and custom worker count:
+  python -c "from code.tagging.tagger import run_tagging; run_tagging(parallel=True, max_workers=4)"
+  ```
+- **Rebuild only the commander catalog**:
+  ```powershell
+  # Docker:
+  docker compose run --rm web python -m code.scripts.refresh_commander_catalog
+  
+  # Local:
+  python -m code.scripts.refresh_commander_catalog
   ```
 
 ### Owned Library

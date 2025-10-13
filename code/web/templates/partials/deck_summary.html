@@ -74,7 +74,7 @@
                 {% set owned = (owned_set is defined and c.name and (c.name|lower in owned_set)) %}
                 <span class="count">{{ cnt }}</span>
                 <span class="times">x</span>
-                <span class="name dfc-anchor" title="{{ c.name }}" data-card-name="{{ c.name }}" data-count="{{ cnt }}" data-role="{{ c.role }}" data-tags="{{ (c.tags|map('trim')|join(', ')) if c.tags else '' }}"{% if overlaps %} data-overlaps="{{ overlaps|join(', ') }}"{% endif %}>{{ c.name }}</span>
+                <span class="name dfc-anchor" title="{{ c.name }}" data-card-name="{{ c.name }}" data-count="{{ cnt }}" data-role="{{ c.role }}" data-tags="{{ (c.tags|map('trim')|join(', ')) if c.tags else '' }}"{% if c.metadata_tags %} data-metadata-tags="{{ (c.metadata_tags|map('trim')|join(', ')) }}"{% endif %}{% if overlaps %} data-overlaps="{{ overlaps|join(', ') }}"{% endif %}>{{ c.name }}</span>
                 <span class="flip-slot" aria-hidden="true">
                   {% if c.dfc_land %}
                     <span class="dfc-land-chip {% if c.dfc_adds_extra_land %}extra{% else %}counts{% endif %}" title="{{ c.dfc_note or 'Modal double-faced land' }}">DFC land{% if c.dfc_adds_extra_land %} +1{% endif %}</span>

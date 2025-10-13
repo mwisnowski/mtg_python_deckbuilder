@@ -1,13 +1,59 @@
-from typing import Dict, List, Final
+"""
+Tag Constants Module
+
+Centralized constants for card tagging and theme detection across the MTG deckbuilder.
+This module contains all shared constants used by the tagging system including:
+- Card types and creature types
+- Pattern groups and regex fragments
+- Tag groupings and relationships
+- Protection and ability keywords
+- Magic numbers and thresholds
+"""
+
+from typing import Dict, Final, List
+
+# =============================================================================
+# TABLE OF CONTENTS
+# =============================================================================
+# 1. TRIGGERS & BASIC PATTERNS
+# 2. TAG GROUPS & RELATIONSHIPS
+# 3. PATTERN GROUPS & REGEX FRAGMENTS
+# 4. PHRASE GROUPS
+# 5. COUNTER TYPES
+# 6. CREATURE TYPES
+# 7. NON-CREATURE TYPES & SPECIAL TYPES
+# 8. PROTECTION & ABILITY KEYWORDS
+# 9. TOKEN TYPES
+# 10. MAGIC NUMBERS & THRESHOLDS
+# 11. DATAFRAME COLUMN REQUIREMENTS
+# 12. TYPE-TAG MAPPINGS
+# 13. DRAW-RELATED CONSTANTS
+# 14. EQUIPMENT-RELATED CONSTANTS
+# 15. AURA & VOLTRON CONSTANTS
+# 16. LANDS MATTER PATTERNS
+# 17. SACRIFICE & GRAVEYARD PATTERNS
+# 18. CREATURE-RELATED PATTERNS
+# 19. TOKEN-RELATED PATTERNS
+# 20. REMOVAL & DESTRUCTION PATTERNS
+# 21. SPELL-RELATED PATTERNS
+# 22. MISC PATTERNS & EXCLUSIONS
+
+# =============================================================================
+# 1. TRIGGERS & BASIC PATTERNS
+# =============================================================================
 
 TRIGGERS: List[str] = ['when', 'whenever', 'at']
 
-NUM_TO_SEARCH: List[str] = ['a', 'an', 'one', '1', 'two', '2', 'three', '3', 'four','4', 'five', '5',
-                'six', '6', 'seven', '7', 'eight', '8', 'nine', '9', 'ten', '10',
-                'x','one or more']
+NUM_TO_SEARCH: List[str] = [
+    'a', 'an', 'one', '1', 'two', '2', 'three', '3', 'four', '4', 'five', '5',
+    'six', '6', 'seven', '7', 'eight', '8', 'nine', '9', 'ten', '10',
+    'x', 'one or more'
+]
 
+# =============================================================================
+# 2. TAG GROUPS & RELATIONSHIPS
+# =============================================================================
 
-# Constants for common tag groupings
 TAG_GROUPS: Dict[str, List[str]] = {
     "Cantrips": ["Cantrips", "Card Draw", "Spellslinger", "Spells Matter"],
     "Tokens": ["Token Creation", "Tokens Matter"],
@@ -19,8 +65,11 @@ TAG_GROUPS: Dict[str, List[str]] = {
     "Spells": ["Spellslinger", "Spells Matter"]
 }
 
-# Common regex patterns
-PATTERN_GROUPS: Dict[str, str]  = {
+# =============================================================================
+# 3. PATTERN GROUPS & REGEX FRAGMENTS
+# =============================================================================
+
+PATTERN_GROUPS: Dict[str, str] = {
     "draw": r"draw[s]? a card|draw[s]? one card",
     "combat": r"attack[s]?|block[s]?|combat damage",
     "tokens": r"create[s]? .* token|put[s]? .* token",
@@ -30,7 +79,10 @@ PATTERN_GROUPS: Dict[str, str]  = {
     "cost_reduction": r"cost[s]? \{[\d\w]\} less|affinity for|cost[s]? less to cast|chosen type cost|copy cost|from exile cost|from exile this turn cost|from your graveyard cost|has undaunted|have affinity for artifacts|other than your hand cost|spells cost|spells you cast cost|that target .* cost|those spells cost|you cast cost|you pay cost"
 }
 
-# Common phrase groups (lists) used across taggers
+# =============================================================================
+# 4. PHRASE GROUPS
+# =============================================================================
+
 PHRASE_GROUPS: Dict[str, List[str]] = {
     # Variants for monarch wording
     "monarch": [
@@ -52,11 +104,15 @@ PHRASE_GROUPS: Dict[str, List[str]] = {
         r"return .* to the battlefield"
     ]
 }
-# Common action patterns
+
 CREATE_ACTION_PATTERN: Final[str] = r"create|put"
 
-# Creature/Counter types
-COUNTER_TYPES: List[str] = [r'\+0/\+1', r'\+0/\+2', r'\+1/\+0', r'\+1/\+2', r'\+2/\+0', r'\+2/\+2',
+# =============================================================================
+# 5. COUNTER TYPES
+# =============================================================================
+
+COUNTER_TYPES: List[str] = [
+    r'\+0/\+1', r'\+0/\+2', r'\+1/\+0', r'\+1/\+2', r'\+2/\+0', r'\+2/\+2',
                 '-0/-1', '-0/-2', '-1/-0', '-1/-2', '-2/-0', '-2/-2',
                 'Acorn', 'Aegis', 'Age', 'Aim', 'Arrow', 'Arrowhead','Awakening',
                 'Bait', 'Blaze', 'Blessing', 'Blight',' Blood', 'Bloddline',
@@ -90,9 +146,15 @@ COUNTER_TYPES: List[str] = [r'\+0/\+1', r'\+0/\+2', r'\+1/\+0', r'\+1/\+2', r'\+
                 'Task', 'Ticket', 'Tide', 'Time', 'Tower', 'Training', 'Trap',
                 'Treasure', 'Unity', 'Unlock', 'Valor', 'Velocity', 'Verse',
                 'Vitality', 'Void', 'Volatile', 'Vortex', 'Vow', 'Voyage', 'Wage',
-                'Winch', 'Wind', 'Wish']
+                'Winch', 'Wind', 'Wish'
+]
 
-CREATURE_TYPES: List[str] = ['Advisor', 'Aetherborn', 'Alien', 'Ally', 'Angel', 'Antelope', 'Ape', 'Archer', 'Archon', 'Armadillo',
+# =============================================================================
+# 6. CREATURE TYPES
+# =============================================================================
+
+CREATURE_TYPES: List[str] = [
+    'Advisor', 'Aetherborn', 'Alien', 'Ally', 'Angel', 'Antelope', 'Ape', 'Archer', 'Archon', 'Armadillo',
                 'Army', 'Artificer', 'Assassin', 'Assembly-Worker', 'Astartes', 'Atog', 'Aurochs', 'Automaton',
                 'Avatar', 'Azra', 'Badger', 'Balloon', 'Barbarian', 'Bard', 'Basilisk', 'Bat', 'Bear', 'Beast', 'Beaver',
                 'Beeble', 'Beholder', 'Berserker', 'Bird', 'Blinkmoth', 'Boar', 'Brainiac', 'Bringer', 'Brushwagg',
@@ -122,9 +184,15 @@ CREATURE_TYPES: List[str] = ['Advisor', 'Aetherborn', 'Alien', 'Ally', 'Angel', 
                 'Thopter', 'Thrull', 'Tiefling', 'Time Lord', 'Toy', 'Treefolk', 'Trilobite', 'Triskelavite', 'Troll',
                 'Turtle', 'Tyranid', 'Unicorn', 'Urzan', 'Vampire', 'Varmint', 'Vedalken', 'Volver', 'Wall', 'Walrus',
                 'Warlock', 'Warrior', 'Wasp', 'Weasel', 'Weird', 'Werewolf', 'Whale', 'Wizard', 'Wolf', 'Wolverine', 'Wombat',
-                'Worm', 'Wraith', 'Wurm', 'Yeti', 'Zombie', 'Zubera']
+                'Worm', 'Wraith', 'Wurm', 'Yeti', 'Zombie', 'Zubera'
+]
 
-NON_CREATURE_TYPES: List[str] = ['Legendary', 'Creature', 'Enchantment', 'Artifact',
+# =============================================================================
+# 7. NON-CREATURE TYPES & SPECIAL TYPES
+# =============================================================================
+
+NON_CREATURE_TYPES: List[str] = [
+    'Legendary', 'Creature', 'Enchantment', 'Artifact',
                 'Battle', 'Sorcery', 'Instant', 'Land', '-', '—',
                 'Blood', 'Clue', 'Food', 'Gold', 'Incubator',
                 'Junk', 'Map', 'Powerstone', 'Treasure',
@@ -136,23 +204,66 @@ NON_CREATURE_TYPES: List[str] = ['Legendary', 'Creature', 'Enchantment', 'Artifa
                 'Shrine',
                 'Plains', 'Island', 'Swamp', 'Forest', 'Mountain',
                 'Cave', 'Desert', 'Gate', 'Lair', 'Locus', 'Mine',
-                'Power-Plant', 'Sphere', 'Tower', 'Urza\'s']
+                'Power-Plant', 'Sphere', 'Tower', 'Urza\'s'
+]
 
 OUTLAW_TYPES: List[str] = ['Assassin', 'Mercenary', 'Pirate', 'Rogue', 'Warlock']
 
-ENCHANTMENT_TOKENS: List[str] = ['Cursed Role', 'Monster Role', 'Royal Role', 'Sorcerer Role',
-                'Virtuous Role', 'Wicked Role', 'Young Hero Role', 'Shard']
-ARTIFACT_TOKENS: List[str] = ['Blood', 'Clue', 'Food', 'Gold', 'Incubator',
-                'Junk','Map','Powerstone', 'Treasure']
+# =============================================================================
+# 8. PROTECTION & ABILITY KEYWORDS
+# =============================================================================
 
-# Constants for DataFrame validation and processing
+PROTECTION_ABILITIES: List[str] = [
+    'Protection',
+    'Ward',
+    'Hexproof',
+    'Shroud',
+    'Indestructible'
+]
+
+PROTECTION_KEYWORDS: Final[frozenset] = frozenset({
+    'hexproof',
+    'shroud',
+    'indestructible',
+    'ward',
+    'protection from',
+    'protection',
+})
+
+# =============================================================================
+# 9. TOKEN TYPES
+# =============================================================================
+
+ENCHANTMENT_TOKENS: List[str] = [
+    'Cursed Role', 'Monster Role', 'Royal Role', 'Sorcerer Role',
+    'Virtuous Role', 'Wicked Role', 'Young Hero Role', 'Shard'
+]
+
+ARTIFACT_TOKENS: List[str] = [
+    'Blood', 'Clue', 'Food', 'Gold', 'Incubator',
+    'Junk', 'Map', 'Powerstone', 'Treasure'
+]
+
+# =============================================================================
+# 10. MAGIC NUMBERS & THRESHOLDS
+# =============================================================================
+
+CONTEXT_WINDOW_SIZE: Final[int] = 70  # Characters to examine around a regex match
+
+# =============================================================================
+# 11. DATAFRAME COLUMN REQUIREMENTS
+# =============================================================================
+
 REQUIRED_COLUMNS: List[str] = [
     'name', 'faceName', 'edhrecRank', 'colorIdentity', 'colors',
     'manaCost', 'manaValue', 'type', 'creatureTypes', 'text',
     'power', 'toughness', 'keywords', 'themeTags', 'layout', 'side'
 ]
 
-# Mapping of card types to their corresponding theme tags
+# =============================================================================
+# 12. TYPE-TAG MAPPINGS
+# =============================================================================
+
 TYPE_TAG_MAPPING: Dict[str, List[str]] = {
     'Artifact': ['Artifacts Matter'],
     'Battle': ['Battles Matter'],
@@ -166,7 +277,10 @@ TYPE_TAG_MAPPING: Dict[str, List[str]] = {
     'Sorcery': ['Spells Matter', 'Spellslinger']
 }
 
-# Constants for draw-related functionality
+# =============================================================================
+# 13. DRAW-RELATED CONSTANTS
+# =============================================================================
+
 DRAW_RELATED_TAGS: List[str] = [
     'Card Draw',          # General card draw effects
     'Conditional Draw',   # Draw effects with conditions/triggers
@@ -175,16 +289,18 @@ DRAW_RELATED_TAGS: List[str] = [
     'Loot',              # Draw + discard effects
     'Replacement Draw',   # Effects that modify or replace draws
     'Sacrifice to Draw', # Draw effects requiring sacrificing permanents
-    'Unconditional Draw' # Pure card draw without conditions
+    'Unconditional Draw'  # Pure card draw without conditions
 ]
 
-# Text patterns that exclude cards from being tagged as unconditional draw
 DRAW_EXCLUSION_PATTERNS: List[str] = [
     'annihilator',  # Eldrazi mechanic that can match 'draw' patterns
-    'ravenous',     # Keyword that can match 'draw' patterns
+    'ravenous',  # Keyword that can match 'draw' patterns
 ]
 
-# Equipment-related constants
+# =============================================================================
+# 14. EQUIPMENT-RELATED CONSTANTS
+# =============================================================================
+
 EQUIPMENT_EXCLUSIONS: List[str] = [
     'Bruenor Battlehammer',         # Equipment cost reduction
     'Nazahn, Revered Bladesmith',   # Equipment tutor
@@ -223,7 +339,10 @@ EQUIPMENT_TEXT_PATTERNS: List[str] = [
     'unequip',          # Equipment removal
 ]
 
-# Aura-related constants
+# =============================================================================
+# 15. AURA & VOLTRON CONSTANTS
+# =============================================================================
+
 AURA_SPECIFIC_CARDS: List[str] = [
     'Ardenn, Intrepid Archaeologist',   # Aura movement
     'Calix, Guided By Fate',            # Create duplicate Auras
@@ -267,7 +386,10 @@ VOLTRON_PATTERNS: List[str] = [
     'reconfigure'
 ]
 
-# Constants for lands matter functionality
+# =============================================================================
+# 16. LANDS MATTER PATTERNS
+# =============================================================================
+
 LANDS_MATTER_PATTERNS: Dict[str, List[str]] = {
     'land_play': [
         'play a land',
@@ -850,3 +972,109 @@ TOPDECK_EXCLUSION_PATTERNS: List[str] = [
     'look at the top card of target player\'s library',
     'reveal the top card of target player\'s library'
 ]
+
+# ==============================================================================
+# Keyword Normalization (M1 - Tagging Refinement)
+# ==============================================================================
+
+# Keyword normalization map: variant -> canonical
+# Maps Commander-specific and variant keywords to their canonical forms
+KEYWORD_NORMALIZATION_MAP: Dict[str, str] = {
+    # Commander variants
+    'Commander ninjutsu': 'Ninjutsu',
+    'Commander Ninjutsu': 'Ninjutsu',
+    
+    # Partner variants (already excluded but mapped for reference)
+    'Partner with': 'Partner',
+    'Choose a Background': 'Choose a Background',  # Keep distinct
+    "Doctor's Companion": "Doctor's Companion",    # Keep distinct
+    
+    # Case normalization for common keywords (most are already correct)
+    'flying': 'Flying',
+    'trample': 'Trample',
+    'vigilance': 'Vigilance',
+    'haste': 'Haste',
+    'deathtouch': 'Deathtouch',
+    'lifelink': 'Lifelink',
+    'menace': 'Menace',
+    'reach': 'Reach',
+}
+
+# Keywords that should never appear in theme tags
+# Already excluded during keyword tagging, but documented here
+KEYWORD_EXCLUSION_SET: set[str] = {
+    'partner',  # Already excluded in tag_for_keywords
+}
+
+# Keyword allowlist - keywords that should survive singleton pruning
+# Seeded from top keywords and theme whitelist
+KEYWORD_ALLOWLIST: set[str] = {
+    # Evergreen keywords (top 50 from baseline)
+    'Flying', 'Enchant', 'Trample', 'Vigilance', 'Haste', 'Equip', 'Flash',
+    'Mill', 'Scry', 'Transform', 'Cycling', 'First strike', 'Reach', 'Menace',
+    'Lifelink', 'Treasure', 'Defender', 'Deathtouch', 'Kicker', 'Flashback',
+    'Protection', 'Surveil', 'Landfall', 'Crew', 'Ward', 'Morph', 'Devoid',
+    'Investigate', 'Fight', 'Food', 'Partner', 'Double strike', 'Indestructible',
+    'Threshold', 'Proliferate', 'Convoke', 'Hexproof', 'Cumulative upkeep',
+    'Goad', 'Delirium', 'Prowess', 'Suspend', 'Affinity', 'Madness', 'Manifest',
+    'Amass', 'Domain', 'Unearth', 'Explore', 'Changeling',
+    
+    # Additional important mechanics
+    'Myriad', 'Cascade', 'Storm', 'Dredge', 'Delve', 'Escape', 'Mutate',
+    'Ninjutsu', 'Overload', 'Rebound', 'Retrace', 'Bloodrush', 'Cipher',
+    'Extort', 'Evolve', 'Undying', 'Persist', 'Wither', 'Infect', 'Annihilator',
+    'Exalted', 'Phasing', 'Shadow', 'Horsemanship', 'Banding', 'Rampage',
+    'Shroud', 'Split second', 'Totem armor', 'Living weapon', 'Undaunted',
+    'Improvise', 'Surge', 'Emerge', 'Escalate', 'Meld', 'Partner', 'Afflict',
+    'Aftermath', 'Embalm', 'Eternalize', 'Exert', 'Fabricate', 'Improvise',
+    'Assist', 'Jump-start', 'Mentor', 'Riot', 'Spectacle', 'Addendum',
+    'Afterlife', 'Adapt', 'Enrage', 'Ascend', 'Learn', 'Boast', 'Foretell',
+    'Squad', 'Encore', 'Daybound', 'Nightbound', 'Disturb', 'Cleave', 'Training',
+    'Reconfigure', 'Blitz', 'Casualty', 'Connive', 'Hideaway', 'Prototype',
+    'Read ahead', 'Living metal', 'More than meets the eye', 'Ravenous',
+    'Squad', 'Toxic', 'For Mirrodin!', 'Backup', 'Bargain', 'Craft', 'Freerunning',
+    'Plot', 'Spree', 'Offspring', 'Bestow', 'Monstrosity', 'Tribute',
+    
+    # Partner mechanics (distinct types)
+    'Choose a Background', "Doctor's Companion",
+    
+    # Token types (frequently used)
+    'Blood', 'Clue', 'Food', 'Gold', 'Treasure', 'Powerstone',
+    
+    # Common ability words
+    'Landfall', 'Raid', 'Revolt', 'Threshold', 'Metalcraft', 'Morbid',
+    'Bloodthirst', 'Battalion', 'Channel', 'Grandeur', 'Kinship', 'Sweep',
+    'Radiance', 'Join forces', 'Fateful hour', 'Inspired', 'Heroic',
+    'Constellation', 'Strive', 'Prowess', 'Ferocious', 'Formidable', 'Renown',
+    'Tempting offer', 'Will of the council', 'Parley', 'Adamant', 'Devotion',
+}
+
+# ==============================================================================
+# Metadata Tag Classification (M3 - Tagging Refinement)
+# ==============================================================================
+
+# Metadata tag prefixes - tags starting with these are classified as metadata
+METADATA_TAG_PREFIXES: List[str] = [
+    'Applied:',
+    'Bracket:',
+    'Diagnostic:',
+    'Internal:',
+]
+
+# Specific metadata tags (full match) - additional tags to classify as metadata
+# These are typically diagnostic, bracket-related, or internal annotations
+METADATA_TAG_ALLOWLIST: set[str] = {
+    # Bracket annotations
+    'Bracket: Game Changer',
+    'Bracket: Staple',
+    'Bracket: Format Warping',
+    
+    # Cost reduction diagnostics (from Applied: namespace)
+    'Applied: Cost Reduction',
+    
+    # Kindred-specific protection metadata (from M2)
+    # Format: "{CreatureType}s Gain Protection"
+    # These are auto-generated for kindred-specific protection grants
+    # Example: "Knights Gain Protection", "Frogs Gain Protection"
+    # Note: These are dynamically generated, so we match via prefix in classify_tag
+}

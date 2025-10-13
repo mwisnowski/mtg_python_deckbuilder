@@ -1,14 +1,17 @@
 from __future__ import annotations
 
-import json
+# Standard library imports
 import ast
+import json
+from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Set, DefaultDict
-from collections import defaultdict
+from typing import DefaultDict, Dict, List, Set
 
+# Third-party imports
 import pandas as pd
 
+# Local application imports
 from settings import CSV_DIRECTORY, SETUP_COLORS
 
 

@@ -170,7 +170,7 @@ def _step5_summary_placeholder_html(token: int, *, message: str | None = None) -
     return (
         f'<div id="deck-summary" data-summary '
         f'hx-get="/build/step5/summary?token={token}" '
-        'hx-trigger="load, step5:refresh from:body" hx-swap="outerHTML">'
+        'hx-trigger="step5:refresh from:body" hx-swap="outerHTML">'
         f'<div class="muted" style="margin-top:1rem;">{_esc(text)}</div>'
         '</div>'
     )

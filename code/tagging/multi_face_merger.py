@@ -73,6 +73,132 @@ def load_merge_summary() -> Dict[str, Any]:
     return {"updated_at": None, "colors": {}}
 
 
+def _merge_tag_columns(work_df: pd.DataFrame, group_sorted: pd.DataFrame, primary_idx: int) -> None:
+    """Merge list columns (themeTags, roleTags) into union values.
+    
+    Args:
+        work_df: Working DataFrame to update
+        group_sorted: Sorted group of faces for a multi-face card
+        primary_idx: Index of primary face to update
+    """
+    for column in _LIST_UNION_COLUMNS:
+        if column in group_sorted.columns:
+            union_values = _merge_object_lists(group_sorted[column])
+            work_df.at[primary_idx, column] = union_values
+    
+    if "keywords" in group_sorted.columns:
+        keyword_union = _merge_keywords(group_sorted["keywords"])
+        work_df.at[primary_idx, "keywords"] = _join_keywords(keyword_union)
+
+
+def _build_face_payload(face_row: pd.Series) -> Dict[str, Any]:
+    """Build face metadata payload from a single face row.
+    
+    Args:
+        face_row: Single face row from grouped DataFrame
+        
+    Returns:
+        Dictionary containing face metadata
+    """
+    text_val = face_row.get("text") or face_row.get("oracleText") or ""
+    mana_cost_val = face_row.get("manaCost", face_row.get("mana_cost", "")) or ""
+    mana_value_raw = face_row.get("manaValue", face_row.get("mana_value", ""))
+    
+    try:
+        if mana_value_raw in (None, ""):
+            mana_value_val = None
+        else:
+            mana_value_val = float(mana_value_raw)
+            if math.isnan(mana_value_val):
+                mana_value_val = None
+    except Exception:
+        mana_value_val = None
+    
+    type_val = face_row.get("type", "") or ""
+    
+    return {
+        "face": str(face_row.get("faceName") or face_row.get("name") or ""),
+        "side": str(face_row.get("side") or ""),
+        "layout": str(face_row.get("layout") or ""),
+        "themeTags": _merge_object_lists([face_row.get("themeTags", [])]),
+        "roleTags": _merge_object_lists([face_row.get("roleTags", [])]),
+        "type": str(type_val),
+        "text": str(text_val),
+        "mana_cost": str(mana_cost_val),
+        "mana_value": mana_value_val,
+        "produces_mana": _text_produces_mana(text_val),
+        "is_land": 'land' in str(type_val).lower(),
+    }
+
+
+def _build_merge_detail(name: str, group_sorted: pd.DataFrame, faces_payload: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Build detailed merge information for a multi-face card group.
+    
+    Args:
+        name: Card name
+        group_sorted: Sorted group of faces
+        faces_payload: List of face metadata dictionaries
+        
+    Returns:
+        Dictionary containing merge details
+    """
+    layout_set = sorted({f.get("layout", "") for f in faces_payload if f.get("layout")})
+    removed_faces = faces_payload[1:] if len(faces_payload) > 1 else []
+    
+    return {
+        "name": name,
+        "total_faces": len(group_sorted),
+        "dropped_faces": max(len(group_sorted) - 1, 0),
+        "layouts": layout_set,
+        "primary_face": faces_payload[0] if faces_payload else {},
+        "removed_faces": removed_faces,
+        "theme_tags": sorted({tag for face in faces_payload for tag in face.get("themeTags", [])}),
+        "role_tags": sorted({tag for face in faces_payload for tag in face.get("roleTags", [])}),
+        "faces": faces_payload,
+    }
+
+
+def _log_merge_summary(color: str, merged_count: int, drop_count: int, multi_face_count: int, logger) -> None:
+    """Log merge summary with structured and human-readable formats.
+    
+    Args:
+        color: Color being processed
+        merged_count: Number of card groups merged
+        drop_count: Number of face rows dropped
+        multi_face_count: Total multi-face rows processed
+        logger: Logger instance
+    """
+    try:
+        logger.info(
+            "dfc_merge_summary %s",
+            json.dumps(
+                {
+                    "event": "dfc_merge_summary",
+                    "color": color,
+                    "groups_merged": merged_count,
+                    "faces_dropped": drop_count,
+                    "multi_face_rows": multi_face_count,
+                },
+                sort_keys=True,
+            ),
+        )
+    except Exception:
+        logger.info(
+            "dfc_merge_summary event=%s groups=%d dropped=%d rows=%d",
+            color,
+            merged_count,
+            drop_count,
+            multi_face_count,
+        )
+    
+    logger.info(
+        "Merged %d multi-face card groups for %s (dropped %d extra faces)",
+        merged_count,
+        color,
+        drop_count,
+    )
+
+
 def merge_multi_face_rows(
     df: pd.DataFrame,
     color: str,
@@ -93,7 +219,6 @@ def merge_multi_face_rows(
         return df
 
     work_df = df.copy()
-
     layout_series = work_df["layout"].fillna("").astype(str).str.lower()
     multi_mask = layout_series.isin(_MULTI_FACE_LAYOUTS)
 
@@ -110,66 +235,15 @@ def merge_multi_face_rows(
 
         group_sorted = _sort_faces(group)
         primary_idx = group_sorted.index[0]
-        faces_payload: List[Dict[str, Any]] = []
 
-        for column in _LIST_UNION_COLUMNS:
-            if column in group_sorted.columns:
-                union_values = _merge_object_lists(group_sorted[column])
-                work_df.at[primary_idx, column] = union_values
+        _merge_tag_columns(work_df, group_sorted, primary_idx)
 
-        if "keywords" in group_sorted.columns:
-            keyword_union = _merge_keywords(group_sorted["keywords"])
-            work_df.at[primary_idx, "keywords"] = _join_keywords(keyword_union)
+        faces_payload = [_build_face_payload(row) for _, row in group_sorted.iterrows()]
 
-        for _, face_row in group_sorted.iterrows():
-            text_val = face_row.get("text") or face_row.get("oracleText") or ""
-            mana_cost_val = face_row.get("manaCost", face_row.get("mana_cost", "")) or ""
-            mana_value_raw = face_row.get("manaValue", face_row.get("mana_value", ""))
-            try:
-                if mana_value_raw in (None, ""):
-                    mana_value_val = None
-                else:
-                    mana_value_val = float(mana_value_raw)
-                    if math.isnan(mana_value_val):
-                        mana_value_val = None
-            except Exception:
-                mana_value_val = None
-            type_val = face_row.get("type", "") or ""
-            faces_payload.append(
-                {
-                    "face": str(face_row.get("faceName") or face_row.get("name") or ""),
-                    "side": str(face_row.get("side") or ""),
-                    "layout": str(face_row.get("layout") or ""),
-                    "themeTags": _merge_object_lists([face_row.get("themeTags", [])]),
-                    "roleTags": _merge_object_lists([face_row.get("roleTags", [])]),
-                    "type": str(type_val),
-                    "text": str(text_val),
-                    "mana_cost": str(mana_cost_val),
-                    "mana_value": mana_value_val,
-                    "produces_mana": _text_produces_mana(text_val),
-                    "is_land": 'land' in str(type_val).lower(),
-                }
-            )
-
-        for idx in group_sorted.index[1:]:
-            drop_indices.append(idx)
-
+        drop_indices.extend(group_sorted.index[1:])
+        
         merged_count += 1
-        layout_set = sorted({f.get("layout", "") for f in faces_payload if f.get("layout")})
-        removed_faces = faces_payload[1:] if len(faces_payload) > 1 else []
-        merge_details.append(
-            {
-                "name": name,
-                "total_faces": len(group_sorted),
-                "dropped_faces": max(len(group_sorted) - 1, 0),
-                "layouts": layout_set,
-                "primary_face": faces_payload[0] if faces_payload else {},
-                "removed_faces": removed_faces,
-                "theme_tags": sorted({tag for face in faces_payload for tag in face.get("themeTags", [])}),
-                "role_tags": sorted({tag for face in faces_payload for tag in face.get("roleTags", [])}),
-                "faces": faces_payload,
-            }
-        )
+        merge_details.append(_build_merge_detail(name, group_sorted, faces_payload))
 
     if drop_indices:
         work_df = work_df.drop(index=drop_indices)
@@ -192,38 +266,10 @@ def merge_multi_face_rows(
                 logger.warning("Failed to record DFC merge summary for %s: %s", color, exc)
 
     if logger is not None:
-        try:
-            logger.info(
-                "dfc_merge_summary %s",
-                json.dumps(
-                    {
-                        "event": "dfc_merge_summary",
-                        "color": color,
-                        "groups_merged": merged_count,
-                        "faces_dropped": len(drop_indices),
-                        "multi_face_rows": int(multi_mask.sum()),
-                    },
-                    sort_keys=True,
-                ),
-            )
-        except Exception:
-            logger.info(
-                "dfc_merge_summary event=%s groups=%d dropped=%d rows=%d",
-                color,
-                merged_count,
-                len(drop_indices),
-                int(multi_mask.sum()),
-            )
-        logger.info(
-            "Merged %d multi-face card groups for %s (dropped %d extra faces)",
-            merged_count,
-            color,
-            len(drop_indices),
-        )
+        _log_merge_summary(color, merged_count, len(drop_indices), int(multi_mask.sum()), logger)
 
     _persist_merge_summary(color, summary_payload, logger)
 
-    # Reset index to keep downstream expectations consistent.
     return work_df.reset_index(drop=True)
 
 

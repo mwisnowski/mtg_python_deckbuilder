@@ -878,7 +878,7 @@ class ReportingMixin:
 
         headers = [
             "Name","Count","Type","ManaCost","ManaValue","Colors","Power","Toughness",
-            "Role","SubRole","AddedBy","TriggerTag","Synergy","Tags","Text","DFCNote","Owned"
+            "Role","SubRole","AddedBy","TriggerTag","Synergy","Tags","MetadataTags","Text","DFCNote","Owned"
         ]
 
         header_suffix: List[str] = []
@@ -946,6 +946,9 @@ class ReportingMixin:
             role = info.get('Role', '') or ''
             tags = info.get('Tags', []) or []
             tags_join = '; '.join(tags)
+            # M5: Include metadata tags in export
+            metadata_tags = info.get('MetadataTags', []) or []
+            metadata_tags_join = '; '.join(metadata_tags)
             text_field = ''
             colors = ''
             power = ''
@@ -1014,6 +1017,7 @@ class ReportingMixin:
                 info.get('TriggerTag') or '',
                 info.get('Synergy') if info.get('Synergy') is not None else '',
                 tags_join,
+                metadata_tags_join,  # M5: Include metadata tags
                 text_field[:800] if isinstance(text_field, str) else str(text_field)[:800],
                 dfc_note,
                 owned_flag

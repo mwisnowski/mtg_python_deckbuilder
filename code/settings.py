@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 # Standard library imports
+import os
 from typing import Dict, List, Optional
 
 # ----------------------------------------------------------------------------------
@@ -99,3 +100,19 @@ FILL_NA_COLUMNS: Dict[str, Optional[str]] = {
     'colorIdentity': 'Colorless',  # Default color identity for cards without one
     'faceName': None  # Use card's name column value when face name is not available
 }
+
+# ----------------------------------------------------------------------------------
+# TAGGING REFINEMENT FEATURE FLAGS (M1-M5)
+# ----------------------------------------------------------------------------------
+
+# M1: Enable keyword normalization and singleton pruning (completed)
+TAG_NORMALIZE_KEYWORDS = os.getenv('TAG_NORMALIZE_KEYWORDS', '1').lower() not in ('0', 'false', 'off', 'disabled')
+
+# M2: Enable protection grant detection (completed)
+TAG_PROTECTION_GRANTS = os.getenv('TAG_PROTECTION_GRANTS', '1').lower() not in ('0', 'false', 'off', 'disabled')
+
+# M3: Enable metadata/theme partition (completed)
+TAG_METADATA_SPLIT = os.getenv('TAG_METADATA_SPLIT', '1').lower() not in ('0', 'false', 'off', 'disabled')
+
+# M5: Enable protection scope filtering in deck builder (completed - Phase 1-3, in progress Phase 4+)
+TAG_PROTECTION_SCOPE = os.getenv('TAG_PROTECTION_SCOPE', '1').lower() not in ('0', 'false', 'off', 'disabled')

@@ -44,8 +44,14 @@ class LandMiscUtilityMixin:
             return
         basics = self._basic_land_names()
         already = set(self.card_library.keys())
-        top_n = getattr(bc, 'MISC_LAND_TOP_POOL_SIZE', 30)
+        top_n = getattr(bc, 'MISC_LAND_TOP_POOL_SIZE', 60)
         use_full = getattr(bc, 'MISC_LAND_USE_FULL_POOL', False)
+        if not use_full:
+            rng = getattr(self, 'rng', None)
+            pool_multiplier = rng.uniform(1.2, 2.0) if rng else 1.5
+            top_n = int(top_n * pool_multiplier)
+            if getattr(self, 'show_diagnostics', False):
+                self.output_func(f"[Diagnostics] Misc Step pool size multiplier: {pool_multiplier:.2f}x (base={getattr(bc, 'MISC_LAND_TOP_POOL_SIZE', 60)} → effective={top_n})")
         effective_n = 999999 if use_full else top_n
         top_candidates = bu.select_top_land_candidates(df, already, basics, effective_n)
         # Dynamic EDHREC keep percent

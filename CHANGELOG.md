@@ -10,9 +10,10 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 ## [Unreleased]
 ### Summary
 - Fixed issues with custom themes in the web UI.
+- Added non-basic land type tagging (i.e. Caves, Deserts, Gates, etc...) in the tagging module.
 
 ### Added
-- _No unreleased changes yet._
+- Non-basic land type tagging (i.e. Caves, Deserts, Gates, etc...) in the tagging module.
 
 ### Changed
 - _No unreleased changes yet._

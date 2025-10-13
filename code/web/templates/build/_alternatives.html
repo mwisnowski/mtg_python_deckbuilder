@@ -5,7 +5,10 @@
 #}
 <div class="alts" style="margin-top:.35rem; padding:.5rem; border:1px solid var(--border); border-radius:8px; background:#0f1115;" data-skeleton data-skeleton-label="Pulling alternatives…" data-skeleton-delay="450">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.25rem; gap:.5rem; flex-wrap:wrap;">
-    <strong>Alternatives</strong>
+    <div style="display:flex;align-items:center;gap:.5rem;">
+      <strong>Alternatives</strong>
+      <button type="button" onclick="this.closest('.alts').remove()" title="Close alternatives panel" aria-label="Close alternatives" style="background:transparent;border:1px solid var(--border);color:var(--text);border-radius:4px;font-size:14px;line-height:1;padding:2px 6px;cursor:pointer;">✕</button>
+    </div>
     {% set toggle_q = '0' if require_owned else '1' %}
     {% set toggle_label = 'Owned only: On' if require_owned else 'Owned only: Off' %}
     <div style="display:flex; gap:.35rem; flex-wrap:wrap;">
@@ -21,16 +24,14 @@
   {% else %}
   <ul class="alt-list">
       {% for it in items %}
-        {% set badge = '✔' if it.owned else '✖' %}
-        {% set title = 'Owned' if it.owned else 'Not owned' %}
         {% set tags = (it.tags or []) %}
         <li>
-          <span class="owned-badge" title="{{ title }}">{{ badge }}</span>
           <button class="btn alt-option" data-card-name="{{ it.name }}"
                   {% if it.role %}data-role="{{ it.role }}"{% endif %}
                   {% if it.mana %}data-mana="{{ it.mana }}"{% endif %}
                   {% if it.rarity %}data-rarity="{{ it.rarity }}"{% endif %}
                   {% if it.hover_simple %}data-hover-simple="1"{% endif %}
+                  {% if it.owned %}data-owned="1"{% endif %}
                   data-tags="{{ tags|join(', ') }}" hx-post="/build/replace"
                   hx-vals='{"old":"{{ name }}", "new":"{{ it.name }}", "owned_only":"{{ 1 if require_owned else 0 }}"}'
                   hx-target="closest .alts" hx-swap="outerHTML" title="Lock this alternative and unlock the current pick">

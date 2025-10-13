@@ -14,9 +14,10 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 
 ### Added
 - Non-basic land type tagging (i.e. Caves, Deserts, Gates, etc...) in the tagging module.
+- Close button to alternatives panel header so it can be dismissed.
 
 ### Changed
-- _No unreleased changes yet._
+- Removed the owned badge from each alternative and moved owned metadata to a data attribute on the button.
 
 ### Fixed
 - Custom theme fuzzy matching now accepts selection.

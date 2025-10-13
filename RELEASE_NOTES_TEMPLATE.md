@@ -1,16 +1,13 @@
 # MTG Python Deckbuilder ${VERSION}
 
 ### Summary
-- Fixed issues with custom themes in the web UI.
-- Added non-basic land type tagging (i.e. Caves, Deserts, Gates, etc...) in the tagging module.
+- _No unreleased changes yet._
 
 ### Added
-- Non-basic land type tagging (i.e. Caves, Deserts, Gates, etc...) in the tagging module.
-- Close button to alternatives panel header so it can be dismissed.
+- _No unreleased changes yet._
 
 ### Changed
-- Removed the owned badge from each alternative and moved owned metadata to a data attribute on the button.
+- _No unreleased changes yet._
 
 ### Fixed
-- Custom theme fuzzy matching now accepts selection.
-- Custom themes may now be removed from the list.
+- _No unreleased changes yet._

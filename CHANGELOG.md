@@ -9,8 +9,22 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 
 ## [Unreleased]
 ### Summary
+- _No unreleased changes yet._
+
+### Added
+- _No unreleased changes yet._
+
+### Changed
+- _No unreleased changes yet._
+
+### Fixed
+- _No unreleased changes yet._
+
+## [2.6.1] - 2025-10-13
+### Summary
 - Fixed issues with custom themes in the web UI.
 - Added non-basic land type tagging (i.e. Caves, Deserts, Gates, etc...) in the tagging module.
+- Improved alternatives panel UX with dismissible header and cleaner owned card indicators.
 
 ### Added
 - Non-basic land type tagging (i.e. Caves, Deserts, Gates, etc...) in the tagging module.

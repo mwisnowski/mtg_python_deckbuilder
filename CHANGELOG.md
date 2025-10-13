@@ -38,6 +38,7 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 - Protection scope filtering in deck builder (feature flag: `TAG_PROTECTION_SCOPE`) intelligently selects board-relevant protection
 - Phasing cards with "Your Permanents:" or "Targeted:" metadata now tagged as Protection and included in protection pool
 - Metadata tags temporarily visible in card hover previews for debugging (shows scope like "Your Permanents: Hexproof")
+- Web-slinging tagger function to identify cards with web-slinging mechanics
 
 ### Changed
 - Card tags now split between themes (for deck building) and metadata (for diagnostics)

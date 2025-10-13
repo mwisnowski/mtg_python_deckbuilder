@@ -417,6 +417,8 @@ def _tag_mechanical_themes(df: pd.DataFrame, color: str) -> None:
     print('\n====================\n')
     tag_for_bending(df, color)
     print('\n====================\n')
+    tag_for_web_slinging(df, color)
+    print('\n====================\n')
     tag_for_tokens(df, color)
     print('\n====================\n')
     tag_for_rad_counters(df, color)
@@ -4218,6 +4220,23 @@ def tag_for_bending(df: pd.DataFrame, color: str) -> None:
 
     except Exception as e:
         logger.error(f'Error tagging Bending keywords: {str(e)}')
+        raise
+
+### Web-Slinging
+def tag_for_web_slinging(df: pd.DataFrame, color: str) -> None:
+    """Tag cards for web-slinging related keywords.
+
+    Looks for 'web-slinging' in rules text and applies tags accordingly.
+    """
+    try:
+        webslinging_mask = tag_utils.create_text_mask(df, 'web-slinging')
+        rules = [
+            {'mask': webslinging_mask, 'tags': ['Web-slinging']},
+        ]
+        tag_utils.tag_with_rules_and_logging(df, rules, 'web-slinging effects', color=color, logger=logger)
+
+    except Exception as e:
+        logger.error(f'Error tagging Web-Slinging keywords: {str(e)}')
         raise
 
 ## Big Mana

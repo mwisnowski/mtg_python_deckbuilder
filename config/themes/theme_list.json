@@ -10518,8 +10518,8 @@
       ],
       "synergy_commanders": [
         "Spider-Man, Brooklyn Visionary - Synergy (Web-slinging)",
+        "Peter Parker // Amazing Spider-Man - Synergy (Web-slinging)",
         "Spider-Man India - Synergy (Web-slinging)",
-        "Scarlet Spider, Ben Reilly - Synergy (Web-slinging)",
         "Arasta of the Endless Web - Synergy (Spider Kindred)"
       ],
       "popularity_bucket": "Niche",
@@ -21139,8 +21139,8 @@
       ],
       "synergy_commanders": [
         "Spider-Man, Brooklyn Visionary - Synergy (Web-slinging)",
+        "Peter Parker // Amazing Spider-Man - Synergy (Web-slinging)",
         "Spider-Man India - Synergy (Web-slinging)",
-        "Scarlet Spider, Ben Reilly - Synergy (Web-slinging)",
         "Deadpool, Trading Card - Synergy (Hero Kindred)",
         "G'raha Tia, Scion Reborn - Synergy (Hero Kindred)",
         "Six - Synergy (Reach)"
@@ -24231,20 +24231,20 @@
       "secondary_color": "Green",
       "example_commanders": [
         "Spider-Man, Brooklyn Visionary",
+        "Peter Parker // Amazing Spider-Man",
         "Spider-Man India",
         "Scarlet Spider, Ben Reilly",
-        "Silk, Web Weaver",
-        "Spider-UK"
+        "Silk, Web Weaver"
       ],
       "example_cards": [
         "Spider-Sense",
         "Spider-Man, Brooklyn Visionary",
+        "Peter Parker // Amazing Spider-Man",
         "Spider-Man India",
         "Scarlet Spider, Ben Reilly",
         "Silk, Web Weaver",
         "Spider-UK",
-        "Spiders-Man, Heroic Horde",
-        "Spider-Man, Web-Slinger"
+        "Spiders-Man, Heroic Horde"
       ],
       "synergy_commanders": [
         "Deadpool, Trading Card - Synergy (Hero Kindred)",
@@ -27816,12 +27816,12 @@
   "generated_from": "merge (analytics + curated YAML + whitelist)",
   "metadata_info": {
     "mode": "merge",
-    "generated_at": "2025-10-13T04:26:36",
+    "generated_at": "2025-10-13T16:39:38",
     "curated_yaml_files": 739,
     "synergy_cap": 5,
     "inference": "pmi",
     "version": "phase-b-merge-v1",
-    "catalog_hash": "a6ca486659ada6088f6cba7e5aab4f5dd64cf66e8d2eb31280e4fbd5b67167b8"
+    "catalog_hash": "7f0baf0c30adae86d1141ba1a6c43d3ffaa2eedbe0000f9c6b20891c909616cb"
   },
   "description_fallback_summary": null
 }

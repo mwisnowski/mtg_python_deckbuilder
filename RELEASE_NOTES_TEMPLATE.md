@@ -6,13 +6,13 @@
 - Keyword normalization reduces specialty keyword noise by 96% while maintaining theme catalog quality
 - Protection tag now focuses on cards that grant shields to others, not just those with inherent protection
 - Web UI improvements: faster polling, fixed progress display, and theme refresh stability
-- **Protection System Overhaul**: Comprehensive enhancement to protection card detection, classification, and deck building
+- Comprehensive enhancement to protection card detection, classification, and deck building
   - Fine-grained scope metadata distinguishes self-protection from board-wide effects ("Your Permanents: Hexproof" vs "Self: Hexproof")
   - Enhanced grant detection with Equipment/Aura patterns, phasing support, and complex trigger handling
   - Intelligent deck builder filtering includes board-relevant protection while excluding self-only and type-specific cards
   - Tiered pool limiting focuses on high-quality staples while maintaining variety across builds
   - Improved scope tagging for cards with keyword-only protection effects (no grant text, just inherent keywords)
-- **Tagging Module Refactoring**: Large-scale refactor to improve code quality and maintainability
+- Large-scale refactor to improve code quality and maintainability
   - Centralized regex patterns, extracted reusable utilities, decomposed complex functions
   - Improved code organization and readability while maintaining 100% tagging accuracy
 
@@ -31,6 +31,7 @@
 - Protection scope filtering in deck builder (feature flag: `TAG_PROTECTION_SCOPE`) intelligently selects board-relevant protection
 - Phasing cards with "Your Permanents:" or "Targeted:" metadata now tagged as Protection and included in protection pool
 - Metadata tags temporarily visible in card hover previews for debugging (shows scope like "Your Permanents: Hexproof")
+- Web-slinging tagger function to identify cards with web-slinging mechanics
 
 ### Changed
 - Card tags now split between themes (for deck building) and metadata (for diagnostics)

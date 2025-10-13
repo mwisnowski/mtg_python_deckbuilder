@@ -9,7 +9,7 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 
 ## [Unreleased]
 ### Summary
-- _No unreleased changes yet._
+- Fixed issues with custom themes in the web UI.
 
 ### Added
 - _No unreleased changes yet._
@@ -18,7 +18,8 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 - _No unreleased changes yet._
 
 ### Fixed
-- _No unreleased changes yet._
+- Custom theme fuzzy matching now accepts selection.
+- Custom themes may now be removed from the list.
 
 ## [2.6.0] - 2025-10-13
 ### Summary

@@ -12,6 +12,8 @@ seed_defaults() {
         [ -f /app/config/deck.json ] || cp "/.defaults/config/deck.json" "/app/config/deck.json" 2>/dev/null || true
         # brackets.yml (power brackets) if present
         [ -f /app/config/brackets.yml ] || { [ -f "/.defaults/config/brackets.yml" ] && cp "/.defaults/config/brackets.yml" "/app/config/brackets.yml"; } 2>/dev/null || true
+        # random_theme_exclusions.yml if present
+        [ -f /app/config/random_theme_exclusions.yml ] || { [ -f "/.defaults/config/random_theme_exclusions.yml" ] && cp "/.defaults/config/random_theme_exclusions.yml" "/app/config/random_theme_exclusions.yml"; } 2>/dev/null || true
         # Copy any default card list JSONs that are missing (generic loop)
         if [ -d "/.defaults/config/card_lists" ]; then
             for f in /.defaults/config/card_lists/*.json; do

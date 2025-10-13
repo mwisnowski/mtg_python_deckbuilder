@@ -9,6 +9,19 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 
 ## [Unreleased]
 ### Summary
+- _No unreleased changes yet._
+
+### Added
+- _No unreleased changes yet._
+
+### Changed
+- _No unreleased changes yet._
+
+### Fixed
+- _No unreleased changes yet._
+
+## [2.6.0] - 2025-10-13
+### Summary
 - Card tagging system improvements split metadata from gameplay themes for cleaner deck building experience
 - Keyword normalization reduces specialty keyword noise by 96% while maintaining theme catalog quality
 - Protection tag now focuses on cards that grant shields to others, not just those with inherent protection

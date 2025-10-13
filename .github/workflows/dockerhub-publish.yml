@@ -112,7 +112,7 @@ jobs:
 
   build_arm64:
     name: Build (arm64)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     needs: prepare
     permissions:
       contents: read

@@ -730,6 +730,18 @@ def build_catalog(limit: int, verbose: bool) -> Dict[str, Any]:
                 merged = [s for s in merged if s not in special_noise]
         # If theme is one of the special ones, keep the other if present (no action needed beyond above filter logic).
 
+        # Land type theme filtering: Gates/Caves/Spheres are land types, not artifact/token mechanics.
+        # Rationale: These themes tag specific land cards, creating spurious correlations with artifact/token
+        # themes when those cards happen to also produce artifacts/tokens (e.g., Tireless Tracker in Gates decks).
+        # Filter out artifact/token synergies that don't make thematic sense for land-type-matters strategies.
+        land_type_themes = {"Gates Matter"}
+        incompatible_with_land_types = {
+            "Investigate", "Clue Token", "Detective Kindred"
+        }
+        if theme in land_type_themes:
+            merged = [s for s in merged if s not in incompatible_with_land_types]
+        # For non-land-type themes, don't filter (they can legitimately synergize with these)
+
         if synergy_cap > 0 and len(merged) > synergy_cap:
             ce_len = len(curated_list) + len([s for s in enforced_list if s not in curated_list])
             if ce_len < synergy_cap:

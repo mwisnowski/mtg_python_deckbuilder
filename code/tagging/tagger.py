@@ -417,6 +417,8 @@ def _tag_mechanical_themes(df: pd.DataFrame, color: str) -> None:
     print('\n====================\n')
     tag_for_bending(df, color)
     print('\n====================\n')
+    tag_for_land_types(df, color)
+    print('\n====================\n')
     tag_for_web_slinging(df, color)
     print('\n====================\n')
     tag_for_tokens(df, color)
@@ -4237,6 +4239,55 @@ def tag_for_web_slinging(df: pd.DataFrame, color: str) -> None:
 
     except Exception as e:
         logger.error(f'Error tagging Web-Slinging keywords: {str(e)}')
+        raise
+
+### Tag for land types
+def tag_for_land_types(df: pd.DataFrame, color: str) -> None:
+    """Tag card for specific non-basic land types.
+
+    Looks for 'Cave', 'Desert', 'Gate', 'Lair', 'Locus', 'Sphere', 'Urza's' in rules text and applies tags accordingly.
+    """
+    try:
+        cave_mask = (
+            (tag_utils.create_text_mask(df, 'Cave') & ~tag_utils.create_text_mask(df, 'scavenge')) |
+            tag_utils.create_type_mask(df, 'Cave')
+        )
+        desert_mask = (
+            tag_utils.create_text_mask(df, 'Desert') |
+            tag_utils.create_type_mask(df, 'Desert')
+        )
+        gate_mask = (
+            (
+                tag_utils.create_text_mask(df, 'Gate') & 
+                ~tag_utils.create_text_mask(df, 'Agate') &
+                ~tag_utils.create_text_mask(df, 'Legate') &
+                ~tag_utils.create_text_mask(df, 'Throw widethe Gates') &
+                ~tag_utils.create_text_mask(df, 'Eternity Gate') &
+                ~tag_utils.create_text_mask(df, 'Investigates')
+            ) |
+            tag_utils.create_text_mask(df, 'Gate card') |
+            tag_utils.create_type_mask(df, 'Gate')
+        )
+        lair_mask = (tag_utils.create_type_mask(df, 'Lair'))
+        locus_mask = (tag_utils.create_type_mask(df, 'Locus'))
+        sphere_mask = (
+            (tag_utils.create_text_mask(df, 'Sphere') & ~tag_utils.create_text_mask(df, 'Detention Sphere')) |
+            tag_utils.create_type_mask(df, 'Sphere'))
+        urzas_mask = (tag_utils.create_type_mask(df, "Urza's"))
+        rules = [
+            {'mask': cave_mask, 'tags': ['Caves Matter', 'Lands Matter']},
+            {'mask': desert_mask, 'tags': ['Deserts Matter', 'Lands Matter']},
+            {'mask': gate_mask, 'tags': ['Gates Matter', 'Lands Matter']},
+            {'mask': lair_mask, 'tags': ['Lairs Matter', 'Lands Matter']},
+            {'mask': locus_mask, 'tags': ['Locus Matter', 'Lands Matter']},
+            {'mask': sphere_mask, 'tags': ['Spheres Matter', 'Lands Matter']},
+            {'mask': urzas_mask, 'tags': ["Urza's Lands Matter", 'Lands Matter']},
+        ]
+        
+        tag_utils.tag_with_rules_and_logging(df, rules, 'non-basic land types', color=color, logger=logger)
+
+    except Exception as e:
+        logger.error(f'Error tagging non-basic land types: {str(e)}')
         raise
 
 ## Big Mana

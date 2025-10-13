@@ -75,12 +75,12 @@
 				{% set reason_code = match.reason if match.reason is defined else match['reason'] %}
 				<div class="theme-chip" style="display:inline-flex; align-items:center; gap:.35rem; padding:.35rem .6rem; background:rgba(34,197,94,0.12); border:1px solid rgba(34,197,94,0.35); border-radius:999px; font-size:12px;" title="{{ matched }}{% if score_pct is not none %} · {{ '%.0f'|format(score_pct) }}% confidence{% endif %}{% if reason_code %} ({{ reason_code|replace('_',' ')|title }}){% endif %}">
 					<span>{{ matched }}</span>
-					{% if original and original.casefold() != matched.casefold() %}
-					<span class="muted" style="font-size:11px;">(from “{{ original }}”)</span>
-					{% endif %}
-					<button type="button" hx-post="/build/themes/remove" hx-target="#custom-theme-root" hx-swap="outerHTML" hx-vals="{{ {'theme': original}|tojson }}" title="Remove theme" style="background:none; border:none; color:inherit; font-weight:bold; cursor:pointer;">×</button>
-				</div>
-				{% endfor %}
+				{% if original and original.casefold() != matched.casefold() %}
+				<span class="muted" style="font-size:11px;">(from "{{ original }}")</span>
+				{% endif %}
+				<button type="button" hx-post="/build/themes/remove" hx-target="#custom-theme-root" hx-swap="outerHTML" hx-vals='{"theme": {{ original|tojson }}}' title="Remove theme" style="background:none; border:none; color:inherit; font-weight:bold; cursor:pointer;">×</button>
+			</div>
+			{% endfor %}
 				{% if not matches and resolved_labels %}
 					{% for label in resolved_labels %}
 					<div class="theme-chip" style="display:inline-flex; align-items:center; gap:.35rem; padding:.35rem .6rem; background:rgba(34,197,94,0.12); border:1px solid rgba(34,197,94,0.35); border-radius:999px; font-size:12px;">
@@ -102,7 +102,7 @@
 				<div style="border:1px solid rgba(234,179,8,0.4); background:rgba(250,204,21,0.08); border-radius:8px; padding:.5rem; font-size:12px;">
 					<div style="display:flex; justify-content:space-between; align-items:center; gap:.5rem;">
 						<strong>{{ item.input }}</strong>
-						<button type="button" class="btn" hx-post="/build/themes/remove" hx-target="#custom-theme-root" hx-swap="outerHTML" hx-vals="{{ {'theme': item.input}|tojson }}" style="padding:.25rem .6rem; font-size:11px; background:#7f1d1d; border-color:#dc2626;">Remove</button>
+						<button type="button" class="btn" hx-post="/build/themes/remove" hx-target="#custom-theme-root" hx-swap="outerHTML" hx-vals='{"theme": {{ item.input|tojson }}}' style="padding:.25rem .6rem; font-size:11px; background:#7f1d1d; border-color:#dc2626;">Remove</button>
 					</div>
 					{% if item.reason %}
 					<div class="muted" style="margin-top:.35rem; font-size:11px;">Reason: {{ item.reason|replace('_',' ')|title }}</div>
@@ -113,7 +113,7 @@
 						{% set suggestion_theme = suggestion.theme if suggestion.theme is defined else suggestion.get('theme') %}
 						{% set suggestion_score = suggestion.score if suggestion.score is defined else suggestion.get('score') %}
 						{% if suggestion_theme %}
-						<button type="button" class="btn" hx-post="/build/themes/choose" hx-target="#custom-theme-root" hx-swap="outerHTML" hx-vals="{{ {'original': item.input, 'choice': suggestion_theme}|tojson }}" style="padding:.25rem .5rem; font-size:11px; background:#1d4ed8; border-color:#2563eb;">
+						<button type="button" class="btn" hx-post="/build/themes/choose" hx-target="#custom-theme-root" hx-swap="outerHTML" hx-vals='{"original": {{ item.input|tojson }}, "choice": {{ suggestion_theme|tojson }}}' style="padding:.25rem .5rem; font-size:11px; background:#1d4ed8; border-color:#2563eb;">
 							Use {{ suggestion_theme }}{% if suggestion_score is not none %} ({{ '%.0f'|format(suggestion_score) }}%){% endif %}
 						</button>
 						{% endif %}

@@ -102,6 +102,9 @@ services:
       WEB_TAG_PARALLEL: "1"         # 1=parallelize tagging
       WEB_TAG_WORKERS: "4"          # Worker count when parallel tagging
       
+      # Build Stage Ordering
+      WEB_STAGE_ORDER: "new"        # new|legacy. 'new' (default): creatures → spells → lands → fill. 'legacy': lands → creatures → spells → fill
+      
       # Tagging Refinement Feature Flags
       TAG_NORMALIZE_KEYWORDS: "1"   # 1=normalize keywords & filter specialty mechanics (recommended)
       TAG_PROTECTION_GRANTS: "1"    # 1=Protection tag only for cards granting shields (recommended)

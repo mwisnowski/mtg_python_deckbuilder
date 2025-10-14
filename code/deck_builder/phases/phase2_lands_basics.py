@@ -79,12 +79,15 @@ class LandBasicsMixin:
             land_total = getattr(bc, 'DEFAULT_LAND_COUNT', 35)
 
         # Target basics = 1.3 * minimum (rounded) but not exceeding total lands
-        target_basics = int(round(1.3 * basic_min))
-        if target_basics > land_total:
-            target_basics = land_total
-        if target_basics <= 0:
-            self.output_func("Target basic land count is zero; skipping basics.")
-            return
+        # target_basics = int(round(1.3 * basic_min))
+        # if target_basics > land_total:
+        #     target_basics = land_total
+        # if target_basics <= 0:
+        #     self.output_func("Target basic land count is zero; skipping basics.")
+        #     return
+
+        # Changing code to use minimum basics as target for simplicity
+        target_basics = basic_min
 
         colors = [c for c in getattr(self, 'color_identity', []) if c in ['W', 'U', 'B', 'R', 'G']]
         if not colors:  # colorless special case -> Wastes only

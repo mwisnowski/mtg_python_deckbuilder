@@ -254,6 +254,7 @@ See `.env.example` for the full catalog. Common knobs:
 | `ALLOW_MUST_HAVES` | `1` | Enable include/exclude enforcement in Step 5. |
 | `SHOW_MUST_HAVE_BUTTONS` | `0` | Surface the must include/exclude buttons and quick-add UI (requires `ALLOW_MUST_HAVES=1`). |
 | `THEME` | `dark` | Initial UI theme (`system`, `light`, or `dark`). |
+| `WEB_STAGE_ORDER` | `new` | Build stage execution order: `new` (creatures→spells→lands) or `legacy` (lands→creatures→spells). |
 
 ### Random build controls
 

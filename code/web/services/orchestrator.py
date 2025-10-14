@@ -1866,7 +1866,12 @@ def run_build(commander: str, tags: List[str], bracket: int, ideals: Dict[str, i
 # -----------------
 # Step-by-step build session
 # -----------------
-def _make_stages(b: DeckBuilder) -> List[Dict[str, Any]]:
+def _make_stages_legacy(b: DeckBuilder) -> List[Dict[str, Any]]:
+    """Legacy stage order: lands → creatures → spells → theme fill → post-adjust.
+    
+    This is the original ordering where lands are added first, before creatures
+    and spells. Kept for backward compatibility via WEB_STAGE_ORDER=legacy.
+    """
     stages: List[Dict[str, Any]] = []
     # Run Multi-Copy before land steps (per web-first flow preference)
     mc_selected = False
@@ -1962,6 +1967,238 @@ def _make_stages(b: DeckBuilder) -> List[Dict[str, Any]]:
         stages.append({"key": "reporting", "label": "Reporting", "runner_name": "run_reporting_phase"})
     # Export is not a separate stage here; we will auto-export at the final continue.
     return stages
+
+
+def _make_stages_new(b: DeckBuilder) -> List[Dict[str, Any]]:
+    """New stage order: creatures → ideal spells → lands → theme fill → post-adjust.
+    
+    This is the preferred ordering where creatures and core spells are added first,
+    then lands (which can now analyze actual pip requirements), then theme fill tops up.
+    """
+    stages: List[Dict[str, Any]] = []
+    # Run Multi-Copy first (if selected)
+    mc_selected = False
+    try:
+        mc_selected = bool(getattr(b, '_web_multi_copy', None))
+    except Exception:
+        mc_selected = False
+    if mc_selected:
+        stages.append({"key": "multicopy", "label": "Multi-Copy Package", "runner_name": "__add_multi_copy__"})
+    
+    # M3: Include injection first
+    if hasattr(b, '_inject_includes_after_lands') and getattr(b, 'include_cards', None):
+        stages.append({"key": "inject_includes", "label": "Include Cards", "runner_name": "__inject_includes__"})
+    
+    # 1) CREATURES - All theme sub-stages
+    try:
+        combine_mode = getattr(b, 'tag_mode', 'AND')
+    except Exception:
+        combine_mode = 'AND'
+    has_two_tags = bool(getattr(b, 'primary_tag', None) and getattr(b, 'secondary_tag', None))
+    if combine_mode == 'AND' and has_two_tags and hasattr(b, 'add_creatures_all_theme_phase'):
+        stages.append({"key": "creatures_all_theme", "label": "Creatures: All-Theme", "runner_name": "add_creatures_all_theme_phase"})
+    if getattr(b, 'primary_tag', None) and hasattr(b, 'add_creatures_primary_phase'):
+        stages.append({"key": "creatures_primary", "label": "Creatures: Primary", "runner_name": "add_creatures_primary_phase"})
+    if getattr(b, 'secondary_tag', None) and hasattr(b, 'add_creatures_secondary_phase'):
+        stages.append({"key": "creatures_secondary", "label": "Creatures: Secondary", "runner_name": "add_creatures_secondary_phase"})
+    if getattr(b, 'tertiary_tag', None) and hasattr(b, 'add_creatures_tertiary_phase'):
+        stages.append({"key": "creatures_tertiary", "label": "Creatures: Tertiary", "runner_name": "add_creatures_tertiary_phase"})
+    if hasattr(b, 'add_creatures_fill_phase'):
+        stages.append({"key": "creatures_fill", "label": "Creatures: Fill", "runner_name": "add_creatures_fill_phase"})
+    
+    # 2) SPELLS - Ideal categories (granular)
+    spell_categories: List[Tuple[str, str, str]] = [
+        ("ramp", "Ramp", "add_ramp"),
+        ("removal", "Removal", "add_removal"),
+        ("wipes", "Board Wipes", "add_board_wipes"),
+        ("card_advantage", "Card Advantage", "add_card_advantage"),
+        ("protection", "Protective Effects", "add_protection"),
+    ]
+    any_granular = any(callable(getattr(b, rn, None)) for _key, _label, rn in spell_categories)
+    if any_granular:
+        for key, label, runner in spell_categories:
+            if callable(getattr(b, runner, None)):
+                stages.append({"key": f"spells_{key}", "label": label, "runner_name": runner})
+        
+        # Auto-Complete Combos (if preferred and allowed)
+        try:
+            prefer_c = bool(getattr(b, 'prefer_combos', False))
+        except Exception:
+            prefer_c = False
+        allow_combos = True
+        try:
+            lim = getattr(b, 'bracket_limits', {}).get('two_card_combos')
+            if lim is not None and int(lim) == 0:
+                allow_combos = False
+        except Exception:
+            allow_combos = True
+        if prefer_c and allow_combos:
+            stages.append({"key": "autocombos", "label": "Auto-Complete Combos", "runner_name": "__auto_complete_combos__"})
+    elif hasattr(b, 'add_spells_phase'):
+        # Monolithic spells with combos first
+        try:
+            prefer_c = bool(getattr(b, 'prefer_combos', False))
+            allow_combos = True
+            try:
+                lim = getattr(b, 'bracket_limits', {}).get('two_card_combos')
+                if lim is not None and int(lim) == 0:
+                    allow_combos = False
+            except Exception:
+                allow_combos = True
+            if prefer_c and allow_combos:
+                stages.append({"key": "autocombos", "label": "Auto-Complete Combos", "runner_name": "__auto_complete_combos__"})
+        except Exception:
+            pass
+        stages.append({"key": "spells", "label": "Spells", "runner_name": "add_spells_phase"})
+    
+    # 3) LANDS - Steps 1..8 (after spells so pip counts are known)
+    for i in range(1, 9):
+        fn = getattr(b, f"run_land_step{i}", None)
+        if callable(fn):
+            stages.append({"key": f"land{i}", "label": f"Lands (Step {i})", "runner_name": f"run_land_step{i}"})
+    
+    # 4) THEME FILL - Final spell topper
+    if callable(getattr(b, 'fill_remaining_theme_spells', None)):
+        stages.append({"key": "spells_fill", "label": "Theme Spell Fill", "runner_name": "fill_remaining_theme_spells"})
+    
+    # 5) LAND ADJUSTMENTS - Post-spell rebalance (same as legacy)
+    if hasattr(b, 'post_spell_land_adjust'):
+        stages.append({"key": "post_adjust", "label": "Post-Spell Land Adjust", "runner_name": "post_spell_land_adjust"})
+    
+    # Reporting (always last)
+    if hasattr(b, 'run_reporting_phase'):
+        stages.append({"key": "reporting", "label": "Reporting", "runner_name": "run_reporting_phase"})
+    
+    return stages
+
+
+def _make_stages(b: DeckBuilder) -> List[Dict[str, Any]]:
+    """Dispatcher: choose stage ordering based on WEB_STAGE_ORDER environment variable.
+    
+    - 'new' (default): creatures → ideal spells → lands → theme fill
+    - 'legacy': lands → creatures → spells → theme fill (original order)
+    """
+    stage_order = os.getenv('WEB_STAGE_ORDER', 'new').strip().lower()
+    
+    if stage_order == 'legacy':
+        return _make_stages_legacy(b)
+    else:
+        # Default to new order
+        return _make_stages_new(b)
+
+
+def _get_stage_skip_config(sess: Dict[str, Any]) -> Dict[str, bool]:
+    """Extract skip configuration flags from session.
+    
+    Returns dict with all skip flags (default False if not present):
+    - skip_lands: Skip all land stages
+    - skip_to_misc: Skip to misc lands (duals/triomes/misc/optimize)
+    - skip_basics: Skip basic lands (land1)
+    - skip_staples: Skip staple lands (land2)
+    - skip_kindred: Skip kindred/tribal lands (land3)
+    - skip_fetches: Skip fetch lands (land4)
+    - skip_duals: Skip dual/shock lands (land5)
+    - skip_triomes: Skip triome/tri-color lands (land6)
+    - skip_all_creatures: Skip all creature stages
+    - skip_creature_primary: Skip creature primary stage
+    - skip_creature_secondary: Skip creature secondary stage
+    - skip_creature_fill: Skip creature fill stage
+    - skip_all_spells: Skip all spell stages
+    - skip_ramp: Skip ramp spells
+    - skip_removal: Skip removal spells
+    - skip_wipes: Skip board wipes
+    - skip_card_advantage: Skip card advantage
+    - skip_protection: Skip protection spells
+    - skip_spell_fill: Skip spell fill stage
+    - skip_post_adjust: Skip post-adjustment
+    """
+    return {
+        "skip_lands": bool(sess.get("skip_lands", False)),
+        "skip_to_misc": bool(sess.get("skip_to_misc", False)),
+        "skip_basics": bool(sess.get("skip_basics", False)),
+        "skip_staples": bool(sess.get("skip_staples", False)),
+        "skip_kindred": bool(sess.get("skip_kindred", False)),
+        "skip_fetches": bool(sess.get("skip_fetches", False)),
+        "skip_duals": bool(sess.get("skip_duals", False)),
+        "skip_triomes": bool(sess.get("skip_triomes", False)),
+        "skip_all_creatures": bool(sess.get("skip_all_creatures", False)),
+        "skip_creature_primary": bool(sess.get("skip_creature_primary", False)),
+        "skip_creature_secondary": bool(sess.get("skip_creature_secondary", False)),
+        "skip_creature_fill": bool(sess.get("skip_creature_fill", False)),
+        "skip_all_spells": bool(sess.get("skip_all_spells", False)),
+        "skip_ramp": bool(sess.get("skip_ramp", False)),
+        "skip_removal": bool(sess.get("skip_removal", False)),
+        "skip_wipes": bool(sess.get("skip_wipes", False)),
+        "skip_card_advantage": bool(sess.get("skip_card_advantage", False)),
+        "skip_protection": bool(sess.get("skip_protection", False)),
+        "skip_spell_fill": bool(sess.get("skip_spell_fill", False)),
+        "skip_post_adjust": bool(sess.get("skip_post_adjust", False)),
+    }
+
+
+def _check_stage_skip(stage_id: str, skip_config: Dict[str, bool]) -> bool:
+    """Check if a stage should be skipped based on skip configuration.
+    
+    Land stage mapping:
+      land1 = basics, land2 = staples, land3 = kindred, land4 = fetches,
+      land5 = duals/shocks, land6 = triomes, land7 = misc, land8 = optimize
+    
+    Args:
+        stage_id: Stage identifier (e.g., 'land1', 'creatures_primary', 'spells_ramp')
+        skip_config: Skip configuration dict from _get_stage_skip_config()
+    
+    Returns:
+        True if stage should be skipped, False otherwise
+    """
+    # Land stages
+    if stage_id == "land1":
+        return skip_config.get("skip_basics", False) or skip_config.get("skip_to_misc", False) or skip_config.get("skip_lands", False)
+    elif stage_id == "land2":
+        return skip_config.get("skip_staples", False) or skip_config.get("skip_to_misc", False) or skip_config.get("skip_lands", False)
+    elif stage_id == "land3":
+        return skip_config.get("skip_kindred", False) or skip_config.get("skip_to_misc", False) or skip_config.get("skip_lands", False)
+    elif stage_id == "land4":
+        return skip_config.get("skip_fetches", False) or skip_config.get("skip_to_misc", False) or skip_config.get("skip_lands", False)
+    elif stage_id == "land5":
+        return skip_config.get("skip_duals", False) or skip_config.get("skip_to_misc", False) or skip_config.get("skip_lands", False)
+    elif stage_id == "land6":
+        return skip_config.get("skip_triomes", False) or skip_config.get("skip_to_misc", False) or skip_config.get("skip_lands", False)
+    elif stage_id == "land7":
+        # land7 = misc lands - skip_to_misc should STOP here and gate, not skip through
+        return skip_config.get("skip_lands", False)
+    elif stage_id == "land8":
+        # land8 = optimize - skip if skip_lands is enabled
+        return skip_config.get("skip_lands", False)
+    
+    # Creature stages
+    elif stage_id == "creatures_all_theme":
+        return skip_config.get("skip_all_creatures", False)
+    elif stage_id == "creatures_primary":
+        return skip_config.get("skip_creature_primary", False) or skip_config.get("skip_all_creatures", False)
+    elif stage_id == "creatures_secondary":
+        return skip_config.get("skip_creature_secondary", False) or skip_config.get("skip_all_creatures", False)
+    elif stage_id == "creatures_fill":
+        return skip_config.get("skip_creature_fill", False) or skip_config.get("skip_all_creatures", False)
+    
+    # Spell stages
+    elif stage_id == "spells_ramp":
+        return skip_config.get("skip_ramp", False) or skip_config.get("skip_all_spells", False)
+    elif stage_id == "spells_removal":
+        return skip_config.get("skip_removal", False) or skip_config.get("skip_all_spells", False)
+    elif stage_id == "spells_wipes":
+        return skip_config.get("skip_wipes", False) or skip_config.get("skip_all_spells", False)
+    elif stage_id == "spells_card_advantage":
+        return skip_config.get("skip_card_advantage", False) or skip_config.get("skip_all_spells", False)
+    elif stage_id == "spells_protection":
+        return skip_config.get("skip_protection", False) or skip_config.get("skip_all_spells", False)
+    elif stage_id == "spells_fill":
+        return skip_config.get("skip_spell_fill", False) or skip_config.get("skip_all_spells", False)
+    
+    # Post-adjust stage
+    elif stage_id == "post_adjust":
+        return skip_config.get("skip_post_adjust", False)
+    
+    return False
 
 
 def _apply_combined_commander_to_builder(builder: DeckBuilder, combined: Any) -> None:
@@ -2516,6 +2753,13 @@ def run_stage(ctx: Dict[str, Any], rerun: bool = False, show_skipped: bool = Fal
         stage = stages[i]
         label = stage["label"]
         runner_name = stage["runner_name"]
+        stage_id = stage.get("key", "")
+
+        # Check if stage should be skipped (M2: Skip Controls)
+        # Note: Skip means "auto-continue without user input", not "skip execution"
+        # The stage still runs and adds cards, but we don't gate on it
+        skip_config = _get_stage_skip_config(ctx.get("session", {}))
+        should_skip = _check_stage_skip(stage_id, skip_config)
 
         # Take snapshot before executing; for rerun with replace, restore first if we have one
         if rerun and replace and ctx.get("snapshot") is not None and i == max(0, int(ctx.get("last_visible_idx", ctx["idx"]) or 1) - 1):
@@ -3018,7 +3262,7 @@ def run_stage(ctx: Dict[str, Any], rerun: bool = False, show_skipped: bool = Fal
         except Exception:
             pass
 
-        # If this stage added cards, present it and advance idx
+        # If this stage added cards, gate for user review UNLESS skip is enabled
         if added_cards:
             # Progress counts
             try:
@@ -3047,6 +3291,23 @@ def run_stage(ctx: Dict[str, Any], rerun: bool = False, show_skipped: bool = Fal
                 pass
             ctx["idx"] = i + 1
             ctx["last_visible_idx"] = i + 1
+            
+            # M2 Skip Controls: If stage is skipped, auto-advance instead of gating
+            if should_skip:
+                # Track that this stage was auto-skipped
+                try:
+                    skipped_list = ctx.get("skipped_stages", [])
+                    if stage_id not in skipped_list:
+                        skipped_list.append(stage_id)
+                    ctx["skipped_stages"] = skipped_list
+                except Exception:
+                    pass
+                # Log the skip and continue to next stage
+                logs.append(f"Auto-continued through '{label}' (skip enabled)")
+                i += 1
+                continue
+            
+            # Normal gating: return stage result for user review
             return {
                 "done": False,
                 "label": label,

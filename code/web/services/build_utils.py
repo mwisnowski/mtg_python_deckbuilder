@@ -175,6 +175,8 @@ def start_ctx_from_session(sess: dict, *, set_on_session: bool = True) -> Dict[s
         ctx["partner_mode"] = sess.get("partner_mode")
         ctx["combined_commander"] = sess.get("combined_commander")
         ctx["partner_warnings"] = list(sess.get("partner_warnings", []) or [])
+    # M2: Attach session reference to context for skip controls
+    ctx["session"] = sess
     return ctx
 
 

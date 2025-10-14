@@ -1,0 +1,279 @@
+{# M3: Skip Controls UI - Collapsible section with 16+ checkboxes #}
+<details id="skip-controls-section" style="margin-top:.75rem;">
+  <summary style="cursor:pointer; font-weight:500; user-select:none;">⏭️ Skip Build Steps <span class="muted" style="font-weight:400; font-size:12px;">(optional)</span></summary>
+  <div style="margin-top:.75rem; padding:.75rem; border:1px solid var(--border); border-radius:8px;">
+    <div class="muted" style="font-size:12px; margin-bottom:.75rem;">
+      Skip specific build stages to speed up deck creation. The builder will auto-fill skipped stages with optimal choices.
+    </div>
+    
+    {# Land Controls #}
+    <div style="margin-bottom:1rem;">
+      <div style="font-weight:500; margin-bottom:.5rem; font-size:13px;">🏔️ Land Stages</div>
+      <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:.5rem; margin-left:1rem;">
+        <label class="skip-control-label" style="display:grid; grid-template-columns:auto 1fr; align-items:center; column-gap:0.5rem; cursor:pointer;" title="Skip all land selection stages">
+          <input type="checkbox" class="skip-checkbox" data-skip-key="skip_lands" style="margin:0; cursor:pointer;" />
+          <span style="font-size:12px;">Skip all lands</span>
+        </label>
+        <label class="skip-control-label" style="display:grid; grid-template-columns:auto 1fr; align-items:center; column-gap:0.5rem; cursor:pointer;" title="Skip to misc/utility lands (skip basics, staples, kindred, fetches, duals, triomes)">
+          <input type="checkbox" class="skip-checkbox" data-skip-key="skip_to_misc" style="margin:0; cursor:pointer;" />
+          <span style="font-size:12px;">Skip to misc lands</span>
+        </label>
+      </div>
+      <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:.5rem; margin-left:2rem; margin-top:.5rem;">
+        <label class="skip-control-label" style="display:grid; grid-template-columns:auto 1fr; align-items:center; column-gap:0.5rem; cursor:pointer;" title="Skip basic lands (step 1)">
+          <input type="checkbox" class="skip-checkbox" data-skip-key="skip_basics" style="margin:0; cursor:pointer;" />
+          <span style="font-size:12px;">Skip basics</span>
+        </label>
+        <label class="skip-control-label" style="display:grid; grid-template-columns:auto 1fr; align-items:center; column-gap:0.5rem; cursor:pointer;" title="Skip staple lands (step 2)">
+          <input type="checkbox" class="skip-checkbox" data-skip-key="skip_staples" style="margin:0; cursor:pointer;" />
+          <span style="font-size:12px;">Skip staples</span>
+        </label>
+        <label class="skip-control-label" style="display:grid; grid-template-columns:auto 1fr; align-items:center; column-gap:0.5rem; cursor:pointer;" title="Skip kindred/tribal lands (step 3)">
+          <input type="checkbox" class="skip-checkbox" data-skip-key="skip_kindred" style="margin:0; cursor:pointer;" />
+          <span style="font-size:12px;">Skip kindred</span>
+        </label>
+        <label class="skip-control-label" style="display:grid; grid-template-columns:auto 1fr; align-items:center; column-gap:0.5rem; cursor:pointer;" title="Skip fetch lands (step 4)">
+          <input type="checkbox" class="skip-checkbox" data-skip-key="skip_fetches" style="margin:0; cursor:pointer;" />
+          <span style="font-size:12px;">Skip fetches</span>
+        </label>
+        <label class="skip-control-label" style="display:grid; grid-template-columns:auto 1fr; align-items:center; column-gap:0.5rem; cursor:pointer;" title="Skip dual lands - shocks, typed duals (step 5)">
+          <input type="checkbox" class="skip-checkbox" data-skip-key="skip_duals" style="margin:0; cursor:pointer;" />
+          <span style="font-size:12px;">Skip duals</span>
+        </label>
+        <label class="skip-control-label" style="display:grid; grid-template-columns:auto 1fr; align-items:center; column-gap:0.5rem; cursor:pointer;" title="Skip triome/tri-color lands (step 6)">
+          <input type="checkbox" class="skip-checkbox" data-skip-key="skip_triomes" style="margin:0; cursor:pointer;" />
+          <span style="font-size:12px;">Skip triomes</span>
+        </label>
+      </div>
+    </div>
+    
+    {# Creature Controls #}
+    <div style="margin-bottom:1rem;">
+      <div style="font-weight:500; margin-bottom:.5rem; font-size:13px;">🦁 Creature Stages</div>
+      <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:.5rem; margin-left:1rem;">
+        <label class="skip-control-label" style="display:grid; grid-template-columns:auto 1fr; align-items:center; column-gap:0.5rem; cursor:pointer;" title="Skip all creature selection stages">
+          <input type="checkbox" class="skip-checkbox" data-skip-key="skip_all_creatures" style="margin:0; cursor:pointer;" />
+          <span style="font-size:12px;">Skip all creatures</span>
+        </label>
+      </div>
+      <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:.5rem; margin-left:2rem; margin-top:.5rem;">
+        <label class="skip-control-label" style="display:grid; grid-template-columns:auto 1fr; align-items:center; column-gap:0.5rem; cursor:pointer;" title="Skip primary theme creatures">
+          <input type="checkbox" class="skip-checkbox" data-skip-key="skip_creature_primary" style="margin:0; cursor:pointer;" />
+          <span style="font-size:12px;">Skip primary creatures</span>
+        </label>
+        <label class="skip-control-label" style="display:grid; grid-template-columns:auto 1fr; align-items:center; column-gap:0.5rem; cursor:pointer;" title="Skip secondary theme creatures">
+          <input type="checkbox" class="skip-checkbox" data-skip-key="skip_creature_secondary" style="margin:0; cursor:pointer;" />
+          <span style="font-size:12px;">Skip secondary creatures</span>
+        </label>
+        <label class="skip-control-label" style="display:grid; grid-template-columns:auto 1fr; align-items:center; column-gap:0.5rem; cursor:pointer;" title="Skip creature fill stage">
+          <input type="checkbox" class="skip-checkbox" data-skip-key="skip_creature_fill" style="margin:0; cursor:pointer;" />
+          <span style="font-size:12px;">Skip creature fill</span>
+        </label>
+      </div>
+    </div>
+    
+    {# Spell Controls #}
+    <div style="margin-bottom:1rem;">
+      <div style="font-weight:500; margin-bottom:.5rem; font-size:13px;">⚡ Spell Stages</div>
+      <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:.5rem; margin-left:1rem;">
+        <label class="skip-control-label" style="display:grid; grid-template-columns:auto 1fr; align-items:center; column-gap:0.5rem; cursor:pointer;" title="Skip all spell selection stages">
+          <input type="checkbox" class="skip-checkbox" data-skip-key="skip_all_spells" style="margin:0; cursor:pointer;" />
+          <span style="font-size:12px;">Skip all spells</span>
+        </label>
+      </div>
+      <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:.5rem; margin-left:2rem; margin-top:.5rem;">
+        <label class="skip-control-label" style="display:grid; grid-template-columns:auto 1fr; align-items:center; column-gap:0.5rem; cursor:pointer;" title="Skip ramp spells stage">
+          <input type="checkbox" class="skip-checkbox" data-skip-key="skip_ramp" style="margin:0; cursor:pointer;" />
+          <span style="font-size:12px;">Skip ramp</span>
+        </label>
+        <label class="skip-control-label" style="display:grid; grid-template-columns:auto 1fr; align-items:center; column-gap:0.5rem; cursor:pointer;" title="Skip removal spells stage">
+          <input type="checkbox" class="skip-checkbox" data-skip-key="skip_removal" style="margin:0; cursor:pointer;" />
+          <span style="font-size:12px;">Skip removal</span>
+        </label>
+        <label class="skip-control-label" style="display:grid; grid-template-columns:auto 1fr; align-items:center; column-gap:0.5rem; cursor:pointer;" title="Skip board wipes stage">
+          <input type="checkbox" class="skip-checkbox" data-skip-key="skip_wipes" style="margin:0; cursor:pointer;" />
+          <span style="font-size:12px;">Skip board wipes</span>
+        </label>
+        <label class="skip-control-label" style="display:grid; grid-template-columns:auto 1fr; align-items:center; column-gap:0.5rem; cursor:pointer;" title="Skip card advantage stage">
+          <input type="checkbox" class="skip-checkbox" data-skip-key="skip_card_advantage" style="margin:0; cursor:pointer;" />
+          <span style="font-size:12px;">Skip card advantage</span>
+        </label>
+        <label class="skip-control-label" style="display:grid; grid-template-columns:auto 1fr; align-items:center; column-gap:0.5rem; cursor:pointer;" title="Skip protection spells stage">
+          <input type="checkbox" class="skip-checkbox" data-skip-key="skip_protection" style="margin:0; cursor:pointer;" />
+          <span style="font-size:12px;">Skip protection</span>
+        </label>
+        <label class="skip-control-label" style="display:grid; grid-template-columns:auto 1fr; align-items:center; column-gap:0.5rem; cursor:pointer;" title="Skip spell fill stage">
+          <input type="checkbox" class="skip-checkbox" data-skip-key="skip_spell_fill" style="margin:0; cursor:pointer;" />
+          <span style="font-size:12px;">Skip spell fill</span>
+        </label>
+      </div>
+    </div>
+    
+    {# Post-Adjust Control (read-only, auto-managed) #}
+    <div>
+      <div class="muted" style="font-size:11px; font-style:italic; padding:.5rem; background:rgba(107, 114, 128, 0.1); border-radius:6px;">
+        💡 Post-adjustment will be automatically skipped when any stages are skipped above.
+      </div>
+    </div>
+  </div>
+</details>
+
+<script>
+// M3: Skip Controls - HTMX toggle with mutual exclusivity
+(function() {
+  const skipControls = document.getElementById('skip-controls-section');
+  if (!skipControls) return;
+  
+  const checkboxes = skipControls.querySelectorAll('.skip-checkbox');
+  
+  checkboxes.forEach(function(checkbox) {
+    checkbox.addEventListener('change', function() {
+      const skipKey = this.getAttribute('data-skip-key');
+      const enabled = this.checked ? '1' : '0';
+      
+      // Send toggle request to backend
+      fetch('/build/new/toggle-skip', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: 'skip_key=' + encodeURIComponent(skipKey) + '&enabled=' + encodeURIComponent(enabled)
+      })
+      .then(function(response) {
+        return response.json();
+      })
+      .then(function(data) {
+        if (data.error) {
+          console.error('Skip toggle error:', data.error);
+          // Revert checkbox state on error
+          checkbox.checked = !checkbox.checked;
+          return;
+        }
+        
+        // Apply mutual exclusivity UI updates
+        applyMutualExclusivity();
+      })
+      .catch(function(error) {
+        console.error('Skip toggle failed:', error);
+        // Revert checkbox state on error
+        checkbox.checked = !checkbox.checked;
+      });
+    });
+  });
+  
+  function applyMutualExclusivity() {
+    const landGroupFlags = ['skip_lands', 'skip_to_misc'];
+    const individualLandFlags = ['skip_basics', 'skip_staples', 'skip_kindred', 'skip_fetches', 'skip_duals', 'skip_triomes'];
+    const creatureGroupFlags = ['skip_all_creatures'];
+    const creatureSpecificFlags = ['skip_creature_primary', 'skip_creature_secondary', 'skip_creature_fill'];
+    const spellGroupFlags = ['skip_all_spells'];
+    const spellSpecificFlags = ['skip_ramp', 'skip_removal', 'skip_wipes', 'skip_card_advantage', 'skip_protection', 'skip_spell_fill'];
+    
+    // Check which flags are enabled
+    const enabledFlags = {};
+    checkboxes.forEach(function(cb) {
+      const key = cb.getAttribute('data-skip-key');
+      enabledFlags[key] = cb.checked;
+    });
+    
+    // Rule 1: If land group flags enabled, disable individual land flags
+    const landGroupEnabled = landGroupFlags.some(function(key) { return enabledFlags[key]; });
+    individualLandFlags.forEach(function(key) {
+      const cb = skipControls.querySelector('[data-skip-key="' + key + '"]');
+      if (cb) {
+        const label = cb.closest('.skip-control-label');
+        if (landGroupEnabled) {
+          cb.disabled = true;
+          if (label) label.style.opacity = '0.5';
+        } else {
+          cb.disabled = false;
+          if (label) label.style.opacity = '1';
+        }
+      }
+    });
+    
+    // Rule 2: If individual land flags enabled, disable land group flags
+    const individualLandEnabled = individualLandFlags.some(function(key) { return enabledFlags[key]; });
+    landGroupFlags.forEach(function(key) {
+      const cb = skipControls.querySelector('[data-skip-key="' + key + '"]');
+      if (cb) {
+        const label = cb.closest('.skip-control-label');
+        if (individualLandEnabled) {
+          cb.disabled = true;
+          if (label) label.style.opacity = '0.5';
+        } else {
+          cb.disabled = false;
+          if (label) label.style.opacity = '1';
+        }
+      }
+    });
+    
+    // Rule 3: If creature group enabled, disable specific creature flags
+    const creatureGroupEnabled = creatureGroupFlags.some(function(key) { return enabledFlags[key]; });
+    creatureSpecificFlags.forEach(function(key) {
+      const cb = skipControls.querySelector('[data-skip-key="' + key + '"]');
+      if (cb) {
+        const label = cb.closest('.skip-control-label');
+        if (creatureGroupEnabled) {
+          cb.disabled = true;
+          if (label) label.style.opacity = '0.5';
+        } else {
+          cb.disabled = false;
+          if (label) label.style.opacity = '1';
+        }
+      }
+    });
+    
+    // Rule 4: If specific creature flags enabled, disable creature group
+    const creatureSpecificEnabled = creatureSpecificFlags.some(function(key) { return enabledFlags[key]; });
+    creatureGroupFlags.forEach(function(key) {
+      const cb = skipControls.querySelector('[data-skip-key="' + key + '"]');
+      if (cb) {
+        const label = cb.closest('.skip-control-label');
+        if (creatureSpecificEnabled) {
+          cb.disabled = true;
+          if (label) label.style.opacity = '0.5';
+        } else {
+          cb.disabled = false;
+          if (label) label.style.opacity = '1';
+        }
+      }
+    });
+    
+    // Rule 5: If spell group enabled, disable specific spell flags
+    const spellGroupEnabled = spellGroupFlags.some(function(key) { return enabledFlags[key]; });
+    spellSpecificFlags.forEach(function(key) {
+      const cb = skipControls.querySelector('[data-skip-key="' + key + '"]');
+      if (cb) {
+        const label = cb.closest('.skip-control-label');
+        if (spellGroupEnabled) {
+          cb.disabled = true;
+          if (label) label.style.opacity = '0.5';
+        } else {
+          cb.disabled = false;
+          if (label) label.style.opacity = '1';
+        }
+      }
+    });
+    
+    // Rule 6: If specific spell flags enabled, disable spell group
+    const spellSpecificEnabled = spellSpecificFlags.some(function(key) { return enabledFlags[key]; });
+    spellGroupFlags.forEach(function(key) {
+      const cb = skipControls.querySelector('[data-skip-key="' + key + '"]');
+      if (cb) {
+        const label = cb.closest('.skip-control-label');
+        if (spellSpecificEnabled) {
+          cb.disabled = true;
+          if (label) label.style.opacity = '0.5';
+        } else {
+          cb.disabled = false;
+          if (label) label.style.opacity = '1';
+        }
+      }
+    });
+  }
+  
+  // Apply initial state on load
+  applyMutualExclusivity();
+})();
+</script>

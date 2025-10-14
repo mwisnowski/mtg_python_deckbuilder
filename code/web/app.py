@@ -128,6 +128,7 @@ ENABLE_PRESETS = _as_bool(os.getenv("ENABLE_PRESETS"), False)
 ALLOW_MUST_HAVES = _as_bool(os.getenv("ALLOW_MUST_HAVES"), True)
 SHOW_MUST_HAVE_BUTTONS = _as_bool(os.getenv("SHOW_MUST_HAVE_BUTTONS"), False)
 ENABLE_CUSTOM_THEMES = _as_bool(os.getenv("ENABLE_CUSTOM_THEMES"), True)
+WEB_IDEALS_UI = os.getenv("WEB_IDEALS_UI", "slider").strip().lower()  # 'input' or 'slider'
 ENABLE_PARTNER_MECHANICS = _as_bool(os.getenv("ENABLE_PARTNER_MECHANICS"), True)
 ENABLE_PARTNER_SUGGESTIONS = _as_bool(os.getenv("ENABLE_PARTNER_SUGGESTIONS"), True)
 RANDOM_MODES = _as_bool(os.getenv("RANDOM_MODES"), True)  # initial snapshot (legacy)

@@ -78,6 +78,8 @@ Every tile on the homepage connects to a workflow. Use these sections as your to
 ### Build a Deck
 Start here for interactive deck creation.
 - Pick commander, themes (primary/secondary/tertiary), bracket, and optional deck name in the unified modal.
+- **Quick Build**: One-click automation runs the full workflow with live progress (Creatures → Spells → Lands → Final Touches → Summary). Available in New Deck wizard.
+- **Skip Controls**: Granular stage-skipping toggles in New Deck wizard (21 flags: land steps, creature stages, spell categories). Auto-advance without approval prompts.
 - Add supplemental themes in the **Additional Themes** section (ENABLE_CUSTOM_THEMES): fuzzy suggestions, removable chips, and strict/permissive matching toggles respect `THEME_MATCH_MODE` and `USER_THEME_LIMIT`.
 - Partner mechanics (ENABLE_PARTNER_MECHANICS): Step 2 and the quick-start modal auto-enable partner controls for eligible commanders, show only legal partner/background/Doctor options, and keep previews, warnings, and theme chips in sync.
   - Partner suggestions (ENABLE_PARTNER_SUGGESTIONS): ranked chips appear beside the partner selector, recommending popular partner/background/Doctor pairings based on the analytics dataset; selections respect existing partner mode and lock states.
@@ -89,6 +91,8 @@ Start here for interactive deck creation.
 - Exports (CSV, TXT, compliance JSON, summary JSON) land in `deck_files/` and reuse your chosen deck name when set. CSV/TXT headers now include commander metadata (names, partner mode, colors) so downstream tools can pick up dual-commander context without extra parsing.
 - `ALLOW_MUST_HAVES=1` (default) enables include/exclude enforcement.
 - `WEB_AUTO_ENFORCE=1` re-runs bracket enforcement automatically after each build.
+- `WEB_STAGE_ORDER=new` (default) runs creatures/spells before lands for better pip analysis. Use `legacy` for original lands-first order.
+- `WEB_IDEALS_UI=slider` (default) shows interactive range sliders for ideal counts with live validation. Use `input` for traditional text boxes.
 
 ### Run a JSON Config
 Execute saved configs without manual input.

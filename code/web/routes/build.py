@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Request, Form, Query
+from fastapi import APIRouter, Request, Form, Query, BackgroundTasks
 from fastapi.responses import HTMLResponse, JSONResponse
-from typing import Any, Iterable
+from typing import Any, Dict, Iterable
 import json
 from ..app import (
     ALLOW_MUST_HAVES,
@@ -13,6 +13,7 @@ from ..app import (
     _sanitize_theme,
     ENABLE_PARTNER_MECHANICS,
     ENABLE_PARTNER_SUGGESTIONS,
+    WEB_IDEALS_UI,
 )
 from ..services.build_utils import (
     step5_base_ctx,
@@ -1324,6 +1325,29 @@ async def build_new_modal(request: Request) -> HTMLResponse:
     """Return the New Deck modal content (for an overlay)."""
     sid = request.cookies.get("sid") or new_sid()
     sess = get_session(sid)
+    
+    # Clear build context to allow skip controls to work
+    # (Otherwise toggle endpoint thinks build is in progress)
+    if "build_ctx" in sess:
+        try:
+            del sess["build_ctx"]
+        except Exception:
+            pass
+    
+    # M2: Clear all skip preferences for true "New Deck"
+    skip_keys = [
+        "skip_lands", "skip_to_misc", "skip_basics", "skip_staples", 
+        "skip_kindred", "skip_fetches", "skip_duals", "skip_triomes",
+        "skip_all_creatures", 
+        "skip_creature_primary", "skip_creature_secondary", "skip_creature_fill",
+        "skip_all_spells",
+        "skip_ramp", "skip_removal", "skip_wipes", "skip_card_advantage", 
+        "skip_protection", "skip_spell_fill",
+        "skip_post_adjust"
+    ]
+    for key in skip_keys:
+        sess.pop(key, None)
+    
     theme_context = _custom_theme_context(request, sess)
     ctx = {
         "request": request,
@@ -1333,6 +1357,7 @@ async def build_new_modal(request: Request) -> HTMLResponse:
         "allow_must_haves": ALLOW_MUST_HAVES,  # Add feature flag
         "show_must_have_buttons": SHOW_MUST_HAVE_BUTTONS,
         "enable_custom_themes": ENABLE_CUSTOM_THEMES,
+        "ideals_ui_mode": WEB_IDEALS_UI,  # 'input' or 'slider'
         "form": {
             "prefer_combos": bool(sess.get("prefer_combos")),
             "combo_count": sess.get("combo_target_count"),
@@ -1341,6 +1366,15 @@ async def build_new_modal(request: Request) -> HTMLResponse:
             "use_owned_only": bool(sess.get("use_owned_only")),
             "prefer_owned": bool(sess.get("prefer_owned")),
             "swap_mdfc_basics": bool(sess.get("swap_mdfc_basics")),
+            # Add ideal values from session (will be None on first load, triggering defaults)
+            "ramp": sess.get("ideals", {}).get("ramp"),
+            "lands": sess.get("ideals", {}).get("lands"),
+            "basic_lands": sess.get("ideals", {}).get("basic_lands"),
+            "creatures": sess.get("ideals", {}).get("creatures"),
+            "removal": sess.get("ideals", {}).get("removal"),
+            "wipes": sess.get("ideals", {}).get("wipes"),
+            "card_advantage": sess.get("ideals", {}).get("card_advantage"),
+            "protection": sess.get("ideals", {}).get("protection"),
         },
         "tag_slot_html": None,
     }
@@ -1622,9 +1656,265 @@ async def build_theme_mode(request: Request, mode: str = Form("permissive")) -> 
     return resp
 
 
+@router.post("/new/toggle-skip", response_class=JSONResponse)
+async def build_new_toggle_skip(
+    request: Request,
+    skip_key: str = Form(...),
+    enabled: str = Form(...),
+) -> JSONResponse:
+    """Toggle a skip configuration flag (wizard-only, before build starts).
+    
+    Enforces mutual exclusivity:
+    - skip_lands and skip_to_misc are mutually exclusive with individual land flags
+    - Individual land flags are mutually exclusive with each other
+    """
+    sid = request.cookies.get("sid") or request.headers.get("X-Session-ID")
+    if not sid:
+        return JSONResponse({"error": "No session ID"}, status_code=400)
+    
+    sess = get_session(sid)
+    
+    # Wizard-only: reject if build has started
+    if "build_ctx" in sess:
+        return JSONResponse({"error": "Cannot modify skip settings after build has started"}, status_code=400)
+    
+    # Validate skip_key
+    valid_keys = {
+        "skip_lands", "skip_to_misc", "skip_basics", "skip_staples", 
+        "skip_kindred", "skip_fetches", "skip_duals", "skip_triomes",
+        "skip_all_creatures", 
+        "skip_creature_primary", "skip_creature_secondary", "skip_creature_fill",
+        "skip_all_spells",
+        "skip_ramp", "skip_removal", "skip_wipes", "skip_card_advantage", 
+        "skip_protection", "skip_spell_fill",
+        "skip_post_adjust"
+    }
+    
+    if skip_key not in valid_keys:
+        return JSONResponse({"error": f"Invalid skip key: {skip_key}"}, status_code=400)
+    
+    # Parse enabled flag
+    enabled_flag = str(enabled).strip().lower() in {"1", "true", "yes", "on"}
+    
+    # Mutual exclusivity rules
+    land_group_flags = {"skip_lands", "skip_to_misc"}
+    individual_land_flags = {"skip_basics", "skip_staples", "skip_kindred", "skip_fetches", "skip_duals", "skip_triomes"}
+    creature_specific_flags = {"skip_creature_primary", "skip_creature_secondary", "skip_creature_fill"}
+    spell_specific_flags = {"skip_ramp", "skip_removal", "skip_wipes", "skip_card_advantage", "skip_protection", "skip_spell_fill"}
+    
+    # If enabling a flag, check for conflicts
+    if enabled_flag:
+        # Rule 1: skip_lands/skip_to_misc disables all individual land flags
+        if skip_key in land_group_flags:
+            for key in individual_land_flags:
+                sess[key] = False
+        
+        # Rule 2: Individual land flags disable skip_lands/skip_to_misc
+        elif skip_key in individual_land_flags:
+            for key in land_group_flags:
+                sess[key] = False
+        
+        # Rule 3: skip_all_creatures disables specific creature flags
+        elif skip_key == "skip_all_creatures":
+            for key in creature_specific_flags:
+                sess[key] = False
+        
+        # Rule 4: Specific creature flags disable skip_all_creatures
+        elif skip_key in creature_specific_flags:
+            sess["skip_all_creatures"] = False
+        
+        # Rule 5: skip_all_spells disables specific spell flags
+        elif skip_key == "skip_all_spells":
+            for key in spell_specific_flags:
+                sess[key] = False
+        
+        # Rule 6: Specific spell flags disable skip_all_spells
+        elif skip_key in spell_specific_flags:
+            sess["skip_all_spells"] = False
+    
+    # Set the requested flag
+    sess[skip_key] = enabled_flag
+    
+    # Auto-enable skip_post_adjust when any other skip is enabled
+    if enabled_flag and skip_key != "skip_post_adjust":
+        sess["skip_post_adjust"] = True
+    
+    # Auto-disable skip_post_adjust when all other skips are disabled
+    if not enabled_flag:
+        any_other_skip = any(
+            sess.get(k, False) for k in valid_keys 
+            if k != "skip_post_adjust" and k != skip_key
+        )
+        if not any_other_skip:
+            sess["skip_post_adjust"] = False
+    
+    return JSONResponse({
+        "success": True,
+        "skip_key": skip_key,
+        "enabled": enabled_flag,
+        "skip_post_adjust": bool(sess.get("skip_post_adjust", False))
+    })
+
+
+def _get_descriptive_stage_label(stage: Dict[str, Any], ctx: Dict[str, Any]) -> str:
+    """Generate a more descriptive label for Quick Build progress display."""
+    key = stage.get("key", "")
+    base_label = stage.get("label", "")
+    
+    # Land stages - show what type of lands
+    land_types = {
+        "land1": "Basics",
+        "land2": "Staples", 
+        "land3": "Fetches",
+        "land4": "Duals",
+        "land5": "Triomes",
+        "land6": "Kindred",
+        "land7": "Misc Utility",
+        "land8": "Final Lands"
+    }
+    if key in land_types:
+        return f"Lands: {land_types[key]}"
+    
+    # Creature stages - show associated theme
+    if "creatures" in key:
+        tags = ctx.get("tags", [])
+        if key == "creatures_all_theme":
+            if tags:
+                all_tags = " + ".join(tags[:3])  # Show up to 3 tags
+                return f"Creatures: All Themes ({all_tags})"
+            return "Creatures: All Themes"
+        elif key == "creatures_primary" and len(tags) >= 1:
+            return f"Creatures: {tags[0]}"
+        elif key == "creatures_secondary" and len(tags) >= 2:
+            return f"Creatures: {tags[1]}"
+        elif key == "creatures_tertiary" and len(tags) >= 3:
+            return f"Creatures: {tags[2]}"
+        # Let creatures_fill use default "Creatures: Fill" label
+    
+    # Theme spell fill stage - adds any card type (artifacts, enchantments, instants, etc.) that fits theme
+    if key == "spells_fill":
+        return "Theme Spell Fill"
+    
+    # Default: return original label
+    return base_label
+
+
+def _run_quick_build_stages(sid: str):
+    """Background task: Run all stages for Quick Build and update progress in session."""
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    logger.info(f"[Quick Build] Starting background task for sid={sid}")
+    
+    sess = get_session(sid)
+    logger.info(f"[Quick Build] Retrieved session: {sess is not None}")
+    
+    ctx = sess.get("build_ctx")
+    if not ctx:
+        logger.error(f"[Quick Build] No build_ctx found in session")
+        sess["quick_build_progress"] = {
+            "running": False,
+            "current_stage": "Error: No build context",
+            "completed_stages": []
+        }
+        return
+    
+    logger.info(f"[Quick Build] build_ctx found with {len(ctx.get('stages', []))} stages")
+    
+    # CRITICAL: Inject session reference into context so skip config can be read
+    ctx["session"] = sess
+    logger.info("[Quick Build] Injected session reference into context")
+    
+    stages = ctx.get("stages", [])
+    res = None
+    
+    # Initialize progress tracking
+    sess["quick_build_progress"] = {
+        "running": True,
+        "current_stage": "Starting build..."
+    }
+    
+    try:
+        logger.info("[Quick Build] Starting stage loop")
+        
+        # Track which phase we're in for simplified progress display
+        current_phase = None
+        
+        while True:
+            current_idx = ctx.get("idx", 0)
+            if current_idx >= len(stages):
+                logger.info(f"[Quick Build] Reached end of stages (idx={current_idx})")
+                break
+            
+            current_stage = stages[current_idx]
+            stage_key = current_stage.get("key", "")
+            logger.info(f"[Quick Build] Stage {current_idx} key: {stage_key}")
+            
+            # Determine simplified phase label
+            if stage_key.startswith("creatures"):
+                new_phase = "Adding Creatures"
+            elif stage_key.startswith("spells") or stage_key in ["spells_ramp", "spells_removal", "spells_wipes", "spells_card_advantage", "spells_protection", "spells_fill"]:
+                new_phase = "Adding Spells"
+            elif stage_key.startswith("land"):
+                new_phase = "Adding Lands"
+            elif stage_key in ["post_spell_land_adjust", "reporting"]:
+                new_phase = "Doing Some Final Touches"
+            else:
+                new_phase = "Building Deck"
+            
+            # Only update progress if phase changed
+            if new_phase != current_phase:
+                current_phase = new_phase
+                sess["quick_build_progress"]["current_stage"] = current_phase
+                logger.info(f"[Quick Build] Phase: {current_phase}")
+            
+            # Run stage with show_skipped=False
+            res = orch.run_stage(ctx, rerun=False, show_skipped=False)
+            logger.info(f"[Quick Build] Stage {stage_key} completed, done={res.get('done')}")
+            
+            # Handle Multi-Copy package marking
+            try:
+                if res.get("label") == "Multi-Copy Package" and sess.get("multi_copy"):
+                    mc = sess.get("multi_copy")
+                    sess["mc_applied_key"] = f"{mc.get('id','')}|{int(mc.get('count',0))}|{1 if mc.get('thrumming') else 0}"
+            except Exception:
+                pass
+            
+            # Check if build is done (reporting stage marks done=True)
+            if res.get("done"):
+                break
+            
+            # run_stage() advances ctx["idx"] internally when stage completes successfully
+            # If stage is gated, it also advances the index, so we just continue the loop
+        
+        # Show summary generation message (stay here for a moment)
+        sess["quick_build_progress"]["current_stage"] = "Generating Summary"
+        import time
+        time.sleep(2)  # Pause briefly so user sees this stage
+        
+        # Store final result for polling endpoint
+        sess["last_result"] = res or {}
+        sess["last_step"] = 5
+        
+        # Small delay to show finishing message
+        import time
+        time.sleep(1.5)
+        
+    except Exception as e:
+        # Store error state
+        logger.exception(f"[Quick Build] Error during stage execution: {e}")
+        sess["quick_build_progress"]["current_stage"] = f"Error: {str(e)}"
+    finally:
+        # Mark build as complete
+        logger.info("[Quick Build] Background task completed")
+        sess["quick_build_progress"]["running"] = False
+        sess["quick_build_progress"]["current_stage"] = "Complete"
+
+
 @router.post("/new", response_class=HTMLResponse)
 async def build_new_submit(
     request: Request,
+    background_tasks: BackgroundTasks,
     name: str = Form("") ,
     commander: str = Form(...),
     primary_tag: str | None = Form(None),
@@ -1662,6 +1952,8 @@ async def build_new_submit(
     enforcement_mode: str = Form("warn"),
     allow_illegal: bool = Form(False),
     fuzzy_matching: bool = Form(True),
+    # Quick Build flag
+    quick_build: str | None = Form(None),
 ) -> HTMLResponse:
     """Handle New Deck modal submit and immediately start the build (skip separate review page)."""
     sid = request.cookies.get("sid") or new_sid()
@@ -2186,20 +2478,52 @@ async def build_new_submit(
         sess["replace_mode"] = True
     # Centralized staged context creation
     sess["build_ctx"] = start_ctx_from_session(sess)
-    res = orch.run_stage(sess["build_ctx"], rerun=False, show_skipped=False)
-    # If Multi-Copy ran first, mark applied to prevent redundant rebuilds on Continue
-    try:
-        if res.get("label") == "Multi-Copy Package" and sess.get("multi_copy"):
-            mc = sess.get("multi_copy")
-            sess["mc_applied_key"] = f"{mc.get('id','')}|{int(mc.get('count',0))}|{1 if mc.get('thrumming') else 0}"
-    except Exception:
-        pass
-    status = "Build complete" if res.get("done") else "Stage complete"
-    sess["last_step"] = 5
-    ctx = step5_ctx_from_result(request, sess, res, status_text=status, show_skipped=False)
-    resp = templates.TemplateResponse("build/_step5.html", ctx)
-    resp.set_cookie("sid", sid, httponly=True, samesite="lax")
-    return resp
+    
+    # Check if Quick Build was requested
+    is_quick_build = (quick_build or "").strip() == "1"
+    
+    if is_quick_build:
+        # Quick Build: Start background task and return progress template immediately
+        ctx = sess["build_ctx"]
+        
+        # Initialize progress tracking with dynamic counting (total starts at 0)
+        sess["quick_build_progress"] = {
+            "running": True,
+            "total": 0,
+            "completed": 0,
+            "current_stage": "Starting build..."
+        }
+        
+        # Start background task to run all stages
+        background_tasks.add_task(_run_quick_build_stages, sid)
+        
+        # Return progress template immediately
+        progress_ctx = {
+            "request": request,
+            "progress_pct": 0,
+            "completed": 0,
+            "total": 0,
+            "current_stage": "Starting build..."
+        }
+        resp = templates.TemplateResponse("build/_quick_build_progress.html", progress_ctx)
+        resp.set_cookie("sid", sid, httponly=True, samesite="lax")
+        return resp
+    else:
+        # Normal build: Run first stage and wait for user input
+        res = orch.run_stage(sess["build_ctx"], rerun=False, show_skipped=False)
+        # If Multi-Copy ran first, mark applied to prevent redundant rebuilds on Continue
+        try:
+            if res.get("label") == "Multi-Copy Package" and sess.get("multi_copy"):
+                mc = sess.get("multi_copy")
+                sess["mc_applied_key"] = f"{mc.get('id','')}|{int(mc.get('count',0))}|{1 if mc.get('thrumming') else 0}"
+        except Exception:
+            pass
+        status = "Build complete" if res.get("done") else "Stage complete"
+        sess["last_step"] = 5
+        ctx = step5_ctx_from_result(request, sess, res, status_text=status, show_skipped=False)
+        resp = templates.TemplateResponse("build/_step5.html", ctx)
+        resp.set_cookie("sid", sid, httponly=True, samesite="lax")
+        return resp
 
 
 @router.get("/step1", response_class=HTMLResponse)
@@ -3155,6 +3479,10 @@ async def build_step5_continue(request: Request) -> HTMLResponse:
     try:
         res = orch.run_stage(sess["build_ctx"], rerun=False, show_skipped=show_skipped)
         status = "Build complete" if res.get("done") else "Stage complete"
+        # Clear commander from session after build completes
+        if res.get("done"):
+            sess.pop("commander", None)
+            sess.pop("commander_name", None)
     except Exception as e:
         sess["last_step"] = 5
         err_ctx = step5_error_ctx(request, sess, f"Failed to continue: {e}")
@@ -3415,6 +3743,48 @@ async def build_step5_summary(request: Request, token: int = Query(0)) -> HTMLRe
     ctx["summary_ready"] = True
     ctx["summary_token"] = active_token
     response = templates.TemplateResponse("partials/deck_summary.html", ctx)
+    response.set_cookie("sid", sid, httponly=True, samesite="lax")
+    return response
+
+
+@router.get("/quick-progress")
+def quick_build_progress(request: Request):
+    """Poll endpoint for Quick Build progress. Returns either progress indicator or final Step 5."""
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    sid = request.cookies.get("sid") or new_sid()
+    sess = get_session(sid)
+    
+    progress = sess.get("quick_build_progress")
+    logger.info(f"[Progress Poll] sid={sid}, progress={progress is not None}, running={progress.get('running') if progress else None}")
+    
+    if not progress or not progress.get("running"):
+        # Build complete - return Step 5 content + remove the polling div
+        res = sess.get("last_result")
+        if res and res.get("done"):
+            ctx = step5_ctx_from_result(request, sess, res)
+            # Render Step 5, then add script to remove polling div
+            step5_html = templates.get_template("build/_step5.html").render(ctx)
+            # Return Step 5 content + a script that removes the poller and replaces #wizard
+            final_html = f'''
+            {step5_html}
+            <div id="quick-build-poller" hx-swap-oob="outerHTML"></div>
+            '''
+            response = HTMLResponse(final_html)
+            response.set_cookie("sid", sid, httponly=True, samesite="lax")
+            return response
+        # Fallback if no result yet
+        return HTMLResponse('Build complete. Please refresh.')
+    
+    # Build still running - return progress content partial only (innerHTML swap)
+    current_stage = progress.get("current_stage", "Processing...")
+    
+    ctx = {
+        "request": request,
+        "current_stage": current_stage
+    }
+    response = templates.TemplateResponse("build/_quick_build_progress_content.html", ctx)
     response.set_cookie("sid", sid, httponly=True, samesite="lax")
     return response
 

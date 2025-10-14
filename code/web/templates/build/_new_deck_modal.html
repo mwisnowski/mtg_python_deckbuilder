@@ -110,6 +110,7 @@
           </div>
         </div>
       </fieldset>
+      {% include "build/_new_deck_ideals.html" %}
       {% if allow_must_haves %}
       <fieldset>
         <legend>Include/Exclude Cards</legend>
@@ -212,25 +213,41 @@
       </div>
         {% endif %}
       {% endif %}
-      <details style="margin-top:.5rem;">
-        <summary>Advanced options (ideals)</summary>
-        <div style="display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap:.5rem; margin-top:.5rem;">
-          {% for key, label in labels.items() %}
-          <label>{{ label }}
-            <input type="number" name="{{ key }}" value="{{ defaults[key] }}" min="0" />
-          </label>
-          {% endfor %}
-        </div>
-      </details>
-      <div class="modal-footer" style="display:flex; gap:.5rem; justify-content:flex-end; margin-top:1rem;">
+      {% include "build/_new_deck_skip_controls.html" %}
+      <div class="modal-footer" style="display:flex; gap:.5rem; justify-content:space-between; margin-top:1rem;">
         <button type="button" class="btn" onclick="this.closest('.modal').remove()">Cancel</button>
-        <button type="submit" class="btn-continue">Create</button>
+        <div style="display:flex; gap:.5rem;">
+          <button type="submit" name="quick_build" value="1" class="btn-continue" id="quick-build-btn" title="Build entire deck automatically without approval steps">Quick Build</button>
+          <button type="submit" class="btn-continue">Create</button>
+        </div>
       </div>
     </form>
   </div>
 </div>
 
 <script>
+  // Quick Build confirmation for mobile devices
+  (function() {
+    var quickBuildBtn = document.getElementById('quick-build-btn');
+    if (quickBuildBtn) {
+      // Detect mobile/tablet device (true touch-primary devices)
+      // Check for touch AND small screen or mobile user agent
+      var isMobile = ('ontouchstart' in window) && 
+                     (window.innerWidth <= 1024 || /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent));
+      
+      if (isMobile) {
+        quickBuildBtn.addEventListener('click', function(e) {
+          var confirmed = confirm('Quick Build will create a complete deck automatically without approval steps. Continue?');
+          if (!confirmed) {
+            e.preventDefault();
+            e.stopPropagation();
+            return false;
+          }
+        });
+      }
+    }
+  })();
+  
   // Utility function for parsing card lists
   function parseCardList(content) {
     const newlineRegex = /\r?\n/;

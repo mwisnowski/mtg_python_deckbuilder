@@ -103,6 +103,9 @@ services:
       # Build Stage Ordering
       WEB_STAGE_ORDER: "new"        # new|legacy. 'new' (default): creatures → spells → lands → fill. 'legacy': lands → creatures → spells → fill
       
+      # Ideals UI Mode
+      WEB_IDEALS_UI: "slider"       # input|slider. 'slider' (default): range sliders. 'input': text boxes
+      
       # Tagging Refinement Feature Flags
       TAG_NORMALIZE_KEYWORDS: "1"   # 1=normalize keywords & filter specialty mechanics (recommended)
       TAG_PROTECTION_GRANTS: "1"    # 1=Protection tag only for cards granting shields (recommended)

@@ -1,10 +1,11 @@
 # MTG Python Deckbuilder ${VERSION}
 
 ### Summary
-- Enhanced deck building workflow with improved stage ordering, granular skip controls, and one-click Quick Build automation.
+- Enhanced deck building workflow with improved stage ordering, granular skip controls, one-click Quick Build automation, and interactive Ideal Counts UI.
 - Stage execution order now prioritizes creatures and spells before lands for better mana curve analysis.
 - New wizard-only skip controls allow auto-advancing through specific stages (lands, creatures, spells) without approval prompts.
 - Quick Build button provides one-click full automation with clean 5-phase progress indicator.
+- Ideal Counts now feature interactive slider UI with live validation and smart overlap detection.
 
 ### Added
 - **Quick Build**: One-click automation button in New Deck wizard with live progress tracking (5 phases: Creatures, Spells, Lands, Final Touches, Summary).
@@ -14,6 +15,12 @@
   - Creature stage controls: all creatures, primary, secondary, fill.
   - Mutual exclusivity enforcement: "Skip All Lands" disables individual land toggles; "Skip to Misc Lands" skips early land steps.
 - **Stage Reordering**: New default build order executes creatures → spells → lands for improved pip analysis (configurable via `WEB_STAGE_ORDER` environment variable).
+- **Ideal Counts UI**: Interactive slider interface with live value display and smart validation (configurable via `WEB_IDEALS_UI` environment variable).
+  - Slider Mode (default): Range sliders for all ideal counts with expanded ranges (creatures: 0-70, lands: 25-45).
+  - Input Mode: Traditional text inputs with placeholder defaults showing recommended values.
+  - Smart Validation: Real-time deck size estimation using overlap-aware calculation (`Lands + Creatures + Spells/2`).
+  - Visual Warnings: Red alert (>99 cards), orange warning (90-99), no warning (<90).
+  - Session Persistence: Values persist across builds and initialize at defaults on first wizard load.
 - Background task execution for Quick Build with HTMX polling progress updates.
 - Mobile-friendly Quick Build with touch device confirmation dialog.
 

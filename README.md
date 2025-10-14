@@ -92,6 +92,7 @@ Start here for interactive deck creation.
 - `ALLOW_MUST_HAVES=1` (default) enables include/exclude enforcement.
 - `WEB_AUTO_ENFORCE=1` re-runs bracket enforcement automatically after each build.
 - `WEB_STAGE_ORDER=new` (default) runs creatures/spells before lands for better pip analysis. Use `legacy` for original lands-first order.
+- `WEB_IDEALS_UI=slider` (default) shows interactive range sliders for ideal counts with live validation. Use `input` for traditional text boxes.
 
 ### Run a JSON Config
 Execute saved configs without manual input.

@@ -110,6 +110,7 @@
           </div>
         </div>
       </fieldset>
+      {% include "build/_new_deck_ideals.html" %}
       {% if allow_must_haves %}
       <fieldset>
         <legend>Include/Exclude Cards</legend>
@@ -213,16 +214,6 @@
         {% endif %}
       {% endif %}
       {% include "build/_new_deck_skip_controls.html" %}
-      <details style="margin-top:.5rem;">
-        <summary>Advanced options (ideals)</summary>
-        <div style="display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap:.5rem; margin-top:.5rem;">
-          {% for key, label in labels.items() %}
-          <label>{{ label }}
-            <input type="number" name="{{ key }}" value="{{ defaults[key] }}" min="0" />
-          </label>
-          {% endfor %}
-        </div>
-      </details>
       <div class="modal-footer" style="display:flex; gap:.5rem; justify-content:space-between; margin-top:1rem;">
         <button type="button" class="btn" onclick="this.closest('.modal').remove()">Cancel</button>
         <div style="display:flex; gap:.5rem;">

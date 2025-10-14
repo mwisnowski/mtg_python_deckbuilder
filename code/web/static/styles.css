@@ -678,3 +678,52 @@ img.lqip.loaded { filter: blur(0); opacity: 1; }
 	0% { background-position: -200% 0; }
 	100% { background-position: 200% 0; }
 }
+
+/* Ideals Slider Styling */
+.ideals-slider {
+	-webkit-appearance: none;
+	appearance: none;
+	height: 6px;
+	background: var(--border);
+	border-radius: 3px;
+	outline: none;
+}
+
+.ideals-slider::-webkit-slider-thumb {
+	-webkit-appearance: none;
+	appearance: none;
+	width: 18px;
+	height: 18px;
+	background: var(--ring);
+	border-radius: 50%;
+	cursor: pointer;
+	transition: all 0.15s ease;
+}
+
+.ideals-slider::-webkit-slider-thumb:hover {
+	transform: scale(1.15);
+	box-shadow: 0 0 0 4px rgba(96, 165, 250, 0.2);
+}
+
+.ideals-slider::-moz-range-thumb {
+	width: 18px;
+	height: 18px;
+	background: var(--ring);
+	border: none;
+	border-radius: 50%;
+	cursor: pointer;
+	transition: all 0.15s ease;
+}
+
+.ideals-slider::-moz-range-thumb:hover {
+	transform: scale(1.15);
+	box-shadow: 0 0 0 4px rgba(96, 165, 250, 0.2);
+}
+
+.slider-value {
+	display: inline-block;
+	padding: 0.25rem 0.5rem;
+	background: var(--panel);
+	border: 1px solid var(--border);
+	border-radius: 4px;
+}

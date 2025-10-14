@@ -10,11 +10,18 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 ## [Unreleased]
 ### Summary
 - Enhanced deck building workflow with improved stage ordering, granular skip controls, and one-click Quick Build automation.
+- New Ideal Counts section with interactive sliders or text inputs for customizing deck composition targets.
 - Stage execution order now prioritizes creatures and spells before lands for better mana curve analysis.
 - New wizard-only skip controls allow auto-advancing through specific stages (lands, creatures, spells) without approval prompts.
 - Quick Build button provides one-click full automation with clean 5-phase progress indicator.
 
 ### Added
+- **Ideal Counts UI**: Dedicated section in New Deck wizard for setting ideal card counts (ramp, lands, creatures, removal, wipes, card advantage, protection).
+  - **Slider Mode** (default): Interactive range sliders with live value display and expanded ranges (e.g., creatures: 0-70, lands: 25-45).
+  - **Input Mode**: Text input boxes with placeholder defaults (e.g., "10 (Default)").
+  - Smart validation warns when estimated total exceeds 99 cards (accounts for overlap: `Lands + Creatures + Spells/2`).
+  - Sliders start at recommended defaults and remember user preferences across builds.
+  - Configurable via `WEB_IDEALS_UI` environment variable (`slider` or `input`).
 - **Quick Build**: One-click automation button in New Deck wizard with live progress tracking (5 phases: Creatures, Spells, Lands, Final Touches, Summary).
 - **Skip Controls**: Granular stage-skipping toggles in New Deck wizard (21 flags: all land steps, creature stages, spell categories).
   - Individual land step controls: basics, staples, fetches, duals, triomes, kindred, misc lands.
@@ -24,9 +31,12 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 - **Stage Reordering**: New default build order executes creatures → spells → lands for improved pip analysis (configurable via `WEB_STAGE_ORDER` environment variable).
 - Background task execution for Quick Build with HTMX polling progress updates.
 - Mobile-friendly Quick Build with touch device confirmation dialog.
+- Commander session cleanup: Commander selection automatically cleared after build completes.
 
 ### Changed
 - **Default Stage Order**: Creatures and ideal spells now execute before land stages (lands can analyze actual pip requirements instead of estimates).
+- **Ideal Counts Display**: Removed collapsible "Advanced options (ideals)" section; replaced with prominent fieldset with slider/input modes.
+- Slider ranges expanded to support edge-case strategies (e.g., creature-heavy tribal, spell-heavy control).
 - Skip controls only available in New Deck wizard (disabled during build execution for consistency).
 - Skip behavior auto-advances through stages without approval prompts (cards still added, just not gated).
 - Post-spell land adjustment automatically skipped when any skip flag enabled.
@@ -35,6 +45,8 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 - Session context properly injected into Quick Build so skip configuration works correctly.
 - HTMX polling uses continuous trigger (`every 500ms`) instead of one-time (`load delay`) for reliable progress updates.
 - Progress indicator stops cleanly when build completes (out-of-band swap removes poller div).
+- Ideal counts now properly populate from session state, allowing sliders to start at defaults and remember user preferences.
+- Commander and commander_name cleared from session after build completes to prevent carryover to next build.
 
 ## [2.6.1] - 2025-10-13
 ### Summary

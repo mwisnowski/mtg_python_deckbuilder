@@ -13,6 +13,7 @@ from ..app import (
     _sanitize_theme,
     ENABLE_PARTNER_MECHANICS,
     ENABLE_PARTNER_SUGGESTIONS,
+    WEB_IDEALS_UI,
 )
 from ..services.build_utils import (
     step5_base_ctx,
@@ -1356,6 +1357,7 @@ async def build_new_modal(request: Request) -> HTMLResponse:
         "allow_must_haves": ALLOW_MUST_HAVES,  # Add feature flag
         "show_must_have_buttons": SHOW_MUST_HAVE_BUTTONS,
         "enable_custom_themes": ENABLE_CUSTOM_THEMES,
+        "ideals_ui_mode": WEB_IDEALS_UI,  # 'input' or 'slider'
         "form": {
             "prefer_combos": bool(sess.get("prefer_combos")),
             "combo_count": sess.get("combo_target_count"),
@@ -1364,6 +1366,15 @@ async def build_new_modal(request: Request) -> HTMLResponse:
             "use_owned_only": bool(sess.get("use_owned_only")),
             "prefer_owned": bool(sess.get("prefer_owned")),
             "swap_mdfc_basics": bool(sess.get("swap_mdfc_basics")),
+            # Add ideal values from session (will be None on first load, triggering defaults)
+            "ramp": sess.get("ideals", {}).get("ramp"),
+            "lands": sess.get("ideals", {}).get("lands"),
+            "basic_lands": sess.get("ideals", {}).get("basic_lands"),
+            "creatures": sess.get("ideals", {}).get("creatures"),
+            "removal": sess.get("ideals", {}).get("removal"),
+            "wipes": sess.get("ideals", {}).get("wipes"),
+            "card_advantage": sess.get("ideals", {}).get("card_advantage"),
+            "protection": sess.get("ideals", {}).get("protection"),
         },
         "tag_slot_html": None,
     }

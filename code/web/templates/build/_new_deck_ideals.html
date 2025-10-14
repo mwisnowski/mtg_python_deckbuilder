@@ -1,0 +1,124 @@
+<fieldset>
+  <legend>Ideal Counts</legend>
+  <div class="muted" style="font-size:12px; margin-bottom:0.75rem;">
+    Sliders start at recommended defaults. Adjust as needed for your deck strategy.
+    <span id="ideals-validation-warning" style="color:#f59e0b; display:none; margin-left:0.5rem;"></span>
+  </div>
+  <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:1rem;">
+    {% set use_sliders = ideals_ui_mode == 'slider' %}
+    {% set ideals_data = [
+      ('ramp', labels.ramp, defaults.ramp, 0, 30),
+      ('lands', labels.lands, defaults.lands, 25, 45),
+      ('basic_lands', labels.basic_lands, defaults.basic_lands, 0, 40),
+      ('creatures', labels.creatures, defaults.creatures, 0, 70),
+      ('removal', labels.removal, defaults.removal, 0, 30),
+      ('wipes', labels.wipes, defaults.wipes, 0, 15),
+      ('card_advantage', labels.card_advantage, defaults.card_advantage, 0, 30),
+      ('protection', labels.protection, defaults.protection, 0, 20)
+    ] %}
+    
+    {% for field_name, field_label, default_val, min_val, max_val in ideals_data %}
+      <div>
+        <label style="display:block; margin-bottom:0.25rem;">
+          <span>{{ field_label }}</span>
+          {% if use_sliders %}
+            <div style="display:flex; align-items:center; gap:0.5rem; margin-top:0.25rem;">
+              <input 
+                type="range" 
+                name="{{ field_name }}" 
+                min="{{ min_val }}" 
+                max="{{ max_val }}" 
+                value="{{ form[field_name] if form and form[field_name] is not none else default_val }}" 
+                class="ideals-slider"
+                data-field="{{ field_name }}"
+                style="flex:1; cursor:pointer;"
+              />
+              <output 
+                id="{{ field_name }}_value" 
+                class="slider-value"
+                style="min-width:2.5rem; text-align:center; font-weight:600; color:var(--accent); font-size:14px;"
+              >
+                {{ form[field_name] if form and form[field_name] is not none else default_val }}
+              </output>
+            </div>
+          {% else %}
+            <input 
+              type="number" 
+              name="{{ field_name }}" 
+              min="{{ min_val }}" 
+              max="100" 
+              value="{{ form[field_name] if form and form[field_name] is not none else '' }}" 
+              placeholder="{{ default_val }} (Default)"
+              style="width:100%; margin-top:0.25rem;"
+            />
+          {% endif %}
+        </label>
+      </div>
+    {% endfor %}
+  </div>
+  
+  <script>
+    // Validate ideal counts to prevent over-allocation
+    function validateIdealCounts() {
+      const warning = document.getElementById('ideals-validation-warning');
+      if (!warning) return;
+      
+      // Get all ideal values
+      const getValue = (name) => {
+        const input = document.querySelector('[name="' + name + '"]');
+        return input ? parseInt(input.value) || 0 : 0;
+      };
+      
+      const lands = getValue('lands');
+      const creatures = getValue('creatures');
+      const ramp = getValue('ramp');
+      const removal = getValue('removal');
+      const wipes = getValue('wipes');
+      const cardAdvantage = getValue('card_advantage');
+      const protection = getValue('protection');
+      
+      // Calculate estimated total with overlap factor
+      // lands + creatures + (spells / 2) since spells often overlap with creatures
+      const spells = ramp + removal + wipes + cardAdvantage + protection;
+      const estimatedTotal = lands + creatures + Math.ceil(spells / 2);
+      
+      // Check if estimated total exceeds deck size (99 for EDH)
+      if (estimatedTotal > 99) {
+        warning.textContent = '⚠ Estimated total ~' + estimatedTotal + ' cards (max 99). Reduce counts to avoid build issues.';
+        warning.style.display = 'inline';
+        warning.style.color = '#ef4444'; // Red for hard conflict
+      } else if (estimatedTotal > 90) {
+        warning.textContent = '⚠ Estimated total ~' + estimatedTotal + ' cards. Deck may be tight on slots.';
+        warning.style.display = 'inline';
+        warning.style.color = '#f59e0b'; // Orange for warning
+      } else {
+        warning.style.display = 'none';
+      }
+    }
+    
+    // Attach validation to all ideal inputs
+    {% if use_sliders %}
+    document.querySelectorAll('.ideals-slider').forEach(slider => {
+      const fieldName = slider.dataset.field;
+      const output = document.getElementById(fieldName + '_value');
+      
+      // Update display on input
+      slider.addEventListener('input', function() {
+        output.textContent = this.value;
+        validateIdealCounts();
+      });
+      
+      // Ensure initial value is displayed
+      output.textContent = slider.value;
+    });
+    {% else %}
+    document.querySelectorAll('[name="ramp"], [name="lands"], [name="basic_lands"], [name="creatures"], [name="removal"], [name="wipes"], [name="card_advantage"], [name="protection"]').forEach(input => {
+      input.addEventListener('input', validateIdealCounts);
+      input.addEventListener('change', validateIdealCounts);
+    });
+    {% endif %}
+    
+    // Run initial validation
+    validateIdealCounts();
+  </script>
+</fieldset>

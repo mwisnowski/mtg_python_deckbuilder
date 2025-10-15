@@ -3760,19 +3760,16 @@ def quick_build_progress(request: Request):
     logger.info(f"[Progress Poll] sid={sid}, progress={progress is not None}, running={progress.get('running') if progress else None}")
     
     if not progress or not progress.get("running"):
-        # Build complete - return Step 5 content + remove the polling div
+        # Build complete - return Step 5 content that replaces the entire wizard container
         res = sess.get("last_result")
         if res and res.get("done"):
             ctx = step5_ctx_from_result(request, sess, res)
-            # Render Step 5, then add script to remove polling div
-            step5_html = templates.get_template("build/_step5.html").render(ctx)
-            # Return Step 5 content + a script that removes the poller and replaces #wizard
-            final_html = f'''
-            {step5_html}
-            <div id="quick-build-poller" hx-swap-oob="outerHTML"></div>
-            '''
-            response = HTMLResponse(final_html)
+            # Return Step 5 which will replace the whole wizard div
+            response = templates.TemplateResponse("build/_step5.html", ctx)
             response.set_cookie("sid", sid, httponly=True, samesite="lax")
+            # Tell HTMX to target #wizard and swap outerHTML to replace the container
+            response.headers["HX-Retarget"] = "#wizard"
+            response.headers["HX-Reswap"] = "outerHTML"
             return response
         # Fallback if no result yet
         return HTMLResponse('Build complete. Please refresh.')

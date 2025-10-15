@@ -1,15 +1,15 @@
 {# Quick Build Progress Content (inner content only, for HTMX updates) #}
-<div class="wizard-header" style="text-align:center; margin-bottom:3rem;">
-  <h2 style="margin:0 0 .5rem 0;">Automatic Build in Progress</h2>
-  <p class="muted" style="margin:0;">Building your deck automatically without approval steps...</p>
+<div class="wizard-header" style="text-align:center; margin-bottom:4rem;">
+  <h2 style="margin:0 0 1rem 0; font-size:32px;">Automatic Build in Progress</h2>
+  <p class="muted" style="margin:0; font-size:16px;">Building your deck automatically without approval steps...</p>
 </div>
 
 {# Simplified Phase Indicator #}
-<div style="text-align:center; margin:4rem 0; padding:2rem; background:rgba(59,130,246,0.1); border:2px solid rgba(59,130,246,0.3); border-radius:8px;">
-  <div style="font-size:12px; text-transform:uppercase; letter-spacing:0.05em; color:#94a3b8; margin-bottom:0.75rem;">Current Phase</div>
-  <div style="font-size:24px; font-weight:600; color:#3b82f6;">{{ current_stage }}</div>
+<div style="text-align:center; margin:6rem auto; max-width:700px; padding:3rem 2rem; background:rgba(59,130,246,0.1); border:2px solid rgba(59,130,246,0.3); border-radius:12px;">
+  <div style="font-size:14px; text-transform:uppercase; letter-spacing:0.05em; color:#94a3b8; margin-bottom:1rem;">Current Phase</div>
+  <div style="font-size:32px; font-weight:600; color:#3b82f6; line-height:1.3;">{{ current_stage }}</div>
 </div>
 
-<div class="muted" style="text-align:center; font-size:12px; margin-top:2rem;">
+<div class="muted" style="text-align:center; font-size:14px; margin-top:3rem;">
   <p style="margin:0;">This may take 10-30 seconds depending on deck complexity...</p>
 </div>

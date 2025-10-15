@@ -20,6 +20,14 @@ _No unreleased changes yet._
 ### Fixed
 _No unreleased fixes yet._
 
+## [2.7.1] - 2025-10-14
+### Summary
+Quick Build UI refinements for improved desktop display.
+
+### Fixed
+- Quick Build progress display now uses full desktop width instead of narrow mobile-like layout
+- Quick Build completion screen properly transitions to full-width Step 5 layout matching manual build experience
+
 ## [2.7.0] - 2025-10-14
 ### Summary
 - Enhanced deck building workflow with improved stage ordering, granular skip controls, and one-click Quick Build automation.

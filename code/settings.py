@@ -94,12 +94,21 @@ MAIN_MENU_ITEMS: List[str] = ['Build A Deck', 'Setup CSV Files', 'Tag CSV Files'
 SETUP_MENU_ITEMS: List[str] = ['Initial Setup', 'Regenerate CSV', 'Main Menu']
 
 CSV_DIRECTORY: str = 'csv_files'
+CARD_FILES_DIRECTORY: str = 'card_files'  # Parquet files for consolidated card data
 
 # Configuration for handling null/NA values in DataFrame columns
 FILL_NA_COLUMNS: Dict[str, Optional[str]] = {
     'colorIdentity': 'Colorless',  # Default color identity for cards without one
     'faceName': None  # Use card's name column value when face name is not available
 }
+
+# ----------------------------------------------------------------------------------
+# ALL CARDS CONSOLIDATION FEATURE FLAG
+# ----------------------------------------------------------------------------------
+
+# Enable use of consolidated all_cards.parquet file (default: True)
+# Set to False to disable and fall back to individual CSV file loading
+USE_ALL_CARDS_FILE = os.getenv('USE_ALL_CARDS_FILE', '1').lower() not in ('0', 'false', 'off', 'disabled')
 
 # ----------------------------------------------------------------------------------
 # TAGGING REFINEMENT FEATURE FLAGS (M1-M5)

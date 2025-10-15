@@ -1330,6 +1330,51 @@ def _ensure_setup_ready(out, force: bool = False) -> None:
                 os.makedirs('csv_files', exist_ok=True)
                 with open(flag_path, 'w', encoding='utf-8') as _fh:
                     json.dump({'tagged_at': _dt.now().isoformat(timespec='seconds')}, _fh)
+                
+                # Aggregate card files into Parquet AFTER tagging completes
+                try:
+                    _write_status({"running": True, "phase": "aggregating", "message": "Consolidating card data...", "percent": 90})
+                    out("Aggregating card CSVs into Parquet files...")
+                    from file_setup.card_aggregator import CardAggregator  # type: ignore
+                    aggregator = CardAggregator()
+                    
+                    # Aggregate all_cards.parquet
+                    stats = aggregator.aggregate_all('csv_files', 'card_files/all_cards.parquet')
+                    out(f"Aggregated {stats['total_cards']} cards into all_cards.parquet ({stats['file_size_mb']} MB)")
+                    
+                    # Convert commander_cards.csv and background_cards.csv to Parquet
+                    import pandas as pd  # type: ignore
+                    
+                    # Convert commander_cards.csv
+                    commander_csv = 'csv_files/commander_cards.csv'
+                    commander_parquet = 'card_files/commander_cards.parquet'
+                    if os.path.exists(commander_csv):
+                        df_cmd = pd.read_csv(commander_csv, comment='#', low_memory=False)
+                        # Convert mixed-type columns to strings for Parquet compatibility
+                        for col in ["power", "toughness", "keywords"]:
+                            if col in df_cmd.columns:
+                                df_cmd[col] = df_cmd[col].astype(str)
+                        df_cmd.to_parquet(commander_parquet, engine="pyarrow", compression="snappy", index=False)
+                        out(f"Converted commander_cards.csv to Parquet ({len(df_cmd)} commanders)")
+                    
+                    # Convert background_cards.csv
+                    background_csv = 'csv_files/background_cards.csv'
+                    background_parquet = 'card_files/background_cards.parquet'
+                    if os.path.exists(background_csv):
+                        df_bg = pd.read_csv(background_csv, comment='#', low_memory=False)
+                        # Convert mixed-type columns to strings for Parquet compatibility
+                        for col in ["power", "toughness", "keywords"]:
+                            if col in df_bg.columns:
+                                df_bg[col] = df_bg[col].astype(str)
+                        df_bg.to_parquet(background_parquet, engine="pyarrow", compression="snappy", index=False)
+                        out(f"Converted background_cards.csv to Parquet ({len(df_bg)} backgrounds)")
+                    
+                    _write_status({"running": True, "phase": "aggregating", "message": "Card aggregation complete", "percent": 95})
+                except Exception as e:
+                    # Non-fatal: aggregation failure shouldn't block the rest of setup
+                    out(f"Warning: Card aggregation failed: {e}")
+                    _write_status({"running": True, "phase": "aggregating", "message": f"Aggregation failed (non-fatal): {e}", "percent": 95})
+                
                 # Final status with percent 100 and timing info
                 finished_dt = _dt.now()
                 finished = finished_dt.isoformat(timespec='seconds')

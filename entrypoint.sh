@@ -3,8 +3,8 @@ set -e
 
 # Seed default config files into /app/config if missing (handles first-run with mounted volume)
 seed_defaults() {
-    # Ensure base config directory exists
-    mkdir -p /app/config /app/config/card_lists /app/config/themes
+    # Ensure base config and data directories exist
+    mkdir -p /app/config /app/config/card_lists /app/config/themes /app/card_files
 
     # Copy from baked-in defaults if targets are missing
     if [ -d "/.defaults/config" ]; then

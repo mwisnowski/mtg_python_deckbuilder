@@ -4,6 +4,8 @@ requests>=2.31.0
 tqdm>=4.66.0
 # Optional pretty output in reports; app falls back gracefully if missing
 prettytable>=3.9.0
+# Parquet file support for all_cards consolidation
+pyarrow>=14.0.0
 
 # Web UI stack (FastAPI + Jinja + HTMX served via CDN)
 fastapi>=0.110.0

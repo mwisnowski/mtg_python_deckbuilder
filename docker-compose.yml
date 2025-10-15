@@ -242,6 +242,7 @@ services:
       - ${PWD}/deck_files:/app/deck_files
       - ${PWD}/logs:/app/logs
       - ${PWD}/csv_files:/app/csv_files
+      - ${PWD}/card_files:/app/card_files
       - ${PWD}/config:/app/config
       - ${PWD}/owned_cards:/app/owned_cards
     working_dir: /app

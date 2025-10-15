@@ -9,6 +9,19 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 
 ## [Unreleased]
 ### Summary
+_No unreleased changes yet._
+
+### Added
+_No unreleased additions yet._
+
+### Changed
+_No unreleased changes yet._
+
+### Fixed
+_No unreleased fixes yet._
+
+## [2.7.0] - 2025-10-14
+### Summary
 - Enhanced deck building workflow with improved stage ordering, granular skip controls, and one-click Quick Build automation.
 - New Ideal Counts section with interactive sliders or text inputs for customizing deck composition targets.
 - Stage execution order now prioritizes creatures and spells before lands for better mana curve analysis.

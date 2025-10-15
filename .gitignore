@@ -30,6 +30,7 @@ config/themes/catalog/
 csv_files/*
 !csv_files/testdata/
 !csv_files/testdata/**/*
+card_files/*
 
 deck_files/
 dist/

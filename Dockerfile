@@ -33,10 +33,10 @@ COPY config/ /.defaults/config/
 RUN mkdir -p owned_cards
 
 # Create necessary directories as mount points
-RUN mkdir -p deck_files logs csv_files config /.defaults
+RUN mkdir -p deck_files logs csv_files card_files config /.defaults
 
 # Create volumes for persistent data
-VOLUME ["/app/deck_files", "/app/logs", "/app/csv_files", "/app/config", "/app/owned_cards"]
+VOLUME ["/app/deck_files", "/app/logs", "/app/csv_files", "/app/card_files", "/app/config", "/app/owned_cards"]
 
 # Create symbolic links BEFORE changing working directory
 # These will point to the mounted volumes
@@ -44,11 +44,12 @@ RUN cd /app/code && \
     ln -sf /app/deck_files ./deck_files && \
     ln -sf /app/logs ./logs && \
     ln -sf /app/csv_files ./csv_files && \
+    ln -sf /app/card_files ./card_files && \
     ln -sf /app/config ./config && \
     ln -sf /app/owned_cards ./owned_cards
 
 # Verify symbolic links were created
-RUN cd /app/code && ls -la deck_files logs csv_files config owned_cards
+RUN cd /app/code && ls -la deck_files logs csv_files card_files config owned_cards
 
 # Set the working directory to code for proper imports
 WORKDIR /app/code

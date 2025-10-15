@@ -108,6 +108,53 @@ async def setup_start_get(request: Request):
         return JSONResponse({"ok": False}, status_code=500)
 
 
+@router.post("/rebuild-cards")
+async def rebuild_cards():
+    """Manually trigger card aggregation (all_cards.parquet, commander_cards.parquet, background_cards.parquet)."""
+    def runner():
+        try:
+            print("Starting manual card aggregation...")
+            from file_setup.card_aggregator import CardAggregator  # type: ignore
+            import pandas as pd  # type: ignore
+            import os
+            
+            aggregator = CardAggregator()
+            
+            # Aggregate all_cards.parquet
+            stats = aggregator.aggregate_all('csv_files', 'card_files/all_cards.parquet')
+            print(f"Aggregated {stats['total_cards']} cards into all_cards.parquet ({stats['file_size_mb']} MB)")
+            
+            # Convert commander_cards.csv to Parquet
+            commander_csv = 'csv_files/commander_cards.csv'
+            commander_parquet = 'card_files/commander_cards.parquet'
+            if os.path.exists(commander_csv):
+                df_cmd = pd.read_csv(commander_csv, comment='#', low_memory=False)
+                for col in ["power", "toughness", "keywords"]:
+                    if col in df_cmd.columns:
+                        df_cmd[col] = df_cmd[col].astype(str)
+                df_cmd.to_parquet(commander_parquet, engine="pyarrow", compression="snappy", index=False)
+                print(f"Converted commander_cards.csv to Parquet ({len(df_cmd)} commanders)")
+            
+            # Convert background_cards.csv to Parquet
+            background_csv = 'csv_files/background_cards.csv'
+            background_parquet = 'card_files/background_cards.parquet'
+            if os.path.exists(background_csv):
+                df_bg = pd.read_csv(background_csv, comment='#', low_memory=False)
+                for col in ["power", "toughness", "keywords"]:
+                    if col in df_bg.columns:
+                        df_bg[col] = df_bg[col].astype(str)
+                df_bg.to_parquet(background_parquet, engine="pyarrow", compression="snappy", index=False)
+                print(f"Converted background_cards.csv to Parquet ({len(df_bg)} backgrounds)")
+            
+            print("Card aggregation complete!")
+        except Exception as e:
+            print(f"Card aggregation failed: {e}")
+    
+    t = threading.Thread(target=runner, daemon=True)
+    t.start()
+    return JSONResponse({"ok": True, "message": "Card aggregation started"}, status_code=202)
+
+
 @router.get("/", response_class=HTMLResponse)
 async def setup_index(request: Request) -> HTMLResponse:
     return templates.TemplateResponse("setup/index.html", {"request": request})

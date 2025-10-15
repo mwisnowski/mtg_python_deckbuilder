@@ -9,7 +9,7 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 
 ## [Unreleased]
 ### Summary
-Minor UI fixes for Quick Build progress and completion display.
+_No unreleased changes yet._
 
 ### Added
 _No unreleased additions yet._
@@ -18,8 +18,15 @@ _No unreleased additions yet._
 _No unreleased changes yet._
 
 ### Fixed
+_No unreleased fixes yet._
+
+## [2.7.1] - 2025-10-14
+### Summary
+Quick Build UI refinements for improved desktop display.
+
+### Fixed
 - Quick Build progress display now uses full desktop width instead of narrow mobile-like layout
-- Quick Build completion screen properly transitions to full-width Step 5 layout matching manual build experience_
+- Quick Build completion screen properly transitions to full-width Step 5 layout matching manual build experience
 
 ## [2.7.0] - 2025-10-14
 ### Summary

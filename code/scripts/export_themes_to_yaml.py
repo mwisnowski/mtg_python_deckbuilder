@@ -123,6 +123,9 @@ def main():
         enforced_set = set(enforced_synergies)
         inferred_synergies = [s for s in synergy_list if s not in curated_set and s not in enforced_set]
 
+        example_cards_value = entry.get('example_cards', [])
+        example_commanders_value = entry.get('example_commanders', [])
+        
         doc = {
             'id': slug,
             'display_name': theme_name,
@@ -132,13 +135,40 @@ def main():
             'inferred_synergies': inferred_synergies,
             'primary_color': entry.get('primary_color'),
             'secondary_color': entry.get('secondary_color'),
+            'example_cards': example_cards_value,
+            'example_commanders': example_commanders_value,
+            'synergy_example_cards': entry.get('synergy_example_cards', []),
+            'synergy_commanders': entry.get('synergy_commanders', []),
+            'deck_archetype': entry.get('deck_archetype'),
+            'popularity_hint': entry.get('popularity_hint'),
+            'popularity_bucket': entry.get('popularity_bucket'),
+            'editorial_quality': entry.get('editorial_quality'),
+            'description': entry.get('description'),
             'notes': ''
         }
-        # Drop None color keys for cleanliness
+        # Drop None/empty keys for cleanliness
         if doc['primary_color'] is None:
             doc.pop('primary_color')
         if doc.get('secondary_color') is None:
             doc.pop('secondary_color')
+        if not doc.get('example_cards'):
+            doc.pop('example_cards')
+        if not doc.get('example_commanders'):
+            doc.pop('example_commanders')
+        if not doc.get('synergy_example_cards'):
+            doc.pop('synergy_example_cards')
+        if not doc.get('synergy_commanders'):
+            doc.pop('synergy_commanders')
+        if doc.get('deck_archetype') is None:
+            doc.pop('deck_archetype')
+        if doc.get('popularity_hint') is None:
+            doc.pop('popularity_hint')
+        if doc.get('popularity_bucket') is None:
+            doc.pop('popularity_bucket')
+        if doc.get('editorial_quality') is None:
+            doc.pop('editorial_quality')
+        if doc.get('description') is None:
+            doc.pop('description')
         with path.open('w', encoding='utf-8') as f:
             yaml.safe_dump(doc, f, sort_keys=False, allow_unicode=True)
         exported += 1

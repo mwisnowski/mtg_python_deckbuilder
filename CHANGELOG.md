@@ -9,7 +9,7 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 
 ## [Unreleased]
 ### Summary
-Theme catalog improvements with faster processing, new tag search features, and regeneration fixes.
+Theme catalog improvements with faster processing, new tag search features, regeneration fixes, and browser performance optimizations.
 
 ### Added
 - **Theme Catalog Optimization**:
@@ -18,9 +18,13 @@ Theme catalog improvements with faster processing, new tag search features, and 
   - Tag search API with new endpoints for card search, autocomplete, and popular tags
   - Commander browser theme autocomplete with keyboard navigation
   - Tag loading infrastructure for batch operations
+- **Theme Browser Keyboard Navigation**: Arrow keys now navigate search results (ArrowUp/Down, Enter to select, Escape to close)
 
 ### Changed
-_No unreleased changes yet._
+- **Theme Browser Performance**: Theme detail pages now load much faster
+  - Disabled YAML file scanning in production (use `THEME_CATALOG_CHECK_YAML_CHANGES=1` during theme authoring)
+  - Cache invalidation now checks theme_list.json instead of scanning all files
+- **Theme Browser UI**: Removed color filter from theme catalog
 
 ### Fixed
 - **Theme Regeneration**: Theme catalog can now be fully rebuilt from scratch without placeholder data

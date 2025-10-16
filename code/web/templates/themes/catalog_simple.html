@@ -19,14 +19,6 @@
         <option>Rare</option>
       </select>
     </div>
-    <div style="min-width:210px;">
-      <label style="font-size:11px; display:block; opacity:.7;">Colors</label>
-      <div id="color-filter" style="display:flex; gap:.45rem; font-size:12px; flex-wrap:wrap;">
-        {% for c in ['W','U','B','R','G'] %}
-        <label style="display:flex; gap:2px; align-items:center;"><input type="checkbox" value="{{ c }}"/> {{ c }}</label>
-        {% endfor %}
-      </div>
-    </div>
     <button id="clear-search" class="btn btn-ghost" style="font-size:12px;" hidden>Clear</button>
   </div>
   <div id="quick-popularity" style="display:flex; gap:.4rem; flex-wrap:wrap; margin-bottom:.55rem;">
@@ -42,9 +34,10 @@
   </div>
 </div>
 <style>
-.search-suggestions a { display:block; padding:.5rem .6rem; font-size:13px; text-decoration:none; color:var(--text); border-bottom:1px solid var(--border); }
+.search-suggestions a { display:block; padding:.5rem .6rem; font-size:13px; text-decoration:none; color:var(--text); border-bottom:1px solid var(--border); transition:background .15s ease; }
 .search-suggestions a:last-child { border-bottom:none; }
-.search-suggestions a:hover { background:var(--hover); }
+.search-suggestions a:hover, .search-suggestions a.selected { background:var(--hover); }
+.search-suggestions a.selected { border-left:3px solid var(--ring); padding-left:calc(.6rem - 3px); }
 </style>
 <script>
 (function(){
@@ -53,16 +46,15 @@
   const clearBtn = document.getElementById('clear-search');
   const popSel = document.getElementById('pop-filter');
   const popChips = document.querySelectorAll('.pop-chip');
-  const colorBox = document.getElementById('color-filter');
   const activeFilters = document.getElementById('active-filters');
   const resultsHost = document.getElementById('theme-results');
   let lastQuery=''; let lastSearchIssued=0; const SEARCH_THROTTLE=150;
-  function hideResults(){ resultsBox.style.display='none'; resultsBox.innerHTML=''; }
+  let selectedIndex = -1;
+  function hideResults(){ resultsBox.style.display='none'; resultsBox.innerHTML=''; selectedIndex = -1; }
   function buildParams(){
     const params = new URLSearchParams();
     const q = input.value.trim(); if(q) params.set('q', q);
     const pop = popSel.value; if(pop) params.set('bucket', pop);
-    const colors = Array.from(colorBox.querySelectorAll('input:checked')).map(c=>c.value); if(colors.length) params.set('colors', colors.join(','));
     params.set('limit','50'); params.set('offset','0');
     return params.toString();
   }
@@ -77,7 +69,6 @@
     activeFilters.innerHTML='';
     const q = input.value.trim(); if(q) addChip('Search: '+q, ()=>{ input.value=''; fetchList(); });
     const pop = popSel.value; if(pop) addChip('Popularity: '+pop, ()=>{ popSel.value=''; fetchList(); });
-    const colors = Array.from(colorBox.querySelectorAll('input:checked')).map(c=>c.value); if(colors.length) addChip('Colors: '+colors.join(','), ()=>{ colorBox.querySelectorAll('input:checked').forEach(i=>i.checked=false); fetchList(); });
   }
   function fetchList(){
     const ps = buildParams();
@@ -107,20 +98,69 @@
         const items=js.items||[]; if(!items.length){ hideResults(); return; }
         resultsBox.innerHTML=items.map(it=>`<a href="/themes/${it.id}" data-theme-id="${it.id}">${it.theme}</a>`).join('');
         resultsBox.style.display='block';
+        selectedIndex = -1;
       }).catch(()=>hideResults());
+  }
+  function getResultLinks(){ return Array.from(resultsBox.querySelectorAll('a[data-theme-id]')); }
+  function selectResultItem(index){
+    const links = getResultLinks();
+    links.forEach((link, i) => {
+      if (i === index) {
+        link.classList.add('selected');
+        link.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      } else {
+        link.classList.remove('selected');
+      }
+    });
+    selectedIndex = index;
+  }
+  function applySelectedResult(){
+    const links = getResultLinks();
+    const link = links[selectedIndex];
+    if (link) {
+      window.location.href = link.href;
+    }
   }
   input.addEventListener('input', function(){
     const q=this.value.trim(); clearBtn.hidden=!q; if(q!==lastQuery){ lastQuery=q; performSearch(q); fetchList(); }
   });
   input.addEventListener('keydown', function(ev){
-    if(ev.key==='Enter' && ev.shiftKey){ const q=input.value.trim(); if(!q) return; ev.preventDefault(); fetch('/themes/api/search?q='+encodeURIComponent(q)+'&include_synergies=1',{cache:'no-store'}).then(r=>r.json()).then(js=>{ if(!js.ok) return; const items=js.items||[]; if(!items.length) return; resultsBox.innerHTML=items.map(it=>`<a href="/themes/${it.id}" data-theme-id="${it.id}">${it.theme} <span style=\"opacity:.55; font-size:10px;\">(w/ synergies)</span></a>`).join(''); resultsBox.style.display='block'; }); }
+    const links = getResultLinks();
+    const hasResults = links.length > 0;
+    
+    if (ev.key === 'Escape' && hasResults) {
+      hideResults();
+      ev.preventDefault();
+    } else if (ev.key === 'ArrowDown' && hasResults) {
+      ev.preventDefault();
+      const newIndex = selectedIndex < links.length - 1 ? selectedIndex + 1 : 0;
+      selectResultItem(newIndex);
+    } else if (ev.key === 'ArrowUp' && hasResults) {
+      ev.preventDefault();
+      const newIndex = selectedIndex > 0 ? selectedIndex - 1 : links.length - 1;
+      selectResultItem(newIndex);
+    } else if (ev.key === 'Enter' && selectedIndex >= 0 && hasResults) {
+      ev.preventDefault();
+      applySelectedResult();
+    } else if(ev.key==='Enter' && ev.shiftKey){ const q=input.value.trim(); if(!q) return; ev.preventDefault(); fetch('/themes/api/search?q='+encodeURIComponent(q)+'&include_synergies=1',{cache:'no-store'}).then(r=>r.json()).then(js=>{ if(!js.ok) return; const items=js.items||[]; if(!items.length) return; resultsBox.innerHTML=items.map(it=>`<a href="/themes/${it.id}" data-theme-id="${it.id}">${it.theme} <span style=\"opacity:.55; font-size:10px;\">(w/ synergies)</span></a>`).join(''); resultsBox.style.display='block'; selectedIndex = -1; }); }
   });
   clearBtn.addEventListener('click', function(){ input.value=''; lastQuery=''; hideResults(); clearBtn.hidden=true; input.focus(); fetchList(); });
   resultsBox.addEventListener('click', function(ev){ const a=ev.target.closest('a[data-theme-id]'); if(!a) return; ev.preventDefault(); window.location.href='/themes/'+a.getAttribute('data-theme-id'); });
-  resultsBox.addEventListener('mouseover', function(ev){ const a=ev.target.closest('a[data-theme-id]'); if(!a) return; const id=a.getAttribute('data-theme-id'); if(!id || a._prefetched) return; a._prefetched=true; fetch('/themes/fragment/detail/'+id,{cache:'reload'}).catch(()=>{}); });
+  resultsBox.addEventListener('mouseover', function(ev){ 
+    const a=ev.target.closest('a[data-theme-id]'); 
+    if(!a) return; 
+    const links = getResultLinks();
+    const index = links.indexOf(a);
+    if (index >= 0) {
+      selectResultItem(index);
+    }
+    const id=a.getAttribute('data-theme-id'); 
+    if(!id || a._prefetched) return; 
+    a._prefetched=true; 
+    fetch('/themes/fragment/detail/'+id,{cache:'reload'}).catch(()=>{}); 
+  });
   document.addEventListener('click', function(ev){ if(!resultsBox.contains(ev.target) && ev.target!==input){ hideResults(); } });
   popSel.addEventListener('change', fetchList); popChips.forEach(ch=> ch.addEventListener('click', ()=>{ popSel.value=ch.getAttribute('data-pop'); fetchList(); }));
-  colorBox.addEventListener('change', fetchList);
   // Initial load
   fetchList();
 })();

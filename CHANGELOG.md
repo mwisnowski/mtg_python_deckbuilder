@@ -9,16 +9,18 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 
 ## [Unreleased]
 ### Summary
-_No unreleased changes yet._
+Improved colorless commander support with automatic card filtering and display fixes.
 
 ### Added
-_No unreleased changes yet._
-
-### Changed
-_No unreleased changes yet._
+- **Colorless Commander Filtering**: 25 cards that don't work in colorless decks are now automatically excluded
+  - Filters out cards like Arcane Signet, Commander's Sphere, and medallions that reference "commander's color identity" or colored spells
+  - Only applies to colorless identity commanders (Karn, Kozilek, Liberator, etc.)
 
 ### Fixed
-_No unreleased changes yet._
+- **Colorless Commander Display**: Fixed three bugs affecting colorless commander decks
+  - Color identity now displays correctly (grey "C" button with "Colorless" label)
+  - Wastes now correctly added as basic lands in colorless decks
+  - Colored basics (Plains, Island, etc.) no longer incorrectly added to colorless decks
 
 ## [2.8.0] - 2025-10-15
 ### Summary

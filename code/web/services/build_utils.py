@@ -321,8 +321,11 @@ def commander_hover_context(
         commander_color_label = str(combined_info.get("color_label") or "").strip()
     if not commander_color_label and commander_color_identity:
         commander_color_label = " / ".join(commander_color_identity)
-    if has_combined and not commander_color_label:
-        commander_color_label = "Colorless (C)"
+    # M5: Set colorless label for ANY commander with empty color identity (not just partner/combined)
+    if not commander_color_label and (has_combined or commander_name):
+        # Empty color_identity list means colorless
+        if not commander_color_identity:
+            commander_color_label = "Colorless (C)"
 
     commander_color_code = str(combined_info.get("color_code") or "").strip() if has_combined else ""
     commander_partner_mode = str(combined_info.get("partner_mode") or "").strip() if has_combined else ""

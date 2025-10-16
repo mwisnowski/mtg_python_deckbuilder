@@ -1063,8 +1063,11 @@ class DeckBuilder(
             if isinstance(raw_ci, list):
                 colors_list = [str(c).strip().upper() for c in raw_ci]
             elif isinstance(raw_ci, str) and raw_ci.strip():
+                # Handle the literal string "Colorless" specially (from commander_cards.csv)
+                if raw_ci.strip().lower() == 'colorless':
+                    colors_list = []
                 # Could be formatted like "['B','G']" or 'BG'; attempt simple parsing
-                if ',' in raw_ci:
+                elif ',' in raw_ci:
                     colors_list = [c.strip().strip("'[] ").upper() for c in raw_ci.split(',') if c.strip().strip("'[] ")]
                 else:
                     colors_list = [c.upper() for c in raw_ci if c.isalpha()]
@@ -1136,10 +1139,18 @@ class DeckBuilder(
         required = getattr(bc, 'CSV_REQUIRED_COLUMNS', [])
         from path_util import csv_dir as _csv_dir
         base = _csv_dir()
+        
+        # Define converters for list columns (same as tagger.py)
+        converters = {
+            'themeTags': pd.eval,
+            'creatureTypes': pd.eval,
+            'metadataTags': pd.eval  # M2: Parse metadataTags column
+        }
+        
         for stem in self.files_to_load:
             path = f"{base}/{stem}_cards.csv"
             try:
-                df = pd.read_csv(path)
+                df = pd.read_csv(path, converters=converters)
                 if required:
                     missing = [c for c in required if c not in df.columns]
                     if missing:
@@ -1174,6 +1185,54 @@ class DeckBuilder(
             except Exception as _e:
                 self.output_func(f"Owned-only mode: failed to filter combined pool: {_e}")
     # Soft prefer-owned does not filter the pool; biasing is applied later at selection time
+        
+        # M2: Filter out cards useless in colorless identity decks
+        if self.color_identity_key == 'COLORLESS':
+            logger.info(f"M2 COLORLESS FILTER: Activated for color_identity_key='{self.color_identity_key}'")
+            try:
+                if 'metadataTags' in combined.columns and 'name' in combined.columns:
+                    # Find cards with "Useless in Colorless" metadata tag
+                    def has_useless_tag(metadata_tags):
+                        # Handle various types: NaN, empty list, list with values
+                        if metadata_tags is None:
+                            return False
+                        # Check for pandas NaN or numpy NaN
+                        try:
+                            import numpy as np
+                            if isinstance(metadata_tags, float) and np.isnan(metadata_tags):
+                                return False
+                        except (TypeError, ValueError):
+                            pass
+                        # Handle empty list or numpy array
+                        if isinstance(metadata_tags, (list, np.ndarray)):
+                            if len(metadata_tags) == 0:
+                                return False
+                            return 'Useless in Colorless' in metadata_tags
+                        return False
+                    
+                    useless_mask = combined['metadataTags'].apply(has_useless_tag)
+                    useless_count = useless_mask.sum()
+                    
+                    if useless_count > 0:
+                        useless_names = combined.loc[useless_mask, 'name'].tolist()
+                        combined = combined[~useless_mask].copy()
+                        self.output_func(f"Colorless commander: filtered out {useless_count} cards useless in colorless identity")
+                        logger.info(f"M2 COLORLESS FILTER: Filtered out {useless_count} cards")
+                        # Log first few cards for transparency
+                        for name in useless_names[:3]:
+                            self.output_func(f"  - Filtered: {name}")
+                            logger.info(f"M2 COLORLESS FILTER: Removed '{name}'")
+                        if useless_count > 3:
+                            self.output_func(f"  - ... and {useless_count - 3} more")
+                    else:
+                        logger.warning(f"M2 COLORLESS FILTER: No cards found with 'Useless in Colorless' tag!")
+                else:
+                    logger.warning(f"M2 COLORLESS FILTER: Missing required columns (metadataTags or name)")
+            except Exception as e:
+                self.output_func(f"Warning: Failed to apply colorless filter: {e}")
+                logger.error(f"M2 COLORLESS FILTER: Exception: {e}", exc_info=True)
+        else:
+            logger.info(f"M2 COLORLESS FILTER: Not activated - color_identity_key='{self.color_identity_key}' (not 'Colorless')")
         
         # Apply exclude card filtering (M0.5: Phase 1 - Exclude Only)
         if hasattr(self, 'exclude_cards') and self.exclude_cards:

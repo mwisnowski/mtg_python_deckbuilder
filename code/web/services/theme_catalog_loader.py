@@ -102,6 +102,14 @@ def _needs_reload() -> bool:
         return True
     if mtime > idx.mtime:
         return True
+    
+    # OPTIMIZATION: Skip YAML scanning unless explicitly enabled via env var.
+    # Checking 732 YAML files takes ~800ms and is only needed during theme authoring.
+    # In production, theme_list.json is the source of truth (built from YAMLs offline).
+    import os as _os
+    if _os.getenv("THEME_CATALOG_CHECK_YAML_CHANGES") != "1":
+        return False
+    
     # If any YAML newer than catalog mtime or newest YAML newer than cached scan -> reload
     if YAML_DIR.exists():
         import time as _t
@@ -113,7 +121,6 @@ def _needs_reload() -> bool:
             # Fast path: use os.scandir for lower overhead vs Path.glob
             newest = 0.0
             try:
-                import os as _os
                 with _os.scandir(YAML_DIR) as it:  # type: ignore[arg-type]
                     for entry in it:
                         if entry.is_file() and entry.name.endswith('.yml'):

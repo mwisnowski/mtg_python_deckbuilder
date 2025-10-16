@@ -1072,6 +1072,9 @@ METADATA_TAG_ALLOWLIST: set[str] = {
     # Cost reduction diagnostics (from Applied: namespace)
     'Applied: Cost Reduction',
     
+    # Colorless commander filtering (M1)
+    'Useless in Colorless',
+    
     # Kindred-specific protection metadata (from M2)
     # Format: "{CreatureType}s Gain Protection"
     # These are auto-generated for kindred-specific protection grants

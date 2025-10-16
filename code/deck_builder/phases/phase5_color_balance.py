@@ -159,7 +159,8 @@ class ColorBalanceMixin:
             self.output_func("  (No viable swaps executed.)")
 
         # Always consider basic-land rebalance when requested
-        if rebalance_basics:
+        # M5: Skip rebalance for colorless commanders (they should have only Wastes)
+        if rebalance_basics and self.color_identity:  # Only rebalance if commander has colors
             try:
                 basic_map = getattr(bc, 'COLOR_TO_BASIC_LAND', {})
                 basics_present = {nm: entry for nm, entry in self.card_library.items() if nm in basic_map.values()}

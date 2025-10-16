@@ -286,7 +286,7 @@ COLORED_MANA_SYMBOLS: Final[List[str]] = ['{w}','{u}','{b}','{r}','{g}']
 
 
 # Basic Lands
-BASIC_LANDS = ['Plains', 'Island', 'Swamp', 'Mountain', 'Forest']
+BASIC_LANDS = ['Plains', 'Island', 'Swamp', 'Mountain', 'Forest', 'Wastes']
 
 # Basic land mappings
 COLOR_TO_BASIC_LAND: Final[Dict[str, str]] = {

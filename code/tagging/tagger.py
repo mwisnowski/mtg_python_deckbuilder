@@ -16,6 +16,7 @@ from . import regex_patterns as rgx
 from . import tag_constants
 from . import tag_utils
 from .bracket_policy_applier import apply_bracket_policy_tags
+from .colorless_filter_applier import apply_colorless_filter_tags
 from .multi_face_merger import merge_multi_face_rows
 import logging_util
 from file_setup import setup
@@ -493,6 +494,9 @@ def tag_by_color(df: pd.DataFrame, color: str) -> None:
     
     # Apply bracket policy tags (from config/card_lists/*.json)
     apply_bracket_policy_tags(df)
+    
+    # Apply colorless filter tags (M1: Useless in Colorless)
+    apply_colorless_filter_tags(df)
     print('\n====================\n')
 
     # Merge multi-face entries before final ordering (feature-flagged)

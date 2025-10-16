@@ -9,6 +9,19 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 
 ## [Unreleased]
 ### Summary
+_No unreleased changes yet._
+
+### Added
+_No unreleased changes yet._
+
+### Changed
+_No unreleased changes yet._
+
+### Fixed
+_No unreleased changes yet._
+
+## [2.8.1] - 2025-10-16
+### Summary
 Improved colorless commander support with automatic card filtering and display fixes.
 
 ### Added

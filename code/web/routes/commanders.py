@@ -526,6 +526,52 @@ def _build_theme_info(records: Sequence[CommanderRecord]) -> dict[str, Commander
     return info
 
 
+@router.get("/theme-autocomplete", response_class=HTMLResponse)
+async def theme_autocomplete(
+    request: Request,
+    theme: str = Query(..., min_length=2, description="Theme prefix to search for"),
+    limit: int = Query(20, ge=1, le=50),
+) -> HTMLResponse:
+    """HTMX endpoint for theme tag autocomplete."""
+    try:
+        # Import tag_index
+        try:
+            from code.tagging.tag_index import get_tag_index
+        except ImportError:
+            from tagging.tag_index import get_tag_index
+        
+        tag_index = get_tag_index()
+        
+        # Get all tags with counts - get_popular_tags returns all tags when given a high limit
+        all_tags_with_counts = tag_index.get_popular_tags(limit=10000)
+        
+        # Filter by prefix (case-insensitive)
+        prefix_lower = theme.lower()
+        matches = [
+            (tag, count)
+            for tag, count in all_tags_with_counts
+            if tag.lower().startswith(prefix_lower)
+        ]
+        
+        # Already sorted by popularity from get_popular_tags
+        matches = matches[:limit]
+        
+        # Generate HTML suggestions with ARIA attributes
+        html_parts = []
+        for tag, count in matches:
+            html_parts.append(
+                f'<div class="autocomplete-item" data-value="{tag}" role="option">'
+                f'{tag} <span class="tag-count">({count})</span></div>'
+            )
+        
+        html = "\n".join(html_parts) if html_parts else '<div class="autocomplete-empty">No matching themes</div>'
+        
+        return HTMLResponse(content=html)
+        
+    except Exception as e:
+        return HTMLResponse(content=f'<div class="autocomplete-error">Error: {str(e)}</div>')
+
+
 @router.get("/", response_class=HTMLResponse)
 async def commanders_index(
     request: Request,

@@ -9,21 +9,24 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 
 ## [Unreleased]
 ### Summary
-Improved performance with new card data storage format. Card queries are now significantly faster with reduced file sizes.
+Theme catalog improvements with faster processing, new tag search features, and regeneration fixes.
 
 ### Added
-- **Card Data Consolidation**: All card data now stored in optimized format for faster loading
-  - Automatic updates after tagging/setup completes
-  - "Rebuild Card Files" button in Setup page for manual refresh
-  - 87% smaller file sizes with dramatically faster queries
-  - Maintains multiple backup versions for safety
-- **Backward Compatibility**: Existing functionality continues to work without changes
+- **Theme Catalog Optimization**:
+  - Consolidated theme enrichment pipeline (single pass instead of 7 separate scripts)
+  - Tag index for fast theme-based card queries
+  - Tag search API with new endpoints for card search, autocomplete, and popular tags
+  - Commander browser theme autocomplete with keyboard navigation
+  - Tag loading infrastructure for batch operations
 
 ### Changed
 _No unreleased changes yet._
 
 ### Fixed
-_No unreleased fixes yet._
+- **Theme Regeneration**: Theme catalog can now be fully rebuilt from scratch without placeholder data
+  - Fixed "Anchor" placeholder issue when regenerating catalog
+  - Examples now generated from actual card data
+  - Theme export preserves all metadata fields
 
 ## [2.7.1] - 2025-10-14
 ### Summary

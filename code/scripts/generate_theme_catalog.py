@@ -19,6 +19,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Sequence
 
+try:
+    import pandas as pd
+    HAS_PANDAS = True
+except ImportError:
+    HAS_PANDAS = False
+    pd = None  # type: ignore
+
 ROOT = Path(__file__).resolve().parents[2]
 CODE_ROOT = ROOT / "code"
 if str(CODE_ROOT) not in sys.path:
@@ -28,6 +35,9 @@ try:
     from code.settings import CSV_DIRECTORY as DEFAULT_CSV_DIRECTORY  # type: ignore
 except Exception:  # pragma: no cover - fallback for adhoc execution
     DEFAULT_CSV_DIRECTORY = "csv_files"
+
+# Parquet support requires pandas (imported at top of file, uses pyarrow under the hood)
+HAS_PARQUET_SUPPORT = HAS_PANDAS
 
 DEFAULT_OUTPUT_PATH = ROOT / "config" / "themes" / "theme_catalog.csv"
 HEADER_COMMENT_PREFIX = "# theme_catalog"
@@ -87,7 +97,68 @@ def parse_theme_tags(value: object) -> List[str]:
     return []
 
 
+def _load_theme_counts_from_parquet(
+    parquet_path: Path,
+    theme_variants: Dict[str, set[str]]
+) -> Counter[str]:
+    """Load theme counts from a parquet file using pandas (which uses pyarrow).
+    
+    Args:
+        parquet_path: Path to the parquet file (commander_cards.parquet or all_cards.parquet)
+        theme_variants: Dict to accumulate theme name variants
+        
+    Returns:
+        Counter of theme occurrences
+    """
+    if pd is None:
+        return Counter()
+    
+    counts: Counter[str] = Counter()
+    
+    if not parquet_path.exists():
+        return counts
+    
+    # Read only themeTags column for efficiency
+    try:
+        df = pd.read_parquet(parquet_path, columns=["themeTags"])
+    except Exception:
+        # If themeTags column doesn't exist, return empty
+        return counts
+    
+    # Convert to list for fast iteration (faster than iterrows)
+    theme_tags_list = df["themeTags"].tolist()
+    
+    for raw_value in theme_tags_list:
+        if raw_value is None or (isinstance(raw_value, float) and pd.isna(raw_value)):
+            continue
+        tags = parse_theme_tags(raw_value)
+        if not tags:
+            continue
+        seen_in_row: set[str] = set()
+        for tag in tags:
+            display = normalize_theme_display(tag)
+            if not display:
+                continue
+            key = canonical_key(display)
+            if key in seen_in_row:
+                continue
+            seen_in_row.add(key)
+            counts[key] += 1
+            theme_variants[key].add(display)
+    
+    return counts
+
+
 def _load_theme_counts(csv_path: Path, theme_variants: Dict[str, set[str]]) -> Counter[str]:
+    """Load theme counts from CSV file (fallback method).
+    
+    Args:
+        csv_path: Path to CSV file
+        theme_variants: Dict to accumulate theme name variants
+        
+    Returns:
+        Counter of theme occurrences
+    """
     counts: Counter[str] = Counter()
     if not csv_path.exists():
         return counts
@@ -146,24 +217,67 @@ def build_theme_catalog(
     commander_filename: str = "commander_cards.csv",
     cards_filename: str = "cards.csv",
     logs_directory: Optional[Path] = None,
+    use_parquet: bool = True,
 ) -> CatalogBuildResult:
+    """Build theme catalog from card data.
+    
+    Args:
+        csv_directory: Directory containing CSV files (fallback)
+        output_path: Where to write the catalog CSV
+        generated_at: Optional timestamp for generation
+        commander_filename: Name of commander CSV file
+        cards_filename: Name of cards CSV file
+        logs_directory: Optional directory to copy output to
+        use_parquet: If True, try to use all_cards.parquet first (default: True)
+        
+    Returns:
+        CatalogBuildResult with generated rows and metadata
+    """
     csv_directory = csv_directory.resolve()
     output_path = output_path.resolve()
 
     theme_variants: Dict[str, set[str]] = defaultdict(set)
 
-    commander_counts = _load_theme_counts(csv_directory / commander_filename, theme_variants)
+    # Try to use parquet file first (much faster)
+    used_parquet = False
+    if use_parquet and HAS_PARQUET_SUPPORT:
+        try:
+            # Use dedicated parquet files (matches CSV structure exactly)
+            parquet_dir = csv_directory.parent / "card_files"
+            
+            # Load commander counts directly from commander_cards.parquet
+            commander_parquet = parquet_dir / "commander_cards.parquet"
+            commander_counts = _load_theme_counts_from_parquet(
+                commander_parquet, theme_variants=theme_variants
+            )
+            
+            # CSV method doesn't load non-commander cards, so we don't either
+            card_counts = Counter()
+            
+            used_parquet = True
+            print("✓ Loaded theme data from parquet files")
+            
+        except Exception as e:
+            print(f"⚠ Failed to load from parquet: {e}")
+            print("  Falling back to CSV files...")
+            used_parquet = False
+    
+    # Fallback to CSV files if parquet not available or failed
+    if not used_parquet:
+        commander_counts = _load_theme_counts(csv_directory / commander_filename, theme_variants)
 
-    card_counts: Counter[str] = Counter()
-    cards_path = csv_directory / cards_filename
-    if cards_path.exists():
-        card_counts = _load_theme_counts(cards_path, theme_variants)
-    else:
-        # Fallback: scan all *_cards.csv except commander
-        for candidate in csv_directory.glob("*_cards.csv"):
-            if candidate.name == commander_filename:
-                continue
-            card_counts += _load_theme_counts(candidate, theme_variants)
+        card_counts: Counter[str] = Counter()
+        cards_path = csv_directory / cards_filename
+        if cards_path.exists():
+            card_counts = _load_theme_counts(cards_path, theme_variants)
+        else:
+            # Fallback: scan all *_cards.csv except commander
+            for candidate in csv_directory.glob("*_cards.csv"):
+                if candidate.name == commander_filename:
+                    continue
+                card_counts += _load_theme_counts(candidate, theme_variants)
+        
+        print("✓ Loaded theme data from CSV files")
 
     keys = sorted(set(card_counts.keys()) | set(commander_counts.keys()))
     generated_at_iso = _derive_generated_at(generated_at)

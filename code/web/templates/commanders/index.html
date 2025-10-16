@@ -23,15 +23,23 @@
       <span class="filter-label">Commander name</span>
       <input type="search" id="commander-search" name="q" value="{{ query }}" placeholder="Search commander names..." autocomplete="off" />
     </label>
-    <label>
-      <span class="filter-label">Theme</span>
-      <input type="search" id="commander-theme" name="theme" value="{{ theme_query }}" placeholder="Search themes..." list="theme-suggestions" autocomplete="off" />
-    </label>
-    <datalist id="theme-suggestions">
-      {% for name in theme_options[:200] %}
-        <option value="{{ name }}"></option>
-      {% endfor %}
-    </datalist>
+                    <div class="filter-field">
+                    <label for="commander-theme" class="filter-label">Theme:</label>
+                    <div class="autocomplete-container">
+                        <input type="search" id="commander-theme" name="theme" value="{{ theme_query }}" 
+                               placeholder="Search themes..." autocomplete="off" 
+                               role="combobox" 
+                               aria-autocomplete="list" 
+                               aria-controls="theme-suggestions" 
+                               aria-expanded="false"
+                               hx-get="/commanders/theme-autocomplete" 
+                               hx-trigger="keyup changed delay:300ms" 
+                               hx-target="#theme-suggestions" 
+                               hx-include="[name='theme']"
+                               hx-swap="innerHTML" />
+                        <div id="theme-suggestions" class="autocomplete-dropdown" role="listbox" aria-label="Theme suggestions"></div>
+                    </div>
+                </div>
     <label>
       <span class="filter-label">Color identity</span>
       <select id="commander-color" name="color">
@@ -185,6 +193,18 @@
     .commander-thumb img { width:100%; }
     .skeleton-thumb { width:min(70vw, 220px); height:calc(min(70vw, 220px) * 1.4); }
   }
+
+  /* Autocomplete dropdown styles */
+  .autocomplete-container { position:relative; width:100%; }
+  .autocomplete-dropdown { position:absolute; top:100%; left:0; right:0; z-index:1000; background:var(--panel); border:1px solid var(--border); border-radius:8px; margin-top:4px; max-height:280px; overflow-y:auto; box-shadow:0 4px 12px rgba(0,0,0,.25); display:none; }
+  .autocomplete-dropdown:not(:empty) { display:block; }
+  .autocomplete-item { padding:.5rem .75rem; cursor:pointer; border-bottom:1px solid var(--border); transition:background .15s ease; }
+  .autocomplete-item:last-child { border-bottom:none; }
+  .autocomplete-item:hover, .autocomplete-item:focus, .autocomplete-item.selected { background:rgba(148,163,184,.15); }
+  .autocomplete-item.selected { background:rgba(148,163,184,.25); border-left:3px solid var(--ring); padding-left:calc(.75rem - 3px); }
+  .autocomplete-item .tag-count { color:var(--muted); font-size:.85rem; float:right; }
+  .autocomplete-empty { padding:.75rem; text-align:center; color:var(--muted); font-size:.85rem; }
+  .autocomplete-error { padding:.75rem; text-align:center; color:#f87171; font-size:.85rem; }
 </style>
 <script>
   (function(){
@@ -215,6 +235,107 @@
         resetPage();
         setLastTrigger('theme');
       });
+      
+      // Autocomplete dropdown handling
+      const autocompleteDropdown = document.getElementById('theme-suggestions');
+      if (autocompleteDropdown) {
+        let selectedIndex = -1;
+        
+        // Helper to get all autocomplete items
+        const getItems = () => Array.from(autocompleteDropdown.querySelectorAll('.autocomplete-item'));
+        
+        // Helper to select an item by index
+        const selectItem = (index) => {
+          const items = getItems();
+          items.forEach((item, i) => {
+            if (i === index) {
+              item.classList.add('selected');
+              item.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+            } else {
+              item.classList.remove('selected');
+            }
+          });
+          selectedIndex = index;
+        };
+        
+        // Helper to apply selected item
+        const applySelectedItem = () => {
+          const items = getItems();
+          const item = items[selectedIndex];
+          if (item && item.dataset.value) {
+            themeField.value = item.dataset.value;
+            autocompleteDropdown.innerHTML = '';
+            selectedIndex = -1;
+            themeField.dispatchEvent(new Event('input', { bubbles: true }));
+            form.dispatchEvent(new Event('submit', { bubbles: true }));
+          }
+        };
+        
+        // Reset selection when dropdown content changes
+        const observer = new MutationObserver(() => {
+          selectedIndex = -1;
+          getItems().forEach(item => item.classList.remove('selected'));
+          // Update aria-expanded based on dropdown content
+          const hasContent = autocompleteDropdown.children.length > 0;
+          themeField.setAttribute('aria-expanded', hasContent ? 'true' : 'false');
+        });
+        observer.observe(autocompleteDropdown, { childList: true });
+        
+        // Click handler for autocomplete items
+        document.body.addEventListener('click', (e) => {
+          const item = e.target.closest('.autocomplete-item');
+          if (item && item.dataset.value) {
+            themeField.value = item.dataset.value;
+            autocompleteDropdown.innerHTML = '';
+            selectedIndex = -1;
+            themeField.dispatchEvent(new Event('input', { bubbles: true }));
+            form.dispatchEvent(new Event('submit', { bubbles: true }));
+          }
+        });
+        
+        // Close dropdown when clicking outside
+        document.addEventListener('click', (e) => {
+          if (!e.target.closest('.autocomplete-container')) {
+            autocompleteDropdown.innerHTML = '';
+            selectedIndex = -1;
+          }
+        });
+        
+        // Keyboard navigation
+        themeField.addEventListener('keydown', (e) => {
+          const items = getItems();
+          const hasItems = items.length > 0;
+          
+          if (e.key === 'Escape') {
+            autocompleteDropdown.innerHTML = '';
+            selectedIndex = -1;
+            e.preventDefault();
+          } else if (e.key === 'ArrowDown' && hasItems) {
+            e.preventDefault();
+            const newIndex = selectedIndex < items.length - 1 ? selectedIndex + 1 : 0;
+            selectItem(newIndex);
+          } else if (e.key === 'ArrowUp' && hasItems) {
+            e.preventDefault();
+            const newIndex = selectedIndex > 0 ? selectedIndex - 1 : items.length - 1;
+            selectItem(newIndex);
+          } else if (e.key === 'Enter' && selectedIndex >= 0 && hasItems) {
+            e.preventDefault();
+            applySelectedItem();
+          }
+        });
+        
+        // Mouse hover to highlight items
+        autocompleteDropdown.addEventListener('mouseover', (e) => {
+          const item = e.target.closest('.autocomplete-item');
+          if (item) {
+            const items = getItems();
+            const index = items.indexOf(item);
+            if (index >= 0) {
+              selectItem(index);
+            }
+          }
+        });
+      }
     }
     form.addEventListener('submit', () => {
       if (!form.dataset.lastTrigger) {

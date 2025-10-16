@@ -1,18 +1,23 @@
 # MTG Python Deckbuilder ${VERSION}
 
 ### Summary
-Improved performance with new card data storage format. Card queries are now significantly faster with reduced file sizes.
+Theme catalog improvements with faster processing, tag search features, and regeneration fixes.
 
 ### Added
-- **Card Data Consolidation**: All card data now stored in optimized format for faster loading
-  - Automatic updates after tagging/setup completes
-  - "Rebuild Card Files" button in Setup page for manual refresh
-  - 87% smaller file sizes with dramatically faster queries
-  - Maintains multiple backup versions for safety
-- **Backward Compatibility**: Existing functionality continues to work without changes
+- **Theme Catalog Optimization**:
+  - Consolidated theme enrichment pipeline
+  - Tag search API for theme-based card discovery
+  - Commander browser theme autocomplete with keyboard navigation
+  - Tag index for faster queries
+- **Card Data Consolidation** (from previous release):
+  - Optimized format with smaller file sizes
+  - "Rebuild Card Files" button in Setup page
+  - Automatic updates after tagging/setup
 
 ### Changed
 _No unreleased changes yet._
 
 ### Fixed
-_No unreleased fixes yet._
+- **Theme Regeneration**: Theme catalog can now be fully rebuilt from scratch
+  - Fixed placeholder data appearing in fresh installations
+  - Examples now generated from actual card data

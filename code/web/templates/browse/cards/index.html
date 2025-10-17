@@ -1,0 +1,958 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+  /* Autocomplete dropdown styles (matching commanders page) */
+  .autocomplete-container { position: relative; }
+  .autocomplete-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+    background: var(--card-bg, #1a1d24);
+    border: 1px solid var(--border, #374151);
+    border-top: none;
+    border-radius: 0 0 6px 6px;
+    max-height: 300px;
+    overflow-y: auto;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+  }
+  .autocomplete-dropdown:empty { display: none; }
+  .autocomplete-item {
+    padding: .75rem;
+    cursor: pointer;
+    border-bottom: 1px solid rgba(55, 65, 81, 0.5);
+    transition: background 0.15s;
+  }
+  .autocomplete-item:last-child { border-bottom: none; }
+  .autocomplete-item:hover, .autocomplete-item:focus, .autocomplete-item.selected {
+    background: rgba(148, 163, 184, .15);
+  }
+  .autocomplete-item.selected {
+    background: rgba(148, 163, 184, .25);
+    border-left: 3px solid var(--ring, #3b82f6);
+    padding-left: calc(.75rem - 3px);
+  }
+  .autocomplete-empty {
+    padding: .75rem;
+    text-align: center;
+    color: var(--muted, #9ca3af);
+    font-size: .85rem;
+  }
+  .autocomplete-error {
+    padding: .75rem;
+    text-align: center;
+    color: #f87171;
+    font-size: .85rem;
+  }
+  
+  /* Keyboard shortcuts help button - desktop only */
+  .shortcuts-help-btn {
+    display: none !important; /* Hidden by default (mobile) */
+  }
+  
+  @media (min-width: 768px) {
+    .shortcuts-help-btn {
+      display: flex !important; /* Show on desktop */
+    }
+  }
+</style>
+
+<section class="card-browser-container">
+  <h3>Card Browser</h3>
+  <p class="muted">Browse all {{ total_cards }} cards with filters and search.</p>
+
+  {# Error message #}
+  {% if error %}
+  <div class="error" style="margin:.5rem 0 1rem 0; padding:.75rem; background:#7f1d1d; border:1px solid #dc2626; border-radius:6px; color:#fef2f2;">
+    {{ error }}
+  </div>
+  {% endif %}
+
+  {# Filters Panel #}
+  <div class="card-browser-filters" style="position: relative;">
+    {# Keyboard shortcuts help button (desktop only) #}
+    <button 
+      type="button" 
+      id="shortcuts-help-btn"
+      class="shortcuts-help-btn"
+      style="position: absolute; top: 0.5rem; right: 0.5rem; width: 28px; height: 28px; border-radius: 50%; background: #444; border: 1px solid #666; color: #fff; font-weight: bold; cursor: pointer; font-size: 16px; display: none; align-items: center; justify-content: center; padding: 0; line-height: 1;"
+      title="Keyboard Shortcuts"
+      onclick="toggleShortcutsHelp()"
+    >?</button>
+    
+    {# Shortcuts help tooltip #}
+    <div 
+      id="shortcuts-help-tooltip"
+      style="display: none; position: absolute; top: 2.5rem; right: 0.5rem; background: #2a2a2a; border: 1px solid #666; border-radius: 6px; padding: 1rem; min-width: 320px; max-width: 400px; z-index: 1000; box-shadow: 0 4px 6px rgba(0,0,0,0.3);"
+    >
+      <h4 style="margin-top: 0; margin-bottom: 0.75rem; font-size: 1.1rem;">Keyboard Shortcuts</h4>
+      <div style="font-size: 0.9rem; line-height: 1.6;">
+        <div style="margin-bottom: 0.5rem;"><strong>Enter</strong> - Add first theme match / Select autocomplete</div>
+        <div style="margin-bottom: 0.5rem;"><strong>Shift+Enter</strong> - Add current theme & apply filters</div>
+        <div style="margin-bottom: 0.5rem;"><strong>Escape</strong> - Close dropdown</div>
+        <div style="margin-bottom: 0.5rem;"><strong>Escape×2</strong> - Clear all filters (within 0.5s)</div>
+        <div style="margin-bottom: 0.5rem;"><strong>↑/↓</strong> - Navigate autocomplete</div>
+      </div>
+      <button 
+        type="button" 
+        onclick="toggleShortcutsHelp()" 
+        style="margin-top: 0.75rem; padding: 0.4rem 0.8rem; background: #555; border: 1px solid #777; border-radius: 4px; color: #fff; cursor: pointer; width: 100%;"
+      >Close</button>
+    </div>
+    
+    {# Search bar #}
+    <div class="filter-section">
+      <form method="get" id="card-search-form">
+        <div class="filter-row">
+          <label for="search-input">Search</label>
+          <div class="autocomplete-container" style="position:relative; flex: 1; max-width: 300px;">
+            <input 
+              type="text" 
+              name="search" 
+              id="search-input"
+              data-autocomplete-param="q"
+              value="{{ search }}" 
+              placeholder="Search card names..." 
+              autocomplete="off"
+              role="combobox"
+              aria-autocomplete="list"
+              aria-controls="search-autocomplete-dropdown"
+              aria-expanded="false"
+              style="width: 100%;"
+            />
+            <div id="search-autocomplete-dropdown" class="autocomplete-dropdown" role="listbox" aria-label="Card name suggestions"></div>
+          </div>
+          {% if search %}
+          <button type="button" onclick="document.getElementById('search-input').value=''; document.getElementById('card-search-form').submit();" class="btn" style="padding:.3rem .75rem;">Clear</button>
+          {% endif %}
+          <button type="submit" class="btn">Search</button>
+        </div>
+      </form>
+    </div>
+
+    {# Filter controls #}
+    <div class="filter-section" style="margin-top: 1rem;">
+      <div class="filter-row">
+        {# Multi-select theme filter #}
+        <label for="filter-theme-input">Themes (up to 5)</label>
+        <div style="flex: 1; max-width: 500px;">
+          {# Selected themes as chips #}
+          <div id="selected-themes" style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.5rem; min-height: 2rem;">
+            {% if themes %}
+              {% for t in themes %}
+              <span class="theme-chip" data-theme="{{ t }}">
+                {{ t }}
+                <button type="button" onclick="removeTheme('{{ t }}')" style="margin-left:0.5rem; background:none; border:none; color:inherit; cursor:pointer; padding:0; font-weight:bold;">&times;</button>
+              </span>
+              {% endfor %}
+            {% endif %}
+          </div>
+          
+          {# Autocomplete input #}
+          <div class="autocomplete-container" style="position:relative;">
+            <input 
+              type="text" 
+              id="filter-theme-input"
+              placeholder="Add theme..." 
+              autocomplete="off"
+              role="combobox"
+              aria-autocomplete="list"
+              aria-controls="theme-autocomplete-dropdown"
+              aria-expanded="false"
+              style="width: 100%;"
+            />
+            <div id="theme-autocomplete-dropdown" class="autocomplete-dropdown" role="listbox" aria-label="Theme suggestions"></div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="filter-row">
+        {# Color filter #}
+        {% if all_colors %}
+        <label for="filter-color">Color</label>
+        <select 
+          name="color" 
+          id="filter-color"
+          onchange="applyFilter()">
+          <option value="">All Colors</option>
+          {% for group_name, group_colors in all_colors %}
+            <optgroup label="{{ group_name }}">
+              {% for color_id, display_name in group_colors %}
+                <option value="{{ color_id }}" {% if color == color_id %}selected{% endif %}>{{ display_name }}</option>
+              {% endfor %}
+            </optgroup>
+          {% endfor %}
+        </select>
+        {% endif %}
+
+        {# Type filter #}
+        {% if all_types %}
+        <label for="filter-type">Type</label>
+        <select 
+          name="type" 
+          id="filter-type"
+          onchange="applyFilter()">
+          <option value="">All Types</option>
+          {% for t in all_types %}
+            <option value="{{ t }}" {% if card_type == t %}selected{% endif %}>{{ t }}</option>
+          {% endfor %}
+        </select>
+        {% endif %}
+
+        {# Rarity filter #}
+        {% if all_rarities %}
+        <label for="filter-rarity">Rarity</label>
+        <select 
+          name="rarity" 
+          id="filter-rarity"
+          onchange="applyFilter()">
+          <option value="">All Rarities</option>
+          {% for r in all_rarities %}
+            <option value="{{ r }}" {% if rarity == r %}selected{% endif %}>{{ r|title }}</option>
+          {% endfor %}
+        </select>
+        {% endif %}
+        
+        {# Sort dropdown #}
+        <label for="filter-sort">Sort By</label>
+        <select 
+          name="sort" 
+          id="filter-sort"
+          onchange="applyFilter()">
+          <option value="name_asc" {% if sort == 'name_asc' or not sort %}selected{% endif %}>Name (A-Z)</option>
+          <option value="name_desc" {% if sort == 'name_desc' %}selected{% endif %}>Name (Z-A)</option>
+          <option value="cmc_asc" {% if sort == 'cmc_asc' %}selected{% endif %}>CMC (Low-High)</option>
+          <option value="cmc_desc" {% if sort == 'cmc_desc' %}selected{% endif %}>CMC (High-Low)</option>
+          <option value="power_desc" {% if sort == 'power_desc' %}selected{% endif %}>Power (High-Low)</option>
+          <option value="edhrec_asc" {% if sort == 'edhrec_asc' %}selected{% endif %}>EDHREC Rank (Popular)</option>
+        </select>
+        
+        <button type="button" class="btn" onclick="applyFilter()">Apply Filters</button>
+        <button type="button" class="btn" onclick="window.location.href='/cards'" style="background-color: #666;">Clear Filters</button>
+      </div>
+
+      {# Advanced filters row #}
+      <div class="filter-row" style="margin-top: 0.75rem;">
+        {# CMC range filter #}
+        <label for="filter-cmc-min">CMC Range</label>
+        <div style="display:flex; align-items:center; gap:0.5rem; flex:1; max-width:300px;">
+          <input 
+            type="number" 
+            id="filter-cmc-min" 
+            min="0" 
+            max="16" 
+            value="{{ cmc_min if cmc_min is defined else '' }}"
+            placeholder="Min"
+            style="width:70px;"
+            onchange="applyFilter()"
+          />
+          <span>–</span>
+          <input 
+            type="number" 
+            id="filter-cmc-max" 
+            min="0" 
+            max="16" 
+            value="{{ cmc_max if cmc_max is defined else '' }}"
+            placeholder="Max"
+            style="width:70px;"
+            onchange="applyFilter()"
+          />
+        </div>
+        
+        {# Power range filter #}
+        <label for="filter-power-min">Power</label>
+        <div style="display:flex; align-items:center; gap:0.5rem; flex:1; max-width:300px;">
+          <input 
+            type="number" 
+            id="filter-power-min" 
+            min="0" 
+            max="99" 
+            value="{{ power_min if power_min is defined else '' }}"
+            placeholder="Min"
+            style="width:70px;"
+            onchange="applyFilter()"
+          />
+          <span>–</span>
+          <input 
+            type="number" 
+            id="filter-power-max" 
+            min="0" 
+            max="99" 
+            value="{{ power_max if power_max is defined else '' }}"
+            placeholder="Max"
+            style="width:70px;"
+            onchange="applyFilter()"
+          />
+        </div>
+        
+        {# Toughness range filter #}
+        <label for="filter-tough-min">Toughness</label>
+        <div style="display:flex; align-items:center; gap:0.5rem; flex:1; max-width:300px;">
+          <input 
+            type="number" 
+            id="filter-tough-min" 
+            min="0" 
+            max="99" 
+            value="{{ tough_min if tough_min is defined else '' }}"
+            placeholder="Min"
+            style="width:70px;"
+            onchange="applyFilter()"
+          />
+          <span>–</span>
+          <input 
+            type="number" 
+            id="filter-tough-max" 
+            min="0" 
+            max="99" 
+            value="{{ tough_max if tough_max is defined else '' }}"
+            placeholder="Max"
+            style="width:70px;"
+            onchange="applyFilter()"
+          />
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {# Results info bar with page indicator #}
+  <div id="card-browser-info" class="card-browser-info">
+    <span id="results-count" class="results-count">
+      {% if filtered_count is defined and filtered_count != total_cards %}
+      Showing {{ cards|length }} of {{ filtered_count }} filtered cards ({{ total_cards }} total)
+      {% else %}
+      Showing {{ cards|length }} of {{ total_cards }} cards
+      {% endif %}
+      {% if search %} matching "{{ search }}"{% endif %}
+    </span>
+  </div>
+
+  {# Card grid container or no results message #}
+  {% if cards and cards|length %}
+  <div id="card-grid-container" 
+       class="card-browser-grid"
+       {% if total_cards > 800 %}data-virtualize="1"{% endif %}>
+    <div id="card-grid" style="display:contents;">
+      {% for card in cards %}
+      {% include "browse/cards/_card_tile.html" %}
+      {% endfor %}
+    </div>
+  </div>
+
+  {# Pagination controls #}
+  {% if has_next %}
+  <div id="load-more-container" class="card-browser-pagination">
+    <button 
+      type="button"
+      class="btn"
+      hx-get="/cards/grid?cursor={{ last_card|urlencode }}{% if search %}&search={{ search|urlencode }}{% endif %}{% if theme %}&theme={{ theme|urlencode }}{% endif %}{% if color %}&color={{ color|urlencode }}{% endif %}{% if card_type %}&card_type={{ card_type|urlencode }}{% endif %}{% if rarity %}&rarity={{ rarity|urlencode }}{% endif %}{% if cmc_min %}&cmc_min={{ cmc_min }}{% endif %}{% if cmc_max %}&cmc_max={{ cmc_max }}{% endif %}"
+      hx-target="#card-grid"
+      hx-swap="beforeend"
+      hx-indicator="#load-indicator">
+      Load More
+    </button>
+    <span id="load-indicator" class="htmx-indicator muted card-browser-loading">
+      Loading...
+    </span>
+  </div>
+  {% endif %}
+  {% else %}
+  {# No results message with helpful info #}
+  <div class="no-results">
+    <div class="no-results-title">No cards found</div>
+    <div class="no-results-message">
+      {% if search or color or card_type or rarity or theme or cmc_min or cmc_max %}
+        No cards match your current filters.
+        {% if search %}Try a different search term{% endif %}{% if search and (color or card_type or rarity or theme or cmc_min or cmc_max) %} or {% endif %}{% if color or card_type or rarity or theme or cmc_min or cmc_max %}adjust your filters{% endif %}.
+      {% else %}
+        Unable to load cards. Please try refreshing the page.
+      {% endif %}
+    </div>
+    
+    {% if search or color or card_type or rarity or theme or cmc_min or cmc_max %}
+    <div class="no-results-filters">
+      <strong style="color: var(--text); margin-right: 0.5rem;">Active filters:</strong>
+      {% if search %}
+      <span class="no-results-filter-tag">Search: "{{ search }}"</span>
+      {% endif %}
+      {% if theme %}
+      <span class="no-results-filter-tag">Theme: {{ theme }}</span>
+      {% endif %}
+      {% if color %}
+      <span class="no-results-filter-tag">Color: {{ color }}</span>
+      {% endif %}
+      {% if card_type %}
+      <span class="no-results-filter-tag">Type: {{ card_type }}</span>
+      {% endif %}
+      {% if rarity %}
+      <span class="no-results-filter-tag">Rarity: {{ rarity|title }}</span>
+      {% endif %}
+      {% if cmc_min or cmc_max %}
+      <span class="no-results-filter-tag">CMC: {% if cmc_min %}{{ cmc_min }}{% else %}0{% endif %}–{% if cmc_max %}{{ cmc_max }}{% else %}16+{% endif %}</span>
+      {% endif %}
+    </div>
+    <p><a href="/cards" class="btn">Clear All Filters</a></p>
+    {% endif %}
+  </div>
+  {% endif %}
+</section>
+
+<script>
+// Toggle shortcuts help tooltip
+function toggleShortcutsHelp() {
+  const tooltip = document.getElementById('shortcuts-help-tooltip');
+  if (tooltip) {
+    tooltip.style.display = tooltip.style.display === 'none' ? 'block' : 'none';
+  }
+}
+
+// Close tooltip when clicking outside
+document.addEventListener('click', (e) => {
+  const tooltip = document.getElementById('shortcuts-help-tooltip');
+  const helpBtn = document.getElementById('shortcuts-help-btn');
+  if (tooltip && helpBtn && 
+      tooltip.style.display === 'block' && 
+      !tooltip.contains(e.target) && 
+      !helpBtn.contains(e.target)) {
+    tooltip.style.display = 'none';
+  }
+});
+
+// Global Escape key handler for clearing filters (works anywhere on page)
+(function() {
+  let lastGlobalEscapeTime = 0;
+  
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      const now = Date.now();
+      const timeSinceLastEscape = now - lastGlobalEscapeTime;
+      
+      // Check if we're in a text input (let those handle their own Escape)
+      const activeElement = document.activeElement;
+      const isInTextInput = activeElement && (
+        activeElement.tagName === 'INPUT' || 
+        activeElement.tagName === 'TEXTAREA'
+      );
+      
+      if (!isInTextInput && timeSinceLastEscape < 500) {
+        // Double Escape outside of inputs - clear all filters
+        console.log('Global double Escape detected - clearing filters');
+        e.preventDefault();
+        window.location.href = '/cards';
+      } else if (!isInTextInput) {
+        // First escape outside input
+        lastGlobalEscapeTime = now;
+      }
+    }
+  });
+})();
+
+function applyFilter() {
+  const color = document.getElementById('filter-color')?.value || '';
+  const type = document.getElementById('filter-type')?.value || '';
+  const rarity = document.getElementById('filter-rarity')?.value || '';
+  const search = document.getElementById('search-input')?.value || '';
+  const sort = document.getElementById('filter-sort')?.value || '';
+  const cmcMin = document.getElementById('filter-cmc-min')?.value || '';
+  const cmcMax = document.getElementById('filter-cmc-max')?.value || '';
+  const powerMin = document.getElementById('filter-power-min')?.value || '';
+  const powerMax = document.getElementById('filter-power-max')?.value || '';
+  const toughMin = document.getElementById('filter-tough-min')?.value || '';
+  const toughMax = document.getElementById('filter-tough-max')?.value || '';
+  
+  // Collect selected themes
+  const themeChips = document.querySelectorAll('#selected-themes .theme-chip');
+  const themes = Array.from(themeChips).map(chip => chip.dataset.theme);
+  
+  const params = new URLSearchParams();
+  if (search) params.set('search', search);
+  if (color) params.set('color', color);
+  if (type) params.set('card_type', type);
+  if (rarity) params.set('rarity', rarity);
+  // Add themes as multiple params (themes=t1&themes=t2&themes=t3)
+  themes.forEach(theme => params.append('themes', theme));
+  if (sort && sort !== 'name_asc') params.set('sort', sort); // Only include if not default
+  if (cmcMin) params.set('cmc_min', cmcMin);
+  if (cmcMax) params.set('cmc_max', cmcMax);
+  if (powerMin) params.set('power_min', powerMin);
+  if (powerMax) params.set('power_max', powerMax);
+  if (toughMin) params.set('tough_min', toughMin);
+  if (toughMax) params.set('tough_max', toughMax);
+  
+  window.location.href = `/cards?${params.toString()}`;
+}
+
+// Autocomplete keyboard navigation
+(function() {
+  const searchInput = document.getElementById('search-input');
+  const autocompleteDropdown = document.getElementById('search-autocomplete-dropdown');
+  const form = document.getElementById('card-search-form');
+  
+  if (!searchInput || !autocompleteDropdown || !form) return;
+  
+  let selectedIndex = -1;
+  let debounceTimer = null;
+  let lastEscapeTime = 0;
+  
+  // Fetch autocomplete suggestions
+  const fetchSuggestions = () => {
+    const query = searchInput.value.trim();
+    if (query.length < 2) {
+      autocompleteDropdown.innerHTML = '';
+      return;
+    }
+    
+    // Call the autocomplete endpoint
+    fetch(`/cards/search-autocomplete?q=${encodeURIComponent(query)}`)
+      .then(response => response.text())
+      .then(html => {
+        autocompleteDropdown.innerHTML = html;
+      })
+      .catch(err => {
+        console.error('Autocomplete error:', err);
+        autocompleteDropdown.innerHTML = '';
+      });
+  };
+  
+  // Debounced input handler - reduced to 150ms for faster response
+  searchInput.addEventListener('input', () => {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(fetchSuggestions, 150);
+  });
+  
+  // Helper to get all autocomplete items
+  const getItems = () => Array.from(autocompleteDropdown.querySelectorAll('.autocomplete-item'));
+  
+  // Helper to select an item by index
+  const selectItem = (index) => {
+    const items = getItems();
+    items.forEach((item, i) => {
+      if (i === index) {
+        item.classList.add('selected');
+        item.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      } else {
+        item.classList.remove('selected');
+      }
+    });
+    selectedIndex = index;
+  };
+  
+  // Helper to apply selected item
+  const applySelectedItem = () => {
+    const items = getItems();
+    const item = items[selectedIndex];
+    if (item && item.dataset.value) {
+      searchInput.value = item.dataset.value;
+      autocompleteDropdown.innerHTML = '';
+      selectedIndex = -1;
+      // Trigger search immediately
+      applyFilter();
+    }
+  };
+  
+  // Reset selection when dropdown content changes
+  const observer = new MutationObserver(() => {
+    selectedIndex = -1;
+    getItems().forEach(item => item.classList.remove('selected'));
+    // Update aria-expanded based on dropdown content
+    const hasContent = autocompleteDropdown.children.length > 0;
+    searchInput.setAttribute('aria-expanded', hasContent ? 'true' : 'false');
+  });
+  observer.observe(autocompleteDropdown, { childList: true });
+  
+  // Click handler for autocomplete items - instant navigation
+  document.body.addEventListener('click', (e) => {
+    const item = e.target.closest('.autocomplete-item');
+    if (item && item.dataset.value && autocompleteDropdown.contains(item)) {
+      e.preventDefault();
+      searchInput.value = item.dataset.value;
+      autocompleteDropdown.innerHTML = '';
+      selectedIndex = -1;
+      // Navigate immediately using applyFilter
+      applyFilter();
+    }
+  });
+  
+  // Close dropdown when clicking outside
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.autocomplete-container')) {
+      autocompleteDropdown.innerHTML = '';
+      selectedIndex = -1;
+    }
+  });
+  
+  // Keyboard navigation
+  searchInput.addEventListener('keydown', (e) => {
+    const items = getItems();
+    const hasItems = items.length > 0;
+    
+    if (e.key === 'Escape') {
+      const now = Date.now();
+      const timeSinceLastEscape = now - lastEscapeTime;
+      
+      if (hasItems) {
+        // Close dropdown if open
+        autocompleteDropdown.innerHTML = '';
+        selectedIndex = -1;
+        lastEscapeTime = now;
+        e.preventDefault();
+      } else if (timeSinceLastEscape < 500) {
+        // Double-tap Escape within 500ms - clear all filters
+        console.log('Double Escape detected - clearing filters');
+        e.preventDefault();
+        window.location.href = '/cards';
+      } else {
+        // First escape with no dropdown
+        lastEscapeTime = now;
+        e.preventDefault();
+      }
+    } else if (e.key === 'ArrowDown' && hasItems) {
+      e.preventDefault();
+      const newIndex = selectedIndex < items.length - 1 ? selectedIndex + 1 : 0;
+      selectItem(newIndex);
+    } else if (e.key === 'ArrowUp' && hasItems) {
+      e.preventDefault();
+      const newIndex = selectedIndex > 0 ? selectedIndex - 1 : items.length - 1;
+      selectItem(newIndex);
+    } else if (e.key === 'Enter') {
+      if (e.shiftKey) {
+        // Shift+Enter: Apply all filters
+        e.preventDefault();
+        applyFilter();
+      } else if (selectedIndex >= 0 && hasItems) {
+        e.preventDefault();
+        applySelectedItem();
+      }
+      // Otherwise allow normal form submission
+    }
+  });
+  
+  // Mouse hover to highlight items
+  autocompleteDropdown.addEventListener('mouseover', (e) => {
+    const item = e.target.closest('.autocomplete-item');
+    if (item) {
+      const items = getItems();
+      const index = items.indexOf(item);
+      if (index >= 0) {
+        selectItem(index);
+      }
+    }
+  });
+})();
+
+// Multi-select theme filter
+(function() {
+  const themeInput = document.getElementById('filter-theme-input');
+  const themeDropdown = document.getElementById('theme-autocomplete-dropdown');
+  const selectedThemesContainer = document.getElementById('selected-themes');
+  
+  if (!themeInput || !themeDropdown) return;
+  
+  let selectedIndex = -1;
+  let debounceTimer = null;
+  let selectedThemes = new Set();
+  let lastEscapeTime = 0;
+  
+  // Initialize with existing themes from URL
+  const existingChips = selectedThemesContainer.querySelectorAll('.theme-chip');
+  existingChips.forEach(chip => {
+    selectedThemes.add(chip.dataset.theme);
+  });
+  
+  // Update input state based on theme count
+  const updateThemeInputState = () => {
+    if (selectedThemes.size >= 5) {
+      themeInput.disabled = true;
+      themeInput.placeholder = 'Maximum 5 themes selected';
+      themeInput.classList.add('disabled');
+    } else {
+      themeInput.disabled = false;
+      themeInput.placeholder = 'Add theme...';
+      themeInput.classList.remove('disabled');
+    }
+  };
+  
+  // Initialize the input state
+  updateThemeInputState();
+  
+  // Fetch theme suggestions
+  const fetchThemeSuggestions = () => {
+    const query = themeInput.value.trim();
+    if (query.length < 2) {
+      themeDropdown.innerHTML = '';
+      return;
+    }
+    
+    fetch(`/cards/theme-autocomplete?q=${encodeURIComponent(query)}`)
+      .then(response => response.text())
+      .then(html => {
+        themeDropdown.innerHTML = html;
+      })
+      .catch(err => {
+        console.error('Theme autocomplete error:', err);
+        themeDropdown.innerHTML = '';
+      });
+  };
+  
+  // Add theme chip
+  window.addTheme = function(theme) {
+    if (selectedThemes.size >= 5) {
+      return; // Input should already be disabled, but double-check
+    }
+    if (selectedThemes.has(theme)) {
+      return; // Already selected
+    }
+    
+    selectedThemes.add(theme);
+    
+    const chip = document.createElement('span');
+    chip.className = 'theme-chip';
+    chip.dataset.theme = theme;
+    chip.innerHTML = `${theme} <button type="button" onclick="removeTheme('${theme.replace(/'/g, "\\'")}')" style="margin-left:0.5rem; background:none; border:none; color:inherit; cursor:pointer; padding:0; font-weight:bold;">&times;</button>`;
+    
+    selectedThemesContainer.appendChild(chip);
+    themeInput.value = '';
+    themeDropdown.innerHTML = '';
+    selectedIndex = -1;
+    
+    updateThemeInputState();
+    
+    // Auto-focus the input on desktop (not mobile) for quick multi-selection
+    // Focus immediately since we're NOT reloading the page anymore
+    if (selectedThemes.size < 5 && window.innerWidth >= 768) {
+      // Small delay to ensure DOM updates are complete
+      requestAnimationFrame(() => {
+        themeInput.focus();
+      });
+    }
+    
+    // Don't auto-apply filter - let user add multiple themes then click Apply
+    // This allows the auto-focus to work and provides better UX
+    // applyFilter();
+  };
+  
+  // Remove theme chip
+  window.removeTheme = function(theme) {
+    selectedThemes.delete(theme);
+    const chip = selectedThemesContainer.querySelector(`.theme-chip[data-theme="${theme}"]`);
+    if (chip) {
+      chip.remove();
+    }
+    updateThemeInputState();
+    // Don't auto-apply filter - let user manage themes then click Apply
+    // applyFilter();
+  };
+  
+  // Debounced input handler
+  themeInput.addEventListener('input', () => {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(fetchThemeSuggestions, 150);
+  });
+  
+  // Helper functions
+  const getItems = () => Array.from(themeDropdown.querySelectorAll('.autocomplete-item'));
+  
+  const selectItem = (index) => {
+    const items = getItems();
+    items.forEach((item, i) => {
+      if (i === index) {
+        item.classList.add('selected');
+        item.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      } else {
+        item.classList.remove('selected');
+      }
+    });
+    selectedIndex = index;
+  };
+  
+  const applySelectedItem = () => {
+    const items = getItems();
+    const item = items[selectedIndex];
+    if (item && item.dataset.value) {
+      addTheme(item.dataset.value);
+    }
+  };
+  
+  // Reset selection when dropdown changes
+  const observer = new MutationObserver(() => {
+    selectedIndex = -1;
+    getItems().forEach(item => item.classList.remove('selected'));
+    const hasContent = themeDropdown.children.length > 0;
+    themeInput.setAttribute('aria-expanded', hasContent ? 'true' : 'false');
+  });
+  observer.observe(themeDropdown, { childList: true });
+  
+  // Click handler
+  document.body.addEventListener('click', (e) => {
+    const item = e.target.closest('.autocomplete-item');
+    if (item && item.dataset.value && themeDropdown.contains(item)) {
+      e.preventDefault();
+      addTheme(item.dataset.value);
+    }
+  });
+  
+  // Close dropdown when clicking outside
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('#filter-theme-input') && !e.target.closest('#theme-autocomplete-dropdown')) {
+      themeDropdown.innerHTML = '';
+      selectedIndex = -1;
+    }
+  });
+  
+  // Keyboard navigation
+  themeInput.addEventListener('keydown', (e) => {
+    const items = getItems();
+    const hasItems = items.length > 0;
+    
+    if (e.key === 'Escape') {
+      const now = Date.now();
+      const timeSinceLastEscape = now - lastEscapeTime;
+      
+      if (hasItems) {
+        // Close dropdown if open
+        themeDropdown.innerHTML = '';
+        selectedIndex = -1;
+        lastEscapeTime = now;
+        e.preventDefault();
+      } else if (timeSinceLastEscape < 500) {
+        // Double-tap Escape within 500ms - clear all filters
+        console.log('Double Escape detected - clearing filters');
+        e.preventDefault();
+        window.location.href = '/cards';
+      } else {
+        // First escape with no dropdown
+        lastEscapeTime = now;
+        e.preventDefault();
+      }
+    } else if (e.key === 'ArrowDown' && hasItems) {
+      e.preventDefault();
+      const newIndex = selectedIndex < items.length - 1 ? selectedIndex + 1 : 0;
+      selectItem(newIndex);
+    } else if (e.key === 'ArrowUp' && hasItems) {
+      e.preventDefault();
+      const newIndex = selectedIndex > 0 ? selectedIndex - 1 : items.length - 1;
+      selectItem(newIndex);
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (e.shiftKey) {
+        // Shift+Enter: Add current theme if any, then apply all filters
+        if (hasItems) {
+          // Add the first match before applying
+          if (selectedIndex >= 0) {
+            applySelectedItem();
+          } else {
+            selectItem(0);
+            applySelectedItem();
+          }
+          // Small delay to ensure theme is added before applying filters
+          setTimeout(() => applyFilter(), 50);
+        } else {
+          // No autocomplete, just apply filters
+          applyFilter();
+        }
+      } else if (selectedIndex >= 0 && hasItems) {
+        // Apply the explicitly selected item
+        applySelectedItem();
+      } else if (hasItems) {
+        // No item selected, but there are items - select the first one
+        selectItem(0);
+        applySelectedItem();
+      }
+    }
+  });
+  
+  // Mouse hover
+  themeDropdown.addEventListener('mouseover', (e) => {
+    const item = e.target.closest('.autocomplete-item');
+    if (item) {
+      const items = getItems();
+      const index = items.indexOf(item);
+      if (index >= 0) {
+        selectItem(index);
+      }
+    }
+  });
+})();
+
+// Update card count after loading more cards via HTMX
+let autoLoadEnabled = true;
+let lastCardCount = 0;
+
+document.body.addEventListener('htmx:afterSwap', function(event) {
+  // Only update if this was a card grid load
+  if (event.detail.target.id === 'card-grid') {
+    const cardTiles = document.querySelectorAll('#card-grid .card-tile');
+    const totalCount = cardTiles.length;
+    const resultsCount = document.getElementById('results-count');
+    
+    if (resultsCount && totalCount > 0) {
+      // Extract the "of X filtered cards" or "of X cards" part
+      const originalText = resultsCount.textContent;
+      const match = originalText.match(/of (\d+)( filtered)? cards/);
+      
+      if (match) {
+        const totalCards = match[1];
+        const filtered = match[2] || '';
+        const searchMatch = originalText.match(/matching "([^"]+)"/);
+        const searchText = searchMatch ? ` matching "${searchMatch[1]}"` : '';
+        
+        resultsCount.textContent = `Showing ${totalCount} of ${totalCards}${filtered} cards${searchText}`;
+      }
+    }
+    
+    // Check if we just crossed a 100-card boundary
+    const currentHundred = Math.floor(totalCount / 100);
+    const lastHundred = Math.floor(lastCardCount / 100);
+    
+    if (currentHundred > lastHundred && totalCount % 100 === 0) {
+      autoLoadEnabled = false;
+    }
+    
+    lastCardCount = totalCount;
+    
+    // Re-observe the new load more button
+    const loadMoreContainer = document.getElementById('load-more-container');
+    if (loadMoreContainer) {
+      scrollObserver.observe(loadMoreContainer);
+    }
+  }
+});
+
+// Scroll observer for infinite scroll
+const scrollObserver = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting && autoLoadEnabled) {
+      const loadMoreBtn = document.querySelector('#load-more-container button');
+      if (loadMoreBtn) {
+        loadMoreBtn.click();
+      }
+    }
+  });
+}, {
+  rootMargin: '200px' // Start loading 200px before reaching the button
+});
+
+// Manual "Load More" click re-enables auto-load
+document.body.addEventListener('click', function(event) {
+  const loadMoreBtn = event.target.closest('#load-more-container button');
+  if (loadMoreBtn && !autoLoadEnabled) {
+    autoLoadEnabled = true;
+  }
+});
+
+// Initial observation
+window.addEventListener('load', function() {
+  const loadMoreContainer = document.getElementById('load-more-container');
+  if (loadMoreContainer) {
+    scrollObserver.observe(loadMoreContainer);
+  }
+  
+  // Initialize theme chips from URL params
+  {% if themes %}
+  {% for theme in themes %}
+  addTheme('{{ theme|replace("'", "\\'") }}');
+  {% endfor %}
+  {% endif %}
+});
+</script>
+{% endblock %}

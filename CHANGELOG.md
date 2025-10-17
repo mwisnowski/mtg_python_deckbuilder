@@ -9,13 +9,30 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 
 ## [Unreleased]
 ### Summary
-_No unreleased changes yet._
+Card browser with advanced filters, keyboard shortcuts, and responsive design.
 
 ### Added
-_No unreleased changes yet._
+- **Card Browser**: Browse 26,427 Magic cards with powerful filtering at `/browse/cards`
+  - Fuzzy autocomplete for card names and themes with typo tolerance
+  - Multi-theme filtering (up to 5 themes with AND logic)
+  - Color identity, card type, rarity, CMC range, power/toughness filters
+  - Six sorting options: Name A-Z/Z-A, CMC Low/High, Power High, EDHREC Popular
+  - Cursor-based pagination with infinite scroll
+  - Shareable filter URLs for saving and sharing searches
+- **Keyboard Shortcuts**: Efficient navigation without mouse
+  - `Enter`: Add first autocomplete match to theme filters
+  - `Shift+Enter`: Apply all active filters from any input field
+  - `Esc` (double-tap): Clear all filters globally (500ms window)
+  - Desktop-only keyboard shortcuts help button with tooltip
+  - Auto-focus theme input after adding theme (desktop only)
+- **Responsive Design**: Mobile-optimized card browser with touch-friendly controls
+  - Adaptive grid layout (1-4 columns based on screen width)
+  - Theme chips with remove buttons
+  - Graceful 5-theme limit (input disabled, no intrusive alerts)
+  - Desktop-only UI elements hidden on mobile with media queries
 
 ### Changed
-_No unreleased changes yet._
+- **Theme Catalog**: Improved generation to include more themes and filter out ultra-rare entries
 
 ### Fixed
 _No unreleased changes yet._

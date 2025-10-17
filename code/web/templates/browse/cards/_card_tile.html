@@ -1,0 +1,67 @@
+{# Single card tile for grid display #}
+<div class="card-browser-tile card-tile" data-card-name="{{ card.name }}" data-tags="{{ card.themeTags_parsed|join(', ') if card.themeTags_parsed else '' }}">
+  {# Card image #}
+  <div class="card-browser-tile-image">
+    <img 
+      loading="lazy" 
+      decoding="async" 
+      alt="{{ card.name }}" 
+      src="https://api.scryfall.com/cards/named?fuzzy={{ card.name|urlencode }}&format=image&version=normal"
+      onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
+    />
+    {# Fallback for missing images #}
+    <div style="display:none; width:100%; height:100%; align-items:center; justify-content:center; background:#1a1d24; color:#9ca3af; font-size:14px; padding:1rem; text-align:center; position:absolute; top:0; left:0;">
+      {{ card.name }}
+    </div>
+    
+    {# Owned indicator #}
+    {% if card.is_owned %}
+    <div style="position:absolute; top:4px; right:4px; background:rgba(34,197,94,0.9); color:white; padding:2px 6px; border-radius:4px; font-size:12px; font-weight:600;">
+      ✓ Owned
+    </div>
+    {% endif %}
+  </div>
+
+  {# Card info #}
+  <div class="card-browser-tile-info">
+    {# Card name #}
+    <div class="card-browser-tile-name" title="{{ card.name }}">
+      {{ card.name }}
+    </div>
+
+    {# Type line #}
+    {% if card.type %}
+    <div class="card-browser-tile-type" title="{{ card.type }}">
+      {{ card.type }}
+    </div>
+    {% endif %}
+
+    {# Mana cost and color identity #}
+    <div class="card-browser-tile-stats">
+      {% if card.manaValue is defined and card.manaValue is not none %}
+      <span style="font-size:12px; color:#cbd5e1;">CMC: {{ card.manaValue }}</span>
+      {% endif %}
+      
+      {% if card.is_colorless %}
+      <div style="display:flex; gap:2px;">
+        <span class="mana mana-C" style="width:16px; height:16px; font-size:10px;" title="Colorless"></span>
+      </div>
+      {% elif card.colorIdentity %}
+      <div style="display:flex; gap:2px;">
+        {% for color in card.colorIdentity %}
+          <span class="mana mana-{{ color }}" style="width:16px; height:16px; font-size:10px;" title="{{ color }}"></span>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+
+    {# Theme tags (show all tags, not truncated) #}
+    {% if card.themeTags_parsed and card.themeTags_parsed|length > 0 %}
+    <div class="card-browser-tile-tags">
+      {% for tag in card.themeTags_parsed %}
+      <span class="tag">{{ tag }}</span>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+</div>

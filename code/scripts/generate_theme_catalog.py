@@ -218,6 +218,7 @@ def build_theme_catalog(
     cards_filename: str = "cards.csv",
     logs_directory: Optional[Path] = None,
     use_parquet: bool = True,
+    min_card_count: int = 3,
 ) -> CatalogBuildResult:
     """Build theme catalog from card data.
     
@@ -228,6 +229,8 @@ def build_theme_catalog(
         commander_filename: Name of commander CSV file
         cards_filename: Name of cards CSV file
         logs_directory: Optional directory to copy output to
+        use_parquet: If True, try to use all_cards.parquet first (default: True)
+        min_card_count: Minimum number of cards required to include theme (default: 3)
         use_parquet: If True, try to use all_cards.parquet first (default: True)
         
     Returns:
@@ -251,11 +254,16 @@ def build_theme_catalog(
                 commander_parquet, theme_variants=theme_variants
             )
             
-            # CSV method doesn't load non-commander cards, so we don't either
-            card_counts = Counter()
+            # Load all card counts from all_cards.parquet to include all themes
+            all_cards_parquet = parquet_dir / "all_cards.parquet"
+            card_counts = _load_theme_counts_from_parquet(
+                all_cards_parquet, theme_variants=theme_variants
+            )
             
             used_parquet = True
             print("✓ Loaded theme data from parquet files")
+            print(f"  - Commanders: {len(commander_counts)} themes")
+            print(f"  - All cards: {len(card_counts)} themes")
             
         except Exception as e:
             print(f"⚠ Failed to load from parquet: {e}")
@@ -285,12 +293,19 @@ def build_theme_catalog(
     version_hash = _compute_version_hash(display_names)
 
     rows: List[CatalogRow] = []
+    filtered_count = 0
     for key, display in zip(keys, display_names):
         if not display:
             continue
         card_count = int(card_counts.get(key, 0))
         commander_count = int(commander_counts.get(key, 0))
         source_count = card_count + commander_count
+        
+        # Filter out themes below minimum threshold
+        if source_count < min_card_count:
+            filtered_count += 1
+            continue
+        
         rows.append(
             CatalogRow(
                 theme=display,
@@ -329,6 +344,9 @@ def build_theme_catalog(
                 row.last_generated_at,
                 row.version,
             ])
+
+    if filtered_count > 0:
+        print(f"  Filtered {filtered_count} themes with <{min_card_count} cards")
 
     if logs_directory is not None:
         logs_directory = logs_directory.resolve()
@@ -376,6 +394,13 @@ def main(argv: Optional[Sequence[str]] = None) -> CatalogBuildResult:
         default=None,
         help="Optional directory to mirror the generated catalog for diffing (e.g., logs/generated)",
     )
+    parser.add_argument(
+        "--min-cards",
+        dest="min_cards",
+        type=int,
+        default=3,
+        help="Minimum number of cards required to include theme (default: 3)",
+    )
     args = parser.parse_args(argv)
 
     csv_dir = _resolve_csv_directory(str(args.csv_dir) if args.csv_dir else None)
@@ -383,6 +408,7 @@ def main(argv: Optional[Sequence[str]] = None) -> CatalogBuildResult:
         csv_directory=csv_dir,
         output_path=args.output,
         logs_directory=args.logs_dir,
+        min_card_count=args.min_cards,
     )
     print(
         f"Generated {len(result.rows)} themes -> {result.output_path} (version={result.version})",

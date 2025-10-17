@@ -21,6 +21,7 @@ A web-first Commander/EDH deckbuilder with a shared core for CLI, headless, and 
   - [Initial Setup](#initial-setup)
   - [Owned Library](#owned-library)
   - [Browse Commanders](#browse-commanders)
+  - [Browse Cards](#browse-cards)
   - [Browse Themes](#browse-themes)
   - [Finished Decks](#finished-decks)
   - [Random Build](#random-build)
@@ -163,6 +164,19 @@ Explore the curated commander catalog.
 - Toggle the tile with `SHOW_COMMANDERS=1`.
 - Refresh via Initial Setup or the commander catalog script above.
 - MDFC merges and compatibility snapshots are handled automatically; use `--compat-snapshot` on the refresh script to emit an unmerged snapshot.
+
+### Browse Cards
+Search and filter all 26,427 Magic cards.
+- **Filtering**: Search by name, themes (up to 5), color identity, type, rarity, CMC range, power/toughness
+- **Sorting**: Name A-Z/Z-A, CMC Low/High, Power High, EDHREC Popular
+- **Keyboard Shortcuts**: 
+  - `Enter`: Add first autocomplete match to theme filters
+  - `Shift+Enter`: Apply all active filters
+  - `Esc` (double-tap): Clear all filters
+  - `?` button (desktop): Show keyboard shortcuts reference
+- **Responsive Design**: Mobile-optimized with adaptive grid and touch controls
+- **Shareable URLs**: Filter state persists in URL for saving and sharing searches
+- Powered by `card_files/all_cards.parquet` with theme tag index for fast lookups
 
 ### Browse Themes
 Investigate theme synergies and diagnostics.

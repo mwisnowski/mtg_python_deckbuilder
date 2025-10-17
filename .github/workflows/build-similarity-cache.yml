@@ -86,7 +86,7 @@ jobs:
       - name: Build all_cards.parquet (needed for similarity cache, but not committed)
         if: steps.check_cache.outputs.needs_build == 'true'
         run: |
-          python -c "from code.web.services.card_loader import CardCatalogLoader; loader = CardCatalogLoader(); df = loader.load(); print(f'Created all_cards.parquet with {len(df):,} cards')"
+          python -c "from code.file_setup.card_aggregator import CardAggregator; agg = CardAggregator(); stats = agg.aggregate_all('csv_files', 'card_files/all_cards.parquet'); print(f'Created all_cards.parquet with {stats[\"total_cards\"]:,} cards')"
       
       - name: Build similarity cache (Parquet)
         if: steps.check_cache.outputs.needs_build == 'true'

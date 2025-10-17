@@ -9,16 +9,41 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 
 ## [Unreleased]
 ### Summary
-_No unreleased changes yet._
+New card browser for exploring 29,839 Magic cards with advanced filters, similar card recommendations, and performance optimizations.
 
 ### Added
-_No unreleased changes yet._
+- **Card Browser**: Browse and search all Magic cards at `/browse/cards`
+  - Smart autocomplete for card names and themes with typo tolerance
+  - Multi-theme filtering (up to 5 themes)
+  - Color, type, rarity, CMC, power/toughness filters
+  - Multiple sorting options including EDHREC popularity
+  - Infinite scroll with shareable filter URLs
+- **Card Detail Pages**: Individual card pages with similar card suggestions
+  - Full card stats, oracle text, and theme tags
+  - Similar cards based on theme overlap
+  - Color-coded similarity scores
+  - Card preview on hover
+  - Enable with `ENABLE_CARD_DETAILS=1` environment variable
+- **Similarity Cache**: Pre-computed card similarities for fast page loads
+  - Build cache with parallel processing script
+  - Automatically used when available
+  - Control with `SIMILARITY_CACHE_ENABLED` environment variable
+- **Keyboard Shortcuts**: Quick navigation in card browser
+  - `Enter` to add autocomplete matches
+  - `Shift+Enter` to apply filters
+  - Double `Esc` to clear all filters
 
 ### Changed
-_No unreleased changes yet._
+- **Card Database**: Expanded to 29,839 cards (updated from 26,427)
+- **Theme Catalog**: Improved coverage with better filtering
+
+### Removed
+- **Unused Scripts**: Removed `regenerate_parquet.py` (functionality now in web UI setup)
 
 ### Fixed
-_No unreleased changes yet._
+- **Card Browser UI**: Improved styling consistency and card image loading
+- **Infinite Scroll**: Fixed cards appearing multiple times when loading more results
+- **Sorting**: Sort order now persists correctly when scrolling through all pages
 
 ## [2.8.1] - 2025-10-16
 ### Summary

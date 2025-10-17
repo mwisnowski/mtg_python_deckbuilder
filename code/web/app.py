@@ -62,6 +62,21 @@ async def _lifespan(app: FastAPI):  # pragma: no cover - simple infra glue
         maybe_build_index()
     except Exception:
         pass
+    # Warm card browser theme catalog (fast CSV read) and theme index (slower card parsing)
+    try:
+        from .routes.card_browser import get_theme_catalog, get_theme_index  # type: ignore
+        get_theme_catalog()  # Fast: just reads CSV
+        get_theme_index()    # Slower: parses cards for theme-to-card mapping
+    except Exception:
+        pass
+    # Warm CardSimilarity singleton (if card details enabled) - runs after theme index loads cards
+    try:
+        from code.settings import ENABLE_CARD_DETAILS
+        if ENABLE_CARD_DETAILS:
+            from .routes.card_browser import get_similarity  # type: ignore
+            get_similarity()  # Pre-initialize singleton (one-time cost: ~2-3s)
+    except Exception:
+        pass
     yield  # (no shutdown tasks currently)
 
 
@@ -2195,6 +2210,7 @@ async def setup_status():
     except Exception:
         return JSONResponse({"running": False, "phase": "error"})
 
+
 # Routers
 from .routes import build as build_routes  # noqa: E402
 from .routes import configs as config_routes  # noqa: E402
@@ -2206,6 +2222,7 @@ from .routes import commanders as commanders_routes  # noqa: E402
 from .routes import partner_suggestions as partner_suggestions_routes  # noqa: E402
 from .routes import telemetry as telemetry_routes  # noqa: E402
 from .routes import cards as cards_routes  # noqa: E402
+from .routes import card_browser as card_browser_routes  # noqa: E402
 app.include_router(build_routes.router)
 app.include_router(config_routes.router)
 app.include_router(decks_routes.router)
@@ -2216,6 +2233,7 @@ app.include_router(commanders_routes.router)
 app.include_router(partner_suggestions_routes.router)
 app.include_router(telemetry_routes.router)
 app.include_router(cards_routes.router)
+app.include_router(card_browser_routes.router)
 
 # Warm validation cache early to reduce first-call latency in tests and dev
 try:
@@ -2224,6 +2242,8 @@ except Exception:
     pass
 
 ## (Additional startup warmers consolidated into lifespan handler)
+## Note: CardSimilarity uses lazy initialization pattern like AllCardsLoader
+## First card detail page loads in ~200ms (singleton init), subsequent in ~60ms
 
 # --- Exception handling ---
 def _wants_html(request: Request) -> bool:

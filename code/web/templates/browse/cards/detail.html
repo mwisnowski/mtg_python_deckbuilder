@@ -1,0 +1,273 @@
+{% extends "base.html" %}
+
+{% block title %}{{ card.name }} - Card Details{% endblock %}
+
+{% block head %}
+<style>
+    .card-detail-container {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 2rem 1rem;
+    }
+
+    .card-detail-header {
+        display: flex;
+        gap: 2rem;
+        margin-bottom: 3rem;
+        flex-wrap: wrap;
+    }
+
+    .card-image-large {
+        flex: 0 0 auto;
+        max-width: 360px;
+        cursor: pointer;
+        transition: transform 0.2s;
+    }
+
+    .card-image-large:hover {
+        transform: scale(1.02);
+    }
+
+    .card-image-large img {
+        width: 100%;
+        height: auto;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+
+    .card-info {
+        flex: 1;
+        min-width: 300px;
+    }
+
+    .card-title {
+        font-size: 2rem;
+        font-weight: bold;
+        margin-bottom: 0.5rem;
+        color: var(--text);
+    }
+
+    .card-type {
+        font-size: 1.1rem;
+        color: var(--muted);
+        margin-bottom: 1rem;
+    }
+
+    .card-stats {
+        display: flex;
+        gap: 2rem;
+        margin-bottom: 1.5rem;
+        flex-wrap: wrap;
+    }
+
+    .card-stat {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .card-stat-label {
+        font-size: 0.85rem;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 0.25rem;
+    }
+
+    .card-stat-value {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: var(--text);
+    }
+
+    .card-text {
+        background: var(--panel);
+        padding: 1.5rem;
+        border-radius: 8px;
+        margin-bottom: 1.5rem;
+        line-height: 1.6;
+        white-space: pre-wrap;
+        border: 1px solid var(--border);
+    }
+
+    .card-colors {
+        display: flex;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+    }
+
+    .color-symbol {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        font-size: 14px;
+        border: 2px solid currentColor;
+    }
+
+    .color-W { background: #F0E68C; color: #000; }
+    .color-U { background: #0E68AB; color: #fff; }
+    .color-B { background: #150B00; color: #fff; }
+    .color-R { background: #D32029; color: #fff; }
+    .color-G { background: #00733E; color: #fff; }
+    .color-C { background: #ccc; color: #000; }
+
+    .card-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+    }
+
+    .card-tag {
+        background: var(--ring);
+        color: white;
+        padding: 0.35rem 0.75rem;
+        border-radius: 16px;
+        font-size: 0.85rem;
+        font-weight: 500;
+    }
+
+    .back-button {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.75rem 1.5rem;
+        background: var(--panel);
+        color: var(--text);
+        text-decoration: none;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        font-weight: 500;
+        transition: all 0.2s;
+        margin-bottom: 2rem;
+    }
+
+    .back-button:hover {
+        background: var(--ring);
+        color: white;
+        border-color: var(--ring);
+    }
+
+    .similar-section {
+        margin-top: 3rem;
+        padding-top: 2rem;
+        border-top: 2px solid var(--border);
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+        .card-detail-header {
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .card-image-large {
+            max-width: 100%;
+        }
+
+        .card-stats {
+            gap: 1rem;
+        }
+
+        .card-title {
+            font-size: 1.5rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="card-detail-container">
+    <!-- Back Button -->
+    <a href="/cards" class="back-button">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+            <path d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z"/>
+        </svg>
+        Back to Card Browser
+    </a>
+
+    <!-- Card Header -->
+    <div class="card-detail-header">
+        <!-- Card Image (no hover on detail page) -->
+        <div class="card-image-large">
+            <img src="https://api.scryfall.com/cards/named?fuzzy={{ card.name|urlencode }}&format=image&version=normal" 
+                 alt="{{ card.name }}" 
+                 loading="lazy"
+                 onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+            {# Fallback for missing images #}
+            <div style="display:none; width:100%; height:680px; align-items:center; justify-content:center; background:#1a1d24; color:#9ca3af; font-size:18px; padding:2rem; text-align:center; border-radius:12px;">
+                {{ card.name }}
+            </div>
+        </div>
+
+        <!-- Card Info -->
+        <div class="card-info">
+            <h1 class="card-title">{{ card.name }}</h1>
+            
+            <div class="card-type">{{ card.type }}</div>
+
+            <!-- Color Identity -->
+            {% if card.colors %}
+            <div class="card-colors">
+                {% for color in card.colors %}
+                <span class="color-symbol color-{{ color }}">{{ color }}</span>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <!-- Stats -->
+            <div class="card-stats">
+                {% if card.manaValue is not none %}
+                <div class="card-stat">
+                    <span class="card-stat-label">Mana Value</span>
+                    <span class="card-stat-value">{{ card.manaValue }}</span>
+                </div>
+                {% endif %}
+
+                {% if card.power is not none and card.power != 'NaN' and card.power|string != 'nan' %}
+                <div class="card-stat">
+                    <span class="card-stat-label">Power / Toughness</span>
+                    <span class="card-stat-value">{{ card.power }} / {{ card.toughness }}</span>
+                </div>
+                {% endif %}
+
+                {% if card.edhrecRank %}
+                <div class="card-stat">
+                    <span class="card-stat-label">EDHREC Rank</span>
+                    <span class="card-stat-value">#{{ card.edhrecRank }}</span>
+                </div>
+                {% endif %}
+
+                {% if card.rarity %}
+                <div class="card-stat">
+                    <span class="card-stat-label">Rarity</span>
+                    <span class="card-stat-value">{{ card.rarity | capitalize }}</span>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Oracle Text -->
+            {% if card.text %}
+            <div class="card-text" style="white-space: pre-line;">{{ card.text | replace('\\n', '\n') }}</div>
+            {% endif %}
+
+            <!-- Theme Tags -->
+            {% if card.themeTags_parsed and card.themeTags_parsed|length > 0 %}
+            <div class="card-tags">
+                {% for tag in card.themeTags_parsed %}
+                <span class="card-tag">{{ tag }}</span>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Similar Cards Section -->
+    <div class="similar-section">
+        {% include "browse/cards/_similar_cards.html" %}
+    </div>
+</div>
+{% endblock %}

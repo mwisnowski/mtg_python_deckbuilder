@@ -125,3 +125,24 @@ TAG_METADATA_SPLIT = os.getenv('TAG_METADATA_SPLIT', '1').lower() not in ('0', '
 
 # M5: Enable protection scope filtering in deck builder (completed - Phase 1-3, in progress Phase 4+)
 TAG_PROTECTION_SCOPE = os.getenv('TAG_PROTECTION_SCOPE', '1').lower() not in ('0', 'false', 'off', 'disabled')
+
+# ----------------------------------------------------------------------------------
+# CARD BROWSER FEATURE FLAGS
+# ----------------------------------------------------------------------------------
+
+# Enable card detail pages (default: OFF)
+# Set to '1' or 'true' to enable card detail pages in card browser
+ENABLE_CARD_DETAILS = os.getenv('ENABLE_CARD_DETAILS', '0').lower() not in ('0', 'false', 'off', 'disabled')
+
+# Enable similarity/synergy features (default: OFF)
+# Requires ENABLE_CARD_DETAILS=1 and manual cache build via Setup/Tag page
+# Shows similar cards based on theme tag overlap using containment scoring
+ENABLE_CARD_SIMILARITIES = os.getenv('ENABLE_CARD_SIMILARITIES', '0').lower() not in ('0', 'false', 'off', 'disabled')
+
+# Similarity cache configuration
+SIMILARITY_CACHE_PATH = os.getenv('SIMILARITY_CACHE_PATH', 'card_files/similarity_cache.json')
+SIMILARITY_CACHE_MAX_AGE_DAYS = int(os.getenv('SIMILARITY_CACHE_MAX_AGE_DAYS', '7'))
+
+# Allow downloading pre-built cache from GitHub (saves 15-20 min build time)
+# Set to '0' to always build locally (useful for custom seeds or offline environments)
+SIMILARITY_CACHE_DOWNLOAD = os.getenv('SIMILARITY_CACHE_DOWNLOAD', '1').lower() not in ('0', 'false', 'off', 'disabled')

@@ -1,0 +1,22 @@
+{# HTMX-loadable card grid for pagination #}
+{% for card in cards %}
+{% include "browse/cards/_card_tile.html" %}
+{% endfor %}
+
+{# Pagination button (uses out-of-band swap to replace itself) #}
+<div id="load-more-container" hx-swap-oob="true" style="grid-column: 1 / -1; text-align:center; margin-top:1rem;">
+{% if has_next %}
+  <button 
+    type="button"
+    class="btn"
+    hx-get="/cards/grid?cursor={{ last_card|urlencode }}{% if search %}&search={{ search|urlencode }}{% endif %}{% for theme in themes %}&themes={{ theme|urlencode }}{% endfor %}{% if color %}&color={{ color|urlencode }}{% endif %}{% if card_type %}&card_type={{ card_type|urlencode }}{% endif %}{% if rarity %}&rarity={{ rarity|urlencode }}{% endif %}{% if sort and sort != 'name_asc' %}&sort={{ sort|urlencode }}{% endif %}{% if cmc_min %}&cmc_min={{ cmc_min }}{% endif %}{% if cmc_max %}&cmc_max={{ cmc_max }}{% endif %}{% if power_min %}&power_min={{ power_min }}{% endif %}{% if power_max %}&power_max={{ power_max }}{% endif %}{% if tough_min %}&tough_min={{ tough_min }}{% endif %}{% if tough_max %}&tough_max={{ tough_max }}{% endif %}"
+    hx-target="#card-grid"
+    hx-swap="beforeend"
+    hx-indicator="#load-indicator">
+    Load More
+  </button>
+  <span id="load-indicator" class="htmx-indicator muted" style="margin-left:.5rem;">
+    Loading...
+  </span>
+{% endif %}
+</div>

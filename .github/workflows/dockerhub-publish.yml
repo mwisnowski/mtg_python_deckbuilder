@@ -7,9 +7,15 @@ on:
   workflow_dispatch:
 
 jobs:
+  build-cache:
+    name: Build similarity cache
+    uses: ./.github/workflows/build-similarity-cache.yml
+    secrets: inherit
+
   prepare:
     name: Prepare metadata
     runs-on: ubuntu-latest
+    needs: build-cache
     permissions:
       contents: read
     outputs:
@@ -62,6 +68,18 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5.0.0
+
+      - name: Download similarity cache from branch
+        run: |
+          # Download cache files from similarity-cache-data branch
+          mkdir -p card_files
+          wget -q https://raw.githubusercontent.com/${{ github.repository }}/similarity-cache-data/card_files/similarity_cache.parquet -O card_files/similarity_cache.parquet || echo "Cache not found, will build without it"
+          wget -q https://raw.githubusercontent.com/${{ github.repository }}/similarity-cache-data/card_files/similarity_cache_metadata.json -O card_files/similarity_cache_metadata.json || echo "Metadata not found"
+          
+          if [ -f card_files/similarity_cache.parquet ]; then
+            echo "✓ Downloaded similarity cache"
+            ls -lh card_files/similarity_cache.parquet
+          fi
 
       - name: Compute amd64 tag
         id: arch_tag
@@ -119,6 +137,18 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5.0.0
+
+      - name: Download similarity cache from branch
+        run: |
+          # Download cache files from similarity-cache-data branch
+          mkdir -p card_files
+          wget -q https://raw.githubusercontent.com/${{ github.repository }}/similarity-cache-data/card_files/similarity_cache.parquet -O card_files/similarity_cache.parquet || echo "Cache not found, will build without it"
+          wget -q https://raw.githubusercontent.com/${{ github.repository }}/similarity-cache-data/card_files/similarity_cache_metadata.json -O card_files/similarity_cache_metadata.json || echo "Metadata not found"
+          
+          if [ -f card_files/similarity_cache.parquet ]; then
+            echo "✓ Downloaded similarity cache"
+            ls -lh card_files/similarity_cache.parquet
+          fi
 
       - name: Compute arm64 tag
         id: arch_tag

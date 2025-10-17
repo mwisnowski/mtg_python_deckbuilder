@@ -157,4 +157,8 @@ async def rebuild_cards():
 
 @router.get("/", response_class=HTMLResponse)
 async def setup_index(request: Request) -> HTMLResponse:
-    return templates.TemplateResponse("setup/index.html", {"request": request})
+    import code.settings as settings
+    return templates.TemplateResponse("setup/index.html", {
+        "request": request,
+        "similarity_enabled": settings.ENABLE_CARD_SIMILARITIES
+    })

@@ -69,6 +69,14 @@ async def _lifespan(app: FastAPI):  # pragma: no cover - simple infra glue
         get_theme_index()    # Slower: parses cards for theme-to-card mapping
     except Exception:
         pass
+    # Warm CardSimilarity singleton (if card details enabled) - runs after theme index loads cards
+    try:
+        from code.settings import ENABLE_CARD_DETAILS
+        if ENABLE_CARD_DETAILS:
+            from .routes.card_browser import get_similarity  # type: ignore
+            get_similarity()  # Pre-initialize singleton (one-time cost: ~2-3s)
+    except Exception:
+        pass
     yield  # (no shutdown tasks currently)
 
 
@@ -2202,6 +2210,7 @@ async def setup_status():
     except Exception:
         return JSONResponse({"running": False, "phase": "error"})
 
+
 # Routers
 from .routes import build as build_routes  # noqa: E402
 from .routes import configs as config_routes  # noqa: E402
@@ -2233,6 +2242,8 @@ except Exception:
     pass
 
 ## (Additional startup warmers consolidated into lifespan handler)
+## Note: CardSimilarity uses lazy initialization pattern like AllCardsLoader
+## First card detail page loads in ~200ms (singleton init), subsequent in ~60ms
 
 # --- Exception handling ---
 def _wants_html(request: Request) -> bool:

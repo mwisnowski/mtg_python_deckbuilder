@@ -906,6 +906,90 @@ img.lqip.loaded { filter: blur(0); opacity: 1; }
 	white-space: nowrap;
 }
 
+/* Card Details button on tiles */
+.card-details-btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.35rem;
+	padding: 0.5rem 0.75rem;
+	background: var(--primary);
+	color: white;
+	text-decoration: none;
+	border-radius: 6px;
+	font-weight: 500;
+	font-size: 0.85rem;
+	transition: all 0.2s;
+	margin-top: 0.5rem;
+	border: none;
+	cursor: pointer;
+}
+
+.card-details-btn:hover {
+	background: var(--primary-hover);
+	transform: translateY(-1px);
+	box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4);
+}
+
+.card-details-btn svg {
+	flex-shrink: 0;
+}
+
+/* Card Preview Modal */
+.preview-modal {
+	display: none;
+	position: fixed;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	background: rgba(0, 0, 0, 0.85);
+	z-index: 9999;
+	align-items: center;
+	justify-content: center;
+}
+
+.preview-modal.active {
+	display: flex;
+}
+
+.preview-content {
+	position: relative;
+	max-width: 90%;
+	max-height: 90%;
+}
+
+.preview-content img {
+	max-width: 100%;
+	max-height: 90vh;
+	border-radius: 12px;
+	box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+.preview-close {
+	position: absolute;
+	top: -40px;
+	right: 0;
+	background: rgba(255, 255, 255, 0.9);
+	color: #000;
+	border: none;
+	border-radius: 50%;
+	width: 36px;
+	height: 36px;
+	font-size: 24px;
+	font-weight: bold;
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	transition: all 0.2s;
+}
+
+.preview-close:hover {
+	background: #fff;
+	transform: scale(1.1);
+}
+
 /* Pagination controls */
 .card-browser-pagination {
 	display: flex;
@@ -1062,4 +1146,56 @@ img.lqip.loaded { filter: blur(0); opacity: 1; }
 
 .theme-chip button:hover {
 	color: var(--error-color);
+}
+
+/* Card Detail Page Styles */
+.card-tags {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+	margin-top: 1rem;
+	margin-bottom: 1rem;
+}
+
+.card-tag {
+	background: var(--ring);
+	color: white;
+	padding: 0.35rem 0.75rem;
+	border-radius: 16px;
+	font-size: 0.85rem;
+	font-weight: 500;
+}
+
+.back-button {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.5rem;
+	padding: 0.75rem 1.5rem;
+	background: var(--panel);
+	color: var(--text);
+	text-decoration: none;
+	border-radius: 8px;
+	border: 1px solid var(--border);
+	font-weight: 500;
+	transition: all 0.2s;
+	margin-bottom: 2rem;
+}
+
+.back-button:hover {
+	background: var(--ring);
+	color: white;
+	border-color: var(--ring);
+}
+
+/* Card Detail Page - Main Card Image */
+.card-image-large {
+	flex: 0 0 auto;
+	max-width: 360px !important;
+	width: 100%;
+}
+
+.card-image-large img {
+	width: 100%;
+	height: auto;
+	border-radius: 12px;
 }

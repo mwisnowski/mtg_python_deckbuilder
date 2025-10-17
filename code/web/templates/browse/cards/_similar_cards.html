@@ -1,0 +1,250 @@
+<style>
+    .similar-cards-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 1.5rem;
+    }
+
+    .similar-cards-title {
+        font-size: 1.5rem;
+        font-weight: bold;
+        color: var(--text);
+    }
+
+    .similar-cards-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, 280px);
+        gap: 1.25rem;
+        margin-bottom: 2rem;
+        justify-content: start;
+    }
+
+    .similar-card-tile {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 0.85rem;
+        transition: all 0.2s;
+        display: flex;
+        flex-direction: column;
+        gap: 0.6rem;
+        width: 280px;
+    }
+
+    .similar-card-tile:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        border-color: var(--ring);
+    }
+
+    .similar-card-image {
+        width: 100%;
+        cursor: pointer;
+        border-radius: 8px;
+        transition: transform 0.2s;
+    }
+
+    .similar-card-image:hover {
+        transform: scale(1.02);
+    }
+
+    .similar-card-image img {
+        width: 100%;
+        height: auto;
+        border-radius: 8px;
+    }
+
+    .similar-card-info {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .similar-card-name {
+        font-size: 1rem;
+        font-weight: 600;
+        color: var(--text);
+    }
+
+    .similarity-score {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.25rem 0.75rem;
+        background: var(--ring);
+        color: white;
+        border-radius: 16px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        width: fit-content;
+    }
+
+    .similarity-score-high {
+        background: #28a745;
+    }
+
+    .similarity-score-medium {
+        background: #ffc107;
+        color: #000;
+    }
+
+    .similarity-score-low {
+        background: #6c757d;
+    }
+
+    .similar-card-details-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        padding: 0.5rem 1rem;
+        background: var(--ring);
+        color: white;
+        text-decoration: none;
+        border-radius: 6px;
+        font-weight: 500;
+        transition: all 0.2s;
+        margin-top: auto;
+    }
+
+    .similar-card-details-btn:hover {
+        opacity: 0.9;
+        transform: translateY(-1px);
+    }
+
+    .no-similar-cards {
+        text-align: center;
+        padding: 3rem 1rem;
+        color: var(--muted);
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+    }
+
+    .no-similar-cards-icon {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+        opacity: 0.5;
+    }
+
+    .no-similar-cards-text {
+        font-size: 1.1rem;
+        font-weight: 500;
+    }
+
+    .similar-card-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.35rem;
+        margin-top: 0.25rem;
+    }
+
+    .similar-tag {
+        font-size: 0.75rem;
+        padding: 0.2rem 0.5rem;
+        background: rgba(148, 163, 184, 0.15);
+        color: var(--muted);
+        border-radius: 4px;
+        white-space: nowrap;
+        transition: all 0.2s;
+    }
+
+    .similar-tag-overlap {
+        background: var(--accent, #38bdf8);
+        color: white;
+        font-weight: 600;
+        border: 1px solid rgba(56, 189, 248, 0.3);
+        box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.2);
+    }
+
+    @media (max-width: 768px) {
+        .similar-cards-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+
+<div class="similar-cards-section">
+    <div class="similar-cards-header">
+        <h2 class="similar-cards-title">Similar Cards</h2>
+    </div>
+
+    {% if similar_cards and similar_cards|length > 0 %}
+    <div class="similar-cards-grid">
+        {% for card in similar_cards %}
+        <div class="similar-card-tile card-tile" data-card-name="{{ card.name }}">
+            <!-- Card Image (uses hover system for preview) -->
+            <div class="similar-card-image">
+                <img src="https://api.scryfall.com/cards/named?fuzzy={{ card.name|urlencode }}&format=image&version=normal" 
+                     alt="{{ card.name }}" 
+                     loading="lazy"
+                     data-card-name="{{ card.name }}"
+                     onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                {# Fallback for missing images #}
+                <div style="display:none; width:100%; aspect-ratio:488/680; align-items:center; justify-content:center; background:#1a1d24; color:#9ca3af; font-size:14px; padding:1rem; text-align:center; border-radius:8px;">
+                    {{ card.name }}
+                </div>
+            </div>
+
+            <!-- Card Info -->
+            <div class="similar-card-info">
+                <div class="similar-card-name">{{ card.name }}</div>
+                
+                <!-- Matching Themes Summary -->
+                {% if card.themeTags and card.themeTags|length > 0 %}
+                {% set main_card_tags = main_card_tags|default([]) %}
+                {% set matching_tags = [] %}
+                {% for tag in card.themeTags %}
+                    {% if tag in main_card_tags %}
+                        {% set _ = matching_tags.append(tag) %}
+                    {% endif %}
+                {% endfor %}
+                {% if matching_tags|length > 0 %}
+                <div style="font-size: 0.8rem; color: var(--accent, #38bdf8); font-weight: 600; margin-top: 0.25rem;">
+                    ✓ {{ matching_tags|length }} matching theme{{ 's' if matching_tags|length > 1 else '' }}
+                </div>
+                {% endif %}
+                {% endif %}
+                
+                <!-- EDHREC Rank -->
+                {% if card.edhrecRank %}
+                <div class="card-stat" style="font-size: 0.85rem; color: var(--muted);">
+                    EDHREC Rank: #{{ card.edhrecRank }}
+                </div>
+                {% endif %}
+
+                <!-- Theme Tags with Overlap Highlighting -->
+                {% if card.themeTags and card.themeTags|length > 0 %}
+                <div class="similar-card-tags">
+                    {% set main_card_tags = main_card_tags|default([]) %}
+                    {% for tag in card.themeTags %}
+                        {% set is_overlap = tag in main_card_tags %}
+                        <span class="similar-tag {% if is_overlap %}similar-tag-overlap{% endif %}" title="{% if is_overlap %}Matches main card{% endif %}">
+                            {{ tag }}
+                        </span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Card Details Button -->
+            <a href="/cards/{{ card.name }}" class="similar-card-details-btn" onclick="event.stopPropagation()">
+                Card Details
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M8.707 3.293a1 1 0 010 1.414L5.414 8l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" transform="rotate(180 8 8)"/>
+                </svg>
+            </a>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="no-similar-cards">
+        <div class="no-similar-cards-icon">🔍</div>
+        <div class="no-similar-cards-text">No similar cards found</div>
+        <p style="margin-top: 0.5rem; font-size: 0.9rem;">
+            This card has unique theme tags or no cards share similar characteristics.
+        </p>
+    </div>
+    {% endif %}
+</div>

@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+
+{% block title %}{{ error_code }} Error{% endblock %}
+
+{% block content %}
+<style>
+    .error-container {
+        max-width: 600px;
+        margin: 4rem auto;
+        padding: 2rem;
+        text-align: center;
+    }
+
+    .error-code {
+        font-size: 6rem;
+        font-weight: bold;
+        color: var(--ring);
+        margin-bottom: 1rem;
+        line-height: 1;
+    }
+
+    .error-message {
+        font-size: 1.5rem;
+        font-weight: 500;
+        color: var(--text);
+        margin-bottom: 2rem;
+    }
+
+    .error-actions {
+        display: flex;
+        gap: 1rem;
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+
+    .error-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.75rem 1.5rem;
+        background: var(--ring);
+        color: white;
+        text-decoration: none;
+        border-radius: 8px;
+        font-weight: 500;
+        transition: all 0.2s;
+    }
+
+    .error-btn:hover {
+        opacity: 0.9;
+        transform: translateY(-1px);
+    }
+
+    .error-btn-secondary {
+        background: var(--panel);
+        color: var(--text);
+        border: 1px solid var(--border);
+    }
+
+    .error-btn-secondary:hover {
+        background: var(--border);
+    }
+</style>
+
+<div class="error-container">
+    <div class="error-code">{{ error_code }}</div>
+    
+    <div class="error-message">{{ error_message }}</div>
+    
+    <div class="error-actions">
+        {% if back_link %}
+        <a href="{{ back_link }}" class="error-btn">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z"/>
+            </svg>
+            {{ back_text if back_text else "Go Back" }}
+        </a>
+        {% endif %}
+        
+        <a href="/" class="error-btn error-btn-secondary">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"/>
+            </svg>
+            Go Home
+        </a>
+    </div>
+</div>
+{% endblock %}

@@ -9,33 +9,41 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 
 ## [Unreleased]
 ### Summary
-Card browser with advanced filters, keyboard shortcuts, and responsive design.
+New card browser for exploring 29,839 Magic cards with advanced filters, similar card recommendations, and performance optimizations.
 
 ### Added
-- **Card Browser**: Browse 26,427 Magic cards with powerful filtering at `/browse/cards`
-  - Fuzzy autocomplete for card names and themes with typo tolerance
-  - Multi-theme filtering (up to 5 themes with AND logic)
-  - Color identity, card type, rarity, CMC range, power/toughness filters
-  - Six sorting options: Name A-Z/Z-A, CMC Low/High, Power High, EDHREC Popular
-  - Cursor-based pagination with infinite scroll
-  - Shareable filter URLs for saving and sharing searches
-- **Keyboard Shortcuts**: Efficient navigation without mouse
-  - `Enter`: Add first autocomplete match to theme filters
-  - `Shift+Enter`: Apply all active filters from any input field
-  - `Esc` (double-tap): Clear all filters globally (500ms window)
-  - Desktop-only keyboard shortcuts help button with tooltip
-  - Auto-focus theme input after adding theme (desktop only)
-- **Responsive Design**: Mobile-optimized card browser with touch-friendly controls
-  - Adaptive grid layout (1-4 columns based on screen width)
-  - Theme chips with remove buttons
-  - Graceful 5-theme limit (input disabled, no intrusive alerts)
-  - Desktop-only UI elements hidden on mobile with media queries
+- **Card Browser**: Browse and search all Magic cards at `/browse/cards`
+  - Smart autocomplete for card names and themes with typo tolerance
+  - Multi-theme filtering (up to 5 themes)
+  - Color, type, rarity, CMC, power/toughness filters
+  - Multiple sorting options including EDHREC popularity
+  - Infinite scroll with shareable filter URLs
+- **Card Detail Pages**: Individual card pages with similar card suggestions
+  - Full card stats, oracle text, and theme tags
+  - Similar cards based on theme overlap
+  - Color-coded similarity scores
+  - Card preview on hover
+  - Enable with `ENABLE_CARD_DETAILS=1` environment variable
+- **Similarity Cache**: Pre-computed card similarities for fast page loads
+  - Build cache with parallel processing script
+  - Automatically used when available
+  - Control with `SIMILARITY_CACHE_ENABLED` environment variable
+- **Keyboard Shortcuts**: Quick navigation in card browser
+  - `Enter` to add autocomplete matches
+  - `Shift+Enter` to apply filters
+  - Double `Esc` to clear all filters
 
 ### Changed
-- **Theme Catalog**: Improved generation to include more themes and filter out ultra-rare entries
+- **Card Database**: Expanded to 29,839 cards (updated from 26,427)
+- **Theme Catalog**: Improved coverage with better filtering
+
+### Removed
+- **Unused Scripts**: Removed `regenerate_parquet.py` (functionality now in web UI setup)
 
 ### Fixed
-_No unreleased changes yet._
+- **Card Browser UI**: Improved styling consistency and card image loading
+- **Infinite Scroll**: Fixed cards appearing multiple times when loading more results
+- **Sorting**: Sort order now persists correctly when scrolling through all pages
 
 ## [2.8.1] - 2025-10-16
 ### Summary

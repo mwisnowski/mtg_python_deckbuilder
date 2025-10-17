@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 from difflib import SequenceMatcher
+from typing import TYPE_CHECKING
 
 import pandas as pd
 from fastapi import APIRouter, Request, Query
@@ -19,9 +20,14 @@ from ..app import templates
 try:
     from code.services.all_cards_loader import AllCardsLoader
     from code.deck_builder.builder_utils import parse_theme_tags
+    from code.settings import ENABLE_CARD_DETAILS
 except ImportError:
     from services.all_cards_loader import AllCardsLoader
     from deck_builder.builder_utils import parse_theme_tags
+    from settings import ENABLE_CARD_DETAILS
+
+if TYPE_CHECKING:
+    from code.web.services.card_similarity import CardSimilarity
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +37,7 @@ router = APIRouter(prefix="/cards", tags=["card-browser"])
 _loader: AllCardsLoader | None = None
 _theme_index: dict[str, set[int]] | None = None  # theme_lower -> set of card indices
 _theme_catalog: list[str] | None = None  # cached list of all theme names from catalog
+_similarity: "CardSimilarity | None" = None  # cached CardSimilarity instance
 
 
 def get_loader() -> AllCardsLoader:
@@ -39,6 +46,28 @@ def get_loader() -> AllCardsLoader:
     if _loader is None:
         _loader = AllCardsLoader()
     return _loader
+
+
+def get_similarity() -> "CardSimilarity":
+    """
+    Get cached CardSimilarity instance.
+    
+    CardSimilarity initialization is expensive (pre-computes tags for 29k cards,
+    loads cache with 277k entries). Cache it globally to avoid re-initialization
+    on every card detail page load.
+    
+    Returns:
+        Cached CardSimilarity instance
+    """
+    global _similarity
+    if _similarity is None:
+        from code.web.services.card_similarity import CardSimilarity
+        loader = get_loader()
+        df = loader.load()
+        logger.info("Initializing CardSimilarity singleton (one-time cost)...")
+        _similarity = CardSimilarity(df)
+        logger.info("CardSimilarity singleton ready")
+    return _similarity
 
 
 def get_theme_catalog() -> list[str]:
@@ -497,6 +526,7 @@ async def card_browser_index(
                 "per_page": per_page,
                 "current_page": current_page,
                 "total_pages": total_pages,
+                "enable_card_details": ENABLE_CARD_DETAILS,
             },
         )
     
@@ -519,6 +549,7 @@ async def card_browser_index(
                 "all_rarities": [],
                 "per_page": 20,
                 "error": "Card data not available. Please run setup to generate all_cards.parquet.",
+                "enable_card_details": ENABLE_CARD_DETAILS,
             },
         )
     except Exception as e:
@@ -540,6 +571,7 @@ async def card_browser_index(
                 "all_rarities": [],
                 "per_page": 20,
                 "error": f"Error loading cards: {str(e)}",
+                "enable_card_details": ENABLE_CARD_DETAILS,
             },
         )
 
@@ -757,8 +789,19 @@ async def card_browser_grid(
             filtered_df = filtered_df.drop('_sort_key', axis=1)
         
         # Cursor-based pagination
+        # Cursor is the card name - skip all cards until we find it, then take next batch
         if cursor:
-            filtered_df = filtered_df[filtered_df['name'] > cursor]
+            try:
+                # Find the position of the cursor card in the sorted dataframe
+                cursor_position = filtered_df[filtered_df['name'] == cursor].index
+                if len(cursor_position) > 0:
+                    # Get the iloc position (row number, not index label)
+                    cursor_iloc = filtered_df.index.get_loc(cursor_position[0])
+                    # Skip past the cursor card (take everything after it)
+                    filtered_df = filtered_df.iloc[cursor_iloc + 1:]
+            except (KeyError, IndexError):
+                # Cursor card not found - might have been filtered out, just proceed
+                pass
         
         per_page = 20
         cards_page = filtered_df.head(per_page)
@@ -815,6 +858,7 @@ async def card_browser_grid(
                 "power_max": power_max,
                 "tough_min": tough_min,
                 "tough_max": tough_max,
+                "enable_card_details": ENABLE_CARD_DETAILS,
             },
         )
     
@@ -1119,4 +1163,111 @@ async def card_theme_autocomplete(
     except Exception as e:
         logger.error(f"Error in theme autocomplete: {e}", exc_info=True)
         return HTMLResponse(content=f'<div class="autocomplete-error">Error: {str(e)}</div>')
+
+
+@router.get("/{card_name}", response_class=HTMLResponse)
+async def card_detail(request: Request, card_name: str):
+    """
+    Display detailed information about a single card with similar cards.
+    
+    Args:
+        card_name: URL-encoded card name
+    
+    Returns:
+        HTML page with card details and similar cards section
+    """
+    try:
+        from urllib.parse import unquote
+        
+        # Decode URL-encoded card name
+        card_name = unquote(card_name)
+        
+        # Load card data
+        loader = get_loader()
+        df = loader.load()
+        
+        # Find the card
+        card_row = df[df['name'] == card_name]
+        
+        if card_row.empty:
+            # Card not found - return 404 page
+            return templates.TemplateResponse(
+                "error.html",
+                {
+                    "request": request,
+                    "error_code": 404,
+                    "error_message": f"Card not found: {card_name}",
+                    "back_link": "/cards",
+                    "back_text": "Back to Card Browser"
+                },
+                status_code=404
+            )
+        
+        # Get card data as dict
+        card = card_row.iloc[0].to_dict()
+        
+        # Parse theme tags using helper function
+        card['themeTags_parsed'] = parse_theme_tags(card.get('themeTags', ''))
+        
+        # Calculate similar cards using cached singleton
+        similarity = get_similarity()
+        similar_cards = similarity.find_similar(
+            card_name,
+            threshold=0.8,  # Start at 80%
+            limit=5,        # Show 3-5 cards
+            min_results=3,  # Target minimum 3
+            adaptive=True   # Enable adaptive thresholds (80% → 60%)
+        )
+        
+        # Enrich similar cards with full data
+        for similar in similar_cards:
+            similar_row = df[df['name'] == similar['name']]
+            if not similar_row.empty:
+                similar_data = similar_row.iloc[0].to_dict()
+                
+                # Parse theme tags before updating (so we have the list, not string)
+                theme_tags_parsed = parse_theme_tags(similar_data.get('themeTags', ''))
+                
+                similar.update(similar_data)
+                
+                # Set the parsed tags list (not the string version from df)
+                similar['themeTags'] = theme_tags_parsed
+        
+        # Log card detail page access
+        if similar_cards:
+            threshold_pct = similar_cards[0].get('threshold_used', 0) * 100
+            logger.info(
+                f"Card detail page for '{card_name}': found {len(similar_cards)} similar cards "
+                f"(threshold: {threshold_pct:.0f}%)"
+            )
+        else:
+            logger.info(f"Card detail page for '{card_name}': no similar cards found")
+        
+        # Get main card's theme tags for overlap highlighting
+        main_card_tags = card.get('themeTags_parsed', [])
+        
+        return templates.TemplateResponse(
+            "browse/cards/detail.html",
+            {
+                "request": request,
+                "card": card,
+                "similar_cards": similar_cards,
+                "main_card_tags": main_card_tags,
+            }
+        )
+        
+    except Exception as e:
+        logger.error(f"Error loading card detail for '{card_name}': {e}", exc_info=True)
+        return templates.TemplateResponse(
+            "error.html",
+            {
+                "request": request,
+                "error_code": 500,
+                "error_message": f"Error loading card details: {str(e)}",
+                "back_link": "/cards",
+                "back_text": "Back to Card Browser"
+            },
+            status_code=500
+        )
+
 

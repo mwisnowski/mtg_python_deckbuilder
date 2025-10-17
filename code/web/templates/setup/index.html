@@ -47,6 +47,25 @@
     <button type="button" id="btn-refresh-themes" class="action-btn" onclick="refreshThemes()">Refresh Themes Only</button>
     <button type="button" id="btn-rebuild-cards" class="action-btn" onclick="rebuildCards()">Rebuild Card Files</button>
   </div>
+
+  {% if similarity_enabled %}
+  <details style="margin-top:1.25rem;" open>
+    <summary>Similarity Cache Status</summary>
+    <div id="similarity-status" style="margin-top:.5rem; padding:1rem; border:1px solid var(--border); background:#0f1115; border-radius:8px;">
+      <div class="muted">Status:</div>
+      <div id="similarity-status-line" style="margin-top:.25rem;">Checking…</div>
+      <div class="muted" id="similarity-meta-line" style="margin-top:.25rem; display:none;"></div>
+      <div class="muted" id="similarity-warning-line" style="margin-top:.25rem; display:none; color:#f59e0b;"></div>
+    </div>
+  </details>
+  <div style="margin-top:.75rem; display:flex; gap:.5rem; flex-wrap:wrap;">
+    <button type="button" id="btn-build-similarity" class="action-btn" onclick="buildSimilarityCache()">Build Similarity Cache</button>
+    <label class="muted" style="align-self:center; font-size:.85rem;">
+      <input type="checkbox" id="chk-skip-download" /> Skip GitHub download (build locally)
+    </label>
+    <span class="muted" style="align-self:center; font-size:.85rem;">(~15-20 min local, instant if cached on GitHub)</span>
+  </div>
+  {% endif %}
 </section>
 <script>
 (function(){
@@ -239,6 +258,123 @@
         }, 2000);
       });
   };
+
+  // Similarity cache status polling
+  {% if similarity_enabled %}
+  function pollSimilarityStatus(){
+    fetch('/status/similarity', { cache: 'no-store' })
+      .then(function(r){ return r.json(); })
+      .then(function(data){
+        var line = document.getElementById('similarity-status-line');
+        var metaLine = document.getElementById('similarity-meta-line');
+        var warnLine = document.getElementById('similarity-warning-line');
+        if (!line) return;
+        
+        if (data.exists && data.valid) {
+          var cardCount = data.card_count ? data.card_count.toLocaleString() : '?';
+          var sizeMB = data.size_mb ? data.size_mb.toFixed(1) : '?';
+          var ageDays = data.age_days !== null ? data.age_days.toFixed(1) : '?';
+          
+          line.textContent = 'Cache exists and is valid';
+          line.style.color = '#34d399';
+          
+          if (metaLine) {
+            metaLine.style.display = '';
+            metaLine.textContent = cardCount + ' cards cached • ' + sizeMB + ' MB • ' + ageDays + ' days old';
+          }
+          
+          if (warnLine && data.needs_refresh) {
+            warnLine.style.display = '';
+            warnLine.textContent = '⚠ Cache is ' + ageDays + ' days old. Consider rebuilding for fresher data.';
+          } else if (warnLine) {
+            warnLine.style.display = 'none';
+          }
+        } else if (data.exists && !data.valid) {
+          line.textContent = 'Cache file is invalid or corrupted';
+          line.style.color = '#f87171';
+          if (metaLine) metaLine.style.display = 'none';
+          if (warnLine) {
+            warnLine.style.display = '';
+            warnLine.textContent = '⚠ Rebuild cache to fix.';
+          }
+        } else {
+          line.textContent = 'No cache found';
+          line.style.color = '#94a3b8';
+          if (metaLine) metaLine.style.display = 'none';
+          if (warnLine) {
+            warnLine.style.display = '';
+            warnLine.textContent = 'ℹ Build cache to enable similar card features.';
+          }
+        }
+      })
+      .catch(function(){});
+  }
+
+  window.buildSimilarityCache = function(){
+    var btn = document.getElementById('btn-build-similarity');
+    var skipDownloadCheckbox = document.getElementById('chk-skip-download');
+    if (!btn) return;
+    
+    var skipDownload = skipDownloadCheckbox && skipDownloadCheckbox.checked;
+    var confirmMsg = skipDownload 
+      ? 'Build similarity cache locally for ~30k cards? This will take approximately 15-20 minutes and uses parallel processing.'
+      : 'Build similarity cache? This will first try to download a pre-built cache from GitHub (instant), or build locally if unavailable (~15-20 minutes).';
+    
+    if (!confirm(confirmMsg)) {
+      return;
+    }
+    
+    btn.disabled = true;
+    btn.textContent = 'Building... (check terminal for progress)';
+    
+    var body = skipDownload ? JSON.stringify({ skip_download: true }) : '{}';
+    
+    fetch('/similarity/build', { 
+      method: 'POST', 
+      headers: { 'Content-Type': 'application/json' },
+      body: body
+    })
+      .then(function(r){ 
+        if (!r.ok) throw new Error('Build failed'); 
+        return r.json(); 
+      })
+      .then(function(data){ 
+        if (data.success) {
+          btn.textContent = 'Build Started! Check terminal for progress...';
+          // Poll status more frequently while building
+          var pollCount = 0;
+          var buildPoll = setInterval(function(){
+            pollSimilarityStatus();
+            pollCount++;
+            // Stop intensive polling after 2 minutes, rely on normal polling
+            if (pollCount > 40) clearInterval(buildPoll);
+          }, 3000);
+          
+          setTimeout(function(){ 
+            btn.textContent = 'Build Similarity Cache';
+            btn.disabled = false;
+          }, 8000);
+        } else {
+          btn.textContent = 'Build Failed: ' + (data.error || 'Unknown error');
+          setTimeout(function(){ 
+            btn.textContent = 'Build Similarity Cache'; 
+            btn.disabled = false; 
+          }, 3000);
+        }
+      })
+      .catch(function(err){ 
+        btn.textContent = 'Build Failed';
+        setTimeout(function(){ 
+          btn.textContent = 'Build Similarity Cache'; 
+          btn.disabled = false; 
+        }, 3000);
+      });
+  };
+  
+  pollSimilarityStatus();
+  setInterval(pollSimilarityStatus, 10000); // Poll every 10s
+  {% endif %}
+
   setInterval(poll, 3000);
   poll();
   pollThemes();

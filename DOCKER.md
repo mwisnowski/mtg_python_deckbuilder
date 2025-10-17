@@ -256,6 +256,8 @@ See `.env.example` for the full catalog. Common knobs:
 | `THEME` | `dark` | Initial UI theme (`system`, `light`, or `dark`). |
 | `WEB_STAGE_ORDER` | `new` | Build stage execution order: `new` (creatures→spells→lands) or `legacy` (lands→creatures→spells). |
 | `WEB_IDEALS_UI` | `slider` | Ideal counts interface: `slider` (range inputs with live validation) or `input` (text boxes with placeholders). |
+| `ENABLE_CARD_DETAILS` | `0` | Show card detail pages with similar card recommendations at `/cards/<name>`. |
+| `SIMILARITY_CACHE_ENABLED` | `1` | Use pre-computed similarity cache for fast card detail pages. |
 
 ### Random build controls
 

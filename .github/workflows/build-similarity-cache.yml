@@ -1,0 +1,171 @@
+name: Build Similarity Cache
+
+# Manual trigger + weekly schedule + callable from other workflows
+on:
+  workflow_dispatch:
+    inputs:
+      force_rebuild:
+        description: 'Force rebuild even if cache exists'
+        required: false
+        type: boolean
+        default: true
+  workflow_call:  # Allow this workflow to be called by other workflows
+  schedule:
+    # Run every Sunday at 2 AM UTC
+    - cron: '0 2 * * 0'
+
+jobs:
+  build-cache:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      
+      - name: Check if cache needs rebuild
+        id: check_cache
+        run: |
+          FORCE="${{ github.event.inputs.force_rebuild }}"
+          if [ "$FORCE" = "true" ] || [ ! -f "card_files/similarity_cache.parquet" ]; then
+            echo "needs_build=true" >> $GITHUB_OUTPUT
+            echo "Cache doesn't exist or force rebuild requested"
+          else
+            # Check cache age via metadata JSON
+            CACHE_AGE_DAYS=$(python -c "
+          import json
+          from datetime import datetime
+          from pathlib import Path
+          
+          metadata_path = Path('card_files/similarity_cache_metadata.json')
+          if metadata_path.exists():
+              with open(metadata_path) as f:
+                  data = json.load(f)
+              build_date = data.get('build_date')
+              if build_date:
+                  age = (datetime.now() - datetime.fromisoformat(build_date)).days
+                  print(age)
+              else:
+                  print(999)
+          else:
+              print(999)
+          " || echo "999")
+            
+            if [ "$CACHE_AGE_DAYS" -gt 7 ]; then
+              echo "needs_build=true" >> $GITHUB_OUTPUT
+              echo "Cache is $CACHE_AGE_DAYS days old, rebuilding"
+            else
+              echo "needs_build=false" >> $GITHUB_OUTPUT
+              echo "Cache is only $CACHE_AGE_DAYS days old, skipping"
+            fi
+          fi
+      
+      - name: Run initial setup
+        if: steps.check_cache.outputs.needs_build == 'true'
+        run: |
+          python -c "from code.file_setup.setup import initial_setup; initial_setup()"
+      
+      - name: Run tagging (serial - more reliable in CI)
+        if: steps.check_cache.outputs.needs_build == 'true'
+        run: |
+          python -c "from code.tagging.tagger import run_tagging; run_tagging(parallel=False)"
+      
+      - name: Build all_cards.parquet (needed for similarity cache, but not committed)
+        if: steps.check_cache.outputs.needs_build == 'true'
+        run: |
+          python -c "from code.web.services.card_loader import CardCatalogLoader; loader = CardCatalogLoader(); df = loader.load(); print(f'Created all_cards.parquet with {len(df):,} cards')"
+      
+      - name: Build similarity cache (Parquet)
+        if: steps.check_cache.outputs.needs_build == 'true'
+        run: |
+          python -m code.scripts.build_similarity_cache_parquet --parallel --checkpoint-interval 1000 --force
+      
+      - name: Verify cache was created
+        if: steps.check_cache.outputs.needs_build == 'true'
+        run: |
+          if [ ! -f "card_files/similarity_cache.parquet" ]; then
+            echo "ERROR: Cache Parquet file was not created"
+            exit 1
+          fi
+          if [ ! -f "card_files/similarity_cache_metadata.json" ]; then
+            echo "ERROR: Cache metadata file was not created"
+            exit 1
+          fi
+          
+          # Check cache validity
+          python -c "
+          import json
+          from pathlib import Path
+          from code.web.services.similarity_cache import get_cache
+          
+          cache = get_cache()
+          stats = cache.get_stats()
+          
+          if stats['total_cards'] < 20000:
+              raise ValueError(f\"Cache only has {stats['total_cards']} cards, expected ~30k\")
+          
+          print(f\"✓ Cache is valid with {stats['total_cards']:,} cards, {stats['total_entries']:,} entries\")
+          print(f\"  File size: {stats['file_size_mb']:.2f} MB\")
+          "
+      
+      - name: Get cache metadata for commit message
+        if: steps.check_cache.outputs.needs_build == 'true'
+        id: cache_meta
+        run: |
+          METADATA=$(python -c "
+          import json
+          from pathlib import Path
+          from code.web.services.similarity_cache import get_cache
+          
+          cache = get_cache()
+          stats = cache.get_stats()
+          metadata = cache._metadata or {}
+          
+          build_date = metadata.get('build_date', 'unknown')
+          print(f\"{stats['total_cards']} cards, {stats['total_entries']} entries, {stats['file_size_mb']:.1f}MB, built {build_date}\")
+          ")
+          echo "metadata=$METADATA" >> $GITHUB_OUTPUT
+      
+      - name: Commit and push cache
+        if: steps.check_cache.outputs.needs_build == 'true'
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          
+          # Switch to or create dedicated cache branch
+          git checkout -b similarity-cache-data || git checkout similarity-cache-data
+          
+          # Add only the similarity cache files (not all_cards.parquet)
+          git add card_files/similarity_cache.parquet
+          git add card_files/similarity_cache_metadata.json
+          
+          # Check if there are changes to commit
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "chore: update similarity cache [${{ steps.cache_meta.outputs.metadata }}]"
+            git push origin similarity-cache-data --force
+          fi
+      
+      - name: Summary
+        if: always()
+        run: |
+          if [ "${{ steps.check_cache.outputs.needs_build }}" = "true" ]; then
+            echo "✓ Similarity cache built and committed"
+            echo "  Metadata: ${{ steps.cache_meta.outputs.metadata }}"
+          else
+            echo "⊘ Cache is recent, no rebuild needed"
+          fi

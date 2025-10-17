@@ -31,6 +31,12 @@ services:
       SHOW_MUST_HAVE_BUTTONS: "0"   # 1=show must include/exclude controls in the UI (default hidden)
       SHOW_MISC_POOL: "0"
       WEB_THEME_PICKER_DIAGNOSTICS: "1"  # 1=enable extra theme catalog diagnostics fields, uncapped view & /themes/metrics
+      ENABLE_CARD_DETAILS: "1"      # 1=show Card Details button in card browser (with similarity cache)
+      
+      # Similarity Cache (Phase 2 - M5 Performance Optimization)
+      SIMILARITY_CACHE_ENABLED: "1"   # 1=use pre-computed similarity cache; 0=real-time calculation
+      SIMILARITY_CACHE_PATH: "card_files/similarity_cache.parquet"  # Path to Parquet cache file
+      
       # HEADLESS_EXPORT_JSON: "1"           # 1=export resolved run config JSON
       ENABLE_PARTNER_MECHANICS: "1"        # 1=unlock partner/background commander inputs
       ENABLE_PARTNER_SUGGESTIONS: "1"      # 1=enable partner suggestion API/UI (requires dataset)

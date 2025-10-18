@@ -31,8 +31,6 @@ csv_files/*
 !csv_files/testdata/
 !csv_files/testdata/**/*
 card_files/*
-!card_files/similarity_cache.parquet
-!card_files/similarity_cache_metadata.json
 
 deck_files/
 dist/

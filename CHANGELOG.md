@@ -9,6 +9,22 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 
 ## [Unreleased]
 ### Summary
+_No unreleased changes yet_
+
+### Added
+_None_
+
+### Changed
+_None_
+
+### Removed
+_None_
+
+### Fixed
+_None_
+
+## [2.9.1] - 2025-10-17
+### Summary
 Improved similar cards section with refresh button and reduced sidebar animation distractions.
 
 ### Added

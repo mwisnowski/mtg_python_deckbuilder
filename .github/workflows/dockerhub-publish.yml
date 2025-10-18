@@ -7,53 +7,9 @@ on:
   workflow_dispatch:
 
 jobs:
-  check-cache-age:
-    name: Check similarity cache age
-    runs-on: ubuntu-latest
-    outputs:
-      needs_rebuild: ${{ steps.check.outputs.needs_rebuild }}
-    steps:
-      - name: Check cache age
-        id: check
-        run: |
-          # Check if cache is older than 7 days
-          CACHE_URL="https://raw.githubusercontent.com/${{ github.repository }}/similarity-cache-data/card_files/similarity_cache_metadata.json"
-          
-          if wget -q --spider "$CACHE_URL"; then
-            wget -q "$CACHE_URL" -O metadata.json
-            BUILD_DATE=$(jq -r '.build_date' metadata.json)
-            
-            # Calculate age in seconds
-            BUILD_EPOCH=$(date -d "$BUILD_DATE" +%s 2>/dev/null || echo 0)
-            NOW_EPOCH=$(date +%s)
-            AGE_DAYS=$(( ($NOW_EPOCH - $BUILD_EPOCH) / 86400 ))
-            
-            echo "Cache age: $AGE_DAYS days"
-            
-            if [ $AGE_DAYS -gt 7 ]; then
-              echo "needs_rebuild=true" >> $GITHUB_OUTPUT
-              echo "Cache is stale (>7 days), will rebuild"
-            else
-              echo "needs_rebuild=false" >> $GITHUB_OUTPUT
-              echo "Cache is fresh (<7 days), skipping rebuild"
-            fi
-          else
-            echo "needs_rebuild=true" >> $GITHUB_OUTPUT
-            echo "Cache not found, will build"
-          fi
-
-  build-cache:
-    name: Build similarity cache
-    needs: check-cache-age
-    if: needs.check-cache-age.outputs.needs_rebuild == 'true'
-    uses: ./.github/workflows/build-similarity-cache.yml
-    secrets: inherit
-
   prepare:
     name: Prepare metadata
     runs-on: ubuntu-latest
-    needs: [check-cache-age, build-cache]
-    if: always() && (needs.build-cache.result == 'success' || needs.build-cache.result == 'skipped')
     permissions:
       contents: read
     outputs:

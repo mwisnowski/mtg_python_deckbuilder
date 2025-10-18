@@ -86,7 +86,7 @@ jobs:
       - name: Build all_cards.parquet (needed for similarity cache, but not committed)
         if: steps.check_cache.outputs.needs_build == 'true'
         run: |
-          python -c "from code.web.services.card_loader import CardCatalogLoader; loader = CardCatalogLoader(); df = loader.load(); print(f'Created all_cards.parquet with {len(df):,} cards')"
+          python -c "from code.file_setup.card_aggregator import CardAggregator; agg = CardAggregator(); stats = agg.aggregate_all('csv_files', 'card_files/all_cards.parquet'); print(f'Created all_cards.parquet with {stats[\"total_cards\"]:,} cards')"
       
       - name: Build similarity cache (Parquet)
         if: steps.check_cache.outputs.needs_build == 'true'
@@ -145,12 +145,30 @@ jobs:
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
           
-          # Switch to or create dedicated cache branch
-          git checkout -b similarity-cache-data || git checkout similarity-cache-data
+          # Fetch all branches
+          git fetch origin
           
-          # Add only the similarity cache files (not all_cards.parquet)
-          git add card_files/similarity_cache.parquet
-          git add card_files/similarity_cache_metadata.json
+          # Try to checkout existing branch, or create new orphan branch
+          if git ls-remote --heads origin similarity-cache-data | grep similarity-cache-data; then
+            echo "Checking out existing similarity-cache-data branch..."
+            git checkout similarity-cache-data
+          else
+            echo "Creating new orphan branch similarity-cache-data..."
+            git checkout --orphan similarity-cache-data
+            git rm -rf . || true
+            # Create minimal README for the branch
+            echo "# Similarity Cache Data" > README.md
+            echo "This branch contains pre-built similarity cache files for the MTG Deckbuilder." >> README.md
+            echo "Updated automatically by GitHub Actions." >> README.md
+          fi
+          
+          # Ensure card_files directory exists
+          mkdir -p card_files
+          
+          # Add only the similarity cache files (use -f to override .gitignore)
+          git add -f card_files/similarity_cache.parquet
+          git add -f card_files/similarity_cache_metadata.json
+          git add README.md 2>/dev/null || true
           
           # Check if there are changes to commit
           if git diff --staged --quiet; then

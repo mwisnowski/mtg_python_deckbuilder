@@ -1,13 +1,14 @@
 # MTG Python Deckbuilder ${VERSION}
 
 ### Summary
-_No unreleased changes yet_
+Improved similar cards section with refresh button and reduced sidebar animation distractions.
 
 ### Added
-_None_
+- Similar cards now have a refresh button to see different recommendations without reloading the page
+- Explanation text clarifying that similarities are based on shared themes and tags
 
 ### Changed
-_None_
+- Sidebar generally no longer animates during page loads and partial updates, reducing visual distractions
 
 ### Removed
 _None_

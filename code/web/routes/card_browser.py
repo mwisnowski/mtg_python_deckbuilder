@@ -1271,3 +1271,86 @@ async def card_detail(request: Request, card_name: str):
         )
 
 
+@router.get("/{card_name}/similar")
+async def get_similar_cards_partial(request: Request, card_name: str):
+    """
+    HTMX endpoint: Returns just the similar cards section for a given card.
+    Used for refreshing similar cards without reloading the entire page.
+    """
+    try:
+        from urllib.parse import unquote
+        
+        # Decode URL-encoded card name
+        card_name = unquote(card_name)
+        
+        # Load cards data
+        loader = get_loader()
+        df = loader.load()
+        
+        # Get main card for theme tags
+        card_row = df[df['name'] == card_name]
+        if card_row.empty:
+            return templates.TemplateResponse(
+                "browse/cards/_similar_cards.html",
+                {
+                    "request": request,
+                    "similar_cards": [],
+                    "main_card_tags": [],
+                }
+            )
+        
+        card = card_row.iloc[0].to_dict()
+        main_card_tags = parse_theme_tags(card.get('themeTags', ''))
+        
+        # Calculate similar cards
+        similarity = get_similarity()
+        similar_cards = similarity.find_similar(
+            card_name,
+            threshold=0.8,
+            limit=5,
+            min_results=3,
+            adaptive=True
+        )
+        
+        # Enrich similar cards with full data
+        for similar in similar_cards:
+            similar_row = df[df['name'] == similar['name']]
+            if not similar_row.empty:
+                similar_data = similar_row.iloc[0].to_dict()
+                theme_tags_parsed = parse_theme_tags(similar_data.get('themeTags', ''))
+                similar.update(similar_data)
+                similar['themeTags'] = theme_tags_parsed
+        
+        logger.info(f"Similar cards refresh for '{card_name}': {len(similar_cards)} cards")
+        
+        return templates.TemplateResponse(
+            "browse/cards/_similar_cards.html",
+            {
+                "request": request,
+                "card": card,
+                "similar_cards": similar_cards,
+                "main_card_tags": main_card_tags,
+            }
+        )
+        
+    except Exception as e:
+        logger.error(f"Error loading similar cards for '{card_name}': {e}", exc_info=True)
+        # Try to get card data for error case too
+        try:
+            loader = get_loader()
+            df = loader.load()
+            card_row = df[df['name'] == card_name]
+            card = card_row.iloc[0].to_dict() if not card_row.empty else {"name": card_name}
+        except Exception:
+            card = {"name": card_name}
+        
+        return templates.TemplateResponse(
+            "browse/cards/_similar_cards.html",
+            {
+                "request": request,
+                "card": card,
+                "similar_cards": [],
+                "main_card_tags": [],
+            }
+        )
+

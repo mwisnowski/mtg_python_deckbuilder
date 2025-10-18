@@ -125,6 +125,13 @@ body.nav-collapsed .top-banner .top-inner{ grid-template-columns: auto 1fr; }
 body.nav-collapsed .top-banner .top-inner{ padding-left: .5rem; padding-right: .5rem; }
 /* Smooth hide/show on mobile while keeping fixed positioning */
 .sidebar{ transition: transform .2s ease-out, visibility .2s linear; }
+/* Suppress sidebar transitions during page load to prevent pop-in */
+body.no-transition .sidebar{ transition: none !important; }
+/* Suppress sidebar transitions during HTMX partial updates to prevent distracting animations */
+body.htmx-settling .sidebar{ transition: none !important; }
+body.htmx-settling .layout{ transition: none !important; }
+body.htmx-settling .content{ transition: none !important; }
+body.htmx-settling *{ transition-duration: 0s !important; }
 
 /* Mobile tweaks */
 @media (max-width: 900px){

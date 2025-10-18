@@ -39,6 +39,16 @@
       window.__telemetryEndpoint = '/telemetry/events';
     </script>
   <link rel="stylesheet" href="/static/styles.css?v=20250911-1" />
+  <style>
+    /* Disable all transitions until page is loaded to prevent sidebar flash */
+    .no-transition,
+    .no-transition *,
+    .no-transition *::before,
+    .no-transition *::after {
+      transition: none !important;
+      animation: none !important;
+    }
+  </style>
   <!-- Performance hints -->
   <link rel="preconnect" href="https://api.scryfall.com" crossorigin>
   <link rel="dns-prefetch" href="https://api.scryfall.com">
@@ -50,7 +60,7 @@
   <link rel="manifest" href="/static/manifest.webmanifest" />
   {% endif %}
   </head>
-  <body data-diag="{% if show_diagnostics %}1{% else %}0{% endif %}" data-virt="{% if virtualize %}1{% else %}0{% endif %}">
+  <body class="no-transition" data-diag="{% if show_diagnostics %}1{% else %}0{% endif %}" data-virt="{% if virtualize %}1{% else %}0{% endif %}">
     <header class="top-banner">
       <div class="top-inner">
         <div style="display:flex; align-items:center; gap:.5rem; padding-left: 1rem;">
@@ -239,6 +249,7 @@
           var SIDEBAR = document.getElementById('sidebar');
           var TOGGLE = document.getElementById('nav-toggle');
           var KEY = 'mtg:navCollapsed';
+          
           function apply(collapsed){
             if (collapsed){
               BODY.classList.add('nav-collapsed');
@@ -254,6 +265,22 @@
           var saved = localStorage.getItem(KEY);
           var initialCollapsed = (saved === '1') || (saved === null && (window.innerWidth || 0) < 900);
           apply(initialCollapsed);
+          
+          // Re-enable transitions after page is fully loaded
+          // Use longer delay for pages with heavy content (like card browser)
+          var enableTransitions = function(){
+            BODY.classList.remove('no-transition');
+          };
+          
+          if (document.readyState === 'complete') {
+            // Already loaded
+            setTimeout(enableTransitions, 150);
+          } else {
+            window.addEventListener('load', function(){
+              setTimeout(enableTransitions, 150);
+            });
+          }
+          
           if (TOGGLE){
             TOGGLE.addEventListener('click', function(){
               var isCollapsed = BODY.classList.contains('nav-collapsed');
@@ -268,6 +295,23 @@
             apply((window.innerWidth || 0) < 900);
           });
         }catch(_){ }
+
+        // Suppress sidebar transitions during HTMX partial updates (not full page loads)
+        document.addEventListener('htmx:beforeRequest', function(evt){
+          // Only suppress for small partial updates (identified by specific IDs)
+          var target = evt.detail && evt.detail.target;
+          if (target && target.id) {
+            var targetId = target.id;
+            // List of partial update containers that should suppress sidebar transitions
+            var partialContainers = ['similar-cards-container', 'card-list', 'theme-list'];
+            if (partialContainers.indexOf(targetId) !== -1 || targetId.indexOf('-container') !== -1) {
+              document.body.classList.add('htmx-settling');
+            }
+          }
+        });
+        document.addEventListener('htmx:afterSettle', function(){
+          document.body.classList.remove('htmx-settling');
+        });
 
         // Setup/Tagging status poller
         var statusEl;

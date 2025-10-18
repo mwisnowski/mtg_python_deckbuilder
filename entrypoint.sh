@@ -6,11 +6,19 @@ seed_defaults() {
     # Ensure base config and data directories exist
     mkdir -p /app/config /app/config/card_lists /app/config/themes /app/card_files
 
-    # Download pre-built similarity cache from GitHub if not present
+    # Copy pre-built similarity cache from image defaults if available, otherwise download
     if [ ! -f /app/card_files/similarity_cache.parquet ]; then
-        echo "Downloading similarity cache from GitHub..."
-        wget -q https://raw.githubusercontent.com/mwisnowski/mtg_python_deckbuilder/similarity-cache-data/card_files/similarity_cache.parquet -O /app/card_files/similarity_cache.parquet 2>/dev/null || echo "Warning: Could not download similarity cache"
-        wget -q https://raw.githubusercontent.com/mwisnowski/mtg_python_deckbuilder/similarity-cache-data/card_files/similarity_cache_metadata.json -O /app/card_files/similarity_cache_metadata.json 2>/dev/null || true
+        # First try to copy from baked-in defaults (included in Docker image during CI builds)
+        if [ -f /.defaults/card_files/similarity_cache.parquet ]; then
+            echo "Copying pre-built similarity cache from image..."
+            cp /.defaults/card_files/similarity_cache.parquet /app/card_files/ 2>/dev/null || true
+            cp /.defaults/card_files/similarity_cache_metadata.json /app/card_files/ 2>/dev/null || true
+        else
+            # Fallback: download from GitHub similarity-cache-data branch
+            echo "Downloading similarity cache from GitHub..."
+            wget -q https://raw.githubusercontent.com/mwisnowski/mtg_python_deckbuilder/similarity-cache-data/card_files/similarity_cache.parquet -O /app/card_files/similarity_cache.parquet 2>/dev/null || echo "Warning: Could not download similarity cache"
+            wget -q https://raw.githubusercontent.com/mwisnowski/mtg_python_deckbuilder/similarity-cache-data/card_files/similarity_cache_metadata.json -O /app/card_files/similarity_cache_metadata.json 2>/dev/null || true
+        fi
     fi
 
     # Copy from baked-in defaults if targets are missing

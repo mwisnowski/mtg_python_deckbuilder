@@ -32,6 +32,12 @@ COPY config/ ./config/
 COPY config/ /.defaults/config/
 RUN mkdir -p owned_cards
 
+# Copy similarity cache if available (pre-built during CI)
+# Store in /.defaults/card_files so it persists after volume mount  
+RUN mkdir -p /.defaults/card_files
+# Copy entire card_files directory (will include cache if present, empty if not)
+COPY card_files/ /.defaults/card_files/
+
 # Create necessary directories as mount points
 RUN mkdir -p deck_files logs csv_files card_files config /.defaults
 

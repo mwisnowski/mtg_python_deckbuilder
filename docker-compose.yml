@@ -15,27 +15,25 @@ services:
       # ------------------------------------------------------------------
 
       # UI features/flags
-      SHOW_LOGS: "1"                  # 1=enable /logs page; 0=hide
-      SHOW_SETUP: "1"                 # 1=show Setup/Tagging card; 0=hide (still runs if WEB_AUTO_SETUP=1)
-      SHOW_DIAGNOSTICS: "1"           # 1=enable /diagnostics & /diagnostics/perf; 0=hide
-      SHOW_COMMANDERS: "1"            # 1=show Commanders browser/pages
-      ENABLE_PWA: "0"                 # 1=serve manifest/service worker (experimental)
-      ENABLE_THEMES: "1"              # 1=expose theme selector; 0=hide (THEME still applied)
-      ENABLE_PRESETS: "0"             # 1=show presets section
-      ENABLE_CUSTOM_THEMES: "1"       # 1=expose Additional Themes panel for user-supplied tags
-      USER_THEME_LIMIT: "8"           # Maximum number of user-supplied supplemental themes stored in session
-      WEB_VIRTUALIZE: "1"             # 1=enable list virtualization in Step 5
-      ALLOW_MUST_HAVES: "1"           # 1=enable must-include/must-exclude cards feature; 0=disable
-      SHOW_MUST_HAVE_BUTTONS: "0"     # 1=show must include/exclude controls in the UI (default hidden)
+      SHOW_LOGS: "1"                # 1=enable /logs page; 0=hide
+      SHOW_SETUP: "1"               # 1=show Setup/Tagging card; 0=hide (still runs if WEB_AUTO_SETUP=1)
+      SHOW_DIAGNOSTICS: "1"         # 1=enable /diagnostics & /diagnostics/perf; 0=hide
+      SHOW_COMMANDERS: "1"          # 1=show Commanders browser/pages
+      ENABLE_PWA: "0"               # 1=serve manifest/service worker (experimental)
+      ENABLE_THEMES: "1"            # 1=expose theme selector; 0=hide (THEME still applied)
+      ENABLE_CUSTOM_THEMES: "1"     # 1=expose Additional Themes panel for user-supplied tags
+      USER_THEME_LIMIT: "8"         # Maximum number of user-supplied supplemental themes stored in session
+      ENABLE_PRESETS: "0"           # 1=show presets section
+      WEB_VIRTUALIZE: "1"           # 1=enable list virtualization in Step 5
+      ALLOW_MUST_HAVES: "1"         # 1=enable must-include/must-exclude cards feature; 0=disable
+      SHOW_MUST_HAVE_BUTTONS: "0"   # 1=show must include/exclude controls in the UI (default hidden)
       SHOW_MISC_POOL: "0"
       WEB_THEME_PICKER_DIAGNOSTICS: "1"  # 1=enable extra theme catalog diagnostics fields, uncapped view & /themes/metrics
-      ENABLE_CARD_DETAILS: "1"        # 1=show Card Details button in card browser (with similarity cache)
-      
-      # Similarity Cache (Phase 2 - M5 Performance Optimization)
+      ENABLE_CARD_DETAILS: "1"      # 1=show Card Details button in card browser (with similarity cache)
       SIMILARITY_CACHE_ENABLED: "1"   # 1=use pre-computed similarity cache; 0=real-time calculation
       SIMILARITY_CACHE_PATH: "card_files/similarity_cache.parquet"  # Path to Parquet cache file
       
-      # Partner / Background mechanics (feature flag)
+      # HEADLESS_EXPORT_JSON: "1"           # 1=export resolved run config JSON
       ENABLE_PARTNER_MECHANICS: "1"        # 1=unlock partner/background commander inputs
       ENABLE_PARTNER_SUGGESTIONS: "1"      # 1=enable partner suggestion API/UI (requires dataset)
       # PARTNER_SUGGESTIONS_DATASET: "/app/config/analytics/partner_synergy.json"  # Optional override path for dataset inside container
@@ -57,8 +55,8 @@ services:
       # ------------------------------------------------------------------
 
       # Random Modes (feature flags)
-      # RANDOM_MODES: "1"             # 1=enable random build endpoints and backend features
-      # RANDOM_UI: "1"                # 1=show Surprise/Theme/Reroll/Share controls in UI
+      RANDOM_MODES: "1"             # 1=enable random build endpoints and backend features
+      RANDOM_UI: "1"                # 1=show Surprise/Theme/Reroll/Share controls in UI
       RANDOM_MAX_ATTEMPTS: "5"      # cap retry attempts
       RANDOM_TIMEOUT_MS: "5000"     # per-build timeout in ms
       RANDOM_REROLL_THROTTLE_MS: "350"  # minimum ms between reroll requests (client guard)

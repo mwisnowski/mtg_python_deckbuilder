@@ -155,7 +155,7 @@ def build_cache(
     """
     Build similarity cache for all cards.
     
-    NOTE: Assumes card data (cards.csv, all_cards.parquet) and tagged data already exist.
+    NOTE: Assumes card data (card_files/processed/all_cards.parquet) and tagged data already exist.
     Run setup and tagging separately before building cache.
 
     Args:

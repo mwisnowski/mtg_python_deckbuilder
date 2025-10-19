@@ -31,12 +31,13 @@ class CardSimilarity:
         Initialize similarity calculator.
 
         Args:
-            cards_df: DataFrame with card data. If None, loads from all_cards.parquet
+            cards_df: DataFrame with card data. If None, loads from processed all_cards.parquet
             cache: SimilarityCache instance. If None, uses global singleton
         """
         if cards_df is None:
-            # Load from default location
-            parquet_path = Path(__file__).parents[3] / "card_files" / "all_cards.parquet"
+            # Load from processed directory (M4 Parquet migration)
+            from path_util import get_processed_cards_path
+            parquet_path = get_processed_cards_path()
             logger.info(f"Loading cards from {parquet_path}")
             self.cards_df = pd.read_parquet(parquet_path)
         else:

@@ -134,6 +134,7 @@ async def download_github():
         
         files_to_download = [
             ("card_files/processed/all_cards.parquet", "card_files/processed/all_cards.parquet"),
+            ("card_files/processed/commander_cards.parquet", "card_files/processed/commander_cards.parquet"),
             ("card_files/processed/.tagging_complete.json", "card_files/processed/.tagging_complete.json"),
             ("card_files/similarity_cache.parquet", "card_files/similarity_cache.parquet"),
             ("card_files/similarity_cache_metadata.json", "card_files/similarity_cache_metadata.json"),

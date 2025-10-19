@@ -8,6 +8,9 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 - Link PRs/issues inline when helpful, e.g., (#123) or [#123]. Reference-style links at the bottom are encouraged for readability.
 
 ## [Unreleased]
+_No unreleased changes yet_
+
+## [3.0.0] - 2025-10-19
 ### Summary
 Major infrastructure upgrade to Parquet format with comprehensive performance improvements, simplified data management, and instant setup via GitHub downloads.
 

@@ -1054,7 +1054,7 @@ def tag_for_keywords(df: pd.DataFrame, color: str) -> None:
             exclusion_keywords = {'partner'}
 
             def _merge_keywords(row: pd.Series) -> list[str]:
-                base_tags = row['themeTags'] if isinstance(row['themeTags'], list) else []
+                base_tags = list(row['themeTags']) if hasattr(row.get('themeTags'), '__len__') and not isinstance(row.get('themeTags'), str) else []
                 keywords_raw = row['keywords']
 
                 if isinstance(keywords_raw, str):
@@ -6887,6 +6887,7 @@ def run_tagging(parallel: bool = False, max_workers: int | None = None):
         logger.info(f"✓ Wrote tagging completion flag to {flag_path}")
     except Exception as e:
         logger.warning(f"Failed to write tagging completion flag: {e}")
+
 
 
 

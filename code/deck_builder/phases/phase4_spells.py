@@ -193,7 +193,7 @@ class SpellAdditionMixin:
                     card_type=r.get('type',''),
                     mana_cost=r.get('manaCost',''),
                     mana_value=r.get('manaValue', r.get('cmc','')),
-                    tags=r.get('themeTags', []) if isinstance(r.get('themeTags', []), list) else [],
+                    tags=bu.ensure_theme_tags_list(r.get('themeTags')),
                     role='ramp',
                     sub_role=phase_name.lower(),
                     added_by='spell_ramp'
@@ -322,7 +322,7 @@ class SpellAdditionMixin:
                 card_type=r.get('type',''),
                 mana_cost=r.get('manaCost',''),
                 mana_value=r.get('manaValue', r.get('cmc','')),
-                tags=r.get('themeTags', []) if isinstance(r.get('themeTags', []), list) else [],
+                tags=bu.ensure_theme_tags_list(r.get('themeTags')),
                 role='removal',
                 sub_role='spot',
                 added_by='spell_removal'
@@ -399,7 +399,7 @@ class SpellAdditionMixin:
                 card_type=r.get('type',''),
                 mana_cost=r.get('manaCost',''),
                 mana_value=r.get('manaValue', r.get('cmc','')),
-                tags=r.get('themeTags', []) if isinstance(r.get('themeTags', []), list) else [],
+                tags=bu.ensure_theme_tags_list(r.get('themeTags')),
                 role='wipe',
                 sub_role='board',
                 added_by='spell_wipe'
@@ -493,7 +493,7 @@ class SpellAdditionMixin:
                 card_type=r.get('type',''),
                 mana_cost=r.get('manaCost',''),
                 mana_value=r.get('manaValue', r.get('cmc','')),
-                tags=r.get('themeTags', []) if isinstance(r.get('themeTags', []), list) else [],
+                tags=bu.ensure_theme_tags_list(r.get('themeTags')),
                 role='card_advantage',
                 sub_role='conditional',
                 added_by='spell_draw'
@@ -516,7 +516,7 @@ class SpellAdditionMixin:
                     card_type=r.get('type',''),
                     mana_cost=r.get('manaCost',''),
                     mana_value=r.get('manaValue', r.get('cmc','')),
-                    tags=r.get('themeTags', []) if isinstance(r.get('themeTags', []), list) else [],
+                    tags=bu.ensure_theme_tags_list(r.get('themeTags')),
                     role='card_advantage',
                     sub_role='unconditional',
                     added_by='spell_draw'
@@ -713,7 +713,7 @@ class SpellAdditionMixin:
                 card_type=r.get('type',''),
                 mana_cost=r.get('manaCost',''),
                 mana_value=r.get('manaValue', r.get('cmc','')),
-                tags=r.get('themeTags', []) if isinstance(r.get('themeTags', []), list) else [],
+                tags=bu.ensure_theme_tags_list(r.get('themeTags')),
                 role='protection',
                 added_by='spell_protection'
             )
@@ -879,7 +879,7 @@ class SpellAdditionMixin:
                     card_type=row.get('type', ''),
                     mana_cost=row.get('manaCost', ''),
                     mana_value=row.get('manaValue', row.get('cmc', '')),
-                    tags=row.get('themeTags', []) if isinstance(row.get('themeTags', []), list) else [],
+                    tags=bu.ensure_theme_tags_list(row.get('themeTags')),
                     role='theme_spell',
                     sub_role=role,
                     added_by='spell_theme_fill',
@@ -942,7 +942,7 @@ class SpellAdditionMixin:
                         card_type=row.get('type', ''),
                         mana_cost=row.get('manaCost', ''),
                         mana_value=row.get('manaValue', row.get('cmc', '')),
-                        tags=row.get('themeTags', []) if isinstance(row.get('themeTags', []), list) else [],
+                        tags=bu.ensure_theme_tags_list(row.get('themeTags')),
                         role='theme_spell',
                         sub_role='fill_multi',
                         added_by='spell_theme_fill',
@@ -1006,7 +1006,7 @@ class SpellAdditionMixin:
                         card_type=r0.get('type',''),
                         mana_cost=r0.get('manaCost',''),
                         mana_value=r0.get('manaValue', r0.get('cmc','')),
-                        tags=r0.get('themeTags', []) if isinstance(r0.get('themeTags', []), list) else [],
+                        tags=bu.ensure_theme_tags_list(r0.get('themeTags')),
                         role='filler',
                         sub_role=r0.get('_fillerCat',''),
                         added_by='spell_general_filler'

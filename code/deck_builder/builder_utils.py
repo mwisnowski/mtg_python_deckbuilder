@@ -249,6 +249,18 @@ def parse_theme_tags(val) -> list[str]:
 	return []
 
 
+def ensure_theme_tags_list(val) -> list[str]:
+	"""Safely convert themeTags value to list, handling None, lists, and numpy arrays.
+	
+	This is a simpler wrapper around parse_theme_tags for the common case where
+	you just need to ensure you have a list to work with.
+	"""
+	if val is None:
+		return []
+	return parse_theme_tags(val)
+
+
+
 def normalize_theme_list(raw) -> list[str]:
 	"""Parse then lowercase + strip each tag."""
 	tags = parse_theme_tags(raw)

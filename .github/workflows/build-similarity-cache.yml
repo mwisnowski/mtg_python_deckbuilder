@@ -147,6 +147,17 @@ jobs:
           from code.path_util import get_processed_cards_path
           df = pd.read_parquet(get_processed_cards_path())
           
+          # Helper to count tags (handles both list and numpy array)
+          def count_tags(x):
+              if x is None:
+                  return 0
+              if hasattr(x, '__len__'):
+                  try:
+                      return len(x)
+                  except:
+                      return 0
+              return 0
+          
           # Count total tags
           total_tags = 0
           cards_with_tags = 0
@@ -155,7 +166,7 @@ jobs:
           for idx, row in df.head(10).iterrows():
               name = row['name']
               tags = row['themeTags']
-              tag_count = len(tags) if isinstance(tags, list) else 0
+              tag_count = count_tags(tags)
               total_tags += tag_count
               if tag_count > 0:
                   cards_with_tags += 1
@@ -166,8 +177,8 @@ jobs:
               print(f'  {card}')
           
           # Full count
-          all_tags = df['themeTags'].apply(lambda x: len(x) if isinstance(x, list) else 0).sum()
-          all_with_tags = (df['themeTags'].apply(lambda x: len(x) if isinstance(x, list) else 0) > 0).sum()
+          all_tags = df['themeTags'].apply(count_tags).sum()
+          all_with_tags = (df['themeTags'].apply(count_tags) > 0).sum()
           
           print(f'')
           print(f'Total cards: {len(df):,}')

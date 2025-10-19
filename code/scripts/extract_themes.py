@@ -126,7 +126,7 @@ def tally_tag_frequencies_by_base_color() -> Dict[str, Dict[str, int]]:
             return derived
         # Iterate rows
         for _, row in df.iterrows():
-            tags = row['themeTags'] if isinstance(row['themeTags'], list) else []
+            tags = list(row['themeTags']) if hasattr(row.get('themeTags'), '__len__') and not isinstance(row.get('themeTags'), str) else []
             # Compute base colors contribution
             ci = row['colorIdentity'] if 'colorIdentity' in row else None
             letters = set(ci) if isinstance(ci, list) else set()
@@ -162,7 +162,7 @@ def gather_theme_tag_rows() -> List[List[str]]:
         if 'themeTags' not in df.columns:
             continue
         for _, row in df.iterrows():
-            tags = row['themeTags'] if isinstance(row['themeTags'], list) else []
+            tags = list(row['themeTags']) if hasattr(row.get('themeTags'), '__len__') and not isinstance(row.get('themeTags'), str) else []
             if tags:
                 rows.append(tags)
     return rows
@@ -523,3 +523,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+

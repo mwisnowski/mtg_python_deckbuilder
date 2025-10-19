@@ -3,7 +3,7 @@
 ## [Unreleased]
 
 ### Summary
-Performance improvements and bug fixes for commander selection and display.
+_No unreleased changes yet_
 
 ### Added
 _None_
@@ -15,16 +15,13 @@ _None_
 _None_
 
 ### Fixed
-- **Color Identity Display**: Fixed commander color identity showing incorrectly as "Colorless (C)" for non-partner commanders in the summary panel
+_None_
 
 ### Performance
-- **Commander Selection Speed**: Dramatically improved response time from 4+ seconds to under 1 second
-  - Implemented intelligent caching for card data to eliminate redundant file loading
-  - Both commander data and full card database now cached with automatic refresh when data updates
+_None_
 
 ### For Users
-- Commander selection is now **much faster** - expect sub-second response times
-- Color identity labels in deck summaries now display correctly for all commanders
+_No changes yet_
 
 ### Deprecated
 _None_

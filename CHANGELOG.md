@@ -18,6 +18,28 @@ _None_
 _None_
 
 ### Fixed
+_None_
+
+### Performance
+_None_
+
+### Deprecated
+_None_
+
+### Security
+_None_
+
+## [3.0.1] - 2025-10-19
+### Added
+_None_
+
+### Changed
+_None_
+
+### Removed
+_None_
+
+### Fixed
 - **Color Identity Display**: Fixed commander color identity showing incorrectly as "Colorless (C)" for non-partner commanders in the summary panel
 
 ### Performance

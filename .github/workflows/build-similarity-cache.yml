@@ -89,44 +89,45 @@ jobs:
             exit 1
           fi
       
-      - name: Debug - Inspect Parquet file after tagging
-        if: steps.check_cache.outputs.needs_build == 'true'
-        run: |
-          python -c "
-          import pandas as pd
-          from pathlib import Path
-          from code.path_util import get_processed_cards_path
-          
-          parquet_path = Path(get_processed_cards_path())
-          print(f'Reading Parquet file: {parquet_path}')
-          print(f'File exists: {parquet_path.exists()}')
-          
-          if not parquet_path.exists():
-              raise FileNotFoundError(f'Parquet file not found: {parquet_path}')
-          
-          df = pd.read_parquet(parquet_path)
-          print(f'Loaded {len(df)} rows from Parquet file')
-          print(f'Columns: {list(df.columns)}')
-          print('')
-          
-          # Show first 5 rows completely
-          print('First 5 complete rows:')
-          print('=' * 100)
-          for idx, row in df.head(5).iterrows():
-              print(f'Row {idx}:')
-              for col in df.columns:
-                  value = row[col]
-                  if isinstance(value, (list, tuple)) or hasattr(value, '__array__'):
-                      # For array-like, show type and length
-                      try:
-                          length = len(value)
-                          print(f'  {col}: {type(value).__name__}[{length}] = {value}')
-                      except:
-                          print(f'  {col}: {type(value).__name__} = {value}')
-                  else:
-                      print(f'  {col}: {value}')
-              print('-' * 100)
-          "
+      # Debug step - uncomment if needed to inspect Parquet file contents
+      # - name: Debug - Inspect Parquet file after tagging
+      #   if: steps.check_cache.outputs.needs_build == 'true'
+      #   run: |
+      #     python -c "
+      #     import pandas as pd
+      #     from pathlib import Path
+      #     from code.path_util import get_processed_cards_path
+      #     
+      #     parquet_path = Path(get_processed_cards_path())
+      #     print(f'Reading Parquet file: {parquet_path}')
+      #     print(f'File exists: {parquet_path.exists()}')
+      #     
+      #     if not parquet_path.exists():
+      #         raise FileNotFoundError(f'Parquet file not found: {parquet_path}')
+      #     
+      #     df = pd.read_parquet(parquet_path)
+      #     print(f'Loaded {len(df)} rows from Parquet file')
+      #     print(f'Columns: {list(df.columns)}')
+      #     print('')
+      #     
+      #     # Show first 5 rows completely
+      #     print('First 5 complete rows:')
+      #     print('=' * 100)
+      #     for idx, row in df.head(5).iterrows():
+      #         print(f'Row {idx}:')
+      #         for col in df.columns:
+      #             value = row[col]
+      #             if isinstance(value, (list, tuple)) or hasattr(value, '__array__'):
+      #                 # For array-like, show type and length
+      #                 try:
+      #                     length = len(value)
+      #                     print(f'  {col}: {type(value).__name__}[{length}] = {value}')
+      #                 except:
+      #                     print(f'  {col}: {type(value).__name__} = {value}')
+      #             else:
+      #                 print(f'  {col}: {value}')
+      #         print('-' * 100)
+      #     "
       
       - name: Generate theme catalog
         if: steps.check_cache.outputs.needs_build == 'true'

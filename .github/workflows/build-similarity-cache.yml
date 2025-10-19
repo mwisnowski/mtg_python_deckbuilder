@@ -78,10 +78,53 @@ jobs:
         run: |
           python -c "from code.file_setup.setup import initial_setup; initial_setup()"
       
-      - name: Run tagging (parallel)
+      - name: Run tagging (serial for CI reliability)
         if: steps.check_cache.outputs.needs_build == 'true'
         run: |
-          python -c "from code.tagging.tagger import run_tagging; run_tagging(parallel=True)"
+          python -c "from code.tagging.tagger import run_tagging; run_tagging(parallel=False)"
+          
+          # Verify tagging completed
+          if [ ! -f "card_files/processed/.tagging_complete.json" ]; then
+            echo "ERROR: Tagging completion flag not found"
+            exit 1
+          fi
+          
+          # Detailed check of what tags were actually written
+          python -c "
+          import pandas as pd
+          from code.path_util import get_processed_cards_path
+          df = pd.read_parquet(get_processed_cards_path())
+          
+          # Count total tags
+          total_tags = 0
+          cards_with_tags = 0
+          sample_cards = []
+          
+          for idx, row in df.head(10).iterrows():
+              name = row['name']
+              tags = row['themeTags']
+              tag_count = len(tags) if isinstance(tags, list) else 0
+              total_tags += tag_count
+              if tag_count > 0:
+                  cards_with_tags += 1
+                  sample_cards.append(f'{name}: {tag_count} tags')
+          
+          print(f'Sample of first 10 cards:')
+          for card in sample_cards:
+              print(f'  {card}')
+          
+          # Full count
+          all_tags = df['themeTags'].apply(lambda x: len(x) if isinstance(x, list) else 0).sum()
+          all_with_tags = (df['themeTags'].apply(lambda x: len(x) if isinstance(x, list) else 0) > 0).sum()
+          
+          print(f'')
+          print(f'Total cards: {len(df):,}')
+          print(f'Cards with tags: {all_with_tags:,}')
+          print(f'Total theme tags: {all_tags:,}')
+          
+          if all_tags < 10000:
+              raise ValueError(f'Only {all_tags} tags found, expected >10k')
+          "
       
       - name: Build similarity cache (Parquet) from card_files/processed/all_cards.parquet
         if: steps.check_cache.outputs.needs_build == 'true'

@@ -16,8 +16,8 @@ __all__ = [
 # Banned cards consolidated here (remains specific to setup concerns)
 BANNED_CARDS: List[str] = [
     # Commander banned list
-    '1996 World Champion', 'Ancestral Recall', 'Balance', 'Biorhythm',
-    'Black Lotus', 'Chaos Orb', 'Channel', 'Dockside Extortionist',
+    'Ancestral Recall', 'Balance', 'Biorhythm', 'Black Lotus',
+    'Chaos Orb', 'Channel', 'Dockside Extortionist',
     'Emrakul, the Aeons Torn',
     'Erayo, Soratami Ascendant', 'Falling Star', 'Fastbond',
     'Flash', 'Golos, Tireless Pilgrim',

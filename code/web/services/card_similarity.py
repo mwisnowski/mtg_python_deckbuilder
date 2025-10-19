@@ -247,11 +247,13 @@ class CardSimilarity:
         Returns:
             Set of theme tag strings
         """
-        if pd.isna(tags) or not tags:
+        # M4: Handle both scalar NA (CSV) and array values (Parquet)
+        if pd.isna(tags) if isinstance(tags, (str, float, int, type(None))) else False:
             return set()
-
+        
         if isinstance(tags, list):
-            return set(tags)
+            # M4: Parquet format - already a list
+            return set(tags) if tags else set()
 
         if isinstance(tags, str):
             # Handle string representation of list: "['tag1', 'tag2']"

@@ -1,4 +1,8 @@
-from code.scripts import preview_perf_benchmark as perf
+import pytest
+
+# M4 (Parquet Migration): preview_perf_benchmark module was removed during refactoring
+# These tests are no longer applicable
+pytestmark = pytest.mark.skip(reason="M4: preview_perf_benchmark module removed during refactoring")
 
 
 def test_fetch_all_theme_slugs_retries(monkeypatch):

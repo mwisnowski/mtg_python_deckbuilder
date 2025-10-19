@@ -1165,13 +1165,13 @@ async def card_theme_autocomplete(
         return HTMLResponse(content=f'<div class="autocomplete-error">Error: {str(e)}</div>')
 
 
-@router.get("/{card_name}", response_class=HTMLResponse)
+@router.get("/{card_name:path}", response_class=HTMLResponse)
 async def card_detail(request: Request, card_name: str):
     """
     Display detailed information about a single card with similar cards.
     
     Args:
-        card_name: URL-encoded card name
+        card_name: URL-encoded card name (using :path to capture names with / like DFCs)
     
     Returns:
         HTML page with card details and similar cards section
@@ -1271,11 +1271,13 @@ async def card_detail(request: Request, card_name: str):
         )
 
 
-@router.get("/{card_name}/similar")
+@router.get("/{card_name:path}/similar")
 async def get_similar_cards_partial(request: Request, card_name: str):
     """
     HTMX endpoint: Returns just the similar cards section for a given card.
     Used for refreshing similar cards without reloading the entire page.
+    
+    Note: Uses :path to capture DFC names with // in them
     """
     try:
         from urllib.parse import unquote

@@ -154,28 +154,33 @@ class DeckBuilder(
         start_ts = datetime.datetime.now()
         logger.info("=== Deck Build: BEGIN ===")
         try:
-            # Ensure CSVs exist and are tagged before starting any deck build logic
+            # M4: Ensure Parquet file exists and is tagged before starting any deck build logic
             try:
                 import time as _time
                 import json as _json
                 from datetime import datetime as _dt
-                cards_path = os.path.join(CSV_DIRECTORY, 'cards.csv')
+                from code.path_util import get_processed_cards_path
+                
+                parquet_path = get_processed_cards_path()
                 flag_path = os.path.join(CSV_DIRECTORY, '.tagging_complete.json')
                 refresh_needed = False
-                if not os.path.exists(cards_path):
-                    logger.info("cards.csv not found. Running initial setup and tagging before deck build...")
+                
+                if not os.path.exists(parquet_path):
+                    logger.info("all_cards.parquet not found. Running initial setup and tagging before deck build...")
                     refresh_needed = True
                 else:
                     try:
-                        age_seconds = _time.time() - os.path.getmtime(cards_path)
+                        age_seconds = _time.time() - os.path.getmtime(parquet_path)
                         if age_seconds > 7 * 24 * 60 * 60:
-                            logger.info("cards.csv is older than 7 days. Refreshing data before deck build...")
+                            logger.info("all_cards.parquet is older than 7 days. Refreshing data before deck build...")
                             refresh_needed = True
                     except Exception:
                         pass
+                
                 if not os.path.exists(flag_path):
                     logger.info("Tagging completion flag not found. Performing full tagging before deck build...")
                     refresh_needed = True
+                
                 if refresh_needed:
                     initial_setup()
                     from tagging import tagger as _tagger
@@ -187,7 +192,7 @@ class DeckBuilder(
                     except Exception:
                         logger.warning("Failed to write tagging completion flag (non-fatal).")
             except Exception as e:
-                logger.error(f"Failed ensuring CSVs before deck build: {e}")
+                logger.error(f"Failed ensuring Parquet file before deck build: {e}")
             self.run_initial_setup()
             self.run_deck_build_step1()
             self.run_deck_build_step2()
@@ -832,14 +837,25 @@ class DeckBuilder(
     def load_commander_data(self) -> pd.DataFrame:
         if self._commander_df is not None:
             return self._commander_df
-        df = pd.read_csv(
-            bc.COMMANDER_CSV_PATH,
-            converters=getattr(bc, "COMMANDER_CONVERTERS", None)
-        )
+        
+        # M4: Load commanders from Parquet instead of CSV
+        from deck_builder import builder_utils as bu
+        from deck_builder import builder_constants as bc
+        
+        all_cards_df = bu._load_all_cards_parquet()
+        if all_cards_df.empty:
+            # Fallback to empty DataFrame with expected columns
+            return pd.DataFrame(columns=['name', 'themeTags', 'creatureTypes'])
+        
+        # Filter to only commander-eligible cards
+        df = bc.get_commanders(all_cards_df)
+        
+        # Ensure required columns exist with proper defaults
         if "themeTags" not in df.columns:
             df["themeTags"] = [[] for _ in range(len(df))]
         if "creatureTypes" not in df.columns:
             df["creatureTypes"] = [[] for _ in range(len(df))]
+        
         self._commander_df = df
         return df
 
@@ -1125,9 +1141,9 @@ class DeckBuilder(
         return full, load_files
 
     def setup_dataframes(self) -> pd.DataFrame:
-        """Load all csv files for current color identity into one combined DataFrame.
+        """Load cards from all_cards.parquet and filter by current color identity.
 
-        Each file stem in files_to_load corresponds to csv_files/{stem}_cards.csv.
+        M4: Migrated from CSV to Parquet. Filters by color identity using colorIdentity column.
         The result is cached and returned. Minimal validation only (non-empty, required columns exist if known).
         """
         if self._combined_cards_df is not None:
@@ -1135,37 +1151,53 @@ class DeckBuilder(
         if not self.files_to_load:
             # Attempt to determine if not yet done
             self.determine_color_identity()
-        dfs = []
-        required = getattr(bc, 'CSV_REQUIRED_COLUMNS', [])
-        from path_util import csv_dir as _csv_dir
-        base = _csv_dir()
         
-        # Define converters for list columns (same as tagger.py)
-        converters = {
-            'themeTags': pd.eval,
-            'creatureTypes': pd.eval,
-            'metadataTags': pd.eval  # M2: Parse metadataTags column
-        }
+        # M4: Load from Parquet instead of CSV files
+        from deck_builder import builder_utils as bu
+        all_cards_df = bu._load_all_cards_parquet()
         
-        for stem in self.files_to_load:
-            path = f"{base}/{stem}_cards.csv"
-            try:
-                df = pd.read_csv(path, converters=converters)
-                if required:
-                    missing = [c for c in required if c not in df.columns]
-                    if missing:
-                        # Skip or still keep with warning; choose to warn
-                        self.output_func(f"Warning: {path} missing columns: {missing}")
-                dfs.append(df)
-            except FileNotFoundError:
-                self.output_func(f"Warning: CSV file not found: {path}")
-                continue
-        if not dfs:
-            raise RuntimeError("No CSV files loaded for color identity.")
-        combined = pd.concat(dfs, axis=0, ignore_index=True)
+        if all_cards_df is None or all_cards_df.empty:
+            raise RuntimeError("Failed to load all_cards.parquet or file is empty.")
+        
+        # M4: Filter by color identity instead of loading multiple CSVs
+        # Get the colors from self.color_identity (e.g., {'W', 'U', 'B', 'G'})
+        if hasattr(self, 'color_identity') and self.color_identity:
+            # Determine which cards can be played in this color identity
+            # A card can be played if its color identity is a subset of the commander's color identity
+            def card_matches_identity(card_colors):
+                """Check if card's color identity is legal in commander's identity."""
+                if card_colors is None or (isinstance(card_colors, float) and pd.isna(card_colors)):
+                    # Colorless cards can go in any deck
+                    return True
+                if isinstance(card_colors, str):
+                    # Handle string format like "B, G, R, U" (note the spaces after commas)
+                    card_colors = {c.strip() for c in card_colors.split(',')} if card_colors else set()
+                elif isinstance(card_colors, list):
+                    card_colors = set(card_colors)
+                else:
+                    # Unknown format, be permissive
+                    return True
+                # Card is legal if its colors are a subset of commander colors
+                return card_colors.issubset(self.color_identity)
+            
+            if 'colorIdentity' in all_cards_df.columns:
+                mask = all_cards_df['colorIdentity'].apply(card_matches_identity)
+                combined = all_cards_df[mask].copy()
+                logger.info(f"M4 COLOR_FILTER: Filtered {len(all_cards_df)} cards to {len(combined)} cards for identity {sorted(self.color_identity)}")
+            else:
+                logger.warning("M4 COLOR_FILTER: colorIdentity column missing, using all cards")
+                combined = all_cards_df.copy()
+        else:
+            # No color identity set, use all cards
+            logger.warning("M4 COLOR_FILTER: No color identity set, using all cards")
+            combined = all_cards_df.copy()
+        
         # Drop duplicate rows by 'name' if column exists
         if 'name' in combined.columns:
+            before_dedup = len(combined)
             combined = combined.drop_duplicates(subset='name', keep='first')
+            if len(combined) < before_dedup:
+                logger.info(f"M4 DEDUP: Removed {before_dedup - len(combined)} duplicate names")
         # If owned-only mode, filter combined pool to owned names (case-insensitive)
         if self.use_owned_only:
             try:
@@ -1951,10 +1983,10 @@ class DeckBuilder(
             return
         block = self._format_commander_pretty(self.commander_row)
         self.output_func("\n" + block)
-        # New: show which CSV files (stems) were loaded for this color identity
-        if self.files_to_load:
-            file_list = ", ".join(f"{stem}_cards.csv" for stem in self.files_to_load)
-            self.output_func(f"Card Pool Files: {file_list}")
+        # M4: Show that we're loading from unified Parquet file
+        if hasattr(self, 'color_identity') and self.color_identity:
+            colors = ', '.join(sorted(self.color_identity))
+            self.output_func(f"Card Pool: all_cards.parquet (filtered to {colors} identity)")
         # Owned-only status
         if getattr(self, 'use_owned_only', False):
             try:

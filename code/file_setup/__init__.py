@@ -1,8 +1,8 @@
 """Initialize the file_setup package."""
 
-from .setup import setup, regenerate_csv_by_color
+from .setup import initial_setup, regenerate_processed_parquet
 
 __all__ = [
-    'setup',
-    'regenerate_csv_by_color'
+    'initial_setup',
+    'regenerate_processed_parquet'
 ]

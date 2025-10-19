@@ -26,11 +26,13 @@ COLORLESS_FILTER_PATTERNS = [
     
     # Colored cost reduction - medallions and monuments
     # Matches: "white spells you cast cost", "blue creature spells you cast cost", etc.
-    r"(white|blue|black|red|green)\s+(creature\s+)?spells?\s+you\s+cast\s+cost.*less",
+    # Use non-capturing groups to avoid pandas UserWarning
+    r"(?:white|blue|black|red|green)\s+(?:creature\s+)?spells?\s+you\s+cast\s+cost.*less",
     
     # Colored spell triggers - shrines and similar
     # Matches: "whenever you cast a white spell", etc.
-    r"whenever\s+you\s+cast\s+a\s+(white|blue|black|red|green)\s+spell",
+    # Use non-capturing groups to avoid pandas UserWarning
+    r"whenever\s+you\s+cast\s+a\s+(?:white|blue|black|red|green)\s+spell",
 ]
 
 # Cards that should NOT be filtered despite matching patterns
@@ -72,8 +74,8 @@ def apply_colorless_filter_tags(df: pd.DataFrame) -> None:
         logger.warning("No 'themeTags' column found, skipping colorless filter tagging")
         return
     
-    # Combine all patterns with OR
-    combined_pattern = "|".join(f"({pattern})" for pattern in COLORLESS_FILTER_PATTERNS)
+    # Combine all patterns with OR (use non-capturing groups to avoid pandas warning)
+    combined_pattern = "|".join(f"(?:{pattern})" for pattern in COLORLESS_FILTER_PATTERNS)
     
     # Find cards matching any pattern
     df['text'] = df['text'].fillna('')

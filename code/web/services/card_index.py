@@ -4,30 +4,21 @@ Phase A refactor: Provides a thin API for building and querying the in-memory
 card index keyed by tag/theme. Future enhancements may introduce a persistent
 cache layer or precomputed artifact.
 
+M4: Updated to load from all_cards.parquet instead of CSV shards.
+
 Public API:
   maybe_build_index() -> None
   get_tag_pool(tag: str) -> list[dict]
   lookup_commander(name: str) -> dict | None
 
-The index is rebuilt lazily when any of the CSV shard files change mtime.
+The index is rebuilt lazily when the Parquet file mtime changes.
 """
 from __future__ import annotations
 
 from pathlib import Path
-import csv
-import os
 from typing import Any, Dict, List, Optional
 
-CARD_FILES_GLOB = [
-    Path("csv_files/blue_cards.csv"),
-    Path("csv_files/white_cards.csv"),
-    Path("csv_files/black_cards.csv"),
-    Path("csv_files/red_cards.csv"),
-    Path("csv_files/green_cards.csv"),
-    Path("csv_files/colorless_cards.csv"),
-    Path("csv_files/cards.csv"),  # fallback large file last
-]
-
+# M4: No longer need CSV file glob, we load from Parquet
 THEME_TAGS_COL = "themeTags"
 NAME_COL = "name"
 COLOR_IDENTITY_COL = "colorIdentity"
@@ -53,75 +44,63 @@ def _normalize_rarity(raw: str) -> str:
     r = (raw or "").strip().lower()
     return _RARITY_NORM.get(r, r)
 
-def _resolve_card_files() -> List[Path]:
-    """Return base card file list + any extra test files supplied via env.
-
-    Environment variable: CARD_INDEX_EXTRA_CSV can contain a comma or semicolon
-    separated list of additional CSV paths (used by tests to inject synthetic
-    edge cases without polluting production shards).
-    """
-    files: List[Path] = list(CARD_FILES_GLOB)
-    extra = os.getenv("CARD_INDEX_EXTRA_CSV")
-    if extra:
-        for part in extra.replace(";", ",").split(","):
-            p = part.strip()
-            if not p:
-                continue
-            path_obj = Path(p)
-            # Include even if missing; maybe created later in test before build
-            files.append(path_obj)
-    return files
-
 
 def maybe_build_index() -> None:
-    """Rebuild the index if any card CSV mtime changed.
+    """Rebuild the index if the Parquet file mtime changed.
 
-    Incorporates any extra CSVs specified via CARD_INDEX_EXTRA_CSV.
+    M4: Loads from all_cards.parquet instead of CSV files.
     """
     global _CARD_INDEX, _CARD_INDEX_MTIME
-    latest = 0.0
-    card_files = _resolve_card_files()
-    for p in card_files:
-        if p.exists():
-            mt = p.stat().st_mtime
-            if mt > latest:
-                latest = mt
-    if _CARD_INDEX and _CARD_INDEX_MTIME and latest <= _CARD_INDEX_MTIME:
-        return
-    new_index: Dict[str, List[Dict[str, Any]]] = {}
-    for p in card_files:
-        if not p.exists():
-            continue
-        try:
-            with p.open("r", encoding="utf-8", newline="") as fh:
-                reader = csv.DictReader(fh)
-                if not reader.fieldnames or THEME_TAGS_COL not in reader.fieldnames:
+    
+    try:
+        from path_util import get_processed_cards_path
+        from deck_builder import builder_utils as bu
+        
+        parquet_path = Path(get_processed_cards_path())
+        if not parquet_path.exists():
+            return
+            
+        latest = parquet_path.stat().st_mtime
+        if _CARD_INDEX and _CARD_INDEX_MTIME and latest <= _CARD_INDEX_MTIME:
+            return
+        
+        # Load from Parquet
+        df = bu._load_all_cards_parquet()
+        if df.empty or THEME_TAGS_COL not in df.columns:
+            return
+        
+        new_index: Dict[str, List[Dict[str, Any]]] = {}
+        
+        for _, row in df.iterrows():
+            name = row.get(NAME_COL) or row.get("faceName") or ""
+            tags = row.get(THEME_TAGS_COL)
+            
+            # Handle tags (already a list after our conversion in builder_utils)
+            if not tags or not isinstance(tags, list):
+                continue
+                
+            color_id = str(row.get(COLOR_IDENTITY_COL) or "").strip()
+            mana_cost = str(row.get(MANA_COST_COL) or "").strip()
+            rarity = _normalize_rarity(str(row.get(RARITY_COL) or ""))
+            
+            for tg in tags:
+                if not tg:
                     continue
-                for row in reader:
-                    name = row.get(NAME_COL) or row.get("faceName") or ""
-                    tags_raw = row.get(THEME_TAGS_COL) or ""
-                    tags = [t.strip(" '[]") for t in tags_raw.split(',') if t.strip()] if tags_raw else []
-                    if not tags:
-                        continue
-                    color_id = (row.get(COLOR_IDENTITY_COL) or "").strip()
-                    mana_cost = (row.get(MANA_COST_COL) or "").strip()
-                    rarity = _normalize_rarity(row.get(RARITY_COL) or "")
-                    for tg in tags:
-                        if not tg:
-                            continue
-                        new_index.setdefault(tg, []).append({
-                            "name": name,
-                            "color_identity": color_id,
-                            "tags": tags,
-                            "mana_cost": mana_cost,
-                            "rarity": rarity,
-                            "color_identity_list": list(color_id) if color_id else [],
-                            "pip_colors": [c for c in mana_cost if c in {"W","U","B","R","G"}],
-                        })
-        except Exception:
-            continue
-    _CARD_INDEX = new_index
-    _CARD_INDEX_MTIME = latest
+                new_index.setdefault(tg, []).append({
+                    "name": name,
+                    "color_identity": color_id,
+                    "tags": tags,
+                    "mana_cost": mana_cost,
+                    "rarity": rarity,
+                    "color_identity_list": [c.strip() for c in color_id.split(',') if c.strip()],
+                    "pip_colors": [c for c in mana_cost if c in {"W","U","B","R","G"}],
+                })
+        
+        _CARD_INDEX = new_index
+        _CARD_INDEX_MTIME = latest
+    except Exception:
+        # Defensive: if anything fails, leave index unchanged
+        pass
 
 def get_tag_pool(tag: str) -> List[Dict[str, Any]]:
     return _CARD_INDEX.get(tag, [])

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Test Lightning Bolt directly"""
+"""Test Lightning Bolt directly - M4: Updated for Parquet"""
 
 import sys
 import os
@@ -7,8 +7,10 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'code'))
 
 from deck_builder.include_exclude_utils import fuzzy_match_card_name
 import pandas as pd
+from path_util import get_processed_cards_path
 
-cards_df = pd.read_csv('csv_files/cards.csv', low_memory=False)
+# M4: Load from Parquet instead of CSV
+cards_df = pd.read_parquet(get_processed_cards_path())
 available_cards = set(cards_df['name'].dropna().unique())
 
 # Test if Lightning Bolt gets the right score

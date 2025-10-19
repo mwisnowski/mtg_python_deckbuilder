@@ -288,7 +288,7 @@
             </div>
 
             <!-- Card Details Button -->
-            <a href="/cards/{{ card.name }}" class="similar-card-details-btn" onclick="event.stopPropagation()">
+            <a href="/cards/{{ card.name|urlencode }}" class="similar-card-details-btn" onclick="event.stopPropagation()">
                 Card Details
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                     <path d="M8.707 3.293a1 1 0 010 1.414L5.414 8l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" transform="rotate(180 8 8)"/>

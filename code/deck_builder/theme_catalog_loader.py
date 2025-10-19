@@ -9,9 +9,9 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Iterable, Tuple
 
-from code.logging_util import get_logger
+import logging_util
 
-LOGGER = get_logger(__name__)
+LOGGER = logging_util.get_logger(__name__)
 
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_CATALOG_PATH = ROOT / "config" / "themes" / "theme_catalog.csv"

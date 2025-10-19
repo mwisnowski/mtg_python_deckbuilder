@@ -83,12 +83,7 @@ jobs:
         run: |
           python -c "from code.tagging.tagger import run_tagging; run_tagging(parallel=False)"
       
-      - name: Build all_cards.parquet (needed for similarity cache, but not committed)
-        if: steps.check_cache.outputs.needs_build == 'true'
-        run: |
-          python -c "from code.file_setup.card_aggregator import CardAggregator; agg = CardAggregator(); stats = agg.aggregate_all('csv_files', 'card_files/all_cards.parquet'); print(f'Created all_cards.parquet with {stats[\"total_cards\"]:,} cards')"
-      
-      - name: Build similarity cache (Parquet)
+      - name: Build similarity cache (Parquet) from card_files/processed/all_cards.parquet
         if: steps.check_cache.outputs.needs_build == 'true'
         run: |
           python -m code.scripts.build_similarity_cache_parquet --parallel --checkpoint-interval 1000 --force
@@ -160,14 +155,25 @@ jobs:
             echo "# Similarity Cache Data" > README.md
             echo "This branch contains pre-built similarity cache files for the MTG Deckbuilder." >> README.md
             echo "Updated automatically by GitHub Actions." >> README.md
+            echo "" >> README.md
+            echo "## Files" >> README.md
+            echo "- \`card_files/similarity_cache.parquet\` - Pre-computed card similarity cache" >> README.md
+            echo "- \`card_files/similarity_cache_metadata.json\` - Cache metadata" >> README.md
+            echo "- \`card_files/processed/all_cards.parquet\` - Tagged card database" >> README.md
+            echo "- \`card_files/processed/.tagging_complete.json\` - Tagging status" >> README.md
           fi
           
-          # Ensure card_files directory exists
-          mkdir -p card_files
+          # Ensure directories exist
+          mkdir -p card_files/processed
           
-          # Add only the similarity cache files (use -f to override .gitignore)
+          # Add similarity cache files (use -f to override .gitignore)
           git add -f card_files/similarity_cache.parquet
           git add -f card_files/similarity_cache_metadata.json
+          
+          # Add processed Parquet and status file
+          git add -f card_files/processed/all_cards.parquet
+          git add -f card_files/processed/.tagging_complete.json
+          
           git add README.md 2>/dev/null || true
           
           # Check if there are changes to commit

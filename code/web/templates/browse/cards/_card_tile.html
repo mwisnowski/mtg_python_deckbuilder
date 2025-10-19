@@ -57,7 +57,7 @@
 
     {# Card Details button (only show if feature enabled) #}
     {% if enable_card_details %}
-    <a href="/cards/{{ card.name }}" class="card-details-btn" onclick="event.stopPropagation()">
+    <a href="/cards/{{ card.name|urlencode }}" class="card-details-btn" onclick="event.stopPropagation()">
       Card Details
       <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
         <path d="M8.707 3.293a1 1 0 010 1.414L5.414 8l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" transform="rotate(180 8 8)"/>

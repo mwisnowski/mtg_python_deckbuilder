@@ -841,7 +841,42 @@ def tag_with_rules_and_logging(
             affected |= mask
     
     count = affected.sum()
-    color_part = f'{color} ' if color else ''
+    # M4 (Parquet Migration): Display color identity more clearly
+    if color:
+        # Map color codes to friendly names
+        color_map = {
+            'w': 'white',
+            'u': 'blue',
+            'b': 'black',
+            'r': 'red',
+            'g': 'green',
+            'wu': 'Azorius',
+            'wb': 'Orzhov',
+            'wr': 'Boros',
+            'wg': 'Selesnya',
+            'ub': 'Dimir',
+            'ur': 'Izzet',
+            'ug': 'Simic',
+            'br': 'Rakdos',
+            'bg': 'Golgari',
+            'rg': 'Gruul',
+            'wub': 'Esper',
+            'wur': 'Jeskai',
+            'wug': 'Bant',
+            'wbr': 'Mardu',
+            'wbg': 'Abzan',
+            'wrg': 'Naya',
+            'ubr': 'Grixis',
+            'ubg': 'Sultai',
+            'urg': 'Temur',
+            'brg': 'Jund',
+            'wubrg': '5-color',
+            '': 'colorless'
+        }
+        color_display = color_map.get(color, color)
+        color_part = f'{color_display} '
+    else:
+        color_part = ''
     full_message = f'Tagged {count} {color_part}{summary_message}'
     
     if logger:

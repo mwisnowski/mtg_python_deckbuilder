@@ -71,16 +71,56 @@ def _resolved_csv_dir(base_dir: str | None = None) -> str:
 		return base_dir or csv_dir()
 
 
+def _load_all_cards_parquet() -> pd.DataFrame:
+	"""Load all cards from the unified Parquet file.
+	
+	M4: Centralized Parquet loading for deck builder.
+	Returns empty DataFrame on error (defensive).
+	Converts numpy arrays to Python lists for compatibility with existing code.
+	"""
+	try:
+		from code.path_util import get_processed_cards_path
+		from code.file_setup.data_loader import DataLoader
+		import numpy as np
+		
+		parquet_path = get_processed_cards_path()
+		if not Path(parquet_path).exists():
+			return pd.DataFrame()
+		
+		data_loader = DataLoader()
+		df = data_loader.read_cards(parquet_path, format="parquet")
+		
+		# M4: Convert numpy arrays to Python lists for compatibility
+		# Parquet stores lists as numpy arrays, but existing code expects Python lists
+		list_columns = ['themeTags', 'creatureTypes', 'metadataTags', 'keywords']
+		for col in list_columns:
+			if col in df.columns:
+				df[col] = df[col].apply(lambda x: x.tolist() if isinstance(x, np.ndarray) else x)
+		
+		return df
+	except Exception:
+		return pd.DataFrame()
+
+
 @lru_cache(maxsize=None)
 def _load_multi_face_land_map(base_dir: str) -> Dict[str, Dict[str, Any]]:
-	"""Load mapping of multi-faced cards that have at least one land face."""
+	"""Load mapping of multi-faced cards that have at least one land face.
+	
+	M4: Migrated to use Parquet loading. base_dir parameter kept for
+	backward compatibility but now only used as cache key.
+	"""
 	try:
-		base_path = Path(base_dir)
-		csv_path = base_path / 'cards.csv'
-		if not csv_path.exists():
+		# M4: Load from Parquet instead of CSV
+		df = _load_all_cards_parquet()
+		if df.empty:
 			return {}
+		
+		# Select only needed columns
 		usecols = ['name', 'layout', 'side', 'type', 'text', 'manaCost', 'manaValue', 'faceName']
-		df = pd.read_csv(csv_path, usecols=usecols, low_memory=False)
+		available_cols = [col for col in usecols if col in df.columns]
+		if not available_cols:
+			return {}
+		df = df[available_cols].copy()
 	except Exception:
 		return {}
 	if df.empty or 'layout' not in df.columns or 'type' not in df.columns:
@@ -170,7 +210,13 @@ def parse_theme_tags(val) -> list[str]:
 	  ['Tag1', 'Tag2']
 	  "['Tag1', 'Tag2']"
 	  Tag1, Tag2
+	  numpy.ndarray (from Parquet)
 	Returns list of stripped string tags (may be empty)."""
+	# M4: Handle numpy arrays from Parquet
+	import numpy as np
+	if isinstance(val, np.ndarray):
+		return [str(x).strip() for x in val.tolist() if x and str(x).strip()]
+	
 	if isinstance(val, list):
 		flat: list[str] = []
 		for v in val:

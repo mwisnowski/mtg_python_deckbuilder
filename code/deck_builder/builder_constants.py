@@ -1,9 +1,12 @@
 from typing import Dict, List, Final, Tuple, Union, Callable, Any as _Any
 from settings import CARD_DATA_COLUMNS as CSV_REQUIRED_COLUMNS  # unified
 from path_util import csv_dir
+import pandas as pd
 
 __all__ = [
-    'CSV_REQUIRED_COLUMNS'
+    'CSV_REQUIRED_COLUMNS',
+    'get_commanders',
+    'get_backgrounds',
 ]
 import ast
 
@@ -14,8 +17,10 @@ MAX_FUZZY_CHOICES: Final[int] = 5  # Maximum number of fuzzy match choices
 
 # Commander-related constants
 DUPLICATE_CARD_FORMAT: Final[str] = '{card_name} x {count}'
+# M4: Deprecated - use Parquet loading instead
 COMMANDER_CSV_PATH: Final[str] = f"{csv_dir()}/commander_cards.csv"
 DECK_DIRECTORY = '../deck_files'
+# M4: Deprecated - Parquet handles types natively (no converters needed)
 COMMANDER_CONVERTERS: Final[Dict[str, str]] = {
     'themeTags': ast.literal_eval,
     'creatureTypes': ast.literal_eval,
@@ -918,3 +923,36 @@ ICONIC_CARDS: Final[set[str]] = {
     'Vampiric Tutor', 'Mystical Tutor', 'Enlightened Tutor', 'Worldly Tutor',
     'Eternal Witness', 'Solemn Simulacrum', 'Consecrated Sphinx', 'Avenger of Zendikar',
 }
+
+
+# M4: Parquet filtering helpers
+def get_commanders(df: pd.DataFrame) -> pd.DataFrame:
+    """Filter DataFrame to only commander-legal cards using isCommander flag.
+    
+    M4: Replaces CSV-based commander filtering with Parquet boolean flag.
+    
+    Args:
+        df: DataFrame with 'isCommander' column
+        
+    Returns:
+        Filtered DataFrame containing only commanders
+    """
+    if 'isCommander' not in df.columns:
+        return pd.DataFrame()
+    return df[df['isCommander'] == True].copy()  # noqa: E712
+
+
+def get_backgrounds(df: pd.DataFrame) -> pd.DataFrame:
+    """Filter DataFrame to only background cards using isBackground flag.
+    
+    M4: Replaces CSV-based background filtering with Parquet boolean flag.
+    
+    Args:
+        df: DataFrame with 'isBackground' column
+        
+    Returns:
+        Filtered DataFrame containing only backgrounds
+    """
+    if 'isBackground' not in df.columns:
+        return pd.DataFrame()
+    return df[df['isBackground'] == True].copy()  # noqa: E712

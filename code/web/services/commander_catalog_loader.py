@@ -2,14 +2,14 @@
 
 Responsibilities
 ================
-- Read and normalize `commander_cards.csv` (shared with the deck builder).
+- Read and normalize commander data from all_cards.parquet (M4 migration).
 - Produce deterministic commander records with rich metadata (slug, colors,
   partner/background flags, theme tags, Scryfall image URLs).
 - Cache the parsed catalog and invalidate on file timestamp changes.
 
-The loader operates without pandas to keep the web layer light-weight and to
-simplify unit testing. It honors the `CSV_FILES_DIR` environment variable via
-`path_util.csv_dir()` just like the CLI builder.
+M4: Updated to load from all_cards.parquet instead of commander_cards.csv.
+The loader uses pandas to filter commanders (isCommander == True) from the
+unified Parquet data source.
 """
 
 from __future__ import annotations
@@ -18,12 +18,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Iterable, List, Mapping, Optional, Tuple
 import ast
-import csv
 import os
 import re
 from urllib.parse import quote
 
-from path_util import csv_dir
 from deck_builder.partner_background_utils import analyze_partner_background
 
 __all__ = [
@@ -204,9 +202,11 @@ def find_commander_record(name: str | None) -> CommanderRecord | None:
 
 
 def _resolve_commander_path(source_path: str | os.PathLike[str] | None) -> Path:
+    """M4: Resolve Parquet path instead of commander_cards.csv."""
     if source_path is not None:
         return Path(source_path).resolve()
-    return (Path(csv_dir()) / "commander_cards.csv").resolve()
+    from path_util import get_processed_cards_path
+    return Path(get_processed_cards_path()).resolve()
 
 
 def _is_cache_valid(path: Path, cached: CommanderCatalog) -> bool:
@@ -221,24 +221,31 @@ def _is_cache_valid(path: Path, cached: CommanderCatalog) -> bool:
 
 
 def _build_catalog(path: Path) -> CommanderCatalog:
+    """M4: Load commanders from Parquet instead of CSV."""
     if not path.exists():
-        raise FileNotFoundError(f"Commander CSV not found at {path}")
+        raise FileNotFoundError(f"Commander Parquet not found at {path}")
 
     entries: List[CommanderRecord] = []
     used_slugs: set[str] = set()
 
-    with path.open("r", encoding="utf-8", newline="") as handle:
-        reader = csv.DictReader(handle)
-        if reader.fieldnames is None:
-            raise ValueError("Commander CSV missing header row")
+    # Load commanders from Parquet (isCommander == True)
+    from deck_builder import builder_utils as bu
+    df = bu._load_all_cards_parquet()
+    if df.empty or 'isCommander' not in df.columns:
+        raise ValueError("Parquet missing isCommander column")
+    
+    commanders_df = df[df['isCommander']].copy()
 
-        for index, row in enumerate(reader):
-            try:
-                record = _row_to_record(row, used_slugs)
-            except Exception:
-                continue
-            entries.append(record)
-            used_slugs.add(record.slug)
+    # Convert DataFrame rows to CommanderRecords
+    for _, row in commanders_df.iterrows():
+        try:
+            # Convert row to dict for _row_to_record
+            row_dict = row.to_dict()
+            record = _row_to_record(row_dict, used_slugs)
+        except Exception:
+            continue
+        entries.append(record)
+        used_slugs.add(record.slug)
 
     stat_result = path.stat()
     mtime_ns = getattr(stat_result, "st_mtime_ns", int(stat_result.st_mtime * 1_000_000_000))

@@ -77,6 +77,15 @@ def get_processed_cards_path() -> str:
     return os.path.join(card_files_processed_dir(), "all_cards.parquet")
 
 
+def get_commander_cards_path() -> str:
+    """Get the path to the pre-filtered commander-only Parquet file.
+    
+    Returns:
+        Path to card_files/processed/commander_cards.parquet
+    """
+    return os.path.join(card_files_processed_dir(), "commander_cards.parquet")
+
+
 def get_batch_path(batch_id: int) -> str:
     """Get the path to a batch Parquet file.
     

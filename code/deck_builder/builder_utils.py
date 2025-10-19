@@ -71,33 +71,61 @@ def _resolved_csv_dir(base_dir: str | None = None) -> str:
 		return base_dir or csv_dir()
 
 
+# M7: Cache for all cards Parquet DataFrame to avoid repeated loads
+_ALL_CARDS_CACHE: Dict[str, Any] = {"df": None, "mtime": None}
+
+
 def _load_all_cards_parquet() -> pd.DataFrame:
-	"""Load all cards from the unified Parquet file.
+	"""Load all cards from the unified Parquet file with caching.
 	
 	M4: Centralized Parquet loading for deck builder.
+	M7: Added module-level caching to avoid repeated file loads.
 	Returns empty DataFrame on error (defensive).
 	Converts numpy arrays to Python lists for compatibility with existing code.
 	"""
+	global _ALL_CARDS_CACHE
+	
 	try:
 		from code.path_util import get_processed_cards_path
 		from code.file_setup.data_loader import DataLoader
 		import numpy as np
+		import os
 		
 		parquet_path = get_processed_cards_path()
 		if not Path(parquet_path).exists():
 			return pd.DataFrame()
 		
-		data_loader = DataLoader()
-		df = data_loader.read_cards(parquet_path, format="parquet")
+		# M7: Check cache and mtime
+		need_reload = _ALL_CARDS_CACHE["df"] is None
+		if not need_reload:
+			try:
+				current_mtime = os.path.getmtime(parquet_path)
+				cached_mtime = _ALL_CARDS_CACHE.get("mtime")
+				if cached_mtime is None or current_mtime > cached_mtime:
+					need_reload = True
+			except Exception:
+				# If mtime check fails, use cached version if available
+				pass
 		
-		# M4: Convert numpy arrays to Python lists for compatibility
-		# Parquet stores lists as numpy arrays, but existing code expects Python lists
-		list_columns = ['themeTags', 'creatureTypes', 'metadataTags', 'keywords']
-		for col in list_columns:
-			if col in df.columns:
-				df[col] = df[col].apply(lambda x: x.tolist() if isinstance(x, np.ndarray) else x)
+		if need_reload:
+			data_loader = DataLoader()
+			df = data_loader.read_cards(parquet_path, format="parquet")
+			
+			# M4: Convert numpy arrays to Python lists for compatibility
+			# Parquet stores lists as numpy arrays, but existing code expects Python lists
+			list_columns = ['themeTags', 'creatureTypes', 'metadataTags', 'keywords']
+			for col in list_columns:
+				if col in df.columns:
+					df[col] = df[col].apply(lambda x: x.tolist() if isinstance(x, np.ndarray) else x)
+			
+			# M7: Cache the result
+			_ALL_CARDS_CACHE["df"] = df
+			try:
+				_ALL_CARDS_CACHE["mtime"] = os.path.getmtime(parquet_path)
+			except Exception:
+				_ALL_CARDS_CACHE["mtime"] = None
 		
-		return df
+		return _ALL_CARDS_CACHE["df"]
 	except Exception:
 		return pd.DataFrame()
 

@@ -8,7 +8,28 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 - Link PRs/issues inline when helpful, e.g., (#123) or [#123]. Reference-style links at the bottom are encouraged for readability.
 
 ## [Unreleased]
-_No unreleased changes yet_
+### Added
+_None_
+
+### Changed
+_None_
+
+### Removed
+_None_
+
+### Fixed
+- **Color Identity Display**: Fixed commander color identity showing incorrectly as "Colorless (C)" for non-partner commanders in the summary panel
+
+### Performance
+- **Commander Selection Speed**: Dramatically improved response time from 4+ seconds to under 1 second
+  - Implemented intelligent caching for card data to eliminate redundant file loading
+  - Both commander data and full card database now cached with automatic refresh when data updates
+
+### Deprecated
+_None_
+
+### Security
+_None_
 
 ## [3.0.0] - 2025-10-19
 ### Summary

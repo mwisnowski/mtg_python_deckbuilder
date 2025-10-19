@@ -315,6 +315,15 @@ def commander_hover_context(
             token = str(item).strip().upper()
             if token:
                 commander_color_identity.append(token)
+    
+    # M7: For non-partner commanders, also check summary.colors for color identity
+    if not commander_color_identity and not has_combined and isinstance(summary, dict):
+        summary_colors = summary.get("colors")
+        if isinstance(summary_colors, (list, tuple, set)):
+            for item in summary_colors:
+                token = str(item).strip().upper()
+                if token:
+                    commander_color_identity.append(token)
 
     commander_color_label = ""
     if has_combined:

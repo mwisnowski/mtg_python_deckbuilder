@@ -155,7 +155,7 @@ def build_cache(
     """
     Build similarity cache for all cards.
     
-    NOTE: Assumes card data (cards.csv, all_cards.parquet) and tagged data already exist.
+    NOTE: Assumes card data (card_files/processed/all_cards.parquet) and tagged data already exist.
     Run setup and tagging separately before building cache.
 
     Args:
@@ -202,7 +202,8 @@ def build_cache(
     df = similarity.cards_df
     df["is_land"] = df["type"].str.contains("Land", case=False, na=False)
     df["is_multifaced"] = df["layout"].str.lower().isin(["modal_dfc", "transform", "reversible_card", "double_faced_token"])
-    df["tag_count"] = df["themeTags"].apply(lambda x: len(x.split("|")) if pd.notna(x) and x else 0)
+    # M4: themeTags is now a list (Parquet format), not a pipe-delimited string
+    df["tag_count"] = df["themeTags"].apply(lambda x: len(x) if isinstance(x, list) else 0)
 
     # Keep cards that are either:
     # 1. Not lands, OR

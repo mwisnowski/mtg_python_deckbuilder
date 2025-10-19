@@ -104,8 +104,10 @@ Execute saved configs without manual input.
 
 ### Initial Setup
 Refresh data and caches when formats shift.
-- Runs card downloads, CSV regeneration, smart tagging (keywords + protection grants), and commander catalog rebuilds.
-- Controlled by `SHOW_SETUP=1` (on by default in compose).
+- **First run**: Auto-downloads pre-tagged card database from GitHub (instant setup)
+- **Manual refresh**: Download button in web UI or run setup locally
+- Runs card downloads, data generation, smart tagging (keywords + protection grants), and commander catalog rebuilds
+- Controlled by `SHOW_SETUP=1` (on by default in compose)
 - **Force a full rebuild (setup + tagging)**:
   ```powershell
   # Docker:
@@ -120,7 +122,7 @@ Refresh data and caches when formats shift.
   # With parallel processing and custom worker count:
   python -c "from code.file_setup.setup import initial_setup; from code.tagging.tagger import run_tagging; initial_setup(); run_tagging(parallel=True, max_workers=4)"
   ```
-- **Rebuild only CSVs without tagging**:
+- **Rebuild only data without tagging**:
   ```powershell
   # Docker:
   docker compose run --rm web python -c "from code.file_setup.setup import initial_setup; initial_setup()"

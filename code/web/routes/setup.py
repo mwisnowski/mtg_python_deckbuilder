@@ -3,7 +3,6 @@ from __future__ import annotations
 import threading
 from typing import Optional
 from fastapi import APIRouter, Request
-from fastapi import Body
 from pathlib import Path
 import json as _json
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -21,14 +20,19 @@ def _kickoff_setup_async(force: bool = False):
     """
     def runner():
         try:
+            print(f"[SETUP THREAD] Starting setup/tagging (force={force})...")
             _ensure_setup_ready(print, force=force)  # type: ignore[arg-type]
+            print("[SETUP THREAD] Setup/tagging completed successfully")
         except Exception as e:  # pragma: no cover - background best effort
             try:
-                print(f"Setup thread failed: {e}")
+                import traceback
+                print(f"[SETUP THREAD] Setup thread failed: {e}")
+                print(f"[SETUP THREAD] Traceback:\n{traceback.format_exc()}")
             except Exception:
                 pass
     t = threading.Thread(target=runner, daemon=True)
     t.start()
+    print(f"[SETUP] Background thread started (force={force})")
 
 
 @router.get("/running", response_class=HTMLResponse)
@@ -54,8 +58,16 @@ async def setup_running(request: Request, start: Optional[int] = 0, next: Option
 
 
 @router.post("/start")
-async def setup_start(request: Request, force: bool = Body(False)):  # accept JSON body {"force": true}
+async def setup_start(request: Request):
+    """POST endpoint for setup/tagging. Accepts JSON body {"force": true/false} or query string ?force=1"""
+    force = False
     try:
+        # Try to parse JSON body first
+        try:
+            body = await request.json()
+            force = bool(body.get('force', False))
+        except Exception:
+            pass
         # Allow query string override as well (?force=1)
         try:
             q_force = request.query_params.get('force')
@@ -108,51 +120,75 @@ async def setup_start_get(request: Request):
         return JSONResponse({"ok": False}, status_code=500)
 
 
-@router.post("/rebuild-cards")
-async def rebuild_cards():
-    """Manually trigger card aggregation (all_cards.parquet, commander_cards.parquet, background_cards.parquet)."""
-    def runner():
-        try:
-            print("Starting manual card aggregation...")
-            from file_setup.card_aggregator import CardAggregator  # type: ignore
-            import pandas as pd  # type: ignore
-            import os
-            
-            aggregator = CardAggregator()
-            
-            # Aggregate all_cards.parquet
-            stats = aggregator.aggregate_all('csv_files', 'card_files/all_cards.parquet')
-            print(f"Aggregated {stats['total_cards']} cards into all_cards.parquet ({stats['file_size_mb']} MB)")
-            
-            # Convert commander_cards.csv to Parquet
-            commander_csv = 'csv_files/commander_cards.csv'
-            commander_parquet = 'card_files/commander_cards.parquet'
-            if os.path.exists(commander_csv):
-                df_cmd = pd.read_csv(commander_csv, comment='#', low_memory=False)
-                for col in ["power", "toughness", "keywords"]:
-                    if col in df_cmd.columns:
-                        df_cmd[col] = df_cmd[col].astype(str)
-                df_cmd.to_parquet(commander_parquet, engine="pyarrow", compression="snappy", index=False)
-                print(f"Converted commander_cards.csv to Parquet ({len(df_cmd)} commanders)")
-            
-            # Convert background_cards.csv to Parquet
-            background_csv = 'csv_files/background_cards.csv'
-            background_parquet = 'card_files/background_cards.parquet'
-            if os.path.exists(background_csv):
-                df_bg = pd.read_csv(background_csv, comment='#', low_memory=False)
-                for col in ["power", "toughness", "keywords"]:
-                    if col in df_bg.columns:
-                        df_bg[col] = df_bg[col].astype(str)
-                df_bg.to_parquet(background_parquet, engine="pyarrow", compression="snappy", index=False)
-                print(f"Converted background_cards.csv to Parquet ({len(df_bg)} backgrounds)")
-            
-            print("Card aggregation complete!")
-        except Exception as e:
-            print(f"Card aggregation failed: {e}")
+@router.post("/download-github")
+async def download_github():
+    """Download pre-tagged database from GitHub similarity-cache-data branch."""
+    import urllib.request
+    import urllib.error
+    import shutil
+    from pathlib import Path
     
-    t = threading.Thread(target=runner, daemon=True)
-    t.start()
-    return JSONResponse({"ok": True, "message": "Card aggregation started"}, status_code=202)
+    try:
+        # GitHub raw URLs for the similarity-cache-data branch
+        base_url = "https://raw.githubusercontent.com/mwisnowski/mtg_python_deckbuilder/similarity-cache-data"
+        
+        files_to_download = [
+            ("card_files/processed/all_cards.parquet", "card_files/processed/all_cards.parquet"),
+            ("card_files/processed/.tagging_complete.json", "card_files/processed/.tagging_complete.json"),
+            ("card_files/similarity_cache.parquet", "card_files/similarity_cache.parquet"),
+            ("card_files/similarity_cache_metadata.json", "card_files/similarity_cache_metadata.json"),
+        ]
+        
+        downloaded = []
+        failed = []
+        
+        for remote_path, local_path in files_to_download:
+            url = f"{base_url}/{remote_path}"
+            dest = Path(local_path)
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            
+            try:
+                print(f"[DOWNLOAD] Fetching {url}...")
+                with urllib.request.urlopen(url, timeout=60) as response:
+                    with dest.open('wb') as out_file:
+                        shutil.copyfileobj(response, out_file)
+                downloaded.append(local_path)
+                print(f"[DOWNLOAD] Saved to {local_path}")
+            except urllib.error.HTTPError as e:
+                if e.code == 404:
+                    print(f"[DOWNLOAD] File not found (404): {remote_path}")
+                    failed.append(f"{remote_path} (not yet available)")
+                else:
+                    print(f"[DOWNLOAD] HTTP error {e.code}: {remote_path}")
+                    failed.append(f"{remote_path} (HTTP {e.code})")
+            except Exception as e:
+                print(f"[DOWNLOAD] Failed to download {remote_path}: {e}")
+                failed.append(f"{remote_path} ({str(e)[:50]})")
+        
+        if downloaded:
+            msg = f"Downloaded {len(downloaded)} file(s) from GitHub"
+            if failed:
+                msg += f" ({len(failed)} unavailable)"
+            return JSONResponse({
+                "ok": True,
+                "message": msg,
+                "files": downloaded,
+                "failed": failed
+            })
+        else:
+            # No files downloaded - likely the branch doesn't exist yet
+            return JSONResponse({
+                "ok": False,
+                "message": "Files not available yet. Run the 'Build Similarity Cache' workflow on GitHub first, or use 'Run Setup/Tagging' to build locally.",
+                "failed": failed
+            }, status_code=404)
+            
+    except Exception as e:
+        print(f"[DOWNLOAD] Error: {e}")
+        return JSONResponse({
+            "ok": False,
+            "message": f"Download failed: {str(e)}"
+        }, status_code=500)
 
 
 @router.get("/", response_class=HTMLResponse)

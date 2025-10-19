@@ -22,6 +22,20 @@
     </div>
   </details>
 
+  <details style="margin-top:1rem;">
+    <summary>Download Pre-tagged Database from GitHub (Optional)</summary>
+    <div style="margin-top:.5rem; padding:1rem; border:1px solid var(--border); background:#0f1115; border-radius:8px;">
+      <p class="muted" style="margin:0 0 .75rem 0; font-size:.9rem;">
+        Download pre-tagged card database and similarity cache from GitHub (updated weekly). 
+        <strong>Note:</strong> A fresh local tagging run will be most up-to-date with the latest card data.
+      </p>
+      <button type="button" class="action-btn" onclick="downloadFromGitHub()" id="btn-download-github">
+        Download from GitHub
+      </button>
+      <div id="download-status" class="muted" style="margin-top:.5rem; display:none;"></div>
+    </div>
+  </details>
+
   <div style="margin-top:1rem; display:flex; gap:.5rem; flex-wrap:wrap;">
     <form id="frm-start-setup" action="/setup/start" method="post" onsubmit="event.preventDefault(); startSetup();">
       <button type="submit" id="btn-start-setup" class="action-btn">Run Setup/Tagging</button>
@@ -45,7 +59,6 @@
   </details>
   <div style="margin-top:.75rem; display:flex; gap:.5rem; flex-wrap:wrap;">
     <button type="button" id="btn-refresh-themes" class="action-btn" onclick="refreshThemes()">Refresh Themes Only</button>
-    <button type="button" id="btn-rebuild-cards" class="action-btn" onclick="rebuildCards()">Rebuild Card Files</button>
   </div>
 
   {% if similarity_enabled %}
@@ -215,6 +228,37 @@
     }
     tick();
   }
+  window.downloadFromGitHub = function(){
+    var btn = document.getElementById('btn-download-github');
+    var statusEl = document.getElementById('download-status');
+    if (btn) btn.disabled = true;
+    if (statusEl) {
+      statusEl.style.display = '';
+      statusEl.textContent = 'Downloading from GitHub...';
+    }
+    
+    fetch('/setup/download-github', { method: 'POST' })
+      .then(function(r){ 
+        if (!r.ok) throw new Error('Download failed'); 
+        return r.json(); 
+      })
+      .then(function(data){
+        if (statusEl) {
+          statusEl.style.color = '#34d399';
+          statusEl.textContent = '✓ ' + (data.message || 'Download complete');
+        }
+        // Refresh status displays
+        poll();
+        setTimeout(function(){ if (btn) btn.disabled = false; }, 2000);
+      })
+      .catch(function(err){
+        if (statusEl) {
+          statusEl.style.color = '#f87171';
+          statusEl.textContent = '✗ Download failed: ' + (err.message || 'Unknown error');
+        }
+        if (btn) btn.disabled = false;
+      });
+  };
   window.startSetup = function(){
     var btn = document.getElementById('btn-start-setup');
     var line = document.getElementById('setup-status-line');
@@ -233,30 +277,6 @@
           .catch(function(){});
       })
       .finally(function(){ if (btn) btn.disabled = false; });
-  };
-  window.rebuildCards = function(){
-    var btn = document.getElementById('btn-rebuild-cards');
-    if (btn) btn.disabled = true;
-    if (btn) btn.textContent = 'Rebuilding...';
-    fetch('/setup/rebuild-cards', { method: 'POST', headers: { 'Content-Type': 'application/json' } })
-      .then(function(r){ 
-        if (!r.ok) throw new Error('Rebuild failed'); 
-        return r.json(); 
-      })
-      .then(function(data){ 
-        if (btn) btn.textContent = 'Rebuild Complete!';
-        setTimeout(function(){ 
-          if (btn) btn.textContent = 'Rebuild Card Files'; 
-          if (btn) btn.disabled = false; 
-        }, 2000);
-      })
-      .catch(function(err){ 
-        if (btn) btn.textContent = 'Rebuild Failed'; 
-        setTimeout(function(){ 
-          if (btn) btn.textContent = 'Rebuild Card Files'; 
-          if (btn) btn.disabled = false; 
-        }, 2000);
-      });
   };
 
   // Similarity cache status polling

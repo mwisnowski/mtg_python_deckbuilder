@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from functools import lru_cache
 from typing import Iterable, List, Sequence
 
-from code.deck_builder.theme_catalog_loader import ThemeCatalogEntry
+from .theme_catalog_loader import ThemeCatalogEntry
 
 __all__ = [
     "normalize_theme",

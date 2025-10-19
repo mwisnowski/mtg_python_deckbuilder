@@ -31,18 +31,22 @@ def _is_stale(file1: str, file2: str) -> bool:
     return os.path.getmtime(file2) < os.path.getmtime(file1)
 
 def _ensure_data_ready():
-    cards_csv = os.path.join("csv_files", "cards.csv")
+    # M4: Check for Parquet file instead of CSV
+    from path_util import get_processed_cards_path
+    
+    parquet_path = get_processed_cards_path()
     tagging_json = os.path.join("csv_files", ".tagging_complete.json")
-    # If cards.csv is missing, run full setup+tagging
-    if not os.path.isfile(cards_csv):
-        print("cards.csv not found, running full setup and tagging...")
+    
+    # If all_cards.parquet is missing, run full setup+tagging
+    if not os.path.isfile(parquet_path):
+        print("all_cards.parquet not found, running full setup and tagging...")
         initial_setup()
-        tagger.run_tagging()
+        tagger.run_tagging(parallel=True)  # Use parallel tagging for performance
         _write_tagging_flag(tagging_json)
     # If tagging_complete is missing or stale, run tagging
-    elif not os.path.isfile(tagging_json) or _is_stale(cards_csv, tagging_json):
+    elif not os.path.isfile(tagging_json) or _is_stale(parquet_path, tagging_json):
         print(".tagging_complete.json missing or stale, running tagging...")
-        tagger.run_tagging()
+        tagger.run_tagging(parallel=True)  # Use parallel tagging for performance
         _write_tagging_flag(tagging_json)
 
 def _write_tagging_flag(tagging_json):

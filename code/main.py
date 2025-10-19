@@ -25,6 +25,7 @@ from file_setup.setup import initial_setup
 from tagging import tagger
 import logging_util
 from settings import CSV_DIRECTORY
+from path_util import get_processed_cards_path
 
 # Create logger for this module
 logger = logging_util.logging.getLogger(__name__)
@@ -40,24 +41,24 @@ def _ensure_data_ready() -> None:
     Path('deck_files').mkdir(parents=True, exist_ok=True)
     Path('logs').mkdir(parents=True, exist_ok=True)
 
-    # Ensure required CSVs exist and are tagged before proceeding
+    # Ensure required Parquet file exists and is tagged before proceeding
     try:
         import time
         import json as _json
         from datetime import datetime as _dt
-        cards_path = os.path.join(CSV_DIRECTORY, 'cards.csv')
+        parquet_path = get_processed_cards_path()
         flag_path = os.path.join(CSV_DIRECTORY, '.tagging_complete.json')
         refresh_needed = False
-        # Missing CSV forces refresh
-        if not os.path.exists(cards_path):
-            logger.info("cards.csv not found. Running initial setup and tagging...")
+        # Missing Parquet file forces refresh
+        if not os.path.exists(parquet_path):
+            logger.info("all_cards.parquet not found. Running initial setup and tagging...")
             refresh_needed = True
         else:
-            # Stale CSV (>7 days) forces refresh
+            # Stale Parquet file (>7 days) forces refresh
             try:
-                age_seconds = time.time() - os.path.getmtime(cards_path)
+                age_seconds = time.time() - os.path.getmtime(parquet_path)
                 if age_seconds > 7 * 24 * 60 * 60:
-                    logger.info("cards.csv is older than 7 days. Refreshing data (setup + tagging)...")
+                    logger.info("all_cards.parquet is older than 7 days. Refreshing data (setup + tagging)...")
                     refresh_needed = True
             except Exception:
                 pass
@@ -67,7 +68,7 @@ def _ensure_data_ready() -> None:
             refresh_needed = True
         if refresh_needed:
             initial_setup()
-            tagger.run_tagging()
+            tagger.run_tagging(parallel=True)  # Use parallel tagging for performance
             # Write tagging completion flag
             try:
                 os.makedirs(CSV_DIRECTORY, exist_ok=True)

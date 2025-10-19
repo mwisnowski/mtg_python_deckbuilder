@@ -124,135 +124,74 @@ def add_names(names: Iterable[str]) -> Tuple[int, int]:
 
 
 def _enrich_from_csvs(target_names: Iterable[str]) -> Dict[str, Dict[str, object]]:
-    """Return metadata for target names by scanning csv_files/*_cards.csv.
+    """Return metadata for target names by scanning all_cards.parquet (M4).
     Output: { Name: { 'tags': [..], 'type': str|None, 'colors': [..] } }
     """
-    from pathlib import Path
-    import json as _json
-    import csv as _csv
-
-    base = Path('csv_files')
     meta: Dict[str, Dict[str, object]] = {}
     want = {str(n).strip().lower() for n in target_names if str(n).strip()}
-    if not (base.exists() and want):
+    if not want:
         return meta
-    csv_files = [p for p in base.glob('*_cards.csv') if p.name.lower() not in ('cards.csv', 'commander_cards.csv')]
 
-    def _norm(s: str) -> str: return str(s or '').strip().lower()
-    for path in csv_files:
-        try:
-            with path.open('r', encoding='utf-8', errors='ignore') as f:
-                reader = _csv.DictReader(f)
-                headers = [h for h in (reader.fieldnames or [])]
-                name_key = None
-                tags_key = None
-                type_key = None
-                colors_key = None
-                for h in headers:
-                    hn = _norm(h)
-                    if hn in ('name', 'card', 'cardname', 'card_name'):
-                        name_key = h
-                    if hn in ('tags', 'theme_tags', 'themetags', 'themetagsjson') or hn == 'themetags' or hn == 'themetagsjson':
-                        tags_key = h
-                    if hn in ('type', 'type_line', 'typeline'):
-                        type_key = h
-                    if hn in ('colors', 'coloridentity', 'color_identity', 'color'):
-                        colors_key = h
-                if not tags_key:
-                    for h in headers:
-                        if h.strip() in ('ThemeTags', 'themeTags'):
-                            tags_key = h
+    try:
+        from deck_builder import builder_utils as bu
+        df = bu._load_all_cards_parquet()
+        if df.empty:
+            return meta
+
+        # Filter to cards we care about
+        df['name_lower'] = df['name'].str.lower()
+        df_filtered = df[df['name_lower'].isin(want)].copy()
+
+        for _, row in df_filtered.iterrows():
+            nm = str(row.get('name') or '').strip()
+            if not nm:
+                continue
+
+            entry = meta.setdefault(nm, {"tags": [], "type": None, "colors": []})
+
+            # Tags (already a list after our conversion in builder_utils)
+            tags = row.get('themeTags')
+            if tags and isinstance(tags, list):
+                existing = entry.get('tags') or []
+                seen = {str(t).lower() for t in existing}
+                for t in tags:
+                    t_str = str(t).strip()
+                    if t_str and t_str.lower() not in seen:
+                        existing.append(t_str)
+                        seen.add(t_str.lower())
+                entry['tags'] = existing
+
+            # Type
+            if not entry.get('type'):
+                t_raw = str(row.get('type') or '').strip()
+                if t_raw:
+                    tline = t_raw.split('—')[0].strip() if '—' in t_raw else t_raw
+                    prim = None
+                    for cand in ['Creature','Instant','Sorcery','Artifact','Enchantment','Planeswalker','Land','Battle']:
+                        if cand.lower() in tline.lower():
+                            prim = cand
                             break
-                if not colors_key:
-                    for h in headers:
-                        if h.strip() in ('ColorIdentity', 'colorIdentity'):
-                            colors_key = h
-                            break
-                if not name_key:
-                    continue
-                for row in reader:
-                    try:
-                        nm = str(row.get(name_key) or '').strip()
-                        if not nm:
-                            continue
-                        low = nm.lower()
-                        if low not in want:
-                            continue
-                        entry = meta.setdefault(nm, {"tags": [], "type": None, "colors": []})
-                        # Tags
-                        if tags_key:
-                            raw = (row.get(tags_key) or '').strip()
-                            vals: List[str] = []
-                            if raw:
-                                if raw.startswith('['):
-                                    try:
-                                        arr = _json.loads(raw)
-                                        if isinstance(arr, list):
-                                            vals = [str(x).strip() for x in arr if str(x).strip()]
-                                    except Exception:
-                                        vals = []
-                                if not vals:
-                                    parts = [p.strip() for p in raw.replace(';', ',').split(',')]
-                                    vals = [p for p in parts if p]
-                            if vals:
-                                existing = entry.get('tags') or []
-                                seen = {str(t).lower() for t in existing}
-                                for t in vals:
-                                    if str(t).lower() not in seen:
-                                        existing.append(str(t))
-                                        seen.add(str(t).lower())
-                                entry['tags'] = existing
-                        # Type
-                        if type_key and not entry.get('type'):
-                            t_raw = str(row.get(type_key) or '').strip()
-                            if t_raw:
-                                tline = t_raw.split('—')[0].strip() if '—' in t_raw else t_raw
-                                prim = None
-                                for cand in ['Creature','Instant','Sorcery','Artifact','Enchantment','Planeswalker','Land','Battle']:
-                                    if cand.lower() in tline.lower():
-                                        prim = cand
-                                        break
-                                if not prim and tline:
-                                    prim = tline.split()[0]
-                                if prim:
-                                    entry['type'] = prim
-                        # Colors
-                        if colors_key and not entry.get('colors'):
-                            c_raw = str(row.get(colors_key) or '').strip()
-                            cols: List[str] = []
-                            if c_raw:
-                                if c_raw.startswith('['):
-                                    try:
-                                        arr = _json.loads(c_raw)
-                                        if isinstance(arr, list):
-                                            cols = [str(x).strip().upper() for x in arr if str(x).strip()]
-                                    except Exception:
-                                        cols = []
-                                if not cols:
-                                    parts = [p.strip().upper() for p in c_raw.replace(';', ',').replace('[','').replace(']','').replace("'",'').split(',') if p.strip()]
-                                    if parts:
-                                        cols = parts
-                                if not cols:
-                                    for ch in c_raw:
-                                        if ch.upper() in ('W','U','B','R','G','C'):
-                                            cols.append(ch.upper())
-                            if cols:
-                                seen_c = set()
-                                uniq = []
-                                for c in cols:
-                                    if c not in seen_c:
-                                        uniq.append(c)
-                                        seen_c.add(c)
-                                entry['colors'] = uniq
-                    except Exception:
-                        continue
-        except Exception:
-            continue
+                    if not prim and tline:
+                        prim = tline.split()[0]
+                    if prim:
+                        entry['type'] = prim
+
+            # Colors
+            if not entry.get('colors'):
+                colors_raw = str(row.get('colorIdentity') or '').strip()
+                if colors_raw:
+                    parts = [c.strip() for c in colors_raw.split(',') if c.strip()]
+                    entry['colors'] = parts
+
+    except Exception:
+        # Defensive: return empty or partial meta
+        pass
+
     return meta
 
 
 def add_and_enrich(names: Iterable[str]) -> Tuple[int, int]:
-    """Add names and enrich their metadata from CSVs in one pass.
+    """Add names and enrich their metadata from Parquet (M4).
     Returns (added_count, total_after).
     """
     data = _load_raw()

@@ -17,11 +17,12 @@ from . import tag_constants
 from . import tag_utils
 from .bracket_policy_applier import apply_bracket_policy_tags
 from .colorless_filter_applier import apply_colorless_filter_tags
-from .combo_tag_applier import apply_combo_tags
 from .multi_face_merger import merge_multi_face_rows
 import logging_util
+from file_setup import setup
 from file_setup.data_loader import DataLoader
-from settings import COLORS, MULTIPLE_COPY_CARDS
+from file_setup.setup_utils import enrich_commander_rows_with_tags
+from settings import COLORS, CSV_DIRECTORY, MULTIPLE_COPY_CARDS
 logger = logging_util.logging.getLogger(__name__)
 logger.setLevel(logging_util.LOG_LEVEL)
 logger.addHandler(logging_util.file_handler)
@@ -172,11 +173,10 @@ def _merge_summary_recorder(color: str):
 
 
 def _write_compat_snapshot(df: pd.DataFrame, color: str) -> None:
-    """Write DFC compatibility snapshot (diagnostic output, kept as CSV for now)."""
     try:  # type: ignore[name-defined]
         _DFC_COMPAT_DIR.mkdir(parents=True, exist_ok=True)
         path = _DFC_COMPAT_DIR / f"{color}_cards_unmerged.csv"
-        df.to_csv(path, index=False)  # M3: Kept as CSV (diagnostic only, not main data flow)
+        df.to_csv(path, index=False)
         logger.info("Wrote unmerged snapshot for %s to %s", color, path)
     except Exception as exc:
         logger.warning("Failed to write unmerged snapshot for %s: %s", color, exc)
@@ -327,124 +327,70 @@ def _apply_metadata_partition(df: pd.DataFrame) -> tuple[pd.DataFrame, Dict[str,
     return df, diagnostics
 
 ### Setup
-## Load and tag all cards from Parquet (M3: no longer per-color)
-def load_and_tag_all_cards(parallel: bool = False, max_workers: int | None = None) -> None:
+## Load the dataframe
+def load_dataframe(color: str) -> None:
     """
-    Load all cards from Parquet, apply tags, write back.
-    
-    M3.13: Now supports parallel tagging for significant performance improvement.
-    
+    Load and validate the card dataframe for a given color.
+
     Args:
-        parallel: If True, use parallel tagging (recommended - 2-3x faster)
-        max_workers: Maximum parallel workers (default: CPU count)
-    
+        color (str): The color of cards to load ('white', 'blue', etc)
+
     Raises:
-        FileNotFoundError: If all_cards.parquet doesn't exist
+        FileNotFoundError: If CSV file doesn't exist and can't be regenerated
         ValueError: If required columns are missing
     """
     try:
-        from code.path_util import get_processed_cards_path
-        
-        # Load from all_cards.parquet
-        all_cards_path = get_processed_cards_path()
-        
-        if not os.path.exists(all_cards_path):
-            raise FileNotFoundError(
-                f"Processed cards file not found: {all_cards_path}. "
-                "Run initial_setup_parquet() first."
-            )
-        
-        logger.info(f"Loading all cards from {all_cards_path}")
-        
-        # Load all cards from Parquet
-        df = _data_loader.read_cards(all_cards_path, format="parquet")
-        logger.info(f"Loaded {len(df)} cards for tagging")
-        
-        # Validate and add required columns
-        required_columns = ['creatureTypes', 'themeTags']
-        missing_columns = [col for col in required_columns if col not in df.columns]
-        
+        filepath = f'{CSV_DIRECTORY}/{color}_cards.csv'
+
+        # Check if file exists, regenerate if needed
+        if not os.path.exists(filepath):
+            logger.warning(f'{color}_cards.csv not found, regenerating it.')
+            setup.regenerate_csv_by_color(color)
+            if not os.path.exists(filepath):
+                raise FileNotFoundError(f"Failed to generate {filepath}")
+
+        # Load initial dataframe for validation
+        check_df = pd.read_csv(filepath)
+        required_columns = ['creatureTypes', 'themeTags'] 
+        missing_columns = [col for col in required_columns if col not in check_df.columns]
         if missing_columns:
             logger.warning(f"Missing columns: {missing_columns}")
-            
-            if 'creatureTypes' not in df.columns:
-                kindred_tagging(df, 'wubrg')  # Use wubrg (all colors) for unified tagging
-            
-            if 'themeTags' not in df.columns:
-                create_theme_tags(df, 'wubrg')
-        
-        # Parquet stores lists natively, no need for converters
-        # Just ensure list columns are properly initialized
-        if 'themeTags' in df.columns and df['themeTags'].isna().any():
-            df['themeTags'] = df['themeTags'].apply(lambda x: x if isinstance(x, list) else [])
-        
-        if 'creatureTypes' in df.columns and df['creatureTypes'].isna().any():
-            df['creatureTypes'] = df['creatureTypes'].apply(lambda x: x if isinstance(x, list) else [])
-        
-        if 'metadataTags' in df.columns and df['metadataTags'].isna().any():
-            df['metadataTags'] = df['metadataTags'].apply(lambda x: x if isinstance(x, list) else [])
-        
-        # M3.13: Run tagging (parallel or sequential)
-        if parallel:
-            logger.info("Using PARALLEL tagging (ProcessPoolExecutor)")
-            df_tagged = tag_all_cards_parallel(df, max_workers=max_workers)
-        else:
-            logger.info("Using SEQUENTIAL tagging (single-threaded)")
-            df_tagged = _tag_all_cards_sequential(df)
-        
-        # M3.13: Common post-processing (DFC merge, sorting, partitioning, writing)
-        color = 'wubrg'
-        
-        # Merge multi-face entries before final ordering (feature-flagged)
-        if DFC_COMPAT_SNAPSHOT:
+            if 'creatureTypes' not in check_df.columns:
+                kindred_tagging(check_df, color)
+            if 'themeTags' not in check_df.columns:
+                create_theme_tags(check_df, color)
+
+            # Persist newly added columns before re-reading with converters
             try:
-                _write_compat_snapshot(df_tagged.copy(deep=True), color)
-            except Exception:
-                pass
+                check_df.to_csv(filepath, index=False)
+            except Exception as e:
+                logger.error(f'Failed to persist added columns to {filepath}: {e}')
+                raise
 
-        df_merged = merge_multi_face_rows(df_tagged, color, logger=logger, recorder=_merge_summary_recorder(color))
-        
-        # Commander enrichment - TODO: Update for Parquet
-        logger.info("Commander enrichment temporarily disabled for Parquet migration")
+            # Verify columns were added successfully
+            check_df = pd.read_csv(filepath)
+            still_missing = [col for col in required_columns if col not in check_df.columns]
+            if still_missing:
+                raise ValueError(f"Failed to add required columns: {still_missing}")
 
-        # Sort all theme tags for easier reading and reorder columns
-        df_final = sort_theme_tags(df_merged, color)
+        # Load final dataframe with proper converters
+        # M3: metadataTags is optional (may not exist in older CSVs)
+        converters = {'themeTags': pd.eval, 'creatureTypes': pd.eval}
+        if 'metadataTags' in check_df.columns:
+            converters['metadataTags'] = pd.eval
         
-        # Apply combo tags (Commander Spellbook integration) - must run after merge
-        apply_combo_tags(df_final)
-        
-        # M3: Partition metadata tags from theme tags
-        df_final, partition_diagnostics = _apply_metadata_partition(df_final)
-        if partition_diagnostics.get("enabled"):
-            logger.info(f"Metadata partition: {partition_diagnostics['metadata_tags_moved']} metadata, "
-                       f"{partition_diagnostics['theme_tags_kept']} theme tags")
-        
-        # M3: Write directly to all_cards.parquet
-        output_path = get_processed_cards_path()
-        _data_loader.write_cards(df_final, output_path, format="parquet")
-        logger.info(f'✓ Wrote {len(df_final)} tagged cards to {output_path}')
+        df = pd.read_csv(filepath, converters=converters)
+        tag_by_color(df, color)
 
     except FileNotFoundError as e:
         logger.error(f'Error: {e}')
         raise
-    except Exception as e:
-        logger.error(f'An unexpected error occurred during tagging: {e}')
+    except pd.errors.ParserError as e:
+        logger.error(f'Error parsing the CSV file: {e}')
         raise
-
-
-# M3: Keep old load_dataframe for backward compatibility (deprecated)
-def load_dataframe(color: str) -> None:
-    """DEPRECATED: Use load_and_tag_all_cards() instead.
-    
-    M3 Note: This function is kept for backward compatibility but should
-    not be used. The per-color approach was only needed for CSV files.
-    """
-    logger.warning(
-        f"load_dataframe({color}) is deprecated in Parquet migration. "
-        "This will process all cards unnecessarily."
-    )
-    load_and_tag_all_cards()
-
+    except Exception as e:
+        logger.error(f'An unexpected error occurred: {e}')
+        raise
 
 def _tag_foundational_categories(df: pd.DataFrame, color: str) -> None:
     """Apply foundational card categorization (creature types, card types, keywords).
@@ -585,9 +531,7 @@ def tag_by_color(df: pd.DataFrame, color: str) -> None:
     df = merge_multi_face_rows(df, color, logger=logger, recorder=_merge_summary_recorder(color))
 
     if color == 'commander':
-        # M3 TODO: Update commander enrichment for Parquet
-        logger.warning("Commander enrichment temporarily disabled for Parquet migration")
-        # df = enrich_commander_rows_with_tags(df, CSV_DIRECTORY)
+        df = enrich_commander_rows_with_tags(df, CSV_DIRECTORY)
 
     # Sort all theme tags for easier reading and reorder columns
     df = sort_theme_tags(df, color)
@@ -598,214 +542,11 @@ def tag_by_color(df: pd.DataFrame, color: str) -> None:
         logger.info(f"Metadata partition for {color}: {partition_diagnostics['metadata_tags_moved']} metadata, "
                    f"{partition_diagnostics['theme_tags_kept']} theme tags")
     
-    # M3: Write batch Parquet file instead of CSV
-    batch_id = _get_batch_id_for_color(color)
-    batch_path = _data_loader.write_batch_parquet(df, batch_id=batch_id, tag=color)
-    logger.info(f'✓ Wrote batch {batch_id} ({color}): {len(df)} cards → {batch_path}')
-
-
-## M3.13: Parallel worker function (runs in separate process)
-def _tag_color_group_worker(df_pickled: bytes, color_id: str) -> bytes:
-    """Worker function for parallel tagging (runs in separate process).
-    
-    This function is designed to run in a ProcessPoolExecutor worker. It receives
-    a pickled DataFrame subset (one color identity group), applies all tag functions,
-    and returns the tagged DataFrame (also pickled).
-    
-    Args:
-        df_pickled: Pickled DataFrame containing cards of a single color identity
-        color_id: Color identity string for logging (e.g., 'W', 'WU', 'WUBRG', '')
-        
-    Returns:
-        Pickled DataFrame with all tags applied
-        
-    Note:
-        - This function must be picklable itself (no lambdas, local functions, etc.)
-        - Logging is color-prefixed for easier debugging in parallel execution
-        - DFC merge is NOT done here (happens after parallel merge in main process)
-        - Uses 'wubrg' as the color parameter for tag functions (generic "all colors")
-    """
-    import pickle
-    
-    # Unpickle the DataFrame
-    df = pickle.loads(df_pickled)
-    
-    # Use 'wubrg' for tag functions (they don't actually need color-specific logic)
-    # Just use color_id for logging display
-    display_color = color_id if color_id else 'colorless'
-    tag_color = 'wubrg'  # Generic color for tag functions
-    
-    logger.info(f"[{display_color}] Starting tagging for {len(df)} cards")
-    
-    # Apply all tagging functions (same order as tag_all_cards)
-    # Note: Tag functions use tag_color ('wubrg') for internal logic
-    _tag_foundational_categories(df, tag_color)
-    _tag_mechanical_themes(df, tag_color)
-    _tag_strategic_themes(df, tag_color)
-    _tag_archetype_themes(df, tag_color)
-    
-    # Apply bracket policy tags (from config/card_lists/*.json)
-    apply_bracket_policy_tags(df)
-    
-    # Apply colorless filter tags (M1: Useless in Colorless)
-    apply_colorless_filter_tags(df)
-    
-    logger.info(f"[{display_color}] ✓ Completed tagging for {len(df)} cards")
-    
-    # Return pickled DataFrame
-    return pickle.dumps(df)
-
-
-## M3.13: Parallel tagging implementation
-def tag_all_cards_parallel(df: pd.DataFrame, max_workers: int | None = None) -> pd.DataFrame:
-    """Tag all cards using parallel processing by color identity groups.
-    
-    This function splits the input DataFrame by color identity, processes each
-    group in parallel using ProcessPoolExecutor, then merges the results back
-    together. This provides significant speedup over sequential processing.
-    
-    Args:
-        df: DataFrame containing all card data
-        max_workers: Maximum number of parallel workers (default: CPU count)
-        
-    Returns:
-        Tagged DataFrame (note: does NOT include DFC merge - caller handles that)
-        
-    Note:
-        - Typical speedup: 2-3x faster than sequential on multi-core systems
-        - Each color group is tagged independently (pure functions)
-        - DFC merge happens after parallel merge in calling function
-    """
-    from concurrent.futures import ProcessPoolExecutor, as_completed
-    from .parallel_utils import split_by_color_identity, merge_color_groups
-    import pickle
-    
-    logger.info(f"Starting parallel tagging for {len(df)} cards (max_workers={max_workers})")
-    
-    # Split into color identity groups
-    color_groups = split_by_color_identity(df)
-    logger.info(f"Split into {len(color_groups)} color identity groups")
-    
-    # Track results
-    tagged_groups: dict[str, pd.DataFrame] = {}
-    
-    # Process groups in parallel
-    with ProcessPoolExecutor(max_workers=max_workers) as executor:
-        # Submit all work
-        future_to_color = {
-            executor.submit(_tag_color_group_worker, pickle.dumps(group_df), color_id): color_id
-            for color_id, group_df in color_groups.items()
-        }
-        
-        # Collect results as they complete
-        completed = 0
-        total = len(future_to_color)
-        
-        for future in as_completed(future_to_color):
-            color_id = future_to_color[future]
-            display_color = color_id if color_id else 'colorless'
-            
-            try:
-                # Get result and unpickle
-                result_pickled = future.result()
-                tagged_df = pickle.loads(result_pickled)
-                tagged_groups[color_id] = tagged_df
-                
-                completed += 1
-                pct = int(completed * 100 / total)
-                logger.info(f"✓ [{display_color}] Completed ({completed}/{total}, {pct}%)")
-                
-            except Exception as e:
-                logger.error(f"✗ [{display_color}] Worker failed: {e}")
-                raise
-    
-    # Merge all tagged groups back together
-    logger.info("Merging tagged color groups...")
-    df_tagged = merge_color_groups(tagged_groups)
-    logger.info(f"✓ Parallel tagging complete: {len(df_tagged)} cards tagged")
-    
-    return df_tagged
-
-
-## M3.13: Sequential tagging (refactored to return DataFrame)
-def _tag_all_cards_sequential(df: pd.DataFrame) -> pd.DataFrame:
-    """Tag all cards sequentially (single-threaded).
-    
-    This is the sequential version used when parallel=False.
-    It applies all tag functions to the full DataFrame at once.
-    
-    Args:
-        df: DataFrame containing all card data
-        
-    Returns:
-        Tagged DataFrame (does NOT include DFC merge - caller handles that)
-    """
-    logger.info(f"Starting sequential tagging for {len(df)} cards")
-    
-    # M3: Use 'wubrg' as color identifier (represents all colors, exists in COLORS list)
-    color = 'wubrg'
-    
-    _tag_foundational_categories(df, color)
-    _tag_mechanical_themes(df, color)
-    _tag_strategic_themes(df, color)
-    _tag_archetype_themes(df, color)
-    
-    # Apply bracket policy tags (from config/card_lists/*.json)
-    apply_bracket_policy_tags(df)
-    
-    # Apply colorless filter tags (M1: Useless in Colorless)
-    apply_colorless_filter_tags(df)
+    df.to_csv(f'{CSV_DIRECTORY}/{color}_cards.csv', index=False)
+    #print(df)
     print('\n====================\n')
-    
-    logger.info(f"✓ Sequential tagging complete: {len(df)} cards tagged")
-    return df
-
-
-## M3: Keep old tag_all_cards for backward compatibility (now calls sequential version)
-def tag_all_cards(df: pd.DataFrame) -> None:
-    """DEPRECATED: Use load_and_tag_all_cards() instead.
-    
-    This function is kept for backward compatibility but does the full
-    workflow including DFC merge and file writing, which may not be desired.
-    
-    Args:
-        df: DataFrame containing all card data
-    """
-    logger.warning("tag_all_cards() is deprecated. Use load_and_tag_all_cards() instead.")
-    
-    # Tag the cards (modifies df in-place)
-    _tag_all_cards_sequential(df)
-    
-    # Do post-processing (for backward compatibility)
-    color = 'wubrg'
-    
-    # Merge multi-face entries before final ordering (feature-flagged)
-    if DFC_COMPAT_SNAPSHOT:
-        try:
-            _write_compat_snapshot(df.copy(deep=True), color)
-        except Exception:
-            pass
-
-    df_merged = merge_multi_face_rows(df, color, logger=logger, recorder=_merge_summary_recorder(color))
-    
-    # Commander enrichment - TODO: Update for Parquet
-    logger.info("Commander enrichment temporarily disabled for Parquet migration")
-
-    # Sort all theme tags for easier reading and reorder columns
-    df_final = sort_theme_tags(df_merged, color)
-    
-    # M3: Partition metadata tags from theme tags
-    df_final, partition_diagnostics = _apply_metadata_partition(df_final)
-    if partition_diagnostics.get("enabled"):
-        logger.info(f"Metadata partition: {partition_diagnostics['metadata_tags_moved']} metadata, "
-                   f"{partition_diagnostics['theme_tags_kept']} theme tags")
-    
-    # M3: Write directly to all_cards.parquet
-    from code.path_util import get_processed_cards_path
-    output_path = get_processed_cards_path()
-    _data_loader.write_cards(df_final, output_path, format="parquet")
-    logger.info(f'✓ Wrote {len(df_final)} tagged cards to {output_path}')
-
+    logger.info(f'Tags are done being set on {color}_cards.csv')
+    #keyboard.wait('esc')
 
 ## Determine any non-creature cards that have creature types mentioned
 def kindred_tagging(df: pd.DataFrame, color: str) -> None:
@@ -1054,7 +795,7 @@ def tag_for_keywords(df: pd.DataFrame, color: str) -> None:
             exclusion_keywords = {'partner'}
 
             def _merge_keywords(row: pd.Series) -> list[str]:
-                base_tags = list(row['themeTags']) if hasattr(row.get('themeTags'), '__len__') and not isinstance(row.get('themeTags'), str) else []
+                base_tags = row['themeTags'] if isinstance(row['themeTags'], list) else []
                 keywords_raw = row['keywords']
 
                 if isinstance(keywords_raw, str):
@@ -1099,27 +840,9 @@ def sort_theme_tags(df, color):
     # Sort the list of tags in-place per row
     df['themeTags'] = df['themeTags'].apply(tag_utils.sort_list)
 
-    # Reorder columns for final output
-    # M3: Preserve ALL columns (isCommander, isBackground, metadataTags, etc.)
-    # BUT exclude temporary cache columns (__*_s)
-    base_columns = ['name', 'faceName','edhrecRank', 'colorIdentity', 'colors', 'manaCost', 'manaValue', 'type', 'creatureTypes', 'text', 'power', 'toughness', 'keywords', 'themeTags', 'layout', 'side']
-    
-    # Add M3 columns if present
-    if 'metadataTags' in df.columns and 'metadataTags' not in base_columns:
-        base_columns.append('metadataTags')
-    
-    # Add columns from setup_parquet (isCommander, isBackground)
-    for col in ['isCommander', 'isBackground']:
-        if col in df.columns and col not in base_columns:
-            base_columns.append(col)
-    
-    # Preserve any other columns not in base list (flexibility for future additions)
-    # EXCEPT temporary cache columns (start with __)
-    for col in df.columns:
-        if col not in base_columns and not col.startswith('__'):
-            base_columns.append(col)
-    
-    available = [c for c in base_columns if c in df.columns]
+    # Reorder columns for final CSV output; return a reindexed copy
+    columns_to_keep = ['name', 'faceName','edhrecRank', 'colorIdentity', 'colors', 'manaCost', 'manaValue', 'type', 'creatureTypes', 'text', 'power', 'toughness', 'keywords', 'themeTags', 'layout', 'side']
+    available = [c for c in columns_to_keep if c in df.columns]
     logger.info(f'Theme tags alphabetically sorted in {color}_cards.csv.')
     return df.reindex(columns=available)
 
@@ -4243,9 +3966,7 @@ def tag_for_themes(df: pd.DataFrame, color: str) -> None:
         ValueError: If required DataFrame columns are missing
     """
     start_time = pd.Timestamp.now()
-    # M4 (Parquet Migration): Updated logging to reflect unified tagging
-    color_display = color if color else 'colorless'
-    logger.info(f'Starting tagging for remaining themes in {color_display} cards')
+    logger.info(f'Starting tagging for remaining themes in {color}_cards.csv')
     print('\n===============\n')
     tag_for_aggro(df, color)
     print('\n==========\n')
@@ -5433,7 +5154,7 @@ def tag_for_multiple_copies(df: pd.DataFrame, color: str) -> None:
             # Add per-card rules for individual name tags
             rules.extend({'mask': (df['name'] == card_name), 'tags': [card_name]} for card_name in matching_cards)
             tag_utils.apply_rules(df, rules=rules)
-            logger.info(f'Tagged {multiple_copies_mask.sum()} cards with multiple copies effects')
+            logger.info(f'Tagged {multiple_copies_mask.sum()} cards with multiple copies effects for {color}')
 
     except Exception as e:
         logger.error(f'Error in tag_for_multiple_copies: {str(e)}')
@@ -6684,7 +6405,7 @@ def tag_for_protection(df: pd.DataFrame, color: str) -> None:
             logger.info(f'Applied specific protection ability tags to {ability_tag_count} cards')
 
         # Log results
-        logger.info(f'Tagged {final_mask.sum()} cards with protection effects')
+        logger.info(f'Tagged {final_mask.sum()} cards with protection effects for {color}')
 
     except Exception as e:
         logger.error(f'Error in tag_for_protection: {str(e)}')
@@ -6770,7 +6491,7 @@ def tag_for_phasing(df: pd.DataFrame, color: str) -> None:
             logger.info(f'Applied Removal tag to {removal_count} cards with opponent-targeting phasing')
 
         # Log results
-        logger.info(f'Tagged {phasing_mask.sum()} cards with phasing effects')
+        logger.info(f'Tagged {phasing_mask.sum()} cards with phasing effects for {color}')
 
     except Exception as e:
         logger.error(f'Error in tag_for_phasing: {str(e)}')
@@ -6844,52 +6565,39 @@ def tag_for_removal(df: pd.DataFrame, color: str) -> None:
         raise
 
 def run_tagging(parallel: bool = False, max_workers: int | None = None):
-    """Run tagging on all cards (M3.13: now supports parallel processing).
+    """Run tagging across all COLORS.
 
     Args:
-        parallel: If True, use parallel tagging (recommended - 2-3x faster)
-        max_workers: Maximum parallel workers (default: CPU count)
+        parallel: If True, process colors in parallel using multiple processes.
+        max_workers: Optional cap on worker processes.
     """
     start_time = pd.Timestamp.now()
 
-    if DFC_PER_FACE_SNAPSHOT:
-        logger.info("DFC_PER_FACE_SNAPSHOT enabled for unified tagging")
+    if parallel and DFC_PER_FACE_SNAPSHOT:
+        logger.warning("DFC_PER_FACE_SNAPSHOT=1 detected; per-face metadata snapshots require sequential tagging. Parallel run will skip snapshot emission.")
 
-    # M3.13: Unified tagging with optional parallelization
-    mode = "PARALLEL" if parallel else "SEQUENTIAL"
-    logger.info(f"Starting unified tagging ({mode} mode)")
-    load_and_tag_all_cards(parallel=parallel, max_workers=max_workers)
-    
-    # Flush per-face snapshots if enabled
+    if parallel:
+        try:
+            import concurrent.futures as _f
+            # Use processes to bypass GIL; each color reads/writes distinct CSV
+            with _f.ProcessPoolExecutor(max_workers=max_workers) as ex:
+                futures = {ex.submit(load_dataframe, color): color for color in COLORS}
+                for fut in _f.as_completed(futures):
+                    color = futures[fut]
+                    try:
+                        fut.result()
+                    except Exception as e:
+                        logger.error(f'Parallel worker failed for {color}: {e}')
+                        raise
+        except Exception:
+            # Fallback to sequential on any multiprocessing setup error
+            logger.warning('Parallel mode failed to initialize; falling back to sequential.')
+            for color in COLORS:
+                load_dataframe(color)
+    else:
+        for color in COLORS:
+            load_dataframe(color)
+
     _flush_per_face_snapshot()
-    
     duration = (pd.Timestamp.now() - start_time).total_seconds()
-    logger.info(f'✓ Tagged cards in {duration:.2f}s ({mode} mode)')
-    
-    # M4: Write tagging completion flag to processed directory
-    try:
-        import os
-        import json
-        from datetime import datetime, UTC
-        
-        flag_dir = os.path.join("card_files", "processed")
-        os.makedirs(flag_dir, exist_ok=True)
-        flag_path = os.path.join(flag_dir, ".tagging_complete.json")
-        
-        with open(flag_path, "w", encoding="utf-8") as f:
-            json.dump({
-                "completed_at": datetime.now(UTC).isoformat(timespec="seconds"),
-                "mode": mode,
-                "parallel": parallel,
-                "duration_seconds": duration
-            }, f, indent=2)
-        
-        logger.info(f"✓ Wrote tagging completion flag to {flag_path}")
-    except Exception as e:
-        logger.warning(f"Failed to write tagging completion flag: {e}")
-
-
-
-
-
-
+    logger.info(f'Tagged cards in {duration:.2f}s')

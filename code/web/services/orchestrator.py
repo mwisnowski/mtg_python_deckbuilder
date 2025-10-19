@@ -224,10 +224,18 @@ def _maybe_refresh_partner_synergy(out_func=None, *, force: bool = False, root: 
 
         if not needs_refresh:
             source_times: list[float] = []
-            candidates = [
-                root_path / "config" / "themes" / "theme_list.json",
-                root_path / "csv_files" / "commander_cards.csv",
-            ]
+            # M4: Check all_cards.parquet instead of commander_cards.csv
+            try:
+                from path_util import get_processed_cards_path
+                parquet_path = Path(get_processed_cards_path())
+                candidates = [
+                    root_path / "config" / "themes" / "theme_list.json",
+                    parquet_path,
+                ]
+            except Exception:
+                candidates = [
+                    root_path / "config" / "themes" / "theme_list.json",
+                ]
             for candidate in candidates:
                 try:
                     if candidate.exists():
@@ -919,14 +927,16 @@ def _is_truthy_env(name: str, default: str = '1') -> bool:
 def is_setup_ready() -> bool:
     """Fast readiness check: required files present and tagging completed.
 
-    We consider the system ready if csv_files/cards.csv exists and the
+    M4: Updated to check for all_cards.parquet instead of cards.csv.
+    We consider the system ready if card_files/processed/all_cards.parquet exists and the
     .tagging_complete.json flag exists. Freshness (mtime) is enforced only
     during auto-refresh inside _ensure_setup_ready, not here.
     """
     try:
-        cards_path = os.path.join('csv_files', 'cards.csv')
+        from path_util import get_processed_cards_path
+        parquet_path = get_processed_cards_path()
         flag_path = os.path.join('csv_files', '.tagging_complete.json')
-        return os.path.exists(cards_path) and os.path.exists(flag_path)
+        return os.path.exists(parquet_path) and os.path.exists(flag_path)
     except Exception:
         return False
 
@@ -983,20 +993,25 @@ def is_setup_stale() -> bool:
         except Exception:
             pass
 
-        # Fallback: compare cards.csv mtime
-        cards_path = os.path.join('csv_files', 'cards.csv')
-        if not os.path.exists(cards_path):
+        # Fallback: compare all_cards.parquet mtime (M4 update)
+        try:
+            from path_util import get_processed_cards_path
+            parquet_path = get_processed_cards_path()
+            if not os.path.exists(parquet_path):
+                return False
+            age_seconds = time.time() - os.path.getmtime(parquet_path)
+            return age_seconds > refresh_age_seconds
+        except Exception:
             return False
-        age_seconds = time.time() - os.path.getmtime(cards_path)
-        return age_seconds > refresh_age_seconds
     except Exception:
         return False
 
 
 def _ensure_setup_ready(out, force: bool = False) -> None:
-    """Ensure card CSVs exist and tagging has completed; bootstrap if needed.
+    """Ensure card data exists and tagging has completed; bootstrap if needed.
 
-    Mirrors the CLI behavior used in build_deck_full: if csv_files/cards.csv is
+    M4: Updated to check for all_cards.parquet instead of cards.csv.
+    Mirrors the CLI behavior used in build_deck_full: if the Parquet file is
     missing, too old, or the tagging flag is absent, run initial setup and tagging.
     """
     # Track whether a theme catalog export actually executed during this invocation
@@ -1201,7 +1216,9 @@ def _ensure_setup_ready(out, force: bool = False) -> None:
                 pass
 
     try:
-        cards_path = os.path.join('csv_files', 'cards.csv')
+        # M4 (Parquet Migration): Check for processed Parquet file instead of CSV
+        from path_util import get_processed_cards_path  # type: ignore
+        cards_path = get_processed_cards_path()
         flag_path = os.path.join('csv_files', '.tagging_complete.json')
         auto_setup_enabled = _is_truthy_env('WEB_AUTO_SETUP', '1')
         # Allow tuning of time-based refresh; default 7 days
@@ -1215,14 +1232,14 @@ def _ensure_setup_ready(out, force: bool = False) -> None:
             _write_status({"running": True, "phase": "setup", "message": "Forcing full setup and tagging...", "started_at": _dt.now().isoformat(timespec='seconds'), "percent": 0})
 
         if not os.path.exists(cards_path):
-            out("cards.csv not found. Running initial setup and tagging...")
+            out(f"Processed Parquet not found ({cards_path}). Running initial setup and tagging...")
             _write_status({"running": True, "phase": "setup", "message": "Preparing card database (initial setup)...", "started_at": _dt.now().isoformat(timespec='seconds'), "percent": 0})
             refresh_needed = True
         else:
             try:
                 age_seconds = time.time() - os.path.getmtime(cards_path)
                 if age_seconds > refresh_age_seconds and not force:
-                    out("cards.csv is older than 7 days. Refreshing data (setup + tagging)...")
+                    out(f"Processed Parquet is older than {days} days. Refreshing data (setup + tagging)...")
                     _write_status({"running": True, "phase": "setup", "message": "Refreshing card database (initial setup)...", "started_at": _dt.now().isoformat(timespec='seconds'), "percent": 0})
                     refresh_needed = True
             except Exception:
@@ -1239,6 +1256,55 @@ def _ensure_setup_ready(out, force: bool = False) -> None:
                 out("Setup/tagging required, but WEB_AUTO_SETUP=0. Please run Setup from the UI.")
                 _write_status({"running": False, "phase": "requires_setup", "message": "Setup required (auto disabled)."})
                 return
+            
+            # Try downloading pre-tagged data from GitHub first (faster than local build)
+            try:
+                import urllib.request
+                import urllib.error
+                out("[SETUP] Attempting to download pre-tagged data from GitHub...")
+                _write_status({"running": True, "phase": "download", "message": "Downloading pre-tagged data from GitHub...", "percent": 5})
+                
+                base_url = "https://raw.githubusercontent.com/mwisnowski/mtg_python_deckbuilder/similarity-cache-data"
+                files_to_download = [
+                    ("card_files/processed/all_cards.parquet", "card_files/processed/all_cards.parquet"),
+                    ("card_files/processed/.tagging_complete.json", "card_files/processed/.tagging_complete.json"),
+                    ("card_files/similarity_cache.parquet", "card_files/similarity_cache.parquet"),
+                    ("card_files/similarity_cache_metadata.json", "card_files/similarity_cache_metadata.json"),
+                ]
+                
+                download_success = True
+                for remote_path, local_path in files_to_download:
+                    try:
+                        remote_url = f"{base_url}/{remote_path}"
+                        os.makedirs(os.path.dirname(local_path), exist_ok=True)
+                        urllib.request.urlretrieve(remote_url, local_path)
+                        out(f"[SETUP] Downloaded: {local_path}")
+                    except urllib.error.HTTPError as e:
+                        if e.code == 404:
+                            out(f"[SETUP] File not available on GitHub (404): {remote_path}")
+                            download_success = False
+                            break
+                        raise
+                
+                if download_success:
+                    out("[SETUP] ✓ Successfully downloaded pre-tagged data from GitHub. Skipping local setup/tagging.")
+                    _write_status({
+                        "running": False,
+                        "phase": "done",
+                        "message": "Setup complete (downloaded from GitHub)",
+                        "percent": 100,
+                        "finished_at": _dt.now().isoformat(timespec='seconds')
+                    })
+                    # Refresh theme catalog after successful download
+                    _refresh_theme_catalog(out, force=False, fast_path=True)
+                    return
+                else:
+                    out("[SETUP] GitHub download incomplete. Falling back to local setup/tagging...")
+                    _write_status({"running": True, "phase": "setup", "message": "GitHub download failed, running local setup...", "percent": 0})
+            except Exception as e:
+                out(f"[SETUP] GitHub download failed ({e}). Falling back to local setup/tagging...")
+                _write_status({"running": True, "phase": "setup", "message": "GitHub download failed, running local setup...", "percent": 0})
+            
             try:
                 from file_setup.setup import initial_setup  # type: ignore
                 # Always run initial_setup when forced or when cards are missing/stale
@@ -1247,95 +1313,39 @@ def _ensure_setup_ready(out, force: bool = False) -> None:
                 out(f"Initial setup failed: {e}")
                 _write_status({"running": False, "phase": "error", "message": f"Initial setup failed: {e}"})
                 return
-            # Tagging with progress; support parallel workers for speed
+            # M4 (Parquet Migration): Use unified run_tagging with parallel support
             try:
                 from tagging import tagger as _tagger  # type: ignore
-                from settings import COLORS as _COLORS  # type: ignore
-                colors = list(_COLORS)
-                total = len(colors)
                 use_parallel = str(os.getenv('WEB_TAG_PARALLEL', '1')).strip().lower() in {"1","true","yes","on"}
                 max_workers_env = os.getenv('WEB_TAG_WORKERS')
                 try:
                     max_workers = int(max_workers_env) if max_workers_env else None
                 except Exception:
                     max_workers = None
+                
+                mode_label = "parallel" if use_parallel else "sequential"
                 _write_status({
                     "running": True,
                     "phase": "tagging",
-                    "message": "Tagging cards (this may take a while)..." if not use_parallel else "Tagging cards in parallel...",
-                    "color": None,
-                    "percent": 0,
-                    "color_idx": 0,
-                    "color_total": total,
+                    "message": f"Tagging all cards ({mode_label} mode)...",
+                    "percent": 10,
                     "tagging_started_at": _dt.now().isoformat(timespec='seconds')
                 })
-
-                if use_parallel:
-                    try:
-                        import concurrent.futures as _f
-                        completed = 0
-                        with _f.ProcessPoolExecutor(max_workers=max_workers) as ex:
-                            fut_map = {ex.submit(_tagger.load_dataframe, c): c for c in colors}
-                            for fut in _f.as_completed(fut_map):
-                                c = fut_map[fut]
-                                try:
-                                    fut.result()
-                                    completed += 1
-                                    pct = int(completed * 100 / max(1, total))
-                                    _write_status({
-                                        "running": True,
-                                        "phase": "tagging",
-                                        "message": f"Tagged {c}",
-                                        "color": c,
-                                        "percent": pct,
-                                        "color_idx": completed,
-                                        "color_total": total,
-                                    })
-                                except Exception as e:
-                                    out(f"Parallel tagging failed for {c}: {e}")
-                                    _write_status({"running": False, "phase": "error", "message": f"Tagging {c} failed: {e}", "color": c})
-                                    return
-                    except Exception as e:
-                        out(f"Parallel tagging init failed: {e}; falling back to sequential")
-                        use_parallel = False
-
-                if not use_parallel:
-                    for idx, _color in enumerate(colors, start=1):
-                        try:
-                            pct = int((idx - 1) * 100 / max(1, total))
-                            # Estimate ETA based on average time per completed color
-                            eta_s = None
-                            try:
-                                from datetime import datetime as __dt
-                                ts = __dt.fromisoformat(json.load(open(os.path.join('csv_files', '.setup_status.json'), 'r', encoding='utf-8')).get('tagging_started_at'))  # type: ignore
-                                elapsed = max(0.0, (_dt.now() - ts).total_seconds())
-                                completed = max(0, idx - 1)
-                                if completed > 0:
-                                    avg = elapsed / completed
-                                    remaining = max(0, total - completed)
-                                    eta_s = int(avg * remaining)
-                            except Exception:
-                                eta_s = None
-                            payload = {
-                                "running": True,
-                                "phase": "tagging",
-                                "message": f"Tagging {_color}...",
-                                "color": _color,
-                                "percent": pct,
-                                "color_idx": idx,
-                                "color_total": total,
-                            }
-                            if eta_s is not None:
-                                payload["eta_seconds"] = eta_s
-                            _write_status(payload)
-                            _tagger.load_dataframe(_color)
-                        except Exception as e:
-                            out(f"Tagging {_color} failed: {e}")
-                            _write_status({"running": False, "phase": "error", "message": f"Tagging {_color} failed: {e}", "color": _color})
-                            return
+                
+                out(f"Starting unified tagging ({mode_label} mode)...")
+                _tagger.run_tagging(parallel=use_parallel, max_workers=max_workers)
+                
+                _write_status({
+                    "running": True,
+                    "phase": "tagging",
+                    "message": f"Tagging complete ({mode_label} mode)",
+                    "percent": 90,
+                })
+                out(f"✓ Tagging complete ({mode_label} mode)")
+                
             except Exception as e:
-                out(f"Tagging failed to start: {e}")
-                _write_status({"running": False, "phase": "error", "message": f"Tagging failed to start: {e}"})
+                out(f"Tagging failed: {e}")
+                _write_status({"running": False, "phase": "error", "message": f"Tagging failed: {e}"})
                 return
             try:
                 os.makedirs('csv_files', exist_ok=True)

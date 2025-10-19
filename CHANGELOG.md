@@ -9,19 +9,40 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 
 ## [Unreleased]
 ### Summary
-_No unreleased changes yet_
+Major infrastructure upgrade to Parquet format with comprehensive performance improvements, simplified data management, and instant setup via GitHub downloads.
 
 ### Added
-_None_
+- **Parquet Migration (M4)**: Unified `card_files/processed/all_cards.parquet` replaces multiple CSV files
+  - Single source of truth for all card data (29,857 cards, 2,751 commanders, 31 backgrounds)
+  - Native support for lists and complex data types
+  - Faster loading (binary columnar format vs text parsing)
+  - Automatic deduplication and data validation
+- **Performance**: Parallel tagging option provides 4.2x speedup (22s → 5.2s)
+- **Combo Tags**: 226 cards tagged with combo-enabling abilities for better deck building
+- **Data Quality**: Built-in commander/background detection using boolean flags instead of separate files
+- **GitHub Downloads**: Pre-tagged card database and similarity cache available for instant setup
+  - Auto-download on first run (seconds instead of 15-20 minutes)
+  - Manual download button in web UI
+  - Updated weekly via automated workflow
 
 ### Changed
-_None_
+- **CLI & Web**: Both interfaces now load from unified Parquet data source
+- **Deck Builder**: Simplified data loading, removed CSV file juggling
+- **Web Services**: Updated card browser, commander catalog, and owned cards to use Parquet
+- **Setup Process**: Streamlined initial setup with fewer file operations
+- **Module Execution**: Use `python -m code.main` / `python -m code.headless_runner` for proper imports
 
 ### Removed
-_None_
+- Dependency on separate `commander_cards.csv` and `background_cards.csv` files
+- Multiple color-specific CSV file loading logic
+- CSV parsing overhead from hot paths
 
-### Fixed
-_None_
+### Technical Details
+- DataLoader class provides consistent Parquet I/O across codebase
+- Boolean filters (`isCommander`, `isBackground`) replace file-based separation
+- Numpy array conversion ensures compatibility with existing list-checking code
+- GitHub Actions updated to use processed Parquet path
+- Docker containers benefit from smaller, faster data files
 
 ## [2.9.1] - 2025-10-17
 ### Summary

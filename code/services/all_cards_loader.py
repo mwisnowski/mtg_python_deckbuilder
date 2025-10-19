@@ -32,7 +32,6 @@ from typing import Optional
 import pandas as pd
 
 from code.logging_util import get_logger
-from code.settings import CARD_FILES_DIRECTORY
 
 # Initialize logger
 logger = get_logger(__name__)
@@ -46,10 +45,14 @@ class AllCardsLoader:
         Initialize AllCardsLoader.
 
         Args:
-            file_path: Path to all_cards.parquet (defaults to card_files/all_cards.parquet)
+            file_path: Path to all_cards.parquet (defaults to card_files/processed/all_cards.parquet)
             cache_ttl: Time-to-live for cache in seconds (default: 300 = 5 minutes)
         """
-        self.file_path = file_path or os.path.join(CARD_FILES_DIRECTORY, "all_cards.parquet")
+        if file_path is None:
+            from code.path_util import get_processed_cards_path
+            file_path = get_processed_cards_path()
+        
+        self.file_path = file_path
         self.cache_ttl = cache_ttl
         self._df: Optional[pd.DataFrame] = None
         self._last_load_time: float = 0

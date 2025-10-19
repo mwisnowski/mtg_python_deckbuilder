@@ -7,9 +7,9 @@ import datetime as _dt
 import re as _re
 import logging_util
 
-from code.deck_builder.summary_telemetry import record_land_summary, record_theme_summary, record_partner_summary
-from code.deck_builder.color_identity_utils import normalize_colors, canon_color_code, color_label_from_code
-from code.deck_builder.shared_copy import build_land_headline, dfc_card_note
+from ..summary_telemetry import record_land_summary, record_theme_summary, record_partner_summary
+from ..color_identity_utils import normalize_colors, canon_color_code, color_label_from_code
+from ..shared_copy import build_land_headline, dfc_card_note
 
 logger = logging_util.logging.getLogger(__name__)
 

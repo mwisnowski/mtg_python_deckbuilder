@@ -7,8 +7,8 @@ from typing import Iterable, Sequence, Tuple
 
 from exceptions import CommanderPartnerError
 
-from code.deck_builder.partner_background_utils import analyze_partner_background
-from code.deck_builder.color_identity_utils import canon_color_code, color_label_from_code
+from .partner_background_utils import analyze_partner_background
+from .color_identity_utils import canon_color_code, color_label_from_code
 
 _WUBRG_ORDER: Tuple[str, ...] = ("W", "U", "B", "R", "G", "C")
 _COLOR_PRIORITY = {color: index for index, color in enumerate(_WUBRG_ORDER)}

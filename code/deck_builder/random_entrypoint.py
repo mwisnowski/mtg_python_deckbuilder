@@ -425,12 +425,20 @@ class RandomBuildResult:
 
 
 def _load_commanders_df() -> pd.DataFrame:
-    """Load commander CSV using the same path/converters as the builder.
+    """Load commanders from Parquet using isCommander boolean flag.
 
-    Uses bc.COMMANDER_CSV_PATH and bc.COMMANDER_CONVERTERS for consistency.
+    M4: Migrated from CSV to Parquet loading with boolean filtering.
     """
-    df = pd.read_csv(bc.COMMANDER_CSV_PATH, converters=getattr(bc, "COMMANDER_CONVERTERS", None))
-    return _ensure_theme_tag_cache(df)
+    from . import builder_utils as bu
+    
+    # Load all cards from Parquet
+    df = bu._load_all_cards_parquet()
+    if df.empty:
+        return pd.DataFrame()
+    
+    # Filter to commanders using boolean flag
+    commanders_df = bc.get_commanders(df)
+    return _ensure_theme_tag_cache(commanders_df)
 
 
 def _ensure_theme_tag_cache(df: pd.DataFrame) -> pd.DataFrame:

@@ -4,7 +4,23 @@ from pathlib import Path
 
 import pytest
 
-from code.headless_runner import resolve_additional_theme_inputs as _resolve_additional_theme_inputs, _parse_theme_list
+from code.headless_runner import resolve_additional_theme_inputs as _resolve_additional_theme_inputs
+
+
+def _parse_theme_list(themes_str: str) -> list[str]:
+    """Parse semicolon-separated theme list (helper for tests)."""
+    if not themes_str:
+        return []
+    themes = [t.strip() for t in themes_str.split(';') if t.strip()]
+    # Deduplicate while preserving order (case-insensitive)
+    seen = set()
+    result = []
+    for theme in themes:
+        key = theme.lower()
+        if key not in seen:
+            seen.add(key)
+            result.append(theme)
+    return result
 
 
 def _write_catalog(path: Path) -> None:

@@ -73,6 +73,12 @@ def canonical_key(raw: str) -> str:
 def parse_theme_tags(value: object) -> List[str]:
     if value is None:
         return []
+    # Handle numpy arrays (from Parquet files)
+    if hasattr(value, '__array__') or hasattr(value, 'tolist'):
+        try:
+            value = value.tolist() if hasattr(value, 'tolist') else list(value)
+        except Exception:
+            pass
     if isinstance(value, list):
         return [str(v) for v in value if isinstance(v, str) and v.strip()]
     if isinstance(value, str):
@@ -111,22 +117,37 @@ def _load_theme_counts_from_parquet(
         Counter of theme occurrences
     """
     if pd is None:
+        print("  pandas not available, skipping parquet load")
         return Counter()
     
     counts: Counter[str] = Counter()
     
     if not parquet_path.exists():
+        print(f"  Parquet file does not exist: {parquet_path}")
         return counts
     
     # Read only themeTags column for efficiency
     try:
         df = pd.read_parquet(parquet_path, columns=["themeTags"])
-    except Exception:
+        print(f"  Loaded {len(df)} rows from parquet")
+    except Exception as e:
         # If themeTags column doesn't exist, return empty
+        print(f"  Failed to read themeTags column: {e}")
         return counts
     
     # Convert to list for fast iteration (faster than iterrows)
     theme_tags_list = df["themeTags"].tolist()
+    
+    # Debug: check first few entries
+    non_empty_count = 0
+    for i, raw_value in enumerate(theme_tags_list[:10]):
+        if raw_value is not None and not (isinstance(raw_value, float) and pd.isna(raw_value)):
+            non_empty_count += 1
+            if i < 3:  # Show first 3 non-empty
+                print(f"    Sample tag {i}: {raw_value!r} (type: {type(raw_value).__name__})")
+    
+    if non_empty_count == 0:
+        print("  WARNING: No non-empty themeTags found in first 10 rows")
     
     for raw_value in theme_tags_list:
         if raw_value is None or (isinstance(raw_value, float) and pd.isna(raw_value)):
@@ -146,43 +167,11 @@ def _load_theme_counts_from_parquet(
             counts[key] += 1
             theme_variants[key].add(display)
     
+    print(f"  Found {len(counts)} unique themes from parquet")
     return counts
 
 
-def _load_theme_counts(csv_path: Path, theme_variants: Dict[str, set[str]]) -> Counter[str]:
-    """Load theme counts from CSV file (fallback method).
-    
-    Args:
-        csv_path: Path to CSV file
-        theme_variants: Dict to accumulate theme name variants
-        
-    Returns:
-        Counter of theme occurrences
-    """
-    counts: Counter[str] = Counter()
-    if not csv_path.exists():
-        return counts
-    with csv_path.open("r", encoding="utf-8-sig", newline="") as handle:
-        reader = csv.DictReader(handle)
-        if not reader.fieldnames or "themeTags" not in reader.fieldnames:
-            return counts
-        for row in reader:
-            raw_value = row.get("themeTags")
-            tags = parse_theme_tags(raw_value)
-            if not tags:
-                continue
-            seen_in_row: set[str] = set()
-            for tag in tags:
-                display = normalize_theme_display(tag)
-                if not display:
-                    continue
-                key = canonical_key(display)
-                if key in seen_in_row:
-                    continue
-                seen_in_row.add(key)
-                counts[key] += 1
-                theme_variants[key].add(display)
-    return counts
+# CSV fallback removed in M4 migration - Parquet is now required
 
 
 def _select_display_name(options: Sequence[str]) -> str:
@@ -214,78 +203,95 @@ def build_theme_catalog(
     output_path: Path,
     *,
     generated_at: Optional[datetime] = None,
-    commander_filename: str = "commander_cards.csv",
-    cards_filename: str = "cards.csv",
     logs_directory: Optional[Path] = None,
-    use_parquet: bool = True,
     min_card_count: int = 3,
 ) -> CatalogBuildResult:
-    """Build theme catalog from card data.
+    """Build theme catalog from Parquet card data.
     
     Args:
-        csv_directory: Directory containing CSV files (fallback)
+        csv_directory: Base directory (used to locate card_files/processed/all_cards.parquet)
         output_path: Where to write the catalog CSV
         generated_at: Optional timestamp for generation
-        commander_filename: Name of commander CSV file
-        cards_filename: Name of cards CSV file
         logs_directory: Optional directory to copy output to
-        use_parquet: If True, try to use all_cards.parquet first (default: True)
         min_card_count: Minimum number of cards required to include theme (default: 3)
-        use_parquet: If True, try to use all_cards.parquet first (default: True)
         
     Returns:
         CatalogBuildResult with generated rows and metadata
+        
+    Raises:
+        RuntimeError: If pandas/pyarrow not available
+        FileNotFoundError: If all_cards.parquet doesn't exist
+        RuntimeError: If no theme tags found in Parquet file
     """
     csv_directory = csv_directory.resolve()
     output_path = output_path.resolve()
 
     theme_variants: Dict[str, set[str]] = defaultdict(set)
 
-    # Try to use parquet file first (much faster)
-    used_parquet = False
-    if use_parquet and HAS_PARQUET_SUPPORT:
-        try:
-            # Use dedicated parquet files (matches CSV structure exactly)
-            parquet_dir = csv_directory.parent / "card_files"
-            
-            # Load commander counts directly from commander_cards.parquet
-            commander_parquet = parquet_dir / "commander_cards.parquet"
-            commander_counts = _load_theme_counts_from_parquet(
-                commander_parquet, theme_variants=theme_variants
-            )
-            
-            # Load all card counts from all_cards.parquet to include all themes
-            all_cards_parquet = parquet_dir / "all_cards.parquet"
-            card_counts = _load_theme_counts_from_parquet(
-                all_cards_parquet, theme_variants=theme_variants
-            )
-            
-            used_parquet = True
-            print("✓ Loaded theme data from parquet files")
-            print(f"  - Commanders: {len(commander_counts)} themes")
-            print(f"  - All cards: {len(card_counts)} themes")
-            
-        except Exception as e:
-            print(f"⚠ Failed to load from parquet: {e}")
-            print("  Falling back to CSV files...")
-            used_parquet = False
+    # Parquet-only mode (M4 migration: CSV files removed)
+    if not HAS_PARQUET_SUPPORT:
+        raise RuntimeError(
+            "Pandas is required for theme catalog generation. "
+            "Install with: pip install pandas pyarrow"
+        )
     
-    # Fallback to CSV files if parquet not available or failed
-    if not used_parquet:
-        commander_counts = _load_theme_counts(csv_directory / commander_filename, theme_variants)
-
-        card_counts: Counter[str] = Counter()
-        cards_path = csv_directory / cards_filename
-        if cards_path.exists():
-            card_counts = _load_theme_counts(cards_path, theme_variants)
-        else:
-            # Fallback: scan all *_cards.csv except commander
-            for candidate in csv_directory.glob("*_cards.csv"):
-                if candidate.name == commander_filename:
-                    continue
-                card_counts += _load_theme_counts(candidate, theme_variants)
-        
-        print("✓ Loaded theme data from CSV files")
+    # Use processed parquet files (M4 migration)
+    parquet_dir = csv_directory.parent / "card_files" / "processed"
+    all_cards_parquet = parquet_dir / "all_cards.parquet"
+    
+    print(f"Loading theme data from parquet: {all_cards_parquet}")
+    print(f"  File exists: {all_cards_parquet.exists()}")
+    
+    if not all_cards_parquet.exists():
+        raise FileNotFoundError(
+            f"Required Parquet file not found: {all_cards_parquet}\n"
+            f"Run tagging first: python -c \"from code.tagging.tagger import run_tagging; run_tagging()\""
+        )
+    
+    # Load all card counts from all_cards.parquet (includes commanders)
+    card_counts = _load_theme_counts_from_parquet(
+        all_cards_parquet, theme_variants=theme_variants
+    )
+    
+    # For commander counts, filter all_cards by isCommander column
+    df_commanders = pd.read_parquet(all_cards_parquet)
+    if 'isCommander' in df_commanders.columns:
+        df_commanders = df_commanders[df_commanders['isCommander']]
+    else:
+        # Fallback: assume all cards could be commanders if column missing
+        pass
+    commander_counts = Counter()
+    for tags in df_commanders['themeTags'].tolist():
+        if tags is None or (isinstance(tags, float) and pd.isna(tags)):
+            continue
+        # Functions are defined at top of this file, no import needed
+        parsed = parse_theme_tags(tags)
+        if not parsed:
+            continue
+        seen = set()
+        for tag in parsed:
+            display = normalize_theme_display(tag)
+            if not display:
+                continue
+            key = canonical_key(display)
+            if key not in seen:
+                seen.add(key)
+                commander_counts[key] += 1
+                theme_variants[key].add(display)
+    
+    # Verify we found theme tags
+    total_themes_found = len(card_counts) + len(commander_counts)
+    if total_themes_found == 0:
+        raise RuntimeError(
+            f"No theme tags found in {all_cards_parquet}\n"
+            f"The Parquet file exists but contains no themeTags data. "
+            f"This usually means tagging hasn't completed or failed.\n"
+            f"Check that 'themeTags' column exists and is populated."
+        )
+    
+    print("✓ Loaded theme data from parquet files")
+    print(f"  - Commanders: {len(commander_counts)} themes")
+    print(f"  - All cards: {len(card_counts)} themes")
 
     keys = sorted(set(card_counts.keys()) | set(commander_counts.keys()))
     generated_at_iso = _derive_generated_at(generated_at)

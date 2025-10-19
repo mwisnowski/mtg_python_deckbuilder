@@ -96,6 +96,21 @@ SETUP_MENU_ITEMS: List[str] = ['Initial Setup', 'Regenerate CSV', 'Main Menu']
 CSV_DIRECTORY: str = 'csv_files'
 CARD_FILES_DIRECTORY: str = 'card_files'  # Parquet files for consolidated card data
 
+# ----------------------------------------------------------------------------------
+# PARQUET MIGRATION SETTINGS (v3.0.0+)
+# ----------------------------------------------------------------------------------
+
+# Card files directory structure (Parquet-based)
+# Override with environment variables for custom paths
+CARD_FILES_DIR = os.getenv('CARD_FILES_DIR', 'card_files')
+CARD_FILES_RAW_DIR = os.getenv('CARD_FILES_RAW_DIR', os.path.join(CARD_FILES_DIR, 'raw'))
+CARD_FILES_PROCESSED_DIR = os.getenv('CARD_FILES_PROCESSED_DIR', os.path.join(CARD_FILES_DIR, 'processed'))
+
+# Legacy CSV compatibility mode (v3.0.0 only, removed in v3.1.0)
+# Enable CSV fallback for testing or migration troubleshooting
+# Set to '1' or 'true' to enable CSV fallback when Parquet loading fails
+LEGACY_CSV_COMPAT = os.getenv('LEGACY_CSV_COMPAT', '0').lower() in ('1', 'true', 'on', 'enabled')
+
 # Configuration for handling null/NA values in DataFrame columns
 FILL_NA_COLUMNS: Dict[str, Optional[str]] = {
     'colorIdentity': 'Colorless',  # Default color identity for cards without one

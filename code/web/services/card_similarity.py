@@ -31,12 +31,13 @@ class CardSimilarity:
         Initialize similarity calculator.
 
         Args:
-            cards_df: DataFrame with card data. If None, loads from all_cards.parquet
+            cards_df: DataFrame with card data. If None, loads from processed all_cards.parquet
             cache: SimilarityCache instance. If None, uses global singleton
         """
         if cards_df is None:
-            # Load from default location
-            parquet_path = Path(__file__).parents[3] / "card_files" / "all_cards.parquet"
+            # Load from processed directory (M4 Parquet migration)
+            from path_util import get_processed_cards_path
+            parquet_path = get_processed_cards_path()
             logger.info(f"Loading cards from {parquet_path}")
             self.cards_df = pd.read_parquet(parquet_path)
         else:
@@ -247,11 +248,14 @@ class CardSimilarity:
         Returns:
             Set of theme tag strings
         """
-        if pd.isna(tags) or not tags:
+        # M4: Handle both scalar NA (CSV) and array values (Parquet)
+        if pd.isna(tags) if isinstance(tags, (str, float, int, type(None))) else False:
             return set()
-
-        if isinstance(tags, list):
-            return set(tags)
+        
+        # M4: Handle numpy arrays from Parquet files
+        if hasattr(tags, '__len__') and not isinstance(tags, str):
+            # Parquet format - convert array-like to list
+            return set(list(tags)) if len(tags) > 0 else set()
 
         if isinstance(tags, str):
             # Handle string representation of list: "['tag1', 'tag2']"

@@ -9,7 +9,7 @@ from pathlib import Path
 import re
 from typing import Mapping, Tuple
 
-from code.logging_util import get_logger
+from logging_util import get_logger
 from deck_builder.partner_background_utils import analyze_partner_background
 from path_util import csv_dir
 

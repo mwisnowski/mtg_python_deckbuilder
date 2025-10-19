@@ -11,6 +11,9 @@ from typing import DefaultDict, Dict, List, Set
 # Third-party imports
 import pandas as pd
 
+# Local application imports
+from settings import CSV_DIRECTORY, SETUP_COLORS
+
 
 @dataclass(frozen=True)
 class ComboPair:
@@ -92,73 +95,57 @@ def _safe_list_parse(s: object) -> List[str]:
     return []
 
 
-def apply_combo_tags(
-    df: pd.DataFrame | None = None,
-    combos_path: str | Path = "config/card_lists/combos.json"
-) -> Dict[str, int]:
-    """Apply bidirectional comboTags to DataFrame based on combos.json.
-    
-    This function modifies the DataFrame in-place when called from the tagging pipeline.
-    It can also be called standalone without a DataFrame for legacy/CLI usage.
+def apply_combo_tags(colors: List[str] | None = None, combos_path: str | Path = "config/card_lists/combos.json", csv_dir: str | Path | None = None) -> Dict[str, int]:
+    """Apply bidirectional comboTags to per-color CSVs based on combos.json.
 
-    Args:
-        df: DataFrame to modify in-place (from tagging pipeline), or None for standalone usage
-        combos_path: Path to combos.json file
-
-    Returns:
-        Dict with 'total' key showing count of cards with combo tags
+    Returns a dict of color->updated_row_count for quick reporting.
     """
+    colors = colors or list(SETUP_COLORS)
     combos_file = Path(combos_path)
     pairs = _load_pairs(combos_file)
-    
-    # If no DataFrame provided, load from Parquet (standalone mode)
-    standalone_mode = df is None
-    if standalone_mode:
-        parquet_path = "card_files/processed/all_cards.parquet"
-        parquet_file = Path(parquet_path)
-        if not parquet_file.exists():
-            raise FileNotFoundError(f"Parquet file not found: {parquet_file}")
-        df = pd.read_parquet(parquet_file)
-    
-    _ensure_combo_cols(df)
-    before_hash = pd.util.hash_pandas_object(df[["name", "comboTags"]].astype(str)).sum()
-    
-    # Build an index of canonicalized keys -> actual DF row names to update
-    name_index: DefaultDict[str, Set[str]] = defaultdict(set)
-    for nm in df["name"].astype(str).tolist():
-        canon = _canonicalize(nm)
-        cf = canon.casefold()
-        name_index[cf].add(nm)
-        # If split/fused faces exist, map each face to the combined row name as well
-        if " // " in canon:
-            for part in canon.split(" // "):
-                p = part.strip().casefold()
-                if p:
-                    name_index[p].add(nm)
-    
-    # Apply all combo pairs
-    for p in pairs:
-        a = _canonicalize(p.a)
-        b = _canonicalize(p.b)
-        a_key = a.casefold()
-        b_key = b.casefold()
-        # Apply A<->B bidirectionally to any matching DF rows
-        _apply_partner_to_names(df, name_index.get(a_key, set()), b)
-        _apply_partner_to_names(df, name_index.get(b_key, set()), a)
-    
-    after_hash = pd.util.hash_pandas_object(df[["name", "comboTags"]].astype(str)).sum()
-    
-    # Calculate updated counts
+
     updated_counts: Dict[str, int] = {}
-    if before_hash != after_hash:
-        updated_counts["total"] = int((df["comboTags"].apply(bool)).sum())
-    else:
-        updated_counts["total"] = 0
-    
-    # Only write back to Parquet in standalone mode
-    if standalone_mode and before_hash != after_hash:
-        df.to_parquet(parquet_file, index=False)
-    
+    base_dir = Path(csv_dir) if csv_dir is not None else Path(CSV_DIRECTORY)
+    for color in colors:
+        csv_path = base_dir / f"{color}_cards.csv"
+        if not csv_path.exists():
+            continue
+        df = pd.read_csv(csv_path, converters={
+            "themeTags": _safe_list_parse,
+            "creatureTypes": _safe_list_parse,
+            "comboTags": _safe_list_parse,
+        })
+
+        _ensure_combo_cols(df)
+        before_hash = pd.util.hash_pandas_object(df[["name", "comboTags"]].astype(str)).sum()
+
+        # Build an index of canonicalized keys -> actual DF row names to update.
+        name_index: DefaultDict[str, Set[str]] = defaultdict(set)
+        for nm in df["name"].astype(str).tolist():
+            canon = _canonicalize(nm)
+            cf = canon.casefold()
+            name_index[cf].add(nm)
+            # If split/fused faces exist, map each face to the combined row name as well
+            if " // " in canon:
+                for part in canon.split(" // "):
+                    p = part.strip().casefold()
+                    if p:
+                        name_index[p].add(nm)
+
+        for p in pairs:
+            a = _canonicalize(p.a)
+            b = _canonicalize(p.b)
+            a_key = a.casefold()
+            b_key = b.casefold()
+            # Apply A<->B bidirectionally to any matching DF rows
+            _apply_partner_to_names(df, name_index.get(a_key, set()), b)
+            _apply_partner_to_names(df, name_index.get(b_key, set()), a)
+
+        after_hash = pd.util.hash_pandas_object(df[["name", "comboTags"]].astype(str)).sum()
+        if before_hash != after_hash:
+            df.to_csv(csv_path, index=False)
+            updated_counts[color] = int((df["comboTags"].apply(bool)).sum())
+
     return updated_counts
 
 

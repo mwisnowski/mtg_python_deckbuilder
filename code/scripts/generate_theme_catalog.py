@@ -258,7 +258,7 @@ def build_theme_catalog(
     for tags in df_commanders['themeTags'].tolist():
         if tags is None or (isinstance(tags, float) and pd.isna(tags)):
             continue
-        from code.deck_builder.theme_catalog_loader import parse_theme_tags, normalize_theme_display, canonical_key
+        # Functions are defined at top of this file, no import needed
         parsed = parse_theme_tags(tags)
         if not parsed:
             continue

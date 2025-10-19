@@ -109,25 +109,23 @@ jobs:
           print(f'Columns: {list(df.columns)}')
           print('')
           
-          # Show first 10 rows with their themeTags
-          print('First 10 cards with themeTags:')
-          print('=' * 80)
-          for idx, row in df.head(10).iterrows():
-              name = row.get('name', 'UNKNOWN')
-              tags = row.get('themeTags', [])
-              tag_count = len(tags) if isinstance(tags, list) else 0
-              print(f'{idx}: {name}')
-              print(f'   Type: {type(tags).__name__}')
-              print(f'   Count: {tag_count}')
-              if tag_count > 0:
-                  # Show first 5 tags
-                  sample = tags[:5] if tag_count > 5 else tags
-                  print(f'   Tags: {sample}')
-                  if tag_count > 5:
-                      print(f'   ... and {tag_count - 5} more')
-              else:
-                  print(f'   Tags: (empty)')
-              print('')
+          # Show first 5 rows completely
+          print('First 5 complete rows:')
+          print('=' * 100)
+          for idx, row in df.head(5).iterrows():
+              print(f'Row {idx}:')
+              for col in df.columns:
+                  value = row[col]
+                  if isinstance(value, (list, tuple)) or hasattr(value, '__array__'):
+                      # For array-like, show type and length
+                      try:
+                          length = len(value)
+                          print(f'  {col}: {type(value).__name__}[{length}] = {value}')
+                      except:
+                          print(f'  {col}: {type(value).__name__} = {value}')
+                  else:
+                      print(f'  {col}: {value}')
+              print('-' * 100)
           "
       
       - name: Generate theme catalog

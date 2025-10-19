@@ -247,9 +247,13 @@ def build_theme_catalog(
         all_cards_parquet, theme_variants=theme_variants
     )
     
-    # For commander counts, filter all_cards by is_commander column
+    # For commander counts, filter all_cards by isCommander column
     df_commanders = pd.read_parquet(all_cards_parquet)
-    df_commanders = df_commanders[df_commanders.get('is_commander', False)]
+    if 'isCommander' in df_commanders.columns:
+        df_commanders = df_commanders[df_commanders['isCommander']]
+    else:
+        # Fallback: assume all cards could be commanders if column missing
+        pass
     commander_counts = Counter()
     for tags in df_commanders['themeTags'].tolist():
         if tags is None or (isinstance(tags, float) and pd.isna(tags)):

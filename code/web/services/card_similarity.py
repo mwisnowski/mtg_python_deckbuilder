@@ -252,9 +252,10 @@ class CardSimilarity:
         if pd.isna(tags) if isinstance(tags, (str, float, int, type(None))) else False:
             return set()
         
-        if isinstance(tags, list):
-            # M4: Parquet format - already a list
-            return set(tags) if tags else set()
+        # M4: Handle numpy arrays from Parquet files
+        if hasattr(tags, '__len__') and not isinstance(tags, str):
+            # Parquet format - convert array-like to list
+            return set(list(tags)) if len(tags) > 0 else set()
 
         if isinstance(tags, str):
             # Handle string representation of list: "['tag1', 'tag2']"

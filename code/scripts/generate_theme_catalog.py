@@ -73,6 +73,12 @@ def canonical_key(raw: str) -> str:
 def parse_theme_tags(value: object) -> List[str]:
     if value is None:
         return []
+    # Handle numpy arrays (from Parquet files)
+    if hasattr(value, '__array__') or hasattr(value, 'tolist'):
+        try:
+            value = value.tolist() if hasattr(value, 'tolist') else list(value)
+        except Exception:
+            pass
     if isinstance(value, list):
         return [str(v) for v in value if isinstance(v, str) and v.strip()]
     if isinstance(value, str):

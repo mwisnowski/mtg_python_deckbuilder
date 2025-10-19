@@ -78,10 +78,10 @@ jobs:
         run: |
           python -c "from code.file_setup.setup import initial_setup; initial_setup()"
       
-      - name: Run tagging (serial - more reliable in CI)
+      - name: Run tagging (parallel)
         if: steps.check_cache.outputs.needs_build == 'true'
         run: |
-          python -c "from code.tagging.tagger import run_tagging; run_tagging(parallel=False)"
+          python -c "from code.tagging.tagger import run_tagging; run_tagging(parallel=True)"
       
       - name: Build similarity cache (Parquet) from card_files/processed/all_cards.parquet
         if: steps.check_cache.outputs.needs_build == 'true'

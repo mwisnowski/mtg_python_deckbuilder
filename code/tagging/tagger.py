@@ -6865,6 +6865,30 @@ def run_tagging(parallel: bool = False, max_workers: int | None = None):
     
     duration = (pd.Timestamp.now() - start_time).total_seconds()
     logger.info(f'✓ Tagged cards in {duration:.2f}s ({mode} mode)')
+    
+    # M4: Write tagging completion flag to processed directory
+    try:
+        import os
+        import json
+        from datetime import datetime, UTC
+        
+        flag_dir = os.path.join("card_files", "processed")
+        os.makedirs(flag_dir, exist_ok=True)
+        flag_path = os.path.join(flag_dir, ".tagging_complete.json")
+        
+        with open(flag_path, "w", encoding="utf-8") as f:
+            json.dump({
+                "completed_at": datetime.now(UTC).isoformat(timespec="seconds"),
+                "mode": mode,
+                "parallel": parallel,
+                "duration_seconds": duration
+            }, f, indent=2)
+        
+        logger.info(f"✓ Wrote tagging completion flag to {flag_path}")
+    except Exception as e:
+        logger.warning(f"Failed to write tagging completion flag: {e}")
+
+
 
 
 

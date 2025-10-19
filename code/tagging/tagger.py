@@ -423,6 +423,16 @@ def load_and_tag_all_cards(parallel: bool = False, max_workers: int | None = Non
         output_path = get_processed_cards_path()
         _data_loader.write_cards(df_final, output_path, format="parquet")
         logger.info(f'✓ Wrote {len(df_final)} tagged cards to {output_path}')
+        
+        # M7: Write commander-only cache file for fast lookups
+        try:
+            if 'isCommander' in df_final.columns:
+                commander_df = df_final[df_final['isCommander'] == True].copy()  # noqa: E712
+                commander_path = os.path.join(os.path.dirname(output_path), 'commander_cards.parquet')
+                _data_loader.write_cards(commander_df, commander_path, format="parquet")
+                logger.info(f'✓ Wrote {len(commander_df)} commanders to {commander_path}')
+        except Exception as e:
+            logger.warning(f'Failed to write commander cache: {e}')
 
     except FileNotFoundError as e:
         logger.error(f'Error: {e}')

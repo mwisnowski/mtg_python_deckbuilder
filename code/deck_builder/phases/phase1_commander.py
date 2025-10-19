@@ -129,7 +129,8 @@ class CommanderSelectionMixin:
     def _apply_commander_selection(self, row: pd.Series):  # type: ignore[override]
         self.commander_name = row["name"]
         self.commander_row = row
-        self.commander_tags = list(row.get("themeTags", []) or [])
+        tags_value = row.get("themeTags", [])
+        self.commander_tags = list(tags_value) if tags_value is not None else []
         self._initialize_commander_dict(row)
 
     # ---------------------------

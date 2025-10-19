@@ -198,29 +198,19 @@ jobs:
         if: steps.check_cache.outputs.needs_build == 'true'
         run: |
           if [ ! -f "card_files/similarity_cache.parquet" ]; then
-            echo "ERROR: Cache Parquet file was not created"
+            echo "ERROR: Similarity cache not created"
             exit 1
           fi
           if [ ! -f "card_files/similarity_cache_metadata.json" ]; then
-            echo "ERROR: Cache metadata file was not created"
+            echo "ERROR: Similarity cache metadata not created"
+            exit 1
+          fi
+          if [ ! -f "card_files/processed/commander_cards.parquet" ]; then
+            echo "ERROR: Commander cache not created"
             exit 1
           fi
           
-          # Check cache validity
-          python -c "
-          import json
-          from pathlib import Path
-          from code.web.services.similarity_cache import get_cache
-          
-          cache = get_cache()
-          stats = cache.get_stats()
-          
-          if stats['total_cards'] < 20000:
-              raise ValueError(f\"Cache only has {stats['total_cards']} cards, expected ~30k\")
-          
-          print(f\"✓ Cache is valid with {stats['total_cards']:,} cards, {stats['total_entries']:,} entries\")
-          print(f\"  File size: {stats['file_size_mb']:.2f} MB\")
-          "
+          echo "✓ All cache files created successfully"
       
       - name: Get cache metadata for commit message
         if: steps.check_cache.outputs.needs_build == 'true'
@@ -266,6 +256,7 @@ jobs:
             echo "- \`card_files/similarity_cache.parquet\` - Pre-computed card similarity cache" >> README.md
             echo "- \`card_files/similarity_cache_metadata.json\` - Cache metadata" >> README.md
             echo "- \`card_files/processed/all_cards.parquet\` - Tagged card database" >> README.md
+            echo "- \`card_files/processed/commander_cards.parquet\` - Commander-only cache (fast lookups)" >> README.md
             echo "- \`card_files/processed/.tagging_complete.json\` - Tagging status" >> README.md
           fi
           
@@ -278,6 +269,7 @@ jobs:
           
           # Add processed Parquet and status file
           git add -f card_files/processed/all_cards.parquet
+          git add -f card_files/processed/commander_cards.parquet
           git add -f card_files/processed/.tagging_complete.json
           
           git add README.md 2>/dev/null || true

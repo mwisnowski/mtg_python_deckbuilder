@@ -838,7 +838,29 @@ class DeckBuilder(
         if self._commander_df is not None:
             return self._commander_df
         
-        # M4: Load commanders from Parquet instead of CSV
+        # M7: Try loading from dedicated commander cache first (fast path)
+        from path_util import get_commander_cards_path
+        from file_setup.data_loader import DataLoader
+        
+        commander_path = get_commander_cards_path()
+        if os.path.exists(commander_path):
+            try:
+                loader = DataLoader()
+                df = loader.read_cards(commander_path, format="parquet")
+                
+                # Ensure required columns exist with proper defaults
+                if "themeTags" not in df.columns:
+                    df["themeTags"] = [[] for _ in range(len(df))]
+                if "creatureTypes" not in df.columns:
+                    df["creatureTypes"] = [[] for _ in range(len(df))]
+                
+                self._commander_df = df
+                return df
+            except Exception:
+                # Fall through to legacy path if cache read fails
+                pass
+        
+        # M4: Fallback - Load commanders from full Parquet file (slower)
         from deck_builder import builder_utils as bu
         from deck_builder import builder_constants as bc
         

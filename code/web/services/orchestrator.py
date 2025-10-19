@@ -18,6 +18,12 @@ from pathlib import Path
 from deck_builder.partner_selection import apply_partner_inputs
 from exceptions import CommanderPartnerError
 
+# M7: Cache for commander DataFrame to avoid repeated Parquet loads
+_COMMANDER_DF_CACHE: Dict[str, Any] = {"df": None, "mtime": None}
+
+# M7: Cache for past builds summary to avoid repeated file scans
+_PAST_BUILDS_CACHE: Dict[str, Any] = {"index": None, "mtime": None}
+
 _TAG_ACRONYM_KEEP = {"EDH", "ETB", "ETBs", "CMC", "ET", "OTK"}
 _REASON_SOURCE_OVERRIDES = {
     "creature_all_theme": "Theme Match",
@@ -447,8 +453,9 @@ def _attach_enforcement_plan(b: DeckBuilder, comp: Dict[str, Any] | None) -> Dic
 
 
 def commander_names() -> List[str]:
-    tmp = DeckBuilder()
-    df = tmp.load_commander_data()
+    df = _get_cached_commander_df()
+    if df is None:
+        return []
     return df["name"].astype(str).tolist()
 
 
@@ -479,7 +486,9 @@ def commander_candidates(query: str, limit: int = 10) -> List[Tuple[str, int, Li
             query = ' '.join([w[:1].upper() + w[1:].lower() if w else w for w in str(query).split(' ')])
     except Exception:
         pass
-    df = tmp.load_commander_data()
+    df = _get_cached_commander_df()
+    if df is None:
+        return []
     # Filter to plausible commanders: Legendary Creature, or text explicitly allows being a commander.
     try:
         cols = set(df.columns.astype(str))
@@ -533,10 +542,7 @@ def commander_candidates(query: str, limit: int = 10) -> List[Tuple[str, int, Li
     except Exception:
         pass
     # Attach color identity for each candidate
-    try:
-        df = tmp.load_commander_data()
-    except Exception:
-        df = None
+    df = _get_cached_commander_df()
     q = (query or "").strip().lower()
     qn = _simplify(query)
     tokens = [t for t in re.split(r"[\s,]+", q) if t]
@@ -627,7 +633,9 @@ def commander_candidates(query: str, limit: int = 10) -> List[Tuple[str, int, Li
 
 def commander_inspect(name: str) -> Dict[str, Any]:
     tmp = DeckBuilder()
-    df = tmp.load_commander_data()
+    df = _get_cached_commander_df()
+    if df is None:
+        return {"ok": False, "error": "Commander data not available"}
     row = df[df["name"] == name]
     if row.empty:
         return {"ok": False, "error": "Commander not found"}
@@ -637,7 +645,9 @@ def commander_inspect(name: str) -> Dict[str, Any]:
 
 def commander_select(name: str) -> Dict[str, Any]:
     tmp = DeckBuilder()
-    df = tmp.load_commander_data()
+    df = _get_cached_commander_df()
+    if df is None:
+        return {"ok": False, "error": "Commander data not available"}
     # Try exact match, then normalized match
     row = df[df["name"] == name]
     if row.empty:
@@ -661,15 +671,125 @@ def commander_select(name: str) -> Dict[str, Any]:
     }
 
 
+def _get_cached_commander_df():
+    """M7: Return cached commander DataFrame, loading only if needed or stale."""
+    global _COMMANDER_DF_CACHE
+    
+    # Check if we need to reload (cache miss or file changed)
+    need_reload = _COMMANDER_DF_CACHE["df"] is None
+    
+    if not need_reload:
+        # Check if the commander Parquet file has been modified since we cached it
+        try:
+            from path_util import get_commander_cards_path
+            commander_path = get_commander_cards_path()
+            if os.path.exists(commander_path):
+                current_mtime = os.path.getmtime(commander_path)
+                cached_mtime = _COMMANDER_DF_CACHE.get("mtime")
+                if cached_mtime is None or current_mtime > cached_mtime:
+                    need_reload = True
+            else:
+                # If dedicated file doesn't exist, force reload to use fallback
+                need_reload = True
+        except Exception:
+            # If we can't check mtime, just use the cache if we have it
+            pass
+    
+    if need_reload:
+        try:
+            tmp = DeckBuilder()
+            df = tmp.load_commander_data()
+            from path_util import get_commander_cards_path
+            commander_path = get_commander_cards_path()
+            _COMMANDER_DF_CACHE["df"] = df
+            if os.path.exists(commander_path):
+                _COMMANDER_DF_CACHE["mtime"] = os.path.getmtime(commander_path)
+            else:
+                # No dedicated file - set mtime to None so we don't cache stale data
+                _COMMANDER_DF_CACHE["mtime"] = None
+        except Exception:
+            # Fall back to empty cache on error
+            _COMMANDER_DF_CACHE["df"] = None
+            _COMMANDER_DF_CACHE["mtime"] = None
+    
+    return _COMMANDER_DF_CACHE["df"]
+
+
+def _get_past_builds_index() -> Dict[str, List[Dict[str, Any]]]:
+    """M7: Return cached index of past builds: commander_name -> list of {tags, age_days}."""
+    global _PAST_BUILDS_CACHE
+    
+    deck_files_dir = 'deck_files'
+    need_rebuild = _PAST_BUILDS_CACHE["index"] is None
+    
+    if not need_rebuild:
+        # Check if deck_files directory has changed
+        try:
+            if os.path.exists(deck_files_dir):
+                current_mtime = os.path.getmtime(deck_files_dir)
+                cached_mtime = _PAST_BUILDS_CACHE.get("mtime")
+                if cached_mtime is None or current_mtime > cached_mtime:
+                    need_rebuild = True
+        except Exception:
+            pass
+    
+    if need_rebuild:
+        index: Dict[str, List[Dict[str, Any]]] = {}
+        try:
+            for path in glob(os.path.join(deck_files_dir, '*.summary.json')):
+                try:
+                    st = os.stat(path)
+                    age_days = max(0, (time.time() - st.st_mtime) / 86400.0)
+                    with open(path, 'r', encoding='utf-8') as f:
+                        data = json.load(f) or {}
+                    meta = data.get('meta') or {}
+                    commander = str(meta.get('commander', '')).strip()
+                    if not commander:
+                        continue
+                    tags_list = meta.get('tags') or []
+                    if not tags_list:
+                        continue
+                    
+                    if commander not in index:
+                        index[commander] = []
+                    index[commander].append({
+                        'tags': tags_list,
+                        'age_days': age_days
+                    })
+                except Exception:
+                    continue
+            
+            _PAST_BUILDS_CACHE["index"] = index
+            if os.path.exists(deck_files_dir):
+                _PAST_BUILDS_CACHE["mtime"] = os.path.getmtime(deck_files_dir)
+        except Exception:
+            _PAST_BUILDS_CACHE["index"] = {}
+            _PAST_BUILDS_CACHE["mtime"] = None
+    
+    return _PAST_BUILDS_CACHE["index"] or {}
+
+
+def invalidate_past_builds_cache():
+    """M7: Force rebuild of past builds cache on next access (call after saving new builds)."""
+    global _PAST_BUILDS_CACHE
+    _PAST_BUILDS_CACHE["index"] = None
+    _PAST_BUILDS_CACHE["mtime"] = None
+
+
 def tags_for_commander(name: str) -> List[str]:
-    tmp = DeckBuilder()
-    df = tmp.load_commander_data()
+    df = _get_cached_commander_df()
+    if df is None:
+        return []
     row = df[df["name"] == name]
     if row.empty:
         return []
     raw = row.iloc[0].get("themeTags", [])
-    if isinstance(raw, list):
-        return list(dict.fromkeys([str(t).strip() for t in raw if str(t).strip()]))
+    # Handle both list and NumPy array types from Parquet
+    if isinstance(raw, (list, tuple)) or hasattr(raw, '__iter__') and not isinstance(raw, str):
+        try:
+            return list(dict.fromkeys([str(t).strip() for t in raw if str(t).strip()]))
+        except Exception:
+            pass
     if isinstance(raw, str) and raw.strip():
         parts = [p.strip().strip("'\"") for p in raw.split(',')]
         return [p for p in parts if p]
@@ -707,11 +827,8 @@ def _recommended_scored(name: str, max_items: int = 5) -> List[Tuple[str, int, L
         except Exception:
             return None
         return None
-    try:
-        tmp = DeckBuilder()
-        df = tmp.load_commander_data()
-    except Exception:
-        df = None
+    # M7: Use cached DataFrame instead of loading again
+    df = _get_cached_commander_df()
     # Gather commander text and colors
     text = ""
     colors: List[str] = []
@@ -815,35 +932,28 @@ def _recommended_scored(name: str, max_items: int = 5) -> List[Tuple[str, int, L
             if len(reasons[orig]) < 3 and cr not in reasons[orig]:
                 reasons[orig].append(cr)
 
-    # Past builds history
+    # Past builds history - M7: Use cached index instead of scanning files
     try:
-        for path in glob(os.path.join('deck_files', '*.summary.json')):
-            try:
-                st = os.stat(path)
-                age_days = max(0, (time.time() - st.st_mtime) / 86400.0)
-                with open(path, 'r', encoding='utf-8') as f:
-                    data = json.load(f) or {}
-                meta = data.get('meta') or {}
-                if str(meta.get('commander', '')).strip() != str(name).strip():
-                    continue
-                tags_list = meta.get('tags') or []
-                for tg in tags_list:
-                    tn = _norm(str(tg))
-                    if tn in available_norm:
-                        orig = norm_map[tn]
-                        inc = 2
-                        recent = False
-                        if age_days <= 30:
-                            inc += 2
-                            recent = True
-                        elif age_days <= 90:
-                            inc += 1
-                        score[orig] = score.get(orig, 0) + inc
-                        lbl = "Popular in your past builds" + (" (recent)" if recent else "")
-                        if len(reasons[orig]) < 3 and lbl not in reasons[orig]:
-                            reasons[orig].append(lbl)
-            except Exception:
-                continue
+        past_builds_index = _get_past_builds_index()
+        builds_for_commander = past_builds_index.get(str(name).strip(), [])
+        for build in builds_for_commander:
+            age_days = build.get('age_days', 999)
+            tags_list = build.get('tags', [])
+            for tg in tags_list:
+                tn = _norm(str(tg))
+                if tn in available_norm:
+                    orig = norm_map[tn]
+                    inc = 2
+                    recent = False
+                    if age_days <= 30:
+                        inc += 2
+                        recent = True
+                    elif age_days <= 90:
+                        inc += 1
+                    score[orig] = score.get(orig, 0) + inc
+                    lbl = "Popular in your past builds" + (" (recent)" if recent else "")
+                    if len(reasons[orig]) < 3 and lbl not in reasons[orig]:
+                        reasons[orig].append(lbl)
     except Exception:
         pass
 
@@ -1920,6 +2030,8 @@ def run_build(commander: str, tags: List[str], bracket: int, ideals: Dict[str, i
                 payload = {"meta": meta, "summary": summary}
                 with open(sidecar, 'w', encoding='utf-8') as f:
                     _json.dump(payload, f, ensure_ascii=False, indent=2)
+                # M7: Invalidate past builds cache so new build appears in recommendations
+                invalidate_past_builds_cache()
         except Exception:
             pass
         # Success return
@@ -2748,6 +2860,8 @@ def run_stage(ctx: Dict[str, Any], rerun: bool = False, show_skipped: bool = Fal
                 payload = {"meta": meta, "summary": summary}
                 with open(sidecar, 'w', encoding='utf-8') as f:
                     _json.dump(payload, f, ensure_ascii=False, indent=2)
+                # M7: Invalidate past builds cache so new build appears in recommendations
+                invalidate_past_builds_cache()
         except Exception:
             pass
         return {
@@ -3597,6 +3711,8 @@ def run_stage(ctx: Dict[str, Any], rerun: bool = False, show_skipped: bool = Fal
             payload = {"meta": meta, "summary": summary}
             with open(sidecar, 'w', encoding='utf-8') as f:
                 _json.dump(payload, f, ensure_ascii=False, indent=2)
+            # M7: Invalidate past builds cache so new build appears in recommendations
+            invalidate_past_builds_cache()
     except Exception:
         pass
     # Final progress

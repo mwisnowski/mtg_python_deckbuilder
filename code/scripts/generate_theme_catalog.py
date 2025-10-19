@@ -245,20 +245,39 @@ def build_theme_catalog(
     used_parquet = False
     if use_parquet and HAS_PARQUET_SUPPORT:
         try:
-            # Use dedicated parquet files (matches CSV structure exactly)
-            parquet_dir = csv_directory.parent / "card_files"
+            # Use processed parquet files (M4 migration)
+            parquet_dir = csv_directory.parent / "card_files" / "processed"
             
-            # Load commander counts directly from commander_cards.parquet
-            commander_parquet = parquet_dir / "commander_cards.parquet"
-            commander_counts = _load_theme_counts_from_parquet(
-                commander_parquet, theme_variants=theme_variants
-            )
-            
-            # Load all card counts from all_cards.parquet to include all themes
+            # Load all card counts from all_cards.parquet (includes commanders)
             all_cards_parquet = parquet_dir / "all_cards.parquet"
             card_counts = _load_theme_counts_from_parquet(
                 all_cards_parquet, theme_variants=theme_variants
             )
+            
+            # For commander counts, filter all_cards by is_commander column
+            if all_cards_parquet.exists() and pd is not None:
+                df_commanders = pd.read_parquet(all_cards_parquet)
+                df_commanders = df_commanders[df_commanders.get('is_commander', False)]
+                commander_counts = Counter()
+                for tags in df_commanders['themeTags'].tolist():
+                    if tags is None or (isinstance(tags, float) and pd.isna(tags)):
+                        continue
+                    from code.deck_builder.theme_catalog_loader import parse_theme_tags, normalize_theme_display, canonical_key
+                    parsed = parse_theme_tags(tags)
+                    if not parsed:
+                        continue
+                    seen = set()
+                    for tag in parsed:
+                        display = normalize_theme_display(tag)
+                        if not display:
+                            continue
+                        key = canonical_key(display)
+                        if key not in seen:
+                            seen.add(key)
+                            commander_counts[key] += 1
+                            theme_variants[key].add(display)
+            else:
+                commander_counts = Counter()
             
             used_parquet = True
             print("✓ Loaded theme data from parquet files")

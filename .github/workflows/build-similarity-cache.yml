@@ -89,6 +89,12 @@ jobs:
             exit 1
           fi
           
+          # Verify theme catalog was generated
+          if [ ! -f "config/themes/theme_catalog.csv" ]; then
+            echo "WARNING: Theme catalog not found, generating..."
+            python -c "from code.deck_builder.theme_catalog_loader import generate_theme_catalog; generate_theme_catalog()"
+          fi
+          
           # Detailed check of what tags were actually written
           python -c "
           import pandas as pd

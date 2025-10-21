@@ -146,6 +146,7 @@ ENABLE_CUSTOM_THEMES = _as_bool(os.getenv("ENABLE_CUSTOM_THEMES"), True)
 WEB_IDEALS_UI = os.getenv("WEB_IDEALS_UI", "slider").strip().lower()  # 'input' or 'slider'
 ENABLE_PARTNER_MECHANICS = _as_bool(os.getenv("ENABLE_PARTNER_MECHANICS"), True)
 ENABLE_PARTNER_SUGGESTIONS = _as_bool(os.getenv("ENABLE_PARTNER_SUGGESTIONS"), True)
+ENABLE_BATCH_BUILD = _as_bool(os.getenv("ENABLE_BATCH_BUILD"), True)
 RANDOM_MODES = _as_bool(os.getenv("RANDOM_MODES"), True)  # initial snapshot (legacy)
 RANDOM_UI = _as_bool(os.getenv("RANDOM_UI"), True)
 THEME_PICKER_DIAGNOSTICS = _as_bool(os.getenv("WEB_THEME_PICKER_DIAGNOSTICS"), False)
@@ -2223,6 +2224,7 @@ from .routes import partner_suggestions as partner_suggestions_routes  # noqa: E
 from .routes import telemetry as telemetry_routes  # noqa: E402
 from .routes import cards as cards_routes  # noqa: E402
 from .routes import card_browser as card_browser_routes  # noqa: E402
+from .routes import compare as compare_routes  # noqa: E402
 app.include_router(build_routes.router)
 app.include_router(config_routes.router)
 app.include_router(decks_routes.router)
@@ -2234,6 +2236,7 @@ app.include_router(partner_suggestions_routes.router)
 app.include_router(telemetry_routes.router)
 app.include_router(cards_routes.router)
 app.include_router(card_browser_routes.router)
+app.include_router(compare_routes.router)
 
 # Warm validation cache early to reduce first-call latency in tests and dev
 try:

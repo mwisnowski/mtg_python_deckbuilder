@@ -1,0 +1,221 @@
+{% extends "base.html" %}
+
+{% block title %}Compare Builds - {{ config.commander }}{% endblock %}
+
+{% block content %}
+<div class="container" style="max-width: 1400px; padding: 2rem;">
+  <div style="margin-bottom: 2rem;">
+    <h1 style="margin-bottom: 0.5rem;">Compare {{ build_count }} Builds</h1>
+    <div class="muted" style="font-size: 0.9rem;">
+      <strong>Commander:</strong> {{ config.commander }}
+      {% if config.tags %}
+      | <strong>Themes:</strong> {{ config.tags | join(", ") }}
+      {% endif %}
+      | <strong>Bracket:</strong> {{ config.bracket }}
+    </div>
+  </div>
+
+  {# Overview Stats #}
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
+    <div class="card" style="padding: 1rem; text-align: center;">
+      <div style="font-size: 2rem; font-weight: bold; color: var(--primary);">{{ overlap_stats.total_unique_cards }}</div>
+      <div class="muted" style="font-size: 0.85rem;">Unique Cards Total</div>
+    </div>
+    <div class="card" style="padding: 1rem; text-align: center;">
+      <div style="font-size: 2rem; font-weight: bold; color: #10b981;">{{ overlap_stats.cards_in_all }}</div>
+      <div class="muted" style="font-size: 0.85rem;">In All Builds</div>
+    </div>
+    <div class="card" style="padding: 1rem; text-align: center;">
+      <div style="font-size: 2rem; font-weight: bold; color: #3b82f6;">{{ overlap_stats.cards_in_most }}</div>
+      <div class="muted" style="font-size: 0.85rem;">In Most Builds (80%+)</div>
+    </div>
+    <div class="card" style="padding: 1rem; text-align: center;">
+      <div style="font-size: 2rem; font-weight: bold; color: #f59e0b;">{{ overlap_stats.cards_in_some }}</div>
+      <div class="muted" style="font-size: 0.85rem;">In Some Builds</div>
+    </div>
+    <div class="card" style="padding: 1rem; text-align: center;">
+      <div style="font-size: 2rem; font-weight: bold; color: #ef4444;">{{ overlap_stats.cards_in_few }}</div>
+      <div class="muted" style="font-size: 0.85rem;">In Few Builds</div>
+    </div>
+  </div>
+
+  {# Most Common Cards #}
+  <details open style="margin-bottom: 2rem;">
+    <summary style="cursor: pointer; font-size: 1.1rem; font-weight: 500; margin-bottom: 1rem;">
+      📊 Most Common Cards
+    </summary>
+    <div class="card" style="padding: 1rem;">
+      <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 0.5rem;">
+        {% for card_name, count in overlap_stats.most_common[:20] %}
+        <div style="display: flex; justify-content: space-between; padding: 0.5rem; background: rgba(59, 130, 246, 0.1); border-radius: 4px;">
+          <span data-card-name="{{ card_name }}" style="cursor: help;">{{ card_name }}</span>
+          <span style="font-weight: 500; color: var(--primary);">{{ count }}/{{ build_count }}</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </details>
+
+  {# Individual Build Comparisons #}
+  <h2 style="margin-bottom: 1rem;">Individual Builds</h2>
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+    {% for build in builds %}
+    <div class="card" style="padding: 1.5rem;">
+      <h3 style="margin-bottom: 1rem; color: var(--primary);">Build #{{ build.build_number }}</h3>
+      
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 1rem;">
+        <div>
+          <div class="muted" style="font-size: 0.8rem;">Total Cards</div>
+          <div style="font-size: 1.5rem; font-weight: bold;">{{ build.total_cards }}</div>
+        </div>
+        <div>
+          <div class="muted" style="font-size: 0.8rem;">Creatures</div>
+          <div style="font-size: 1.5rem; font-weight: bold;">{{ build.creatures }}</div>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; font-size: 0.85rem;">
+        <div>
+          <div class="muted">Lands</div>
+          <div>{{ build.lands }}</div>
+        </div>
+        <div>
+          <div class="muted">Artifacts</div>
+          <div>{{ build.artifacts }}</div>
+        </div>
+        <div>
+          <div class="muted">Enchantments</div>
+          <div>{{ build.enchantments }}</div>
+        </div>
+        <div>
+          <div class="muted">Instants</div>
+          <div>{{ build.instants }}</div>
+        </div>
+        <div>
+          <div class="muted">Sorceries</div>
+          <div>{{ build.sorceries }}</div>
+        </div>
+        <div>
+          <div class="muted">Planeswalkers</div>
+          <div>{{ build.planeswalkers }}</div>
+        </div>
+      </div>
+
+      <details style="margin-top: 1rem;">
+        <summary style="cursor: pointer; font-size: 0.9rem; color: var(--primary);">
+          View All Cards ({{ build.total_cards }})
+        </summary>
+        <div style="margin-top: 0.75rem; max-height: 300px; overflow-y: auto; font-size: 0.85rem;">
+          {% for card in build.cards %}
+          <div style="padding: 0.25rem 0; border-bottom: 1px solid var(--border);">
+            <span data-card-name="{{ card.name if card is mapping else card }}" style="cursor: help;">
+              {{ card.name if card is mapping else card }}
+            </span>
+          </div>
+          {% endfor %}
+        </div>
+      </details>
+    </div>
+    {% endfor %}
+  </div>
+
+  {# Actions #}
+  <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; margin-top: 2rem;">
+    <a href="/build" class="btn">Build New Deck</a>
+    <form method="POST" action="/compare/{{ batch_id }}/rebuild" style="display: inline;">
+      <button type="submit" class="btn" title="Run {{ build_count }} more builds with the same configuration">
+        🔄 Rebuild {{ build_count }}x
+      </button>
+    </form>
+    <button 
+      id="build-synergy-btn" 
+      class="btn-continue"
+      hx-post="/compare/{{ batch_id }}/build-synergy"
+      hx-target="#synergy-preview"
+      hx-swap="innerHTML"
+    >
+      ✨ Build Synergy Deck
+    </button>
+    <form method="POST" action="/compare/{{ batch_id }}/export" style="display: inline;">
+      <button 
+        type="submit" 
+        class="btn-continue"
+        {% if synergy_exported %}disabled title="Individual batch files have been deleted after synergy export"{% endif %}
+        style="{% if synergy_exported %}opacity: 0.5; cursor: not-allowed;{% endif %}"
+      >
+        {% if synergy_exported %}Batch Files Deleted{% else %}Export All Decks as ZIP{% endif %}
+      </button>
+    </form>
+  </div>
+
+  {# Synergy Preview Container #}
+  <div id="synergy-preview" style="margin-top: 2rem;"></div>
+</div>
+
+<script>
+// Global function for exporting synergy deck (needed for HTMX-loaded content)
+function exportSynergyDeck(batchId) {
+  const btn = document.getElementById('export-synergy-btn');
+  
+  if (!batchId) {
+    alert('Batch ID not found');
+    return;
+  }
+  
+  // Show warning about deleting batch files
+  if (!confirm('⚠️ Warning: Exporting the synergy deck will delete all individual batch build files.\n\nThis action cannot be undone. After export, you will only be able to download the synergy deck.\n\nContinue with export?')) {
+    return;
+  }
+  
+  // Disable button and show loading state
+  btn.disabled = true;
+  btn.textContent = 'Exporting...';
+  
+  // Create a form and submit it to trigger download
+  fetch(`/compare/${batchId}/export-synergy`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    }
+  })
+  .then(response => {
+    if (!response.ok) {
+      throw new Error('Export failed');
+    }
+    return response.blob();
+  })
+  .then(blob => {
+    // Create download link
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.style.display = 'none';
+    a.href = url;
+    a.download = `synergy_deck_${batchId}.zip`;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+    
+    // Update button state
+    btn.textContent = '✓ Exported';
+    btn.style.opacity = '0.6';
+    
+    // Reload page to update batch export button state
+    setTimeout(() => {
+      window.location.reload();
+    }, 1000);
+  })
+  .catch(error => {
+    console.error('Export error:', error);
+    alert('Failed to export synergy deck. Check console for details.');
+    btn.disabled = false;
+    btn.textContent = 'Export Synergy Deck';
+  });
+}
+
+// Ensure card hover is attached after page load
+if (window.attachCardHover) {
+  window.attachCardHover();
+}
+</script>
+{% endblock %}

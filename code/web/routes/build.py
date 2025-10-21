@@ -14,6 +14,7 @@ from ..app import (
     ENABLE_PARTNER_MECHANICS,
     ENABLE_PARTNER_SUGGESTIONS,
     WEB_IDEALS_UI,
+    ENABLE_BATCH_BUILD,
 )
 from ..services.build_utils import (
     step5_base_ctx,
@@ -1357,6 +1358,7 @@ async def build_new_modal(request: Request) -> HTMLResponse:
         "allow_must_haves": ALLOW_MUST_HAVES,  # Add feature flag
         "show_must_have_buttons": SHOW_MUST_HAVE_BUTTONS,
         "enable_custom_themes": ENABLE_CUSTOM_THEMES,
+        "enable_batch_build": ENABLE_BATCH_BUILD,
         "ideals_ui_mode": WEB_IDEALS_UI,  # 'input' or 'slider'
         "form": {
             "prefer_combos": bool(sess.get("prefer_combos")),
@@ -1952,6 +1954,8 @@ async def build_new_submit(
     enforcement_mode: str = Form("warn"),
     allow_illegal: bool = Form(False),
     fuzzy_matching: bool = Form(True),
+    # Build count for multi-build
+    build_count: int = Form(1),
     # Quick Build flag
     quick_build: str | None = Form(None),
 ) -> HTMLResponse:
@@ -2025,6 +2029,7 @@ async def build_new_submit(
                     "allow_must_haves": ALLOW_MUST_HAVES,
                     "show_must_have_buttons": SHOW_MUST_HAVE_BUTTONS,
                     "enable_custom_themes": ENABLE_CUSTOM_THEMES,
+                    "enable_batch_build": ENABLE_BATCH_BUILD,
                     "form": _form_state(suggested),
                     "tag_slot_html": None,
                 }
@@ -2049,6 +2054,7 @@ async def build_new_submit(
             "allow_must_haves": ALLOW_MUST_HAVES,  # Add feature flag
             "show_must_have_buttons": SHOW_MUST_HAVE_BUTTONS,
             "enable_custom_themes": ENABLE_CUSTOM_THEMES,
+            "enable_batch_build": ENABLE_BATCH_BUILD,
             "form": _form_state(commander),
             "tag_slot_html": None,
         }
@@ -2153,6 +2159,7 @@ async def build_new_submit(
             "allow_must_haves": ALLOW_MUST_HAVES,
             "show_must_have_buttons": SHOW_MUST_HAVE_BUTTONS,
             "enable_custom_themes": ENABLE_CUSTOM_THEMES,
+            "enable_batch_build": ENABLE_BATCH_BUILD,
             "form": _form_state(primary_commander_name),
             "tag_slot_html": tag_slot_html,
         }
@@ -2291,6 +2298,7 @@ async def build_new_submit(
                 "allow_must_haves": ALLOW_MUST_HAVES,
                 "show_must_have_buttons": SHOW_MUST_HAVE_BUTTONS,
                 "enable_custom_themes": ENABLE_CUSTOM_THEMES,
+                "enable_batch_build": ENABLE_BATCH_BUILD,
                 "form": _form_state(sess.get("commander", "")),
                 "tag_slot_html": None,
             }
@@ -2479,7 +2487,101 @@ async def build_new_submit(
     # Centralized staged context creation
     sess["build_ctx"] = start_ctx_from_session(sess)
     
-    # Check if Quick Build was requested
+    # Validate and normalize build_count
+    try:
+        build_count = max(1, min(10, int(build_count)))
+    except Exception:
+        build_count = 1
+    
+    # Check if this is a multi-build request (build_count > 1)
+    if build_count > 1:
+        # Multi-Build: Queue parallel builds and return batch progress page
+        from ..services.multi_build_orchestrator import queue_builds, run_batch_async
+        
+        # Create config dict from session for batch builds
+        batch_config = {
+            "commander": sess.get("commander"),
+            "tags": sess.get("tags", []),
+            "tag_mode": sess.get("tag_mode", "AND"),
+            "bracket": sess.get("bracket", 3),
+            "ideals": sess.get("ideals", {}),
+            "prefer_combos": sess.get("prefer_combos", False),
+            "combo_target_count": sess.get("combo_target_count"),
+            "combo_balance": sess.get("combo_balance"),
+            "multi_copy": sess.get("multi_copy"),
+            "use_owned_only": sess.get("use_owned_only", False),
+            "prefer_owned": sess.get("prefer_owned", False),
+            "swap_mdfc_basics": sess.get("swap_mdfc_basics", False),
+            "include_cards": sess.get("include_cards", []),
+            "exclude_cards": sess.get("exclude_cards", []),
+            "enforcement_mode": sess.get("enforcement_mode", "warn"),
+            "allow_illegal": sess.get("allow_illegal", False),
+            "fuzzy_matching": sess.get("fuzzy_matching", True),
+            "locks": list(sess.get("locks", [])),
+        }
+        
+        # Handle partner mechanics if present
+        if sess.get("partner_enabled"):
+            batch_config["partner_enabled"] = True
+            if sess.get("secondary_commander"):
+                batch_config["secondary_commander"] = sess["secondary_commander"]
+            if sess.get("background"):
+                batch_config["background"] = sess["background"]
+            if sess.get("partner_mode"):
+                batch_config["partner_mode"] = sess["partner_mode"]
+            if sess.get("combined_commander"):
+                batch_config["combined_commander"] = sess["combined_commander"]
+        
+        # Add color identity for synergy builder (needed for basic land allocation)
+        try:
+            tmp_builder = DeckBuilder(output_func=lambda *_: None, input_func=lambda *_: "", headless=True)
+            
+            # Handle partner mechanics if present
+            if sess.get("partner_enabled") and sess.get("secondary_commander"):
+                from deck_builder.partner_selection import apply_partner_inputs
+                combined_obj = apply_partner_inputs(
+                    tmp_builder,
+                    primary_name=sess["commander"],
+                    secondary_name=sess.get("secondary_commander"),
+                    background_name=sess.get("background"),
+                    feature_enabled=True,
+                )
+                if combined_obj and hasattr(combined_obj, "color_identity"):
+                    batch_config["colors"] = list(combined_obj.color_identity)
+            else:
+                # Single commander
+                df = tmp_builder.load_commander_data()
+                row = df[df["name"] == sess["commander"]]
+                if not row.empty:
+                    # Get colorIdentity from dataframe (it's a string like "RG" or "G")
+                    color_str = row.iloc[0].get("colorIdentity", "")
+                    if color_str:
+                        batch_config["colors"] = list(color_str)  # Convert "RG" to ['R', 'G']
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning(f"[Batch] Failed to load color identity for {sess.get('commander')}: {e}")
+            pass  # Not critical, synergy builder will skip basics if missing
+        
+        # Queue the batch
+        batch_id = queue_builds(batch_config, build_count, sid)
+        
+        # Start background task for parallel builds
+        background_tasks.add_task(run_batch_async, batch_id, sid)
+        
+        # Return batch progress template
+        progress_ctx = {
+            "request": request,
+            "batch_id": batch_id,
+            "build_count": build_count,
+            "completed": 0,
+            "current_build": 1,
+            "status": "Starting builds..."
+        }
+        resp = templates.TemplateResponse("build/_batch_progress.html", progress_ctx)
+        resp.set_cookie("sid", sid, httponly=True, samesite="lax")
+        return resp
+    
+    # Check if Quick Build was requested (single build only)
     is_quick_build = (quick_build or "").strip() == "1"
     
     if is_quick_build:
@@ -3782,6 +3884,68 @@ def quick_build_progress(request: Request):
         "current_stage": current_stage
     }
     response = templates.TemplateResponse("build/_quick_build_progress_content.html", ctx)
+    response.set_cookie("sid", sid, httponly=True, samesite="lax")
+    return response
+
+
+@router.get("/batch-progress")
+def batch_build_progress(request: Request, batch_id: str = Query(...)):
+    """Poll endpoint for Batch Build progress. Returns either progress indicator or redirect to comparison."""
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    sid = request.cookies.get("sid") or new_sid()
+    sess = get_session(sid)
+    
+    from ..services.build_cache import BuildCache
+    
+    batch_status = BuildCache.get_batch_status(sess, batch_id)
+    logger.info(f"[Batch Progress Poll] batch_id={batch_id}, status={batch_status}")
+    
+    if not batch_status:
+        return HTMLResponse('<div class="error">Batch not found. Please refresh.</div>')
+    
+    if batch_status["status"] == "completed":
+        # All builds complete - redirect to comparison page
+        response = HTMLResponse(f'<script>window.location.href = "/compare/{batch_id}";</script>')
+        response.set_cookie("sid", sid, httponly=True, samesite="lax")
+        return response
+    
+    # Get config to determine color count for time estimate
+    config = BuildCache.get_batch_config(sess, batch_id)
+    commander_name = config.get("commander", "") if config else ""
+    
+    # Estimate time based on color count (from testing data)
+    time_estimate = "1-3 minutes"
+    if commander_name and config:
+        # Try to get commander's color identity
+        try:
+            from ..services import orchestrator as orch
+            cmd_data = orch.load_commander(commander_name)
+            if cmd_data and "colorIdentity" in cmd_data:
+                color_count = len(cmd_data.get("colorIdentity", []))
+                if color_count <= 2:
+                    time_estimate = "1-3 minutes"
+                elif color_count == 3:
+                    time_estimate = "2-4 minutes"
+                else:  # 4-5 colors
+                    time_estimate = "3-5 minutes"
+        except Exception:
+            pass  # Default to 1-3 if we can't determine
+    
+    # Build still running - return progress content partial only
+    ctx = {
+        "request": request,
+        "batch_id": batch_id,
+        "build_count": batch_status["count"],
+        "completed": batch_status["completed"],
+        "progress_pct": batch_status["progress_pct"],
+        "status": f"Building deck {batch_status['completed'] + 1} of {batch_status['count']}..." if batch_status['completed'] < batch_status['count'] else "Finalizing...",
+        "has_errors": batch_status["has_errors"],
+        "error_count": batch_status["error_count"],
+        "time_estimate": time_estimate
+    }
+    response = templates.TemplateResponse("build/_batch_progress_content.html", ctx)
     response.set_cookie("sid", sid, httponly=True, samesite="lax")
     return response
 

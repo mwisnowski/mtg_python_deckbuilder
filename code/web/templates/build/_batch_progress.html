@@ -1,0 +1,8 @@
+{# Batch Build Progress Indicator - Multiple Builds Running in Parallel #}
+<div id="batch-progress-container" style="min-height: 300px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 2rem;">
+  <div hx-get="/build/batch-progress?batch_id={{ batch_id }}" 
+       hx-trigger="load, every 1s" 
+       hx-swap="innerHTML">
+    {% include "build/_batch_progress_content.html" %}
+  </div>
+</div>

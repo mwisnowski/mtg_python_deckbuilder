@@ -34,6 +34,7 @@ services:
       ENABLE_CARD_DETAILS: "1"      # 1=show Card Details button in card browser (with similarity cache)
       SIMILARITY_CACHE_ENABLED: "1"   # 1=use pre-computed similarity cache; 0=real-time calculation
       SIMILARITY_CACHE_PATH: "card_files/similarity_cache.parquet"  # Path to Parquet cache file
+      ENABLE_BATCH_BUILD: "1"       # 1=enable Build X and Compare feature; 0=hide build count slider
       
       # HEADLESS_EXPORT_JSON: "1"           # 1=export resolved run config JSON
       ENABLE_PARTNER_MECHANICS: "1"        # 1=unlock partner/background commander inputs

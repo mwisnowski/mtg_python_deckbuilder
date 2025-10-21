@@ -258,6 +258,7 @@ See `.env.example` for the full catalog. Common knobs:
 | `WEB_IDEALS_UI` | `slider` | Ideal counts interface: `slider` (range inputs with live validation) or `input` (text boxes with placeholders). |
 | `ENABLE_CARD_DETAILS` | `0` | Show card detail pages with similar card recommendations at `/cards/<name>`. |
 | `SIMILARITY_CACHE_ENABLED` | `1` | Use pre-computed similarity cache for fast card detail pages. |
+| `ENABLE_BATCH_BUILD` | `1` | Enable Build X and Compare feature (build multiple decks in parallel and compare results). |
 
 ### Random build controls
 

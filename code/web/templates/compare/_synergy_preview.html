@@ -1,0 +1,111 @@
+{# Synergy Deck Preview - Shows the optimized "best-of" deck from batch builds #}
+
+<div style="padding: 2rem; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,.3);">
+  <h2 style="margin-bottom: 1rem; color: var(--primary);">✨ Synergy Deck Preview</h2>
+  
+  <div class="muted" style="margin-bottom: 1.5rem; font-size: 0.9rem;">
+    This deck is built from the most synergistic cards across all {{ total_builds }} builds, scored by frequency, EDHREC rank, and theme alignment.
+  </div>
+
+  {# Summary Stats #}
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
+    <div style="padding: 1rem; text-align: center; background: var(--bg); border: 1px solid var(--border); border-radius: 6px;">
+      <div style="font-size: 1.8rem; font-weight: bold; color: var(--primary);">{{ synergy_deck.total_cards }}</div>
+      <div class="muted" style="font-size: 0.85rem;">Total Cards</div>
+    </div>
+    <div style="padding: 1rem; text-align: center; background: var(--bg); border: 1px solid var(--border); border-radius: 6px;">
+      <div style="font-size: 1.8rem; font-weight: bold; color: #10b981;">{{ (synergy_deck.avg_frequency * 100) | round(1) }}%</div>
+      <div class="muted" style="font-size: 0.85rem;">Avg Frequency</div>
+    </div>
+    <div style="padding: 1rem; text-align: center; background: var(--bg); border: 1px solid var(--border); border-radius: 6px;">
+      <div style="font-size: 1.8rem; font-weight: bold; color: #3b82f6;">{{ synergy_deck.avg_score }}</div>
+      <div class="muted" style="font-size: 0.85rem;">Avg Synergy Score</div>
+    </div>
+    <div style="padding: 1rem; text-align: center; background: var(--bg); border: 1px solid var(--border); border-radius: 6px;">
+      <div style="font-size: 1.8rem; font-weight: bold; color: #8b5cf6;">{{ synergy_deck.high_frequency_count }}</div>
+      <div class="muted" style="font-size: 0.85rem;">High-Frequency Cards (80%+)</div>
+    </div>
+  </div>
+
+  {# Cards by Category #}
+  <div style="margin-bottom: 2rem;">
+    <h3 style="margin-bottom: 1rem;">Cards by Type</h3>
+    <div style="display: grid; gap: 1.5rem;">
+      {% for category, cards in synergy_deck.cards_by_category.items() %}
+      <details>
+        <summary style="cursor: pointer; font-size: 1rem; font-weight: 500; margin-bottom: 0.75rem; color: var(--primary);">
+          {{ category }} ({{ cards | sum(attribute='count') }})
+        </summary>
+        <div style="padding: 1rem; background: var(--bg); border: 1px solid var(--border); border-radius: 6px;">
+          <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
+            <thead>
+              <tr style="border-bottom: 2px solid var(--border);">
+                <th style="text-align: left; padding: 0.5rem;">Card Name</th>
+                <th style="text-align: center; padding: 0.5rem;">Frequency</th>
+                <th style="text-align: center; padding: 0.5rem;">Synergy Score</th>
+                <th style="text-align: center; padding: 0.5rem;">Appears In</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for card in cards %}
+              <tr style="border-bottom: 1px solid var(--border);">
+                <td style="padding: 0.5rem;">
+                  <div>
+                    {% if card.count and card.count > 1 %}
+                    <span style="font-weight: 600; color: var(--primary);">{{ card.count }}x</span>
+                    {% endif %}
+                    <span data-card-name="{{ card.name }}" style="cursor: help;">{{ card.name }}</span>
+                  </div>
+                  {% if card.type_line %}
+                  <div class="muted" style="font-size: 0.8rem; margin-top: 0.15rem;">{{ card.type_line }}</div>
+                  {% endif %}
+                  {% if card.role %}
+                  <div class="muted" style="font-size: 0.75rem; margin-top: 0.1rem; font-style: italic;">{{ card.role }}</div>
+                  {% endif %}
+                </td>
+                <td style="text-align: center; padding: 0.5rem;">
+                  <span style="
+                    font-weight: 500;
+                    color: {% if card.frequency >= 0.8 %}#10b981{% elif card.frequency >= 0.5 %}#3b82f6{% else %}#6b7280{% endif %};
+                  ">
+                    {{ (card.frequency * 100) | round(0) | int }}%
+                  </span>
+                </td>
+                <td style="text-align: center; padding: 0.5rem;">
+                  <span style="
+                    font-weight: 500;
+                    color: {% if card.synergy_score >= 70 %}#8b5cf6{% elif card.synergy_score >= 50 %}#3b82f6{% else %}#6b7280{% endif %};
+                  ">
+                    {{ card.synergy_score }}
+                  </span>
+                </td>
+                <td style="text-align: center; padding: 0.5rem; color: #6b7280;">
+                  {{ card.appearance_count }}/{{ total_builds }}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </details>
+      {% endfor %}
+    </div>
+  </div>
+
+  {# Actions #}
+  <div style="display: flex; gap: 1rem; justify-content: center;">
+    <button class="btn" onclick="document.getElementById('synergy-preview').innerHTML = ''">
+      Close Preview
+    </button>
+    <button class="btn-continue" onclick="exportSynergyDeck('{{ batch_id }}')" id="export-synergy-btn">
+      Export Synergy Deck
+    </button>
+  </div>
+</div>
+
+<script>
+  // Attach card hover to new elements
+  if (window.attachCardHover) {
+    window.attachCardHover();
+  }
+</script>

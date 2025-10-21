@@ -79,6 +79,12 @@ Every tile on the homepage connects to a workflow. Use these sections as your to
 ### Build a Deck
 Start here for interactive deck creation.
 - Pick commander, themes (primary/secondary/tertiary), bracket, and optional deck name in the unified modal.
+- **Build X and Compare** (`ENABLE_BATCH_BUILD=1`, default): Build 1-10 decks with the same configuration to see variance
+  - Parallel execution (max 5 concurrent) with real-time progress and dynamic time estimates
+  - Comparison view shows card overlap statistics and individual build summaries
+  - **Synergy Builder**: Analyze builds and create optimized "best-of" deck scored by frequency, EDHREC rank, and theme tags
+  - Rebuild button for quick iterations, ZIP export for all builds
+  - See `docs/user_guides/batch_build_compare.md` for full guide
 - **Quick Build**: One-click automation runs the full workflow with live progress (Creatures → Spells → Lands → Final Touches → Summary). Available in New Deck wizard.
 - **Skip Controls**: Granular stage-skipping toggles in New Deck wizard (21 flags: land steps, creature stages, spell categories). Auto-advance without approval prompts.
 - Add supplemental themes in the **Additional Themes** section (ENABLE_CUSTOM_THEMES): fuzzy suggestions, removable chips, and strict/permissive matching toggles respect `THEME_MATCH_MODE` and `USER_THEME_LIMIT`.

@@ -9,7 +9,24 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 
 ## [Unreleased]
 ### Added
-_None_
+- **Build X and Compare** feature: Build multiple decks with same configuration and compare results side-by-side
+  - Build 1-10 decks in parallel to see variance from card selection randomness
+  - Real-time progress tracking with dynamic time estimates based on color count
+  - Comparison view with card overlap statistics and individual build summaries
+  - Smart filtering excludes guaranteed cards (basics, staples) from "Most Common Cards"
+  - Card hover support throughout comparison interface
+  - Rebuild button to rerun same configuration
+  - Export all decks as ZIP archive
+- **Intelligent Synergy Builder**: Analyze multiple builds and create optimized "best-of" deck
+  - Scores cards by frequency (50%), EDHREC rank (25%), and theme tags (25%)
+  - 10% bonus for cards appearing in 80%+ of builds
+  - Color-coded synergy scores in preview (green=high, red=low)
+  - Partner commander support with combined color identity
+  - Multi-copy card tracking (e.g., 8 Mountains, 7 Islands)
+  - Export synergy deck with full metadata (CSV, TXT, JSON files)
+- `ENABLE_BATCH_BUILD` environment variable to toggle feature (default: enabled)
+- Detailed progress logging for multi-build orchestration
+- User guide: `docs/user_guides/batch_build_compare.md`
 
 ### Changed
 _None_

@@ -214,11 +214,37 @@
         {% endif %}
       {% endif %}
       {% include "build/_new_deck_skip_controls.html" %}
+      {% if enable_batch_build %}
+      <fieldset>
+        <legend>Build Options</legend>
+        <div style="display:flex; flex-direction:column; gap:0.75rem;">
+          <label style="display:block;">
+            <span>Number of decks to build</span>
+            <small class="muted" style="display:block; font-size:11px; margin-top:.25rem;">Run the same configuration multiple times to see variance in results</small>
+          </label>
+          {% if ideals_ui_mode == 'slider' %}
+          <div style="display:flex; align-items:center; gap:1rem;">
+            <input type="range" name="build_count" id="build_count_slider" min="1" max="10" value="{{ form.build_count if form and form.build_count else 1 }}" style="flex:1;" 
+              oninput="document.getElementById('build_count_value').textContent = this.value; updateBuildCountLabel(this.value); updateButtonState(this.value);" />
+            <span id="build_count_value" style="min-width:2.5rem; text-align:center; font-weight:500; font-size:1.1em;">{{ form.build_count if form and form.build_count else 1 }}</span>
+          </div>
+          <small id="build_count_label" class="muted" style="font-size:11px; text-align:center;">Build 1 deck (normal build)</small>
+          {% else %}
+          <input type="number" name="build_count" id="build_count_input" min="1" max="10" value="{{ form.build_count if form and form.build_count else 1 }}" style="width:6rem;" 
+            oninput="updateButtonState(this.value);" />
+          <small class="muted" style="font-size:11px;">Enter 1 for normal build, 2-10 to compare multiple results</small>
+          {% endif %}
+        </div>
+      </fieldset>
+      {% else %}
+      {# Hidden input to always send build_count=1 when feature disabled #}
+      <input type="hidden" name="build_count" value="1" />
+      {% endif %}
       <div class="modal-footer" style="display:flex; gap:.5rem; justify-content:space-between; margin-top:1rem;">
         <button type="button" class="btn" onclick="this.closest('.modal').remove()">Cancel</button>
         <div style="display:flex; gap:.5rem;">
           <button type="submit" name="quick_build" value="1" class="btn-continue" id="quick-build-btn" title="Build entire deck automatically without approval steps">Quick Build</button>
-          <button type="submit" class="btn-continue">Create</button>
+          <button type="submit" class="btn-continue" id="create-btn">Create</button>
         </div>
       </div>
     </form>
@@ -246,6 +272,63 @@
         });
       }
     }
+  })();
+  
+  // Update build count label based on slider value
+  function updateBuildCountLabel(count) {
+    var label = document.getElementById('build_count_label');
+    if (!label) return;
+    
+    count = parseInt(count);
+    if (count === 1) {
+      label.textContent = 'Build 1 deck (normal build)';
+      label.className = 'muted';
+    } else {
+      label.textContent = 'Build ' + count + ' decks and compare results';
+      label.className = 'muted';
+      label.style.color = '#60a5fa';
+      label.style.fontWeight = '500';
+    }
+  }
+  
+  // Update button state based on build count
+  function updateButtonState(count) {
+    var quickBuildBtn = document.getElementById('quick-build-btn');
+    var createBtn = document.getElementById('create-btn');
+    
+    count = parseInt(count);
+    
+    if (count > 1) {
+      // Multi-build: force Quick Build, hide Create button
+      if (createBtn) {
+        createBtn.style.display = 'none';
+      }
+      if (quickBuildBtn) {
+        quickBuildBtn.textContent = 'Build ' + count + ' Decks';
+        quickBuildBtn.title = 'Build ' + count + ' decks automatically and compare results';
+      }
+    } else {
+      // Single build: show both buttons normally
+      if (createBtn) {
+        createBtn.style.display = '';
+      }
+      if (quickBuildBtn) {
+        quickBuildBtn.textContent = 'Quick Build';
+        quickBuildBtn.title = 'Build entire deck automatically without approval steps';
+      }
+    }
+  }
+  
+  // Initialize label and button state on page load
+  (function() {
+    var slider = document.getElementById('build_count_slider');
+    var input = document.getElementById('build_count_input');
+    var initialValue = slider ? slider.value : (input ? input.value : 1);
+    
+    if (slider) {
+      updateBuildCountLabel(initialValue);
+    }
+    updateButtonState(initialValue);
   })();
   
   // Utility function for parsing card lists

@@ -161,3 +161,6 @@ SIMILARITY_CACHE_MAX_AGE_DAYS = int(os.getenv('SIMILARITY_CACHE_MAX_AGE_DAYS', '
 # Allow downloading pre-built cache from GitHub (saves 15-20 min build time)
 # Set to '0' to always build locally (useful for custom seeds or offline environments)
 SIMILARITY_CACHE_DOWNLOAD = os.getenv('SIMILARITY_CACHE_DOWNLOAD', '1').lower() not in ('0', 'false', 'off', 'disabled')
+
+# Batch build feature flag (Build X and Compare)
+ENABLE_BATCH_BUILD = os.getenv('ENABLE_BATCH_BUILD', '1').lower() not in ('0', 'false', 'off', 'disabled')

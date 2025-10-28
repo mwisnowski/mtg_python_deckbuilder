@@ -1,22 +1,22 @@
-<div class="modal" role="dialog" aria-modal="true" aria-labelledby="newDeckTitle" style="position:fixed; inset:0; z-index:1000; display:flex; align-items:flex-start; justify-content:center; padding:1rem; overflow:auto;">
-  <div class="modal-backdrop" style="position:fixed; inset:0; background:rgba(0,0,0,.6);"></div>
-  <div class="modal-content" style="position:relative; max-width:720px; width:clamp(320px, 90vw, 720px); background:#0f1115; border:1px solid var(--border); border-radius:10px; box-shadow:0 10px 30px rgba(0,0,0,.5); padding:1rem; max-height:min(92vh, 100%); overflow:auto; -webkit-overflow-scrolling:touch;">
+<div class="modal modal-overlay" id="new-deck-modal" role="dialog" aria-modal="true" aria-labelledby="newDeckTitle">
+  <div class="modal-backdrop"></div>
+  <div class="modal-content">
     <div class="modal-header">
   <h3 id="newDeckTitle">Build a New Deck</h3>
     </div>
     {% if error %}
-    <div class="error" role="alert" style="margin:.35rem 0 .5rem 0;">{{ error }}</div>
+    <div class="error my-2" role="alert">{{ error }}</div>
     {% endif %}
   <form hx-post="/build/new" hx-target="#wizard" hx-swap="innerHTML" hx-on="htmx:afterRequest: (function(evt){ try{ if(evt && evt.detail && evt.detail.elt === this){ var m=this.closest('.modal'); if(m){ m.remove(); } } }catch(_){} }).call(this, event)" autocomplete="off">
       <fieldset>
         <legend>Basics</legend>
-  <div class="basics-grid" style="display:grid; grid-template-columns: 2fr 1fr; gap:1rem; align-items:start;">
+  <div class="basics-grid grid grid-cols-[2fr_1fr] gap-4 items-start">
           <div>
-            <label style="display:block; margin-bottom:.5rem;">
+            <label class="form-label">
               <span class="muted">Optional name (used for file names)</span>
               <input type="text" name="name" placeholder="e.g., Inti Discard Tempo" autocomplete="off" autocapitalize="off" spellcheck="false" />
             </label>
-            <label style="display:block; margin-bottom:.5rem;">
+            <label class="form-label">
               <span>Commander</span>
     <input type="text" name="commander" required placeholder="Type a commander name" value="{{ form.commander if form else '' }}" autofocus autocomplete="off" autocapitalize="off" spellcheck="false"
       role="combobox" aria-autocomplete="list" aria-controls="newdeck-candidates"
@@ -24,11 +24,11 @@
       data-hx-debounce="220" data-hx-debounce-events="input"
       data-hx-debounce-flush="blur" />
             </label>
-            <small class="muted" style="display:block; margin-top:.25rem;">Start typing to see matches, then select one to load themes.</small>
-            <div id="newdeck-candidates" class="muted" style="font-size:12px; min-height:1.1em;"></div>
+            <small class="muted block mt-1">Start typing to see matches, then select one to load themes.</small>
+            <div id="newdeck-candidates" class="muted text-xs min-h-[1.1em]"></div>
           </div>
-          <div id="newdeck-commander-slot" class="muted" style="max-width:230px;">
-            <em style="font-size:12px;">Pick a commander to preview here.</em>
+          <div id="newdeck-commander-slot" class="muted max-w-[230px]">
+            <em class="text-xs">Pick a commander to preview here.</em>
           </div>
         </div>
       </fieldset>
@@ -45,11 +45,11 @@
             <input type="hidden" name="tag_mode" value="AND" />
           {% endif %}
         </div>
-  <div id="newdeck-multicopy-slot" class="muted" style="margin-top:.5rem; min-height:1rem;"></div>
+  <div id="newdeck-multicopy-slot" class="muted mt-2 min-h-[1rem]"></div>
         {% if enable_custom_themes %}
         {% include "build/_new_deck_additional_themes.html" %}
         {% endif %}
-        <div style="margin-top:.5rem;" id="newdeck-bracket-slot">
+        <div class="mt-2" id="newdeck-bracket-slot">
           <label>Bracket
             <select name="bracket">
               {% for b in brackets %}
@@ -63,47 +63,47 @@
       </fieldset>
       <fieldset>
         <legend>Preferences</legend>
-        <div style="text-align: left;">
-          <div style="margin-bottom: 1rem; display:flex; flex-direction:column; gap:0.75rem;">
-            <label for="pref-combos-chk" style="display:grid; grid-template-columns:auto 1fr; align-items:center; column-gap:0.5rem; margin:0; width:100%; cursor:pointer; text-align:left;" title="When enabled, the builder will try to auto-complete missing combo partners near the end of the build (respecting owned-only and locks).">
-              <input type="checkbox" name="prefer_combos" id="pref-combos-chk" value="1" style="margin:0; cursor:pointer;" {% if form and form.prefer_combos %}checked{% endif %} />
+        <div class="text-left">
+          <div class="mb-4 flex flex-col gap-3">
+            <label for="pref-combos-chk" class="form-checkbox-label" title="When enabled, the builder will try to auto-complete missing combo partners near the end of the build (respecting owned-only and locks).">
+              <input type="checkbox" name="prefer_combos" id="pref-combos-chk" value="1" {% if form and form.prefer_combos %}checked{% endif %} />
               <span>Prioritize combos</span>
             </label>
-            <div id="pref-combos-config" style="margin-top: 0.5rem; margin-left: 1.5rem; padding: 0.5rem; border: 1px solid var(--border); border-radius: 8px; display: none;">
-              <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+            <div id="pref-combos-config" class="mt-2 ml-6 p-2 border border-[var(--border)] rounded-lg hidden">
+              <div class="flex gap-4 items-center flex-wrap">
                 <label>
                   <span>How many combos?</span>
-                  <input type="number" name="combo_count" min="0" max="10" step="1" value="{{ form.combo_count if form and form.combo_count is not none else 2 }}" style="width: 6rem; margin-left: 0.5rem;" />
+                  <input type="number" name="combo_count" min="0" max="10" step="1" value="{{ form.combo_count if form and form.combo_count is not none else 2 }}" class="w-24 ml-2" />
                 </label>
                 <div>
-                  <div class="muted" style="font-size: 12px; margin-bottom: 0.25rem;">Balance of early vs late-game</div>
-                  <label style="display: inline-flex; align-items: center; gap: 0.25rem; margin-right: 0.5rem;">
+                  <div class="muted text-xs mb-1">Balance of early vs late-game</div>
+                  <label class="inline-flex items-center gap-1 mr-2">
                     <input type="radio" name="combo_balance" value="early" {% if form and form.combo_balance == 'early' %}checked{% endif %} /> Early
                   </label>
-                  <label style="display: inline-flex; align-items: center; gap: 0.25rem; margin-right: 0.5rem;">
+                  <label class="inline-flex items-center gap-1 mr-2">
                     <input type="radio" name="combo_balance" value="late" {% if form and form.combo_balance == 'late' %}checked{% endif %} /> Late
                   </label>
-                  <label style="display: inline-flex; align-items: center; gap: 0.25rem;">
+                  <label class="inline-flex items-center gap-1">
                     <input type="radio" name="combo_balance" value="mix" {% if not form or (form and (not form.combo_balance or form.combo_balance == 'mix')) %}checked{% endif %} /> Mix
                   </label>
                 </div>
               </div>
             </div>
-            <label for="pref-mc-chk" style="display:grid; grid-template-columns:auto 1fr; align-items:center; column-gap:0.5rem; margin:0; width:100%; cursor:pointer; text-align:left;" title="When enabled, include a Multi-Copy package for matching archetypes (e.g., tokens/tribal).">
-              <input type="checkbox" name="enable_multicopy" id="pref-mc-chk" value="1" style="margin:0; cursor:pointer;" {% if form and form.enable_multicopy %}checked{% endif %} />
+            <label for="pref-mc-chk" class="form-checkbox-label" title="When enabled, include a Multi-Copy package for matching archetypes (e.g., tokens/tribal).">
+              <input type="checkbox" name="enable_multicopy" id="pref-mc-chk" value="1" {% if form and form.enable_multicopy %}checked{% endif %} />
               <span>Enable Multi-Copy package</span>
             </label>
-            <div style="display:flex; flex-direction:column; gap:0.5rem; margin-top:0.75rem;">
-              <label for="use-owned-chk" style="display:grid; grid-template-columns:auto 1fr; align-items:center; column-gap:0.5rem; margin:0; width:100%; cursor:pointer; text-align:left;" title="Limit the pool to cards you already own. Cards outside your owned library will be skipped.">
-                <input type="checkbox" name="use_owned_only" id="use-owned-chk" value="1" style="margin:0; cursor:pointer;" {% if form and form.use_owned_only %}checked{% endif %} />
+            <div class="flex flex-col gap-2 mt-3">
+              <label for="use-owned-chk" class="form-checkbox-label" title="Limit the pool to cards you already own. Cards outside your owned library will be skipped.">
+                <input type="checkbox" name="use_owned_only" id="use-owned-chk" value="1" {% if form and form.use_owned_only %}checked{% endif %} />
                 <span>Use only owned cards</span>
               </label>
-              <label for="prefer-owned-chk" style="display:grid; grid-template-columns:auto 1fr; align-items:center; column-gap:0.5rem; margin:0; width:100%; cursor:pointer; text-align:left;" title="Still allow unowned cards, but rank owned cards higher when choosing picks.">
-                <input type="checkbox" name="prefer_owned" id="prefer-owned-chk" value="1" style="margin:0; cursor:pointer;" {% if form and form.prefer_owned %}checked{% endif %} />
+              <label for="prefer-owned-chk" class="form-checkbox-label" title="Still allow unowned cards, but rank owned cards higher when choosing picks.">
+                <input type="checkbox" name="prefer_owned" id="prefer-owned-chk" value="1" {% if form and form.prefer_owned %}checked{% endif %} />
                 <span>Prefer owned cards (allow unowned fallback)</span>
               </label>
-              <label for="swap-mdfc-chk" style="display:grid; grid-template-columns:auto 1fr; align-items:center; column-gap:0.5rem; margin:0; width:100%; cursor:pointer; text-align:left;" title="When enabled, modal DFC lands will replace a matching basic land as they are added so land counts stay level without manual trims.">
-                <input type="checkbox" name="swap_mdfc_basics" id="swap-mdfc-chk" value="1" style="margin:0; cursor:pointer;" {% if form and form.swap_mdfc_basics %}checked{% endif %} />
+              <label for="swap-mdfc-chk" class="form-checkbox-label" title="When enabled, modal DFC lands will replace a matching basic land as they are added so land counts stay level without manual trims.">
+                <input type="checkbox" name="swap_mdfc_basics" id="swap-mdfc-chk" value="1" {% if form and form.swap_mdfc_basics %}checked{% endif %} />
                 <span>Swap basics for MDFC lands</span>
               </label>
             </div>
@@ -114,101 +114,97 @@
       {% if allow_must_haves %}
       <fieldset>
         <legend>Include/Exclude Cards</legend>
-        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:1rem; margin-top:.5rem;" class="include-exclude-grid">
+        <div class="include-exclude-grid">
           <!-- Include Cards Column (Left, Green) -->
           <div>
-            <label style="display:block; margin-bottom:.5rem;">
-              <span style="color: #4ade80; font-weight: 500;">✓ Must Include Cards</span>
-              <small class="muted" style="display:block; font-size:11px; margin-top:.25rem;">Cards that must appear in your deck</small>
+            <label class="card-list-label">
+              <span class="card-list-label-include">✓ Must Include Cards</span>
+              <small class="muted block text-xs mt-1">Cards that must appear in your deck</small>
             </label>
             <textarea name="include_cards" id="include_cards_textarea" 
               placeholder="Lightning Bolt&#10;Counterspell&#10;Swords to Plowshares" 
-              style="width:100%; min-height:60px; resize:vertical; font-family:monospace; font-size:12px; border-left: 3px solid #4ade80;"
+              class="include-textarea"
               autocomplete="off" autocapitalize="off" spellcheck="false">{{ form.include_cards if form and form.include_cards else '' }}</textarea>
             <!-- Include Cards Chips Container -->
-            <div id="include_chips_container" style="margin-top:.5rem; min-height:30px; border:1px solid #4ade80; border-radius:6px; padding:.5rem; background:rgba(74, 222, 128, 0.05); display:flex; flex-wrap:wrap; gap:.25rem; align-items:flex-start;">
-              <div id="include_chips" style="display:flex; flex-wrap:wrap; gap:.25rem; flex:1;"></div>
-              <div style="color:#6b7280; font-size:11px; font-style:italic;" id="include_chips_placeholder">Enter card names above to see them as removable tags</div>
+            <div id="include_chips_container" class="include-chips-container">
+              <div id="include_chips" class="chips-inner"></div>
+              <div class="chips-placeholder" id="include_chips_placeholder">Enter card names above to see them as removable tags</div>
             </div>
-            <div style="display:flex; align-items:center; gap:.5rem; margin-top:.5rem; font-size:12px;">
-              <label for="include_file_upload" class="btn" style="cursor:pointer; font-size:11px; padding:.25rem .5rem; background:#065f46; border-color:#059669;">
+            <div class="card-list-controls">
+              <label for="include_file_upload" class="btn btn-upload-include">
                 📄 Upload .txt
               </label>
-              <input type="file" id="include_file_upload" accept=".txt" style="display:none;" 
+              <input type="file" id="include_file_upload" accept=".txt" class="hidden" 
                 onchange="handleIncludeFileUpload(this)" />
-              <button type="button" onclick="clearIncludes()" class="btn" style="font-size:11px; padding:.25rem .5rem; background:#7f1d1d; border-color:#dc2626;">
+              <button type="button" onclick="clearIncludes()" class="btn btn-clear">
                 🗑 Clear All
               </button>
-              <div id="include_count" class="muted" style="font-size:11px;">0/10</div>
-              <div id="include_badges" style="display:flex; gap:.25rem; font-size:10px;"></div>
+              <div id="include_count" class="muted card-list-count">0/10</div>
+              <div id="include_badges" class="card-list-badges"></div>
             </div>
-            <div id="include_validation" style="margin-top:.5rem; font-size:12px;"></div>
+            <div id="include_validation" class="card-list-validation"></div>
           </div>
           <!-- Exclude Cards Column (Right, Red) -->
           <div>
-            <label style="display:block; margin-bottom:.5rem;">
-              <span style="color: #ef4444; font-weight: 500;">✗ Must Exclude Cards</span>
-              <small class="muted" style="display:block; font-size:11px; margin-top:.25rem;">Cards to avoid in your deck</small>
+            <label class="card-list-label">
+              <span class="card-list-label-exclude">✗ Must Exclude Cards</span>
+              <small class="muted block text-xs mt-1">Cards to avoid in your deck</small>
             </label>
             <textarea name="exclude_cards" id="exclude_cards_textarea" 
               placeholder="Sol Ring&#10;Rhystic Study&#10;Smothering Tithe" 
-              style="width:100%; min-height:60px; resize:vertical; font-family:monospace; font-size:12px; border-left: 3px solid #ef4444;"
+              class="exclude-textarea"
               autocomplete="off" autocapitalize="off" spellcheck="false">{{ form.exclude_cards if form and form.exclude_cards else '' }}</textarea>
             <!-- Exclude Cards Chips Container -->
-            <div id="exclude_chips_container" style="margin-top:.5rem; min-height:30px; border:1px solid #ef4444; border-radius:6px; padding:.5rem; background:rgba(239, 68, 68, 0.05); display:flex; flex-wrap:wrap; gap:.25rem; align-items:flex-start;">
-              <div id="exclude_chips" style="display:flex; flex-wrap:wrap; gap:.25rem; flex:1;"></div>
-              <div style="color:#6b7280; font-size:11px; font-style:italic;" id="exclude_chips_placeholder">Enter card names above to see them as removable tags</div>
+            <div id="exclude_chips_container" class="exclude-chips-container">
+              <div id="exclude_chips" class="chips-inner"></div>
+              <div class="chips-placeholder" id="exclude_chips_placeholder">Enter card names above to see them as removable tags</div>
             </div>
-            <div style="display:flex; align-items:center; gap:.5rem; margin-top:.5rem; font-size:12px;">
-              <label for="exclude_file_upload" class="btn" style="cursor:pointer; font-size:11px; padding:.25rem .5rem; background:#7f1d1d; border-color:#dc2626;">
+            <div class="card-list-controls">
+              <label for="exclude_file_upload" class="btn btn-upload-exclude">
                 📄 Upload .txt
               </label>
-              <input type="file" id="exclude_file_upload" accept=".txt" style="display:none;" 
+              <input type="file" id="exclude_file_upload" accept=".txt" class="hidden" 
                 onchange="handleExcludeFileUpload(this)" />
-              <button type="button" onclick="clearExcludes()" class="btn" style="font-size:11px; padding:.25rem .5rem; background:#7f1d1d; border-color:#dc2626;">
+              <button type="button" onclick="clearExcludes()" class="btn btn-clear">
                 🗑 Clear All
               </button>
-              <div id="exclude_count" class="muted" style="font-size:11px;">0/15</div>
-              <div id="exclude_badges" style="display:flex; gap:.25rem; font-size:10px;"></div>
+              <div id="exclude_count" class="muted card-list-count">0/15</div>
+              <div id="exclude_badges" class="card-list-badges"></div>
             </div>
-            <div id="exclude_validation" style="margin-top:.5rem; font-size:12px;"></div>
+            <div id="exclude_validation" class="card-list-validation"></div>
           </div>
         </div>
-        <div style="margin-top:.75rem; padding:.5rem; background:rgba(59, 130, 246, 0.1); border:1px solid rgba(59, 130, 246, 0.3); border-radius:6px;">
+        <div class="info-panel">
           <details>
-            <summary style="cursor:pointer; font-size:12px; color:#60a5fa;">Advanced Options</summary>
-            <div style="margin-top:.5rem; font-size:12px; line-height:1.5;">
-              <div style="margin-bottom:.5rem;">
-                <label style="display:inline-flex; align-items:center; margin-right:1rem; cursor:pointer; line-height:1;">
-                  <input type="radio" name="enforcement_mode" value="warn" {% if not form or (form and (not form.enforcement_mode or form.enforcement_mode == 'warn')) %}checked{% endif %} style="margin:0 4px 0 0; flex-shrink:0;" />
-                  <span>Warn mode</span>
-                  <small class="muted" style="margin-left:.25rem;">(proceed if cards missing)</small>
+            <summary>Advanced Options</summary>
+            <div class="info-panel-content">
+              <div class="mb-2">
+                <label class="form-checkbox-label">
+                  <input type="radio" name="enforcement_mode" value="warn" {% if not form or (form and (not form.enforcement_mode or form.enforcement_mode == 'warn')) %}checked{% endif %} />
+                  <span>Warn mode <small class="muted ml-1">(proceed if cards missing)</small></span>
                 </label>
-                <label style="display:inline-flex; align-items:center; margin-right:1rem; cursor:pointer; line-height:1;">
-                  <input type="radio" name="enforcement_mode" value="strict" {% if form and form.enforcement_mode == 'strict' %}checked{% endif %} style="margin:0 4px 0 0; flex-shrink:0;" />
-                  <span>Strict mode</span>
-                  <small class="muted" style="margin-left:.25rem;">(abort if cards missing)</small>
+                <label class="form-checkbox-label">
+                  <input type="radio" name="enforcement_mode" value="strict" {% if form and form.enforcement_mode == 'strict' %}checked{% endif %} />
+                  <span>Strict mode <small class="muted ml-1">(abort if cards missing)</small></span>
                 </label>
               </div>
               <div>
-                <label style="display:inline-flex; align-items:center; margin-right:1rem; cursor:pointer; line-height:1;">
-                  <input type="checkbox" name="allow_illegal" {% if form and form.allow_illegal %}checked{% endif %} style="margin:0 4px 0 0; flex-shrink:0;" />
+                <label class="form-checkbox-label">
+                  <input type="checkbox" name="allow_illegal" {% if form and form.allow_illegal %}checked{% endif %} />
                   <span>Allow illegal cards</span>
                 </label>
-                <label style="display:inline-flex; align-items:center; margin-right:1rem; cursor:pointer; line-height:1;">
-                  <input type="checkbox" name="fuzzy_matching" {% if not form or (form and (form.fuzzy_matching is none or form.fuzzy_matching)) %}checked{% endif %} style="margin:0 4px 0 0; flex-shrink:0;" />
-                  <span>Fuzzy name matching</span>
-                </label>
+                <!-- Fuzzy matching always enabled - hidden field -->
+                <input type="hidden" name="fuzzy_matching" value="1" />
               </div>
             </div>
           </details>
         </div>
-        <small class="muted" style="display:block; margin-top:.5rem; font-size:11px; text-align:center;">
-          Enter one card name per line. Cards are validated against the database with smart name matching.
+        <small class="muted block mt-2 text-xs text-center">
+          Enter one card name per line. Cards are validated with fuzzy name matching.
         </small>
       </fieldset>
         {% if not show_must_have_buttons %}
-      <div class="muted" style="font-size:12px; margin-top:.75rem;">
+      <div class="muted text-xs mt-3">
         Step 5 quick-add buttons are hidden (<code>SHOW_MUST_HAVE_BUTTONS=0</code>), but you can still seed must include/exclude lists here.
       </div>
         {% endif %}
@@ -217,22 +213,22 @@
       {% if enable_batch_build %}
       <fieldset>
         <legend>Build Options</legend>
-        <div style="display:flex; flex-direction:column; gap:0.75rem;">
-          <label style="display:block;">
+        <div class="flex flex-col gap-3">
+          <label class="block">
             <span>Number of decks to build</span>
-            <small class="muted" style="display:block; font-size:11px; margin-top:.25rem;">Run the same configuration multiple times to see variance in results</small>
+            <small class="muted block text-xs mt-1">Run the same configuration multiple times to see variance in results</small>
           </label>
           {% if ideals_ui_mode == 'slider' %}
-          <div style="display:flex; align-items:center; gap:1rem;">
-            <input type="range" name="build_count" id="build_count_slider" min="1" max="10" value="{{ form.build_count if form and form.build_count else 1 }}" style="flex:1;" 
+          <div class="flex items-center gap-4">
+            <input type="range" name="build_count" id="build_count_slider" min="1" max="10" value="{{ form.build_count if form and form.build_count else 1 }}" class="flex-1" 
               oninput="document.getElementById('build_count_value').textContent = this.value; updateBuildCountLabel(this.value); updateButtonState(this.value);" />
-            <span id="build_count_value" style="min-width:2.5rem; text-align:center; font-weight:500; font-size:1.1em;">{{ form.build_count if form and form.build_count else 1 }}</span>
+            <span id="build_count_value" class="min-w-[2.5rem] text-center font-medium text-lg">{{ form.build_count if form and form.build_count else 1 }}</span>
           </div>
-          <small id="build_count_label" class="muted" style="font-size:11px; text-align:center;">Build 1 deck (normal build)</small>
+          <small id="build_count_label" class="muted text-xs text-center">Build 1 deck (normal build)</small>
           {% else %}
-          <input type="number" name="build_count" id="build_count_input" min="1" max="10" value="{{ form.build_count if form and form.build_count else 1 }}" style="width:6rem;" 
+          <input type="number" name="build_count" id="build_count_input" min="1" max="10" value="{{ form.build_count if form and form.build_count else 1 }}" class="w-24" 
             oninput="updateButtonState(this.value);" />
-          <small class="muted" style="font-size:11px;">Enter 1 for normal build, 2-10 to compare multiple results</small>
+          <small class="muted text-xs">Enter 1 for normal build, 2-10 to compare multiple results</small>
           {% endif %}
         </div>
       </fieldset>
@@ -240,9 +236,9 @@
       {# Hidden input to always send build_count=1 when feature disabled #}
       <input type="hidden" name="build_count" value="1" />
       {% endif %}
-      <div class="modal-footer" style="display:flex; gap:.5rem; justify-content:space-between; margin-top:1rem;">
+      <div class="modal-footer">
         <button type="button" class="btn" onclick="this.closest('.modal').remove()">Cancel</button>
-        <div style="display:flex; gap:.5rem;">
+        <div class="modal-footer-left">
           <button type="submit" name="quick_build" value="1" class="btn-continue" id="quick-build-btn" title="Build entire deck automatically without approval steps">Quick Build</button>
           <button type="submit" class="btn-continue" id="create-btn">Create</button>
         </div>
@@ -794,7 +790,8 @@
     formData.append('commander', commander);
     formData.append('enforcement_mode', enforcementMode ? enforcementMode.value : 'warn');
     formData.append('allow_illegal', allowIllegal ? allowIllegal.checked : false);
-    formData.append('fuzzy_matching', fuzzyMatching ? fuzzyMatching.checked : true);
+    // For hidden input, use .value instead of .checked (hidden inputs don't have checked property)
+    formData.append('fuzzy_matching', fuzzyMatching ? (fuzzyMatching.value || 'true') : 'true');
     
     console.log('Making fetch request to /build/validate/include_exclude');
     fetch('/build/validate/include_exclude', {
@@ -1536,11 +1533,32 @@
 
 <style>
 /* Modal responsive tweaks (scoped) */
-@media (max-width: 720px){
+@media (max-width: 600px){
   .modal .basics-grid{ grid-template-columns: 1fr !important; }
   #newdeck-commander-slot{ max-width: 100% !important; }
   #newdeck-commander-slot aside.card-preview{ max-width: 100% !important; }
   #newdeck-commander-slot img{ width: 100% !important; max-width: 260px; height: auto; margin: 0 auto; display: block; }
   .modal .modal-content{ width: min(95vw, 560px) !important; }
 }
+/* Keep grid layout on tablet and desktop */
+@media (min-width: 601px){
+  .modal .basics-grid{ 
+    display: grid !important; 
+    grid-template-columns: 2fr 1fr !important;
+  }
+}
 </style>
+
+<script>
+// Remove any existing modal to prevent duplicates
+(function() {
+  // Find all modals with the same ID
+  var allModals = document.querySelectorAll('#new-deck-modal');
+  // If there's more than one, remove all but the last (newest) one
+  if (allModals.length > 1) {
+    for (var i = 0; i < allModals.length - 1; i++) {
+      allModals[i].remove();
+    }
+  }
+})();
+</script>

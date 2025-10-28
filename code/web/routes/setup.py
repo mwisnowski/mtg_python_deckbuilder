@@ -195,7 +195,11 @@ async def download_github():
 @router.get("/", response_class=HTMLResponse)
 async def setup_index(request: Request) -> HTMLResponse:
     import code.settings as settings
+    from code.file_setup.image_cache import ImageCache
+    
+    image_cache = ImageCache()
     return templates.TemplateResponse("setup/index.html", {
         "request": request,
-        "similarity_enabled": settings.ENABLE_CARD_SIMILARITIES
+        "similarity_enabled": settings.ENABLE_CARD_SIMILARITIES,
+        "image_cache_enabled": image_cache.is_enabled()
     })

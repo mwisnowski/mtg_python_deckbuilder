@@ -1,13 +1,25 @@
 {% extends "base.html" %}
+{% from 'partials/_buttons.html' import button %}
+{% from 'partials/_panels.html' import simple_panel %}
+
 {% block content %}
 <section>
-  <h2>Page not found</h2>
-  <p>The page you requested could not be found.</p>
-  <p class="muted">Request ID: <code>{{ request_id or request.state.request_id }}</code></p>
-  <p><a class="btn" href="/">Go home</a></p>
-  <details>
+  {{ simple_panel(
+    title='Page Not Found',
+    content='<p>The page you requested could not be found.</p>
+      <p class="muted">Request ID: <code>' ~ (request_id or request.state.request_id) ~ '</code></p>',
+    variant='bordered',
+    padding='lg'
+  ) }}
+  
+  <div style="margin-top: 1rem;">
+    {{ button('Go Home', variant='primary', href='/') }}
+  </div>
+  
+  <details style="margin-top: 1rem;">
     <summary>Details</summary>
     <pre>Status: {{ status }}
 Path: {{ request.url.path }}</pre>
   </details>
+</section>
 {% endblock %}

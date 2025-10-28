@@ -39,6 +39,7 @@
       window.__telemetryEndpoint = '/telemetry/events';
     </script>
   <link rel="stylesheet" href="/static/styles.css?v=20250911-1" />
+  <link rel="stylesheet" href="/static/shared-components.css?v=20251021-1" />
   <style>
     /* Disable all transitions until page is loaded to prevent sidebar flash */
     .no-transition,
@@ -63,18 +64,11 @@
   <body class="no-transition" data-diag="{% if show_diagnostics %}1{% else %}0{% endif %}" data-virt="{% if virtualize %}1{% else %}0{% endif %}">
     <header class="top-banner">
       <div class="top-inner">
-        <div style="display:flex; align-items:center; gap:.5rem; padding-left: 1rem;">
-          <button type="button" id="nav-toggle" class="btn" aria-controls="sidebar" aria-expanded="true" title="Show/Hide navigation" style="background: transparent; color: var(--surface-banner-text); border:1px solid var(--border);">
+        <div class="flex-row banner-left">
+          <button type="button" id="nav-toggle" class="btn" aria-controls="sidebar" aria-expanded="true" title="Show/Hide navigation" style="background: transparent; color: var(--surface-banner-text); border:1px solid var(--border); flex-shrink: 0;">
             ☰ Menu
           </button>
-          <h1 style="margin:0;">MTG Deckbuilder</h1>
-        </div>
-        <div style="display:flex; align-items:center; gap:.5rem">
-          <span id="health-dot" class="health-dot" title="Health"></span>
-          <div id="banner-status" class="banner-status">{% block banner_subtitle %}{% endblock %}</div>
-          <button type="button" id="btn-open-permalink" class="btn" title="Open a saved permalink"
-            onclick="(function(){try{var token = prompt('Paste a /build/from?state=... URL or token:'); if(!token) return; var m = token.match(/state=([^&]+)/); var t = m? m[1] : token.trim(); if(!t) return; window.location.href = '/build/from?state=' + encodeURIComponent(t); }catch(_){}})()">Open Permalink…</button>
-          {# Theme controls moved to sidebar #}
+          <h1 style="margin:0; white-space: nowrap;">MTG Deckbuilder</h1>
         </div>
       </div>
     </header>
@@ -128,115 +122,7 @@
       <a href="https://scryfall.com" target="_blank" rel="noopener">Scryfall</a>.
       This website is not produced by, endorsed by, supported by, or affiliated with Scryfall or Wizards of the Coast.
     </footer>
-    <style>
-      .card-hover { position: fixed; pointer-events: none; z-index: 9999; display: none; }
-      .card-hover-inner { display:flex; gap:12px; align-items:flex-start; }
-    .card-hover img { width: 320px; height: auto; display: block; border-radius: 8px; box-shadow: 0 6px 18px rgba(0,0,0,.55); border: 1px solid var(--border); background: var(--panel); }
-    .card-hover .dual {
-      display:flex; gap:12px; align-items:flex-start;
-    }
-  .card-meta { background: var(--panel); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: .5rem .6rem; max-width: 320px; font-size: 13px; line-height: 1.4; box-shadow: 0 6px 18px rgba(0,0,0,.35); }
-  .card-meta ul { margin:.25rem 0; padding-left: 1.1rem; list-style: disc; }
-  .card-meta li { margin:.1rem 0; }
-  .card-meta .themes-list { font-size: 18px; line-height: 1.35; }
-  /* Global theme badge styles (moved from picker for reuse on standalone pages) */
-  .theme-badge { display:inline-block; padding:2px 6px; border-radius:12px; font-size:10px; background: var(--panel-alt); border:1px solid var(--border); letter-spacing:.5px; }
-  .theme-synergies { font-size:11px; opacity:.85; display:flex; flex-wrap:wrap; gap:4px; }
-  .badge-fallback { background:#7f1d1d; color:#fff; }
-  .badge-quality-draft { background:#4338ca; color:#fff; }
-  .badge-quality-reviewed { background:#065f46; color:#fff; }
-  .badge-quality-final { background:#065f46; color:#fff; font-weight:600; }
-  .badge-pop-vc { background:#065f46; color:#fff; }
-  .badge-pop-c { background:#047857; color:#fff; }
-  .badge-pop-u { background:#0369a1; color:#fff; }
-  .badge-pop-n { background:#92400e; color:#fff; }
-  .badge-pop-r { background:#7f1d1d; color:#fff; }
-  .badge-curated { background:#4f46e5; color:#fff; }
-  .badge-enforced { background:#334155; color:#fff; }
-  .badge-inferred { background:#57534e; color:#fff; }
-  .theme-detail-card { background:var(--panel); padding:1rem 1.1rem; border:1px solid var(--border); border-radius:10px; box-shadow:0 2px 6px rgba(0,0,0,.25); }
-  .theme-detail-card h3 { margin-top:0; margin-bottom:.4rem; }
-  .theme-detail-card .desc { margin-top:0; font-size:13px; line-height:1.45; }
-  .theme-detail-card h4 { margin-bottom:.35rem; margin-top:.85rem; font-size:13px; letter-spacing:.05em; text-transform:uppercase; opacity:.85; }
-  .breadcrumb { font-size:12px; margin-bottom:.4rem; }
-  .card-meta .label { color:#94a3b8; text-transform: uppercase; font-size: 10px; letter-spacing: .04em; display:block; margin-bottom:.15rem; }
-  .card-meta .themes-label { color: var(--text); font-size: 20px; letter-spacing: .05em; }
-      .card-meta .line + .line { margin-top:.35rem; }
-  .site-footer { margin: 8px 16px; padding: 8px 12px; border-top: 1px solid var(--border); color: #94a3b8; font-size: 12px; text-align: center; }
-      .site-footer a { color: #cbd5e1; text-decoration: underline; }
-  footer.site-footer { flex-shrink: 0; }
-  /* Hide hover preview on narrow screens to avoid covering content */
-  @media (max-width: 900px){
-    .card-hover{ display: none !important; }
-  }
-      .card-hover .themes-list li.overlap { color:#0ea5e9; font-weight:600; }
-  .card-hover .ov-chip { display:inline-block; background:#38bdf8; color:#102746; border:1px solid #0f3a57; border-radius:12px; padding:2px 6px; font-size:11px; margin-right:4px; font-weight:600; }
-  /* Two-faced: keep full single-card width; allow wrapping on narrow viewport */
-  .card-hover .dual.two-faced img { width:320px; }
-  .card-hover .dual.two-faced { gap:8px; }
-  /* Combo (two distinct cards) keep larger but slightly reduced to fit side-by-side */
-  .card-hover .dual.combo img { width:300px; }
-  @media (max-width: 1100px){
-    .card-hover .dual.two-faced img { width:280px; }
-    .card-hover .dual.combo img { width:260px; }
-  }
-  /* Unified hover-card-panel styling parity */
-  #hover-card-panel.is-payoff { border-color: var(--accent, #38bdf8); box-shadow:0 6px 24px rgba(0,0,0,.65), 0 0 0 1px var(--accent, #38bdf8) inset; }
-  #hover-card-panel.is-payoff .hcp-img { border-color: var(--accent, #38bdf8); }
-  /* Inline theme/tag list styling (unifies legacy second panel) */
-  /* Two-column hover layout */
-  #hover-card-panel .hcp-body { display:grid; grid-template-columns: 320px 1fr; gap:18px; align-items:start; }
-  #hover-card-panel .hcp-img-wrap { grid-column:1 / 2; }
-  #hover-card-panel.compact-img .hcp-body { grid-template-columns: 120px 1fr; }
-  #hover-card-panel.hcp-simple { width:auto !important; max-width:min(360px, 90vw) !important; padding:12px !important; height:auto !important; max-height:none !important; overflow:hidden !important; }
-  #hover-card-panel.hcp-simple .hcp-body { display:flex; flex-direction:column; gap:12px; align-items:center; }
-  #hover-card-panel.hcp-simple .hcp-right { display:none !important; }
-  #hover-card-panel.hcp-simple .hcp-img { max-width:100%; }
-  /* Tag list as multi-column list instead of pill chips for readability */
-  #hover-card-panel .hcp-taglist { columns:2; column-gap:18px; font-size:13px; line-height:1.3; margin:6px 0 6px; padding:0; list-style:none; max-height:180px; overflow:auto; }
-  #hover-card-panel .hcp-taglist li { break-inside:avoid; padding:2px 0 2px 0; position:relative; }
-  #hover-card-panel .hcp-taglist li.overlap { font-weight:600; color:var(--accent,#38bdf8); }
-  #hover-card-panel .hcp-taglist li.overlap::before { content:'•'; color:var(--accent,#38bdf8); position:absolute; left:-10px; }
-  #hover-card-panel .hcp-overlaps { font-size:10px; line-height:1.25; margin-top:2px; }
-  #hover-card-panel .hcp-ov-chip { display:inline-flex; align-items:center; background:var(--accent,#38bdf8); color:#102746; border:1px solid rgba(10,54,82,.6); border-radius:9999px; padding:3px 10px; font-size:13px; margin-right:6px; margin-top:4px; font-weight:500; letter-spacing:.02em; }
-  /* Hide modal-specific close button outside modal host */
-  #preview-close-btn { display:none; }
-  #theme-preview-modal #preview-close-btn { display:inline-flex; }
-  /* Overlay flip toggle for double-faced cards */
-  .dfc-host { position:relative; }
-  .dfc-toggle { position:absolute; top:6px; left:6px; z-index:5; background:rgba(15,23,42,.82); color:#fff; border:1px solid #475569; border-radius:50%; width:36px; height:36px; padding:0; font-size:16px; cursor:pointer; line-height:1; display:flex; align-items:center; justify-content:center; opacity:.92; backdrop-filter: blur(3px); }
-  .dfc-toggle:hover, .dfc-toggle:focus { opacity:1; box-shadow:0 0 0 2px rgba(56,189,248,.35); outline:none; }
-  .dfc-toggle:active { transform: translateY(1px); }
-  .dfc-toggle .icon { font-size:12px; }
-  .dfc-toggle[data-face='back'] { background:rgba(76,29,149,.85); }
-  .dfc-toggle[data-face='front'] { background:rgba(15,23,42,.82); }
-  .dfc-toggle[aria-pressed='true'] { box-shadow:0 0 0 2px var(--accent, #38bdf8); }
-  .list-row .dfc-toggle { position:static; width:auto; height:auto; border-radius:6px; padding:2px 8px; font-size:12px; opacity:1; backdrop-filter:none; margin-left:4px; }
-  .list-row .dfc-toggle .icon { font-size:12px; }
-  .list-row .dfc-toggle[data-face='back'] { background:rgba(76,29,149,.3); }
-  .list-row .dfc-toggle[data-face='front'] { background:rgba(56,189,248,.2); }
-  #hover-card-panel.mobile { left:50% !important; top:50% !important; bottom:auto !important; transform:translate(-50%, -50%); width:min(94vw, 460px) !important; max-height:88vh; overflow-y:auto; padding:20px 22px; pointer-events:auto !important; }
-  #hover-card-panel.mobile .hcp-body { display:flex; flex-direction:column; gap:20px; }
-  #hover-card-panel.mobile .hcp-img { width:100%; max-width:min(90vw, 420px) !important; margin:0 auto; }
-  #hover-card-panel.mobile .hcp-right { width:100%; display:flex; flex-direction:column; gap:10px; align-items:flex-start; }
-  #hover-card-panel.mobile .hcp-header { flex-wrap:wrap; gap:8px; align-items:flex-start; }
-  #hover-card-panel.mobile .hcp-role { font-size:12px; letter-spacing:.55px; }
-  #hover-card-panel.mobile .hcp-meta { font-size:13px; text-align:left; }
-  #hover-card-panel.mobile .hcp-overlaps { display:flex; flex-wrap:wrap; gap:6px; width:100%; }
-  #hover-card-panel.mobile .hcp-overlaps .hcp-ov-chip { margin:0; }
-  #hover-card-panel.mobile .hcp-taglist { columns:1; display:flex; flex-wrap:wrap; gap:6px; margin:4px 0 2px; max-height:none; overflow:visible; padding:0; }
-  #hover-card-panel.mobile .hcp-taglist li { background:rgba(37,99,235,.18); border-radius:9999px; padding:4px 10px; display:inline-flex; align-items:center; }
-  #hover-card-panel.mobile .hcp-taglist li.overlap { background:rgba(37,99,235,.28); color:#dbeafe; }
-  #hover-card-panel.mobile .hcp-taglist li.overlap::before { display:none; }
-  #hover-card-panel.mobile .hcp-reasons { max-height:220px; width:100%; }
-  #hover-card-panel.mobile .hcp-tags { word-break:normal; white-space:normal; text-align:left; width:100%; font-size:12px; opacity:.7; }
-  #hover-card-panel .hcp-close { appearance:none; border:none; background:transparent; color:#9ca3af; font-size:18px; line-height:1; padding:2px 4px; cursor:pointer; border-radius:6px; display:none; }
-  #hover-card-panel .hcp-close:focus { outline:2px solid rgba(59,130,246,.6); outline-offset:2px; }
-  #hover-card-panel.mobile .hcp-close { display:inline-flex; }
-  /* Fade transition for hover panel image */
-  #hover-card-panel .hcp-img { transition: opacity .22s ease; }
-  .sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; border:0; }
-    </style>
+    <!-- Card hover, theme badges, and DFC toggle styles moved to tailwind.css 2025-10-21 -->
     <style>
       .nav a.active { font-weight:600; position:relative; }
       .nav a.active::after { content:''; position:absolute; left:0; bottom:2px; width:100%; height:2px; background:var(--accent, #38bdf8); border-radius:2px; }
@@ -358,25 +244,6 @@
         setInterval(pollStatus, 10000);
         pollStatus();
 
-        // Health indicator poller
-        var healthDot = document.getElementById('health-dot');
-        function renderHealth(data){
-          if (!healthDot) return;
-          var ok = data && data.status === 'ok';
-          healthDot.setAttribute('data-state', ok ? 'ok' : 'bad');
-          if (!ok) { healthDot.title = 'Degraded'; } else { healthDot.title = 'OK'; }
-        }
-        function pollHealth(){
-          try {
-            fetch('/healthz', { cache: 'no-store' })
-              .then(function(r){ return r.json(); })
-              .then(renderHealth)
-              .catch(function(){ renderHealth({ status: 'bad' }); });
-          } catch(e){ renderHealth({ status: 'bad' }); }
-        }
-        setInterval(pollHealth, 5000);
-        pollHealth();
-
   function ensureCard() {
     // Legacy large image hover kept for fallback; disabled in favor of unified hover-card-panel
     if (window.__disableLegacyCardHover) return document.getElementById('card-hover') || document.createElement('div');
@@ -416,17 +283,17 @@
         function buildCardUrl(name, version, nocache, face){
           name = normalizeCardName(name);
           var q = encodeURIComponent(name||'');
-          var url = 'https://api.scryfall.com/cards/named?fuzzy=' + q + '&format=image&version=' + (version||'normal');
-          if (face === 'back') url += '&face=back';
-          if (nocache) url += '&t=' + Date.now();
+          var url = '/api/images/' + (version||'normal') + '/' + q;
+          if (face === 'back') url += '?face=back';
+          if (nocache) url += (face === 'back' ? '&' : '?') + 't=' + Date.now();
           return url;
         }
-        // Generic Scryfall image URL builder
+        // Generic card image URL builder
         function buildScryfallImageUrl(name, version, nocache){
           name = normalizeCardName(name);
           var q = encodeURIComponent(name||'');
-          var url = 'https://api.scryfall.com/cards/named?fuzzy=' + q + '&format=image&version=' + (version||'normal');
-          if (nocache) url += '&t=' + Date.now();
+          var url = '/api/images/' + (version||'normal') + '/' + q;
+          if (nocache) url += '?t=' + Date.now();
           return url;
         }
 
@@ -624,9 +491,21 @@
         }
         function hasTwoFaces(card){
           if(!card) return false;
+          
+          // Check if card has a layout attribute - this is the source of truth
+          var layout = card.getAttribute('data-layout') || '';
+          if(layout) {
+            // Only these layouts are actual flippable double-faced cards
+            var flippableLayouts = ['modal_dfc', 'transform', 'reversible_card', 'flip', 'meld'];
+            return flippableLayouts.indexOf(layout) > -1;
+          }
+          
+          // Fallback: If no layout data, check if name has // (backwards compatibility)
+          // This shouldn't happen if templates properly pass data-layout
           var name = normalize(getCardData(card, 'data-card-name')) + ' ' + normalize(getCardData(card, 'data-original-name'));
           return name.indexOf('//') > -1;
         }
+        window.__dfcHasTwoFaces = hasTwoFaces;  // Expose globally for popup hover panel
         function keyFor(card){
           var nm = normalize(getCardData(card, 'data-card-name') || getCardData(card, 'data-original-name') || '').toLowerCase();
           return LS_PREFIX + nm;
@@ -669,7 +548,9 @@
           var face = card.getAttribute(FACE_ATTR) || 'front';
           var btn = document.createElement('button');
           btn.type='button';
-          btn.className='dfc-toggle';
+          // Mobile: flip in popup only (flex below md). Desktop: flip in thumbnails only (hidden at md+)
+          var inPopup = card.closest && card.closest('#hover-card-panel');
+          btn.className = inPopup ? 'dfc-toggle flex md:hidden' : 'dfc-toggle hidden md:flex';
           btn.setAttribute('aria-pressed','false');
           btn.setAttribute('tabindex','0');
           btn.addEventListener('click', function(ev){ ev.stopPropagation(); flip(card, btn); });
@@ -692,6 +573,7 @@
             card.insertBefore(btn, card.firstChild);
           }
         }
+        window.__dfcEnsureButton = ensureButton;  // Expose for hover panel use
         function flip(card, btn){
           var now = Date.now();
             if(now - lastFlip < DEBOUNCE_MS) return;
@@ -746,6 +628,7 @@
         } catch(_) {}
       })();
     </script>
+  <script src="/static/components.js?v=20250121-1"></script>
   <script src="/static/app.js?v=20250826-4"></script>
   {% if enable_themes %}
   <script>
@@ -1210,13 +1093,25 @@
           var chosenFace = card.getAttribute('data-current-face') || 'front';
           lastCard = card;
           function renderHoverFace(face){
-            var desiredVersion='large';
-            var faceParam = (face==='back') ? '&face=back' : '';
+            var desiredVersion='normal';  // Use 'normal' since we only cache small/normal
             var currentKey = nm+':'+face+':'+desiredVersion;
             var prevFace = imgEl.getAttribute('data-face');
             var faceChanged = prevFace && prevFace !== face;
             if(imgEl.getAttribute('data-current')!== currentKey){
-              var src='https://api.scryfall.com/cards/named?fuzzy='+fuzzy+'&format=image&version='+desiredVersion+faceParam;
+              // For DFC cards, extract the specific face name for cache lookup
+              // but also send face parameter for Scryfall fallback
+              var faceName = nm;
+              var isDFC = nm.indexOf('//')>-1;
+              if(isDFC){
+                var faces = nm.split('//');
+                faceName = (face==='back') ? faces[1].trim() : faces[0].trim();
+              }
+              // Use cache-aware API endpoint with the specific face name
+              // Add face parameter for DFC back faces to help Scryfall fallback
+              var src='/api/images/'+desiredVersion+'/'+encodeURIComponent(faceName);
+              if(isDFC && face==='back'){
+                src += '?face=back';
+              }
               if(faceChanged){ imgEl.style.opacity = 0; }
               prefetch(src);
               imgEl.src = src;
@@ -1228,12 +1123,50 @@
               imgEl.__errBound = true;
               imgEl.addEventListener('error', function(){
                 var cur = imgEl.getAttribute('src')||'';
-                if(cur.indexOf('version=large')>-1){ imgEl.src = cur.replace('version=large','version=normal'); }
-                else if(cur.indexOf('version=normal')>-1){ imgEl.src = cur.replace('version=normal','version=small'); }
+                // Fallback from normal to small if image fails to load
+                if(cur.indexOf('/api/images/normal/')>-1){ 
+                  imgEl.src = cur.replace('/api/images/normal/','/api/images/small/'); 
+                }
               });
             }
           }
           renderHoverFace(chosenFace);
+          
+          // Add DFC flip button to popup panel ONLY on mobile
+          var checkFlip = window.__dfcHasTwoFaces || function(){ return false; };
+          if(hasFlip && imgEl && checkFlip(card) && isMobileMode()){
+            var imgWrap = imgEl.parentElement;  // .hcp-img-wrap
+            if(imgWrap && !imgWrap.querySelector('.dfc-toggle')){
+              // Create a custom flip button that flips the ORIGINAL card (lastCard)
+              // This ensures the popup refreshes with updated tags/themes
+              var flipBtn = document.createElement('button');
+              flipBtn.type = 'button';
+              flipBtn.className = 'dfc-toggle';  // No responsive classes needed - only created on mobile
+              flipBtn.setAttribute('aria-pressed', 'false');
+              flipBtn.setAttribute('tabindex', '0');
+              flipBtn.innerHTML = '<span class="icon" aria-hidden="true" style="font-size:18px;">⥮</span>';
+              
+              // Flip the ORIGINAL card element, not the popup wrapper
+              flipBtn.addEventListener('click', function(ev){
+                ev.stopPropagation();
+                if(window.__dfcFlipCard && lastCard){
+                  window.__dfcFlipCard(lastCard);  // This will trigger popup refresh
+                }
+              });
+              flipBtn.addEventListener('keydown', function(ev){
+                if(ev.key==='Enter' || ev.key===' ' || ev.key==='f' || ev.key==='F'){
+                  ev.preventDefault();
+                  if(window.__dfcFlipCard && lastCard){
+                    window.__dfcFlipCard(lastCard);
+                  }
+                }
+              });
+              
+              imgWrap.classList.add('dfc-host');
+              imgWrap.appendChild(flipBtn);
+            }
+          }
+          
           window.__dfcNotifyHover = hasFlip ? function(cardRef, face){ if(cardRef === lastCard){ renderHoverFace(face); } } : null;
           if(evt){ window.__lastPointerEvent = evt; }
           if(isMobileMode()){
@@ -1269,8 +1202,19 @@
           // If inside flip button
           var btn = el.closest && el.closest('.dfc-toggle');
           if(btn) return btn.closest('.card-sample, .commander-cell, .commander-thumb, .commander-card, .card-tile, .candidate-tile, .card-preview, .stack-card');
+          // For card-tile, ONLY trigger on .img-btn or the image itself (not entire tile)
+          if(el.closest && el.closest('.card-tile')){
+            var imgBtn = el.closest('.img-btn');
+            if(imgBtn) return imgBtn.closest('.card-tile');
+            // If directly on the image
+            if(el.matches && (el.matches('img.card-thumb') || el.matches('img[data-card-name]'))){
+              return el.closest('.card-tile');
+            }
+            // Don't trigger on other parts of the tile (buttons, text, etc.)
+            return null;
+          }
           // Recognized container classes (add .stack-card for finished/random deck thumbnails)
-          var container = el.closest && el.closest('.card-sample, .commander-cell, .commander-thumb, .commander-card, .card-tile, .candidate-tile, .card-preview, .stack-card');
+          var container = el.closest && el.closest('.card-sample, .commander-cell, .commander-thumb, .commander-card, .candidate-tile, .card-preview, .stack-card');
           if(container) return container;
           // Image-based detection (any card image carrying data-card-name)
           if(el.matches && (el.matches('img.card-thumb') || el.matches('img[data-card-name]') || el.classList.contains('commander-img'))){

@@ -29,8 +29,8 @@
       {% set sev = (f.severity or 'FAIL')|upper %}
       <div class="card-tile" data-card-name="{{ f.name }}" data-role="{{ f.role or '' }}" {% if sev == 'FAIL' %}style="border-color: var(--red-main);"{% elif sev == 'WARN' %}style="border-color: var(--orange-main);"{% endif %}>
         <a href="https://scryfall.com/search?q={{ f.name|urlencode }}" target="_blank" rel="noopener" class="img-btn" title="{{ f.name }}">
-          <img class="card-thumb" src="https://api.scryfall.com/cards/named?fuzzy={{ f.name|urlencode }}&format=image&version=normal" alt="{{ f.name }} image" width="160" loading="lazy" decoding="async" data-lqip="1"
-            srcset="https://api.scryfall.com/cards/named?fuzzy={{ f.name|urlencode }}&format=image&version=small 160w, https://api.scryfall.com/cards/named?fuzzy={{ f.name|urlencode }}&format=image&version=normal 488w, https://api.scryfall.com/cards/named?fuzzy={{ f.name|urlencode }}&format=image&version=large 672w"
+          <img class="card-thumb" src="{{ f.name|card_image('normal') }}" alt="{{ f.name }} image" width="160" loading="lazy" decoding="async" data-lqip="1"
+            srcset="{{ f.name|card_image('small') }} 160w, {{ f.name|card_image('normal') }} 488w"
             sizes="160px" />
         </a>
         <div class="owned-badge" title="{{ 'Owned' if f.owned else 'Not owned' }}" aria-label="{{ 'Owned' if f.owned else 'Not owned' }}">{% if f.owned %}✔{% else %}✖{% endif %}</div>

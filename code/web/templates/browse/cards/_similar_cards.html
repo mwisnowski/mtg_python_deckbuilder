@@ -235,7 +235,7 @@
         <div class="similar-card-tile card-tile" data-card-name="{{ card.name }}">
             <!-- Card Image (uses hover system for preview) -->
             <div class="similar-card-image">
-                <img src="https://api.scryfall.com/cards/named?fuzzy={{ card.name|urlencode }}&format=image&version=normal" 
+                <img src="{{ card.name|card_image('normal') }}" 
                      alt="{{ card.name }}" 
                      loading="lazy"
                      data-card-name="{{ card.name }}"

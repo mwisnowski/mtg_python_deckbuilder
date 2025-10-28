@@ -1,0 +1,225 @@
+{# Button Component Library #}
+{# Usage: {{ import_buttons() }} then call button macros #}
+
+{#
+  Primary Button Macro
+  
+  Parameters:
+  - text (str): Button text/label
+  - variant (str): 'primary', 'secondary', 'ghost', 'danger' (default: 'primary')
+  - type (str): 'button', 'submit', 'reset' (default: 'button')
+  - size (str): 'sm', 'md', 'lg' (default: 'md')
+  - href (str): If provided, renders as <a> tag instead of <button>
+  - classes (str): Additional CSS classes
+  - attrs (str): Additional HTML attributes (e.g., 'disabled', 'data-foo="bar"')
+  - hx_get (str): HTMX hx-get attribute
+  - hx_post (str): HTMX hx-post attribute
+  - hx_target (str): HTMX hx-target attribute
+  - hx_swap (str): HTMX hx-swap attribute
+  - onclick (str): JavaScript onclick handler
+  - aria_label (str): ARIA label for accessibility
+  
+  Examples:
+    {{ button('Click Me') }}
+    {{ button('Submit', variant='primary', type='submit') }}
+    {{ button('Cancel', variant='secondary') }}
+    {{ button('Delete', variant='danger', onclick='confirmDelete()') }}
+    {{ button('Go Back', variant='ghost', href='/build') }}
+    {{ button('Load More', hx_get='/cards?page=2', hx_target='#cards') }}
+#}
+{% macro button(text, variant='primary', type='button', size='md', href='', classes='', attrs='', hx_get='', hx_post='', hx_target='', hx_swap='', onclick='', aria_label='') %}
+  {%- set base_classes = 'btn' -%}
+  {%- set variant_class = 'btn-' + variant if variant != 'primary' else '' -%}
+  {%- set size_class = 'btn-' + size if size != 'md' else '' -%}
+  {%- set all_classes = [base_classes, variant_class, size_class, classes]|select|join(' ') -%}
+  
+  {%- if href -%}
+    <a href="{{ href }}" 
+       class="{{ all_classes }}"
+       {% if onclick %}onclick="{{ onclick }}"{% endif %}
+       {% if aria_label %}aria-label="{{ aria_label }}"{% endif %}
+       {{ attrs|safe }}>{{ text }}</a>
+  {%- else -%}
+    <button type="{{ type }}" 
+            class="{{ all_classes }}"
+            {% if hx_get %}hx-get="{{ hx_get }}"{% endif %}
+            {% if hx_post %}hx-post="{{ hx_post }}"{% endif %}
+            {% if hx_target %}hx-target="{{ hx_target }}"{% endif %}
+            {% if hx_swap %}hx-swap="{{ hx_swap }}"{% endif %}
+            {% if onclick %}onclick="{{ onclick }}"{% endif %}
+            {% if aria_label %}aria-label="{{ aria_label }}"{% endif %}
+            {{ attrs|safe }}>{{ text }}</button>
+  {%- endif -%}
+{% endmacro %}
+
+{#
+  Icon Button Macro
+  
+  Parameters:
+  - icon (str): Icon character or HTML (e.g., '×', '☰', '<svg>...</svg>')
+  - variant (str): 'primary', 'secondary', 'ghost', 'danger' (default: 'ghost')
+  - size (str): 'sm', 'md', 'lg' (default: 'md')
+  - classes (str): Additional CSS classes
+  - attrs (str): Additional HTML attributes
+  - onclick (str): JavaScript onclick handler
+  - aria_label (str): Required ARIA label for accessibility
+  
+  Examples:
+    {{ icon_button('×', aria_label='Close', onclick='closeModal()') }}
+    {{ icon_button('☰', aria_label='Menu', variant='primary') }}
+#}
+{% macro icon_button(icon, variant='ghost', size='md', classes='', attrs='', onclick='', aria_label='') %}
+  {%- set base_classes = 'btn btn-icon' -%}
+  {%- set variant_class = 'btn-' + variant if variant != 'ghost' else '' -%}
+  {%- set size_class = 'btn-' + size if size != 'md' else '' -%}
+  {%- set all_classes = [base_classes, variant_class, size_class, classes]|select|join(' ') -%}
+  
+  <button type="button" 
+          class="{{ all_classes }}"
+          {% if onclick %}onclick="{{ onclick }}"{% endif %}
+          {% if aria_label %}aria-label="{{ aria_label }}"{% else %}aria-label="Icon button"{% endif %}
+          {{ attrs|safe }}>{{ icon|safe }}</button>
+{% endmacro %}
+
+{#
+  Close Button Macro (specialized icon button)
+  
+  Parameters:
+  - target (str): CSS selector of element to close (default: closest '.modal')
+  - classes (str): Additional CSS classes
+  - attrs (str): Additional HTML attributes
+  - aria_label (str): ARIA label (default: 'Close')
+  
+  Examples:
+    {{ close_button() }}
+    {{ close_button(target='.alts') }}
+    {{ close_button(classes='modal-close') }}
+#}
+{% macro close_button(target='.modal', classes='', attrs='', aria_label='Close') %}
+  {{ icon_button(
+    '×', 
+    variant='ghost',
+    size='sm',
+    classes='btn-close ' + classes,
+    onclick="try{this.closest('" + target + "').remove();}catch(_){}",
+    aria_label=aria_label,
+    attrs=attrs
+  ) }}
+{% endmacro %}
+
+{#
+  Button Group Macro
+  
+  Parameters:
+  - buttons (list): List of button dicts with keys: text, variant, type, href, onclick, etc.
+  - alignment (str): 'left', 'center', 'right', 'between' (default: 'right')
+  - classes (str): Additional CSS classes for container
+  
+  Examples:
+    {{ button_group([
+      {'text': 'Cancel', 'variant': 'secondary', 'onclick': 'close()'},
+      {'text': 'Save', 'variant': 'primary', 'type': 'submit'}
+    ]) }}
+#}
+{% macro button_group(buttons, alignment='right', classes='') %}
+  {%- set alignment_class = 'btn-group-' + alignment -%}
+  <div class="btn-group {{ alignment_class }} {{ classes }}">
+    {% for btn in buttons %}
+      {{ button(
+        btn.text,
+        variant=btn.get('variant', 'primary'),
+        type=btn.get('type', 'button'),
+        size=btn.get('size', 'md'),
+        href=btn.get('href', ''),
+        classes=btn.get('classes', ''),
+        attrs=btn.get('attrs', ''),
+        hx_get=btn.get('hx_get', ''),
+        hx_post=btn.get('hx_post', ''),
+        hx_target=btn.get('hx_target', ''),
+        hx_swap=btn.get('hx_swap', ''),
+        onclick=btn.get('onclick', ''),
+        aria_label=btn.get('aria_label', '')
+      ) }}
+    {% endfor %}
+  </div>
+{% endmacro %}
+
+{#
+  Tag/Chip Button Macro
+  
+  Parameters:
+  - text (str): Tag text
+  - removable (bool): Show remove 'x' button (default: False)
+  - selected (bool): Tag is selected (default: False)
+  - classes (str): Additional CSS classes
+  - attrs (str): Additional HTML attributes
+  - onclick (str): JavaScript onclick handler
+  - on_remove (str): JavaScript handler for remove button
+  - data_attrs (dict): Data attributes as key-value pairs
+  
+  Examples:
+    {{ tag_button('Flying') }}
+    {{ tag_button('Ramp', selected=True) }}
+    {{ tag_button('Blue', removable=True, on_remove='removeTag(this)') }}
+    {{ tag_button('Simic', data_attrs={'color': 'ug', 'value': '2'}) }}
+#}
+{% macro tag_button(text, removable=False, selected=False, classes='', attrs='', onclick='', on_remove='', data_attrs={}) %}
+  {%- set base_classes = 'btn btn-tag' -%}
+  {%- set state_class = 'btn-tag-selected' if selected else '' -%}
+  {%- set all_classes = [base_classes, state_class, classes]|select|join(' ') -%}
+  
+  <button type="button" 
+          class="{{ all_classes }}"
+          {% if onclick %}onclick="{{ onclick }}"{% endif %}
+          {% for key, value in data_attrs.items() %}data-{{ key }}="{{ value }}" {% endfor %}
+          {{ attrs|safe }}>
+    <span>{{ text }}</span>
+    {% if removable %}
+      <button type="button" 
+              class="btn-tag-remove" 
+              aria-label="Remove {{ text }}"
+              {% if on_remove %}onclick="{{ on_remove }}"{% else %}onclick="this.closest('.btn-tag').remove()"{% endif %}>×</button>
+    {% endif %}
+  </button>
+{% endmacro %}
+
+{#
+  Action Button (Legacy - use button() with variant instead)
+  Kept for backward compatibility during migration
+  
+  Parameters: Same as button()
+  
+  Note: This is deprecated. Use {{ button(text, variant='primary', size='lg') }} instead.
+#}
+{% macro action_button(text, type='button', classes='', attrs='', onclick='', aria_label='') %}
+  {{ button(text, variant='primary', type=type, size='lg', classes='action-btn ' + classes, attrs=attrs, onclick=onclick, aria_label=aria_label) }}
+{% endmacro %}
+
+{# CSS Classes Reference #}
+{#
+  Button Variants:
+  - .btn (base)
+  - .btn-primary (default)
+  - .btn-secondary (gray, for cancel/back)
+  - .btn-ghost (transparent, subtle)
+  - .btn-danger (red, for destructive actions)
+  
+  Button Sizes:
+  - .btn-sm (small: padding 4px 12px, font 12px)
+  - .btn-md (default: padding 8px 16px, font 14px)
+  - .btn-lg (large: padding 12px 24px, font 16px)
+  
+  Button Modifiers:
+  - .btn-icon (icon-only button, square aspect)
+  - .btn-close (close button, positioned top-right)
+  - .btn-tag (pill-shaped tag/chip)
+  - .btn-tag-selected (selected tag state)
+  - .btn-tag-remove (remove button within tag)
+  
+  Button Groups:
+  - .btn-group (container)
+  - .btn-group-left (align left)
+  - .btn-group-center (align center)
+  - .btn-group-right (align right, default)
+  - .btn-group-between (space-between)
+#}

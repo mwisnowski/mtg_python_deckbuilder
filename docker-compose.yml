@@ -105,6 +105,9 @@ services:
       WEB_TAG_PARALLEL: "1"         # 1=parallelize tagging
       WEB_TAG_WORKERS: "4"          # Worker count when parallel tagging
       
+      # Card Image Caching (optional, uses Scryfall bulk data API)
+      CACHE_CARD_IMAGES: "1"        # 1=download images to card_files/images/, 0=fetch from Scryfall API on demand
+      
       # Build Stage Ordering
       WEB_STAGE_ORDER: "new"        # new|legacy. 'new' (default): creatures → spells → lands → fill. 'legacy': lands → creatures → spells → fill
       
@@ -250,5 +253,8 @@ services:
       - ${PWD}/card_files:/app/card_files
       - ${PWD}/config:/app/config
       - ${PWD}/owned_cards:/app/owned_cards
+      # Mount code for hot-reload during development (templates, static files)
+      - ${PWD}/code/web/templates:/app/code/web/templates
+      - ${PWD}/code/web/static:/app/code/web/static
     working_dir: /app
     restart: unless-stopped

@@ -1,5 +1,19 @@
 {# Reusable Jinja macros for UI elements #}
 
+{# 
+  Component Library Imports
+  
+  To use components in your templates:
+  {% from 'partials/_macros.html' import component_name %}
+  
+  Or import specific component libraries:
+  {% from 'partials/_buttons.html' import button, icon_button %}
+  {% from 'partials/_modals.html' import modal, simple_modal %}
+  {% from 'partials/_card_display.html' import card_thumb, card_grid %}
+  {% from 'partials/_forms.html' import text_input, select, checkbox %}
+  {% from 'partials/_panels.html' import panel, stat_panel %}
+#}
+
 {% macro lock_button(name, locked=False, from_list=False, target_selector='closest .lock-box') -%}
   {# Emits a lock/unlock button with correct hx-vals and aria state. #}
   <button type="button" class="btn-lock"

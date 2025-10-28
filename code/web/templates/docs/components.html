@@ -1,0 +1,386 @@
+{% extends "base.html" %}
+{% from 'partials/_buttons.html' import button, icon_button, close_button, button_group, tag_button %}
+{% from 'partials/_modals.html' import simple_modal, confirm_dialog, alert_modal %}
+{% from 'partials/_forms.html' import text_input, textarea, select, checkbox, radio_group, number_input, file_input %}
+{% from 'partials/_card_display.html' import card_thumb, card_flip_button, card_grid %}
+{% from 'partials/_panels.html' import panel, simple_panel, info_panel, stat_panel, collapsible_panel, empty_state_panel, loading_panel %}
+
+{% block title %}Component Library - MTG Deckbuilder{% endblock %}
+
+{% block content %}
+<div class="main-inner max-w-content" style="padding: 2rem 1rem;">
+  
+  <div class="banner">
+    <h1>Component Library</h1>
+    <div class="subtitle">M2 standardized UI components for MTG Deckbuilder</div>
+  </div>
+
+  <!-- Table of Contents -->
+  {{ simple_panel(
+    title='Table of Contents',
+    content='
+      <ul style="list-style: none; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.5rem;">
+        <li><a href="#buttons">Buttons</a></li>
+        <li><a href="#modals">Modals</a></li>
+        <li><a href="#forms">Forms</a></li>
+        <li><a href="#cards">Card Display</a></li>
+        <li><a href="#panels">Panels</a></li>
+      </ul>
+    ',
+    variant='alt'
+  ) }}
+
+  <!-- BUTTONS -->
+  <section id="buttons" class="section-spacing">
+    {% call panel(title='Buttons', padding='lg') %}
+      {% block body %}
+        
+        <h4 style="margin-top: 0;">Button Variants</h4>
+        <div class="btn-group content-spacing-lg">
+          {{ button('Primary Button', variant='primary') }}
+          {{ button('Secondary Button', variant='secondary') }}
+          {{ button('Ghost Button', variant='ghost') }}
+          {{ button('Danger Button', variant='danger') }}
+        </div>
+
+        <h4>Button Sizes</h4>
+        <div class="btn-group" style="margin-bottom: 2rem;">
+          {{ button('Small', size='sm') }}
+          {{ button('Medium (Default)', size='md') }}
+          {{ button('Large', size='lg') }}
+        </div>
+
+        <h4>Icon Buttons</h4>
+        <div class="btn-group" style="margin-bottom: 2rem;">
+          {{ icon_button('×', aria_label='Close', size='sm') }}
+          {{ icon_button('☰', aria_label='Menu', size='md') }}
+          {{ icon_button('⚙', aria_label='Settings', size='lg') }}
+        </div>
+
+        <h4>Tag Buttons</h4>
+        <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 2rem;">
+          {{ tag_button('Ramp') }}
+          {{ tag_button('Removal', selected=True) }}
+          {{ tag_button('Card Draw', removable=True, on_remove='alert("Tag removed")') }}
+          {{ tag_button('Counterspells') }}
+        </div>
+
+        <h4>Button Groups</h4>
+        {{ button_group([
+          {'text': 'Back', 'variant': 'secondary'},
+          {'text': 'Cancel', 'variant': 'ghost'},
+          {'text': 'Save', 'variant': 'primary', 'type': 'submit'}
+        ], alignment='right') }}
+
+        <h4 style="margin-top: 2rem;">Link Buttons</h4>
+        <div class="btn-group">
+          {{ button('Go Home', href='/', variant='ghost') }}
+          {{ button('Build Deck', href='/build', variant='primary') }}
+        </div>
+
+      {% endblock %}
+    {% endcall %}
+  </section>
+
+  <!-- MODALS -->
+  <section id="modals" style="margin-top: 2rem;">
+    {% call panel(title='Modals', padding='lg') %}
+      {% block body %}
+        
+        <p style="margin-top: 0; color: var(--muted);">Click buttons to see modal examples</p>
+
+        <div class="btn-group" style="margin-bottom: 1rem;">
+          {{ button('Simple Modal', onclick='showSimpleModalExample()') }}
+          {{ button('Confirm Dialog', onclick='showConfirmExample()') }}
+          {{ button('Alert (Success)', onclick='showAlertExample("success")') }}
+          {{ button('Alert (Error)', onclick='showAlertExample("error")') }}
+        </div>
+
+        <h4>Modal Sizes</h4>
+        <div class="btn-group">
+          {{ button('Small (480px)', onclick='showSizedModal("sm")') }}
+          {{ button('Medium (620px)', onclick='showSizedModal("md")') }}
+          {{ button('Large (720px)', onclick='showSizedModal("lg")') }}
+          {{ button('XLarge (960px)', onclick='showSizedModal("xl")') }}
+        </div>
+
+      {% endblock %}
+    {% endcall %}
+  </section>
+
+  <!-- FORMS -->
+  <section id="forms" style="margin-top: 2rem;">
+    {% call panel(title='Form Components', padding='lg') %}
+      {% block body %}
+        
+        <form onsubmit="event.preventDefault(); alert('Form submitted!');" style="max-width: 600px;">
+          
+          {{ text_input('username', label='Username', placeholder='Enter username', required=True) }}
+          
+          {{ text_input('email', label='Email', type='email', placeholder='you@example.com', help_text='We\'ll never share your email') }}
+          
+          {{ textarea('notes', label='Notes', placeholder='Enter additional notes...', rows=4) }}
+          
+          {{ select('color', label='Color Identity', options=[
+            {'value': 'W', 'text': 'White'},
+            {'value': 'U', 'text': 'Blue'},
+            {'value': 'B', 'text': 'Black'},
+            {'value': 'R', 'text': 'Red'},
+            {'value': 'G', 'text': 'Green'}
+          ], required=True) }}
+          
+          {{ number_input('quantity', label='Quantity', min=1, max=10, value=1) }}
+          
+          {{ checkbox('owned_only', label='Show only owned cards', checked=True) }}
+          
+          {{ radio_group('theme', label='Preferred Theme', options=[
+            {'value': 'system', 'text': 'System', 'checked': True},
+            {'value': 'light', 'text': 'Light'},
+            {'value': 'dark', 'text': 'Dark'}
+          ]) }}
+          
+          {{ file_input('deck_file', label='Upload Deck File', accept='.csv,.txt,.json') }}
+          
+          <div class="btn-group" style="margin-top: 2rem;">
+            {{ button('Cancel', variant='secondary', type='button') }}
+            {{ button('Submit', variant='primary', type='submit') }}
+          </div>
+        </form>
+
+      {% endblock %}
+    {% endcall %}
+  </section>
+
+  <!-- CARD DISPLAY -->
+  <section id="cards" style="margin-top: 2rem;">
+    {% call panel(title='Card Display Components', padding='lg') %}
+      {% block body %}
+        
+        <h4 style="margin-top: 0;">Card Thumbnail Sizes</h4>
+        <div style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-start; margin-bottom: 2rem;">
+          {{ card_thumb('Sol Ring', size='small', show_name=True) }}
+          {{ card_thumb('Lightning Bolt', size='medium', show_name=True) }}
+          {{ card_thumb('Rampant Growth', size='large', show_name=True) }}
+        </div>
+
+        <h4>Dual-Faced Card with Flip Button</h4>
+        <div style="margin-bottom: 2rem;">
+          {{ card_thumb('Delver of Secrets // Insectile Aberration', size='large', layout='transform', show_flip=True, show_name=True) }}
+        </div>
+
+        <h4>Card Grid</h4>
+        <p style="color: var(--muted); font-size: 0.875rem;">Hover over cards to see popup (desktop) or tap (mobile)</p>
+        {{ card_grid([
+          {'name': 'Sol Ring', 'role': 'ramp', 'tags': ['Ramp', 'Artifact']},
+          {'name': 'Lightning Bolt', 'role': 'removal', 'tags': ['Removal', 'Instant']},
+          {'name': 'Rampant Growth', 'role': 'ramp', 'tags': ['Ramp', 'Sorcery']},
+          {'name': 'Counterspell', 'role': 'control', 'tags': ['Counterspell', 'Instant']},
+          {'name': 'Swords to Plowshares', 'role': 'removal', 'tags': ['Removal', 'Instant']},
+          {'name': 'Birds of Paradise', 'role': 'ramp', 'tags': ['Ramp', 'Creature']}
+        ], size='medium', columns=3) }}
+
+      {% endblock %}
+    {% endcall %}
+  </section>
+
+  <!-- PANELS -->
+  <section id="panels" style="margin-top: 2rem;">
+    {% call panel(title='Panel Components', padding='lg') %}
+      {% block body %}
+        
+        <h4 style="margin-top: 0;">Panel Variants</h4>
+        {{ simple_panel(title='Default Panel', content='<p>This is a default panel with standard background.</p>', variant='default') }}
+        {{ simple_panel(title='Alt Panel', content='<p>This is an alternate panel with lighter background.</p>', variant='alt') }}
+        {{ simple_panel(title='Dark Panel', content='<p>This is a dark panel with darker background.</p>', variant='dark') }}
+        {{ simple_panel(title='Bordered Panel', content='<p>This is a bordered panel with no background.</p>', variant='bordered') }}
+
+        <h4 style="margin-top: 2rem;">Info Panels</h4>
+        {{ info_panel(
+          icon='ℹ️',
+          title='Information',
+          content='This is an informational message.',
+          type='info'
+        ) }}
+        {{ info_panel(
+          icon='✅',
+          title='Success',
+          content='Operation completed successfully!',
+          type='success'
+        ) }}
+        {{ info_panel(
+          icon='⚠️',
+          title='Warning',
+          content='Please review your selections.',
+          type='warning'
+        ) }}
+        {{ info_panel(
+          icon='❌',
+          title='Error',
+          content='An error occurred. Please try again.',
+          type='error',
+          action_text='Retry',
+          action_onclick='alert("Retrying...")'
+        ) }}
+
+        <h4 style="margin-top: 2rem;">Stat Panels</h4>
+        <div class="panel-grid panel-grid-cols-4">
+          {{ stat_panel('Total Cards', value=100) }}
+          {{ stat_panel('Avg MV', value='3.2', sublabel='Mana Value', variant='primary') }}
+          {{ stat_panel('Lands', value=37, variant='success') }}
+          {{ stat_panel('Budget', value='$125', variant='warning') }}
+        </div>
+
+        <h4 style="margin-top: 2rem;">Collapsible Panel</h4>
+        {% call collapsible_panel(title='Advanced Options', expanded=False) %}
+          {% block body %}
+            <p>These are advanced settings that are hidden by default.</p>
+            <ul>
+              <li>Option 1: Enable feature X</li>
+              <li>Option 2: Adjust threshold Y</li>
+              <li>Option 3: Configure behavior Z</li>
+            </ul>
+          {% endblock %}
+        {% endcall %}
+
+        <h4 style="margin-top: 2rem;">Empty State</h4>
+        {{ empty_state_panel(
+          icon='📋',
+          title='No Decks Found',
+          message='You haven\'t created any decks yet. Start building your first deck!',
+          action_text='Build Deck',
+          action_href='/build'
+        ) }}
+
+        <h4 style="margin-top: 2rem;">Loading State</h4>
+        {{ loading_panel(message='Building deck...', spinner=True) }}
+
+      {% endblock %}
+    {% endcall %}
+  </section>
+
+  <!-- Back to Top -->
+  <div style="margin-top: 3rem; text-align: center;">
+    {{ button('Back to Top', href='#', variant='ghost', onclick='window.scrollTo({top:0,behavior:"smooth"}); return false;') }}
+  </div>
+
+</div>
+
+<script>
+  // Modal examples
+  function showSimpleModalExample() {
+    const modal = document.createElement('div');
+    modal.innerHTML = `{{ simple_modal(
+      title='Example Modal',
+      content='<p>This is a simple modal with content. You can put any HTML here.</p><p>Click outside or press Escape to close.</p>',
+      footer_buttons=[
+        {'text': 'Cancel', 'variant': 'secondary', 'onclick': "this.closest('.modal').remove()"},
+        {'text': 'OK', 'variant': 'primary', 'onclick': "alert('OK clicked'); this.closest('.modal').remove()"}
+      ],
+      size='md'
+    ) }}`;
+    document.body.appendChild(modal.firstElementChild);
+  }
+
+  function showConfirmExample() {
+    const modal = document.createElement('div');
+    modal.innerHTML = `{{ confirm_dialog(
+      message='Are you sure you want to delete this deck?',
+      confirm_text='Delete',
+      confirm_variant='danger',
+      on_confirm="alert('Deleted!'); this.closest('.modal').remove()"
+    ) }}`;
+    document.body.appendChild(modal.firstElementChild);
+  }
+
+  function showAlertExample(type) {
+    const messages = {
+      success: 'Deck saved successfully!',
+      error: 'Failed to save deck. Please try again.'
+    };
+    const titles = {
+      success: 'Success',
+      error: 'Error'
+    };
+    
+    const modal = document.createElement('div');
+    modal.className = 'modal modal-sm modal-center modal-alert modal-alert-' + type;
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-modal', 'true');
+    modal.innerHTML = `
+      <div class="modal-backdrop" onclick="this.closest('.modal').remove()"></div>
+      <div class="modal-content">
+        <div class="modal-body">
+          <div class="alert-icon alert-icon-${type}"></div>
+          <p>${messages[type]}</p>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-primary" onclick="this.closest('.modal').remove()">OK</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+  }
+
+  function showSizedModal(size) {
+    const sizes = {
+      sm: '480px',
+      md: '620px',
+      lg: '720px',
+      xl: '960px'
+    };
+    
+    const modal = document.createElement('div');
+    modal.className = `modal modal-${size} modal-center`;
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-modal', 'true');
+    modal.innerHTML = `
+      <div class="modal-backdrop" onclick="this.closest('.modal').remove()"></div>
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 class="modal-title">${size.toUpperCase()} Modal (${sizes[size]} max-width)</h2>
+          <button type="button" class="btn btn-icon btn-ghost btn-sm btn-close" onclick="this.closest('.modal').remove()" aria-label="Close">×</button>
+        </div>
+        <div class="modal-body">
+          <p>This is a ${size.toUpperCase()} sized modal with a maximum width of ${sizes[size]}.</p>
+          <p>Modal content goes here. You can put forms, cards, or any other content.</p>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" onclick="this.closest('.modal').remove()">Close</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+  }
+
+  // Setup card popups after page load
+  document.addEventListener('DOMContentLoaded', function() {
+    setupCardPopups();
+  });
+</script>
+
+<style>
+  /* Component library specific styles */
+  h4 {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text);
+    margin: 1.5rem 0 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border);
+  }
+  
+  section {
+    scroll-margin-top: 2rem;
+  }
+  
+  a {
+    color: var(--ring);
+    text-decoration: none;
+  }
+  
+  a:hover {
+    text-decoration: underline;
+  }
+</style>
+
+{% endblock %}

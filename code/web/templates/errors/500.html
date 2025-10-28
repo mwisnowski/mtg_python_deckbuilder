@@ -1,8 +1,17 @@
 {% extends "base.html" %}
+{% from 'partials/_buttons.html' import button %}
+{% from 'partials/_panels.html' import info_panel %}
+
 {% block content %}
 <section>
-  <h2>Internal Server Error</h2>
-  <p>Something went wrong.</p>
-  <p class="muted">Request ID: <code>{{ request_id or request.state.request_id }}</code></p>
-  <p><a class="btn" href="/">Go home</a></p>
+  {{ info_panel(
+    icon='❌',
+    title='Internal Server Error',
+    content='Something went wrong. Our team has been notified.<br><br>
+      <span class="muted">Request ID: <code>' ~ (request_id or request.state.request_id) ~ '</code></span>',
+    type='error',
+    action_text='Go Home',
+    action_href='/'
+  ) }}
+</section>
 {% endblock %}

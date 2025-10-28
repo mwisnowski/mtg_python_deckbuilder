@@ -1,44 +1,46 @@
 {% if items %}
-<div class="pager" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:.5rem; font-size:12px;">
+<div class="flex justify-between items-center mb-2 text-xs">
   <div>Showing {{ offset + 1 }}–{{ (offset + items|length) }} of {{ total }}</div>
-  <div style="display:flex; gap:.4rem;">
+  <div class="flex gap-2">
     {% if prev_offset is not none %}
-    <button hx-get="/themes/fragment/list_simple?offset={{ prev_offset }}&limit={{ limit }}" hx-target="#theme-results" hx-swap="innerHTML" class="btn btn-ghost" style="font-size:11px; padding:2px 8px;">« Prev</button>
-    {% else %}<button disabled class="btn btn-ghost" style="opacity:.3; font-size:11px; padding:2px 8px;">« Prev</button>{% endif %}
+    <button hx-get="/themes/fragment/list_simple?offset={{ prev_offset }}&limit={{ limit }}" hx-target="#theme-results" hx-swap="innerHTML" class="btn btn-ghost text-[11px] px-2 py-0.5">« Prev</button>
+    {% else %}<button disabled class="btn btn-ghost opacity-30 text-[11px] px-2 py-0.5">« Prev</button>{% endif %}
     {% if next_offset is not none %}
-    <button hx-get="/themes/fragment/list_simple?offset={{ next_offset }}&limit={{ limit }}" hx-target="#theme-results" hx-swap="innerHTML" class="btn btn-ghost" style="font-size:11px; padding:2px 8px;">Next »</button>
-    {% else %}<button disabled class="btn btn-ghost" style="opacity:.3; font-size:11px; padding:2px 8px;">Next »</button>{% endif %}
+    <button hx-get="/themes/fragment/list_simple?offset={{ next_offset }}&limit={{ limit }}" hx-target="#theme-results" hx-swap="innerHTML" class="btn btn-ghost text-[11px] px-2 py-0.5">Next »</button>
+    {% else %}<button disabled class="btn btn-ghost opacity-30 text-[11px] px-2 py-0.5">Next »</button>{% endif %}
   </div>
 </div>
-<ul class="theme-simple-list" style="list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:.65rem;">
+<ul class="list-none p-0 m-0 flex flex-col gap-2.5">
   {% for it in items %}
-  <li style="padding:.6rem .75rem; border:1px solid var(--border); border-radius:8px; background:var(--panel-alt);">
-    <a href="/themes/{{ it.id }}" style="font-weight:600; font-size:14px; text-decoration:none; color:var(--text);">{{ it.theme }}</a>
-    {% if it.short_description %}<div style="font-size:12px; opacity:.85; margin-top:2px;">{{ it.short_description }}</div>{% endif %}
+  <li class="theme-list-card">
+    <a href="/themes/{{ it.id }}" class="font-semibold text-sm no-underline text-[var(--text)]">{{ it.theme }}</a>
+    {% if it.short_description %}<div class="text-xs opacity-85 mt-0.5">{{ it.short_description }}</div>{% endif %}
   </li>
   {% endfor %}
 </ul>
-<div class="pager" style="display:flex; justify-content:space-between; align-items:center; margin-top:.75rem; font-size:12px;">
+<div class="flex justify-between items-center mt-3 text-xs">
   <div>Showing {{ offset + 1 }}–{{ (offset + items|length) }} of {{ total }}</div>
-  <div style="display:flex; gap:.4rem;">
+  <div class="flex gap-2">
     {% if prev_offset is not none %}
-    <button hx-get="/themes/fragment/list_simple?offset={{ prev_offset }}&limit={{ limit }}" hx-target="#theme-results" hx-swap="innerHTML" class="btn btn-ghost" style="font-size:11px; padding:2px 8px;">« Prev</button>
-    {% else %}<button disabled class="btn btn-ghost" style="opacity:.3; font-size:11px; padding:2px 8px;">« Prev</button>{% endif %}
+    <button hx-get="/themes/fragment/list_simple?offset={{ prev_offset }}&limit={{ limit }}" hx-target="#theme-results" hx-swap="innerHTML" class="btn btn-ghost text-[11px] px-2 py-0.5">« Prev</button>
+    {% else %}<button disabled class="btn btn-ghost opacity-30 text-[11px] px-2 py-0.5">« Prev</button>{% endif %}
     {% if next_offset is not none %}
-    <button hx-get="/themes/fragment/list_simple?offset={{ next_offset }}&limit={{ limit }}" hx-target="#theme-results" hx-swap="innerHTML" class="btn btn-ghost" style="font-size:11px; padding:2px 8px;">Next »</button>
-    {% else %}<button disabled class="btn btn-ghost" style="opacity:.3; font-size:11px; padding:2px 8px;">Next »</button>{% endif %}
+    <button hx-get="/themes/fragment/list_simple?offset={{ next_offset }}&limit={{ limit }}" hx-target="#theme-results" hx-swap="innerHTML" class="btn btn-ghost text-[11px] px-2 py-0.5">Next »</button>
+    {% else %}<button disabled class="btn btn-ghost opacity-30 text-[11px] px-2 py-0.5">Next »</button>{% endif %}
   </div>
 </div>
 {% else %}
   {% if total == 0 %}
-    <div class="empty" style="font-size:13px;">No themes found.</div>
+    <div class="empty text-xs">No themes found.</div>
   {% else %}
-    <div style="display:flex; flex-direction:column; gap:8px;">
-      {% for i in range(8) %}<div style="height:48px; border-radius:8px; background:linear-gradient(90deg,var(--panel-alt) 25%,var(--hover) 50%,var(--panel-alt) 75%); background-size:200% 100%; animation: sk 1.2s ease-in-out infinite;"></div>{% endfor %}
+    <div class="flex flex-col gap-2">
+      {% for i in range(8) %}<div class="h-12 rounded-lg skeleton-shimmer"></div>{% endfor %}
     </div>
   {% endif %}
 {% endif %}
 <style>
-@keyframes sk {0%{background-position:0 0;}100%{background-position:-200% 0;}}
-.theme-simple-list li:hover { background:var(--hover); }
+@keyframes shimmer {0%{background-position:0 0;}100%{background-position:-200% 0;}}
+.skeleton-shimmer { background:linear-gradient(90deg,var(--panel-alt) 25%,var(--hover) 50%,var(--panel-alt) 75%); background-size:200% 100%; animation:shimmer 1.2s ease-in-out infinite; }
+.theme-list-card { background:var(--panel); padding:0.6rem 0.75rem; border:1px solid var(--border); border-radius:8px; box-shadow:0 1px 3px rgba(0,0,0,0.2); transition:background-color 0.15s ease; }
+.theme-list-card:hover { background:var(--hover); }
 </style>

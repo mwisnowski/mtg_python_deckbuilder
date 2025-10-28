@@ -1,9 +1,9 @@
 <div id="deck-summary" data-summary>
-<hr style="margin:1.25rem 0; border-color: var(--border);" />
+<hr class="summary-divider" />
 <h4>Deck Summary</h4>
-<section style="margin-top:.5rem;">
+<section class="summary-section">
   <h5>Card Types</h5>
-  <div style="margin:.5rem 0 .25rem 0; display:flex; gap:.5rem; align-items:center;">
+  <div class="summary-view-controls">
     <span class="muted">View:</span>
     <div class="seg" role="tablist" aria-label="Type view">
       <button type="button" class="seg-btn" data-view="list" aria-selected="true" onclick="(function(btn){var list=document.getElementById('typeview-list');var thumbs=document.getElementById('typeview-thumbs');if(!list||!thumbs)return;list.classList.remove('hidden');thumbs.classList.add('hidden');btn.setAttribute('aria-selected','true');var other=btn.parentElement.querySelector('.seg-btn[data-view=thumbs]');if(other)other.setAttribute('aria-selected','false');try{localStorage.setItem('summaryTypeView','list');}catch(e){}})(this)">List</button>
@@ -36,7 +36,7 @@
     </style>
     <div id="typeview-list" class="typeview">
       {% for t in tb.order %}
-        <div style="margin:.5rem 0 .25rem 0; font-weight:600;">
+        <div class="summary-type-heading">
           {{ t }} — {{ tb.counts[t] }}{% if tb.total %} ({{ '%.1f' % (tb.counts[t] * 100.0 / tb.total) }}%){% endif %}
         </div>
         {% set clist = tb.cards.get(t, []) %}
@@ -85,13 +85,13 @@
             {% endfor %}
           </div>
         {% else %}
-          <div class="muted" style="margin-bottom:.75rem;">No cards in this type.</div>
+          <div class="muted mb-3">No cards in this type.</div>
         {% endif %}
       {% endfor %}
     </div>
     <div id="typeview-thumbs" class="typeview hidden">
       {% for t in tb.order %}
-        <div style="margin:.5rem 0 .25rem 0; font-weight:600;">
+        <div class="summary-type-heading">
           {{ t }} — {{ tb.counts[t] }}{% if tb.total %} ({{ '%.1f' % (tb.counts[t] * 100.0 / tb.total) }}%){% endif %}
         </div>
         {% set clist = tb.cards.get(t, []) %}
@@ -111,8 +111,8 @@
                 {% endfor %}
               {% endif %}
               <div class="stack-card {% if (game_changers and (c.name in game_changers)) or ('game_changer' in (c.role or '') or 'Game Changer' in (c.role or '')) %}game-changer{% endif %}">
-                <img class="card-thumb" loading="lazy" decoding="async" src="https://api.scryfall.com/cards/named?fuzzy={{ c.name|urlencode }}&format=image&version=normal" alt="{{ c.name }} image" data-card-name="{{ c.name }}" data-count="{{ cnt }}" data-role="{{ c.role }}" data-tags="{{ (c.tags|map('trim')|join(', ')) if c.tags else '' }}"{% if overlaps %} data-overlaps="{{ overlaps|join(', ') }}"{% endif %}
-                     srcset="https://api.scryfall.com/cards/named?fuzzy={{ c.name|urlencode }}&format=image&version=small 160w, https://api.scryfall.com/cards/named?fuzzy={{ c.name|urlencode }}&format=image&version=normal 488w, https://api.scryfall.com/cards/named?fuzzy={{ c.name|urlencode }}&format=image&version=large 672w"
+                <img class="card-thumb" loading="lazy" decoding="async" src="{{ c.name|card_image('normal') }}" alt="{{ c.name }} image" data-card-name="{{ c.name }}" data-count="{{ cnt }}" data-role="{{ c.role }}" data-tags="{{ (c.tags|map('trim')|join(', ')) if c.tags else '' }}"{% if overlaps %} data-overlaps="{{ overlaps|join(', ') }}"{% endif %}
+                     srcset="{{ c.name|card_image('small') }} 160w, {{ c.name|card_image('normal') }} 488w"
                      sizes="(max-width: 1200px) 160px, 240px" />
                 <div class="count-badge">{{ cnt }}x</div>
                 <div class="owned-badge" title="{{ 'Owned' if owned else 'Not owned' }}" aria-label="{{ 'Owned' if owned else 'Not owned' }}">{% if owned %}✔{% else %}✖{% endif %}</div>
@@ -124,7 +124,7 @@
             </div>
           </div>
         {% else %}
-          <div class="muted" style="margin-bottom:.75rem;">No cards in this type.</div>
+          <div class="muted mb-3">No cards in this type.</div>
         {% endif %}
       {% endfor %}
     </div>
@@ -138,40 +138,40 @@
 <!-- Land Summary -->
 {% set land = summary.land_summary if summary else None %}
 {% if land %}
-<section style="margin-top:1rem;">
+<section class="summary-section-lg">
   <h5>Land Summary</h5>
-  <div class="muted" style="font-weight:600; margin-bottom:.35rem;">
+  <div class="muted summary-type-heading mb-1">
     {{ land.headline or ('Lands: ' ~ (land.traditional or 0)) }}
   </div>
-  <div style="display:flex; flex-wrap:wrap; gap:.75rem; align-items:flex-start;">
+  <div class="deck-metrics-wrap">
     <div class="muted">Traditional land slots: <strong>{{ land.traditional or 0 }}</strong></div>
     <div class="muted">MDFC land additions: <strong>{{ land.dfc_lands or 0 }}</strong></div>
     <div class="muted">Total with MDFCs: <strong>{{ land.with_dfc or land.traditional or 0 }}</strong></div>
   </div>
   {% if land.dfc_cards %}
-    <details style="margin-top:.5rem;">
+    <details class="mt-2">
       <summary>MDFC mana sources ({{ land.dfc_cards|length }})</summary>
-      <ul style="list-style:none; padding:0; margin:.35rem 0 0; display:grid; gap:.35rem;">
+      <ul class="land-breakdown-list">
         {% for card in land.dfc_cards %}
           {% set extra = card.adds_extra_land or card.counts_as_extra %}
           {% set colors = card.colors or [] %}
-          <li class="muted" style="display:flex; gap:.5rem; flex-wrap:wrap; align-items:flex-start;">
-            <span class="chip"><span class="dot" style="background:#10b981;"></span> {{ card.name }} ×{{ card.count or 1 }}</span>
+          <li class="muted land-breakdown-item">
+            <span class="chip"><span class="dot dot-green"></span> {{ card.name }} ×{{ card.count or 1 }}</span>
             <span>Colors: {{ colors|join(', ') if colors else '–' }}</span>
             {% if extra %}
-              <span class="chip" style="background:#0f172a; border-color:#34d399; color:#a7f3d0;">{{ card.note or 'Adds extra land slot' }}</span>
+              <span class="chip land-note-chip-expand">{{ card.note or 'Adds extra land slot' }}</span>
             {% else %}
-              <span class="chip" style="background:#111827; border-color:#60a5fa; color:#bfdbfe;">{{ card.note or 'Counts as land slot' }}</span>
+              <span class="chip land-note-chip-counts">{{ card.note or 'Counts as land slot' }}</span>
             {% endif %}
             {% if card.faces %}
-              <ul style="list-style:none; padding:0; margin:.2rem 0 0; display:grid; gap:.15rem; flex:1 0 100%;">
+              <ul class="land-breakdown-subs">
                 {% for face in card.faces %}
                   {% set face_name = face.get('face') or face.get('faceName') or 'Face' %}
                   {% set face_type = face.get('type') or '–' %}
                   {% set mana_cost = face.get('mana_cost') %}
                   {% set mana_value = face.get('mana_value') %}
                   {% set produces = face.get('produces_mana') %}
-                  <li style="font-size:0.85rem; color:#e5e7eb; opacity:.85;">
+                  <li class="land-breakdown-sub">
                     <span>{{ face_name }}</span>
                     <span>— {{ face_type }}</span>
                     {% if mana_cost %}<span>• Mana Cost: {{ mana_cost }}</span>{% endif %}
@@ -190,27 +190,27 @@
 {% endif %}
 
 <!-- Mana Overview Row: Pips • Sources • Curve -->
-<section style="margin-top:1rem;">
+<section class="summary-section-lg">
   <details class="analytics-accordion" id="mana-overview-accordion" data-lazy-load data-analytics-type="mana">
-    <summary style="cursor:pointer; user-select:none; padding:.5rem; border:1px solid var(--border); border-radius:8px; background:#12161c; font-weight:600;">
+    <summary class="combo-summary">
       <span>Mana Overview</span>
-      <span class="muted" style="font-size:12px; font-weight:400; margin-left:.5rem;">(pips • sources • curve)</span>
+      <span class="muted text-xs font-normal ml-2">(pips • sources • curve)</span>
     </summary>
-    <div class="analytics-content" style="margin-top:.75rem;">
-  <h5 style="margin:0 0 .5rem 0;">Mana Overview</h5>
+    <div class="analytics-content mt-3">
+  <h5 class="mt-0 mb-2">Mana Overview</h5>
   {% set deck_colors = summary.colors or [] %}
-  <div class="mana-row" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; align-items: stretch;">
+  <div class="mana-row">
     <!-- Pips Panel -->
-    <div class="mana-panel" style="border:1px solid var(--border); border-radius:8px; padding:.6rem; background:#0f1115;">
-      <div class="muted" style="margin-bottom:.35rem; font-weight:600;">Mana Pips (non-lands)</div>
+    <div class="mana-panel">
+      <div class="muted mana-panel-heading">Mana Pips (non-lands)</div>
   {% set pd = summary.pip_distribution %}
       {% if pd %}
         {% set colors = deck_colors if deck_colors else ['W','U','B','R','G'] %}
-        <div style="display:flex; gap:14px; align-items:flex-end; height:140px;">
+        <div class="chart-bars">
           {% for color in colors %}
             {% set w = (pd.weights[color] if pd.weights and color in pd.weights else 0) %}
             {% set pct = (w * 100) | int %}
-            <div style="text-align:center;" class="chart-column">
+            <div class="chart-column">
               {% set count_val = (pd.counts[color] if pd.counts and color in pd.counts else 0) %}
               {% set pc = pd['cards'] if 'cards' in pd else None %}
               {% set c_cards = (pc[color] if pc and (color in pc) else []) %}
@@ -224,14 +224,14 @@
               {% endfor %}
               {% set cards_line = parts|join(' • ') %}
               {% set pct_f = (pd.weights[color] * 100) if pd.weights and color in pd.weights else 0 %}
-              <svg width="28" height="120" aria-label="{{ color }} {{ pct }}%" style="cursor:pointer;" data-type="pips" data-color="{{ color }}" data-count="{{ '%.1f' % count_val }}" data-pct="{{ '%.1f' % pct_f }}" data-cards="{{ cards_line }}">
+              <svg width="28" height="120" aria-label="{{ color }} {{ pct }}%" class="chart-svg" data-type="pips" data-color="{{ color }}" data-count="{{ '%.1f' % count_val }}" data-pct="{{ '%.1f' % pct_f }}" data-cards="{{ cards_line }}">
                 <rect x="2" y="2" width="24" height="116" fill="#14171c" stroke="var(--border)" rx="4" ry="4" pointer-events="all"></rect>
                 {% set h = (pct * 1.0) | int %}
                 {% set bar_h = (h if h>2 else 2) %}
                 {% set y = 118 - bar_h %}
                 <rect x="2" y="{{ y }}" width="24" height="{{ bar_h }}" fill="#3b82f6" rx="4" ry="4" pointer-events="all"></rect>
               </svg>
-              <div class="muted" style="margin-top:.25rem;">{{ color }}</div>
+              <div class="muted mt-1">{{ color }}</div>
             </div>
           {% endfor %}
         </div>
@@ -241,10 +241,10 @@
     </div>
 
     <!-- Sources Panel -->
-    <div class="mana-panel" style="border:1px solid var(--border); border-radius:8px; padding:.6rem; background:#0f1115;">
-      <div style="display:flex; align-items:center; justify-content:space-between; gap:.75rem; margin-bottom:.35rem;">
-        <div class="muted" style="font-weight:600;">Mana Sources</div>
-        <label class="muted" style="font-size:12px; display:flex; align-items:center; gap:.35rem; cursor:pointer;">
+    <div class="mana-panel">
+      <div class="flex items-center justify-between gap-3 mb-1">
+        <div class="muted mana-panel-heading">Mana Sources</div>
+        <label class="muted text-xs form-label-icon">
           <input type="checkbox" id="toggle-show-c" /> Show colorless (C)
         </label>
       </div>
@@ -261,7 +261,7 @@
           {% if val > ns.max_src %}{% set ns.max_src = val %}{% endif %}
         {% endfor %}
         {% set denom = (ns.max_src if ns.max_src and ns.max_src > 0 else 1) %}
-    <div class="sources-bars" style="display:flex; gap:14px; align-items:flex-end; height:140px;">
+    <div class="sources-bars chart-bars">
           {% for color in colors %}
             {% set val = mg.get(color, 0) %}
             {% set pct = (val * 100 / denom) | int %}
@@ -273,31 +273,31 @@
               {% set _ = parts.append(c.name ~ ((" ×" ~ c.count) if c.count and c.count>1 else '')) %}
             {% endfor %}
             {% set cards_line = parts|join(' • ') %}
-            <div style="text-align:center;" class="chart-column" data-color="{{ color }}">
-              <svg width="28" height="120" aria-label="{{ color }} {{ val }}" style="cursor:pointer;" data-type="sources" data-color="{{ color }}" data-val="{{ val }}" data-pct="{{ '%.1f' % pct_f }}" data-cards="{{ cards_line }}">
+            <div class="chart-column" data-color="{{ color }}">
+              <svg width="28" height="120" aria-label="{{ color }} {{ val }}" class="chart-svg" data-type="sources" data-color="{{ color }}" data-val="{{ val }}" data-pct="{{ '%.1f' % pct_f }}" data-cards="{{ cards_line }}">
                 <rect x="2" y="2" width="24" height="116" fill="#14171c" stroke="var(--border)" rx="4" ry="4" pointer-events="all"></rect>
                 {% set bar_h = (pct if pct>2 else 2) %}
                 {% set y = 118 - bar_h %}
                 <rect x="2" y="{{ y }}" width="24" height="{{ bar_h }}" fill="#10b981" rx="4" ry="4" pointer-events="all"></rect>
               </svg>
-              <div class="muted" style="margin-top:.25rem;">{{ color }}</div>
+              <div class="muted mt-1">{{ color }}</div>
             </div>
           {% endfor %}
         </div>
-        <div class="muted" style="margin-top:.25rem;">Total sources: {{ mg.total_sources or 0 }}</div>
+        <div class="muted mt-1">Total sources: {{ mg.total_sources or 0 }}</div>
       {% else %}
         <div class="muted">No mana source data.</div>
       {% endif %}
     </div>
 
     <!-- Curve Panel -->
-    <div class="mana-panel" style="border:1px solid var(--border); border-radius:8px; padding:.6rem; background:#0f1115;">
-      <div class="muted" style="margin-bottom:.35rem; font-weight:600;">Mana Curve (non-lands)</div>
+    <div class="mana-panel">
+      <div class="muted mana-panel-heading">Mana Curve (non-lands)</div>
       {% set mc = summary.mana_curve %}
       {% if mc %}
         {% set ts = mc.total_spells or 0 %}
         {% set denom = (ts if ts and ts > 0 else 1) %}
-        <div style="display:flex; gap:14px; align-items:flex-end; height:140px;">
+        <div class="chart-bars">
           {% for label in ['0','1','2','3','4','5','6+'] %}
             {% set val = mc.get(label, 0) %}
             {% set pct = (val * 100 / denom) | int %}
@@ -308,18 +308,18 @@
             {% endfor %}
             {% set cards_line = parts|join(' • ') %}
             {% set pct_f = (100.0 * (val / denom)) %}
-            <div style="text-align:center;" class="chart-column">
-              <svg width="28" height="120" aria-label="{{ label }} {{ val }}" style="cursor:pointer;" data-type="curve" data-label="{{ label }}" data-val="{{ val }}" data-pct="{{ '%.1f' % pct_f }}" data-cards="{{ cards_line }}">
+            <div class="chart-column">
+              <svg width="28" height="120" aria-label="{{ label }} {{ val }}" class="chart-svg" data-type="curve" data-label="{{ label }}" data-val="{{ val }}" data-pct="{{ '%.1f' % pct_f }}" data-cards="{{ cards_line }}">
                 <rect x="2" y="2" width="24" height="116" fill="#14171c" stroke="var(--border)" rx="4" ry="4" pointer-events="all"></rect>
                 {% set bar_h = (pct if pct>2 else 2) %}
                 {% set y = 118 - bar_h %}
                 <rect x="2" y="{{ y }}" width="24" height="{{ bar_h }}" fill="#f59e0b" rx="4" ry="4" pointer-events="all"></rect>
               </svg>
-              <div class="muted" style="margin-top:.25rem;">{{ label }}</div>
+              <div class="muted mt-1">{{ label }}</div>
             </div>
           {% endfor %}
         </div>
-        <div class="muted" style="margin-top:.25rem;">Total spells: {{ mc.total_spells or 0 }}</div>
+        <div class="muted mt-1">Total spells: {{ mc.total_spells or 0 }}</div>
       {% else %}
         <div class="muted">No curve data.</div>
       {% endif %}
@@ -330,17 +330,17 @@
 </section>
 
 <!-- Test Hand (7 random cards; duplicates allowed only for basic lands) -->
-<section style="margin-top:1rem;">
+<section class="summary-section-lg">
   <details class="analytics-accordion" id="test-hand-accordion" data-lazy-load data-analytics-type="testhand">
-    <summary style="cursor:pointer; user-select:none; padding:.5rem; border:1px solid var(--border); border-radius:8px; background:#12161c; font-weight:600;">
+    <summary class="combo-summary">
       <span>Test Hand</span>
-      <span class="muted" style="font-size:12px; font-weight:400; margin-left:.5rem;">(draw 7 random cards)</span>
+      <span class="muted text-xs font-normal ml-2">(draw 7 random cards)</span>
     </summary>
-    <div class="analytics-content" style="margin-top:.75rem;">
-  <h5 style="margin:0 0 .35rem 0; display:flex; align-items:center; gap:.75rem; flex-wrap:wrap;">Test Hand
-    <span class="muted" style="font-size:12px; font-weight:400;">Draw 7 at random (no repeats except for basic lands).</span>
+    <div class="analytics-content mt-3">
+  <h5 class="flex items-center gap-3 flex-wrap mt-0 mb-1">Test Hand
+    <span class="muted text-xs font-normal">Draw 7 at random (no repeats except for basic lands).</span>
   </h5>
-  <div style="display:flex; gap:.6rem; align-items:center; flex-wrap:wrap; margin-bottom:.5rem;">
+  <div class="flex gap-2 items-center flex-wrap mb-2">
     <button type="button" id="btn-new-hand">New Hand</button>
   </div>
   <div class="stack-wrap hand-row-overlap" id="test-hand">
@@ -440,7 +440,7 @@
           if (mid >= 2 && Math.abs(diff - (mid - 1)) < 0.001) { y += 2; }
           div.style.setProperty('--ty', y + 'px');
           div.innerHTML = (
-            '<img src="https://api.scryfall.com/cards/named?fuzzy=' + encodeURIComponent(name) + '&format=image&version=normal" alt="' + name + '" data-card-name="' + name + '" />'
+            '<img src="/api/images/normal/' + encodeURIComponent(name) + '" alt="' + name + '" data-card-name="' + name + '" />'
           );
           grid.appendChild(div);
         });

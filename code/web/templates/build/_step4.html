@@ -5,7 +5,7 @@
 			{# Strip synergy annotation for Scryfall search and image fuzzy param #}
 			{% set commander_base = (commander.split(' - Synergy (')[0] if ' - Synergy (' in commander else commander) %}
 			<a href="https://scryfall.com/search?q={{ commander_base|urlencode }}" target="_blank" rel="noopener">
-			<img src="https://api.scryfall.com/cards/named?fuzzy={{ commander_base|urlencode }}&format=image&version=normal" alt="{{ commander }} card image" data-card-name="{{ commander_base }}" />
+			<img src="{{ commander_base|card_image('normal') }}" alt="{{ commander }} card image" data-card-name="{{ commander_base }}" />
 			</a>
 		</aside>
 			<div class="grow" data-skeleton>

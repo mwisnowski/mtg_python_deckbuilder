@@ -109,8 +109,8 @@
   <div class="commander-block" style="display:flex; gap:14px; align-items:flex-start; margin-top:.75rem;">
     <div class="commander-thumb" style="flex:0 0 auto;">
       <img
-        src="https://api.scryfall.com/cards/named?fuzzy={{ commander|urlencode }}&format=image&version=small"
-        srcset="https://api.scryfall.com/cards/named?fuzzy={{ commander|urlencode }}&format=image&version=small 160w, https://api.scryfall.com/cards/named?fuzzy={{ commander|urlencode }}&format=image&version=normal 488w"
+        src="{{ commander|card_image('small') }}"
+        srcset="{{ commander|card_image('small') }} 160w, {{ commander|card_image('normal') }} 488w"
         sizes="(max-width: 600px) 120px, 160px"
         alt="{{ commander }} image"
         width="160" height="220"

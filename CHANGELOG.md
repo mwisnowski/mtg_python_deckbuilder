@@ -9,14 +9,27 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 
 ## [Unreleased]
 ### Added
-- **Build X and Compare** feature: Build multiple decks with same configuration and compare results side-by-side
-  - Build 1-10 decks in parallel to see variance from card selection randomness
-  - Real-time progress tracking with dynamic time estimates based on color count
-  - Comparison view with card overlap statistics and individual build summaries
-  - Smart filtering excludes guaranteed cards (basics, staples) from "Most Common Cards"
-  - Card hover support throughout comparison interface
-  - Rebuild button to rerun same configuration
-  - Export all decks as ZIP archive
+- **Card Image Caching**: Optional local image cache for faster card display
+  - Downloads card images from Scryfall bulk data (respects API guidelines)
+  - Graceful fallback to Scryfall API for uncached images
+  - Enabled via `CACHE_CARD_IMAGES=1` environment variable
+  - Integrated with setup/tagging process
+  - Statistics endpoint with intelligent caching (weekly refresh, matching card data staleness)
+- **Component Library**: Living documentation of reusable UI components at `/docs/components`
+  - Interactive examples of all buttons, modals, forms, cards, and panels
+  - Jinja2 macros for consistent component usage
+  - Component partial templates for reuse across pages
+
+### Changed
+- **Migrated CSS to Tailwind**: Consolidated and unified CSS architecture
+  - Tailwind CSS v3 with custom MTG color palette
+  - PostCSS build pipeline with autoprefixer
+  - Reduced inline styles in templates (moved to shared CSS classes)
+  - Organized CSS into functional sections with clear documentation
+- **Docker Build Optimization**: Improved developer experience
+  - Hot reload enabled for templates and static files
+  - Volume mounts for rapid iteration without rebuilds
+- **Template Modernization**: Migrated templates to use component system
 - **Intelligent Synergy Builder**: Analyze multiple builds and create optimized "best-of" deck
   - Scores cards by frequency (50%), EDHREC rank (25%), and theme tags (25%)
   - 10% bonus for cards appearing in 80%+ of builds
@@ -27,9 +40,21 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 - `ENABLE_BATCH_BUILD` environment variable to toggle feature (default: enabled)
 - Detailed progress logging for multi-build orchestration
 - User guide: `docs/user_guides/batch_build_compare.md`
+- **Web UI Component Library**: Standardized UI components for consistent design across all pages
+  - 5 component partial template files (buttons, modals, forms, cards, panels)
+  - ~900 lines of component CSS styles
+  - Interactive JavaScript utilities (components.js)
+  - Living component library page at `/docs/components`
+  - 1600+ lines developer documentation (component_catalog.md)
+- **Custom UI Enhancements**:
+  - Darker gray styling for home page buttons
+  - Visual highlighting for selected theme chips in deck builder
 
 ### Changed
-_None_
+- Optimized Docker build process: Reduced build time from ~134s to ~6s
+  - Removed redundant card_files copy (already mounted as volume)
+  - Added volume mounts for templates and static files (hot reload support)
+- Migrated 5 templates to new component system (home, 404, 500, setup, commanders)
 
 ### Removed
 _None_
@@ -38,7 +63,7 @@ _None_
 _None_
 
 ### Performance
-_None_
+- Docker hot reload now works for CSS and template changes (no rebuild required)
 
 ### Deprecated
 _None_

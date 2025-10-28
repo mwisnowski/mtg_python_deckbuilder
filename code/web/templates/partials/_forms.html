@@ -1,0 +1,396 @@
+{# Form Component Library #}
+{# Usage: {{ import '_forms.html' }} then call form macros #}
+
+{#
+  Form Field Wrapper Macro
+  
+  Parameters:
+  - label (str): Field label text
+  - name (str): Input name attribute
+  - required (bool): Mark field as required (default: False)
+  - help_text (str): Optional help text below field
+  - error (str): Error message to display
+  - classes (str): Additional CSS classes for wrapper
+  
+  Content Block:
+  - body: Input element (required)
+  
+  Examples:
+    {% call form_field('Email', 'email', required=True) %}
+      {% block body %}
+        <input type="email" name="email" />
+      {% endblock %}
+    {% endcall %}
+#}
+{% macro form_field(label='', name='', required=False, help_text='', error='', classes='') %}
+  {%- set has_error = error|length > 0 -%}
+  {%- set error_class = 'form-field-error' if has_error else '' -%}
+  {%- set all_classes = ['form-field', error_class, classes]|select|join(' ') -%}
+  
+  <div class="{{ all_classes }}">
+    {% if label %}
+      <label for="{{ name }}" class="form-label">
+        {{ label }}
+        {% if required %}<span class="form-required" aria-label="required">*</span>{% endif %}
+      </label>
+    {% endif %}
+    
+    <div class="form-input-wrapper">
+      {{ caller.body() }}
+    </div>
+    
+    {% if help_text %}
+      <div class="form-help-text">{{ help_text }}</div>
+    {% endif %}
+    
+    {% if error %}
+      <div class="form-error-text" role="alert">{{ error }}</div>
+    {% endif %}
+  </div>
+{% endmacro %}
+
+{#
+  Text Input Macro
+  
+  Parameters:
+  - name (str): Input name attribute (required)
+  - label (str): Field label
+  - type (str): Input type ('text', 'email', 'password', 'url', etc.) (default: 'text')
+  - value (str): Input value
+  - placeholder (str): Placeholder text
+  - required (bool): Required field (default: False)
+  - disabled (bool): Disabled field (default: False)
+  - readonly (bool): Read-only field (default: False)
+  - help_text (str): Help text
+  - error (str): Error message
+  - classes (str): Additional CSS classes
+  - attrs (str): Additional HTML attributes
+  
+  Examples:
+    {{ text_input('username', label='Username', required=True) }}
+    {{ text_input('email', label='Email', type='email', placeholder='you@example.com') }}
+#}
+{% macro text_input(name, label='', type='text', value='', placeholder='', required=False, disabled=False, readonly=False, help_text='', error='', classes='', attrs='') %}
+  {% call form_field(label, name, required, help_text, error, classes) %}
+    {% block body %}
+      <input type="{{ type }}"
+             id="{{ name }}"
+             name="{{ name }}"
+             class="form-input"
+             {% if value %}value="{{ value }}"{% endif %}
+             {% if placeholder %}placeholder="{{ placeholder }}"{% endif %}
+             {% if required %}required{% endif %}
+             {% if disabled %}disabled{% endif %}
+             {% if readonly %}readonly{% endif %}
+             {{ attrs|safe }} />
+    {% endblock %}
+  {% endcall %}
+{% endmacro %}
+
+{#
+  Textarea Macro
+  
+  Parameters:
+  - name (str): Textarea name attribute (required)
+  - label (str): Field label
+  - value (str): Textarea value
+  - placeholder (str): Placeholder text
+  - rows (int): Number of visible rows (default: 4)
+  - required (bool): Required field (default: False)
+  - disabled (bool): Disabled field (default: False)
+  - readonly (bool): Read-only field (default: False)
+  - help_text (str): Help text
+  - error (str): Error message
+  - classes (str): Additional CSS classes
+  - attrs (str): Additional HTML attributes
+  
+  Examples:
+    {{ textarea('notes', label='Notes', rows=6) }}
+    {{ textarea('description', label='Description', placeholder='Enter description...') }}
+#}
+{% macro textarea(name, label='', value='', placeholder='', rows=4, required=False, disabled=False, readonly=False, help_text='', error='', classes='', attrs='') %}
+  {% call form_field(label, name, required, help_text, error, classes) %}
+    {% block body %}
+      <textarea id="{{ name }}"
+                name="{{ name }}"
+                class="form-textarea"
+                rows="{{ rows }}"
+                {% if placeholder %}placeholder="{{ placeholder }}"{% endif %}
+                {% if required %}required{% endif %}
+                {% if disabled %}disabled{% endif %}
+                {% if readonly %}readonly{% endif %}
+                {{ attrs|safe }}>{{ value }}</textarea>
+    {% endblock %}
+  {% endcall %}
+{% endmacro %}
+
+{#
+  Select Dropdown Macro
+  
+  Parameters:
+  - name (str): Select name attribute (required)
+  - label (str): Field label
+  - options (list): List of option dicts with keys: value, text, selected, disabled
+  - value (str): Selected value
+  - required (bool): Required field (default: False)
+  - disabled (bool): Disabled field (default: False)
+  - help_text (str): Help text
+  - error (str): Error message
+  - classes (str): Additional CSS classes
+  - attrs (str): Additional HTML attributes
+  
+  Examples:
+    {{ select('color', label='Color', options=[
+      {'value': 'W', 'text': 'White'},
+      {'value': 'U', 'text': 'Blue'},
+      {'value': 'B', 'text': 'Black'}
+    ]) }}
+#}
+{% macro select(name, label='', options=[], value='', required=False, disabled=False, help_text='', error='', classes='', attrs='') %}
+  {% call form_field(label, name, required, help_text, error, classes) %}
+    {% block body %}
+      <select id="{{ name }}"
+              name="{{ name }}"
+              class="form-select"
+              {% if required %}required{% endif %}
+              {% if disabled %}disabled{% endif %}
+              {{ attrs|safe }}>
+        {% for option in options %}
+          <option value="{{ option.value }}"
+                  {% if option.value == value or option.get('selected') %}selected{% endif %}
+                  {% if option.get('disabled') %}disabled{% endif %}>
+            {{ option.text }}
+          </option>
+        {% endfor %}
+      </select>
+    {% endblock %}
+  {% endcall %}
+{% endmacro %}
+
+{#
+  Checkbox Macro
+  
+  Parameters:
+  - name (str): Checkbox name attribute (required)
+  - label (str): Checkbox label text (required)
+  - value (str): Checkbox value (default: '1')
+  - checked (bool): Checked state (default: False)
+  - disabled (bool): Disabled field (default: False)
+  - help_text (str): Help text
+  - error (str): Error message
+  - classes (str): Additional CSS classes
+  - attrs (str): Additional HTML attributes
+  
+  Examples:
+    {{ checkbox('accept_terms', label='I accept the terms', required=True) }}
+    {{ checkbox('owned_only', label='Owned cards only', checked=True) }}
+#}
+{% macro checkbox(name, label, value='1', checked=False, disabled=False, help_text='', error='', classes='', attrs='') %}
+  {%- set has_error = error|length > 0 -%}
+  {%- set error_class = 'form-field-error' if has_error else '' -%}
+  {%- set all_classes = ['form-field', 'form-field-checkbox', error_class, classes]|select|join(' ') -%}
+  
+  <div class="{{ all_classes }}">
+    <label class="form-checkbox-label">
+      <input type="checkbox"
+             id="{{ name }}"
+             name="{{ name }}"
+             class="form-checkbox"
+             value="{{ value }}"
+             {% if checked %}checked{% endif %}
+             {% if disabled %}disabled{% endif %}
+             {{ attrs|safe }} />
+      <span class="form-checkbox-text">{{ label }}</span>
+    </label>
+    
+    {% if help_text %}
+      <div class="form-help-text">{{ help_text }}</div>
+    {% endif %}
+    
+    {% if error %}
+      <div class="form-error-text" role="alert">{{ error }}</div>
+    {% endif %}
+  </div>
+{% endmacro %}
+
+{#
+  Radio Button Group Macro
+  
+  Parameters:
+  - name (str): Radio name attribute (required)
+  - label (str): Field label
+  - options (list): List of option dicts with keys: value, text, checked, disabled
+  - value (str): Selected value
+  - required (bool): Required field (default: False)
+  - help_text (str): Help text
+  - error (str): Error message
+  - classes (str): Additional CSS classes
+  
+  Examples:
+    {{ radio_group('theme', label='Theme', options=[
+      {'value': 'system', 'text': 'System'},
+      {'value': 'light', 'text': 'Light'},
+      {'value': 'dark', 'text': 'Dark'}
+    ]) }}
+#}
+{% macro radio_group(name, label='', options=[], value='', required=False, help_text='', error='', classes='') %}
+  {%- set has_error = error|length > 0 -%}
+  {%- set error_class = 'form-field-error' if has_error else '' -%}
+  {%- set all_classes = ['form-field', 'form-field-radio', error_class, classes]|select|join(' ') -%}
+  
+  <div class="{{ all_classes }}">
+    {% if label %}
+      <div class="form-label">
+        {{ label }}
+        {% if required %}<span class="form-required" aria-label="required">*</span>{% endif %}
+      </div>
+    {% endif %}
+    
+    <div class="form-radio-group">
+      {% for option in options %}
+        <label class="form-radio-label">
+          <input type="radio"
+                 name="{{ name }}"
+                 class="form-radio"
+                 value="{{ option.value }}"
+                 {% if option.value == value or option.get('checked') %}checked{% endif %}
+                 {% if option.get('disabled') %}disabled{% endif %}
+                 {% if required %}required{% endif %} />
+          <span class="form-radio-text">{{ option.text }}</span>
+        </label>
+      {% endfor %}
+    </div>
+    
+    {% if help_text %}
+      <div class="form-help-text">{{ help_text }}</div>
+    {% endif %}
+    
+    {% if error %}
+      <div class="form-error-text" role="alert">{{ error }}</div>
+    {% endif %}
+  </div>
+{% endmacro %}
+
+{#
+  Number Input Macro
+  
+  Parameters:
+  - name (str): Input name attribute (required)
+  - label (str): Field label
+  - value (int or float): Input value
+  - min (int or float): Minimum value
+  - max (int or float): Maximum value
+  - step (int or float): Step increment (default: 1)
+  - placeholder (str): Placeholder text
+  - required (bool): Required field (default: False)
+  - disabled (bool): Disabled field (default: False)
+  - help_text (str): Help text
+  - error (str): Error message
+  - classes (str): Additional CSS classes
+  - attrs (str): Additional HTML attributes
+  
+  Examples:
+    {{ number_input('quantity', label='Quantity', min=1, max=10, value=1) }}
+    {{ number_input('price', label='Price', min=0, step=0.01, placeholder='0.00') }}
+#}
+{% macro number_input(name, label='', value='', min='', max='', step=1, placeholder='', required=False, disabled=False, help_text='', error='', classes='', attrs='') %}
+  {% call form_field(label, name, required, help_text, error, classes) %}
+    {% block body %}
+      <input type="number"
+             id="{{ name }}"
+             name="{{ name }}"
+             class="form-input form-input-number"
+             {% if value != '' %}value="{{ value }}"{% endif %}
+             {% if min != '' %}min="{{ min }}"{% endif %}
+             {% if max != '' %}max="{{ max }}"{% endif %}
+             step="{{ step }}"
+             {% if placeholder %}placeholder="{{ placeholder }}"{% endif %}
+             {% if required %}required{% endif %}
+             {% if disabled %}disabled{% endif %}
+             {{ attrs|safe }} />
+    {% endblock %}
+  {% endcall %}
+{% endmacro %}
+
+{#
+  File Input Macro
+  
+  Parameters:
+  - name (str): Input name attribute (required)
+  - label (str): Field label
+  - accept (str): Accepted file types (e.g., '.csv,.txt', 'image/*')
+  - multiple (bool): Allow multiple files (default: False)
+  - required (bool): Required field (default: False)
+  - disabled (bool): Disabled field (default: False)
+  - help_text (str): Help text
+  - error (str): Error message
+  - classes (str): Additional CSS classes
+  - attrs (str): Additional HTML attributes
+  
+  Examples:
+    {{ file_input('deck_file', label='Upload Deck', accept='.csv,.txt') }}
+    {{ file_input('cards', label='Card Images', accept='image/*', multiple=True) }}
+#}
+{% macro file_input(name, label='', accept='', multiple=False, required=False, disabled=False, help_text='', error='', classes='', attrs='') %}
+  {% call form_field(label, name, required, help_text, error, classes) %}
+    {% block body %}
+      <input type="file"
+             id="{{ name }}"
+             name="{{ name }}"
+             class="form-input form-input-file"
+             {% if accept %}accept="{{ accept }}"{% endif %}
+             {% if multiple %}multiple{% endif %}
+             {% if required %}required{% endif %}
+             {% if disabled %}disabled{% endif %}
+             {{ attrs|safe }} />
+    {% endblock %}
+  {% endcall %}
+{% endmacro %}
+
+{#
+  Hidden Input Macro
+  
+  Parameters:
+  - name (str): Input name attribute (required)
+  - value (str): Input value (required)
+  
+  Examples:
+    {{ hidden_input('csrf_token', value='abc123') }}
+#}
+{% macro hidden_input(name, value) %}
+  <input type="hidden" name="{{ name }}" value="{{ value }}" />
+{% endmacro %}
+
+{# CSS Classes Reference #}
+{#
+  Form Structure:
+  - .form-field (field wrapper)
+  - .form-field-error (error state)
+  - .form-field-checkbox (checkbox field modifier)
+  - .form-field-radio (radio field modifier)
+  - .form-label (label text)
+  - .form-required (required indicator *)
+  - .form-input-wrapper (input container)
+  - .form-help-text (help text below field)
+  - .form-error-text (error message)
+  
+  Input Types:
+  - .form-input (base input class)
+  - .form-input-number (number input modifier)
+  - .form-input-file (file input modifier)
+  - .form-textarea (textarea)
+  - .form-select (select dropdown)
+  - .form-checkbox (checkbox input)
+  - .form-checkbox-label (checkbox label wrapper)
+  - .form-checkbox-text (checkbox label text)
+  - .form-radio (radio input)
+  - .form-radio-group (radio button container)
+  - .form-radio-label (radio label wrapper)
+  - .form-radio-text (radio label text)
+  
+  Form Layout Utilities (to be defined in CSS):
+  - .form-row (horizontal row of fields)
+  - .form-cols-2, .form-cols-3 (multi-column layouts)
+  - .form-inline (inline form layout)
+  - .form-compact (reduced spacing)
+#}

@@ -23,6 +23,9 @@ from .services.theme_catalog_loader import prewarm_common_filters, load_index  #
 from .services.commander_catalog_loader import load_commander_catalog  # type: ignore
 from .services.tasks import get_session, new_sid, set_session_value  # type: ignore
 
+# Logger for app-level logging
+logger = logging.getLogger(__name__)
+
 # Resolve template/static dirs relative to this file
 _THIS_DIR = Path(__file__).resolve().parent
 _TEMPLATES_DIR = _THIS_DIR / "templates"
@@ -98,6 +101,32 @@ if _STATIC_DIR.exists():
 
 # Jinja templates
 templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
+
+# Add custom Jinja2 filter for card image URLs
+def card_image_url(card_name: str, size: str = "normal") -> str:
+    """
+    Generate card image URL (uses local cache if available, falls back to Scryfall).
+    
+    For DFC cards (containing ' // '), extracts the front face name.
+    
+    Args:
+        card_name: Name of the card (may be "Front // Back" for DFCs)
+        size: Image size ('small' or 'normal')
+    
+    Returns:
+        URL for the card image
+    """
+    from urllib.parse import quote
+    
+    # Extract front face name for DFCs (thumbnails always show front face)
+    display_name = card_name
+    if ' // ' in card_name:
+        display_name = card_name.split(' // ')[0].strip()
+    
+    # Use our API endpoint which handles cache lookup and fallback
+    return f"/api/images/{size}/{quote(display_name)}"
+
+templates.env.filters["card_image"] = card_image_url
 
 # Compatibility shim: accept legacy TemplateResponse(name, {"request": request, ...})
 # and reorder to the new signature TemplateResponse(request, name, {...}).
@@ -838,6 +867,12 @@ async def request_id_middleware(request: Request, call_next):
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request) -> HTMLResponse:
     return templates.TemplateResponse("home.html", {"request": request, "version": os.getenv("APP_VERSION", "dev")})
+
+
+@app.get("/docs/components", response_class=HTMLResponse)
+async def components_library(request: Request) -> HTMLResponse:
+    """M2 Component Library - showcase of standardized UI components"""
+    return templates.TemplateResponse("docs/components.html", {"request": request})
 
 
 # Simple health check (hardened)
@@ -2212,6 +2247,13 @@ async def setup_status():
         return JSONResponse({"running": False, "phase": "error"})
 
 
+# ============================================================================
+# Card Image Serving Endpoint - MOVED TO /routes/api.py
+# ============================================================================
+# Image serving logic has been moved to code/web/routes/api.py
+# The router is included below via: app.include_router(api_routes.router)
+
+
 # Routers
 from .routes import build as build_routes  # noqa: E402
 from .routes import configs as config_routes  # noqa: E402
@@ -2225,6 +2267,7 @@ from .routes import telemetry as telemetry_routes  # noqa: E402
 from .routes import cards as cards_routes  # noqa: E402
 from .routes import card_browser as card_browser_routes  # noqa: E402
 from .routes import compare as compare_routes  # noqa: E402
+from .routes import api as api_routes  # noqa: E402
 app.include_router(build_routes.router)
 app.include_router(config_routes.router)
 app.include_router(decks_routes.router)
@@ -2237,6 +2280,7 @@ app.include_router(telemetry_routes.router)
 app.include_router(cards_routes.router)
 app.include_router(card_browser_routes.router)
 app.include_router(compare_routes.router)
+app.include_router(api_routes.router)
 
 # Warm validation cache early to reduce first-call latency in tests and dev
 try:

@@ -15,15 +15,15 @@
 <div id="newdeck-commander-slot" hx-swap-oob="true" style="max-width:230px;">
   <aside class="card-preview" data-card-name="{{ pname }}" style="max-width: 230px;">
     <a href="https://scryfall.com/search?q={{ pname|urlencode }}" target="_blank" rel="noopener">
-      <img src="https://api.scryfall.com/cards/named?fuzzy={{ pname|urlencode }}&format=image&version=normal" alt="{{ pname }} card image" data-card-name="{{ pname }}" style="width:200px; height:auto; display:block; border-radius:6px;" />
+      <img src="{{ pname|card_image('normal') }}" alt="{{ pname }} card image" data-card-name="{{ pname }}" style="width:200px; height:auto; display:block; border-radius:6px;" />
     </a>
   </aside>
-  <div class="muted" style="font-size:12px; margin-top:.25rem; max-width: 230px;">{{ pname }}</div>
+  <div class="muted" style="font-size:12px; margin-top:.25rem; max-width: 230px; word-wrap:break-word; overflow-wrap:break-word;">{{ pname }}</div>
   {% if partner_preview_payload %}
   {% set partner_secondary_name = partner_preview_payload.secondary_name %}
   {% set partner_image_url = partner_preview_payload.secondary_image_url or partner_preview_payload.image_url %}
   {% if not partner_image_url and partner_secondary_name %}
-    {% set partner_image_url = 'https://api.scryfall.com/cards/named?fuzzy=' ~ partner_secondary_name|urlencode ~ '&format=image&version=normal' %}
+    {% set partner_image_url = partner_secondary_name|card_image('normal') %}
   {% endif %}
   {% set partner_href = partner_preview_payload.secondary_scryfall_url or partner_preview_payload.scryfall_url %}
   {% if not partner_href and partner_secondary_name %}
@@ -224,36 +224,83 @@
     });
   }
   document.querySelectorAll('input[name="combine_mode_radio"]').forEach(function(r){ r.addEventListener('change', function(){ if(mode){ mode.value = r.value; } }); });
-  function updatePartnerRecommendations(tags){
-    if (!reco) return;
-    Array.from(reco.querySelectorAll('button.partner-suggestion')).forEach(function(btn){ btn.remove(); });
-    var unique = [];
+  
+  function updatePartnerTags(partnerTags){
+    if (!list || !reco) return;
+    
+    // Remove old partner-added chips from available list
+    Array.from(list.querySelectorAll('button.partner-added')).forEach(function(btn){ btn.remove(); });
+    
+    // Deduplicate: remove partner tags from recommended section to avoid showing them twice
+    if (partnerTags && partnerTags.length > 0) {
+      var partnerTagsLower = partnerTags.map(function(t){ return String(t || '').trim().toLowerCase(); });
+      Array.from(reco.querySelectorAll('button.chip-reco:not(.partner-original)')).forEach(function(btn){
+        var tag = btn.dataset.tag || '';
+        if (partnerTagsLower.indexOf(tag.toLowerCase()) >= 0) {
+          btn.remove();
+        }
+      });
+    }
+    
+    // Get existing tags from the available list (original server-rendered ones)
+    var existingTags = Array.from(list.querySelectorAll('button.chip:not(.partner-added)')).map(function(b){ 
+      return {
+        element: b,
+        tag: (b.dataset.tag || '').trim(),
+        tagLower: (b.dataset.tag || '').trim().toLowerCase()
+      };
+    });
+    
+    // Build combined list: existing + new partner tags
+    var combined = [];
     var seen = new Set();
-    (Array.isArray(tags) ? tags : []).forEach(function(tag){
+    
+    // Add existing tags first
+    existingTags.forEach(function(item){
+      if (!item.tag || seen.has(item.tagLower)) return;
+      seen.add(item.tagLower);
+      combined.push({ tag: item.tag, element: item.element, isPartner: false });
+    });
+    
+    // Add new partner tags
+    (Array.isArray(partnerTags) ? partnerTags : []).forEach(function(tag){
       var value = String(tag || '').trim();
       if (!value) return;
       var key = value.toLowerCase();
       if (seen.has(key)) return;
       seen.add(key);
-      unique.push(value);
+      combined.push({ tag: value, element: null, isPartner: true });
     });
-    var insertBefore = selAll && selAll.parentElement === reco ? selAll : null;
-    unique.forEach(function(tag){
-      var btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'chip chip-reco partner-suggestion';
-      btn.dataset.tag = tag;
-      btn.title = 'Synergizes with selected partner pairing';
-      btn.textContent = '★ ' + tag;
-      if (insertBefore){ reco.insertBefore(btn, insertBefore); }
-      else { reco.appendChild(btn); }
+    
+    // Sort alphabetically
+    combined.sort(function(a, b){ return a.tag.localeCompare(b.tag); });
+    
+    // Re-render the list in sorted order
+    list.innerHTML = '';
+    combined.forEach(function(item){
+      if (item.element) {
+        // Re-append existing element
+        list.appendChild(item.element);
+      } else {
+        // Create new partner-added chip
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'chip partner-added';
+        btn.dataset.tag = item.tag;
+        btn.title = 'From combined partner themes';
+        btn.textContent = item.tag;
+        list.appendChild(btn);
+      }
     });
-    var hasAny = reco.querySelectorAll('button.chip-reco').length > 0;
+    
+    // Update visibility of recommended section
+    var hasAnyReco = reco.querySelectorAll('button.chip-reco').length > 0;
     if (recoBlock){
-      recoBlock.style.display = hasAny ? '' : 'none';
-      recoBlock.setAttribute('data-has-reco', hasAny ? '1' : '0');
+      recoBlock.style.display = hasAnyReco ? '' : 'none';
+      recoBlock.setAttribute('data-has-reco', hasAnyReco ? '1' : '0');
     }
-    if (selAll){ selAll.style.display = hasAny ? '' : 'none'; }
+    if (selAll){ selAll.style.display = hasAnyReco ? '' : 'none'; }
+    
     updateUI();
   }
 
@@ -264,11 +311,11 @@
     if (!tags.length && detail.payload && Array.isArray(detail.payload.theme_tags)){
       tags = detail.payload.theme_tags;
     }
-    updatePartnerRecommendations(tags);
+    updatePartnerTags(tags);
   });
 
   var initialPartnerTags = readPartnerPreviewTags();
-  updatePartnerRecommendations(initialPartnerTags);
+  updatePartnerTags(initialPartnerTags);
   updateUI();
 })();
 </script>

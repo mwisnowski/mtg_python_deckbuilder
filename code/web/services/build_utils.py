@@ -310,13 +310,30 @@ def commander_hover_context(
 
     raw_color_identity = combined_info.get("color_identity") if combined_info else None
     commander_color_identity: list[str] = []
+    
+    # If we have a combined commander (partner/background), use its color identity
     if isinstance(raw_color_identity, (list, tuple, set)):
         for item in raw_color_identity:
             token = str(item).strip().upper()
             if token:
                 commander_color_identity.append(token)
     
-    # M7: For non-partner commanders, also check summary.colors for color identity
+    # For regular commanders (no partner/background), look up from commander catalog first
+    if not commander_color_identity and not has_combined and commander_name:
+        try:
+            from .commander_catalog_loader import find_commander_record
+            record = find_commander_record(commander_name)
+            if record and hasattr(record, 'color_identity'):
+                raw_ci = record.color_identity
+                if isinstance(raw_ci, (list, tuple, set)):
+                    for item in raw_ci:
+                        token = str(item).strip().upper()
+                        if token:
+                            commander_color_identity.append(token)
+        except Exception:
+            pass
+    
+    # Fallback: check summary.colors if we still don't have color identity
     if not commander_color_identity and not has_combined and isinstance(summary, dict):
         summary_colors = summary.get("colors")
         if isinstance(summary_colors, (list, tuple, set)):

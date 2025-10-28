@@ -10,20 +10,41 @@ ENV PYTHONUNBUFFERED=1
 ARG APP_VERSION=dev
 ENV APP_VERSION=${APP_VERSION}
 
-# Install system dependencies if needed
+# Install system dependencies including Node.js
 RUN apt-get update && apt-get install -y \
     gcc \
+    curl \
+    && curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - \
+    && apt-get install -y nodejs \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements first for better caching
+# Copy package files for Node.js dependencies
+COPY package.json package-lock.json* ./
+
+# Install Node.js dependencies
+RUN npm install
+
+# Copy Tailwind/TypeScript config files
+COPY tailwind.config.js postcss.config.js tsconfig.json ./
+
+# Copy requirements for Python dependencies (for better caching)
 COPY requirements.txt .
 
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application code
+# Copy Python application code (includes templates needed for Tailwind)
 COPY code/ ./code/
 COPY mypy.ini .
+
+# Tailwind source is already in code/web/static/tailwind.css from COPY code/
+# TypeScript sources are in code/web/static/ts/ from COPY code/
+
+# Force fresh CSS build by removing any copied styles.css
+RUN rm -f ./code/web/static/styles.css
+
+# Build CSS and TypeScript
+RUN npm run build
 
 # Copy default configs in two locations:
 # 1) /app/config is the live path (may be overlaid by a volume)
@@ -36,7 +57,9 @@ RUN mkdir -p owned_cards
 # Store in /.defaults/card_files so it persists after volume mount  
 RUN mkdir -p /.defaults/card_files
 # Copy entire card_files directory (will include cache if present, empty if not)
-COPY card_files/ /.defaults/card_files/
+# COMMENTED OUT FOR LOCAL DEV: card_files is mounted as volume anyway
+# Uncomment for production builds or CI/CD
+# COPY card_files/ /.defaults/card_files/
 
 # Create necessary directories as mount points
 RUN mkdir -p deck_files logs csv_files card_files config /.defaults

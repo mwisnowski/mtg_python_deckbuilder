@@ -39,7 +39,7 @@
         <form hx-post="/build/step1/confirm" hx-target="#wizard" hx-swap="innerHTML">
           <input type="hidden" name="name" value="{{ name }}" />
           <button class="img-btn" type="submit" title="Select {{ name }} (score {{ score }})">
-            <img src="https://api.scryfall.com/cards/named?fuzzy={{ name|urlencode }}&format=image&version=normal" data-card-name="{{ name }}"
+            <img src="{{ name|card_image('normal') }}" data-card-name="{{ name }}"
                  alt="{{ name }}" loading="lazy" decoding="async" />
           </button>
         </form>
@@ -77,7 +77,7 @@
     {# Strip synergy annotation for Scryfall search and image fuzzy param #}
     {% set sel_base = (selected.split(' - Synergy (')[0] if ' - Synergy (' in selected else selected) %}
     <a href="https://scryfall.com/search?q={{ sel_base|urlencode }}" target="_blank" rel="noopener">
-  <img src="https://api.scryfall.com/cards/named?fuzzy={{ sel_base|urlencode }}&format=image&version=normal" alt="{{ selected }} card image" data-card-name="{{ sel_base }}" />
+  <img src="{{ sel_base|card_image('normal') }}" alt="{{ selected }} card image" data-card-name="{{ sel_base }}" />
       </a>
     </aside>
     <div class="grow">

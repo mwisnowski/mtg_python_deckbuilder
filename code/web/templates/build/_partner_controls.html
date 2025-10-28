@@ -106,7 +106,7 @@
         {% if partner_preview %}
           {% set preview_image = partner_preview.secondary_image_url or partner_preview.image_url %}
           {% if not preview_image and partner_preview.secondary_name %}
-            {% set preview_image = 'https://api.scryfall.com/cards/named?fuzzy=' ~ partner_preview.secondary_name|urlencode ~ '&format=image&version=normal' %}
+            {% set preview_image = partner_preview.secondary_name|card_image('normal') %}
           {% endif %}
           {% set preview_href = partner_preview.secondary_scryfall_url or partner_preview.scryfall_url %}
           {% if not preview_href and partner_preview.secondary_name %}
@@ -463,7 +463,7 @@
       };
       function buildCardImageUrl(name){
         if (!name) return '';
-        return 'https://api.scryfall.com/cards/named?fuzzy=' + encodeURIComponent(name) + '&format=image&version=normal';
+        return '/api/images/normal/' + encodeURIComponent(name);
       }
       function buildScryfallUrl(name){
         if (!name) return '';
@@ -528,7 +528,9 @@
         var colorLabel = payload.color_label || '';
         var secondaryName = payload.secondary_name || payload.name || '';
         var primary = payload.primary_name || primaryName;
-        var themes = Array.isArray(payload.theme_tags) ? payload.theme_tags : [];
+        // Ensure theme_tags is always an array, even if it comes as a string or other type
+        var themes = Array.isArray(payload.theme_tags) ? payload.theme_tags : 
+                     (typeof payload.theme_tags === 'string' ? payload.theme_tags.split(',').map(function(t){ return t.trim(); }).filter(Boolean) : []);
         var imageUrl = payload.secondary_image_url || payload.image_url || '';
         if (!imageUrl && secondaryName){
           imageUrl = buildCardImageUrl(secondaryName);

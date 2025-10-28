@@ -349,6 +349,44 @@ def initial_setup() -> None:
     logger.info(f"  Raw: {raw_path}")
     logger.info(f"  Processed: {processed_path}")
     logger.info("=" * 80)
+    
+    # Step 3: Optional image caching (if enabled)
+    try:
+        from code.file_setup.image_cache import ImageCache
+        cache = ImageCache()
+        
+        if cache.is_enabled():
+            logger.info("=" * 80)
+            logger.info("Card image caching enabled - starting download")
+            logger.info("=" * 80)
+            
+            # Download bulk data
+            logger.info("Downloading Scryfall bulk data...")
+            cache.download_bulk_data()
+            
+            # Download images
+            logger.info("Downloading card images (this may take 1-2 hours)...")
+            
+            def progress(current, total, card_name):
+                if current % 100 == 0:  # Log every 100 cards
+                    pct = (current / total) * 100
+                    logger.info(f"  Progress: {current}/{total} ({pct:.1f}%) - {card_name}")
+            
+            stats = cache.download_images(progress_callback=progress)
+            
+            logger.info("=" * 80)
+            logger.info("✓ Image cache complete")
+            logger.info(f"  Downloaded: {stats['downloaded']}")
+            logger.info(f"  Skipped: {stats['skipped']}")
+            logger.info(f"  Failed: {stats['failed']}")
+            logger.info("=" * 80)
+        else:
+            logger.info("Card image caching disabled (CACHE_CARD_IMAGES=0)")
+            logger.info("Images will be fetched from Scryfall API on demand")
+            
+    except Exception as e:
+        logger.error(f"Failed to cache images (continuing anyway): {e}")
+        logger.error("Images will be fetched from Scryfall API on demand")
 
 
 def regenerate_processed_parquet() -> None:

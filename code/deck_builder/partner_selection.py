@@ -363,7 +363,14 @@ def _normalize_color_identity(value: Any) -> tuple[str, ...]:
 def _normalize_string_sequence(value: Any) -> tuple[str, ...]:
     if value is None:
         return tuple()
-    if isinstance(value, (list, tuple, set)):
+    # Handle numpy arrays, lists, tuples, sets, and other sequences
+    try:
+        import numpy as np
+        is_numpy = isinstance(value, np.ndarray)
+    except ImportError:
+        is_numpy = False
+    
+    if isinstance(value, (list, tuple, set)) or is_numpy:
         items = list(value)
     else:
         text = _safe_str(value)

@@ -1,4 +1,6 @@
 {% extends "base.html" %}
+{% from 'partials/_buttons.html' import button %}
+
 {% block content %}
 <section class="commander-page">
   <header class="commander-hero">
@@ -50,7 +52,7 @@
       </select>
     </label>
     <input type="hidden" name="page" value="{{ page }}" />
-    <button type="submit" class="btn filter-submit">Apply</button>
+    {{ button('Apply', variant='primary', type='submit', classes='filter-submit') }}
   </form>
 
   <div

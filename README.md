@@ -309,6 +309,7 @@ Most defaults are defined in `docker-compose.yml` and documented in `.env.exampl
 | `WEB_AUTO_REFRESH_DAYS` | `7` | Refresh `cards.csv` if older than N days. |
 | `WEB_TAG_PARALLEL` | `1` | Enable parallel tagging workers. |
 | `WEB_TAG_WORKERS` | `4` | Worker count for tagging (compose default). |
+| `CACHE_CARD_IMAGES` | `0` | Download card images to `card_files/images/` (1=enable, 0=fetch from API on demand). Requires ~3-6 GB. See [Image Caching](docs/IMAGE_CACHING.md). |
 | `WEB_AUTO_ENFORCE` | `0` | Auto-apply bracket enforcement after builds. |
 | `WEB_THEME_PICKER_DIAGNOSTICS` | `1` | Enable theme diagnostics endpoints. |
 

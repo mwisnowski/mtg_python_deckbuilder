@@ -1,11 +1,11 @@
 {% if theme %}
 <div class="theme-detail-card">
   {% if standalone_page %}
-  <div class="breadcrumb"><a href="/themes/" class="btn btn-ghost" style="font-size:11px; padding:2px 6px;">← Catalog</a></div>
+  <div class="breadcrumb"><a href="/themes/" class="btn btn-ghost text-[11px] px-1.5 py-0.5">← Catalog</a></div>
   {% endif %}
   <h3 id="theme-detail-heading-{{ theme.id }}" tabindex="-1">{{ theme.theme }}
     {% if diagnostics and yaml_available %}
-      <a href="/themes/yaml/{{ theme.id }}" target="_blank" style="font-size:11px; font-weight:400; margin-left:.5rem;">(YAML)</a>
+      <a href="/themes/yaml/{{ theme.id }}" target="_blank" class="text-[11px] font-normal ml-2">(YAML)</a>
     {% endif %}
   </h3>
   {% if theme.description %}
@@ -17,7 +17,7 @@
     <p class="desc" data-fallback-desc="1">No description.</p>
     {% endif %}
   {% endif %}
-  <div style="font-size:12px; margin-bottom:.5rem; display:flex; gap:8px; flex-wrap:wrap;">
+  <div class="text-xs mb-2 flex gap-2 flex-wrap">
   {% if theme.popularity_bucket %}<span class="theme-badge {% if theme.popularity_bucket=='Very Common' %}badge-pop-vc{% elif theme.popularity_bucket=='Common' %}badge-pop-c{% elif theme.popularity_bucket=='Uncommon' %}badge-pop-u{% elif theme.popularity_bucket=='Niche' %}badge-pop-n{% elif theme.popularity_bucket=='Rare' %}badge-pop-r{% endif %}" title="Popularity: {{ theme.popularity_bucket }}" aria-label="Popularity bucket: {{ theme.popularity_bucket }}">{{ theme.popularity_bucket }}</span>{% endif %}
   {% if diagnostics and theme.editorial_quality %}<span class="theme-badge badge-quality-{{ theme.editorial_quality }}" title="Editorial quality: {{ theme.editorial_quality }}" aria-label="Editorial quality: {{ theme.editorial_quality }}">{{ theme.editorial_quality }}</span>{% endif %}
   {% if diagnostics and theme.has_fallback_description %}<span class="theme-badge badge-fallback" title="Fallback generic description" aria-label="Fallback generic description">Fallback</span>{% endif %}
@@ -29,44 +29,44 @@
     </div>
     {% if diagnostics %}
       {% if not uncapped and theme.uncapped_synergies %}
-        <button hx-get="/themes/fragment/detail/{{ theme.id }}?diagnostics=1&uncapped=1" hx-target="#theme-detail" hx-swap="innerHTML" style="margin-top:.5rem;">Show Uncapped ({{ theme.uncapped_synergies|length }})</button>
+        <button hx-get="/themes/fragment/detail/{{ theme.id }}?diagnostics=1&uncapped=1" hx-target="#theme-detail" hx-swap="innerHTML" class="mt-2">Show Uncapped ({{ theme.uncapped_synergies|length }})</button>
       {% elif uncapped %}
-        <button hx-get="/themes/fragment/detail/{{ theme.id }}?diagnostics=1" hx-target="#theme-detail" hx-swap="innerHTML" style="margin-top:.5rem;">Hide Uncapped</button>
+        <button hx-get="/themes/fragment/detail/{{ theme.id }}?diagnostics=1" hx-target="#theme-detail" hx-swap="innerHTML" class="mt-2">Hide Uncapped</button>
         {% if theme.uncapped_synergies %}
-        <div class="theme-synergies" style="margin-top:.4rem;">
+        <div class="theme-synergies mt-1.5">
            {% for s in theme.uncapped_synergies %}<span class="theme-badge">{{ s }}</span>{% endfor %}
         </div>
         {% endif %}
       {% endif %}
     {% endif %}
   </div>
-  <div class="examples" style="margin-top:.75rem;">
-    <h4 style="margin-bottom:.4rem;">Example Cards</h4>
-  <div class="example-card-grid" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:.85rem;">
+  <div class="examples mt-3">
+    <h4 class="mb-1.5">Example Cards</h4>
+  <div class="example-card-grid grid grid-cols-[repeat(auto-fill,minmax(230px,1fr))] gap-3.5">
       {% if theme.example_cards %}
         {% for c in theme.example_cards %}
         {% set base_c = (c.split(' - Synergy (')[0] if ' - Synergy (' in c else c) %}
-        <div class="ex-card card-sample" style="text-align:center;" data-card-name="{{ base_c }}" data-role="example_card" data-tags="{{ theme.synergies|join(', ') }}" data-original-name="{{ c }}">
-          <img class="card-thumb" loading="lazy" decoding="async" alt="{{ c }} image" style="width:100%; height:auto; border:1px solid var(--border); border-radius:10px;" src="https://api.scryfall.com/cards/named?fuzzy={{ base_c|urlencode }}&format=image&version=small" />
-          <div style="font-size:11px; margin-top:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-weight:600;" class="card-ref" data-card-name="{{ base_c }}" data-tags="{{ theme.synergies|join(', ') }}" data-original-name="{{ c }}">{{ c }}</div>
+        <div class="ex-card card-sample text-center" data-card-name="{{ base_c }}" data-role="example_card" data-tags="{{ theme.synergies|join(', ') }}" data-original-name="{{ c }}">
+          <img class="card-thumb w-full h-auto border border-[var(--border)] rounded-[10px]" loading="lazy" decoding="async" alt="{{ c }} image" src="{{ base_c|card_image('small') }}" />
+          <div class="text-[11px] mt-1 whitespace-nowrap overflow-hidden text-ellipsis font-semibold card-ref" data-card-name="{{ base_c }}" data-tags="{{ theme.synergies|join(', ') }}" data-original-name="{{ c }}">{{ c }}</div>
         </div>
         {% endfor %}
       {% else %}
-        <div style="font-size:12px; opacity:.7;">No curated example cards.</div>
+        <div class="text-xs opacity-70">No curated example cards.</div>
       {% endif %}
     </div>
-    <h4 style="margin:.9rem 0 .4rem;">Example Commanders</h4>
-  <div class="example-commander-grid" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:.85rem;">
+    <h4 class="my-3.5 mb-1.5">Example Commanders</h4>
+  <div class="example-commander-grid grid grid-cols-[repeat(auto-fill,minmax(230px,1fr))] gap-3.5">
       {% if theme.example_commanders %}
         {% for c in theme.example_commanders %}
         {% set base_c = (c.split(' - Synergy (')[0] if ' - Synergy (' in c else c) %}
-        <div class="ex-commander commander-cell" style="text-align:center;" data-card-name="{{ base_c }}" data-role="commander_example" data-tags="{{ theme.synergies|join(', ') }}" data-original-name="{{ c }}">
-          <img class="card-thumb" loading="lazy" decoding="async" alt="{{ c }} image" style="width:100%; height:auto; border:1px solid var(--border); border-radius:10px;" src="https://api.scryfall.com/cards/named?fuzzy={{ base_c|urlencode }}&format=image&version=small" />
-          <div style="font-size:11px; margin-top:4px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" class="card-ref" data-card-name="{{ base_c }}" data-tags="{{ theme.synergies|join(', ') }}" data-original-name="{{ c }}">{{ c }}</div>
+        <div class="ex-commander commander-cell text-center" data-card-name="{{ base_c }}" data-role="commander_example" data-tags="{{ theme.synergies|join(', ') }}" data-original-name="{{ c }}">
+          <img class="card-thumb w-full h-auto border border-[var(--border)] rounded-[10px]" loading="lazy" decoding="async" alt="{{ c }} image" src="{{ base_c|card_image('small') }}" />
+          <div class="text-[11px] mt-1 font-semibold whitespace-nowrap overflow-hidden text-ellipsis card-ref" data-card-name="{{ base_c }}" data-tags="{{ theme.synergies|join(', ') }}" data-original-name="{{ c }}">{{ c }}</div>
         </div>
         {% endfor %}
       {% else %}
-        <div style="font-size:12px; opacity:.7;">No curated commander examples.</div>
+        <div class="text-xs opacity-70">No curated commander examples.</div>
       {% endif %}
     </div>
   </div>
@@ -74,10 +74,6 @@
 {% else %}
 <div class="empty">Theme not found.</div>
 {% endif %}
-<style>
-  .card-ref { cursor:pointer; text-decoration:underline dotted; }
-  .card-ref:hover { color:var(--accent); }
-</style>
 <script>
 // Accessibility: automatically move focus to the detail heading after the fragment is swapped in
 (function(){
@@ -97,7 +93,7 @@
           // Replace fuzzy param only if it still contains the annotated portion
           var before = decodeURIComponent((current.split('fuzzy=')[1]||'').split('&')[0] || '');
           if(before && before !== base){
-            img.src = 'https://api.scryfall.com/cards/named?fuzzy=' + encodeURIComponent(base) + '&format=image&version=small';
+            img.src = '/api/images/small/' + encodeURIComponent(base);
           }
         }
       }

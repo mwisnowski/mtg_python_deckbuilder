@@ -543,6 +543,9 @@ class ReportingMixin:
                         mf_info = {}
                     faces_meta = list(mf_info.get('faces', [])) if isinstance(mf_info, dict) else []
                     layout_val = mf_info.get('layout') if isinstance(mf_info, dict) else None
+                    # M9: If no colors found from mana production, try extracting from face metadata
+                    if not card_colors and isinstance(mf_info, dict):
+                        card_colors = list(mf_info.get('colors', []))
                 dfc_land_lookup[name] = {
                     'adds_extra_land': counts_as_extra,
                     'counts_as_land': not counts_as_extra,
@@ -681,13 +684,14 @@ class ReportingMixin:
                     'faces': faces_meta,
                     'layout': layout_val,
                 })
-                if adds_extra:
-                    dfc_extra_total += copies
+                # M9: Count ALL MDFC lands for land summary
+                dfc_extra_total += copies
         total_sources = sum(source_counts.values())
         traditional_lands = type_counts.get('Land', 0)
+        # M9: dfc_extra_total now contains ALL MDFC lands, not just extras
         land_summary = {
             'traditional': traditional_lands,
-            'dfc_lands': dfc_extra_total,
+            'dfc_lands': dfc_extra_total,  # M9: Count of all MDFC lands
             'with_dfc': traditional_lands + dfc_extra_total,
             'dfc_cards': dfc_details,
             'headline': build_land_headline(traditional_lands, dfc_extra_total, traditional_lands + dfc_extra_total),

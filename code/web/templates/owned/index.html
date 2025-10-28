@@ -81,8 +81,8 @@
   <label class="owned-row" style="cursor:pointer;" tabindex="0" data-card-name="{{ n }}" data-original-name="{{ n }}">
           <input type="checkbox" class="sel sr-only" aria-label="Select {{ n }}" />
           <div class="owned-vstack">
-  <img class="card-thumb" loading="lazy" decoding="async" alt="{{ n }} image" src="https://api.scryfall.com/cards/named?fuzzy={{ n|urlencode }}&format=image&version=small" data-card-name="{{ n }}" data-lqip="1" {% if tags %}data-tags="{{ (tags or [])|join(', ') }}"{% endif %}
-    srcset="https://api.scryfall.com/cards/named?fuzzy={{ n|urlencode }}&format=image&version=small 160w, https://api.scryfall.com/cards/named?fuzzy={{ n|urlencode }}&format=image&version=normal 488w"
+  <img class="card-thumb" loading="lazy" decoding="async" alt="{{ n }} image" src="{{ n|card_image('small') }}" data-card-name="{{ n }}" data-lqip="1" {% if tags %}data-tags="{{ (tags or [])|join(', ') }}"{% endif %}
+    srcset="{{ n|card_image('small') }} 160w, {{ n|card_image('normal') }} 488w"
     sizes="160px" />
             <span class="card-name"{% if tags %} data-tags="{{ (tags or [])|join(', ') }}"{% endif %}>{{ n }}</span>
             {% if cols and cols|length %}
@@ -137,7 +137,7 @@
     // Helper: build Scryfall image URL with optional cache-busting
     function buildImageUrl(name, version, nocache){
       var q = encodeURIComponent(name||'');
-      var url = 'https://api.scryfall.com/cards/named?fuzzy=' + q + '&format=image&version=' + (version||'small');
+      var url = '/api/images/' + (version||'small') + '/' + q;
       if (nocache) url += '&t=' + Date.now();
       return url;
     }

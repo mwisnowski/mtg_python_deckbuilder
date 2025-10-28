@@ -291,28 +291,6 @@ def _diag_enabled() -> bool:
     return (os.getenv("WEB_THEME_PICKER_DIAGNOSTICS") or "").strip().lower() in {"1", "true", "yes", "on"}
 
 
-@router.get("/picker", response_class=HTMLResponse)
-async def theme_picker_page(request: Request):
-    """Render the theme picker shell.
-
-    Dynamic data (list, detail) loads via fragment endpoints. We still inject
-    known archetype list for the filter select so it is populated on initial load.
-    """
-    archetypes: list[str] = []
-    try:
-        idx = load_index()
-        archetypes = sorted({t.deck_archetype for t in idx.catalog.themes if t.deck_archetype})  # type: ignore[arg-type]
-    except Exception:
-        archetypes = []
-    return _templates.TemplateResponse(
-        "themes/picker.html",
-        {
-            "request": request,
-            "archetypes": archetypes,
-            "theme_picker_diagnostics": _diag_enabled(),
-        },
-    )
-
 @router.get("/metrics")
 async def theme_metrics():
     if not _diag_enabled():
@@ -746,89 +724,9 @@ async def api_theme_preview(
     return JSONResponse({"ok": True, "preview": payload})
 
 
-@router.get("/fragment/preview/{theme_id}", response_class=HTMLResponse)
-async def theme_preview_fragment(
-    theme_id: str,
-    limit: int = Query(12, ge=1, le=30),
-    colors: str | None = None,
-    commander: str | None = None,
-    suppress_curated: bool = Query(False, description="If true, omit curated example cards/commanders from the sample area (used on detail page to avoid duplication)"),
-    minimal: bool = Query(False, description="Minimal inline variant (no header/controls/rationale – used in detail page collapsible preview)"),
-    request: Request = None,
-):
-    """Return HTML fragment for theme preview with caching headers.
 
-    Adds ETag and Last-Modified headers (no strong caching – enables conditional GET / 304).
-    ETag composed of catalog index etag + stable hash of preview payload (theme id + limit + commander).
-    """
-    try:
-        payload = get_theme_preview(theme_id, limit=limit, colors=colors, commander=commander)
-    except KeyError:
-        return HTMLResponse("<div class='error'>Theme not found.</div>", status_code=404)
-    # Load example commanders (authoritative list) from catalog detail for legality instead of inferring
-    example_commanders: list[str] = []
-    synergy_commanders: list[str] = []
-    try:
-        idx = load_index()
-        slug = slugify(theme_id)
-        entry = idx.slug_to_entry.get(slug)
-        if entry:
-            detail = project_detail(slug, entry, idx.slug_to_yaml, uncapped=False)
-            example_commanders = [c for c in (detail.get("example_commanders") or []) if isinstance(c, str)]
-            synergy_commanders_raw = [c for c in (detail.get("synergy_commanders") or []) if isinstance(c, str)]
-            # De-duplicate any overlap with example commanders while preserving order
-            seen = set(example_commanders)
-            for c in synergy_commanders_raw:
-                if c not in seen:
-                    synergy_commanders.append(c)
-                    seen.add(c)
-    except Exception:
-        example_commanders = []
-        synergy_commanders = []
-    # Build ETag (use catalog etag + hash of core identifying fields to reflect underlying data drift)
-    import hashlib
-    import json as _json
-    import time as _time
-    try:
-        idx = load_index()
-        catalog_tag = idx.etag
-    except Exception:
-        catalog_tag = "unknown"
-    hash_src = _json.dumps({
-        "theme": theme_id,
-        "limit": limit,
-        "commander": commander,
-        "sample": payload.get("sample", [])[:3],  # small slice for stability & speed
-        "v": 1,
-    }, sort_keys=True).encode("utf-8")
-    etag = "pv-" + hashlib.sha256(hash_src).hexdigest()[:20] + f"-{catalog_tag}"
-    # Conditional request support
-    if request is not None:
-        inm = request.headers.get("if-none-match")
-        if inm and inm == etag:
-            # 304 Not Modified – FastAPI HTMLResponse with empty body & headers
-            resp = HTMLResponse(status_code=304, content="")
-            resp.headers["ETag"] = etag
-            from email.utils import formatdate as _fmtdate
-            resp.headers["Last-Modified"] = _fmtdate(timeval=_time.time(), usegmt=True)
-            resp.headers["Cache-Control"] = "no-cache"
-            return resp
-    ctx = {
-        "request": request,
-        "preview": payload,
-        "example_commanders": example_commanders,
-        "synergy_commanders": synergy_commanders,
-        "theme_id": theme_id,
-        "etag": etag,
-        "suppress_curated": suppress_curated,
-        "minimal": minimal,
-    }
-    resp = _templates.TemplateResponse("themes/preview_fragment.html", ctx)
-    resp.headers["ETag"] = etag
-    from email.utils import formatdate as _fmtdate
-    resp.headers["Last-Modified"] = _fmtdate(timeval=_time.time(), usegmt=True)
-    resp.headers["Cache-Control"] = "no-cache"
-    return resp
+
+@router.get("/fragment/list", response_class=HTMLResponse)
 
 
 # --- Preview Export Endpoints (CSV / JSON) ---

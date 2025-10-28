@@ -3,24 +3,27 @@
 ## [Unreleased]
 
 ### Summary
-Major new feature: Build X and Compare with Intelligent Synergy Builder. Run the same deck configuration multiple times to see variance, compare results side-by-side, and create optimized "best-of" decks.
+Web UI improvements with Tailwind CSS migration, component library, and optional card image caching for faster performance.
 
 ### Added
-- **Build X and Compare**: Build 1-10 decks in parallel with same configuration
-  - Side-by-side comparison with card overlap statistics
-  - Smart filtering of guaranteed cards
-  - Rebuild button for quick iterations
-  - ZIP export of all builds
-- **Synergy Builder**: Create optimized deck from multiple builds
-  - Intelligent scoring (frequency + EDHREC + themes)
-  - Color-coded synergy preview
-  - Full metadata export (CSV/TXT/JSON)
-  - Partner commander support
-- Feature flag: `ENABLE_BATCH_BUILD` (default: on)
-- User guide: `docs/user_guides/batch_build_compare.md`
+- **Card Image Caching**: Optional local image cache for faster card display
+  - Downloads card images from Scryfall bulk data
+  - Graceful fallback to Scryfall API for uncached images
+  - Enable with `CACHE_CARD_IMAGES=1` environment variable
+  - Intelligent statistics caching (weekly refresh, matching card data staleness)
+- **Component Library**: Living documentation at `/docs/components`
+  - Interactive examples of all UI components
+  - Reusable Jinja2 macros for consistent design
+  - Component partial templates for reuse across pages
 
 ### Changed
-_None_
+- **Migrated CSS to Tailwind**: Consolidated and unified CSS architecture
+  - Tailwind CSS v3 with custom MTG color palette
+  - PostCSS build pipeline with autoprefixer
+  - Minimized inline styles in favor of shared CSS classes
+- **Docker Build Optimization**: Improved developer experience
+  - Hot reload for templates and CSS (no rebuild needed)
+- **Template Modernization**: Migrated templates to use component system
 
 ### Removed
 _None_
@@ -29,10 +32,14 @@ _None_
 _None_
 
 ### Performance
-_None_
+- Hot reload for CSS/template changes (no Docker rebuild needed)
+- Optional image caching reduces Scryfall API calls
+- Faster page loads with optimized CSS
 
 ### For Users
-_No changes yet_
+- Faster card image loading with optional caching
+- Cleaner, more consistent web UI design
+- Improved page load performance
 
 ### Deprecated
 _None_

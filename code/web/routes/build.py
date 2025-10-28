@@ -25,6 +25,7 @@ from ..services.build_utils import (
     owned_set as owned_set_helper,
     builder_present_names,
     builder_display_map,
+    commander_hover_context,
 )
 from ..app import templates
 from deck_builder import builder_constants as bc
@@ -1349,6 +1350,14 @@ async def build_new_modal(request: Request) -> HTMLResponse:
     for key in skip_keys:
         sess.pop(key, None)
     
+    # M2: Clear commander and form selections for fresh start
+    commander_keys = [
+        "commander", "partner", "background", "commander_mode",
+        "themes", "bracket"
+    ]
+    for key in commander_keys:
+        sess.pop(key, None)
+    
     theme_context = _custom_theme_context(request, sess)
     ctx = {
         "request": request,
@@ -1483,20 +1492,14 @@ async def build_new_inspect(request: Request, name: str = Query(...)) -> HTMLRes
                 merged_tags.append(token)
         ctx["tags"] = merged_tags
 
+        # Deduplicate recommended: remove any that are already in partner_tags
+        partner_tags_lower = {str(tag).strip().casefold() for tag in partner_tags}
         existing_recommended = ctx.get("recommended") or []
-        merged_recommended: list[str] = []
-        rec_seen: set[str] = set()
-        for source in (partner_tags, existing_recommended):
-            for tag in source:
-                token = str(tag).strip()
-                if not token:
-                    continue
-                key = token.casefold()
-                if key in rec_seen:
-                    continue
-                rec_seen.add(key)
-                merged_recommended.append(token)
-        ctx["recommended"] = merged_recommended
+        deduplicated_recommended = [
+            tag for tag in existing_recommended
+            if str(tag).strip().casefold() not in partner_tags_lower
+        ]
+        ctx["recommended"] = deduplicated_recommended
 
         reason_map = dict(ctx.get("recommended_reasons") or {})
         for tag in partner_tags:
@@ -2907,6 +2910,11 @@ async def build_step2_get(request: Request) -> HTMLResponse:
     if is_gc and (sel_br is None or int(sel_br) < 3):
         sel_br = 3
     partner_enabled = bool(sess.get("partner_enabled") and ENABLE_PARTNER_MECHANICS)
+    
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"Step2 GET: commander={commander}, partner_enabled={partner_enabled}, secondary={sess.get('secondary_commander')}")
+    
     context = {
         "request": request,
         "commander": {"name": commander},
@@ -2940,7 +2948,22 @@ async def build_step2_get(request: Request) -> HTMLResponse:
     )
     partner_tags = context.pop("partner_theme_tags", None)
     if partner_tags:
+        import logging
+        logger = logging.getLogger(__name__)
         context["tags"] = partner_tags
+        # Deduplicate recommended tags: remove any that are already in partner_tags
+        partner_tags_lower = {str(tag).strip().casefold() for tag in partner_tags}
+        original_recommended = context.get("recommended", [])
+        deduplicated_recommended = [
+            tag for tag in original_recommended
+            if str(tag).strip().casefold() not in partner_tags_lower
+        ]
+        logger.info(
+            f"Step2: partner_tags={len(partner_tags)}, "
+            f"original_recommended={len(original_recommended)}, "
+            f"deduplicated_recommended={len(deduplicated_recommended)}"
+        )
+        context["recommended"] = deduplicated_recommended
     resp = templates.TemplateResponse("build/_step2.html", context)
     resp.set_cookie("sid", sid, httponly=True, samesite="lax")
     return resp
@@ -3266,6 +3289,57 @@ async def build_step3_get(request: Request) -> HTMLResponse:
     sess["last_step"] = 3
     defaults = orch.ideal_defaults()
     values = sess.get("ideals") or defaults
+    
+    # Check if any skip flags are enabled to show skeleton automation page
+    skip_flags = {
+        "skip_lands": "land selection",
+        "skip_to_misc": "land selection",
+        "skip_basics": "basic lands",
+        "skip_staples": "staple lands",
+        "skip_kindred": "kindred lands",
+        "skip_fetches": "fetch lands",
+        "skip_duals": "dual lands",
+        "skip_triomes": "triome lands",
+        "skip_all_creatures": "creature selection",
+        "skip_creature_primary": "primary creatures",
+        "skip_creature_secondary": "secondary creatures",
+        "skip_creature_fill": "creature fills",
+        "skip_all_spells": "spell selection",
+        "skip_ramp": "ramp spells",
+        "skip_removal": "removal spells",
+        "skip_wipes": "board wipes",
+        "skip_card_advantage": "card advantage spells",
+        "skip_protection": "protection spells",
+        "skip_spell_fill": "spell fills",
+    }
+    
+    active_skips = [desc for key, desc in skip_flags.items() if sess.get(key, False)]
+    
+    if active_skips:
+        # Show skeleton automation page with auto-submit
+        automation_parts = []
+        if any("land" in s for s in active_skips):
+            automation_parts.append("lands")
+        if any("creature" in s for s in active_skips):
+            automation_parts.append("creatures")
+        if any("spell" in s for s in active_skips):
+            automation_parts.append("spells")
+        
+        automation_message = f"Applying default values for {', '.join(automation_parts)}..."
+        
+        resp = templates.TemplateResponse(
+            "build/_step3_skeleton.html",
+            {
+                "request": request,
+                "defaults": defaults,
+                "commander": sess.get("commander"),
+                "automation_message": automation_message,
+            },
+        )
+        resp.set_cookie("sid", sid, httponly=True, samesite="lax")
+        return resp
+    
+    # No skips enabled, show normal form
     resp = templates.TemplateResponse(
         "build/_step3.html",
         {
@@ -3844,6 +3918,16 @@ async def build_step5_summary(request: Request, token: int = Query(0)) -> HTMLRe
     ctx["synergies"] = synergies
     ctx["summary_ready"] = True
     ctx["summary_token"] = active_token
+    
+    # Add commander hover context for color identity and theme tags
+    hover_meta = commander_hover_context(
+        commander_name=ctx.get("commander"),
+        deck_tags=sess.get("tags"),
+        summary=summary_data,
+        combined=ctx.get("combined_commander"),
+    )
+    ctx.update(hover_meta)
+    
     response = templates.TemplateResponse("partials/deck_summary.html", ctx)
     response.set_cookie("sid", sid, httponly=True, samesite="lax")
     return response

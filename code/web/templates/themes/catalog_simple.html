@@ -2,15 +2,15 @@
 {% block content %}
 <h2>Theme Catalog (Simple)</h2>
 <div id="theme-catalog-simple">
-  <div style="display:flex; gap:.75rem; flex-wrap:wrap; margin-bottom:.85rem; align-items:flex-end;">
-    <div style="flex:1; min-width:220px; position:relative;">
-      <label style="font-size:11px; display:block; opacity:.7;">Search</label>
-      <input type="text" id="theme-search" placeholder="Search themes" aria-label="Search" style="width:100%;" autocomplete="off" />
-      <div id="theme-search-results" class="search-suggestions" style="position:absolute; top:100%; left:0; right:0; background:var(--panel); border:1px solid var(--border); border-top:none; z-index:25; display:none; max-height:300px; overflow:auto; border-radius:0 0 8px 8px;"></div>
+  <div class="flex gap-3 flex-wrap mb-3.5 items-end">
+    <div class="flex-1 min-w-[220px] relative">
+      <label class="text-[11px] block opacity-70">Search</label>
+      <input type="text" id="theme-search" placeholder="Search themes" aria-label="Search" class="w-full" autocomplete="off" />
+      <div id="theme-search-results" class="search-suggestions"></div>
     </div>
-    <div style="min-width:160px;">
-      <label style="font-size:11px; display:block; opacity:.7;">Popularity</label>
-      <select id="pop-filter" style="width:100%; font-size:13px;">
+    <div class="min-w-[160px]">
+      <label class="text-[11px] block opacity-70">Popularity</label>
+      <select id="pop-filter" class="w-full text-[13px]">
         <option value="">All</option>
         <option>Very Common</option>
         <option>Common</option>
@@ -19,26 +19,20 @@
         <option>Rare</option>
       </select>
     </div>
-    <button id="clear-search" class="btn btn-ghost" style="font-size:12px;" hidden>Clear</button>
+    <button id="clear-search" class="btn btn-ghost text-xs" hidden>Clear</button>
   </div>
-  <div id="quick-popularity" style="display:flex; gap:.4rem; flex-wrap:wrap; margin-bottom:.55rem;">
+  <div id="quick-popularity" class="flex gap-1.5 flex-wrap mb-2">
     {% for b in ['Very Common','Common','Uncommon','Niche','Rare'] %}
-      <button class="btn btn-ghost pop-chip" data-pop="{{ b }}" style="font-size:11px; padding:2px 8px;">{{ b }}</button>
+      <button class="btn btn-ghost pop-chip text-[11px] px-2 py-0.5" data-pop="{{ b }}">{{ b }}</button>
     {% endfor %}
   </div>
-  <div id="active-filters" style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:.55rem; font-size:11px;"></div>
+  <div id="active-filters" class="flex gap-1.5 flex-wrap mb-2 text-[11px]"></div>
   <div id="theme-results" aria-live="polite" aria-busy="true">
-    <div style="display:flex; flex-direction:column; gap:8px;">
-      {% for i in range(6) %}<div style="height:48px; border-radius:8px; background:linear-gradient(90deg,var(--panel-alt) 25%,var(--hover) 50%,var(--panel-alt) 75%); background-size:200% 100%; animation: sk 1.2s ease-in-out infinite;"></div>{% endfor %}
+    <div class="flex flex-col gap-2">
+      {% for i in range(6) %}<div class="skeleton-card"></div>{% endfor %}
     </div>
   </div>
 </div>
-<style>
-.search-suggestions a { display:block; padding:.5rem .6rem; font-size:13px; text-decoration:none; color:var(--text); border-bottom:1px solid var(--border); transition:background .15s ease; }
-.search-suggestions a:last-child { border-bottom:none; }
-.search-suggestions a:hover, .search-suggestions a.selected { background:var(--hover); }
-.search-suggestions a.selected { border-left:3px solid var(--ring); padding-left:calc(.6rem - 3px); }
-</style>
 <script>
 (function(){
   const input = document.getElementById('theme-search');
@@ -60,8 +54,8 @@
   }
   function addChip(label, remover){
     const span=document.createElement('span');
-    span.style.cssText='background:var(--panel-alt); border:1px solid var(--border); padding:2px 8px; border-radius:14px; display:inline-flex; align-items:center; gap:6px;';
-    span.innerHTML='<span>'+label+'</span><button style="background:none; border:none; cursor:pointer; font-size:12px;" aria-label="Remove">×</button>';
+    span.className='filter-chip';
+    span.innerHTML='<span>'+label+'</span><button class="filter-chip-remove" aria-label="Remove">×</button>';
     span.querySelector('button').addEventListener('click', remover);
     activeFilters.appendChild(span);
   }

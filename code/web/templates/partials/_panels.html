@@ -1,0 +1,399 @@
+{# Panel/Tile Component Library #}
+{# Usage: {{ import '_panels.html' }} then call panel macros #}
+
+{#
+  Panel Container Macro
+  
+  Parameters:
+  - title (str): Panel title (optional)
+  - variant (str): 'default', 'alt', 'dark', 'bordered' (default: 'default')
+  - padding (str): 'none', 'sm', 'md', 'lg' (default: 'md')
+  - classes (str): Additional CSS classes
+  - attrs (str): Additional HTML attributes
+  
+  Content Block:
+  - header: Optional custom header (overrides title)
+  - body: Panel content (required)
+  - footer: Optional footer content
+  
+  Examples:
+    {% call panel(title='Deck Stats') %}
+      {% block body %}
+        <p>Cards: 100</p>
+      {% endblock %}
+    {% endcall %}
+    
+    {% call panel(variant='alt', padding='lg') %}
+      {% block body %}
+        <p>Content here</p>
+      {% endblock %}
+    {% endcall %}
+#}
+{% macro panel(title='', variant='default', padding='md', classes='', attrs='') %}
+  {%- set variant_class = 'panel-' + variant if variant != 'default' else '' -%}
+  {%- set padding_class = 'panel-padding-' + padding -%}
+  {%- set all_classes = ['panel', variant_class, padding_class, classes]|select|join(' ') -%}
+  
+  <div class="{{ all_classes }}" {{ attrs|safe }}>
+    {% if caller.header is defined %}
+      {{ caller.header() }}
+    {% elif title %}
+      <div class="panel-header">
+        <h3 class="panel-title">{{ title }}</h3>
+      </div>
+    {% endif %}
+    
+    <div class="panel-body">
+      {{ caller.body() }}
+    </div>
+    
+    {% if caller.footer is defined %}
+      <div class="panel-footer">
+        {{ caller.footer() }}
+      </div>
+    {% endif %}
+  </div>
+{% endmacro %}
+
+{#
+  Simple Panel Macro (no block structure)
+  
+  Parameters: Same as panel() plus:
+  - content (str): Body HTML content
+  
+  Examples:
+    {{ simple_panel(title='Welcome', content='<p>Hello, user!</p>') }}
+    {{ simple_panel(content='<p>No title panel</p>', variant='alt') }}
+#}
+{% macro simple_panel(title='', content='', variant='default', padding='md', classes='', attrs='') %}
+  {%- set variant_class = 'panel-' + variant if variant != 'default' else '' -%}
+  {%- set padding_class = 'panel-padding-' + padding -%}
+  {%- set all_classes = ['panel', variant_class, padding_class, classes]|select|join(' ') -%}
+  
+  <div class="{{ all_classes }}" {{ attrs|safe }}>
+    {% if title %}
+      <div class="panel-header">
+        <h3 class="panel-title">{{ title }}</h3>
+      </div>
+    {% endif %}
+    
+    <div class="panel-body">
+      {{ content|safe }}
+    </div>
+  </div>
+{% endmacro %}
+
+{#
+  Info Panel Macro (with icon and optional action)
+  
+  Parameters:
+  - icon (str): Icon HTML or character
+  - title (str): Panel title (required)
+  - content (str): Panel content (required)
+  - type (str): 'info', 'success', 'warning', 'error' (default: 'info')
+  - action_text (str): Optional action button text
+  - action_href (str): Action button URL
+  - action_onclick (str): Action button onclick handler
+  - classes (str): Additional CSS classes
+  
+  Examples:
+    {{ info_panel(
+      icon='ℹ️',
+      title='Setup Required',
+      content='Please run the setup process before building decks.',
+      type='info',
+      action_text='Run Setup',
+      action_href='/setup'
+    ) }}
+#}
+{% macro info_panel(icon='', title='', content='', type='info', action_text='', action_href='', action_onclick='', classes='') %}
+  {%- set type_class = 'panel-info-' + type -%}
+  {%- set all_classes = ['panel', 'panel-info', type_class, classes]|select|join(' ') -%}
+  
+  <div class="{{ all_classes }}">
+    <div class="panel-info-content">
+      {% if icon %}
+        <div class="panel-info-icon">{{ icon|safe }}</div>
+      {% endif %}
+      <div class="panel-info-text">
+        {% if title %}
+          <h4 class="panel-info-title">{{ title }}</h4>
+        {% endif %}
+        <div class="panel-info-message">{{ content|safe }}</div>
+      </div>
+    </div>
+    {% if action_text %}
+      <div class="panel-info-action">
+        {% from '_buttons.html' import button %}
+        {{ button(action_text, href=action_href, onclick=action_onclick, variant='primary', size='sm') }}
+      </div>
+    {% endif %}
+  </div>
+{% endmacro %}
+
+{#
+  Stat Panel Macro (for displaying key metrics)
+  
+  Parameters:
+  - label (str): Stat label (required)
+  - value (str or int): Stat value (required)
+  - sublabel (str): Optional secondary label
+  - icon (str): Optional icon
+  - variant (str): 'default', 'primary', 'success', 'warning', 'error' (default: 'default')
+  - classes (str): Additional CSS classes
+  
+  Examples:
+    {{ stat_panel('Total Cards', value=100) }}
+    {{ stat_panel('Mana Value', value='3.2', sublabel='Average', icon='⚡') }}
+#}
+{% macro stat_panel(label, value, sublabel='', icon='', variant='default', classes='') %}
+  {%- set variant_class = 'panel-stat-' + variant if variant != 'default' else '' -%}
+  {%- set all_classes = ['panel', 'panel-stat', variant_class, classes]|select|join(' ') -%}
+  
+  <div class="{{ all_classes }}">
+    {% if icon %}
+      <div class="panel-stat-icon">{{ icon|safe }}</div>
+    {% endif %}
+    <div class="panel-stat-content">
+      <div class="panel-stat-value">{{ value }}</div>
+      <div class="panel-stat-label">{{ label }}</div>
+      {% if sublabel %}
+        <div class="panel-stat-sublabel">{{ sublabel }}</div>
+      {% endif %}
+    </div>
+  </div>
+{% endmacro %}
+
+{#
+  Collapsible Panel Macro
+  
+  Parameters:
+  - title (str): Panel title (required)
+  - id (str): Panel HTML id (auto-generated if not provided)
+  - expanded (bool): Initially expanded (default: False)
+  - variant (str): Panel variant (default: 'default')
+  - padding (str): Panel padding (default: 'md')
+  - classes (str): Additional CSS classes
+  
+  Content Block:
+  - body: Panel content (required)
+  
+  Examples:
+    {% call collapsible_panel(title='Advanced Options', expanded=False) %}
+      {% block body %}
+        <p>Advanced settings here</p>
+      {% endblock %}
+    {% endcall %}
+#}
+{% macro collapsible_panel(title, id='', expanded=False, variant='default', padding='md', classes='') %}
+  {%- set panel_id = id if id else 'panel-' + title|lower|replace(' ', '-') -%}
+  {%- set content_id = panel_id + '-content' -%}
+  {%- set variant_class = 'panel-' + variant if variant != 'default' else '' -%}
+  {%- set padding_class = 'panel-padding-' + padding -%}
+  {%- set expanded_class = 'panel-expanded' if expanded else 'panel-collapsed' -%}
+  {%- set all_classes = ['panel', 'panel-collapsible', variant_class, padding_class, expanded_class, classes]|select|join(' ') -%}
+  
+  <div class="{{ all_classes }}" id="{{ panel_id }}">
+    <button type="button" 
+            class="panel-toggle" 
+            aria-expanded="{{ 'true' if expanded else 'false' }}"
+            aria-controls="{{ content_id }}"
+            onclick="togglePanel('{{ panel_id }}')">
+      <span class="panel-toggle-icon"></span>
+      <span class="panel-title">{{ title }}</span>
+    </button>
+    
+    <div class="panel-body panel-collapse-content" 
+         id="{{ content_id }}"
+         {% if not expanded %}style="display:none;"{% endif %}>
+      {{ caller.body() }}
+    </div>
+  </div>
+{% endmacro %}
+
+{#
+  Grid Container Macro (for laying out multiple panels)
+  
+  Parameters:
+  - columns (int or str): Number of columns (1, 2, 3, 4, 'auto') (default: 'auto')
+  - gap (str): Grid gap (default: '1rem')
+  - classes (str): Additional CSS classes
+  
+  Content Block:
+  - body: Grid items (panels or other content)
+  
+  Examples:
+    {% call grid_container(columns=3) %}
+      {% block body %}
+        {{ stat_panel('Stat 1', 100) }}
+        {{ stat_panel('Stat 2', 200) }}
+        {{ stat_panel('Stat 3', 300) }}
+      {% endblock %}
+    {% endcall %}
+#}
+{% macro grid_container(columns='auto', gap='1rem', classes='') %}
+  {%- set columns_class = 'panel-grid-cols-' + (columns|string) -%}
+  {%- set all_classes = ['panel-grid', columns_class, classes]|select|join(' ') -%}
+  
+  <div class="{{ all_classes }}" style="gap: {{ gap }};">
+    {{ caller.body() }}
+  </div>
+{% endmacro %}
+
+{#
+  Empty State Panel Macro
+  
+  Parameters:
+  - icon (str): Icon HTML or character
+  - title (str): Empty state title (required)
+  - message (str): Empty state message (required)
+  - action_text (str): Optional action button text
+  - action_href (str): Action button URL
+  - action_onclick (str): Action button onclick handler
+  - classes (str): Additional CSS classes
+  
+  Examples:
+    {{ empty_state_panel(
+      icon='📋',
+      title='No Decks Found',
+      message='You haven\'t created any decks yet. Start building your first deck!',
+      action_text='Build Deck',
+      action_href='/build'
+    ) }}
+#}
+{% macro empty_state_panel(icon='', title='', message='', action_text='', action_href='', action_onclick='', classes='') %}
+  {%- set all_classes = ['panel', 'panel-empty-state', classes]|select|join(' ') -%}
+  
+  <div class="{{ all_classes }}">
+    {% if icon %}
+      <div class="panel-empty-icon">{{ icon|safe }}</div>
+    {% endif %}
+    {% if title %}
+      <h3 class="panel-empty-title">{{ title }}</h3>
+    {% endif %}
+    {% if message %}
+      <p class="panel-empty-message">{{ message }}</p>
+    {% endif %}
+    {% if action_text %}
+      <div class="panel-empty-action">
+        {% from '_buttons.html' import button %}
+        {{ button(action_text, href=action_href, onclick=action_onclick, variant='primary') }}
+      </div>
+    {% endif %}
+  </div>
+{% endmacro %}
+
+{#
+  Loading Panel Macro
+  
+  Parameters:
+  - message (str): Loading message (default: 'Loading...')
+  - spinner (bool): Show spinner animation (default: True)
+  - classes (str): Additional CSS classes
+  
+  Examples:
+    {{ loading_panel() }}
+    {{ loading_panel(message='Building deck...', spinner=True) }}
+#}
+{% macro loading_panel(message='Loading...', spinner=True, classes='') %}
+  {%- set all_classes = ['panel', 'panel-loading', classes]|select|join(' ') -%}
+  
+  <div class="{{ all_classes }}">
+    {% if spinner %}
+      <div class="panel-loading-spinner" aria-hidden="true"></div>
+    {% endif %}
+    <div class="panel-loading-message">{{ message }}</div>
+  </div>
+{% endmacro %}
+
+{# CSS Classes Reference #}
+{#
+  Panel Base:
+  - .panel (base panel class)
+  
+  Panel Variants:
+  - .panel-default (default background, var(--panel))
+  - .panel-alt (alternate background, var(--panel-alt))
+  - .panel-dark (dark background, #0f1115)
+  - .panel-bordered (bordered, no background)
+  
+  Panel Padding:
+  - .panel-padding-none (no padding)
+  - .panel-padding-sm (0.5rem)
+  - .panel-padding-md (0.75rem, default)
+  - .panel-padding-lg (1.5rem)
+  
+  Panel Structure:
+  - .panel-header (header section)
+  - .panel-title (title text, h3)
+  - .panel-body (content section)
+  - .panel-footer (footer section)
+  
+  Info Panel:
+  - .panel-info (info panel container)
+  - .panel-info-info (blue theme)
+  - .panel-info-success (green theme)
+  - .panel-info-warning (yellow theme)
+  - .panel-info-error (red theme)
+  - .panel-info-content (content wrapper)
+  - .panel-info-icon (icon container)
+  - .panel-info-text (text wrapper)
+  - .panel-info-title (info title, h4)
+  - .panel-info-message (info message)
+  - .panel-info-action (action button wrapper)
+  
+  Stat Panel:
+  - .panel-stat (stat panel container)
+  - .panel-stat-default, .panel-stat-primary, etc. (color variants)
+  - .panel-stat-icon (stat icon)
+  - .panel-stat-content (stat content wrapper)
+  - .panel-stat-value (stat value, large)
+  - .panel-stat-label (stat label)
+  - .panel-stat-sublabel (optional secondary label)
+  
+  Collapsible Panel:
+  - .panel-collapsible (collapsible panel)
+  - .panel-expanded (expanded state)
+  - .panel-collapsed (collapsed state)
+  - .panel-toggle (toggle button)
+  - .panel-toggle-icon (chevron/arrow icon)
+  - .panel-collapse-content (collapsible content)
+  
+  Panel Grid:
+  - .panel-grid (grid container)
+  - .panel-grid-cols-auto (auto columns)
+  - .panel-grid-cols-1, .panel-grid-cols-2, etc. (fixed columns)
+  
+  Empty State:
+  - .panel-empty-state (empty state container)
+  - .panel-empty-icon (empty state icon)
+  - .panel-empty-title (empty state title, h3)
+  - .panel-empty-message (empty state message, p)
+  - .panel-empty-action (action button wrapper)
+  
+  Loading Panel:
+  - .panel-loading (loading panel)
+  - .panel-loading-spinner (spinner animation)
+  - .panel-loading-message (loading message text)
+#}
+
+{# JavaScript Helper Functions #}
+{#
+  These functions should be included in a global JavaScript file or inline script:
+  
+  // Toggle collapsible panel
+  function togglePanel(panelId) {
+    const panel = document.getElementById(panelId);
+    if (!panel) return;
+    
+    const button = panel.querySelector('.panel-toggle');
+    const content = panel.querySelector('.panel-collapse-content');
+    const isExpanded = button.getAttribute('aria-expanded') === 'true';
+    
+    // Toggle state
+    button.setAttribute('aria-expanded', !isExpanded);
+    content.style.display = isExpanded ? 'none' : 'block';
+    panel.classList.toggle('panel-expanded');
+    panel.classList.toggle('panel-collapsed');
+  }
+#}

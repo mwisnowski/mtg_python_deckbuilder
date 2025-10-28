@@ -240,6 +240,13 @@ def merge_multi_face_rows(
 
         faces_payload = [_build_face_payload(row) for _, row in group_sorted.iterrows()]
 
+        # M9: Capture back face type for MDFC land detection
+        if len(group_sorted) >= 2 and "type" in group_sorted.columns:
+            back_face_row = group_sorted.iloc[1]
+            back_type = str(back_face_row.get("type", "") or "")
+            if back_type:
+                work_df.at[primary_idx, "backType"] = back_type
+
         drop_indices.extend(group_sorted.index[1:])
         
         merged_count += 1

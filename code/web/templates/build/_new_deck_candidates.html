@@ -3,9 +3,9 @@
   {% for cand in candidates %}
   <li>
     <button type="button" id="cand-{{ loop.index0 }}" class="chip candidate-btn" role="option" data-idx="{{ loop.index0 }}" data-name="{{ cand.value|e }}" data-display="{{ cand.display|e }}"
-      hx-get="/build/new/inspect?name={{ cand.display|urlencode }}"
-            hx-target="#newdeck-tags-slot" hx-swap="innerHTML"
-            hx-on="htmx:afterOnLoad: (function(){ try{ var preferred=this.getAttribute('data-name')||''; var displayed=this.getAttribute('data-display')||preferred; var ci = document.querySelector('input[name=commander]'); if(ci){ ci.value=preferred; try{ ci.selectionStart = ci.selectionEnd = ci.value.length; }catch(_){} try{ ci.dispatchEvent(new Event('input', { bubbles: true })); }catch(_){ } } var nm = document.querySelector('input[name=name]'); if(nm && (!nm.value || !nm.value.trim())){ nm.value=displayed; } }catch(_){ } }).call(this)">
+      onclick="(function(){ try{ var preferred=this.getAttribute('data-name')||''; var displayed=this.getAttribute('data-display')||preferred; var ci = document.querySelector('input[name=commander]'); if(ci){ ci.value=preferred; try{ ci.selectionStart = ci.selectionEnd = ci.value.length; }catch(_){} } var nm = document.querySelector('input[name=name]'); if(nm && (!nm.value || !nm.value.trim())){ nm.value=displayed; } }catch(_){ } }).call(this)"
+      hx-get="/build/new/inspect?name={{ cand.value|urlencode }}"
+            hx-target="#newdeck-tags-slot" hx-swap="innerHTML">
       {{ cand.display }}
       {% if cand.warning %}
         <span aria-hidden="true" style="margin-left:.35rem; font-size:11px; color:#facc15;">⚠</span>

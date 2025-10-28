@@ -1113,19 +1113,31 @@ video {
 
 [data-theme="light-blend"]{
   --bg: #e8e2d0;
-  /* blend of slate (#dedfe0) and parchment (#f8e7b9), 60/40 gray */
-  --panel: #ffffff;
-  /* crisp panels for readability */
-  --text: #0b0d12;
+  /* warm beige background (keep existing) */
+  --panel: #ebe5d8;
+  /* lighter warm cream - more contrast with bg, subtle panels */
+  --text: #1a1410;
+  /* dark brown for readability */
   --muted: #6b655d;
-  /* slightly warm muted */
-  --border: #d6d1c7;
-  /* neutral warm-gray border */
-  /* Slightly darker banner/sidebar for separation */
-  --surface-banner: #1a1b1e;
-  --surface-sidebar: #1a1b1e;
-  --surface-banner-text: #e8e8e8;
-  --surface-sidebar-text: #e8e8e8;
+  /* warm muted brown (keep existing) */
+  --border: #bfb5a3;
+  /* darker warm-gray border for better definition */
+  /* Navbar/banner: darker warm brown for hierarchy */
+  --surface-banner: #9b8f7a;
+  /* warm medium brown - darker than panels, lighter than dark theme */
+  --surface-sidebar: #9b8f7a;
+  /* match banner for consistency */
+  --surface-banner-text: #1a1410;
+  /* dark brown text on medium brown bg */
+  --surface-sidebar-text: #1a1410;
+  /* dark brown text on medium brown bg */
+  /* Button colors: use taupe for buttons so they stand out from light panels */
+  --btn-bg: #d4cbb8;
+  /* medium warm taupe - stands out against light panels */
+  --btn-text: #1a1410;
+  /* dark brown text */
+  --btn-hover-bg: #c4b9a5;
+  /* darker taupe on hover */
 }
 
 [data-theme="dark"]{
@@ -1880,23 +1892,25 @@ small, .muted{
 /* Home page darker buttons */
 
 .home-button.btn-secondary {
-  background: #1a1d24;
-  border-color: #2a2d35;
+  background: var(--btn-bg, #1a1d24);
+  color: var(--btn-text, #e8e8e8);
+  border-color: var(--border);
 }
 
 .home-button.btn-secondary:hover {
-  background: #22252d;
-  border-color: #3a3d45;
+  background: var(--btn-hover-bg, #22252d);
+  border-color: var(--border);
 }
 
 .home-button.btn-primary {
-  background: linear-gradient(180deg, rgba(14,104,171,.35), rgba(14,104,171,.15));
-  border-color: #2a5580;
+  background: var(--blue-main);
+  color: white;
+  border-color: var(--blue-main);
 }
 
 .home-button.btn-primary:hover {
-  background: linear-gradient(180deg, rgba(14,104,171,.45), rgba(14,104,171,.25));
-  border-color: #3a6590;
+  background: #0c5aa6;
+  border-color: #0c5aa6;
 }
 
 /* Card grid for added cards (responsive, compact tiles) */

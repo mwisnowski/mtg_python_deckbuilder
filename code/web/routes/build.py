@@ -1108,6 +1108,8 @@ async def build_index(request: Request) -> HTMLResponse:
         if q_commander:
             # Persist a human-friendly commander name into session for the wizard
             sess["commander"] = str(q_commander)
+            # Set flag to indicate this is a quick-build scenario
+            sess["quick_build"] = True
     except Exception:
         pass
     return_url = None
@@ -1147,12 +1149,17 @@ async def build_index(request: Request) -> HTMLResponse:
             last_step = 2
         else:
             last_step = 1
+    # Only pass commander to template if coming from commander browser (?commander= query param)
+    # This prevents stale commander from being pre-filled on subsequent builds
+    # The query param only exists on initial navigation from commander browser
+    should_auto_fill = q_commander is not None
+    
     resp = templates.TemplateResponse(
         request,
         "build/index.html",
         {
             "sid": sid,
-            "commander": sess.get("commander"),
+            "commander": sess.get("commander") if should_auto_fill else None,
             "tags": sess.get("tags", []),
             "name": sess.get("custom_export_base"),
             "last_step": last_step,
@@ -1350,13 +1357,18 @@ async def build_new_modal(request: Request) -> HTMLResponse:
     for key in skip_keys:
         sess.pop(key, None)
     
-    # M2: Clear commander and form selections for fresh start
-    commander_keys = [
-        "commander", "partner", "background", "commander_mode",
-        "themes", "bracket"
-    ]
-    for key in commander_keys:
-        sess.pop(key, None)
+    # M2: Check if this is a quick-build scenario (from commander browser)
+    # Use the quick_build flag set by /build route when ?commander= param present
+    is_quick_build = sess.pop("quick_build", False)  # Pop to consume the flag
+    
+    # M2: Clear commander and form selections for fresh start (unless quick build)
+    if not is_quick_build:
+        commander_keys = [
+            "commander", "partner", "background", "commander_mode",
+            "themes", "bracket"
+        ]
+        for key in commander_keys:
+            sess.pop(key, None)
     
     theme_context = _custom_theme_context(request, sess)
     ctx = {
@@ -1370,6 +1382,7 @@ async def build_new_modal(request: Request) -> HTMLResponse:
         "enable_batch_build": ENABLE_BATCH_BUILD,
         "ideals_ui_mode": WEB_IDEALS_UI,  # 'input' or 'slider'
         "form": {
+            "commander": sess.get("commander", ""),  # Pre-fill for quick-build
             "prefer_combos": bool(sess.get("prefer_combos")),
             "combo_count": sess.get("combo_target_count"),
             "combo_balance": sess.get("combo_balance"),

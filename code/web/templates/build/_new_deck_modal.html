@@ -20,9 +20,7 @@
               <span>Commander</span>
     <input type="text" name="commander" required placeholder="Type a commander name" value="{{ form.commander if form else '' }}" autofocus autocomplete="off" autocapitalize="off" spellcheck="false"
       role="combobox" aria-autocomplete="list" aria-controls="newdeck-candidates"
-      hx-get="/build/new/candidates" hx-trigger="debouncedinput change" hx-target="#newdeck-candidates" hx-sync="this:replace"
-      data-hx-debounce="220" data-hx-debounce-events="input"
-      data-hx-debounce-flush="blur" />
+      hx-get="/build/new/candidates" hx-trigger="input changed delay:220ms, change" hx-target="#newdeck-candidates" hx-sync="this:replace" />
             </label>
             <small class="muted block mt-1">Start typing to see matches, then select one to load themes.</small>
             <div id="newdeck-candidates" class="muted text-xs min-h-[1.1em]"></div>

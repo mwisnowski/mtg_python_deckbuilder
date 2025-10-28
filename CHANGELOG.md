@@ -19,6 +19,12 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
   - Interactive examples of all buttons, modals, forms, cards, and panels
   - Jinja2 macros for consistent component usage
   - Component partial templates for reuse across pages
+- **TypeScript Migration**: Migrated JavaScript codebase to TypeScript for better type safety
+  - Converted `components.js` (376 lines) and `app.js` (1390 lines) to TypeScript
+  - Created shared type definitions for state management, telemetry, HTMX, and UI components
+  - Integrated TypeScript compilation into build process (`npm run build:ts`)
+  - Compiled JavaScript output in `code/web/static/js/` directory
+  - Docker build automatically compiles TypeScript during image creation
 
 ### Changed
 - **Migrated CSS to Tailwind**: Consolidated and unified CSS architecture
@@ -26,6 +32,11 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
   - PostCSS build pipeline with autoprefixer
   - Reduced inline styles in templates (moved to shared CSS classes)
   - Organized CSS into functional sections with clear documentation
+  - **Light theme visual improvements**: Warm earth tone palette with better button/panel contrast
+- **JavaScript Modernization**: Updated to modern JavaScript patterns
+  - Converted `var` declarations to `const`/`let`
+  - Added TypeScript type annotations for better IDE support and error catching
+  - Consolidated event handlers and utility functions
 - **Docker Build Optimization**: Improved developer experience
   - Hot reload enabled for templates and static files
   - Volume mounts for rapid iteration without rebuilds

@@ -5,34 +5,22 @@
 {% set placeholder_pixel = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==" %}
 <article class="commander-row" data-commander-slug="{{ record.slug }}" data-hover-simple="true">
   <div class="commander-thumb">
-    {% set small = record.image_small_url or record.image_normal_url %}
-    {% set normal = record.image_normal_url or small %}
+    {% set small = record.display_name|card_image('small') %}
+    {% set normal = record.display_name|card_image('normal') %}
     <img
-      src="{{ placeholder_pixel }}"
+      src="{{ small }}"
+      srcset="{{ small }} 160w, {{ normal }} 488w"
+      sizes="(max-width: 900px) 60vw, 160px"
       alt="{{ record.display_name }} card art"
       loading="lazy"
       decoding="async"
       width="160"
       height="223"
-      data-lazy-image="commander"
-      data-lazy-src="{{ small }}"
-      data-lazy-srcset="{{ small }} 160w, {{ normal }} 488w"
-      data-lazy-sizes="(max-width: 900px) 60vw, 160px"
       data-card-name="{{ record.display_name }}"
       data-original-name="{{ record.name }}"
       data-hover-simple="true"
       class="commander-thumb-img"
     />
-    <noscript>
-      <img
-        src="{{ small }}"
-        srcset="{{ small }} 160w, {{ normal }} 488w"
-        sizes="160px"
-        alt="{{ record.display_name }} card art"
-        width="160"
-        height="223"
-      />
-    </noscript>
   </div>
   <div class="commander-main">
     <div class="commander-header">

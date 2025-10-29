@@ -35,7 +35,8 @@
 		 style="display:flex; gap:.5rem; align-items:center; flex-wrap:wrap;">
 		<label style="flex:1; min-width:220px;">
 			<span class="sr-only">Theme name</span>
-			<input type="text" name="theme" data-theme-input placeholder="e.g., Lifegain" maxlength="60" autocomplete="off" autocapitalize="off" spellcheck="false" style="width:100%; padding:.5rem; border-radius:6px; border:1px solid var(--border); background:var(--input-bg, #161921); color:var(--text-color, #f9fafb);" {% if disable_add %}disabled aria-disabled="true"{% endif %} />
+			          <input type="text" name="theme" data-theme-input placeholder="e.g., Lifegain"
+            style="width:100%; padding:.5rem; border-radius:6px; border:1px solid var(--border); background:var(--panel); color:var(--text);" />
 		</label>
 		<button type="button" data-theme-add-btn class="btn" style="padding:.45rem 1rem;" {% if disable_add %}disabled aria-disabled="true"{% endif %}>Add theme</button>
 	</div>

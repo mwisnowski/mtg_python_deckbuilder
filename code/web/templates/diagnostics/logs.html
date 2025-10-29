@@ -24,7 +24,7 @@
       every <input type="number" id="autoRefreshInterval" value="3" min="1" max="30" style="width:60px"> s
     </label>
   </form>
-  <pre id="logTail" class="log-tail" data-tail="{{ tail }}" data-q="{{ q }}" data-level="{{ level or 'all' }}" style="white-space: pre-wrap; background:#0f1115; color:#e5e7eb; border:1px solid var(--border); border-radius:8px; padding:.75rem; margin-top:.75rem; max-height:60vh; overflow:auto">{{ lines | join('') }}</pre>
+  <pre id="logTail" class="log-tail" data-tail="{{ tail }}" data-q="{{ q }}" data-level="{{ level or 'all' }}" style="white-space: pre-wrap; background:var(--panel); color:var(--text); border:1px solid var(--border); border-radius:8px; padding:.75rem; margin-top:.75rem; max-height:60vh; overflow:auto">{{ lines | join('') }}</pre>
   <script>
     (function(){
       var pre = document.getElementById('logTail');

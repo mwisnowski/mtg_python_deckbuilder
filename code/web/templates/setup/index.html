@@ -13,8 +13,8 @@
     color: #60a5fa;
   }
   #content details > div {
-    background: #050607 !important;
-    border-color: #1e293b !important;
+    background: var(--panel) !important;
+    border-color: var(--border) !important;
   }
   #content .muted {
     color: #94a3b8;
@@ -37,12 +37,12 @@
   }
   /* Progress bars */
   #content [id$="-progress-bar"] {
-    background: #0a0c10 !important;
+    background: var(--bg) !important;
   }
   /* Log output areas */
   #content pre {
-    background: #030405 !important;
-    border-color: #1e293b !important;
+    background: var(--panel) !important;
+    border-color: var(--border) !important;
   }
 </style>
 
@@ -52,25 +52,25 @@
 
   <details open style="margin-top:.5rem;">
     <summary>Current Status</summary>
-    <div id="setup-status" style="margin-top:.5rem; padding:1rem; border:1px solid var(--border); background:#0f1115; border-radius:8px;">
+    <div id="setup-status" style="margin-top:.5rem; padding:1rem; border:1px solid var(--border); background:var(--panel); border-radius:8px;">
       <div class="muted">Status:</div>
       <div id="setup-status-line" style="margin-top:.25rem;">Checking…</div>
       <div id="setup-progress-line" class="muted" style="margin-top:.25rem; display:none;"></div>
-      <div id="setup-progress-bar" style="margin-top:.25rem; width:100%; height:10px; background:#151821; border:1px solid var(--border); border-radius:6px; overflow:hidden; display:none;">
+      <div id="setup-progress-bar" style="margin-top:.25rem; width:100%; height:10px; background:var(--bg); border:1px solid var(--border); border-radius:6px; overflow:hidden; display:none;">
         <div id="setup-progress-bar-inner" style="height:100%; width:0%; background:#3b82f6;"></div>
       </div>
       <div id="setup-time-line" class="muted" style="margin-top:.25rem; display:none;"></div>
   <div id="setup-color-line" class="muted" style="margin-top:.25rem; display:none;"></div>
       <details id="setup-log-wrap" style="margin-top:.5rem; display:none;">
         <summary id="setup-log-summary" class="muted" style="cursor:pointer;">Show logs</summary>
-        <pre id="setup-log-tail" style="margin-top:.5rem; max-height:240px; overflow:auto; background:#0b0d12; border:1px solid var(--border); padding:.5rem; border-radius:6px;"></pre>
+        <pre id="setup-log-tail" style="margin-top:.5rem; max-height:240px; overflow:auto; background:var(--panel); border:1px solid var(--border); padding:.5rem; border-radius:6px;"></pre>
       </details>
     </div>
   </details>
 
   <details style="margin-top:1rem;">
     <summary>Download Pre-tagged Database from GitHub (Optional)</summary>
-    <div style="margin-top:.5rem; padding:1rem; border:1px solid var(--border); background:#0f1115; border-radius:8px;">
+    <div style="margin-top:.5rem; padding:1rem; border:1px solid var(--border); background:var(--panel); border-radius:8px;">
       <p class="muted" style="margin:0 0 .75rem 0; font-size:.9rem;">
         Download pre-tagged card database and similarity cache from GitHub (updated weekly). 
         <strong>Note:</strong> A fresh local tagging run will be most up-to-date with the latest card data.
@@ -83,7 +83,7 @@
   {% if image_cache_enabled %}
   <details style="margin-top:1rem;">
     <summary>Download Card Images (Optional)</summary>
-    <div style="margin-top:.5rem; padding:1rem; border:1px solid var(--border); background:#0f1115; border-radius:8px;">
+    <div style="margin-top:.5rem; padding:1rem; border:1px solid var(--border); background:var(--panel); border-radius:8px;">
       <p class="muted" style="margin:0 0 .75rem 0; font-size:.9rem;">
         Download card images from Scryfall CDN for faster loading and offline use.
         <strong>Note:</strong> Requires ~3-6 GB disk space and 1-2 hours download time (~30k cards).
@@ -95,7 +95,7 @@
       </div>
       {{ button('Download Card Images', variant='priamry', onclick='downloadCardImages()', attrs='id="btn-download-images"') }}
       <div id="image-download-status" class="muted" style="margin-top:.5rem; display:none;"></div>
-      <div id="image-progress-bar" style="margin-top:.5rem; width:100%; height:10px; background:#151821; border:1px solid var(--border); border-radius:6px; overflow:hidden; display:none;">
+      <div id="image-progress-bar" style="margin-top:.5rem; width:100%; height:10px; background:var(--bg); border:1px solid var(--border); border-radius:6px; overflow:hidden; display:none;">
         <div id="image-progress-bar-inner" style="height:100%; width:0%; background:#3b82f6;"></div>
       </div>
     </div>
@@ -116,7 +116,7 @@
 
   <details style="margin-top:1.25rem;" open>
     <summary>Theme Catalog Status</summary>
-    <div id="themes-status" style="margin-top:.5rem; padding:1rem; border:1px solid var(--border); background:#0f1115; border-radius:8px;">
+    <div id="themes-status" style="margin-top:.5rem; padding:1rem; border:1px solid var(--border); background:var(--panel); border-radius:8px;">
       <div class="muted">Status:</div>
       <div id="themes-status-line" style="margin-top:.25rem;">Checking…</div>
       <div class="muted" id="themes-meta-line" style="margin-top:.25rem; display:none;"></div>
@@ -130,7 +130,7 @@
   {% if similarity_enabled %}
   <details style="margin-top:1.25rem;" open>
     <summary>Similarity Cache Status</summary>
-    <div id="similarity-status" style="margin-top:.5rem; padding:1rem; border:1px solid var(--border); background:#0f1115; border-radius:8px;">
+    <div id="similarity-status" style="margin-top:.5rem; padding:1rem; border:1px solid var(--border); background:var(--panel); border-radius:8px;">
       <div class="muted">Status:</div>
       <div id="similarity-status-line" style="margin-top:.25rem;">Checking…</div>
       <div class="muted" id="similarity-meta-line" style="margin-top:.25rem; display:none;"></div>

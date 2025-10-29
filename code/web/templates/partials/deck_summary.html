@@ -19,17 +19,17 @@
   {% if tb and tb.counts %}
     <style>
       .seg { display:inline-flex; border:1px solid var(--border); border-radius:8px; overflow:hidden; }
-      .seg-btn { background:#12161c; color:#e5e7eb; border:none; padding:.35rem .6rem; cursor:pointer; font-size:12px; }
-      .seg-btn[aria-selected="true"] { background:#1f2937; }
+      .seg-btn { background:var(--panel); color:var(--text); border:none; padding:.35rem .6rem; cursor:pointer; font-size:12px; }
+      .seg-btn[aria-selected="true"] { background:var(--bg); }
       .typeview { margin-top:.25rem; }
       .typeview.hidden { display:none; }
       .stack-wrap { --card-w: 160px; --card-h: 224px; --cols: 9; --overlap: .5; overflow: visible; padding: 6px 0 calc(var(--card-h) * (1 - var(--overlap))) 0; }
       .stack-grid { display: grid; grid-template-columns: repeat(var(--cols), var(--card-w)); grid-auto-rows: calc(var(--card-h) * var(--overlap)); column-gap: 10px; }
-      .stack-card { width: var(--card-w); height: var(--card-h); border-radius:8px; box-shadow: 0 6px 18px rgba(0,0,0,.55); border:1px solid var(--border); background:#0f1115; transition: transform .06s ease, box-shadow .06s ease; position: relative; }
+      .stack-card { width: var(--card-w); height: var(--card-h); border-radius:8px; box-shadow: 0 6px 18px rgba(0,0,0,.55); border:1px solid var(--border); background:var(--panel); transition: transform .06s ease, box-shadow .06s ease; position: relative; }
       .stack-card img { width: var(--card-w); height: var(--card-h); display:block; border-radius:8px; }
       .stack-card:hover { z-index: 999; transform: translateY(-2px); box-shadow: 0 10px 22px rgba(0,0,0,.6); }
-  .count-badge { position:absolute; top:6px; right:6px; background:rgba(17,24,39,.9); color:#e5e7eb; border:1px solid var(--border); border-radius:12px; font-size:12px; line-height:18px; height:18px; padding:0 6px; pointer-events:none; }
-  .owned-badge { position:absolute; top:6px; left:6px; background:rgba(17,24,39,.9); color:#e5e7eb; border:1px solid var(--border); border-radius:12px; font-size:12px; line-height:18px; height:18px; min-width:18px; padding:0 6px; text-align:center; pointer-events:none; z-index: 2; }
+  .count-badge { position:absolute; top:6px; right:6px; background:var(--panel); color:var(--text); border:1px solid var(--border); border-radius:12px; font-size:12px; line-height:18px; height:18px; padding:0 6px; pointer-events:none; }
+  .owned-badge { position:absolute; top:6px; left:6px; background:var(--panel); color:var(--text); border:1px solid var(--border); border-radius:12px; font-size:12px; line-height:18px; height:18px; min-width:18px; padding:0 6px; text-align:center; pointer-events:none; z-index: 2; }
   .dfc-thumb-badge { position:absolute; bottom:8px; left:6px; background:rgba(15,23,42,.92); border:1px solid #34d399; color:#bbf7d0; border-radius:12px; font-size:11px; line-height:18px; height:18px; padding:0 6px; pointer-events:none; }
   .dfc-thumb-badge.counts { border-color:#60a5fa; color:#bfdbfe; }
   .owned-flag { font-size:.95rem; opacity:.9; }
@@ -52,7 +52,7 @@
             .list-row .name { display:inline-block; padding: 2px 4px; border-radius: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
             .list-row .flip-slot { min-width:2.4em; display:flex; justify-content:flex-start; align-items:center; }
             .list-row .owned-flag { width: 1.6em; min-width: 1.6em; text-align:center; display:inline-block; }
-            .dfc-land-chip { display:inline-flex; align-items:center; gap:.25rem; padding:2px 6px; border-radius:999px; font-size:11px; font-weight:600; background:#0f172a; border:1px solid #334155; color:#e5e7eb; line-height:1; }
+            .dfc-land-chip { display:inline-flex; align-items:center; gap:.25rem; padding:2px 6px; border-radius:999px; font-size:11px; font-weight:600; background:var(--panel); border:1px solid var(--border); color:var(--text); line-height:1; }
             .dfc-land-chip.extra { border-color:#34d399; color:#a7f3d0; }
             .dfc-land-chip.counts { border-color:#60a5fa; color:#bfdbfe; }
           </style>
@@ -519,7 +519,7 @@
   </details>
 </section>
 <style>
-  .chart-tooltip { position: fixed; background: #0f1115; color: #e5e7eb; border: 1px solid var(--border); padding: .4rem .55rem; border-radius: 6px; font-size: 12px; line-height: 1.3; white-space: pre-line; z-index: 9999; display: none; box-shadow: 0 4px 16px rgba(0,0,0,.4); max-width: 90vw; }
+  .chart-tooltip { position: fixed; background: var(--panel); color: var(--text); border: 1px solid var(--border); padding: .4rem .55rem; border-radius: 6px; font-size: 12px; line-height: 1.3; white-space: pre-line; z-index: 9999; display: none; box-shadow: 0 4px 16px rgba(0,0,0,.4); max-width: 90vw; }
   /* Pinned tooltip gets pointer events for Copy button */
   .chart-tooltip.pinned { pointer-events: auto; border-color: #f59e0b; box-shadow: 0 4px 20px rgba(245,158,11,.3); }
   /* Unpinned tooltip has no pointer events (hover only) */
@@ -533,6 +533,8 @@
   /* Chart columns get cursor pointer */
   .chart-column svg { cursor: pointer; transition: opacity 0.15s ease; }
   .chart-column svg:hover { opacity: 0.85; }
+  /* Chart bar backgrounds - use CSS variable for theme support */
+  .chart-svg rect:first-of-type { fill: var(--bg) !important; }
 </style>
 <script>
   (function() {

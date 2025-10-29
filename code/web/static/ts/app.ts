@@ -1409,4 +1409,294 @@ interface SkeletonManager {
   // Initialize on load and after HTMX swaps
   document.addEventListener('DOMContentLoaded', function(){ initLazyAccordions(document.body); });
   document.addEventListener('htmx:afterSwap', function(e){ initLazyAccordions(e.target); });
+
+  // =============================================================================
+  // UTILITIES EXTRACTED FROM BASE.HTML INLINE SCRIPTS (Phase 3)
+  // =============================================================================
+
+  /**
+   * Poll setup status endpoint for progress updates
+   * Shows dynamic status message in #banner-status element
+   */
+  function initSetupStatusPoller(): void {
+    let statusEl: HTMLElement | null = null;
+
+    function ensureStatusEl(): HTMLElement | null {
+      if (!statusEl) statusEl = document.getElementById('banner-status');
+      return statusEl;
+    }
+
+    function renderSetupStatus(data: any): void {
+      const el = ensureStatusEl();
+      if (!el) return;
+
+      if (data && data.running) {
+        const msg = data.message || 'Preparing data...';
+        const pct = (typeof data.percent === 'number') ? data.percent : null;
+
+        // Suppress banner if we're effectively finished (>=99%) or message is purely theme catalog refreshed
+        let suppress = false;
+        if (pct !== null && pct >= 99) suppress = true;
+        const lm = (msg || '').toLowerCase();
+        if (lm.indexOf('theme catalog refreshed') >= 0) suppress = true;
+
+        if (suppress) {
+          if (el.innerHTML) {
+            el.innerHTML = '';
+            el.classList.remove('busy');
+          }
+          return;
+        }
+
+        el.innerHTML = '<strong>Setup/Tagging:</strong> ' + msg + ' <a href="/setup/running" style="margin-left:.5rem;">View progress</a>';
+        el.classList.add('busy');
+      } else if (data && data.phase === 'done') {
+        el.innerHTML = '';
+        el.classList.remove('busy');
+      } else if (data && data.phase === 'error') {
+        el.innerHTML = '<span class="error">Setup error.</span>';
+        setTimeout(function(){
+          el.innerHTML = '';
+          el.classList.remove('busy');
+        }, 5000);
+      } else {
+        if (!el.innerHTML.trim()) el.innerHTML = '';
+        el.classList.remove('busy');
+      }
+    }
+
+    function pollStatus(): void {
+      try {
+        fetch('/status/setup', { cache: 'no-store' })
+          .then(function(r){ return r.json(); })
+          .then(renderSetupStatus)
+          .catch(function(){ /* noop */ });
+      } catch(_){}
+    }
+
+    // Poll every 10 seconds to reduce server load (only for header indicator)
+    setInterval(pollStatus, 10000);
+    pollStatus(); // Initial poll
+  }
+
+  /**
+   * Highlight active navigation link based on current path
+   * Matches exact or prefix paths, prioritizing longer matches
+   */
+  function initActiveNavHighlighter(): void {
+    try {
+      const path = window.location.pathname || '/';
+      const nav = document.getElementById('primary-nav');
+      if (!nav) return;
+
+      const links = nav.querySelectorAll('a');
+      let best: HTMLAnchorElement | null = null;
+      let bestLen = -1;
+
+      links.forEach(function(a){
+        const href = a.getAttribute('href') || '';
+        if (!href) return;
+        // Exact match or prefix match (ignoring trailing slash)
+        if (path === href || path === href + '/' || (href !== '/' && path.startsWith(href))){
+          if (href.length > bestLen){ 
+            best = a as HTMLAnchorElement; 
+            bestLen = href.length; 
+          }
+        }
+      });
+
+      if (best) best.classList.add('active');
+    } catch(_){}
+  }
+
+  /**
+   * Initialize theme selector dropdown and persistence
+   * Handles localStorage, URL overrides, and system preference tracking
+   */
+  function initThemeSelector(enableThemes: boolean, defaultTheme: string): void {
+    if (!enableThemes) return;
+
+    try {
+      const sel = document.getElementById('theme-select') as HTMLSelectElement | null;
+      const resetBtn = document.getElementById('theme-reset');
+      const root = document.documentElement;
+      const KEY = 'mtg:theme';
+      const SERVER_DEFAULT = defaultTheme;
+
+      function mapLight(v: string): string {
+        return v === 'light' ? 'light-blend' : v;
+      }
+
+      function resolveSystem(): string {
+        const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        return prefersDark ? 'dark' : 'light-blend';
+      }
+
+      function normalizeUiValue(v: string): string {
+        const x = (v || 'system').toLowerCase();
+        if (x === 'light-blend' || x === 'light-slate' || x === 'light-parchment') return 'light';
+        return x;
+      }
+
+      function apply(val: string): void {
+        let v = (val || 'system').toLowerCase();
+        if (v === 'system') v = resolveSystem();
+        v = mapLight(v);
+        root.setAttribute('data-theme', v);
+      }
+
+      // Optional URL override: ?theme=system|light|dark|high-contrast|cb-friendly
+      const params = new URLSearchParams(window.location.search || '');
+      const urlTheme = (params.get('theme') || '').toLowerCase();
+      if (urlTheme) {
+        // Persist the UI value, not the mapped CSS token
+        localStorage.setItem(KEY, normalizeUiValue(urlTheme));
+        // Clean the URL so reloads don't keep overriding
+        try {
+          const u = new URL(window.location.href);
+          u.searchParams.delete('theme');
+          window.history.replaceState({}, document.title, u.toString());
+        } catch(_){}
+      }
+
+      // Determine initial selection: URL -> localStorage -> server default -> system
+      const stored = localStorage.getItem(KEY);
+      const initial = urlTheme || ((stored && stored.trim()) ? stored : (SERVER_DEFAULT || 'system'));
+      apply(initial);
+
+      if (sel) {
+        sel.value = normalizeUiValue(initial);
+        sel.addEventListener('change', function(){
+          const v = sel.value || 'system';
+          localStorage.setItem(KEY, v);
+          apply(v);
+        });
+      }
+
+      if (resetBtn) {
+        resetBtn.addEventListener('click', function(){
+          try { localStorage.removeItem(KEY); } catch(_){}
+          const v = SERVER_DEFAULT || 'system';
+          apply(v);
+          if (sel) sel.value = normalizeUiValue(v);
+        });
+      }
+
+      // React to system changes when set to system
+      if (window.matchMedia) {
+        const mq = window.matchMedia('(prefers-color-scheme: dark)');
+        mq.addEventListener && mq.addEventListener('change', function(){
+          const cur = localStorage.getItem(KEY) || (SERVER_DEFAULT || 'system');
+          if (cur === 'system') apply('system');
+        });
+      }
+    } catch(_){}
+  }
+
+  /**
+   * Apply theme from environment variable when selector is disabled
+   * Resolves 'system' to OS preference
+   */
+  function initThemeEnvOnly(enableThemes: boolean, defaultTheme: string): void {
+    if (enableThemes) return; // Only run when themes are disabled
+
+    try {
+      const root = document.documentElement;
+      const SERVER_DEFAULT = defaultTheme;
+
+      function resolveSystem(): string {
+        const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        return prefersDark ? 'dark' : 'light-blend';
+      }
+
+      let v = (SERVER_DEFAULT || 'system').toLowerCase();
+      if (v === 'system') v = resolveSystem();
+      if (v === 'light') v = 'light-blend';
+      root.setAttribute('data-theme', v);
+
+      // Track OS changes when using system
+      if ((SERVER_DEFAULT || 'system').toLowerCase() === 'system' && window.matchMedia) {
+        const mq = window.matchMedia('(prefers-color-scheme: dark)');
+        mq.addEventListener && mq.addEventListener('change', function(){
+          root.setAttribute('data-theme', resolveSystem());
+        });
+      }
+    } catch(_){}
+  }
+
+  /**
+   * Register PWA service worker and handle updates
+   * Automatically reloads when new version is available
+   */
+  function initServiceWorker(enablePwa: boolean, catalogHash: string): void {
+    if (!enablePwa) return;
+
+    try {
+      if ('serviceWorker' in navigator) {
+        const ver = catalogHash || 'dev';
+        const url = '/static/sw.js?v=' + encodeURIComponent(ver);
+
+        navigator.serviceWorker.register(url).then(function(reg){
+          (window as any).__pwaStatus = { registered: true, scope: reg.scope, version: ver };
+
+          // Listen for updates (new worker installing)
+          if (reg.waiting) {
+            reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+          }
+
+          reg.addEventListener('updatefound', function(){
+            try {
+              const nw = reg.installing;
+              if (!nw) return;
+
+              nw.addEventListener('statechange', function(){
+                if (nw.state === 'installed' && navigator.serviceWorker.controller) {
+                  // New version available; reload silently for freshness
+                  try {
+                    sessionStorage.setItem('mtg:swUpdated', '1');
+                  } catch(_){}
+                  window.location.reload();
+                }
+              });
+            } catch(_){}
+          });
+        }).catch(function(){
+          (window as any).__pwaStatus = { registered: false };
+        });
+      }
+    } catch(_){}
+  }
+
+  /**
+   * Show toast after page reload
+   * Used when actions replace the whole document
+   */
+  function initToastAfterReload(): void {
+    try {
+      const raw = sessionStorage.getItem('mtg:toastAfterReload');
+      if (raw) {
+        sessionStorage.removeItem('mtg:toastAfterReload');
+        const data = JSON.parse(raw);
+        if (data && data.msg) {
+          window.toast && window.toast(data.msg, data.type || '');
+        }
+      }
+    } catch(_){}
+  }
+
+  // Initialize all utilities on DOMContentLoaded
+  document.addEventListener('DOMContentLoaded', function(){
+    initSetupStatusPoller();
+    initActiveNavHighlighter();
+    initToastAfterReload();
+
+    // Theme and PWA initialization require server-injected values
+    // These will be called from base.html inline scripts that pass the values
+    // window.__initThemeSelector, window.__initThemeEnvOnly, window.__initServiceWorker
+  });
+
+  // Expose functions globally for inline script calls (with server values)
+  (window as any).__initThemeSelector = initThemeSelector;
+  (window as any).__initThemeEnvOnly = initThemeEnvOnly;
+  (window as any).__initServiceWorker = initServiceWorker;
 })();

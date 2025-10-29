@@ -9,40 +9,41 @@
     left: 0;
     right: 0;
     z-index: 1000;
-    background: var(--card-bg, #1a1d24);
-    border: 1px solid var(--border, #374151);
+    background: var(--panel);
+    border: 1px solid var(--border);
     border-top: none;
     border-radius: 0 0 6px 6px;
     max-height: 300px;
     overflow-y: auto;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    color: var(--text);
   }
   .autocomplete-dropdown:empty { display: none; }
   .autocomplete-item {
     padding: .75rem;
     cursor: pointer;
-    border-bottom: 1px solid rgba(55, 65, 81, 0.5);
+    border-bottom: 1px solid var(--border);
     transition: background 0.15s;
   }
   .autocomplete-item:last-child { border-bottom: none; }
   .autocomplete-item:hover, .autocomplete-item:focus, .autocomplete-item.selected {
-    background: rgba(148, 163, 184, .15);
+    background: var(--bg);
   }
   .autocomplete-item.selected {
-    background: rgba(148, 163, 184, .25);
-    border-left: 3px solid var(--ring, #3b82f6);
+    background: var(--bg);
+    border-left: 3px solid var(--ring);
     padding-left: calc(.75rem - 3px);
   }
   .autocomplete-empty {
     padding: .75rem;
     text-align: center;
-    color: var(--muted, #9ca3af);
+    color: var(--muted);
     font-size: .85rem;
   }
   .autocomplete-error {
     padding: .75rem;
     text-align: center;
-    color: #f87171;
+    color: var(--err);
     font-size: .85rem;
   }
   

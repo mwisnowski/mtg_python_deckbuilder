@@ -37,7 +37,12 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
   - PostCSS build pipeline with autoprefixer
   - Reduced inline styles in templates (moved to shared CSS classes)
   - Organized CSS into functional sections with clear documentation
-  - **Light theme visual improvements**: Warm earth tone palette with better button/panel contrast
+- **Theme Visual Improvements**: Enhanced readability and consistency across all theme modes
+  - Light mode: Darker text for improved readability, warm earth tone color palette
+  - Dark mode: Refined contrast for better visual hierarchy
+  - High-contrast mode: Optimized for maximum accessibility
+  - Consistent hover states across all interactive elements
+  - Improved visibility of form inputs and controls
 - **JavaScript Modernization**: Updated to modern JavaScript patterns
   - Converted `var` declarations to `const`/`let`
   - Added TypeScript type annotations for better IDE support and error catching

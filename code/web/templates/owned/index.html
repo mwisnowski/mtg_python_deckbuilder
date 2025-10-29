@@ -38,22 +38,22 @@
 
   {% if names and names|length %}
   <div class="filters" style="display:flex; flex-wrap:wrap; gap:8px; margin:.25rem 0 .5rem 0;">
-    <select id="sort-by" data-pref="owned:sort" style="background:#0f1115; color:#e5e7eb; border:1px solid var(--border); border-radius:6px; padding:.3rem .5rem;">
+    <select id="sort-by" data-pref="owned:sort" style="background:var(--panel); color:var(--text); border:1px solid var(--border); border-radius:6px; padding:.3rem .5rem;">
       <option value="name">Sort: A → Z</option>
       <option value="type">Sort: Type</option>
       <option value="color">Sort: Color</option>
       <option value="tags">Sort: Tags</option>
       <option value="recent">Sort: Recently added</option>
     </select>
-    <select id="filter-type" data-pref="owned:type" style="background:#0f1115; color:#e5e7eb; border:1px solid var(--border); border-radius:6px; padding:.3rem .5rem;">
+    <select id="filter-type" data-pref="owned:type" style="background:var(--panel); color:var(--text); border:1px solid var(--border); border-radius:6px; padding:.3rem .5rem;">
       <option value="">All Types</option>
       {% for t in all_types %}<option value="{{ t }}">{{ t }}</option>{% endfor %}
     </select>
-    <select id="filter-tag" data-pref="owned:tag" style="background:#0f1115; color:#e5e7eb; border:1px solid var(--border); border-radius:6px; padding:.3rem .5rem; max-width:320px;">
+    <select id="filter-tag" data-pref="owned:tag" style="background:var(--panel); color:var(--text); border:1px solid var(--border); border-radius:6px; padding:.3rem .5rem; max-width:320px;">
       <option value="">All Themes</option>
       {% for t in all_tags %}<option value="{{ t }}">{{ t }}</option>{% endfor %}
     </select>
-    <select id="filter-color" data-pref="owned:color" style="background:#0f1115; color:#e5e7eb; border:1px solid var(--border); border-radius:6px; padding:.3rem .5rem;">
+    <select id="filter-color" data-pref="owned:color" style="background:var(--panel); color:var(--text); border:1px solid var(--border); border-radius:6px; padding:.3rem .5rem;">
       <option value="">All Colors</option>
       {% for c in all_colors %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
       {% if color_combos and color_combos|length %}
@@ -63,14 +63,14 @@
       {% endfor %}
       {% endif %}
     </select>
-    <input id="filter-text" data-pref="owned:q" type="search" placeholder="Search name..." style="background:#0f1115; color:#e5e7eb; border:1px solid var(--border); border-radius:6px; padding:.3rem .5rem; flex:1; min-width:200px;" />
+    <input id="filter-text" data-pref="owned:q" type="search" placeholder="Search name..." style="background:var(--panel); color:var(--text); border:1px solid var(--border); border-radius:6px; padding:.3rem .5rem; flex:1; min-width:200px;" />
     <button type="button" id="clear-filters">Clear</button>
   </div>
   <div id="active-chips" class="muted" style="display:flex; flex-wrap:wrap; gap:6px; font-size:12px; margin:.25rem 0 .5rem 0;"></div>
   {% endif %}
 
   {% if names and names|length %}
-  <div id="owned-box" style="overflow:auto; border:1px solid var(--border); border-radius:8px; padding:.5rem; background:#0f1115; color:#e5e7eb; min-height:240px;" {% if virtualize and count > 800 %}data-virtualize="1"{% endif %}>
+  <div id="owned-box" style="overflow:auto; border:1px solid var(--border); border-radius:8px; padding:.5rem; background:var(--panel); color:var(--text); min-height:240px;" {% if virtualize and count > 800 %}data-virtualize="1"{% endif %}>
     <ul id="owned-grid" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); grid-auto-rows:auto; gap:4px 16px; list-style:none; margin:0; padding:0;">
       {% for n in names %}
       {% set tags = (tags_by_name.get(n, []) if tags_by_name else []) %}

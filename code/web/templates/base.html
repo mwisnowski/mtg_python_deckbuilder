@@ -66,6 +66,7 @@
           </button>
           <h1 style="margin:0; white-space: nowrap;">MTG Deckbuilder</h1>
         </div>
+        <div id="banner-status" class="banner-status" role="status" aria-live="polite"></div>
       </div>
     </header>
     <div class="layout">
@@ -195,51 +196,8 @@
           document.body.classList.remove('htmx-settling');
         });
 
-        // Setup/Tagging status poller
-        var statusEl;
-        function ensureStatusEl(){
-          if (!statusEl) statusEl = document.getElementById('banner-status');
-          return statusEl;
-        }
-    function renderSetupStatus(data){
-      var el = ensureStatusEl(); if (!el) return;
-      if (data && data.running) {
-        var msg = (data.message || 'Preparing data...');
-        var pct = (typeof data.percent === 'number') ? data.percent : null;
-        // Suppress banner if we're effectively finished (>=99%) or message is purely theme catalog refreshed
-        var suppress = false;
-        if (pct !== null && pct >= 99) suppress = true;
-        var lm = (msg || '').toLowerCase();
-        if (lm.indexOf('theme catalog refreshed') >= 0) suppress = true;
-        if (suppress) {
-          if (el.innerHTML) { el.innerHTML=''; el.classList.remove('busy'); }
-          return;
-        }
-        el.innerHTML = '<strong>Setup/Tagging:</strong> ' + msg + ' <a href="/setup/running" style="margin-left:.5rem;">View progress</a>';
-        el.classList.add('busy');
-      } else if (data && data.phase === 'done') {
-        el.innerHTML = '';
-        el.classList.remove('busy');
-      } else if (data && data.phase === 'error') {
-        el.innerHTML = '<span class="error">Setup error.</span>';
-        setTimeout(function(){ el.innerHTML = ''; el.classList.remove('busy'); }, 5000);
-      } else {
-        if (!el.innerHTML.trim()) el.innerHTML = '';
-        el.classList.remove('busy');
-      }
-    }
-        function pollStatus(){
-          try {
-            fetch('/status/setup', { cache: 'no-store' })
-              .then(function(r){ return r.json(); })
-              .then(renderSetupStatus)
-              .catch(function(){ /* noop */ });
-          } catch(e) {}
-        }
-        // Poll every 10 seconds instead of 3 to reduce server load (only for header indicator)
-        setInterval(pollStatus, 10000);
-        pollStatus();
-
+        // Setup/Tagging status poller moved to app.ts (initSetupStatusPoller)
+        
         // Expose normalizeCardName for cardImages module
         window.__normalizeCardName = function(raw){
           if(!raw) return raw;
@@ -390,163 +348,45 @@
         try { observer.observe(document.body, { childList:true, subtree:true }); } catch(_){ }
       })();
     </script>
-    <script>
-      (function(){
-        try {
-          var path = window.location.pathname || '/';
-          var nav = document.getElementById('primary-nav'); if(!nav) return;
-          var links = nav.querySelectorAll('a');
-          var best = null; var bestLen = -1;
-            links.forEach(function(a){
-              var href = a.getAttribute('href') || '';
-              if(!href) return;
-              // Exact match or prefix match (ignoring trailing slash)
-              if(path === href || path === href + '/' || (href !== '/' && path.startsWith(href))){
-                if(href.length > bestLen){ best = a; bestLen = href.length; }
-              }
-            });
-          if(best) best.classList.add('active');
-        } catch(_) {}
-      })();
-    </script>
+    <!-- Active nav highlighter moved to app.ts (initActiveNavHighlighter) -->
   <script src="/static/js/components.js?v=20251028-1"></script>
-  <script src="/static/js/app.js?v=20250826-4"></script>
+  <script src="/static/js/app.js?v=20251029-2"></script>
   <script src="/static/js/cardImages.js?v=20251029-1"></script>
   <script src="/static/js/cardHover.js?v=20251028-1"></script>
   {% if enable_themes %}
   <script>
-    (function(){
-      try{
-        var sel = document.getElementById('theme-select');
-  var resetBtn = document.getElementById('theme-reset');
-        var root = document.documentElement;
-        var KEY = 'mtg:theme';
-        var SERVER_DEFAULT = '{{ default_theme }}';
-        function mapLight(v){ return v === 'light' ? 'light-blend' : v; }
-        function resolveSystem(){
-          var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-          return prefersDark ? 'dark' : 'light-blend';
-        }
-        function normalizeUiValue(v){
-          var x = (v||'system').toLowerCase();
-          if (x === 'light-blend' || x === 'light-slate' || x === 'light-parchment') return 'light';
-          return x;
-        }
-        function apply(val){
-          var v = (val || 'system').toLowerCase();
-          if (v === 'system') v = resolveSystem();
-          v = mapLight(v);
-          root.setAttribute('data-theme', v);
-        }
-        // Optional URL override: ?theme=system|light|dark|high-contrast|cb-friendly
-        var params = new URLSearchParams(window.location.search || '');
-        var urlTheme = (params.get('theme') || '').toLowerCase();
-        if (urlTheme) {
-          // Persist the UI value, not the mapped CSS token
-          localStorage.setItem(KEY, normalizeUiValue(urlTheme));
-          // Clean the URL so reloads don't keep overriding
-          try { var u = new URL(window.location.href); u.searchParams.delete('theme'); window.history.replaceState({}, document.title, u.toString()); } catch(_){ }
-        }
-        // Determine initial selection: URL -> localStorage -> server default -> system
-        var stored = localStorage.getItem(KEY);
-        var initial = urlTheme || ((stored && stored.trim()) ? stored : (SERVER_DEFAULT || 'system'));
-        apply(initial);
-        if (sel){
-          sel.value = normalizeUiValue(initial);
-          sel.addEventListener('change', function(){
-            var v = sel.value || 'system';
-            localStorage.setItem(KEY, v);
-            apply(v);
-          });
-        }
-        if (resetBtn){
-          resetBtn.addEventListener('click', function(){
-            try{ localStorage.removeItem(KEY); }catch(_){ }
-            var v = SERVER_DEFAULT || 'system';
-            apply(v);
-            if (sel) sel.value = normalizeUiValue(v);
-          });
-        }
-        // React to system changes when set to system
-        if (window.matchMedia){
-          var mq = window.matchMedia('(prefers-color-scheme: dark)');
-          mq.addEventListener && mq.addEventListener('change', function(){
-            var cur = localStorage.getItem(KEY) || (SERVER_DEFAULT || 'system');
-            if (cur === 'system') apply('system');
-          });
-        }
-      }catch(_){ }
-    })();
+    // Theme selector logic moved to app.ts (initThemeSelector)
+    // Call it with server-injected values on DOMContentLoaded
+    document.addEventListener('DOMContentLoaded', function(){
+      if (window.__initThemeSelector) {
+        window.__initThemeSelector({{ enable_themes|lower }}, '{{ default_theme }}');
+      }
+    });
   </script>
   {% endif %}
   {% if not enable_themes %}
   <script>
-    (function(){
-      try{
-        // Apply THEME env even when the selector is disabled. Resolve 'system' to OS preference.
-        var root = document.documentElement;
-        var SERVER_DEFAULT = '{{ default_theme }}';
-        function resolveSystem(){
-          var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-          return prefersDark ? 'dark' : 'light-blend';
-        }
-        var v = (SERVER_DEFAULT || 'system').toLowerCase();
-        if (v === 'system') v = resolveSystem();
-        if (v === 'light') v = 'light-blend';
-        root.setAttribute('data-theme', v);
-        // Track OS changes when using system
-        if ((SERVER_DEFAULT||'system').toLowerCase() === 'system' && window.matchMedia){
-          var mq = window.matchMedia('(prefers-color-scheme: dark)');
-          mq.addEventListener && mq.addEventListener('change', function(){ root.setAttribute('data-theme', resolveSystem()); });
-        }
-      }catch(_){ }
-    })();
+    // Theme env-only logic moved to app.ts (initThemeEnvOnly)
+    // Call it with server-injected values on DOMContentLoaded
+    document.addEventListener('DOMContentLoaded', function(){
+      if (window.__initThemeEnvOnly) {
+        window.__initThemeEnvOnly({{ enable_themes|lower }}, '{{ default_theme }}');
+      }
+    });
   </script>
   {% endif %}
   {% if enable_pwa %}
   <script>
-    (function(){
-      try{
-        if ('serviceWorker' in navigator){
-          var ver = '{{ catalog_hash|default("dev") }}';
-          var url = '/static/sw.js?v=' + encodeURIComponent(ver);
-          navigator.serviceWorker.register(url).then(function(reg){
-            window.__pwaStatus = { registered: true, scope: reg.scope, version: ver };
-            // Listen for updates (new worker installing)
-            if(reg.waiting){ reg.waiting.postMessage({ type: 'SKIP_WAITING' }); }
-            reg.addEventListener('updatefound', function(){
-              try {
-                var nw = reg.installing; if(!nw) return;
-                nw.addEventListener('statechange', function(){
-                  if(nw.state === 'installed' && navigator.serviceWorker.controller){
-                    // New version available; reload silently for freshness
-                    try { sessionStorage.setItem('mtg:swUpdated','1'); }catch(_){ }
-                    window.location.reload();
-                  }
-                });
-              }catch(_){ }
-            });
-          }).catch(function(){ window.__pwaStatus = { registered: false }; });
-        }
-      }catch(_){ }
-    })();
+    // Service worker registration moved to app.ts (initServiceWorker)
+    // Call it with server-injected values on DOMContentLoaded
+    document.addEventListener('DOMContentLoaded', function(){
+      if (window.__initServiceWorker) {
+        window.__initServiceWorker({{ enable_pwa|lower }}, '{{ catalog_hash|default("dev") }}');
+      }
+    });
   </script>
   {% endif %}
-  <script>
-    // Show pending toast after full page reloads when actions replace the whole document
-    (function(){
-      try{
-        var raw = sessionStorage.getItem('mtg:toastAfterReload');
-        if (raw){
-          sessionStorage.removeItem('mtg:toastAfterReload');
-          var data = JSON.parse(raw);
-          if (data && data.msg){ window.toast && window.toast(data.msg, data.type||''); }
-        }
-      }catch(_){ }
-    })();
-  </script>
-  <script>
-    <!-- Hover card panel system moved to TypeScript: code/web/static/ts/cardHover.ts -->
-  </script>
+  <!-- Toast after reload, setup poller, nav highlighter moved to app.ts -->
+  <!-- Hover card panel system moved to cardHover.ts -->
   </body>
   </html>

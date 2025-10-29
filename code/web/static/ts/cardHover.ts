@@ -117,7 +117,7 @@ interface PointerEventLike {
     panel.setAttribute('role', 'dialog');
     panel.setAttribute('aria-label', 'Card detail hover panel');
     panel.setAttribute('aria-hidden', 'true');
-    panel.style.cssText = 'display:none;position:fixed;z-index:9999;width:560px;max-width:98vw;background:#1f2937;border:1px solid #374151;border-radius:12px;padding:18px;box-shadow:0 16px 42px rgba(0,0,0,.75);color:#f3f4f6;font-size:14px;line-height:1.45;pointer-events:none;';
+    panel.style.cssText = 'display:none;position:fixed;z-index:9999;width:560px;max-width:98vw;background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:18px;box-shadow:0 16px 42px rgba(0,0,0,.75);color:var(--text);font-size:14px;line-height:1.45;pointer-events:none;';
     panel.innerHTML = '' +
       '<div class="hcp-header" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;gap:6px;">' +
       '<div class="hcp-name" style="font-weight:600;font-size:16px;flex:1;padding-right:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">&nbsp;</div>' +
@@ -126,11 +126,11 @@ interface PointerEventLike {
       '</div>' +
       '<div class="hcp-body">' +
       '<div class="hcp-img-wrap" style="text-align:center;display:flex;flex-direction:column;gap:12px;">' +
-      '<img class="hcp-img" alt="Card image" style="max-width:320px;width:100%;height:auto;border-radius:10px;border:1px solid #475569;background:#0b0d12;opacity:1;" />' +
+      '<img class="hcp-img" alt="Card image" style="max-width:320px;width:100%;height:auto;border-radius:10px;border:1px solid var(--border);background:var(--bg);opacity:1;" />' +
       '</div>' +
       '<div class="hcp-right" style="display:flex;flex-direction:column;min-width:0;">' +
       '<div style="display:flex;align-items:center;gap:6px;margin:0 0 4px;flex-wrap:wrap;">' +
-      '<div class="hcp-role" style="display:inline-block;padding:3px 8px;font-size:11px;letter-spacing:.65px;border:1px solid #475569;border-radius:12px;background:#243044;text-transform:uppercase;">&nbsp;</div>' +
+      '<div class="hcp-role" style="display:inline-block;padding:3px 8px;font-size:11px;letter-spacing:.65px;border:1px solid var(--border);border-radius:12px;background:var(--bg);text-transform:uppercase;">&nbsp;</div>' +
       '<div class="hcp-overlaps" style="flex:1;min-height:14px;"></div>' +
       '</div>' +
       '<ul class="hcp-taglist" aria-label="Themes"></ul>' +

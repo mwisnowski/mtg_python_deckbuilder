@@ -1,5 +1,24 @@
 /* Core app enhancements: tokens, toasts, shortcuts, state, skeletons */
-import type { StateManager, TelemetryManager, ToastOptions, SkeletonManager } from './types.js';
+// Type definitions moved inline to avoid module system
+interface StateManager {
+  get(key: string, def?: any): any;
+  set(key: string, val: any): void;
+  inHash(obj: Record<string, any>): void;
+  readHash(): URLSearchParams;
+}
+
+interface ToastOptions {
+  duration?: number;
+}
+
+interface TelemetryManager {
+  send(eventName: string, data?: Record<string, any>): void;
+}
+
+interface SkeletonManager {
+  show(context?: HTMLElement | Document): void;
+  hide(context?: HTMLElement | Document): void;
+}
 
 (function(){
   // Design tokens fallback (in case CSS variables missing in older browsers)

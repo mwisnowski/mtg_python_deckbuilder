@@ -27,6 +27,11 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
   - Docker build automatically compiles TypeScript during image creation
 
 ### Changed
+- **Inline JavaScript Cleanup**: Removed legacy card hover system (~230 lines of unused code)
+- **JavaScript Consolidation**: Extracted inline scripts to TypeScript modules
+  - Created `cardHover.ts` for unified hover panel functionality
+  - Created `cardImages.ts` for card image loading with automatic retry fallbacks
+  - Reduced inline script size in base template for better maintainability
 - **Migrated CSS to Tailwind**: Consolidated and unified CSS architecture
   - Tailwind CSS v3 with custom MTG color palette
   - PostCSS build pipeline with autoprefixer
@@ -62,9 +67,6 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
   - Visual highlighting for selected theme chips in deck builder
 
 ### Changed
-- Optimized Docker build process: Reduced build time from ~134s to ~6s
-  - Removed redundant card_files copy (already mounted as volume)
-  - Added volume mounts for templates and static files (hot reload support)
 - Migrated 5 templates to new component system (home, 404, 500, setup, commanders)
 
 ### Removed
@@ -74,7 +76,16 @@ _None_
 _None_
 
 ### Performance
-- Docker hot reload now works for CSS and template changes (no rebuild required)
+- Hot reload for CSS/template changes (no Docker rebuild needed)
+- Optional image caching reduces Scryfall API calls
+- Faster page loads with optimized CSS
+- TypeScript compilation produces optimized JavaScript
+
+### For Users
+- Faster card image loading with optional caching
+- Cleaner, more consistent web UI design
+- Improved page load performance
+- More reliable JavaScript behavior
 
 ### Deprecated
 _None_

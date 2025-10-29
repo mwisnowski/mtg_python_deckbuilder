@@ -4,7 +4,10 @@
 {% set display_label = record.name if '//' in record.name else record.display_name %}
 {% set placeholder_pixel = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==" %}
 <article class="commander-row" data-commander-slug="{{ record.slug }}" data-hover-simple="true">
-  <div class="commander-thumb">
+  <div class="commander-thumb" 
+       data-card-name="{{ record.name }}"
+       data-original-name="{{ record.name }}"
+       {% if record.layout %}data-layout="{{ record.layout }}"{% endif %}>
     {% set small = record.display_name|card_image('small') %}
     {% set normal = record.display_name|card_image('normal') %}
     <img
@@ -16,8 +19,9 @@
       decoding="async"
       width="160"
       height="223"
-      data-card-name="{{ record.display_name }}"
+      data-card-name="{{ record.name }}"
       data-original-name="{{ record.name }}"
+      {% if record.layout %}data-layout="{{ record.layout }}"{% endif %}
       data-hover-simple="true"
       class="commander-thumb-img"
     />

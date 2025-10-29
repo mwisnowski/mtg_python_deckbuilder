@@ -7,33 +7,61 @@ Web UI improvements with Tailwind CSS migration, TypeScript conversion, componen
 
 ### Added
 - **Card Image Caching**: Optional local image cache for faster card display
-  - Downloads card images from Scryfall bulk data
+  - Downloads card images from Scryfall bulk data (respects API guidelines)
   - Graceful fallback to Scryfall API for uncached images
-  - Enable with `CACHE_CARD_IMAGES=1` environment variable
-  - Intelligent statistics caching (weekly refresh, matching card data staleness)
-- **Component Library**: Living documentation at `/docs/components`
-  - Interactive examples of all UI components
-  - Reusable Jinja2 macros for consistent design
+  - Enabled via `CACHE_CARD_IMAGES=1` environment variable
+  - Integrated with setup/tagging process
+  - Statistics endpoint with intelligent caching (weekly refresh, matching card data staleness)
+- **Component Library**: Living documentation of reusable UI components at `/docs/components`
+  - Interactive examples of all buttons, modals, forms, cards, and panels
+  - Jinja2 macros for consistent component usage
   - Component partial templates for reuse across pages
-- **TypeScript Support**: Migrated JavaScript to TypeScript for better code quality
-  - Type definitions for state management, telemetry, and UI components
-  - Improved IDE support with autocomplete and type checking
-  - Integrated into build process (compiles during Docker build)
+- **TypeScript Migration**: Migrated JavaScript codebase to TypeScript for better type safety
+  - Converted `components.js` (376 lines) and `app.js` (1390 lines) to TypeScript
+  - Created shared type definitions for state management, telemetry, HTMX, and UI components
+  - Integrated TypeScript compilation into build process (`npm run build:ts`)
+  - Compiled JavaScript output in `code/web/static/js/` directory
+  - Docker build automatically compiles TypeScript during image creation
 
 ### Changed
+- **Inline JavaScript Cleanup**: Removed legacy card hover system (~230 lines of unused code)
+- **JavaScript Consolidation**: Extracted inline scripts to TypeScript modules
+  - Created `cardHover.ts` for unified hover panel functionality
+  - Created `cardImages.ts` for card image loading with automatic retry fallbacks
+  - Reduced inline script size in base template for better maintainability
 - **Migrated CSS to Tailwind**: Consolidated and unified CSS architecture
   - Tailwind CSS v3 with custom MTG color palette
   - PostCSS build pipeline with autoprefixer
-  - Minimized inline styles in favor of shared CSS classes
+  - Reduced inline styles in templates (moved to shared CSS classes)
+  - Organized CSS into functional sections with clear documentation
   - **Light theme visual improvements**: Warm earth tone palette with better button/panel contrast
 - **JavaScript Modernization**: Updated to modern JavaScript patterns
-  - Converted to TypeScript for better type safety
-  - Replaced `var` with `const`/`let` throughout
-  - Improved error handling and code organization
+  - Converted `var` declarations to `const`/`let`
+  - Added TypeScript type annotations for better IDE support and error catching
+  - Consolidated event handlers and utility functions
 - **Docker Build Optimization**: Improved developer experience
-  - Hot reload for templates and CSS (no rebuild needed)
-  - TypeScript compilation integrated into build process
+  - Hot reload enabled for templates and static files
+  - Volume mounts for rapid iteration without rebuilds
 - **Template Modernization**: Migrated templates to use component system
+- **Intelligent Synergy Builder**: Analyze multiple builds and create optimized "best-of" deck
+  - Scores cards by frequency (50%), EDHREC rank (25%), and theme tags (25%)
+  - 10% bonus for cards appearing in 80%+ of builds
+  - Color-coded synergy scores in preview (green=high, red=low)
+  - Partner commander support with combined color identity
+  - Multi-copy card tracking (e.g., 8 Mountains, 7 Islands)
+  - Export synergy deck with full metadata (CSV, TXT, JSON files)
+- `ENABLE_BATCH_BUILD` environment variable to toggle feature (default: enabled)
+- Detailed progress logging for multi-build orchestration
+- User guide: `docs/user_guides/batch_build_compare.md`
+- **Web UI Component Library**: Standardized UI components for consistent design across all pages
+  - 5 component partial template files (buttons, modals, forms, cards, panels)
+  - ~900 lines of component CSS styles
+  - Interactive JavaScript utilities (components.js)
+  - Living component library page at `/docs/components`
+  - 1600+ lines developer documentation (component_catalog.md)
+- **Custom UI Enhancements**:
+  - Darker gray styling for home page buttons
+  - Visual highlighting for selected theme chips in deck builder
 
 ### Removed
 _None_
@@ -52,12 +80,6 @@ _None_
 - Cleaner, more consistent web UI design
 - Improved page load performance
 - More reliable JavaScript behavior
-
-### For Developers
-- TypeScript provides better IDE support and error detection
-- Clear type definitions for all JavaScript utilities
-- Easier onboarding with typed interfaces
-- Automated build process handles TypeScript compilation
 
 ### Deprecated
 _None_

@@ -425,7 +425,7 @@ async def decks_compare(request: Request, A: Optional[str] = None, B: Optional[s
             mt_val = str(int(mt))
         except Exception:
             mt_val = "0"
-        options.append({"name": it.get("name"), "label": label, "mtime": mt_val})  # type: ignore[arg-type]
+        options.append({"name": it.get("name"), "label": label, "mtime": mt_val})
 
     diffs = None
     metaA: Dict[str, str] = {}

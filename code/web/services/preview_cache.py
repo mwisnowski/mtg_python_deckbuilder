@@ -21,7 +21,7 @@ import json
 import threading
 import math
 
-from .preview_metrics import record_eviction  # type: ignore
+from .preview_metrics import record_eviction
 
 # Phase 2 extraction: adaptive TTL band policy moved into preview_policy
 from .preview_policy import (
@@ -30,7 +30,7 @@ from .preview_policy import (
     DEFAULT_TTL_MIN as _POLICY_TTL_MIN,
     DEFAULT_TTL_MAX as _POLICY_TTL_MAX,
 )
-from .preview_cache_backend import redis_store  # type: ignore
+from .preview_cache_backend import redis_store
 
 TTL_SECONDS = 600
 # Backward-compat variable names retained (tests may reference) mapping to policy constants

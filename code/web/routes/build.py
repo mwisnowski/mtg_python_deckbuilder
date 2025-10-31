@@ -30,7 +30,7 @@ from ..services.build_utils import (
 from ..app import templates
 from deck_builder import builder_constants as bc
 from ..services import orchestrator as orch
-from ..services.orchestrator import is_setup_ready as _is_setup_ready, is_setup_stale as _is_setup_stale  # type: ignore
+from ..services.orchestrator import is_setup_ready as _is_setup_ready, is_setup_stale as _is_setup_stale
 from ..services.build_utils import owned_names as owned_names_helper
 from ..services.tasks import get_session, new_sid
 from html import escape as _esc
@@ -119,7 +119,7 @@ def _available_cards_normalized() -> tuple[set[str], dict[str, str]]:
         from deck_builder.include_exclude_utils import normalize_punctuation
     except Exception:
         # Fallback: identity normalization
-        def normalize_punctuation(x: str) -> str:  # type: ignore
+        def normalize_punctuation(x: str) -> str:
             return str(x).strip().casefold()
     norm_map: dict[str, str] = {}
     for name in names:
@@ -470,7 +470,7 @@ def _background_options_from_commander_catalog() -> list[dict[str, Any]]:
 
     seen: set[str] = set()
     options: list[dict[str, Any]] = []
-    for record in getattr(catalog, "entries", ()):  # type: ignore[attr-defined]
+    for record in getattr(catalog, "entries", ()):
         if not getattr(record, "is_background", False):
             continue
         name = getattr(record, "display_name", None)
@@ -2865,7 +2865,7 @@ async def build_step5_rewind(request: Request, to: str = Form(...)) -> HTMLRespo
                 snap = h.get("snapshot")
                 break
         if snap is not None:
-            orch._restore_builder(ctx["builder"], snap)  # type: ignore[attr-defined]
+            orch._restore_builder(ctx["builder"], snap)
             ctx["idx"] = int(target_i) - 1
             ctx["last_visible_idx"] = int(target_i) - 1
     except Exception:
@@ -3869,7 +3869,7 @@ async def build_step5_reset_stage(request: Request) -> HTMLResponse:
     if not ctx or not ctx.get("snapshot"):
         return await build_step5_get(request)
     try:
-        orch._restore_builder(ctx["builder"], ctx["snapshot"])  # type: ignore[attr-defined]
+        orch._restore_builder(ctx["builder"], ctx["snapshot"])
     except Exception:
         return await build_step5_get(request)
     # Re-render step 5 with cleared added list
@@ -4293,7 +4293,7 @@ async def build_alternatives(
             try:
                 if rng is not None:
                     return rng.sample(seq, limit) if len(seq) >= limit else list(seq)
-                import random as _rnd  # type: ignore
+                import random as _rnd
                 return _rnd.sample(seq, limit) if len(seq) >= limit else list(seq)
             except Exception:
                 return list(seq[:limit])
@@ -4344,7 +4344,7 @@ async def build_alternatives(
         # Helper: map display names
         def _display_map_for(lower_pool: set[str]) -> dict[str, str]:
             try:
-                return builder_display_map(b, lower_pool)  # type: ignore[arg-type]
+                return builder_display_map(b, lower_pool)
             except Exception:
                 return {nm: nm for nm in lower_pool}
 
@@ -4522,7 +4522,7 @@ async def build_alternatives(
                 pass
             # Sort by priority like the builder
             try:
-                pool = bu.sort_by_priority(pool, ["edhrecRank","manaValue"])  # type: ignore[arg-type]
+                pool = bu.sort_by_priority(pool, ["edhrecRank","manaValue"])
             except Exception:
                 pass
             # Exclusions and ownership (for non-random roles this stays before slicing)
@@ -5020,13 +5020,13 @@ async def build_compliance_panel(request: Request) -> HTMLResponse:
     comp = None
     try:
         if hasattr(b, 'compute_and_print_compliance'):
-            comp = b.compute_and_print_compliance(base_stem=None)  # type: ignore[attr-defined]
+            comp = b.compute_and_print_compliance(base_stem=None)
     except Exception:
         comp = None
     try:
         if comp:
             from ..services import orchestrator as orch
-            comp = orch._attach_enforcement_plan(b, comp)  # type: ignore[attr-defined]
+            comp = orch._attach_enforcement_plan(b, comp)
     except Exception:
         pass
     if not comp:
@@ -5151,11 +5151,11 @@ async def build_enforce_apply(request: Request) -> HTMLResponse:
     # If missing, export once to establish base
     if not base_stem:
         try:
-            ctx["csv_path"] = b.export_decklist_csv()  # type: ignore[attr-defined]
+            ctx["csv_path"] = b.export_decklist_csv()
             import os as _os
             base_stem = _os.path.splitext(_os.path.basename(ctx["csv_path"]))[0]
             # Also produce a text export for completeness
-            ctx["txt_path"] = b.export_decklist_text(filename=base_stem + '.txt')  # type: ignore[attr-defined]
+            ctx["txt_path"] = b.export_decklist_text(filename=base_stem + '.txt')
         except Exception:
             base_stem = None
     # Add lock placeholders into the library before enforcement so user choices are present
@@ -5200,7 +5200,7 @@ async def build_enforce_apply(request: Request) -> HTMLResponse:
         pass
     # Run enforcement + re-exports (tops up to 100 internally)
     try:
-        rep = b.enforce_and_reexport(base_stem=base_stem, mode='auto')  # type: ignore[attr-defined]
+        rep = b.enforce_and_reexport(base_stem=base_stem, mode='auto')
     except Exception as e:
         err_ctx = step5_error_ctx(request, sess, f"Enforcement failed: {e}")
         resp = templates.TemplateResponse("build/_step5.html", err_ctx)
@@ -5274,13 +5274,13 @@ async def build_enforcement_fullpage(request: Request) -> HTMLResponse:
     comp = None
     try:
         if hasattr(b, 'compute_and_print_compliance'):
-            comp = b.compute_and_print_compliance(base_stem=None)  # type: ignore[attr-defined]
+            comp = b.compute_and_print_compliance(base_stem=None)
     except Exception:
         comp = None
     try:
         if comp:
             from ..services import orchestrator as orch
-            comp = orch._attach_enforcement_plan(b, comp)  # type: ignore[attr-defined]
+            comp = orch._attach_enforcement_plan(b, comp)
     except Exception:
         pass
     try:

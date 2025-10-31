@@ -425,7 +425,7 @@ def compute_color_source_matrix(card_library: Dict[str, dict], full_df) -> Dict[
 	matrix: Dict[str, Dict[str, int]] = {}
 	lookup = {}
 	if full_df is not None and not getattr(full_df, 'empty', True) and 'name' in full_df.columns:
-		for _, r in full_df.iterrows():  # type: ignore[attr-defined]
+		for _, r in full_df.iterrows():
 			nm = str(r.get('name', ''))
 			if nm and nm not in lookup:
 				lookup[nm] = r
@@ -850,7 +850,7 @@ def select_top_land_candidates(df, already: set[str], basics: set[str], top_n: i
 	out: list[tuple[int,str,str,str]] = []
 	if df is None or getattr(df, 'empty', True):
 		return out
-	for _, row in df.iterrows():  # type: ignore[attr-defined]
+	for _, row in df.iterrows():
 		try:
 			name = str(row.get('name',''))
 			if not name or name in already or name in basics:
@@ -1114,7 +1114,7 @@ def prefer_owned_first(df, owned_names_lower: set[str], name_col: str = 'name'):
 # ---------------------------------------------------------------------------
 # Tag-driven land suggestion helpers
 # ---------------------------------------------------------------------------
-def build_tag_driven_suggestions(builder) -> list[dict]:  # type: ignore[override]
+def build_tag_driven_suggestions(builder) -> list[dict]:
 	"""Return a list of suggestion dicts based on selected commander tags.
 
 	Each dict fields:
@@ -1202,7 +1202,7 @@ def color_balance_addition_candidates(builder, target_color: str, combined_df) -
 		return []
 	existing = set(builder.card_library.keys())
 	out: list[tuple[str, int]] = []
-	for _, row in combined_df.iterrows():  # type: ignore[attr-defined]
+	for _, row in combined_df.iterrows():
 		name = str(row.get('name', ''))
 		if not name or name in existing or any(name == o[0] for o in out):
 			continue

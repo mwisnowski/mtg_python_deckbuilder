@@ -21,7 +21,7 @@ Host DeckBuilder must provide:
 """
 
 class LandDualsMixin:
-    def add_dual_lands(self, requested_count: int | None = None):  # type: ignore[override]
+    def add_dual_lands(self, requested_count: int | None = None):
         """Add two-color 'typed' dual lands based on color identity."""
         if not getattr(self, 'files_to_load', []):
             try:
@@ -117,10 +117,10 @@ class LandDualsMixin:
                 pair_buckets[key] = names
         min_basic_cfg = getattr(bc, 'DEFAULT_BASIC_LAND_COUNT', 20)
         if getattr(self, 'ideal_counts', None):
-            min_basic_cfg = self.ideal_counts.get('basic_lands', min_basic_cfg)  # type: ignore[attr-defined]
-        basic_floor = self._basic_floor(min_basic_cfg)  # type: ignore[attr-defined]
+            min_basic_cfg = self.ideal_counts.get('basic_lands', min_basic_cfg)
+        basic_floor = self._basic_floor(min_basic_cfg)
         default_dual_target = getattr(bc, 'DUAL_LAND_DEFAULT_COUNT', 6)
-        remaining_capacity = max(0, land_target - self._current_land_count())  # type: ignore[attr-defined]
+        remaining_capacity = max(0, land_target - self._current_land_count())
         effective_default = min(default_dual_target, remaining_capacity if remaining_capacity>0 else len(pool), len(pool))
         desired = effective_default if requested_count is None else max(0, int(requested_count))
         if desired == 0:
@@ -129,14 +129,14 @@ class LandDualsMixin:
         if remaining_capacity == 0 and desired > 0:
             slots_needed = desired
             freed_slots = 0
-            while freed_slots < slots_needed and self._count_basic_lands() > basic_floor:  # type: ignore[attr-defined]
-                target_basic = self._choose_basic_to_trim()  # type: ignore[attr-defined]
-                if not target_basic or not self._decrement_card(target_basic):  # type: ignore[attr-defined]
+            while freed_slots < slots_needed and self._count_basic_lands() > basic_floor:
+                target_basic = self._choose_basic_to_trim()
+                if not target_basic or not self._decrement_card(target_basic):
                     break
                 freed_slots += 1
             if freed_slots == 0:
                 desired = 0
-        remaining_capacity = max(0, land_target - self._current_land_count())  # type: ignore[attr-defined]
+        remaining_capacity = max(0, land_target - self._current_land_count())
         desired = min(desired, remaining_capacity, len(pool))
         if desired <= 0:
             self.output_func("Dual Lands: No capacity after trimming; skipping.")
@@ -146,7 +146,7 @@ class LandDualsMixin:
         rng = getattr(self, 'rng', None)
         try:
             if rng:
-                rng.shuffle(bucket_keys)  # type: ignore
+                rng.shuffle(bucket_keys)
             else:
                 random.shuffle(bucket_keys)
         except Exception:
@@ -171,7 +171,7 @@ class LandDualsMixin:
                 break
         added: List[str] = []
         for name in chosen:
-            if self._current_land_count() >= land_target:  # type: ignore[attr-defined]
+            if self._current_land_count() >= land_target:
                 break
             # Determine sub_role as concatenated color pair for traceability
             try:
@@ -198,7 +198,7 @@ class LandDualsMixin:
                 role='dual',
                 sub_role=sub_role,
                 added_by='lands_step5'
-            )  # type: ignore[attr-defined]
+            )
             added.append(name)
         self.output_func("\nDual Lands Added (Step 5):")
         if not added:
@@ -207,11 +207,11 @@ class LandDualsMixin:
             width = max(len(n) for n in added)
             for n in added:
                 self.output_func(f"  {n.ljust(width)} : 1")
-        self.output_func(f"  Land Count Now : {self._current_land_count()} / {land_target}")  # type: ignore[attr-defined]
+        self.output_func(f"  Land Count Now : {self._current_land_count()} / {land_target}")
 
-    def run_land_step5(self, requested_count: int | None = None):  # type: ignore[override]
+    def run_land_step5(self, requested_count: int | None = None):
         self.add_dual_lands(requested_count=requested_count)
-        self._enforce_land_cap(step_label="Duals (Step 5)")  # type: ignore[attr-defined]
+        self._enforce_land_cap(step_label="Duals (Step 5)")
         try:
             from .. import builder_utils as _bu
             _bu.export_current_land_pool(self, '5')

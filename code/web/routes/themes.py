@@ -7,7 +7,7 @@ from typing import Optional, Dict, Any
 
 from fastapi import APIRouter, Request, HTTPException, Query
 from fastapi import BackgroundTasks
-from ..services.orchestrator import _ensure_setup_ready, _run_theme_metadata_enrichment  # type: ignore
+from ..services.orchestrator import _ensure_setup_ready, _run_theme_metadata_enrichment
 from fastapi.responses import JSONResponse, HTMLResponse
 from fastapi.templating import Jinja2Templates
 from ..services.theme_catalog_loader import (
@@ -17,10 +17,10 @@ from ..services.theme_catalog_loader import (
     filter_slugs_fast,
     summaries_for_slugs,
 )
-from ..services.theme_preview import get_theme_preview  # type: ignore
-from ..services.theme_catalog_loader import catalog_metrics, prewarm_common_filters  # type: ignore
-from ..services.theme_preview import preview_metrics  # type: ignore
-from ..services import theme_preview as _theme_preview_mod  # type: ignore  # for error counters
+from ..services.theme_preview import get_theme_preview
+from ..services.theme_catalog_loader import catalog_metrics, prewarm_common_filters
+from ..services.theme_preview import preview_metrics
+from ..services import theme_preview as _theme_preview_mod  # for error counters
 import os
 from fastapi import Body
 
@@ -36,7 +36,7 @@ router = APIRouter(prefix="/themes", tags=["themes"])  # /themes/status
 
 # Reuse the main app's template environment so nav globals stay consistent.
 try:  # circular-safe import: app defines templates before importing this router
-    from ..app import templates as _templates  # type: ignore
+    from ..app import templates as _templates
 except Exception:  # Fallback (tests/minimal contexts)
     _templates = Jinja2Templates(directory=str(Path(__file__).resolve().parent.parent / 'templates'))
 
@@ -131,7 +131,7 @@ async def theme_suggest(
         # Optional rate limit using app helper if available
         rl_result = None
         try:
-            from ..app import rate_limit_check  # type: ignore
+            from ..app import rate_limit_check
             rl_result = rate_limit_check(request, "suggest")
         except HTTPException as http_ex:  # propagate 429 with headers
             raise http_ex
@@ -231,7 +231,7 @@ async def theme_status():
         yaml_file_count = 0
         if yaml_catalog_exists:
             try:
-                yaml_file_count = len([p for p in CATALOG_DIR.iterdir() if p.suffix == ".yml"])  # type: ignore[arg-type]
+                yaml_file_count = len([p for p in CATALOG_DIR.iterdir() if p.suffix == ".yml"])
             except Exception:
                 yaml_file_count = -1
         tagged_time = _load_tag_flag_time()
@@ -547,7 +547,7 @@ async def theme_yaml(theme_id: str):
         raise HTTPException(status_code=404, detail="yaml_not_found")
     # Reconstruct minimal YAML (we have dict already)
     import yaml as _yaml  # local import to keep top-level lean
-    text = _yaml.safe_dump(y, sort_keys=False)  # type: ignore
+    text = _yaml.safe_dump(y, sort_keys=False)
     headers = {"Content-Type": "text/plain; charset=utf-8"}
     return HTMLResponse(text, headers=headers)
 
@@ -631,7 +631,7 @@ async def api_theme_search(
     prefix: list[dict[str, Any]] = []
     substr: list[dict[str, Any]] = []
     seen: set[str] = set()
-    themes_iter = list(idx.catalog.themes)  # type: ignore[attr-defined]
+    themes_iter = list(idx.catalog.themes)
     # Phase 1 + 2: exact / prefix
     for t in themes_iter:
         name = t.theme

@@ -17,7 +17,7 @@ import json
 try:
     import yaml  # type: ignore
 except Exception:  # pragma: no cover - PyYAML already in requirements; defensive
-    yaml = None  # type: ignore
+    yaml = None
 from .preview_metrics import (
     record_build_duration,
     record_role_counts,
@@ -51,8 +51,8 @@ from .preview_cache import (
     store_cache_entry,
     evict_if_needed,
 )
-from .preview_cache_backend import redis_get  # type: ignore
-from .preview_metrics import record_redis_get, record_redis_store  # type: ignore
+from .preview_cache_backend import redis_get
+from .preview_metrics import record_redis_get, record_redis_store
 
 # Local alias to maintain existing internal variable name usage
 _PREVIEW_CACHE = PREVIEW_CACHE
@@ -66,7 +66,7 @@ __all__ = ["get_theme_preview", "preview_metrics", "bust_preview_cache"]
 ## (duplicate imports removed)
 
 # Legacy constant alias retained for any external references; now a function in cache module.
-TTL_SECONDS = ttl_seconds  # type: ignore
+TTL_SECONDS = ttl_seconds
 
 # Per-theme error histogram (P2 observability)
 _PREVIEW_PER_THEME_ERRORS: Dict[str, int] = {}
@@ -89,7 +89,7 @@ def _load_curated_synergy_matrix() -> None:
             # Expect top-level key 'pairs' but allow raw mapping
             pairs = data.get('pairs', data)
             if isinstance(pairs, dict):
-                _CURATED_SYNERGY_MATRIX = pairs  # type: ignore
+                _CURATED_SYNERGY_MATRIX = pairs
             else:
                 _CURATED_SYNERGY_MATRIX = None
         else:

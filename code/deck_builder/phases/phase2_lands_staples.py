@@ -27,10 +27,10 @@ class LandStaplesMixin:
     # ---------------------------
     # Land Building Step 2: Staple Nonbasic Lands (NO Kindred yet)
     # ---------------------------
-    def _current_land_count(self) -> int:  # type: ignore[override]
+    def _current_land_count(self) -> int:
         """Return total number of land cards currently in the library (counts duplicates)."""
         total = 0
-        for name, entry in self.card_library.items():  # type: ignore[attr-defined]
+        for name, entry in self.card_library.items():
             ctype = entry.get('Card Type', '')
             if ctype and 'land' in ctype.lower():
                 total += entry.get('Count', 1)
@@ -47,7 +47,7 @@ class LandStaplesMixin:
                     continue
         return total
 
-    def add_staple_lands(self):  # type: ignore[override]
+    def add_staple_lands(self):
         """Add generic staple lands defined in STAPLE_LAND_CONDITIONS (excluding kindred lands).
 
         Respects total land target (ideal_counts['lands']). Skips additions once target reached.
@@ -62,25 +62,25 @@ class LandStaplesMixin:
                 return
         land_target = None
         if hasattr(self, 'ideal_counts') and getattr(self, 'ideal_counts'):
-            land_target = self.ideal_counts.get('lands')  # type: ignore[attr-defined]
+            land_target = self.ideal_counts.get('lands')
         if land_target is None:
             land_target = getattr(bc, 'DEFAULT_LAND_COUNT', 35)
         min_basic_cfg = getattr(bc, 'DEFAULT_BASIC_LAND_COUNT', 20)
         if hasattr(self, 'ideal_counts') and getattr(self, 'ideal_counts'):
-            min_basic_cfg = self.ideal_counts.get('basic_lands', min_basic_cfg)  # type: ignore[attr-defined]
-        basic_floor = self._basic_floor(min_basic_cfg)  # type: ignore[attr-defined]
+            min_basic_cfg = self.ideal_counts.get('basic_lands', min_basic_cfg)
+        basic_floor = self._basic_floor(min_basic_cfg)
 
         def ensure_capacity() -> bool:
-            if self._current_land_count() < land_target:  # type: ignore[attr-defined]
+            if self._current_land_count() < land_target:
                 return True
-            if self._count_basic_lands() <= basic_floor:  # type: ignore[attr-defined]
+            if self._count_basic_lands() <= basic_floor:
                 return False
-            target_basic = self._choose_basic_to_trim()  # type: ignore[attr-defined]
+            target_basic = self._choose_basic_to_trim()
             if not target_basic:
                 return False
-            if not self._decrement_card(target_basic):  # type: ignore[attr-defined]
+            if not self._decrement_card(target_basic):
                 return False
-            return self._current_land_count() < land_target  # type: ignore[attr-defined]
+            return self._current_land_count() < land_target
 
         commander_tags_all = set(getattr(self, 'commander_tags', []) or []) | set(getattr(self, 'selected_tags', []) or [])
         colors = getattr(self, 'color_identity', []) or []
@@ -102,7 +102,7 @@ class LandStaplesMixin:
             if not ensure_capacity():
                 self.output_func("Staple Lands: Cannot free capacity without violating basic floor; stopping additions.")
                 break
-            if land_name in self.card_library:  # type: ignore[attr-defined]
+            if land_name in self.card_library:
                 continue
             try:
                 include = cond(list(commander_tags_all), colors, commander_power)
@@ -115,7 +115,7 @@ class LandStaplesMixin:
                     role='staple',
                     sub_role='generic-staple',
                     added_by='lands_step2'
-                )  # type: ignore[attr-defined]
+                )
                 added.append(land_name)
                 if land_name == 'Command Tower':
                     reasons[land_name] = f"multi-color ({len(colors)} colors)"
@@ -137,12 +137,12 @@ class LandStaplesMixin:
             for n in added:
                 reason = reasons.get(n, '')
                 self.output_func(f"  {n.ljust(width)} : 1  {('(' + reason + ')') if reason else ''}")
-        self.output_func(f"  Land Count Now : {self._current_land_count()} / {land_target}")  # type: ignore[attr-defined]
+        self.output_func(f"  Land Count Now : {self._current_land_count()} / {land_target}")
 
-    def run_land_step2(self):  # type: ignore[override]
+    def run_land_step2(self):
         """Public wrapper for adding generic staple nonbasic lands (excluding kindred)."""
         self.add_staple_lands()
-        self._enforce_land_cap(step_label="Staples (Step 2)")  # type: ignore[attr-defined]
+        self._enforce_land_cap(step_label="Staples (Step 2)")
         try:
             from .. import builder_utils as _bu
             _bu.export_current_land_pool(self, '2')

@@ -25,11 +25,11 @@ No behavior change intended.
 
 # Attempt to use a fast fuzzy library; fall back gracefully
 try:
-    from rapidfuzz import process as rf_process, fuzz as rf_fuzz  # type: ignore
+    from rapidfuzz import process as rf_process, fuzz as rf_fuzz
     _FUZZ_BACKEND = "rapidfuzz"
 except ImportError:  # pragma: no cover - environment dependent
     try:
-        from fuzzywuzzy import process as fw_process, fuzz as fw_fuzz  # type: ignore
+        from fuzzywuzzy import process as fw_process, fuzz as fw_fuzz
         _FUZZ_BACKEND = "fuzzywuzzy"
     except ImportError:  # pragma: no cover
         _FUZZ_BACKEND = "difflib"

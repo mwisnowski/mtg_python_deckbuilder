@@ -202,7 +202,7 @@ def commander_hover_context(
         from .summary_utils import format_theme_label, format_theme_list
     except Exception:
         # Fallbacks in the unlikely event of circular import issues
-        def format_theme_label(value: Any) -> str:  # type: ignore[redef]
+        def format_theme_label(value: Any) -> str:
             text = str(value or "").strip().replace("_", " ")
             if not text:
                 return ""
@@ -214,10 +214,10 @@ def commander_hover_context(
                     parts.append(chunk[:1].upper() + chunk[1:].lower())
             return " ".join(parts)
 
-        def format_theme_list(values: Iterable[Any]) -> list[str]:  # type: ignore[redef]
+        def format_theme_list(values: Iterable[Any]) -> list[str]:
             seen: set[str] = set()
             result: list[str] = []
-            for raw in values or []:  # type: ignore[arg-type]
+            for raw in values or []:
                 label = format_theme_label(raw)
                 if not label or len(label) <= 1:
                     continue
@@ -420,7 +420,7 @@ def step5_ctx_from_result(
         else:
             entry = {}
             try:
-                entry.update(vars(item))  # type: ignore[arg-type]
+                entry.update(vars(item))
             except Exception:
                 pass
             # Preserve common attributes when vars() empty

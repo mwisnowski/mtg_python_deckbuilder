@@ -20,7 +20,7 @@ Host DeckBuilder must provide:
 """
 
 class LandKindredMixin:
-    def add_kindred_lands(self):  # type: ignore[override]
+    def add_kindred_lands(self):
         """Add kindred-oriented lands ONLY if a selected tag includes 'Kindred' or 'Tribal'.
 
         Baseline inclusions on kindred focus:
@@ -41,32 +41,32 @@ class LandKindredMixin:
             self.output_func("Kindred Lands: No selected kindred/tribal tag; skipping.")
             return
         if hasattr(self, 'ideal_counts') and getattr(self, 'ideal_counts'):
-            land_target = self.ideal_counts.get('lands', getattr(bc, 'DEFAULT_LAND_COUNT', 35))  # type: ignore[attr-defined]
+            land_target = self.ideal_counts.get('lands', getattr(bc, 'DEFAULT_LAND_COUNT', 35))
         else:
             land_target = getattr(bc, 'DEFAULT_LAND_COUNT', 35)
         min_basic_cfg = getattr(bc, 'DEFAULT_BASIC_LAND_COUNT', 20)
         if hasattr(self, 'ideal_counts') and getattr(self, 'ideal_counts'):
-            min_basic_cfg = self.ideal_counts.get('basic_lands', min_basic_cfg)  # type: ignore[attr-defined]
-        basic_floor = self._basic_floor(min_basic_cfg)  # type: ignore[attr-defined]
+            min_basic_cfg = self.ideal_counts.get('basic_lands', min_basic_cfg)
+        basic_floor = self._basic_floor(min_basic_cfg)
 
         def ensure_capacity() -> bool:
-            if self._current_land_count() < land_target:  # type: ignore[attr-defined]
+            if self._current_land_count() < land_target:
                 return True
-            if self._count_basic_lands() <= basic_floor:  # type: ignore[attr-defined]
+            if self._count_basic_lands() <= basic_floor:
                 return False
-            target_basic = self._choose_basic_to_trim()  # type: ignore[attr-defined]
+            target_basic = self._choose_basic_to_trim()
             if not target_basic:
                 return False
-            if not self._decrement_card(target_basic):  # type: ignore[attr-defined]
+            if not self._decrement_card(target_basic):
                 return False
-            return self._current_land_count() < land_target  # type: ignore[attr-defined]
+            return self._current_land_count() < land_target
 
         colors = getattr(self, 'color_identity', []) or []
         added: List[str] = []
         reasons: Dict[str, str] = {}
 
         def try_add(name: str, reason: str):
-            if name in self.card_library:  # type: ignore[attr-defined]
+            if name in self.card_library:
                 return
             if not ensure_capacity():
                 return
@@ -77,7 +77,7 @@ class LandKindredMixin:
                 sub_role='baseline' if reason.startswith('kindred focus') else 'tribe-specific',
                 added_by='lands_step3',
                 trigger_tag='Kindred/Tribal'
-            )  # type: ignore[attr-defined]
+            )
             added.append(name)
             reasons[name] = reason
 
@@ -105,14 +105,14 @@ class LandKindredMixin:
         if snapshot is not None and not snapshot.empty and tribe_terms:
             dynamic_limit = 5
             for tribe in sorted(tribe_terms):
-                if self._current_land_count() >= land_target or dynamic_limit <= 0:  # type: ignore[attr-defined]
+                if self._current_land_count() >= land_target or dynamic_limit <= 0:
                     break
                 tribe_lower = tribe.lower()
                 matches: List[str] = []
                 for _, row in snapshot.iterrows():
                     try:
                         nm = str(row.get('name', ''))
-                        if not nm or nm in self.card_library:  # type: ignore[attr-defined]
+                        if not nm or nm in self.card_library:
                             continue
                         tline = str(row.get('type', row.get('type_line', ''))).lower()
                         if 'land' not in tline:
@@ -125,7 +125,7 @@ class LandKindredMixin:
                     except Exception:
                         continue
                 for nm in matches[:2]:
-                    if self._current_land_count() >= land_target or dynamic_limit <= 0:  # type: ignore[attr-defined]
+                    if self._current_land_count() >= land_target or dynamic_limit <= 0:
                         break
                     if nm in added or nm in getattr(bc, 'BASIC_LANDS', []):
                         continue
@@ -139,12 +139,12 @@ class LandKindredMixin:
             width = max(len(n) for n in added)
             for n in added:
                 self.output_func(f"  {n.ljust(width)} : 1  ({reasons.get(n,'')})")
-        self.output_func(f"  Land Count Now : {self._current_land_count()} / {land_target}")  # type: ignore[attr-defined]
+        self.output_func(f"  Land Count Now : {self._current_land_count()} / {land_target}")
 
-    def run_land_step3(self):  # type: ignore[override]
+    def run_land_step3(self):
         """Public wrapper to add kindred-focused lands."""
         self.add_kindred_lands()
-        self._enforce_land_cap(step_label="Kindred (Step 3)")  # type: ignore[attr-defined]
+        self._enforce_land_cap(step_label="Kindred (Step 3)")
         try:
             from .. import builder_utils as _bu
             _bu.export_current_land_pool(self, '3')

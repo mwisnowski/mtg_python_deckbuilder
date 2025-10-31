@@ -95,7 +95,7 @@ class DeckBuilder(
                 # If a seed was assigned pre-init, use it
                 if self.seed is not None:
                     # Import here to avoid any heavy import cycles at module import time
-                    from random_util import set_seed as _set_seed  # type: ignore
+                    from random_util import set_seed as _set_seed
                     self._rng = _set_seed(int(self.seed))
                 else:
                     self._rng = random.Random()
@@ -107,7 +107,7 @@ class DeckBuilder(
     def set_seed(self, seed: int | str) -> None:
         """Set deterministic seed for this builder and reset its RNG instance."""
         try:
-            from random_util import derive_seed_from_string as _derive, set_seed as _set_seed  # type: ignore
+            from random_util import derive_seed_from_string as _derive, set_seed as _set_seed
             s = _derive(seed)
             self.seed = int(s)
             self._rng = _set_seed(s)
@@ -215,7 +215,7 @@ class DeckBuilder(
             try:
                 # Compute a quick compliance snapshot here to hint at upcoming enforcement
                 if hasattr(self, 'compute_and_print_compliance') and not getattr(self, 'headless', False):
-                    from deck_builder.brackets_compliance import evaluate_deck as _eval  # type: ignore
+                    from deck_builder.brackets_compliance import evaluate_deck as _eval
                     bracket_key = str(getattr(self, 'bracket_name', '') or getattr(self, 'bracket_level', 'core')).lower()
                     commander = getattr(self, 'commander_name', None)
                     snap = _eval(self.card_library, commander_name=commander, bracket=bracket_key)
@@ -240,15 +240,15 @@ class DeckBuilder(
                     csv_path = self.export_decklist_csv()
                     # Persist CSV path immediately (before any later potential exceptions)
                     try:
-                        self.last_csv_path = csv_path  # type: ignore[attr-defined]
+                        self.last_csv_path = csv_path
                     except Exception:
                         pass
                     try:
                         import os as _os
                         base, _ext = _os.path.splitext(_os.path.basename(csv_path))
-                        txt_path = self.export_decklist_text(filename=base + '.txt')  # type: ignore[attr-defined]
+                        txt_path = self.export_decklist_text(filename=base + '.txt')
                         try:
-                            self.last_txt_path = txt_path  # type: ignore[attr-defined]
+                            self.last_txt_path = txt_path
                         except Exception:
                             pass
                         # Display the text file contents for easy copy/paste to online deck builders
@@ -256,18 +256,18 @@ class DeckBuilder(
                         # Compute bracket compliance and save a JSON report alongside exports
                         try:
                             if hasattr(self, 'compute_and_print_compliance'):
-                                report0 = self.compute_and_print_compliance(base_stem=base)  # type: ignore[attr-defined]
+                                report0 = self.compute_and_print_compliance(base_stem=base)
                                 # If non-compliant and interactive, offer enforcement now
                                 try:
                                     if isinstance(report0, dict) and report0.get('overall') == 'FAIL' and not getattr(self, 'headless', False):
-                                        from deck_builder.phases.phase6_reporting import ReportingMixin as _RM  # type: ignore
+                                        from deck_builder.phases.phase6_reporting import ReportingMixin as _RM
                                         if isinstance(self, _RM) and hasattr(self, 'enforce_and_reexport'):
                                             self.output_func("One or more bracket limits exceeded. Enter to auto-resolve, or Ctrl+C to skip.")
                                             try:
                                                 _ = self.input_func("")
                                             except Exception:
                                                 pass
-                                            self.enforce_and_reexport(base_stem=base, mode='prompt')  # type: ignore[attr-defined]
+                                            self.enforce_and_reexport(base_stem=base, mode='prompt')
                                 except Exception:
                                     pass
                         except Exception:
@@ -295,12 +295,12 @@ class DeckBuilder(
                                     cfg_dir = 'config'
                                 if cfg_dir:
                                     _os.makedirs(cfg_dir, exist_ok=True)
-                                    self.export_run_config_json(directory=cfg_dir, filename=base + '.json')  # type: ignore[attr-defined]
+                                    self.export_run_config_json(directory=cfg_dir, filename=base + '.json')
                                 if cfg_path_env:
                                     cfg_dir2 = _os.path.dirname(cfg_path_env) or '.'
                                     cfg_name2 = _os.path.basename(cfg_path_env)
                                     _os.makedirs(cfg_dir2, exist_ok=True)
-                                    self.export_run_config_json(directory=cfg_dir2, filename=cfg_name2)  # type: ignore[attr-defined]
+                                    self.export_run_config_json(directory=cfg_dir2, filename=cfg_name2)
                             except Exception:
                                 pass
                     except Exception:
@@ -308,8 +308,8 @@ class DeckBuilder(
                 else:
                     # Mark suppression so random flow knows nothing was exported yet
                     try:
-                        self.last_csv_path = None  # type: ignore[attr-defined]
-                        self.last_txt_path = None  # type: ignore[attr-defined]
+                        self.last_csv_path = None
+                        self.last_txt_path = None
                     except Exception:
                         pass
             # If owned-only and deck not complete, print a note
@@ -624,8 +624,8 @@ class DeckBuilder(
             try:
                 rec.card_library = rec_subset
                 # Export CSV and TXT with suffix
-                rec.export_decklist_csv(directory='deck_files', filename=base_stem + '_recommendations.csv', suppress_output=True)  # type: ignore[attr-defined]
-                rec.export_decklist_text(directory='deck_files', filename=base_stem + '_recommendations.txt', suppress_output=True)  # type: ignore[attr-defined]
+                rec.export_decklist_csv(directory='deck_files', filename=base_stem + '_recommendations.csv', suppress_output=True)
+                rec.export_decklist_text(directory='deck_files', filename=base_stem + '_recommendations.txt', suppress_output=True)
             finally:
                 rec.card_library = original_lib
             # Notify user succinctly
@@ -1843,7 +1843,7 @@ class DeckBuilder(
                 from deck_builder import builder_constants as bc
                 from settings import MULTIPLE_COPY_CARDS
             except Exception:
-                MULTIPLE_COPY_CARDS = []  # type: ignore
+                MULTIPLE_COPY_CARDS = []
             is_land = 'land' in str(card_type or entry.get('Card Type','')).lower()
             is_basic = False
             try:
@@ -2353,7 +2353,7 @@ class DeckBuilder(
         rng = getattr(self, 'rng', None)
         try:
             if rng:
-                rng.shuffle(bucket_keys)  # type: ignore
+                rng.shuffle(bucket_keys)
             else:
                 random.shuffle(bucket_keys)
         except Exception:

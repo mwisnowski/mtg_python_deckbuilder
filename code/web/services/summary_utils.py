@@ -7,7 +7,7 @@ from .combo_utils import detect_for_summary as _detect_for_summary
 
 def _owned_set_helper() -> set[str]:
     try:
-        from .build_utils import owned_set as _owned_set  # type: ignore
+        from .build_utils import owned_set as _owned_set
 
         return _owned_set()
     except Exception:
@@ -21,7 +21,7 @@ def _owned_set_helper() -> set[str]:
 
 def _sanitize_tag_list(values: Iterable[Any]) -> List[str]:
     cleaned: List[str] = []
-    for raw in values or []:  # type: ignore[arg-type]
+    for raw in values or []:
         text = str(raw or "").strip()
         if not text:
             continue
@@ -78,7 +78,7 @@ def format_theme_label(raw: Any) -> str:
 def format_theme_list(values: Iterable[Any]) -> List[str]:
     seen: set[str] = set()
     result: List[str] = []
-    for raw in values or []:  # type: ignore[arg-type]
+    for raw in values or []:
         label = format_theme_label(raw)
         if not label:
             continue

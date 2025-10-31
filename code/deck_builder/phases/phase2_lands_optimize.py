@@ -12,7 +12,7 @@ class LandOptimizationMixin:
     Provides optimize_tapped_lands and run_land_step8 (moved from monolithic builder).
     """
 
-    def optimize_tapped_lands(self):  # type: ignore[override]
+    def optimize_tapped_lands(self):
         df = getattr(self, '_combined_cards_df', None)
         if df is None or df.empty:
             return
@@ -146,7 +146,7 @@ class LandOptimizationMixin:
                 new_tapped += 1
         self.output_func(f"  Tapped Lands After : {new_tapped} (threshold {threshold})")
 
-    def run_land_step8(self):  # type: ignore[override]
+    def run_land_step8(self):
         self.optimize_tapped_lands()
         self._enforce_land_cap(step_label="Tapped Opt (Step 8)")
         if self.color_source_matrix_baseline is None:

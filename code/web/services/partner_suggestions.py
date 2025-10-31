@@ -362,7 +362,7 @@ def load_dataset(*, force: bool = False, refresh: bool = False) -> Optional[Part
             if allow_auto_refresh:
                 _DATASET_REFRESH_ATTEMPTED = True
                 try:
-                    from .orchestrator import _maybe_refresh_partner_synergy  # type: ignore
+                    from .orchestrator import _maybe_refresh_partner_synergy
 
                     _maybe_refresh_partner_synergy(None, force=True)
                 except Exception as refresh_exc:  # pragma: no cover - best-effort

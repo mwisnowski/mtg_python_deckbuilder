@@ -17,7 +17,7 @@ from logging_util import get_logger
 logger = get_logger(__name__)
 
 try:  # Optional pandas import for type checking without heavy dependency at runtime.
-    import pandas as _pd  # type: ignore
+    import pandas as _pd
 except Exception:  # pragma: no cover - tests provide DataFrame-like objects.
     _pd = None  # type: ignore
 
@@ -267,7 +267,7 @@ def _find_commander_row(df: Any, name: str | None):
     if not target:
         return None
 
-    if _pd is not None and isinstance(df, _pd.DataFrame):  # type: ignore
+    if _pd is not None and isinstance(df, _pd.DataFrame):
         columns = [col for col in ("name", "faceName") if col in df.columns]
         for col in columns:
             series = df[col].astype(str).str.casefold()

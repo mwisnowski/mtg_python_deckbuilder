@@ -128,7 +128,7 @@ def _make_request(path: str = "/api/partner/suggestions", query_string: str = ""
         "client": ("203.0.113.5", 52345),
         "server": ("testserver", 80),
     }
-    request = Request(scope, receive=_receive)  # type: ignore[arg-type]
+    request = Request(scope, receive=_receive)
     request.state.request_id = "req-telemetry"
     return request
 
@@ -197,21 +197,21 @@ def test_load_dataset_refresh_retries_after_prior_failure(tmp_path: Path, monkey
     from code.web.services import orchestrator as orchestrator_service
 
     original_default = partner_service.DEFAULT_DATASET_PATH
-    original_path = partner_service._DATASET_PATH  # type: ignore[attr-defined]
-    original_cache = partner_service._DATASET_CACHE  # type: ignore[attr-defined]
-    original_attempted = partner_service._DATASET_REFRESH_ATTEMPTED  # type: ignore[attr-defined]
+    original_path = partner_service._DATASET_PATH
+    original_cache = partner_service._DATASET_CACHE
+    original_attempted = partner_service._DATASET_REFRESH_ATTEMPTED
 
     partner_service.DEFAULT_DATASET_PATH = dataset_path
-    partner_service._DATASET_PATH = dataset_path  # type: ignore[attr-defined]
-    partner_service._DATASET_CACHE = None  # type: ignore[attr-defined]
-    partner_service._DATASET_REFRESH_ATTEMPTED = True  # type: ignore[attr-defined]
+    partner_service._DATASET_PATH = dataset_path
+    partner_service._DATASET_CACHE = None
+    partner_service._DATASET_REFRESH_ATTEMPTED = True
 
     calls = {"count": 0}
 
     payload_path = tmp_path / "seed_dataset.json"
     _write_dataset(payload_path)
 
-    def seeded_refresh(out_func=None, *, force=False, root=None):  # type: ignore[override]
+    def seeded_refresh(out_func=None, *, force=False, root=None):
         calls["count"] += 1
         dataset_path.write_text(payload_path.read_text(encoding="utf-8"), encoding="utf-8")
 
@@ -227,9 +227,9 @@ def test_load_dataset_refresh_retries_after_prior_failure(tmp_path: Path, monkey
         assert calls["count"] == 1
     finally:
         partner_service.DEFAULT_DATASET_PATH = original_default
-        partner_service._DATASET_PATH = original_path  # type: ignore[attr-defined]
-        partner_service._DATASET_CACHE = original_cache  # type: ignore[attr-defined]
-        partner_service._DATASET_REFRESH_ATTEMPTED = original_attempted  # type: ignore[attr-defined]
+        partner_service._DATASET_PATH = original_path
+        partner_service._DATASET_CACHE = original_cache
+        partner_service._DATASET_REFRESH_ATTEMPTED = original_attempted
         try:
             dataset_path.unlink()
         except FileNotFoundError:

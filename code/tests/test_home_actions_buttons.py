@@ -20,7 +20,7 @@ def load_app_with_env(**env: str) -> types.ModuleType:
         os.environ.pop(key, None)
     for k, v in env.items():
         os.environ[k] = v
-    import code.web.app as app_module  # type: ignore
+    import code.web.app as app_module
     importlib.reload(app_module)
     return app_module
 

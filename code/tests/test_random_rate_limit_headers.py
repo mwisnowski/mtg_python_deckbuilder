@@ -19,17 +19,17 @@ def _client_with_flags(window_s: int = 2, limit_random: int = 2, limit_build: in
 
     # Force fresh import so RATE_LIMIT_* constants reflect env
     sys.modules.pop('code.web.app', None)
-    from code.web import app as app_module  # type: ignore
+    from code.web import app as app_module
     # Force override constants for deterministic test
     try:
-        app_module.RATE_LIMIT_ENABLED = True  # type: ignore[attr-defined]
-        app_module.RATE_LIMIT_WINDOW_S = window_s  # type: ignore[attr-defined]
-        app_module.RATE_LIMIT_RANDOM = limit_random  # type: ignore[attr-defined]
-        app_module.RATE_LIMIT_BUILD = limit_build  # type: ignore[attr-defined]
-        app_module.RATE_LIMIT_SUGGEST = limit_suggest  # type: ignore[attr-defined]
+        app_module.RATE_LIMIT_ENABLED = True
+        app_module.RATE_LIMIT_WINDOW_S = window_s
+        app_module.RATE_LIMIT_RANDOM = limit_random
+        app_module.RATE_LIMIT_BUILD = limit_build
+        app_module.RATE_LIMIT_SUGGEST = limit_suggest
         # Reset in-memory counters
         if hasattr(app_module, '_RL_COUNTS'):
-            app_module._RL_COUNTS.clear()  # type: ignore[attr-defined]
+            app_module._RL_COUNTS.clear()
     except Exception:
         pass
     return TestClient(app_module.app)

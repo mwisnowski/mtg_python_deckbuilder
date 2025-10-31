@@ -183,7 +183,7 @@ def _iter_json_themes(payload: object) -> Iterable[ThemeCatalogEntry]:
     try:
         from type_definitions_theme_catalog import ThemeCatalog  # pragma: no cover - primary import path
     except ImportError:  # pragma: no cover - fallback when running as package
-        from code.type_definitions_theme_catalog import ThemeCatalog  # type: ignore
+        from code.type_definitions_theme_catalog import ThemeCatalog
 
     try:
         catalog = ThemeCatalog.model_validate(payload)

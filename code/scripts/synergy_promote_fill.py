@@ -731,7 +731,7 @@ def main():  # pragma: no cover (script orchestration)
                 if cand:
                     theme_card_hits[display] = cand
             # Build global duplicate frequency map ONCE (baseline prior to this run) if threshold active
-            if args.common_card_threshold > 0 and 'GLOBAL_CARD_FREQ' not in globals():  # type: ignore
+            if args.common_card_threshold > 0 and 'GLOBAL_CARD_FREQ' not in globals():
                 freq: Dict[str, int] = {}
                 total_themes = 0
                 for fp0 in CATALOG_DIR.glob('*.yml'):
@@ -748,10 +748,10 @@ def main():  # pragma: no cover (script orchestration)
                             continue
                         seen_local.add(c)
                         freq[c] = freq.get(c, 0) + 1
-                globals()['GLOBAL_CARD_FREQ'] = (freq, total_themes)  # type: ignore
+                globals()['GLOBAL_CARD_FREQ'] = (freq, total_themes)
             # Apply duplicate filtering to candidate lists (do NOT mutate existing example_cards)
-            if args.common_card_threshold > 0 and 'GLOBAL_CARD_FREQ' in globals():  # type: ignore
-                freq_map, total_prev = globals()['GLOBAL_CARD_FREQ']  # type: ignore
+            if args.common_card_threshold > 0 and 'GLOBAL_CARD_FREQ' in globals():
+                freq_map, total_prev = globals()['GLOBAL_CARD_FREQ']
                 if total_prev > 0:  # avoid div-by-zero
                     cutoff = args.common_card_threshold
                     def _filter(lst: List[Tuple[float, str, Set[str]]]) -> List[Tuple[float, str, Set[str]]]:
@@ -803,8 +803,8 @@ def main():  # pragma: no cover (script orchestration)
     print(f"[promote] modified {changed_count} themes")
     if args.fill_example_cards:
         print(f"[cards] modified {cards_changed} themes (target {args.cards_target})")
-        if args.print_dup_metrics and 'GLOBAL_CARD_FREQ' in globals():  # type: ignore
-            freq_map, total_prev = globals()['GLOBAL_CARD_FREQ']  # type: ignore
+        if args.print_dup_metrics and 'GLOBAL_CARD_FREQ' in globals():
+            freq_map, total_prev = globals()['GLOBAL_CARD_FREQ']
             if total_prev:
                 items = sorted(freq_map.items(), key=lambda x: (-x[1], x[0]))[:30]
                 print('[dup-metrics] Top shared example_cards (baseline before this run):')

@@ -37,7 +37,7 @@ def _refresh_setup() -> None:
 
 def _refresh_tags() -> None:
     tagger = importlib.import_module("code.tagging.tagger")
-    tagger = importlib.reload(tagger)  # type: ignore[assignment]
+    tagger = importlib.reload(tagger)
     for color in SUPPORTED_COLORS:
         tagger.load_dataframe(color)
 

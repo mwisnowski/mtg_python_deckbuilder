@@ -20,7 +20,7 @@ def _stub_modal_matrix(builder: DeckBuilder) -> None:
             "Forest": {"G": 1},
         }
 
-    builder._compute_color_source_matrix = MethodType(fake_matrix, builder)  # type: ignore[attr-defined]
+    builder._compute_color_source_matrix = MethodType(fake_matrix, builder)
 
 
 def test_modal_dfc_swaps_basic_when_enabled():

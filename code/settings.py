@@ -89,11 +89,8 @@ COLUMN_ORDER = CARD_COLUMN_ORDER
 TAGGED_COLUMN_ORDER = CARD_COLUMN_ORDER
 REQUIRED_COLUMNS = REQUIRED_CARD_COLUMNS
 
-MAIN_MENU_ITEMS: List[str] = ['Build A Deck', 'Setup CSV Files', 'Tag CSV Files', 'Quit']
+# MAIN_MENU_ITEMS, SETUP_MENU_ITEMS, CSV_DIRECTORY already defined above (lines 67-70)
 
-SETUP_MENU_ITEMS: List[str] = ['Initial Setup', 'Regenerate CSV', 'Main Menu']
-
-CSV_DIRECTORY: str = 'csv_files'
 CARD_FILES_DIRECTORY: str = 'card_files'  # Parquet files for consolidated card data
 
 # ----------------------------------------------------------------------------------
@@ -111,11 +108,7 @@ CARD_FILES_PROCESSED_DIR = os.getenv('CARD_FILES_PROCESSED_DIR', os.path.join(CA
 # Set to '1' or 'true' to enable CSV fallback when Parquet loading fails
 LEGACY_CSV_COMPAT = os.getenv('LEGACY_CSV_COMPAT', '0').lower() in ('1', 'true', 'on', 'enabled')
 
-# Configuration for handling null/NA values in DataFrame columns
-FILL_NA_COLUMNS: Dict[str, Optional[str]] = {
-    'colorIdentity': 'Colorless',  # Default color identity for cards without one
-    'faceName': None  # Use card's name column value when face name is not available
-}
+# FILL_NA_COLUMNS already defined above (lines 75-78)
 
 # ----------------------------------------------------------------------------------
 # ALL CARDS CONSOLIDATION FEATURE FLAG

@@ -1,7 +1,7 @@
 import json
 from fastapi.testclient import TestClient
 
-from code.web.app import app  # type: ignore
+from code.web.app import app
 
 
 def test_preview_includes_curated_examples_regression():

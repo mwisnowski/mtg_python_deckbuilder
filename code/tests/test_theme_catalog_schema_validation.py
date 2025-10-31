@@ -8,7 +8,7 @@ def test_theme_list_json_validates_against_pydantic_and_fast_path():
     raw = json.loads(p.read_text(encoding='utf-8'))
 
     # Pydantic validation
-    from code.type_definitions_theme_catalog import ThemeCatalog  # type: ignore
+    from code.type_definitions_theme_catalog import ThemeCatalog
     catalog = ThemeCatalog(**raw)
     assert isinstance(catalog.themes, list) and len(catalog.themes) > 0
     # Basic fields exist on entries

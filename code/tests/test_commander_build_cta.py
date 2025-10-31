@@ -8,7 +8,7 @@ from urllib.parse import parse_qs, urlparse
 import pytest
 from fastapi.testclient import TestClient
 
-from code.web.app import app  # type: ignore
+from code.web.app import app
 from code.web.services.commander_catalog_loader import clear_commander_catalog_cache
 
 

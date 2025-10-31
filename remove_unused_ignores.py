@@ -8,7 +8,7 @@ from pathlib import Path
 def get_unused_ignores():
     """Run mypy and extract all unused-ignore errors."""
     result = subprocess.run(
-        ['python', '-m', 'mypy', 'code/web/', '--show-error-codes'],
+        ['python', '-m', 'mypy', 'code', '--show-error-codes'],
         capture_output=True,
         text=True,
         cwd=Path(__file__).parent

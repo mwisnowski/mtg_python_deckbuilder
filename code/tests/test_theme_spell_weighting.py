@@ -47,10 +47,10 @@ class DummySpellBuilder(SpellAdditionMixin):
     def rng(self) -> DummyRNG:
         return self._rng
 
-    def get_theme_context(self) -> ThemeContext:  # type: ignore[override]
+    def get_theme_context(self) -> ThemeContext:
         return self._theme_context
 
-    def add_card(self, name: str, **kwargs: Any) -> None:  # type: ignore[override]
+    def add_card(self, name: str, **kwargs: Any) -> None:
         self.card_library[name] = {"Count": kwargs.get("count", 1)}
         self.added_cards.append(name)
 

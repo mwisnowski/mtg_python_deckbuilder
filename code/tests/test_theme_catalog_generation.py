@@ -146,7 +146,7 @@ def test_generate_theme_catalog_basic(tmp_path: Path, fixed_now: datetime) -> No
     assert all(row['last_generated_at'] == result.generated_at for row in rows)
     assert all(row['version'] == result.version for row in rows)
 
-    expected_hash = new_catalog._compute_version_hash([row['theme'] for row in rows])  # type: ignore[attr-defined]
+    expected_hash = new_catalog._compute_version_hash([row['theme'] for row in rows])
     assert result.version == expected_hash
 
 

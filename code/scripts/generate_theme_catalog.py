@@ -32,7 +32,7 @@ if str(CODE_ROOT) not in sys.path:
     sys.path.insert(0, str(CODE_ROOT))
 
 try:
-    from code.settings import CSV_DIRECTORY as DEFAULT_CSV_DIRECTORY  # type: ignore
+    from code.settings import CSV_DIRECTORY as DEFAULT_CSV_DIRECTORY
 except Exception:  # pragma: no cover - fallback for adhoc execution
     DEFAULT_CSV_DIRECTORY = "csv_files"
 

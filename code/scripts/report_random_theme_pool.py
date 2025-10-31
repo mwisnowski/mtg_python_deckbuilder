@@ -21,7 +21,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.append(str(PROJECT_ROOT))
 
-from deck_builder.random_entrypoint import (  # type: ignore  # noqa: E402
+from deck_builder.random_entrypoint import (  # noqa: E402
     _build_random_theme_pool,
     _ensure_theme_tag_cache,
     _load_commanders_df,

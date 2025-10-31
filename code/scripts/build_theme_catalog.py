@@ -36,7 +36,7 @@ except Exception:  # pragma: no cover
 
 try:
     # Support running as `python code/scripts/build_theme_catalog.py` when 'code' already on path
-    from scripts.extract_themes import (  # type: ignore
+    from scripts.extract_themes import (
         BASE_COLORS,
         collect_theme_tags_from_constants,
         collect_theme_tags_from_tagger_source,
@@ -51,7 +51,7 @@ try:
     )
 except ModuleNotFoundError:
     # Fallback: direct relative import when running within scripts package context
-    from extract_themes import (  # type: ignore
+    from extract_themes import (
     BASE_COLORS,
     collect_theme_tags_from_constants,
     collect_theme_tags_from_tagger_source,
@@ -66,7 +66,7 @@ except ModuleNotFoundError:
     )
 
 try:
-    from scripts.export_themes_to_yaml import slugify as slugify_theme  # type: ignore
+    from scripts.export_themes_to_yaml import slugify as slugify_theme
 except Exception:
     _SLUG_RE = re.compile(r'[^a-z0-9-]')
 
@@ -951,7 +951,7 @@ def main():  # pragma: no cover
     if args.schema:
         # Lazy import to avoid circular dependency: replicate minimal schema inline from models file if present
         try:
-            from type_definitions_theme_catalog import ThemeCatalog  # type: ignore
+            from type_definitions_theme_catalog import ThemeCatalog
             import json as _json
             print(_json.dumps(ThemeCatalog.model_json_schema(), indent=2))
             return
@@ -990,8 +990,8 @@ def main():  # pragma: no cover
             # Safeguard: if catalog dir missing, attempt to auto-export Phase A YAML first
             if not CATALOG_DIR.exists():  # pragma: no cover (environmental)
                 try:
-                    from scripts.export_themes_to_yaml import main as export_main  # type: ignore
-                    export_main(['--force'])  # type: ignore[arg-type]
+                    from scripts.export_themes_to_yaml import main as export_main
+                    export_main(['--force'])
                 except Exception as _e:
                     print(f"[build_theme_catalog] WARNING: catalog dir missing and auto export failed: {_e}", file=sys.stderr)
             if yaml is None:
@@ -1013,7 +1013,7 @@ def main():  # pragma: no cover
                     meta_block = raw.get('metadata_info') if isinstance(raw.get('metadata_info'), dict) else {}
                     # Legacy migration: if no metadata_info but legacy provenance present, adopt it
                     if not meta_block and isinstance(raw.get('provenance'), dict):
-                        meta_block = raw.get('provenance')  # type: ignore
+                        meta_block = raw.get('provenance')
                         changed = True
                     if force or not meta_block.get('last_backfill'):
                         meta_block['last_backfill'] = time.strftime('%Y-%m-%dT%H:%M:%S')

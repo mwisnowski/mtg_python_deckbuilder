@@ -11,9 +11,9 @@ def _load_applier():
     root = Path(__file__).resolve().parents[2]
     mod_path = root / 'code' / 'tagging' / 'bracket_policy_applier.py'
     spec = importlib.util.spec_from_file_location('bracket_policy_applier', str(mod_path))
-    mod = importlib.util.module_from_spec(spec)  # type: ignore[arg-type]
+    mod = importlib.util.module_from_spec(spec)
     assert spec and spec.loader
-    spec.loader.exec_module(mod)  # type: ignore[assignment]
+    spec.loader.exec_module(mod)
     return mod
 
 

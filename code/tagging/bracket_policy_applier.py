@@ -30,14 +30,14 @@ try:
     import logging_util
 except Exception:
     # Fallback for direct module loading
-    import importlib.util  # type: ignore
+    import importlib.util
     root = Path(__file__).resolve().parents[1]
     lu_path = root / 'logging_util.py'
     spec = importlib.util.spec_from_file_location('logging_util', str(lu_path))
     mod = importlib.util.module_from_spec(spec)  # type: ignore[arg-type]
     assert spec and spec.loader
-    spec.loader.exec_module(mod)  # type: ignore[assignment]
-    logging_util = mod  # type: ignore
+    spec.loader.exec_module(mod)
+    logging_util = mod
 
 logger = logging_util.logging.getLogger(__name__)
 logger.setLevel(logging_util.LOG_LEVEL)

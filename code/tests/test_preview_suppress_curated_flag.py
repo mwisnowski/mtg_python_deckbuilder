@@ -1,5 +1,5 @@
 from fastapi.testclient import TestClient
-from code.web.app import app  # type: ignore
+from code.web.app import app
 
 
 def test_preview_fragment_suppress_curated_removes_examples():

@@ -14,7 +14,7 @@ class DummyBuilder(ReportingMixin):
         self.card_library = card_library
         self.color_identity = colors
         self.output_lines: List[str] = []
-        self.output_func = self.output_lines.append  # type: ignore[assignment]
+        self.output_func = self.output_lines.append
         self._full_cards_df = None
         self._combined_cards_df = None
         self.include_exclude_diagnostics = None

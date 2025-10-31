@@ -1,7 +1,7 @@
 import os
 import time
 import json
-from code.web.services.theme_preview import get_theme_preview, preview_metrics, bust_preview_cache  # type: ignore
+from code.web.services.theme_preview import get_theme_preview, preview_metrics, bust_preview_cache
 
 
 def test_colors_filter_constraint_green_subset():

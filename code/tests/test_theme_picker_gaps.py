@@ -36,7 +36,7 @@ from fastapi.testclient import TestClient
 
 
 def _get_app():  # local import to avoid heavy import cost if file unused
-    from code.web.app import app  # type: ignore
+    from code.web.app import app
     return app
 
 
@@ -115,13 +115,13 @@ def test_preview_cache_hit_timing(monkeypatch, client):
     r1 = client.get(f"/themes/fragment/preview/{theme_id}?limit=12")
     assert r1.status_code == 200
     # Monkeypatch theme_preview._now to freeze time so second call counts as hit
-    import code.web.services.theme_preview as tp  # type: ignore
+    import code.web.services.theme_preview as tp
     orig_now = tp._now
     monkeypatch.setattr(tp, "_now", lambda: orig_now())
     r2 = client.get(f"/themes/fragment/preview/{theme_id}?limit=12")
     assert r2.status_code == 200
     # Deterministic service-level verification: second direct function call should short-circuit via cache
-    import code.web.services.theme_preview as tp  # type: ignore
+    import code.web.services.theme_preview as tp
     # Snapshot counters
     pre_hits = getattr(tp, "_PREVIEW_CACHE_HITS", 0)
     first_payload = tp.get_theme_preview(theme_id, limit=12)

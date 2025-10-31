@@ -139,7 +139,7 @@ def _validate_commander_available(command_name: str) -> None:
             return
 
     try:
-        from commander_exclusions import lookup_commander_detail as _lookup_commander_detail  # type: ignore[import-not-found]
+        from commander_exclusions import lookup_commander_detail as _lookup_commander_detail
     except ImportError:  # pragma: no cover
         _lookup_commander_detail = None
 
@@ -281,12 +281,12 @@ def run(
     # Optional deterministic seed for Random Modes (does not affect core when unset)
     try:
         if seed is not None:
-            builder.set_seed(seed)  # type: ignore[attr-defined]
+            builder.set_seed(seed)
     except Exception:
         pass
     # Mark this run as headless so builder can adjust exports and logging
     try:
-        builder.headless = True  # type: ignore[attr-defined]
+        builder.headless = True
     except Exception:
         pass
 
@@ -294,9 +294,9 @@ def run(
     secondary_clean = (secondary_commander or "").strip()
     background_clean = (background or "").strip()
     try:
-        builder.partner_feature_enabled = partner_feature_enabled  # type: ignore[attr-defined]
-        builder.requested_secondary_commander = secondary_clean or None  # type: ignore[attr-defined]
-        builder.requested_background = background_clean or None  # type: ignore[attr-defined]
+        builder.partner_feature_enabled = partner_feature_enabled
+        builder.requested_secondary_commander = secondary_clean or None
+        builder.requested_background = background_clean or None
     except Exception:
         pass
 
@@ -313,11 +313,11 @@ def run(
     
     # Configure include/exclude settings (M1: Config + Validation + Persistence)
     try:
-        builder.include_cards = list(include_cards or [])  # type: ignore[attr-defined]
-        builder.exclude_cards = list(exclude_cards or [])  # type: ignore[attr-defined] 
-        builder.enforcement_mode = enforcement_mode  # type: ignore[attr-defined]
-        builder.allow_illegal = allow_illegal  # type: ignore[attr-defined]
-        builder.fuzzy_matching = fuzzy_matching  # type: ignore[attr-defined]
+        builder.include_cards = list(include_cards or [])
+        builder.exclude_cards = list(exclude_cards or [])
+        builder.enforcement_mode = enforcement_mode
+        builder.allow_illegal = allow_illegal
+        builder.fuzzy_matching = fuzzy_matching
     except Exception:
         pass
 
@@ -336,16 +336,16 @@ def run(
             )
 
     try:
-        builder.theme_match_mode = theme_resolution.mode  # type: ignore[attr-defined]
-        builder.theme_catalog_version = theme_resolution.catalog_version  # type: ignore[attr-defined]
-        builder.user_theme_requested = list(theme_resolution.requested)  # type: ignore[attr-defined]
-        builder.user_theme_resolved = list(theme_resolution.resolved)  # type: ignore[attr-defined]
-        builder.user_theme_matches = list(theme_resolution.matches)  # type: ignore[attr-defined]
-        builder.user_theme_unresolved = list(theme_resolution.unresolved)  # type: ignore[attr-defined]
-        builder.user_theme_fuzzy_corrections = dict(theme_resolution.fuzzy_corrections)  # type: ignore[attr-defined]
-        builder.user_theme_resolution = theme_resolution  # type: ignore[attr-defined]
+        builder.theme_match_mode = theme_resolution.mode
+        builder.theme_catalog_version = theme_resolution.catalog_version
+        builder.user_theme_requested = list(theme_resolution.requested)
+        builder.user_theme_resolved = list(theme_resolution.resolved)
+        builder.user_theme_matches = list(theme_resolution.matches)
+        builder.user_theme_unresolved = list(theme_resolution.unresolved)
+        builder.user_theme_fuzzy_corrections = dict(theme_resolution.fuzzy_corrections)
+        builder.user_theme_resolution = theme_resolution
         if user_theme_weight is not None:
-            builder.user_theme_weight = float(user_theme_weight)  # type: ignore[attr-defined]
+            builder.user_theme_weight = float(user_theme_weight)
     except Exception:
         pass
         
@@ -356,7 +356,7 @@ def run(
             ic: Dict[str, int] = {}
             for k, v in ideal_counts.items():
                 try:
-                    iv = int(v) if v is not None else None  # type: ignore
+                    iv = int(v) if v is not None else None
                 except Exception:
                     continue
                 if iv is None:
@@ -365,7 +365,7 @@ def run(
                 if k in {"ramp","lands","basic_lands","creatures","removal","wipes","card_advantage","protection"}:
                     ic[k] = iv
             if ic:
-                builder.ideal_counts.update(ic)  # type: ignore[attr-defined]
+                builder.ideal_counts.update(ic)
         except Exception:
             pass
     builder.run_initial_setup()
@@ -518,24 +518,24 @@ def _apply_combined_commander_to_builder(builder: DeckBuilder, combined_commande
     """Attach combined commander metadata to the builder for downstream use."""
 
     try:
-        builder.combined_commander = combined_commander  # type: ignore[attr-defined]
+        builder.combined_commander = combined_commander
     except Exception:
         pass
 
     try:
-        builder.partner_mode = combined_commander.partner_mode  # type: ignore[attr-defined]
+        builder.partner_mode = combined_commander.partner_mode
     except Exception:
         pass
 
     try:
-        builder.secondary_commander = combined_commander.secondary_name  # type: ignore[attr-defined]
+        builder.secondary_commander = combined_commander.secondary_name
     except Exception:
         pass
 
     try:
-        builder.combined_color_identity = combined_commander.color_identity  # type: ignore[attr-defined]
-        builder.combined_theme_tags = combined_commander.theme_tags  # type: ignore[attr-defined]
-        builder.partner_warnings = combined_commander.warnings  # type: ignore[attr-defined]
+        builder.combined_color_identity = combined_commander.color_identity
+        builder.combined_theme_tags = combined_commander.theme_tags
+        builder.partner_warnings = combined_commander.warnings
     except Exception:
         pass
 
@@ -557,7 +557,7 @@ def _export_outputs(builder: DeckBuilder) -> None:
         # Persist for downstream reuse (e.g., random_entrypoint / reroll flows) so they don't re-export
         if csv_path:
             try:
-                builder.last_csv_path = csv_path  # type: ignore[attr-defined]
+                builder.last_csv_path = csv_path
             except Exception:
                 pass
     except Exception:
@@ -572,7 +572,7 @@ def _export_outputs(builder: DeckBuilder) -> None:
                 finally:
                     if txt_generated:
                         try:
-                            builder.last_txt_path = txt_generated  # type: ignore[attr-defined]
+                            builder.last_txt_path = txt_generated
                         except Exception:
                             pass
             else:
@@ -582,7 +582,7 @@ def _export_outputs(builder: DeckBuilder) -> None:
                 finally:
                     if txt_generated:
                         try:
-                            builder.last_txt_path = txt_generated  # type: ignore[attr-defined]
+                            builder.last_txt_path = txt_generated
                         except Exception:
                             pass
     except Exception:
@@ -1196,7 +1196,7 @@ def _run_random_mode(config: RandomRunConfig) -> int:
             RandomConstraintsImpossibleError,
             RandomThemeNoMatchError,
             build_random_full_deck,
-        )  # type: ignore
+        )
     except Exception as exc:
         print(f"Random mode unavailable: {exc}")
         return 1

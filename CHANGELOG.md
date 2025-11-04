@@ -9,6 +9,11 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 
 ## [Unreleased]
 ### Added
+- **Template Validation Tests**: Comprehensive test suite for HTML/Jinja2 templates
+  - Validates Jinja2 syntax across all templates
+  - Checks HTML structure (balanced tags, unique IDs, proper attributes)
+  - Basic accessibility validation (alt text, form labels, button types)
+  - Regression prevention thresholds to maintain code quality
 - **Code Quality Tools**: Enhanced development tooling for maintainability
   - Automated utilities for code cleanup
   - Improved type checking configuration
@@ -81,6 +86,10 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
   - Optimized linting rules for development workflow
 
 ### Fixed
+- **Template Quality**: Resolved HTML structure issues found by validation tests
+  - Fixed duplicate ID attributes in build wizard and theme picker templates
+  - Removed erroneous block tags from component documentation
+  - Corrected template structure for HTMX fragments
 - **Code Quality**: Resolved type checking warnings and improved code maintainability
   - Fixed type annotation inconsistencies
   - Cleaned up redundant code quality suppressions

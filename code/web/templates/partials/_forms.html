@@ -17,9 +17,9 @@
   
   Examples:
     {% call form_field('Email', 'email', required=True) %}
-      {% block body %}
+
         <input type="email" name="email" />
-      {% endblock %}
+
     {% endcall %}
 #}
 {% macro form_field(label='', name='', required=False, help_text='', error='', classes='') %}
@@ -72,7 +72,7 @@
 #}
 {% macro text_input(name, label='', type='text', value='', placeholder='', required=False, disabled=False, readonly=False, help_text='', error='', classes='', attrs='') %}
   {% call form_field(label, name, required, help_text, error, classes) %}
-    {% block body %}
+
       <input type="{{ type }}"
              id="{{ name }}"
              name="{{ name }}"
@@ -83,7 +83,7 @@
              {% if disabled %}disabled{% endif %}
              {% if readonly %}readonly{% endif %}
              {{ attrs|safe }} />
-    {% endblock %}
+
   {% endcall %}
 {% endmacro %}
 
@@ -110,7 +110,7 @@
 #}
 {% macro textarea(name, label='', value='', placeholder='', rows=4, required=False, disabled=False, readonly=False, help_text='', error='', classes='', attrs='') %}
   {% call form_field(label, name, required, help_text, error, classes) %}
-    {% block body %}
+
       <textarea id="{{ name }}"
                 name="{{ name }}"
                 class="form-textarea"
@@ -120,7 +120,7 @@
                 {% if disabled %}disabled{% endif %}
                 {% if readonly %}readonly{% endif %}
                 {{ attrs|safe }}>{{ value }}</textarea>
-    {% endblock %}
+
   {% endcall %}
 {% endmacro %}
 
@@ -148,7 +148,7 @@
 #}
 {% macro select(name, label='', options=[], value='', required=False, disabled=False, help_text='', error='', classes='', attrs='') %}
   {% call form_field(label, name, required, help_text, error, classes) %}
-    {% block body %}
+
       <select id="{{ name }}"
               name="{{ name }}"
               class="form-select"
@@ -163,7 +163,7 @@
           </option>
         {% endfor %}
       </select>
-    {% endblock %}
+
   {% endcall %}
 {% endmacro %}
 
@@ -295,7 +295,7 @@
 #}
 {% macro number_input(name, label='', value='', min='', max='', step=1, placeholder='', required=False, disabled=False, help_text='', error='', classes='', attrs='') %}
   {% call form_field(label, name, required, help_text, error, classes) %}
-    {% block body %}
+
       <input type="number"
              id="{{ name }}"
              name="{{ name }}"
@@ -308,7 +308,7 @@
              {% if required %}required{% endif %}
              {% if disabled %}disabled{% endif %}
              {{ attrs|safe }} />
-    {% endblock %}
+
   {% endcall %}
 {% endmacro %}
 
@@ -333,7 +333,7 @@
 #}
 {% macro file_input(name, label='', accept='', multiple=False, required=False, disabled=False, help_text='', error='', classes='', attrs='') %}
   {% call form_field(label, name, required, help_text, error, classes) %}
-    {% block body %}
+
       <input type="file"
              id="{{ name }}"
              name="{{ name }}"
@@ -343,7 +343,7 @@
              {% if required %}required{% endif %}
              {% if disabled %}disabled{% endif %}
              {{ attrs|safe }} />
-    {% endblock %}
+
   {% endcall %}
 {% endmacro %}
 

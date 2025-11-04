@@ -33,7 +33,6 @@
   <!-- BUTTONS -->
   <section id="buttons" class="section-spacing">
     {% call panel(title='Buttons', padding='lg') %}
-      {% block body %}
         
         <h4 style="margin-top: 0;">Button Variants</h4>
         <div class="btn-group content-spacing-lg">
@@ -76,16 +75,14 @@
         <div class="btn-group">
           {{ button('Go Home', href='/', variant='ghost') }}
           {{ button('Build Deck', href='/build', variant='primary') }}
-        </div>
+        </code></pre>
 
-      {% endblock %}
     {% endcall %}
   </section>
 
   <!-- MODALS -->
   <section id="modals" style="margin-top: 2rem;">
     {% call panel(title='Modals', padding='lg') %}
-      {% block body %}
         
         <p style="margin-top: 0; color: var(--muted);">Click buttons to see modal examples</p>
 
@@ -104,14 +101,12 @@
           {{ button('XLarge (960px)', onclick='showSizedModal("xl")') }}
         </div>
 
-      {% endblock %}
     {% endcall %}
   </section>
 
   <!-- FORMS -->
   <section id="forms" style="margin-top: 2rem;">
     {% call panel(title='Form Components', padding='lg') %}
-      {% block body %}
         
         <form onsubmit="event.preventDefault(); alert('Form submitted!');" style="max-width: 600px;">
           
@@ -147,14 +142,12 @@
           </div>
         </form>
 
-      {% endblock %}
     {% endcall %}
   </section>
 
   <!-- CARD DISPLAY -->
   <section id="cards" style="margin-top: 2rem;">
     {% call panel(title='Card Display Components', padding='lg') %}
-      {% block body %}
         
         <h4 style="margin-top: 0;">Card Thumbnail Sizes</h4>
         <div style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-start; margin-bottom: 2rem;">
@@ -179,14 +172,12 @@
           {'name': 'Birds of Paradise', 'role': 'ramp', 'tags': ['Ramp', 'Creature']}
         ], size='medium', columns=3) }}
 
-      {% endblock %}
     {% endcall %}
   </section>
 
   <!-- PANELS -->
   <section id="panels" style="margin-top: 2rem;">
     {% call panel(title='Panel Components', padding='lg') %}
-      {% block body %}
         
         <h4 style="margin-top: 0;">Panel Variants</h4>
         {{ simple_panel(title='Default Panel', content='<p>This is a default panel with standard background.</p>', variant='default') }}
@@ -232,14 +223,12 @@
 
         <h4 style="margin-top: 2rem;">Collapsible Panel</h4>
         {% call collapsible_panel(title='Advanced Options', expanded=False) %}
-          {% block body %}
             <p>These are advanced settings that are hidden by default.</p>
             <ul>
               <li>Option 1: Enable feature X</li>
               <li>Option 2: Adjust threshold Y</li>
               <li>Option 3: Configure behavior Z</li>
             </ul>
-          {% endblock %}
         {% endcall %}
 
         <h4 style="margin-top: 2rem;">Empty State</h4>
@@ -254,7 +243,6 @@
         <h4 style="margin-top: 2rem;">Loading State</h4>
         {{ loading_panel(message='Building deck...', spinner=True) }}
 
-      {% endblock %}
     {% endcall %}
   </section>
 

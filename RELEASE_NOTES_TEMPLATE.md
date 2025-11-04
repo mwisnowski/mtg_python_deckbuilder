@@ -3,9 +3,14 @@
 ## [Unreleased]
 
 ### Summary
-Web UI improvements with Tailwind CSS migration, TypeScript conversion, component library, enhanced code quality tools, and optional card image caching for faster performance and better maintainability.
+Web UI improvements with Tailwind CSS migration, TypeScript conversion, component library, template validation tests, enhanced code quality tools, and optional card image caching for faster performance and better maintainability.
 
 ### Added
+- **Template Validation Tests**: Comprehensive test suite ensuring HTML/template quality
+  - Validates Jinja2 syntax and structure
+  - Checks for common HTML issues (duplicate IDs, balanced tags)
+  - Basic accessibility validation
+  - Prevents regression in template quality
 - **Code Quality Tools**: Enhanced development tooling for maintainability
   - Automated utilities for code cleanup
   - Improved type checking configuration
@@ -78,6 +83,10 @@ Web UI improvements with Tailwind CSS migration, TypeScript conversion, componen
 _None_
 
 ### Fixed
+- **Template Quality**: Resolved HTML structure issues
+  - Fixed duplicate ID attributes in templates
+  - Removed erroneous template block tags
+  - Corrected structure for HTMX fragments
 - **Code Quality**: Resolved type checking warnings and improved code maintainability
   - Fixed type annotation inconsistencies
   - Cleaned up redundant code quality suppressions

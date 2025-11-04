@@ -66,8 +66,8 @@
   {% endif %}
 
   {% if (query is defined and query and (not candidates or (candidates|length == 0))) and not inspect %}
-    <div id="candidate-grid" class="muted" style="margin-top:.5rem;" aria-live="polite">
-      No results for “{{ query }}”. Try a shorter name or a different spelling.
+    <div id="no-results-message" class="muted" style="margin-top:.5rem;" aria-live="polite">
+      No results for "{{ query }}". Try a shorter name or a different spelling.
     </div>
   {% endif %}
 

@@ -4,7 +4,7 @@ import os
 import importlib
 from pathlib import Path
 from starlette.testclient import TestClient
-from code.type_definitions_theme_catalog import ThemeCatalog  # type: ignore
+from code.type_definitions_theme_catalog import ThemeCatalog
 
 CATALOG_PATH = Path('config/themes/theme_list.json')
 

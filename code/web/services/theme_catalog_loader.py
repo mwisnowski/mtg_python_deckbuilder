@@ -26,10 +26,10 @@ from pydantic import BaseModel
 #  - Docker (WORKDIR /app/code): modules also available top-level.
 #  - Package/zip installs (rare): may require 'code.' prefix.
 try:
-    from type_definitions_theme_catalog import ThemeCatalog, ThemeEntry  # type: ignore
+    from type_definitions_theme_catalog import ThemeCatalog, ThemeEntry
 except ImportError:  # pragma: no cover - fallback path
     try:
-        from code.type_definitions_theme_catalog import ThemeCatalog, ThemeEntry  # type: ignore
+        from code.type_definitions_theme_catalog import ThemeCatalog, ThemeEntry
     except ImportError:  # pragma: no cover - last resort (avoid beyond top-level relative import)
         raise
 
@@ -97,7 +97,7 @@ def _needs_reload() -> bool:
     if not CATALOG_JSON.exists():
         return bool(_CACHE)
     mtime = CATALOG_JSON.stat().st_mtime
-    idx: SlugThemeIndex | None = _CACHE.get("index")  # type: ignore
+    idx: SlugThemeIndex | None = _CACHE.get("index")
     if idx is None:
         return True
     if mtime > idx.mtime:
@@ -121,7 +121,7 @@ def _needs_reload() -> bool:
             # Fast path: use os.scandir for lower overhead vs Path.glob
             newest = 0.0
             try:
-                with _os.scandir(YAML_DIR) as it:  # type: ignore[arg-type]
+                with _os.scandir(YAML_DIR) as it:
                     for entry in it:
                         if entry.is_file() and entry.name.endswith('.yml'):
                             try:
@@ -164,7 +164,7 @@ def _compute_etag(size: int, mtime: float, yaml_mtime: float) -> str:
 
 def load_index() -> SlugThemeIndex:
     if not _needs_reload():
-        return _CACHE["index"]  # type: ignore
+        return _CACHE["index"]
     if not CATALOG_JSON.exists():
         raise FileNotFoundError("theme_list.json missing")
     raw = json.loads(CATALOG_JSON.read_text(encoding="utf-8") or "{}")
@@ -220,7 +220,7 @@ def validate_catalog_integrity(rebuild: bool = True) -> Dict[str, Any]:
         out.update({"ok": False, "error": f"read_error:{e}"})
         return out
     # Recompute hash using same heuristic as build script
-    from scripts.build_theme_catalog import load_catalog_yaml  # type: ignore
+    from scripts.build_theme_catalog import load_catalog_yaml
     try:
         yaml_catalog = load_catalog_yaml(verbose=False)  # keyed by display_name
     except Exception:
@@ -495,7 +495,7 @@ def prewarm_common_filters(max_archetypes: int = 12) -> None:
     # Gather archetypes & buckets (limited)
     archetypes: List[str] = []
     try:
-        archetypes = [a for a in {t.deck_archetype for t in idx.catalog.themes if t.deck_archetype}][:max_archetypes]  # type: ignore[arg-type]
+        archetypes = [a for a in {t.deck_archetype for t in idx.catalog.themes if t.deck_archetype}][:max_archetypes]
     except Exception:
         archetypes = []
     buckets = ["Very Common", "Common", "Uncommon", "Niche", "Rare"]

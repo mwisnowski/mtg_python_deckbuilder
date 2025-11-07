@@ -62,6 +62,32 @@ def _detect_produces_mana(text: str) -> bool:
 	return False
 
 
+def _extract_colors_from_land_type(type_line: str) -> List[str]:
+	"""Extract mana colors from basic land types in a type line.
+	
+	Args:
+		type_line: Card type line (e.g., "Land — Mountain", "Land — Forest Plains")
+		
+	Returns:
+		List of color letters (e.g., ['R'], ['G', 'W'])
+	"""
+	if not isinstance(type_line, str):
+		return []
+	type_lower = type_line.lower()
+	colors = []
+	basic_land_colors = {
+		'plains': 'W',
+		'island': 'U',
+		'swamp': 'B',
+		'mountain': 'R',
+		'forest': 'G',
+	}
+	for land_type, color in basic_land_colors.items():
+		if land_type in type_lower:
+			colors.append(color)
+	return colors
+
+
 def _resolved_csv_dir(base_dir: str | None = None) -> str:
 	try:
 		if base_dir:
@@ -144,7 +170,9 @@ def _load_multi_face_land_map(base_dir: str) -> Dict[str, Dict[str, Any]]:
 			return {}
 		
 		# Select only needed columns
-		usecols = ['name', 'layout', 'side', 'type', 'text', 'manaCost', 'manaValue', 'faceName']
+		# M9: Added backType to detect MDFC lands where land is on back face
+		# M9: Added colorIdentity to extract mana colors for MDFC lands
+		usecols = ['name', 'layout', 'side', 'type', 'text', 'manaCost', 'manaValue', 'faceName', 'backType', 'colorIdentity']
 		available_cols = [col for col in usecols if col in df.columns]
 		if not available_cols:
 			return {}
@@ -160,7 +188,16 @@ def _load_multi_face_land_map(base_dir: str) -> Dict[str, Dict[str, Any]]:
 	multi_df['type'] = multi_df['type'].fillna('').astype(str)
 	multi_df['side'] = multi_df['side'].fillna('').astype(str)
 	multi_df['text'] = multi_df['text'].fillna('').astype(str)
-	land_rows = multi_df[multi_df['type'].str.contains('land', case=False, na=False)]
+	# M9: Check both type and backType for land faces
+	if 'backType' in multi_df.columns:
+		multi_df['backType'] = multi_df['backType'].fillna('').astype(str)
+		land_mask = (
+			multi_df['type'].str.contains('land', case=False, na=False) |
+			multi_df['backType'].str.contains('land', case=False, na=False)
+		)
+		land_rows = multi_df[land_mask]
+	else:
+		land_rows = multi_df[multi_df['type'].str.contains('land', case=False, na=False)]
 	if land_rows.empty:
 		return {}
 	mapping: Dict[str, Dict[str, Any]] = {}
@@ -169,6 +206,78 @@ def _load_multi_face_land_map(base_dir: str) -> Dict[str, Dict[str, Any]]:
 		seen: set[tuple[str, str, str]] = set()
 		front_is_land = False
 		layout_val = ''
+		
+		# M9: Handle merged rows with backType
+		if len(group) == 1 and 'backType' in group.columns:
+			row = group.iloc[0]
+			back_type_val = str(row.get('backType', '') or '')
+			if back_type_val and 'land' in back_type_val.lower():
+				# Construct synthetic faces from merged row
+				front_type = str(row.get('type', '') or '')
+				front_text = str(row.get('text', '') or '')
+				mana_cost_val = str(row.get('manaCost', '') or '')
+				mana_value_raw = row.get('manaValue', '')
+				mana_value_val = None
+				try:
+					if mana_value_raw not in (None, ''):
+						mana_value_val = float(mana_value_raw)
+						if math.isnan(mana_value_val):
+							mana_value_val = None
+				except Exception:
+					mana_value_val = None
+				
+				# Front face
+				faces.append({
+					'face': str(row.get('faceName', '') or name),
+					'side': 'a',
+					'type': front_type,
+					'text': front_text,
+					'mana_cost': mana_cost_val,
+					'mana_value': mana_value_val,
+					'produces_mana': _detect_produces_mana(front_text),
+					'is_land': 'land' in front_type.lower(),
+					'layout': str(row.get('layout', '') or ''),
+				})
+				
+				# Back face (synthesized)
+				# M9: Use colorIdentity column for MDFC land colors (more reliable than parsing type line)
+				color_identity_raw = row.get('colorIdentity', [])
+				if isinstance(color_identity_raw, str):
+					# Handle string format like "['G']" or "G"
+					try:
+						import ast
+						color_identity_raw = ast.literal_eval(color_identity_raw)
+					except Exception:
+						color_identity_raw = [c.strip() for c in color_identity_raw.split(',') if c.strip()]
+				back_face_colors = list(color_identity_raw) if color_identity_raw else []
+				# Fallback to parsing land type if colorIdentity not available
+				if not back_face_colors:
+					back_face_colors = _extract_colors_from_land_type(back_type_val)
+				
+				faces.append({
+					'face': name.split(' // ')[1] if ' // ' in name else 'Back',
+					'side': 'b',
+					'type': back_type_val,
+					'text': '',  # Not available in merged row
+					'mana_cost': '',
+					'mana_value': None,
+					'produces_mana': True,  # Assume land produces mana
+					'is_land': True,
+					'layout': str(row.get('layout', '') or ''),
+					'colors': back_face_colors,  # M9: Color information for mana sources
+				})
+				
+				front_is_land = 'land' in front_type.lower()
+				layout_val = str(row.get('layout', '') or '')
+				mapping[name] = {
+					'faces': faces,
+					'front_is_land': front_is_land,
+					'layout': layout_val,
+					'colors': back_face_colors,  # M9: Store colors at top level for easy access
+				}
+				continue
+		
+		# Original logic for multi-row format
 		for _, row in group.iterrows():
 			side_raw = str(row.get('side', '') or '').strip()
 			side_key = side_raw.lower()
@@ -316,7 +425,7 @@ def compute_color_source_matrix(card_library: Dict[str, dict], full_df) -> Dict[
 	matrix: Dict[str, Dict[str, int]] = {}
 	lookup = {}
 	if full_df is not None and not getattr(full_df, 'empty', True) and 'name' in full_df.columns:
-		for _, r in full_df.iterrows():  # type: ignore[attr-defined]
+		for _, r in full_df.iterrows():
 			nm = str(r.get('name', ''))
 			if nm and nm not in lookup:
 				lookup[nm] = r
@@ -332,8 +441,13 @@ def compute_color_source_matrix(card_library: Dict[str, dict], full_df) -> Dict[
 		if hasattr(row, 'get'):
 			row_type_raw = row.get('type', row.get('type_line', '')) or ''
 		tline_full = str(row_type_raw).lower()
+		# M9: Check backType for MDFC land detection
+		back_type_raw = ''
+		if hasattr(row, 'get'):
+			back_type_raw = row.get('backType', '') or ''
+		back_type = str(back_type_raw).lower()
 		# Land or permanent that could produce mana via text
-		is_land = ('land' in entry_type) or ('land' in tline_full)
+		is_land = ('land' in entry_type) or ('land' in tline_full) or ('land' in back_type)
 		base_is_land = is_land
 		text_field_raw = ''
 		if hasattr(row, 'get'):
@@ -363,7 +477,8 @@ def compute_color_source_matrix(card_library: Dict[str, dict], full_df) -> Dict[
 				if face_types or face_texts:
 					is_land = True
 		text_field = text_field_raw.lower().replace('\n', ' ')
-		# Skip obvious non-permanents (rituals etc.)
+		# Skip obvious non-permanents (rituals etc.) - but NOT if any face is a land
+		# M9: If is_land is True (from backType check), we keep it regardless of front face type
 		if (not is_land) and ('instant' in entry_type or 'sorcery' in entry_type or 'instant' in tline_full or 'sorcery' in tline_full):
 			continue
 		# Keep only candidates that are lands OR whose text indicates mana production
@@ -437,6 +552,12 @@ def compute_color_source_matrix(card_library: Dict[str, dict], full_df) -> Dict[
 			colors['_dfc_land'] = True
 			if not (base_is_land or dfc_entry.get('front_is_land')):
 				colors['_dfc_counts_as_extra'] = True
+			# M9: Extract colors from DFC face metadata (back face land colors)
+			dfc_colors = dfc_entry.get('colors', [])
+			if dfc_colors:
+				for color in dfc_colors:
+					if color in colors:
+						colors[color] = 1
 		produces_any_color = any(colors[c] for c in ('W', 'U', 'B', 'R', 'G', 'C'))
 		if produces_any_color or colors.get('_dfc_land'):
 			matrix[name] = colors
@@ -729,7 +850,7 @@ def select_top_land_candidates(df, already: set[str], basics: set[str], top_n: i
 	out: list[tuple[int,str,str,str]] = []
 	if df is None or getattr(df, 'empty', True):
 		return out
-	for _, row in df.iterrows():  # type: ignore[attr-defined]
+	for _, row in df.iterrows():
 		try:
 			name = str(row.get('name',''))
 			if not name or name in already or name in basics:
@@ -993,7 +1114,7 @@ def prefer_owned_first(df, owned_names_lower: set[str], name_col: str = 'name'):
 # ---------------------------------------------------------------------------
 # Tag-driven land suggestion helpers
 # ---------------------------------------------------------------------------
-def build_tag_driven_suggestions(builder) -> list[dict]:  # type: ignore[override]
+def build_tag_driven_suggestions(builder) -> list[dict]:
 	"""Return a list of suggestion dicts based on selected commander tags.
 
 	Each dict fields:
@@ -1081,7 +1202,7 @@ def color_balance_addition_candidates(builder, target_color: str, combined_df) -
 		return []
 	existing = set(builder.card_library.keys())
 	out: list[tuple[str, int]] = []
-	for _, row in combined_df.iterrows():  # type: ignore[attr-defined]
+	for _, row in combined_df.iterrows():
 		name = str(row.get('name', ''))
 		if not name or name in existing or any(name == o[0] for o in out):
 			continue

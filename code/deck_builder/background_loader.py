@@ -1,21 +1,17 @@
-"""Loader for background cards derived from `background_cards.csv`."""
+"""Loader for background cards derived from all_cards.parquet."""
 from __future__ import annotations
 
 import ast
-import csv
+import re
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
-import re
-from typing import Mapping, Tuple
+from typing import Any, Mapping, Tuple
 
 from logging_util import get_logger
 from deck_builder.partner_background_utils import analyze_partner_background
-from path_util import csv_dir
 
 LOGGER = get_logger(__name__)
-
-BACKGROUND_FILENAME = "background_cards.csv"
 
 
 @dataclass(frozen=True, slots=True)
@@ -57,7 +53,7 @@ class BackgroundCatalog:
 def load_background_cards(
     source_path: str | Path | None = None,
 ) -> BackgroundCatalog:
-    """Load and cache background card data."""
+    """Load and cache background card data from all_cards.parquet."""
 
     resolved = _resolve_background_path(source_path)
     try:
@@ -65,7 +61,7 @@ def load_background_cards(
         mtime_ns = getattr(stat, "st_mtime_ns", int(stat.st_mtime * 1_000_000_000))
         size = stat.st_size
     except FileNotFoundError:
-        raise FileNotFoundError(f"Background CSV not found at {resolved}") from None
+        raise FileNotFoundError(f"Background data not found at {resolved}") from None
 
     entries, version = _load_background_cards_cached(str(resolved), mtime_ns)
     etag = f"{size}-{mtime_ns}-{len(entries)}"
@@ -88,46 +84,49 @@ def _load_background_cards_cached(path_str: str, mtime_ns: int) -> Tuple[Tuple[B
     if not path.exists():
         return tuple(), "unknown"
 
-    with path.open("r", encoding="utf-8", newline="") as handle:
-        first_line = handle.readline()
-        version = "unknown"
-        if first_line.startswith("#"):
-            version = _parse_version(first_line)
-        else:
-            handle.seek(0)
-        reader = csv.DictReader(handle)
-        if reader.fieldnames is None:
-            return tuple(), version
-        entries = _rows_to_cards(reader)
+    try:
+        import pandas as pd
+        df = pd.read_parquet(path, engine="pyarrow")
+        
+        # Filter for background cards
+        if 'isBackground' not in df.columns:
+            LOGGER.warning("isBackground column not found in %s", path)
+            return tuple(), "unknown"
+        
+        df_backgrounds = df[df['isBackground']].copy()
+        
+        if len(df_backgrounds) == 0:
+            LOGGER.warning("No background cards found in %s", path)
+            return tuple(), "unknown"
+        
+        entries = _rows_to_cards(df_backgrounds)
+        version = "parquet"
+        
+    except Exception as e:
+        LOGGER.error("Failed to load backgrounds from %s: %s", path, e)
+        return tuple(), "unknown"
 
     frozen = tuple(entries)
     return frozen, version
 
 
 def _resolve_background_path(override: str | Path | None) -> Path:
+    """Resolve path to all_cards.parquet."""
     if override:
         return Path(override).resolve()
-    return (Path(csv_dir()) / BACKGROUND_FILENAME).resolve()
+    # Use card_files/processed/all_cards.parquet
+    return Path("card_files/processed/all_cards.parquet").resolve()
 
 
-def _parse_version(line: str) -> str:
-    tokens = line.lstrip("# ").strip().split()
-    for token in tokens:
-        if "=" not in token:
-            continue
-        key, value = token.split("=", 1)
-        if key == "version":
-            return value
-    return "unknown"
-
-
-def _rows_to_cards(reader: csv.DictReader) -> list[BackgroundCard]:
+def _rows_to_cards(df) -> list[BackgroundCard]:
+    """Convert DataFrame rows to BackgroundCard objects."""
     entries: list[BackgroundCard] = []
     seen: set[str] = set()
-    for raw in reader:
-        if not raw:
+    
+    for _, row in df.iterrows():
+        if row.empty:
             continue
-        card = _row_to_card(raw)
+        card = _row_to_card(row)
         if card is None:
             continue
         key = card.display_name.lower()
@@ -135,20 +134,35 @@ def _rows_to_cards(reader: csv.DictReader) -> list[BackgroundCard]:
             continue
         seen.add(key)
         entries.append(card)
+    
     entries.sort(key=lambda card: card.display_name)
     return entries
 
 
-def _row_to_card(row: Mapping[str, str]) -> BackgroundCard | None:
-    name = _clean_str(row.get("name"))
-    face_name = _clean_str(row.get("faceName")) or None
+def _row_to_card(row) -> BackgroundCard | None:
+    """Convert a DataFrame row to a BackgroundCard."""
+    # Helper to safely get values from DataFrame row
+    def get_val(key: str):
+        try:
+            if hasattr(row, key):
+                val = getattr(row, key)
+                # Handle pandas NA/None
+                if val is None or (hasattr(val, '__class__') and 'NA' in val.__class__.__name__):
+                    return None
+                return val
+            return None
+        except Exception:
+            return None
+    
+    name = _clean_str(get_val("name"))
+    face_name = _clean_str(get_val("faceName")) or None
     display = face_name or name
     if not display:
         return None
 
-    type_line = _clean_str(row.get("type"))
-    oracle_text = _clean_multiline(row.get("text"))
-    raw_theme_tags = tuple(_parse_literal_list(row.get("themeTags")))
+    type_line = _clean_str(get_val("type"))
+    oracle_text = _clean_multiline(get_val("text"))
+    raw_theme_tags = tuple(_parse_literal_list(get_val("themeTags")))
     detection = analyze_partner_background(type_line, oracle_text, raw_theme_tags)
     if not detection.is_background:
         return None
@@ -158,18 +172,18 @@ def _row_to_card(row: Mapping[str, str]) -> BackgroundCard | None:
         face_name=face_name,
         display_name=display,
         slug=_slugify(display),
-        color_identity=_parse_color_list(row.get("colorIdentity")),
-        colors=_parse_color_list(row.get("colors")),
-        mana_cost=_clean_str(row.get("manaCost")),
-        mana_value=_parse_float(row.get("manaValue")),
+        color_identity=_parse_color_list(get_val("colorIdentity")),
+        colors=_parse_color_list(get_val("colors")),
+        mana_cost=_clean_str(get_val("manaCost")),
+        mana_value=_parse_float(get_val("manaValue")),
         type_line=type_line,
         oracle_text=oracle_text,
-        keywords=tuple(_split_list(row.get("keywords"))),
+        keywords=tuple(_split_list(get_val("keywords"))),
         theme_tags=tuple(tag for tag in raw_theme_tags if tag),
         raw_theme_tags=raw_theme_tags,
-        edhrec_rank=_parse_int(row.get("edhrecRank")),
-        layout=_clean_str(row.get("layout")) or "normal",
-        side=_clean_str(row.get("side")) or None,
+        edhrec_rank=_parse_int(get_val("edhrecRank")),
+        layout=_clean_str(get_val("layout")) or "normal",
+        side=_clean_str(get_val("side")) or None,
     )
 
 
@@ -189,8 +203,19 @@ def _clean_multiline(value: object) -> str:
 def _parse_literal_list(value: object) -> list[str]:
     if value is None:
         return []
-    if isinstance(value, (list, tuple, set)):
+    
+    # Check if it's a numpy array (from Parquet/pandas)
+    is_numpy = False
+    try:
+        import numpy as np
+        is_numpy = isinstance(value, np.ndarray)
+    except ImportError:
+        pass
+    
+    # Handle lists, tuples, sets, and numpy arrays
+    if isinstance(value, (list, tuple, set)) or is_numpy:
         return [str(item).strip() for item in value if str(item).strip()]
+    
     text = str(value).strip()
     if not text:
         return []
@@ -205,6 +230,17 @@ def _parse_literal_list(value: object) -> list[str]:
 
 
 def _split_list(value: object) -> list[str]:
+    # Check if it's a numpy array (from Parquet/pandas)
+    is_numpy = False
+    try:
+        import numpy as np
+        is_numpy = isinstance(value, np.ndarray)
+    except ImportError:
+        pass
+    
+    if isinstance(value, (list, tuple, set)) or is_numpy:
+        return [str(item).strip() for item in value if str(item).strip()]
+    
     text = _clean_str(value)
     if not text:
         return []
@@ -213,6 +249,18 @@ def _split_list(value: object) -> list[str]:
 
 
 def _parse_color_list(value: object) -> Tuple[str, ...]:
+    # Check if it's a numpy array (from Parquet/pandas)
+    is_numpy = False
+    try:
+        import numpy as np
+        is_numpy = isinstance(value, np.ndarray)
+    except ImportError:
+        pass
+    
+    if isinstance(value, (list, tuple, set)) or is_numpy:
+        parts = [str(item).strip().upper() for item in value if str(item).strip()]
+        return tuple(parts)
+    
     text = _clean_str(value)
     if not text:
         return tuple()

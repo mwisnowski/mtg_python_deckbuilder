@@ -42,7 +42,7 @@ def _sample_combinations(tags: List[str], iterations: int) -> List[Tuple[str | N
 
 def _collect_tag_pool(df: pd.DataFrame) -> List[str]:
     tag_pool: set[str] = set()
-    for tags in df.get("_ltags", []):  # type: ignore[assignment]
+    for tags in df.get("_ltags", []):
         if not tags:
             continue
         for token in tags:

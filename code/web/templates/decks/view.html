@@ -35,7 +35,7 @@
       {% if commander_tag_slugs %}data-tags-slug="{{ commander_tag_slugs|join(' ') }}"{% endif %}
       {% if commander_overlap_tags %}data-overlaps="{{ commander_overlap_tags|join(', ') }}"{% endif %}
       {% if commander_reason_text %}data-reasons="{{ commander_reason_text|e }}"{% endif %}>
-      <img src="https://api.scryfall.com/cards/named?fuzzy={{ commander_base|urlencode }}&format=image&version=normal"
+      <img src="{{ commander_base|card_image('normal') }}"
            alt="{{ commander }} card image"
            data-card-name="{{ commander_base }}"
            data-original-name="{{ commander }}"

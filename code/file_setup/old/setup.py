@@ -40,7 +40,7 @@ from typing import List, Dict, Any
 
 # Third-party imports (optional)
 try:
-    import inquirer  # type: ignore
+    import inquirer
 except Exception:
     inquirer = None  # Fallback to simple input-based menu when unavailable
 import pandas as pd

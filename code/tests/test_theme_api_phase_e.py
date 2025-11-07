@@ -2,7 +2,7 @@ import sys
 from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
-from code.web.app import app  # type: ignore
+from code.web.app import app
 
 # Ensure project root on sys.path for absolute imports
 ROOT = Path(__file__).resolve().parents[2]

@@ -16,7 +16,7 @@
         <div style="display:flex; align-items:center; gap:.5rem;">
           <div style="width:64px; height:40px; background:#111; border:1px solid var(--border); border-radius:6px;">
             <img class="card-thumb" alt="Thumb {{ i }}" loading="lazy" decoding="async" data-lqip
-                 src="https://api.scryfall.com/cards/named?fuzzy=Lightning%20Bolt&format=image&version=small"
+                 src="{{ 'Lightning Bolt'|card_image('small') }}"
                  width="64" height="40" style="width:64px; height:40px; object-fit:cover; border-radius:6px;" />
           </div>
           <div style="display:flex; flex-direction:column; gap:.25rem;">

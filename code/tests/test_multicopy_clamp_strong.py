@@ -18,7 +18,7 @@ def test_multicopy_clamp_trims_current_stage_additions_only():
     # Preseed 95 cards in the library
     b.card_library = {"Filler": {"Count": 95, "Role": "Test", "SubRole": "", "AddedBy": "Test"}}
     # Set a multi-copy selection that would exceed 100 by 15
-    b._web_multi_copy = {  # type: ignore[attr-defined]
+    b._web_multi_copy = {
         "id": "persistent_petitioners",
         "name": "Persistent Petitioners",
         "count": 20,

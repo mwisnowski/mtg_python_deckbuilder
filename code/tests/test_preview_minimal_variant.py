@@ -1,5 +1,5 @@
 from fastapi.testclient import TestClient
-from code.web.app import app  # type: ignore
+from code.web.app import app
 
 
 def test_minimal_variant_hides_controls_and_headers():

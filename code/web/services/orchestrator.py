@@ -359,7 +359,7 @@ def _global_prune_disallowed_pool(b: DeckBuilder) -> None:
                                 drop_idx = tags_series.apply(lambda lst, nd=needles: _has_any(lst, nd))
                                 mask_keep = [mk and (not di) for mk, di in zip(mask_keep, drop_idx.tolist())]
                             try:
-                                import pandas as _pd  # type: ignore
+                                import pandas as _pd
                                 mask_keep = _pd.Series(mask_keep, index=work.index)
                             except Exception:
                                 pass
@@ -480,7 +480,7 @@ def commander_candidates(query: str, limit: int = 10) -> List[Tuple[str, int, Li
     tmp = DeckBuilder()
     try:
         if hasattr(tmp, '_normalize_commander_query'):
-            query = tmp._normalize_commander_query(query)  # type: ignore[attr-defined]
+            query = tmp._normalize_commander_query(query)
         else:
             # Light fallback: basic title case
             query = ' '.join([w[:1].upper() + w[1:].lower() if w else w for w in str(query).split(' ')])
@@ -653,7 +653,7 @@ def commander_select(name: str) -> Dict[str, Any]:
     if row.empty:
         try:
             if hasattr(tmp, '_normalize_commander_query'):
-                name2 = tmp._normalize_commander_query(name)  # type: ignore[attr-defined]
+                name2 = tmp._normalize_commander_query(name)
             else:
                 name2 = ' '.join([w[:1].upper() + w[1:].lower() if w else w for w in str(name).split(' ')])
             row = df[df["name"] == name2]
@@ -1288,8 +1288,8 @@ def _ensure_setup_ready(out, force: bool = False) -> None:
                 pass
             # Bust theme-related in-memory caches so new catalog reflects immediately
             try:
-                from .theme_catalog_loader import bust_filter_cache  # type: ignore
-                from .theme_preview import bust_preview_cache  # type: ignore
+                from .theme_catalog_loader import bust_filter_cache
+                from .theme_preview import bust_preview_cache
                 bust_filter_cache("catalog_refresh")
                 bust_preview_cache("catalog_refresh")
                 try:
@@ -1327,7 +1327,7 @@ def _ensure_setup_ready(out, force: bool = False) -> None:
 
     try:
         # M4 (Parquet Migration): Check for processed Parquet file instead of CSV
-        from path_util import get_processed_cards_path  # type: ignore
+        from path_util import get_processed_cards_path
         cards_path = get_processed_cards_path()
         flag_path = os.path.join('csv_files', '.tagging_complete.json')
         auto_setup_enabled = _is_truthy_env('WEB_AUTO_SETUP', '1')
@@ -1416,7 +1416,7 @@ def _ensure_setup_ready(out, force: bool = False) -> None:
                 _write_status({"running": True, "phase": "setup", "message": "GitHub download failed, running local setup...", "percent": 0})
             
             try:
-                from file_setup.setup import initial_setup  # type: ignore
+                from file_setup.setup import initial_setup
                 # Always run initial_setup when forced or when cards are missing/stale
                 initial_setup()
             except Exception as e:
@@ -1425,7 +1425,7 @@ def _ensure_setup_ready(out, force: bool = False) -> None:
                 return
             # M4 (Parquet Migration): Use unified run_tagging with parallel support
             try:
-                from tagging import tagger as _tagger  # type: ignore
+                from tagging import tagger as _tagger
                 use_parallel = str(os.getenv('WEB_TAG_PARALLEL', '1')).strip().lower() in {"1","true","yes","on"}
                 max_workers_env = os.getenv('WEB_TAG_WORKERS')
                 try:
@@ -1466,7 +1466,7 @@ def _ensure_setup_ready(out, force: bool = False) -> None:
                 try:
                     _write_status({"running": True, "phase": "aggregating", "message": "Consolidating card data...", "percent": 90})
                     out("Aggregating card CSVs into Parquet files...")
-                    from file_setup.card_aggregator import CardAggregator  # type: ignore
+                    from file_setup.card_aggregator import CardAggregator
                     aggregator = CardAggregator()
                     
                     # Aggregate all_cards.parquet
@@ -1474,7 +1474,7 @@ def _ensure_setup_ready(out, force: bool = False) -> None:
                     out(f"Aggregated {stats['total_cards']} cards into all_cards.parquet ({stats['file_size_mb']} MB)")
                     
                     # Convert commander_cards.csv and background_cards.csv to Parquet
-                    import pandas as pd  # type: ignore
+                    import pandas as pd
                     
                     # Convert commander_cards.csv
                     commander_csv = 'csv_files/commander_cards.csv'
@@ -1524,8 +1524,8 @@ def _ensure_setup_ready(out, force: bool = False) -> None:
                 # Generate / refresh theme catalog (JSON + per-theme YAML) BEFORE marking done so UI sees progress
                 _refresh_theme_catalog(out, force=True, fast_path=False)
                 try:
-                    from .theme_catalog_loader import bust_filter_cache  # type: ignore
-                    from .theme_preview import bust_preview_cache  # type: ignore
+                    from .theme_catalog_loader import bust_filter_cache
+                    from .theme_preview import bust_preview_cache
                     bust_filter_cache("tagging_complete")
                     bust_preview_cache("tagging_complete")
                 except Exception:
@@ -1721,19 +1721,19 @@ def run_build(commander: str, tags: List[str], bracket: int, ideals: Dict[str, i
         # Owned/Prefer-owned integration (optional for headless runs)
         try:
             if use_owned_only:
-                b.use_owned_only = True  # type: ignore[attr-defined]
+                b.use_owned_only = True
                 # Prefer explicit owned_names list if provided; else let builder discover from files
                 if owned_names:
                     try:
-                        b.owned_card_names = set(str(n).strip() for n in owned_names if str(n).strip())  # type: ignore[attr-defined]
+                        b.owned_card_names = set(str(n).strip() for n in owned_names if str(n).strip())
                     except Exception:
-                        b.owned_card_names = set()  # type: ignore[attr-defined]
+                        b.owned_card_names = set()
             # Soft preference flag does not filter; only biases selection order
             if prefer_owned:
                 try:
-                    b.prefer_owned = True  # type: ignore[attr-defined]
+                    b.prefer_owned = True
                     if owned_names and not getattr(b, 'owned_card_names', None):
-                        b.owned_card_names = set(str(n).strip() for n in owned_names if str(n).strip())  # type: ignore[attr-defined]
+                        b.owned_card_names = set(str(n).strip() for n in owned_names if str(n).strip())
                 except Exception:
                     pass
         except Exception:
@@ -1751,13 +1751,13 @@ def run_build(commander: str, tags: List[str], bracket: int, ideals: Dict[str, i
         # Thread combo preferences (if provided)
         try:
             if prefer_combos is not None:
-                b.prefer_combos = bool(prefer_combos)  # type: ignore[attr-defined]
+                b.prefer_combos = bool(prefer_combos)
             if combo_target_count is not None:
-                b.combo_target_count = int(combo_target_count)  # type: ignore[attr-defined]
+                b.combo_target_count = int(combo_target_count)
             if combo_balance:
                 bal = str(combo_balance).strip().lower()
                 if bal in ('early','late','mix'):
-                    b.combo_balance = bal  # type: ignore[attr-defined]
+                    b.combo_balance = bal
         except Exception:
             pass
 
@@ -1934,7 +1934,7 @@ def run_build(commander: str, tags: List[str], bracket: int, ideals: Dict[str, i
             except Exception:
                 pass
             if hasattr(b, 'export_decklist_csv'):
-                csv_path = b.export_decklist_csv()  # type: ignore[attr-defined]
+                csv_path = b.export_decklist_csv()
         except Exception as e:
             out(f"CSV export failed: {e}")
         try:
@@ -1942,7 +1942,7 @@ def run_build(commander: str, tags: List[str], bracket: int, ideals: Dict[str, i
                 # Try to mirror build_deck_full behavior by displaying the contents
                 import os as _os
                 base, _ext = _os.path.splitext(_os.path.basename(csv_path)) if csv_path else (f"deck_{b.timestamp}", "")
-                txt_path = b.export_decklist_text(filename=base + '.txt')  # type: ignore[attr-defined]
+                txt_path = b.export_decklist_text(filename=base + '.txt')
                 try:
                     b._display_txt_contents(txt_path)
                 except Exception:
@@ -1950,7 +1950,7 @@ def run_build(commander: str, tags: List[str], bracket: int, ideals: Dict[str, i
                 # Compute bracket compliance and save JSON alongside exports
                 try:
                     if hasattr(b, 'compute_and_print_compliance'):
-                        rep0 = b.compute_and_print_compliance(base_stem=base)  # type: ignore[attr-defined]
+                        rep0 = b.compute_and_print_compliance(base_stem=base)
                         # Attach planning preview (no mutation) and only auto-enforce if explicitly enabled
                         rep0 = _attach_enforcement_plan(b, rep0)
                         try:
@@ -1959,7 +1959,7 @@ def run_build(commander: str, tags: List[str], bracket: int, ideals: Dict[str, i
                         except Exception:
                             _auto = False
                         if _auto and isinstance(rep0, dict) and rep0.get('overall') == 'FAIL' and hasattr(b, 'enforce_and_reexport'):
-                            b.enforce_and_reexport(base_stem=base, mode='auto')  # type: ignore[attr-defined]
+                            b.enforce_and_reexport(base_stem=base, mode='auto')
                 except Exception:
                     pass
                 # Load compliance JSON for UI consumption
@@ -1981,7 +1981,7 @@ def run_build(commander: str, tags: List[str], bracket: int, ideals: Dict[str, i
         # Build structured summary for UI
         try:
             if hasattr(b, 'build_deck_summary'):
-                summary = b.build_deck_summary()  # type: ignore[attr-defined]
+                summary = b.build_deck_summary()
         except Exception:
             summary = None
         # Write sidecar summary JSON next to CSV (if available)
@@ -1999,7 +1999,7 @@ def run_build(commander: str, tags: List[str], bracket: int, ideals: Dict[str, i
                     "txt": txt_path,
                 }
                 try:
-                    commander_meta = b.get_commander_export_metadata()  # type: ignore[attr-defined]
+                    commander_meta = b.get_commander_export_metadata()
                 except Exception:
                     commander_meta = {}
                 names = commander_meta.get("commander_names") or []
@@ -2383,21 +2383,21 @@ def _apply_combined_commander_to_builder(builder: DeckBuilder, combined: Any) ->
     """Attach combined commander metadata to the builder."""
 
     try:
-        builder.combined_commander = combined  # type: ignore[attr-defined]
+        builder.combined_commander = combined
     except Exception:
         pass
     try:
-        builder.partner_mode = getattr(combined, "partner_mode", None)  # type: ignore[attr-defined]
+        builder.partner_mode = getattr(combined, "partner_mode", None)
     except Exception:
         pass
     try:
-        builder.secondary_commander = getattr(combined, "secondary_name", None)  # type: ignore[attr-defined]
+        builder.secondary_commander = getattr(combined, "secondary_name", None)
     except Exception:
         pass
     try:
-        builder.combined_color_identity = getattr(combined, "color_identity", None)  # type: ignore[attr-defined]
-        builder.combined_theme_tags = getattr(combined, "theme_tags", None)  # type: ignore[attr-defined]
-        builder.partner_warnings = getattr(combined, "warnings", None)  # type: ignore[attr-defined]
+        builder.combined_color_identity = getattr(combined, "color_identity", None)
+        builder.combined_theme_tags = getattr(combined, "theme_tags", None)
+        builder.partner_warnings = getattr(combined, "warnings", None)
     except Exception:
         pass
     commander_dict = getattr(builder, "commander_dict", None)
@@ -2583,17 +2583,17 @@ def start_build_ctx(
     # Owned-only / prefer-owned (if requested)
     try:
         if use_owned_only:
-            b.use_owned_only = True  # type: ignore[attr-defined]
+            b.use_owned_only = True
             if owned_names:
                 try:
-                    b.owned_card_names = set(str(n).strip() for n in owned_names if str(n).strip())  # type: ignore[attr-defined]
+                    b.owned_card_names = set(str(n).strip() for n in owned_names if str(n).strip())
                 except Exception:
-                    b.owned_card_names = set()  # type: ignore[attr-defined]
+                    b.owned_card_names = set()
         if prefer_owned:
             try:
-                b.prefer_owned = True  # type: ignore[attr-defined]
+                b.prefer_owned = True
                 if owned_names and not getattr(b, 'owned_card_names', None):
-                    b.owned_card_names = set(str(n).strip() for n in owned_names if str(n).strip())  # type: ignore[attr-defined]
+                    b.owned_card_names = set(str(n).strip() for n in owned_names if str(n).strip())
             except Exception:
                 pass
     except Exception:
@@ -2646,14 +2646,14 @@ def start_build_ctx(
     # Thread combo config
     try:
         if combo_target_count is not None:
-            b.combo_target_count = int(combo_target_count)  # type: ignore[attr-defined]
+            b.combo_target_count = int(combo_target_count)
     except Exception:
         pass
     try:
         if combo_balance:
             bal = str(combo_balance).strip().lower()
             if bal in ('early','late','mix'):
-                b.combo_balance = bal  # type: ignore[attr-defined]
+                b.combo_balance = bal
     except Exception:
         pass
     # Stages
@@ -2735,23 +2735,23 @@ def run_stage(ctx: Dict[str, Any], rerun: bool = False, show_skipped: bool = Fal
             pass
         if not ctx.get("txt_path") and hasattr(b, 'export_decklist_text'):
             try:
-                ctx["csv_path"] = b.export_decklist_csv()  # type: ignore[attr-defined]
+                ctx["csv_path"] = b.export_decklist_csv()
             except Exception as e:
                 logs.append(f"CSV export failed: {e}")
         if not ctx.get("txt_path") and hasattr(b, 'export_decklist_text'):
             try:
                 import os as _os
                 base, _ext = _os.path.splitext(_os.path.basename(ctx.get("csv_path") or f"deck_{b.timestamp}.csv"))
-                ctx["txt_path"] = b.export_decklist_text(filename=base + '.txt')  # type: ignore[attr-defined]
+                ctx["txt_path"] = b.export_decklist_text(filename=base + '.txt')
                 # Export the run configuration JSON for manual builds
                 try:
-                    b.export_run_config_json(directory='config', filename=base + '.json')  # type: ignore[attr-defined]
+                    b.export_run_config_json(directory='config', filename=base + '.json')
                 except Exception:
                     pass
                 # Compute bracket compliance and save JSON alongside exports
                 try:
                     if hasattr(b, 'compute_and_print_compliance'):
-                        rep0 = b.compute_and_print_compliance(base_stem=base)  # type: ignore[attr-defined]
+                        rep0 = b.compute_and_print_compliance(base_stem=base)
                         rep0 = _attach_enforcement_plan(b, rep0)
                         try:
                             import os as __os
@@ -2759,7 +2759,7 @@ def run_stage(ctx: Dict[str, Any], rerun: bool = False, show_skipped: bool = Fal
                         except Exception:
                             _auto = False
                         if _auto and isinstance(rep0, dict) and rep0.get('overall') == 'FAIL' and hasattr(b, 'enforce_and_reexport'):
-                            b.enforce_and_reexport(base_stem=base, mode='auto')  # type: ignore[attr-defined]
+                            b.enforce_and_reexport(base_stem=base, mode='auto')
                 except Exception:
                     pass
                 # Load compliance JSON for UI consumption
@@ -2811,7 +2811,7 @@ def run_stage(ctx: Dict[str, Any], rerun: bool = False, show_skipped: bool = Fal
         summary = None
         try:
             if hasattr(b, 'build_deck_summary'):
-                summary = b.build_deck_summary()  # type: ignore[attr-defined]
+                summary = b.build_deck_summary()
         except Exception:
             summary = None
         # Write sidecar summary JSON next to CSV (if available)
@@ -2830,7 +2830,7 @@ def run_stage(ctx: Dict[str, Any], rerun: bool = False, show_skipped: bool = Fal
                     "txt": ctx.get("txt_path"),
                 }
                 try:
-                    commander_meta = b.get_commander_export_metadata()  # type: ignore[attr-defined]
+                    commander_meta = b.get_commander_export_metadata()
                 except Exception:
                     commander_meta = {}
                 names = commander_meta.get("commander_names") or []
@@ -2890,12 +2890,12 @@ def run_stage(ctx: Dict[str, Any], rerun: bool = False, show_skipped: bool = Fal
             comp_now = None
             try:
                 if hasattr(b, 'compute_and_print_compliance'):
-                    comp_now = b.compute_and_print_compliance(base_stem=None)  # type: ignore[attr-defined]
+                    comp_now = b.compute_and_print_compliance(base_stem=None)
             except Exception:
                 comp_now = None
             try:
                 if comp_now:
-                    comp_now = _attach_enforcement_plan(b, comp_now)  # type: ignore[attr-defined]
+                    comp_now = _attach_enforcement_plan(b, comp_now)
             except Exception:
                 pass
             # If still FAIL, return the saved result without advancing or rerunning
@@ -3407,7 +3407,7 @@ def run_stage(ctx: Dict[str, Any], rerun: bool = False, show_skipped: bool = Fal
         comp = None
         try:
             if hasattr(b, 'compute_and_print_compliance'):
-                comp = b.compute_and_print_compliance(base_stem=None)  # type: ignore[attr-defined]
+                comp = b.compute_and_print_compliance(base_stem=None)
         except Exception:
             comp = None
         try:
@@ -3508,7 +3508,7 @@ def run_stage(ctx: Dict[str, Any], rerun: bool = False, show_skipped: bool = Fal
             comp = None
             try:
                 if hasattr(b, 'compute_and_print_compliance'):
-                    comp = b.compute_and_print_compliance(base_stem=None)  # type: ignore[attr-defined]
+                    comp = b.compute_and_print_compliance(base_stem=None)
             except Exception:
                 comp = None
             try:
@@ -3575,7 +3575,7 @@ def run_stage(ctx: Dict[str, Any], rerun: bool = False, show_skipped: bool = Fal
             comp = None
             try:
                 if hasattr(b, 'compute_and_print_compliance'):
-                    comp = b.compute_and_print_compliance(base_stem=None)  # type: ignore[attr-defined]
+                    comp = b.compute_and_print_compliance(base_stem=None)
             except Exception:
                 comp = None
             try:
@@ -3617,23 +3617,23 @@ def run_stage(ctx: Dict[str, Any], rerun: bool = False, show_skipped: bool = Fal
         pass
     if not ctx.get("csv_path") and hasattr(b, 'export_decklist_csv'):
         try:
-            ctx["csv_path"] = b.export_decklist_csv()  # type: ignore[attr-defined]
+            ctx["csv_path"] = b.export_decklist_csv()
         except Exception as e:
             logs.append(f"CSV export failed: {e}")
     if not ctx.get("txt_path") and hasattr(b, 'export_decklist_text'):
         try:
             import os as _os
             base, _ext = _os.path.splitext(_os.path.basename(ctx.get("csv_path") or f"deck_{b.timestamp}.csv"))
-            ctx["txt_path"] = b.export_decklist_text(filename=base + '.txt')  # type: ignore[attr-defined]
+            ctx["txt_path"] = b.export_decklist_text(filename=base + '.txt')
             # Export the run configuration JSON for manual builds
             try:
-                b.export_run_config_json(directory='config', filename=base + '.json')  # type: ignore[attr-defined]
+                b.export_run_config_json(directory='config', filename=base + '.json')
             except Exception:
                 pass
             # Compute bracket compliance and save JSON alongside exports
             try:
                 if hasattr(b, 'compute_and_print_compliance'):
-                    rep0 = b.compute_and_print_compliance(base_stem=base)  # type: ignore[attr-defined]
+                    rep0 = b.compute_and_print_compliance(base_stem=base)
                     rep0 = _attach_enforcement_plan(b, rep0)
                     try:
                         import os as __os
@@ -3641,7 +3641,7 @@ def run_stage(ctx: Dict[str, Any], rerun: bool = False, show_skipped: bool = Fal
                     except Exception:
                         _auto = False
                     if _auto and isinstance(rep0, dict) and rep0.get('overall') == 'FAIL' and hasattr(b, 'enforce_and_reexport'):
-                        b.enforce_and_reexport(base_stem=base, mode='auto')  # type: ignore[attr-defined]
+                        b.enforce_and_reexport(base_stem=base, mode='auto')
             except Exception:
                 pass
             # Load compliance JSON for UI consumption
@@ -3662,7 +3662,7 @@ def run_stage(ctx: Dict[str, Any], rerun: bool = False, show_skipped: bool = Fal
     summary = None
     try:
         if hasattr(b, 'build_deck_summary'):
-            summary = b.build_deck_summary()  # type: ignore[attr-defined]
+            summary = b.build_deck_summary()
     except Exception:
         summary = None
     # Write sidecar summary JSON next to CSV (if available)
@@ -3681,7 +3681,7 @@ def run_stage(ctx: Dict[str, Any], rerun: bool = False, show_skipped: bool = Fal
                 "txt": ctx.get("txt_path"),
             }
             try:
-                commander_meta = b.get_commander_export_metadata()  # type: ignore[attr-defined]
+                commander_meta = b.get_commander_export_metadata()
             except Exception:
                 commander_meta = {}
             names = commander_meta.get("commander_names") or []

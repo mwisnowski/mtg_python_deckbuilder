@@ -14,7 +14,7 @@ from ..shared_copy import build_land_headline, dfc_card_note
 logger = logging_util.logging.getLogger(__name__)
 
 try:
-    from prettytable import PrettyTable  # type: ignore
+    from prettytable import PrettyTable
 except Exception:  # pragma: no cover
     PrettyTable = None  # type: ignore
 
@@ -176,7 +176,7 @@ class ReportingMixin:
         """
         try:
             # Lazy import to avoid cycles
-            from deck_builder.enforcement import enforce_bracket_compliance  # type: ignore
+            from deck_builder.enforcement import enforce_bracket_compliance
         except Exception:
             self.output_func("Enforcement module unavailable.")
             return {}
@@ -194,7 +194,7 @@ class ReportingMixin:
             if int(total_cards) < 100 and hasattr(self, 'fill_remaining_theme_spells'):
                 before = int(total_cards)
                 try:
-                    self.fill_remaining_theme_spells()  # type: ignore[attr-defined]
+                    self.fill_remaining_theme_spells()
                 except Exception:
                     pass
                 # Recompute after filler
@@ -239,13 +239,13 @@ class ReportingMixin:
                 csv_name = base_stem + ".csv"
                 txt_name = base_stem + ".txt"
                 # Overwrite exports with updated library
-                self.export_decklist_csv(directory='deck_files', filename=csv_name, suppress_output=True)  # type: ignore[attr-defined]
-                self.export_decklist_text(directory='deck_files', filename=txt_name, suppress_output=True)  # type: ignore[attr-defined]
+                self.export_decklist_csv(directory='deck_files', filename=csv_name, suppress_output=True)
+                self.export_decklist_text(directory='deck_files', filename=txt_name, suppress_output=True)
                 # Re-export the JSON config to reflect any changes from enforcement
                 json_name = base_stem + ".json"
-                self.export_run_config_json(directory='config', filename=json_name, suppress_output=True)  # type: ignore[attr-defined]
+                self.export_run_config_json(directory='config', filename=json_name, suppress_output=True)
                 # Recompute and write compliance next to them
-                self.compute_and_print_compliance(base_stem=base_stem)  # type: ignore[attr-defined]
+                self.compute_and_print_compliance(base_stem=base_stem)
                 # Inject enforcement details into the saved compliance JSON for UI transparency
                 comp_path = _os.path.join('deck_files', f"{base_stem}_compliance.json")
                 try:
@@ -259,18 +259,18 @@ class ReportingMixin:
                     pass
             else:
                 # Fall back to default export flow
-                csv_path = self.export_decklist_csv()  # type: ignore[attr-defined]
+                csv_path = self.export_decklist_csv()
                 try:
                     base, _ = _os.path.splitext(csv_path)
                     base_only = _os.path.basename(base)
                 except Exception:
                     base_only = None
-                self.export_decklist_text(filename=(base_only + '.txt') if base_only else None)  # type: ignore[attr-defined]
+                self.export_decklist_text(filename=(base_only + '.txt') if base_only else None)
                 # Re-export JSON config after enforcement changes
                 if base_only:
-                    self.export_run_config_json(directory='config', filename=base_only + '.json', suppress_output=True)  # type: ignore[attr-defined]
+                    self.export_run_config_json(directory='config', filename=base_only + '.json', suppress_output=True)
                 if base_only:
-                    self.compute_and_print_compliance(base_stem=base_only)  # type: ignore[attr-defined]
+                    self.compute_and_print_compliance(base_stem=base_only)
                     # Inject enforcement into written JSON as above
                     try:
                         comp_path = _os.path.join('deck_files', f"{base_only}_compliance.json")
@@ -294,7 +294,7 @@ class ReportingMixin:
         """
         try:
             # Late import to avoid circulars in some environments
-            from deck_builder.brackets_compliance import evaluate_deck  # type: ignore
+            from deck_builder.brackets_compliance import evaluate_deck
         except Exception:
             self.output_func("Bracket compliance module unavailable.")
             return {}
@@ -373,7 +373,7 @@ class ReportingMixin:
         full_df = getattr(self, '_full_cards_df', None)
         combined_df = getattr(self, '_combined_cards_df', None)
         snapshot = full_df if full_df is not None else combined_df
-        row_lookup: Dict[str, any] = {}
+        row_lookup: Dict[str, Any] = {}
         if snapshot is not None and hasattr(snapshot, 'empty') and not snapshot.empty and 'name' in snapshot.columns:
             for _, r in snapshot.iterrows():
                 nm = str(r.get('name'))
@@ -429,7 +429,7 @@ class ReportingMixin:
 
         # Surface land vs. MDFC counts for CLI users to mirror web summary copy
         try:
-            summary = self.build_deck_summary()  # type: ignore[attr-defined]
+            summary = self.build_deck_summary()
         except Exception:
             summary = None
         if isinstance(summary, dict):
@@ -483,9 +483,9 @@ class ReportingMixin:
         full_df = getattr(self, '_full_cards_df', None)
         combined_df = getattr(self, '_combined_cards_df', None)
         snapshot = full_df if full_df is not None else combined_df
-        row_lookup: Dict[str, any] = {}
+        row_lookup: Dict[str, Any] = {}
         if snapshot is not None and not getattr(snapshot, 'empty', True) and 'name' in snapshot.columns:
-            for _, r in snapshot.iterrows():  # type: ignore[attr-defined]
+            for _, r in snapshot.iterrows():
                 nm = str(r.get('name'))
                 if nm and nm not in row_lookup:
                     row_lookup[nm] = r
@@ -521,7 +521,7 @@ class ReportingMixin:
 
         builder_utils_module = None
         try:
-            from deck_builder import builder_utils as _builder_utils  # type: ignore
+            from deck_builder import builder_utils as _builder_utils
             builder_utils_module = _builder_utils
             color_matrix = builder_utils_module.compute_color_source_matrix(self.card_library, full_df)
         except Exception:
@@ -543,6 +543,9 @@ class ReportingMixin:
                         mf_info = {}
                     faces_meta = list(mf_info.get('faces', [])) if isinstance(mf_info, dict) else []
                     layout_val = mf_info.get('layout') if isinstance(mf_info, dict) else None
+                    # M9: If no colors found from mana production, try extracting from face metadata
+                    if not card_colors and isinstance(mf_info, dict):
+                        card_colors = list(mf_info.get('colors', []))
                 dfc_land_lookup[name] = {
                     'adds_extra_land': counts_as_extra,
                     'counts_as_land': not counts_as_extra,
@@ -681,13 +684,14 @@ class ReportingMixin:
                     'faces': faces_meta,
                     'layout': layout_val,
                 })
-                if adds_extra:
-                    dfc_extra_total += copies
+                # M9: Count ALL MDFC lands for land summary
+                dfc_extra_total += copies
         total_sources = sum(source_counts.values())
         traditional_lands = type_counts.get('Land', 0)
+        # M9: dfc_extra_total now contains ALL MDFC lands, not just extras
         land_summary = {
             'traditional': traditional_lands,
-            'dfc_lands': dfc_extra_total,
+            'dfc_lands': dfc_extra_total,  # M9: Count of all MDFC lands
             'with_dfc': traditional_lands + dfc_extra_total,
             'dfc_cards': dfc_details,
             'headline': build_land_headline(traditional_lands, dfc_extra_total, traditional_lands + dfc_extra_total),
@@ -852,7 +856,7 @@ class ReportingMixin:
         full_df = getattr(self, '_full_cards_df', None)
         combined_df = getattr(self, '_combined_cards_df', None)
         snapshot = full_df if full_df is not None else combined_df
-        row_lookup: Dict[str, any] = {}
+        row_lookup: Dict[str, Any] = {}
         if snapshot is not None and not snapshot.empty and 'name' in snapshot.columns:
             for _, r in snapshot.iterrows():
                 nm = str(r.get('name'))
@@ -1124,7 +1128,7 @@ class ReportingMixin:
         full_df = getattr(self, '_full_cards_df', None)
         combined_df = getattr(self, '_combined_cards_df', None)
         snapshot = full_df if full_df is not None else combined_df
-        row_lookup: Dict[str, any] = {}
+        row_lookup: Dict[str, Any] = {}
         if snapshot is not None and not snapshot.empty and 'name' in snapshot.columns:
             for _, r in snapshot.iterrows():
                 nm = str(r.get('name'))
@@ -1132,7 +1136,7 @@ class ReportingMixin:
                     row_lookup[nm] = r
 
         try:
-            from deck_builder import builder_utils as _builder_utils  # type: ignore
+            from deck_builder import builder_utils as _builder_utils
             color_matrix = _builder_utils.compute_color_source_matrix(self.card_library, full_df)
         except Exception:
             color_matrix = {}
@@ -1383,3 +1387,4 @@ class ReportingMixin:
         """
     # Card library printout suppressed; use CSV and text export for card list.
     pass
+

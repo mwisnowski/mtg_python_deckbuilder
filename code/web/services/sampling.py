@@ -130,7 +130,7 @@ def sample_real_cards_for_theme(theme: str, limit: int, colors_filter: Optional[
             if allow_splash:
                 off = ci - commander_colors
                 if len(off) == 1:
-                    c["_splash_off_color"] = True  # type: ignore
+                    c["_splash_off_color"] = True
                     new_pool.append(c)
                     continue
         pool = new_pool

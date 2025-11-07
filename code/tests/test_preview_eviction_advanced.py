@@ -1,8 +1,8 @@
 import os
 
-from code.web.services.theme_preview import get_theme_preview, bust_preview_cache  # type: ignore
-from code.web.services import preview_cache as pc  # type: ignore
-from code.web.services.preview_metrics import preview_metrics  # type: ignore
+from code.web.services.theme_preview import get_theme_preview, bust_preview_cache
+from code.web.services import preview_cache as pc
+from code.web.services.preview_metrics import preview_metrics
 
 
 def _prime(slug: str, limit: int = 12, hits: int = 0, *, colors=None):
@@ -89,7 +89,7 @@ def test_env_weight_override(monkeypatch):
     bust_preview_cache()
     # Clear module-level caches for weights
     if hasattr(pc, '_EVICT_WEIGHTS_CACHE'):
-        pc._EVICT_WEIGHTS_CACHE = None  # type: ignore
+        pc._EVICT_WEIGHTS_CACHE = None
     # Create two entries: one older with many hits, one fresh with none.
     _prime('Blink', limit=6, hits=6, colors=None)  # older hot entry
     old_key = next(iter(pc.PREVIEW_CACHE.keys()))

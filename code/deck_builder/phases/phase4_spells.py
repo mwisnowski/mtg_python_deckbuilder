@@ -78,7 +78,7 @@ class SpellAdditionMixin:
                 # Combine into keep mask
                 mask_keep = [mk and (not di) for mk, di in zip(mask_keep, drop_idx.tolist())]
             try:
-                import pandas as _pd  # type: ignore
+                import pandas as _pd
                 mask_keep = _pd.Series(mask_keep, index=df.index)
             except Exception:
                 pass
@@ -742,7 +742,7 @@ class SpellAdditionMixin:
         if df is None or df.empty or 'type' not in df.columns:
             return
         try:
-            context = self.get_theme_context()  # type: ignore[attr-defined]
+            context = self.get_theme_context()
         except Exception:
             context = None
         if context is None or not getattr(context, 'ordered_targets', []):

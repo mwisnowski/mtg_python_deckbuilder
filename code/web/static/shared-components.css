@@ -1,0 +1,655 @@
+/* Shared Component Styles - Not processed by Tailwind PurgeCSS */
+
+/* Card-style list items (used in theme catalog, commander browser, etc.) */
+.theme-list-card {
+  background: var(--panel);
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  transition: background-color 0.15s ease;
+}
+
+.theme-list-card:hover {
+  background: var(--hover);
+}
+
+/* Filter chips (used in theme catalog, card browser, etc.) */
+.filter-chip {
+  background: var(--panel-alt);
+  border: 1px solid var(--border);
+  padding: 2px 8px;
+  border-radius: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+}
+
+.filter-chip-remove {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 0;
+  line-height: 1;
+}
+
+/* Loading skeleton cards (used in theme catalog, deck lists, etc.) */
+.skeleton-card {
+  height: 48px;
+  border-radius: 8px;
+  background: linear-gradient(90deg, var(--panel-alt) 25%, var(--hover) 50%, var(--panel-alt) 75%);
+  background-size: 200% 100%;
+  animation: sk 1.2s ease-in-out infinite;
+}
+
+/* Search suggestion dropdowns (used in theme catalog, card search, etc.) */
+.search-suggestions {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-top: none;
+  z-index: 25;
+  display: none;
+  max-height: 300px;
+  overflow: auto;
+  border-radius: 0 0 8px 8px;
+}
+
+.search-suggestions a {
+  display: block;
+  padding: 0.5rem 0.6rem;
+  font-size: 13px;
+  text-decoration: none;
+  color: var(--text);
+  border-bottom: 1px solid var(--border);
+  transition: background 0.15s ease;
+}
+
+.search-suggestions a:last-child {
+  border-bottom: none;
+}
+
+.search-suggestions a:hover,
+.search-suggestions a.selected {
+  background: var(--hover);
+}
+
+.search-suggestions a.selected {
+  border-left: 3px solid var(--ring);
+  padding-left: calc(0.6rem - 3px);
+}
+
+/* Card reference links (clickable card names with hover preview) */
+.card-ref {
+  cursor: pointer;
+  text-decoration: underline dotted;
+}
+
+.card-ref:hover {
+  color: var(--accent);
+}
+
+/* Modal components (used in new deck modal, settings modals, etc.) */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 1rem;
+  overflow: auto;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+}
+
+.modal-content {
+  position: relative;
+  max-width: 720px;
+  width: clamp(320px, 90vw, 720px);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  padding: 1rem;
+  max-height: min(92vh, 100%);
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Form field components */
+.form-label {
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+.form-checkbox-label {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  column-gap: 0.5rem;
+  margin: 0;
+  width: 100%;
+  cursor: pointer;
+  text-align: left;
+}
+
+.form-checkbox-label input[type="checkbox"],
+.form-checkbox-label input[type="radio"] {
+  margin: 0;
+  cursor: pointer;
+}
+
+/* Include/Exclude card chips (green/red themed) */
+.include-chips-container {
+  margin-top: 0.5rem;
+  min-height: 30px;
+  border: 1px solid #4ade80;
+  border-radius: 6px;
+  padding: 0.5rem;
+  background: rgba(74, 222, 128, 0.05);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  align-items: flex-start;
+}
+
+.exclude-chips-container {
+  margin-top: 0.5rem;
+  min-height: 30px;
+  border: 1px solid #ef4444;
+  border-radius: 6px;
+  padding: 0.5rem;
+  background: rgba(239, 68, 68, 0.05);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  align-items: flex-start;
+}
+
+.chips-inner {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  flex: 1;
+}
+
+.chips-placeholder {
+  color: #6b7280;
+  font-size: 11px;
+  font-style: italic;
+}
+
+/* Card list textarea styling */
+.include-textarea {
+  width: 100%;
+  min-height: 60px;
+  resize: vertical;
+  font-family: monospace;
+  font-size: 12px;
+  border-left: 3px solid #4ade80;
+  border-right: 1px solid var(--border);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  background: var(--bg);
+}
+
+.include-textarea::placeholder {
+  color: var(--muted);
+  opacity: 0.7;
+}
+
+/* Alternative card buttons - force text wrapping */
+.alt-option {
+  display: block !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  text-align: left !important;
+  white-space: normal !important;
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  line-height: 1.3 !important;
+  padding: 0.5rem 0.7rem !important;
+}
+
+.exclude-textarea {
+  width: 100%;
+  min-height: 60px;
+  resize: vertical;
+  font-family: monospace;
+  font-size: 12px;
+  border-left: 3px solid #ef4444;
+  border-right: 1px solid var(--border);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  background: var(--bg);
+}
+
+.exclude-textarea::placeholder {
+  color: var(--muted);
+  opacity: 0.7;
+}
+
+/* Info/warning panels */
+.info-panel {
+  margin-top: 0.75rem;
+  padding: 0.5rem;
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: 6px;
+}
+
+.info-panel summary {
+  cursor: pointer;
+  font-size: 12px;
+  color: #60a5fa;
+}
+
+.info-panel-content {
+  margin-top: 0.5rem;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+/* Include/Exclude card list helpers */
+.include-exclude-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-top: 0.5rem;
+}
+
+@media (max-width: 768px) {
+  .include-exclude-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.card-list-label {
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+.card-list-label small {
+  color: #9ca3af;
+  opacity: 1;
+}
+
+.card-list-label-include {
+  color: #4ade80;
+  font-weight: 500;
+}
+
+.card-list-label-exclude {
+  color: #ef4444;
+  font-weight: 500;
+}
+
+.card-list-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  font-size: 12px;
+}
+
+.card-list-count {
+  font-size: 11px;
+}
+
+.card-list-validation {
+  margin-top: 0.5rem;
+  font-size: 12px;
+}
+
+.card-list-badges {
+  display: flex;
+  gap: 0.25rem;
+  font-size: 10px;
+}
+
+/* Button variants for include/exclude controls */
+.btn-upload-include {
+  cursor: pointer;
+  font-size: 11px;
+  padding: 0.25rem 0.5rem;
+  background: #065f46;
+  border-color: #059669;
+}
+
+.btn-upload-exclude {
+  cursor: pointer;
+  font-size: 11px;
+  padding: 0.25rem 0.5rem;
+  background: #7f1d1d;
+  border-color: #dc2626;
+}
+
+.btn-clear {
+  font-size: 11px;
+  padding: 0.25rem 0.5rem;
+  background: #7f1d1d;
+  border-color: #dc2626;
+}
+
+/* Modal footer */
+.modal-footer {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: space-between;
+  margin-top: 1rem;
+}
+
+.modal-footer-left {
+  display: flex;
+  gap: 0.5rem;
+}
+
+/* Chip dot color variants */
+.dot-green {
+  background: var(--green-main);
+}
+
+.dot-blue {
+  background: var(--blue-main);
+}
+
+.dot-orange {
+  background: var(--orange-main, #f97316);
+}
+
+.dot-red {
+  background: var(--red-main);
+}
+
+.dot-purple {
+  background: var(--purple-main, #a855f7);
+}
+
+/* Form label with icon */
+.form-label-icon {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+/* Inline form (for control buttons) */
+.inline-form {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Locked cards list */
+.locked-list {
+  list-style: none;
+  padding: 0;
+  margin: 0.35rem 0 0;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.locked-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.lock-box-inline {
+  display: inline;
+  margin-left: auto;
+}
+
+/* Build controls sticky section */
+.build-controls {
+  position: sticky;
+  z-index: 5;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.5rem;
+  margin-top: 1rem;
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+/* Alert box */
+.alert-error {
+  margin-top: 0.5rem;
+  color: #fecaca;
+  background: #7f1d1d;
+  border: 1px solid #991b1b;
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+}
+
+/* Stage timeline list */
+.timeline-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.25rem;
+}
+
+.timeline-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Card action buttons container */
+.card-actions-center {
+  display: flex;
+  justify-content: center;
+  margin-top: 0.25rem;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+/* Ownership badge (small circular indicator) */
+.ownership-badge {
+  display: inline-block;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--text);
+  border-radius: 12px;
+  font-size: 12px;
+  line-height: 18px;
+  height: 18px;
+  min-width: 18px;
+  padding: 0 6px;
+  text-align: center;
+}
+
+/* Build log pre formatting */
+.build-log {
+  margin-top: 0.5rem;
+  white-space: pre-wrap;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  padding: 1rem;
+  border-radius: 8px;
+  max-height: 40vh;
+  overflow: auto;
+}
+
+/* Last action status area (prevents layout shift) */
+.last-action {
+  min-height: 1.5rem;
+}
+
+/* Deck summary section divider */
+.summary-divider {
+  margin: 1.25rem 0;
+  border-color: var(--border);
+}
+
+/* Summary type heading */
+.summary-type-heading {
+  margin: 0.5rem 0 0.25rem 0;
+  font-weight: 600;
+}
+
+/* Summary view controls */
+.summary-view-controls {
+  margin: 0.5rem 0 0.25rem 0;
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+/* Summary section spacing */
+.summary-section {
+  margin-top: 0.5rem;
+}
+
+.summary-section-lg {
+  margin-top: 1rem;
+}
+
+/* Land breakdown note chips */
+.land-note-chip-expand {
+  background: #0f172a;
+  border-color: #34d399;
+  color: #a7f3d0;
+}
+
+.land-note-chip-counts {
+  background: #111827;
+  border-color: #60a5fa;
+  color: #bfdbfe;
+}
+
+/* Land breakdown list */
+.land-breakdown-list {
+  list-style: none;
+  padding: 0;
+  margin: 0.35rem 0 0;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.land-breakdown-item {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+
+.land-breakdown-subs {
+  list-style: none;
+  padding: 0;
+  margin: 0.2rem 0 0;
+  display: grid;
+  gap: 0.15rem;
+  flex: 1 0 100%;
+}
+
+.land-breakdown-sub {
+  font-size: 0.85rem;
+  color: #e5e7eb;
+  opacity: 0.85;
+}
+
+/* Deck metrics wrap */
+.deck-metrics-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+
+/* Combo summary styling */
+.combo-summary {
+  cursor: pointer;
+  user-select: none;
+  padding: 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+  font-weight: 600;
+  transition: background-color 0.15s ease;
+}
+
+.combo-summary:hover {
+  background: color-mix(in srgb, var(--bg) 70%, var(--text) 30%);
+  border-color: var(--text);
+}
+
+/* Mana analytics row grid */
+.mana-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+  align-items: stretch;
+}
+
+/* Mana panel container */
+.mana-panel {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.6rem;
+  background: var(--panel);
+}
+
+/* Mana panel heading */
+.mana-panel-heading {
+  margin-bottom: 0.35rem;
+  font-weight: 600;
+}
+
+/* Chart bars container */
+.chart-bars {
+  display: flex;
+  gap: 14px;
+  align-items: flex-end;
+  height: 140px;
+}
+
+/* Chart column center-aligned text */
+.chart-column {
+  text-align: center;
+}
+
+/* Chart SVG cursor */
+.chart-svg {
+  cursor: pointer;
+}
+
+/* Existing card tile styles (for reference/consolidation) */
+.card-tile {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.75rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  transition: background-color 0.15s ease;
+}
+
+.card-tile:hover {
+  background: var(--hover);
+}
+
+/* Theme detail card styles (for reference/consolidation) */
+.theme-detail-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}

@@ -19,9 +19,12 @@ from contextlib import asynccontextmanager
 from code.deck_builder.summary_telemetry import get_mdfc_metrics, get_partner_metrics, get_theme_metrics
 from tagging.multi_face_merger import load_merge_summary
 from .services.combo_utils import detect_all as _detect_all
-from .services.theme_catalog_loader import prewarm_common_filters, load_index  # type: ignore
-from .services.commander_catalog_loader import load_commander_catalog  # type: ignore
-from .services.tasks import get_session, new_sid, set_session_value  # type: ignore
+from .services.theme_catalog_loader import prewarm_common_filters, load_index
+from .services.commander_catalog_loader import load_commander_catalog
+from .services.tasks import get_session, new_sid, set_session_value
+
+# Logger for app-level logging
+logger = logging.getLogger(__name__)
 
 # Resolve template/static dirs relative to this file
 _THIS_DIR = Path(__file__).resolve().parent
@@ -53,18 +56,18 @@ async def _lifespan(app: FastAPI):  # pragma: no cover - simple infra glue
     except Exception:
         pass
     try:
-        commanders_routes.prewarm_default_page()  # type: ignore[attr-defined]
+        commanders_routes.prewarm_default_page()
     except Exception:
         pass
     # Warm preview card index once (updated Phase A: moved to card_index module)
     try:  # local import to avoid cost if preview unused
-        from .services.card_index import maybe_build_index  # type: ignore
+        from .services.card_index import maybe_build_index
         maybe_build_index()
     except Exception:
         pass
     # Warm card browser theme catalog (fast CSV read) and theme index (slower card parsing)
     try:
-        from .routes.card_browser import get_theme_catalog, get_theme_index  # type: ignore
+        from .routes.card_browser import get_theme_catalog, get_theme_index
         get_theme_catalog()  # Fast: just reads CSV
         get_theme_index()    # Slower: parses cards for theme-to-card mapping
     except Exception:
@@ -73,7 +76,7 @@ async def _lifespan(app: FastAPI):  # pragma: no cover - simple infra glue
     try:
         from code.settings import ENABLE_CARD_DETAILS
         if ENABLE_CARD_DETAILS:
-            from .routes.card_browser import get_similarity  # type: ignore
+            from .routes.card_browser import get_similarity
             get_similarity()  # Pre-initialize singleton (one-time cost: ~2-3s)
     except Exception:
         pass
@@ -86,7 +89,7 @@ app.add_middleware(GZipMiddleware, minimum_size=500)
 # Mount static if present
 if _STATIC_DIR.exists():
     class CacheStatic(StaticFiles):
-        async def get_response(self, path, scope):  # type: ignore[override]
+        async def get_response(self, path, scope):
             resp = await super().get_response(path, scope)
             try:
                 # Add basic cache headers for static assets
@@ -99,12 +102,38 @@ if _STATIC_DIR.exists():
 # Jinja templates
 templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
 
+# Add custom Jinja2 filter for card image URLs
+def card_image_url(card_name: str, size: str = "normal") -> str:
+    """
+    Generate card image URL (uses local cache if available, falls back to Scryfall).
+    
+    For DFC cards (containing ' // '), extracts the front face name.
+    
+    Args:
+        card_name: Name of the card (may be "Front // Back" for DFCs)
+        size: Image size ('small' or 'normal')
+    
+    Returns:
+        URL for the card image
+    """
+    from urllib.parse import quote
+    
+    # Extract front face name for DFCs (thumbnails always show front face)
+    display_name = card_name
+    if ' // ' in card_name:
+        display_name = card_name.split(' // ')[0].strip()
+    
+    # Use our API endpoint which handles cache lookup and fallback
+    return f"/api/images/{size}/{quote(display_name)}"
+
+templates.env.filters["card_image"] = card_image_url
+
 # Compatibility shim: accept legacy TemplateResponse(name, {"request": request, ...})
 # and reorder to the new signature TemplateResponse(request, name, {...}).
 # Prevents DeprecationWarning noise in tests without touching all call sites.
 _orig_template_response = templates.TemplateResponse
 
-def _compat_template_response(*args, **kwargs):  # type: ignore[override]
+def _compat_template_response(*args, **kwargs):
     try:
         if args and isinstance(args[0], str):
             name = args[0]
@@ -122,7 +151,7 @@ def _compat_template_response(*args, **kwargs):  # type: ignore[override]
         pass
     return _orig_template_response(*args, **kwargs)
 
-templates.TemplateResponse = _compat_template_response  # type: ignore[assignment]
+templates.TemplateResponse = _compat_template_response
 
 # (Startup prewarm moved to lifespan handler _lifespan)
 
@@ -298,7 +327,7 @@ templates.env.globals.update({
 # Expose catalog hash (for cache versioning / service worker) – best-effort, fallback to 'dev'
 def _load_catalog_hash() -> str:
     try:  # local import to avoid circular on early load
-        from .services.theme_catalog_loader import CATALOG_JSON  # type: ignore
+        from .services.theme_catalog_loader import CATALOG_JSON
         if CATALOG_JSON.exists():
             raw = _json.loads(CATALOG_JSON.read_text(encoding="utf-8") or "{}")
             meta = raw.get("metadata_info") or {}
@@ -840,6 +869,12 @@ async def home(request: Request) -> HTMLResponse:
     return templates.TemplateResponse("home.html", {"request": request, "version": os.getenv("APP_VERSION", "dev")})
 
 
+@app.get("/docs/components", response_class=HTMLResponse)
+async def components_library(request: Request) -> HTMLResponse:
+    """M2 Component Library - showcase of standardized UI components"""
+    return templates.TemplateResponse("docs/components.html", {"request": request})
+
+
 # Simple health check (hardened)
 @app.get("/healthz")
 async def healthz():
@@ -916,7 +951,7 @@ async def status_random_theme_stats():
     if not SHOW_DIAGNOSTICS:
         raise HTTPException(status_code=404, detail="Not Found")
     try:
-        from deck_builder.random_entrypoint import get_theme_tag_stats  # type: ignore
+        from deck_builder.random_entrypoint import get_theme_tag_stats
 
         stats = get_theme_tag_stats()
         return JSONResponse({"ok": True, "stats": stats})
@@ -1003,8 +1038,8 @@ async def api_random_build(request: Request):
         except Exception:
             timeout_s = max(0.1, float(RANDOM_TIMEOUT_MS) / 1000.0)
         # Import on-demand to avoid heavy costs at module import time
-        from deck_builder.random_entrypoint import build_random_deck, RandomConstraintsImpossibleError  # type: ignore
-        from deck_builder.random_entrypoint import RandomThemeNoMatchError  # type: ignore
+        from deck_builder.random_entrypoint import build_random_deck, RandomConstraintsImpossibleError
+        from deck_builder.random_entrypoint import RandomThemeNoMatchError
 
         res = build_random_deck(
             theme=theme,
@@ -1135,7 +1170,7 @@ async def api_random_full_build(request: Request):
             timeout_s = max(0.1, float(RANDOM_TIMEOUT_MS) / 1000.0)
 
         # Build a full deck deterministically
-        from deck_builder.random_entrypoint import build_random_full_deck, RandomConstraintsImpossibleError  # type: ignore
+        from deck_builder.random_entrypoint import build_random_full_deck, RandomConstraintsImpossibleError
         res = build_random_full_deck(
             theme=theme,
             constraints=constraints,
@@ -1359,7 +1394,7 @@ async def api_random_reroll(request: Request):
         except Exception:
             new_seed = None
         if new_seed is None:
-            from random_util import generate_seed  # type: ignore
+            from random_util import generate_seed
             new_seed = int(generate_seed())
 
         # Build with the new seed
@@ -1370,7 +1405,7 @@ async def api_random_reroll(request: Request):
             timeout_s = max(0.1, float(RANDOM_TIMEOUT_MS) / 1000.0)
         attempts = body.get("attempts", int(RANDOM_MAX_ATTEMPTS))
 
-        from deck_builder.random_entrypoint import build_random_full_deck  # type: ignore
+        from deck_builder.random_entrypoint import build_random_full_deck
         res = build_random_full_deck(
             theme=theme,
             constraints=constraints,
@@ -1751,10 +1786,10 @@ async def hx_random_reroll(request: Request):
     except Exception:
         new_seed = None
     if new_seed is None:
-        from random_util import generate_seed  # type: ignore
+        from random_util import generate_seed
         new_seed = int(generate_seed())
     # Import outside conditional to avoid UnboundLocalError when branch not taken
-    from deck_builder.random_entrypoint import build_random_full_deck  # type: ignore
+    from deck_builder.random_entrypoint import build_random_full_deck
     try:
         t0 = time.time()
         _attempts = int(attempts_override) if attempts_override is not None else int(RANDOM_MAX_ATTEMPTS)
@@ -1765,7 +1800,7 @@ async def hx_random_reroll(request: Request):
         _timeout_s = max(0.1, float(_timeout_ms) / 1000.0)
         if is_reroll_same:
             build_t0 = time.time()
-            from headless_runner import run as _run  # type: ignore
+            from headless_runner import run as _run
             # Suppress builder's internal initial export to control artifact generation (matches full random path logic)
             try:
                 import os as _os
@@ -1778,18 +1813,18 @@ async def hx_random_reroll(request: Request):
             summary = None
             try:
                 if hasattr(builder, 'build_deck_summary'):
-                    summary = builder.build_deck_summary()  # type: ignore[attr-defined]
+                    summary = builder.build_deck_summary()
             except Exception:
                 summary = None
             decklist = []
             try:
                 if hasattr(builder, 'deck_list_final'):
-                    decklist = getattr(builder, 'deck_list_final')  # type: ignore[attr-defined]
+                    decklist = getattr(builder, 'deck_list_final')
             except Exception:
                 decklist = []
             # Controlled artifact export (single pass)
-            csv_path = getattr(builder, 'last_csv_path', None)  # type: ignore[attr-defined]
-            txt_path = getattr(builder, 'last_txt_path', None)  # type: ignore[attr-defined]
+            csv_path = getattr(builder, 'last_csv_path', None)
+            txt_path = getattr(builder, 'last_txt_path', None)
             compliance = None
             try:
                 import os as _os
@@ -1797,7 +1832,7 @@ async def hx_random_reroll(request: Request):
                 # Perform exactly one export sequence now
                 if not csv_path and hasattr(builder, 'export_decklist_csv'):
                     try:
-                        csv_path = builder.export_decklist_csv()  # type: ignore[attr-defined]
+                        csv_path = builder.export_decklist_csv()
                     except Exception:
                         csv_path = None
                 if csv_path and isinstance(csv_path, str):
@@ -1807,7 +1842,7 @@ async def hx_random_reroll(request: Request):
                         try:
                             base_name = _os.path.basename(base_path) + '.txt'
                             if hasattr(builder, 'export_decklist_text'):
-                                txt_path = builder.export_decklist_text(filename=base_name)  # type: ignore[attr-defined]
+                                txt_path = builder.export_decklist_text(filename=base_name)
                         except Exception:
                             # Fallback: if a txt already exists from a prior build reuse it
                             if _os.path.isfile(base_path + '.txt'):
@@ -1822,7 +1857,7 @@ async def hx_random_reroll(request: Request):
                     else:
                         try:
                             if hasattr(builder, 'compute_and_print_compliance'):
-                                compliance = builder.compute_and_print_compliance(base_stem=_os.path.basename(base_path))  # type: ignore[attr-defined]
+                                compliance = builder.compute_and_print_compliance(base_stem=_os.path.basename(base_path))
                         except Exception:
                             compliance = None
                     if summary:
@@ -2016,7 +2051,7 @@ async def hx_random_reroll(request: Request):
         except Exception:
             _permalink = None
         resp = templates.TemplateResponse(
-            "partials/random_result.html",  # type: ignore
+            "partials/random_result.html",
             {
                 "request": request,
                 "seed": int(res.seed),
@@ -2212,6 +2247,13 @@ async def setup_status():
         return JSONResponse({"running": False, "phase": "error"})
 
 
+# ============================================================================
+# Card Image Serving Endpoint - MOVED TO /routes/api.py
+# ============================================================================
+# Image serving logic has been moved to code/web/routes/api.py
+# The router is included below via: app.include_router(api_routes.router)
+
+
 # Routers
 from .routes import build as build_routes  # noqa: E402
 from .routes import configs as config_routes  # noqa: E402
@@ -2225,6 +2267,7 @@ from .routes import telemetry as telemetry_routes  # noqa: E402
 from .routes import cards as cards_routes  # noqa: E402
 from .routes import card_browser as card_browser_routes  # noqa: E402
 from .routes import compare as compare_routes  # noqa: E402
+from .routes import api as api_routes  # noqa: E402
 app.include_router(build_routes.router)
 app.include_router(config_routes.router)
 app.include_router(decks_routes.router)
@@ -2237,6 +2280,7 @@ app.include_router(telemetry_routes.router)
 app.include_router(cards_routes.router)
 app.include_router(card_browser_routes.router)
 app.include_router(compare_routes.router)
+app.include_router(api_routes.router)
 
 # Warm validation cache early to reduce first-call latency in tests and dev
 try:
@@ -2423,7 +2467,7 @@ async def logs_page(
         # Respect feature flag
         raise HTTPException(status_code=404, detail="Not Found")
     # Reuse status_logs logic
-    data = await status_logs(tail=tail, q=q, level=level)  # type: ignore[arg-type]
+    data = await status_logs(tail=tail, q=q, level=level)
     lines: list[str]
     if isinstance(data, JSONResponse):
         payload = data.body

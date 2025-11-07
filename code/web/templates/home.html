@@ -1,18 +1,20 @@
 {% extends "base.html" %}
+{% from 'partials/_buttons.html' import button %}
+
 {% block content %}
 <section>
   <div class="actions-grid">
-    <a class="action-button primary" href="/build">Build a Deck</a>
-    <a class="action-button" href="/configs">Run a JSON Config</a>
-    {% if show_setup %}<a class="action-button" href="/setup">Initial Setup</a>{% endif %}
-    <a class="action-button" href="/owned">Owned Library</a>
-    <a class="action-button" href="/cards">Browse All Cards</a>
-    {% if show_commanders %}<a class="action-button" href="/commanders">Browse Commanders</a>{% endif %}
-    <a class="action-button" href="/decks">Finished Decks</a>
-    <a class="action-button" href="/themes/">Browse Themes</a>
-    {% if random_ui %}<a class="action-button" href="/random">Random Build</a>{% endif %}
-    {% if show_diagnostics %}<a class="action-button" href="/diagnostics">Diagnostics</a>{% endif %}
-    {% if show_logs %}<a class="action-button" href="/logs">View Logs</a>{% endif %}
+    {{ button('Build a Deck', variant='primary', href='/build', classes='action-button home-button') }}
+    {{ button('Run a JSON Config', variant='secondary', href='/configs', classes='action-button home-button') }}
+    {% if show_setup %}{{ button('Initial Setup', variant='secondary', href='/setup', classes='action-button home-button') }}{% endif %}
+    {{ button('Owned Library', variant='secondary', href='/owned', classes='action-button home-button') }}
+    {{ button('Browse All Cards', variant='secondary', href='/cards', classes='action-button home-button') }}
+    {% if show_commanders %}{{ button('Browse Commanders', variant='secondary', href='/commanders', classes='action-button home-button') }}{% endif %}
+    {{ button('Finished Decks', variant='secondary', href='/decks', classes='action-button home-button') }}
+    {{ button('Browse Themes', variant='secondary', href='/themes/', classes='action-button home-button') }}
+    {% if random_ui %}{{ button('Random Build', variant='secondary', href='/random', classes='action-button home-button') }}{% endif %}
+    {% if show_diagnostics %}{{ button('Diagnostics', variant='secondary', href='/diagnostics', classes='action-button home-button') }}{% endif %}
+    {% if show_logs %}{{ button('View Logs', variant='secondary', href='/logs', classes='action-button home-button') }}{% endif %}
   </div>
   <div id="themes-quick" style="margin-top:1rem; font-size:.85rem; color:var(--text-muted);">
     <span id="themes-quick-status">Themes: …</span>

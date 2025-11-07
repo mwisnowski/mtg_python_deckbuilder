@@ -33,7 +33,7 @@ def _invoke_helper(
 ) -> list[tuple[list[str], str]]:
     calls: list[tuple[list[str], str]] = []
 
-    def _fake_run(cmd, check=False, cwd=None):  # type: ignore[no-untyped-def]
+    def _fake_run(cmd, check=False, cwd=None):
         calls.append((list(cmd), cwd))
         class _Completed:
             returncode = 0

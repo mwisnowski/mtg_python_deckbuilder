@@ -6,7 +6,7 @@
     {# Strip synergy annotation for Scryfall search and image fuzzy param #}
     {% set commander_base = (commander.name.split(' - Synergy (')[0] if ' - Synergy (' in commander.name else commander.name) %}
     <a href="https://scryfall.com/search?q={{ commander_base|urlencode }}" target="_blank" rel="noopener">
-  <img src="https://api.scryfall.com/cards/named?fuzzy={{ commander_base|urlencode }}&format=image&version=normal" alt="{{ commander.name }} card image" data-card-name="{{ commander_base }}" />
+  <img src="{{ commander_base|card_image('normal') }}" alt="{{ commander.name }} card image" data-card-name="{{ commander_base }}" />
       </a>
     </aside>
     {% if partner_preview_payload %}
@@ -22,7 +22,7 @@
       {% set partner_name_base = partner_secondary_name %}
     {% endif %}
     {% if not partner_image_url and partner_name_base %}
-      {% set partner_image_url = 'https://api.scryfall.com/cards/named?fuzzy=' ~ partner_name_base|urlencode ~ '&format=image&version=normal' %}
+      {% set partner_image_url = partner_name_base|card_image('normal') %}
     {% endif %}
     {% set partner_href = partner_preview_payload.secondary_scryfall_url or partner_preview_payload.scryfall_url %}
     {% if not partner_href and partner_name_base %}
@@ -35,14 +35,14 @@
       {% if partner_tags_joined %}data-tags="{{ partner_tags_joined }}" data-overlaps="{{ partner_tags_joined }}"{% endif %}>
       {% if partner_href %}<a href="{{ partner_href }}" target="_blank" rel="noopener">{% endif %}
       {% if partner_name_base %}
-      <img src="https://api.scryfall.com/cards/named?fuzzy={{ partner_name_base|urlencode }}&format=image&version=normal" alt="{{ (partner_secondary_name or 'Selected card') ~ ' card image' }}"
+      <img src="{{ partner_name_base|card_image('normal') }}" alt="{{ (partner_secondary_name or 'Selected card') ~ ' card image' }}"
            width="320"
            data-card-name="{{ partner_name_base }}"
            data-original-name="{{ partner_secondary_name }}"
            data-role="{{ partner_role_label }}"
            {% if partner_tags_joined %}data-tags="{{ partner_tags_joined }}" data-overlaps="{{ partner_tags_joined }}"{% endif %}
            loading="lazy" decoding="async" data-lqip="1"
-           srcset="https://api.scryfall.com/cards/named?fuzzy={{ partner_name_base|urlencode }}&format=image&version=small 160w, https://api.scryfall.com/cards/named?fuzzy={{ partner_name_base|urlencode }}&format=image&version=normal 488w, https://api.scryfall.com/cards/named?fuzzy={{ partner_name_base|urlencode }}&format=image&version=large 672w"
+           srcset="{{ partner_name_base|card_image('small') }} 160w, {{ partner_name_base|card_image('normal') }} 488w"
            sizes="(max-width: 900px) 100vw, 320px" />
       {% else %}
       <img src="{{ partner_image_url }}" alt="{{ (partner_secondary_name or 'Selected card') ~ ' card image' }}" loading="lazy" decoding="async" width="320" />

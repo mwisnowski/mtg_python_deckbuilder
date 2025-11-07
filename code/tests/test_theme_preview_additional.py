@@ -16,7 +16,7 @@ def _new_client(prewarm: bool = False) -> TestClient:
     # Remove existing module (if any) so lifespan runs again
     if 'code.web.app' in list(importlib.sys.modules.keys()):
         importlib.sys.modules.pop('code.web.app')
-    from code.web.app import app  # type: ignore
+    from code.web.app import app
     return TestClient(app)
 
 

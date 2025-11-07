@@ -24,9 +24,9 @@ import os
 import time
 
 try:  # lazy optional dependency
-    import redis  # type: ignore
+    import redis
 except Exception:  # pragma: no cover - absence path
-    redis = None  # type: ignore
+    redis = None
 
 _URL = os.getenv("THEME_PREVIEW_REDIS_URL")
 _DISABLED = (os.getenv("THEME_PREVIEW_REDIS_DISABLE") or "").lower() in {"1","true","yes","on"}
@@ -42,7 +42,7 @@ def _init() -> None:
         _INIT_ERR = "disabled_or_missing"
         return
     try:
-        _CLIENT = redis.Redis.from_url(_URL, socket_timeout=0.25)  # type: ignore
+        _CLIENT = redis.Redis.from_url(_URL, socket_timeout=0.25)
         # lightweight ping (non-fatal)
         try:
             _CLIENT.ping()
@@ -86,7 +86,7 @@ def redis_get(key: Tuple[str, int, str | None, str | None, str]) -> Optional[Dic
         return None
     try:
         skey = "tpv:" + "|".join([str(part) for part in key])
-        raw: bytes | None = _CLIENT.get(skey)  # type: ignore
+        raw: bytes | None = _CLIENT.get(skey)
         if not raw:
             return None
         obj = json.loads(raw.decode("utf-8"))

@@ -30,8 +30,8 @@ def test_card_index_color_identity_list_handles_edge_cases(tmp_path, monkeypatch
     csv_path = write_csv(tmp_path)
     monkeypatch.setenv("CARD_INDEX_EXTRA_CSV", str(csv_path))
     # Force rebuild
-    card_index._CARD_INDEX.clear()  # type: ignore
-    card_index._CARD_INDEX_MTIME = None  # type: ignore
+    card_index._CARD_INDEX.clear()
+    card_index._CARD_INDEX_MTIME = None
     card_index.maybe_build_index()
 
     pool = card_index.get_tag_pool("Blink")

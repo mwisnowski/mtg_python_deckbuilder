@@ -1,0 +1,375 @@
+{# Card Display Component Library #}
+{# Usage: {{ import '_card_display.html' }} then call card macros #}
+
+{#
+  Card Thumbnail Macro
+  
+  Parameters:
+  - name (str): Card name (required)
+  - size (str): 'small' (160px), 'medium' (230px), 'large' (360px) (default: 'medium')
+  - layout (str): Card layout type ('modal_dfc', 'transform', 'normal', etc.)
+  - version (str): Scryfall image version ('small', 'normal', 'large') (auto-selected by size)
+  - loading (str): 'lazy', 'eager' (default: 'lazy')
+  - show_flip (bool): Show flip button for dual-faced cards (default: True)
+  - show_name (bool): Show card name label below image (default: False)
+  - classes (str): Additional CSS classes for container
+  - img_classes (str): Additional CSS classes for img tag
+  - data_attrs (dict): Additional data attributes as key-value pairs
+  - role (str): Card role (commander, ramp, removal, etc.)
+  - tags (list or str): Theme/mechanic tags (list or comma-separated string)
+  - overlaps (list or str): Theme overlaps
+  - count (int): Card count in deck
+  - lqip (bool): Use low-quality image placeholder (default: True)
+  - onclick (str): JavaScript onclick handler
+  
+  Examples:
+    {{ card_thumb('Sol Ring', size='medium') }}
+    {{ card_thumb('Halana, Kessig Ranger', size='large', show_name=True) }}
+    {{ card_thumb('Delver of Secrets', layout='transform', show_flip=True) }}
+    {{ card_thumb('Rampant Growth', role='ramp', tags=['Ramp', 'Green']) }}
+#}
+{% macro card_thumb(name, size='medium', layout='normal', version='', loading='lazy', show_flip=True, show_name=False, classes='', img_classes='', data_attrs={}, role='', tags='', overlaps='', count=0, lqip=True, onclick='') %}
+  {%- set base_name = name.split(' // ')[0] if ' // ' in name else name -%}
+  {%- set is_dfc = layout in ['modal_dfc', 'transform', 'double_faced_token', 'reversible_card'] -%}
+  
+  {# Auto-select Scryfall image version based on size #}
+  {%- if not version -%}
+    {%- if size == 'small' -%}
+      {%- set version = 'small' -%}
+    {%- elif size == 'large' -%}
+      {%- set version = 'normal' -%}
+    {%- else -%}
+      {%- set version = 'small' -%}
+    {%- endif -%}
+  {%- endif -%}
+  
+  {# Build CSS classes #}
+  {%- set size_class = 'card-thumb-' + size -%}
+  {%- set dfc_class = 'card-thumb-dfc' if is_dfc else '' -%}
+  {%- set container_classes = ['card-thumb-container', size_class, dfc_class, classes]|select|join(' ') -%}
+  {%- set img_base_classes = 'card-thumb' -%}
+  {%- set all_img_classes = [img_base_classes, img_classes]|select|join(' ') -%}
+  
+  {# Build data attributes #}
+  {%- set all_data_attrs = {
+    'card-name': base_name,
+    'layout': layout
+  } -%}
+  {%- if role -%}
+    {%- set _ = all_data_attrs.update({'role': role}) -%}
+  {%- endif -%}
+  {%- if tags -%}
+    {%- set tags_str = tags if tags is string else tags|join(', ') -%}
+    {%- set _ = all_data_attrs.update({'tags': tags_str}) -%}
+  {%- endif -%}
+  {%- if overlaps -%}
+    {%- set overlaps_str = overlaps if overlaps is string else overlaps|join(',') -%}
+    {%- set _ = all_data_attrs.update({'overlaps': overlaps_str}) -%}
+  {%- endif -%}
+  {%- if count > 0 -%}
+    {%- set _ = all_data_attrs.update({'count': count|string}) -%}
+  {%- endif -%}
+  {%- if lqip -%}
+    {%- set _ = all_data_attrs.update({'lqip': '1'}) -%}
+  {%- endif -%}
+  {%- set _ = all_data_attrs.update(data_attrs) -%}
+  
+  <div class="{{ container_classes }}" {% if onclick %}onclick="{{ onclick }}"{% endif %}>
+    <img class="{{ all_img_classes }}"
+         loading="{{ loading }}"
+         decoding="async"
+         src="{{ base_name|card_image(version) }}"
+         alt="{{ name }} image"
+         {% for key, value in all_data_attrs.items() %}data-{{ key }}="{{ value }}" {% endfor %}
+         {% if lqip %}style="filter:blur(4px); transition:filter .35s ease; background:linear-gradient(145deg,#0b0d12,#111b29);" onload="this.style.filter='blur(0)';"{% endif %} />
+    
+    {% if is_dfc and show_flip %}
+      {{ card_flip_button(name) }}
+    {% endif %}
+    
+    {% if show_name %}
+      <div class="card-name-label" data-card-name="{{ base_name }}">{{ name }}</div>
+    {% endif %}
+  </div>
+{% endmacro %}
+
+{#
+  Card Flip Button Macro
+  
+  Parameters:
+  - name (str): Full card name (with // separator for DFCs)
+  - classes (str): Additional CSS classes
+  - aria_label (str): ARIA label (default: auto-generated)
+  
+  Examples:
+    {{ card_flip_button('Delver of Secrets // Insectile Aberration') }}
+#}
+{% macro card_flip_button(name, classes='', aria_label='') %}
+  {%- set faces = name.split(' // ') -%}
+  {%- set label = aria_label if aria_label else 'Flip to ' + (faces[1] if faces|length > 1 else 'other face') -%}
+  
+  <button type="button" 
+          class="card-flip-btn {{ classes }}" 
+          data-card-name="{{ name }}"
+          onclick="flipCard(this)"
+          aria-label="{{ label }}">
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+      <path d="M8 3.293l2.646 2.647.708-.708L8 2.879 4.646 5.232l.708.708L8 3.293zM8 12.707L5.354 10.06l-.708.708L8 13.121l3.354-2.353-.708-.708L8 12.707z"/>
+    </svg>
+  </button>
+{% endmacro %}
+
+{#
+  Card Hover Popup Macro
+  
+  Parameters:
+  - name (str): Card name (required)
+  - layout (str): Card layout type
+  - tags (list or str): Theme/mechanic tags
+  - highlight_tags (list or str): Tags to highlight
+  - role (str): Card role
+  - show_flip (bool): Show flip button for DFCs (default: True)
+  - classes (str): Additional CSS classes
+  
+  Note: This macro generates the popup HTML. Actual hover/tap behavior
+        should be handled by JavaScript (see card_popup.js)
+  
+  Examples:
+    {{ card_popup('Sol Ring', tags=['Ramp', 'Artifact']) }}
+    {{ card_popup('Delver of Secrets', layout='transform', show_flip=True) }}
+#}
+{% macro card_popup(name, layout='normal', tags='', highlight_tags='', role='', show_flip=True, classes='') %}
+  {%- set base_name = name.split(' // ')[0] if ' // ' in name else name -%}
+  {%- set is_dfc = layout in ['modal_dfc', 'transform', 'double_faced_token', 'reversible_card'] -%}
+  {%- set tags_list = tags if tags is sequence and tags is not string else (tags.split(', ') if tags else []) -%}
+  {%- set highlight_list = highlight_tags if highlight_tags is sequence and highlight_tags is not string else (highlight_tags.split(', ') if highlight_tags else []) -%}
+  
+  <div class="card-popup {{ classes }}" data-card-name="{{ base_name }}" role="dialog" aria-label="{{ name }} details">
+    <div class="card-popup-backdrop" onclick="closeCardPopup(this)"></div>
+    <div class="card-popup-content">
+      {# Card Image (360px) #}
+      <div class="card-popup-image">
+        <img src="{{ base_name|card_image('normal') }}"
+             alt="{{ name }} image"
+             data-card-name="{{ base_name }}"
+             loading="lazy"
+             decoding="async" />
+        {% if is_dfc and show_flip %}
+          {{ card_flip_button(name) }}
+        {% endif %}
+      </div>
+      
+      {# Card Info #}
+      <div class="card-popup-info">
+        <h3 class="card-popup-name">{{ name }}</h3>
+        {% if role %}
+          <div class="card-popup-role">Role: <span>{{ role }}</span></div>
+        {% endif %}
+        {% if tags_list %}
+          <div class="card-popup-tags">
+            {% for tag in tags_list %}
+              {%- set is_highlight = tag in highlight_list -%}
+              <span class="card-popup-tag{% if is_highlight %} card-popup-tag-highlight{% endif %}">{{ tag }}</span>
+            {% endfor %}
+          </div>
+        {% endif %}
+      </div>
+      
+      {# Close Button #}
+      <button type="button" 
+              class="card-popup-close" 
+              onclick="closeCardPopup(this)"
+              aria-label="Close">×</button>
+    </div>
+  </div>
+{% endmacro %}
+
+{#
+  Card Grid Container Macro
+  
+  Parameters:
+  - cards (list): List of card dicts with keys: name, layout, role, tags, count, etc.
+  - size (str): Thumbnail size ('small', 'medium', 'large')
+  - columns (int or str): Number of columns (auto, 2, 3, 4, 5, 6) (default: 'auto')
+  - gap (str): Grid gap (default: '0.75rem')
+  - show_names (bool): Show card name labels (default: False)
+  - show_popups (bool): Enable hover/tap popups (default: True)
+  - classes (str): Additional CSS classes
+  
+  Examples:
+    {{ card_grid(deck_cards, size='medium', columns=4) }}
+    {{ card_grid(commander_examples, size='large', show_names=True) }}
+#}
+{% macro card_grid(cards, size='medium', columns='auto', gap='0.75rem', show_names=False, show_popups=True, classes='') %}
+  {%- set columns_class = 'card-grid-cols-' + (columns|string) -%}
+  {%- set popup_class = 'card-grid-with-popups' if show_popups else '' -%}
+  {%- set all_classes = ['card-grid', columns_class, popup_class, classes]|select|join(' ') -%}
+  
+  <div class="{{ all_classes }}" style="gap: {{ gap }};">
+    {% for card in cards %}
+      {{ card_thumb(
+        name=card.name,
+        size=size,
+        layout=card.get('layout', 'normal'),
+        role=card.get('role', ''),
+        tags=card.get('tags', []),
+        overlaps=card.get('overlaps', []),
+        count=card.get('count', 0),
+        show_name=show_names,
+        show_flip=True
+      ) }}
+    {% endfor %}
+  </div>
+{% endmacro %}
+
+{#
+  Card List Item Macro (for vertical lists)
+  
+  Parameters:
+  - name (str): Card name (required)
+  - count (int): Card quantity (default: 1)
+  - role (str): Card role
+  - tags (list or str): Theme/mechanic tags
+  - show_thumb (bool): Show thumbnail image (default: True)
+  - thumb_size (str): Thumbnail size if shown (default: 'small')
+  - classes (str): Additional CSS classes
+  
+  Examples:
+    {{ card_list_item('Sol Ring', count=1, role='ramp') }}
+    {{ card_list_item('Rampant Growth', count=1, tags=['Ramp', 'Green'], show_thumb=True) }}
+#}
+{% macro card_list_item(name, count=1, role='', tags='', show_thumb=True, thumb_size='small', classes='') %}
+  {%- set base_name = name.split(' // ')[0] if ' // ' in name else name -%}
+  {%- set tags_str = tags if tags is string else (tags|join(', ') if tags else '') -%}
+  
+  <li class="card-list-item {{ classes }}" data-card-name="{{ base_name }}">
+    {% if show_thumb %}
+      {{ card_thumb(name, size=thumb_size, show_flip=False, role=role, tags=tags) }}
+    {% endif %}
+    <div class="card-list-item-info">
+      <span class="card-list-item-name">{{ name }}</span>
+      {% if count > 1 %}
+        <span class="card-list-item-count">×{{ count }}</span>
+      {% endif %}
+      {% if role %}
+        <span class="card-list-item-role">{{ role }}</span>
+      {% endif %}
+    </div>
+  </li>
+{% endmacro %}
+
+{#
+  Synthetic Card Placeholder Macro (for theme previews)
+  
+  Parameters:
+  - name (str): Card name (required)
+  - tags (list or str): Theme/mechanic tags
+  - reasons (list or str): Inclusion reasons
+  - classes (str): Additional CSS classes
+  
+  Examples:
+    {{ synthetic_card('Placeholder Ramp', tags=['Ramp'], reasons=['synergy with commander']) }}
+#}
+{% macro synthetic_card(name, tags='', reasons='', classes='') %}
+  {%- set tags_str = tags if tags is string else (tags|join(', ') if tags else '') -%}
+  {%- set reasons_str = reasons if reasons is string else (reasons|join('; ') if reasons else '') -%}
+  
+  <div class="card-sample synthetic {{ classes }}" 
+       data-card-name="{{ name }}"
+       data-role="synthetic"
+       data-tags="{{ tags_str }}"
+       data-reasons="{{ reasons_str }}">
+    <div class="synthetic-card-placeholder">
+      <div class="synthetic-card-icon">?</div>
+      <div class="synthetic-card-name">{{ name }}</div>
+      {% if reasons_str %}
+        <div class="synthetic-card-reason">{{ reasons_str }}</div>
+      {% endif %}
+    </div>
+  </div>
+{% endmacro %}
+
+{# CSS Classes Reference #}
+{#
+  Card Thumbnail Sizes:
+  - .card-thumb-small (160px width, for lists and grids)
+  - .card-thumb-medium (230px width, for previews and examples, default)
+  - .card-thumb-large (360px width, for prominent displays and deck views)
+  
+  Card Thumbnail Modifiers:
+  - .card-thumb-dfc (dual-faced card, shows flip button)
+  - .card-thumb-container (wrapper with position relative)
+  - .card-thumb (img tag with consistent styling)
+  
+  Card Flip Button:
+  - .card-flip-btn (flip button overlay on card image)
+  
+  Card Popup:
+  - .card-popup (popup container, fixed positioning)
+  - .card-popup-backdrop (backdrop overlay)
+  - .card-popup-content (popup content box)
+  - .card-popup-image (360px card image)
+  - .card-popup-info (card name, role, tags)
+  - .card-popup-name (card name heading)
+  - .card-popup-role (role label)
+  - .card-popup-tags (tag list)
+  - .card-popup-tag (individual tag)
+  - .card-popup-tag-highlight (highlighted tag)
+  - .card-popup-close (close button)
+  
+  Card Grid:
+  - .card-grid (grid container)
+  - .card-grid-cols-auto (auto columns based on card size)
+  - .card-grid-cols-2, .card-grid-cols-3, etc. (fixed columns)
+  - .card-grid-with-popups (enables popup on hover/tap)
+  
+  Card List:
+  - .card-list-item (list item with thumbnail and info)
+  - .card-list-item-info (text info container)
+  - .card-list-item-name (card name)
+  - .card-list-item-count (quantity indicator)
+  - .card-list-item-role (role label)
+  
+  Synthetic Cards:
+  - .card-sample.synthetic (synthetic card placeholder)
+  - .synthetic-card-placeholder (placeholder content)
+  - .synthetic-card-icon (question mark icon)
+  - .synthetic-card-name (placeholder name)
+  - .synthetic-card-reason (inclusion reason text)
+#}
+
+{# JavaScript Helper Functions #}
+{#
+  These functions should be included in card_display.js or inline script:
+  
+  // Flip dual-faced card image
+  function flipCard(button) {
+    const container = button.closest('.card-thumb-container, .card-popup-image');
+    const img = container.querySelector('img');
+    const cardName = img.dataset.cardName;
+    const faces = cardName.split(' // ');
+    
+    if (faces.length < 2) return;
+    
+    // Toggle current face
+    const currentFace = img.dataset.currentFace || 0;
+    const nextFace = currentFace == 0 ? 1 : 0;
+    const faceName = faces[nextFace];
+    
+    // Update image source
+    img.src = '/api/images/normal/' + encodeURIComponent(faceName);
+    img.dataset.currentFace = nextFace;
+  }
+  
+  // Show card popup on hover/tap
+  function showCardPopup(cardName, event) {
+    // Implementation depends on popup positioning strategy
+    // Could append popup to body and position near cursor/tap location
+  }
+  
+  // Close card popup
+  function closeCardPopup(element) {
+    const popup = element.closest('.card-popup');
+    if (popup) popup.remove();
+  }
+#}

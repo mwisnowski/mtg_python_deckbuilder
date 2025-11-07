@@ -18,8 +18,8 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 
-from code.settings import CSV_DIRECTORY  # type: ignore
-from code.tagging import tag_constants  # type: ignore
+from code.settings import CSV_DIRECTORY
+from code.tagging import tag_constants
 
 BASE_COLORS = {
     'white': 'W',

@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import pytest
 
-from code.web.services.theme_preview import get_theme_preview  # type: ignore
-from code.web.services.theme_catalog_loader import load_index, slugify, project_detail  # type: ignore
+from code.web.services.theme_preview import get_theme_preview
+from code.web.services.theme_catalog_loader import load_index, slugify, project_detail
 
 
 @pytest.mark.parametrize("limit", [8, 12])

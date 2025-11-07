@@ -50,7 +50,7 @@ def _load_catalog() -> Dict[str, Any]:
 def test_deterministic_build_under_seed():
     # Import build after setting seed env
     os.environ['EDITORIAL_SEED'] = '999'
-    from scripts.build_theme_catalog import build_catalog  # type: ignore
+    from scripts.build_theme_catalog import build_catalog
     first = build_catalog(limit=0, verbose=False)
     second = build_catalog(limit=0, verbose=False)
     # Drop volatile metadata_info/timestamp fields before comparison
@@ -106,7 +106,7 @@ def test_metadata_info_block_coverage():
 
 
 def test_synergy_commanders_exclusion_of_examples():
-    import yaml  # type: ignore
+    import yaml
     pattern = re.compile(r" - Synergy \(.*\)$")
     violations: List[str] = []
     for p in CATALOG_DIR.glob('*.yml'):
@@ -128,7 +128,7 @@ def test_synergy_commanders_exclusion_of_examples():
 
 
 def test_mapping_trigger_specialization_guard():
-    import yaml  # type: ignore
+    import yaml
     assert MAPPING.exists(), "description_mapping.yml missing"
     mapping_yaml = yaml.safe_load(MAPPING.read_text(encoding='utf-8')) or []
     triggers: Set[str] = set()

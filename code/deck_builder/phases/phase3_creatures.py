@@ -33,7 +33,7 @@ class CreatureAdditionMixin:
             self.output_func("Card pool missing 'type' column; cannot add creatures.")
             return
         try:
-            context = self.get_theme_context()  # type: ignore[attr-defined]
+            context = self.get_theme_context()
         except Exception:
             context = None
         if context is None or not getattr(context, 'ordered_targets', []):
@@ -480,7 +480,7 @@ class CreatureAdditionMixin:
                 drop_idx = tags_series.apply(lambda lst, nd=needles: any(any(n in t for n in nd) for t in lst))
                 mask_keep = [mk and (not di) for mk, di in zip(mask_keep, drop_idx.tolist())]
             try:
-                import pandas as _pd  # type: ignore
+                import pandas as _pd
                 mask_keep = _pd.Series(mask_keep, index=df.index)
             except Exception:
                 pass

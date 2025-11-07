@@ -59,7 +59,7 @@ class LandTripleMixin:
             'forest': 'G',
         }
 
-        for _, row in df.iterrows():  # type: ignore
+        for _, row in df.iterrows():
             try:
                 name = str(row.get('name',''))
                 if not name or name in self.card_library:

@@ -885,7 +885,7 @@ def _filter_multi(df: pd.DataFrame, primary: Optional[str], secondary: Optional[
         if index_map is None:
             _ensure_theme_tag_index(current_df)
             index_map = current_df.attrs.get("_ltag_index") or {}
-        return index_map  # type: ignore[return-value]
+        return index_map
 
     index_map_all = _get_index_map(df)
 
@@ -1047,7 +1047,7 @@ def _check_constraints(candidate_count: int, constraints: Optional[Dict[str, Any
     if not constraints:
         return
     try:
-        req_min = constraints.get("require_min_candidates")  # type: ignore[attr-defined]
+        req_min = constraints.get("require_min_candidates")
     except Exception:
         req_min = None
     if req_min is None:
@@ -1436,7 +1436,7 @@ def build_random_full_deck(
     primary_choice_idx, secondary_choice_idx, tertiary_choice_idx = _resolve_theme_choices_for_headless(base.commander, base)
 
     try:
-        from headless_runner import run as _run  # type: ignore
+        from headless_runner import run as _run
     except Exception as e:
         return RandomFullBuildResult(
             seed=base.seed,
@@ -1482,7 +1482,7 @@ def build_random_full_deck(
     summary: Dict[str, Any] | None = None
     try:
         if hasattr(builder, 'build_deck_summary'):
-            summary = builder.build_deck_summary()  # type: ignore[attr-defined]
+            summary = builder.build_deck_summary()
     except Exception:
         summary = None
 
@@ -1559,7 +1559,7 @@ def build_random_full_deck(
         if isinstance(custom_base, str) and custom_base.strip():
             meta_payload["name"] = custom_base.strip()
         try:
-            commander_meta = builder.get_commander_export_metadata()  # type: ignore[attr-defined]
+            commander_meta = builder.get_commander_export_metadata()
         except Exception:
             commander_meta = {}
         names = commander_meta.get("commander_names") or []
@@ -1589,8 +1589,8 @@ def build_random_full_deck(
     try:
         import os as _os
         import json as _json
-        csv_path = getattr(builder, 'last_csv_path', None)  # type: ignore[attr-defined]
-        txt_path = getattr(builder, 'last_txt_path', None)  # type: ignore[attr-defined]
+        csv_path = getattr(builder, 'last_csv_path', None)
+        txt_path = getattr(builder, 'last_txt_path', None)
         if csv_path and isinstance(csv_path, str):
             base_path, _ = _os.path.splitext(csv_path)
             # If txt missing but expected, look for sibling
@@ -1608,7 +1608,7 @@ def build_random_full_deck(
                 # Compute compliance if not already saved
                 try:
                     if hasattr(builder, 'compute_and_print_compliance'):
-                        compliance = builder.compute_and_print_compliance(base_stem=_os.path.basename(base_path))  # type: ignore[attr-defined]
+                        compliance = builder.compute_and_print_compliance(base_stem=_os.path.basename(base_path))
                 except Exception:
                     compliance = None
             # Write summary sidecar if missing
@@ -1646,7 +1646,7 @@ def build_random_full_deck(
                         csv_path = existing_base
                         base_path, _ = _os.path.splitext(csv_path)
                     else:
-                        tmp_csv = builder.export_decklist_csv()  # type: ignore[attr-defined]
+                        tmp_csv = builder.export_decklist_csv()
                         stem_base, ext = _os.path.splitext(tmp_csv)
                         if stem_base.endswith('_1'):
                             original = stem_base[:-2] + ext
@@ -1662,13 +1662,13 @@ def build_random_full_deck(
                         if _os.path.isfile(target_txt):
                             txt_path = target_txt
                         else:
-                            tmp_txt = builder.export_decklist_text(filename=_os.path.basename(base_path) + '.txt')  # type: ignore[attr-defined]
+                            tmp_txt = builder.export_decklist_text(filename=_os.path.basename(base_path) + '.txt')
                             if tmp_txt.endswith('_1.txt') and _os.path.isfile(target_txt):
                                 txt_path = target_txt
                             else:
                                 txt_path = tmp_txt
                     if hasattr(builder, 'compute_and_print_compliance'):
-                        compliance = builder.compute_and_print_compliance(base_stem=_os.path.basename(base_path))  # type: ignore[attr-defined]
+                        compliance = builder.compute_and_print_compliance(base_stem=_os.path.basename(base_path))
                     if summary:
                         sidecar = base_path + '.summary.json'
                         if not _os.path.isfile(sidecar):

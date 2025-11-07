@@ -35,7 +35,7 @@
     {% if commander_tag_slugs %}data-tags-slug="{{ commander_tag_slugs|join(' ') }}"{% endif %}
     {% if commander_overlap_tags %}data-overlaps="{{ commander_overlap_tags|join(', ') }}"{% endif %}
     {% if commander_reason_text %}data-reasons="{{ commander_reason_text|e }}"{% endif %}>
-  <img src="https://api.scryfall.com/cards/named?fuzzy={{ commander_base|urlencode }}&format=image&version=normal" alt="{{ commander }} card image"
+  <img src="{{ commander_base|card_image('normal') }}" alt="{{ commander }} card image"
          width="320"
          data-card-name="{{ commander_base }}"
          data-original-name="{{ commander }}"
@@ -45,10 +45,10 @@
      {% if commander_overlap_tags %}data-overlaps="{{ commander_overlap_tags|join(', ') }}"{% endif %}
    {% if commander_reason_text %}data-reasons="{{ commander_reason_text|e }}"{% endif %}
          loading="lazy" decoding="async" data-lqip="1"
-         srcset="https://api.scryfall.com/cards/named?fuzzy={{ commander_base|urlencode }}&format=image&version=small 160w, https://api.scryfall.com/cards/named?fuzzy={{ commander_base|urlencode }}&format=image&version=normal 488w, https://api.scryfall.com/cards/named?fuzzy={{ commander_base|urlencode }}&format=image&version=large 672w"
+         srcset="{{ commander_base|card_image('small') }} 160w, {{ commander_base|card_image('normal') }} 488w"
          sizes="(max-width: 900px) 100vw, 320px" />
   </div>
-  <div class="muted" style="margin-top:.25rem;">
+  <div class="muted mt-1">
     Commander: <span data-card-name="{{ commander }}"
     data-original-name="{{ commander }}"
     data-role="{{ commander_role_label or 'Commander' }}"
@@ -79,51 +79,51 @@
     {% if partner_tags_joined %}data-tags="{{ partner_tags_joined }}" data-overlaps="{{ partner_tags_joined }}"{% endif %}>
     {% if partner_href %}<a href="{{ partner_href }}" target="_blank" rel="noopener">{% endif %}
     {% if partner_name_base %}
-    <img src="https://api.scryfall.com/cards/named?fuzzy={{ partner_name_base|urlencode }}&format=image&version=normal" alt="{{ (partner_secondary_name or 'Selected card') ~ ' card image' }}"
+    <img src="{{ partner_name_base|card_image('normal') }}" alt="{{ (partner_secondary_name or 'Selected card') ~ ' card image' }}"
          width="320"
          data-card-name="{{ partner_name_base }}"
          data-original-name="{{ partner_secondary_name }}"
          data-role="{{ partner_role_label }}"
          {% if partner_tags_joined %}data-tags="{{ partner_tags_joined }}" data-overlaps="{{ partner_tags_joined }}"{% endif %}
          loading="lazy" decoding="async" data-lqip="1"
-         srcset="https://api.scryfall.com/cards/named?fuzzy={{ partner_name_base|urlencode }}&format=image&version=small 160w, https://api.scryfall.com/cards/named?fuzzy={{ partner_name_base|urlencode }}&format=image&version=normal 488w, https://api.scryfall.com/cards/named?fuzzy={{ partner_name_base|urlencode }}&format=image&version=large 672w"
+         srcset="{{ partner_name_base|card_image('small') }} 160w, {{ partner_name_base|card_image('normal') }} 488w"
          sizes="(max-width: 900px) 100vw, 320px" />
     {% else %}
     <img src="{{ combined.secondary_image_url or combined.image_url }}" alt="{{ (partner_secondary_name or 'Selected card') ~ ' card image' }}" loading="lazy" decoding="async" width="320" />
     {% endif %}
     {% if partner_href %}</a>{% endif %}
   </div>
-  <div class="muted partner-label" style="margin-top:.35rem;">
+  <div class="muted partner-label mt-1.5">
     {{ partner_role_label }}:
     <span data-card-name="{{ partner_secondary_name }}"
           data-original-name="{{ partner_secondary_name }}"
           data-role="{{ partner_role_label }}"
           {% if partner_tags_joined %}data-tags="{{ partner_tags_joined }}" data-overlaps="{{ partner_tags_joined }}"{% endif %}>{{ partner_secondary_name }}</span>
   </div>
-  <div class="muted partner-meta" style="font-size:12px; margin-top:.25rem;">
+  <div class="muted partner-meta text-xs mt-1">
     Pairing: {{ combined.primary_name or display_commander_name or commander }}{% if partner_secondary_name %} + {{ partner_secondary_name }}{% endif %}
   </div>
   {% if combined.color_label %}
-  <div class="muted partner-meta" style="font-size:12px; margin-top:.25rem;">
+  <div class="muted partner-meta text-xs mt-1">
     Colors: {{ combined.color_label }}
   </div>
   {% endif %}
   {% if partner_theme_tags %}
-  <div class="muted partner-meta" style="font-size:12px; margin-top:.25rem;">
+  <div class="muted partner-meta text-xs mt-1">
     Theme emphasis: {{ partner_theme_tags|join(', ') }}
   </div>
   {% endif %}
   {% endif %}
       {% if status and status.startswith('Build complete') %}
-      <div style="margin-top:.75rem; display:flex; gap:.35rem; flex-wrap:wrap;">
+      <div class="mt-3 flex gap-1.5 flex-wrap">
         {% if csv_path %}
-        <form action="/files" method="get" target="_blank" style="display:inline; margin:0;">
+        <form action="/files" method="get" target="_blank" class="inline m-0">
           <input type="hidden" name="path" value="{{ csv_path }}" />
           <button type="submit">Download CSV</button>
         </form>
         {% endif %}
         {% if txt_path %}
-        <form action="/files" method="get" target="_blank" style="display:inline; margin:0;">
+        <form action="/files" method="get" target="_blank" class="inline m-0">
           <input type="hidden" name="path" value="{{ txt_path }}" />
           <button type="submit">Download TXT</button>
         </form>
@@ -150,64 +150,64 @@
         {% endif %}
       </p>
       {% if show_color_identity %}
-      <div class="muted" style="display:flex; align-items:center; gap:.35rem; margin:-.35rem 0 .5rem 0;">
+      <div class="muted flex items-center gap-1.5 -my-1.5 mb-2">
         {{ color_identity(color_identity_list, is_colorless=(color_identity_list|length == 0), aria_label=color_label or '', title_text=color_label or '') }}
         <span>{{ color_label }}</span>
       </div>
       {% endif %}
       <p>Tags: {% if display_tags %}{{ display_tags|join(', ') }}{% else %}—{% endif %}</p>
-      <div style="margin:.35rem 0; color: var(--muted); display:flex; gap:.5rem; align-items:center; flex-wrap:wrap;">
+      <div class="my-1.5 text-muted flex gap-2 items-center flex-wrap">
         <span>Owned-only: <strong>{{ 'On' if owned_only else 'Off' }}</strong></span>
-          <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
-            <button type="button" hx-get="/build/step4" hx-target="#wizard" hx-swap="innerHTML" style="background:#374151; color:#e5e7eb; border:none; border-radius:6px; padding:.25rem .5rem; cursor:pointer; font-size:12px;" title="Change owned settings in Review">Edit in Review</button>
+          <div class="flex items-center gap-4 flex-wrap">
+            <button type="button" hx-get="/build/step4" hx-target="#wizard" hx-swap="innerHTML" class="bg-gray-700 text-gray-200 border-0 rounded-md px-2 py-1 cursor-pointer text-xs" title="Change owned settings in Review">Edit in Review</button>
             <div>Prefer-owned: <strong>{{ 'On' if prefer_owned else 'Off' }}</strong></div>
             <div>MDFC swap: <strong>{{ 'On' if swap_mdfc_basics else 'Off' }}</strong></div>
           </div>
-  <span style="margin-left:auto;"><a href="/owned" target="_blank" rel="noopener" class="btn">Manage Owned Library</a></span>
+  <span class="ml-auto"><a href="/owned" target="_blank" rel="noopener" class="btn">Manage Owned Library</a></span>
       </div>
       <p>Bracket: {{ bracket }}</p>
 
-    <div style="display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; margin:.25rem 0 .5rem 0;">
+    <div class="flex items-center gap-2 flex-wrap my-1 mb-2">
         {% if i and n %}
           <span class="chip"><span class="dot"></span> Stage {{ i }}/{{ n }}</span>
         {% endif %}
   {% set deck_count = (total_cards if total_cards is not none else 0) %}
-  <span class="chip"><span class="dot" style="background: var(--green-main);"></span> Deck {{ deck_count }}/100</span>
+  <span class="chip"><span class="dot dot-green"></span> Deck {{ deck_count }}/100</span>
   {% if added_total is not none %}
-  <span class="chip"><span class="dot" style="background: var(--blue-main);"></span> Added {{ added_total }}</span>
+  <span class="chip"><span class="dot dot-blue"></span> Added {{ added_total }}</span>
   {% endif %}
   {% if prefer_combos %}
-  <span class="chip" title="Combos plan"><span class="dot" style="background: var(--orange-main);"></span> Combos: {{ combo_target_count }} ({{ combo_balance }})</span>
+  <span class="chip" title="Combos plan"><span class="dot dot-orange"></span> Combos: {{ combo_target_count }} ({{ combo_balance }})</span>
   {% endif %}
   {% if clamped_overflow is defined and clamped_overflow and (clamped_overflow > 0) %}
-  <span class="chip" title="Trimmed overflow from this stage"><span class="dot" style="background: var(--red-main);"></span> Clamped {{ clamped_overflow }}</span>
+  <span class="chip" title="Trimmed overflow from this stage"><span class="dot dot-red"></span> Clamped {{ clamped_overflow }}</span>
   {% endif %}
   {% if stage_label and stage_label == 'Multi-Copy Package' and mc_summary is defined and mc_summary %}
-  <span class="chip" title="Multi-Copy package summary"><span class="dot" style="background: var(--purple-main);"></span> {{ mc_summary }}</span>
+  <span class="chip" title="Multi-Copy package summary"><span class="dot dot-purple"></span> {{ mc_summary }}</span>
   {% endif %}
   <span id="locks-chip">{% if locks and locks|length > 0 %}<span class="chip" title="Locked cards">🔒 {{ locks|length }} locked</span>{% endif %}</span>
-  <button type="button" class="btn" style="margin-left:auto;" title="Copy permalink"
+  <button type="button" class="btn ml-auto" title="Copy permalink"
       onclick="(async()=>{try{const r=await fetch('/build/permalink');const j=await r.json();const url=(j.permalink?location.origin+j.permalink:location.href+'#'+btoa(JSON.stringify(j.state||{}))); await navigator.clipboard.writeText(url); toast && toast('Permalink copied');}catch(e){alert('Copied state to console'); console.log(e);}})()">Copy Permalink</button>
   <button type="button" class="btn" title="Open a saved permalink" onclick="(function(){try{var token = prompt('Paste a /build/from?state=... URL or token:'); if(!token) return; var m = token.match(/state=([^&]+)/); var t = m? m[1] : token.trim(); if(!t) return; window.location.href = '/build/from?state=' + encodeURIComponent(t); }catch(_){}})()">Open Permalink…</button>
       </div>
       {% set pct = ((deck_count / 100.0) * 100.0) if deck_count else 0 %}
       {% set pct_clamped = (pct if pct <= 100 else 100) %}
       {% set pct_int = pct_clamped|int %}
-      <div class="progress{% if added_cards is defined and added_cards is not none and (added_cards|length == 0) and (status and not status.startswith('Build complete')) %} flash{% endif %}" aria-label="Deck progress" title="{{ deck_count }} of 100 cards" style="margin:.25rem 0 1rem 0;" data-pct="{{ pct_int }}">
+      <div class="progress{% if added_cards is defined and added_cards is not none and (added_cards|length == 0) and (status and not status.startswith('Build complete')) %} flash{% endif %} my-1 mb-4" aria-label="Deck progress" title="{{ deck_count }} of 100 cards" data-pct="{{ pct_int }}">
         <div class="bar"></div>
       </div>
 
   {% if mc_adjustments is defined and mc_adjustments and stage_label and stage_label == 'Multi-Copy Package' %}
-  <div class="muted" style="margin:.35rem 0 .25rem 0;">Adjusted targets: {{ mc_adjustments|join(', ') }}</div>
+  <div class="muted my-1">Adjusted targets: {{ mc_adjustments|join(', ') }}</div>
   {% endif %}
 
       {% if status %}
-      <div style="margin-top:1rem;">
+      <div class="mt-4">
         <strong>Status:</strong> {{ status }}{% if stage_label %} — <em>{{ stage_label }}</em>{% endif %}
       </div>
       {% endif %}
       {% if gated and (not status or not status.startswith('Build complete')) %}
-      <div class="alert" style="margin-top:.5rem; color:#fecaca; background:#7f1d1d; border:1px solid #991b1b; padding:.5rem .75rem; border-radius:8px;">
+      <div class="alert-error">
         Compliance gating active — resolve violations above (replace or remove cards) to continue.
       </div>
       {% endif %}
@@ -220,15 +220,15 @@
 
       {% if locked_cards is defined and locked_cards %}
       {% from 'partials/_macros.html' import lock_button %}
-      <details id="locked-section" style="margin-top:.5rem;">
+      <details id="locked-section" class="mt-2">
         <summary>Locked cards (always kept)</summary>
-        <ul id="locked-list" style="list-style:none; padding:0; margin:.35rem 0 0; display:grid; gap:.35rem;">
+        <ul id="locked-list" class="locked-list">
           {% for lk in locked_cards %}
-          <li style="display:flex; align-items:center; gap:.5rem; flex-wrap:wrap;">
+          <li class="locked-item">
             <span class="chip"><span class="dot"></span> {{ lk.name }}</span>
             <span class="muted">{% if lk.owned %}✔ Owned{% else %}✖ Not owned{% endif %}</span>
             {% if lk.in_deck %}<span class="muted">• In deck</span>{% else %}<span class="muted">• Will be included on rerun</span>{% endif %}
-            <div class="lock-box" style="display:inline; margin-left:auto;">
+            <div class="lock-box-inline">
               {{ lock_button(lk.name, True, from_list=True, target_selector='closest li') }}
             </div>
           </li>
@@ -238,7 +238,7 @@
       {% endif %}
 
   <!-- Last action chip (oob-updated) -->
-  <div id="last-action" aria-live="polite" style="margin:.25rem 0; min-height:1.5rem;"></div>
+  <div id="last-action" aria-live="polite" class="my-1 last-action"></div>
 
   <!-- Filters toolbar -->
       <div class="cards-toolbar">
@@ -248,10 +248,10 @@
           <option value="owned">Owned</option>
           <option value="not">Not owned</option>
         </select>
-        <label style="display:flex;align-items:center;gap:.35rem;">
+        <label class="form-label-icon">
           <input type="checkbox" name="show_reasons" data-pref="cards:show_reasons" checked /> Show reasons
         </label>
-        <label style="display:flex;align-items:center;gap:.35rem;">
+        <label class="form-label-icon">
           <input type="checkbox" name="collapse_groups" data-pref="cards:collapse" /> Collapse groups
         </label>
         <select name="filter_sort" data-pref="cards:sort" aria-label="Sort">
@@ -271,37 +271,37 @@
       </div>
 
   <!-- Sticky build controls on mobile -->
-  <div class="build-controls" style="position:sticky; z-index:5; background:linear-gradient(180deg, rgba(15,17,21,.95), rgba(15,17,21,.85)); border:1px solid var(--border); border-radius:10px; padding:.5rem; margin-top:1rem; display:flex; gap:.5rem; flex-wrap:wrap; align-items:center;">
-        <form hx-post="/build/step5/start" hx-target="#wizard" hx-swap="innerHTML" style="display:inline; margin-right:.5rem; display:flex; align-items:center; gap:.5rem;" onsubmit="try{ toast('Restarting build…'); }catch(_){}">
+  <div class="build-controls">
+        <form hx-post="/build/step5/start" hx-target="#wizard" hx-swap="innerHTML" class="inline-form mr-2" onsubmit="try{ toast('Restarting build…'); }catch(_){}">
           <input type="hidden" name="show_skipped" value="{{ '1' if show_skipped else '0' }}" />
           <button type="submit" class="btn-continue" data-action="continue">Restart Build</button>
         </form>
-        <form hx-post="/build/step5/continue" hx-target="#wizard" hx-swap="innerHTML" style="display:inline; display:flex; align-items:center; gap:.5rem;" onsubmit="try{ toast('Continuing…'); }catch(_){}">
+        <form hx-post="/build/step5/continue" hx-target="#wizard" hx-swap="innerHTML" class="inline-form" onsubmit="try{ toast('Continuing…'); }catch(_){}">
           <input type="hidden" name="show_skipped" value="{{ '1' if show_skipped else '0' }}" />
           <button type="submit" class="btn-continue" data-action="continue" {% if (status and status.startswith('Build complete')) or gated %}disabled{% endif %}>Continue</button>
         </form>
-        <form hx-post="/build/step5/rerun" hx-target="#wizard" hx-swap="innerHTML" style="display:inline; display:flex; align-items:center; gap:.5rem;" onsubmit="try{ toast('Rerunning stage…'); }catch(_){}">
+        <form hx-post="/build/step5/rerun" hx-target="#wizard" hx-swap="innerHTML" class="inline-form" onsubmit="try{ toast('Rerunning stage…'); }catch(_){}">
           <input type="hidden" name="show_skipped" value="{{ '1' if show_skipped else '0' }}" />
           <button type="submit" class="btn-rerun" data-action="rerun" {% if (status and status.startswith('Build complete')) or gated %}disabled{% endif %}>Rerun Stage</button>
         </form>
         <span class="sep"></span>
     <div class="replace-toggle" role="group" aria-label="Replace toggle">
-          <form hx-post="/build/step5/toggle-replace" hx-target="closest .replace-toggle" hx-swap="outerHTML" onsubmit="return false;" style="display:inline;">
+          <form hx-post="/build/step5/toggle-replace" hx-target="closest .replace-toggle" hx-swap="outerHTML" onsubmit="return false;" class="inline-form">
             <input type="hidden" name="replace" value="{{ '1' if replace_mode else '0' }}" />
-      <label class="muted" style="display:flex; align-items:center; gap:.35rem;" title="When enabled, reruns of this stage will replace its picks with alternatives instead of keeping them.">
+      <label class="muted form-label-icon" title="When enabled, reruns of this stage will replace its picks with alternatives instead of keeping them.">
               <input type="checkbox" name="replace_chk" value="1" {% if replace_mode %}checked{% endif %}
                 onchange="try{ const f=this.form; const h=f.querySelector('input[name=replace]'); if(h){ h.value=this.checked?'1':'0'; } f.requestSubmit(); }catch(_){ }" />
               Replace stage picks
             </label>
           </form>
         </div>
-        <form hx-post="/build/step5/reset-stage" hx-target="#wizard" hx-swap="innerHTML" style="display:inline; display:flex; align-items:center; gap:.5rem;">
+        <form hx-post="/build/step5/reset-stage" hx-target="#wizard" hx-swap="innerHTML" class="inline-form">
           <button type="submit" class="btn" title="Reset this stage to pre-stage picks">Reset stage</button>
         </form>
-        <form hx-post="/build/reset-all" hx-target="#wizard" hx-swap="innerHTML" style="display:inline; display:flex; align-items:center; gap:.5rem;">
+        <form hx-post="/build/reset-all" hx-target="#wizard" hx-swap="innerHTML" class="inline-form">
           <button type="submit" class="btn" title="Start a brand new build (clears selections)">New build</button>
         </form>
-        <label class="muted" style="display:flex; align-items:center; gap:.35rem; margin-left: .5rem;">
+        <label class="muted form-label-icon ml-2">
           <input type="checkbox" name="__toggle_show_skipped" data-pref="build:show_skipped" {% if show_skipped %}checked{% endif %}
                  onchange="const val=this.checked?'1':'0'; for(const f of this.closest('section').querySelectorAll('form')){ const h=f.querySelector('input[name=show_skipped]'); if(h) h.value=val; }" />
           Show skipped stages
@@ -311,14 +311,14 @@
 
       {% if added_cards is not none %}
       {% if history is defined and history %}
-      <details style="margin-top:.5rem;">
+      <details class="mt-2">
         <summary>Stage timeline</summary>
-        <div class="muted" style="font-size:12px; margin:.25rem 0 .35rem 0;">Jump back to a previous stage, then you can continue forward again.</div>
-        <ul style="list-style:none; padding:0; margin:0; display:grid; gap:.25rem;">
+        <div class="muted text-xs my-1">Jump back to a previous stage, then you can continue forward again.</div>
+        <ul class="timeline-list">
           {% for h in history %}
-          <li style="display:flex; align-items:center; gap:.5rem;">
+          <li class="timeline-item">
             <span class="chip"><span class="dot"></span> {{ h.label }}</span>
-            <form hx-post="/build/step5/rewind" hx-target="#wizard" hx-swap="innerHTML" style="display:inline; margin:0;">
+            <form hx-post="/build/step5/rewind" hx-target="#wizard" hx-swap="innerHTML" class="inline-form m-0">
               <input type="hidden" name="to" value="{{ h.i }}" />
               <button type="submit" class="btn">Go</button>
             </form>
@@ -327,13 +327,13 @@
         </ul>
       </details>
       {% endif %}
-  <h4 style="margin-top:1rem;">Cards added this stage</h4>
+  <h4 class="mt-4">Cards added this stage</h4>
       {% if skipped and (not added_cards or added_cards|length == 0) %}
-        <div class="muted" style="margin:.25rem 0 .5rem 0;">No cards added in this stage.</div>
+        <div class="muted my-2">No cards added in this stage.</div>
       {% endif %}
-      <div class="muted" style="font-size:12px; margin:.15rem 0 .4rem 0; display:flex; gap:.75rem; align-items:center; flex-wrap:wrap;">
-        <span><span style="display:inline-block; border:1px solid var(--border); background:rgba(17,24,39,.9); color:#e5e7eb; border-radius:12px; font-size:12px; line-height:18px; height:18px; min-width:18px; padding:0 6px; text-align:center;">✔</span> Owned</span>
-        <span><span style="display:inline-block; border:1px solid var(--border); background:rgba(17,24,39,.9); color:#e5e7eb; border-radius:12px; font-size:12px; line-height:18px; height:18px; min-width:18px; padding:0 6px; text-align:center;">✖</span> Not owned</span>
+      <div class="muted text-xs my-1 flex gap-3 items-center flex-wrap">
+        <span><span class="ownership-badge">✔</span> Owned</span>
+        <span><span class="ownership-badge">✖</span> Not owned</span>
       </div>
       
   {% if stage_label and stage_label.startswith('Creatures') %}
@@ -348,7 +348,7 @@
           {% endif %}
           <div class="group" data-group-key="{{ (role or 'other')|lower|replace(' ', '-') }}">
             <div class="group-header">
-              <h5 style="margin:.5rem 0 .25rem 0;">{{ heading }}</h5>
+              <h5 class="my-2">{{ heading }}</h5>
               <span class="count">(<span data-count>{{ g.list|length }}</span>)</span>
               <button type="button" class="toggle" title="Collapse/Expand">Toggle</button>
             </div>
@@ -360,13 +360,13 @@
     data-card-name="{{ c.name }}" data-role="{{ c.role or c.sub_role or '' }}" data-tags="{{ (c.tags|join(', ')) if c.tags else '' }}" data-tags-slug="{{ (c.tags_slug|join(', ')) if c.tags_slug else '' }}" data-owned="{{ '1' if owned else '0' }}"{% if c.reason %} data-reasons="{{ c.reason|e }}"{% endif %}
     data-must-include="{{ '1' if c.must_include else '0' }}" data-must-exclude="{{ '1' if c.must_exclude else '0' }}">
   <div class="img-btn" role="button" tabindex="0" title="Tap or click to view {{ c.name }}" aria-label="View {{ c.name }} details">
-                <img class="card-thumb" src="https://api.scryfall.com/cards/named?fuzzy={{ c.name|urlencode }}&format=image&version=normal" alt="{{ c.name }} image" width="160" data-card-name="{{ c.name }}" loading="lazy" decoding="async" data-lqip="1"
-                  srcset="https://api.scryfall.com/cards/named?fuzzy={{ c.name|urlencode }}&format=image&version=small 160w, https://api.scryfall.com/cards/named?fuzzy={{ c.name|urlencode }}&format=image&version=normal 488w, https://api.scryfall.com/cards/named?fuzzy={{ c.name|urlencode }}&format=image&version=large 672w"
+                <img class="card-thumb" src="{{ c.name|card_image('normal') }}" alt="{{ c.name }} image" width="160" data-card-name="{{ c.name }}" loading="lazy" decoding="async" data-lqip="1"
+                  srcset="{{ c.name|card_image('small') }} 160w, {{ c.name|card_image('normal') }} 488w"
                   sizes="160px" />
       </div>
               <div class="owned-badge" title="{{ 'Owned' if owned else 'Not owned' }}" aria-label="{{ 'Owned' if owned else 'Not owned' }}">{% if owned %}✔{% else %}✖{% endif %}</div>
               <div class="name">{{ c.name|safe }}{% if c.count and c.count > 1 %} ×{{ c.count }}{% endif %}</div>
-    <div class="lock-box" id="lock-{{ group_idx }}-{{ loop.index0 }}" style="display:flex; justify-content:center; gap:.25rem; margin-top:.25rem;">
+    <div class="lock-box" id="lock-{{ group_idx }}-{{ loop.index0 }}" class="flex justify-center gap-1 mt-1">
       {% from 'partials/_macros.html' import lock_button %}
       {{ lock_button(c.name, is_locked) }}
     </div>
@@ -377,7 +377,7 @@
     </div>
     {% endif %}
               {% if c.reason %}
-                <div style="display:flex; justify-content:center; margin-top:.25rem; gap:.35rem; flex-wrap:wrap;">
+                <div class="card-actions-center">
                   <button type="button" class="btn-why" aria-expanded="false">Why?</button>
                   <button type="button" class="btn" hx-get="/build/alternatives" hx-vals='{"name": "{{ c.name }}"}' hx-target="#alts-{{ group_idx }}-{{ loop.index0 }}" hx-swap="innerHTML" title="Suggest alternatives"
                     data-hx-cache="1" data-hx-cache-key="alts:{{ c.name|lower }}" data-hx-cache-ttl="20000"
@@ -385,13 +385,13 @@
                 </div>
                 <div class="reason" role="region" aria-label="Reason">{{ c.reason }}</div>
               {% else %}
-                <div style="display:flex; justify-content:center; margin-top:.25rem;">
+                <div class="flex justify-center mt-1">
                   <button type="button" class="btn" hx-get="/build/alternatives" hx-vals='{"name": "{{ c.name }}"}' hx-target="#alts-{{ group_idx }}-{{ loop.index0 }}" hx-swap="innerHTML" title="Suggest alternatives"
                     data-hx-cache="1" data-hx-cache-key="alts:{{ c.name|lower }}" data-hx-cache-ttl="20000"
                     data-hx-prefetch="/build/alternatives?name={{ c.name|urlencode }}">Alternatives</button>
                 </div>
               {% endif %}
-              <div id="alts-{{ group_idx }}-{{ loop.index0 }}" class="alts" style="margin-top:.25rem;"></div>
+              <div id="alts-{{ group_idx }}-{{ loop.index0 }}" class="alts mt-1"></div>
             </div>
             {% endfor %}
             </div>
@@ -406,13 +406,13 @@
       data-card-name="{{ c.name }}" data-role="{{ c.role or c.sub_role or '' }}" data-tags="{{ (c.tags|join(', ')) if c.tags else '' }}" data-tags-slug="{{ (c.tags_slug|join(', ')) if c.tags_slug else '' }}" data-owned="{{ '1' if owned else '0' }}"{% if c.reason %} data-reasons="{{ c.reason|e }}"{% endif %}
       data-must-include="{{ '1' if c.must_include else '0' }}" data-must-exclude="{{ '1' if c.must_exclude else '0' }}">
   <div class="img-btn" role="button" tabindex="0" title="Tap or click to view {{ c.name }}" aria-label="View {{ c.name }} details">
-              <img class="card-thumb" src="https://api.scryfall.com/cards/named?fuzzy={{ c.name|urlencode }}&format=image&version=normal" alt="{{ c.name }} image" width="160" data-card-name="{{ c.name }}" loading="lazy" decoding="async" data-lqip="1"
-                srcset="https://api.scryfall.com/cards/named?fuzzy={{ c.name|urlencode }}&format=image&version=small 160w, https://api.scryfall.com/cards/named?fuzzy={{ c.name|urlencode }}&format=image&version=normal 488w, https://api.scryfall.com/cards/named?fuzzy={{ c.name|urlencode }}&format=image&version=large 672w"
+              <img class="card-thumb" src="{{ c.name|card_image('normal') }}" alt="{{ c.name }} image" width="160" data-card-name="{{ c.name }}" loading="lazy" decoding="async" data-lqip="1"
+                srcset="{{ c.name|card_image('small') }} 160w, {{ c.name|card_image('normal') }} 488w"
                 sizes="160px" />
             </div>
             <div class="owned-badge" title="{{ 'Owned' if owned else 'Not owned' }}" aria-label="{{ 'Owned' if owned else 'Not owned' }}">{% if owned %}✔{% else %}✖{% endif %}</div>
             <div class="name">{{ c.name|safe }}{% if c.count and c.count > 1 %} ×{{ c.count }}{% endif %}</div>
-    <div class="lock-box" id="lock-{{ loop.index0 }}" style="display:flex; justify-content:center; gap:.25rem; margin-top:.25rem;">
+    <div class="lock-box" id="lock-{{ loop.index0 }}" class="flex justify-center gap-1 mt-1">
       {% from 'partials/_macros.html' import lock_button %}
       {{ lock_button(c.name, is_locked) }}
     </div>
@@ -423,7 +423,7 @@
     </div>
     {% endif %}
             {% if c.reason %}
-              <div style="display:flex; justify-content:center; margin-top:.25rem; gap:.35rem; flex-wrap:wrap;">
+              <div class="card-actions-center">
                 <button type="button" class="btn-why" aria-expanded="false">Why?</button>
                 <button type="button" class="btn" hx-get="/build/alternatives" hx-vals='{"name": "{{ c.name }}"}' hx-target="#alts-{{ loop.index0 }}" hx-swap="innerHTML" title="Suggest alternatives"
                   data-hx-cache="1" data-hx-cache-key="alts:{{ c.name|lower }}" data-hx-cache-ttl="20000"
@@ -431,31 +431,31 @@
               </div>
               <div class="reason" role="region" aria-label="Reason">{{ c.reason }}</div>
             {% else %}
-              <div style="display:flex; justify-content:center; margin-top:.25rem;">
+              <div class="flex justify-center mt-1">
                 <button type="button" class="btn" hx-get="/build/alternatives" hx-vals='{"name": "{{ c.name }}"}' hx-target="#alts-{{ loop.index0 }}" hx-swap="innerHTML" title="Suggest alternatives"
                   data-hx-cache="1" data-hx-cache-key="alts:{{ c.name|lower }}" data-hx-cache-ttl="20000"
                   data-hx-prefetch="/build/alternatives?name={{ c.name|urlencode }}">Alternatives</button>
               </div>
             {% endif %}
-            <div id="alts-{{ loop.index0 }}" class="alts" style="margin-top:.25rem;"></div>
+            <div id="alts-{{ loop.index0 }}" class="alts mt-1"></div>
           </div>
           {% endfor %}
         </div>
       {% endif %}
   {% if allow_must_haves and show_must_have_buttons %}
-  <div class="muted" style="font-size:12px; margin:.35rem 0 .25rem 0;">Tip: Use the 🔒 Lock button to preserve the current copy in the deck. “Must include” will try to pull the card back in on future reruns, while “Must exclude” blocks the engine from selecting it again. Tap or click the card art to view details without changing the lock state.</div>
+  <div class="muted text-xs my-1">Tip: Use the 🔒 Lock button to preserve the current copy in the deck. "Must include" will try to pull the card back in on future reruns, while "Must exclude" blocks the engine from selecting it again. Tap or click the card art to view details without changing the lock state.</div>
   {% else %}
-  <div class="muted" style="font-size:12px; margin:.35rem 0 .25rem 0;">Tip: Use the 🔒 Lock button under each card to keep it across reruns. Tap or click the card art to view details without changing the lock state.</div>
+  <div class="muted text-xs my-1">Tip: Use the 🔒 Lock button under each card to keep it across reruns. Tap or click the card art to view details without changing the lock state.</div>
   {% endif %}
-      <div data-empty hidden role="status" aria-live="polite" class="muted" style="margin:.5rem 0 0;">
+      <div data-empty hidden role="status" aria-live="polite" class="muted mt-2">
         No cards match your filters.
       </div>
       {% endif %}
 
       {% if show_logs and log %}
-      <details style="margin-top:1rem;">
+      <details class="mt-4">
         <summary>Show logs</summary>
-        <pre style="margin-top:.5rem; white-space:pre-wrap; background:#0f1115; border:1px solid var(--border); padding:1rem; border-radius:8px; max-height:40vh; overflow:auto;">{{ log }}</pre>
+        <pre class="build-log">{{ log }}</pre>
       </details>
       {% endif %}
 
@@ -469,7 +469,7 @@
            hx-get="/build/step5/summary?token={{ summary_token }}"
            hx-trigger="load once, step5:refresh from:body"
            hx-swap="outerHTML">
-        <div class="muted" style="margin-top:1rem;">
+        <div class="muted mt-4">
           {% if summary_ready %}Loading deck summary…{% else %}Deck summary will appear after the build completes.{% endif %}
         </div>
       </div>

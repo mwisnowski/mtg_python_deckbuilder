@@ -25,11 +25,12 @@ from ..services.build_utils import (
     owned_set as owned_set_helper,
     builder_present_names,
     builder_display_map,
+    commander_hover_context,
 )
 from ..app import templates
 from deck_builder import builder_constants as bc
 from ..services import orchestrator as orch
-from ..services.orchestrator import is_setup_ready as _is_setup_ready, is_setup_stale as _is_setup_stale  # type: ignore
+from ..services.orchestrator import is_setup_ready as _is_setup_ready, is_setup_stale as _is_setup_stale
 from ..services.build_utils import owned_names as owned_names_helper
 from ..services.tasks import get_session, new_sid
 from html import escape as _esc
@@ -118,7 +119,7 @@ def _available_cards_normalized() -> tuple[set[str], dict[str, str]]:
         from deck_builder.include_exclude_utils import normalize_punctuation
     except Exception:
         # Fallback: identity normalization
-        def normalize_punctuation(x: str) -> str:  # type: ignore
+        def normalize_punctuation(x: str) -> str:
             return str(x).strip().casefold()
     norm_map: dict[str, str] = {}
     for name in names:
@@ -469,7 +470,7 @@ def _background_options_from_commander_catalog() -> list[dict[str, Any]]:
 
     seen: set[str] = set()
     options: list[dict[str, Any]] = []
-    for record in getattr(catalog, "entries", ()):  # type: ignore[attr-defined]
+    for record in getattr(catalog, "entries", ()):
         if not getattr(record, "is_background", False):
             continue
         name = getattr(record, "display_name", None)
@@ -1107,6 +1108,8 @@ async def build_index(request: Request) -> HTMLResponse:
         if q_commander:
             # Persist a human-friendly commander name into session for the wizard
             sess["commander"] = str(q_commander)
+            # Set flag to indicate this is a quick-build scenario
+            sess["quick_build"] = True
     except Exception:
         pass
     return_url = None
@@ -1146,12 +1149,17 @@ async def build_index(request: Request) -> HTMLResponse:
             last_step = 2
         else:
             last_step = 1
+    # Only pass commander to template if coming from commander browser (?commander= query param)
+    # This prevents stale commander from being pre-filled on subsequent builds
+    # The query param only exists on initial navigation from commander browser
+    should_auto_fill = q_commander is not None
+    
     resp = templates.TemplateResponse(
         request,
         "build/index.html",
         {
             "sid": sid,
-            "commander": sess.get("commander"),
+            "commander": sess.get("commander") if should_auto_fill else None,
             "tags": sess.get("tags", []),
             "name": sess.get("custom_export_base"),
             "last_step": last_step,
@@ -1349,6 +1357,19 @@ async def build_new_modal(request: Request) -> HTMLResponse:
     for key in skip_keys:
         sess.pop(key, None)
     
+    # M2: Check if this is a quick-build scenario (from commander browser)
+    # Use the quick_build flag set by /build route when ?commander= param present
+    is_quick_build = sess.pop("quick_build", False)  # Pop to consume the flag
+    
+    # M2: Clear commander and form selections for fresh start (unless quick build)
+    if not is_quick_build:
+        commander_keys = [
+            "commander", "partner", "background", "commander_mode",
+            "themes", "bracket"
+        ]
+        for key in commander_keys:
+            sess.pop(key, None)
+    
     theme_context = _custom_theme_context(request, sess)
     ctx = {
         "request": request,
@@ -1361,6 +1382,7 @@ async def build_new_modal(request: Request) -> HTMLResponse:
         "enable_batch_build": ENABLE_BATCH_BUILD,
         "ideals_ui_mode": WEB_IDEALS_UI,  # 'input' or 'slider'
         "form": {
+            "commander": sess.get("commander", ""),  # Pre-fill for quick-build
             "prefer_combos": bool(sess.get("prefer_combos")),
             "combo_count": sess.get("combo_target_count"),
             "combo_balance": sess.get("combo_balance"),
@@ -1483,20 +1505,14 @@ async def build_new_inspect(request: Request, name: str = Query(...)) -> HTMLRes
                 merged_tags.append(token)
         ctx["tags"] = merged_tags
 
+        # Deduplicate recommended: remove any that are already in partner_tags
+        partner_tags_lower = {str(tag).strip().casefold() for tag in partner_tags}
         existing_recommended = ctx.get("recommended") or []
-        merged_recommended: list[str] = []
-        rec_seen: set[str] = set()
-        for source in (partner_tags, existing_recommended):
-            for tag in source:
-                token = str(tag).strip()
-                if not token:
-                    continue
-                key = token.casefold()
-                if key in rec_seen:
-                    continue
-                rec_seen.add(key)
-                merged_recommended.append(token)
-        ctx["recommended"] = merged_recommended
+        deduplicated_recommended = [
+            tag for tag in existing_recommended
+            if str(tag).strip().casefold() not in partner_tags_lower
+        ]
+        ctx["recommended"] = deduplicated_recommended
 
         reason_map = dict(ctx.get("recommended_reasons") or {})
         for tag in partner_tags:
@@ -2849,7 +2865,7 @@ async def build_step5_rewind(request: Request, to: str = Form(...)) -> HTMLRespo
                 snap = h.get("snapshot")
                 break
         if snap is not None:
-            orch._restore_builder(ctx["builder"], snap)  # type: ignore[attr-defined]
+            orch._restore_builder(ctx["builder"], snap)
             ctx["idx"] = int(target_i) - 1
             ctx["last_visible_idx"] = int(target_i) - 1
     except Exception:
@@ -2907,6 +2923,11 @@ async def build_step2_get(request: Request) -> HTMLResponse:
     if is_gc and (sel_br is None or int(sel_br) < 3):
         sel_br = 3
     partner_enabled = bool(sess.get("partner_enabled") and ENABLE_PARTNER_MECHANICS)
+    
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"Step2 GET: commander={commander}, partner_enabled={partner_enabled}, secondary={sess.get('secondary_commander')}")
+    
     context = {
         "request": request,
         "commander": {"name": commander},
@@ -2940,7 +2961,22 @@ async def build_step2_get(request: Request) -> HTMLResponse:
     )
     partner_tags = context.pop("partner_theme_tags", None)
     if partner_tags:
+        import logging
+        logger = logging.getLogger(__name__)
         context["tags"] = partner_tags
+        # Deduplicate recommended tags: remove any that are already in partner_tags
+        partner_tags_lower = {str(tag).strip().casefold() for tag in partner_tags}
+        original_recommended = context.get("recommended", [])
+        deduplicated_recommended = [
+            tag for tag in original_recommended
+            if str(tag).strip().casefold() not in partner_tags_lower
+        ]
+        logger.info(
+            f"Step2: partner_tags={len(partner_tags)}, "
+            f"original_recommended={len(original_recommended)}, "
+            f"deduplicated_recommended={len(deduplicated_recommended)}"
+        )
+        context["recommended"] = deduplicated_recommended
     resp = templates.TemplateResponse("build/_step2.html", context)
     resp.set_cookie("sid", sid, httponly=True, samesite="lax")
     return resp
@@ -3266,6 +3302,57 @@ async def build_step3_get(request: Request) -> HTMLResponse:
     sess["last_step"] = 3
     defaults = orch.ideal_defaults()
     values = sess.get("ideals") or defaults
+    
+    # Check if any skip flags are enabled to show skeleton automation page
+    skip_flags = {
+        "skip_lands": "land selection",
+        "skip_to_misc": "land selection",
+        "skip_basics": "basic lands",
+        "skip_staples": "staple lands",
+        "skip_kindred": "kindred lands",
+        "skip_fetches": "fetch lands",
+        "skip_duals": "dual lands",
+        "skip_triomes": "triome lands",
+        "skip_all_creatures": "creature selection",
+        "skip_creature_primary": "primary creatures",
+        "skip_creature_secondary": "secondary creatures",
+        "skip_creature_fill": "creature fills",
+        "skip_all_spells": "spell selection",
+        "skip_ramp": "ramp spells",
+        "skip_removal": "removal spells",
+        "skip_wipes": "board wipes",
+        "skip_card_advantage": "card advantage spells",
+        "skip_protection": "protection spells",
+        "skip_spell_fill": "spell fills",
+    }
+    
+    active_skips = [desc for key, desc in skip_flags.items() if sess.get(key, False)]
+    
+    if active_skips:
+        # Show skeleton automation page with auto-submit
+        automation_parts = []
+        if any("land" in s for s in active_skips):
+            automation_parts.append("lands")
+        if any("creature" in s for s in active_skips):
+            automation_parts.append("creatures")
+        if any("spell" in s for s in active_skips):
+            automation_parts.append("spells")
+        
+        automation_message = f"Applying default values for {', '.join(automation_parts)}..."
+        
+        resp = templates.TemplateResponse(
+            "build/_step3_skeleton.html",
+            {
+                "request": request,
+                "defaults": defaults,
+                "commander": sess.get("commander"),
+                "automation_message": automation_message,
+            },
+        )
+        resp.set_cookie("sid", sid, httponly=True, samesite="lax")
+        return resp
+    
+    # No skips enabled, show normal form
     resp = templates.TemplateResponse(
         "build/_step3.html",
         {
@@ -3782,7 +3869,7 @@ async def build_step5_reset_stage(request: Request) -> HTMLResponse:
     if not ctx or not ctx.get("snapshot"):
         return await build_step5_get(request)
     try:
-        orch._restore_builder(ctx["builder"], ctx["snapshot"])  # type: ignore[attr-defined]
+        orch._restore_builder(ctx["builder"], ctx["snapshot"])
     except Exception:
         return await build_step5_get(request)
     # Re-render step 5 with cleared added list
@@ -3844,6 +3931,16 @@ async def build_step5_summary(request: Request, token: int = Query(0)) -> HTMLRe
     ctx["synergies"] = synergies
     ctx["summary_ready"] = True
     ctx["summary_token"] = active_token
+    
+    # Add commander hover context for color identity and theme tags
+    hover_meta = commander_hover_context(
+        commander_name=ctx.get("commander"),
+        deck_tags=sess.get("tags"),
+        summary=summary_data,
+        combined=ctx.get("combined_commander"),
+    )
+    ctx.update(hover_meta)
+    
     response = templates.TemplateResponse("partials/deck_summary.html", ctx)
     response.set_cookie("sid", sid, httponly=True, samesite="lax")
     return response
@@ -4196,7 +4293,7 @@ async def build_alternatives(
             try:
                 if rng is not None:
                     return rng.sample(seq, limit) if len(seq) >= limit else list(seq)
-                import random as _rnd  # type: ignore
+                import random as _rnd
                 return _rnd.sample(seq, limit) if len(seq) >= limit else list(seq)
             except Exception:
                 return list(seq[:limit])
@@ -4247,7 +4344,7 @@ async def build_alternatives(
         # Helper: map display names
         def _display_map_for(lower_pool: set[str]) -> dict[str, str]:
             try:
-                return builder_display_map(b, lower_pool)  # type: ignore[arg-type]
+                return builder_display_map(b, lower_pool)
             except Exception:
                 return {nm: nm for nm in lower_pool}
 
@@ -4425,7 +4522,7 @@ async def build_alternatives(
                 pass
             # Sort by priority like the builder
             try:
-                pool = bu.sort_by_priority(pool, ["edhrecRank","manaValue"])  # type: ignore[arg-type]
+                pool = bu.sort_by_priority(pool, ["edhrecRank","manaValue"])
             except Exception:
                 pass
             # Exclusions and ownership (for non-random roles this stays before slicing)
@@ -4923,13 +5020,13 @@ async def build_compliance_panel(request: Request) -> HTMLResponse:
     comp = None
     try:
         if hasattr(b, 'compute_and_print_compliance'):
-            comp = b.compute_and_print_compliance(base_stem=None)  # type: ignore[attr-defined]
+            comp = b.compute_and_print_compliance(base_stem=None)
     except Exception:
         comp = None
     try:
         if comp:
             from ..services import orchestrator as orch
-            comp = orch._attach_enforcement_plan(b, comp)  # type: ignore[attr-defined]
+            comp = orch._attach_enforcement_plan(b, comp)
     except Exception:
         pass
     if not comp:
@@ -5054,11 +5151,11 @@ async def build_enforce_apply(request: Request) -> HTMLResponse:
     # If missing, export once to establish base
     if not base_stem:
         try:
-            ctx["csv_path"] = b.export_decklist_csv()  # type: ignore[attr-defined]
+            ctx["csv_path"] = b.export_decklist_csv()
             import os as _os
             base_stem = _os.path.splitext(_os.path.basename(ctx["csv_path"]))[0]
             # Also produce a text export for completeness
-            ctx["txt_path"] = b.export_decklist_text(filename=base_stem + '.txt')  # type: ignore[attr-defined]
+            ctx["txt_path"] = b.export_decklist_text(filename=base_stem + '.txt')
         except Exception:
             base_stem = None
     # Add lock placeholders into the library before enforcement so user choices are present
@@ -5103,7 +5200,7 @@ async def build_enforce_apply(request: Request) -> HTMLResponse:
         pass
     # Run enforcement + re-exports (tops up to 100 internally)
     try:
-        rep = b.enforce_and_reexport(base_stem=base_stem, mode='auto')  # type: ignore[attr-defined]
+        rep = b.enforce_and_reexport(base_stem=base_stem, mode='auto')
     except Exception as e:
         err_ctx = step5_error_ctx(request, sess, f"Enforcement failed: {e}")
         resp = templates.TemplateResponse("build/_step5.html", err_ctx)
@@ -5177,13 +5274,13 @@ async def build_enforcement_fullpage(request: Request) -> HTMLResponse:
     comp = None
     try:
         if hasattr(b, 'compute_and_print_compliance'):
-            comp = b.compute_and_print_compliance(base_stem=None)  # type: ignore[attr-defined]
+            comp = b.compute_and_print_compliance(base_stem=None)
     except Exception:
         comp = None
     try:
         if comp:
             from ..services import orchestrator as orch
-            comp = orch._attach_enforcement_plan(b, comp)  # type: ignore[attr-defined]
+            comp = orch._attach_enforcement_plan(b, comp)
     except Exception:
         pass
     try:

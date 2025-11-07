@@ -1,4 +1,4 @@
-from typing import Dict, List, Final, Tuple, Union, Callable, Any as _Any
+from typing import Dict, List, Final, Tuple, Union, Callable, Any
 from settings import CARD_DATA_COLUMNS as CSV_REQUIRED_COLUMNS  # unified
 from path_util import csv_dir
 import pandas as pd
@@ -21,7 +21,7 @@ DUPLICATE_CARD_FORMAT: Final[str] = '{card_name} x {count}'
 COMMANDER_CSV_PATH: Final[str] = f"{csv_dir()}/commander_cards.csv"
 DECK_DIRECTORY = '../deck_files'
 # M4: Deprecated - Parquet handles types natively (no converters needed)
-COMMANDER_CONVERTERS: Final[Dict[str, str]] = {
+COMMANDER_CONVERTERS: Final[Dict[str, Any]] = {
     'themeTags': ast.literal_eval,
     'creatureTypes': ast.literal_eval,
     'roleTags': ast.literal_eval,
@@ -140,18 +140,18 @@ OTHER_COLOR_MAP: Final[Dict[str, Tuple[str, List[str], List[str]]]] = {
 }
 
 # Card category validation rules
-CREATURE_VALIDATION_RULES: Final[Dict[str, Dict[str, Union[str, int, float, bool]]]] = {
+CREATURE_VALIDATION_RULES: Final[Dict[str, Dict[str, Any]]] = {
     'power': {'type': ('str', 'int', 'float'), 'required': True},
     'toughness': {'type': ('str', 'int', 'float'), 'required': True},
     'creatureTypes': {'type': 'list', 'required': True}
 }
 
-SPELL_VALIDATION_RULES: Final[Dict[str, Dict[str, Union[str, int, float, bool]]]] = {
+SPELL_VALIDATION_RULES: Final[Dict[str, Dict[str, Any]]] = {
     'manaCost': {'type': 'str', 'required': True},
     'text': {'type': 'str', 'required': True}
 }
 
-LAND_VALIDATION_RULES: Final[Dict[str, Dict[str, Union[str, int, float, bool]]]] = {
+LAND_VALIDATION_RULES: Final[Dict[str, Dict[str, Any]]] = {
     'type': {'type': ('str', 'object'), 'required': True},
     'text': {'type': ('str', 'object'), 'required': False}
 }
@@ -526,7 +526,7 @@ CSV_READ_TIMEOUT: Final[int] = 30  # Timeout in seconds for CSV read operations
 CSV_PROCESSING_BATCH_SIZE: Final[int] = 1000  # Number of rows to process in each batch
 
 # CSV validation configuration
-CSV_VALIDATION_RULES: Final[Dict[str, Dict[str, Union[str, int, float]]]] = {
+CSV_VALIDATION_RULES: Final[Dict[str, Dict[str, Any]]] = {
     'name': {'type': ('str', 'object'), 'required': True, 'unique': True},
     'edhrecRank': {'type': ('str', 'int', 'float', 'object'), 'min': 0, 'max': 100000},
     'manaValue': {'type': ('str', 'int', 'float', 'object'), 'min': 0, 'max': 20},
@@ -602,12 +602,12 @@ GAME_CHANGERS: Final[List[str]] = [
 # - color_identity: list[str] of required color letters (subset must be in commander CI)
 # - printed_cap: int | None (None means no printed cap)
 # - exclusive_group: str | None (at most one from the same group)
-# - triggers: { tags_any: list[str], tags_all: list[str] }
+# - triggers: { tagsAny: list[str], tags_all: list[str] }
 # - default_count: int (default 25)
 # - rec_window: tuple[int,int] (recommendation window)
 # - thrumming_stone_synergy: bool
 # - type_hint: 'creature' | 'noncreature'
-MULTI_COPY_ARCHETYPES: Final[dict[str, dict[str, _Any]]] = {
+MULTI_COPY_ARCHETYPES: Final[dict[str, dict[str, Any]]] = {
     'cid_timeless_artificer': {
         'id': 'cid_timeless_artificer',
         'name': 'Cid, Timeless Artificer',
@@ -615,7 +615,7 @@ MULTI_COPY_ARCHETYPES: Final[dict[str, dict[str, _Any]]] = {
         'printed_cap': None,
         'exclusive_group': None,
         'triggers': {
-            'tags_any': ['artificer kindred', 'hero kindred', 'artifacts matter'],
+            'tagsAny': ['artificer kindred', 'hero kindred', 'artifacts matter'],
             'tags_all': []
         },
         'default_count': 25,
@@ -630,7 +630,7 @@ MULTI_COPY_ARCHETYPES: Final[dict[str, dict[str, _Any]]] = {
         'printed_cap': None,
         'exclusive_group': None,
         'triggers': {
-            'tags_any': ['burn','spellslinger','prowess','storm','copy','cascade','impulse draw','treasure','ramp','graveyard','mill','discard','recursion'],
+            'tagsAny': ['burn','spellslinger','prowess','storm','copy','cascade','impulse draw','treasure','ramp','graveyard','mill','discard','recursion'],
             'tags_all': []
         },
         'default_count': 25,
@@ -645,7 +645,7 @@ MULTI_COPY_ARCHETYPES: Final[dict[str, dict[str, _Any]]] = {
         'printed_cap': None,
         'exclusive_group': None,
         'triggers': {
-            'tags_any': ['rabbit kindred','tokens matter','aggro'],
+            'tagsAny': ['rabbit kindred','tokens matter','aggro'],
             'tags_all': []
         },
         'default_count': 25,
@@ -660,7 +660,7 @@ MULTI_COPY_ARCHETYPES: Final[dict[str, dict[str, _Any]]] = {
         'printed_cap': None,
         'exclusive_group': None,
         'triggers': {
-            'tags_any': ['tokens','tokens matter','go-wide','exile matters','ooze kindred','spells matter','spellslinger','graveyard','mill','discard','recursion','domain','self-mill','delirium','descend'],
+            'tagsAny': ['tokens','tokens matter','go-wide','exile matters','ooze kindred','spells matter','spellslinger','graveyard','mill','discard','recursion','domain','self-mill','delirium','descend'],
             'tags_all': []
         },
         'default_count': 25,
@@ -675,7 +675,7 @@ MULTI_COPY_ARCHETYPES: Final[dict[str, dict[str, _Any]]] = {
         'printed_cap': None,
         'exclusive_group': 'rats',
         'triggers': {
-            'tags_any': ['rats','swarm','aristocrats','sacrifice','devotion-b','lifedrain','graveyard','recursion'],
+            'tagsAny': ['rats','swarm','aristocrats','sacrifice','devotion-b','lifedrain','graveyard','recursion'],
             'tags_all': []
         },
         'default_count': 25,
@@ -690,7 +690,7 @@ MULTI_COPY_ARCHETYPES: Final[dict[str, dict[str, _Any]]] = {
         'printed_cap': None,
         'exclusive_group': 'rats',
         'triggers': {
-            'tags_any': ['rats','swarm','aristocrats','sacrifice','devotion-b','lifedrain','graveyard','recursion'],
+            'tagsAny': ['rats','swarm','aristocrats','sacrifice','devotion-b','lifedrain','graveyard','recursion'],
             'tags_all': []
         },
         'default_count': 25,
@@ -705,7 +705,7 @@ MULTI_COPY_ARCHETYPES: Final[dict[str, dict[str, _Any]]] = {
         'printed_cap': 7,
         'exclusive_group': None,
         'triggers': {
-            'tags_any': ['dwarf kindred','treasure','equipment','tokens','go-wide','tribal'],
+            'tagsAny': ['dwarf kindred','treasure','equipment','tokens','go-wide','tribal'],
             'tags_all': []
         },
         'default_count': 7,
@@ -720,7 +720,7 @@ MULTI_COPY_ARCHETYPES: Final[dict[str, dict[str, _Any]]] = {
         'printed_cap': None,
         'exclusive_group': None,
         'triggers': {
-            'tags_any': ['mill','advisor kindred','control','defenders','walls','draw-go'],
+            'tagsAny': ['mill','advisor kindred','control','defenders','walls','draw-go'],
             'tags_all': []
         },
         'default_count': 25,
@@ -735,7 +735,7 @@ MULTI_COPY_ARCHETYPES: Final[dict[str, dict[str, _Any]]] = {
         'printed_cap': None,
         'exclusive_group': None,
         'triggers': {
-            'tags_any': ['demon kindred','aristocrats','sacrifice','recursion','lifedrain'],
+            'tagsAny': ['demon kindred','aristocrats','sacrifice','recursion','lifedrain'],
             'tags_all': []
         },
         'default_count': 25,
@@ -750,7 +750,7 @@ MULTI_COPY_ARCHETYPES: Final[dict[str, dict[str, _Any]]] = {
         'printed_cap': 9,
         'exclusive_group': None,
         'triggers': {
-            'tags_any': ['wraith kindred','ring','amass','orc','menace','aristocrats','sacrifice','devotion-b'],
+            'tagsAny': ['wraith kindred','ring','amass','orc','menace','aristocrats','sacrifice','devotion-b'],
             'tags_all': []
         },
         'default_count': 9,
@@ -765,7 +765,7 @@ MULTI_COPY_ARCHETYPES: Final[dict[str, dict[str, _Any]]] = {
         'printed_cap': None,
         'exclusive_group': None,
         'triggers': {
-            'tags_any': ['bird kindred','aggro'],
+            'tagsAny': ['bird kindred','aggro'],
             'tags_all': []
         },
         'default_count': 25,
@@ -780,7 +780,7 @@ MULTI_COPY_ARCHETYPES: Final[dict[str, dict[str, _Any]]] = {
         'printed_cap': None,
         'exclusive_group': None,
         'triggers': {
-            'tags_any': ['aggro','human kindred','knight kindred','historic matters','artifacts matter'],
+            'tagsAny': ['aggro','human kindred','knight kindred','historic matters','artifacts matter'],
             'tags_all': []
         },
         'default_count': 25,
@@ -956,3 +956,4 @@ def get_backgrounds(df: pd.DataFrame) -> pd.DataFrame:
     if 'isBackground' not in df.columns:
         return pd.DataFrame()
     return df[df['isBackground'] == True].copy()  # noqa: E712
+

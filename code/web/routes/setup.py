@@ -7,7 +7,7 @@ from pathlib import Path
 import json as _json
 from fastapi.responses import HTMLResponse, JSONResponse
 from ..app import templates
-from ..services.orchestrator import _ensure_setup_ready  # type: ignore
+from ..services.orchestrator import _ensure_setup_ready
 
 router = APIRouter(prefix="/setup")
 
@@ -21,7 +21,7 @@ def _kickoff_setup_async(force: bool = False):
     def runner():
         try:
             print(f"[SETUP THREAD] Starting setup/tagging (force={force})...")
-            _ensure_setup_ready(print, force=force)  # type: ignore[arg-type]
+            _ensure_setup_ready(print, force=force)
             print("[SETUP THREAD] Setup/tagging completed successfully")
         except Exception as e:  # pragma: no cover - background best effort
             try:
@@ -36,7 +36,7 @@ def _kickoff_setup_async(force: bool = False):
 
 
 @router.get("/running", response_class=HTMLResponse)
-async def setup_running(request: Request, start: Optional[int] = 0, next: Optional[str] = None, force: Optional[bool] = None) -> HTMLResponse:  # type: ignore[override]
+async def setup_running(request: Request, start: Optional[int] = 0, next: Optional[str] = None, force: Optional[bool] = None) -> HTMLResponse:
     # Optionally start the setup/tagging in the background if requested
     try:
         if start and int(start) != 0:
@@ -195,7 +195,11 @@ async def download_github():
 @router.get("/", response_class=HTMLResponse)
 async def setup_index(request: Request) -> HTMLResponse:
     import code.settings as settings
+    from code.file_setup.image_cache import ImageCache
+    
+    image_cache = ImageCache()
     return templates.TemplateResponse("setup/index.html", {
         "request": request,
-        "similarity_enabled": settings.ENABLE_CARD_SIMILARITIES
+        "similarity_enabled": settings.ENABLE_CARD_SIMILARITIES,
+        "image_cache_enabled": image_cache.is_enabled()
     })

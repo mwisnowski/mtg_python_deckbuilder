@@ -167,7 +167,7 @@ def _reset_metrics_for_test() -> None:
 def _sanitize_theme_list(values: Iterable[Any]) -> list[str]:
     sanitized: list[str] = []
     seen: set[str] = set()
-    for raw in values or []:  # type: ignore[arg-type]
+    for raw in values or []:
         text = str(raw or "").strip()
         if not text:
             continue

@@ -20,7 +20,7 @@ def _fresh_client() -> TestClient:
     from code.web.services.commander_catalog_loader import clear_commander_catalog_cache
 
     clear_commander_catalog_cache()
-    from code.web.app import app  # type: ignore
+    from code.web.app import app
 
     client = TestClient(app)
     from code.web.services import tasks

@@ -1,56 +1,122 @@
 {% extends "base.html" %}
+{% from 'partials/_buttons.html' import button %}
+
 {% block content %}
+<style>
+  /* Setup page-specific styling */
+  #content details > summary {
+    color: #3b82f6;
+    cursor: pointer;
+    font-weight: 500;
+  }
+  #content details > summary:hover {
+    color: #60a5fa;
+  }
+  #content details > div {
+    background: var(--panel) !important;
+    border-color: var(--border) !important;
+  }
+  #content .muted {
+    color: #94a3b8;
+  }
+  /* Make all buttons on this page blue */
+  #content button,
+  #content input[type="submit"] {
+    background: #3b82f6 !important;
+    border-color: #3b82f6 !important;
+    color: white !important;
+  }
+  #content button:hover,
+  #content input[type="submit"]:hover {
+    background: #2563eb !important;
+    border-color: #2563eb !important;
+  }
+  #content button:active,
+  #content input[type="submit"]:active {
+    background: #1d4ed8 !important;
+  }
+  /* Progress bars */
+  #content [id$="-progress-bar"] {
+    background: var(--bg) !important;
+  }
+  /* Log output areas */
+  #content pre {
+    background: var(--panel) !important;
+    border-color: var(--border) !important;
+  }
+</style>
+
 <section>
   <h2>Setup / Tagging</h2>
   <p class="muted" style="max-width:70ch;">Prepare or refresh the card database and apply tags. You can run this anytime.</p>
 
   <details open style="margin-top:.5rem;">
     <summary>Current Status</summary>
-    <div id="setup-status" style="margin-top:.5rem; padding:1rem; border:1px solid var(--border); background:#0f1115; border-radius:8px;">
+    <div id="setup-status" style="margin-top:.5rem; padding:1rem; border:1px solid var(--border); background:var(--panel); border-radius:8px;">
       <div class="muted">Status:</div>
       <div id="setup-status-line" style="margin-top:.25rem;">Checking…</div>
       <div id="setup-progress-line" class="muted" style="margin-top:.25rem; display:none;"></div>
-      <div id="setup-progress-bar" style="margin-top:.25rem; width:100%; height:10px; background:#151821; border:1px solid var(--border); border-radius:6px; overflow:hidden; display:none;">
+      <div id="setup-progress-bar" style="margin-top:.25rem; width:100%; height:10px; background:var(--bg); border:1px solid var(--border); border-radius:6px; overflow:hidden; display:none;">
         <div id="setup-progress-bar-inner" style="height:100%; width:0%; background:#3b82f6;"></div>
       </div>
       <div id="setup-time-line" class="muted" style="margin-top:.25rem; display:none;"></div>
   <div id="setup-color-line" class="muted" style="margin-top:.25rem; display:none;"></div>
       <details id="setup-log-wrap" style="margin-top:.5rem; display:none;">
         <summary id="setup-log-summary" class="muted" style="cursor:pointer;">Show logs</summary>
-        <pre id="setup-log-tail" style="margin-top:.5rem; max-height:240px; overflow:auto; background:#0b0d12; border:1px solid var(--border); padding:.5rem; border-radius:6px;"></pre>
+        <pre id="setup-log-tail" style="margin-top:.5rem; max-height:240px; overflow:auto; background:var(--panel); border:1px solid var(--border); padding:.5rem; border-radius:6px;"></pre>
       </details>
     </div>
   </details>
 
   <details style="margin-top:1rem;">
     <summary>Download Pre-tagged Database from GitHub (Optional)</summary>
-    <div style="margin-top:.5rem; padding:1rem; border:1px solid var(--border); background:#0f1115; border-radius:8px;">
+    <div style="margin-top:.5rem; padding:1rem; border:1px solid var(--border); background:var(--panel); border-radius:8px;">
       <p class="muted" style="margin:0 0 .75rem 0; font-size:.9rem;">
         Download pre-tagged card database and similarity cache from GitHub (updated weekly). 
         <strong>Note:</strong> A fresh local tagging run will be most up-to-date with the latest card data.
       </p>
-      <button type="button" class="action-btn" onclick="downloadFromGitHub()" id="btn-download-github">
-        Download from GitHub
-      </button>
+      {{ button('Download from GitHub', variant='priamry', onclick='downloadFromGitHub()', attrs='id="btn-download-github"') }}
       <div id="download-status" class="muted" style="margin-top:.5rem; display:none;"></div>
     </div>
   </details>
 
+  {% if image_cache_enabled %}
+  <details style="margin-top:1rem;">
+    <summary>Download Card Images (Optional)</summary>
+    <div style="margin-top:.5rem; padding:1rem; border:1px solid var(--border); background:var(--panel); border-radius:8px;">
+      <p class="muted" style="margin:0 0 .75rem 0; font-size:.9rem;">
+        Download card images from Scryfall CDN for faster loading and offline use.
+        <strong>Note:</strong> Requires ~3-6 GB disk space and 1-2 hours download time (~30k cards).
+      </p>
+      <div id="image-cache-status" style="margin-bottom:.75rem;">
+        <div class="muted">Status:</div>
+        <div id="image-status-line" style="margin-top:.25rem;">Checking…</div>
+        <div class="muted" id="image-stats-line" style="margin-top:.25rem; display:none;"></div>
+      </div>
+      {{ button('Download Card Images', variant='priamry', onclick='downloadCardImages()', attrs='id="btn-download-images"') }}
+      <div id="image-download-status" class="muted" style="margin-top:.5rem; display:none;"></div>
+      <div id="image-progress-bar" style="margin-top:.5rem; width:100%; height:10px; background:var(--bg); border:1px solid var(--border); border-radius:6px; overflow:hidden; display:none;">
+        <div id="image-progress-bar-inner" style="height:100%; width:0%; background:#3b82f6;"></div>
+      </div>
+    </div>
+  </details>
+  {% endif %}
+
   <div style="margin-top:1rem; display:flex; gap:.5rem; flex-wrap:wrap;">
     <form id="frm-start-setup" action="/setup/start" method="post" onsubmit="event.preventDefault(); startSetup();">
-      <button type="submit" id="btn-start-setup" class="action-btn">Run Setup/Tagging</button>
+      {{ button('Run Setup/Tagging', variant='primary', type='submit', attrs='id="btn-start-setup"') }}
       <label class="muted" style="margin-left:.75rem; font-size:.9rem;">
         <input type="checkbox" id="chk-force" checked /> Force run
       </label>
     </form>
     <form method="get" action="/setup/running?start=1&force=1">
-      <button type="submit" class="action-btn">Open Progress Page</button>
+      {{ button('Open Progress Page', variant='primary', type='submit') }}
     </form>
   </div>
 
   <details style="margin-top:1.25rem;" open>
     <summary>Theme Catalog Status</summary>
-    <div id="themes-status" style="margin-top:.5rem; padding:1rem; border:1px solid var(--border); background:#0f1115; border-radius:8px;">
+    <div id="themes-status" style="margin-top:.5rem; padding:1rem; border:1px solid var(--border); background:var(--panel); border-radius:8px;">
       <div class="muted">Status:</div>
       <div id="themes-status-line" style="margin-top:.25rem;">Checking…</div>
       <div class="muted" id="themes-meta-line" style="margin-top:.25rem; display:none;"></div>
@@ -58,13 +124,13 @@
     </div>
   </details>
   <div style="margin-top:.75rem; display:flex; gap:.5rem; flex-wrap:wrap;">
-    <button type="button" id="btn-refresh-themes" class="action-btn" onclick="refreshThemes()">Refresh Themes Only</button>
+    {{ button('Refresh Themes Only', variant='priamry', onclick='refreshThemes()', attrs='id="btn-refresh-themes"') }}
   </div>
 
   {% if similarity_enabled %}
   <details style="margin-top:1.25rem;" open>
     <summary>Similarity Cache Status</summary>
-    <div id="similarity-status" style="margin-top:.5rem; padding:1rem; border:1px solid var(--border); background:#0f1115; border-radius:8px;">
+    <div id="similarity-status" style="margin-top:.5rem; padding:1rem; border:1px solid var(--border); background:var(--panel); border-radius:8px;">
       <div class="muted">Status:</div>
       <div id="similarity-status-line" style="margin-top:.25rem;">Checking…</div>
       <div class="muted" id="similarity-meta-line" style="margin-top:.25rem; display:none;"></div>
@@ -72,7 +138,7 @@
     </div>
   </details>
   <div style="margin-top:.75rem; display:flex; gap:.5rem; flex-wrap:wrap;">
-    <button type="button" id="btn-build-similarity" class="action-btn" onclick="buildSimilarityCache()">Build Similarity Cache</button>
+    {{ button('Build Similarity Cache', variant='priamry', onclick='buildSimilarityCache()', attrs='id="btn-build-similarity"') }}
     <label class="muted" style="align-self:center; font-size:.85rem;">
       <input type="checkbox" id="chk-skip-download" /> Skip GitHub download (build locally)
     </label>
@@ -85,7 +151,7 @@
   // Minimal styling helper to unify button widths
   try {
     var style = document.createElement('style');
-    style.textContent = '.action-btn{min-width:180px;}';
+    style.textContent = '.btn{min-width:180px;}';
     document.head.appendChild(style);
   } catch(e){}
   function update(data){
@@ -219,6 +285,137 @@
       .then(function(){ setTimeout(function(){ pollThemes(); if(btn) btn.disabled=false; }, 1200); })
       .catch(function(){ if(btn) btn.disabled=false; });
   };
+  
+  // Card image download functions
+  function pollImageStatus(){
+    fetch('/api/images/status', { cache: 'no-store' })
+      .then(function(r){ return r.json(); })
+      .then(function(data){
+        var statusLine = document.getElementById('image-status-line');
+        var statsLine = document.getElementById('image-stats-line');
+        var downloadStatus = document.getElementById('image-download-status');
+        var progressBar = document.getElementById('image-progress-bar');
+        var progressBarInner = document.getElementById('image-progress-bar-inner');
+        
+        if (!statusLine) return;
+        
+        if (data.running) {
+          // Download in progress
+          var phase = data.phase || 'unknown';
+          var message = data.message || 'Downloading...';
+          var percentage = data.percentage || 0;
+          
+          statusLine.textContent = 'Download in progress';
+          statusLine.style.color = '#3b82f6';
+          
+          if (downloadStatus) {
+            downloadStatus.style.display = '';
+            downloadStatus.textContent = message + ' (' + percentage + '%)';
+          }
+          
+          if (progressBar && progressBarInner) {
+            progressBar.style.display = '';
+            progressBarInner.style.width = percentage + '%';
+          }
+        } else if (data.stats) {
+          // Show cache statistics
+          var stats = data.stats;
+          if (stats.enabled === false) {
+            statusLine.textContent = 'Image caching disabled';
+            statusLine.style.color = '#94a3b8';
+            if (statsLine) statsLine.style.display = 'none';
+          } else {
+            var totalCount = 0;
+            var totalSizeMB = 0;
+            
+            if (stats.small) {
+              totalCount += stats.small.count || 0;
+              totalSizeMB += stats.small.size_mb || 0;
+            }
+            if (stats.normal) {
+              totalCount += stats.normal.count || 0;
+              totalSizeMB += stats.normal.size_mb || 0;
+            }
+            
+            if (totalCount > 0) {
+              statusLine.textContent = 'Cache exists';
+              statusLine.style.color = '#34d399';
+              if (statsLine) {
+                statsLine.style.display = '';
+                statsLine.textContent = totalCount.toLocaleString() + ' images cached • ' + totalSizeMB.toFixed(1) + ' MB';
+              }
+            } else {
+              statusLine.textContent = 'No images cached';
+              statusLine.style.color = '#94a3b8';
+              if (statsLine) statsLine.style.display = 'none';
+            }
+          }
+          
+          // Hide download progress
+          if (downloadStatus) downloadStatus.style.display = 'none';
+          if (progressBar) progressBar.style.display = 'none';
+        }
+      })
+      .catch(function(){
+        var statusLine = document.getElementById('image-status-line');
+        if (statusLine) {
+          statusLine.textContent = 'Status unavailable';
+          statusLine.style.color = '#94a3b8';
+        }
+      });
+  }
+  
+  window.downloadCardImages = function(){
+    var btn = document.getElementById('btn-download-images');
+    var statusEl = document.getElementById('image-download-status');
+    
+    if (!confirm('Download card images from Scryfall? This will download ~30k images (~3-6 GB) and may take 1-2 hours.')) {
+      return;
+    }
+    
+    if (btn) btn.disabled = true;
+    if (statusEl) {
+      statusEl.style.display = '';
+      statusEl.textContent = 'Starting download...';
+    }
+    
+    fetch('/api/images/download', { method: 'POST' })
+      .then(function(r){ 
+        if (!r.ok) {
+          return r.json().then(function(data){ 
+            throw new Error(data.message || 'Download failed'); 
+          });
+        }
+        return r.json(); 
+      })
+      .then(function(data){
+        if (statusEl) {
+          statusEl.style.color = '#34d399';
+          statusEl.textContent = '✓ ' + (data.message || 'Download started');
+        }
+        
+        // Poll status every 2 seconds while downloading
+        var pollCount = 0;
+        var imagePoll = setInterval(function(){
+          pollImageStatus();
+          pollCount++;
+          // Stop intensive polling after 2 hours (3600 polls)
+          if (pollCount > 3600) clearInterval(imagePoll);
+        }, 2000);
+        
+        setTimeout(function(){ 
+          if (btn) btn.disabled = false; 
+        }, 3000);
+      })
+      .catch(function(err){
+        if (statusEl) {
+          statusEl.style.color = '#f87171';
+          statusEl.textContent = '✗ ' + (err.message || 'Download failed');
+        }
+        if (btn) btn.disabled = false;
+      });
+  };
+  
   function rapidPoll(times, delay){
     var i = 0;
     function tick(){
@@ -394,6 +591,10 @@
   pollSimilarityStatus();
   setInterval(pollSimilarityStatus, 10000); // Poll every 10s
   {% endif %}
+
+  // Initialize image status polling
+  pollImageStatus();
+  setInterval(pollImageStatus, 10000); // Poll every 10s
 
   setInterval(poll, 3000);
   poll();

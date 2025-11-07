@@ -31,9 +31,9 @@ CODE_ROOT = ROOT / 'code'
 if str(CODE_ROOT) not in sys.path:
     sys.path.insert(0, str(CODE_ROOT))
 
-from type_definitions_theme_catalog import ThemeCatalog, ThemeYAMLFile  # type: ignore
-from scripts.extract_themes import load_whitelist_config  # type: ignore
-from scripts.build_theme_catalog import build_catalog  # type: ignore
+from type_definitions_theme_catalog import ThemeCatalog, ThemeYAMLFile
+from scripts.extract_themes import load_whitelist_config
+from scripts.build_theme_catalog import build_catalog
 
 CATALOG_JSON = ROOT / 'config' / 'themes' / 'theme_list.json'
 

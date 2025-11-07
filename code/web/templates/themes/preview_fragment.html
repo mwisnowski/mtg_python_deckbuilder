@@ -1,30 +1,30 @@
 {% if preview %}
 <div class="preview-modal-content theme-preview-expanded{% if minimal %} minimal-variant{% endif %}">
   {% if not minimal %}
-  <div class="preview-header" style="display:flex; justify-content:space-between; align-items:center; gap:1rem;">
-    <h3 style="margin:0; font-size:16px;" data-preview-heading>{{ preview.theme }}</h3>
-    <button id="preview-close-btn" onclick="document.getElementById('theme-preview-modal') && document.getElementById('theme-preview-modal').remove();" class="btn btn-ghost" style="font-size:12px; line-height:1;">Close ✕</button>
+  <div class="preview-header">
+    <h3 data-preview-heading>{{ preview.theme }}</h3>
+    <button id="preview-close-btn" onclick="document.getElementById('theme-preview-modal') && document.getElementById('theme-preview-modal').remove();" class="btn btn-ghost">Close ✕</button>
   </div>
   {% if preview.stub %}<div class="note note-stub">Stub sample (placeholder logic)</div>{% endif %}
-  <div class="preview-controls" style="display:flex; gap:1rem; align-items:center; margin:.5rem 0 .75rem; font-size:11px;">
-    <label style="display:inline-flex; gap:4px; align-items:center;"><input type="checkbox" id="curated-only-toggle"/> Curated Only</label>
-    <label style="display:inline-flex; gap:4px; align-items:center;"><input type="checkbox" id="reasons-toggle" checked/> Reasons <span style="opacity:.55; font-size:10px; cursor:help;" title="Toggle why the payoff is included (i.e. overlapping themes or other reasoning)">?</span></label>
-    <label style="display:inline-flex; gap:4px; align-items:center;"><input type="checkbox" id="show-duplicates-toggle"/> Show Collapsed Duplicates</label>
-    <span id="preview-status" aria-live="polite" style="opacity:.65;"></span>
+  <div class="preview-controls">
+    <label><input type="checkbox" id="curated-only-toggle"/> Curated Only</label>
+    <label><input type="checkbox" id="reasons-toggle" checked/> Reasons <span class="help-icon" title="Toggle why the payoff is included (i.e. overlapping themes or other reasoning)">?</span></label>
+    <label><input type="checkbox" id="show-duplicates-toggle"/> Show Collapsed Duplicates</label>
+    <span id="preview-status" aria-live="polite"></span>
   </div>
-  <details id="preview-rationale" class="preview-rationale" style="margin:.25rem 0 .85rem; font-size:11px; background:var(--panel-alt); border:1px solid var(--border); padding:.55rem .7rem; border-radius:8px;">
-    <summary style="cursor:pointer; font-weight:600; letter-spacing:.05em;">Commander Overlap & Diversity Rationale</summary>
-    <div style="display:flex; flex-wrap:wrap; gap:.75rem; align-items:center; margin-top:.4rem;">
-      <button type="button" class="btn btn-ghost" style="font-size:10px; padding:4px 8px;" onclick="toggleHoverCompactMode()" title="Toggle compact hover panel (smaller image & condensed metadata)">Hover Compact</button>
-      <span id="hover-compact-indicator" style="font-size:10px; opacity:.7;">Mode: <span data-mode>normal</span></span>
+  <details id="preview-rationale" class="preview-rationale">
+    <summary>Commander Overlap & Diversity Rationale</summary>
+    <div class="preview-rationale-controls">
+      <button type="button" class="btn btn-ghost" onclick="toggleHoverCompactMode()" title="Toggle compact hover panel (smaller image & condensed metadata)">Hover Compact</button>
+      <span id="hover-compact-indicator">Mode: <span data-mode>normal</span></span>
     </div>
-    <ul id="rationale-points" style="margin:.5rem 0 0 .9rem; padding:0; list-style:disc; line-height:1.35;">
+    <ul id="rationale-points">
       {% if preview.commander_rationale and preview.commander_rationale|length > 0 %}
         {% for r in preview.commander_rationale %}
           <li>
             <strong>{{ r.label }}</strong>: {{ r.value }}
-            {% if r.detail %}<span style="opacity:.75;">({{ r.detail|join(', ') }})</span>{% endif %}
-            {% if r.instances %}<span style="opacity:.65;"> ({{ r.instances }} instances)</span>{% endif %}
+            {% if r.detail %}<span class="detail">({{ r.detail|join(', ') }})</span>{% endif %}
+            {% if r.instances %}<span class="instances"> ({{ r.instances }} instances)</span>{% endif %}
           </li>
         {% endfor %}
       {% else %}
@@ -33,55 +33,55 @@
     </ul>
   </details>
   {% endif %}
-  <div class="two-col" style="display:grid; grid-template-columns: 1fr 480px; gap:1.25rem; align-items:start; position:relative;" role="group" aria-label="Theme preview cards and commanders">
-    <div class="col-divider" style="position:absolute; top:0; bottom:0; left:calc(100% - 480px - .75rem); width:1px; background:var(--border); opacity:.55;"></div>
+  <div class="preview-two-col" role="group" aria-label="Theme preview cards and commanders">
+    <div class="preview-col-divider"></div>
     <div class="col-left">
-  {% if not minimal %}{% if not suppress_curated %}<h4 style="margin:.25rem 0 .5rem; font-size:13px; letter-spacing:.05em; text-transform:uppercase; opacity:.8;">Example Cards</h4>{% else %}<h4 style="margin:.25rem 0 .5rem; font-size:13px; letter-spacing:.05em; text-transform:uppercase; opacity:.8;">Sampled Synergy Cards</h4>{% endif %}{% endif %}
-      <hr style="border:0; border-top:1px solid var(--border); margin:.35rem 0 .6rem;" />
-  <div class="cards-flow" style="display:flex; flex-wrap:wrap; gap:10px;" data-synergies="{{ preview.synergies_used|join(',') if preview.synergies_used }}" data-pin-scope="{{ preview.theme_id }}">
+  {% if not minimal %}{% if not suppress_curated %}<h4 class="preview-section-header">Example Cards</h4>{% else %}<h4 class="preview-section-header">Sampled Synergy Cards</h4>{% endif %}{% endif %}
+      <hr class="preview-section-hr" />
+  <div class="cards-flow" data-synergies="{{ preview.synergies_used|join(',') if preview.synergies_used }}" data-pin-scope="{{ preview.theme_id }}">
   {% set inserted = {'examples': False, 'curated_synergy': False, 'payoff': False, 'enabler_support': False, 'wildcard': False} %}
   {% for c in preview.sample if (not suppress_curated and ('example' in c.roles or 'curated_synergy' in c.roles)) or 'payoff' in c.roles or 'enabler' in c.roles or 'support' in c.roles or 'wildcard' in c.roles %}
   {% if c.dup_collapsed %}{% set dup_class = ' is-collapsed-duplicate' %}{% else %}{% set dup_class = '' %}{% endif %}
   {% set primary = c.roles[0] if c.roles else '' %}
-  {% if (not suppress_curated) and 'example' in c.roles and not inserted.examples %}<div class="group-separator" data-group="examples" style="flex-basis:100%; font-size:10px; text-transform:uppercase; letter-spacing:.05em; opacity:.65; margin-top:.25rem;">Curated Examples</div>{% set _ = inserted.update({'examples': True}) %}{% endif %}
-  {% if (not suppress_curated) and primary == 'curated_synergy' and not inserted.curated_synergy %}<div class="group-separator" data-group="curated_synergy" style="flex-basis:100%; font-size:10px; text-transform:uppercase; letter-spacing:.05em; opacity:.65; margin-top:.5rem;">Curated Synergy</div>{% set _ = inserted.update({'curated_synergy': True}) %}{% endif %}
-  {% if primary == 'payoff' and not inserted.payoff %}<div class="group-separator" data-group="payoff" style="flex-basis:100%; font-size:10px; text-transform:uppercase; letter-spacing:.05em; opacity:.65; margin-top:.5rem;">Payoffs</div>{% set _ = inserted.update({'payoff': True}) %}{% endif %}
-  {% if primary in ['enabler','support'] and not inserted.enabler_support %}<div class="group-separator" data-group="enabler_support" style="flex-basis:100%; font-size:10px; text-transform:uppercase; letter-spacing:.05em; opacity:.65; margin-top:.5rem;">Enablers & Support</div>{% set _ = inserted.update({'enabler_support': True}) %}{% endif %}
-  {% if primary == 'wildcard' and not inserted.wildcard %}<div class="group-separator" data-group="wildcard" style="flex-basis:100%; font-size:10px; text-transform:uppercase; letter-spacing:.05em; opacity:.65; margin-top:.5rem;">Wildcards</div>{% set _ = inserted.update({'wildcard': True}) %}{% endif %}
+  {% if (not suppress_curated) and 'example' in c.roles and not inserted.examples %}<div class="group-separator" data-group="examples">Curated Examples</div>{% set _ = inserted.update({'examples': True}) %}{% endif %}
+  {% if (not suppress_curated) and primary == 'curated_synergy' and not inserted.curated_synergy %}<div class="group-separator mt-larger" data-group="curated_synergy">Curated Synergy</div>{% set _ = inserted.update({'curated_synergy': True}) %}{% endif %}
+  {% if primary == 'payoff' and not inserted.payoff %}<div class="group-separator mt-larger" data-group="payoff">Payoffs</div>{% set _ = inserted.update({'payoff': True}) %}{% endif %}
+  {% if primary in ['enabler','support'] and not inserted.enabler_support %}<div class="group-separator mt-larger" data-group="enabler_support">Enablers & Support</div>{% set _ = inserted.update({'enabler_support': True}) %}{% endif %}
+  {% if primary == 'wildcard' and not inserted.wildcard %}<div class="group-separator mt-larger" data-group="wildcard">Wildcards</div>{% set _ = inserted.update({'wildcard': True}) %}{% endif %}
         {% set overlaps = [] %}
         {% if preview.synergies_used and c.tags %}
           {% for tg in c.tags %}{% if tg in preview.synergies_used %}{% set _ = overlaps.append(tg) %}{% endif %}{% endfor %}
         {% endif %}
-  <div class="card-sample{{ dup_class }}{% if overlaps %} has-overlap{% endif %}" style="width:230px;" data-card-name="{{ c.name }}" data-role="{{ c.roles[0] if c.roles }}" data-reasons="{{ c.reasons|join('; ') if c.reasons }}" data-tags="{{ c.tags|join(', ') if c.tags }}" data-overlaps="{{ overlaps|join(',') }}" data-mana="{{ c.mana_cost if c.mana_cost }}" data-rarity="{{ c.rarity if c.rarity }}" {% if c.dup_group_size %}data-dup-group-size="{{ c.dup_group_size }}"{% endif %} {% if c.dup_anchor %}data-dup-anchor="1"{% endif %} {% if c.dup_collapsed %}data-dup-collapsed="1" data-dup-anchor-name="{{ c.dup_anchor_name }}"{% endif %}>
-          <div class="thumb-wrap" style="position:relative;">
-            <img class="card-thumb" width="230" loading="lazy" decoding="async" src="https://api.scryfall.com/cards/named?fuzzy={{ c.name|urlencode }}&format=image&version=small" alt="{{ c.name }} image" data-card-name="{{ c.name }}" data-role="{{ c.roles[0] if c.roles }}" data-tags="{{ c.tags|join(', ') if c.tags }}" {% if overlaps %}data-overlaps="{{ overlaps|join(',') }}"{% endif %} data-placeholder-color="#0b0d12" style="filter:blur(4px); transition:filter .35s ease; background:linear-gradient(145deg,#0b0d12,#111b29);" onload="this.style.filter='blur(0)';" />
+  <div class="card-sample{{ dup_class }}{% if overlaps %} has-overlap{% endif %}" data-card-name="{{ c.name }}" data-role="{{ c.roles[0] if c.roles }}" data-reasons="{{ c.reasons|join('; ') if c.reasons }}" data-tags="{{ c.tags|join(', ') if c.tags }}" data-overlaps="{{ overlaps|join(',') }}" data-mana="{{ c.mana_cost if c.mana_cost }}" data-rarity="{{ c.rarity if c.rarity }}" {% if c.dup_group_size %}data-dup-group-size="{{ c.dup_group_size }}"{% endif %} {% if c.dup_anchor %}data-dup-anchor="1"{% endif %} {% if c.dup_collapsed %}data-dup-collapsed="1" data-dup-anchor-name="{{ c.dup_anchor_name }}"{% endif %}>
+          <div class="thumb-wrap">
+            <img class="card-thumb" width="230" loading="lazy" decoding="async" src="{{ c.name|card_image('small') }}" alt="{{ c.name }} image" data-card-name="{{ c.name }}" data-role="{{ c.roles[0] if c.roles }}" data-tags="{{ c.tags|join(', ') if c.tags }}" {% if overlaps %}data-overlaps="{{ overlaps|join(',') }}"{% endif %} data-placeholder-color="#0b0d12" onload="this.setAttribute('data-loaded', '1');" />
             <span class="role-chip role-{{ c.roles[0] if c.roles }}" title="Primary role: {{ c.roles[0] if c.roles }}">{{ c.roles[0][0]|upper if c.roles }}</span>
             {% if overlaps %}<span class="overlap-badge" title="Synergy overlaps: {{ overlaps|join(', ') }}">{{ overlaps|length }}</span>{% endif %}
-            {% if c.dup_anchor and c.dup_group_size and c.dup_group_size > 1 %}<span class="dup-badge" title="{{ c.dup_group_size - 1 }} similar cards collapsed" style="position:absolute; bottom:4px; right:4px; background:#4b5563; color:#fff; font-size:10px; padding:2px 5px; border-radius:10px;">+{{ c.dup_group_size - 1 }}</span>{% endif %}
-            <button type="button" class="pin-btn" aria-label="Pin card" title="Pin card" data-pin-btn style="position:absolute; top:4px; right:4px; background:rgba(0,0,0,0.55); color:#fff; border:1px solid var(--border); border-radius:6px; font-size:10px; padding:2px 5px; cursor:pointer;">☆</button>
+            {% if c.dup_anchor and c.dup_group_size and c.dup_group_size > 1 %}<span class="dup-badge" title="{{ c.dup_group_size - 1 }} similar cards collapsed">+{{ c.dup_group_size - 1 }}</span>{% endif %}
+            <button type="button" class="pin-btn" aria-label="Pin card" title="Pin card" data-pin-btn>☆</button>
           </div>
-            <div class="meta" style="font-size:12px; margin-top:2px;">
-            <div class="ci-ribbon" aria-label="Color identity" style="display:flex; gap:2px; margin-bottom:2px; min-height:10px;"></div>
-            <div class="nm" style="font-weight:600; line-height:1.25; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="{{ c.name }}">{{ c.name }}</div>
-            <div class="mana-line" aria-label="Mana Cost" style="min-height:14px; display:flex; flex-wrap:wrap; gap:2px; font-size:10px;"></div>
-            {% if c.rarity %}<div class="rarity-badge rarity-{{ c.rarity }}" title="Rarity: {{ c.rarity }}" style="font-size:9px; letter-spacing:.5px; text-transform:uppercase; opacity:.7;">{{ c.rarity }}</div>{% endif %}
-            <div class="role" style="opacity:.75; font-size:11px; display:flex; flex-wrap:wrap; gap:3px;">
+            <div class="meta">
+            <div class="ci-ribbon" aria-label="Color identity"></div>
+            <div class="nm" title="{{ c.name }}">{{ c.name }}</div>
+            <div class="mana-line" aria-label="Mana Cost"></div>
+            {% if c.rarity %}<div class="rarity-badge rarity-{{ c.rarity }}" title="Rarity: {{ c.rarity }}">{{ c.rarity }}</div>{% endif %}
+            <div class="role">
               {% for r in c.roles %}<span class="mini-badge role-{{ r }}" title="{{ r }} role">{{ r[0]|upper }}</span>{% endfor %}
             </div>
-            {% if c.reasons %}<div class="reasons" data-reasons-block style="font-size:9px; opacity:.55; line-height:1.15;" title="Heuristics: {{ c.reasons|join(', ') }}">{{ c.reasons|map('replace','commander_bias','cmbias')|join(' · ') }}</div>{% endif %}
+            {% if c.reasons %}<div class="reasons" data-reasons-block title="Heuristics: {{ c.reasons|join(', ') }}">{{ c.reasons|map('replace','commander_bias','cmbias')|join(' · ') }}</div>{% endif %}
           </div>
         </div>
         {% endfor %}
         {% set has_synth = false %}
         {% for c in preview.sample %}{% if 'synthetic' in c.roles %}{% set has_synth = true %}{% endif %}{% endfor %}
         {% if has_synth %}
-        <div style="flex-basis:100%; height:0;"></div>
+        <div class="full-width-spacer"></div>
         {% for c in preview.sample %}
           {% if 'synthetic' in c.roles %}
-          <div class="card-sample synthetic" style="width:230px; border:1px dashed var(--border); padding:8px; border-radius:10px; background:var(--panel-alt);" data-card-name="{{ c.name }}" data-role="synthetic" data-reasons="{{ c.reasons|join('; ') if c.reasons }}" data-tags="{{ c.tags|join(', ') if c.tags }}" data-overlaps="">
-            <div style="font-size:12px; font-weight:600; line-height:1.2;">{{ c.name }}</div>
-            <div style="font-size:11px; opacity:.8;">{{ c.roles|join(', ') }}</div>
-            {% if c.reasons %}<div style="font-size:10px; margin-top:2px; opacity:.6; line-height:1.15;">{{ c.reasons|join(', ') }}</div>{% endif %}
+          <div class="card-sample synthetic" data-card-name="{{ c.name }}" data-role="synthetic" data-reasons="{{ c.reasons|join('; ') if c.reasons }}" data-tags="{{ c.tags|join(', ') if c.tags }}" data-overlaps="">
+            <div class="name">{{ c.name }}</div>
+            <div class="roles">{{ c.roles|join(', ') }}</div>
+            {% if c.reasons %}<div class="reasons-text">{{ c.reasons|join(', ') }}</div>{% endif %}
           </div>
           {% endif %}
         {% endfor %}
@@ -89,10 +89,10 @@
       </div>
     </div>
     <div class="col-right">
-  {% if not minimal %}{% if not suppress_curated %}<h4 style="margin:.25rem 0 .25rem; font-size:13px; letter-spacing:.05em; text-transform:uppercase; opacity:.8;">Example Commanders</h4>{% else %}<h4 style="margin:.25rem 0 .25rem; font-size:13px; letter-spacing:.05em; text-transform:uppercase; opacity:.8;">Synergy Commanders</h4>{% endif %}{% endif %}
-      <hr style="border:0; border-top:1px solid var(--border); margin:.35rem 0 .6rem;" />
+  {% if not minimal %}{% if not suppress_curated %}<h4 class="preview-section-header">Example Commanders</h4>{% else %}<h4 class="preview-section-header">Synergy Commanders</h4>{% endif %}{% endif %}
+      <hr class="preview-section-hr" />
   {% if example_commanders and not suppress_curated %}
-  <div class="commander-grid" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:1rem;">
+  <div class="commander-grid">
         {% for name in example_commanders %}
         {# Derive per-commander overlaps; still show full theme synergy set in data-tags for context #}
         {% set base = name %}
@@ -104,22 +104,22 @@
         {% endif %}
         {% set tags_all = preview.synergies_used[:] if preview.synergies_used else [] %}
         {% for ov in overlaps %}{% if ov not in tags_all %}{% set _ = tags_all.append(ov) %}{% endif %}{% endfor %}
-  <div class="commander-cell" style="display:flex; flex-direction:column; gap:.35rem; align-items:center;" data-card-name="{{ base }}" data-role="commander_example" data-tags="{{ tags_all|join(', ') if tags_all }}" data-overlaps="{{ overlaps|join(', ') if overlaps }}" data-original-name="{{ name }}">
-    <img class="card-thumb" width="230" src="https://api.scryfall.com/cards/named?fuzzy={{ base|urlencode }}&format=image&version=small" alt="{{ base }} image" loading="lazy" decoding="async" data-card-name="{{ base }}" data-role="commander_example" data-tags="{{ tags_all|join(', ') if tags_all }}" data-overlaps="{{ overlaps|join(', ') if overlaps }}" data-original-name="{{ name }}" data-placeholder-color="#0b0d12" style="filter:blur(4px); transition:filter .35s ease; background:linear-gradient(145deg,#0b0d12,#111b29);" onload="this.style.filter='blur(0)';" />
-      <div class="commander-name" style="font-size:13px; text-align:center; line-height:1.35; font-weight:600; max-width:230px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="{{ name }}">{{ name }}</div>
+  <div class="commander-cell" data-card-name="{{ base }}" data-role="commander_example" data-tags="{{ tags_all|join(', ') if tags_all }}" data-overlaps="{{ overlaps|join(', ') if overlaps }}" data-original-name="{{ name }}">
+    <img class="card-thumb" width="230" src="{{ base|card_image('small') }}" alt="{{ base }} image" loading="lazy" decoding="async" data-card-name="{{ base }}" data-role="commander_example" data-tags="{{ tags_all|join(', ') if tags_all }}" data-overlaps="{{ overlaps|join(', ') if overlaps }}" data-original-name="{{ name }}" data-placeholder-color="#0b0d12" onload="this.setAttribute('data-loaded', '1');" />
+      <div class="commander-name" title="{{ name }}">{{ name }}</div>
         </div>
         {% endfor %}
       </div>
   {% elif not suppress_curated %}
-      <div style="font-size:11px; opacity:.7;">No curated commander examples.</div>
+      <div class="no-commanders-message">No curated commander examples.</div>
       {% endif %}
   {% if synergy_commanders %}
-      <div style="margin-top:1rem;">
-        <div style="display:flex; align-items:center; gap:.4rem; margin-bottom:.4rem;">
-          <h5 style="margin:0; font-size:11px; letter-spacing:.05em; text-transform:uppercase; opacity:.75;">Synergy Commanders</h5>
-          <span title="Derived from synergy overlap heuristics" style="background:var(--panel-alt); border:1px solid var(--border); border-radius:10px; padding:2px 6px; font-size:10px; line-height:1;">Derived</span>
+      <div class="synergy-commanders-section">
+        <div class="synergy-commanders-header">
+          <h5>Synergy Commanders</h5>
+          <span class="derived-badge" title="Derived from synergy overlap heuristics">Derived</span>
         </div>
-  <div class="commander-grid" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:1rem;">
+  <div class="commander-grid">
           {% for name in synergy_commanders[:8] %}
             {# Strip any appended ' - Synergy (...' suffix for image lookup while preserving display #}
             {% set base = name %}
@@ -131,9 +131,9 @@
               {% endif %}
               {% set tags_all = preview.synergies_used[:] if preview.synergies_used else [] %}
               {% for ov in overlaps %}{% if ov not in tags_all %}{% set _ = tags_all.append(ov) %}{% endif %}{% endfor %}
-              <div class="commander-cell synergy" style="display:flex; flex-direction:column; gap:.35rem; align-items:center;" data-card-name="{{ base }}" data-role="synergy_commander" data-tags="{{ tags_all|join(', ') if tags_all }}" data-overlaps="{{ overlaps|join(', ') if overlaps }}" data-original-name="{{ name }}">
-                <img class="card-thumb" width="230" src="https://api.scryfall.com/cards/named?fuzzy={{ base|urlencode }}&format=image&version=small" alt="{{ base }} image" loading="lazy" decoding="async" data-card-name="{{ base }}" data-role="synergy_commander" data-tags="{{ tags_all|join(', ') if tags_all }}" data-overlaps="{{ overlaps|join(', ') if overlaps }}" data-original-name="{{ name }}" data-placeholder-color="#0b0d12" style="filter:blur(4px); transition:filter .35s ease; background:linear-gradient(145deg,#0b0d12,#111b29);" onload="this.style.filter='blur(0)';" />
-                <div class="commander-name" style="font-size:12px; text-align:center; line-height:1.3; font-weight:500; opacity:.92; max-width:230px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="{{ name }}">{{ name }}</div>
+              <div class="commander-cell synergy" data-card-name="{{ base }}" data-role="synergy_commander" data-tags="{{ tags_all|join(', ') if tags_all }}" data-overlaps="{{ overlaps|join(', ') if overlaps }}" data-original-name="{{ name }}">
+                <img class="card-thumb" width="230" src="{{ base|card_image('small') }}" alt="{{ base }} image" loading="lazy" decoding="async" data-card-name="{{ base }}" data-role="synergy_commander" data-tags="{{ tags_all|join(', ') if tags_all }}" data-overlaps="{{ overlaps|join(', ') if overlaps }}" data-original-name="{{ name }}" data-placeholder-color="#0b0d12" onload="this.setAttribute('data-loaded', '1');" />
+                <div class="commander-name" title="{{ name }}">{{ name }}</div>
               </div>
             {% endfor %}
         </div>
@@ -141,16 +141,16 @@
       {% endif %}
     </div>
   </div>
-  {% if not minimal %}<div style="margin-top:1rem; font-size:10px; opacity:.65; line-height:1.4;">Hover any card or commander for a larger preview and tag breakdown. Use Curated Only to hide sampled roles. Role chips: P=Payoff, E=Enabler, S=Support, W=Wildcard, X=Curated Example.</div>{% endif %}
+  {% if not minimal %}<div class="preview-help-text">Hover any card or commander for a larger preview and tag breakdown. Use Curated Only to hide sampled roles. Role chips: P=Payoff, E=Enabler, S=Support, W=Wildcard, X=Curated Example.</div>{% endif %}
 </div>
 {% else %}
-<div class="preview-modal-content">
-  <div style="display:flex; justify-content:space-between; align-items:center;">
-    <div class="sk-bar" style="height:16px; width:200px; background:var(--hover); border-radius:4px;"></div>
-    <div class="sk-bar" style="height:16px; width:60px; background:var(--hover); border-radius:4px;"></div>
+<div class="preview-modal-content preview-skeleton">
+  <div class="sk-header">
+    <div class="sk-bar title"></div>
+    <div class="sk-bar close"></div>
   </div>
-  <div style="display:flex; flex-wrap:wrap; gap:10px; margin-top:1rem;">
-  {% for i in range(8) %}<div style="width:230px; height:327px; background:var(--hover); border-radius:10px;"></div>{% endfor %}
+  <div class="sk-cards">
+  {% for i in range(8) %}<div class="sk-card"></div>{% endfor %}
   </div>
 </div>
 {% endif %}
@@ -352,7 +352,7 @@
         var base = m[1].trim();
         if(base && base !== n){
           img.setAttribute('data-card-name', base);
-          img.src = 'https://api.scryfall.com/cards/named?fuzzy=' + encodeURIComponent(base) + '&format=image&version=small';
+          img.src = '/api/images/small/' + encodeURIComponent(base);
         }
         // Attempt to derive overlaps if not already present
         if(!img.getAttribute('data-overlaps')){

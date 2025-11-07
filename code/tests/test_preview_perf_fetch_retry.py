@@ -8,7 +8,7 @@ pytestmark = pytest.mark.skip(reason="M4: preview_perf_benchmark module removed 
 def test_fetch_all_theme_slugs_retries(monkeypatch):
     calls = {"count": 0}
 
-    def fake_fetch(url):  # type: ignore[override]
+    def fake_fetch(url):
         calls["count"] += 1
         if calls["count"] == 1:
             raise RuntimeError("transient 500")
@@ -27,7 +27,7 @@ def test_fetch_all_theme_slugs_retries(monkeypatch):
 def test_fetch_all_theme_slugs_page_level_retry(monkeypatch):
     calls = {"count": 0}
 
-    def fake_fetch_with_retry(url, attempts=3, delay=0.6):  # type: ignore[override]
+    def fake_fetch_with_retry(url, attempts=3, delay=0.6):
         calls["count"] += 1
         if calls["count"] < 3:
             raise RuntimeError("service warming up")

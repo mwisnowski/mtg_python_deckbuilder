@@ -1,7 +1,7 @@
 import importlib
 import pytest
 try:
-    from starlette.testclient import TestClient  # type: ignore
+    from starlette.testclient import TestClient
 except Exception:  # pragma: no cover - optional dep in CI
     TestClient = None  # type: ignore
 

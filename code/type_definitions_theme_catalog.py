@@ -87,7 +87,7 @@ class ThemeCatalog(BaseModel):
     def theme_names(self) -> List[str]:  # convenience
         return [t.theme for t in self.themes]
 
-    def model_post_init(self, __context: Any) -> None:  # type: ignore[override]
+    def model_post_init(self, __context: Any) -> None:
         # If only legacy 'provenance' provided, alias to metadata_info
         if self.metadata_info is None and self.provenance is not None:
             object.__setattr__(self, 'metadata_info', self.provenance)
@@ -135,7 +135,7 @@ class ThemeYAMLFile(BaseModel):
 
     model_config = ConfigDict(extra='forbid')
 
-    def model_post_init(self, __context: Any) -> None:  # type: ignore[override]
+    def model_post_init(self, __context: Any) -> None:
         if not self.metadata_info and self.provenance:
             object.__setattr__(self, 'metadata_info', self.provenance)
         if self.metadata_info and self.provenance:

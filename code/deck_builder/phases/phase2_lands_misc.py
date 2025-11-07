@@ -19,7 +19,7 @@ class LandMiscUtilityMixin:
       - Diagnostics & CSV exports
     """
 
-    def add_misc_utility_lands(self, requested_count: Optional[int] = None):  # type: ignore[override]
+    def add_misc_utility_lands(self, requested_count: Optional[int] = None):
         # --- Initialization & candidate collection ---
         if not getattr(self, 'files_to_load', None):
             try:
@@ -293,7 +293,7 @@ class LandMiscUtilityMixin:
         if getattr(self, 'show_diagnostics', False) and filtered_out:
             self.output_func(f"  (Mono-color excluded candidates: {', '.join(filtered_out)})")
 
-    def run_land_step7(self, requested_count: Optional[int] = None):  # type: ignore[override]
+    def run_land_step7(self, requested_count: Optional[int] = None):
         self.add_misc_utility_lands(requested_count=requested_count)
         self._enforce_land_cap(step_label="Utility (Step 7)")
         self._build_tag_driven_land_suggestions()
@@ -305,12 +305,12 @@ class LandMiscUtilityMixin:
             pass
 
     # ---- Tag-driven suggestion helpers (used after Step 7) ----
-    def _build_tag_driven_land_suggestions(self):  # type: ignore[override]
+    def _build_tag_driven_land_suggestions(self):
         suggestions = bu.build_tag_driven_suggestions(self)
         if suggestions:
             self.suggested_lands_queue.extend(suggestions)
 
-    def _apply_land_suggestions_if_room(self):  # type: ignore[override]
+    def _apply_land_suggestions_if_room(self):
         if not self.suggested_lands_queue:
             return
         land_target = getattr(self, 'ideal_counts', {}).get('lands', getattr(bc, 'DEFAULT_LAND_COUNT', 35)) if getattr(self, 'ideal_counts', None) else getattr(bc, 'DEFAULT_LAND_COUNT', 35)

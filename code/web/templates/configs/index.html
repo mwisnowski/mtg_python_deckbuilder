@@ -9,7 +9,7 @@
     <div style="display:flex; justify-content:space-between; align-items:center;">
       <strong style="font-size:14px;">Example: {{ example_name }}</strong>
     </div>
-    <pre style="margin-top:.35rem; background:#0f1115; border:1px solid var(--border); padding:.75rem; border-radius:8px; max-height:300px; overflow:auto; white-space:pre;">{{ example_json or '{\n  "commander": "Your Commander Name",\n  "primary_tag": "Your Main Theme",\n  "secondary_tag": null,\n  "tertiary_tag": null,\n  "bracket_level": 0,\n  "ideal_counts": {\n    "ramp": 10,\n    "lands": 35,\n    "basic_lands": 20,\n    "fetch_lands": 3,\n    "creatures": 28,\n    "removal": 10,\n    "wipes": 2,\n    "card_advantage": 8,\n    "protection": 4\n  }\n}' }}</pre>
+    <pre style="margin-top:.35rem; background:var(--panel); border:1px solid var(--border); padding:.75rem; border-radius:8px; max-height:300px; overflow:auto; white-space:pre;">{{ example_json or '{\n  "commander": "Your Commander Name",\n  "primary_tag": "Your Main Theme",\n  "secondary_tag": null,\n  "tertiary_tag": null,\n  "bracket_level": 0,\n  "ideal_counts": {\n    "ramp": 10,\n    "lands": 35,\n    "basic_lands": 20,\n    "fetch_lands": 3,\n    "creatures": 28,\n    "removal": 10,\n    "wipes": 2,\n    "card_advantage": 8,\n    "protection": 4\n  }\n}' }}</pre>
   </div>
 </div>
 {% if error %}<div class="error">{{ error }}</div>{% endif %}
@@ -19,7 +19,7 @@
     <button type="button" class="btn" onclick="this.nextElementSibling.click();">Upload JSON</button>
     <input id="upload-json" type="file" name="file" accept="application/json" style="display:none" onchange="this.form.requestSubmit();">
   </form>
-  <input id="config-filter" type="search" placeholder="Filter by commander or tag..." style="flex:1; max-width:360px; padding:.4rem .6rem; border-radius:8px; border:1px solid var(--border); background:#0f1115; color:#e5e7eb;" />
+  <input id="config-filter" type="search" placeholder="Filter by commander or tag..." style="flex:1; max-width:360px; padding:.4rem .6rem; border-radius:8px; border:1px solid var(--border); background:var(--panel); color:var(--text);" />
 </div>
 <script>
   (function(){

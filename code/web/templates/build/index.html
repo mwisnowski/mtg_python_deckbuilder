@@ -32,16 +32,26 @@
         if(!(target.tagName && target.tagName.toLowerCase() === 'body')) return;
         var init = document.getElementById('builder-init');
         var preset = init && init.dataset ? (init.dataset.commander || '') : '';
-        if(!preset) return;
+        console.log('[Quick-build] DEBUG: preset=', preset);
+        if(!preset) {
+          console.log('[Quick-build] DEBUG: No preset, exiting');
+          return;
+        }
         var input = document.querySelector('input[name="commander"]');
+        console.log('[Quick-build] DEBUG: Found input?', !!input);
         if(input){
-          if(!input.value){ input.value = preset; }
+          console.log('[Quick-build] DEBUG: Input current value:', input.value);
+          if(!input.value){ 
+            input.value = preset;
+            console.log('[Quick-build] DEBUG: Set input to:', preset);
+          }
           try { input.dispatchEvent(new Event('input', {bubbles:true})); } catch(_){ }
           try { input.focus(); } catch(_){ }
         }
         // If htmx is available, auto-load the inspect view for an exact preset name.
         try {
           if (window.htmx && preset && typeof window.htmx.ajax === 'function'){
+            console.log('[Quick-build] DEBUG: Calling inspect with:', preset);
             window.htmx.ajax('GET', '/build/new/inspect?name=' + encodeURIComponent(preset), { target: '#newdeck-tags-slot', swap: 'innerHTML' });
             // Also try to load multi-copy suggestions based on current radio defaults
             setTimeout(function(){

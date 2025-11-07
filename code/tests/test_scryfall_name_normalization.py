@@ -1,5 +1,5 @@
 import re
-from code.web.services.theme_preview import get_theme_preview  # type: ignore
+from code.web.services.theme_preview import get_theme_preview
 
 # We can't easily execute the JS normalizeCardName in Python, but we can ensure
 # server-delivered sample names that include appended synergy annotations are not

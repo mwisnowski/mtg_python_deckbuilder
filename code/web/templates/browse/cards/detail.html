@@ -193,7 +193,7 @@
     <div class="card-detail-header">
         <!-- Card Image (no hover on detail page) -->
         <div class="card-image-large">
-            <img src="https://api.scryfall.com/cards/named?fuzzy={{ card.name|urlencode }}&format=image&version=normal" 
+            <img src="{{ card.name|card_image('normal') }}" 
                  alt="{{ card.name }}" 
                  loading="lazy"
                  onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">

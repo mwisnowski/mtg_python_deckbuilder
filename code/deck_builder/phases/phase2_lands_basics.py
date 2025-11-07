@@ -22,7 +22,7 @@ Expected attributes / methods on the host DeckBuilder:
 
 
 class LandBasicsMixin:
-    def add_basic_lands(self):  # type: ignore[override]
+    def add_basic_lands(self):
         """Add basic (or snow basic) lands based on color identity.
 
         Logic:
@@ -71,8 +71,8 @@ class LandBasicsMixin:
         basic_min: Optional[int] = None
         land_total: Optional[int] = None
         if hasattr(self, 'ideal_counts') and getattr(self, 'ideal_counts'):
-            basic_min = self.ideal_counts.get('basic_lands')  # type: ignore[attr-defined]
-            land_total = self.ideal_counts.get('lands')  # type: ignore[attr-defined]
+            basic_min = self.ideal_counts.get('basic_lands')
+            land_total = self.ideal_counts.get('lands')
         if basic_min is None:
             basic_min = getattr(bc, 'DEFAULT_BASIC_LAND_COUNT', 20)
         if land_total is None:
@@ -136,7 +136,7 @@ class LandBasicsMixin:
             self.output_func(f"  {name.ljust(width)} : {cnt}")
         self.output_func(f"  Total Basics : {sum(allocation.values())} (Target {target_basics}, Min {basic_min})")
 
-    def run_land_step1(self):  # type: ignore[override]
+    def run_land_step1(self):
         """Public wrapper to execute land building step 1 (basics)."""
         self.add_basic_lands()
         try:

@@ -68,7 +68,7 @@ class CommanderSelectionMixin:
             out_words[0] = out_words[0][:1].upper() + out_words[0][1:]
         return ' '.join(out_words)
 
-    def choose_commander(self) -> str:  # type: ignore[override]
+    def choose_commander(self) -> str:
         df = self.load_commander_data()
         names = df["name"].tolist()
         while True:
@@ -113,7 +113,7 @@ class CommanderSelectionMixin:
                     continue
             query = self._normalize_commander_query(choice)  # treat as new (normalized) query
 
-    def _present_commander_and_confirm(self, df: pd.DataFrame, name: str) -> bool:  # type: ignore[override]
+    def _present_commander_and_confirm(self, df: pd.DataFrame, name: str) -> bool:
         row = df[df["name"] == name].iloc[0]
         pretty = self._format_commander_pretty(row)
         self.output_func("\n" + pretty)
@@ -126,7 +126,7 @@ class CommanderSelectionMixin:
                 return False
             self.output_func("Please enter y or n.")
 
-    def _apply_commander_selection(self, row: pd.Series):  # type: ignore[override]
+    def _apply_commander_selection(self, row: pd.Series):
         self.commander_name = row["name"]
         self.commander_row = row
         tags_value = row.get("themeTags", [])
@@ -136,7 +136,7 @@ class CommanderSelectionMixin:
     # ---------------------------
     # Tag Prioritization
     # ---------------------------
-    def select_commander_tags(self) -> List[str]:  # type: ignore[override]
+    def select_commander_tags(self) -> List[str]:
         if not self.commander_name:
             self.output_func("No commander chosen yet. Selecting commander first...")
             self.choose_commander()
@@ -173,7 +173,7 @@ class CommanderSelectionMixin:
         self._update_commander_dict_with_selected_tags()
         return self.selected_tags
 
-    def _prompt_tag_choice(self, available: List[str], prompt_text: str, allow_stop: bool) -> Optional[str]:  # type: ignore[override]
+    def _prompt_tag_choice(self, available: List[str], prompt_text: str, allow_stop: bool) -> Optional[str]:
         while True:
             self.output_func("\nCurrent options:")
             for i, t in enumerate(available, 1):
@@ -192,7 +192,7 @@ class CommanderSelectionMixin:
                 return matches[0]
             self.output_func("Invalid selection. Try again.")
 
-    def _update_commander_dict_with_selected_tags(self):  # type: ignore[override]
+    def _update_commander_dict_with_selected_tags(self):
         if not self.commander_dict and self.commander_row is not None:
             self._initialize_commander_dict(self.commander_row)
         if not self.commander_dict:
@@ -205,7 +205,7 @@ class CommanderSelectionMixin:
     # ---------------------------
     # Power Bracket Selection
     # ---------------------------
-    def select_power_bracket(self) -> BracketDefinition:  # type: ignore[override]
+    def select_power_bracket(self) -> BracketDefinition:
         if self.bracket_definition:
             return self.bracket_definition
         self.output_func("\nChoose Deck Power Bracket:")
@@ -229,14 +229,14 @@ class CommanderSelectionMixin:
                     return match
             self.output_func("Invalid input. Type 1-5 or 'info'.")
 
-    def _print_bracket_details(self):  # type: ignore[override]
+    def _print_bracket_details(self):
         self.output_func("\nBracket Details:")
         for bd in BRACKET_DEFINITIONS:
             self.output_func(f"\n[{bd.level}] {bd.name}")
             self.output_func(bd.long_desc)
             self.output_func(self._format_limits(bd.limits))
 
-    def _print_selected_bracket_summary(self):  # type: ignore[override]
+    def _print_selected_bracket_summary(self):
         self.output_func("\nBracket Constraints:")
         if self.bracket_limits:
             self.output_func(self._format_limits(self.bracket_limits))

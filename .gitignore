@@ -9,6 +9,7 @@
 
 RELEASE_NOTES.md
 test.py
+test_*.py
 !test_exclude_cards.txt
 !test_include_exclude_config.json
 
@@ -41,3 +42,13 @@ logs/*
 !logs/perf/
 logs/perf/*
 !logs/perf/theme_preview_warm_baseline.json
+
+# Node.js and build artifacts
+node_modules/
+code/web/static/js/
+code/web/static/styles.css
+*.js.map
+
+# Keep TypeScript sources and Tailwind CSS input
+!code/web/static/ts/
+!code/web/static/tailwind.css

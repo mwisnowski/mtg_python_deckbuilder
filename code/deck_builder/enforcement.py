@@ -88,12 +88,12 @@ def _candidate_pool_for_role(builder, role: str) -> List[Tuple[str, dict]]:
     # Sort by edhrecRank then manaValue
     try:
         from . import builder_utils as bu
-        sorted_df = bu.sort_by_priority(pool, ["edhrecRank", "manaValue"])  # type: ignore[attr-defined]
+        sorted_df = bu.sort_by_priority(pool, ["edhrecRank", "manaValue"])
         # Prefer-owned bias
         if getattr(builder, "prefer_owned", False):
             owned = getattr(builder, "owned_card_names", None)
             if owned:
-                sorted_df = bu.prefer_owned_first(sorted_df, {str(n).lower() for n in owned})  # type: ignore[attr-defined]
+                sorted_df = bu.prefer_owned_first(sorted_df, {str(n).lower() for n in owned})
     except Exception:
         sorted_df = pool
 
@@ -363,7 +363,7 @@ def enforce_bracket_compliance(builder, mode: str = "prompt") -> Dict:
                     break
                 # Rank candidates: break the most combos first; break ties by worst desirability
                 cand_names = list(freq.keys())
-                cand_names.sort(key=lambda nm: (-int(freq.get(nm, 0)), _score(nm)), reverse=False)  # type: ignore[arg-type]
+                cand_names.sort(key=lambda nm: (-int(freq.get(nm, 0)), _score(nm)), reverse=False)
                 removed_any = False
                 for nm in cand_names:
                     if nm in blocked:

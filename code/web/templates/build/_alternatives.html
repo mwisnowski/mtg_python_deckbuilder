@@ -3,7 +3,7 @@
     { 'name': display_name, 'name_lower': lower, 'owned': bool, 'tags': list[str] }
   ]
 #}
-<div class="alts" style="margin-top:.35rem; padding:.5rem; border:1px solid var(--border); border-radius:8px; background:#0f1115;" data-skeleton data-skeleton-label="Pulling alternatives…" data-skeleton-delay="450">
+<div class="alts" style="margin-top:.35rem; padding:.5rem; border:1px solid var(--border); border-radius:8px; background:var(--panel);" data-skeleton data-skeleton-label="Pulling alternatives…" data-skeleton-delay="450">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.25rem; gap:.5rem; flex-wrap:wrap;">
     <div style="display:flex;align-items:center;gap:.5rem;">
       <strong>Alternatives</strong>
@@ -32,13 +32,108 @@
                   {% if it.rarity %}data-rarity="{{ it.rarity }}"{% endif %}
                   {% if it.hover_simple %}data-hover-simple="1"{% endif %}
                   {% if it.owned %}data-owned="1"{% endif %}
-                  data-tags="{{ tags|join(', ') }}" hx-post="/build/replace"
+                  data-tags="{{ tags|join(', ') }}"
+                  hx-post="/build/replace"
                   hx-vals='{"old":"{{ name }}", "new":"{{ it.name }}", "owned_only":"{{ 1 if require_owned else 0 }}"}'
-                  hx-target="closest .alts" hx-swap="outerHTML" title="Lock this alternative and unlock the current pick">
-            Replace with {{ it.name }}
+                  hx-target="closest .alts"
+                  hx-swap="outerHTML"
+                  title="Lock this alternative and unlock the current pick">
+            {{ it.name }}
           </button>
         </li>
       {% endfor %}
     </ul>
   {% endif %}
 </div>
+<script>
+// Mobile: tap to preview, tap "Use as Replacement" button in popup to replace
+(function(){
+  var altPanel = document.currentScript.previousElementSibling;
+  if(!altPanel) return;
+  
+  // Track which button triggered the popup
+  var pendingReplacement = null;
+  
+  // Better mobile detection (matches base.html logic)
+  function isMobileMode(){
+    var coarseQuery = window.matchMedia('(pointer: coarse)');
+    return (coarseQuery && coarseQuery.matches) || window.innerWidth <= 768;
+  }
+  
+  // Intercept htmx request before it's sent
+  altPanel.addEventListener('htmx:configRequest', function(e){
+    var btn = e.detail.elt;
+    if(!btn || !btn.classList.contains('alt-option')) return;
+    
+    if(isMobileMode() && !btn.dataset.mobileConfirmed){
+      // First tap on mobile: cancel the request, show preview instead
+      e.preventDefault();
+      pendingReplacement = btn;
+      
+      // Show card preview and inject replacement button
+      if(window.__hoverShowCard){
+        window.__hoverShowCard(btn);
+        
+        // Inject "Use as Replacement" button into popup
+        setTimeout(function(){
+          if(!isMobileMode()) return; // Double-check we're still in mobile mode
+          
+          var hoverPanel = document.getElementById('hover-card-panel');
+          if(hoverPanel && !hoverPanel.querySelector('.mobile-replace-btn')){
+            var imgWrap = hoverPanel.querySelector('.hcp-img-wrap');
+            if(imgWrap){
+              var replaceBtn = document.createElement('button');
+              replaceBtn.type = 'button';
+              replaceBtn.className = 'btn mobile-replace-btn';
+              replaceBtn.textContent = 'Use as Replacement';
+              replaceBtn.style.cssText = 'width:100%;padding:0.75rem;font-size:15px;margin-top:8px;pointer-events:auto;position:relative;z-index:10000;';
+              
+              var handleClick = function(ev){
+                ev.preventDefault();
+                ev.stopPropagation();
+                
+                if(!pendingReplacement) return;
+                
+                pendingReplacement.dataset.mobileConfirmed = '1';
+                pendingReplacement.click();
+                
+                // Close the popup after a short delay
+                setTimeout(function(){
+                  var closeBtn = hoverPanel.querySelector('.hcp-close');
+                  if(closeBtn) closeBtn.click();
+                }, 100);
+              };
+              
+              replaceBtn.onclick = handleClick;
+              replaceBtn.addEventListener('click', handleClick);
+              replaceBtn.addEventListener('touchend', handleClick);
+              
+              imgWrap.appendChild(replaceBtn);
+            }
+          }
+        }, 100);
+      }
+      return false;
+    }
+    
+    // Desktop or mobile with confirmation: allow request to proceed
+    if(btn.dataset.mobileConfirmed){
+      btn.removeAttribute('data-mobileConfirmed');
+      pendingReplacement = null;
+    }
+  });
+  
+  // Reset pending replacement when popup closes
+  document.addEventListener('click', function(e){
+    if(e.target.closest('.hcp-close')){
+      pendingReplacement = null;
+      // Remove mobile replace button when closing
+      var hoverPanel = document.getElementById('hover-card-panel');
+      if(hoverPanel){
+        var replaceBtn = hoverPanel.querySelector('.mobile-replace-btn');
+        if(replaceBtn) replaceBtn.remove();
+      }
+    }
+  });
+})();
+</script>

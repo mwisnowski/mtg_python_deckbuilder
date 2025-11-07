@@ -173,7 +173,7 @@ def _merge_summary_recorder(color: str):
 
 def _write_compat_snapshot(df: pd.DataFrame, color: str) -> None:
     """Write DFC compatibility snapshot (diagnostic output, kept as CSV for now)."""
-    try:  # type: ignore[name-defined]
+    try:
         _DFC_COMPAT_DIR.mkdir(parents=True, exist_ok=True)
         path = _DFC_COMPAT_DIR / f"{color}_cards_unmerged.csv"
         df.to_csv(path, index=False)  # M3: Kept as CSV (diagnostic only, not main data flow)

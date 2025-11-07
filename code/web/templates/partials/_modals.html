@@ -1,0 +1,351 @@
+{# Modal Component Library #}
+{# Usage: {{ import '_modals.html' }} then call modal macros #}
+
+{#
+  Modal Container Macro
+  
+  Parameters:
+  - id (str): Modal HTML id attribute (optional)
+  - title (str): Modal title (shows in header)
+  - size (str): 'sm' (480px), 'md' (620px), 'lg' (720px), 'xl' (960px) (default: 'md')
+  - position (str): 'center', 'top' (default: 'center')
+  - scrollable (bool): Allow content scrolling (default: True)
+  - classes (str): Additional CSS classes for modal container
+  - content_classes (str): Additional CSS classes for modal content box
+  - show_close (bool): Show close button in header (default: True)
+  - backdrop_click_close (bool): Close on backdrop click (default: True)
+  - role (str): ARIA role (default: 'dialog')
+  - aria_labelledby (str): ARIA labelledby id (default: auto-generated from title)
+  
+  Content Blocks:
+  - header: Optional custom header content (overrides default title)
+  - body: Main modal content (required)
+  - footer: Optional footer with action buttons
+  
+  Examples:
+    {% call modal(title='Edit Card', size='md') %}
+      {% block body %}
+        <form>...</form>
+      {% endblock %}
+      {% block footer %}
+        {{ button('Cancel', variant='secondary', onclick='closeModal()') }}
+        {{ button('Save', type='submit') }}
+      {% endblock %}
+    {% endcall %}
+#}
+{% macro modal(id='', title='', size='md', position='center', scrollable=True, classes='', content_classes='', show_close=True, backdrop_click_close=True, role='dialog', aria_labelledby='') %}
+  {%- set modal_id = id if id else 'modal-' ~ title|lower|replace(' ', '-') -%}
+  {%- set title_id = aria_labelledby if aria_labelledby else modal_id + '-title' -%}
+  {%- set size_class = 'modal-' + size -%}
+  {%- set position_class = 'modal-' + position -%}
+  {%- set scrollable_class = 'modal-scrollable' if scrollable else '' -%}
+  {%- set all_classes = ['modal', size_class, position_class, scrollable_class, classes]|select|join(' ') -%}
+  
+  <div class="{{ all_classes }}" 
+       {% if id %}id="{{ modal_id }}"{% endif %}
+       role="{{ role }}" 
+       aria-modal="true" 
+       aria-labelledby="{{ title_id }}">
+    
+    {# Backdrop #}
+    <div class="modal-backdrop" 
+         {% if backdrop_click_close %}onclick="try{this.closest('.modal').remove();}catch(_){}"{% endif %}></div>
+    
+    {# Content Container #}
+    <div class="modal-content {{ content_classes }}">
+      
+      {# Header #}
+      {% if caller.header is defined %}
+        {{ caller.header() }}
+      {% else %}
+        {% if title or show_close %}
+        <div class="modal-header">
+          {% if title %}
+            <h2 class="modal-title" id="{{ title_id }}">{{ title }}</h2>
+          {% endif %}
+          {% if show_close %}
+            {% from '_buttons.html' import close_button %}
+            {{ close_button() }}
+          {% endif %}
+        </div>
+        {% endif %}
+      {% endif %}
+      
+      {# Body #}
+      <div class="modal-body">
+        {{ caller.body() }}
+      </div>
+      
+      {# Footer #}
+      {% if caller.footer is defined %}
+        <div class="modal-footer">
+          {{ caller.footer() }}
+        </div>
+      {% endif %}
+      
+    </div>
+  </div>
+{% endmacro %}
+
+{#
+  Simple Modal Macro (no block structure)
+  
+  Parameters: Same as modal() plus:
+  - content (str): Body HTML content
+  - footer_buttons (list): List of button dicts (see button_group in _buttons.html)
+  
+  Examples:
+    {{ simple_modal(
+      title='Confirm Delete',
+      content='<p>Are you sure you want to delete this deck?</p>',
+      footer_buttons=[
+        {'text': 'Cancel', 'variant': 'secondary', 'onclick': 'closeModal()'},
+        {'text': 'Delete', 'variant': 'danger', 'onclick': 'deleteDeck()'}
+      ]
+    ) }}
+#}
+{% macro simple_modal(title='', content='', footer_buttons=[], id='', size='md', position='center', scrollable=True, classes='', show_close=True) %}
+  {%- set modal_id = id if id else 'modal-' ~ title|lower|replace(' ', '-') -%}
+  {%- set title_id = modal_id + '-title' -%}
+  {%- set size_class = 'modal-' + size -%}
+  {%- set position_class = 'modal-' + position -%}
+  {%- set scrollable_class = 'modal-scrollable' if scrollable else '' -%}
+  {%- set all_classes = ['modal', size_class, position_class, scrollable_class, classes]|select|join(' ') -%}
+  
+  <div class="{{ all_classes }}" 
+       {% if id %}id="{{ modal_id }}"{% endif %}
+       role="dialog" 
+       aria-modal="true" 
+       aria-labelledby="{{ title_id }}">
+    
+    <div class="modal-backdrop" onclick="try{this.closest('.modal').remove();}catch(_){}"></div>
+    
+    <div class="modal-content">
+      {% if title or show_close %}
+      <div class="modal-header">
+        {% if title %}
+          <h2 class="modal-title" id="{{ title_id }}">{{ title }}</h2>
+        {% endif %}
+        {% if show_close %}
+          {% from '_buttons.html' import close_button %}
+          {{ close_button() }}
+        {% endif %}
+      </div>
+      {% endif %}
+      
+      <div class="modal-body">
+        {{ content|safe }}
+      </div>
+      
+      {% if footer_buttons %}
+      <div class="modal-footer">
+        {% from '_buttons.html' import button_group %}
+        {{ button_group(footer_buttons, alignment='right') }}
+      </div>
+      {% endif %}
+    </div>
+  </div>
+{% endmacro %}
+
+{#
+  Confirm Dialog Macro
+  
+  Parameters:
+  - title (str): Dialog title (default: 'Confirm')
+  - message (str): Confirmation message (required)
+  - confirm_text (str): Confirm button text (default: 'Confirm')
+  - cancel_text (str): Cancel button text (default: 'Cancel')
+  - confirm_variant (str): Confirm button variant (default: 'primary')
+  - on_confirm (str): JavaScript handler for confirm action (required)
+  - on_cancel (str): JavaScript handler for cancel (default: close modal)
+  - classes (str): Additional CSS classes
+  
+  Examples:
+    {{ confirm_dialog(
+      message='Delete this deck?',
+      confirm_text='Delete',
+      confirm_variant='danger',
+      on_confirm='deleteDeck(123)'
+    ) }}
+#}
+{% macro confirm_dialog(title='Confirm', message='', confirm_text='Confirm', cancel_text='Cancel', confirm_variant='primary', on_confirm='', on_cancel='', classes='') %}
+  {{ simple_modal(
+    title=title,
+    content='<p>' + message + '</p>',
+    footer_buttons=[
+      {'text': cancel_text, 'variant': 'secondary', 'onclick': on_cancel if on_cancel else "this.closest('.modal').remove()"},
+      {'text': confirm_text, 'variant': confirm_variant, 'onclick': on_confirm}
+    ],
+    size='sm',
+    classes='modal-confirm ' + classes
+  ) }}
+{% endmacro %}
+
+{#
+  Form Modal Macro
+  
+  Parameters: Similar to modal() plus:
+  - form_action (str): Form action URL (hx-post or action)
+  - form_method (str): 'post', 'get' (default: 'post')
+  - use_htmx (bool): Use HTMX for form submission (default: True)
+  - hx_target (str): HTMX target selector (default: 'closest .modal')
+  - hx_swap (str): HTMX swap strategy (default: 'outerHTML')
+  - submit_text (str): Submit button text (default: 'Submit')
+  - cancel_text (str): Cancel button text (default: 'Cancel')
+  - form_attrs (str): Additional form attributes
+  
+  Content Blocks:
+  - body: Form fields (required)
+  
+  Examples:
+    {% call form_modal(
+      title='Add Card',
+      form_action='/build/add-card',
+      submit_text='Add',
+      hx_target='#deck-list'
+    ) %}
+      {% block body %}
+        <input type="text" name="card_name" placeholder="Card name" />
+        <input type="number" name="quantity" value="1" />
+      {% endblock %}
+    {% endcall %}
+#}
+{% macro form_modal(title='', form_action='', form_method='post', use_htmx=True, hx_target='closest .modal', hx_swap='outerHTML', submit_text='Submit', cancel_text='Cancel', size='md', classes='', form_attrs='') %}
+  {%- set modal_id = 'modal-form-' ~ title|lower|replace(' ', '-') -%}
+  {%- set title_id = modal_id + '-title' -%}
+  {%- set size_class = 'modal-' + size -%}
+  {%- set all_classes = ['modal', 'modal-form', size_class, classes]|select|join(' ') -%}
+  
+  <div class="{{ all_classes }}" 
+       id="{{ modal_id }}"
+       role="dialog" 
+       aria-modal="true" 
+       aria-labelledby="{{ title_id }}">
+    
+    <div class="modal-backdrop" onclick="try{this.closest('.modal').remove();}catch(_){}"></div>
+    
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 class="modal-title" id="{{ title_id }}">{{ title }}</h2>
+        {% from '_buttons.html' import close_button %}
+        {{ close_button() }}
+      </div>
+      
+      <form {% if use_htmx %}hx-post="{{ form_action }}" hx-target="{{ hx_target }}" hx-swap="{{ hx_swap }}"{% else %}action="{{ form_action }}" method="{{ form_method }}"{% endif %} {{ form_attrs|safe }}>
+        <div class="modal-body">
+          {{ caller.body() }}
+        </div>
+        
+        <div class="modal-footer">
+          {% from '_buttons.html' import button %}
+          {{ button(cancel_text, variant='secondary', onclick="this.closest('.modal').remove()") }}
+          {{ button(submit_text, type='submit', variant='primary') }}
+        </div>
+      </form>
+    </div>
+  </div>
+{% endmacro %}
+
+{#
+  Alert Modal Macro
+  
+  Parameters:
+  - title (str): Alert title (default: 'Alert')
+  - message (str): Alert message (required)
+  - type (str): 'info', 'success', 'warning', 'error' (default: 'info')
+  - ok_text (str): OK button text (default: 'OK')
+  - on_ok (str): JavaScript handler for OK button (default: close modal)
+  - classes (str): Additional CSS classes
+  
+  Examples:
+    {{ alert_modal(
+      title='Success',
+      message='Deck saved successfully!',
+      type='success'
+    ) }}
+    
+    {{ alert_modal(
+      title='Error',
+      message='Failed to save deck. Please try again.',
+      type='error'
+    ) }}
+#}
+{% macro alert_modal(title='Alert', message='', type='info', ok_text='OK', on_ok='', classes='') %}
+  {%- set type_class = 'modal-alert-' + type -%}
+  {{ simple_modal(
+    title=title,
+    content='<div class="alert-icon alert-icon-' + type + '"></div><p>' + message + '</p>',
+    footer_buttons=[
+      {'text': ok_text, 'variant': 'primary', 'onclick': on_ok if on_ok else "this.closest('.modal').remove()"}
+    ],
+    size='sm',
+    classes='modal-alert ' + type_class + ' ' + classes,
+    show_close=False
+  ) }}
+{% endmacro %}
+
+{# CSS Classes Reference #}
+{#
+  Modal Sizes:
+  - .modal-sm (480px max-width)
+  - .modal-md (620px max-width, default)
+  - .modal-lg (720px max-width)
+  - .modal-xl (960px max-width)
+  
+  Modal Position:
+  - .modal-center (vertically centered, default)
+  - .modal-top (aligned to top with padding)
+  
+  Modal Modifiers:
+  - .modal-scrollable (allows body scrolling)
+  - .modal-form (form-specific styling)
+  - .modal-confirm (confirmation dialog styling)
+  - .modal-alert (alert dialog styling)
+  - .modal-alert-info (blue theme)
+  - .modal-alert-success (green theme)
+  - .modal-alert-warning (yellow theme)
+  - .modal-alert-error (red theme)
+  
+  Modal Structure:
+  - .modal (outer container, fixed positioning)
+  - .modal-backdrop (backdrop overlay)
+  - .modal-content (content box)
+  - .modal-header (header with title and close button)
+  - .modal-title (h2 title)
+  - .modal-body (main content area)
+  - .modal-footer (action buttons)
+#}
+
+{# JavaScript Helper Functions #}
+{#
+  These functions should be included in a global JavaScript file or inline script:
+  
+  // Open modal by ID
+  function openModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) {
+      modal.style.display = 'flex';
+      document.body.style.overflow = 'hidden';
+    }
+  }
+  
+  // Close modal by ID or element
+  function closeModal(modalOrId) {
+    const modal = typeof modalOrId === 'string' 
+      ? document.getElementById(modalOrId) 
+      : modalOrId;
+    if (modal) {
+      modal.remove();
+      // Check if any other modals are open
+      if (!document.querySelector('.modal')) {
+        document.body.style.overflow = '';
+      }
+    }
+  }
+  
+  // Close all modals
+  function closeAllModals() {
+    document.querySelectorAll('.modal').forEach(modal => modal.remove());
+    document.body.style.overflow = '';
+  }
+#}

@@ -23,7 +23,7 @@ def test_petitioners_clamp_to_100_and_reduce_creature_slots():
         "card_advantage": 8, "protection": 4,
     }
     # Thread multi-copy selection for Petitioners as a creature archetype
-    b._web_multi_copy = {  # type: ignore[attr-defined]
+    b._web_multi_copy = {
         "id": "persistent_petitioners",
         "name": "Persistent Petitioners",
         "count": 40,  # intentionally large to trigger clamp/adjustments

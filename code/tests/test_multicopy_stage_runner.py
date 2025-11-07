@@ -17,7 +17,7 @@ def _minimal_ctx(selection: dict):
 
     b = DeckBuilder(output_func=out, input_func=lambda *_: "", headless=True)
     # Thread selection and ensure empty library
-    b._web_multi_copy = selection  # type: ignore[attr-defined]
+    b._web_multi_copy = selection
     b.card_library = {}
 
     ctx = {

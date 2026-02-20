@@ -169,9 +169,14 @@ class TagIndex:
         - String representations like "['tag1', 'tag2']"
         - Comma-separated strings
         - Empty/None values
+        - Numpy arrays
         """
-        if not tags:
+        if tags is None or (isinstance(tags, str) and not tags):
             return []
+        
+        # Handle numpy arrays by converting to list
+        if hasattr(tags, '__array__'):
+            tags = tags.tolist() if hasattr(tags, 'tolist') else list(tags)
         
         if isinstance(tags, list):
             # Already a list - normalize to strings

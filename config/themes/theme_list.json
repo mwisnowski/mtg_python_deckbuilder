@@ -24359,7 +24359,7 @@
   "generated_from": "merge (analytics + curated YAML + whitelist)",
   "metadata_info": {
     "mode": "merge",
-    "generated_at": "2025-10-29T18:16:15",
+    "generated_at": "2026-02-20T11:11:25",
     "curated_yaml_files": 740,
     "synergy_cap": 5,
     "inference": "pmi",

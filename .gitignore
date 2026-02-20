@@ -8,8 +8,8 @@
 !requirements-dev.txt
 
 RELEASE_NOTES.md
-test.py
-test_*.py
+/test.py
+/test_*.py
 !test_exclude_cards.txt
 !test_include_exclude_config.json
 

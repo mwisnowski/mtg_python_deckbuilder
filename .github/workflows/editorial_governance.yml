@@ -8,7 +8,7 @@ on:
       - 'code/scripts/validate_description_mapping.py'
       - 'code/scripts/lint_theme_editorial.py'
       - 'code/scripts/ratchet_description_thresholds.py'
-      - 'code/tests/test_theme_description_fallback_regression.py'
+      - 'code/tests/test_theme_validation_comprehensive.py'
   workflow_dispatch:
 
 jobs:
@@ -47,7 +47,7 @@ jobs:
           python code/scripts/validate_description_mapping.py
       - name: Run regression & unit tests (editorial subset + enforcement)
         run: |
-          python -m pytest -q code/tests/test_theme_description_fallback_regression.py code/tests/test_synergy_pairs_and_provenance.py code/tests/test_editorial_governance_phase_d_closeout.py code/tests/test_theme_editorial_min_examples_enforced.py
+          python -m pytest -q code/tests/test_theme_validation_comprehensive.py::test_generic_description_regression code/tests/test_synergy_pairs_and_provenance.py code/tests/test_editorial_governance_phase_d_closeout.py code/tests/test_theme_catalog_comprehensive.py::TestThemeEnrichmentPipeline::test_validate_min_examples_warning code/tests/test_theme_catalog_comprehensive.py::TestThemeEnrichmentPipeline::test_validate_min_examples_error
         env:
           EDITORIAL_TEST_USE_FIXTURES: '1'
       - name: Ratchet proposal (non-blocking)
@@ -80,7 +80,7 @@ jobs:
               const changedTotal = propTotal !== curTotal;
               const changedPct = propPct !== curPct;
               const rationale = (p.rationale && p.rationale.length) ? p.rationale.map(r=>`- ${r}`).join('\n') : '- No ratchet conditions met (headroom not significant).';
-              const testFile = 'code/tests/test_theme_description_fallback_regression.py';
+              const testFile = 'code/tests/test_theme_validation_comprehensive.py';
               let updateSnippet = 'No changes recommended.';
               if (changedTotal || changedPct) {
                 updateSnippet = [

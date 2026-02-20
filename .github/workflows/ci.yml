@@ -56,4 +56,4 @@ jobs:
           CSV_FILES_DIR: csv_files/testdata
           RANDOM_MODES: "1"
         run: |
-          python -m pytest -q code/tests/test_random_determinism.py code/tests/test_random_build_api.py code/tests/test_seeded_builder_minimal.py code/tests/test_builder_rng_seeded_stream.py
+          python -m pytest -q code/tests/test_random_determinism_comprehensive.py code/tests/test_random_api_comprehensive.py code/tests/test_seeded_builder_minimal.py code/tests/test_builder_rng_seeded_stream.py

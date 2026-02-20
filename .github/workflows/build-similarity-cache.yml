@@ -237,51 +237,44 @@ jobs:
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
           
-          # Fetch all branches
-          git fetch origin
+          # Create a detached commit with just the cache files (no checkout needed)
+          echo "Creating cache-only commit..."
           
-          # Try to checkout existing branch, or create new orphan branch
-          if git ls-remote --heads origin similarity-cache-data | grep similarity-cache-data; then
-            echo "Checking out existing similarity-cache-data branch..."
-            git checkout similarity-cache-data
-          else
-            echo "Creating new orphan branch similarity-cache-data..."
-            git checkout --orphan similarity-cache-data
-            git rm -rf . || true
-            # Create minimal README for the branch
-            echo "# Similarity Cache Data" > README.md
-            echo "This branch contains pre-built similarity cache files for the MTG Deckbuilder." >> README.md
-            echo "Updated automatically by GitHub Actions." >> README.md
-            echo "" >> README.md
-            echo "## Files" >> README.md
-            echo "- \`card_files/similarity_cache.parquet\` - Pre-computed card similarity cache" >> README.md
-            echo "- \`card_files/similarity_cache_metadata.json\` - Cache metadata" >> README.md
-            echo "- \`card_files/processed/all_cards.parquet\` - Tagged card database" >> README.md
-            echo "- \`card_files/processed/commander_cards.parquet\` - Commander-only cache (fast lookups)" >> README.md
-            echo "- \`card_files/processed/.tagging_complete.json\` - Tagging status" >> README.md
-          fi
+          # Create README for the branch  
+          cat > README-cache.md << 'EOF'
+          # Similarity Cache Data
+          This branch contains pre-built similarity cache files for the MTG Deckbuilder.
+          Updated automatically by GitHub Actions.
           
-          # Ensure directories exist
-          mkdir -p card_files/processed
+          ## Files
+          - `card_files/similarity_cache.parquet` - Pre-computed card similarity cache
+          - `card_files/similarity_cache_metadata.json` - Cache metadata
+          - `card_files/processed/all_cards.parquet` - Tagged card database
+          - `card_files/processed/commander_cards.parquet` - Commander-only cache (fast lookups)
+          - `card_files/processed/.tagging_complete.json` - Tagging status
+          EOF
           
-          # Add similarity cache files (use -f to override .gitignore)
+          # Start with clean index
+          git rm -rf --cached . > /dev/null 2>&1 || true
+          
+          # Add cache files to index (use -f to override .gitignore)
           git add -f card_files/similarity_cache.parquet
           git add -f card_files/similarity_cache_metadata.json
-          
-          # Add processed Parquet and status file
           git add -f card_files/processed/all_cards.parquet
           git add -f card_files/processed/commander_cards.parquet
           git add -f card_files/processed/.tagging_complete.json
+          git add -f README-cache.md
           
-          git add README.md 2>/dev/null || true
+          # Create a new commit
+          TREE=$(git write-tree)
+          COMMIT=$(git commit-tree $TREE -m "chore: update similarity cache [${{ steps.cache_meta.outputs.metadata }}]")
           
-          # Check if there are changes to commit
-          if git diff --staged --quiet; then
-            echo "No changes to commit"
-          else
-            git commit -m "chore: update similarity cache [${{ steps.cache_meta.outputs.metadata }}]"
-            git push origin similarity-cache-data --force
-          fi
+          echo "Created commit: $COMMIT"
+          
+          # Push directly to similarity-cache-data branch (force push)
+          git push origin $COMMIT:refs/heads/similarity-cache-data --force
+          
+          echo "Successfully pushed cache to similarity-cache-data branch"
       
       - name: Summary
         if: always()

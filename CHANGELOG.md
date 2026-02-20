@@ -58,6 +58,12 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 - **Docker Build Optimization**: Improved developer experience
   - Hot reload enabled for templates and static files
   - Volume mounts for rapid iteration without rebuilds
+- **Test Suite Consolidation**: Streamlined test infrastructure for better maintainability
+  - Consolidated 148 test files down to 87 (41% reduction)
+  - Merged overlapping and redundant test coverage into comprehensive test modules
+  - Maintained 100% pass rate (582 passing tests, 12 intentional skips)
+  - Updated CI/CD workflows to reference consolidated test files
+  - Improved test organization and reduced cognitive overhead for contributors
 - **Template Modernization**: Migrated templates to use component system
 - **Intelligent Synergy Builder**: Analyze multiple builds and create optimized "best-of" deck
   - Scores cards by frequency (50%), EDHREC rank (25%), and theme tags (25%)

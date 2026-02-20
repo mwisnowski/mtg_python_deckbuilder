@@ -86,21 +86,35 @@ def _load_background_cards_cached(path_str: str, mtime_ns: int) -> Tuple[Tuple[B
 
     try:
         import pandas as pd
-        df = pd.read_parquet(path, engine="pyarrow")
         
-        # Filter for background cards
-        if 'isBackground' not in df.columns:
-            LOGGER.warning("isBackground column not found in %s", path)
-            return tuple(), "unknown"
+        # Support both Parquet and CSV (CSV for testing)
+        if path.suffix.lower() == '.csv':
+            df = pd.read_csv(path, comment='#')
+            # Parse version from CSV comment if present
+            version = "unknown"
+            first_line = path.read_text(encoding='utf-8').split('\n')[0]
+            if first_line.startswith('# version='):
+                version = first_line.split('version=')[1].split()[0]
+        else:
+            df = pd.read_parquet(path, engine="pyarrow")
+            version = "parquet"
         
-        df_backgrounds = df[df['isBackground']].copy()
+        # Filter for background cards - need to determine if isBackground exists
+        # For CSV test files, we check the type column for "Background"
+        if 'isBackground' in df.columns:
+            df_backgrounds = df[df['isBackground']].copy()
+        elif 'type' in df.columns:
+            # For CSV test files without isBackground column, filter by type
+            df_backgrounds = df[df['type'].str.contains('Background', na=False, case=False)].copy()
+        else:
+            LOGGER.warning("No isBackground or type column found in %s", path)
+            return tuple(), version
         
         if len(df_backgrounds) == 0:
             LOGGER.warning("No background cards found in %s", path)
-            return tuple(), "unknown"
+            return tuple(), version
         
         entries = _rows_to_cards(df_backgrounds)
-        version = "parquet"
         
     except Exception as e:
         LOGGER.error("Failed to load backgrounds from %s: %s", path, e)
@@ -144,11 +158,19 @@ def _row_to_card(row) -> BackgroundCard | None:
     # Helper to safely get values from DataFrame row
     def get_val(key: str):
         try:
-            if hasattr(row, key):
-                val = getattr(row, key)
-                # Handle pandas NA/None
+            # Use indexing instead of getattr to avoid Series.name collision
+            if key in row.index:
+                val = row[key]
+                # Handle pandas NA/None/NaN
                 if val is None or (hasattr(val, '__class__') and 'NA' in val.__class__.__name__):
                     return None
+                # Handle pandas NaN (float)
+                try:
+                    import pandas as pd
+                    if pd.isna(val):
+                        return None
+                except ImportError:
+                    pass
                 return val
             return None
         except Exception:

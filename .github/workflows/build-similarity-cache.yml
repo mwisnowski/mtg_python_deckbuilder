@@ -73,6 +73,15 @@ jobs:
             fi
           fi
       
+      - name: Create temporary build branch
+        if: steps.check_cache.outputs.needs_build == 'true'
+        run: |
+          # Create a unique temporary branch for this build
+          TEMP_BRANCH="temp-cache-build-${{ github.run_id }}"
+          echo "TEMP_BRANCH=$TEMP_BRANCH" >> $GITHUB_ENV
+          git checkout -b $TEMP_BRANCH
+          echo "Created temporary branch: $TEMP_BRANCH"
+      
       - name: Run initial setup
         if: steps.check_cache.outputs.needs_build == 'true'
         run: |
@@ -275,6 +284,14 @@ jobs:
           git push origin $COMMIT:refs/heads/similarity-cache-data --force
           
           echo "Successfully pushed cache to similarity-cache-data branch"
+      
+      - name: Cleanup temporary branch
+        if: always() && steps.check_cache.outputs.needs_build == 'true'
+        run: |
+          # Return to original branch and delete temporary branch
+          git checkout ${{ github.ref_name }} 2>/dev/null || git checkout main
+          git branch -D $TEMP_BRANCH 2>/dev/null || true
+          echo "Cleaned up temporary branch: $TEMP_BRANCH"
       
       - name: Summary
         if: always()

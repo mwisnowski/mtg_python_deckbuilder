@@ -89,6 +89,9 @@ Web UI improvements with Tailwind CSS migration, TypeScript conversion, componen
 _None_
 
 ### Fixed
+- **Card Data Auto-Refresh**: Fixed stale data issue when new sets are released
+  - Auto-refresh now deletes cached raw parquet file before downloading fresh data
+  - Ensures new sets are included instead of reprocessing old cached data
 - **Template Quality**: Resolved HTML structure issues
   - Fixed duplicate ID attributes in templates
   - Removed erroneous template block tags

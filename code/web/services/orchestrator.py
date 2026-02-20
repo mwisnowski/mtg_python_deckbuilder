@@ -1417,6 +1417,16 @@ def _ensure_setup_ready(out, force: bool = False) -> None:
             
             try:
                 from file_setup.setup import initial_setup
+                from path_util import card_files_raw_dir
+                # Delete stale raw file to force fresh download from MTGJSON
+                # This ensures we get the latest card data (e.g., new sets like ECL)
+                raw_cards_path = os.path.join(card_files_raw_dir(), "cards.parquet")
+                if os.path.exists(raw_cards_path):
+                    try:
+                        os.remove(raw_cards_path)
+                        out(f"Removed stale raw file: {raw_cards_path}")
+                    except Exception as e:
+                        out(f"Warning: Could not remove stale raw file: {e}")
                 # Always run initial_setup when forced or when cards are missing/stale
                 initial_setup()
             except Exception as e:

@@ -92,6 +92,10 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
   - Optimized linting rules for development workflow
 
 ### Fixed
+- **Card Data Auto-Refresh**: Fixed stale data issue when new sets are released
+  - Auto-refresh now deletes cached raw parquet file before downloading fresh data
+  - Ensures new sets are included instead of reprocessing old cached data
+  - Resolves issue where Docker volumes would retain outdated raw files
 - **Template Quality**: Resolved HTML structure issues found by validation tests
   - Fixed duplicate ID attributes in build wizard and theme picker templates
   - Removed erroneous block tags from component documentation

@@ -1,0 +1,10 @@
+{
+  "version": "2.0",
+  "total_cards": 29582,
+  "total_entries": 541423,
+  "build_date": "2026-02-22T03:08:09.493891",
+  "last_updated": "2026-02-22T03:16:54.464216",
+  "threshold": 0.8,
+  "min_results": 3,
+  "build_complete": true
+}

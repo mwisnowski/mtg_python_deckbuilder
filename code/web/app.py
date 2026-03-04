@@ -2256,6 +2256,11 @@ async def setup_status():
 
 # Routers
 from .routes import build as build_routes  # noqa: E402
+from .routes import build_validation as build_validation_routes  # noqa: E402
+from .routes import build_multicopy as build_multicopy_routes  # noqa: E402
+from .routes import build_include_exclude as build_include_exclude_routes  # noqa: E402
+from .routes import build_themes as build_themes_routes  # noqa: E402
+from .routes import build_partners as build_partners_routes  # noqa: E402
 from .routes import configs as config_routes  # noqa: E402
 from .routes import decks as decks_routes  # noqa: E402
 from .routes import setup as setup_routes  # noqa: E402
@@ -2269,6 +2274,11 @@ from .routes import card_browser as card_browser_routes  # noqa: E402
 from .routes import compare as compare_routes  # noqa: E402
 from .routes import api as api_routes  # noqa: E402
 app.include_router(build_routes.router)
+app.include_router(build_validation_routes.router, prefix="/build")
+app.include_router(build_multicopy_routes.router, prefix="/build")
+app.include_router(build_include_exclude_routes.router, prefix="/build")
+app.include_router(build_themes_routes.router, prefix="/build")
+app.include_router(build_partners_routes.router, prefix="/build")
 app.include_router(config_routes.router)
 app.include_router(decks_routes.router)
 app.include_router(setup_routes.router)
@@ -2284,7 +2294,7 @@ app.include_router(api_routes.router)
 
 # Warm validation cache early to reduce first-call latency in tests and dev
 try:
-    build_routes.warm_validation_name_cache()
+    build_validation_routes.warm_validation_name_cache()
 except Exception:
     pass
 

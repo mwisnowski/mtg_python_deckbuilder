@@ -1034,7 +1034,7 @@ def detect_viable_multi_copy_archetypes(builder) -> list[dict]:
 				continue
 			# Tag triggers
 			trig = meta.get('triggers', {}) or {}
-			any_tags = _normalize_tags_list(trig.get('tags_any', []) or [])
+			any_tags = _normalize_tags_list(trig.get('tagsAny', []) or [])
 			all_tags = _normalize_tags_list(trig.get('tags_all', []) or [])
 			score = 0
 			reasons: list[str] = []

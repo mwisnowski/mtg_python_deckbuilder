@@ -9,6 +9,12 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 
 ## [Unreleased]
 ### Added
+- **Backend Standardization Framework**: Improved code organization and maintainability
+  - Response builder utilities for consistent HTTP responses
+  - Telemetry decorators for route access tracking and error logging
+  - Route pattern documentation defining standards for all routes
+  - Split monolithic build route handler into focused, maintainable modules
+  - Foundation for integrating custom exceptions into web layer
 - **Template Validation Tests**: Comprehensive test suite for HTML/Jinja2 templates
   - Validates Jinja2 syntax across all templates
   - Checks HTML structure (balanced tags, unique IDs, proper attributes)
@@ -92,6 +98,11 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
   - Optimized linting rules for development workflow
 
 ### Fixed
+- **Multi-Copy Package Detection**: Fixed bug preventing multi-copy suggestions from appearing in New Deck wizard
+  - Corrected key mismatch between archetype definitions ('tagsAny') and detection code ('tags_any')
+  - Multi-copy panel now properly displays when commander and theme tags match supported archetypes (e.g., Hare Apparent for Rabbit Kindred + Tokens Matter)
+  - Updated panel background color to match theme (now uses CSS variable instead of hardcoded value)
+  - Affects all 12 multi-copy archetypes (Hare Apparent, Slime Against Humanity, Dragon's Approach, etc.)
 - **Card Data Auto-Refresh**: Fixed stale data issue when new sets are released
   - Auto-refresh now deletes cached raw parquet file before downloading fresh data
   - Ensures new sets are included instead of reprocessing old cached data

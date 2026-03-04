@@ -1137,7 +1137,7 @@
           .then(function(r){ return r.text(); })
           .then(function(html){ slot.innerHTML = html; })
           .catch(function(){ slot.innerHTML = ''; });
-      }catch(_){ }
+      }catch(e){ }
     }
     // Listen for OOB updates to the tags slot to trigger fetch
     document.body.addEventListener('htmx:afterSwap', function(ev){

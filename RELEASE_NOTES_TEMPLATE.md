@@ -3,9 +3,16 @@
 ## [Unreleased]
 
 ### Summary
-Web UI improvements with Tailwind CSS migration, TypeScript conversion, component library, template validation tests, enhanced code quality tools, and optional card image caching for faster performance and better maintainability.
+Backend standardization infrastructure, web UI improvements with Tailwind CSS migration, TypeScript conversion, component library, template validation tests, enhanced code quality tools, and optional card image caching for faster performance and better maintainability.
 
 ### Added
+- **Backend Standardization Framework**: Improved code organization and maintainability
+  - Response builder utilities for standardized HTTP/JSON/HTMX responses
+  - Telemetry decorators for automatic route tracking and error logging
+  - Route pattern documentation with examples and migration guide
+  - Modular route organization with focused, maintainable modules
+  - Foundation for integrating custom exception hierarchy
+  - Benefits: Easier to maintain, extend, and test backend code
 - **Template Validation Tests**: Comprehensive test suite ensuring HTML/template quality
   - Validates Jinja2 syntax and structure
   - Checks for common HTML issues (duplicate IDs, balanced tags)
@@ -89,6 +96,11 @@ Web UI improvements with Tailwind CSS migration, TypeScript conversion, componen
 _None_
 
 ### Fixed
+- **Multi-Copy Package Detection**: Fixed multi-copy suggestions not appearing in New Deck wizard
+  - Multi-copy panel now properly displays when commander and theme tags match supported archetypes
+  - Example: Hare Apparent now appears when building with Rabbit Kindred + Tokens Matter themes
+  - Panel styling now matches current theme (dark/light mode support)
+  - Affects all 12 multi-copy archetypes in the system
 - **Card Data Auto-Refresh**: Fixed stale data issue when new sets are released
   - Auto-refresh now deletes cached raw parquet file before downloading fresh data
   - Ensures new sets are included instead of reprocessing old cached data

@@ -40,8 +40,9 @@ COPY mypy.ini .
 # Tailwind source is already in code/web/static/tailwind.css from COPY code/
 # TypeScript sources are in code/web/static/ts/ from COPY code/
 
-# Force fresh CSS build by removing any copied styles.css
+# Force fresh builds by removing any compiled artifacts
 RUN rm -f ./code/web/static/styles.css
+RUN rm -rf ./code/web/static/js/*.js ./code/web/static/js/*.js.map
 
 # Build CSS and TypeScript
 RUN npm run build

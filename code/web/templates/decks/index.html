@@ -27,7 +27,6 @@
   <a href="/decks/compare" class="btn" role="button" title="Compare two finished decks">Compare</a>
   <button id="deck-compare-selected" type="button" title="Compare two selected decks" disabled>Compare selected</button>
   <button id="deck-compare-latest" type="button" title="Pick the latest two decks">Latest two</button>
-  <button id="deck-open-permalink" type="button" title="Open a saved permalink">Open Permalink…</button>
   <button id="deck-reset-all" type="button" title="Reset filter, sort, and theme">Reset all</button>
   <button id="deck-help" type="button" title="Keyboard shortcuts and tips" aria-haspopup="dialog" aria-controls="deck-help-modal">Help</button>
   <span id="deck-count" class="muted" aria-live="polite"></span>
@@ -127,7 +126,6 @@
   var txtOnlyCb = document.getElementById('deck-txt-only');
   var cmpSelBtn = document.getElementById('deck-compare-selected');
   var cmpLatestBtn = document.getElementById('deck-compare-latest');
-  var openPermalinkBtn = document.getElementById('deck-open-permalink');
     if (!list) return;
 
     // Panels and themes discovery from data-tags-pipe
@@ -414,18 +412,6 @@
         if (window.toast) window.toast('Need at least two decks');
       }
     } catch(_){ }
-  });
-
-  // Open permalink prompt
-  if (openPermalinkBtn) openPermalinkBtn.addEventListener('click', function(){
-    try{
-      var token = prompt('Paste a /build/from?state=... URL or token:');
-      if(!token) return;
-      var m = token.match(/state=([^&]+)/);
-      var t = m ? m[1] : token.trim();
-      if(!t) return;
-      window.location.href = '/build/from?state=' + encodeURIComponent(t);
-    }catch(_){ }
   });
 
   if (resetAllBtn) resetAllBtn.addEventListener('click', function(){

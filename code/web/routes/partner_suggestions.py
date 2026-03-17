@@ -7,7 +7,7 @@ from fastapi.responses import JSONResponse
 
 from deck_builder.combined_commander import PartnerMode
 
-from ..app import ENABLE_PARTNER_MECHANICS, ENABLE_PARTNER_SUGGESTIONS
+from ..app import ENABLE_PARTNER_MECHANICS
 from ..services.partner_suggestions import get_partner_suggestions
 from ..services.telemetry import log_partner_suggestions_generated
 
@@ -64,7 +64,7 @@ async def partner_suggestions_api(
     mode: Optional[List[str]] = Query(None, description="Restrict results to specific partner modes"),
     refresh: bool = Query(False, description="When true, force a dataset refresh before scoring"),
 ):
-    if not (ENABLE_PARTNER_MECHANICS and ENABLE_PARTNER_SUGGESTIONS):
+    if not ENABLE_PARTNER_MECHANICS:
         raise HTTPException(status_code=404, detail="Partner suggestions are disabled")
 
     commander_name = (commander or "").strip()

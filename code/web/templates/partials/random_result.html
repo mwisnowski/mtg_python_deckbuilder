@@ -18,9 +18,7 @@
   <div class="random-meta" style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
     <span class="seed">Seed: <strong>{{ seed }}</strong></span>
     {% if theme %}<span class="theme">Theme: <strong>{{ theme }}</strong></span>{% endif %}
-    {% if permalink %}
-      <button class="btn btn-compact" type="button" aria-label="Copy permalink for this exact build" onclick="(async()=>{try{await navigator.clipboard.writeText(location.origin + '{{ permalink }}');(window.toast&&toast('Permalink copied'))||console.log('Permalink copied');}catch(e){alert('Copy failed');}})()">Copy Permalink</button>
-    {% endif %}
+
     {% if show_diagnostics and diagnostics %}
       <span class="diag-badges" aria-label="Diagnostics" role="status" aria-live="polite" aria-atomic="true">
         <span class="diag-badge" title="Attempts tried before acceptance" aria-label="Attempts tried before acceptance">

@@ -3,7 +3,7 @@
 ## [Unreleased]
 
 ### Summary
-Backend standardization infrastructure, web UI improvements with Tailwind CSS migration, TypeScript conversion, component library, template validation tests, enhanced code quality tools, and optional card image caching for faster performance and better maintainability.
+Backend standardization infrastructure (M1-M3 validated): response builders, telemetry, service layer, and validation framework. Web UI improvements with Tailwind CSS migration, TypeScript conversion, component library, template validation tests, enhanced code quality tools, and optional card image caching. Bug fixes for image cache UI, Scryfall API compatibility, and container startup errors.
 
 ### Added
 - **Backend Standardization Framework**: Improved code organization and maintainability
@@ -11,8 +11,18 @@ Backend standardization infrastructure, web UI improvements with Tailwind CSS mi
   - Telemetry decorators for automatic route tracking and error logging
   - Route pattern documentation with examples and migration guide
   - Modular route organization with focused, maintainable modules
+  - Step-based wizard routes consolidated into dedicated module
+  - New build flow and quick build automation extracted into focused module
+  - Alternative card suggestions extracted to standalone module
+  - Compliance/enforcement and card replacement extracted to focused module
   - Foundation for integrating custom exception hierarchy
   - Benefits: Easier to maintain, extend, and test backend code
+
+### Removed
+- **Permalink Feature**: Removed permalink generation and restoration functionality
+  - Deemed unnecessary for single-session deck building workflow
+  - Simplified UI by removing "Copy Permalink" and "Open Permalink" buttons
+  - Users can still export decks (CSV/TXT/JSON) or use headless JSON configs for automation
 - **Template Validation Tests**: Comprehensive test suite ensuring HTML/template quality
   - Validates Jinja2 syntax and structure
   - Checks for common HTML issues (duplicate IDs, balanced tags)
@@ -96,6 +106,15 @@ Backend standardization infrastructure, web UI improvements with Tailwind CSS mi
 _None_
 
 ### Fixed
+- **Image Cache Status UI**: Setup page status stuck on "Checking…" after a failed download
+  - Error state now shown correctly with failure message
+  - Card count display fixed (was double-counting by summing both size variants)
+  - Last download run stats ("+N new cards") persist across container restarts
+- **Scryfall Bulk Data API**: HTTP 400 error fixed by adding required `Accept: application/json` header
+- **Deck Summary Display**: Fixed issue where deck summary cards would not display correctly in manual builds
+  - Card images and names now appear properly in both List and Thumbnails views
+  - Commander card displayed correctly in Step 5 sidebar
+  - Summary data now properly persists across wizard stages
 - **Multi-Copy Package Detection**: Fixed multi-copy suggestions not appearing in New Deck wizard
   - Multi-copy panel now properly displays when commander and theme tags match supported archetypes
   - Example: Hare Apparent now appears when building with Rabbit Kindred + Tokens Matter themes

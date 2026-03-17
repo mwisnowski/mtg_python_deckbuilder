@@ -31,18 +31,46 @@ async def get_download_status():
     import json
     
     status_file = Path("card_files/images/.download_status.json")
+    last_result_file = Path("card_files/images/.last_download_result.json")
     
     if not status_file.exists():
-        # Check cache statistics if no download in progress
+        # No active download - return cache stats plus last download result if available
         stats = _image_cache.cache_statistics()
+        last_download = None
+        if last_result_file.exists():
+            try:
+                with last_result_file.open('r', encoding='utf-8') as f:
+                    last_download = json.load(f)
+            except Exception:
+                pass
         return JSONResponse({
             "running": False,
+            "last_download": last_download,
             "stats": stats
         })
     
     try:
         with status_file.open('r', encoding='utf-8') as f:
             status = json.load(f)
+        
+        # If download is complete (or errored), persist result, clean up status file
+        if not status.get("running", False):
+            try:
+                with last_result_file.open('w', encoding='utf-8') as f:
+                    json.dump(status, f)
+            except Exception:
+                pass
+            try:
+                status_file.unlink()
+            except Exception:
+                pass
+            cache_stats = _image_cache.cache_statistics()
+            return JSONResponse({
+                "running": False,
+                "last_download": status,
+                "stats": cache_stats
+            })
+        
         return JSONResponse(status)
     except Exception as e:
         logger.warning(f"Could not read status file: {e}")
@@ -136,7 +164,7 @@ async def get_card_image(size: str, card_name: str, face: str = Query(default="f
             image_path = _image_cache.get_image_path(card_name, size)
         
         if image_path and image_path.exists():
-            logger.info(f"Serving cached image: {card_name} ({size}, {face})")
+            logger.debug(f"Serving cached image: {card_name} ({size}, {face})")
             return FileResponse(
                 image_path,
                 media_type="image/jpeg",

@@ -186,9 +186,7 @@
   <span class="chip" title="Multi-Copy package summary"><span class="dot dot-purple"></span> {{ mc_summary }}</span>
   {% endif %}
   <span id="locks-chip">{% if locks and locks|length > 0 %}<span class="chip" title="Locked cards">🔒 {{ locks|length }} locked</span>{% endif %}</span>
-  <button type="button" class="btn ml-auto" title="Copy permalink"
-      onclick="(async()=>{try{const r=await fetch('/build/permalink');const j=await r.json();const url=(j.permalink?location.origin+j.permalink:location.href+'#'+btoa(JSON.stringify(j.state||{}))); await navigator.clipboard.writeText(url); toast && toast('Permalink copied');}catch(e){alert('Copied state to console'); console.log(e);}})()">Copy Permalink</button>
-  <button type="button" class="btn" title="Open a saved permalink" onclick="(function(){try{var token = prompt('Paste a /build/from?state=... URL or token:'); if(!token) return; var m = token.match(/state=([^&]+)/); var t = m? m[1] : token.trim(); if(!t) return; window.location.href = '/build/from?state=' + encodeURIComponent(t); }catch(_){}})()">Open Permalink…</button>
+
       </div>
       {% set pct = ((deck_count / 100.0) * 100.0) if deck_count else 0 %}
       {% set pct_clamped = (pct if pct <= 100 else 100) %}

@@ -14,7 +14,6 @@ from fastapi.responses import JSONResponse
 
 from ..app import (
     ENABLE_PARTNER_MECHANICS,
-    ENABLE_PARTNER_SUGGESTIONS,
 )
 from ..services.telemetry import log_partner_suggestion_selected
 from ..services.partner_suggestions import get_partner_suggestions
@@ -408,7 +407,7 @@ def _partner_ui_context(
                 role_hint = "Choose a Doctor to accompany this companion."
 
     # Partner suggestions
-    suggestions_enabled = bool(ENABLE_PARTNER_MECHANICS and ENABLE_PARTNER_SUGGESTIONS)
+    suggestions_enabled = bool(ENABLE_PARTNER_MECHANICS)
     suggestions_visible: list[dict[str, Any]] = []
     suggestions_hidden: list[dict[str, Any]] = []
     suggestions_total = 0

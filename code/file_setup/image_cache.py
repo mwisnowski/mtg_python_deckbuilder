@@ -87,10 +87,42 @@ class ImageCache:
         self.bulk_data_path = Path(bulk_data_path)
         self.client = ScryfallBulkDataClient()
         self._last_download_time: float = 0.0
+        
+        # In-memory index of available images (avoids repeated filesystem checks)
+        # Key: (size, sanitized_filename), Value: True if exists
+        self._image_index: dict[tuple[str, str], bool] = {}
+        self._index_built = False
 
     def is_enabled(self) -> bool:
         """Check if image caching is enabled via environment variable."""
         return os.getenv("CACHE_CARD_IMAGES", "0") == "1"
+    
+    def _build_image_index(self) -> None:
+        """
+        Build in-memory index of cached images to avoid repeated filesystem checks.
+        This dramatically improves performance by eliminating stat() calls for every image.
+        """
+        if self._index_built or not self.is_enabled():
+            return
+        
+        logger.info("Building image cache index...")
+        start_time = time.time()
+        
+        for size in IMAGE_SIZES:
+            size_dir = self.base_dir / size
+            if not size_dir.exists():
+                continue
+            
+            # Scan directory for .jpg files
+            for image_file in size_dir.glob("*.jpg"):
+                # Store just the filename without extension
+                filename = image_file.stem
+                self._image_index[(size, filename)] = True
+        
+        elapsed = time.time() - start_time
+        total_images = len(self._image_index)
+        logger.info(f"Image index built: {total_images} images indexed in {elapsed:.3f}s")
+        self._index_built = True
 
     def get_image_path(self, card_name: str, size: str = "normal") -> Optional[Path]:
         """
@@ -105,12 +137,17 @@ class ImageCache:
         """
         if not self.is_enabled():
             return None
+        
+        # Build index on first access (lazy initialization)
+        if not self._index_built:
+            self._build_image_index()
 
         safe_name = sanitize_filename(card_name)
-        image_path = self.base_dir / size / f"{safe_name}.jpg"
-
-        if image_path.exists():
-            return image_path
+        
+        # Check in-memory index first (fast)
+        if (size, safe_name) in self._image_index:
+            return self.base_dir / size / f"{safe_name}.jpg"
+        
         return None
 
     def get_image_url(self, card_name: str, size: str = "normal") -> str:

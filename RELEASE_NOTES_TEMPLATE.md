@@ -1,6 +1,9 @@
-# MTG Python Deckbuilder ${VERSION}
+# MTG Python Deckbuilder v4.0.1
 
 ## [Unreleased]
+_No unreleased changes yet_
+
+## [4.0.1] - 2026-03-17
 
 ### Summary
 Backend standardization infrastructure (M1-M5 complete): response builders, telemetry, service layer, validation framework, error handling integration, and testing standards. Web UI improvements with Tailwind CSS migration, TypeScript conversion, component library, template validation tests, enhanced code quality tools, and optional card image caching. Bug fixes for image cache UI, Scryfall API compatibility, and container startup errors.

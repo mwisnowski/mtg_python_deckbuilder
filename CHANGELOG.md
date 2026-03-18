@@ -9,6 +9,19 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 
 ## [Unreleased]
 ### Added
+_No unreleased changes yet_
+
+### Changed
+_No unreleased changes yet_
+
+### Fixed
+_No unreleased changes yet_
+
+### Removed
+_No unreleased changes yet_
+
+## [4.0.1] - 2026-03-17
+### Added
 - **Testing Standards Documentation**: Standards guide and base classes for new tests
   - `docs/web_backend/testing.md` — patterns for route, service, validation, and error handler tests
   - `code/tests/base_test_cases.py` — `RouteTestCase`, `ServiceTestCase`, `ErrorHandlerTestCase`, `ValidationTestMixin`

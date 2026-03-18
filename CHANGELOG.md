@@ -9,6 +9,55 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 
 ## [Unreleased]
 ### Added
+- **Testing Standards Documentation**: Standards guide and base classes for new tests
+  - `docs/web_backend/testing.md` — patterns for route, service, validation, and error handler tests
+  - `code/tests/base_test_cases.py` — `RouteTestCase`, `ServiceTestCase`, `ErrorHandlerTestCase`, `ValidationTestMixin`
+  - Covers naming conventions, fixture setup, coverage targets, and what not to test
+- **Error Handling Integration**: Custom exceptions now wired into the web layer
+  - `DeckBuilderError` handler in `app.py` — typed exceptions get correct HTTP status (not always 500)
+  - `deck_builder_error_response()` utility: JSON responses for API, HTML fragments for HTMX
+  - Status code mapping for 50+ exception classes (400/401/404/503/500)
+  - Web-specific exceptions: `SessionExpiredError` (401), `BuildNotFoundError` (404), `FeatureDisabledError` (404)
+  - `partner_suggestions.py` converted from raw `HTTPException` to typed exceptions
+  - Fixed pre-existing bug: `CommanderValidationError.__init__` now accepts optional `code` kwarg
+  - Error handling guide: `docs/web_backend/error_handling.md`
+- **Backend Standardization Framework**: Improved code organization and maintainability
+  - Response builder utilities for consistent HTTP responses
+  - Telemetry decorators for route access tracking and error logging
+  - Route pattern documentation defining standards for all routes
+  - Split monolithic build route handler into focused, maintainable modules
+  - Step-based wizard routes consolidated into dedicated module
+  - New build flow and quick build automation extracted into focused module
+  - Alternative card suggestions extracted to standalone module
+  - Compliance/enforcement and card replacement extracted to focused module
+  - Foundation for integrating custom exceptions into web layer
+- **Service Layer Architecture**: Base classes, interfaces, and registry for service standardization
+  - `BaseService`, `StateService`, `DataService`, `CachedService` abstract base classes
+  - Service protocols/interfaces for type-safe dependency injection
+  - `ServiceRegistry` for singleton/factory/lazy service patterns
+  - `SessionManager` refactored from global dict to thread-safe `StateService`
+- **Validation Framework**: Centralized Pydantic models and validators
+  - Pydantic models for all key request types (`BuildRequest`, `CommanderSearchRequest`, etc.)
+  - `CardNameValidator` with normalization for diacritics, punctuation, multi-face cards
+  - `ThemeValidator`, `PowerBracketValidator`, `ColorIdentityValidator`
+  - `ValidationMessages` class for consistent user-facing error messages
+
+### Fixed
+- **Image Cache Status UI**: Setup page status stuck on "Checking…"
+  - Stale `.download_status.json` from a failed run caused indefinite spinner
+  - Added error state handling in JS to show "Last download failed" with message
+  - Status endpoint now auto-cleans stale file after download completion/failure
+  - Last download result persisted to `.last_download_result.json` across restarts
+  - Card count now shown correctly (was double-counting by summing both size variants)
+  - Shows "+N new cards" from last download run
+- **Scryfall Bulk Data API**: HTTP 400 error when triggering image download
+  - Scryfall now requires `Accept: application/json` on API endpoints
+  - Fixed `ScryfallBulkDataClient._make_request()` to include the header
+
+### Removed
+- **Permalink Feature**: Removed permalink generation and restoration functionality
+  - Deemed unnecessary for single-session deck building workflow
+  - Users can still export decks (CSV/TXT/JSON) or use headless configs for automation
 - **Template Validation Tests**: Comprehensive test suite for HTML/Jinja2 templates
   - Validates Jinja2 syntax across all templates
   - Checks HTML structure (balanced tags, unique IDs, proper attributes)
@@ -92,6 +141,15 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
   - Optimized linting rules for development workflow
 
 ### Fixed
+- **Deck Summary Display**: Fixed issue where deck summary cards would not display correctly in manual builds
+  - Card images and names now appear properly in both List and Thumbnails views
+  - Commander card displayed correctly in Step 5 sidebar
+  - Summary data now properly persists across wizard stages
+- **Multi-Copy Package Detection**: Fixed bug preventing multi-copy suggestions from appearing in New Deck wizard
+  - Corrected key mismatch between archetype definitions ('tagsAny') and detection code ('tags_any')
+  - Multi-copy panel now properly displays when commander and theme tags match supported archetypes (e.g., Hare Apparent for Rabbit Kindred + Tokens Matter)
+  - Updated panel background color to match theme (now uses CSS variable instead of hardcoded value)
+  - Affects all 12 multi-copy archetypes (Hare Apparent, Slime Against Humanity, Dragon's Approach, etc.)
 - **Card Data Auto-Refresh**: Fixed stale data issue when new sets are released
   - Auto-refresh now deletes cached raw parquet file before downloading fresh data
   - Ensures new sets are included instead of reprocessing old cached data

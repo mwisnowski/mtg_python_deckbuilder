@@ -496,14 +496,15 @@ class CommanderValidationError(DeckBuilderError):
     missing required fields, or contains inconsistent information.
     """
     
-    def __init__(self, message: str, details: dict | None = None):
+    def __init__(self, message: str, details: dict | None = None, *, code: str = "CMD_VALID"):
         """Initialize commander validation error.
         
         Args:
             message: Description of the validation failure
             details: Additional context about the error
+            code: Error code (overridable by subclasses)
         """
-        super().__init__(message, code="CMD_VALID", details=details)
+        super().__init__(message, code=code, details=details)
 
 class CommanderTypeError(CommanderValidationError):
     """Raised when commander type validation fails.
@@ -1394,3 +1395,29 @@ class ThemePoolError(DeckBuilderError):
             code="THEME_POOL_ERR",
             details=details
         )
+
+
+# --- Web layer exceptions ---
+
+class SessionExpiredError(DeckBuilderError):
+    """Raised when a required session is missing or has expired."""
+
+    def __init__(self, sid: str | None = None, details: dict | None = None):
+        message = "Session has expired or could not be found"
+        super().__init__(message, code="SESSION_EXPIRED", details=details or {"sid": sid})
+
+
+class BuildNotFoundError(DeckBuilderError):
+    """Raised when a requested build result is not found in the session."""
+
+    def __init__(self, sid: str | None = None, details: dict | None = None):
+        message = "Build result not found; please start a new build"
+        super().__init__(message, code="BUILD_NOT_FOUND", details=details or {"sid": sid})
+
+
+class FeatureDisabledError(DeckBuilderError):
+    """Raised when a feature is accessed but has been disabled via environment config."""
+
+    def __init__(self, feature: str, details: dict | None = None):
+        message = f"Feature '{feature}' is currently disabled"
+        super().__init__(message, code="FEATURE_DISABLED", details=details or {"feature": feature})

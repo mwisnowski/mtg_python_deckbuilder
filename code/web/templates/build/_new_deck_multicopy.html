@@ -4,7 +4,7 @@
   <div class="muted" style="font-size:12px; margin-bottom:.35rem;">We detected a viable multi-copy archetype for your commander/themes. Choose one or skip.</div>
   <div style="display:grid; gap:.5rem;">
     {% for it in items %}
-    <label class="mc-option" style="display:grid; grid-template-columns: auto 1fr; gap:.5rem; align-items:flex-start; padding:.5rem; border:1px solid var(--border); border-radius:8px; background:#0b0d12;">
+    <label class="mc-option" style="display:grid; grid-template-columns: auto 1fr; gap:.5rem; align-items:flex-start; padding:.5rem; border:1px solid var(--border); border-radius:8px; background:var(--panel);">
       <input type="radio" name="multi_choice_id" value="{{ it.id }}" {% if loop.first %}checked{% endif %} />
       <div>
         <div><strong>{{ it.name }}</strong> {% if it.printed_cap %}<span class="muted">(Cap: {{ it.printed_cap }})</span>{% endif %}</div>

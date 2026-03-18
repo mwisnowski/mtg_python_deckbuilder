@@ -3,9 +3,34 @@
 ## [Unreleased]
 
 ### Summary
-Web UI improvements with Tailwind CSS migration, TypeScript conversion, component library, template validation tests, enhanced code quality tools, and optional card image caching for faster performance and better maintainability.
+Backend standardization infrastructure (M1-M5 complete): response builders, telemetry, service layer, validation framework, error handling integration, and testing standards. Web UI improvements with Tailwind CSS migration, TypeScript conversion, component library, template validation tests, enhanced code quality tools, and optional card image caching. Bug fixes for image cache UI, Scryfall API compatibility, and container startup errors.
 
 ### Added
+- **Testing Standards Documentation**: Developer guide and base classes for writing new tests
+  - `docs/web_backend/testing.md` covers route tests, service tests, HTMX patterns, naming conventions, and coverage targets
+  - `code/tests/base_test_cases.py` provides `RouteTestCase`, `ServiceTestCase`, `ErrorHandlerTestCase`, `ValidationTestMixin`
+- **Error Handling Integration**: Custom exceptions now wired into the web layer
+  - Typed domain exceptions get correct HTTP status codes (not always 500)
+  - HTMX requests receive HTML error fragments; API requests receive JSON
+  - New web-specific exceptions: `SessionExpiredError`, `BuildNotFoundError`, `FeatureDisabledError`
+  - Error handling guide at `docs/web_backend/error_handling.md`
+- **Backend Standardization Framework**: Improved code organization and maintainability
+  - Response builder utilities for standardized HTTP/JSON/HTMX responses
+  - Telemetry decorators for automatic route tracking and error logging
+  - Route pattern documentation with examples and migration guide
+  - Modular route organization with focused, maintainable modules
+  - Step-based wizard routes consolidated into dedicated module
+  - New build flow and quick build automation extracted into focused module
+  - Alternative card suggestions extracted to standalone module
+  - Compliance/enforcement and card replacement extracted to focused module
+  - Foundation for integrating custom exception hierarchy
+  - Benefits: Easier to maintain, extend, and test backend code
+
+### Removed
+- **Permalink Feature**: Removed permalink generation and restoration functionality
+  - Deemed unnecessary for single-session deck building workflow
+  - Simplified UI by removing "Copy Permalink" and "Open Permalink" buttons
+  - Users can still export decks (CSV/TXT/JSON) or use headless JSON configs for automation
 - **Template Validation Tests**: Comprehensive test suite ensuring HTML/template quality
   - Validates Jinja2 syntax and structure
   - Checks for common HTML issues (duplicate IDs, balanced tags)
@@ -89,6 +114,20 @@ Web UI improvements with Tailwind CSS migration, TypeScript conversion, componen
 _None_
 
 ### Fixed
+- **Image Cache Status UI**: Setup page status stuck on "Checking…" after a failed download
+  - Error state now shown correctly with failure message
+  - Card count display fixed (was double-counting by summing both size variants)
+  - Last download run stats ("+N new cards") persist across container restarts
+- **Scryfall Bulk Data API**: HTTP 400 error fixed by adding required `Accept: application/json` header
+- **Deck Summary Display**: Fixed issue where deck summary cards would not display correctly in manual builds
+  - Card images and names now appear properly in both List and Thumbnails views
+  - Commander card displayed correctly in Step 5 sidebar
+  - Summary data now properly persists across wizard stages
+- **Multi-Copy Package Detection**: Fixed multi-copy suggestions not appearing in New Deck wizard
+  - Multi-copy panel now properly displays when commander and theme tags match supported archetypes
+  - Example: Hare Apparent now appears when building with Rabbit Kindred + Tokens Matter themes
+  - Panel styling now matches current theme (dark/light mode support)
+  - Affects all 12 multi-copy archetypes in the system
 - **Card Data Auto-Refresh**: Fixed stale data issue when new sets are released
   - Auto-refresh now deletes cached raw parquet file before downloading fresh data
   - Ensures new sets are included instead of reprocessing old cached data

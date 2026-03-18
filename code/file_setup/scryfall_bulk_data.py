@@ -58,6 +58,7 @@ class ScryfallBulkDataClient:
         try:
             req = Request(url)
             req.add_header("User-Agent", "MTG-Deckbuilder/3.0 (Image Cache)")
+            req.add_header("Accept", "application/json")
             with urlopen(req, timeout=30) as response:
                 import json
                 return json.loads(response.read().decode("utf-8"))

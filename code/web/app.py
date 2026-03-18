@@ -22,6 +22,8 @@ from .services.combo_utils import detect_all as _detect_all
 from .services.theme_catalog_loader import prewarm_common_filters, load_index
 from .services.commander_catalog_loader import load_commander_catalog
 from .services.tasks import get_session, new_sid, set_session_value
+from code.exceptions import DeckBuilderError
+from .utils.responses import deck_builder_error_response
 
 # Logger for app-level logging
 logger = logging.getLogger(__name__)
@@ -166,6 +168,7 @@ SHOW_SETUP = _as_bool(os.getenv("SHOW_SETUP"), True)
 SHOW_DIAGNOSTICS = _as_bool(os.getenv("SHOW_DIAGNOSTICS"), False)
 SHOW_COMMANDERS = _as_bool(os.getenv("SHOW_COMMANDERS"), True)
 SHOW_VIRTUALIZE = _as_bool(os.getenv("WEB_VIRTUALIZE"), False)
+CACHE_CARD_IMAGES = _as_bool(os.getenv("CACHE_CARD_IMAGES"), False)
 ENABLE_THEMES = _as_bool(os.getenv("ENABLE_THEMES"), True)
 ENABLE_PWA = _as_bool(os.getenv("ENABLE_PWA"), False)
 ENABLE_PRESETS = _as_bool(os.getenv("ENABLE_PRESETS"), False)
@@ -173,8 +176,7 @@ ALLOW_MUST_HAVES = _as_bool(os.getenv("ALLOW_MUST_HAVES"), True)
 SHOW_MUST_HAVE_BUTTONS = _as_bool(os.getenv("SHOW_MUST_HAVE_BUTTONS"), False)
 ENABLE_CUSTOM_THEMES = _as_bool(os.getenv("ENABLE_CUSTOM_THEMES"), True)
 WEB_IDEALS_UI = os.getenv("WEB_IDEALS_UI", "slider").strip().lower()  # 'input' or 'slider'
-ENABLE_PARTNER_MECHANICS = _as_bool(os.getenv("ENABLE_PARTNER_MECHANICS"), True)
-ENABLE_PARTNER_SUGGESTIONS = _as_bool(os.getenv("ENABLE_PARTNER_SUGGESTIONS"), True)
+ENABLE_PARTNER_MECHANICS = _as_bool(os.getenv("ENABLE_PARTNER_GESTIONS"), True)
 ENABLE_BATCH_BUILD = _as_bool(os.getenv("ENABLE_BATCH_BUILD"), True)
 RANDOM_MODES = _as_bool(os.getenv("RANDOM_MODES"), True)  # initial snapshot (legacy)
 RANDOM_UI = _as_bool(os.getenv("RANDOM_UI"), True)
@@ -310,13 +312,12 @@ templates.env.globals.update({
     "enable_presets": ENABLE_PRESETS,
     "enable_custom_themes": ENABLE_CUSTOM_THEMES,
     "enable_partner_mechanics": ENABLE_PARTNER_MECHANICS,
-    "enable_partner_suggestions": ENABLE_PARTNER_SUGGESTIONS,
     "allow_must_haves": ALLOW_MUST_HAVES,
     "show_must_have_buttons": SHOW_MUST_HAVE_BUTTONS,
     "default_theme": DEFAULT_THEME,
     "random_modes": RANDOM_MODES,
     "random_ui": RANDOM_UI,
-    "random_max_attempts": RANDOM_MAX_ATTEMPTS,
+    "card_images_cached": CACHE_CARD_IMAGES,
     "random_timeout_ms": RANDOM_TIMEOUT_MS,
     "random_reroll_throttle_ms": int(RANDOM_REROLL_THROTTLE_MS),
     "theme_picker_diagnostics": THEME_PICKER_DIAGNOSTICS,
@@ -2256,6 +2257,15 @@ async def setup_status():
 
 # Routers
 from .routes import build as build_routes  # noqa: E402
+from .routes import build_validation as build_validation_routes  # noqa: E402
+from .routes import build_multicopy as build_multicopy_routes  # noqa: E402
+from .routes import build_include_exclude as build_include_exclude_routes  # noqa: E402
+from .routes import build_themes as build_themes_routes  # noqa: E402
+from .routes import build_partners as build_partners_routes  # noqa: E402
+from .routes import build_wizard as build_wizard_routes  # noqa: E402
+from .routes import build_newflow as build_newflow_routes  # noqa: E402
+from .routes import build_alternatives as build_alternatives_routes  # noqa: E402
+from .routes import build_compliance as build_compliance_routes  # noqa: E402
 from .routes import configs as config_routes  # noqa: E402
 from .routes import decks as decks_routes  # noqa: E402
 from .routes import setup as setup_routes  # noqa: E402
@@ -2269,6 +2279,15 @@ from .routes import card_browser as card_browser_routes  # noqa: E402
 from .routes import compare as compare_routes  # noqa: E402
 from .routes import api as api_routes  # noqa: E402
 app.include_router(build_routes.router)
+app.include_router(build_validation_routes.router, prefix="/build")
+app.include_router(build_multicopy_routes.router, prefix="/build")
+app.include_router(build_include_exclude_routes.router, prefix="/build")
+app.include_router(build_themes_routes.router, prefix="/build")
+app.include_router(build_partners_routes.router, prefix="/build")
+app.include_router(build_wizard_routes.router, prefix="/build")
+app.include_router(build_newflow_routes.router, prefix="/build")
+app.include_router(build_alternatives_routes.router)
+app.include_router(build_compliance_routes.router)
 app.include_router(config_routes.router)
 app.include_router(decks_routes.router)
 app.include_router(setup_routes.router)
@@ -2284,7 +2303,7 @@ app.include_router(api_routes.router)
 
 # Warm validation cache early to reduce first-call latency in tests and dev
 try:
-    build_routes.warm_validation_name_cache()
+    build_validation_routes.warm_validation_name_cache()
 except Exception:
     pass
 
@@ -2386,6 +2405,13 @@ async def starlette_http_exception_handler(request: Request, exc: StarletteHTTPE
 
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception):
+    # Handle DeckBuilderError subclasses with structured responses before falling to 500
+    if isinstance(exc, DeckBuilderError):
+        rid = getattr(request.state, "request_id", None) or uuid.uuid4().hex
+        logging.getLogger("web").warning(
+            f"DeckBuilderError [rid={rid}] {type(exc).__name__} {request.method} {request.url.path}: {exc}"
+        )
+        return deck_builder_error_response(request, exc)
     rid = getattr(request.state, "request_id", None) or uuid.uuid4().hex
     logging.getLogger("web").error(
         f"Unhandled exception [rid={rid}] {request.method} {request.url.path}", exc_info=True

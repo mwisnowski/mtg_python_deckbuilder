@@ -148,10 +148,10 @@
 </section>
 <script>
 (function(){
-  // Minimal styling helper to unify button widths
+  // Minimal styling helper to unify button widths (only for content buttons)
   try {
     var style = document.createElement('style');
-    style.textContent = '.btn{min-width:180px;}';
+    style.textContent = '.content .btn{min-width:180px;}';
     document.head.appendChild(style);
   } catch(e){}
   function update(data){
@@ -325,33 +325,61 @@
             statusLine.style.color = '#94a3b8';
             if (statsLine) statsLine.style.display = 'none';
           } else {
-            var totalCount = 0;
-            var totalSizeMB = 0;
-            
-            if (stats.small) {
-              totalCount += stats.small.count || 0;
-              totalSizeMB += stats.small.size_mb || 0;
-            }
-            if (stats.normal) {
-              totalCount += stats.normal.count || 0;
-              totalSizeMB += stats.normal.size_mb || 0;
-            }
-            
-            if (totalCount > 0) {
+            // Card count = use the max across sizes (each card has one image per size, so avoid double-counting)
+            var cardCount = Math.max(
+              (stats.small && stats.small.count) || 0,
+              (stats.normal && stats.normal.count) || 0
+            );
+            var totalSizeMB = ((stats.small && stats.small.size_mb) || 0) + ((stats.normal && stats.normal.size_mb) || 0);
+            var sizeCount = (stats.small ? 1 : 0) + (stats.normal ? 1 : 0);
+
+            if (cardCount > 0) {
               statusLine.textContent = 'Cache exists';
               statusLine.style.color = '#34d399';
               if (statsLine) {
                 statsLine.style.display = '';
-                statsLine.textContent = totalCount.toLocaleString() + ' images cached • ' + totalSizeMB.toFixed(1) + ' MB';
+                var statsText = cardCount.toLocaleString() + ' cards cached • ' + totalSizeMB.toFixed(1) + ' MB';
+                // If we have last download info, append new card count
+                if (data.last_download) {
+                  var ld = data.last_download;
+                  if (ld.stats && typeof ld.stats.downloaded === 'number') {
+                    var newCards = sizeCount > 0 ? Math.round(ld.stats.downloaded / sizeCount) : ld.stats.downloaded;
+                    if (newCards > 0) {
+                      statsText += ' • Last run: +' + newCards.toLocaleString() + ' new cards';
+                    } else {
+                      statsText += ' • Last run: fully up to date';
+                    }
+                  } else if (ld.message) {
+                    statsText += ' • ' + ld.message;
+                  }
+                }
+                statsLine.textContent = statsText;
               }
             } else {
-              statusLine.textContent = 'No images cached';
+              statusLine.textContent = 'No cards cached';
               statusLine.style.color = '#94a3b8';
               if (statsLine) statsLine.style.display = 'none';
             }
           }
           
           // Hide download progress
+          if (downloadStatus) downloadStatus.style.display = 'none';
+          if (progressBar) progressBar.style.display = 'none';
+        } else if (data.phase === 'error' || data.message) {
+          // Previous download failed - show error and allow retry
+          statusLine.textContent = 'Last download failed';
+          statusLine.style.color = '#f87171';
+          if (statsLine) {
+            statsLine.style.display = '';
+            statsLine.textContent = data.message || 'Unknown error';
+          }
+          if (downloadStatus) downloadStatus.style.display = 'none';
+          if (progressBar) progressBar.style.display = 'none';
+        } else {
+          // No stats, no error - likely no download attempted yet
+          statusLine.textContent = 'No cards cached';
+          statusLine.style.color = '#94a3b8';
+          if (statsLine) statsLine.style.display = 'none';
           if (downloadStatus) downloadStatus.style.display = 'none';
           if (progressBar) progressBar.style.display = 'none';
         }

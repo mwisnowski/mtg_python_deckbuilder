@@ -96,7 +96,6 @@ def _write_dataset(path: Path) -> Path:
 def _fresh_client(tmp_path: Path) -> tuple[TestClient, Path]:
     dataset_path = _write_dataset(tmp_path / "partner_synergy.json")
     os.environ["ENABLE_PARTNER_MECHANICS"] = "1"
-    os.environ["ENABLE_PARTNER_SUGGESTIONS"] = "1"
     for module_name in (
         "code.web.app",
         "code.web.routes.partner_suggestions",
@@ -177,7 +176,6 @@ def test_partner_suggestions_api_returns_ranked_candidates(tmp_path: Path) -> No
         except Exception:
             pass
         os.environ.pop("ENABLE_PARTNER_MECHANICS", None)
-        os.environ.pop("ENABLE_PARTNER_SUGGESTIONS", None)
         for module_name in (
             "code.web.app",
             "code.web.routes.partner_suggestions",
@@ -245,7 +243,6 @@ def test_partner_suggestions_api_refresh_flag(monkeypatch) -> None:
     from code.web.services.partner_suggestions import PartnerSuggestionResult
 
     monkeypatch.setattr(route, "ENABLE_PARTNER_MECHANICS", True)
-    monkeypatch.setattr(route, "ENABLE_PARTNER_SUGGESTIONS", True)
 
     captured: dict[str, bool] = {"refresh": False}
 

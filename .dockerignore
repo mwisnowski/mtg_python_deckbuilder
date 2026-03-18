@@ -41,6 +41,10 @@ dist/
 .vscode/
 .idea/
 
+# Exclude compiled TypeScript output (will be regenerated in Docker build)
+code/web/static/js/
+node_modules/
+
 # Exclude OS files
 .DS_Store
 Thumbs.db

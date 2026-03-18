@@ -156,3 +156,97 @@ def merge_hx_trigger(response: HTMLResponse, events: Dict[str, Any]) -> None:
             response.headers["HX-Trigger"] = json.dumps(events)
     else:
         response.headers["HX-Trigger"] = json.dumps(events)
+
+
+# --- DeckBuilderError integration ---
+
+def is_htmx_request(request: Request) -> bool:
+    """Return True if the request was made by HTMX."""
+    try:
+        return request.headers.get("HX-Request") == "true"
+    except Exception:
+        return False
+
+
+# Map DeckBuilderError subclass names to HTTP status codes.
+# More specific subclasses should appear before their parents.
+_EXCEPTION_STATUS_MAP: list[tuple[str, int]] = [
+    # Web-specific
+    ("SessionExpiredError", 401),
+    ("BuildNotFoundError", 404),
+    ("FeatureDisabledError", 404),
+    # Commander
+    ("CommanderValidationError", 400),
+    ("CommanderTypeError", 400),
+    ("CommanderColorError", 400),
+    ("CommanderTagError", 400),
+    ("CommanderPartnerError", 400),
+    ("CommanderSelectionError", 400),
+    ("CommanderLoadError", 503),
+    # Theme
+    ("ThemeSelectionError", 400),
+    ("ThemeWeightError", 400),
+    ("ThemeError", 400),
+    # Price
+    ("PriceLimitError", 400),
+    ("PriceValidationError", 400),
+    ("PriceAPIError", 503),
+    ("PriceError", 400),
+    # CSV / setup data unavailable
+    ("CSVFileNotFoundError", 503),
+    ("MTGJSONDownloadError", 503),
+    ("EmptyDataFrameError", 503),
+    ("CSVError", 503),
+    ("MTGSetupError", 503),
+]
+
+
+def deck_error_to_status(exc: Exception) -> int:
+    """Return the appropriate HTTP status code for a DeckBuilderError."""
+    exc_type = type(exc).__name__
+    for name, status in _EXCEPTION_STATUS_MAP:
+        if exc_type == name:
+            return status
+    # Walk MRO for inexact matches (subclasses not listed above)
+    for cls in type(exc).__mro__:
+        for name, status in _EXCEPTION_STATUS_MAP:
+            if cls.__name__ == name:
+                return status
+    return 500
+
+
+def deck_builder_error_response(request: Request, exc: Exception) -> JSONResponse | HTMLResponse:
+    """Convert a DeckBuilderError to an appropriate HTTP response.
+
+    Returns an HTML error fragment for HTMX requests, JSON otherwise.
+    Includes request_id and standardized structure.
+    """
+    import time
+
+    status = deck_error_to_status(exc)
+    request_id = getattr(getattr(request, "state", None), "request_id", None) or "unknown"
+
+    # User-safe message: use .message attribute if present, else str()
+    message = getattr(exc, "message", None) or str(exc)
+    error_type = type(exc).__name__
+    code = getattr(exc, "code", error_type)
+
+    if is_htmx_request(request):
+        html = (
+            f'<div class="error-banner" role="alert">'
+            f'<strong>{status}</strong> {message}'
+            f'</div>'
+        )
+        return HTMLResponse(content=html, status_code=status, headers={"X-Request-ID": request_id})
+
+    payload: Dict[str, Any] = {
+        "error": True,
+        "status": status,
+        "error_type": error_type,
+        "code": code,
+        "message": message,
+        "path": str(request.url.path),
+        "request_id": request_id,
+        "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+    }
+    return JSONResponse(content=payload, status_code=status, headers={"X-Request-ID": request_id})

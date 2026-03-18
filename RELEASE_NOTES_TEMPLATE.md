@@ -3,9 +3,17 @@
 ## [Unreleased]
 
 ### Summary
-Backend standardization infrastructure (M1-M3 validated): response builders, telemetry, service layer, and validation framework. Web UI improvements with Tailwind CSS migration, TypeScript conversion, component library, template validation tests, enhanced code quality tools, and optional card image caching. Bug fixes for image cache UI, Scryfall API compatibility, and container startup errors.
+Backend standardization infrastructure (M1-M5 complete): response builders, telemetry, service layer, validation framework, error handling integration, and testing standards. Web UI improvements with Tailwind CSS migration, TypeScript conversion, component library, template validation tests, enhanced code quality tools, and optional card image caching. Bug fixes for image cache UI, Scryfall API compatibility, and container startup errors.
 
 ### Added
+- **Testing Standards Documentation**: Developer guide and base classes for writing new tests
+  - `docs/web_backend/testing.md` covers route tests, service tests, HTMX patterns, naming conventions, and coverage targets
+  - `code/tests/base_test_cases.py` provides `RouteTestCase`, `ServiceTestCase`, `ErrorHandlerTestCase`, `ValidationTestMixin`
+- **Error Handling Integration**: Custom exceptions now wired into the web layer
+  - Typed domain exceptions get correct HTTP status codes (not always 500)
+  - HTMX requests receive HTML error fragments; API requests receive JSON
+  - New web-specific exceptions: `SessionExpiredError`, `BuildNotFoundError`, `FeatureDisabledError`
+  - Error handling guide at `docs/web_backend/error_handling.md`
 - **Backend Standardization Framework**: Improved code organization and maintainability
   - Response builder utilities for standardized HTTP/JSON/HTMX responses
   - Telemetry decorators for automatic route tracking and error logging

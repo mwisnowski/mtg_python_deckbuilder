@@ -22,6 +22,8 @@ from .services.combo_utils import detect_all as _detect_all
 from .services.theme_catalog_loader import prewarm_common_filters, load_index
 from .services.commander_catalog_loader import load_commander_catalog
 from .services.tasks import get_session, new_sid, set_session_value
+from code.exceptions import DeckBuilderError
+from .utils.responses import deck_builder_error_response
 
 # Logger for app-level logging
 logger = logging.getLogger(__name__)
@@ -2403,6 +2405,13 @@ async def starlette_http_exception_handler(request: Request, exc: StarletteHTTPE
 
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception):
+    # Handle DeckBuilderError subclasses with structured responses before falling to 500
+    if isinstance(exc, DeckBuilderError):
+        rid = getattr(request.state, "request_id", None) or uuid.uuid4().hex
+        logging.getLogger("web").warning(
+            f"DeckBuilderError [rid={rid}] {type(exc).__name__} {request.method} {request.url.path}: {exc}"
+        )
+        return deck_builder_error_response(request, exc)
     rid = getattr(request.state, "request_id", None) or uuid.uuid4().hex
     logging.getLogger("web").error(
         f"Unhandled exception [rid={rid}] {request.method} {request.url.path}", exc_info=True

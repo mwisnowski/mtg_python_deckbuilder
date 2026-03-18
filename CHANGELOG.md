@@ -9,6 +9,18 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 
 ## [Unreleased]
 ### Added
+- **Testing Standards Documentation**: Standards guide and base classes for new tests
+  - `docs/web_backend/testing.md` — patterns for route, service, validation, and error handler tests
+  - `code/tests/base_test_cases.py` — `RouteTestCase`, `ServiceTestCase`, `ErrorHandlerTestCase`, `ValidationTestMixin`
+  - Covers naming conventions, fixture setup, coverage targets, and what not to test
+- **Error Handling Integration**: Custom exceptions now wired into the web layer
+  - `DeckBuilderError` handler in `app.py` — typed exceptions get correct HTTP status (not always 500)
+  - `deck_builder_error_response()` utility: JSON responses for API, HTML fragments for HTMX
+  - Status code mapping for 50+ exception classes (400/401/404/503/500)
+  - Web-specific exceptions: `SessionExpiredError` (401), `BuildNotFoundError` (404), `FeatureDisabledError` (404)
+  - `partner_suggestions.py` converted from raw `HTTPException` to typed exceptions
+  - Fixed pre-existing bug: `CommanderValidationError.__init__` now accepts optional `code` kwarg
+  - Error handling guide: `docs/web_backend/error_handling.md`
 - **Backend Standardization Framework**: Improved code organization and maintainability
   - Response builder utilities for consistent HTTP responses
   - Telemetry decorators for route access tracking and error logging

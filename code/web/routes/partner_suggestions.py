@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Iterable, List, Optional
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, Query, Request
 from fastapi.responses import JSONResponse
 
 from deck_builder.combined_commander import PartnerMode
@@ -10,6 +10,7 @@ from deck_builder.combined_commander import PartnerMode
 from ..app import ENABLE_PARTNER_MECHANICS
 from ..services.partner_suggestions import get_partner_suggestions
 from ..services.telemetry import log_partner_suggestions_generated
+from code.exceptions import CommanderValidationError, FeatureDisabledError
 
 router = APIRouter(prefix="/api/partner", tags=["partner suggestions"])
 
@@ -65,11 +66,11 @@ async def partner_suggestions_api(
     refresh: bool = Query(False, description="When true, force a dataset refresh before scoring"),
 ):
     if not ENABLE_PARTNER_MECHANICS:
-        raise HTTPException(status_code=404, detail="Partner suggestions are disabled")
+        raise FeatureDisabledError("partner_suggestions")
 
     commander_name = (commander or "").strip()
     if not commander_name:
-        raise HTTPException(status_code=400, detail="Commander name is required")
+        raise CommanderValidationError("Commander name is required")
 
     include_modes = _parse_modes(mode)
     result = get_partner_suggestions(
@@ -79,7 +80,7 @@ async def partner_suggestions_api(
         refresh_dataset=refresh,
     )
     if result is None:
-        raise HTTPException(status_code=503, detail="Partner suggestion dataset is unavailable")
+        raise FeatureDisabledError("partner_suggestion_dataset")
 
     partner_names = _coerce_name_list(partner)
     background_names = _coerce_name_list(background)

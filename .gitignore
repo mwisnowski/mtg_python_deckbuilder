@@ -44,6 +44,9 @@ logs/perf/*
 !logs/perf/theme_preview_warm_baseline.json
 
 # Node.js and build artifacts
+!package.json
+!package-lock.json
+!tsconfig.json
 node_modules/
 code/web/static/js/
 code/web/static/styles.css

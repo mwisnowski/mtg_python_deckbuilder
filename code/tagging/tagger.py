@@ -6962,8 +6962,17 @@ def run_tagging(parallel: bool = False, max_workers: int | None = None):
                 # Step 4: Rebuild theme_list.json from stripped data
                 logger.info("Rebuilding theme_list.json from stripped parquet and catalog...")
                 try:
-                    from scripts.build_theme_catalog import main as build_catalog
-                    build_catalog()
+                    from scripts.build_theme_catalog import build_catalog
+                    import json
+                    from pathlib import Path
+                    
+                    # Call build_catalog directly to avoid argparse issues
+                    data = build_catalog(limit=0, verbose=False)
+                    output_path = PROJECT_ROOT / "config" / "themes" / "theme_list.json"
+                    
+                    with open(output_path, 'w', encoding='utf-8') as f:
+                        json.dump({k: v for k, v in data.items() if k != 'yaml_catalog'}, f, indent=2, ensure_ascii=False)
+                    
                     logger.info("✓ theme_list.json regenerated from stripped sources")
                 except Exception as e:
                     logger.warning(f"Failed to rebuild theme_list.json: {e}")

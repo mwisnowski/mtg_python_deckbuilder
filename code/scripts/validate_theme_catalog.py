@@ -34,6 +34,7 @@ if str(CODE_ROOT) not in sys.path:
 from type_definitions_theme_catalog import ThemeCatalog, ThemeYAMLFile
 from scripts.extract_themes import load_whitelist_config
 from scripts.build_theme_catalog import build_catalog
+from web.services.theme_editorial_service import ThemeEditorialService
 
 CATALOG_JSON = ROOT / 'config' / 'themes' / 'theme_list.json'
 
@@ -110,13 +111,35 @@ def validate_catalog(data: Dict, *, whitelist: Dict, allow_soft_exceed: bool = T
     return errors
 
 
-def validate_yaml_files(*, whitelist: Dict, strict_alias: bool = False) -> List[str]:
+def validate_yaml_files(
+    *,
+    whitelist: Dict,
+    strict_alias: bool = False,
+    check_editorial_quality: bool = False,
+    lint_enabled: bool = False,
+    lint_duplication_threshold: float = 0.5,
+    lint_quality_threshold: float = 0.3
+) -> List[str]:
     """Validate individual YAML catalog files.
 
     strict_alias: if True, treat presence of a deprecated alias (normalization key)
     as a hard error instead of a soft ignored transitional state.
+    check_editorial_quality: if True, check M1 editorial quality fields (description_source, etc.).
+    lint_enabled: if True, run M4 linter checks (duplication, quality scoring).
+    lint_duplication_threshold: flag themes with duplication ratio above this (default 0.5).
+    lint_quality_threshold: flag themes with quality score below this (default 0.3).
     """
     errors: List[str] = []
+    
+    # M4: Initialize editorial service for lint checks
+    editorial_service = None
+    global_card_freq = None
+    if lint_enabled:
+        try:
+            editorial_service = ThemeEditorialService()
+            global_card_freq = editorial_service.calculate_global_card_frequency()
+        except Exception as e:
+            errors.append(f"[LINT] Failed to initialize editorial service: {e}")
     catalog_dir = ROOT / 'config' / 'themes' / 'catalog'
     if not catalog_dir.exists():
         return errors
@@ -142,6 +165,72 @@ def validate_yaml_files(*, whitelist: Dict, strict_alias: bool = False) -> List[
         if obj.id in seen_ids:
             errors.append(f"Duplicate YAML id: {obj.id}")
         seen_ids.add(obj.id)
+        
+        # M1 Editorial Field Validation (opt-in)
+        if check_editorial_quality:
+            if obj.description and not obj.description_source:
+                errors.append(f"Missing description_source in {path.name} (has description but no source metadata)")
+            if obj.description_source == 'generic':
+                # Soft warning: generic descriptions should be upgraded
+                errors.append(f"[QUALITY] {path.name} has generic description_source - consider upgrading to rule-based or manual")
+            if obj.popularity_pinned and not obj.popularity_bucket:
+                errors.append(f"Invalid configuration in {path.name}: popularity_pinned=True but popularity_bucket is missing")
+        
+        # M4 Linter Checks (opt-in)
+        if lint_enabled and editorial_service and global_card_freq is not None:
+            # Only lint themes with example cards
+            if obj.example_cards and len(obj.example_cards) > 0:
+                # Check 1: High Duplication Ratio
+                try:
+                    dup_ratio = editorial_service.calculate_duplication_ratio(
+                        example_cards=obj.example_cards,
+                        global_card_freq=global_card_freq,
+                        duplication_threshold=0.4  # Cards in >40% of themes
+                    )
+                    if dup_ratio > lint_duplication_threshold:
+                        # Calculate total themes for identifying generic cards
+                        index = editorial_service.load_index()
+                        total_themes = len(index.slug_to_entry)
+                        generic_cards = [
+                            card for card in obj.example_cards
+                            if global_card_freq.get(card, 0) / max(1, total_themes) > 0.4
+                        ]
+                        errors.append(
+                            f"[LINT-WARNING] {path.name} has high duplication ratio ({dup_ratio:.2f} > {lint_duplication_threshold}). "
+                            f"Generic cards: {', '.join(generic_cards[:5])}{' ...' if len(generic_cards) > 5 else ''}"
+                        )
+                except Exception as e:
+                    errors.append(f"[LINT] Failed to check duplication for {path.name}: {e}")
+                
+                # Check 2: Low Quality Score
+                try:
+                    # Create a minimal ThemeEntry for quality scoring
+                    from type_definitions_theme_catalog import ThemeEntry
+                    theme_entry = ThemeEntry(
+                        theme=obj.display_name,
+                        example_cards=obj.example_cards,
+                        description_source=obj.description_source
+                    )
+                    tier, score = editorial_service.calculate_enhanced_quality_score(
+                        theme_entry=theme_entry,
+                        global_card_freq=global_card_freq
+                    )
+                    if score < lint_quality_threshold:
+                        suggestions = []
+                        if len(obj.example_cards) < 5:
+                            suggestions.append("Add more example cards (target: 8+)")
+                        if obj.description_source == 'generic':
+                            suggestions.append("Upgrade to manual or rule-based description")
+                        if dup_ratio > 0.4:
+                            suggestions.append("Replace generic staples with unique cards")
+                        
+                        errors.append(
+                            f"[LINT-WARNING] {path.name} has low quality score ({score:.2f} < {lint_quality_threshold}, tier={tier}). "
+                            f"Suggestions: {'; '.join(suggestions) if suggestions else 'Review theme curation'}"
+                        )
+                except Exception as e:
+                    errors.append(f"[LINT] Failed to check quality for {path.name}: {e}")
+        
         # Normalization alias check: display_name should already be normalized if in map
         if normalization_map and obj.display_name in normalization_map.keys():
             if strict_alias:
@@ -164,6 +253,10 @@ def main():  # pragma: no cover
     parser.add_argument('--fail-soft-exceed', action='store_true', help='Treat synergy list length > cap as error even for soft exceed')
     parser.add_argument('--yaml-schema', action='store_true', help='Print JSON Schema for per-file ThemeYAML and exit')
     parser.add_argument('--strict-alias', action='store_true', help='Fail if any YAML uses an alias name slated for normalization')
+    parser.add_argument('--check-quality', action='store_true', help='Enable M1 editorial quality checks (description_source, popularity_pinned)')
+    parser.add_argument('--lint', action='store_true', help='Enable M4 linter checks (duplication, quality scoring)')
+    parser.add_argument('--lint-duplication-threshold', type=float, default=0.5, help='Duplication ratio threshold for linter warnings (default: 0.5)')
+    parser.add_argument('--lint-quality-threshold', type=float, default=0.3, help='Quality score threshold for linter warnings (default: 0.3)')
     args = parser.parse_args()
 
     if args.schema:
@@ -184,7 +277,14 @@ def main():  # pragma: no cover
     whitelist = load_whitelist_config()
     data = load_catalog_file()
     errors = validate_catalog(data, whitelist=whitelist, allow_soft_exceed=not args.fail_soft_exceed)
-    errors.extend(validate_yaml_files(whitelist=whitelist, strict_alias=args.strict_alias))
+    errors.extend(validate_yaml_files(
+        whitelist=whitelist,
+        strict_alias=args.strict_alias,
+        check_editorial_quality=args.check_quality,
+        lint_enabled=args.lint,
+        lint_duplication_threshold=args.lint_duplication_threshold,
+        lint_quality_threshold=args.lint_quality_threshold
+    ))
 
     if args.rebuild_pass:
         rebuilt = build_catalog(limit=0, verbose=False)

@@ -18,6 +18,7 @@ ALLOWED_DECK_ARCHETYPES: List[str] = [
 ]
 
 PopularityBucket = Literal['Very Common', 'Common', 'Uncommon', 'Niche', 'Rare']
+DescriptionSource = Literal['rule', 'generic', 'manual']
 
 
 class ThemeEntry(BaseModel):
@@ -45,6 +46,14 @@ class ThemeEntry(BaseModel):
     description: Optional[str] = Field(
         None,
         description="Auto-generated or curated short sentence/paragraph describing the deck plan / strategic intent of the theme",
+    )
+    description_source: Optional[DescriptionSource] = Field(
+        None,
+        description="Source of description: 'rule' (external heuristic), 'generic' (fallback template), 'manual' (human-written)",
+    )
+    popularity_pinned: bool = Field(
+        False,
+        description="If True, prevents automatic updates to popularity_bucket during catalog rebuilds (preserves manual curation)",
     )
     editorial_quality: Optional[str] = Field(
         None,
@@ -124,6 +133,8 @@ class ThemeYAMLFile(BaseModel):
     popularity_hint: Optional[str] = None  # Free-form editorial note; bucket computed during merge
     popularity_bucket: Optional[PopularityBucket] = None  # Authors may pin; else derived
     description: Optional[str] = None  # Curated short description (auto-generated if absent)
+    description_source: Optional[DescriptionSource] = None  # Source tracking (rule|generic|manual)
+    popularity_pinned: bool = False  # Protects popularity_bucket from auto-updates
     # Editorial quality lifecycle flag (draft|reviewed|final); optional and not yet enforced via governance.
     editorial_quality: Optional[str] = None
     # Per-file metadata (recently renamed from provenance). We intentionally keep this

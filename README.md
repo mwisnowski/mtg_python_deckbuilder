@@ -402,6 +402,7 @@ Licensed under the [MIT License](LICENSE). Card data and imagery are provided by
 ## Further reading
 - [Web UI deep dive](docs/web_ui_deep_dive.md) – advanced Stage 5 tooling, multi-copy packages, virtualization tips, and diagnostics overlays.
 - [Theme catalog advanced guide](docs/theme_catalog_advanced.md) – API endpoints, governance policies, editorial tooling, and validation scripts.
+- [Theme editorial workflow guide](docs/theme_editorial_guide.md) – quality scoring, curation best practices, and linter usage for maintaining theme catalog standards.
 - [Headless & CLI guide](docs/headless_cli_guide.md) – automation entry points, environment overrides, and argument walkthroughs.
 - [Commander catalog handbook](docs/commander_catalog.md) – required columns, refresh workflow, and staging toggles.
 - [Random theme exclusions reference](docs/random_theme_exclusions.md) – curation guidance for curated pools.

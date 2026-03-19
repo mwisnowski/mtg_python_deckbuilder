@@ -890,3 +890,96 @@ async def ingest_structured_log(request: Request, payload: dict[str, Any] = Body
         return JSONResponse({"ok": True, "count": LOG_COUNTS[event]})
     except Exception as e:  # pragma: no cover
         return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+# --- Editorial API: Roadmap R12 Milestone 1 ---
+# Editorial quality scoring and metadata management endpoints
+
+@router.get("/api/theme/{theme_id}/editorial")
+async def get_theme_editorial_metadata(theme_id: str):
+    """Get editorial metadata and quality score for a theme.
+    
+    Returns:
+        - theme: Theme display name
+        - description: Theme description
+        - example_commanders: List of example commander names
+        - example_cards: List of example card names
+        - synergy_commanders: List of synergy commander entries
+        - deck_archetype: Deck archetype classification
+        - popularity_bucket: Popularity tier
+        - editorial_quality: Quality lifecycle flag
+        - quality_score: Computed quality score (0-100)
+        - quality_tier: Quality tier label (Excellent/Good/Fair/Poor)
+    """
+    from ..services.theme_editorial_service import get_editorial_service, NotFoundError
+    
+    service = get_editorial_service()
+    try:
+        metadata = service.get_theme_metadata(theme_id)
+        score = metadata['quality_score']
+        tier = service.get_quality_tier(score)
+        metadata['quality_tier'] = tier
+        return JSONResponse(metadata)
+    except NotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to retrieve editorial metadata: {str(e)}")
+
+
+@router.get("/api/editorial/statistics")
+async def get_editorial_statistics():
+    """Get editorial quality statistics for entire catalog.
+    
+    Returns:
+        - total_themes: Total number of themes
+        - complete_editorials: Themes with all editorial fields
+        - missing_descriptions: Count of missing descriptions
+        - missing_examples: Count of missing example commanders/cards
+        - quality_distribution: Dict of quality tiers and counts
+        - average_quality_score: Mean quality score
+        - completeness_percentage: Percentage with complete editorials
+    """
+    from ..services.theme_editorial_service import get_editorial_service
+    
+    service = get_editorial_service()
+    try:
+        stats = service.get_catalog_statistics()
+        return JSONResponse(stats)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to retrieve statistics: {str(e)}")
+
+
+@router.get("/api/theme/{theme_id}/validate")
+async def validate_theme_editorial(theme_id: str):
+    """Validate editorial fields for a theme.
+    
+    Returns:
+        - theme: Theme display name
+        - valid: Boolean indicating if all validations pass
+        - issues: List of validation issue messages
+        - quality_score: Current quality score
+    """
+    from ..services.theme_editorial_service import get_editorial_service, NotFoundError
+    from ..services.theme_catalog_loader import load_index, slugify
+    
+    service = get_editorial_service()
+    try:
+        slug = slugify(theme_id)
+        index = load_index()
+        if slug not in index.slug_to_entry:
+            raise NotFoundError(f"Theme not found: {theme_id}")
+        
+        entry = index.slug_to_entry[slug]
+        issues = service.validate_editorial_fields(entry)
+        score = service.calculate_quality_score(entry)
+        
+        return JSONResponse({
+            'theme': entry.theme,
+            'valid': len(issues) == 0,
+            'issues': issues,
+            'quality_score': score,
+        })
+    except NotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Validation failed: {str(e)}")

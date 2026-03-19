@@ -1,0 +1,274 @@
+# Editorial Heuristics for Theme Quality Management
+# Version 1.0.0 - Initial M2 Release
+# Last Updated: 2026-03-18
+# Purpose: Externalized quality scoring, card categorization, and editorial policies
+
+version: "1.0.0"
+last_updated: "2026-03-18"
+schema_version: "editorial-v1"
+
+# Quality Scoring Thresholds
+# Used by ThemeEditorialService.calculate_quality_score()
+quality_thresholds:
+  # Example card count thresholds
+  excellent_card_min: 8  # 8+ example cards = max card count points
+  good_card_min: 5       # 5-7 example cards = good coverage
+  fair_card_min: 3       # 3-4 example cards = minimal acceptable
+  
+  # Uniqueness ratio thresholds (card appears in <X% of themes)
+  excellent_uniqueness: 0.20  # Card in <20% of themes = highly unique
+  good_uniqueness: 0.35       # Card in 20-35% of themes = moderately unique
+  fair_uniqueness: 0.50       # Card in 35-50% of themes = somewhat unique
+  generic_threshold: 0.50     # Card in >50% of themes = generic/staple
+  
+  # Quality tier score boundaries (0-100 scale)
+  excellent_min_score: 75  # 75+ points = Excellent quality
+  good_min_score: 60       # 60-74 points = Good quality
+  fair_min_score: 40       # 40-59 points = Fair quality
+  # <40 points = Poor quality
+  
+  # Description source quality bonuses (added to quality score)
+  manual_description_bonus: 10   # Manually curated description
+  rule_description_bonus: 5      # Rule-based generated description
+  generic_description_bonus: 0   # Generic/fallback description
+
+# Generic/Staple Cards
+# Cards that appear in many decks regardless of theme
+# Used to penalize quality scores for overly generic example card lists
+generic_staple_cards:
+  # Universal staples (appear in 60%+ of decks)
+  - "Sol Ring"
+  - "Arcane Signet"
+  - "Command Tower"
+  - "Path to Exile"
+  - "Swords to Plowshares"
+  - "Counterspell"
+  - "Lightning Bolt"
+  - "Heroic Intervention"
+  - "Beast Within"
+  - "Generous Gift"
+  - "Chaos Warp"
+  - "Blasphemous Act"
+  - "Cyclonic Rift"
+  - "Demonic Tutor"
+  - "Vampiric Tutor"
+  - "Mystical Tutor"
+  - "Worldly Tutor"
+  - "Enlightened Tutor"
+  - "Rhystic Study"
+  - "Smothering Tithe"
+  - "Mystic Remora"
+  - "Esper Sentinel"
+  
+  # Generic ramp (appear in 40%+ of decks)
+  - "Cultivate"
+  - "Kodama's Reach"
+  - "Rampant Growth"
+  - "Nature's Lore"
+  - "Three Visits"
+  - "Farseek"
+  - "Sakura-Tribe Elder"
+  - "Solemn Simulacrum"
+  - "Mana Crypt"
+  - "Mana Vault"
+  - "Chrome Mox"
+  - "Jeweled Lotus"
+  
+  # Generic card advantage (appear in 35%+ of decks)
+  - "Phyrexian Arena"
+  - "Bolas's Citadel"
+  - "Necropotence"
+  - "Sylvan Library"
+  - "Guardian Project"
+  - "The One Ring"
+  - "Teferi's Protection"
+  
+  # Generic utility (appear in 30%+ of decks)
+  - "Eternal Witness"
+  - "Acidic Slime"
+  - "Reclamation Sage"
+  - "Sun Titan"
+  - "Lightning Greaves"
+  - "Swiftfoot Boots"
+  - "Reliquary Tower"
+  - "Command Beacon"
+  - "Boseiju, Who Endures"
+  - "Otawara, Soaring City"
+
+# Theme-Specific Keywords
+# Used to identify theme archetypes from theme names
+# Helps with quality validation and duplication detection
+archetype_keywords:
+  aggro:
+    - "aggro"
+    - "burn"
+    - "combat"
+    - "voltron"
+  
+  control:
+    - "control"
+    - "pillowfort"
+    - "stax"
+  
+  combo:
+    - "combo"
+    - "storm"
+    - "infinite"
+  
+  midrange:
+    - "midrange"
+    - "value"
+    - "goodstuff"
+  
+  ramp:
+    - "ramp"
+    - "big mana"
+    - "lands matter"
+    - "landfall"
+  
+  tribal:
+    - "kindred"
+    - "tribal"
+  
+  graveyard:
+    - "graveyard"
+    - "reanimate"
+    - "dredge"
+    - "flashback"
+    - "escape"
+  
+  tokens:
+    - "token"
+    - "go wide"
+    - "aristocrats"
+  
+  artifacts:
+    - "artifact"
+    - "equipment"
+    - "vehicles"
+  
+  enchantments:
+    - "enchant"
+    - "constellation"
+    - "shrines"
+  
+  spells:
+    - "spellslinger"
+    - "magecraft"
+    - "prowess"
+    - "storm"
+
+# Quality Validation Rules
+# Used by validation scripts and linter
+validation_rules:
+  # Minimum requirements for themes
+  min_example_commanders: 2
+  min_example_cards: 3
+  min_synergies: 1
+  min_description_length: 20  # characters
+  
+  # Warnings (soft limits)
+  recommended_example_commanders: 4
+  recommended_example_cards: 6
+  recommended_synergies: 3
+  
+  # Generic card warnings
+  max_generic_card_ratio: 0.4  # Warn if >40% of example cards are generic staples
+  
+  # Description quality warnings
+  warn_on_generic_description: true
+  warn_on_short_description: true  # <50 characters
+  warn_on_missing_description_source: true
+
+# Popularity Bucket Management
+# Used to categorize theme popularity
+popularity_buckets:
+  ubiquitous:
+    threshold_decks: 50000  # Themes in 50,000+ decks
+    description: "Extremely common, appears in majority of decks"
+  
+  very_common:
+    threshold_decks: 10000  # 10,000-49,999 decks
+    description: "Very common, widely recognized theme"
+  
+  common:
+    threshold_decks: 2000   # 2,000-9,999 decks
+    description: "Common theme, well-supported archetype"
+  
+  uncommon:
+    threshold_decks: 500    # 500-1,999 decks
+    description: "Uncommon theme, niche but viable"
+  
+  rare:
+    threshold_decks: 100    # 100-499 decks
+    description: "Rare theme, specialized strategy"
+  
+  very_rare:
+    threshold_decks: 0      # <100 decks
+    description: "Very rare theme, highly specialized"
+
+# Description Source Classification Patterns
+# Used by infer_description_source() to classify existing descriptions
+description_patterns:
+  rule_based:
+    # Patterns that indicate rule-based generation
+    indicators:
+      - "Synergies like"
+      - "reinforce the plan"
+      - "reinforce inevitability"
+    description: "Generated by description_mapping.yml rules"
+  
+  generic:
+    # Patterns that indicate generic fallback descriptions
+    indicators:
+      - "Accumulates"
+      - "Builds around"
+      - "Leverages"
+      - "Uses"
+    description: "Generic template-based description"
+  
+  manual:
+    # Everything else is assumed manual
+    description: "Manually curated or specialized description"
+
+# Card Categorization Helpers
+# Used for future enhancements (M3+)
+card_categories:
+  ramp_indicators:
+    keywords:
+      - "search your library for a land"
+      - "add {c}{c}{c}"
+      - "untap all lands"
+      - "put a land card from your hand onto the battlefield"
+  
+  draw_indicators:
+    keywords:
+      - "draw a card"
+      - "draw cards"
+      - "whenever you draw"
+  
+  removal_indicators:
+    keywords:
+      - "destroy target"
+      - "exile target"
+      - "remove"
+      - "destroy all"
+  
+  token_generators:
+    keywords:
+      - "create a"
+      - "create X"
+      - "token"
+
+# Metadata
+metadata:
+  author: "GitHub Copilot + MTG Deckbuilder Team"
+  purpose: "Externalize editorial quality heuristics for theme catalog management"
+  related_files:
+    - "config/themes/description_mapping.yml"
+    - "config/themes/theme_whitelist.yml"
+    - "code/web/services/theme_editorial_service.py"
+  changelog:
+    - version: "1.0.0"
+      date: "2026-03-18"
+      changes: "Initial M2 release with quality thresholds and generic card lists"

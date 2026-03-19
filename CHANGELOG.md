@@ -9,7 +9,12 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 
 ## [Unreleased]
 ### Added
-_No unreleased changes yet_
+- **Theme Editorial Quality & Standards**: Complete editorial system for theme catalog curation
+  - **Editorial Metadata Fields**: `description_source` (tracks provenance: official/inferred/custom) and `popularity_pinned` (manual tier override)
+  - **Heuristics Externalization**: Theme classification rules moved to `config/themes/editorial_heuristics.yml` for maintainability
+  - **Enhanced Quality Scoring**: Four-tier system (Excellent/Good/Fair/Poor) with 0.0-1.0 numerical scores based on uniqueness, duplication, description quality, and metadata completeness
+  - **CLI Linter**: `validate_theme_catalog.py --lint` flag with configurable thresholds for duplication and quality warnings, provides actionable improvement suggestions
+  - **Editorial Documentation**: Comprehensive guide at `docs/theme_editorial_guide.md` covering quality scoring, best practices, linter usage, and workflow examples
 
 ### Changed
 _No unreleased changes yet_

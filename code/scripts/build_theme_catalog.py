@@ -34,6 +34,14 @@ try:  # Optional
 except Exception:  # pragma: no cover
     yaml = None
 
+# Import settings for THEME_MIN_CARDS threshold
+# Import at module level to avoid stdlib 'code' conflict when running as script
+ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+if ROOT not in sys.path:
+    sys.path.insert(0, ROOT)
+
+from code import settings as code_settings
+
 try:
     # Support running as `python code/scripts/build_theme_catalog.py` when 'code' already on path
     from scripts.extract_themes import (
@@ -166,17 +174,29 @@ def load_catalog_yaml(verbose: bool) -> Dict[str, ThemeYAML]:
 
 
 def regenerate_analytics(verbose: bool):
+    """
+    Regenerate theme analytics from parquet data, constants, and tagger source.
+    
+    Now reads from parquet files instead of CSV. Applies THEME_MIN_CARDS filtering
+    to exclude themes with too few cards.
+    
+    Args:
+        verbose: Whether to print detailed progress
+        
+    Returns:
+        Tuple of (theme_tags, selected_synergies, taxonomy)
+    """
     theme_tags: Set[str] = set()
     theme_tags |= collect_theme_tags_from_constants()
     theme_tags |= collect_theme_tags_from_tagger_source()
-    try:
-        csv_rows = gather_theme_tag_rows()
-        for row_tags in csv_rows:
-            for t in row_tags:
-                if isinstance(t, str) and t:
-                    theme_tags.add(t)
-    except Exception:
-        csv_rows = []
+    
+    # M3: Read from parquet (no longer silent fail)
+    # Fail loudly if parquet read fails - this is a critical error
+    parquet_rows = gather_theme_tag_rows()
+    for row_tags in parquet_rows:
+        for t in row_tags:
+            if isinstance(t, str) and t:
+                theme_tags.add(t)
 
     whitelist = load_whitelist_config()
     normalization_map: Dict[str, str] = whitelist.get('normalization', {}) if isinstance(whitelist.get('normalization'), dict) else {}
@@ -190,10 +210,8 @@ def regenerate_analytics(verbose: bool):
     blacklist = {"Draw Triggers"}
     theme_tags = {t for t in theme_tags if t and t not in blacklist and t not in exclusions}
 
-    try:
-        frequencies = tally_tag_frequencies_by_base_color()
-    except Exception:
-        frequencies = {}
+    # M3: Read frequencies from parquet (fail loudly)
+    frequencies = tally_tag_frequencies_by_base_color()
 
     if frequencies:
         def total_count(t: str) -> int:
@@ -204,19 +222,40 @@ def regenerate_analytics(verbose: bool):
                 except Exception:
                     pass
             return s
+        
         kept: Set[str] = set()
+        
+        # M3: Apply THEME_MIN_CARDS filtering
+        min_cards = getattr(code_settings, 'THEME_MIN_CARDS', 5)
+        if verbose:
+            print(f"Applying THEME_MIN_CARDS filter (threshold: {min_cards} cards)")
+        
+        themes_before_filter = len(theme_tags)
+        
         for t in list(theme_tags):
-            if should_keep_theme(t, total_count(t), whitelist, protected_prefixes, protected_suffixes, min_overrides):
-                kept.add(t)
+            count = total_count(t)
+            # Check both should_keep_theme (whitelist logic) AND THEME_MIN_CARDS threshold
+            if should_keep_theme(t, count, whitelist, protected_prefixes, protected_suffixes, min_overrides):
+                # Additional check: must meet minimum card threshold
+                if count >= min_cards:
+                    kept.add(t)
+                elif verbose:
+                    print(f"  Filtered out '{t}' ({count} cards < {min_cards} threshold)")
+        
+        # Always include whitelist themes (override threshold)
         for extra in whitelist.get('always_include', []) or []:
             kept.add(str(extra))
+        
         theme_tags = kept
+        
+        if verbose:
+            themes_after_filter = len(theme_tags)
+            filtered_count = themes_before_filter - themes_after_filter
+            print(f"Filtered {filtered_count} themes below threshold ({themes_after_filter} remain)")
 
-    try:
-        rows = csv_rows if csv_rows else gather_theme_tag_rows()
-        co_map, tag_counts, total_rows = compute_cooccurrence(rows)
-    except Exception:
-        co_map, tag_counts, total_rows = {}, Counter(), 0
+    # M3: Compute co-occurrence from parquet data (fail loudly)
+    rows = parquet_rows if parquet_rows else gather_theme_tag_rows()
+    co_map, tag_counts, total_rows = compute_cooccurrence(rows)
 
     return dict(theme_tags=theme_tags, frequencies=frequencies, co_map=co_map, tag_counts=tag_counts, total_rows=total_rows, whitelist=whitelist)
 

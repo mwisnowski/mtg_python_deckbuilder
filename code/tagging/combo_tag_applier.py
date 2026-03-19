@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import DefaultDict, Dict, List, Set
 
 # Third-party imports
+import numpy as np
 import pandas as pd
 
 
@@ -151,7 +152,8 @@ def apply_combo_tags(
     # Calculate updated counts
     updated_counts: Dict[str, int] = {}
     if before_hash != after_hash:
-        updated_counts["total"] = int((df["comboTags"].apply(bool)).sum())
+        # Use len() > 0 to handle arrays properly (avoid ambiguous truth value)
+        updated_counts["total"] = int((df["comboTags"].apply(lambda x: len(x) > 0 if isinstance(x, (list, np.ndarray)) else bool(x))).sum())
     else:
         updated_counts["total"] = 0
     

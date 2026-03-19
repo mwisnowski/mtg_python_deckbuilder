@@ -6897,6 +6897,112 @@ def run_tagging(parallel: bool = False, max_workers: int | None = None):
         logger.info(f"✓ Wrote tagging completion flag to {flag_path}")
     except Exception as e:
         logger.warning(f"Failed to write tagging completion flag: {e}")
+    
+    # R21: Theme stripping after tagging (if THEME_MIN_CARDS > 1)
+    try:
+        from settings import THEME_MIN_CARDS
+        
+        if THEME_MIN_CARDS > 1:
+            logger.info("=" * 80)
+            logger.info(f"Starting theme stripping (THEME_MIN_CARDS={THEME_MIN_CARDS})")
+            logger.info("=" * 80)
+            
+            strip_start = pd.Timestamp.now()
+            
+            # Import theme stripping functions
+            from tagging.theme_stripper import (
+                get_theme_card_counts,
+                identify_themes_to_strip,
+                strip_parquet_themes,
+                strip_catalog_themes,
+                create_stripped_themes_log
+            )
+            
+            # Define project root (tagger.py is in code/tagging/, so go up 2 levels)
+            PROJECT_ROOT = Path(__file__).resolve().parents[2]
+            
+            # Step 1: Analyze themes
+            parquet_dir = Path("card_files/processed")
+            parquet_files = sorted(parquet_dir.glob("*.parquet"))
+            
+            logger.info(f"Analyzing {len(parquet_files)} parquet files...")
+            theme_counts = get_theme_card_counts(parquet_files)
+            themes_to_strip = identify_themes_to_strip(theme_counts, THEME_MIN_CARDS)
+            
+            logger.info(f"Found {len(theme_counts)} themes, {len(themes_to_strip)} below threshold")
+            
+            if themes_to_strip:
+                # Step 2: Strip from catalog YAML (MUST happen before building JSON)
+                logger.info("Stripping themes from catalog YAML files...")
+                catalog_dir = PROJECT_ROOT / "config" / "themes" / "catalog"
+                
+                if catalog_dir.exists():
+                    catalog_results = strip_catalog_themes(
+                        catalog_dir=catalog_dir,
+                        themes_to_strip=themes_to_strip,
+                        backup=True
+                    )
+                    logger.info(f"✓ Modified {len(catalog_results['files_modified'])} catalog files, stripped {catalog_results['stripped_count']} themes")
+                else:
+                    logger.info("Catalog directory doesn't exist yet, skipping YAML stripping")
+                
+                # Step 3: Strip from parquet files
+                logger.info("Stripping themes from parquet files...")
+                total_tags_removed = 0
+                for parquet_file in parquet_files:
+                    results = strip_parquet_themes(
+                        parquet_path=parquet_file,
+                        themes_to_strip=themes_to_strip,
+                        backup=True
+                    )
+                    total_tags_removed += results["tags_removed"]
+                
+                logger.info(f"✓ Removed {total_tags_removed} theme tag occurrences")
+                
+                # Step 4: Rebuild theme_list.json from stripped data
+                logger.info("Rebuilding theme_list.json from stripped parquet and catalog...")
+                try:
+                    from scripts.build_theme_catalog import build_catalog
+                    import json
+                    from pathlib import Path
+                    
+                    # Call build_catalog directly to avoid argparse issues
+                    data = build_catalog(limit=0, verbose=False)
+                    output_path = PROJECT_ROOT / "config" / "themes" / "theme_list.json"
+                    
+                    with open(output_path, 'w', encoding='utf-8') as f:
+                        json.dump({k: v for k, v in data.items() if k != 'yaml_catalog'}, f, indent=2, ensure_ascii=False)
+                    
+                    logger.info("✓ theme_list.json regenerated from stripped sources")
+                except Exception as e:
+                    logger.warning(f"Failed to rebuild theme_list.json: {e}")
+                
+                # Step 5: Update stripped themes log
+                logger.info("Updating stripped_themes.yml log...")
+                log_path = PROJECT_ROOT / "logs" / "stripped_themes.yml"
+                create_stripped_themes_log(
+                    output_path=log_path,
+                    theme_counts=theme_counts,
+                    themes_stripped=themes_to_strip,
+                    min_threshold=THEME_MIN_CARDS,
+                    sources=["parquet files", "catalog YAML"]
+                )
+                logger.info(f"✓ Log updated: {log_path}")
+                
+                strip_duration = (pd.Timestamp.now() - strip_start).total_seconds()
+                logger.info("=" * 80)
+                logger.info(f"✓ Theme stripping complete in {strip_duration:.2f}s")
+                logger.info(f"  Themes stripped: {len(themes_to_strip)}")
+                logger.info(f"  Tags removed: {total_tags_removed}")
+                logger.info("=" * 80)
+            else:
+                logger.info("No themes below threshold, skipping stripping")
+        else:
+            logger.info(f"Theme stripping disabled (THEME_MIN_CARDS={THEME_MIN_CARDS})")
+    
+    except Exception as e:
+        logger.error(f"Theme stripping failed: {e}")
+        logger.warning("Continuing without theme stripping")
 
 
 

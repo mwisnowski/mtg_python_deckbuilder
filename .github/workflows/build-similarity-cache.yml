@@ -90,6 +90,12 @@ jobs:
       - name: Run tagging (serial for CI reliability)
         if: steps.check_cache.outputs.needs_build == 'true'
         run: |
+          # Note: Theme stripping now runs automatically after tagging
+          # If THEME_MIN_CARDS > 1, this will:
+          #   1. Strip low-card themes from parquet themeTags
+          #   2. Rebuild theme_list.json from stripped data
+          #   3. Strip catalog YAML files
+          #   4. Update logs/stripped_themes.yml log
           python -c "from code.tagging.tagger import run_tagging; run_tagging(parallel=False)"
           
           # Verify tagging completed

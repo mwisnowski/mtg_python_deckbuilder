@@ -150,6 +150,7 @@ Refresh data and caches when formats shift.
   # With parallel processing and custom worker count:
   python -c "from code.tagging.tagger import run_tagging; run_tagging(parallel=True, max_workers=4)"
   ```
+  **Note**: If `THEME_MIN_CARDS` > 1 (default: 5), theme stripping automatically runs after tagging completes. This removes low-card themes from parquet files, catalog YAML, and rebuilds theme_list.json. Set `THEME_MIN_CARDS=1` to disable automatic stripping.
 - **Rebuild only the commander catalog**:
   ```powershell
   # Docker:
@@ -312,6 +313,7 @@ Most defaults are defined in `docker-compose.yml` and documented in `.env.exampl
 | `CACHE_CARD_IMAGES` | `0` | Download card images to `card_files/images/` (1=enable, 0=fetch from API on demand). Requires ~3-6 GB. See [Image Caching](docs/IMAGE_CACHING.md). |
 | `WEB_AUTO_ENFORCE` | `0` | Auto-apply bracket enforcement after builds. |
 | `WEB_THEME_PICKER_DIAGNOSTICS` | `1` | Enable theme diagnostics endpoints. |
+| `THEME_MIN_CARDS` | `5` | Minimum card count for themes. Themes with fewer cards are stripped from catalogs, JSON files, and parquet metadata during setup/tagging. Set to 1 to keep all themes. |
 
 ### Paths & overrides
 | Variable | Default | Purpose |

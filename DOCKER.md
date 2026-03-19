@@ -286,6 +286,7 @@ See `.env.example` for the full catalog. Common knobs:
 | `CACHE_CARD_IMAGES` | `0` | Download card images to `card_files/images/` (1=enable, 0=fetch from API on demand). See [Image Caching](docs/IMAGE_CACHING.md). |
 | `WEB_AUTO_ENFORCE` | `0` | Re-export decks after auto-applying compliance fixes. |
 | `WEB_THEME_PICKER_DIAGNOSTICS` | `1` | Enable theme diagnostics endpoints. |
+| `THEME_MIN_CARDS` | `5` | Minimum card count threshold for themes. Themes with fewer cards are stripped from YAML catalogs, JSON picker files, and parquet metadata during setup/tagging. Set to 1 to keep all themes. |
 
 ### Paths and data overrides
 

@@ -157,3 +157,13 @@ SIMILARITY_CACHE_DOWNLOAD = os.getenv('SIMILARITY_CACHE_DOWNLOAD', '1').lower() 
 
 # Batch build feature flag (Build X and Compare)
 ENABLE_BATCH_BUILD = os.getenv('ENABLE_BATCH_BUILD', '1').lower() not in ('0', 'false', 'off', 'disabled')
+
+# ----------------------------------------------------------------------------------
+# THEME CATALOG SETTINGS
+# ----------------------------------------------------------------------------------
+
+# Minimum number of cards required for a theme to be kept in the system
+# Themes with fewer cards will be stripped during setup/tagging
+# Set to 1 to keep all themes with at least one card
+# Set to 0 to only strip orphaned themes (themes with zero cards)
+THEME_MIN_CARDS = max(0, int(os.getenv('THEME_MIN_CARDS', '5')))

@@ -6964,7 +6964,6 @@ def run_tagging(parallel: bool = False, max_workers: int | None = None):
                 try:
                     from scripts.build_theme_catalog import build_catalog
                     import json
-                    from pathlib import Path
                     
                     # Call build_catalog directly to avoid argparse issues
                     data = build_catalog(limit=0, verbose=False)

@@ -101,18 +101,53 @@
     <div class="muted" style="font-size:12px; margin:.25rem 0 .35rem 0;">Recommended</div>
     <div id="modal-tag-reco" aria-label="Recommended themes" data-original-tags='{{ (recommended or []) | tojson }}' style="display:flex; gap:.35rem; flex-wrap:wrap; margin-bottom:.5rem;">
       {% if recommended and recommended|length %}
+        {# R21: Recommended themes (always flat, never sectioned) #}
         {% for r in recommended %}
           {% set tip = (recommended_reasons[r] if (recommended_reasons is defined and recommended_reasons and recommended_reasons.get(r)) else 'Recommended for this commander') %}
-          <button type="button" class="chip chip-reco" data-tag="{{ r }}" title="{{ tip }}">★ {{ r }}</button>
+          {% set pool_count = pool_size.get(r|slugify, 0) if pool_size else 0 %}
+          <button type="button" class="chip chip-reco" data-tag="{{ r }}" data-pool-size="{{ pool_count }}" title="{{ tip }}">★ {{ r }} <span class="badge badge-pool" title="Pool size: approximately {{ pool_count }} cards available for this theme">{{ pool_count }}</span></button>
         {% endfor %}
       {% endif %}
       <button type="button" id="modal-reco-select-all" class="chip" title="Add recommended up to 3" {% if not (recommended and recommended|length) %}style="display:none;"{% endif %}>Select all</button>
     </div>
   </div>
-  <div id="modal-tag-list" aria-label="Available themes" style="display:flex; gap:.35rem; flex-wrap:wrap;">
-    {% for t in tags %}
-      <button type="button" class="chip" data-tag="{{ t }}">{{ t }}</button>
-    {% endfor %}
+  {# R21 M3: Visual separator between recommended and general themes #}
+  {% if recommended and recommended|length %}
+  <hr style="margin:.75rem 0; border:none; border-top:1px solid var(--border-color, #333);" />
+  <div style="display:flex; align-items:baseline; gap:.4rem; flex-wrap:wrap; margin:.25rem 0 .35rem 0;">
+    <div class="muted" style="font-size:12px;">All Available Themes</div>
+    <div class="muted" style="font-size:11px;" title="The number on each theme is the approximate number of eligible cards in that theme's pool for your commander's color identity. Sections: Vast (1000+), Large (500–999), Moderate (200–499), Small (50–199), Tiny (&lt;50).">— badge = card pool size</div>
+  </div>
+  {% endif %}
+  {% if use_sections and tag_sections %}
+    {% set section_labels = [] %}
+    {% for section in tag_sections %}{% set _ = section_labels.append({'label': section.label, 'themes': section.themes}) %}{% endfor %}
+  {% endif %}
+  <div id="modal-tag-list" aria-label="Available themes" style="display:flex; gap:.35rem; flex-wrap:wrap;"
+    data-use-sections="{% if use_sections and tag_sections %}1{% else %}0{% endif %}"
+    data-pool-size='{{ pool_size | tojson if pool_size else "{}" }}'
+    data-sections='{{ tag_sections | tojson if (use_sections and tag_sections) else "[]" }}'>
+    {% if use_sections and tag_sections %}
+      {# R21: Sectioned general themes #}
+      {% for section in tag_sections %}
+        <div style="width:100%; margin-bottom:.5rem;">
+          {% set section_tip = {'Vast': '1000+ cards', 'Large': '500–999 cards', 'Moderate': '200–499 cards', 'Small': '50–199 cards', 'Tiny': 'fewer than 50 cards'} %}
+          <div class="muted" style="font-size:11px; margin-bottom:.25rem;" title="{{ section.label }} pool: themes with approximately {{ section_tip.get(section.label, '') }} available for your commander.">{{ section.label }} Pool ({{ section.themes|length }})</div>
+          <div style="display:flex; gap:.35rem; flex-wrap:wrap;">
+            {% for t in section.themes %}
+              {% set pool_count = pool_size.get(t|slugify, 0) if pool_size else 0 %}
+              <button type="button" class="chip" data-tag="{{ t }}" data-pool-size="{{ pool_count }}" title="Pool size: approximately {{ pool_count }} cards available for this theme">{{ t }} <span class="badge badge-pool">{{ pool_count }}</span></button>
+            {% endfor %}
+          </div>
+        </div>
+      {% endfor %}
+    {% else %}
+      {# R21: Flat sorted general themes #}
+      {% for t in tags %}
+        {% set pool_count = pool_size.get(t|slugify, 0) if pool_size else 0 %}
+        <button type="button" class="chip" data-tag="{{ t }}" data-pool-size="{{ pool_count }}" title="Pool size: approximately {{ pool_count }} cards available for this theme">{{ t }} <span class="badge badge-pool">{{ pool_count }}</span></button>
+      {% endfor %}
+    {% endif %}
   </div>
   {% else %}
     <p class="muted">No theme tags available for this commander.</p>
@@ -225,73 +260,162 @@
   }
   document.querySelectorAll('input[name="combine_mode_radio"]').forEach(function(r){ r.addEventListener('change', function(){ if(mode){ mode.value = r.value; } }); });
   
+  function makeChip(tag, isPartner, poolSizeMap) {
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'chip' + (isPartner ? ' partner-added' : '');
+    btn.dataset.tag = tag;
+    var poolCount = (poolSizeMap && poolSizeMap[tag.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')]) || 0;
+    btn.dataset.poolSize = poolCount;
+    btn.title = isPartner ? 'From combined partner themes' : ('Pool size: approximately ' + poolCount + ' cards available for this theme');
+    btn.innerHTML = tag + (poolCount ? ' <span class="badge badge-pool">' + poolCount + '</span>' : '');
+    return btn;
+  }
+
   function updatePartnerTags(partnerTags){
     if (!list || !reco) return;
+    
+    // Only rebuild if there are actually partner tags to add
+    var hasPartnerTags = Array.isArray(partnerTags) && partnerTags.length > 0;
+    if (!hasPartnerTags) {
+      // No partner tags, leave DOM structure intact (preserves sections)
+      updateUI();
+      return;
+    }
+
+    var useSections = list.dataset.useSections === '1';
+    var poolSizeMap = {};
+    try { poolSizeMap = JSON.parse(list.dataset.poolSize || '{}'); } catch(_) {}
+    var sections = [];
+    try { sections = JSON.parse(list.dataset.sections || '[]'); } catch(_) {}
     
     // Remove old partner-added chips from available list
     Array.from(list.querySelectorAll('button.partner-added')).forEach(function(btn){ btn.remove(); });
     
     // Deduplicate: remove partner tags from recommended section to avoid showing them twice
-    if (partnerTags && partnerTags.length > 0) {
-      var partnerTagsLower = partnerTags.map(function(t){ return String(t || '').trim().toLowerCase(); });
-      Array.from(reco.querySelectorAll('button.chip-reco:not(.partner-original)')).forEach(function(btn){
-        var tag = btn.dataset.tag || '';
-        if (partnerTagsLower.indexOf(tag.toLowerCase()) >= 0) {
-          btn.remove();
+    var partnerTagsLower = partnerTags.map(function(t){ return String(t || '').trim().toLowerCase(); });
+    Array.from(reco.querySelectorAll('button.chip-reco:not(.partner-original)')).forEach(function(btn){
+      var tag = btn.dataset.tag || '';
+      if (partnerTagsLower.indexOf(tag.toLowerCase()) >= 0) {
+        btn.remove();
+      }
+    });
+
+    if (useSections && sections.length) {
+      // Section thresholds (must match Python _section_themes_by_pool_size)
+      var THRESHOLDS = [
+        {label: 'Vast', min: 1000, tip: '1000+ cards'},
+        {label: 'Large', min: 500, tip: '500\u2013999 cards'},
+        {label: 'Moderate', min: 200, tip: '200\u2013499 cards'},
+        {label: 'Small', min: 50, tip: '50\u2013199 cards'},
+        {label: 'Tiny', min: 0, tip: 'fewer than 50 cards'},
+      ];
+      function slugify(str) { return str.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
+      function getSectionLabel(poolCount) {
+        for (var i = 0; i < THRESHOLDS.length; i++) {
+          if (poolCount >= THRESHOLDS[i].min) return THRESHOLDS[i].label;
+        }
+        return 'Tiny';
+      }
+
+      // Gather all existing original chips (keyed by lowercase tag)
+      var existingChips = {};
+      Array.from(list.querySelectorAll('button.chip:not(.partner-added)')).forEach(function(b){
+        var tag = (b.dataset.tag || '').trim();
+        if (tag) existingChips[tag.toLowerCase()] = b;
+      });
+
+      // Collect all tags: primary (from sections) + partner (new), deduplicated
+      var allTagMap = {}; // lowercase -> {tag, element, isPartner}
+      sections.forEach(function(sec){
+        (sec.themes || []).forEach(function(t){
+          var key = t.toLowerCase();
+          if (!allTagMap[key]) allTagMap[key] = {tag: t, element: existingChips[key] || null, isPartner: false};
+        });
+      });
+      partnerTags.forEach(function(t){
+        var value = String(t || '').trim();
+        if (!value) return;
+        var key = value.toLowerCase();
+        if (!allTagMap[key]) allTagMap[key] = {tag: value, element: null, isPartner: true};
+      });
+
+      // Bucket all tags into sections by pool size
+      var sectionBuckets = {};
+      THRESHOLDS.forEach(function(s){ sectionBuckets[s.label] = []; });
+      Object.keys(allTagMap).forEach(function(key){
+        var item = allTagMap[key];
+        var poolCount = poolSizeMap[slugify(item.tag)] || 0;
+        var label = getSectionLabel(poolCount);
+        sectionBuckets[label].push({tag: item.tag, poolCount: poolCount, element: item.element, isPartner: item.isPartner});
+      });
+      // Sort each bucket by pool size desc, then alphabetically
+      THRESHOLDS.forEach(function(s){
+        sectionBuckets[s.label].sort(function(a, b){
+          if (b.poolCount !== a.poolCount) return b.poolCount - a.poolCount;
+          return a.tag.localeCompare(b.tag);
+        });
+      });
+
+      list.innerHTML = '';
+      THRESHOLDS.forEach(function(s){
+        var bucket = sectionBuckets[s.label];
+        if (!bucket.length) return;
+        var secDiv = document.createElement('div');
+        secDiv.style.cssText = 'width:100%; margin-bottom:.5rem;';
+        var labelDiv = document.createElement('div');
+        labelDiv.className = 'muted';
+        labelDiv.style.cssText = 'font-size:11px; margin-bottom:.25rem;';
+        labelDiv.title = s.label + ' pool: themes with approximately ' + s.tip + ' available for your commander.';
+        labelDiv.textContent = s.label + ' Pool (' + bucket.length + ')';
+        secDiv.appendChild(labelDiv);
+        var innerDiv = document.createElement('div');
+        innerDiv.style.cssText = 'display:flex; gap:.35rem; flex-wrap:wrap;';
+        bucket.forEach(function(item){
+          if (item.element) {
+            innerDiv.appendChild(item.element);
+          } else {
+            innerDiv.appendChild(makeChip(item.tag, item.isPartner, poolSizeMap));
+          }
+        });
+        secDiv.appendChild(innerDiv);
+        list.appendChild(secDiv);
+      });
+    } else {
+      // Flat mode: get existing tags, merge partner tags, sort, re-render
+      var existingTags = Array.from(list.querySelectorAll('button.chip:not(.partner-added)')).map(function(b){ 
+        return {
+          element: b,
+          tag: (b.dataset.tag || '').trim(),
+          tagLower: (b.dataset.tag || '').trim().toLowerCase()
+        };
+      });
+      
+      var combined = [];
+      var seen = new Set();
+      existingTags.forEach(function(item){
+        if (!item.tag || seen.has(item.tagLower)) return;
+        seen.add(item.tagLower);
+        combined.push({ tag: item.tag, element: item.element, isPartner: false });
+      });
+      partnerTags.forEach(function(tag){
+        var value = String(tag || '').trim();
+        if (!value) return;
+        var key = value.toLowerCase();
+        if (seen.has(key)) return;
+        seen.add(key);
+        combined.push({ tag: value, element: null, isPartner: true });
+      });
+      combined.sort(function(a, b){ return a.tag.localeCompare(b.tag); });
+      list.innerHTML = '';
+      combined.forEach(function(item){
+        if (item.element) {
+          list.appendChild(item.element);
+        } else {
+          list.appendChild(makeChip(item.tag, true, poolSizeMap));
         }
       });
     }
-    
-    // Get existing tags from the available list (original server-rendered ones)
-    var existingTags = Array.from(list.querySelectorAll('button.chip:not(.partner-added)')).map(function(b){ 
-      return {
-        element: b,
-        tag: (b.dataset.tag || '').trim(),
-        tagLower: (b.dataset.tag || '').trim().toLowerCase()
-      };
-    });
-    
-    // Build combined list: existing + new partner tags
-    var combined = [];
-    var seen = new Set();
-    
-    // Add existing tags first
-    existingTags.forEach(function(item){
-      if (!item.tag || seen.has(item.tagLower)) return;
-      seen.add(item.tagLower);
-      combined.push({ tag: item.tag, element: item.element, isPartner: false });
-    });
-    
-    // Add new partner tags
-    (Array.isArray(partnerTags) ? partnerTags : []).forEach(function(tag){
-      var value = String(tag || '').trim();
-      if (!value) return;
-      var key = value.toLowerCase();
-      if (seen.has(key)) return;
-      seen.add(key);
-      combined.push({ tag: value, element: null, isPartner: true });
-    });
-    
-    // Sort alphabetically
-    combined.sort(function(a, b){ return a.tag.localeCompare(b.tag); });
-    
-    // Re-render the list in sorted order
-    list.innerHTML = '';
-    combined.forEach(function(item){
-      if (item.element) {
-        // Re-append existing element
-        list.appendChild(item.element);
-      } else {
-        // Create new partner-added chip
-        var btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'chip partner-added';
-        btn.dataset.tag = item.tag;
-        btn.title = 'From combined partner themes';
-        btn.textContent = item.tag;
-        list.appendChild(btn);
-      }
-    });
     
     // Update visibility of recommended section
     var hasAnyReco = reco.querySelectorAll('button.chip-reco').length > 0;

@@ -130,6 +130,10 @@ def card_image_url(card_name: str, size: str = "normal") -> str:
 
 templates.env.filters["card_image"] = card_image_url
 
+# Add slugify filter for theme slugification (R21 M2)
+from .services.theme_catalog_loader import slugify as _slugify
+templates.env.filters["slugify"] = _slugify
+
 # Compatibility shim: accept legacy TemplateResponse(name, {"request": request, ...})
 # and reorder to the new signature TemplateResponse(request, name, {...}).
 # Prevents DeprecationWarning noise in tests without touching all call sites.
@@ -179,6 +183,7 @@ SHOW_THEME_QUALITY_BADGES = _as_bool(os.getenv("SHOW_THEME_QUALITY_BADGES"), Tru
 SHOW_THEME_POOL_BADGES = _as_bool(os.getenv("SHOW_THEME_POOL_BADGES"), True)
 SHOW_THEME_POPULARITY_BADGES = _as_bool(os.getenv("SHOW_THEME_POPULARITY_BADGES"), True)
 SHOW_THEME_FILTERS = _as_bool(os.getenv("SHOW_THEME_FILTERS"), True)
+THEME_POOL_SECTIONS = _as_bool(os.getenv("THEME_POOL_SECTIONS"), False)  # R21: Group themes by pool size
 WEB_IDEALS_UI = os.getenv("WEB_IDEALS_UI", "slider").strip().lower()  # 'input' or 'slider'
 ENABLE_PARTNER_MECHANICS = _as_bool(os.getenv("ENABLE_PARTNER_GESTIONS"), True)
 ENABLE_BATCH_BUILD = _as_bool(os.getenv("ENABLE_BATCH_BUILD"), True)

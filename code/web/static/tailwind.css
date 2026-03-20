@@ -2732,6 +2732,20 @@ img.lqip.loaded { filter: blur(0); opacity: 1; }
 	color: #fff;
 }
 
+/* Pool size badge for chip context (R21 M2) */
+.badge-pool {
+	font-size: 10px;
+	color: #6b7280;
+	background: transparent;
+	font-weight: 400;
+	padding: 0;
+	margin-left: .15rem;
+}
+
+.chip.active .badge-pool {
+	color: #93c5fd;  /* lighter blue for active chips */
+}
+
 /* Legacy lifecycle quality badges (draft/reviewed/final) */
 .badge-quality-draft {
 	background: #4338ca;

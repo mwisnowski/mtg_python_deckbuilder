@@ -16,7 +16,7 @@ from fastapi import APIRouter, Request, Form, Query
 from fastapi.responses import HTMLResponse
 from typing import Any
 
-from ..app import templates, ENABLE_PARTNER_MECHANICS
+from ..app import templates, ENABLE_PARTNER_MECHANICS, THEME_POOL_SECTIONS
 from ..services.build_utils import (
     step5_base_ctx,
     step5_ctx_from_result,
@@ -30,6 +30,7 @@ from ..services.build_utils import (
 )
 from ..services import orchestrator as orch
 from ..services.tasks import get_session, new_sid
+from ..services.theme_catalog_loader import load_index, slugify
 from deck_builder import builder_constants as bc
 from ..services.combo_utils import detect_all as _detect_all
 from .build_partners import _partner_ui_context, _resolve_partner_selection
@@ -77,6 +78,71 @@ def _step5_summary_placeholder_html(token: int, *, message: str | None = None) -
         f'<div class="muted" style="margin-top:1rem;">{_esc(text)}</div>'
         '</div>'
     )
+
+
+def _prepare_step2_theme_data(tags: list[str], recommended: list[str]) -> tuple[list[str], list[str], dict[str, int]]:
+    """
+    Load pool size data and sort themes for Step 2 display (R21).
+    
+    Returns:
+        Tuple of (sorted_tags, sorted_recommended, pool_size_dict)
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    # Load theme pool size data (R21 M1)
+    try:
+        theme_index = load_index()
+        pool_size_by_slug = theme_index.pool_size_by_slug
+    except Exception as e:
+        logger.warning(f"Failed to load theme index for pool sizes: {e}")
+        pool_size_by_slug = {}
+    
+    # Sort themes by pool size (descending), then alphabetically (R21 M1)
+    def sort_by_pool_size(theme_list: list[str]) -> list[str]:
+        """Sort themes by pool size (desc), then alphabetically."""
+        return sorted(
+            theme_list,
+            key=lambda t: (-pool_size_by_slug.get(slugify(t), 0), t.lower())
+        )
+    
+    tags_sorted = sort_by_pool_size(tags)
+    recommended_sorted = sort_by_pool_size(recommended)
+    
+    return tags_sorted, recommended_sorted, pool_size_by_slug
+
+
+def _section_themes_by_pool_size(themes: list[str], pool_size: dict[str, int]) -> list[dict[str, Any]]:
+    """
+    Group themes into sections by pool size (R21 enhancement).
+    
+    Thresholds:
+    - Vast: 1000+
+    - Large: 500-999
+    - Moderate: 200-499
+    - Small: 50-199
+    - Tiny: <50
+    
+    Returns:
+        List of section dicts with 'label' and 'themes' keys
+    """
+    sections = [
+        {"label": "Vast", "min": 1000, "max": 9999999, "themes": []},
+        {"label": "Large", "min": 500, "max": 999, "themes": []},
+        {"label": "Moderate", "min": 200, "max": 499, "themes": []},
+        {"label": "Small", "min": 50, "max": 199, "themes": []},
+        {"label": "Tiny", "min": 0, "max": 49, "themes": []},
+    ]
+    
+    for theme in themes:
+        theme_pool = pool_size.get(slugify(theme), 0)
+        for section in sections:
+            if section["min"] <= theme_pool <= section["max"]:
+                section["themes"].append(theme)
+                break
+    
+    # Remove empty sections
+    return [s for s in sections if s["themes"]]
 
 
 def _current_builder_summary(sess: dict) -> Any | None:
@@ -148,16 +214,32 @@ async def build_step1_search(
                 sess["last_step"] = 2
                 commander_name = res.get("name")
                 gc_flag = commander_name in getattr(bc, 'GAME_CHANGERS', [])
+                
+                tags_raw = orch.tags_for_commander(commander_name)
+                recommended_raw = orch.recommended_tags_for_commander(commander_name)
+                tags_sorted, recommended_sorted, pool_size = _prepare_step2_theme_data(tags_raw, recommended_raw)
+                
+                # R21: Section themes by pool size if enabled
+                tag_sections = []
+                recommended_sections = []
+                if THEME_POOL_SECTIONS:
+                    tag_sections = _section_themes_by_pool_size(tags_sorted, pool_size)
+                    recommended_sections = _section_themes_by_pool_size(recommended_sorted, pool_size)
+                
                 context = {
                     "request": request,
                     "commander": res,
-                    "tags": orch.tags_for_commander(commander_name),
-                    "recommended": orch.recommended_tags_for_commander(commander_name),
+                    "tags": tags_sorted,
+                    "recommended": recommended_sorted,
                     "recommended_reasons": orch.recommended_tag_reasons_for_commander(commander_name),
                     "brackets": orch.bracket_options(),
                     "gc_commander": gc_flag,
                     "selected_bracket": (3 if gc_flag else None),
                     "clear_persisted": True,
+                    "pool_size": pool_size,
+                    "use_sections": THEME_POOL_SECTIONS,
+                    "tag_sections": tag_sections,
+                    "recommended_sections": recommended_sections,
                 }
                 context.update(
                     _partner_ui_context(
@@ -251,11 +333,23 @@ async def build_step1_confirm(request: Request, name: str = Form(...)) -> HTMLRe
         is_gc = bool(res.get("name") in getattr(bc, 'GAME_CHANGERS', []))
     except Exception:
         is_gc = False
+    
+    tags_raw = orch.tags_for_commander(res["name"])
+    recommended_raw = orch.recommended_tags_for_commander(res["name"])
+    tags_sorted, recommended_sorted, pool_size = _prepare_step2_theme_data(tags_raw, recommended_raw)
+    
+    # R21: Section themes by pool size if enabled
+    tag_sections = []
+    recommended_sections = []
+    if THEME_POOL_SECTIONS:
+        tag_sections = _section_themes_by_pool_size(tags_sorted, pool_size)
+        recommended_sections = _section_themes_by_pool_size(recommended_sorted, pool_size)
+    
     context = {
         "request": request,
         "commander": res,
-        "tags": orch.tags_for_commander(res["name"]),
-        "recommended": orch.recommended_tags_for_commander(res["name"]),
+        "tags": tags_sorted,
+        "recommended": recommended_sorted,
         "recommended_reasons": orch.recommended_tag_reasons_for_commander(res["name"]),
         "brackets": orch.bracket_options(),
         "gc_commander": is_gc,
@@ -263,6 +357,10 @@ async def build_step1_confirm(request: Request, name: str = Form(...)) -> HTMLRe
         # Signal that this navigation came from a fresh commander confirmation,
         # so the Step 2 UI should clear any localStorage theme persistence.
         "clear_persisted": True,
+        "pool_size": pool_size,
+        "use_sections": THEME_POOL_SECTIONS,
+        "tag_sections": tag_sections,
+        "recommended_sections": recommended_sections,
     }
     context.update(
         _partner_ui_context(
@@ -340,11 +438,23 @@ async def build_step2_get(request: Request) -> HTMLResponse:
     logger = logging.getLogger(__name__)
     logger.info(f"Step2 GET: commander={commander}, partner_enabled={partner_enabled}, secondary={sess.get('secondary_commander')}")
     
+    # Load theme pool size data and sort themes (R21 M1)
+    tags_raw = orch.tags_for_commander(commander)
+    recommended_raw = orch.recommended_tags_for_commander(commander)
+    tags_sorted, recommended_sorted, pool_size = _prepare_step2_theme_data(tags_raw, recommended_raw)
+    
+    # R21 Enhancement: Section themes by pool size if enabled
+    tag_sections = []
+    recommended_sections = []
+    if THEME_POOL_SECTIONS:
+        tag_sections = _section_themes_by_pool_size(tags_sorted, pool_size)
+        recommended_sections = _section_themes_by_pool_size(recommended_sorted, pool_size)
+    
     context = {
         "request": request,
         "commander": {"name": commander},
-        "tags": tags,
-        "recommended": orch.recommended_tags_for_commander(commander),
+        "tags": tags_sorted,
+        "recommended": recommended_sorted,
         "recommended_reasons": orch.recommended_tag_reasons_for_commander(commander),
         "brackets": orch.bracket_options(),
         "primary_tag": selected[0] if len(selected) > 0 else "",
@@ -356,6 +466,10 @@ async def build_step2_get(request: Request) -> HTMLResponse:
         # If there are no server-side tags for this commander, let the client clear any persisted ones
         # to avoid themes sticking between fresh runs.
         "clear_persisted": False if selected else True,
+        "pool_size": pool_size,  # R21 M1: Pass pool size data to template
+        "use_sections": THEME_POOL_SECTIONS,  # R21: Flag for template
+        "tag_sections": tag_sections,  # R21: Sectioned themes
+        "recommended_sections": recommended_sections,  # R21: Sectioned recommendations
     }
     context.update(
         _partner_ui_context(
@@ -375,7 +489,9 @@ async def build_step2_get(request: Request) -> HTMLResponse:
     if partner_tags:
         import logging
         logger = logging.getLogger(__name__)
-        context["tags"] = partner_tags
+        # Re-sort partner tags by pool size using helper (R21 M1)
+        partner_tags_sorted, _, _ = _prepare_step2_theme_data(partner_tags, [])
+        context["tags"] = partner_tags_sorted
         # Deduplicate recommended tags: remove any that are already in partner_tags
         partner_tags_lower = {str(tag).strip().casefold() for tag in partner_tags}
         original_recommended = context.get("recommended", [])
@@ -383,12 +499,14 @@ async def build_step2_get(request: Request) -> HTMLResponse:
             tag for tag in original_recommended
             if str(tag).strip().casefold() not in partner_tags_lower
         ]
+        # Re-sort deduplicated recommended tags using helper (R21 M1)
+        dedup_sorted, _, _ = _prepare_step2_theme_data(deduplicated_recommended, [])
         logger.info(
             f"Step2: partner_tags={len(partner_tags)}, "
             f"original_recommended={len(original_recommended)}, "
             f"deduplicated_recommended={len(deduplicated_recommended)}"
         )
-        context["recommended"] = deduplicated_recommended
+        context["recommended"] = dedup_sorted
     resp = templates.TemplateResponse("build/_step2.html", context)
     resp.set_cookie("sid", sid, httponly=True, samesite="lax")
     return resp
@@ -436,11 +554,22 @@ async def build_step2_submit(
             sel_br = None
         if is_gc and (sel_br is None or sel_br < 3):
             sel_br = 3
+        
+        recommended_raw = orch.recommended_tags_for_commander(commander)
+        available_tags_sorted, recommended_sorted, pool_size = _prepare_step2_theme_data(available_tags, recommended_raw)
+        
+        # R21: Section themes by pool size if enabled
+        tag_sections = []
+        recommended_sections = []
+        if THEME_POOL_SECTIONS:
+            tag_sections = _section_themes_by_pool_size(available_tags_sorted, pool_size)
+            recommended_sections = _section_themes_by_pool_size(recommended_sorted, pool_size)
+        
         context = {
             "request": request,
             "commander": {"name": commander},
-            "tags": available_tags,
-            "recommended": orch.recommended_tags_for_commander(commander),
+            "tags": available_tags_sorted,
+            "recommended": recommended_sorted,
             "recommended_reasons": orch.recommended_tag_reasons_for_commander(commander),
             "brackets": orch.bracket_options(),
             "error": "Please choose a primary theme.",
@@ -450,6 +579,10 @@ async def build_step2_submit(
             "selected_bracket": sel_br,
             "tag_mode": (tag_mode or "AND"),
             "gc_commander": is_gc,
+            "pool_size": pool_size,
+            "use_sections": THEME_POOL_SECTIONS,
+            "tag_sections": tag_sections,
+            "recommended_sections": recommended_sections,
         }
         context.update(
             _partner_ui_context(
@@ -467,7 +600,8 @@ async def build_step2_submit(
         )
         partner_tags = context.pop("partner_theme_tags", None)
         if partner_tags:
-            context["tags"] = partner_tags
+            partner_tags_sorted, _, _ = _prepare_step2_theme_data(partner_tags, [])
+            context["tags"] = partner_tags_sorted
         resp = templates.TemplateResponse("build/_step2.html", context)
         resp.set_cookie("sid", sid, httponly=True, samesite="lax")
         return resp
@@ -508,11 +642,22 @@ async def build_step2_submit(
             sel_br = int(bracket)
         except Exception:
             sel_br = None
+        
+        recommended_raw = orch.recommended_tags_for_commander(commander)
+        available_tags_sorted, recommended_sorted, pool_size = _prepare_step2_theme_data(available_tags, recommended_raw)
+        
+        # R21: Section themes by pool size if enabled
+        tag_sections = []
+        recommended_sections = []
+        if THEME_POOL_SECTIONS:
+            tag_sections = _section_themes_by_pool_size(available_tags_sorted, pool_size)
+            recommended_sections = _section_themes_by_pool_size(recommended_sorted, pool_size)
+        
         context: dict[str, Any] = {
             "request": request,
             "commander": {"name": commander},
-            "tags": available_tags,
-            "recommended": orch.recommended_tags_for_commander(commander),
+            "tags": available_tags_sorted,
+            "recommended": recommended_sorted,
             "recommended_reasons": orch.recommended_tag_reasons_for_commander(commander),
             "brackets": orch.bracket_options(),
             "primary_tag": primary_tag or "",
@@ -522,6 +667,10 @@ async def build_step2_submit(
             "tag_mode": (tag_mode or "AND"),
             "gc_commander": is_gc,
             "error": None,
+            "pool_size": pool_size,
+            "use_sections": THEME_POOL_SECTIONS,
+            "tag_sections": tag_sections,
+            "recommended_sections": recommended_sections,
         }
         context.update(
             _partner_ui_context(
@@ -539,7 +688,8 @@ async def build_step2_submit(
         )
         partner_tags = context.pop("partner_theme_tags", None)
         if partner_tags:
-            context["tags"] = partner_tags
+            partner_tags_sorted, _, _ = _prepare_step2_theme_data(partner_tags, [])
+            context["tags"] = partner_tags_sorted
         resp = templates.TemplateResponse("build/_step2.html", context)
         resp.set_cookie("sid", sid, httponly=True, samesite="lax")
         return resp

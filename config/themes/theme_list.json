@@ -1,15 +1,6 @@
 {
   "themes": [
     {
-      "id": "blood-counters",
-      "theme": " Blood Counters",
-      "synergies": [],
-      "primary_color": "Black",
-      "secondary_color": "Blue",
-      "popularity_bucket": "Rare",
-      "description": "Uses Blood tokens to loot, set up graveyard recursion, and trigger discard/madness payoffs."
-    },
-    {
       "id": "plus1-plus1-counters",
       "theme": "+1/+1 Counters",
       "synergies": [
@@ -25594,7 +25585,6 @@
       "Rat Kindred": 17,
       "Spell Copy": 138,
       "Demon Kindred": 19,
-      " Blood Counters": 2,
       "Blood Token": 4,
       "Vampire Kindred": 29,
       "Ape Kindred": 2,
@@ -26321,7 +26311,6 @@
       "Faerie Kindred": 53,
       "Rat Kindred": 109,
       "Spell Copy": 29,
-      " Blood Counters": 4,
       "Vampire Kindred": 357,
       "Ape Kindred": 3,
       "Leviathan Kindred": 2,
@@ -27189,7 +27178,6 @@
       "Threshold": 13,
       "Mystic Kindred": 1,
       "Thrull Kindred": 1,
-      " Blood Counters": 1,
       "Faerie Kindred": 8,
       "Troll Kindred": 7,
       "Pilot Kindred": 20,
@@ -27656,7 +27644,6 @@
       "Faerie Kindred": 25,
       "Rat Kindred": 2,
       "Spell Copy": 35,
-      " Blood Counters": 1,
       "Vampire Kindred": 4,
       "Ape Kindred": 30,
       "Leviathan Kindred": 9,

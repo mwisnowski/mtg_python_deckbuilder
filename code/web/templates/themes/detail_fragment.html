@@ -18,10 +18,148 @@
     {% endif %}
   {% endif %}
   <div class="text-xs mb-2 flex gap-2 flex-wrap">
-  {% if theme.popularity_bucket %}<span class="theme-badge {% if theme.popularity_bucket=='Very Common' %}badge-pop-vc{% elif theme.popularity_bucket=='Common' %}badge-pop-c{% elif theme.popularity_bucket=='Uncommon' %}badge-pop-u{% elif theme.popularity_bucket=='Niche' %}badge-pop-n{% elif theme.popularity_bucket=='Rare' %}badge-pop-r{% endif %}" title="Popularity: {{ theme.popularity_bucket }}" aria-label="Popularity bucket: {{ theme.popularity_bucket }}">{{ theme.popularity_bucket }}</span>{% endif %}
+  {% if show_theme_popularity_badges and theme.popularity_bucket %}<span class="theme-badge {% if theme.popularity_bucket=='Very Common' %}badge-pop-vc{% elif theme.popularity_bucket=='Common' %}badge-pop-c{% elif theme.popularity_bucket=='Uncommon' %}badge-pop-u{% elif theme.popularity_bucket=='Niche' %}badge-pop-n{% elif theme.popularity_bucket=='Rare' %}badge-pop-r{% endif %}" title="Popularity: {{ theme.popularity_bucket }}" aria-label="Popularity bucket: {{ theme.popularity_bucket }}">{{ theme.popularity_bucket }}</span>{% endif %}
+  {% if show_theme_quality_badges and theme.quality_tier %}<span class="theme-badge badge-quality-{{ theme.quality_tier|lower }}" title="Quality: {{ theme.quality_tier }} ({{ (theme.quality_score * 100)|round|int }}%)" aria-label="Quality tier: {{ theme.quality_tier }}">{{ theme.quality_tier }}</span>{% endif %}
+  {% if show_theme_pool_badges and theme.pool_tier %}<span class="theme-badge badge-pool-{{ theme.pool_tier|lower }}" title="Pool: {{ theme.pool_tier }} (~{{ theme.pool_size }} cards)" aria-label="Pool tier: {{ theme.pool_tier }}">{{ theme.pool_tier }}</span>{% endif %}
   {% if diagnostics and theme.editorial_quality %}<span class="theme-badge badge-quality-{{ theme.editorial_quality }}" title="Editorial quality: {{ theme.editorial_quality }}" aria-label="Editorial quality: {{ theme.editorial_quality }}">{{ theme.editorial_quality }}</span>{% endif %}
   {% if diagnostics and theme.has_fallback_description %}<span class="theme-badge badge-fallback" title="Fallback generic description" aria-label="Fallback generic description">Fallback</span>{% endif %}
   </div>
+
+  <!-- Badge Explanations -->
+  {% if (show_theme_quality_badges and theme.quality_tier) or (show_theme_pool_badges and theme.pool_tier) or (show_theme_popularity_badges and theme.popularity_bucket) %}
+  <details class="mt-3 text-xs" style="max-width: 800px;" open>
+    <summary class="cursor-pointer opacity-70 hover:opacity-100 font-semibold" style="user-select: none;">
+      ℹ️ Badge Details
+    </summary>
+    <div class="mt-2 space-y-3 px-4 py-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700">
+    
+    {% if show_theme_quality_badges and theme.quality_tier %}
+    <div class="badge-explanation">
+      <div class="flex items-start gap-2">
+        <span class="theme-badge badge-quality-{{ theme.quality_tier|lower }} flex-shrink-0" 
+              title="Quality: {{ theme.quality_tier }} ({{ (theme.quality_score * 100)|round|int }}%)">
+          {{ theme.quality_tier }}
+        </span>
+        <div class="flex-1 text-sm text-gray-700 dark:text-gray-300">
+          <strong>Quality Score:</strong> {{ (theme.quality_score * 100)|round|int }}%
+          <ul class="mt-1 ml-4 list-disc space-y-0.5 text-xs text-gray-600 dark:text-gray-400">
+            {% if theme.quality_score >= 0.70 %}
+            <li>High card count and unique synergies ({{ theme.synergy_count }} synergies)</li>
+            {% elif theme.quality_score >= 0.60 %}
+            <li>Good card selection with {{ theme.synergy_count }} documented synergies</li>
+            {% elif theme.quality_score >= 0.40 %}
+            <li>Moderate card pool with {{ theme.synergy_count }} synergies</li>
+            {% else %}
+            <li>Limited card pool and synergies ({{ theme.synergy_count }} synergies)</li>
+            {% endif %}
+            
+            {% if theme.has_fallback_description %}
+            <li>Auto-generated description (could benefit from custom curation)</li>
+            {% else %}
+            <li>Custom curated description</li>
+            {% endif %}
+            
+            {% if theme.curated_synergies or theme.enforced_synergies or theme.inferred_synergies %}
+            <li>Synergy breakdown: {{ theme.curated_synergies|length }} curated, {{ theme.enforced_synergies|length }} enforced, {{ theme.inferred_synergies|length }} inferred</li>
+            {% else %}
+            <li>No synergy breakdown available</li>
+            {% endif %}
+            
+            {% if theme.deck_archetype %}
+            <li>Deck archetype: {{ theme.deck_archetype }}</li>
+            {% else %}
+            <li>No deck archetype classification</li>
+            {% endif %}
+            
+            {% if theme.editorial_quality == 'final' %}
+            <li>Fully reviewed and curated (editorial status: final)</li>
+            {% elif theme.editorial_quality == 'refined' %}
+            <li>Reviewed and refined (editorial status: refined)</li>
+            {% elif theme.editorial_quality == 'draft' %}
+            <li>Draft quality (editorial status: draft)</li>
+            {% elif theme.editorial_quality == 'auto' %}
+            <li>Auto-generated content (editorial status: auto)</li>
+            {% endif %}
+          </ul>
+          <div class="mt-2 text-xs text-gray-500 dark:text-gray-500">💡 <a href="https://github.com/mwisnowski/mtg_python_deckbuilder" target="_blank" rel="noopener noreferrer" class="underline hover:text-gray-700 dark:hover:text-gray-300">Help improve theme quality on GitHub</a></div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if show_theme_pool_badges and theme.pool_tier %}
+    <div class="badge-explanation">
+      <div class="flex items-start gap-2">
+        <span class="theme-badge badge-pool-{{ theme.pool_tier|lower }} flex-shrink-0"
+              title="Pool: {{ theme.pool_tier }} (~{{ theme.pool_size }} cards)">
+          {{ theme.pool_tier }}
+        </span>
+        <div class="flex-1 text-sm text-gray-700 dark:text-gray-300">
+          <strong>Card Pool Size:</strong> ~{{ theme.pool_size }} cards available
+          <ul class="mt-1 ml-4 list-disc space-y-0.5 text-xs text-gray-600 dark:text-gray-400">
+            {% if theme.pool_tier == 'Vast' %}
+            <li>Extensive card selection with {{ theme.pool_size }}+ cards available for deckbuilding</li>
+            <li>Provides maximum flexibility and optimization potential</li>
+            {% elif theme.pool_tier == 'Large' %}
+            <li>Large card selection with {{ theme.pool_size }} cards available</li>
+            <li>Offers strong flexibility for different deck strategies</li>
+            {% elif theme.pool_tier == 'Moderate' %}
+            <li>Moderate selection with {{ theme.pool_size }} cards available</li>
+            <li>Sufficient options for focused deck strategies</li>
+            {% elif theme.pool_tier == 'Small' %}
+            <li>Limited selection with {{ theme.pool_size }} cards available</li>
+            <li>May require creative deckbuilding approaches</li>
+            {% elif theme.pool_tier == 'Tiny' %}
+            <li>Very limited pool with only {{ theme.pool_size }} cards available</li>
+            <li>Highly focused niche theme with restricted card choices</li>
+            {% endif %}
+          </ul>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if show_theme_popularity_badges and theme.popularity_bucket %}
+    <div class="badge-explanation">
+      <div class="flex items-start gap-2">
+        <span class="theme-badge {% if theme.popularity_bucket=='Very Common' %}badge-pop-vc{% elif theme.popularity_bucket=='Common' %}badge-pop-c{% elif theme.popularity_bucket=='Uncommon' %}badge-pop-u{% elif theme.popularity_bucket=='Niche' %}badge-pop-n{% elif theme.popularity_bucket=='Rare' %}badge-pop-r{% endif %} flex-shrink-0"
+              title="Popularity: {{ theme.popularity_bucket }}">
+          {{ theme.popularity_bucket }}
+        </span>
+        <div class="flex-1 text-sm text-gray-700 dark:text-gray-300">
+          <strong>Theme Popularity:</strong> {{ theme.popularity_bucket }}
+          <ul class="mt-1 ml-4 list-disc space-y-0.5 text-xs text-gray-600 dark:text-gray-400">
+            {% if theme.popularity_bucket == 'Very Common' %}
+            <li>Extremely popular theme seen in many commander decks</li>
+            <li>High adoption rate across diverse commanders and strategies</li>
+            <li>Well-established with extensive community support and resources</li>
+            {% elif theme.popularity_bucket == 'Common' %}
+            <li>Popular theme frequently used in commander deckbuilding</li>
+            <li>Strong adoption rate with good community support</li>
+            <li>Well-documented strategies and card synergies available</li>
+            {% elif theme.popularity_bucket == 'Uncommon' %}
+            <li>Moderately popular theme with regular usage</li>
+            <li>Decent adoption rate, particularly in specific archetypes</li>
+            <li>Some community resources and discussion available</li>
+            {% elif theme.popularity_bucket == 'Niche' %}
+            <li>Specialized theme with limited but dedicated following</li>
+            <li>Lower adoption rate, often used in specific deck strategies</li>
+            <li>May require more research to optimize effectively</li>
+            {% elif theme.popularity_bucket == 'Rare' %}
+            <li>Rarely used theme with minimal adoption</li>
+            <li>Very low usage rate across commander decks</li>
+            <li>May offer unique deckbuilding opportunities for brewers</li>
+            {% endif %}
+          </ul>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    </div>
+  </details>
+  {% endif %}
+
   <div class="synergy-section">
     <h4>Synergies {% if not uncapped %}(capped){% endif %}</h4>
     <div class="theme-synergies">
@@ -46,7 +184,7 @@
       {% if theme.example_cards %}
         {% for c in theme.example_cards %}
         {% set base_c = (c.split(' - Synergy (')[0] if ' - Synergy (' in c else c) %}
-        <div class="ex-card card-sample text-center" data-card-name="{{ base_c }}" data-role="example_card" data-tags="{{ theme.synergies|join(', ') }}" data-original-name="{{ c }}">
+        <div class="ex-card text-center" data-card-name="{{ base_c }}" data-role="example_card" data-tags="{{ theme.synergies|join(', ') }}" data-original-name="{{ c }}">
           <img class="card-thumb w-full h-auto border border-[var(--border)] rounded-[10px]" loading="lazy" decoding="async" alt="{{ c }} image" src="{{ base_c|card_image('small') }}" />
           <div class="text-[11px] mt-1 whitespace-nowrap overflow-hidden text-ellipsis font-semibold card-ref" data-card-name="{{ base_c }}" data-tags="{{ theme.synergies|join(', ') }}" data-original-name="{{ c }}">{{ c }}</div>
         </div>

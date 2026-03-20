@@ -13,7 +13,20 @@
 <ul class="list-none p-0 m-0 flex flex-col gap-2.5">
   {% for it in items %}
   <li class="theme-list-card">
-    <a href="/themes/{{ it.id }}" class="font-semibold text-sm no-underline text-[var(--text)]">{{ it.theme }}</a>
+    <div class="flex justify-between items-start gap-2">
+      <a href="/themes/{{ it.id }}" class="font-semibold text-sm no-underline text-[var(--text)]">{{ it.theme }}</a>
+      <div class="flex gap-1">
+        {% if show_theme_quality_badges and it.quality_tier %}
+          <span class="theme-badge badge-quality-{{ it.quality_tier|lower }}" title="Quality: {{ it.quality_tier }} ({{ (it.quality_score * 100)|round|int }}%)">{{ it.quality_tier[0]|upper }}</span>
+        {% endif %}
+        {% if show_theme_pool_badges and it.pool_tier %}
+          <span class="theme-badge badge-pool-{{ it.pool_tier|lower }}" title="Pool: {{ it.pool_tier }} (~{{ it.pool_size }} cards)">{{ it.pool_tier[0]|upper }}</span>
+        {% endif %}
+        {% if show_theme_popularity_badges and it.popularity_bucket %}
+          <span class="theme-badge {% if it.popularity_bucket=='Very Common' %}badge-pop-vc{% elif it.popularity_bucket=='Common' %}badge-pop-c{% elif it.popularity_bucket=='Uncommon' %}badge-pop-u{% elif it.popularity_bucket=='Niche' %}badge-pop-n{% elif it.popularity_bucket=='Rare' %}badge-pop-r{% endif %}" title="Popularity: {{ it.popularity_bucket }}">{{ it.popularity_bucket }}</span>
+        {% endif %}
+      </div>
+    </div>
     {% if it.short_description %}<div class="text-xs opacity-85 mt-0.5">{{ it.short_description }}</div>{% endif %}
   </li>
   {% endfor %}

@@ -175,6 +175,10 @@ ENABLE_PRESETS = _as_bool(os.getenv("ENABLE_PRESETS"), False)
 ALLOW_MUST_HAVES = _as_bool(os.getenv("ALLOW_MUST_HAVES"), True)
 SHOW_MUST_HAVE_BUTTONS = _as_bool(os.getenv("SHOW_MUST_HAVE_BUTTONS"), False)
 ENABLE_CUSTOM_THEMES = _as_bool(os.getenv("ENABLE_CUSTOM_THEMES"), True)
+SHOW_THEME_QUALITY_BADGES = _as_bool(os.getenv("SHOW_THEME_QUALITY_BADGES"), True)
+SHOW_THEME_POOL_BADGES = _as_bool(os.getenv("SHOW_THEME_POOL_BADGES"), True)
+SHOW_THEME_POPULARITY_BADGES = _as_bool(os.getenv("SHOW_THEME_POPULARITY_BADGES"), True)
+SHOW_THEME_FILTERS = _as_bool(os.getenv("SHOW_THEME_FILTERS"), True)
 WEB_IDEALS_UI = os.getenv("WEB_IDEALS_UI", "slider").strip().lower()  # 'input' or 'slider'
 ENABLE_PARTNER_MECHANICS = _as_bool(os.getenv("ENABLE_PARTNER_GESTIONS"), True)
 ENABLE_BATCH_BUILD = _as_bool(os.getenv("ENABLE_BATCH_BUILD"), True)
@@ -314,6 +318,10 @@ templates.env.globals.update({
     "enable_partner_mechanics": ENABLE_PARTNER_MECHANICS,
     "allow_must_haves": ALLOW_MUST_HAVES,
     "show_must_have_buttons": SHOW_MUST_HAVE_BUTTONS,
+    "show_theme_quality_badges": SHOW_THEME_QUALITY_BADGES,
+    "show_theme_pool_badges": SHOW_THEME_POOL_BADGES,
+    "show_theme_popularity_badges": SHOW_THEME_POPULARITY_BADGES,
+    "show_theme_filters": SHOW_THEME_FILTERS,
     "default_theme": DEFAULT_THEME,
     "random_modes": RANDOM_MODES,
     "random_ui": RANDOM_UI,
@@ -2531,7 +2539,34 @@ async def diagnostics_home(request: Request) -> HTMLResponse:
             summary["colors"] = {}
     except Exception:
         summary = {"updated_at": None, "colors": {}}
-    ctx = {"request": request, "merge_summary": summary}
+    
+    # Calculate quality statistics for preview
+    quality_stats = None
+    try:
+        from .services.theme_catalog_loader import load_index as _load_idx
+        idx = _load_idx()
+        total_themes = len(idx.catalog.themes)
+        tier_counts = {'Excellent': 0, 'Good': 0, 'Fair': 0, 'Poor': 0}
+        quality_scores = []
+        
+        for slug, tier in idx.quality_tier_by_slug.items():
+            if tier:
+                tier_counts[tier] = tier_counts.get(tier, 0) + 1
+            score = idx.quality_score_by_slug.get(slug)
+            if score is not None:
+                quality_scores.append(score)
+        
+        avg_quality_score = sum(quality_scores) / len(quality_scores) if quality_scores else 0.0
+        
+        quality_stats = {
+            'total_themes': total_themes,
+            'tier_counts': tier_counts,
+            'avg_quality_score': avg_quality_score,
+        }
+    except Exception:
+        pass
+    
+    ctx = {"request": request, "merge_summary": summary, "quality_stats": quality_stats}
     return templates.TemplateResponse("diagnostics/index.html", ctx)
 
 
@@ -2541,6 +2576,73 @@ async def diagnostics_perf(request: Request) -> HTMLResponse:
     if not SHOW_DIAGNOSTICS:
         raise HTTPException(status_code=404, detail="Not Found")
     return templates.TemplateResponse("diagnostics/perf.html", {"request": request})
+
+
+@app.get("/diagnostics/quality", response_class=HTMLResponse)
+async def diagnostics_quality(request: Request) -> HTMLResponse:
+    """Theme catalog quality dashboard (diagnostics only)."""
+    if not SHOW_DIAGNOSTICS:
+        raise HTTPException(status_code=404, detail="Not Found")
+    
+    from .services.theme_catalog_loader import load_index as _load_idx
+    
+    idx = _load_idx()
+    
+    # Calculate quality statistics
+    themes = idx.catalog.themes
+    total_themes = len(themes)
+    
+    # Quality tier distribution
+    tier_counts = {'Excellent': 0, 'Good': 0, 'Fair': 0, 'Poor': 0}
+    quality_scores = []
+    
+    for slug, tier in idx.quality_tier_by_slug.items():
+        if tier:
+            tier_counts[tier] = tier_counts.get(tier, 0) + 1
+        score = idx.quality_score_by_slug.get(slug)
+        if score is not None:
+            quality_scores.append(score)
+    
+    avg_quality_score = sum(quality_scores) / len(quality_scores) if quality_scores else 0.0
+    
+    # Get top 10 best and bottom 10 worst themes
+    themes_with_scores = []
+    for theme in themes:
+        from .services.theme_catalog_loader import slugify as _slugify
+        slug = _slugify(theme.theme)
+        tier = idx.quality_tier_by_slug.get(slug)
+        score = idx.quality_score_by_slug.get(slug, 0.0)
+        pool_size = idx.pool_size_by_slug.get(slug, 0)
+        
+        themes_with_scores.append({
+            'theme': theme.theme,
+            'slug': slug,
+            'tier': tier or 'Unknown',
+            'score': score,
+            'pool_size': pool_size,
+            'description': theme.description or '',
+            'synergy_count': len(theme.synergies) if theme.synergies else 0,
+            'has_fallback_description': not theme.description or theme.description.startswith('A theme focused on'),
+            'editorial_quality': theme.editorial_quality or 'auto',
+        })
+    
+    # Sort by score
+    themes_with_scores.sort(key=lambda x: x['score'], reverse=True)
+    top_themes = themes_with_scores[:10]
+    bottom_themes = themes_with_scores[-10:]
+    bottom_themes.reverse()  # Show worst first
+    
+    ctx = {
+        'request': request,
+        'total_themes': total_themes,
+        'tier_counts': tier_counts,
+        'avg_quality_score': avg_quality_score,
+        'top_themes': top_themes,
+        'bottom_themes': bottom_themes,
+    }
+    
+    return templates.TemplateResponse("diagnostics/quality_dashboard.html", ctx)
+
 
 # --- Diagnostics: combos & synergies ---
 @app.post("/diagnostics/combos")

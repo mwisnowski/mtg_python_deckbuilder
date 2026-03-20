@@ -8,6 +8,7 @@ Responsibilities:
  - Provide summary & detail projections (with synergy segmentation).
  - NEW (Phase F perf): precompute summary dicts & lowercase haystacks, and
      add fast filtering / result caching to accelerate list & API endpoints.
+ - R20: Calculate theme quality scores and pool sizes for UI display.
 """
 
 from __future__ import annotations
@@ -69,6 +70,10 @@ class SlugThemeIndex(BaseModel):
     haystack_by_slug: Dict[str, str]
     primary_color_by_slug: Dict[str, Optional[str]]
     secondary_color_by_slug: Dict[str, Optional[str]]
+    quality_tier_by_slug: Dict[str, Optional[str]]  # R20: Excellent/Good/Fair/Poor
+    quality_score_by_slug: Dict[str, Optional[float]]  # R20: 0.0-1.0 normalized quality
+    pool_size_by_slug: Dict[str, int]  # R20: Number of cards with this theme tag
+    pool_tier_by_slug: Dict[str, str]  # R20: Vast/Large/Moderate/Small/Tiny
     mtime: float
     yaml_mtime_max: float
     etag: str
@@ -162,6 +167,80 @@ def _compute_etag(size: int, mtime: float, yaml_mtime: float) -> str:
     return f"{int(size)}-{int(mtime)}-{int(yaml_mtime)}"
 
 
+def _calculate_theme_pool_sizes() -> Dict[str, int]:
+    """Calculate card pool sizes for each theme from parquet data (R20).
+    
+    Returns:
+        Dict mapping theme name to count of cards with that theme tag.
+    """
+    pool_sizes: Dict[str, int] = {}
+    
+    try:
+        # Import pandas and path_util inside function to avoid circular imports
+        import pandas as pd
+        import numpy as np
+        from path_util import get_processed_cards_path
+        
+        parquet_path = get_processed_cards_path()
+        if not Path(parquet_path).exists():
+            return pool_sizes
+        
+        # Read parquet file
+        df = pd.read_parquet(parquet_path)
+        
+        if 'themeTags' not in df.columns:
+            return pool_sizes
+        
+        # Count cards for each theme
+        for tags in df['themeTags']:
+            # Check for null/NA (works for scalars only, arrays need different check)
+            if tags is None or (isinstance(tags, str) and tags == ''):
+                continue
+            
+            # Handle different formats: numpy array, list, string
+            if isinstance(tags, np.ndarray):
+                theme_list = [str(t).strip() for t in tags if t]
+            elif isinstance(tags, list):
+                theme_list = [str(t).strip() for t in tags if t]
+            elif isinstance(tags, str):
+                theme_list = [t.strip() for t in tags.split(',') if t.strip()]
+            else:
+                continue
+            
+            for theme in theme_list:
+                if theme:
+                    # Normalize theme name: Strip leading/trailing spaces
+                    normalized = theme.strip()
+                    pool_sizes[normalized] = pool_sizes.get(normalized, 0) + 1
+        
+    except Exception:
+        # Silently fail if parquet unavailable (e.g., during initial setup)
+        pass
+    
+    return pool_sizes
+
+
+def _categorize_pool_size(count: int) -> str:
+    """Categorize pool size into tier (R20).
+    
+    Args:
+        count: Number of cards with this theme tag
+        
+    Returns:
+        Tier: Vast/Large/Moderate/Small/Tiny
+    """
+    if count >= 500:
+        return 'Vast'
+    elif count >= 200:
+        return 'Large'
+    elif count >= 50:
+        return 'Moderate'
+    elif count >= 15:
+        return 'Small'
+    else:
+        return 'Tiny'
+
+
 def load_index() -> SlugThemeIndex:
     if not _needs_reload():
         return _CACHE["index"]
@@ -174,14 +253,92 @@ def load_index() -> SlugThemeIndex:
     haystack_by_slug: Dict[str, str] = {}
     primary_color_by_slug: Dict[str, Optional[str]] = {}
     secondary_color_by_slug: Dict[str, Optional[str]] = {}
+    quality_tier_by_slug: Dict[str, Optional[str]] = {}  # R20
+    quality_score_by_slug: Dict[str, Optional[float]] = {}  # R20
+    pool_size_by_slug: Dict[str, int] = {}  # R20
+    pool_tier_by_slug: Dict[str, str] = {}  # R20
+    
+    # R20: Calculate pool sizes from parquet data
+    theme_pool_sizes = _calculate_theme_pool_sizes()
+    
+    # R20: Calculate global card frequency directly to avoid circular dependency
+    global_card_freq: Dict[str, int] = {}
+    for t in catalog.themes:
+        if t.example_cards:
+            for card in t.example_cards:
+                global_card_freq[card] = global_card_freq.get(card, 0) + 1
+    
+    total_themes = len(catalog.themes)
+    
     for t in catalog.themes:
         slug = slugify(t.theme)
         slug_to_entry[slug] = t
-        summary = project_summary(t)
-        summary_by_slug[slug] = summary
+        # Will populate quality after calculation below
+        summary_by_slug[slug] = {}  # Populated after quality calculation
         haystack_by_slug[slug] = "|".join([t.theme] + t.synergies).lower()
         primary_color_by_slug[slug] = t.primary_color
         secondary_color_by_slug[slug] = t.secondary_color
+        
+        # R20: Calculate quality metrics inline (avoids ThemeEditorialService circular dependency)
+        # Enhanced scoring: Card count (0-30) + Uniqueness (0-40) + Description (0-20) + Curation (0-10) = 100 max
+        total_points = 0.0
+        max_points = 100.0
+        
+        # 1. Example card count (0-30 points, 8+ cards = max)
+        card_count = len(t.example_cards) if t.example_cards else 0
+        card_points = min(30.0, (card_count / 8) * 30.0)
+        total_points += card_points
+        
+        # 2. Uniqueness ratio (0-40 points, cards in <25% of themes)
+        if t.example_cards and total_themes > 0:
+            unique_count = sum(
+                1 for card in t.example_cards
+                if (global_card_freq.get(card, 0) / total_themes) < 0.25
+            )
+            uniqueness_ratio = unique_count / len(t.example_cards)
+            uniqueness_points = uniqueness_ratio * 40.0
+            total_points += uniqueness_points
+        
+        # 3. Description quality (0-20 points: manual=10, rule=5, generic=0)
+        if t.description_source:
+            desc_bonus = {'manual': 10, 'rule': 5, 'generic': 0}.get(t.description_source, 0)
+            total_points += desc_bonus
+        
+        # 4. Manual curation bonus (0-10 points if has curated_synergies)
+        if hasattr(t, 'curated_synergies') and t.curated_synergies:
+            total_points += 10.0
+        
+        # Normalize to 0.0-1.0 and determine tier
+        normalized_score = total_points / max_points
+        if normalized_score >= 0.75:
+            tier = 'Excellent'
+        elif normalized_score >= 0.60:
+            tier = 'Good'
+        elif normalized_score >= 0.40:
+            tier = 'Fair'
+        else:
+            tier = 'Poor'
+        
+        quality_tier_by_slug[slug] = tier
+        quality_score_by_slug[slug] = normalized_score
+        
+        # R20: Calculate pool size from parquet data (normalize theme name for lookup)
+        normalized_theme_name = t.theme.strip()
+        pool_size = theme_pool_sizes.get(normalized_theme_name, 0)
+        pool_tier = _categorize_pool_size(pool_size)
+        pool_size_by_slug[slug] = pool_size
+        pool_tier_by_slug[slug] = pool_tier
+        
+        # R20: Now create summary with quality and pool size data
+        summary = project_summary(
+            t,
+            quality_tier=tier,
+            quality_score=normalized_score,
+            pool_size=pool_size,
+            pool_tier=pool_tier
+        )
+        summary_by_slug[slug] = summary
+        
     yaml_map, yaml_mtime_max = _load_yaml_map()
     idx = SlugThemeIndex(
         catalog=catalog,
@@ -191,6 +348,10 @@ def load_index() -> SlugThemeIndex:
         haystack_by_slug=haystack_by_slug,
         primary_color_by_slug=primary_color_by_slug,
         secondary_color_by_slug=secondary_color_by_slug,
+        quality_tier_by_slug=quality_tier_by_slug,  # R20
+        quality_score_by_slug=quality_score_by_slug,  # R20
+        pool_size_by_slug=pool_size_by_slug,  # R20
+        pool_tier_by_slug=pool_tier_by_slug,  # R20
         mtime=CATALOG_JSON.stat().st_mtime,
         yaml_mtime_max=yaml_mtime_max,
         etag=_compute_etag(CATALOG_JSON.stat().st_size, CATALOG_JSON.stat().st_mtime, yaml_mtime_max),
@@ -284,7 +445,13 @@ def has_fallback_description(entry: ThemeEntry) -> bool:
     return False
 
 
-def project_summary(entry: ThemeEntry) -> Dict[str, Any]:
+def project_summary(
+    entry: ThemeEntry,
+    quality_tier: Optional[str] = None,
+    quality_score: Optional[float] = None,
+    pool_size: Optional[int] = None,
+    pool_tier: Optional[str] = None
+) -> Dict[str, Any]:
     # Short description (snippet) for list hover / condensed display
     desc = entry.description or ""
     short_desc = desc.strip()
@@ -298,6 +465,10 @@ def project_summary(entry: ThemeEntry) -> Dict[str, Any]:
         "popularity_bucket": entry.popularity_bucket,
         "deck_archetype": entry.deck_archetype,
         "editorial_quality": entry.editorial_quality,
+        "quality_tier": quality_tier,  # R20: Quality tier (Excellent/Good/Fair/Poor)
+        "quality_score": quality_score,  # R20: Normalized quality score (0.0-1.0)
+        "pool_size": pool_size,  # R20: Number of cards with this theme tag
+        "pool_tier": pool_tier,  # R20: Pool size tier (Vast/Large/Moderate/Small/Tiny)
         "description": entry.description,
         "short_description": short_desc,
         "synergies": entry.synergies,
@@ -317,7 +488,7 @@ def _split_synergies(slug: str, entry: ThemeEntry, yaml_map: Dict[str, Dict[str,
     }
 
 
-def project_detail(slug: str, entry: ThemeEntry, yaml_map: Dict[str, Dict[str, Any]], uncapped: bool = False) -> Dict[str, Any]:
+def project_detail(slug: str, entry: ThemeEntry, yaml_map: Dict[str, Dict[str, Any]], idx: 'SlugThemeIndex', uncapped: bool = False) -> Dict[str, Any]:
     seg = _split_synergies(slug, entry, yaml_map)
     uncapped_synergies: Optional[List[str]] = None
     if uncapped:
@@ -330,7 +501,18 @@ def project_detail(slug: str, entry: ThemeEntry, yaml_map: Dict[str, Dict[str, A
                     full.append(s)
                     seen.add(s)
         uncapped_synergies = full
-    d = project_summary(entry)
+    # R20: Look up quality and pool metrics from index (not stored on ThemeEntry)
+    quality_tier = idx.quality_tier_by_slug.get(slug)
+    quality_score = idx.quality_score_by_slug.get(slug)
+    pool_size = idx.pool_size_by_slug.get(slug, 0)
+    pool_tier = idx.pool_tier_by_slug.get(slug, "Tiny")
+    d = project_summary(
+        entry,
+        quality_tier=quality_tier,
+        quality_score=quality_score,
+        pool_size=pool_size,
+        pool_tier=pool_tier
+    )
     d.update({
         "curated_synergies": seg["curated"],
         "enforced_synergies": seg["enforced"],
@@ -449,6 +631,7 @@ def summaries_for_slugs(idx: SlugThemeIndex, slugs: Iterable[str]) -> List[Dict[
     for s in slugs:
         summ = idx.summary_by_slug.get(s)
         if summ:
+            # R20: Summary already contains quality_tier and quality_score from load_index
             out.append(summ.copy())  # shallow copy so route can pop diag-only fields
     return out
 

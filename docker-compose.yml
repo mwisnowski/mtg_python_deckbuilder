@@ -24,6 +24,10 @@ services:
       ENABLE_CUSTOM_THEMES: "1"     # 1=expose Additional Themes panel for user-supplied tags
       USER_THEME_LIMIT: "8"         # Maximum number of user-supplied supplemental themes stored in session
       ENABLE_PRESETS: "0"           # 1=show presets section
+      SHOW_THEME_QUALITY_BADGES: "1"  # 1=show quality badges in theme catalog; 0=hide
+      SHOW_THEME_POOL_BADGES: "1"     # 1=show pool size badges in theme catalog; 0=hide
+      SHOW_THEME_POPULARITY_BADGES: "1"  # 1=show popularity badges in theme catalog; 0=hide
+      SHOW_THEME_FILTERS: "1"         # 1=show filter dropdowns/chips in theme catalog; 0=hide
       WEB_VIRTUALIZE: "1"           # 1=enable list virtualization in Step 5
       ALLOW_MUST_HAVES: "1"         # 1=enable must-include/must-exclude cards feature; 0=disable
       SHOW_MUST_HAVE_BUTTONS: "0"   # 1=show must include/exclude controls in the UI (default hidden)

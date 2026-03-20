@@ -2685,6 +2685,54 @@ img.lqip.loaded { filter: blur(0); opacity: 1; }
 	color: #fff;
 }
 
+/* Quality tier badges (editorial quality scoring) */
+.badge-quality-excellent {
+	background: #10b981;
+	color: #fff;
+}
+
+.badge-quality-good {
+	background: #3b82f6;
+	color: #fff;
+}
+
+.badge-quality-fair {
+	background: #f59e0b;
+	color: #fff;
+}
+
+.badge-quality-poor {
+	background: #ef4444;
+	color: #fff;
+}
+
+/* Pool size tier badges (card availability) */
+.badge-pool-vast {
+	background: #8b5cf6;  /* violet */
+	color: #fff;
+}
+
+.badge-pool-large {
+	background: #14b8a6;  /* teal */
+	color: #fff;
+}
+
+.badge-pool-moderate {
+	background: #06b6d4;  /* cyan */
+	color: #fff;
+}
+
+.badge-pool-small {
+	background: #f97316;  /* orange */
+	color: #fff;
+}
+
+.badge-pool-tiny {
+	background: #6b7280;  /* gray */
+	color: #fff;
+}
+
+/* Legacy lifecycle quality badges (draft/reviewed/final) */
 .badge-quality-draft {
 	background: #4338ca;
 	color: #fff;
@@ -2701,6 +2749,7 @@ img.lqip.loaded { filter: blur(0); opacity: 1; }
 	font-weight: 600;
 }
 
+/* Popularity bucket badges */
 .badge-pop-vc {
 	background: #065f46;
 	color: #fff;

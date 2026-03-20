@@ -30,7 +30,17 @@
   <tbody>
   {% for it in items %}
   <tr hx-get="/themes/fragment/detail/{{ it.id }}" hx-target="#theme-detail" hx-swap="innerHTML" title="Click for details" class="theme-row" data-theme-id="{{ it.id }}" tabindex="0" role="option" aria-selected="false">
-      <td title="{{ it.short_description or '' }}">{% set q = request.query_params.get('q') %}{% set name = it.theme %}{% if q %}{% set ql = q.lower() %}{% set nl = name.lower() %}{% if ql in nl %}{% set start = nl.find(ql) %}{% set end = start + q|length %}<span class="trunc-name">{{ name[:start] }}<mark>{{ name[start:end] }}</mark>{{ name[end:] }}</span>{% else %}<span class="trunc-name">{{ name }}</span>{% endif %}{% else %}<span class="trunc-name">{{ name }}</span>{% endif %} {% if diagnostics and it.has_fallback_description %}<span class="theme-badge badge-fallback" title="Fallback description">⚠</span>{% endif %}
+      <td title="{{ it.short_description or '' }}">{% set q = request.query_params.get('q') %}{% set name = it.theme %}{% if q %}{% set ql = q.lower() %}{% set nl = name.lower() %}{% if ql in nl %}{% set start = nl.find(ql) %}{% set end = start + q|length %}<span class="trunc-name">{{ name[:start] }}<mark>{{ name[start:end] }}</mark>{{ name[end:] }}</span>{% else %}<span class="trunc-name">{{ name }}</span>{% endif %}{% else %}<span class="trunc-name">{{ name }}</span>{% endif %}
+        {# Quality tier badge #}
+        {% if show_theme_quality_badges and it.quality_tier %}
+          <span class="theme-badge badge-quality-{{ it.quality_tier|lower }}" title="Quality: {{ it.quality_tier }} ({{ (it.quality_score * 100)|round|int }}%)" aria-label="Quality tier: {{ it.quality_tier }}">{{ it.quality_tier[0]|upper }}</span>
+        {% endif %}
+        {# Pool size badge #}
+        {% if show_theme_pool_badges and it.pool_tier %}
+          <span class="theme-badge badge-pool-{{ it.pool_tier|lower }}" title="Pool: {{ it.pool_tier }} (~{{ it.pool_size }} cards)" aria-label="Pool tier: {{ it.pool_tier }}">{{ it.pool_tier[0]|upper }}</span>
+        {% endif %}
+        {# Diagnostics-only badges #}
+        {% if diagnostics and it.has_fallback_description %}<span class="theme-badge badge-fallback" title="Fallback description">⚠</span>{% endif %}
         {% if diagnostics and it.editorial_quality %}
           <span class="theme-badge badge-quality-{{ it.editorial_quality }}" title="Editorial quality: {{ it.editorial_quality }}">{{ it.editorial_quality[0]|upper }}</span>
         {% endif %}
@@ -38,7 +48,7 @@
   <td>{% if it.primary_color %}<span aria-label="Primary color: {{ it.primary_color }}">{{ it.primary_color }}</span>{% endif %}</td>
   <td>{% if it.secondary_color %}<span aria-label="Secondary color: {{ it.secondary_color }}">{{ it.secondary_color }}</span>{% endif %}</td>
       <td>
-        {% if it.popularity_bucket %}
+        {% if show_theme_popularity_badges and it.popularity_bucket %}
           <span class="theme-badge {% if it.popularity_bucket=='Very Common' %}badge-pop-vc{% elif it.popularity_bucket=='Common' %}badge-pop-c{% elif it.popularity_bucket=='Uncommon' %}badge-pop-u{% elif it.popularity_bucket=='Niche' %}badge-pop-n{% elif it.popularity_bucket=='Rare' %}badge-pop-r{% endif %}" title="Popularity: {{ it.popularity_bucket }}">{{ it.popularity_bucket }}</span>
         {% endif %}
       </td>

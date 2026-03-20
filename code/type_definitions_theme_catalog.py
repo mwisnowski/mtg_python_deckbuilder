@@ -59,6 +59,16 @@ class ThemeEntry(BaseModel):
         None,
         description="Lifecycle quality flag (draft|reviewed|final); optional and not yet enforced strictly",
     )
+    quality_tier: Optional[str] = Field(
+        None,
+        description="Editorial quality tier (Excellent|Good|Fair|Poor) calculated from theme completeness metrics (R20)",
+    )
+    quality_score: Optional[float] = Field(
+        None,
+        ge=0.0,
+        le=1.0,
+        description="Normalized quality score (0.0-1.0) based on example cards, uniqueness, description source (R20)",
+    )
 
     model_config = ConfigDict(extra='forbid')
 

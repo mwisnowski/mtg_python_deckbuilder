@@ -627,6 +627,10 @@ video {
   margin-bottom: 0.875rem;
 }
 
+.mb-0\.5 {
+  margin-bottom: 0.125rem;
+}
+
 .mb-1 {
   margin-bottom: 0.25rem;
 }
@@ -657,6 +661,10 @@ video {
 
 .ml-2 {
   margin-left: 0.5rem;
+}
+
+.ml-4 {
+  margin-left: 1rem;
 }
 
 .ml-6 {
@@ -763,8 +771,8 @@ video {
   width: 100%;
 }
 
-.min-w-\[160px\] {
-  min-width: 160px;
+.min-w-\[140px\] {
+  min-width: 140px;
 }
 
 .min-w-\[2\.5rem\] {
@@ -785,6 +793,10 @@ video {
 
 .flex-shrink {
   flex-shrink: 1;
+}
+
+.flex-shrink-0 {
+  flex-shrink: 0;
 }
 
 .grow {
@@ -811,6 +823,10 @@ video {
 
 .resize {
   resize: both;
+}
+
+.list-disc {
+  list-style-type: disc;
 }
 
 .list-none {
@@ -885,6 +901,18 @@ video {
   gap: 1rem;
 }
 
+.space-y-0\.5 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-y-reverse: 0;
+  margin-top: calc(0.125rem * calc(1 - var(--tw-space-y-reverse)));
+  margin-bottom: calc(0.125rem * var(--tw-space-y-reverse));
+}
+
+.space-y-3 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-y-reverse: 0;
+  margin-top: calc(0.75rem * calc(1 - var(--tw-space-y-reverse)));
+  margin-bottom: calc(0.75rem * var(--tw-space-y-reverse));
+}
+
 .overflow-hidden {
   overflow: hidden;
 }
@@ -895,6 +923,10 @@ video {
 
 .whitespace-nowrap {
   white-space: nowrap;
+}
+
+.rounded {
+  border-radius: 0.25rem;
 }
 
 .rounded-\[10px\] {
@@ -921,6 +953,16 @@ video {
   border-color: var(--border);
 }
 
+.border-gray-200 {
+  --tw-border-opacity: 1;
+  border-color: rgb(229 231 235 / var(--tw-border-opacity, 1));
+}
+
+.bg-gray-50 {
+  --tw-bg-opacity: 1;
+  background-color: rgb(249 250 251 / var(--tw-bg-opacity, 1));
+}
+
 .bg-gray-700 {
   --tw-bg-opacity: 1;
   background-color: rgb(55 65 81 / var(--tw-bg-opacity, 1));
@@ -934,6 +976,10 @@ video {
   padding: 0.5rem;
 }
 
+.p-3 {
+  padding: 0.75rem;
+}
+
 .px-1\.5 {
   padding-left: 0.375rem;
   padding-right: 0.375rem;
@@ -942,6 +988,11 @@ video {
 .px-2 {
   padding-left: 0.5rem;
   padding-right: 0.5rem;
+}
+
+.px-4 {
+  padding-left: 1rem;
+  padding-right: 1rem;
 }
 
 .py-0\.5 {
@@ -954,12 +1005,21 @@ video {
   padding-bottom: 0.25rem;
 }
 
+.py-3 {
+  padding-top: 0.75rem;
+  padding-bottom: 0.75rem;
+}
+
 .text-left {
   text-align: left;
 }
 
 .text-center {
   text-align: center;
+}
+
+.text-\[10px\] {
+  font-size: 10px;
 }
 
 .text-\[11px\] {
@@ -1018,6 +1078,16 @@ video {
   color: rgb(229 231 235 / var(--tw-text-opacity, 1));
 }
 
+.text-gray-600 {
+  --tw-text-opacity: 1;
+  color: rgb(75 85 99 / var(--tw-text-opacity, 1));
+}
+
+.text-gray-700 {
+  --tw-text-opacity: 1;
+  color: rgb(55 65 81 / var(--tw-text-opacity, 1));
+}
+
 .underline {
   text-decoration-line: underline;
 }
@@ -1028,6 +1098,10 @@ video {
 
 .opacity-30 {
   opacity: 0.3;
+}
+
+.opacity-60 {
+  opacity: 0.6;
 }
 
 .opacity-70 {
@@ -4806,6 +4880,62 @@ img.lqip.loaded {
   color: #fff;
 }
 
+/* Quality tier badges (editorial quality scoring) */
+
+.badge-quality-excellent {
+  background: #10b981;
+  color: #fff;
+}
+
+.badge-quality-good {
+  background: #3b82f6;
+  color: #fff;
+}
+
+.badge-quality-fair {
+  background: #f59e0b;
+  color: #fff;
+}
+
+.badge-quality-poor {
+  background: #ef4444;
+  color: #fff;
+}
+
+/* Pool size tier badges (card availability) */
+
+.badge-pool-vast {
+  background: #8b5cf6;
+  /* violet */
+  color: #fff;
+}
+
+.badge-pool-large {
+  background: #14b8a6;
+  /* teal */
+  color: #fff;
+}
+
+.badge-pool-moderate {
+  background: #06b6d4;
+  /* cyan */
+  color: #fff;
+}
+
+.badge-pool-small {
+  background: #f97316;
+  /* orange */
+  color: #fff;
+}
+
+.badge-pool-tiny {
+  background: #6b7280;
+  /* gray */
+  color: #fff;
+}
+
+/* Legacy lifecycle quality badges (draft/reviewed/final) */
+
 .badge-quality-draft {
   background: #4338ca;
   color: #fff;
@@ -4821,6 +4951,8 @@ img.lqip.loaded {
   color: #fff;
   font-weight: 600;
 }
+
+/* Popularity bucket badges */
 
 .badge-pop-vc {
   background: #065f46;
@@ -5685,5 +5817,30 @@ img.lqip.loaded {
 
 footer.site-footer {
   flex-shrink: 0;
+}
+
+.hover\:opacity-100:hover {
+  opacity: 1;
+}
+
+@media (prefers-color-scheme: dark) {
+  .dark\:border-gray-700 {
+    --tw-border-opacity: 1;
+    border-color: rgb(55 65 81 / var(--tw-border-opacity, 1));
+  }
+
+  .dark\:bg-gray-800\/50 {
+    background-color: rgb(31 41 55 / 0.5);
+  }
+
+  .dark\:text-gray-300 {
+    --tw-text-opacity: 1;
+    color: rgb(209 213 219 / var(--tw-text-opacity, 1));
+  }
+
+  .dark\:text-gray-400 {
+    --tw-text-opacity: 1;
+    color: rgb(156 163 175 / var(--tw-text-opacity, 1));
+  }
 }
 

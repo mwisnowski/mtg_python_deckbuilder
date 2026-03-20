@@ -3,9 +3,9 @@
 <section>
   <h2>Diagnostics</h2>
   <p class="muted">Use these tools to verify error handling surfaces.</p>
-  <div class="card" style="background: var(--panel); border:1px solid var(--border); border-radius:10px; padding:.75rem; margin-bottom:.75rem">
-    <h3 style="margin-top:0">System summary</h3>
-    <div id="sysSummary" class="muted">Loading…</div>
+  <details class="card" style="background: var(--panel); border:1px solid var(--border); border-radius:10px; padding:.75rem; margin-bottom:.75rem">
+    <summary style="cursor:pointer; user-select:none; margin-top:0; font-size:1.17em; font-weight:bold;">System summary</summary>
+    <div id="sysSummary" class="muted" style="margin-top:.5rem">Loading…</div>
     <div id="envFlags" style="margin-top:.5rem"></div>
   <div id="themeSuppMetrics" class="muted" style="margin-top:.5rem">Loading theme metrics…</div>
     <div id="themeSummary" style="margin-top:.5rem"></div>
@@ -13,9 +13,49 @@
     <div style="margin-top:.35rem">
       <button class="btn" id="diag-theme-reset">Reset theme preference</button>
     </div>
-  </div>
-  <div class="card" style="background: var(--panel); border:1px solid var(--border); border-radius:10px; padding:.75rem; margin-bottom:.75rem">
-    <h3 style="margin-top:0">Multi-face merge snapshot</h3>
+  </details>
+  
+  {# Theme Quality Overview #}
+  {% if quality_stats %}
+  <details class="card" style="background: var(--panel); border:1px solid var(--border); border-radius:10px; padding:.75rem; margin-bottom:.75rem">
+    <summary style="cursor:pointer; user-select:none; margin-top:0; font-size:1.17em; font-weight:bold;">Theme Catalog Quality</summary>
+    <div class="muted" style="margin-bottom:.5rem; margin-top:.5rem">Quick overview of theme quality metrics</div>
+    
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; margin-bottom: 1rem;">
+      <div>
+        <div class="muted" style="font-size: 11px;">Total Themes</div>
+        <div style="font-size: 20px; font-weight: 600;">{{ quality_stats.total_themes }}</div>
+      </div>
+      <div>
+        <div class="muted" style="font-size: 11px;">Average Quality</div>
+        <div style="font-size: 20px; font-weight: 600;">{{ (quality_stats.avg_quality_score * 100)|round|int }}%</div>
+      </div>
+      <div>
+        <div class="muted" style="font-size: 11px; color: #10b981;">Excellent</div>
+        <div style="font-size: 20px; font-weight: 600; color: #10b981;">{{ quality_stats.tier_counts.Excellent }}</div>
+      </div>
+      <div>
+        <div class="muted" style="font-size: 11px; color: #3b82f6;">Good</div>
+        <div style="font-size: 20px; font-weight: 600; color: #3b82f6;">{{ quality_stats.tier_counts.Good }}</div>
+      </div>
+      <div>
+        <div class="muted" style="font-size: 11px; color: #f59e0b;">Fair</div>
+        <div style="font-size: 20px; font-weight: 600; color: #f59e0b;">{{ quality_stats.tier_counts.Fair }}</div>
+      </div>
+      <div>
+        <div class="muted" style="font-size: 11px; color: #ef4444;">Poor</div>
+        <div style="font-size: 20px; font-weight: 600; color: #ef4444;">{{ quality_stats.tier_counts.Poor }}</div>
+      </div>
+    </div>
+    
+    <div style="margin-top: .75rem;">
+      <a href="/diagnostics/quality" class="btn" style="text-decoration: none;">View Full Quality Dashboard →</a>
+    </div>
+  </details>
+  {% endif %}
+  
+  <details class="card" style="background: var(--panel); border:1px solid var(--border); border-radius:10px; padding:.75rem; margin-bottom:.75rem">
+    <summary style="cursor:pointer; user-select:none; margin-top:0; font-size:1.17em; font-weight:bold;">Multi-face merge snapshot</summary>
     <div class="muted" style="margin-bottom:.35rem">Pulls from <code>logs/dfc_merge_summary.json</code> to verify merge coverage.</div>
   {% set colors = (merge_summary.colors if merge_summary else {}) | default({}) %}
     {% if colors %}
@@ -70,25 +110,25 @@
     <div class="muted">No merge summary has been recorded. Run the tagger with multi-face merging enabled.</div>
     {% endif %}
     <div id="dfcMetrics" class="muted" style="margin-top:.5rem;">Loading MDFC metrics…</div>
-  </div>
-  <div class="card" style="background: var(--panel); border:1px solid var(--border); border-radius:10px; padding:.75rem; margin-bottom:.75rem">
-    <h3 style="margin-top:0">Dual-Commander diagnostics</h3>
-    <div class="muted" style="margin-bottom:.35rem;">Latest partner, partner-with, doctor, and background pairings with color sources.</div>
+  </details>
+  <details class="card" style="background: var(--panel); border:1px solid var(--border); border-radius:10px; padding:.75rem; margin-bottom:.75rem">
+    <summary style="cursor:pointer; user-select:none; margin-top:0; font-size:1.17em; font-weight:bold;">Dual-Commander diagnostics</summary>
+    <div class="muted" style="margin-bottom:.35rem; margin-top:.5rem;">Latest partner, partner-with, doctor, and background pairings with color sources.</div>
     <div id="partnerMetricsSummary" class="muted">Loading partner metrics…</div>
     <div id="partnerMetricsModes" class="muted" style="margin-top:.5rem;"></div>
     <div id="partnerColorSources" style="margin-top:.5rem;"></div>
-  </div>
-  <div class="card" style="background: var(--panel); border:1px solid var(--border); border-radius:10px; padding:.75rem; margin-bottom:.75rem">
-    <h3 style="margin-top:0">Performance (local)</h3>
+  </details>
+  <details class="card" style="background: var(--panel); border:1px solid var(--border); border-radius:10px; padding:.75rem; margin-bottom:.75rem">
+    <summary style="cursor:pointer; user-select:none; margin-top:0; font-size:1.17em; font-weight:bold;">Performance (local)</summary>
     <div class="muted" style="margin-bottom:.35rem">Scroll the Step 5 list; this panel shows a rough FPS estimate and virtualization renders.</div>
     <div style="display:flex; gap:1rem; flex-wrap:wrap">
       <div><strong>Scroll FPS:</strong> <span id="perf-fps">–</span></div>
       <div><strong>Visible tiles:</strong> <span id="perf-visible">–</span></div>
       <div><strong>Render count:</strong> <span id="perf-renders">0</span></div>
     </div>
-  </div>
-  <div class="card" style="background: var(--panel); border:1px solid var(--border); border-radius:10px; padding:.75rem; margin-bottom:.75rem">
-    <h3 style="margin-top:0">Combos & Synergies (ad-hoc)</h3>
+  </details>
+  <details class="card" style="background: var(--panel); border:1px solid var(--border); border-radius:10px; padding:.75rem; margin-bottom:.75rem">
+    <summary style="cursor:pointer; user-select:none; margin-top:0; font-size:1.17em; font-weight:bold;">Combos & Synergies (ad-hoc)</summary>
     <div class="muted" style="margin-bottom:.35rem">Paste card names (one per line) and detect two-card combos and synergies using current lists.</div>
     <textarea id="diag-combos-input" rows="6" style="width:100%; resize:vertical; font-family: var(--mono);"></textarea>
     <div style="margin-top:.5rem; display:flex; gap:.5rem; align-items:center">
@@ -96,21 +136,21 @@
       <small class="muted">Runs in diagnostics mode only.</small>
     </div>
     <pre id="diag-combos-out" style="margin-top:.5rem; white-space:pre-wrap"></pre>
-  </div>
+  </details>
   {% if enable_pwa %}
-  <div class="card" style="background:#0f1115; border:1px solid var(--border); border-radius:10px; padding:.75rem; margin-bottom:.75rem">
-    <h3 style="margin-top:0">PWA status</h3>
-    <div id="pwaStatus" class="muted">Checking…</div>
-  </div>
+  <details class="card" style="background:#0f1115; border:1px solid var(--border); border-radius:10px; padding:.75rem; margin-bottom:.75rem">
+    <summary style="cursor:pointer; user-select:none; margin-top:0; font-size:1.17em; font-weight:bold;">PWA status</summary>
+    <div id="pwaStatus" class="muted" style="margin-top:.5rem">Checking…</div>
+  </details>
   {% endif %}
-  <div class="card" style="background: var(--panel); border:1px solid var(--border); border-radius:10px; padding:.75rem;">
-  <h3 style="margin-top:0">Error triggers</h3>
+  <details class="card" style="background: var(--panel); border:1px solid var(--border); border-radius:10px; padding:.75rem;">
+  <summary style="cursor:pointer; user-select:none; margin-top:0; font-size:1.17em; font-weight:bold;">Error triggers</summary>
     <div class="row" style="display:flex; gap:.5rem; align-items:center">
   <button class="btn" hx-get="/diagnostics/trigger-error" hx-trigger="click" hx-target="this" hx-swap="none">Trigger HTTP error (418)</button>
   <button class="btn" hx-get="/diagnostics/trigger-error?kind=unhandled" hx-trigger="click" hx-target="this" hx-swap="none">Trigger unhandled error (500)</button>
       <small class="muted">You should see a toast and an inline banner with Request-ID.</small>
     </div>
-  </div>
+  </details>
   {% if show_logs %}
   <p style="margin-top:.75rem"><a class="btn" href="/logs">Open Logs</a></p>
   {% endif %}

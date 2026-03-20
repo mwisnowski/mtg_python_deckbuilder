@@ -9,6 +9,44 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 
 ## [Unreleased]
 ### Added
+- **Theme Quality Dashboard**: Diagnostic dashboard for monitoring catalog health at `/diagnostics/quality`
+  - **Quality Distribution**: Visual breakdown of theme counts by tier (Excellent/Good/Fair/Poor)
+  - **Catalog Statistics**: Total themes, average quality score displayed prominently
+  - **Top 10 Highest Quality**: Best-curated themes with links to theme pages
+  - **Bottom 10 Lowest Quality**: Themes needing improvement with actionable suggestions
+  - **Improvement Tools**: Direct links to linter CLI command and editorial documentation
+  - **Protected Access**: Dashboard gated behind SHOW_DIAGNOSTICS=1 flag for admin use
+  - **Main Diagnostics Integration**: Quality stats preview card on main diagnostics page with link to full dashboard
+- **Theme Badge Explanations**: Detailed reasoning for quality, pool size, and popularity badges on individual theme pages
+  - **Quality Explanations**: Multi-factor breakdown showing synergy breakdown (curated/enforced/inferred counts), deck archetype classification, description curation status, and editorial quality status
+  - **Pool Size Explanations**: Card count with contextual guidance on flexibility and optimization potential
+  - **Popularity Explanations**: Adoption pattern descriptions explaining why themes have their popularity tier
+  - **Collapsible Display**: Badge details in collapsible section (open by default), matching catalog page badge legend pattern
+  - **Feature Flag Respects**: Explanations only show for enabled badge types (respects SHOW_THEME_QUALITY_BADGES, SHOW_THEME_POOL_BADGES, SHOW_THEME_POPULARITY_BADGES)
+  - **Dynamic Reasoning**: Explanations generated based on actual theme data (quality score, synergy counts, editorial status, archetype metadata)
+- **Theme Catalog Badge System**: Comprehensive metric visualization with granular display control
+  - **Quality Badges**: Editorial quality indicators (Excellent/Good/Fair/Poor) with semantic colors
+  - **Pool Size Badges**: Card availability indicators (Vast/Large/Moderate/Small/Tiny) showing total cards per theme
+  - **Popularity Badges**: Usage frequency indicators (Very Common/Common/Uncommon/Niche/Rare) based on theme adoption
+  - **Badge Feature Flags**: Individual toggle flags for each badge type (SHOW_THEME_QUALITY_BADGES, SHOW_THEME_POOL_BADGES, SHOW_THEME_POPULARITY_BADGES)
+  - **Filter Controls**: Dropdown filters and quick-select chips for all three metrics with master toggle (SHOW_THEME_FILTERS)
+- **Theme Pool Size Display**: Visual indicators showing total card availability per theme
+  - **Pool Size Calculation**: Automatic counting of cards with each theme tag from parquet data
+  - **Pool Tier Badges**: Color-coded badges (Vast/Large/Moderate/Small/Tiny) showing pool size categories
+  - **Pool Data in API**: Theme pool size (card count) and tier included in all theme API responses
+  - **Pool Badges CSS**: New badge styles with distinct colors (violet/teal/cyan/orange/gray for pool tiers)
+  - **Dual Metric System**: Quality badges (editorial completeness) + Pool size badges (card availability) shown together
+- **Theme Quality Score Display**: Visual quality indicators in web UI for theme catalog
+  - **Quality Tier Badges**: Color-coded badges (Excellent/Good/Fair/Poor) shown in theme lists and detail pages
+  - **Quality Scoring**: Automatic calculation during theme loading based on completeness, uniqueness, and curation quality
+  - **Quality Data in API**: Theme quality tier and normalized score (0.0-1.0) included in all theme API responses
+  - **Quality Badges CSS**: New badge styles with semantic colors (green/blue/yellow/red for quality tiers)
+- **Theme Catalog Filtering**: Advanced filtering system for quality, pool size, and popularity
+  - **Filter Dropdowns**: Select-based filters for precise tier selection (Quality: E/G/F/P, Pool: V/L/M/S/T, Popularity: VC/C/U/N/R)
+  - **Quick Filter Chips**: Single-click filter activation with letter-based shortcuts
+  - **Combined Filtering**: Multiple filter types work together with AND logic (e.g., Good quality + Vast pool + Common popularity)
+  - **Active Filter Display**: Visual chips showing applied filters with individual remove buttons
+  - **Filter Performance**: Backend filtering in both fast path (theme_list.json) and fallback (full index) with sub-200ms response times
 - **Theme Editorial Quality & Standards**: Complete editorial system for theme catalog curation
   - **Editorial Metadata Fields**: `description_source` (tracks provenance: official/inferred/custom) and `popularity_pinned` (manual tier override)
   - **Heuristics Externalization**: Theme classification rules moved to `config/themes/editorial_heuristics.yml` for maintainability

@@ -8,7 +8,29 @@
       <input type="text" id="theme-search" placeholder="Search themes" aria-label="Search" class="w-full" autocomplete="off" />
       <div id="theme-search-results" class="search-suggestions"></div>
     </div>
-    <div class="min-w-[160px]">
+    {% if show_theme_filters %}
+    <div class="min-w-[140px]">
+      <label class="text-[11px] block opacity-70">Quality</label>
+      <select id="quality-filter" class="w-full text-[13px]">
+        <option value="">All</option>
+        <option>Excellent</option>
+        <option>Good</option>
+        <option>Fair</option>
+        <option>Poor</option>
+      </select>
+    </div>
+    <div class="min-w-[140px]">
+      <label class="text-[11px] block opacity-70">Pool Size</label>
+      <select id="pool-filter" class="w-full text-[13px]">
+        <option value="">All</option>
+        <option>Vast</option>
+        <option>Large</option>
+        <option>Moderate</option>
+        <option>Small</option>
+        <option>Tiny</option>
+      </select>
+    </div>
+    <div class="min-w-[140px]">
       <label class="text-[11px] block opacity-70">Popularity</label>
       <select id="pop-filter" class="w-full text-[13px]">
         <option value="">All</option>
@@ -19,13 +41,78 @@
         <option>Rare</option>
       </select>
     </div>
+    {% endif %}
     <button id="clear-search" class="btn btn-ghost text-xs" hidden>Clear</button>
   </div>
-  <div id="quick-popularity" class="flex gap-1.5 flex-wrap mb-2">
-    {% for b in ['Very Common','Common','Uncommon','Niche','Rare'] %}
-      <button class="btn btn-ghost pop-chip text-[11px] px-2 py-0.5" data-pop="{{ b }}">{{ b }}</button>
-    {% endfor %}
+  
+  {% if show_theme_filters %}
+  <div id="quick-filters" class="flex gap-2.5 flex-wrap mb-2">
+    <div>
+      <div class="text-[10px] opacity-60 mb-0.5">Quality</div>
+      <div class="flex gap-1 flex-wrap">
+        {% for b in ['Excellent','Good','Fair','Poor'] %}
+          <button class="btn btn-ghost quality-chip text-[11px] px-2 py-0.5" data-quality="{{ b }}">{{ b[0] }}</button>
+        {% endfor %}
+      </div>
+    </div>
+    <div>
+      <div class="text-[10px] opacity-60 mb-0.5">Pool Size</div>
+      <div class="flex gap-1 flex-wrap">
+        {% for b in ['Vast','Large','Moderate','Small','Tiny'] %}
+          <button class="btn btn-ghost pool-chip text-[11px] px-2 py-0.5" data-pool="{{ b }}">{{ b[0] }}</button>
+        {% endfor %}
+      </div>
+    </div>
+    <div>
+      <div class="text-[10px] opacity-60 mb-0.5">Popularity</div>
+      <div class="flex gap-1 flex-wrap">
+        {% for b in ['Very Common','Common','Uncommon','Niche','Rare'] %}
+          <button class="btn btn-ghost pop-chip text-[11px] px-2 py-0.5" data-pop="{{ b }}">{{ b }}</button>
+        {% endfor %}
+      </div>
+    </div>
   </div>
+  {% endif %}
+  
+  {# Badge Legend #}
+  <details class="mb-3 text-xs" style="max-width: 800px;">
+    <summary class="cursor-pointer opacity-70 hover:opacity-100" style="user-select: none;">
+      ℹ️ Badge Legend
+    </summary>
+    <div class="mt-2 p-3 rounded" style="background: var(--bg-secondary); border: 1px solid var(--border);">
+      <div class="flex flex-col gap-2.5">
+        {% if show_theme_quality_badges %}
+        <div>
+          <div class="font-semibold mb-1">Quality Badges <span class="theme-badge badge-quality-excellent">E</span> <span class="theme-badge badge-quality-good">G</span> <span class="theme-badge badge-quality-fair">F</span> <span class="theme-badge badge-quality-poor">P</span></div>
+          <div class="opacity-85">Editorial quality measures how well we've documented and curated each theme. The score is calculated from multiple factors:</div>
+          <ul class="mt-1 mb-1 opacity-85 text-[11px] list-disc ml-4 space-y-0.5">
+            <li><strong>Card Count & Uniqueness</strong>: Themes with sufficient representative cards and unique synergies score higher</li>
+            <li><strong>Description Quality</strong>: Custom descriptions that avoid generic patterns score higher than auto-generated fallbacks</li>
+            <li><strong>Metadata Completeness</strong>: Presence of primary/secondary colors, archetype classification, and popularity data</li>
+            <li><strong>Curation Status</strong>: Themes marked as reviewed or final have higher quality than draft entries</li>
+          </ul>
+          <div class="opacity-70 text-[11px]">Higher quality = better-documented, more thoroughly curated, easier to build around</div>
+          <div class="mt-1 opacity-70 text-[11px]"><strong>Tiers:</strong> Excellent (75%+) • Good (60-74%) • Fair (40-59%) • Poor (&lt;40%)</div>
+          <div class="mt-1.5 opacity-70 text-[11px]">💡 <a href="https://github.com/mwisnowski/mtg_python_deckbuilder" target="_blank" rel="noopener noreferrer" class="underline hover:opacity-100">Help improve theme quality on GitHub</a></div>
+        </div>
+        {% endif %}
+        {% if show_theme_pool_badges %}
+        <div>
+          <div class="font-semibold mb-1">Pool Size Badges <span class="theme-badge badge-pool-vast">V</span> <span class="theme-badge badge-pool-large">L</span> <span class="theme-badge badge-pool-moderate">M</span> <span class="theme-badge badge-pool-small">S</span> <span class="theme-badge badge-pool-tiny">T</span></div>
+          <div class="opacity-85">Total cards available with this theme tag. Larger pools offer more variety and flexibility when building.</div>
+          <div class="mt-1 opacity-70 text-[11px]">• Vast (500+) • Large (200-499) • Moderate (50-199) • Small (15-49) • Tiny (&lt;15)</div>
+        </div>
+        {% endif %}
+        {% if show_theme_popularity_badges %}
+        <div>
+          <div class="font-semibold mb-1">Popularity <span class="theme-badge badge-pop-vc">Very Common</span> <span class="theme-badge badge-pop-c">Common</span> <span class="theme-badge badge-pop-u">Uncommon</span> <span class="theme-badge badge-pop-n">Niche</span> <span class="theme-badge badge-pop-r">Rare</span></div>
+          <div class="opacity-85">Usage frequency based on how many commanders and cards are associated with this theme. More popular themes appear in more decks.</div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </details>
+  
   <div id="active-filters" class="flex gap-1.5 flex-wrap mb-2 text-[11px]"></div>
   <div id="theme-results" aria-live="polite" aria-busy="true">
     <div class="flex flex-col gap-2">
@@ -38,7 +125,11 @@
   const input = document.getElementById('theme-search');
   const resultsBox = document.getElementById('theme-search-results');
   const clearBtn = document.getElementById('clear-search');
+  const qualityFilter = document.getElementById('quality-filter');
+  const poolFilter = document.getElementById('pool-filter');
   const popSel = document.getElementById('pop-filter');
+  const qualityChips = document.querySelectorAll('.quality-chip');
+  const poolChips = document.querySelectorAll('.pool-chip');
   const popChips = document.querySelectorAll('.pop-chip');
   const activeFilters = document.getElementById('active-filters');
   const resultsHost = document.getElementById('theme-results');
@@ -48,7 +139,9 @@
   function buildParams(){
     const params = new URLSearchParams();
     const q = input.value.trim(); if(q) params.set('q', q);
-    const pop = popSel.value; if(pop) params.set('bucket', pop);
+    const quality = qualityFilter ? qualityFilter.value : ''; if(quality) params.set('quality_tier', quality);
+    const pool = poolFilter ? poolFilter.value : ''; if(pool) params.set('pool_tier', pool);
+    const pop = popSel ? popSel.value : ''; if(pop) params.set('bucket', pop);
     params.set('limit','50'); params.set('offset','0');
     return params.toString();
   }
@@ -62,7 +155,9 @@
   function renderActive(){
     activeFilters.innerHTML='';
     const q = input.value.trim(); if(q) addChip('Search: '+q, ()=>{ input.value=''; fetchList(); });
-    const pop = popSel.value; if(pop) addChip('Popularity: '+pop, ()=>{ popSel.value=''; fetchList(); });
+    const quality = qualityFilter ? qualityFilter.value : ''; if(quality) addChip('Quality: '+quality, ()=>{ qualityFilter.value=''; fetchList(); });
+    const pool = poolFilter ? poolFilter.value : ''; if(pool) addChip('Pool: '+pool, ()=>{ poolFilter.value=''; fetchList(); });
+    const pop = popSel ? popSel.value : ''; if(pop) addChip('Popularity: '+pop, ()=>{ popSel.value=''; fetchList(); });
   }
   function fetchList(){
     const ps = buildParams();
@@ -154,7 +249,18 @@
     fetch('/themes/fragment/detail/'+id,{cache:'reload'}).catch(()=>{}); 
   });
   document.addEventListener('click', function(ev){ if(!resultsBox.contains(ev.target) && ev.target!==input){ hideResults(); } });
-  popSel.addEventListener('change', fetchList); popChips.forEach(ch=> ch.addEventListener('click', ()=>{ popSel.value=ch.getAttribute('data-pop'); fetchList(); }));
+  if (qualityFilter) {
+    qualityFilter.addEventListener('change', fetchList);
+    qualityChips.forEach(ch=> ch.addEventListener('click', ()=>{ qualityFilter.value=ch.getAttribute('data-quality'); fetchList(); }));
+  }
+  if (poolFilter) {
+    poolFilter.addEventListener('change', fetchList);
+    poolChips.forEach(ch=> ch.addEventListener('click', ()=>{ poolFilter.value=ch.getAttribute('data-pool'); fetchList(); }));
+  }
+  if (popSel) {
+    popSel.addEventListener('change', fetchList);
+    popChips.forEach(ch=> ch.addEventListener('click', ()=>{ popSel.value=ch.getAttribute('data-pop'); fetchList(); }));
+  }
   // Initial load
   fetchList();
 })();

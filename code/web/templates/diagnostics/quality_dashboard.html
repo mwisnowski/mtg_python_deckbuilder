@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+{% block content %}
+<section>
+  <h2>Theme Quality Dashboard</h2>
+  <p class="muted">Monitor theme catalog health and quality metrics</p>
+  
+  {# Summary Statistics #}
+  <div class="card" style="background: var(--panel); border:1px solid var(--border); border-radius:10px; padding:.75rem; margin-bottom:.75rem">
+    <h3 style="margin-top:0">Catalog Statistics</h3>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1rem;">
+      <div>
+        <div class="muted" style="font-size: 12px;">Total Themes</div>
+        <div style="font-size: 24px; font-weight: 600;">{{ total_themes }}</div>
+      </div>
+      <div>
+        <div class="muted" style="font-size: 12px;">Average Quality Score</div>
+        <div style="font-size: 24px; font-weight: 600;">{{ (avg_quality_score * 100)|round|int }}%</div>
+      </div>
+    </div>
+  </div>
+
+  {# Quality Distribution #}
+  <div class="card" style="background: var(--panel); border:1px solid var(--border); border-radius:10px; padding:.75rem; margin-bottom:.75rem">
+    <h3 style="margin-top:0">Quality Tier Distribution</h3>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem;">
+      <div>
+        <div style="font-size: 12px; color: #10b981; font-weight: 600;">Excellent (≥75%)</div>
+        <div style="font-size: 32px; font-weight: 700; color: #10b981;">{{ tier_counts.Excellent }}</div>
+        <div class="muted" style="font-size: 11px;">{{ ((tier_counts.Excellent / total_themes) * 100)|round(1) }}% of catalog</div>
+      </div>
+      <div>
+        <div style="font-size: 12px; color: #3b82f6; font-weight: 600;">Good (60-74%)</div>
+        <div style="font-size: 32px; font-weight: 700; color: #3b82f6;">{{ tier_counts.Good }}</div>
+        <div class="muted" style="font-size: 11px;">{{ ((tier_counts.Good / total_themes) * 100)|round(1) }}% of catalog</div>
+      </div>
+      <div>
+        <div style="font-size: 12px; color: #f59e0b; font-weight: 600;">Fair (40-59%)</div>
+        <div style="font-size: 32px; font-weight: 700; color: #f59e0b;">{{ tier_counts.Fair }}</div>
+        <div class="muted" style="font-size: 11px;">{{ ((tier_counts.Fair / total_themes) * 100)|round(1) }}% of catalog</div>
+      </div>
+      <div>
+        <div style="font-size: 12px; color: #ef4444; font-weight: 600;">Poor (&lt;40%)</div>
+        <div style="font-size: 32px; font-weight: 700; color: #ef4444;">{{ tier_counts.Poor }}</div>
+        <div class="muted" style="font-size: 11px;">{{ ((tier_counts.Poor / total_themes) * 100)|round(1) }}% of catalog</div>
+      </div>
+    </div>
+  </div>
+
+  {# Top 10 Highest Quality Themes #}
+  <div class="card" style="background: var(--panel); border:1px solid var(--border); border-radius:10px; padding:.75rem; margin-bottom:.75rem">
+    <h3 style="margin-top:0">Top 10 Highest Quality Themes</h3>
+    <div class="muted" style="margin-bottom:.5rem">Well-curated themes with high scores</div>
+    <div style="overflow-x:auto">
+      <table style="width:100%; border-collapse:collapse; font-size:13px;">
+        <thead>
+          <tr style="border-bottom:1px solid var(--border); text-align:left;">
+            <th style="padding:.35rem .5rem;">Rank</th>
+            <th style="padding:.35rem .5rem;">Theme</th>
+            <th style="padding:.35rem .5rem;">Tier</th>
+            <th style="padding:.35rem .5rem;">Score</th>
+            <th style="padding:.35rem .5rem;">Pool Size</th>
+            <th style="padding:.35rem .5rem;">Synergies</th>
+            <th style="padding:.35rem .5rem;">Editorial</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for theme in top_themes %}
+          <tr style="border-bottom:1px solid rgba(148,163,184,0.2);">
+            <td style="padding:.35rem .5rem; font-weight:600;">{{ loop.index }}</td>
+            <td style="padding:.35rem .5rem;">
+              <a href="/themes/{{ theme.slug }}" style="text-decoration: none; color: var(--link-color);">{{ theme.theme }}</a>
+            </td>
+            <td style="padding:.35rem .5rem;">
+              <span class="theme-badge badge-quality-{{ theme.tier|lower }}">{{ theme.tier }}</span>
+            </td>
+            <td style="padding:.35rem .5rem; font-weight:600;">{{ (theme.score * 100)|round|int }}%</td>
+            <td style="padding:.35rem .5rem;">{{ theme.pool_size }}</td>
+            <td style="padding:.35rem .5rem;">{{ theme.synergy_count }}</td>
+            <td style="padding:.35rem .5rem; text-transform: capitalize;">{{ theme.editorial_quality }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  {# Bottom 10 Lowest Quality Themes #}
+  <div class="card" style="background: var(--panel); border:1px solid var(--border); border-radius:10px; padding:.75rem; margin-bottom:.75rem">
+    <h3 style="margin-top:0">Bottom 10 Lowest Quality Themes</h3>
+    <div class="muted" style="margin-bottom:.5rem">Themes that need improvement</div>
+    <div style="overflow-x:auto">
+      <table style="width:100%; border-collapse:collapse; font-size:13px;">
+        <thead>
+          <tr style="border-bottom:1px solid var(--border); text-align:left;">
+            <th style="padding:.35rem .5rem;">Theme</th>
+            <th style="padding:.35rem .5rem;">Tier</th>
+            <th style="padding:.35rem .5rem;">Score</th>
+            <th style="padding:.35rem .5rem;">Pool Size</th>
+            <th style="padding:.35rem .5rem;">Synergies</th>
+            <th style="padding:.35rem .5rem;">Issues</th>
+            <th style="padding:.35rem .5rem;">Suggestions</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for theme in bottom_themes %}
+          <tr style="border-bottom:1px solid rgba(148,163,184,0.2);">
+            <td style="padding:.35rem .5rem;">
+              <a href="/themes/{{ theme.slug }}" style="text-decoration: none; color: var(--link-color);">{{ theme.theme }}</a>
+            </td>
+            <td style="padding:.35rem .5rem;">
+              <span class="theme-badge badge-quality-{{ theme.tier|lower }}">{{ theme.tier }}</span>
+            </td>
+            <td style="padding:.35rem .5rem; font-weight:600;">{{ (theme.score * 100)|round|int }}%</td>
+            <td style="padding:.35rem .5rem;">{{ theme.pool_size }}</td>
+            <td style="padding:.35rem .5rem;">{{ theme.synergy_count }}</td>
+            <td style="padding:.35rem .5rem; font-size: 11px;">
+              {% set issues = [] %}
+              {% if theme.pool_size < 15 %}{% set _ = issues.append('Low card count') %}{% endif %}
+              {% if theme.synergy_count < 3 %}{% set _ = issues.append('Few synergies') %}{% endif %}
+              {% if theme.has_fallback_description %}{% set _ = issues.append('Auto-generated desc') %}{% endif %}
+              {% if theme.editorial_quality == 'auto' %}{% set _ = issues.append('Not reviewed') %}{% endif %}
+              {{ issues|join(', ') or 'None identified' }}
+            </td>
+            <td style="padding:.35rem .5rem; font-size: 11px;">
+              {% set suggestions = [] %}
+              {% if theme.pool_size < 15 %}{% set _ = suggestions.append('Add example cards') %}{% endif %}
+              {% if theme.synergy_count < 3 %}{% set _ = suggestions.append('Define synergies') %}{% endif %}
+              {% if theme.has_fallback_description %}{% set _ = suggestions.append('Write custom description') %}{% endif %}
+              {% if theme.editorial_quality == 'auto' %}{% set _ = suggestions.append('Review & curate') %}{% endif %}
+              {{ suggestions|join('; ') or 'N/A' }}
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  {# Tools and Links #}
+  <div class="card" style="background: var(--panel); border:1px solid var(--border); border-radius:10px; padding:.75rem; margin-bottom:.75rem">
+    <h3 style="margin-top:0">Quality Improvement Tools</h3>
+    <div style="margin-bottom: 1rem;">
+      <h4 style="margin: 0 0 .5rem 0; font-size: 14px;">Run Linter</h4>
+      <p class="muted" style="margin: 0 0 .5rem 0; font-size: 12px;">Analyze theme catalog for quality issues and get actionable suggestions</p>
+      <code style="display: block; background: rgba(0,0,0,0.1); padding: .5rem; border-radius: 6px; font-size: 12px; overflow-x: auto;">
+        python code/scripts/validate_theme_catalog.py --lint
+      </code>
+    </div>
+    <div>
+      <h4 style="margin: 1rem 0 .5rem 0; font-size: 14px;">Documentation</h4>
+      <ul style="margin: 0; padding-left: 1.25rem; font-size: 13px;">
+        <li><a href="https://github.com/mwisnowski/mtg_python_deckbuilder/blob/main/docs/theme_editorial_guide.md" target="_blank" rel="noopener noreferrer" style="color: var(--link-color);">Theme Editorial Guide</a> - Quality scoring methodology and best practices</li>
+        <li><a href="/themes" style="color: var(--link-color);">Browse Themes</a> - View all themes with quality badges</li>
+      </ul>
+    </div>
+  </div>
+
+</section>
+{% endblock %}

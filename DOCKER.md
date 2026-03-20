@@ -250,6 +250,10 @@ See `.env.example` for the full catalog. Common knobs:
 | `SHOW_DIAGNOSTICS` | `1` | Enable Diagnostics tools and overlays. |
 | `SHOW_COMMANDERS` | `1` | Expose the commander browser. |
 | `ENABLE_THEMES` | `1` | Keep the theme selector and themes explorer visible. |
+| `SHOW_THEME_QUALITY_BADGES` | `1` | Show quality badges in theme catalog (editorial quality score). |
+| `SHOW_THEME_POOL_BADGES` | `1` | Show pool size badges in theme catalog (total available cards). |
+| `SHOW_THEME_POPULARITY_BADGES` | `1` | Show popularity badges in theme catalog (usage frequency). |
+| `SHOW_THEME_FILTERS` | `1` | Show filter dropdowns and quick chips in theme catalog. |
 | `WEB_VIRTUALIZE` | `1` | Opt-in to virtualized lists/grids for large result sets. |
 | `ALLOW_MUST_HAVES` | `1` | Enable include/exclude enforcement in Step 5. |
 | `SHOW_MUST_HAVE_BUTTONS` | `0` | Surface the must include/exclude buttons and quick-add UI (requires `ALLOW_MUST_HAVES=1`). |

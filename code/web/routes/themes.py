@@ -332,7 +332,7 @@ async def theme_catalog_detail_page(theme_id: str, request: Request):
     entry = idx.slug_to_entry.get(slug)
     if not entry:
         return HTMLResponse("<div class='error'>Not found.</div>", status_code=404)
-    detail = project_detail(slug, entry, idx.slug_to_yaml, uncapped=False)
+    detail = project_detail(slug, entry, idx.slug_to_yaml, idx, uncapped=False)
     # Strip diagnostics-only fields for public page
     detail.pop('has_fallback_description', None)
     detail.pop('editorial_quality', None)
@@ -428,12 +428,16 @@ async def theme_list_fragment(
 async def theme_list_simple_fragment(
     request: Request,
     q: str | None = None,
+    quality_tier: str | None = None,
+    pool_tier: str | None = None,
+    bucket: str | None = None,
     limit: int | None = Query(100, ge=1, le=300),
     offset: int | None = Query(0, ge=0),
 ):
     """Lightweight list: only id, theme, short_description (for speed).
 
     Attempts fast path using precomputed theme_list.json; falls back to full index.
+    Supports filtering by quality_tier, pool_tier, and bucket (popularity).
     """
     import time as _t
     t0 = _t.time()
@@ -445,17 +449,46 @@ async def theme_list_simple_fragment(
     total = 0
     if fast_items is not None:
         fast_used = True
+        # Load index to get quality and pool data
+        try:
+            idx = load_index()
+        except FileNotFoundError:
+            return HTMLResponse("<div class='error'>Catalog unavailable.</div>", status_code=503)
         # Filter (substring on theme only) if q provided
         if q:
             ql = q.lower()
             fast_items = [e for e in fast_items if isinstance(e.get("theme"), str) and ql in e["theme"].lower()]
+        
+        # Apply quality and pool tier filters
+        if quality_tier or pool_tier or bucket:
+            filtered_fast_items = []
+            for e in fast_items:
+                theme_id = e.get("id")
+                summary = idx.summary_by_slug.get(theme_id, {})
+                if quality_tier and summary.get("quality_tier") != quality_tier:
+                    continue
+                if pool_tier and summary.get("pool_tier") != pool_tier:
+                    continue
+                if bucket and summary.get("popularity_bucket") != bucket:
+                    continue
+                filtered_fast_items.append(e)
+            fast_items = filtered_fast_items
+        
         total = len(fast_items)
         slice_items = fast_items[off: off + lim]
         for e in slice_items:
+            theme_id = e.get("id")
+            # Get quality and pool data from index
+            summary = idx.summary_by_slug.get(theme_id, {})
             items.append({
                 "id": e.get("id"),
                 "theme": e.get("theme"),
                 "short_description": e.get("short_description"),
+                "quality_tier": summary.get("quality_tier"),
+                "quality_score": summary.get("quality_score"),
+                "pool_size": summary.get("pool_size"),
+                "pool_tier": summary.get("pool_tier"),
+                "popularity_bucket": summary.get("popularity_bucket"),
             })
     else:
         # Fallback: load full index
@@ -463,7 +496,20 @@ async def theme_list_simple_fragment(
             idx = load_index()
         except FileNotFoundError:
             return HTMLResponse("<div class='error'>Catalog unavailable.</div>", status_code=503)
-        slugs = filter_slugs_fast(idx, q=q, archetype=None, bucket=None, colors=None)
+        slugs = filter_slugs_fast(idx, q=q, archetype=None, bucket=bucket, colors=None)
+        
+        # Apply quality_tier and pool_tier filters
+        if quality_tier or pool_tier:
+            filtered_slugs = []
+            for slug in slugs:
+                summary = idx.summary_by_slug.get(slug, {})
+                if quality_tier and summary.get("quality_tier") != quality_tier:
+                    continue
+                if pool_tier and summary.get("pool_tier") != pool_tier:
+                    continue
+                filtered_slugs.append(slug)
+            slugs = filtered_slugs
+        
         total = len(slugs)
         slice_slugs = slugs[off: off + lim]
         items_raw = summaries_for_slugs(idx, slice_slugs)
@@ -472,6 +518,11 @@ async def theme_list_simple_fragment(
                 "id": it.get("id"),
                 "theme": it.get("theme"),
                 "short_description": it.get("short_description"),
+                "quality_tier": it.get("quality_tier"),
+                "quality_score": it.get("quality_score"),
+                "pool_size": it.get("pool_size"),
+                "pool_tier": it.get("pool_tier"),
+                "popularity_bucket": it.get("popularity_bucket"),
             })
     duration_ms = int(((_t.time() - t0) * 1000))
     resp = _templates.TemplateResponse(
@@ -511,7 +562,7 @@ async def theme_detail_fragment(
         return HTMLResponse("<div class='error'>Not found.</div>", status_code=404)
     diag = _diag_enabled() and bool(diagnostics)
     uncapped_enabled = bool(uncapped) and diag
-    detail = project_detail(slug, entry, idx.slug_to_yaml, uncapped=uncapped_enabled)
+    detail = project_detail(slug, entry, idx.slug_to_yaml, idx, uncapped=uncapped_enabled)
     if not diag:
         detail.pop('has_fallback_description', None)
         detail.pop('editorial_quality', None)
@@ -700,7 +751,7 @@ async def api_theme_detail(
     if not entry:
         raise HTTPException(status_code=404, detail="theme_not_found")
     diag = _diag_enabled() and bool(diagnostics)
-    detail = project_detail(slug, entry, idx.slug_to_yaml, uncapped=bool(uncapped) and diag)
+    detail = project_detail(slug, entry, idx.slug_to_yaml, idx, uncapped=bool(uncapped) and diag)
     if not diag:
         # Remove diagnostics-only fields
         detail.pop("has_fallback_description", None)

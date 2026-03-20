@@ -275,6 +275,10 @@ Most defaults are defined in `docker-compose.yml` and documented in `.env.exampl
 | `SHOW_COMMANDERS` | `1` | Enable the commander browser. |
 | `ENABLE_THEMES` | `1` | Keep the theme browser and selector active. |
 | `ENABLE_CUSTOM_THEMES` | `1` | Surface the Additional Themes section in the New Deck modal. |
+| `SHOW_THEME_QUALITY_BADGES` | `1` | Show quality badges in theme catalog (editorial quality score). |
+| `SHOW_THEME_POOL_BADGES` | `1` | Show pool size badges in theme catalog (total available cards). |
+| `SHOW_THEME_POPULARITY_BADGES` | `1` | Show popularity badges in theme catalog (usage frequency). |
+| `SHOW_THEME_FILTERS` | `1` | Show filter dropdowns and quick chips in theme catalog. |
 | `WEB_VIRTUALIZE` | `1` | Opt into virtualized lists for large datasets. |
 | `ALLOW_MUST_HAVES` | `1` | Enforce include/exclude (must-have) lists. |
 | `SHOW_MUST_HAVE_BUTTONS` | `0` | Reveal the must include/exclude buttons and quick-add UI (requires `ALLOW_MUST_HAVES=1`). |

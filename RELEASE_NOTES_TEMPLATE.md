@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 ### Added
+- **Deck Builder Theme Selection**: Enhanced theme picker with pool size indicators, smart sorting, and optional grouping
+  - **Pool Size Badges**: Numeric card count displayed on all theme chips (recommended + general)
+  - **Smart Sorting**: Themes automatically sorted by pool size (descending), then alphabetically
+  - **Visual Separator**: Clear separation between recommended and general themes with section headers
+  - **Pool Size Sections**: Optional grouping of themes into Vast/Large/Moderate/Small/Tiny sections, controlled by `THEME_POOL_SECTIONS` environment variable (default: off)
+  - **Popup Wizard Parity**: New Deck modal has full feature parity with the legacy builder (badges, sorting, sections)
+  - **Partner-Aware Sections**: When a partner commander is selected, partner themes are bucketed into the correct pool size section rather than appended flat
+  - **Pool Size Tooltips**: Section headers and the "All Available Themes" label include tooltips explaining what the card count badge means and the tier thresholds
+  - **Badge Styling**: Muted, compact pool size badges integrated seamlessly into chip design
 - **Theme Quality Dashboard**: Diagnostic dashboard for monitoring catalog health at `/diagnostics/quality`
   - **Quality Distribution**: Visual breakdown of theme counts by tier (Excellent/Good/Fair/Poor)
   - **Catalog Statistics**: Total themes, average quality score displayed prominently

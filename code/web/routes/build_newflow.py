@@ -19,6 +19,7 @@ from ..app import (
     WEB_IDEALS_UI,
     ENABLE_BATCH_BUILD,
     DEFAULT_THEME_MATCH_MODE,
+    THEME_POOL_SECTIONS,
 )
 from ..services.build_utils import (
     step5_ctx_from_result,
@@ -36,6 +37,7 @@ from .build_partners import (
     _partner_ui_context,
     _resolve_partner_selection,
 )
+from .build_wizard import _prepare_step2_theme_data, _section_themes_by_pool_size  # R21: Pool size data
 from ..services import custom_theme_manager as theme_mgr
 
 router = APIRouter()
@@ -173,9 +175,20 @@ async def build_new_inspect(request: Request, name: str = Query(...)) -> HTMLRes
     info = orch.commander_select(name)
     if not info.get("ok"):
         return HTMLResponse(f'<div class="muted">Commander not found: {name}</div>')
-    tags = orch.tags_for_commander(info["name"]) or []
-    recommended = orch.recommended_tags_for_commander(info["name"]) if tags else []
-    recommended_reasons = orch.recommended_tag_reasons_for_commander(info["name"]) if tags else {}
+    tags_raw = orch.tags_for_commander(info["name"]) or []
+    recommended_raw = orch.recommended_tags_for_commander(info["name"]) if tags_raw else []
+    recommended_reasons = orch.recommended_tag_reasons_for_commander(info["name"]) if tags_raw else {}
+    
+    # R21: Load pool size data and sort themes
+    tags, recommended, pool_size = _prepare_step2_theme_data(tags_raw, recommended_raw)
+    
+    # R21: Section themes by pool size if enabled
+    tag_sections = []
+    recommended_sections = []
+    if THEME_POOL_SECTIONS:
+        tag_sections = _section_themes_by_pool_size(tags, pool_size)
+        recommended_sections = _section_themes_by_pool_size(recommended, pool_size)
+    
     exclusion_detail = lookup_commander_detail(info["name"])
     # Render tags slot content and OOB commander preview simultaneously
     # Game Changer flag for this commander (affects bracket UI in modal via tags partial consumer)
@@ -189,10 +202,15 @@ async def build_new_inspect(request: Request, name: str = Query(...)) -> HTMLRes
         "commander": {"name": info["name"], "exclusion": exclusion_detail},
         "tags": tags,
         "recommended": recommended,
+        "pool_size": pool_size,  # R21: Pool size data for badges
+        "use_sections": THEME_POOL_SECTIONS,  # R21: Flag for template
+        "tag_sections": tag_sections,  # R21: Sectioned themes
+        "recommended_sections": recommended_sections,  # R21: Sectioned recommendations
         "recommended_reasons": recommended_reasons,
         "gc_commander": is_gc,
         "brackets": orch.bracket_options(),
     }
+    
     ctx.update(
         _partner_ui_context(
             info["name"],
@@ -220,6 +238,10 @@ async def build_new_inspect(request: Request, name: str = Query(...)) -> HTMLRes
                 seen.add(key)
                 merged_tags.append(token)
         ctx["tags"] = merged_tags
+        
+        # R21: Re-section merged tags if sectioning enabled
+        if THEME_POOL_SECTIONS:
+            ctx["tag_sections"] = _section_themes_by_pool_size(merged_tags, pool_size)
 
         # Deduplicate recommended: remove any that are already in partner_tags
         partner_tags_lower = {str(tag).strip().casefold() for tag in partner_tags}

@@ -104,7 +104,7 @@
           <div id="tag-order" class="muted" style="font-size:12px; margin-bottom:.4rem;"></div>
           <div id="tag-reco-block" data-has-reco="{% if recommended and recommended|length %}1{% else %}0{% endif %}" {% if not (recommended and recommended|length) %}style="display:none;"{% endif %}>
             <div id="tag-reco-header" style="display:flex; align-items:center; gap:.5rem; margin:.25rem 0 .35rem 0;">
-              <div class="muted" style="font-size:12px;">Recommended</div>
+              <div class="muted" style="font-size:13px; font-weight:600;">⭐ Recommended</div>
               <button type="button" id="reco-why" class="chip" aria-expanded="false" aria-controls="reco-why-panel" title="Why these are recommended?" {% if not (recommended and recommended|length) %}style="display:none;"{% endif %}>Why?</button>
             </div>
             <div id="reco-why-panel" role="group" aria-label="Why Recommended" aria-hidden="true" data-default-reasons='{{ (recommended_reasons or {}) | tojson }}' style="display:none; border:1px solid #e2e2e2; border-radius:8px; padding:.75rem; margin:-.15rem 0 .5rem 0; background:#f7f7f7; box-shadow:0 2px 8px rgba(0,0,0,.06);">
@@ -120,20 +120,48 @@
             </div>
             <div id="tag-reco-list" aria-label="Recommended themes" data-original-tags='{{ (recommended or []) | tojson }}' style="display:flex; gap:.35rem; flex-wrap:wrap; margin-bottom:.5rem;">
               {% if recommended and recommended|length %}
+                {# R21: Recommended themes (always flat, never sectioned) #}
                 {% for r in recommended %}
                   {% set is_sel_r = (r == (primary_tag or '')) or (r == (secondary_tag or '')) or (r == (tertiary_tag or '')) %}
                   {% set tip = (recommended_reasons[r] if (recommended_reasons is defined and recommended_reasons and recommended_reasons.get(r)) else 'Recommended for this commander') %}
-                  <button type="button" class="chip chip-reco{% if is_sel_r %} active{% endif %}" data-tag="{{ r }}" aria-pressed="{% if is_sel_r %}true{% else %}false{% endif %}" title="{{ tip }}">★ {{ r }}</button>
+                  {% set pool_count = pool_size.get(r|slugify, 0) %}
+                  <button type="button" class="chip chip-reco{% if is_sel_r %} active{% endif %}" data-tag="{{ r }}" data-pool-size="{{ pool_count }}" aria-pressed="{% if is_sel_r %}true{% else %}false{% endif %}" title="{{ tip }}">★ {{ r }} <span class="badge badge-pool" title="Pool size: approximately {{ pool_count }} cards available for this theme">{{ pool_count }}</span></button>
                 {% endfor %}
               {% endif %}
               <button type="button" id="reco-select-all" class="chip" title="Add recommended up to 3" {% if not (recommended and recommended|length) %}style="display:none;"{% endif %}>Select all</button>
             </div>
           </div>
+          {% if recommended and recommended|length %}
+          <hr style="border:none; border-top:1px solid var(--border); margin:.75rem 0 .5rem 0;" />
+          <div style="display:flex; align-items:baseline; gap:.4rem; flex-wrap:wrap; margin-bottom:.35rem;">
+            <div class="muted" style="font-size:13px; font-weight:600;">All Available Themes</div>
+            <div class="muted" style="font-size:11px;" title="The number on each theme is the approximate number of eligible cards in that theme's pool for your commander's color identity. Sections: Vast (1000+), Large (500–999), Moderate (200–499), Small (50–199), Tiny (&lt;50).">— badge = card pool size</div>
+          </div>
+          {% endif %}
           <div id="tag-chip-list" aria-label="Available themes" style="display:flex; gap:.35rem; flex-wrap:wrap;">
-            {% for t in tags %}
-              {% set is_sel = (t == (primary_tag or '')) or (t == (secondary_tag or '')) or (t == (tertiary_tag or '')) %}
-              <button type="button" class="chip{% if is_sel %} active{% endif %}" data-tag="{{ t }}" aria-pressed="{% if is_sel %}true{% else %}false{% endif %}">{{ t }}</button>
-            {% endfor %}
+            {% if use_sections and tag_sections %}
+              {# R21: Sectioned general themes #}
+              {% for section in tag_sections %}
+                <div style="width:100%; margin-bottom:.5rem;">
+                  {% set section_tip = {'Vast': '1000+ cards', 'Large': '500–999 cards', 'Moderate': '200–499 cards', 'Small': '50–199 cards', 'Tiny': 'fewer than 50 cards'} %}
+                  <div class="muted" style="font-size:11px; margin-bottom:.25rem;" title="{{ section.label }} pool: themes with approximately {{ section_tip.get(section.label, '') }} available for your commander.">{{ section.label }} Pool ({{ section.themes|length }})</div>
+                  <div style="display:flex; gap:.35rem; flex-wrap:wrap;">
+                    {% for t in section.themes %}
+                      {% set is_sel = (t == (primary_tag or '')) or (t == (secondary_tag or '')) or (t == (tertiary_tag or '')) %}
+                      {% set pool_count = pool_size.get(t|slugify, 0) %}
+                      <button type="button" class="chip{% if is_sel %} active{% endif %}" data-tag="{{ t }}" data-pool-size="{{ pool_count }}" aria-pressed="{% if is_sel %}true{% else %}false{% endif %}" title="Pool size: approximately {{ pool_count }} cards available for this theme">{{ t }} <span class="badge badge-pool">{{ pool_count }}</span></button>
+                    {% endfor %}
+                  </div>
+                </div>
+              {% endfor %}
+            {% else %}
+              {# R21: Flat sorted general themes #}
+              {% for t in tags %}
+                {% set is_sel = (t == (primary_tag or '')) or (t == (secondary_tag or '')) or (t == (tertiary_tag or '')) %}
+                {% set pool_count = pool_size.get(t|slugify, 0) %}
+                <button type="button" class="chip{% if is_sel %} active{% endif %}" data-tag="{{ t }}" data-pool-size="{{ pool_count }}" aria-pressed="{% if is_sel %}true{% else %}false{% endif %}" title="Pool size: approximately {{ pool_count }} cards available for this theme">{{ t }} <span class="badge badge-pool">{{ pool_count }}</span></button>
+              {% endfor %}
+            {% endif %}
           </div>
           {% else %}
             <p>No theme tags available for this commander.</p>

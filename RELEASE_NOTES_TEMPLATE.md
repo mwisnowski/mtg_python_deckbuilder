@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 ### Added
+_No unreleased changes yet_
+
+### Changed
+_No unreleased changes yet_
+
+### Fixed
+_No unreleased changes yet_
+
+### Removed
+_No unreleased changes yet_
+
+## [4.1.0] - 2026-03-20
+### Added
 - **Deck Builder Theme Selection**: Enhanced theme picker with pool size indicators, smart sorting, and optional grouping
   - **Pool Size Badges**: Numeric card count displayed on all theme chips (recommended + general)
   - **Smart Sorting**: Themes automatically sorted by pool size (descending), then alphabetically
@@ -78,7 +91,10 @@
   - Integrated into web UI setup, CLI tagging, and CI/CD workflows (build-similarity-cache)
 
 ### Fixed
-_No unreleased changes yet_
+- **Counter Type Tags**: Fixed leading spaces in theme names for Blood and Hone counter types
+  - Corrected ` Blood` to `Blood` and ` Hone` to `Hone` in `tag_constants.py` COUNTER_TYPES list
+  - Prevents creation of malformed theme names like ` Blood Counters` (with leading space)
+  - Requires re-tagging to regenerate parquet files and theme catalog with corrected names
 
 ### Removed
 _No unreleased changes yet_

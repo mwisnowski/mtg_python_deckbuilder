@@ -1421,3 +1421,15 @@ class FeatureDisabledError(DeckBuilderError):
     def __init__(self, feature: str, details: dict | None = None):
         message = f"Feature '{feature}' is currently disabled"
         super().__init__(message, code="FEATURE_DISABLED", details=details or {"feature": feature})
+
+
+# Random Mode Exceptions
+class InvalidSeedError(DeckBuilderError):
+    """Raised when a seed value fails validation.
+
+    Used by RandomService when the provided seed is the wrong type,
+    out of range, or otherwise cannot be processed.
+    """
+
+    def __init__(self, message: str, details: dict | None = None):
+        super().__init__(message, code="INVALID_SEED", details=details)

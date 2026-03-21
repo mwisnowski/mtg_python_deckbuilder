@@ -9,7 +9,10 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 
 ## [Unreleased]
 ### Added
-_No unreleased changes yet_
+- **RandomService**: New `code/web/services/random_service.py` service class wrapping seeded RNG operations with input validation and the R9 `BaseService` pattern
+- **InvalidSeedError**: New `InvalidSeedError` exception in `code/exceptions.py` for seed validation failures
+- **Random diagnostics endpoint**: `GET /api/random/diagnostics` behind `WEB_RANDOM_DIAGNOSTICS=1` flag, returning seed derivation test vectors for cross-platform consistency checks
+- **Random Mode documentation**: New `docs/random_mode/` directory with `seed_infrastructure.md`, `developer_guide.md`, and `diagnostics.md`
 
 ### Changed
 _No unreleased changes yet_

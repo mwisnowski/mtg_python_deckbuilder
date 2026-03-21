@@ -2177,6 +2177,27 @@ async def api_random_seed_favorite(request: Request):
     rid = getattr(request.state, "request_id", None)
     return {"ok": True, "favorites": favs, "request_id": rid}
 
+@app.get("/api/random/diagnostics")
+async def api_random_diagnostics(request: Request):
+    """Seed verification diagnostics (requires WEB_RANDOM_DIAGNOSTICS=1)."""
+    if not os.environ.get("WEB_RANDOM_DIAGNOSTICS"):
+        raise HTTPException(status_code=404, detail="Diagnostics disabled")
+    from code.web.services.random_service import RandomService
+    service = RandomService()
+    test_vectors = {
+        "test-seed": service.derive_seed("test-seed"),
+        "12345": service.derive_seed(12345),
+        "zero": service.derive_seed(0),
+        "empty-string-rejected": "N/A (empty string raises InvalidSeedError)",
+    }
+    rid = getattr(request.state, "request_id", None)
+    return {
+        "test_vectors": test_vectors,
+        "seed_algorithm": "sha256-63bit",
+        "version": "1.0",
+        "request_id": rid,
+    }
+
 @app.get("/status/random_metrics_ndjson")
 async def status_random_metrics_ndjson():
     if not RANDOM_TELEMETRY:

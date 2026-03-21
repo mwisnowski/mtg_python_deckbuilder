@@ -2,7 +2,9 @@
 
 ## [Unreleased]
 ### Added
-_No unreleased changes yet_
+- **RandomService**: Service wrapper for seeded RNG with validation (`code/web/services/random_service.py`)
+- **Random diagnostics**: `GET /api/random/diagnostics` endpoint (requires `WEB_RANDOM_DIAGNOSTICS=1`)
+- **Random Mode docs**: `docs/random_mode/` covering seed infrastructure, developer guide, and diagnostics
 
 ### Changed
 _No unreleased changes yet_

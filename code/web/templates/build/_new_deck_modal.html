@@ -241,6 +241,56 @@
           <button type="submit" class="btn-continue" id="create-btn">Create</button>
         </div>
       </div>
+      {% if allow_must_haves and multi_copy_archetypes_js %}
+      {# Multi-copy archetype confirmation dialog — shown when user types an archetype in must-include #}
+      <div id="mc-include-confirm" role="dialog" aria-modal="true" aria-labelledby="mc-confirm-title"
+           style="display:none; position:fixed; inset:0; z-index:10000; align-items:center; justify-content:center;">
+        <div style="position:absolute; inset:0; background:rgba(0,0,0,.6);" onclick="window._mcConfirmClose()"></div>
+        <div style="position:relative; max-width:420px; width:clamp(290px,90vw,420px);
+                     background:var(--surface,#0f1115); border:1px solid var(--border,#333);
+                     border-radius:10px; box-shadow:0 10px 30px rgba(0,0,0,.5); padding:1.25rem;">
+          <h3 id="mc-confirm-title" style="margin:0 0 .5rem; font-size:1rem;">Multi-copy package detected</h3>
+          <p id="mc-confirm-msg" class="muted" style="font-size:13px; margin:0 0 .75rem;"></p>
+          <div style="display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; margin-bottom:.5rem;">
+            <label style="display:flex; align-items:center; gap:.35rem;">
+              Copies
+              <input type="number" id="mc-confirm-count" min="1" value="25"
+                     style="width:5rem; margin-left:.25rem;">
+            </label>
+            <small id="mc-confirm-hint" class="muted"></small>
+          </div>
+          <div id="mc-confirm-thrumming-row" style="margin-bottom:.75rem;">
+            <label style="display:flex; align-items:center; gap:.4rem; font-size:13px; cursor:pointer;">
+              <input type="checkbox" id="mc-confirm-thrumming" checked>
+              Include <em>Thrumming Stone</em>
+            </label>
+          </div>
+          <div style="display:flex; gap:.5rem; justify-content:flex-end; flex-wrap:wrap;">
+            <button type="button" class="btn" onclick="window._mcConfirmClose()">Cancel</button>
+            <button type="button" class="btn-continue" onclick="window._mcConfirmSubmit()">Add to must-include</button>
+          </div>
+        </div>
+      </div>
+      {# Conflict dialog — shown when a selected multicopy archetype also appears in the exclude list #}
+      <div id="mc-exclude-conflict" role="dialog" aria-modal="true" aria-labelledby="mc-conflict-title"
+           style="display:none; position:fixed; inset:0; z-index:10001; align-items:center; justify-content:center;">
+        <div style="position:absolute; inset:0; background:rgba(0,0,0,.6);" onclick="window._mcConflictClose()"></div>
+        <div style="position:relative; max-width:440px; width:clamp(290px,90vw,440px);
+                     background:var(--surface,#0f1115); border:1px solid var(--border,#333);
+                     border-radius:10px; box-shadow:0 10px 30px rgba(0,0,0,.5); padding:1.25rem;">
+          <h3 id="mc-conflict-title" style="margin:0 0 .5rem; font-size:1rem;">Multi-copy / Exclude conflict</h3>
+          <p id="mc-conflict-msg" class="muted" style="font-size:13px; margin:0 0 1rem;"></p>
+          <div style="display:flex; flex-direction:column; gap:.5rem;">
+            <button type="button" class="btn-continue" onclick="window._mcConflictKeepMulti()">Keep multi-copy (remove from excludes)</button>
+            <button type="button" class="btn-continue" onclick="window._mcConflictKeepExcludes()">Keep excludes (remove multi-copy)</button>
+            <button type="button" class="btn" onclick="window._mcConflictClose()">Cancel</button>
+          </div>
+        </div>
+      </div>
+      <script>
+        window._MC_ARCHETYPES = {{ multi_copy_archetypes_js | tojson }};
+      </script>
+      {% endif %}
     </form>
   </div>
 </div>
@@ -1558,5 +1608,156 @@
       allModals[i].remove();
     }
   }
+})();
+</script>
+
+<script>
+// Multi-copy archetype popups — include-confirm and exclude-conflict
+(function(){
+  if (!window._MC_ARCHETYPES) return;
+
+  var _pending = null;
+  var _pendingConflict = null;
+
+  // --- Include-confirm dialog ---
+  window._mcConfirmClose = function(){
+    var dlg = document.getElementById('mc-include-confirm');
+    if (dlg) dlg.style.display = 'none';
+    _pending = null;
+  };
+
+  window._mcConfirmSubmit = function(){
+    if (!_pending) return;
+    var form = _pending.form;
+    var archetype = _pending.archetype;
+    form.querySelectorAll('[data-mc-injected]').forEach(function(el){ el.remove(); });
+    function inj(name, value){
+      var h = document.createElement('input');
+      h.type = 'hidden'; h.name = name; h.value = value;
+      h.setAttribute('data-mc-injected', '1');
+      form.appendChild(h);
+    }
+    inj('enable_multicopy', '1');
+    inj('multi_choice_id', archetype.id);
+    inj('multi_count', document.getElementById('mc-confirm-count').value || archetype.default_count);
+    var thrum = document.getElementById('mc-confirm-thrumming');
+    if (thrum && thrum.checked) inj('multi_thrumming', '1');
+    window._mcConfirmClose();
+    form.requestSubmit();
+  };
+
+  // --- Exclude-conflict dialog ---
+  window._mcConflictClose = function(){
+    var dlg = document.getElementById('mc-exclude-conflict');
+    if (dlg) dlg.style.display = 'none';
+    _pendingConflict = null;
+  };
+
+  window._mcConflictKeepMulti = function(){
+    if (!_pendingConflict) return;
+    var form = _pendingConflict.form;
+    var archetype = _pendingConflict.archetype;
+    // Remove archetype name from exclude textarea
+    var exTa = document.getElementById('exclude_cards_textarea');
+    if (exTa) {
+      var exName = archetype.name.toLowerCase();
+      var filtered = exTa.value.split(/\n/).filter(function(line){
+        return line.trim().replace(/^\d+[x\s]+/i, '').toLowerCase() !== exName;
+      });
+      exTa.value = filtered.join('\n');
+    }
+    window._mcConflictClose();
+    form.requestSubmit();
+  };
+
+  window._mcConflictKeepExcludes = function(){
+    if (!_pendingConflict) return;
+    var form = _pendingConflict.form;
+    // Uncheck the multicopy enable checkbox so the server ignores it
+    var mcChk = form.querySelector('#pref-mc-chk');
+    if (mcChk) mcChk.checked = false;
+    window._mcConflictClose();
+    form.requestSubmit();
+  };
+
+  // Helper: show include-confirm dialog
+  function showIncludeConfirm(form, found){
+    _pending = { form: form, archetype: found };
+    document.getElementById('mc-confirm-msg').textContent =
+      '"' + found.name + '" is a multi-copy archetype card. How many copies should be included?';
+    var countIn = document.getElementById('mc-confirm-count');
+    countIn.value = found.default_count || 25;
+    if (found.printed_cap) countIn.max = found.printed_cap;
+    else countIn.removeAttribute('max');
+    var hint = document.getElementById('mc-confirm-hint');
+    if (found.printed_cap) hint.textContent = 'Max ' + found.printed_cap;
+    else if (found.rec_window) hint.textContent = 'Suggested ' + found.rec_window[0] + '\u2013' + found.rec_window[1];
+    else hint.textContent = '';
+    var thrumRow = document.getElementById('mc-confirm-thrumming-row');
+    var thrumChk = document.getElementById('mc-confirm-thrumming');
+    if (thrumRow) thrumRow.style.display = found.thrumming_stone_synergy ? '' : 'none';
+    if (thrumChk) thrumChk.checked = found.thrumming_stone_synergy;
+    var dlg = document.getElementById('mc-include-confirm');
+    if (dlg) dlg.style.display = 'flex';
+  }
+
+  // Intercept form submit in capture phase so we run before HTMX
+  document.addEventListener('submit', function(e){
+    try {
+      var form = e.target;
+      if (!form) return;
+      if (form.getAttribute('hx-post') !== '/build/new') return;
+      // Skip if hidden fields already injected (re-submit after a dialog confirm)
+      if (form.querySelector('input[data-mc-injected]')) return;
+
+      var mcChk = form.querySelector('#pref-mc-chk');
+
+      if (mcChk && mcChk.checked) {
+        // User is using the explicit multicopy selector — check for exclude conflict
+        var choiceRadio = form.querySelector('input[name="multi_choice_id"]:checked');
+        if (choiceRadio) {
+          var choiceId = choiceRadio.value;
+          var choiceArchetype = null;
+          var allA = window._MC_ARCHETYPES;
+          for (var ak in allA) { if (allA[ak].id === choiceId) { choiceArchetype = allA[ak]; break; } }
+          if (choiceArchetype) {
+            var exTa = document.getElementById('exclude_cards_textarea');
+            if (exTa && exTa.value.trim()) {
+              var exName = choiceArchetype.name.toLowerCase();
+              var exLines = exTa.value.split(/[\n,]+/);
+              for (var j = 0; j < exLines.length; j++) {
+                var exLine = exLines[j].trim().replace(/^\d+[x\s]+/i, '').toLowerCase();
+                if (exLine === exName) {
+                  e.preventDefault();
+                  e.stopImmediatePropagation();
+                  _pendingConflict = { form: form, archetype: choiceArchetype };
+                  document.getElementById('mc-conflict-msg').textContent =
+                    '"' + choiceArchetype.name + '" is selected as your multi-copy archetype but also appears in your Exclude list. How would you like to proceed?';
+                  var cdlg = document.getElementById('mc-exclude-conflict');
+                  if (cdlg) cdlg.style.display = 'flex';
+                  return;
+                }
+              }
+            }
+          }
+        }
+        return; // no conflict — let HTMX handle it
+      }
+
+      // Scan the include_cards textarea for archetype names
+      var ta = document.getElementById('include_cards_textarea');
+      if (!ta || !ta.value.trim()) return;
+      var lines = ta.value.split(/[\n,]+/);
+      var found = null;
+      for (var i = 0; i < lines.length; i++){
+        var key = lines[i].trim().toLowerCase();
+        if (key && window._MC_ARCHETYPES[key]){ found = window._MC_ARCHETYPES[key]; break; }
+      }
+      if (!found) return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      showIncludeConfirm(form, found);
+    } catch(err){ /* never block submit on errors */ }
+  }, true);
 })();
 </script>

@@ -20,9 +20,56 @@ from ..app import (
 )
 from ..services.tasks import get_session, new_sid
 from ..services import custom_theme_manager as theme_mgr
+from ..services.theme_catalog_loader import load_index, slugify
 
 
 router = APIRouter()
+
+
+def _prepare_step2_theme_data(tags: list[str], recommended: list[str]) -> tuple[list[str], list[str], dict[str, int]]:
+    """Load pool size data and sort themes for display.
+
+    Returns:
+        Tuple of (sorted_tags, sorted_recommended, pool_size_dict)
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+
+    try:
+        theme_index = load_index()
+        pool_size_by_slug = theme_index.pool_size_by_slug
+    except Exception as e:
+        logger.warning(f"Failed to load theme index for pool sizes: {e}")
+        pool_size_by_slug = {}
+
+    def sort_by_pool_size(theme_list: list[str]) -> list[str]:
+        return sorted(
+            theme_list,
+            key=lambda t: (-pool_size_by_slug.get(slugify(t), 0), t.lower())
+        )
+
+    return sort_by_pool_size(tags), sort_by_pool_size(recommended), pool_size_by_slug
+
+
+def _section_themes_by_pool_size(themes: list[str], pool_size: dict[str, int]) -> list[dict[str, Any]]:
+    """Group themes into sections by pool size.
+
+    Thresholds: Vast ≥1000, Large 500-999, Moderate 200-499, Small 50-199, Tiny <50
+    """
+    sections = [
+        {"label": "Vast",     "min": 1000, "max": 9999999, "themes": []},
+        {"label": "Large",    "min": 500,  "max": 999,     "themes": []},
+        {"label": "Moderate", "min": 200,  "max": 499,     "themes": []},
+        {"label": "Small",    "min": 50,   "max": 199,     "themes": []},
+        {"label": "Tiny",     "min": 0,    "max": 49,      "themes": []},
+    ]
+    for theme in themes:
+        theme_pool = pool_size.get(slugify(theme), 0)
+        for section in sections:
+            if section["min"] <= theme_pool <= section["max"]:
+                section["themes"].append(theme)
+                break
+    return [s for s in sections if s["themes"]]
 
 
 _INVALID_THEME_MESSAGE = (

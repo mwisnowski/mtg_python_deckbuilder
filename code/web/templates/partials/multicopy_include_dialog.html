@@ -1,0 +1,98 @@
+<!-- #include-exclude-summary stays as empty placeholder so HTMX can target it -->
+<div id="include-exclude-summary" data-summary></div>
+<!-- Modal is appended to <body> by the script below to avoid CSS containment issues -->
+<div id="mc-include-dialog" role="dialog" aria-modal="true" aria-labelledby="mc-include-title"
+     style="position:fixed; inset:0; z-index:9999; display:flex; align-items:center; justify-content:center;">
+  <div id="mc-include-overlay"
+       style="position:absolute; inset:0; background:rgba(0,0,0,.6); cursor:default;"></div>
+  <div class="modal-content"
+       style="position:relative; max-width:440px; width:clamp(300px, 90vw, 440px);
+              background:#0f1115; border:1px solid var(--border); border-radius:10px;
+              box-shadow:0 10px 30px rgba(0,0,0,.5); padding:1.25rem;">
+    <div class="modal-header" style="display:flex; align-items:center; justify-content:space-between; gap:.5rem; margin-bottom:.75rem;">
+      <h3 id="mc-include-title" style="margin:0; font-size:1rem;">Include multi-copy package?</h3>
+      <button type="button" class="btn" aria-label="Close" onclick="_mcIncludeClose()">×</button>
+    </div>
+    <p class="muted" style="font-size:13px; margin:.25rem 0 .75rem;">
+      <strong>{{ card_name }}</strong> is a multi-copy archetype card. Adding it to
+      your must-include list will configure it as your active multi-copy package.
+    </p>
+    <form id="mc-include-form"
+          hx-post="/build/must-haves/save-archetype-include"
+          hx-target="#include-exclude-summary"
+          hx-swap="outerHTML">
+      <input type="hidden" name="card_name" value="{{ card_name | e }}">
+      <input type="hidden" name="choice_id" value="{{ archetype.id | e }}">
+      <div style="display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; margin-bottom:.5rem;">
+        <label>
+          Copies
+          <input type="number" name="count" min="1"
+                 {% if archetype.printed_cap %}max="{{ archetype.printed_cap }}"{% endif %}
+                 value="{{ archetype.default_count or 25 }}"
+                 style="width:6rem; margin-left:.35rem;">
+        </label>
+        {% if archetype.printed_cap %}
+        <small class="muted">Max {{ archetype.printed_cap }}</small>
+        {% elif archetype.rec_window %}
+        <small class="muted">Suggested {{ archetype.rec_window[0] }}–{{ archetype.rec_window[1] }}</small>
+        {% endif %}
+      </div>
+      {% if archetype.thrumming_stone_synergy %}
+      <div style="margin-bottom:.75rem;">
+        <label title="Adds 1 copy of Thrumming Stone to your deck.">
+          <input type="checkbox" name="thrumming" value="1" checked> Include Thrumming Stone
+        </label>
+      </div>
+      {% endif %}
+      <div class="modal-footer" style="display:flex; gap:.5rem; justify-content:flex-end; margin-top:.75rem;">
+        <button type="button" class="btn" onclick="_mcIncludeClose()">Cancel</button>
+        <button type="submit" class="btn-continue">Add to must-include</button>
+      </div>
+    </form>
+  </div>
+</div>
+<script>
+(function(){
+  function _mcIncludeClose(){
+    var m=document.getElementById('mc-include-dialog');
+    if(m) m.remove();
+    try{
+      window.htmx.ajax('GET','/build/must-haves/summary',{
+        target:document.getElementById('include-exclude-summary'),
+        swap:'outerHTML'
+      });
+    }catch(_){}
+  }
+  window._mcIncludeClose = _mcIncludeClose;
+
+  var modal = document.getElementById('mc-include-dialog');
+  if(!modal) return;
+  document.body.appendChild(modal);
+
+  document.getElementById('mc-include-overlay').addEventListener('click', _mcIncludeClose);
+
+  document.addEventListener('keydown', function _mcEsc(e){
+    if(e.key !== 'Escape') return;
+    document.removeEventListener('keydown', _mcEsc);
+    _mcIncludeClose();
+  });
+
+  var form = document.getElementById('mc-include-form');
+  if(form){
+    form.addEventListener('htmx:afterRequest', function(){
+      var m=document.getElementById('mc-include-dialog');
+      if(m) m.remove();
+    });
+  }
+})();
+</script>
+<script>
+(function(){
+  document.addEventListener('keydown', function handler(e){
+    if (e.key === 'Escape'){
+      document.removeEventListener('keydown', handler);
+      try { htmx.ajax('GET', '/build/must-haves/summary', {target:'#include-exclude-summary', swap:'outerHTML'}); } catch(_){}
+    }
+  });
+})();
+</script>

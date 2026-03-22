@@ -13,12 +13,14 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 - **InvalidSeedError**: New `InvalidSeedError` exception in `code/exceptions.py` for seed validation failures
 - **Random diagnostics endpoint**: `GET /api/random/diagnostics` behind `WEB_RANDOM_DIAGNOSTICS=1` flag, returning seed derivation test vectors for cross-platform consistency checks
 - **Random Mode documentation**: New `docs/random_mode/` directory with `seed_infrastructure.md`, `developer_guide.md`, and `diagnostics.md`
+- **Multi-copy / Include conflict dialog**: When a known multi-copy archetype card (e.g., Hare Apparent) is typed in the Must Include field of the New Deck modal, a popup now appears asking how many copies to include, with an optional Thrumming Stone checkbox
+- **Multi-copy / Exclude conflict dialog**: When a multi-copy archetype is selected via the Multi-Copy Package selector and the same card also appears in the Must Exclude field, a conflict popup lets you choose to keep the multi-copy (removing it from excludes) or keep the exclude (disabling the archetype selection)
 
 ### Changed
 _No unreleased changes yet_
 
 ### Fixed
-_No unreleased changes yet_
+- **Multi-copy include count**: Typing an archetype card in Must Include no longer adds only 1 copy — the archetype count is now respected when the dialog is confirmed
 
 ### Removed
 _No unreleased changes yet_

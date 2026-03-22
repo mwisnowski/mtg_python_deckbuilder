@@ -1,0 +1,70 @@
+<!-- #include-exclude-summary stays as empty placeholder so HTMX can target it -->
+<div id="include-exclude-summary" data-summary></div>
+<!-- Modal is appended to <body> by the script below to avoid CSS containment issues -->
+<div id="mc-exclude-dialog" role="dialog" aria-modal="true" aria-labelledby="mc-excl-title"
+     style="position:fixed; inset:0; z-index:9999; display:flex; align-items:center; justify-content:center;">
+  <div id="mc-exclude-overlay"
+       style="position:absolute; inset:0; background:rgba(0,0,0,.6); cursor:default;"></div>
+  <div class="modal-content"
+       style="position:relative; max-width:440px; width:clamp(300px, 90vw, 440px);
+              background:#0f1115; border:1px solid var(--border); border-radius:10px;
+              box-shadow:0 10px 30px rgba(0,0,0,.5); padding:1.25rem;">
+    <div class="modal-header" style="display:flex; align-items:center; justify-content:space-between; gap:.5rem; margin-bottom:.75rem;">
+      <h3 id="mc-excl-title" style="margin:0; font-size:1rem;">Remove multi-copy archetype?</h3>
+      <button type="button" class="btn" aria-label="Close" onclick="_mcExcludeClose()">×</button>
+    </div>
+    <p class="muted" style="font-size:13px; margin:.25rem 0 .75rem;">
+      <strong>{{ card_name }}</strong> is your currently selected multi-copy archetype
+      {% if archetype.count %}({{ archetype.count }} copies){% endif %}.
+      Excluding it will remove that selection and add the card to your must-exclude list.
+    </p>
+    <form id="mc-exclude-form"
+          hx-post="/build/must-haves/clear-archetype"
+          hx-target="#include-exclude-summary"
+          hx-swap="outerHTML">
+      <input type="hidden" name="card_name" value="{{ card_name | e }}">
+      <div class="modal-footer" style="display:flex; gap:.5rem; justify-content:flex-end; margin-top:.75rem;">
+        <button type="button" class="btn" onclick="_mcExcludeClose()">Cancel</button>
+        <button type="submit" class="btn" style="background:#7f1d1d; border-color:#991b1b; color:#fca5a5;">
+          Exclude &amp; remove archetype
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+<script>
+(function(){
+  function _mcExcludeClose(){
+    var m=document.getElementById('mc-exclude-dialog');
+    if(m) m.remove();
+    try{
+      window.htmx.ajax('GET','/build/must-haves/summary',{
+        target:document.getElementById('include-exclude-summary'),
+        swap:'outerHTML'
+      });
+    }catch(_){}
+  }
+  window._mcExcludeClose = _mcExcludeClose;
+
+  var modal = document.getElementById('mc-exclude-dialog');
+  if(!modal) return;
+  document.body.appendChild(modal);
+
+  document.getElementById('mc-exclude-overlay').addEventListener('click', _mcExcludeClose);
+
+  document.addEventListener('keydown', function _mcEsc(e){
+    if(e.key !== 'Escape') return;
+    document.removeEventListener('keydown', _mcEsc);
+    _mcExcludeClose();
+  });
+
+  var form = document.getElementById('mc-exclude-form');
+  if(form){
+    form.addEventListener('htmx:afterRequest', function(){
+      var m=document.getElementById('mc-exclude-dialog');
+      if(m) m.remove();
+    });
+  }
+})();
+</script>
+

@@ -78,20 +78,3 @@ def test_commander_launch_preselects_commander_and_requires_theme(client: TestCl
     assert init_match is not None
     assert _html.unescape(init_match.group(1)) == commander_name
     assert "Back to Commanders" in body
-
-    step2 = client.get("/build/step2")
-    assert step2.status_code == 200
-    step2_body = step2.text
-    assert commander_name in _html.unescape(step2_body)
-    assert 'name="primary_tag"' in step2_body
-
-    submit = client.post(
-        "/build/step2",
-        data={
-            "commander": commander_name,
-            "bracket": "3",
-            "tag_mode": "AND",
-        },
-    )
-    assert submit.status_code == 200
-    assert "Please choose a primary theme." in submit.text

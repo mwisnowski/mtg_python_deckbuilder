@@ -13,7 +13,7 @@ Extracted from build.py as part of Phase 3 modularization (Roadmap 9 M1).
 from __future__ import annotations
 
 from fastapi import APIRouter, Request, Form, Query
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from typing import Any
 
 from ..app import templates, ENABLE_PARTNER_MECHANICS, THEME_POOL_SECTIONS
@@ -182,25 +182,12 @@ def _get_current_deck_names(sess: dict) -> list[str]:
 
 @router.get("/step1", response_class=HTMLResponse)
 async def build_step1(request: Request) -> HTMLResponse:
-    """Display commander search form."""
-    sid = request.cookies.get("sid") or new_sid()
-    sess = get_session(sid)
-    sess["last_step"] = 1
-    resp = templates.TemplateResponse("build/_step1.html", {"request": request, "candidates": []})
-    resp.set_cookie("sid", sid, httponly=True, samesite="lax")
-    return resp
+    return RedirectResponse("/build", status_code=302)
 
 
 @router.post("/step1", response_class=HTMLResponse)
-async def build_step1_search(
-    request: Request,
-    query: str = Form(""),
-    auto: str | None = Form(None),
-    active: str | None = Form(None),
-) -> HTMLResponse:
-    """Search for commander candidates and optionally auto-select."""
-    query = (query or "").strip()
-    auto_enabled = True if (auto == "1") else False
+async def build_step1_search(request: Request) -> HTMLResponse:
+    return RedirectResponse("/build", status_code=302)
     candidates = []
     if query:
         candidates = orch.commander_candidates(query, limit=10)
@@ -275,11 +262,8 @@ async def build_step1_search(
 
 
 @router.post("/step1/inspect", response_class=HTMLResponse)
-async def build_step1_inspect(request: Request, name: str = Form(...)) -> HTMLResponse:
-    """Preview commander details before confirmation."""
-    sid = request.cookies.get("sid") or new_sid()
-    sess = get_session(sid)
-    sess["last_step"] = 1
+async def build_step1_inspect(request: Request) -> HTMLResponse:
+    return RedirectResponse("/build", status_code=302)
     info = orch.commander_inspect(name)
     resp = templates.TemplateResponse(
         "build/_step1.html",
@@ -290,9 +274,8 @@ async def build_step1_inspect(request: Request, name: str = Form(...)) -> HTMLRe
 
 
 @router.post("/step1/confirm", response_class=HTMLResponse)
-async def build_step1_confirm(request: Request, name: str = Form(...)) -> HTMLResponse:
-    """Confirm commander selection and proceed to step 2."""
-    res = orch.commander_select(name)
+async def build_step1_confirm(request: Request) -> HTMLResponse:
+    return RedirectResponse("/build", status_code=302)
     if not res.get("ok"):
         sid = request.cookies.get("sid") or new_sid()
         sess = get_session(sid)
@@ -381,23 +364,7 @@ async def build_step1_confirm(request: Request, name: str = Form(...)) -> HTMLRe
 
 @router.post("/reset-all", response_class=HTMLResponse)
 async def build_reset_all(request: Request) -> HTMLResponse:
-    """Clear all build-related session state and return Step 1."""
-    sid = request.cookies.get("sid") or new_sid()
-    sess = get_session(sid)
-    keys = [
-        "commander","tags","tag_mode","bracket","ideals","build_ctx","last_step",
-        "locks","replace_mode"
-    ]
-    for k in keys:
-        try:
-            if k in sess:
-                del sess[k]
-        except Exception:
-            pass
-    sess["last_step"] = 1
-    resp = templates.TemplateResponse("build/_step1.html", {"request": request, "candidates": []})
-    resp.set_cookie("sid", sid, httponly=True, samesite="lax")
-    return resp
+    return RedirectResponse("/build", status_code=302)
 
 
 # ============================================================================
@@ -406,11 +373,7 @@ async def build_reset_all(request: Request) -> HTMLResponse:
 
 @router.get("/step2", response_class=HTMLResponse)
 async def build_step2_get(request: Request) -> HTMLResponse:
-    """Display theme picker and partner selection."""
-    sid = request.cookies.get("sid") or new_sid()
-    sess = get_session(sid)
-    sess["last_step"] = 2
-    commander = sess.get("commander")
+    return RedirectResponse("/build", status_code=302)
     if not commander:
         # Fallback to step1 if no commander in session
         resp = templates.TemplateResponse("build/_step1.html", {"request": request, "candidates": []})
@@ -513,24 +476,8 @@ async def build_step2_get(request: Request) -> HTMLResponse:
 
 
 @router.post("/step2", response_class=HTMLResponse)
-async def build_step2_submit(
-    request: Request,
-    commander: str = Form(...),
-    primary_tag: str | None = Form(None),
-    secondary_tag: str | None = Form(None),
-    tertiary_tag: str | None = Form(None),
-    tag_mode: str | None = Form("AND"),
-    bracket: int = Form(...),
-    partner_enabled: str | None = Form(None),
-    secondary_commander: str | None = Form(None),
-    background: str | None = Form(None),
-    partner_selection_source: str | None = Form(None),
-    partner_auto_opt_out: str | None = Form(None),
-) -> HTMLResponse:
-    """Submit theme and partner selections, proceed to step 3."""
-    sid = request.cookies.get("sid") or new_sid()
-    sess = get_session(sid)
-    sess["last_step"] = 2
+async def build_step2_submit(request: Request) -> HTMLResponse:
+    return RedirectResponse("/build", status_code=302)
 
     partner_feature_enabled = ENABLE_PARTNER_MECHANICS
     partner_flag = False
@@ -776,11 +723,7 @@ async def build_step2_submit(
 
 @router.get("/step3", response_class=HTMLResponse)
 async def build_step3_get(request: Request) -> HTMLResponse:
-    """Display ideal card count sliders."""
-    sid = request.cookies.get("sid") or new_sid()
-    sess = get_session(sid)
-    sess["last_step"] = 3
-    defaults = orch.ideal_defaults()
+    return RedirectResponse("/build", status_code=302)
     values = sess.get("ideals") or defaults
     
     # Check if any skip flags are enabled to show skeleton automation page
@@ -850,19 +793,8 @@ async def build_step3_get(request: Request) -> HTMLResponse:
 
 
 @router.post("/step3", response_class=HTMLResponse)
-async def build_step3_submit(
-    request: Request,
-    ramp: int = Form(...),
-    lands: int = Form(...),
-    basic_lands: int = Form(...),
-    creatures: int = Form(...),
-    removal: int = Form(...),
-    wipes: int = Form(...),
-    card_advantage: int = Form(...),
-    protection: int = Form(...),
-) -> HTMLResponse:
-    """Submit ideal card counts, proceed to step 4."""
-    labels = orch.ideal_labels()
+async def build_step3_submit(request: Request) -> HTMLResponse:
+    return RedirectResponse("/build", status_code=302)
     submitted = {
         "ramp": ramp,
         "lands": lands,
@@ -944,11 +876,7 @@ async def build_step3_submit(
 
 @router.get("/step4", response_class=HTMLResponse)
 async def build_step4_get(request: Request) -> HTMLResponse:
-    """Display review page with owned card preferences."""
-    sid = request.cookies.get("sid") or new_sid()
-    sess = get_session(sid)
-    sess["last_step"] = 4
-    labels = orch.ideal_labels()
+    return RedirectResponse("/build", status_code=302)
     values = sess.get("ideals") or orch.ideal_defaults()
     commander = sess.get("commander")
     return templates.TemplateResponse(
@@ -966,17 +894,8 @@ async def build_step4_get(request: Request) -> HTMLResponse:
 
 
 @router.post("/toggle-owned-review", response_class=HTMLResponse)
-async def build_toggle_owned_review(
-    request: Request,
-    use_owned_only: str | None = Form(None),
-    prefer_owned: str | None = Form(None),
-    swap_mdfc_basics: str | None = Form(None),
-) -> HTMLResponse:
-    """Toggle 'use owned only' and/or 'prefer owned' flags from the Review step and re-render Step 4."""
-    sid = request.cookies.get("sid") or new_sid()
-    sess = get_session(sid)
-    sess["last_step"] = 4
-    only_val = True if (use_owned_only and str(use_owned_only).strip() in ("1","true","on","yes")) else False
+async def build_toggle_owned_review(request: Request) -> HTMLResponse:
+    return RedirectResponse("/build", status_code=302)
     pref_val = True if (prefer_owned and str(prefer_owned).strip() in ("1","true","on","yes")) else False
     swap_val = True if (swap_mdfc_basics and str(swap_mdfc_basics).strip() in ("1","true","on","yes")) else False
     sess["use_owned_only"] = only_val
@@ -1024,19 +943,12 @@ async def build_step5_get(request: Request) -> HTMLResponse:
 
 @router.get("/step5/start", response_class=HTMLResponse)
 async def build_step5_start_get(request: Request) -> HTMLResponse:
-    """Allow GET as a fallback to start the build (delegates to POST handler)."""
-    return await build_step5_start(request)
+    return RedirectResponse("/build", status_code=302)
 
 
 @router.post("/step5/start", response_class=HTMLResponse)
 async def build_step5_start(request: Request) -> HTMLResponse:
-    """Initialize build context and run first stage."""
-    sid = request.cookies.get("sid") or new_sid()
-    sess = get_session(sid)
-    if "replace_mode" not in sess:
-        sess["replace_mode"] = True
-    # Validate commander exists before starting
-    commander = sess.get("commander")
+    return RedirectResponse("/build", status_code=302)
     if not commander:
         resp = templates.TemplateResponse(
             "build/_step1.html",

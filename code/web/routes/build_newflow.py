@@ -37,10 +37,25 @@ from .build_partners import (
     _partner_ui_context,
     _resolve_partner_selection,
 )
-from .build_wizard import _prepare_step2_theme_data, _section_themes_by_pool_size  # R21: Pool size data
+from .build_themes import _prepare_step2_theme_data, _section_themes_by_pool_size
 from ..services import custom_theme_manager as theme_mgr
 
 router = APIRouter()
+
+
+# Pre-built JS-serialisable map of multi-copy archetypes for client-side popup detection.
+# Keys are lowercased card names; values contain what the popup needs.
+_ARCHETYPE_JS_MAP: dict[str, dict] = {
+    str(a["name"]).strip().lower(): {
+        "id": a["id"],
+        "name": a["name"],
+        "default_count": a.get("default_count", 25),
+        "printed_cap": a.get("printed_cap"),
+        "rec_window": list(a["rec_window"]) if a.get("rec_window") else None,
+        "thrumming_stone_synergy": bool(a.get("thrumming_stone_synergy", False)),
+    }
+    for a in bc.MULTI_COPY_ARCHETYPES.values()
+}
 
 
 # ==============================================================================
@@ -99,6 +114,7 @@ async def build_new_modal(request: Request) -> HTMLResponse:
         "enable_custom_themes": ENABLE_CUSTOM_THEMES,
         "enable_batch_build": ENABLE_BATCH_BUILD,
         "ideals_ui_mode": WEB_IDEALS_UI,  # 'input' or 'slider'
+        "multi_copy_archetypes_js": _ARCHETYPE_JS_MAP,
         "form": {
             "commander": sess.get("commander", ""),  # Pre-fill for quick-build
             "prefer_combos": bool(sess.get("prefer_combos")),
@@ -485,6 +501,7 @@ async def build_new_submit(
                     "show_must_have_buttons": SHOW_MUST_HAVE_BUTTONS,
                     "enable_custom_themes": ENABLE_CUSTOM_THEMES,
                     "enable_batch_build": ENABLE_BATCH_BUILD,
+                    "multi_copy_archetypes_js": _ARCHETYPE_JS_MAP,
                     "form": _form_state(suggested),
                     "tag_slot_html": None,
                 }
@@ -510,6 +527,7 @@ async def build_new_submit(
             "show_must_have_buttons": SHOW_MUST_HAVE_BUTTONS,
             "enable_custom_themes": ENABLE_CUSTOM_THEMES,
             "enable_batch_build": ENABLE_BATCH_BUILD,
+            "multi_copy_archetypes_js": _ARCHETYPE_JS_MAP,
             "form": _form_state(commander),
             "tag_slot_html": None,
         }
@@ -615,6 +633,7 @@ async def build_new_submit(
             "show_must_have_buttons": SHOW_MUST_HAVE_BUTTONS,
             "enable_custom_themes": ENABLE_CUSTOM_THEMES,
             "enable_batch_build": ENABLE_BATCH_BUILD,
+            "multi_copy_archetypes_js": _ARCHETYPE_JS_MAP,
             "form": _form_state(primary_commander_name),
             "tag_slot_html": tag_slot_html,
         }
@@ -754,6 +773,7 @@ async def build_new_submit(
                 "show_must_have_buttons": SHOW_MUST_HAVE_BUTTONS,
                 "enable_custom_themes": ENABLE_CUSTOM_THEMES,
                 "enable_batch_build": ENABLE_BATCH_BUILD,
+                "multi_copy_archetypes_js": _ARCHETYPE_JS_MAP,
                 "form": _form_state(sess.get("commander", "")),
                 "tag_slot_html": None,
             }

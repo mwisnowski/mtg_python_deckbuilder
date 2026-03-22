@@ -203,42 +203,6 @@ def test_rory_partner_options_only_include_amy() -> None:
     assert rows == [("Amy Pond", "partner_with", "Partner With")]
 
 
-def test_step2_tags_merge_partner_union() -> None:
-    commander = "Akiri, Line-Slinger"
-    secondary = "Silas Renn, Seeker Adept"
-    builder = DeckBuilder(output_func=lambda *_: None, input_func=lambda *_: "", headless=True)
-    combined = apply_partner_inputs(
-        builder,
-        primary_name=commander,
-        secondary_name=secondary,
-        feature_enabled=True,
-    )
-    expected_tags = set(combined.theme_tags if combined else ())
-    assert expected_tags, "expected combined commander to produce theme tags"
-
-    client = _fresh_client()
-    with client:
-        client.get("/build/new")
-        primary_tag = _first_commander_tag(commander)
-        form_data = {
-            "name": "Tag Merge",
-            "commander": commander,
-            "partner_enabled": "1",
-            "secondary_commander": secondary,
-            "partner_auto_opt_out": "0",
-            "bracket": "3",
-        }
-        if primary_tag:
-            form_data["primary_tag"] = primary_tag
-        client.post("/build/new", data=form_data)
-
-        resp = client.get("/build/step2")
-        assert resp.status_code == 200
-        body = resp.text
-        for tag in expected_tags:
-            assert tag in body
-
-
 def test_step5_summary_displays_combined_partner_details() -> None:
     commander = "Halana, Kessig Ranger"
     secondary = "Alena, Kessig Trapper"

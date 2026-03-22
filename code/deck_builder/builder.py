@@ -1404,8 +1404,37 @@ class DeckBuilder(
         logger.info(f"INCLUDE_INJECTION: Starting injection of {len(validated_includes)} include cards")
         
         # Inject each valid include card
+        active_mc = getattr(self, '_web_multi_copy', None) or getattr(self, '_multi_copy', None)
+        active_mc_name = str(active_mc.get('name', '')).strip().lower() if active_mc else None
         for card_name in validated_includes:
-            if not card_name or card_name in self.card_library:
+            if not card_name:
+                continue
+
+            # R13: Multi-copy archetype include — set count directly rather than calling add_card once
+            if active_mc and active_mc_name and card_name.strip().lower() == active_mc_name:
+                mc_count = max(1, int(active_mc.get('count', 1)))
+                if card_name in self.card_library:
+                    self.card_library[card_name]['Count'] = mc_count
+                else:
+                    card_info = self._find_card_in_pool(card_name)
+                    if card_info:
+                        self.add_card(
+                            card_name=card_name,
+                            card_type=card_info.get('type', card_info.get('type_line', '')),
+                            mana_cost=card_info.get('mana_cost', card_info.get('manaCost', '')),
+                            mana_value=card_info.get('mana_value', card_info.get('manaValue', card_info.get('cmc', None))),
+                            creature_types=card_info.get('creatureTypes', []),
+                            tags=card_info.get('themeTags', []),
+                            role='include',
+                            added_by='include_injection',
+                        )
+                        if card_name in self.card_library:
+                            self.card_library[card_name]['Count'] = mc_count
+                injected_cards.append(card_name)
+                logger.info(f"INCLUDE_ADD (multi-copy archetype, count={mc_count}): {card_name}")
+                continue
+
+            if card_name in self.card_library:
                 continue  # Skip empty names or already added cards
                 
             # Attempt to find card in available pool for metadata enrichment

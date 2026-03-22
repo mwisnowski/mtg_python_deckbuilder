@@ -150,6 +150,10 @@ async def multicopy_check(request: Request) -> HTMLResponse:
             pass
         # Detect viable archetypes
         results = bu.detect_viable_multi_copy_archetypes(tmp) or []
+        # R13: Filter out archetypes whose card is in the must-exclude list
+        exclude_names = {str(c).strip().lower() for c in (sess.get("exclude_cards") or [])}
+        if exclude_names:
+            results = [r for r in results if str(r.get("name", "")).strip().lower() not in exclude_names]
         if not results:
             # Remember this key to avoid re-checking until tags/commander change
             try:

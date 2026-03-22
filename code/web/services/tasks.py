@@ -195,3 +195,18 @@ def cleanup_expired() -> int:
         Number of sessions cleaned up
     """
     return _get_manager().cleanup_state()
+
+
+class _SessionsProxy:
+    """Dict-like proxy exposing internal session state — for test isolation only."""
+    def clear(self) -> None:
+        _get_manager()._state.clear()
+
+    def get(self, key: str, default: Any = None) -> Any:
+        return _get_manager()._state.get(key, default)
+
+    def pop(self, key: str, *args: Any) -> Any:
+        return _get_manager()._state.pop(key, *args)
+
+
+_SESSIONS = _SessionsProxy()

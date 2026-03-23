@@ -196,10 +196,14 @@ async def download_github():
 async def setup_index(request: Request) -> HTMLResponse:
     import code.settings as settings
     from code.file_setup.image_cache import ImageCache
-    
+    from code.web.services.price_service import get_price_service
+    from code.web.app import PRICE_AUTO_REFRESH
+
     image_cache = ImageCache()
     return templates.TemplateResponse("setup/index.html", {
         "request": request,
         "similarity_enabled": settings.ENABLE_CARD_SIMILARITIES,
-        "image_cache_enabled": image_cache.is_enabled()
+        "image_cache_enabled": image_cache.is_enabled(),
+        "price_cache_built_at": get_price_service().get_cache_built_at(),
+        "price_auto_refresh": PRICE_AUTO_REFRESH,
     })

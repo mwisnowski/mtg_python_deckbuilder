@@ -145,6 +145,25 @@
     <span class="muted" style="align-self:center; font-size:.85rem;">(~15-20 min local, instant if cached on GitHub)</span>
   </div>
   {% endif %}
+
+  <details style="margin-top:1.25rem;" open>
+    <summary>Card Price Cache Status</summary>
+    <div style="margin-top:.5rem; padding:1rem; border:1px solid var(--border); background:var(--panel); border-radius:8px;">
+      <div class="muted">Last updated:</div>
+      <div style="margin-top:.25rem;" id="price-cache-built-at">
+        {% if price_cache_built_at %}{{ price_cache_built_at }}{% else %}<span class="muted">Not yet generated — run Setup first, then refresh prices.</span>{% endif %}
+      </div>
+      {% if price_auto_refresh %}
+      <div class="muted" style="margin-top:.5rem; font-size:.85rem;">Auto-refresh is enabled (runs daily at 01:00 UTC).</div>
+      {% endif %}
+    </div>
+  </details>
+  {% if not price_auto_refresh %}
+  <div style="margin-top:.75rem; display:flex; gap:.5rem; flex-wrap:wrap;">
+    {{ button('Refresh Card Prices', variant='primary', onclick='refreshPriceCache()', attrs='id="btn-refresh-prices"') }}
+    <span class="muted" style="align-self:center; font-size:.85rem;">Rebuilds price data from local Scryfall bulk data (requires Setup to have run).</span>
+  </div>
+  {% endif %}
 </section>
 <script>
 (function(){
@@ -619,6 +638,33 @@
   pollSimilarityStatus();
   setInterval(pollSimilarityStatus, 10000); // Poll every 10s
   {% endif %}
+
+  window.refreshPriceCache = function(){
+    var btn = document.getElementById('btn-refresh-prices');
+    if (btn) { btn.disabled = true; btn.textContent = 'Refreshing…'; }
+    fetch('/api/price/refresh', { method: 'POST' })
+      .then(function(r){ return r.json(); })
+      .then(function(data){
+        if (btn) { btn.textContent = 'Refresh started — check logs for progress.'; }
+        // Update timestamp line after a short delay to let the rebuild start
+        setTimeout(function(){
+          fetch('/api/price/stats')
+            .then(function(r){ return r.json(); })
+            .then(function(s){
+              var el = document.getElementById('price-cache-built-at');
+              if (el && s.last_refresh) {
+                var d = new Date(s.last_refresh * 1000);
+                el.textContent = d.toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' });
+              }
+              if (btn) { btn.disabled = false; btn.textContent = 'Refresh Card Prices'; }
+            })
+            .catch(function(){ if (btn) { btn.disabled = false; btn.textContent = 'Refresh Card Prices'; } });
+        }, 3000);
+      })
+      .catch(function(){
+        if (btn) { btn.disabled = false; btn.textContent = 'Refresh failed'; setTimeout(function(){ btn.textContent = 'Refresh Card Prices'; }, 2000); }
+      });
+  };
 
   // Initialize image status polling
   pollImageStatus();

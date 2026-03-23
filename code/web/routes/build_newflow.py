@@ -20,6 +20,7 @@ from ..app import (
     ENABLE_BATCH_BUILD,
     DEFAULT_THEME_MATCH_MODE,
     THEME_POOL_SECTIONS,
+    ENABLE_BUDGET_MODE,
 )
 from ..services.build_utils import (
     step5_ctx_from_result,
@@ -113,6 +114,7 @@ async def build_new_modal(request: Request) -> HTMLResponse:
         "show_must_have_buttons": SHOW_MUST_HAVE_BUTTONS,
         "enable_custom_themes": ENABLE_CUSTOM_THEMES,
         "enable_batch_build": ENABLE_BATCH_BUILD,
+        "enable_budget_mode": ENABLE_BUDGET_MODE,
         "ideals_ui_mode": WEB_IDEALS_UI,  # 'input' or 'slider'
         "multi_copy_archetypes_js": _ARCHETYPE_JS_MAP,
         "form": {
@@ -425,6 +427,10 @@ async def build_new_submit(
     enforcement_mode: str = Form("warn"),
     allow_illegal: bool = Form(False),
     fuzzy_matching: bool = Form(True),
+    # Budget (optional)
+    budget_total: float | None = Form(None),
+    card_ceiling: float | None = Form(None),
+    pool_tolerance: str | None = Form(None),  # percent string; blank/None treated as 0% (hard cap at ceiling)
     # Build count for multi-build
     build_count: int = Form(1),
     # Quick Build flag
@@ -474,6 +480,9 @@ async def build_new_submit(
             "partner_enabled": partner_form_state["partner_enabled"],
             "secondary_commander": partner_form_state["secondary_commander"],
             "background": partner_form_state["background"],
+            "budget_total": budget_total,
+            "card_ceiling": card_ceiling,
+            "pool_tolerance": pool_tolerance if pool_tolerance is not None else "15",
         }
 
     commander_detail = lookup_commander_detail(commander)
@@ -501,6 +510,7 @@ async def build_new_submit(
                     "show_must_have_buttons": SHOW_MUST_HAVE_BUTTONS,
                     "enable_custom_themes": ENABLE_CUSTOM_THEMES,
                     "enable_batch_build": ENABLE_BATCH_BUILD,
+                    "enable_budget_mode": ENABLE_BUDGET_MODE,
                     "multi_copy_archetypes_js": _ARCHETYPE_JS_MAP,
                     "form": _form_state(suggested),
                     "tag_slot_html": None,
@@ -527,6 +537,7 @@ async def build_new_submit(
             "show_must_have_buttons": SHOW_MUST_HAVE_BUTTONS,
             "enable_custom_themes": ENABLE_CUSTOM_THEMES,
             "enable_batch_build": ENABLE_BATCH_BUILD,
+            "enable_budget_mode": ENABLE_BUDGET_MODE,
             "multi_copy_archetypes_js": _ARCHETYPE_JS_MAP,
             "form": _form_state(commander),
             "tag_slot_html": None,
@@ -633,6 +644,7 @@ async def build_new_submit(
             "show_must_have_buttons": SHOW_MUST_HAVE_BUTTONS,
             "enable_custom_themes": ENABLE_CUSTOM_THEMES,
             "enable_batch_build": ENABLE_BATCH_BUILD,
+            "enable_budget_mode": ENABLE_BUDGET_MODE,
             "multi_copy_archetypes_js": _ARCHETYPE_JS_MAP,
             "form": _form_state(primary_commander_name),
             "tag_slot_html": tag_slot_html,
@@ -773,6 +785,7 @@ async def build_new_submit(
                 "show_must_have_buttons": SHOW_MUST_HAVE_BUTTONS,
                 "enable_custom_themes": ENABLE_CUSTOM_THEMES,
                 "enable_batch_build": ENABLE_BATCH_BUILD,
+                "enable_budget_mode": ENABLE_BUDGET_MODE,
                 "multi_copy_archetypes_js": _ARCHETYPE_JS_MAP,
                 "form": _form_state(sess.get("commander", "")),
                 "tag_slot_html": None,
@@ -906,7 +919,31 @@ async def build_new_submit(
         # If exclude parsing fails, log but don't block the build
         import logging
         logging.warning(f"Failed to parse exclude cards: {e}")
-        
+    
+    # Store budget config in session (only when a total is provided)
+    try:
+        if ENABLE_BUDGET_MODE and budget_total and float(budget_total) > 0:
+            budget_cfg: dict = {"total": float(budget_total), "mode": "soft"}
+            if card_ceiling and float(card_ceiling) > 0:
+                budget_cfg["card_ceiling"] = float(card_ceiling)
+            # pool_tolerance: blank/None → 0.0 (hard cap at ceiling); digit string → float (e.g. "15" → 0.15)
+            # Absence of key in budget_cfg means M4 falls back to the env-level default.
+            _tol = (pool_tolerance or "").strip()
+            try:
+                budget_cfg["pool_tolerance"] = float(_tol) / 100.0 if _tol else 0.0
+            except ValueError:
+                budget_cfg["pool_tolerance"] = 0.15  # bad input → safe default
+            sess["budget_config"] = budget_cfg
+        else:
+            sess.pop("budget_config", None)
+    except Exception:
+        sess.pop("budget_config", None)
+
+    # Assign a stable build ID for this build run (used by JS to detect true new builds,
+    # distinct from per-stage summary_token which increments every stage)
+    import time as _time
+    sess["build_id"] = str(int(_time.time() * 1000))
+
     # Clear any old staged build context
     for k in ["build_ctx", "locks", "replace_mode"]:
         if k in sess:
@@ -1285,9 +1322,9 @@ def quick_build_progress(request: Request):
             # Return Step 5 which will replace the whole wizard div
             response = templates.TemplateResponse("build/_step5.html", ctx)
             response.set_cookie("sid", sid, httponly=True, samesite="lax")
-            # Tell HTMX to target #wizard and swap outerHTML to replace the container
+            # Tell HTMX to target #wizard and swap innerHTML (keeps #wizard in DOM for subsequent interactions)
             response.headers["HX-Retarget"] = "#wizard"
-            response.headers["HX-Reswap"] = "outerHTML"
+            response.headers["HX-Reswap"] = "innerHTML"
             return response
         # Fallback if no result yet
         return HTMLResponse('Build complete. Please refresh.')
@@ -1300,5 +1337,126 @@ def quick_build_progress(request: Request):
         "current_stage": current_stage
     }
     response = templates.TemplateResponse("build/_quick_build_progress_content.html", ctx)
+    response.set_cookie("sid", sid, httponly=True, samesite="lax")
+    return response
+
+
+# ---------------------------------------------------------------------------
+# M5: Budget swap route — swap one card in the finalized deck and re-evaluate
+# ---------------------------------------------------------------------------
+
+@router.post("/budget-swap", response_class=HTMLResponse)
+async def budget_swap(
+    request: Request,
+    old_card: str = Form(...),
+    new_card: str = Form(...),
+):
+    """Replace one card in the session budget snapshot and re-render the review panel."""
+    sid = request.cookies.get("sid") or request.headers.get("X-Session-ID")
+    if not sid:
+        return HTMLResponse("")
+    sess = get_session(sid)
+
+    snapshot: list[str] = list(sess.get("budget_deck_snapshot") or [])
+    if not snapshot:
+        return HTMLResponse("")
+
+    old_lower = old_card.strip().lower()
+    new_name = new_card.strip()
+    replaced = False
+    for i, name in enumerate(snapshot):
+        if name.strip().lower() == old_lower:
+            snapshot[i] = new_name
+            replaced = True
+            break
+    if not replaced:
+        return HTMLResponse("")
+    sess["budget_deck_snapshot"] = snapshot
+
+    # Re-evaluate budget
+    budget_cfg = sess.get("budget_config") or {}
+    try:
+        budget_total = float(budget_cfg.get("total") or 0)
+    except Exception:
+        budget_total = 0.0
+    if budget_total <= 0:
+        return HTMLResponse("")
+
+    budget_mode = str(budget_cfg.get("mode", "soft")).strip().lower()
+    try:
+        card_ceiling = float(budget_cfg.get("card_ceiling")) if budget_cfg.get("card_ceiling") else None
+    except Exception:
+        card_ceiling = None
+    include_cards = [str(c).strip() for c in (sess.get("include_cards") or []) if str(c).strip()]
+    color_identity: list[str] | None = None
+    try:
+        ci_raw = sess.get("color_identity")
+        if ci_raw and isinstance(ci_raw, list):
+            color_identity = [str(c).upper() for c in ci_raw]
+    except Exception:
+        pass
+
+    try:
+        from ..services.budget_evaluator import BudgetEvaluatorService
+        svc = BudgetEvaluatorService()
+        report = svc.evaluate_deck(
+            snapshot,
+            budget_total,
+            mode=budget_mode,
+            card_ceiling=card_ceiling,
+            include_cards=include_cards,
+            color_identity=color_identity,
+        )
+    except Exception:
+        return HTMLResponse("")
+
+    total_price = float(report.get("total_price", 0.0))
+    tolerance = bc.BUDGET_TOTAL_TOLERANCE
+    over_budget_review = total_price > budget_total * (1.0 + tolerance)
+
+    overage_pct = round((total_price - budget_total) / budget_total * 100, 1) if (budget_total and over_budget_review) else 0.0
+    include_set = {c.lower().strip() for c in include_cards}
+
+    # Use price_breakdown sorted by price desc — most expensive cards contribute most to total overage
+    breakdown = report.get("price_breakdown") or []
+    priced = sorted(
+        [e for e in breakdown
+         if not e.get("is_include") and (e.get("price") is not None) and float(e.get("price") or 0.0) > 0],
+        key=lambda x: -float(x.get("price") or 0.0),
+    )
+    over_cards_out: list[dict] = []
+    for entry in priced[:6]:
+        name = entry.get("card", "")
+        price = float(entry.get("price") or 0.0)
+        is_include = name.lower().strip() in include_set
+        try:
+            alts_raw = svc.find_cheaper_alternatives(
+                name,
+                max_price=max(0.0, price - 0.01),
+                region="usd",
+                color_identity=color_identity,
+            )
+        except Exception:
+            alts_raw = []
+        over_cards_out.append({
+            "name": name,
+            "price": price,
+            "swap_disabled": is_include,
+            "alternatives": [
+                {"name": a["name"], "price": a.get("price"), "shared_tags": a.get("shared_tags", [])}
+                for a in alts_raw[:3]
+            ],
+        })
+
+    ctx = {
+        "request": request,
+        "budget_review_visible": over_budget_review,
+        "over_budget_review": over_budget_review,
+        "budget_review_total": round(total_price, 2),
+        "budget_review_cap": round(budget_total, 2),
+        "budget_overage_pct": overage_pct,
+        "over_budget_cards": over_cards_out,
+    }
+    response = templates.TemplateResponse("build/_budget_review.html", ctx)
     response.set_cookie("sid", sid, httponly=True, samesite="lax")
     return response

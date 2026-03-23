@@ -32,13 +32,14 @@
                   {% if it.rarity %}data-rarity="{{ it.rarity }}"{% endif %}
                   {% if it.hover_simple %}data-hover-simple="1"{% endif %}
                   {% if it.owned %}data-owned="1"{% endif %}
+                  {% if it.price %}data-price="{{ it.price }}"{% endif %}
                   data-tags="{{ tags|join(', ') }}"
                   hx-post="/build/replace"
                   hx-vals='{"old":"{{ name }}", "new":"{{ it.name }}", "owned_only":"{{ 1 if require_owned else 0 }}"}'
                   hx-target="closest .alts"
                   hx-swap="outerHTML"
                   title="Lock this alternative and unlock the current pick">
-            {{ it.name }}
+            {{ it.name }}{% if it.price %} <span style="font-size:11px;opacity:.7;font-weight:normal;">${{ "%.2f"|format(it.price|float) }}</span>{% endif %}
           </button>
         </li>
       {% endfor %}

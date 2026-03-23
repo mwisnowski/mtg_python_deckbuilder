@@ -82,6 +82,7 @@ def maybe_build_index() -> None:
             color_id = str(row.get(COLOR_IDENTITY_COL) or "").strip()
             mana_cost = str(row.get(MANA_COST_COL) or "").strip()
             rarity = _normalize_rarity(str(row.get(RARITY_COL) or ""))
+            type_line = str(row.get("type") or row.get("type_line") or "").strip()
             
             for tg in tags:
                 if not tg:
@@ -92,6 +93,7 @@ def maybe_build_index() -> None:
                     "tags": tags,
                     "mana_cost": mana_cost,
                     "rarity": rarity,
+                    "type_line": type_line,
                     "color_identity_list": [c.strip() for c in color_id.split(',') if c.strip()],
                     "pip_colors": [c for c in mana_cost if c in {"W","U","B","R","G"}],
                 })

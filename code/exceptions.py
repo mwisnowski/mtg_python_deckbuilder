@@ -811,6 +811,33 @@ class IdealDeterminationError(DeckBuilderError):
         """
         super().__init__(message, code="IDEAL_ERR", details=details)
 
+class BudgetHardCapExceeded(DeckBuilderError):
+    """Raised when a deck violates a hard budget cap.
+
+    In hard mode, if the deck total exceeds ``budget_total`` after all
+    feasible replacements, this exception surfaces the violation so callers
+    can surface actionable messaging.
+    """
+
+    def __init__(
+        self,
+        total_price: float,
+        budget_total: float,
+        over_budget_cards: list | None = None,
+        details: dict | None = None,
+    ) -> None:
+        overage = round(total_price - budget_total, 2)
+        message = (
+            f"Deck cost ${total_price:.2f} exceeds hard budget cap "
+            f"${budget_total:.2f} by ${overage:.2f}"
+        )
+        super().__init__(message, code="BUDGET_HARD_CAP", details=details or {})
+        self.total_price = total_price
+        self.budget_total = budget_total
+        self.overage = overage
+        self.over_budget_cards = over_budget_cards or []
+
+
 class PriceConfigurationError(DeckBuilderError):
     """Raised when there are issues configuring price settings.
     

@@ -62,8 +62,8 @@
               <input type="checkbox" class="deck-select" aria-label="Select deck {{ it.name }} for comparison" />
               <span class="muted" style="font-size:12px;">Select</span>
             </label>
-            <form action="/files" method="get" style="display:inline; margin:0;">
-              <input type="hidden" name="path" value="{{ it.path }}" />
+            <form action="/decks/download-csv" method="get" style="display:inline; margin:0;">
+              <input type="hidden" name="name" value="{{ it.name }}" />
               <button type="submit" title="Download CSV" aria-label="Download CSV for {{ it.commander }}">CSV</button>
             </form>
             {% if it.txt_path %}

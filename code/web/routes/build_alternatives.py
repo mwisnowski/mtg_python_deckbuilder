@@ -243,6 +243,20 @@ async def build_alternatives(
             return HTMLResponse(cached)
 
         def _render_and_cache(_items: list[dict]):
+            # Enrich each item with USD price from PriceService (best-effort)
+            try:
+                from ..services.price_service import get_price_service
+                _svc = get_price_service()
+                _svc._ensure_loaded()
+                _prices = _svc._cache  # keyed by lowercase card name → {usd, usd_foil, ...}
+                for _it in _items:
+                    if not _it.get("price"):
+                        _nm = (_it.get("name_lower") or str(_it.get("name", ""))).lower()
+                        _entry = _prices.get(_nm)
+                        if _entry:
+                            _it["price"] = _entry.get("usd")
+            except Exception:
+                pass
             html_str = templates.get_template("build/_alternatives.html").render({
                 "request": request,
                 "name": name_disp,

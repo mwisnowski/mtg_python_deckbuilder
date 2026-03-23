@@ -118,6 +118,7 @@
       Card images and data provided by
       <a href="https://scryfall.com" target="_blank" rel="noopener">Scryfall</a>.
       This website is not produced by, endorsed by, supported by, or affiliated with Scryfall or Wizards of the Coast.
+      {% set _pba = _price_cache_ts() %}{% if _pba %}<br><span class="muted" style="font-size:.8em;">Prices as of {{ _pba }} — for live pricing visit <a href="https://scryfall.com" target="_blank" rel="noopener">Scryfall</a>.</span>{% endif %}
     </footer>
     <!-- Card hover, theme badges, and DFC toggle styles moved to tailwind.css 2025-10-21 -->
     <style>
@@ -388,5 +389,164 @@
   {% endif %}
   <!-- Toast after reload, setup poller, nav highlighter moved to app.ts -->
   <!-- Hover card panel system moved to cardHover.ts -->
+  <!-- Price tooltip: lightweight fetch on mouseenter for .card-name-price-hover -->
+  <script>
+  (function(){
+    var _priceCache = {};
+    var _tip = null;
+    function _showTip(el, text) {
+      if (!_tip) {
+        _tip = document.createElement('div');
+        _tip.className = 'card-price-tip';
+        document.body.appendChild(_tip);
+      }
+      _tip.textContent = text;
+      var r = el.getBoundingClientRect();
+      _tip.style.left = (r.left + r.width/2 + window.scrollX) + 'px';
+      _tip.style.top  = (r.top + window.scrollY - 4) + 'px';
+      _tip.style.transform = 'translate(-50%, -100%)';
+      _tip.style.display = 'block';
+    }
+    function _hideTip() { if (_tip) _tip.style.display = 'none'; }
+    document.addEventListener('mouseover', function(e) {
+      var el = e.target && e.target.closest && e.target.closest('.card-name-price-hover');
+      if (!el) return;
+      var name = el.dataset.cardName || el.textContent.trim();
+      if (!name) return;
+      if (_priceCache[name] !== undefined) {
+        _showTip(el, _priceCache[name]);
+        return;
+      }
+      _showTip(el, 'Loading price...');
+      fetch('/api/price/' + encodeURIComponent(name))
+        .then(function(r){ return r.ok ? r.json() : null; })
+        .then(function(d){
+          var label = (d && d.found && d.price != null) ? ('$' + parseFloat(d.price).toFixed(2)) : 'Price unavailable';
+          _priceCache[name] = label;
+          _showTip(el, label);
+        })
+        .catch(function(){ _priceCache[name] = 'Price unavailable'; });
+    });
+    document.addEventListener('mouseout', function(e) {
+      var el = e.target && e.target.closest && e.target.closest('.card-name-price-hover');
+      if (el) _hideTip();
+    });
+  })();
+  </script>
+  <!-- Budget price display: injects prices on card tiles and list rows, tracks running total -->
+  <script>
+  (function(){
+    var BASIC_LANDS = new Set([
+      'Plains','Island','Swamp','Mountain','Forest','Wastes',
+      'Snow-Covered Plains','Snow-Covered Island','Snow-Covered Swamp',
+      'Snow-Covered Mountain','Snow-Covered Forest'
+    ]);
+    var _priceNum = {}; // card name -> float|null
+    var _deckPrices = {}; // accumulated across build stages: card name -> float
+    var _buildToken = null;
+    function _fetchNum(name) {
+      if (_priceNum.hasOwnProperty(name)) return Promise.resolve(_priceNum[name]);
+      return fetch('/api/price/' + encodeURIComponent(name))
+        .then(function(r){ return r.ok ? r.json() : null; })
+        .then(function(d){
+          var p = (d && d.found && d.price != null) ? parseFloat(d.price) : null;
+          _priceNum[name] = p; return p;
+        }).catch(function(){ _priceNum[name] = null; return null; });
+    }
+    function _getBuildToken() {
+      var el = document.querySelector('[data-build-id]');
+      return el ? el.getAttribute('data-build-id') : null;
+    }
+    function _cfg() { return window._budgetCfg || null; }
+    function initPriceDisplay() {
+      var tok = _getBuildToken();
+      if (tok !== null && tok !== _buildToken) { _buildToken = tok; _deckPrices = {}; }
+      var cfg = _cfg();
+      var ceiling = cfg && cfg.card_ceiling ? parseFloat(cfg.card_ceiling) : null;
+      var totalCap = cfg && cfg.total ? parseFloat(cfg.total) : null;
+
+      function updateRunningTotal(prevTotal) {
+        var chip = document.getElementById('budget-running');
+        if (!chip) return;
+        var total = Object.values(_deckPrices).reduce(function(s,p){ return s + (p||0); }, 0);
+        chip.textContent = total.toFixed(2);
+        var chipWrap = chip.closest('.chip');
+        if (chipWrap && totalCap !== null) chipWrap.classList.toggle('chip-warn', total > totalCap);
+        if (prevTotal !== undefined) {
+          var stepAdded = total - prevTotal;
+          var stepEl = document.getElementById('budget-step');
+          if (stepEl && stepAdded > 0.005) {
+            stepEl.textContent = '+$' + stepAdded.toFixed(2) + ' this step';
+            stepEl.style.display = '';
+          }
+        }
+      }
+
+      var overlays = document.querySelectorAll('.card-price-overlay[data-price-for]');
+      var inlines = document.querySelectorAll('.card-price-inline[data-price-for]');
+      var toFetch = new Set();
+      overlays.forEach(function(el){ var n = el.dataset.priceFor; if (n && !BASIC_LANDS.has(n)) toFetch.add(n); });
+      inlines.forEach(function(el){ var n = el.dataset.priceFor; if (n && !BASIC_LANDS.has(n)) toFetch.add(n); });
+
+      // Always refresh the running total chip even when there's nothing new to fetch
+      updateRunningTotal();
+      if (!toFetch.size) return;
+
+      var prevTotal = Object.values(_deckPrices).reduce(function(s,p){ return s + (p||0); }, 0);
+      var promises = [];
+      toFetch.forEach(function(name){ promises.push(_fetchNum(name).then(function(p){ return {name:name,price:p}; })); });
+      Promise.all(promises).then(function(results){
+        var map = {};
+        var prevTotal2 = Object.values(_deckPrices).reduce(function(s,p){ return s + (p||0); }, 0);
+        results.forEach(function(r){ map[r.name] = r.price; if (r.price !== null) _deckPrices[r.name] = r.price; });
+        overlays.forEach(function(el){
+          var name = el.dataset.priceFor;
+          if (!name || BASIC_LANDS.has(name)) { el.style.display='none'; return; }
+          var p = map[name];
+          el.textContent = p !== null ? ('$' + p.toFixed(2)) : '';
+          if (ceiling !== null && p !== null && p > ceiling) {
+            var tile = el.closest('.card-tile,.stack-card');
+            if (tile) tile.classList.add('over-budget');
+          }
+        });
+        inlines.forEach(function(el){
+          var name = el.dataset.priceFor;
+          if (!name || BASIC_LANDS.has(name)) { el.style.display='none'; return; }
+          var p = map[name];
+          el.textContent = p !== null ? ('$' + p.toFixed(2)) : '';
+          if (ceiling !== null && p !== null && p > ceiling) {
+            var row = el.closest('.list-row');
+            if (row) row.classList.add('over-budget');
+          }
+        });
+        // Update running total chip with per-step delta
+        updateRunningTotal(prevTotal2);
+        // Update summary budget bar
+        var bar = document.getElementById('budget-summary-bar');
+        if (bar) {
+          var allNames = new Set();
+          var sumTotal = 0;
+          document.querySelectorAll('.card-price-overlay[data-price-for],.card-price-inline[data-price-for]').forEach(function(el){
+            var n = el.dataset.priceFor;
+            if (n && !BASIC_LANDS.has(n) && !allNames.has(n)) {
+              allNames.add(n);
+              sumTotal += (map[n] || 0);
+            }
+          });
+          if (totalCap !== null) {
+            var over = sumTotal > totalCap;
+            bar.textContent = 'Estimated deck cost: $' + sumTotal.toFixed(2) + ' / $' + totalCap.toFixed(2) + (over ? ' — over budget' : ' — under budget');
+            bar.className = over ? 'budget-price-bar over' : 'budget-price-bar under';
+          } else {
+            bar.textContent = 'Estimated deck cost: $' + sumTotal.toFixed(2) + ' (basic lands excluded)';
+            bar.className = 'budget-price-bar';
+          }
+        }
+      });
+    }
+    document.addEventListener('DOMContentLoaded', function(){ initPriceDisplay(); });
+    document.addEventListener('htmx:afterSwap', function(){ setTimeout(initPriceDisplay, 80); });
+  })();
+  </script>
   </body>
   </html>

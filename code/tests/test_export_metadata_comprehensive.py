@@ -8,7 +8,7 @@ This file consolidates tests from three source files:
 Created: 2026-02-20
 Consolidation Purpose: Centralize all export and metadata-related tests
 
-Total Tests: 21 (4 commander metadata + 2 MDFC + 15 metadata partition)
+Total Tests: 25 (4 commander metadata + 2 MDFC + 15 metadata partition + 4 price column)
 """
 from __future__ import annotations
 
@@ -500,6 +500,111 @@ class TestCSVCompatibility:
         assert 'metadataTags' in df_partitioned.columns
         assert df_partitioned.loc[0, 'themeTags'] == ['Card Draw']
         assert df_partitioned.loc[0, 'metadataTags'] == ['Applied: Cost Reduction']
+
+
+# ============================================================================
+# SECTION 5: PRICE COLUMN EXPORT TESTS (M7)
+# Tests for price data in CSV exports
+# ============================================================================
+
+class _PriceBuilder(ReportingMixin):
+    """Minimal builder with 3 cards for price export tests."""
+
+    def __init__(self) -> None:
+        self.card_library = {
+            "Sol Ring": {"Card Type": "Artifact", "Count": 1, "Mana Cost": "{1}", "Mana Value": "1", "Role": "Ramp", "Tags": []},
+            "Counterspell": {"Card Type": "Instant", "Count": 1, "Mana Cost": "{U}{U}", "Mana Value": "2", "Role": "Removal", "Tags": []},
+            "Tropical Island": {"Card Type": "Land", "Count": 1, "Mana Cost": "", "Mana Value": "0", "Role": "Land", "Tags": []},
+        }
+        self.output_func = lambda *_args, **_kwargs: None
+        self.commander_name = ""
+        self.primary_tag = "Spellslinger"
+        self.secondary_tag = None
+        self.tertiary_tag = None
+        self.selected_tags = ["Spellslinger"]
+        self.custom_export_base = "price_test"
+
+
+def _suppress_cm(monkeypatch: pytest.MonkeyPatch) -> None:
+    stub = types.ModuleType("deck_builder.builder_utils")
+    stub.compute_color_source_matrix = lambda *_a, **_kw: {}
+    stub.multi_face_land_info = lambda *_a, **_kw: {}
+    monkeypatch.setitem(sys.modules, "deck_builder.builder_utils", stub)
+
+
+def test_csv_price_column_present_no_lookup(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Price column exists even when no price_lookup is provided; values are blank."""
+    _suppress_cm(monkeypatch)
+    b = _PriceBuilder()
+    path = Path(b.export_decklist_csv(directory=str(tmp_path), filename="deck.csv"))
+    with path.open("r", encoding="utf-8", newline="") as fh:
+        reader = csv.DictReader(fh)
+        assert "Price" in (reader.fieldnames or [])
+        rows = list(reader)
+    card_rows = [r for r in rows if r["Name"] and r["Name"] != "Total"]
+    assert all(r["Price"] == "" for r in card_rows)
+    # No summary row when no prices available
+    assert not any(r["Name"] == "Total" for r in rows)
+
+
+def test_csv_price_column_populated_by_lookup(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Price column is filled when a price_lookup callable is supplied."""
+    _suppress_cm(monkeypatch)
+    prices = {"Sol Ring": 1.50, "Counterspell": 2.00, "Tropical Island": 100.00}
+
+    def _lookup(names: list) -> dict:
+        return {n: prices.get(n) for n in names}
+
+    b = _PriceBuilder()
+    path = Path(b.export_decklist_csv(directory=str(tmp_path), filename="deck.csv", price_lookup=_lookup))
+    with path.open("r", encoding="utf-8", newline="") as fh:
+        reader = csv.DictReader(fh)
+        rows = list(reader)
+
+    card_rows = {r["Name"]: r for r in rows if r["Name"] and r["Name"] != "Total"}
+    assert card_rows["Sol Ring"]["Price"] == "1.50"
+    assert card_rows["Counterspell"]["Price"] == "2.00"
+    assert card_rows["Tropical Island"]["Price"] == "100.00"
+
+
+def test_csv_price_summary_row(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A Total row appears with the deck's summed price when prices are available."""
+    _suppress_cm(monkeypatch)
+
+    def _lookup(names: list) -> dict:
+        return {"Sol Ring": 1.50, "Counterspell": 2.00, "Tropical Island": 100.00}
+
+    b = _PriceBuilder()
+    path = Path(b.export_decklist_csv(directory=str(tmp_path), filename="deck.csv", price_lookup=_lookup))
+    with path.open("r", encoding="utf-8", newline="") as fh:
+        reader = csv.DictReader(fh)
+        rows = list(reader)
+
+    total_rows = [r for r in rows if r["Name"] == "Total"]
+    assert len(total_rows) == 1
+    assert total_rows[0]["Price"] == "103.50"
+
+
+def test_csv_price_blank_when_lookup_returns_none(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Cards with no price in the lookup get a blank Price cell, not an error."""
+    _suppress_cm(monkeypatch)
+
+    def _lookup(names: list) -> dict:
+        return {"Sol Ring": 1.50, "Counterspell": None, "Tropical Island": None}
+
+    b = _PriceBuilder()
+    path = Path(b.export_decklist_csv(directory=str(tmp_path), filename="deck.csv", price_lookup=_lookup))
+    with path.open("r", encoding="utf-8", newline="") as fh:
+        reader = csv.DictReader(fh)
+        rows = list(reader)
+
+    card_rows = {r["Name"]: r for r in rows if r["Name"] and r["Name"] != "Total"}
+    assert card_rows["Sol Ring"]["Price"] == "1.50"
+    assert card_rows["Counterspell"]["Price"] == ""
+    assert card_rows["Tropical Island"]["Price"] == ""
+    # Total reflects only priced cards
+    total_rows = [r for r in rows if r["Name"] == "Total"]
+    assert total_rows[0]["Price"] == "1.50"
 
 
 if __name__ == "__main__":

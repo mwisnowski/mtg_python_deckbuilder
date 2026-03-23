@@ -158,6 +158,10 @@ SIMILARITY_CACHE_DOWNLOAD = os.getenv('SIMILARITY_CACHE_DOWNLOAD', '1').lower() 
 # Batch build feature flag (Build X and Compare)
 ENABLE_BATCH_BUILD = os.getenv('ENABLE_BATCH_BUILD', '1').lower() not in ('0', 'false', 'off', 'disabled')
 
+# M9: Stale price warnings — hours before a per-card price is considered stale.
+# Set to 0 to disable stale indicators entirely.
+PRICE_STALE_WARNING_HOURS: int = max(0, int(os.getenv('PRICE_STALE_WARNING_HOURS', '24')))
+
 # ----------------------------------------------------------------------------------
 # THEME CATALOG SETTINGS
 # ----------------------------------------------------------------------------------

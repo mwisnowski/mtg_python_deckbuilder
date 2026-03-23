@@ -948,7 +948,10 @@ async def build_step5_start_get(request: Request) -> HTMLResponse:
 
 @router.post("/step5/start", response_class=HTMLResponse)
 async def build_step5_start(request: Request) -> HTMLResponse:
-    return RedirectResponse("/build", status_code=302)
+    """(Re)start the build from step 4 review page."""
+    sid = request.cookies.get("sid") or new_sid()
+    sess = get_session(sid)
+    commander = sess.get("commander")
     if not commander:
         resp = templates.TemplateResponse(
             "build/_step1.html",
@@ -957,7 +960,8 @@ async def build_step5_start(request: Request) -> HTMLResponse:
         resp.set_cookie("sid", sid, httponly=True, samesite="lax")
         return resp
     try:
-        # Initialize step-by-step build context and run first stage
+        import time as _time
+        sess["build_id"] = str(int(_time.time() * 1000))
         sess["build_ctx"] = start_ctx_from_session(sess)
         show_skipped = False
         try:
@@ -966,18 +970,15 @@ async def build_step5_start(request: Request) -> HTMLResponse:
         except Exception:
             pass
         res = orch.run_stage(sess["build_ctx"], rerun=False, show_skipped=show_skipped)
-        # Save summary to session for deck_summary partial to access
         if res.get("summary"):
             sess["summary"] = res["summary"]
         status = "Stage complete" if not res.get("done") else "Build complete"
-        # If Multi-Copy ran first, mark applied to prevent redundant rebuilds on Continue
         try:
             if res.get("label") == "Multi-Copy Package" and sess.get("multi_copy"):
                 mc = sess.get("multi_copy")
                 sess["mc_applied_key"] = f"{mc.get('id','')}|{int(mc.get('count',0))}|{1 if mc.get('thrumming') else 0}"
         except Exception:
             pass
-    # Note: no redirect; the inline compliance panel will render inside Step 5
         sess["last_step"] = 5
         ctx = step5_ctx_from_result(request, sess, res, status_text=status, show_skipped=show_skipped)
         resp = templates.TemplateResponse("build/_step5.html", ctx)
@@ -985,14 +986,7 @@ async def build_step5_start(request: Request) -> HTMLResponse:
         _merge_hx_trigger(resp, {"step5:refresh": {"token": ctx.get("summary_token", 0)}})
         return resp
     except Exception as e:
-        # Surface a friendly error on the step 5 screen with normalized context
-        err_ctx = step5_error_ctx(
-            request,
-            sess,
-            f"Failed to start build: {e}",
-            include_name=False,
-        )
-        # Ensure commander stays visible if set
+        err_ctx = step5_error_ctx(request, sess, f"Failed to start build: {e}", include_name=False)
         err_ctx["commander"] = commander
         resp = templates.TemplateResponse("build/_step5.html", err_ctx)
         resp.set_cookie("sid", sid, httponly=True, samesite="lax")

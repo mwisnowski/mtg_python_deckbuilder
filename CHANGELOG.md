@@ -9,6 +9,19 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 
 ## [Unreleased]
 ### Added
+_No unreleased changes yet_
+
+### Changed
+_No unreleased changes yet_
+
+### Fixed
+_No unreleased changes yet_
+
+### Removed
+_No unreleased changes yet_
+
+## [4.2.0] - 2026-03-23
+### Added
 - **RandomService**: New `code/web/services/random_service.py` service class wrapping seeded RNG operations with input validation and the R9 `BaseService` pattern
 - **InvalidSeedError**: New `InvalidSeedError` exception in `code/exceptions.py` for seed validation failures
 - **Random diagnostics endpoint**: `GET /api/random/diagnostics` behind `WEB_RANDOM_DIAGNOSTICS=1` flag, returning seed derivation test vectors for cross-platform consistency checks
@@ -23,7 +36,7 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
   - Basic lands excluded from all budget calculations
   - Budget summary bar in the deck summary view with under/over color coding
   - Budget badge and over-budget panel on the saved deck view
-  - Pickups list page (`/decks/{name}/pickups`) sorted by priority tier
+  - Pickups list page (`/decks/pickups?name=`) sorted by priority tier
   - Pool budget filter: cards exceeding the per-card ceiling by more than the pool tolerance (default 15%, configurable per build in the New Deck modal) are excluded from the candidate pool before building begins
   - Card price shown in the hover and tap popup for all card tiles with a cached price
   - Price shown inline on each alternative card suggestion in the alternatives panel
@@ -41,19 +54,20 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
   - "Card Price Cache Status" section on the Setup page with last-updated date and Refresh button
   - Footer now shows the price data date alongside the Scryfall attribution
 - **Price charts**: Visual cost breakdown added to the deck summary and build complete screens
-  - Donut/bar chart showing total deck spend by card role category (commander, ramp, card draw, lands, etc.)
+  - Donut/bar chart showing total deck spend by card role category (9 categories: Land, Ramp, Creature, Card Draw, Removal, Wipe, Protection, Synergy, Other)
   - Price histogram showing card count distribution across cost buckets
   - Basic lands excluded from all chart calculations
 - **Stale price warnings**: Cards with price data older than 24 hours are flagged with a subtle clock indicator (⏱) on card tiles, the hover popup, the budget review panel, and the Pickups page; if more than half the deck's prices are stale a single banner is shown instead of per-card indicators; controlled by `PRICE_STALE_WARNING_HOURS` (default: 24; set to 0 to disable)
 
 ### Changed
-- **Create Button in New Dock Panel**: Button has been renamed to "Build Deck" for consistency with phrasing on the "Quick Build" button
+- **Create Button in New Deck Modal**: Button has been renamed to "Build Deck" for consistency with phrasing on the "Quick Build" button
 
 ### Fixed
 - **Multi-copy include count**: Typing an archetype card in Must Include no longer adds only 1 copy — the archetype count is now respected when the dialog is confirmed
+- **Stale price banner after refresh**: Refreshing the price cache on the Setup page now correctly clears the stale price warning
 
 ### Removed
-_No unreleased changes yet_
+_No changes_
 
 ## [4.1.0] - 2026-03-20
 ### Added

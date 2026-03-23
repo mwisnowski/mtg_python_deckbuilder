@@ -108,6 +108,26 @@ def step5_base_ctx(request: Request, sess: dict, *, include_name: bool = True, i
         "allow_illegal": bool(sess.get("allow_illegal")),
         "fuzzy_matching": bool(sess.get("fuzzy_matching", True)),
     }
+    ctx["budget_config"] = sess.get("budget_config") or {}
+    ctx["build_id"] = str(sess.get("build_id") or "0")
+    try:
+        from ..services.price_service import get_price_service
+        from code.settings import PRICE_STALE_WARNING_HOURS
+        _svc = get_price_service()
+        _svc._ensure_loaded()
+        ctx["price_cache"] = _svc._cache  # keyed by lowercase card name → {usd, usd_foil, ...}
+        _stale = _svc.get_stale_cards(PRICE_STALE_WARNING_HOURS) if PRICE_STALE_WARNING_HOURS > 0 else set()
+        # Suppress per-card noise when >50% of the priced pool is stale
+        if _stale and len(_stale) > len(_svc._cache) * 0.5:
+            ctx["stale_prices"] = set()
+            ctx["stale_prices_global"] = True
+        else:
+            ctx["stale_prices"] = _stale
+            ctx["stale_prices_global"] = False
+    except Exception:
+        ctx["price_cache"] = {}
+        ctx["stale_prices"] = set()
+        ctx["stale_prices_global"] = False
     return ctx
 
 
@@ -168,6 +188,7 @@ def start_ctx_from_session(sess: dict, *, set_on_session: bool = True) -> Dict[s
         partner_feature_enabled=partner_enabled,
         secondary_commander=secondary_commander,
         background_commander=background_choice,
+        budget_config=sess.get("budget_config"),
     )
     if set_on_session:
         sess["build_ctx"] = ctx
@@ -523,7 +544,164 @@ def step5_ctx_from_result(
     ctx["summary_token"] = token_val
     ctx["summary_ready"] = bool(sess.get("step5_summary_ready"))
     ctx["synergies"] = synergies_list
+
+    # M5: Post-build budget review (only when build is done and budget mode active)
+    if done:
+        try:
+            _apply_budget_review_ctx(sess, res, ctx)
+        except Exception:
+            ctx.setdefault("over_budget_review", False)
+            ctx.setdefault("budget_review_visible", False)
+            ctx.setdefault("price_category_chart", None)
+            ctx.setdefault("price_histogram_chart", None)
+    else:
+        ctx.setdefault("over_budget_review", False)
+        ctx.setdefault("budget_review_visible", False)
+        ctx.setdefault("price_category_chart", None)
+        ctx.setdefault("price_histogram_chart", None)
+
     return ctx
+
+
+def _apply_budget_review_ctx(sess: dict, res: dict, ctx: dict) -> None:
+    """M5: Compute end-of-build budget review data and inject into ctx.
+
+    Triggers when total deck cost exceeds budget_total by more than BUDGET_TOTAL_TOLERANCE.
+    Shows the most expensive non-include cards (contributors to total overage) with
+    cheaper alternatives drawn from find_cheaper_alternatives().
+    """
+    budget_cfg = sess.get("budget_config") or {}
+    try:
+        budget_total = float(budget_cfg.get("total") or 0)
+    except Exception:
+        budget_total = 0.0
+    if budget_total <= 0:
+        ctx["over_budget_review"] = False
+        return
+
+    budget_mode = "soft"
+    try:
+        card_ceiling = float(budget_cfg.get("card_ceiling")) if budget_cfg.get("card_ceiling") else None
+    except Exception:
+        card_ceiling = None
+    include_cards = [str(c).strip() for c in (sess.get("include_cards") or []) if str(c).strip()]
+
+    # Extract card names from build summary + build name -> {type, role, tags} lookup
+    summary = res.get("summary") or {}
+    card_names: list[str] = []
+    card_meta: dict[str, dict] = {}
+    if isinstance(summary, dict):
+        tb = summary.get("type_breakdown") or {}
+        for type_key, type_cards_list in (tb.get("cards") or {}).items():
+            for c in type_cards_list:
+                name = c.get("name") if isinstance(c, dict) else None
+                if name:
+                    sname = str(name).strip()
+                    card_names.append(sname)
+                    card_meta[sname] = {
+                        "type": type_key,
+                        "role": str(c.get("role") or "").strip(),
+                        "tags": list(c.get("tags") or []),
+                    }
+
+    if not card_names:
+        ctx["over_budget_review"] = False
+        return
+
+    # Persist snapshot for the swap route
+    sess["budget_deck_snapshot"] = list(card_names)
+
+    color_identity: list[str] | None = None
+    try:
+        ci_raw = sess.get("color_identity")
+        if ci_raw and isinstance(ci_raw, list):
+            color_identity = [str(c).upper() for c in ci_raw]
+    except Exception:
+        pass
+
+    from ..services.budget_evaluator import BudgetEvaluatorService
+    svc = BudgetEvaluatorService()
+    report = svc.evaluate_deck(
+        card_names,
+        budget_total,
+        mode=budget_mode,
+        card_ceiling=card_ceiling,
+        include_cards=include_cards,
+        color_identity=color_identity,
+    )
+
+    total_price = float(report.get("total_price", 0.0))
+    tolerance = bc.BUDGET_TOTAL_TOLERANCE
+    over_budget_review = total_price > budget_total * (1.0 + tolerance)
+
+    ctx["budget_review_visible"] = over_budget_review  # only shown when deck total exceeds tolerance
+    ctx["over_budget_review"] = over_budget_review
+    ctx["budget_review_total"] = round(total_price, 2)
+    ctx["budget_review_cap"] = round(budget_total, 2)
+    ctx["budget_overage_pct"] = 0.0
+    ctx["over_budget_cards"] = []
+
+    overage = total_price - budget_total
+    if over_budget_review:
+        ctx["budget_overage_pct"] = round(overage / budget_total * 100, 1)
+
+    include_set = {c.lower().strip() for c in include_cards}
+
+    # Use price_breakdown sorted by price desc — most expensive cards are the biggest
+    # contributors to the total overage regardless of any per-card ceiling.
+    breakdown = report.get("price_breakdown") or []
+    priced = sorted(
+        [e for e in breakdown
+         if not e.get("is_include") and (e.get("price") is not None) and float(e.get("price") or 0.0) > 0],
+        key=lambda x: -float(x.get("price") or 0.0),
+    )
+
+    over_cards_out: list[dict] = []
+    for entry in priced[:6]:
+        name = entry.get("card", "")
+        price = float(entry.get("price") or 0.0)
+        is_include = name.lower().strip() in include_set
+        meta = card_meta.get(name, {})
+        try:
+            # Any cheaper alternative reduces the total; use price - 0.01 as the ceiling
+            alts_raw = svc.find_cheaper_alternatives(
+                name,
+                max_price=max(0.0, price - 0.01),
+                region="usd",
+                color_identity=color_identity,
+                tags=meta.get("tags") or None,
+                require_type=meta.get("type") or None,
+            )
+        except Exception:
+            alts_raw = []
+        over_cards_out.append({
+            "name": name,
+            "price": price,
+            "swap_disabled": is_include,
+            "card_type": meta.get("type", ""),
+            "card_role": meta.get("role", ""),
+            "card_tags": meta.get("tags", []),
+            "alternatives": [
+                {"name": a["name"], "price": a.get("price"), "shared_tags": a.get("shared_tags", [])}
+                for a in alts_raw[:3]
+            ],
+        })
+
+    ctx["over_budget_cards"] = over_cards_out
+
+    # M8: Price charts — category breakdown + histogram
+    try:
+        from ..services.budget_evaluator import compute_price_category_breakdown, compute_price_histogram
+        _breakdown = report.get("price_breakdown") or []
+        _enriched = [
+            {**item, "tags": card_meta.get(item.get("card", ""), {}).get("tags", [])}
+            for item in _breakdown
+        ]
+        ctx["price_category_chart"] = compute_price_category_breakdown(_enriched)
+        ctx["price_histogram_chart"] = compute_price_histogram(_breakdown)
+    except Exception:
+        ctx.setdefault("price_category_chart", None)
+        ctx.setdefault("price_histogram_chart", None)
 
 
 def step5_error_ctx(

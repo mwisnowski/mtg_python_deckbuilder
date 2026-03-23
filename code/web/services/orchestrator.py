@@ -2037,6 +2037,9 @@ def run_build(commander: str, tags: List[str], bracket: int, ideals: Dict[str, i
                     custom_base = None
                 if isinstance(custom_base, str) and custom_base.strip():
                     meta["name"] = custom_base.strip()
+                budget_cfg = getattr(b, 'budget_config', None)
+                if isinstance(budget_cfg, dict) and budget_cfg.get('total'):
+                    meta['budget_config'] = budget_cfg
                 payload = {"meta": meta, "summary": summary}
                 with open(sidecar, 'w', encoding='utf-8') as f:
                     _json.dump(payload, f, ensure_ascii=False, indent=2)
@@ -2516,6 +2519,7 @@ def start_build_ctx(
     partner_feature_enabled: bool | None = None,
     secondary_commander: str | None = None,
     background_commander: str | None = None,
+    budget_config: Dict[str, Any] | None = None,
 ) -> Dict[str, Any]:
     logs: List[str] = []
 
@@ -2667,6 +2671,15 @@ def start_build_ctx(
     except Exception:
         pass
     # Stages
+    try:
+        b.budget_config = dict(budget_config) if isinstance(budget_config, dict) else None
+    except Exception:
+        b.budget_config = None
+    # M4: Apply budget pool filter now that budget_config is set
+    try:
+        b.apply_budget_pool_filter()
+    except Exception:
+        pass
     stages = _make_stages(b)
     ctx = {
         "builder": b,
@@ -2867,6 +2880,9 @@ def run_stage(ctx: Dict[str, Any], rerun: bool = False, show_skipped: bool = Fal
                     custom_base = None
                 if isinstance(custom_base, str) and custom_base.strip():
                     meta["name"] = custom_base.strip()
+                budget_cfg = getattr(b, 'budget_config', None)
+                if isinstance(budget_cfg, dict) and budget_cfg.get('total'):
+                    meta['budget_config'] = budget_cfg
                 payload = {"meta": meta, "summary": summary}
                 with open(sidecar, 'w', encoding='utf-8') as f:
                     _json.dump(payload, f, ensure_ascii=False, indent=2)
@@ -3718,6 +3734,9 @@ def run_stage(ctx: Dict[str, Any], rerun: bool = False, show_skipped: bool = Fal
                 custom_base = None
             if isinstance(custom_base, str) and custom_base.strip():
                 meta["name"] = custom_base.strip()
+            budget_cfg = getattr(b, 'budget_config', None)
+            if isinstance(budget_cfg, dict) and budget_cfg.get('total'):
+                meta['budget_config'] = budget_cfg
             payload = {"meta": meta, "summary": summary}
             with open(sidecar, 'w', encoding='utf-8') as f:
                 _json.dump(payload, f, ensure_ascii=False, indent=2)

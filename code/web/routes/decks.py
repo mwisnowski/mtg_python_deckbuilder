@@ -1,15 +1,17 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
 from pathlib import Path
 import csv
+import io
 import os
 from typing import Any, Dict, List, Optional, Tuple
 
 from ..app import templates
 from ..services.orchestrator import tags_for_commander
 from ..services.summary_utils import format_theme_label, format_theme_list, summary_ctx
+from ..app import ENABLE_BUDGET_MODE
 
 
 router = APIRouter(prefix="/decks")
@@ -402,6 +404,47 @@ async def decks_view(request: Request, name: str) -> HTMLResponse:
             "commander_role_label": format_theme_label("Commander"),
         }
     )
+
+    # Budget evaluation (only when budget_config is stored in the sidecar meta)
+    if ENABLE_BUDGET_MODE:
+        budget_config = meta_info.get("budget_config") if isinstance(meta_info, dict) else None
+        if isinstance(budget_config, dict) and budget_config.get("total"):
+            try:
+                from ..services.budget_evaluator import BudgetEvaluatorService
+                card_counts = _read_deck_counts(p)
+                decklist = list(card_counts.keys())
+                color_identity = meta_info.get("color_identity") if isinstance(meta_info, dict) else None
+                include_cards = list(meta_info.get("include_cards") or []) if isinstance(meta_info, dict) else []
+                svc = BudgetEvaluatorService()
+                budget_report = svc.evaluate_deck(
+                    decklist=decklist,
+                    budget_total=float(budget_config["total"]),
+                    mode=str(budget_config.get("mode", "soft")),
+                    card_ceiling=float(budget_config["card_ceiling"]) if budget_config.get("card_ceiling") else None,
+                    color_identity=color_identity,
+                    include_cards=include_cards or None,
+                )
+                ctx["budget_report"] = budget_report
+                ctx["budget_config"] = budget_config
+                # M8: Price charts
+                try:
+                    from ..services.budget_evaluator import compute_price_category_breakdown, compute_price_histogram
+                    _breakdown = budget_report.get("price_breakdown") or []
+                    _card_tags: Dict[str, List[str]] = {}
+                    if isinstance(summary, dict):
+                        _tb = (summary.get("type_breakdown") or {}).get("cards") or {}
+                        for _clist in _tb.values():
+                            for _c in (_clist or []):
+                                if isinstance(_c, dict) and _c.get("name"):
+                                    _card_tags[_c["name"]] = list(_c.get("tags") or [])
+                    _enriched = [{**item, "tags": _card_tags.get(item.get("card", ""), [])} for item in _breakdown]
+                    ctx["price_category_chart"] = compute_price_category_breakdown(_enriched)
+                    ctx["price_histogram_chart"] = compute_price_histogram(_breakdown)
+                except Exception:
+                    pass
+            except Exception:
+                pass
+
     return templates.TemplateResponse("decks/view.html", ctx)
 
 
@@ -485,4 +528,145 @@ async def decks_compare(request: Request, A: Optional[str] = None, B: Optional[s
             "metaA": metaA,
             "metaB": metaB,
         },
+    )
+
+
+@router.get("/pickups", response_class=HTMLResponse)
+async def decks_pickups(request: Request, name: str) -> HTMLResponse:
+    """Show the pickups list for a deck that was built with budget mode enabled."""
+    base = _deck_dir()
+    p = (base / name).resolve()
+    if not _safe_within(base, p) or not (p.exists() and p.is_file() and p.suffix.lower() == ".csv"):
+        return templates.TemplateResponse(
+            "decks/index.html",
+            {"request": request, "items": _list_decks(), "error": "Deck not found."},
+        )
+
+    meta_info: Dict[str, Any] = {}
+    commander_name = ""
+    sidecar = p.with_suffix(".summary.json")
+    if sidecar.exists():
+        try:
+            import json as _json
+            payload = _json.loads(sidecar.read_text(encoding="utf-8"))
+            if isinstance(payload, dict):
+                meta_info = payload.get("meta") or {}
+                commander_name = meta_info.get("commander") or ""
+        except Exception:
+            pass
+
+    budget_config = meta_info.get("budget_config") if isinstance(meta_info, dict) else None
+    budget_report = None
+    error_msg = None
+
+    if not ENABLE_BUDGET_MODE:
+        error_msg = "Budget mode is not enabled (set ENABLE_BUDGET_MODE=1)."
+    elif not isinstance(budget_config, dict) or not budget_config.get("total"):
+        error_msg = "Budget mode was not enabled when this deck was built."
+    else:
+        try:
+            from ..services.budget_evaluator import BudgetEvaluatorService
+            card_counts = _read_deck_counts(p)
+            decklist = list(card_counts.keys())
+            color_identity = meta_info.get("color_identity") if isinstance(meta_info, dict) else None
+            include_cards = list(meta_info.get("include_cards") or []) if isinstance(meta_info, dict) else []
+            svc = BudgetEvaluatorService()
+            budget_report = svc.evaluate_deck(
+                decklist=decklist,
+                budget_total=float(budget_config["total"]),
+                mode=str(budget_config.get("mode", "soft")),
+                card_ceiling=float(budget_config["card_ceiling"]) if budget_config.get("card_ceiling") else None,
+                color_identity=color_identity,
+                include_cards=include_cards or None,
+            )
+        except Exception as exc:
+            error_msg = f"Budget evaluation failed: {exc}"
+
+    stale_prices: set[str] = set()
+    stale_prices_global = False
+    try:
+        from ..services.price_service import get_price_service
+        from code.settings import PRICE_STALE_WARNING_HOURS
+        _psvc = get_price_service()
+        _psvc._ensure_loaded()
+        if PRICE_STALE_WARNING_HOURS > 0:
+            _stale = _psvc.get_stale_cards(PRICE_STALE_WARNING_HOURS)
+            if _stale and len(_stale) > len(_psvc._cache) * 0.5:
+                stale_prices_global = True
+            else:
+                stale_prices = _stale
+    except Exception:
+        pass
+
+    return templates.TemplateResponse(
+        "decks/pickups.html",
+        {
+            "request": request,
+            "name": p.name,
+            "commander": commander_name,
+            "budget_config": budget_config,
+            "budget_report": budget_report,
+            "error": error_msg,
+            "stale_prices": stale_prices,
+            "stale_prices_global": stale_prices_global,
+        },
+    )
+
+
+@router.get("/download-csv")
+async def decks_download_csv(name: str) -> Response:
+    """Serve a CSV export with live prices fetched at download time."""
+    base = _deck_dir()
+    p = (base / name).resolve()
+    if not _safe_within(base, p) or not (p.exists() and p.is_file() and p.suffix.lower() == ".csv"):
+        return HTMLResponse("File not found", status_code=404)
+    try:
+        with p.open("r", encoding="utf-8", newline="") as f:
+            reader = csv.reader(f)
+            headers = next(reader, [])
+            data_rows = list(reader)
+    except Exception:
+        return HTMLResponse("Could not read CSV", status_code=500)
+
+    # Strip any stale baked Price column
+    if "Price" in headers:
+        price_idx = headers.index("Price")
+        headers = [h for i, h in enumerate(headers) if i != price_idx]
+        data_rows = [[v for i, v in enumerate(row) if i != price_idx] for row in data_rows]
+
+    name_idx = headers.index("Name") if "Name" in headers else 0
+    card_names = [
+        row[name_idx] for row in data_rows
+        if row and len(row) > name_idx and row[name_idx] and row[name_idx] != "Total"
+    ]
+
+    prices_map: Dict[str, Any] = {}
+    try:
+        from ..services.price_service import get_price_service
+        prices_map = get_price_service().get_prices_batch(card_names) or {}
+    except Exception:
+        pass
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(headers + ["Price"])
+    for row in data_rows:
+        if not row:
+            continue
+        name_val = row[name_idx] if len(row) > name_idx else ""
+        if name_val == "Total":
+            continue
+        price_val = prices_map.get(name_val)
+        writer.writerow(row + [f"{price_val:.2f}" if price_val is not None else ""])
+
+    if prices_map:
+        total = sum(v for v in prices_map.values() if v is not None)
+        empty = [""] * len(headers)
+        empty[name_idx] = "Total"
+        writer.writerow(empty + [f"{total:.2f}"])
+
+    return Response(
+        content=output.getvalue().encode("utf-8"),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{p.name}"'},
     )

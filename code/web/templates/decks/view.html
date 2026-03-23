@@ -56,8 +56,8 @@
     {% endif %}
     <div style="margin-top:.75rem; display:flex; gap:.35rem; flex-wrap:wrap;">
       {% if csv_path %}
-      <form action="/files" method="get" target="_blank" style="display:inline; margin:0;">
-        <input type="hidden" name="path" value="{{ csv_path }}" />
+      <form action="/decks/download-csv" method="get" target="_blank" style="display:inline; margin:0;">
+        <input type="hidden" name="name" value="{{ name }}" />
         <button type="submit">Download CSV</button>
       </form>
       {% endif %}
@@ -68,10 +68,37 @@
       </form>
       {% endif %}
       <a href="/decks/compare?A={{ name|urlencode }}" class="btn" role="button" title="Compare this deck with another">Compare…</a>
+      {% if budget_report %}
+      <a href="/decks/pickups?name={{ name|urlencode }}" class="btn" role="button" title="View cards to acquire for this budget build">Pickups List</a>
+      {% endif %}
       <form method="get" action="/decks" style="display:inline; margin:0;">
         <button type="submit">Back to Finished Decks</button>
       </form>
     </div>
+    {% if budget_report %}
+    {% set bstatus = budget_report.budget_status %}
+    <div class="budget-badge budget-badge--{{ bstatus }}" style="margin-top:.6rem;">
+      {% if bstatus == 'under' %}
+        Under Budget: ${{ "%.2f"|format(budget_report.total_price) }} / ${{ "%.2f"|format(budget_config.total) }}
+      {% elif bstatus == 'soft_exceeded' %}
+        Over Budget (soft): ${{ "%.2f"|format(budget_report.total_price) }} / ${{ "%.2f"|format(budget_config.total) }}
+        (+${{ "%.2f"|format(budget_report.overage) }})
+      {% else %}
+        Hard Cap Exceeded: ${{ "%.2f"|format(budget_report.total_price) }} / ${{ "%.2f"|format(budget_config.total) }}
+        (+${{ "%.2f"|format(budget_report.overage) }})
+      {% endif %}
+    </div>
+    {% if budget_report.over_budget_cards %}
+    <div class="panel panel-info-warning" style="margin-top:.5rem;">
+      <strong>Cards over budget:</strong>
+      <ul class="muted" style="margin:.25rem 0 0 1rem; padding:0; font-size:.85em;">
+        {% for c in budget_report.over_budget_cards %}
+        <li>{{ c.card }} — ${{ "%.2f"|format(c.price) }}{% if c.ceiling_exceeded %} (above ${{ "%.2f"|format(budget_config.card_ceiling) }} ceiling){% endif %}</li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+    {% endif %}
   </aside>
   <div class="grow">
     {% if summary %}
@@ -99,6 +126,67 @@
         </div>
       {% endif %}
   {{ render_cached('partials/deck_summary.html', name, request=request, summary=summary, game_changers=game_changers, owned_set=owned_set, combos=combos, synergies=synergies, versions=versions) | safe }}
+  {# M8: Price charts accordion — placed in main area, only available on the saved deck view #}
+  {% if (price_category_chart and price_category_chart.total > 0) or price_histogram_chart %}
+  <section class="summary-section-lg">
+    <details class="analytics-accordion" id="price-charts-accordion">
+      <summary class="combo-summary">
+        <span>Price Breakdown</span>
+        <span class="muted text-xs font-normal ml-2">spend by category &amp; distribution</span>
+      </summary>
+      <div class="analytics-content mt-3">
+        {% if price_category_chart and price_category_chart.total > 0 %}
+        <div class="price-cat-section">
+          <div class="price-cat-heading">Spend by Category — ${{ '%.2f'|format(price_category_chart.total) }} total</div>
+          <div class="price-cat-bar" title="Total: ${{ '%.2f'|format(price_category_chart.total) }}">
+            {% for cat in price_category_chart.order %}
+              {% set cat_total = price_category_chart.totals.get(cat, 0) %}
+              {% if cat_total > 0 %}
+              {% set pct = (cat_total * 100 / price_category_chart.total) | round(1) %}
+              <div class="price-cat-seg"
+                   style="width:{{ pct }}%; background:{{ price_category_chart.colors.get(cat, '#f59e0b') }};"
+                   title="{{ cat }}: ${{ '%.2f'|format(cat_total) }} ({{ pct }}%)"></div>
+              {% endif %}
+            {% endfor %}
+          </div>
+          <div class="price-cat-legend">
+            {% for cat in price_category_chart.order %}
+              {% set cat_total = price_category_chart.totals.get(cat, 0) %}
+              {% if cat_total > 0 %}
+              <span class="price-cat-legend-item">
+                <span class="price-cat-swatch" style="background:{{ price_category_chart.colors.get(cat, '#f59e0b') }};"></span>
+                {{ cat }} ${{ '%.2f'|format(cat_total) }}
+              </span>
+              {% endif %}
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
+        {% if price_histogram_chart %}
+        <div class="price-hist-section">
+          <div class="price-hist-heading">Price Distribution</div>
+          <div class="price-hist-bars">
+            {% for bin in price_histogram_chart %}
+            <div class="price-hist-column"
+                 data-type="hist"
+                 data-range="${{ '%.2f'|format(bin.range_min) }}–${{ '%.2f'|format(bin.range_max) }}"
+                 data-val="{{ bin.count }}"
+                 data-cards="{% for c in bin.cards %}{{ c.name }}|{{ '%.2f'|format(c.price) }}{% if not loop.last %} • {% endif %}{% endfor %}">
+              <div class="price-hist-bar" style="height:{{ bin.pct | default(0) }}%; background:{{ bin.color }};"></div>
+            </div>
+            {% endfor %}
+          </div>
+          <div class="price-hist-xlabels">
+            {% for bin in price_histogram_chart %}
+            <div class="price-hist-xlabel">{{ bin.x_label }}</div>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
+      </div>
+    </details>
+  </section>
+  {% endif %}
     {% else %}
       <div class="muted">No summary available.</div>
     {% endif %}

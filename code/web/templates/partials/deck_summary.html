@@ -1,4 +1,7 @@
 <div id="deck-summary" data-summary>
+{% if budget_config and budget_config.total %}
+<script>window._budgetCfg={"total":{{ budget_config.total|float }},"card_ceiling":{{ budget_config.card_ceiling|float if budget_config.card_ceiling else 'null' }}};</script>
+{% endif %}
 <hr class="summary-divider" />
 <h4>Deck Summary</h4>
 <section class="summary-section">
@@ -35,6 +38,9 @@
   .owned-flag { font-size:.95rem; opacity:.9; }
     </style>
     <div id="typeview-list" class="typeview">
+      {% if budget_config and budget_config.total %}
+      <div id="budget-summary-bar" class="budget-price-bar" aria-live="polite">Loading deck cost...</div>
+      {% endif %}
       {% for t in tb.order %}
         <div class="summary-type-heading">
           {{ t }} — {{ tb.counts[t] }}{% if tb.total %} ({{ '%.1f' % (tb.counts[t] * 100.0 / tb.total) }}%){% endif %}
@@ -46,7 +52,7 @@
             @media (max-width: 1199px) {
               .list-grid { grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
             }
-            .list-row { display:grid; grid-template-columns: 4ch 1.25ch minmax(0,1fr) auto 1.6em; align-items:center; column-gap:.45rem; width:100%; }
+            .list-row { display:grid; grid-template-columns: 4ch 1.25ch minmax(0,1fr) auto auto 1.6em; align-items:center; column-gap:.45rem; width:100%; }
             .list-row .count { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-variant-numeric: tabular-nums; font-feature-settings: 'tnum'; text-align:right; color:#94a3b8; }
             .list-row .times { color:#94a3b8; text-align:center; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
             .list-row .name { display:inline-block; padding: 2px 4px; border-radius: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -75,6 +81,7 @@
                 <span class="count">{{ cnt }}</span>
                 <span class="times">x</span>
                 <span class="name dfc-anchor" title="{{ c.name }}" data-card-name="{{ c.name }}" data-count="{{ cnt }}" data-role="{{ c.role }}" data-tags="{{ (c.tags|map('trim')|join(', ')) if c.tags else '' }}"{% if c.metadata_tags %} data-metadata-tags="{{ (c.metadata_tags|map('trim')|join(', ')) }}"{% endif %}{% if overlaps %} data-overlaps="{{ overlaps|join(', ') }}"{% endif %}>{{ c.name }}</span>
+                <span class="card-price-inline" data-price-for="{{ c.name }}"></span>
                 <span class="flip-slot" aria-hidden="true">
                   {% if c.dfc_land %}
                     <span class="dfc-land-chip {% if c.dfc_adds_extra_land %}extra{% else %}counts{% endif %}" title="{{ c.dfc_note or 'Modal double-faced land' }}">DFC land{% if c.dfc_adds_extra_land %} +1{% endif %}</span>
@@ -114,8 +121,7 @@
                 <img class="card-thumb" loading="lazy" decoding="async" src="{{ c.name|card_image('normal') }}" alt="{{ c.name }} image" data-card-name="{{ c.name }}" data-count="{{ cnt }}" data-role="{{ c.role }}" data-tags="{{ (c.tags|map('trim')|join(', ')) if c.tags else '' }}"{% if overlaps %} data-overlaps="{{ overlaps|join(', ') }}"{% endif %}
                      srcset="{{ c.name|card_image('small') }} 160w, {{ c.name|card_image('normal') }} 488w"
                      sizes="(max-width: 1200px) 160px, 240px" />
-                <div class="count-badge">{{ cnt }}x</div>
-                <div class="owned-badge" title="{{ 'Owned' if owned else 'Not owned' }}" aria-label="{{ 'Owned' if owned else 'Not owned' }}">{% if owned %}✔{% else %}✖{% endif %}</div>
+                <div class="count-badge">{{ cnt }}x</div>                <div class="card-price-overlay" data-price-for="{{ c.name }}" aria-hidden="true"></div>                <div class="owned-badge" title="{{ 'Owned' if owned else 'Not owned' }}" aria-label="{{ 'Owned' if owned else 'Not owned' }}">{% if owned %}✔{% else %}✖{% endif %}</div>
                 {% if c.dfc_land %}
                   <div class="dfc-thumb-badge {% if c.dfc_adds_extra_land %}extra{% else %}counts{% endif %}" title="{{ c.dfc_note or 'Modal double-faced land' }}">DFC{% if c.dfc_adds_extra_land %}+1{% endif %}</div>
                 {% endif %}
@@ -601,6 +607,11 @@
       } else if (t === 'curve') {
         titleSpan.textContent = el.dataset.label + ': ' + (el.dataset.val || '0') + ' (' + (el.dataset.pct || '0') + '%)';
         listText = (el.dataset.cards || '').split(' • ').filter(Boolean).join('\n');
+      } else if (t === 'hist') {
+        var hval = el.dataset.val || '0';
+        titleSpan.textContent = (el.dataset.range || '') + ' \u2014 ' + hval + ' card' + (hval !== '1' ? 's' : '');
+        var pairs = (el.dataset.cards || '').split(' \u2022 ').filter(Boolean);
+        listText = pairs.map(function(p){ var idx = p.lastIndexOf('|'); return idx < 0 ? p : p.slice(0, idx) + ' \u2014 $' + parseFloat(p.slice(idx+1)).toFixed(2); }).join('\n');
       } else {
         titleSpan.textContent = el.getAttribute('aria-label') || '';
       }
@@ -662,6 +673,8 @@
         var s = String(n);
         // Strip trailing " ×<num>" count suffix if present
         s = s.replace(/\s×\d+$/,'');
+        // Strip trailing "|price" suffix from hist bars
+        s = s.replace(/\|[\d.]+$/, '');
         return s.trim();
       }).filter(Boolean);
     }
@@ -707,8 +720,8 @@
     }
     
     function attach() {
-      // Attach to SVG elements with data-type for better hover zones
-      document.querySelectorAll('svg[data-type]').forEach(function(el) {
+      // Attach to elements with data-type (SVG mana charts + div hist bars)
+      document.querySelectorAll('[data-type]').forEach(function(el) {
         el.addEventListener('mouseenter', function(e) {
           // Don't show hover tooltip if this element is pinned
           if (pinnedEl === el) return;
@@ -719,7 +732,7 @@
           // Cross-highlight for mana curve bars -> card items
           try {
             var dataType = el.getAttribute('data-type');
-            if (dataType === 'curve' || dataType === 'pips' || dataType === 'sources') {
+            if (dataType === 'curve' || dataType === 'pips' || dataType === 'sources' || dataType === 'hist') {
               lastNames = normalizeList((el.dataset.cards || '').split(' • ').filter(Boolean));
               lastType = dataType;
               // Only apply hover highlights if nothing is pinned
@@ -769,7 +782,7 @@
       document.addEventListener('click', function(e) {
         if (!pinnedEl) return;
         // Don't unpin if clicking the tooltip itself or a chart
-        if (tip.contains(e.target) || e.target.closest('svg[data-type]')) return;
+        if (tip.contains(e.target) || e.target.closest('[data-type]')) return;
         unpin();
       });
       
@@ -825,7 +838,16 @@
         }
       } catch(_) {}
     }
-    attach();
+    // On static pages (view.html, run_result.html) deck_summary.html is rendered
+    // before the price-chart histogram bars in the outer template, so the inline
+    // script runs mid-parse and querySelectorAll('[data-type]') would not yet see
+    // those elements. Deferring to DOMContentLoaded fixes this for static pages
+    // while still running immediately when injected via HTMX (readyState 'complete').
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', function() { attach(); });
+    } else {
+      attach();
+    }
     document.addEventListener('htmx:afterSwap', function() { attach(); });
   })();
 </script>

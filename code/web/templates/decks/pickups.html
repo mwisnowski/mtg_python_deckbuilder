@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% block banner_subtitle %}Budget Pickups{% endblock %}
+{% block content %}
+<h2>Pickups List</h2>
+{% if commander %}
+<div class="muted" style="margin-bottom:.5rem;">Deck: <strong>{{ commander }}</strong>{% if name %} — <span class="muted text-xs">{{ name }}</span>{% endif %}</div>
+{% endif %}
+
+{% if error %}
+<div class="panel panel-info-warning">{{ error }}</div>
+{% elif not budget_report %}
+<div class="panel">No budget report available for this deck.</div>
+{% else %}
+
+{% set bstatus = budget_report.budget_status %}
+<div class="budget-badge budget-badge--{{ bstatus }}" style="margin-bottom:.75rem;">
+  {% if bstatus == 'under' %}
+    Under Budget: ${{ "%.2f"|format(budget_report.total_price) }} / ${{ "%.2f"|format(budget_config.total) }}
+  {% elif bstatus == 'soft_exceeded' %}
+    Over Budget (soft): ${{ "%.2f"|format(budget_report.total_price) }} / ${{ "%.2f"|format(budget_config.total) }}
+    (+${{ "%.2f"|format(budget_report.overage) }})
+  {% else %}
+    Hard Cap Exceeded: ${{ "%.2f"|format(budget_report.total_price) }} / ${{ "%.2f"|format(budget_config.total) }}
+    (+${{ "%.2f"|format(budget_report.overage) }})
+  {% endif %}
+</div>
+{% if stale_prices_global is defined and stale_prices_global %}
+<div class="stale-banner">&#x23F1; Prices shown may be more than 24 hours old. Refresh price data on the Setup page if you need current values.</div>
+{% endif %}
+
+{% if budget_report.pickups_list %}
+<p class="muted text-sm" style="margin-bottom:.5rem;">
+  Cards you don't own yet that fit the deck's themes and budget. Sorted by theme match priority.
+</p>
+<table class="pickups-table" style="width:100%; border-collapse:collapse;">
+  <thead>
+    <tr>
+      <th style="text-align:left; padding:.4rem .5rem; border-bottom:1px solid var(--border,#333);">Card</th>
+      <th style="text-align:right; padding:.4rem .5rem; border-bottom:1px solid var(--border,#333);">Price</th>
+      <th style="text-align:center; padding:.4rem .5rem; border-bottom:1px solid var(--border,#333);">Tier</th>
+      <th style="text-align:right; padding:.4rem .5rem; border-bottom:1px solid var(--border,#333);">Priority</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for card in budget_report.pickups_list %}
+    <tr>
+      <td style="padding:.35rem .5rem; border-bottom:1px solid var(--border-subtle,#222);">
+        <span class="card-name-price-hover" data-card-name="{{ card.card|e }}">{{ card.card }}</span>
+      </td>
+      <td style="text-align:right; padding:.35rem .5rem; border-bottom:1px solid var(--border-subtle,#222);">
+        {% if card.price is not none %}
+          ${{ "%.2f"|format(card.price) }}{% if stale_prices is defined and card.card|lower in stale_prices %}<span class="stale-price-badge" title="Price may be outdated (>24h)">&#x23F1;</span>{% endif %}
+        {% else %}
+          <span class="muted">–</span>
+        {% endif %}
+      </td>
+      <td style="text-align:center; padding:.35rem .5rem; border-bottom:1px solid var(--border-subtle,#222);">
+        <span class="tier-badge tier-badge--{{ card.tier|lower }}">{{ card.tier }}</span>
+      </td>
+      <td style="text-align:right; padding:.35rem .5rem; border-bottom:1px solid var(--border-subtle,#222);" class="muted">
+        {{ card.priority }}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<div class="panel muted">No pickups suggestions available — your deck may already fit the budget well.</div>
+{% endif %}
+
+{% if budget_report.over_budget_cards %}
+<h3 style="margin-top:1.25rem;">Over-Budget Cards</h3>
+<p class="muted text-sm" style="margin-bottom:.5rem;">
+  Cards in your current deck that exceed the budget or per-card ceiling.
+</p>
+<table style="width:100%; border-collapse:collapse;">
+  <thead>
+    <tr>
+      <th style="text-align:left; padding:.4rem .5rem; border-bottom:1px solid var(--border,#333);">Card</th>
+      <th style="text-align:right; padding:.4rem .5rem; border-bottom:1px solid var(--border,#333);">Price</th>
+      <th style="text-align:left; padding:.4rem .5rem; border-bottom:1px solid var(--border,#333);">Note</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for c in budget_report.over_budget_cards %}
+    <tr>
+      <td style="padding:.35rem .5rem; border-bottom:1px solid var(--border-subtle,#222);">{{ c.card }}</td>
+      <td style="text-align:right; padding:.35rem .5rem; border-bottom:1px solid var(--border-subtle,#222);">${{ "%.2f"|format(c.price) }}{% if stale_prices is defined and c.card|lower in stale_prices %}<span class="stale-price-badge" title="Price may be outdated (>24h)">&#x23F1;</span>{% endif %}</td>
+      <td style="padding:.35rem .5rem; border-bottom:1px solid var(--border-subtle,#222);" class="muted">
+        {% if c.ceiling_exceeded %}Above ${{ "%.2f"|format(budget_config.card_ceiling) }} ceiling{% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+{% endif %}
+
+<div style="margin-top:1rem;">
+  <a href="/decks/view?name={{ name|urlencode }}" class="btn" role="button">Back to Deck</a>
+  <a href="/decks" class="btn" role="button">All Decks</a>
+</div>
+{% endblock %}

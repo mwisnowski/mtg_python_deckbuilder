@@ -20,7 +20,7 @@
 {% set hover_tags_joined = hover_tags_source|join(', ') %}
 {% set display_tags = display_tags_source if display_tags_source else [] %}
 {% set show_color_identity = color_label or (color_identity_list|length > 0) %}
-<section>
+<section data-build-id="{{ build_id }}">
   {# Step phases removed #}
   <div class="two-col two-col-left-rail">
     <aside class="card-preview">
@@ -186,6 +186,10 @@
   <span class="chip" title="Multi-Copy package summary"><span class="dot dot-purple"></span> {{ mc_summary }}</span>
   {% endif %}
   <span id="locks-chip">{% if locks and locks|length > 0 %}<span class="chip" title="Locked cards">🔒 {{ locks|length }} locked</span>{% endif %}</span>
+  {% if budget_config and budget_config.total %}
+  <span class="chip" id="budget-chip"><span class="dot dot-yellow"></span> $<span id="budget-running">...</span> / ${{ '%.2f'|format(budget_config.total|float) }} cap</span>
+  <span id="budget-step" class="muted text-xs" style="display:none"></span>
+  {% endif %}
 
       </div>
       {% set pct = ((deck_count / 100.0) * 100.0) if deck_count else 0 %}
@@ -214,6 +218,67 @@
   <div hx-get="/build/compliance" hx-trigger="load" hx-swap="afterend"></div>
   {% if status and status.startswith('Build complete') %}
   <div hx-get="/build/combos" hx-trigger="load" hx-swap="afterend"></div>
+  {# M5: Budget review panel — shown in main content when deck total exceeds cap #}
+  {% include 'build/_budget_review.html' %}
+  {# M8: Price charts accordion — shown when budget mode was enabled and prices loaded #}
+  {% if (price_category_chart and price_category_chart.total > 0) or price_histogram_chart %}
+  <details class="analytics-accordion mt-4" id="price-charts-accordion">
+    <summary class="combo-summary">
+      <span>Price Breakdown</span>
+      <span class="muted text-xs font-normal ml-2">spend by category &amp; distribution</span>
+    </summary>
+    <div class="analytics-content mt-3">
+      {% if price_category_chart and price_category_chart.total > 0 %}
+      <div class="price-cat-section">
+        <div class="price-cat-heading">Spend by Category — ${{ '%.2f'|format(price_category_chart.total) }} total</div>
+        <div class="price-cat-bar" title="Total: ${{ '%.2f'|format(price_category_chart.total) }}">
+          {% for cat in price_category_chart.order %}
+            {% set cat_total = price_category_chart.totals.get(cat, 0) %}
+            {% if cat_total > 0 %}
+            {% set pct = (cat_total * 100 / price_category_chart.total) | round(1) %}
+            <div class="price-cat-seg"
+                 style="width:{{ pct }}%; background:{{ price_category_chart.colors.get(cat, '#f59e0b') }};"
+                 title="{{ cat }}: ${{ '%.2f'|format(cat_total) }} ({{ pct }}%)"></div>
+            {% endif %}
+          {% endfor %}
+        </div>
+        <div class="price-cat-legend">
+          {% for cat in price_category_chart.order %}
+            {% set cat_total = price_category_chart.totals.get(cat, 0) %}
+            {% if cat_total > 0 %}
+            <span class="price-cat-legend-item">
+              <span class="price-cat-swatch" style="background:{{ price_category_chart.colors.get(cat, '#f59e0b') }};"></span>
+              {{ cat }} ${{ '%.2f'|format(cat_total) }}
+            </span>
+            {% endif %}
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+      {% if price_histogram_chart %}
+      <div class="price-hist-section">
+        <div class="price-hist-heading">Price Distribution</div>
+        <div class="price-hist-bars">
+          {% for bin in price_histogram_chart %}
+          <div class="price-hist-column"
+               data-type="hist"
+               data-range="${{ '%.2f'|format(bin.range_min) }}–${{ '%.2f'|format(bin.range_max) }}"
+               data-val="{{ bin.count }}"
+               data-cards="{% for c in bin.cards %}{{ c.name }}|{{ '%.2f'|format(c.price) }}{% if not loop.last %} • {% endif %}{% endfor %}">
+            <div class="price-hist-bar" style="height:{{ bin.pct | default(0) }}%; background:{{ bin.color }};"></div>
+          </div>
+          {% endfor %}
+        </div>
+        <div class="price-hist-xlabels">
+          {% for bin in price_histogram_chart %}
+          <div class="price-hist-xlabel">{{ bin.x_label }}</div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+    </div>
+  </details>
+  {% endif %}
   {% endif %}
 
       {% if locked_cards is defined and locked_cards %}
@@ -238,7 +303,8 @@
   <!-- Last action chip (oob-updated) -->
   <div id="last-action" aria-live="polite" class="my-1 last-action"></div>
 
-  <!-- Filters toolbar -->
+  {% if not (status and status.startswith('Build complete')) %}
+  <!-- Filters toolbar (only during active build stages) -->
       <div class="cards-toolbar">
         <input type="text" name="filter_query" placeholder="Filter by name, role, or tag" data-pref="cards:filter_q" />
         <select name="filter_owned" data-pref="cards:owned">
@@ -267,21 +333,37 @@
           <span class="chip" data-chip-clear>Clear</span>
         </div>
       </div>
+  {% endif %}
 
+  {% if status and status.startswith('Build complete') %}
+  <!-- Minimal controls at build complete -->
+  <div class="build-controls">
+        <form hx-post="/build/step5/start" hx-target="#wizard" hx-swap="innerHTML" class="inline-form mr-2" onsubmit="try{ toast('Restarting build…'); }catch(_){}">
+          <input type="hidden" name="show_skipped" value="{{ '1' if show_skipped else '0' }}" />
+          <button type="submit" class="btn-continue" data-action="continue">Restart Build</button>
+        </form>
+        <form hx-post="/build/reset-all" hx-target="#wizard" hx-swap="innerHTML" class="inline-form">
+          <button type="submit" class="btn" title="Start a brand new build (clears selections)">New build</button>
+        </form>
+  <button type="button" class="btn-back" data-action="back" hx-get="/build/step4" hx-target="#wizard" hx-swap="innerHTML">Back</button>
+      </div>
+  {% else %}
   <!-- Sticky build controls on mobile -->
   <div class="build-controls">
         <form hx-post="/build/step5/start" hx-target="#wizard" hx-swap="innerHTML" class="inline-form mr-2" onsubmit="try{ toast('Restarting build…'); }catch(_){}">
           <input type="hidden" name="show_skipped" value="{{ '1' if show_skipped else '0' }}" />
           <button type="submit" class="btn-continue" data-action="continue">Restart Build</button>
         </form>
+        {% if not (status and status.startswith('Build complete')) %}
         <form hx-post="/build/step5/continue" hx-target="#wizard" hx-swap="innerHTML" class="inline-form" onsubmit="try{ toast('Continuing…'); }catch(_){}">
           <input type="hidden" name="show_skipped" value="{{ '1' if show_skipped else '0' }}" />
-          <button type="submit" class="btn-continue" data-action="continue" {% if (status and status.startswith('Build complete')) or gated %}disabled{% endif %}>Continue</button>
+          <button type="submit" class="btn-continue" data-action="continue" {% if gated %}disabled{% endif %}>Continue</button>
         </form>
         <form hx-post="/build/step5/rerun" hx-target="#wizard" hx-swap="innerHTML" class="inline-form" onsubmit="try{ toast('Rerunning stage…'); }catch(_){}">
           <input type="hidden" name="show_skipped" value="{{ '1' if show_skipped else '0' }}" />
-          <button type="submit" class="btn-rerun" data-action="rerun" {% if (status and status.startswith('Build complete')) or gated %}disabled{% endif %}>Rerun Stage</button>
+          <button type="submit" class="btn-rerun" data-action="rerun" {% if gated %}disabled{% endif %}>Rerun Stage</button>
         </form>
+        {% endif %}
         <span class="sep"></span>
     <div class="replace-toggle" role="group" aria-label="Replace toggle">
           <form hx-post="/build/step5/toggle-replace" hx-target="closest .replace-toggle" hx-swap="outerHTML" onsubmit="return false;" class="inline-form">
@@ -306,6 +388,7 @@
         </label>
   <button type="button" class="btn-back" data-action="back" hx-get="/build/step4" hx-target="#wizard" hx-swap="innerHTML">Back</button>
       </div>
+  {% endif %}
 
       {% if added_cards is not none %}
       {% if history is defined and history %}
@@ -333,7 +416,9 @@
         <span><span class="ownership-badge">✔</span> Owned</span>
         <span><span class="ownership-badge">✖</span> Not owned</span>
       </div>
-      
+      {% if stale_prices_global is defined and stale_prices_global %}
+      <div class="stale-banner">&#x23F1; Prices shown may be more than 24 hours old. Refresh price data on the Setup page if you need current values.</div>
+      {% endif %}
   {% if stage_label and stage_label.startswith('Creatures') %}
         {% set groups = added_cards|groupby('sub_role') %}
         {% for g in groups %}
@@ -356,13 +441,17 @@
             {% set is_locked = (locks is defined and (c.name|lower in locks)) %}
   <div class="card-tile{% if game_changers and (c.name in game_changers) %} game-changer{% endif %}{% if is_locked %} locked{% endif %}{% if c.must_include %} must-include{% endif %}{% if c.must_exclude %} must-exclude{% endif %}"
     data-card-name="{{ c.name }}" data-role="{{ c.role or c.sub_role or '' }}" data-tags="{{ (c.tags|join(', ')) if c.tags else '' }}" data-tags-slug="{{ (c.tags_slug|join(', ')) if c.tags_slug else '' }}" data-owned="{{ '1' if owned else '0' }}"{% if c.reason %} data-reasons="{{ c.reason|e }}"{% endif %}
-    data-must-include="{{ '1' if c.must_include else '0' }}" data-must-exclude="{{ '1' if c.must_exclude else '0' }}">
+    data-must-include="{{ '1' if c.must_include else '0' }}" data-must-exclude="{{ '1' if c.must_exclude else '0' }}"
+    data-price="{{ (price_cache or {}).get(c.name.lower(), {}).get('usd') or '' }}"
+    data-stale="{% if stale_prices is defined and c.name|lower in stale_prices %}1{% else %}0{% endif %}">
   <div class="img-btn" role="button" tabindex="0" title="Tap or click to view {{ c.name }}" aria-label="View {{ c.name }} details">
                 <img class="card-thumb" src="{{ c.name|card_image('normal') }}" alt="{{ c.name }} image" width="160" data-card-name="{{ c.name }}" loading="lazy" decoding="async" data-lqip="1"
                   srcset="{{ c.name|card_image('small') }} 160w, {{ c.name|card_image('normal') }} 488w"
                   sizes="160px" />
       </div>
               <div class="owned-badge" title="{{ 'Owned' if owned else 'Not owned' }}" aria-label="{{ 'Owned' if owned else 'Not owned' }}">{% if owned %}✔{% else %}✖{% endif %}</div>
+              <div class="card-price-overlay" data-price-for="{{ c.name }}" aria-hidden="true"></div>
+              {% if stale_prices is defined and c.name|lower in stale_prices %}<div class="stale-price-indicator" title="Price may be outdated (>24h)">&#x23F1;</div>{% endif %}
               <div class="name">{{ c.name|safe }}{% if c.count and c.count > 1 %} ×{{ c.count }}{% endif %}</div>
     <div class="lock-box" id="lock-{{ group_idx }}-{{ loop.index0 }}" class="flex justify-center gap-1 mt-1">
       {% from 'partials/_macros.html' import lock_button %}
@@ -402,13 +491,17 @@
           {% set is_locked = (locks is defined and (c.name|lower in locks)) %}
     <div class="card-tile{% if game_changers and (c.name in game_changers) %} game-changer{% endif %}{% if is_locked %} locked{% endif %}{% if c.must_include %} must-include{% endif %}{% if c.must_exclude %} must-exclude{% endif %}"
       data-card-name="{{ c.name }}" data-role="{{ c.role or c.sub_role or '' }}" data-tags="{{ (c.tags|join(', ')) if c.tags else '' }}" data-tags-slug="{{ (c.tags_slug|join(', ')) if c.tags_slug else '' }}" data-owned="{{ '1' if owned else '0' }}"{% if c.reason %} data-reasons="{{ c.reason|e }}"{% endif %}
-      data-must-include="{{ '1' if c.must_include else '0' }}" data-must-exclude="{{ '1' if c.must_exclude else '0' }}">
+      data-must-include="{{ '1' if c.must_include else '0' }}" data-must-exclude="{{ '1' if c.must_exclude else '0' }}"
+      data-price="{{ (price_cache or {}).get(c.name.lower(), {}).get('usd') or '' }}"
+      data-stale="{% if stale_prices is defined and c.name|lower in stale_prices %}1{% else %}0{% endif %}">
   <div class="img-btn" role="button" tabindex="0" title="Tap or click to view {{ c.name }}" aria-label="View {{ c.name }} details">
               <img class="card-thumb" src="{{ c.name|card_image('normal') }}" alt="{{ c.name }} image" width="160" data-card-name="{{ c.name }}" loading="lazy" decoding="async" data-lqip="1"
                 srcset="{{ c.name|card_image('small') }} 160w, {{ c.name|card_image('normal') }} 488w"
                 sizes="160px" />
             </div>
             <div class="owned-badge" title="{{ 'Owned' if owned else 'Not owned' }}" aria-label="{{ 'Owned' if owned else 'Not owned' }}">{% if owned %}✔{% else %}✖{% endif %}</div>
+            <div class="card-price-overlay" data-price-for="{{ c.name }}" aria-hidden="true"></div>
+            {% if stale_prices is defined and c.name|lower in stale_prices %}<div class="stale-price-indicator" title="Price may be outdated (>24h)">&#x23F1;</div>{% endif %}
             <div class="name">{{ c.name|safe }}{% if c.count and c.count > 1 %} ×{{ c.count }}{% endif %}</div>
     <div class="lock-box" id="lock-{{ loop.index0 }}" class="flex justify-center gap-1 mt-1">
       {% from 'partials/_macros.html' import lock_button %}
@@ -463,6 +556,9 @@
         {% set oob = False %}
         {% include "partials/include_exclude_summary.html" %}
       {% endif %}
+  {% if budget_config and budget_config.total %}
+  <script>window._budgetCfg={"total":{{ budget_config.total|float }},"card_ceiling":{{ budget_config.card_ceiling|float if budget_config.card_ceiling else 'null' }}};</script>
+  {% endif %}
       <div id="deck-summary" data-summary
            hx-get="/build/step5/summary?token={{ summary_token }}"
            hx-trigger="load once, step5:refresh from:body"

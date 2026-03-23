@@ -1,0 +1,79 @@
+{% if budget_review_visible %}
+<div id="budget-review-panel" class="budget-review-panel mt-4">
+  <div class="budget-review-header">
+    <strong>Budget Review</strong>
+    <span class="budget-review-summary">
+      Your deck costs <strong>${{ '%.2f'|format(budget_review_total|float) }}</strong>
+      {% if over_budget_review %}
+      — {{ budget_overage_pct }}% over your ${{ '%.2f'|format(budget_review_cap|float) }} cap.
+      {% else %}
+      — within your ${{ '%.2f'|format(budget_review_cap|float) }} cap.
+      {% endif %}
+    </span>
+    {% if over_budget_review %}
+    <span class="chip chip-yellow">Advisory: deck is over budget</span>
+    {% else %}
+    <span class="chip chip-green">Within budget</span>
+    {% endif %}
+  </div>
+
+  {% if over_budget_cards %}
+  <div class="budget-review-cards">
+    <p class="muted budget-review-subtitle">Most expensive cards — swapping saves the most on total cost:</p>
+    {% for card in over_budget_cards %}
+    <div class="budget-review-card-row">
+      <div class="budget-review-card-info">
+        <span class="budget-review-card-name"
+              data-card-name="{{ card.name }}"
+              data-role="{{ card.card_role }}"
+              data-tags="{{ card.card_tags|join(', ') if card.card_tags else '' }}"
+              style="cursor:default;">{{ card.name }}</span>
+        <span class="budget-review-card-price">${{ '%.2f'|format(card.price|float) }}</span>{% if stale_prices is defined and card.name|lower in stale_prices %}<span class="stale-price-badge" title="Price may be outdated (>24h)">&#x23F1;</span>{% endif %}
+        {% if card.card_type %}
+        <span class="chip chip-subtle text-xs" title="Card type">{{ card.card_type }}</span>
+        {% endif %}
+        {% if card.card_role %}
+        <span class="chip chip-subtle text-xs" title="Role in deck">{{ card.card_role }}</span>
+        {% endif %}
+        {% if card.swap_disabled %}
+        <span class="chip" title="This card is in your include list">Required</span>
+        {% endif %}
+      </div>
+      {% if not card.swap_disabled and card.alternatives %}
+      <div class="budget-review-alts">
+        <span class="muted">Swap for:</span>
+        {% for alt in card.alternatives %}
+        <form hx-post="/build/budget-swap"
+              hx-target="#budget-review-panel"
+              hx-swap="outerHTML"
+              class="inline-form">
+          <input type="hidden" name="old_card" value="{{ card.name }}" />
+          <input type="hidden" name="new_card" value="{{ alt.name }}" />
+          <button type="submit" class="btn-alt-swap"
+                  data-card-name="{{ alt.name }}"
+                  data-hover-simple="1"
+                  {% if alt.price %}data-price="{{ alt.price }}"{% endif %}
+                  title="{{ alt.shared_tags|join(', ') if alt.shared_tags else '' }}">
+            {{ alt.name }}
+            {% if alt.price %}<span class="alt-price">${{ '%.2f'|format(alt.price|float) }}</span>{% endif %}
+          </button>
+        </form>
+        {% endfor %}
+      </div>
+      {% elif not card.swap_disabled %}
+      <div class="muted budget-review-no-alts">No affordable alternatives found</div>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="muted">Price data unavailable for over-budget cards.</p>
+  {% endif %}
+
+  <div class="budget-review-actions mt-2">
+    <button type="button"
+            onclick="document.getElementById('budget-review-panel').remove()"
+            class="btn">Accept deck as-is</button>
+  </div>
+</div>
+{% endif %}

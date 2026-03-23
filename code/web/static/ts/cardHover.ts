@@ -122,6 +122,7 @@ interface PointerEventLike {
       '<div class="hcp-header" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;gap:6px;">' +
       '<div class="hcp-name" style="font-weight:600;font-size:16px;flex:1;padding-right:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">&nbsp;</div>' +
       '<div class="hcp-rarity" style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;opacity:.75;"></div>' +
+      '<div class="hcp-price" style="font-size:12px;font-weight:500;white-space:nowrap;"></div>' +
       '<button type="button" class="hcp-close" aria-label="Close card details"><span aria-hidden="true">✕</span></button>' +
       '</div>' +
       '<div class="hcp-body">' +
@@ -158,6 +159,7 @@ interface PointerEventLike {
     const imgEl = panel.querySelector('.hcp-img') as HTMLImageElement;
     const nameEl = panel.querySelector('.hcp-name') as HTMLElement;
     const rarityEl = panel.querySelector('.hcp-rarity') as HTMLElement;
+    const priceEl = panel.querySelector('.hcp-price') as HTMLElement;
     const metaEl = panel.querySelector('.hcp-meta') as HTMLElement;
     const reasonsList = panel.querySelector('.hcp-reasons') as HTMLElement;
     const tagsEl = panel.querySelector('.hcp-tags') as HTMLElement;
@@ -393,6 +395,14 @@ interface PointerEventLike {
 
       nameEl.textContent = nm;
       rarityEl.textContent = rarity;
+      if (priceEl) {
+        const priceRaw = (attr('data-price') || '').trim();
+        const priceNum = priceRaw ? parseFloat(priceRaw) : NaN;
+        const isStale = attr('data-stale') === '1';
+        priceEl.innerHTML = !isNaN(priceNum)
+          ? '$' + priceNum.toFixed(2) + (isStale ? ' <span style="color:#f59e0b;font-size:10px;" title="Price may be outdated (>24h)">\u23F1</span>' : '')
+          : '';
+      }
 
       const roleLabel = displayLabel(role);
       const roleKey = (roleLabel || role || '').toLowerCase();

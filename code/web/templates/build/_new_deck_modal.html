@@ -208,6 +208,34 @@
         {% endif %}
       {% endif %}
       {% include "build/_new_deck_skip_controls.html" %}
+      {% if enable_budget_mode %}
+      <fieldset>
+        <legend>Budget</legend>
+        <div class="flex flex-col gap-3">
+          <label class="block">
+            <span>Total budget ($)</span>
+            <small class="muted block text-xs mt-1">Set a deck cost ceiling — cards over budget will be flagged</small>
+            <input type="number" name="budget_total" id="budget_total" min="0" step="0.01"
+              placeholder="e.g. 150.00"
+              value="{{ form.budget_total if form and form.budget_total else '' }}" />
+          </label>
+          <label class="block">
+            <span>Per-card ceiling ($) <small class="muted">(optional)</small></span>
+            <small class="muted block text-xs mt-1">Flag individual cards above this price</small>
+            <input type="number" name="card_ceiling" id="card_ceiling" min="0" step="0.01"
+              placeholder="e.g. 10.00"
+              value="{{ form.card_ceiling if form and form.card_ceiling else '' }}" />
+          </label>
+          <label class="block">
+            <span>Pool filter tolerance (%)</span>
+            <small class="muted block text-xs mt-1">Cards exceeding the per-card ceiling by more than this % are excluded from the card pool. Set to 0 to hard-cap at the ceiling exactly.</small>
+            <input type="number" name="pool_tolerance" id="pool_tolerance" min="0" max="100" step="1"
+              value="{{ form.pool_tolerance if form is not none else '15' }}" />
+          </label>
+
+        </div>
+      </fieldset>
+      {% endif %}
       {% if enable_batch_build %}
       <fieldset>
         <legend>Build Options</legend>
@@ -238,7 +266,7 @@
         <button type="button" class="btn" onclick="this.closest('.modal').remove()">Cancel</button>
         <div class="modal-footer-left">
           <button type="submit" name="quick_build" value="1" class="btn-continue" id="quick-build-btn" title="Build entire deck automatically without approval steps">Quick Build</button>
-          <button type="submit" class="btn-continue" id="create-btn">Create</button>
+          <button type="submit" class="btn-continue" id="create-btn">Build Deck</button>
         </div>
       </div>
       {% if allow_must_haves and multi_copy_archetypes_js %}

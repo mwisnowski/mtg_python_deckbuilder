@@ -410,3 +410,69 @@ def regenerate_processed_parquet() -> None:
     process_raw_parquet(raw_path, processed_path)
     
     logger.info(f"✓ Regenerated {processed_path}")
+
+
+def refresh_prices_parquet(output_func=None) -> None:
+    """Rebuild the price cache from local Scryfall bulk data and write
+    ``price`` / ``price_updated`` columns into all_cards.parquet and
+    commander_cards.parquet.
+
+    This is safe to call from both the web app and CLI contexts.
+
+    Args:
+        output_func: Optional callable(str) for progress messages.  Defaults
+            to the module logger.
+    """
+    import datetime
+    from code.web.services.price_service import get_price_service
+
+    _log = output_func or (lambda msg: logger.info(msg))
+
+    # Download a fresh copy of the Scryfall bulk data before rebuilding.
+    try:
+        from code.file_setup.scryfall_bulk_data import ScryfallBulkDataClient
+        from code.path_util import card_files_raw_dir
+        bulk_path = os.path.join(card_files_raw_dir(), "scryfall_bulk_data.json")
+        _log("Downloading fresh Scryfall bulk data …")
+        client = ScryfallBulkDataClient()
+        info = client.get_bulk_data_info()
+        client.download_bulk_data(info["download_uri"], bulk_path)
+        _log("Scryfall bulk data downloaded.")
+    except Exception as exc:
+        _log(f"Warning: Could not download fresh bulk data ({exc}). Using existing local copy.")
+
+    _log("Rebuilding price cache from Scryfall bulk data …")
+    svc = get_price_service()
+    svc._rebuild_cache()
+
+    processed_path = get_processed_cards_path()
+    if not os.path.exists(processed_path):
+        _log("No processed parquet found — run Setup first.")
+        return
+
+    _log("Loading card database …")
+    df = pd.read_parquet(processed_path)
+    name_col = "faceName" if "faceName" in df.columns else "name"
+    card_names = df[name_col].fillna("").tolist()
+
+    _log(f"Fetching prices for {len(card_names):,} cards …")
+    prices = svc.get_prices_batch(card_names)
+    priced = sum(1 for p in prices.values() if p is not None)
+
+    now_iso = datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
+    df["price"] = df[name_col].map(lambda n: prices.get(n) if n else None)
+    df["price_updated"] = now_iso
+
+    loader = DataLoader()
+    loader.write_cards(df, processed_path)
+    _log(f"Updated all_cards.parquet — {priced:,} of {len(card_names):,} cards priced.")
+
+    # Update commander_cards.parquet by applying the same price columns.
+    processed_dir = os.path.dirname(processed_path)
+    commander_path = os.path.join(processed_dir, "commander_cards.parquet")
+    if os.path.exists(commander_path) and "isCommander" in df.columns:
+        cmd_df = df[df["isCommander"] == True].copy()  # noqa: E712
+        loader.write_cards(cmd_df, commander_path)
+        _log(f"Updated commander_cards.parquet ({len(cmd_df):,} commanders).")
+
+    _log("Price refresh complete.")

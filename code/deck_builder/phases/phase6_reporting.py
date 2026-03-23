@@ -798,18 +798,24 @@ class ReportingMixin:
         except Exception:  # pragma: no cover - diagnostics only
             logger.debug("Failed to record theme telemetry", exc_info=True)
         return summary_payload
-    def export_decklist_csv(self, directory: str = 'deck_files', filename: str | None = None, suppress_output: bool = False) -> str:
-        """Export current decklist to CSV (enriched).
-        Filename pattern (default): commanderFirstWord_firstTheme_YYYYMMDD.csv
-        Included columns: Name, Count, Type, ManaCost, ManaValue, Colors, Power, Toughness, Role, Tags, Text.
-        Falls back gracefully if snapshot rows missing.
-        """
+    def export_decklist_csv(
+        self,
+        directory: str = 'deck_files',
+        filename: str | None = None,
+        suppress_output: bool = False,
+        price_lookup: Any | None = None,
+    ) -> str:
         """Export current decklist to CSV (enriched).
 
         Filename pattern (default): commanderFirstWord_firstTheme_YYYYMMDD.csv
         Included columns (enriched when possible):
-          Name, Count, Type, ManaCost, ManaValue, Colors, Power, Toughness, Role, Tags, Text
+          Name, Count, Type, ManaCost, ManaValue, Colors, Power, Toughness, Role, Tags, Text, Price
         Falls back gracefully if snapshot rows missing.
+
+        Args:
+            price_lookup: Optional callable (list[str] -> dict[str, float|None]) used to
+                          batch-look up prices at export time.  When omitted the Price column
+                          is written but left blank for every card.
         """
         os.makedirs(directory, exist_ok=True)
         def _slug(s: str) -> str:
@@ -882,8 +888,17 @@ class ReportingMixin:
 
         headers = [
             "Name","Count","Type","ManaCost","ManaValue","Colors","Power","Toughness",
-            "Role","SubRole","AddedBy","TriggerTag","Synergy","Tags","MetadataTags","Text","DFCNote","Owned"
+            "Role","SubRole","AddedBy","TriggerTag","Synergy","Tags","MetadataTags","Text","DFCNote","Owned","Price"
         ]
+
+        # Batch price lookup (no-op when price_lookup not provided)
+        card_names_list = list(self.card_library.keys())
+        prices_map: Dict[str, Any] = {}
+        if callable(price_lookup):
+            try:
+                prices_map = price_lookup(card_names_list) or {}
+            except Exception:
+                prices_map = {}
 
         header_suffix: List[str] = []
         try:
@@ -1024,7 +1039,8 @@ class ReportingMixin:
                 metadata_tags_join,  # M5: Include metadata tags
                 text_field[:800] if isinstance(text_field, str) else str(text_field)[:800],
                 dfc_note,
-                owned_flag
+                owned_flag,
+                (f"{prices_map[name]:.2f}" if prices_map.get(name) is not None else '')
             ]))
 
         # Now sort (category precedence, then alphabetical name)
@@ -1038,6 +1054,19 @@ class ReportingMixin:
                     w.writerow(data_row + suffix_padding)
                 else:
                     w.writerow(data_row)
+            # Summary row: total price in the Price column (blank when no prices available)
+            if prices_map:
+                total_price = sum(
+                    v for v in prices_map.values() if v is not None
+                )
+                price_col_index = headers.index('Price')
+                summary_row = [''] * len(headers)
+                summary_row[0] = 'Total'
+                summary_row[price_col_index] = f'{total_price:.2f}'
+                if suffix_padding:
+                    w.writerow(summary_row + suffix_padding)
+                else:
+                    w.writerow(summary_row)
 
         self.output_func(f"Deck exported to {fname}")
         # Auto-generate matching plaintext list (best-effort; ignore failures)

@@ -1367,6 +1367,68 @@ class DeckBuilder(
             self._full_cards_df = combined.copy()
         return combined
 
+    def apply_budget_pool_filter(self) -> None:
+        """M4: Remove cards priced above the per-card ceiling × (1 + tolerance) from the pool.
+
+        Must be called AFTER budget_config is set on the builder instance.
+        Fail-open: skipped if price column absent, no ceiling configured, or any exception occurs.
+        Include-list cards are never filtered regardless of price.
+        """
+        import logging
+        _logger = logging.getLogger(__name__)
+
+        budget_config = getattr(self, 'budget_config', None) or {}
+        ceiling = budget_config.get('card_ceiling')
+        if not ceiling or ceiling <= 0:
+            return
+
+        df = getattr(self, '_combined_cards_df', None)
+        if df is None or not hasattr(df, 'columns'):
+            return
+
+        if 'price' not in df.columns:
+            _logger.warning("BUDGET_POOL_FILTER: 'price' column absent — skipping pool filter")
+            return
+
+        # Tolerance: per-build user value > env var > constant default
+        tol = budget_config.get('pool_tolerance')
+        if tol is None:
+            import os as _os
+            env_tol = _os.getenv('BUDGET_POOL_TOLERANCE')
+            try:
+                tol = float(env_tol) if env_tol else bc.BUDGET_POOL_TOLERANCE
+            except ValueError:
+                tol = bc.BUDGET_POOL_TOLERANCE
+        max_price = ceiling * (1.0 + tol)
+
+        # Include-list cards always pass regardless of price
+        include_lower: set[str] = set()
+        try:
+            for nm in (getattr(self, 'include_cards', None) or []):
+                include_lower.add(str(nm).strip().lower())
+        except Exception:
+            pass
+
+        before = len(df)
+        try:
+            price_ok = df['price'].isna() | (df['price'] <= max_price)
+            if include_lower and 'name' in df.columns:
+                protected = df['name'].str.strip().str.lower().isin(include_lower)
+                df = df[price_ok | protected]
+            else:
+                df = df[price_ok]
+        except Exception as exc:
+            _logger.error(f"BUDGET_POOL_FILTER: filter failed: {exc}")
+            return
+
+        removed = before - len(df)
+        if removed:
+            _logger.info(
+                f"BUDGET_POOL_FILTER: removed {removed} cards above ${max_price:.2f} "
+                f"(ceiling=${ceiling:.2f}, tol={tol * 100:.0f}%)"
+            )
+        self._combined_cards_df = df
+
     # ---------------------------
     # Include/Exclude Processing (M1: Config + Validation + Persistence)
     # ---------------------------

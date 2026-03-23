@@ -34,6 +34,11 @@ services:
       WEB_VIRTUALIZE: "1"           # 1=enable list virtualization in Step 5
       ALLOW_MUST_HAVES: "1"         # 1=enable must-include/must-exclude cards feature; 0=disable
       SHOW_MUST_HAVE_BUTTONS: "0"   # 1=show must include/exclude controls in the UI (default hidden)
+      ENABLE_BUDGET_MODE: "1"       # 1=enable budget mode controls and reporting in the UI
+      BUDGET_POOL_TOLERANCE: "0.15"  # Fractional overhead above per-card ceiling before a card is excluded from pool (e.g. 0.15 = 15%)
+      PRICE_AUTO_REFRESH: "0"       # 1=rebuild price cache daily at 01:00 UTC
+      PRICE_LAZY_REFRESH: "1"       # 1=refresh stale per-card prices in background (7-day TTL)
+      PRICE_STALE_WARNING_HOURS: "24"  # Hours before a cached card price is considered stale (shows ⏱ indicator); 0=disable
       SHOW_MISC_POOL: "0"
       WEB_THEME_PICKER_DIAGNOSTICS: "1"  # 1=enable extra theme catalog diagnostics fields, uncapped view & /themes/metrics
       ENABLE_CARD_DETAILS: "1"      # 1=show Card Details button in card browser (with similarity cache)

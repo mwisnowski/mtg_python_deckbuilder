@@ -257,6 +257,9 @@ See `.env.example` for the full catalog. Common knobs:
 | `WEB_VIRTUALIZE` | `1` | Opt-in to virtualized lists/grids for large result sets. |
 | `ALLOW_MUST_HAVES` | `1` | Enable include/exclude enforcement in Step 5. |
 | `SHOW_MUST_HAVE_BUTTONS` | `0` | Surface the must include/exclude buttons and quick-add UI (requires `ALLOW_MUST_HAVES=1`). |
+| `ENABLE_BUDGET_MODE` | `1` | Enable budget mode controls (total cap, per-card ceiling, soft/hard enforcement) and price display throughout the builder. |
+| `PRICE_AUTO_REFRESH` | `0` | Rebuild the price cache automatically once daily at 01:00 UTC. |
+| `PRICE_LAZY_REFRESH` | `1` | Refresh per-card prices in the background when they are more than 7 days old (uses Scryfall named-card API with rate-limit delay). |
 | `THEME` | `dark` | Initial UI theme (`system`, `light`, or `dark`). |
 | `WEB_STAGE_ORDER` | `new` | Build stage execution order: `new` (creatures→spells→lands) or `legacy` (lands→creatures→spells). |
 | `WEB_IDEALS_UI` | `slider` | Ideal counts interface: `slider` (range inputs with live validation) or `input` (text boxes with placeholders). |

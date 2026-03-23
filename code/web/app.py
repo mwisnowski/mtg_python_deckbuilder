@@ -82,6 +82,21 @@ async def _lifespan(app: FastAPI):  # pragma: no cover - simple infra glue
             get_similarity()  # Pre-initialize singleton (one-time cost: ~2-3s)
     except Exception:
         pass
+    # Start price auto-refresh scheduler (optional, 1 AM UTC daily)
+    if PRICE_AUTO_REFRESH:
+        try:
+            from .services.price_service import get_price_service
+            from code.file_setup.setup import refresh_prices_parquet
+            get_price_service().start_daily_refresh(hour=1, on_after_rebuild=refresh_prices_parquet)
+        except Exception:
+            pass
+    # Start lazy per-card price refresh worker (optional)
+    if PRICE_LAZY_REFRESH:
+        try:
+            from .services.price_service import get_price_service
+            get_price_service().start_lazy_refresh(stale_days=7)
+        except Exception:
+            pass
     yield  # (no shutdown tasks currently)
 
 
@@ -103,6 +118,16 @@ if _STATIC_DIR.exists():
 
 # Jinja templates
 templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
+
+# Expose price cache timestamp as a Jinja2 global callable (evaluated per-render)
+def _price_cache_built_at() -> "str | None":
+    try:
+        from .services.price_service import get_price_service
+        return get_price_service().get_cache_built_at()
+    except Exception:
+        return None
+
+templates.env.globals["_price_cache_ts"] = _price_cache_built_at
 
 # Add custom Jinja2 filter for card image URLs
 def card_image_url(card_name: str, size: str = "normal") -> str:
@@ -178,6 +203,9 @@ ENABLE_PWA = _as_bool(os.getenv("ENABLE_PWA"), False)
 ENABLE_PRESETS = _as_bool(os.getenv("ENABLE_PRESETS"), False)
 ALLOW_MUST_HAVES = _as_bool(os.getenv("ALLOW_MUST_HAVES"), True)
 SHOW_MUST_HAVE_BUTTONS = _as_bool(os.getenv("SHOW_MUST_HAVE_BUTTONS"), False)
+ENABLE_BUDGET_MODE = _as_bool(os.getenv("ENABLE_BUDGET_MODE"), True)
+PRICE_AUTO_REFRESH = _as_bool(os.getenv("PRICE_AUTO_REFRESH"), False)
+PRICE_LAZY_REFRESH = _as_bool(os.getenv("PRICE_LAZY_REFRESH"), True)
 ENABLE_CUSTOM_THEMES = _as_bool(os.getenv("ENABLE_CUSTOM_THEMES"), True)
 SHOW_THEME_QUALITY_BADGES = _as_bool(os.getenv("SHOW_THEME_QUALITY_BADGES"), True)
 SHOW_THEME_POOL_BADGES = _as_bool(os.getenv("SHOW_THEME_POOL_BADGES"), True)
@@ -2312,6 +2340,7 @@ from .routes import cards as cards_routes  # noqa: E402
 from .routes import card_browser as card_browser_routes  # noqa: E402
 from .routes import compare as compare_routes  # noqa: E402
 from .routes import api as api_routes  # noqa: E402
+from .routes import price as price_routes  # noqa: E402
 app.include_router(build_routes.router)
 app.include_router(build_validation_routes.router, prefix="/build")
 app.include_router(build_multicopy_routes.router, prefix="/build")
@@ -2334,6 +2363,7 @@ app.include_router(cards_routes.router)
 app.include_router(card_browser_routes.router)
 app.include_router(compare_routes.router)
 app.include_router(api_routes.router)
+app.include_router(price_routes.router)
 
 # Warm validation cache early to reduce first-call latency in tests and dev
 try:

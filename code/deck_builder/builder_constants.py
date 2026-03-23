@@ -163,6 +163,8 @@ PRICE_CACHE_SIZE: Final[int] = 128  # Size of price check LRU cache
 PRICE_CHECK_TIMEOUT: Final[int] = 30  # Timeout for price check requests in seconds
 PRICE_TOLERANCE_MULTIPLIER: Final[float] = 1.1  # Multiplier for price tolerance
 DEFAULT_MAX_CARD_PRICE: Final[float] = 20.0  # Default maximum price per card
+BUDGET_POOL_TOLERANCE: Final[float] = 0.15  # Default pool filter tolerance (15% overhead above per-card ceiling)
+BUDGET_TOTAL_TOLERANCE: Final[float] = 0.10  # End-of-build review threshold (10% grace on total deck cost)
 
 # Deck composition defaults
 DEFAULT_RAMP_COUNT: Final[int] = 8  # Default number of ramp pieces

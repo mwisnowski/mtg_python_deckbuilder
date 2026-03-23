@@ -467,7 +467,11 @@ class PriceService(BaseService):
         with self._lock:
             self._cache = new_cache
             self._last_refresh = built_at
-            # Stamp all keys as fresh so get_stale_cards() reflects the rebuild
+            # Stamp all keys as fresh so get_stale_cards() reflects the rebuild.
+            # _lazy_ts may not exist if start_lazy_refresh() was never called
+            # (e.g. when invoked from setup/CI without the full web app).
+            if not hasattr(self, "_lazy_ts"):
+                self._lazy_ts = self._load_lazy_ts()
             for key in new_cache:
                 self._lazy_ts[key] = built_at
         self._save_lazy_ts()

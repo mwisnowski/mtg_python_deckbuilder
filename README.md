@@ -186,6 +186,11 @@ Search and explore all 29,839 Magic cards.
 ### Browse Themes
 Investigate theme synergies and diagnostics.
 - `ENABLE_THEMES=1` keeps the tile visible (default).
+- Theme cards display three badge types:
+  - **Quality** (Excellent/Good/Fair/Poor) — editorial score based on synergy depth and card count. Toggle with `SHOW_THEME_QUALITY_BADGES`.
+  - **Pool size** (Vast/Large/Moderate/Small/Tiny) — number of on-theme cards in the catalog. Toggle with `SHOW_THEME_POOL_BADGES`.
+  - **Popularity** — how often the theme appears in builds. Toggle with `SHOW_THEME_POPULARITY_BADGES`.
+  - Filter chips let you narrow the catalog by any badge combination. Toggle with `SHOW_THEME_FILTERS`.
 - Extra tooling (`/themes/metrics`, uncapped synergies, editorial quality) is gated by `WEB_THEME_PICKER_DIAGNOSTICS=1`.
 - Rebuild the merged catalog as needed:
   ```powershell
@@ -214,6 +219,7 @@ Spin up surprise decks with deterministic fallbacks.
 Peek at health & performance.
 - Enabled via `SHOW_DIAGNOSTICS=1`.
 - `/diagnostics` summarizes system status, feature flags, and theme metrics.
+- `/diagnostics/quality` shows the theme quality dashboard: catalog health overview, badge distribution, and editorial scoring breakdown.
 - `/healthz` offers a lightweight probe (`{status, version, uptime_seconds}`).
 - Press `v` inside virtualized lists (when `WEB_VIRTUALIZE=1`) to view grid diagnostics.
 
@@ -233,6 +239,17 @@ The CLI and headless runners share the builder core.
 - In Docker, set `APP_MODE=cli` (and optionally `DECK_MODE=headless`) to switch the container entrypoint to the CLI.
 - Config precedence is CLI prompts > environment variables > JSON config > defaults.
 - Dual-commander support (feature-flagged): `--secondary-commander` or `--background` (mutually exclusive) can be supplied alongside `--enable-partner-mechanics true` or `ENABLE_PARTNER_MECHANICS=1`; Partner With and Doctor/Doctor’s Companion pairings auto-resolve (respecting opt-outs), dry runs echo the resolved pairing, and JSON configs may include `secondary_commander`, `background`, and `enable_partner_mechanics` keys.
+
+---
+
+## Budget Mode
+Control per-card cost to build within a price target.
+- Enable with `ENABLE_BUDGET_MODE=1` (default: on). Adds budget controls and a price summary panel to the builder.
+- Set a **per-card price ceiling** in the New Deck modal (UI input — not an env var).
+- **Soft enforcement only**: cards exceeding the ceiling are filtered from the selection pool, but no cards are hard-rejected from the final result. A budget summary shows total cost and flags over-budget cards for review.
+- Pool tolerance (`BUDGET_POOL_TOLERANCE`, default `0.15`): fractional headroom above the ceiling before exclusion (e.g. `0.15` = 15%). Smooths results for borderline-priced cards.
+- Price data is sourced from Scryfall bulk data and cached locally. `PRICE_LAZY_REFRESH=1` refreshes stale entries in the background.
+- See [`docs/user_guides/budget_mode.md`](docs/user_guides/budget_mode.md) for the full guide, FAQ, and export details. _(guide coming in Tier 2 docs)_
 
 ---
 
@@ -284,6 +301,15 @@ Most defaults are defined in `docker-compose.yml` and documented in `.env.exampl
 | `SHOW_MUST_HAVE_BUTTONS` | `0` | Reveal the must include/exclude buttons and quick-add UI (requires `ALLOW_MUST_HAVES=1`). |
 | `THEME` | `dark` | Default UI theme (`system`, `light`, or `dark`). |
 
+### Budget Mode
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `ENABLE_BUDGET_MODE` | `1` | Enable budget controls and price display throughout the builder. |
+| `BUDGET_POOL_TOLERANCE` | `0.15` | Fractional overhead above the per-card ceiling before a card is excluded from the selection pool (e.g. `0.15` = 15%). |
+| `PRICE_AUTO_REFRESH` | `0` | Rebuild price cache automatically once daily at 01:00 UTC. |
+| `PRICE_LAZY_REFRESH` | `1` | Refresh stale per-card prices in the background (7-day TTL). |
+| `PRICE_STALE_WARNING_HOURS` | `24` | Hours before a cached price is marked stale with a visual indicator. Set to `0` to disable. |
+
 ### Random build tuning
 | Variable | Default | Purpose |
 | --- | --- | --- |
@@ -314,7 +340,7 @@ Most defaults are defined in `docker-compose.yml` and documented in `.env.exampl
 | `WEB_AUTO_REFRESH_DAYS` | `7` | Refresh `cards.csv` if older than N days. |
 | `WEB_TAG_PARALLEL` | `1` | Enable parallel tagging workers. |
 | `WEB_TAG_WORKERS` | `4` | Worker count for tagging (compose default). |
-| `CACHE_CARD_IMAGES` | `0` | Download card images to `card_files/images/` (1=enable, 0=fetch from API on demand). Requires ~3-6 GB. See [Image Caching](docs/IMAGE_CACHING.md). |
+| `CACHE_CARD_IMAGES` | `0` | Download card images to `card_files/images/` (1=enable, 0=fetch from API on demand). Requires ~3-6 GB. |
 | `WEB_AUTO_ENFORCE` | `0` | Auto-apply bracket enforcement after builds. |
 | `WEB_THEME_PICKER_DIAGNOSTICS` | `1` | Enable theme diagnostics endpoints. |
 | `THEME_MIN_CARDS` | `5` | Minimum card count for themes. Themes with fewer cards are stripped from catalogs, JSON files, and parquet metadata during setup/tagging. Set to 1 to keep all themes. |
@@ -406,10 +432,8 @@ Licensed under the [MIT License](LICENSE). Card data and imagery are provided by
 ---
 
 ## Further reading
-- [Web UI deep dive](docs/web_ui_deep_dive.md) – advanced Stage 5 tooling, multi-copy packages, virtualization tips, and diagnostics overlays.
-- [Theme catalog advanced guide](docs/theme_catalog_advanced.md) – API endpoints, governance policies, editorial tooling, and validation scripts.
-- [Theme editorial workflow guide](docs/theme_editorial_guide.md) – quality scoring, curation best practices, and linter usage for maintaining theme catalog standards.
-- [Headless & CLI guide](docs/headless_cli_guide.md) – automation entry points, environment overrides, and argument walkthroughs.
-- [Commander catalog handbook](docs/commander_catalog.md) – required columns, refresh workflow, and staging toggles.
-- [Random theme exclusions reference](docs/random_theme_exclusions.md) – curation guidance for curated pools.
-- [Theme taxonomy rationale](docs/theme_taxonomy_rationale.md) – roadmap and philosophy behind theme governance.
+- [Random mode developer guide](docs/random_mode/developer_guide.md) – architecture, seed infrastructure, and diagnostic tooling for the random build system.
+- [Random mode diagnostics](docs/random_mode/diagnostics.md) – runtime metrics, telemetry flags, and structured log formats.
+- [Web backend: error handling](docs/web_backend/error_handling.md) – structured error responses, request IDs, and logging conventions.
+- [Web backend: route patterns](docs/web_backend/route_patterns.md) – HTMX conventions, partial templates, and routing standards.
+- [Node dependencies](docs/NODE_DEPENDENCIES.md) – why Node/npm is present (Tailwind CSS build only; no runtime JS framework).

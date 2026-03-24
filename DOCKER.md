@@ -2,6 +2,8 @@
 
 Spin up the MTG Python Deckbuilder inside containers. The image defaults to the Web UI; switch to the CLI/headless runner by flipping environment variables. All commands assume Windows PowerShell.
 
+> **Windows note**: PowerShell uses `${PWD}` for the current directory in volume mounts; CMD uses `%cd%`. The commands below use PowerShell syntax. If you are on Linux/macOS, replace `${PWD}` with `$(pwd)` and backtick line continuations with backslashes.
+
 ## Build a Deck (Web UI)
 
 - Build the image (first run only) and start the `web` service in detached mode:
@@ -181,6 +183,25 @@ The Finished Decks page reads the `deck_files/` volume for completed builds:
 
 Ensure the deck exports volume remains mounted so these artifacts survive container restarts.
 
+## Budget Mode
+
+Enable cost-aware deck building with `ENABLE_BUDGET_MODE=1` (default). A per-card budget ceiling is entered in the New Deck modal.
+
+- **Soft enforcement only**: cards above the ceiling are filtered from the selection pool, but no card is hard-rejected from the final result. The build summary flags over-budget cards for review and provides a per-category price breakdown.
+- `BUDGET_POOL_TOLERANCE` (default `0.15`) sets fractional headroom above the ceiling before exclusion (e.g. `0.15` = 15% overhead). Read at build time; not surfaced in the diagnostics panel.
+- Price data comes from Scryfall bulk data cached locally. `PRICE_LAZY_REFRESH=1` (default) refreshes stale per-card prices in the background. `PRICE_AUTO_REFRESH=1` rebuilds the full cache daily at 01:00 UTC.
+- `PRICE_STALE_WARNING_HOURS` (default `24`) controls when a cached price shows a stale indicator. Set to `0` to disable.
+- Price breakdown is included in build summary panels and exported summary JSON.
+
+## Include / Exclude Lists
+
+Set `ALLOW_MUST_HAVES=1` (default) to enable include/exclude enforcement.
+
+- `SHOW_MUST_HAVE_BUTTONS=1` surfaces the Must Include and Must Exclude buttons and quick-add UI in Step 5 (hidden by default).
+- Cards in Must Include are always added first. Cards in Must Exclude are never selected.
+- Lists can also be supplied in JSON configs via the `must_include` and `must_exclude` keys.
+- Priority: exclude > include > budget filter > bracket filter.
+
 ## Browse Themes
 
 The Themes browser exposes the merged theme catalog with search, filters, and diagnostics.
@@ -257,9 +278,11 @@ See `.env.example` for the full catalog. Common knobs:
 | `WEB_VIRTUALIZE` | `1` | Opt-in to virtualized lists/grids for large result sets. |
 | `ALLOW_MUST_HAVES` | `1` | Enable include/exclude enforcement in Step 5. |
 | `SHOW_MUST_HAVE_BUTTONS` | `0` | Surface the must include/exclude buttons and quick-add UI (requires `ALLOW_MUST_HAVES=1`). |
-| `ENABLE_BUDGET_MODE` | `1` | Enable budget mode controls (total cap, per-card ceiling, soft/hard enforcement) and price display throughout the builder. |
+| `ENABLE_BUDGET_MODE` | `1` | Enable budget mode controls (per-card ceiling, soft enforcement) and price display throughout the builder. |
+| `BUDGET_POOL_TOLERANCE` | `0.15` | Fractional overhead above the per-card ceiling before a card is excluded from the selection pool (e.g. `0.15` = 15%). |
 | `PRICE_AUTO_REFRESH` | `0` | Rebuild the price cache automatically once daily at 01:00 UTC. |
 | `PRICE_LAZY_REFRESH` | `1` | Refresh per-card prices in the background when they are more than 7 days old (uses Scryfall named-card API with rate-limit delay). |
+| `PRICE_STALE_WARNING_HOURS` | `24` | Hours before a cached price is marked stale with a visual indicator. Set to `0` to disable. |
 | `THEME` | `dark` | Initial UI theme (`system`, `light`, or `dark`). |
 | `WEB_STAGE_ORDER` | `new` | Build stage execution order: `new` (creatures→spells→lands) or `legacy` (lands→creatures→spells). |
 | `WEB_IDEALS_UI` | `slider` | Ideal counts interface: `slider` (range inputs with live validation) or `input` (text boxes with placeholders). |
@@ -290,7 +313,7 @@ See `.env.example` for the full catalog. Common knobs:
 | `WEB_AUTO_REFRESH_DAYS` | `7` | Refresh `cards.csv` if older than N days. |
 | `WEB_TAG_PARALLEL` | `1` | Use parallel workers during tagging. |
 | `WEB_TAG_WORKERS` | `4` | Worker count for parallel tagging. |
-| `CACHE_CARD_IMAGES` | `0` | Download card images to `card_files/images/` (1=enable, 0=fetch from API on demand). See [Image Caching](docs/IMAGE_CACHING.md). |
+| `CACHE_CARD_IMAGES` | `0` | Download card images to `card_files/images/` (1=enable, 0=fetch from API on demand). Requires ~3-6 GB. |
 | `WEB_AUTO_ENFORCE` | `0` | Re-export decks after auto-applying compliance fixes. |
 | `WEB_THEME_PICKER_DIAGNOSTICS` | `1` | Enable theme diagnostics endpoints. |
 | `THEME_MIN_CARDS` | `5` | Minimum card count threshold for themes. Themes with fewer cards are stripped from YAML catalogs, JSON picker files, and parquet metadata during setup/tagging. Set to 1 to keep all themes. |

@@ -20,6 +20,11 @@ _No unreleased changes yet_
 ### Removed
 _No unreleased changes yet_
 
+## [4.2.1] - 2026-03-23
+### Fixed
+- **Budget/price CSS missing from DockerHub builds**: Budget badges, price chart bars, stale price indicators, and card price overlays were invisible when pulling the image from DockerHub because the CSS was only in the compiled `styles.css` output and not in the `tailwind.css` source; the Docker build deletes and regenerates `styles.css`, wiping all custom classes. All budget/price CSS now lives in `tailwind.css` so it survives the rebuild.
+- **Workflow price cache build**: `_rebuild_cache()` raised `AttributeError: 'PriceService' has no attribute '_lazy_ts'` in CI because `_lazy_ts` is only initialized by `start_lazy_refresh()`, which the web app calls on startup but the CI setup script does not. Added a `hasattr` guard to lazy-initialize `_lazy_ts` on first use inside `_rebuild_cache()`.
+
 ## [4.2.0] - 2026-03-23
 ### Added
 - **RandomService**: New `code/web/services/random_service.py` service class wrapping seeded RNG operations with input validation and the R9 `BaseService` pattern

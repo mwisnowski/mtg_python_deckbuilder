@@ -3598,3 +3598,288 @@ footer.site-footer {
 	flex-shrink: 0;
 }
 
+/* ============================================================
+   Budget Mode — Badge, Tier Labels, Price Tooltip
+   ============================================================ */
+
+.budget-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  padding: .3rem .75rem;
+  border-radius: 999px;
+  font-size: .85rem;
+  font-weight: 600;
+  border: 1.5px solid currentColor;
+}
+
+.budget-badge--under {
+  color: var(--ok, #16a34a);
+  background: color-mix(in srgb, var(--ok, #16a34a) 12%, var(--panel, #1a1b1e) 88%);
+}
+
+.budget-badge--soft_exceeded {
+  color: var(--warn, #f59e0b);
+  background: color-mix(in srgb, var(--warn, #f59e0b) 12%, var(--panel, #1a1b1e) 88%);
+}
+
+.budget-badge--hard_exceeded {
+  color: var(--err, #ef4444);
+  background: color-mix(in srgb, var(--err, #ef4444) 12%, var(--panel, #1a1b1e) 88%);
+}
+
+/* Tier badges on the pickups table */
+.tier-badge {
+  display: inline-block;
+  padding: .1rem .5rem;
+  border-radius: 4px;
+  font-size: .78rem;
+  font-weight: 700;
+  letter-spacing: .04em;
+  background: var(--panel, #1a1b1e);
+  border: 1px solid var(--border, #333);
+}
+
+.tier-badge--s {
+  color: var(--ok, #16a34a);
+  border-color: var(--ok, #16a34a);
+}
+
+.tier-badge--m {
+  color: var(--warn, #f59e0b);
+  border-color: var(--warn, #f59e0b);
+}
+
+.tier-badge--l {
+  color: var(--muted, #b6b8bd);
+}
+
+/* Inline price tooltip on card names */
+.card-name-price-hover {
+  cursor: default;
+  position: relative;
+}
+
+.card-price-tip {
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--surface, #0f1115);
+  border: 1px solid var(--border, #333);
+  border-radius: 6px;
+  padding: .25rem .6rem;
+  font-size: .78rem;
+  white-space: nowrap;
+  z-index: 9000;
+  pointer-events: none;
+  color: var(--text, #e5e7eb);
+  box-shadow: 0 4px 12px rgba(0,0,0,.4);
+}
+
+/* Price overlay on card thumbnails (step5 tiles + deck summary thumbs) */
+.card-price-overlay {
+  position: absolute;
+  top: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, .72);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 10px;
+  pointer-events: none;
+  z-index: 3;
+  white-space: nowrap;
+  line-height: 16px;
+}
+.card-price-overlay:empty { display: none; }
+
+/* Inline price in deck summary list rows */
+.card-price-inline {
+  font-size: 11px;
+  color: var(--muted, #94a3b8);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  padding: 0 2px;
+}
+.card-price-inline:empty { color: transparent; }
+
+/* Over-budget highlight — gold/amber, matching the locked card style */
+.card-tile.over-budget {
+  border-color: #f5c518 !important;
+  box-shadow: inset 0 0 8px rgba(245, 197, 24, .25), 0 0 5px #f5c518 !important;
+}
+.stack-card.over-budget {
+  border-color: #f5c518 !important;
+  box-shadow: 0 6px 18px rgba(0,0,0,.55), 0 0 7px #f5c518 !important;
+}
+.list-row.over-budget .name {
+  background: rgba(245, 197, 24, .12);
+  box-shadow: 0 0 0 1px #f5c518;
+  border-radius: 4px;
+}
+
+/* Budget price summary bar in deck summary */
+.budget-price-bar {
+  font-size: 13px;
+  padding: .3rem .5rem;
+  border-radius: 6px;
+  margin: .4rem 0 .6rem 0;
+  border: 1px solid var(--border, #333);
+  background: var(--panel, #1a1f2e);
+}
+.budget-price-bar.under { border-color: #34d399; color: #a7f3d0; }
+.budget-price-bar.over  { border-color: #f5c518; color: #fde68a; }
+
+/* Budget review panel */
+.budget-review-panel {
+  border: 1px solid var(--border, #444);
+  border-left: 4px solid #f5c518;
+  border-radius: 6px;
+  background: var(--panel, #1a1f2e);
+  padding: .75rem 1rem;
+}
+.budget-review-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .5rem;
+  margin-bottom: .5rem;
+}
+.budget-review-summary { flex: 1 1 auto; }
+.budget-review-cards { display: flex; flex-direction: column; gap: .5rem; margin-top: .5rem; }
+.budget-review-card-row {
+  border: 1px solid var(--border, #333);
+  border-radius: 4px;
+  padding: .4rem .6rem;
+  background: var(--bg, #141824);
+}
+.budget-review-card-info {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .4rem;
+  margin-bottom: .25rem;
+}
+.budget-review-card-name { font-weight: 600; }
+.budget-review-card-price { color: #f5c518; }
+.budget-review-alts { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; }
+.btn-alt-swap {
+  font-size: .8rem;
+  padding: .2rem .5rem;
+  border: 1px solid var(--border, #555);
+  border-radius: 4px;
+  background: var(--panel, #1a1f2e);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: .3rem;
+}
+.btn-alt-swap:hover { background: var(--hover, #252d3d); }
+.alt-price { color: #34d399; font-size: .75rem; }
+.budget-review-no-alts { font-size: .8rem; }
+.budget-review-subtitle { font-size: .85rem; margin-bottom: .5rem; }
+.budget-review-actions { display: flex; flex-wrap: wrap; gap: .5rem; }
+.chip-red { background: rgba(239,68,68,.15); color: #fca5a5; border-color: #ef4444; }
+.chip-green { background: rgba(34,197,94,.15); color: #86efac; border-color: #22c55e; }
+.chip-subtle { background: rgba(148,163,184,.08); color: var(--muted, #94a3b8); border-color: rgba(148,163,184,.2); font-size: .7rem; padding: 1px 6px; }
+
+/* Price category stacked bar */
+.price-cat-section { margin: .6rem 0 .2rem 0; }
+.price-cat-heading { font-size: 12px; color: var(--muted, #94a3b8); margin-bottom: .3rem; font-weight: 600; }
+.price-cat-bar {
+  display: flex;
+  height: 18px;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid var(--border, #333);
+  background: var(--panel, #1a1f2e);
+}
+.price-cat-seg {
+  height: 100%;
+  transition: opacity .15s;
+  position: relative;
+}
+.price-cat-seg:hover { opacity: .75; cursor: default; }
+.price-cat-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .15rem .6rem;
+  margin-top: .3rem;
+  font-size: 11px;
+  color: var(--muted, #94a3b8);
+}
+.price-cat-legend-item { display: flex; align-items: center; gap: .3rem; }
+.price-cat-swatch { width: 9px; height: 9px; border-radius: 2px; flex-shrink: 0; }
+
+/* Price histogram bars */
+.price-hist-section { margin: .75rem 0 .2rem 0; }
+.price-hist-heading { font-size: 12px; color: var(--muted, #94a3b8); margin-bottom: .3rem; font-weight: 600; }
+.price-hist-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 80px;
+  margin-bottom: 0;
+}
+.price-hist-column {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  height: 100%;
+  cursor: pointer;
+  transition: opacity .15s;
+}
+.price-hist-column:hover { opacity: .8; }
+.price-hist-bar {
+  width: 100%;
+  border-radius: 3px 3px 0 0;
+  min-height: 2px;
+}
+.price-hist-xlabels {
+  display: flex;
+  gap: 3px;
+  margin-top: 2px;
+  margin-bottom: .25rem;
+}
+.price-hist-xlabel {
+  flex: 1;
+  font-size: 10px;
+  color: var(--muted, #94a3b8);
+  text-align: center;
+  overflow-wrap: anywhere;
+  word-break: break-all;
+  line-height: 1.2;
+}
+.price-hist-count { font-size: 11px; color: var(--muted, #94a3b8); margin-top: .1rem; }
+
+/* Stale price indicators */
+.stale-price-indicator { position: absolute; top: 4px; right: 4px; font-size: 10px; color: #f59e0b; cursor: default; pointer-events: auto; z-index: 2; }
+.stale-price-badge { font-size: 10px; color: #f59e0b; margin-left: 2px; vertical-align: middle; cursor: default; }
+.stale-banner { background: rgba(245,158,11,.08); border: 1px solid rgba(245,158,11,.35); border-radius: 6px; padding: .4rem .75rem; font-size: 12px; color: #f59e0b; margin-bottom: .6rem; }
+
+/* Running budget chip */
+.running-budget-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: .3rem;
+  padding: .2rem .6rem;
+  border-radius: 999px;
+  font-size: .82rem;
+  font-weight: 600;
+  border: 1px solid var(--border, #444);
+  background: var(--panel, #1a1f2e);
+  color: var(--text, #e5e7eb);
+  white-space: nowrap;
+}
+
+/* Pickups table */
+.pickups-table th,
+.pickups-table td {
+  font-size: .92rem;
+}
+

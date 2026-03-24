@@ -13,6 +13,11 @@ _No unreleased changes yet_
 ### Removed
 _No unreleased changes yet_
 
+## [4.2.1] - 2026-03-23
+### Fixed
+- **Budget/price CSS missing from DockerHub builds**: All budget and price chart styles are now in `tailwind.css` (the build source) so they survive the Docker image build process.
+- **Workflow price cache build**: Fixed `AttributeError` crash in `_rebuild_cache()` when running outside the web app context (e.g., CI setup script).
+
 ## [4.2.0] - 2026-03-23
 ### Highlights
 - **Budget Mode**: Set a budget cap and per-card ceiling when building a deck. Prices are shown throughout the build flow, over-budget cards are highlighted, and a post-build review panel lets you swap in cheaper alternatives live.

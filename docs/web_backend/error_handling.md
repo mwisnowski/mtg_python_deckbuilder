@@ -27,7 +27,10 @@ All custom exceptions inherit from `DeckBuilderError` (base) in `code/exceptions
 | `ThemeSelectionError` | 400 | Invalid theme selection |
 | `ThemeError` | 400 | General theme failure |
 | `PriceLimitError`, `PriceValidationError` | 400 | Bad price constraint |
+| `PriceConfigurationError` | 400 | Invalid budget/price configuration in `determine_ideals()` |
+| `BudgetHardCapExceeded` | 400 | Deck total exceeds hard budget cap after all replacements |
 | `PriceAPIError` | 503 | External price API down |
+| `PriceTimeoutError` | 503 | External price API timed out |
 | `CSVFileNotFoundError` | 503 | Card data files missing |
 | `MTGJSONDownloadError` | 503 | Data download failure |
 | `EmptyDataFrameError` | 503 | No card data available |

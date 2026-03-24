@@ -190,7 +190,10 @@ _EXCEPTION_STATUS_MAP: list[tuple[str, int]] = [
     # Price
     ("PriceLimitError", 400),
     ("PriceValidationError", 400),
+    ("PriceConfigurationError", 400),
+    ("BudgetHardCapExceeded", 400),
     ("PriceAPIError", 503),
+    ("PriceTimeoutError", 503),
     ("PriceError", 400),
     # CSV / setup data unavailable
     ("CSVFileNotFoundError", 503),

@@ -296,6 +296,7 @@ Most defaults are defined in `docker-compose.yml` and documented in `.env.exampl
 | `SHOW_THEME_POOL_BADGES` | `1` | Show pool size badges in theme catalog (total available cards). |
 | `SHOW_THEME_POPULARITY_BADGES` | `1` | Show popularity badges in theme catalog (usage frequency). |
 | `SHOW_THEME_FILTERS` | `1` | Show filter dropdowns and quick chips in theme catalog. |
+| `THEME_POOL_SECTIONS` | `1` | Group themes by pool size sections (Vast/Large/Moderate/Small/Tiny). Set to `0` for a flat sorted list. |
 | `WEB_VIRTUALIZE` | `1` | Opt into virtualized lists for large datasets. |
 | `ALLOW_MUST_HAVES` | `1` | Enforce include/exclude (must-have) lists. |
 | `SHOW_MUST_HAVE_BUTTONS` | `0` | Reveal the must include/exclude buttons and quick-add UI (requires `ALLOW_MUST_HAVES=1`). |

@@ -9,6 +9,19 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 
 ## [Unreleased]
 ### Added
+_No unreleased changes yet_
+
+### Changed
+_No unreleased changes yet_
+
+### Fixed
+_No unreleased changes yet_
+
+### Removed
+_No unreleased changes yet_
+
+## [4.3.1] - 2026-03-25
+### Added
 - **Smart Land Bases**: Land count and basic-to-dual ratio are now adjusted automatically based on the commander's speed and color-pip intensity. Controlled by `ENABLE_SMART_LANDS=1` (default on in Docker).
   - **Speed detection**: Commander CMC determines a speed category applied as an offset to the user's configured ideal land count. Fast decks (CMC < 3) get −2 lands, mid decks stay at ±0, slow decks (CMC > 4) get +2 to +4 lands scaling with color count (e.g. a user-set ideal of 40 yields 38 / 40 / 42–44).
   - **Profile selection**: Three mana-base profiles are available — *Basics-heavy* (~60% basics, for 1–2 color or low-pip decks), *Balanced* (standard ratios, 2–3 colors with moderate pip density), and *Fixing-heavy* (minimal basics, more duals/fetches, for 3+ color decks or pools with ≥15 double-pip or ≥3 triple-or-more-pip cards).
@@ -20,13 +33,13 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
   - A **Smart Lands** notice in the Land Summary section explains the chosen profile and targets in plain English.
 
 ### Changed
-_No unreleased changes yet_
+_No changes_
 
 ### Fixed
-_No unreleased changes yet_
+_No changes_
 
 ### Removed
-_No unreleased changes yet_
+_No changes_
 
 ## [4.2.1] - 2026-03-23
 ### Fixed

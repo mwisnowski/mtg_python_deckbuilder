@@ -185,6 +185,7 @@ def start_ctx_from_session(sess: dict, *, set_on_session: bool = True) -> Dict[s
         include_cards=sess.get("include_cards"),
         exclude_cards=sess.get("exclude_cards"),
         swap_mdfc_basics=bool(sess.get("swap_mdfc_basics")),
+        enable_smart_lands=bool(sess.get("enable_smart_lands", True)),
         partner_feature_enabled=partner_enabled,
         secondary_commander=secondary_commander,
         background_commander=background_choice,

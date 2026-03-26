@@ -2516,6 +2516,7 @@ def start_build_ctx(
     include_cards: List[str] | None = None,
     exclude_cards: List[str] | None = None,
     swap_mdfc_basics: bool | None = None,
+    enable_smart_lands: bool | None = None,
     partner_feature_enabled: bool | None = None,
     secondary_commander: str | None = None,
     background_commander: str | None = None,
@@ -2682,6 +2683,8 @@ def start_build_ctx(
         pass
     # Smart land analysis — mirrors run_deck_build_step2() so web builds get profiles too
     try:
+        if enable_smart_lands is not None:
+            b.enable_smart_lands = bool(enable_smart_lands)
         b.run_land_analysis()
     except Exception:
         pass

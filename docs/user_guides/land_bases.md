@@ -14,7 +14,7 @@ By default every deck gets exactly 35 lands regardless of CMC curve or color den
 
 From those three signals it picks a **land count** (33–39), a **basics count**, and an **ETB tapped tolerance**, then passes those targets to every existing land-selection step — no other logic changes.
 
-Enable with `ENABLE_SMART_LANDS=1` (default: on in Docker).
+Enable Smart Land Bases per-build via the **Smart Land Bases** checkbox in the Preferences section of the New Deck modal (checked by default). Disable it for a single build by unchecking the box.
 
 ---
 
@@ -81,15 +81,14 @@ The **Why:** section explains in plain English what drove the decision — singl
 
 ---
 
-## Environment Variable Overrides
+## Overrides
 
 | Variable | Values | Effect |
 |----------|--------|--------|
-| `ENABLE_SMART_LANDS` | `1` (on), `0` / unset (off) | Master switch. When off, fixed defaults (35 lands, 15 basics) are used. |
 | `LAND_PROFILE` | `basics`, `mid`, `fixing` | Force a specific profile, skip auto-detection. |
 | `LAND_COUNT` | integer (e.g. `36`) | Force total land count, skip curve calculation. |
 
-Env overrides are applied **after** the analysis, so they always win over the calculated values.
+Env overrides are applied **after** the analysis, so they always win over the calculated values. For headless/CLI builds these are the primary way to control land behaviour.
 
 ---
 

@@ -9,7 +9,7 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 
 ## [Unreleased]
 ### Added
-_No unreleased changes yet_
+- **Smart Land Bases checkbox**: The New Deck modal Preferences section now has a **Smart Land Bases** checkbox (checked by default) to enable or disable smart land analysis per-build, replacing the `ENABLE_SMART_LANDS` environment variable.
 
 ### Changed
 _No unreleased changes yet_
@@ -18,7 +18,7 @@ _No unreleased changes yet_
 _No unreleased changes yet_
 
 ### Removed
-_No unreleased changes yet_
+- **`ENABLE_SMART_LANDS` environment variable**: Removed in favor of the per-build checkbox in the New Deck modal. Use `LAND_PROFILE` or `LAND_COUNT` for headless/CLI control.
 
 ## [4.3.1] - 2026-03-25
 ### Added

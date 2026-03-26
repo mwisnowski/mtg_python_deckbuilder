@@ -10,8 +10,8 @@ from .. import builder_utils as bu
 """Phase 2 (pre-step): Smart land base analysis (Roadmap 14, M1).
 
 LandAnalysisMixin.run_land_analysis() is called from run_deck_build_step2()
-AFTER ideal_counts defaults are seeded, so ENABLE_SMART_LANDS, LAND_PROFILE,
-and LAND_COUNT env overrides win over the calculated values.
+AFTER ideal_counts defaults are seeded, so LAND_PROFILE and LAND_COUNT env
+overrides win over the calculated values.
 
 Responsibilities:
   - compute_pip_density(): delegate to builder_utils
@@ -38,9 +38,10 @@ class LandAnalysisMixin:
             self._land_report_data  dict persisted for M3 diagnostics export
         Mutates:
             self.ideal_counts['lands'] and self.ideal_counts['basic_lands']
-            (only when ENABLE_SMART_LANDS=1; env overrides honoured after)
+            (only when enable_smart_lands is True on the builder; LAND_PROFILE/LAND_COUNT env overrides honoured after)
         """
-        if not os.environ.get('ENABLE_SMART_LANDS'):
+        # Per-build toggle from UI checkbox (defaults True = opted in)
+        if not getattr(self, 'enable_smart_lands', True):
             return
 
         try:

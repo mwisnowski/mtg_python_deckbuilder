@@ -104,6 +104,10 @@
                 <input type="checkbox" name="swap_mdfc_basics" id="swap-mdfc-chk" value="1" {% if form and form.swap_mdfc_basics %}checked{% endif %} />
                 <span>Swap basics for MDFC lands</span>
               </label>
+              <label for="smart-lands-chk" class="form-checkbox-label" title="When enabled, the builder automatically adjusts the land count and mana-base profile based on your commander's speed and color complexity.">
+                <input type="checkbox" name="enable_smart_lands" id="smart-lands-chk" value="1" {% if form and form.enable_smart_lands %}checked{% endif %} />
+                <span>Smart Land Bases</span>
+              </label>
             </div>
           </div>
         </div>

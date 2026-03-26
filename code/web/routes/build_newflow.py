@@ -126,6 +126,7 @@ async def build_new_modal(request: Request) -> HTMLResponse:
             "use_owned_only": bool(sess.get("use_owned_only")),
             "prefer_owned": bool(sess.get("prefer_owned")),
             "swap_mdfc_basics": bool(sess.get("swap_mdfc_basics")),
+            "enable_smart_lands": bool(sess.get("enable_smart_lands", True)),
             # Add ideal values from session (will be None on first load, triggering defaults)
             "ramp": sess.get("ideals", {}).get("ramp"),
             "lands": sess.get("ideals", {}).get("lands"),
@@ -417,6 +418,7 @@ async def build_new_submit(
     use_owned_only: bool = Form(False),
     prefer_owned: bool = Form(False),
     swap_mdfc_basics: bool = Form(False),
+    enable_smart_lands: bool = Form(False),
     # Integrated Multi-Copy (optional)
     multi_choice_id: str | None = Form(None),
     multi_count: int | None = Form(None),
@@ -472,6 +474,7 @@ async def build_new_submit(
             "use_owned_only": bool(use_owned_only),
             "prefer_owned": bool(prefer_owned),
             "swap_mdfc_basics": bool(swap_mdfc_basics),
+            "enable_smart_lands": bool(enable_smart_lands),
             "include_cards": include_cards or "",
             "exclude_cards": exclude_cards or "",
             "enforcement_mode": enforcement_mode or "warn",
@@ -819,6 +822,10 @@ async def build_new_submit(
         sess["swap_mdfc_basics"] = bool(swap_mdfc_basics)
     except Exception:
         sess["swap_mdfc_basics"] = False
+    try:
+        sess["enable_smart_lands"] = bool(enable_smart_lands)
+    except Exception:
+        sess["enable_smart_lands"] = True
     # Combos config from modal
     try:
         if combo_count is not None:

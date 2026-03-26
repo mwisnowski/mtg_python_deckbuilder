@@ -43,7 +43,6 @@ services:
       SIMILARITY_CACHE_ENABLED: "1"   # 1=use pre-computed similarity cache; 0=real-time calculation
       SIMILARITY_CACHE_PATH: "card_files/similarity_cache.parquet"  # Path to Parquet cache file
       ENABLE_BATCH_BUILD: "1"       # 1=enable Build X and Compare feature; 0=hide build count slider
-      ENABLE_SMART_LANDS: "1"       # 1=enable smart land base analysis (auto land count + profile from CMC/pips); 0=use fixed defaults
       # LAND_PROFILE: "mid"         # Optional: force a land profile (basics|mid|fixing); skips auto-detection
       # LAND_COUNT: "36"            # Optional: force total land count; skips curve calculation
       

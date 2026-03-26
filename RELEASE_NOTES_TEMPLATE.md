@@ -2,13 +2,20 @@
 
 ## [Unreleased]
 ### Added
-- **Smart Land Bases checkbox**: The New Deck modal now has a **Smart Land Bases** checkbox in the Preferences section (checked by default). Enables or disables smart land analysis per-build without needing environment variables.
+_No unreleased changes yet_
 
 ### Changed
 _No unreleased changes yet_
 
 ### Fixed
 _No unreleased changes yet_
+
+### Removed
+_No unreleased changes yet_
+
+## [4.3.2] - 2026-03-25
+### Added
+- **Smart Land Bases checkbox**: The New Deck modal now has a **Smart Land Bases** checkbox in the Preferences section (checked by default). Enables or disables smart land analysis per-build without needing environment variables.
 
 ### Removed
 - **`ENABLE_SMART_LANDS` environment variable**: Replaced by the per-build checkbox. Use `LAND_PROFILE` or `LAND_COUNT` for headless overrides.

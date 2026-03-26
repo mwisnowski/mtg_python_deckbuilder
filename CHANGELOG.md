@@ -9,7 +9,15 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 
 ## [Unreleased]
 ### Added
-_No unreleased changes yet_
+- **Smart Land Bases**: Land count and basic-to-dual ratio are now adjusted automatically based on the commander's speed and color-pip intensity. Controlled by `ENABLE_SMART_LANDS=1` (default on in Docker).
+  - **Speed detection**: Commander CMC determines a speed category applied as an offset to the user's configured ideal land count. Fast decks (CMC < 3) get −2 lands, mid decks stay at ±0, slow decks (CMC > 4) get +2 to +4 lands scaling with color count (e.g. a user-set ideal of 40 yields 38 / 40 / 42–44).
+  - **Profile selection**: Three mana-base profiles are available — *Basics-heavy* (~60% basics, for 1–2 color or low-pip decks), *Balanced* (standard ratios, 2–3 colors with moderate pip density), and *Fixing-heavy* (minimal basics, more duals/fetches, for 3+ color decks or pools with ≥15 double-pip or ≥3 triple-or-more-pip cards).
+  - **ETB tapped tolerance**: Automatically tightened for fast decks and loosened for slow decks so the land selection step respects the chosen speed profile.
+  - **Budget override**: Decks with a low budget cap and 3+ colors are automatically pushed to the basics-heavy profile to keep non-basic land costs down.
+  - **Slot earmarking**: After setting the land target, non-land ideal counts (creatures, spells, etc.) are scaled down proportionally to fit within the remaining slots, ensuring land phases always have room to fill their target.
+  - **Backfill**: A final land step pads with basics if any land phase falls short, guaranteeing the deck reaches the configured target.
+  - **Overrides**: Force a specific profile with `LAND_PROFILE=basics|mid|fixing` or a fixed total with `LAND_COUNT=<n>` to bypass auto-detection entirely.
+  - A **Smart Lands** notice in the Land Summary section explains the chosen profile and targets in plain English.
 
 ### Changed
 _No unreleased changes yet_

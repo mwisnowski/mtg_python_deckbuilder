@@ -25,6 +25,7 @@ from .include_exclude_utils import (
     collapse_duplicates
 )
 from .phases.phase1_commander import CommanderSelectionMixin
+from .phases.phase2_lands_analysis import LandAnalysisMixin
 from .phases.phase2_lands_basics import LandBasicsMixin
 from .phases.phase2_lands_staples import LandStaplesMixin
 from .phases.phase2_lands_kindred import LandKindredMixin
@@ -68,6 +69,7 @@ if not any(isinstance(h, logging_util.logging.StreamHandler) for h in logger.han
 @dataclass
 class DeckBuilder(
     CommanderSelectionMixin,
+    LandAnalysisMixin,
     LandBasicsMixin,
     LandStaplesMixin,
     LandKindredMixin,
@@ -540,6 +542,73 @@ class DeckBuilder(
                 logger.info(f"Land Step {step}: begin")
                 m()
                 logger.info(f"Land Step {step}: complete (current land count {self._current_land_count() if hasattr(self, '_current_land_count') else 'n/a'})")
+        # Backfill step: if the builder still falls short of the land target after all steps,
+        # pad with basics so the deck always reaches the configured ideal.
+        self._backfill_basics_to_target()
+
+    def run_land_step9(self) -> None:
+        """Land Step 9: Backfill basics to target if any steps fell short."""
+        self._backfill_basics_to_target()
+
+    def _backfill_basics_to_target(self) -> None:
+        """Add basic lands to reach ideal_counts['lands'] if the build fell short.
+
+        In the spells-first web build path the deck may already be at 100 cards by the time
+        this runs.  When that happens a direct add would be removed by the stage safety clamp,
+        so we instead *swap*: remove the last-inserted non-land, non-locked card before adding
+        each basic.  The net deck size stays at 100 so the clamp is never triggered.
+        """
+        if not hasattr(self, 'ideal_counts') or not self.ideal_counts:
+            return
+        land_target = self.ideal_counts.get('lands', 0)
+        shortfall = land_target - self._current_land_count()
+        if shortfall <= 0:
+            return
+        colors = [c for c in getattr(self, 'color_identity', []) if c in ('W', 'U', 'B', 'R', 'G')]
+        color_basic_map = {'W': 'Plains', 'U': 'Island', 'B': 'Swamp', 'R': 'Mountain', 'G': 'Forest'}
+        usable_basics = [color_basic_map[c] for c in colors if c in color_basic_map]
+        if not usable_basics:
+            usable_basics = ['Wastes']
+
+        # Build locked-card set so we never remove a user-locked card during a swap.
+        locks_lower: set[str] = set()
+        try:
+            for attr in ('locked_cards', '_locked_cards', '_lock_names'):
+                v = getattr(self, attr, None)
+                if isinstance(v, (list, set)):
+                    locks_lower = {str(n).strip().lower() for n in v}
+                    break
+        except Exception:
+            pass
+
+        self.output_func(f"\nLand Backfill: {shortfall} slot(s) below target; adding basics to reach {land_target}.")
+        added = 0
+        for i in range(shortfall):
+            basic = usable_basics[i % len(usable_basics)]
+            total_cards = sum(int(e.get('Count', 1)) for e in self.card_library.values())
+            if total_cards < 100:
+                self.add_card(basic, card_type='Land', role='basic', sub_role='basic', added_by='lands_backfill')
+                added += 1
+            else:
+                # Deck is at the 100-card limit.  Swap: remove the lowest-priority non-land card
+                # (the last-inserted unlocked non-land in the library) then add the basic.
+                removed_name: Optional[str] = None
+                for name in reversed(list(self.card_library.keys())):
+                    if name.strip().lower() in locks_lower:
+                        continue
+                    entry = self.card_library.get(name) or {}
+                    ctype = str(entry.get('Card Type', '') or '').lower()
+                    if 'land' in ctype:
+                        continue
+                    if self._decrement_card(name):
+                        removed_name = name
+                        break
+                if removed_name is not None:
+                    self.add_card(basic, card_type='Land', role='basic', sub_role='basic', added_by='lands_backfill')
+                    added += 1
+                else:
+                    break  # No removable non-land found; stop backfilling
+        self.output_func(f"  Land Count Now : {self._current_land_count()} / {land_target} ({added} added)")
 
     def _generate_recommendations(self, base_stem: str, limit: int):
         """Silently build a full (non-owned-filtered) deck with same choices and export top recommendations.
@@ -2182,6 +2251,9 @@ class DeckBuilder(
             current_default = self.ideal_counts[key]
             value = self._prompt_int_with_default(f"{prompt} ", current_default, minimum=0, maximum=200)
             self.ideal_counts[key] = value
+
+        # Smart land analysis — runs after defaults are seeded so env overrides still win
+        self.run_land_analysis()
 
         # Basic validation adjustments
         # Ensure basic_lands <= lands

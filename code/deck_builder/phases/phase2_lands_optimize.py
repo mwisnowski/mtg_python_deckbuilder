@@ -19,6 +19,10 @@ class LandOptimizationMixin:
         bracket_level = getattr(self, 'bracket_level', None)
         threshold_map = getattr(bc, 'TAPPED_LAND_MAX_THRESHOLDS', {5:6,4:8,3:10,2:12,1:14})
         threshold = threshold_map.get(bracket_level, 10)
+        # Smart Lands M2: tighten tapped threshold for fast profiles, loosen for slow.
+        # _land_profile defaults to 'mid' (offset 0) when ENABLE_SMART_LANDS is off.
+        profile_offsets = getattr(bc, 'PROFILE_TAPPED_THRESHOLD_OFFSETS', {'fast': -4, 'mid': 0, 'slow': 4})
+        threshold += profile_offsets.get(getattr(self, '_land_profile', 'mid'), 0)
 
         name_to_row = {}
         for _, row in df.iterrows():

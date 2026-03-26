@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Request, Query
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from typing import Any
 import json
 from urllib.parse import urlparse
@@ -228,3 +228,20 @@ def batch_build_progress(request: Request, batch_id: str = Query(...)):
 #   - POST /build/enforce/apply - Apply enforcement
 #   - GET /build/enforcement - Full-page enforcement
 # ==============================================================================
+
+
+@router.get("/land-diagnostics")
+async def land_diagnostics(request: Request) -> JSONResponse:
+    """Return the smart-land analysis report for the active build session.
+
+    Reads _land_report_data produced by LandAnalysisMixin (Roadmap 14).
+    Returns 204 when ENABLE_SMART_LANDS is off or no build is in session.
+    """
+    sid = request.cookies.get("sid") or ""
+    sess = get_session(sid)
+    from ..services.land_optimization_service import LandOptimizationService
+    svc = LandOptimizationService()
+    report = svc.get_land_report(sess)
+    if not report:
+        return JSONResponse({}, status_code=204)
+    return JSONResponse(svc.format_for_api(report))

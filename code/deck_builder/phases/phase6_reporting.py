@@ -480,6 +480,12 @@ class ReportingMixin:
         }
         """
         # Build lookup to enrich type and mana values
+        # M3 (Roadmap 14): update _land_report_data with post-build actuals
+        try:
+            if hasattr(self, 'generate_diagnostics'):
+                self.generate_diagnostics()
+        except Exception as _exc:  # pragma: no cover - diagnostics only
+            logger.debug('generate_diagnostics failed: %s', _exc)
         full_df = getattr(self, '_full_cards_df', None)
         combined_df = getattr(self, '_combined_cards_df', None)
         snapshot = full_df if full_df is not None else combined_df
@@ -599,12 +605,22 @@ class ReportingMixin:
         dfc_details: list[dict] = []
         dfc_extra_total = 0
 
-        # Pip distribution (counts and weights) for non-land spells only
-        pip_counts = {c: 0 for c in ('W','U','B','R','G')}
+        # Pip distribution (counts and weights) for non-land spells only.
+        # pip_counts and pip_weights are derived from compute_pip_density(); the
+        # pip_cards map (color → card list for UI cross-highlighting) is built here
+        # since it is specific to the reporting layer and not needed elsewhere.
+        from .. import builder_utils as _bu
+        pip_density = _bu.compute_pip_density(self.card_library, getattr(self, 'color_identity', []) or [])
+        # Flatten density buckets into a single float per color (single + double*2 + triple*3 + phyrexian)
+        # so that pip_counts stays numerically compatible with pip_weights downstream.
+        pip_counts: Dict[str, float] = {}
+        for c in ('W', 'U', 'B', 'R', 'G'):
+            d = pip_density[c]
+            pip_counts[c] = float(d['single'] + d['double'] * 2 + d['triple'] * 3 + d['phyrexian'])
+        total_pips = sum(pip_counts.values())
         # For UI cross-highlighting: map color -> list of cards that have that color pip in their cost
-        pip_cards: Dict[str, list] = {c: [] for c in ('W','U','B','R','G')}
+        pip_cards: Dict[str, list] = {c: [] for c in ('W', 'U', 'B', 'R', 'G')}
         import re as _re_local
-        total_pips = 0.0
         for name, info in self.card_library.items():
             ctype = str(info.get('Card Type', ''))
             if 'land' in ctype.lower():
@@ -612,35 +628,24 @@ class ReportingMixin:
             mana_cost = info.get('Mana Cost') or info.get('mana_cost') or ''
             if not isinstance(mana_cost, str):
                 continue
-            # Track which colors appear for this card's mana cost for card listing
-            colors_for_card = set()
+            colors_for_card: set = set()
             for match in _re_local.findall(r'\{([^}]+)\}', mana_cost):
                 sym = match.upper()
-                if len(sym) == 1 and sym in pip_counts:
-                    pip_counts[sym] += 1
-                    total_pips += 1
+                if len(sym) == 1 and sym in pip_cards:
                     colors_for_card.add(sym)
                 elif '/' in sym:
-                    parts = [p for p in sym.split('/') if p in pip_counts]
-                    if parts:
-                        weight_each = 1 / len(parts)
-                        for p in parts:
-                            pip_counts[p] += weight_each
-                            total_pips += weight_each
-                            colors_for_card.add(p)
-                elif sym.endswith('P') and len(sym) == 2:  # e.g. WP (Phyrexian) -> treat as that color
+                    for p in [p for p in sym.split('/') if p in pip_cards]:
+                        colors_for_card.add(p)
+                elif sym.endswith('P') and len(sym) == 2:
                     base = sym[0]
-                    if base in pip_counts:
-                        pip_counts[base] += 1
-                        total_pips += 1
+                    if base in pip_cards:
                         colors_for_card.add(base)
             if colors_for_card:
                 cnt = int(info.get('Count', 1))
                 for c in colors_for_card:
                     pip_cards[c].append({'name': name, 'count': cnt})
         if total_pips <= 0:
-            # Fallback to even distribution across color identity
-            colors = [c for c in ('W','U','B','R','G') if c in (getattr(self, 'color_identity', []) or [])]
+            colors = [c for c in ('W', 'U', 'B', 'R', 'G') if c in (getattr(self, 'color_identity', []) or [])]
             if colors:
                 share = 1 / len(colors)
                 for c in colors:
@@ -766,6 +771,10 @@ class ReportingMixin:
             'colors': list(getattr(self, 'color_identity', []) or []),
             'include_exclude_summary': include_exclude_summary,
         }
+        # M3 (Roadmap 14): attach smart-land diagnostics when available
+        land_report_data = getattr(self, '_land_report_data', None)
+        if land_report_data:
+            summary_payload['land_report'] = dict(land_report_data)
 
         try:
             commander_meta = self.get_commander_export_metadata()

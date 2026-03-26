@@ -170,6 +170,20 @@ BUDGET_TOTAL_TOLERANCE: Final[float] = 0.10  # End-of-build review threshold (10
 DEFAULT_RAMP_COUNT: Final[int] = 8  # Default number of ramp pieces
 DEFAULT_LAND_COUNT: Final[int] = 35  # Default total land count
 DEFAULT_BASIC_LAND_COUNT: Final[int] = 15  # Default minimum basic lands
+
+# Smart land analysis thresholds (Roadmap 14)
+CURVE_FAST_THRESHOLD: Final[float] = 3.0   # Commander CMC below this → fast deck
+CURVE_SLOW_THRESHOLD: Final[float] = 4.0   # Commander CMC above this → slow deck
+LAND_COUNT_FAST: Final[int] = 33            # Land target for fast decks
+LAND_COUNT_MID: Final[int] = 35            # Land target for mid decks (same as default)
+LAND_COUNT_SLOW_BASE: Final[int] = 37      # Base land target for slow decks (may increase with color count)
+LAND_COUNT_SLOW_MAX: Final[int] = 39       # Maximum land target for slow, many-color decks
+BASICS_HEAVY_RATIO: Final[float] = 0.60    # Fraction of land target used as basics in basics-heavy profile
+BASICS_FIXING_PER_COLOR: Final[int] = 2    # Basics per color in fixing-heavy profile (minimal basics)
+BASICS_MIN_HEADROOM: Final[int] = 5        # Minimum gap between basic_lands and total lands
+BUDGET_FORCE_BASICS_THRESHOLD: Final[float] = 50.0  # Budget below this (3+ colors) forces basics-heavy
+# Profile offsets applied to existing bracket-based ETB tapped threshold in Step 8
+PROFILE_TAPPED_THRESHOLD_OFFSETS: Final[Dict[str, int]] = {'fast': -4, 'mid': 0, 'slow': 4}
 DEFAULT_NON_BASIC_LAND_SLOTS: Final[int] = 10  # Default number of non-basic land slots to reserve
 DEFAULT_BASICS_PER_COLOR: Final[int] = 5  # Default number of basic lands to add per color
 

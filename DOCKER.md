@@ -193,6 +193,18 @@ Enable cost-aware deck building with `ENABLE_BUDGET_MODE=1` (default). A per-car
 - `PRICE_STALE_WARNING_HOURS` (default `24`) controls when a cached price shows a stale indicator. Set to `0` to disable.
 - Price breakdown is included in build summary panels and exported summary JSON.
 
+## Smart Land Bases
+
+Enable automatic land count and profile selection with `ENABLE_SMART_LANDS=1` (default). Each build analyses the commander's speed and the card pool's color-pip intensity to pick a land base profile.
+
+- **Basics-heavy**: 1–2 color decks or low-pip pools. ~60% basics, reduced ETB-tapped tolerance.
+- **Balanced**: 2–3 color decks with moderate pip density. Standard ratios and ETB thresholds.
+- **Fixing-heavy**: 3+ colors or high pip density (≥15 double-pip or ≥3 triple-or-more-pip cards). Minimal basics, raised ETB-tapped tolerance.
+- Land targets: fast decks (commander CMC < 3) get 33 lands; slow decks (CMC > 4) get 37–39.
+- Override with `LAND_PROFILE=basics|mid|fixing` or `LAND_COUNT=<n>` to bypass auto-detection.
+- The **Land Summary** section of each deck result shows a "Smart Lands" notice explaining the chosen profile.
+- See [`docs/user_guides/land_bases.md`](docs/user_guides/land_bases.md) for the full guide.
+
 ## Include / Exclude Lists
 
 Set `ALLOW_MUST_HAVES=1` (default) to enable include/exclude enforcement.
@@ -278,6 +290,9 @@ See `.env.example` for the full catalog. Common knobs:
 | `WEB_VIRTUALIZE` | `1` | Opt-in to virtualized lists/grids for large result sets. |
 | `ALLOW_MUST_HAVES` | `1` | Enable include/exclude enforcement in Step 5. |
 | `SHOW_MUST_HAVE_BUTTONS` | `0` | Surface the must include/exclude buttons and quick-add UI (requires `ALLOW_MUST_HAVES=1`). |
+| `ENABLE_SMART_LANDS` | `1` | Enable automatic land count and profile selection based on commander speed and pip density. |
+| `LAND_PROFILE` | _(auto)_ | Force a land profile: `basics`, `mid`, or `fixing`. Skips auto-detection. |
+| `LAND_COUNT` | _(auto)_ | Force total land count (e.g. `36`). Skips curve calculation. |
 | `ENABLE_BUDGET_MODE` | `1` | Enable budget mode controls (per-card ceiling, soft enforcement) and price display throughout the builder. |
 | `BUDGET_POOL_TOLERANCE` | `0.15` | Fractional overhead above the per-card ceiling before a card is excluded from the selection pool (e.g. `0.15` = 15%). |
 | `PRICE_AUTO_REFRESH` | `0` | Rebuild the price cache automatically once daily at 01:00 UTC. |

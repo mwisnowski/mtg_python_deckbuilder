@@ -2075,8 +2075,8 @@ def _make_stages_legacy(b: DeckBuilder) -> List[Dict[str, Any]]:
     if mc_selected:
         stages.append({"key": "multicopy", "label": "Multi-Copy Package", "runner_name": "__add_multi_copy__"})
     # Note: Combos auto-complete now runs late (near theme autofill), so we defer adding it here.
-    # Land steps 1..8 (if present)
-    for i in range(1, 9):
+    # Land steps 1..9 (if present; step 9 = backfill to target)
+    for i in range(1, 10):
         fn = getattr(b, f"run_land_step{i}", None)
         if callable(fn):
             stages.append({"key": f"land{i}", "label": f"Lands (Step {i})", "runner_name": f"run_land_step{i}"})
@@ -2242,8 +2242,8 @@ def _make_stages_new(b: DeckBuilder) -> List[Dict[str, Any]]:
             pass
         stages.append({"key": "spells", "label": "Spells", "runner_name": "add_spells_phase"})
     
-    # 3) LANDS - Steps 1..8 (after spells so pip counts are known)
-    for i in range(1, 9):
+    # 3) LANDS - Steps 1..9 (after spells so pip counts are known; step 9 = backfill to target)
+    for i in range(1, 10):
         fn = getattr(b, f"run_land_step{i}", None)
         if callable(fn):
             stages.append({"key": f"land{i}", "label": f"Lands (Step {i})", "runner_name": f"run_land_step{i}"})
@@ -2678,6 +2678,11 @@ def start_build_ctx(
     # M4: Apply budget pool filter now that budget_config is set
     try:
         b.apply_budget_pool_filter()
+    except Exception:
+        pass
+    # Smart land analysis — mirrors run_deck_build_step2() so web builds get profiles too
+    try:
+        b.run_land_analysis()
     except Exception:
         pass
     stages = _make_stages(b)

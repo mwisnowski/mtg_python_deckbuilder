@@ -253,6 +253,18 @@ Control per-card cost to build within a price target.
 
 ---
 
+## Smart Land Bases
+Automatic land count and basics-to-duals ratio based on deck speed and color intensity.
+- Enable with `ENABLE_SMART_LANDS=1` (default: on in Docker).
+- **Speed detection**: commander CMC blended with pool average CMC determines fast (33 lands), mid (35), or slow (37–39) targets.
+- **Profile selection**: 1–2 color / low-pip decks get a basics-heavy profile; 3+ color / high-pip decks get a fixing-heavy profile with minimal basics.
+- **ETB tapped tolerance** is adjusted automatically — fast decks avoid tapped lands; slow decks tolerate more.
+- The **Land Summary** section shows a "Smart Lands" notice explaining the chosen profile in plain English.
+- Override with `LAND_PROFILE=basics|mid|fixing` or `LAND_COUNT=<n>` env vars.
+- See [`docs/user_guides/land_bases.md`](docs/user_guides/land_bases.md) for the full guide.
+
+---
+
 ## Data, exports, and volumes
 | Host path | Container path | Purpose |
 | --- | --- | --- |
@@ -310,6 +322,13 @@ Most defaults are defined in `docker-compose.yml` and documented in `.env.exampl
 | `PRICE_AUTO_REFRESH` | `0` | Rebuild price cache automatically once daily at 01:00 UTC. |
 | `PRICE_LAZY_REFRESH` | `1` | Refresh stale per-card prices in the background (7-day TTL). |
 | `PRICE_STALE_WARNING_HOURS` | `24` | Hours before a cached price is marked stale with a visual indicator. Set to `0` to disable. |
+
+### Smart Land Bases
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `ENABLE_SMART_LANDS` | `1` | Enable automatic land count and profile selection based on commander speed and pip density. |
+| `LAND_PROFILE` | _(auto)_ | Force a specific profile: `basics`, `mid`, or `fixing`. Skips auto-detection. |
+| `LAND_COUNT` | _(auto)_ | Force total land count (e.g. `36`). Skips curve calculation. |
 
 ### Random build tuning
 | Variable | Default | Purpose |

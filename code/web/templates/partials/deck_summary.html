@@ -143,9 +143,48 @@
 
 <!-- Land Summary -->
 {% set land = summary.land_summary if summary else None %}
+{% set lr = summary.land_report if summary else None %}
 {% if land %}
 <section class="summary-section-lg">
   <h5>Land Summary</h5>
+  {% if lr and lr.profile %}
+  {% set profile_labels = {'basics': 'Basics (minimal fixing)', 'mid': 'Balanced (moderate fixing)', 'fixing': 'Fixing-heavy (extensive duals/fetches)'} %}
+  {% set speed_labels = {'fast': 'Fast', 'mid': 'Mid', 'slow': 'Slow'} %}
+  <div class="notice" style="margin-bottom:.75rem; font-size:.85rem; line-height:1.5;">
+    <strong>Smart Lands</strong> adjusted your land targets:
+    <strong>{{ lr.land_target }} lands</strong> / <strong>{{ lr.basic_target }} basics</strong>
+    &mdash; <strong>{{ profile_labels.get(lr.profile, lr.profile) }}</strong> profile,
+    <strong>{{ speed_labels.get(lr.speed_category, lr.speed_category) }}</strong>-paced deck.
+    <div class="muted" style="margin-top:.3rem; font-size:.8rem;">
+      <strong>Why:</strong>
+      {% set cc = lr.color_count | int %}
+      {% if cc <= 1 %}
+        {{ cc }}-color deck &mdash; single-color decks rarely need mana fixing; basics provide better consistency.
+      {% elif cc >= 5 %}
+        {{ cc }}-color deck &mdash; 5-color decks need extensive mana fixing to reliably cast spells.
+      {% elif lr.profile == 'fixing' and lr.pip_was_deciding %}
+        {{ cc }}-color deck with heavy color requirements in the card pool &mdash; many cards need multiple pips of the same color, making fixing lands critical.
+      {% elif lr.profile == 'basics' and lr.pip_was_deciding %}
+        {{ cc }}-color deck with light color requirements in the card pool &mdash; few demanding pip costs, so basics outperform fixing lands here.
+      {% else %}
+        {{ cc }}-color deck with moderate color requirements.
+      {% endif %}
+      {% set cmc = lr.commander_cmc %}
+      {% set eff = lr.effective_cmc %}
+      {% if cmc is not none %}
+        Commander CMC {{ cmc | int if cmc % 1 == 0 else cmc | round(1) }}
+        {%- if eff is not none and (eff - cmc) | abs >= 0.2 %} (effective {{ eff | round(1) }} weighted with pool average){%- endif -%}
+        &mdash; {{ lr.speed_category }} deck speed.
+      {% endif %}
+      {% if lr.pip_was_deciding and lr.total_double_pips is defined %}
+        Card pool contains {{ lr.total_double_pips }} double-pip and {{ lr.total_triple_pips }} triple-or-more-pip cards.
+      {% endif %}
+      {% if lr.budget_total is not none %}
+        Budget constraint: ${{ lr.budget_total | round(0) | int }}.
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
   <div class="muted summary-type-heading mb-1">
     {{ land.headline or ('Lands: ' ~ (land.traditional or 0)) }}
   </div>

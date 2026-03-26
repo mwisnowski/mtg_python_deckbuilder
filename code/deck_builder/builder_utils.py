@@ -602,10 +602,120 @@ def compute_spell_pip_weights(card_library: Dict[str, dict], color_identity: Ite
 	return {c: (pip_counts[c] / total_colored) for c in pip_counts}
 
 
+def compute_pip_density(card_library: Dict[str, dict], color_identity: Iterable[str]) -> Dict[str, Dict[str, int]]:
+	"""Compute raw pip counts per color broken down by multiplicity.
+
+	Extends ``compute_spell_pip_weights`` with a full breakdown instead of
+	normalized weights, and adds Phyrexian mana handling (``{WP}`` etc.).
+
+	Returns a dict keyed by color letter, each value being::
+	    {'single': int, 'double': int, 'triple': int, 'phyrexian': int}
+
+	'single' = cards with exactly 1 pip of this color in their cost
+	'double' = cards with exactly 2 pips
+	'triple' = cards with 3+ pips
+	'phyrexian' = cards where the Phyrexian version of this color appears
+
+	Non-land spells only. Hybrid symbols credit 0.5 weight to each component
+	(same as compute_spell_pip_weights) but are only reflected in the totals,
+	not in the single/double/triple buckets (which track whole-pip occurrences).
+	"""
+	COLORS = set(COLOR_LETTERS)
+	pip_colors_identity = [c for c in color_identity if c in COLORS]
+	result: Dict[str, Dict[str, int]] = {
+		c: {'single': 0, 'double': 0, 'triple': 0, 'phyrexian': 0}
+		for c in COLOR_LETTERS
+	}
+	for entry in card_library.values():
+		ctype = str(entry.get('Card Type', ''))
+		if 'land' in ctype.lower():
+			continue
+		mana_cost = entry.get('Mana Cost') or entry.get('mana_cost') or ''
+		if not isinstance(mana_cost, str):
+			continue
+		# Count pips per color for this card
+		card_pips: Dict[str, float] = {c: 0.0 for c in COLOR_LETTERS}
+		card_phyrexian: Dict[str, bool] = {c: False for c in COLOR_LETTERS}
+		for match in re.findall(r'\{([^}]+)\}', mana_cost):
+			sym = match.upper()
+			if len(sym) == 1 and sym in card_pips:
+				card_pips[sym] += 1
+			elif '/' in sym:
+				parts = [p for p in sym.split('/') if p in card_pips]
+				if parts:
+					weight_each = 1 / len(parts)
+					for p in parts:
+						card_pips[p] += weight_each
+			elif sym.endswith('P') and len(sym) == 2:
+				# Phyrexian mana: {WP}, {UP}, etc.
+				base = sym[0]
+				if base in card_pips:
+					card_phyrexian[base] = True
+		# Accumulate into buckets
+		for c in COLOR_LETTERS:
+			pips = card_pips[c]
+			if card_phyrexian[c]:
+				result[c]['phyrexian'] += 1
+			if pips >= 3:
+				result[c]['triple'] += 1
+			elif pips >= 2:
+				result[c]['double'] += 1
+			elif pips >= 1:
+				result[c]['single'] += 1
+	# Zero out colors not in identity (irrelevant for analysis)
+	for c in COLOR_LETTERS:
+		if c not in pip_colors_identity:
+			result[c] = {'single': 0, 'double': 0, 'triple': 0, 'phyrexian': 0}
+	return result
+
+
+def analyze_curve(commander_mana_value: float, color_count: int) -> Dict[str, Any]:
+	"""Estimate deck speed and derive an optimal land target from commander CMC.
+
+	Uses commander mana value as a proxy for deck speed — a reliable signal
+	in Commander: low-CMC commanders rarely lead slow, high-land-count decks.
+
+	Args:
+	    commander_mana_value: The commander's converted mana cost.
+	    color_count: Number of colors in the deck's color identity (1-5).
+
+	Returns:
+	    dict with keys:
+	        speed_category: 'fast' | 'mid' | 'slow'
+	        land_target: recommended total land count (33-39)
+	        basic_target: recommended minimum basic land count
+	"""
+	fast_threshold = getattr(bc, 'CURVE_FAST_THRESHOLD', 3.0)
+	slow_threshold = getattr(bc, 'CURVE_SLOW_THRESHOLD', 4.0)
+	if commander_mana_value < fast_threshold:
+		speed = 'fast'
+		land_target = getattr(bc, 'LAND_COUNT_FAST', 33)
+	elif commander_mana_value > slow_threshold:
+		speed = 'slow'
+		base = getattr(bc, 'LAND_COUNT_SLOW_BASE', 37)
+		slow_max = getattr(bc, 'LAND_COUNT_SLOW_MAX', 39)
+		# More colors = more fixing needed = slightly more lands
+		land_target = min(base + max(0, color_count - 3), slow_max)
+	else:
+		speed = 'mid'
+		land_target = getattr(bc, 'LAND_COUNT_MID', 35)
+	# Basic target: ~40% of land target for mid/slow, ~50% for fast (fewer fixing lands needed)
+	basics_ratio = 0.50 if speed == 'fast' else 0.40
+	basic_target = max(color_count * 2, int(round(land_target * basics_ratio)))
+	basic_target = min(basic_target, land_target - getattr(bc, 'BASICS_MIN_HEADROOM', 5))
+	return {
+		'speed_category': speed,
+		'land_target': land_target,
+		'basic_target': max(basic_target, color_count),
+	}
+
+
 
 __all__ = [
 	'compute_color_source_matrix',
 	'compute_spell_pip_weights',
+	'compute_pip_density',
+	'analyze_curve',
 	'parse_theme_tags',
 	'normalize_theme_list',
 	'multi_face_land_info',

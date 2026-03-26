@@ -2,7 +2,14 @@
 
 ## [Unreleased]
 ### Added
-_No unreleased changes yet_
+- **Smart Land Bases**: Land count and basic-to-dual ratio are now adjusted automatically based on the commander's speed and color-pip intensity. Controlled by `ENABLE_SMART_LANDS=1` (default on in Docker).
+  - **Speed detection**: Commander CMC determines a speed category applied as an offset to the user's configured ideal land count. Fast (CMC < 3) = −2 lands, mid = ±0, slow (CMC > 4) = +2 to +4 scaling with color count.
+  - **Profile selection**: Basics-heavy (~60% basics) for 1–2 color / low-pip decks; Balanced for moderate pip density; Fixing-heavy (minimal basics, more duals/fetches) for 3+ color or high-pip pools (≥15 double-pip or ≥3 triple-or-more-pip cards).
+  - **ETB tapped tolerance** is automatically tightened for fast decks and loosened for slow decks.
+  - **Budget override**: Low-budget 3+ color decks are pushed to basics-heavy automatically.
+  - **Slot earmarking**: Non-land ideal counts are scaled to fit within the remaining slots after the land target is set.
+  - **Backfill**: A final land step pads with basics if any land phase falls short.
+  - Override with `LAND_PROFILE=basics|mid|fixing` or `LAND_COUNT=<n>`. A **Smart Lands** notice in the Land Summary explains the chosen profile.
 
 ### Changed
 _No unreleased changes yet_
@@ -12,25 +19,3 @@ _No unreleased changes yet_
 
 ### Removed
 _No unreleased changes yet_
-
-## [4.2.1] - 2026-03-23
-### Fixed
-- **Budget/price CSS missing from DockerHub builds**: All budget and price chart styles are now in `tailwind.css` (the build source) so they survive the Docker image build process.
-- **Workflow price cache build**: Fixed `AttributeError` crash in `_rebuild_cache()` when running outside the web app context (e.g., CI setup script).
-
-## [4.2.0] - 2026-03-23
-### Highlights
-- **Budget Mode**: Set a budget cap and per-card ceiling when building a deck. Prices are shown throughout the build flow, over-budget cards are highlighted, and a post-build review panel lets you swap in cheaper alternatives live.
-- **Pickups List**: New page (`/decks/pickups?name=`) listing affordable cards you don't own yet, sorted by theme-match priority.
-- **Price Charts**: Donut chart and histogram showing deck spend by card role (9 categories) and cost distribution.
-- **Stale Price Warnings**: Cards with price data older than 24 hours are flagged with a clock indicator; a banner appears when more than half the deck's prices are stale.
-- **Price Cache Refresh**: Setup page Refresh button now downloads fresh Scryfall bulk data before rebuilding the cache.
-- **Multi-copy Dialogs**: Conflict dialogs for Must Include and Must Exclude when using multi-copy archetypes (e.g., Hare Apparent).
-- **RandomService & Diagnostics**: Seeded RNG service with optional diagnostics endpoint (`WEB_RANDOM_DIAGNOSTICS=1`).
-
-### Changed
-- **Build Deck button**: "Create" renamed to "Build Deck" in the New Deck modal.
-
-### Fixed
-- **Stale price banner after refresh**: Refreshing prices on the Setup page now correctly clears the stale warning.
-- **Multi-copy include count**: Archetype card count is now correctly applied when confirmed from the conflict dialog.

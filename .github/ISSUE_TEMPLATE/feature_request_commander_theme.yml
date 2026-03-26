@@ -1,0 +1,79 @@
+name: Commander-Specific Theme Request
+description: Request a new theme tied to a specific commander's abilities, or report an existing commander theme that is missing, misconfigured, or lacking synergy coverage.
+title: "[Commander Theme] "
+labels: ["commander-theme-request"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve commander coverage! Please fill out the fields below as completely as you can.
+
+  - type: input
+    id: commander-name
+    attributes:
+      label: Commander Name
+      description: Full card name of the commander.
+      placeholder: e.g., Atraxa, Praetors' Voice
+    validations:
+      required: true
+
+  - type: input
+    id: theme-name
+    attributes:
+      label: Theme Name
+      description: What is the commander-specific theme being requested?
+      placeholder: e.g., Atraxa Proliferate, Meren Reanimator
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: request-type
+    attributes:
+      label: Request Type
+      options:
+        - label: New commander theme — this commander has no theme in the catalog for this strategy
+        - label: Existing theme fix — a theme exists but is missing key synergy cards or has incorrect data
+        - label: Theme description improvement — the description doesn't capture this commander's playstyle
+
+  - type: input
+    id: color-identity
+    attributes:
+      label: Commander Color Identity
+      description: What is the commander's color identity?
+      placeholder: e.g., WUBG
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Theme Description
+      description: Describe how this theme works specifically with this commander. What does the deck try to do, and how does the commander enable or lead that strategy?
+      placeholder: This commander enables...
+    validations:
+      required: true
+
+  - type: textarea
+    id: synergy-cards
+    attributes:
+      label: Key Synergy Cards
+      description: List 3–10 cards that are particularly important for this commander's strategy and why they synergize.
+      placeholder: |
+        - Card Name — reason it synergizes with the commander
+        - Card Name — reason it synergizes with the commander
+        - Card Name — reason it synergizes with the commander
+    validations:
+      required: true
+
+  - type: input
+    id: related-themes
+    attributes:
+      label: Related Themes
+      description: Are there existing general themes this overlaps with?
+      placeholder: e.g., Graveyard Recursion, +1/+1 Counters
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Additional Notes
+      description: Anything helpful — EDHREC page link, ruling clarifications, partner/background interactions, etc.

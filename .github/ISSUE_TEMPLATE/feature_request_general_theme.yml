@@ -1,0 +1,68 @@
+name: General Theme Request
+description: Request a new general theme, or report an existing theme that is missing cards, misconfigured, or poorly described.
+title: "[Theme Request] "
+labels: ["theme-request"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve the theme catalog! Please fill out the fields below as completely as you can.
+
+  - type: input
+    id: theme-name
+    attributes:
+      label: Theme Name
+      description: What is the name of the theme? (e.g., "Graveyard Recursion", "Artifact Synergy")
+      placeholder: e.g., Graveyard Recursion
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: request-type
+    attributes:
+      label: Request Type
+      options:
+        - label: New theme — this theme doesn't exist in the catalog yet
+        - label: Existing theme fix — a theme exists but is missing cards or has incorrect data
+        - label: Theme description improvement — the description is generic or unhelpful
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Theme Description
+      description: In your own words, describe what this theme is about. What does a deck built around it try to do?
+      placeholder: This theme focuses on...
+    validations:
+      required: true
+
+  - type: textarea
+    id: example-cards
+    attributes:
+      label: Example Cards
+      description: List 3–10 cards that clearly represent this theme and briefly note why each fits.
+      placeholder: |
+        - Card Name — reason it fits
+        - Card Name — reason it fits
+        - Card Name — reason it fits
+    validations:
+      required: true
+
+  - type: input
+    id: colors
+    attributes:
+      label: Colors
+      description: What color(s) is this theme primarily associated with? (W/U/B/R/G/Colorless — or "All")
+      placeholder: e.g., B, G or All
+
+  - type: input
+    id: related-themes
+    attributes:
+      label: Related Themes
+      description: Are there existing themes in the catalog this closely relates to or overlaps with?
+      placeholder: e.g., Token Generation, Aristocrats
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Additional Notes
+      description: Anything else we should know? Links to EDHREC, MTG Wiki, or other resources are welcome.

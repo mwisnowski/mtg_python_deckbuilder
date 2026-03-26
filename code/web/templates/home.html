@@ -3,7 +3,7 @@
 
 {% block content %}
 <section>
-  <div class="actions-grid">
+  <div class="actions-grid" style="max-width: calc(4 * 220px + 3 * .75rem);">
     {{ button('Build a Deck', variant='primary', href='/build', classes='action-button home-button') }}
     {{ button('Run a JSON Config', variant='secondary', href='/configs', classes='action-button home-button') }}
     {% if show_setup %}{{ button('Initial Setup', variant='secondary', href='/setup', classes='action-button home-button') }}{% endif %}
@@ -18,6 +18,12 @@
   </div>
   <div id="themes-quick" style="margin-top:1rem; font-size:.85rem; color:var(--text-muted);">
     <span id="themes-quick-status">Themes: …</span>
+  </div>
+  <div class="actions-grid" style="max-width: calc(4 * 220px + 3 * .75rem); margin-top:2rem;">
+    {{ button('GitHub', variant='secondary', href='https://github.com/mwisnowski/mtg_python_deckbuilder', classes='action-button home-button', attrs='target="_blank" rel="noopener"') }}
+    {{ button('Report an Issue', variant='secondary', href='https://github.com/mwisnowski/mtg_python_deckbuilder/issues', classes='action-button home-button', attrs='target="_blank" rel="noopener"') }}
+    {{ button('Request a Feature', variant='secondary', href='https://github.com/mwisnowski/mtg_python_deckbuilder/issues/new?template=other-feature-request-.md', classes='action-button home-button', attrs='target="_blank" rel="noopener"') }}
+    {{ button('DockerHub', variant='secondary', href='https://hub.docker.com/repository/docker/mwisnowski/mtg-python-deckbuilder/general', classes='action-button home-button', attrs='target="_blank" rel="noopener"') }}
   </div>
 </section>
 <script>

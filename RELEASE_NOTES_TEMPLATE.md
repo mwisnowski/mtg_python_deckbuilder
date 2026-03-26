@@ -13,7 +13,12 @@ _No unreleased changes yet_
 ### Removed
 _No unreleased changes yet_
 
-## [4.3.2] - 2026-03-25
+## [4.4.2] - 2026-03-26
+### Added
+- **Community links**: GitHub, issue tracker, feature request, and DockerHub links in the footer and home page.
+- **Feature request templates**: GitHub issue templates for General Theme Requests, Commander-Specific Theme Requests, and Other Feature Requests.
+- **Feedback prompts**: Inline prompts on the Themes and Commanders pages linking to the relevant request templates.
+
 ### Added
 - **Smart Land Bases checkbox**: The New Deck modal now has a **Smart Land Bases** checkbox in the Preferences section (checked by default). Enables or disables smart land analysis per-build without needing environment variables.
 

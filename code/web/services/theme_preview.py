@@ -231,7 +231,7 @@ def get_theme_preview(theme_id: str, *, limit: int = 12, colors: Optional[str] =
     entry = idx.slug_to_entry.get(slug)
     if not entry:
         raise KeyError("theme_not_found")
-    detail = project_detail(slug, entry, idx.slug_to_yaml, uncapped=uncapped)
+    detail = project_detail(slug, entry, idx.slug_to_yaml, idx, uncapped=uncapped)
     colors_key = colors or None
     commander_key = commander or None
     cache_key = (slug, limit, colors_key, commander_key, idx.etag)

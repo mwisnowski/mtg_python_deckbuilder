@@ -230,8 +230,8 @@ def test_cheaper_alternatives_color_identity_filter():
     """Cards outside the commander's color identity must be excluded."""
     candidates = [
         # This card requires White (W) — not in Dimir (U/B)
-        {"name": "Swords to Plowshares", "tags": ["removal"], "color_identity": "W", "color_identity_list": ["W"], "mana_cost": "{W}", "rarity": ""},
-        {"name": "Doom Blade", "tags": ["removal"], "color_identity": "B", "color_identity_list": ["B"], "mana_cost": "{1}{B}", "rarity": ""},
+        {"name": "Swords to Plowshares", "tags": ["removal"], "color_identity": "W", "color_identity_list": ["W"], "mana_cost": "{W}", "rarity": "", "type_line": "Instant"},
+        {"name": "Doom Blade", "tags": ["removal"], "color_identity": "B", "color_identity_list": ["B"], "mana_cost": "{1}{B}", "rarity": "", "type_line": "Instant"},
     ]
     prices = {"Swords to Plowshares": 1.00, "Doom Blade": 0.50}
     svc = _make_price_service(prices)

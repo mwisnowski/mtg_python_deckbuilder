@@ -426,7 +426,8 @@ Counterspell"""
         assert r3.status_code == 200
         
         export_data = r3.json()
-        assert export_data["ok"] is True
+        assert "permalink" in export_data
+        assert "state" in export_data
         assert "exclude_cards" in export_data["state"]
         
         # Verify excluded cards are preserved
@@ -606,7 +607,8 @@ def test_exclude_cards_json_roundtrip(client):
     assert r3.status_code == 200
     
     permalink_data = r3.json()
-    assert permalink_data["ok"] is True
+    assert "permalink" in permalink_data
+    assert "state" in permalink_data
     assert "exclude_cards" in permalink_data["state"]
     
     exported_excludes = permalink_data["state"]["exclude_cards"]
@@ -630,7 +632,8 @@ def test_exclude_cards_json_roundtrip(client):
     assert r5.status_code == 200
     
     reimported_data = r5.json()
-    assert reimported_data["ok"] is True
+    assert "permalink" in reimported_data
+    assert "state" in reimported_data
     assert "exclude_cards" in reimported_data["state"]
     
     # Should be identical to the original export

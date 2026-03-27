@@ -171,3 +171,49 @@ def test_partner_metrics_endpoint_reports_color_sources():
         for entry in sources
         for provider in entry.get("providers", [])
     )
+
+
+def test_diagnostics_page_gated_and_visible(monkeypatch):
+    monkeypatch.delenv("SHOW_DIAGNOSTICS", raising=False)
+    import code.web.app as app_module
+    importlib.reload(app_module)
+    client = TestClient(app_module.app)
+    r = client.get("/diagnostics")
+    assert r.status_code == 404
+
+    monkeypatch.setenv("SHOW_DIAGNOSTICS", "1")
+    importlib.reload(app_module)
+    client2 = TestClient(app_module.app)
+    r2 = client2.get("/diagnostics")
+    assert r2.status_code == 200
+    body = r2.text
+    assert "Diagnostics" in body
+    assert "Combos & Synergies" in body
+
+
+def test_diagnostics_combos_endpoint(tmp_path, monkeypatch):
+    import json as json_mod
+    monkeypatch.setenv("SHOW_DIAGNOSTICS", "1")
+    importlib.reload(__import__('code.web.app', fromlist=['app']))
+    import code.web.app as app_module
+    importlib.reload(app_module)
+    client = TestClient(app_module.app)
+
+    def _write_json(path, obj):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json_mod.dumps(obj), encoding="utf-8")
+
+    cpath = tmp_path / "config/card_lists/combos.json"
+    spath = tmp_path / "config/card_lists/synergies.json"
+    _write_json(cpath, {"list_version": "0.1.0", "pairs": [{"a": "Thassa's Oracle", "b": "Demonic Consultation", "cheap_early": True, "setup_dependent": False}]})
+    _write_json(spath, {"list_version": "0.1.0", "pairs": [{"a": "Grave Pact", "b": "Phyrexian Altar"}]})
+    payload = {"names": ["Thassa's Oracle", "Demonic Consultation", "Grave Pact", "Phyrexian Altar"], "combos_path": str(cpath), "synergies_path": str(spath)}
+    resp = client.post("/diagnostics/combos", json=payload)
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["counts"]["combos"] == 1
+    assert data["counts"]["synergies"] == 1
+    assert data["versions"]["combos"] == "0.1.0"
+    c = data["combos"][0]
+    assert c.get("cheap_early") is True
+    assert c.get("setup_dependent") is False

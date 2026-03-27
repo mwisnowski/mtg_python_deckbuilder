@@ -297,7 +297,7 @@ def test_synergy_commanders_no_overlap_with_examples():
     idx = load_index()
     theme_entry = idx.catalog.themes[0]
     slug = slugify(theme_entry.theme)
-    detail = project_detail(slug, idx.slug_to_entry[slug], idx.slug_to_yaml, uncapped=False)
+    detail = project_detail(slug, idx.slug_to_entry[slug], idx.slug_to_yaml, idx, uncapped=False)
     examples = set(detail.get("example_commanders") or [])
     synergy_commanders = detail.get("synergy_commanders") or []
     assert not (examples.intersection(synergy_commanders)), "synergy_commanders should not include example_commanders"

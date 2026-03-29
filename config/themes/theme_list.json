@@ -28468,7 +28468,7 @@
   "generated_from": "merge (analytics + curated YAML + whitelist)",
   "metadata_info": {
     "mode": "merge",
-    "generated_at": "2026-03-27T09:09:49",
+    "generated_at": "2026-03-27T17:14:22",
     "curated_yaml_files": 735,
     "synergy_cap": 5,
     "inference": "pmi",

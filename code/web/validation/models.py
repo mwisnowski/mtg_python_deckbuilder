@@ -5,7 +5,7 @@ Defines typed models for all web route inputs with automatic validation.
 from __future__ import annotations
 
 from typing import Optional, List
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from enum import Enum
 
 
@@ -207,6 +207,4 @@ class DeckExportRequest(BaseModel):
     include_commanders: bool = Field(default=True, description="Include commanders in export")
     include_lands: bool = Field(default=True, description="Include lands in export")
     
-    class Config:
-        """Pydantic configuration."""
-        use_enum_values = True
+    model_config = ConfigDict(use_enum_values=True)

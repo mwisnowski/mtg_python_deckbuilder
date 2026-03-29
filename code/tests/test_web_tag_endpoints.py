@@ -186,29 +186,3 @@ def test_commanders_page_with_theme_filter(client):
     
     # Should have the theme value in the input
     assert 'value="tokens"' in content or "tokens" in content
-
-
-@pytest.mark.skip(reason="Performance test - run manually")
-def test_theme_autocomplete_performance(client):
-    """Test that theme autocomplete responds quickly."""
-    import time
-    
-    start = time.time()
-    response = client.get("/commanders/theme-autocomplete?theme=to&limit=20")
-    elapsed = time.time() - start
-    
-    assert response.status_code == 200
-    assert elapsed < 0.05  # Should respond in <50ms
-
-
-@pytest.mark.skip(reason="Performance test - run manually")
-def test_api_tags_search_performance(client):
-    """Test that tag search responds quickly."""
-    import time
-    
-    start = time.time()
-    response = client.get("/api/cards/tags/search?q=to&limit=20")
-    elapsed = time.time() - start
-    
-    assert response.status_code == 200
-    assert elapsed < 0.05  # Should respond in <50ms

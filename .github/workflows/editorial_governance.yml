@@ -47,7 +47,7 @@ jobs:
           python code/scripts/validate_description_mapping.py
       - name: Run regression & unit tests (editorial subset + enforcement)
         run: |
-          python -m pytest -q code/tests/test_theme_validation_comprehensive.py::test_generic_description_regression code/tests/test_synergy_pairs_and_provenance.py code/tests/test_editorial_governance_phase_d_closeout.py code/tests/test_theme_catalog_comprehensive.py::TestThemeEnrichmentPipeline::test_validate_min_examples_warning code/tests/test_theme_catalog_comprehensive.py::TestThemeEnrichmentPipeline::test_validate_min_examples_error
+          python -m pytest -q code/tests/test_theme_validation_comprehensive.py::test_generic_description_regression code/tests/test_synergy_pairs_and_metadata_info.py code/tests/test_editorial_governance_phase_d_closeout.py code/tests/test_theme_catalog_comprehensive.py::TestThemeEnrichmentPipeline::test_validate_min_examples_warning code/tests/test_theme_catalog_comprehensive.py::TestThemeEnrichmentPipeline::test_validate_min_examples_error
         env:
           EDITORIAL_TEST_USE_FIXTURES: '1'
       - name: Ratchet proposal (non-blocking)

@@ -8,10 +8,11 @@ _No unreleased changes yet_
 _No unreleased changes yet_
 
 ### Fixed
-_No unreleased changes yet_
+- Bug fixes in `theme_preview.py` and `app.py` uncovered by the test suite.
+- Pydantic V2 deprecation warning resolved in `DeckExportRequest`.
 
 ### Removed
-_No unreleased changes yet_
+- 16 fragmented/stale test files consolidated or deleted; 7 permanently-skipped tests removed.
 
 ## [4.4.2] - 2026-03-26
 ### Added

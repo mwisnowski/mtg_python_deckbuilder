@@ -169,7 +169,7 @@
 
 {# Always update the bracket dropdown on commander change; hide 1–2 only when gc_commander is true #}
 <div id="newdeck-bracket-slot" hx-swap-oob="true">
-  <label>Bracket
+  <label><span style="display:inline-flex; align-items:center; gap:4px;">Bracket <span class="help-tip"><button type="button" class="help-tip-btn" data-tip="Restricts deck picks to the power-level rules for that bracket tier." data-tip-href="/help/bracket_compliance#bracket-tiers" aria-label="Bracket compliance help"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true" width="11" height="11"><circle cx="8" cy="8" r="6.5"/><line x1="8" y1="7" x2="8" y2="10.5" stroke-linecap="round"/><circle cx="8" cy="4.5" r="0.75" fill="currentColor" stroke="none"/></svg></button></span></span>
     <select name="bracket">
       {% for b in brackets %}
         {% if not gc_commander or b.level >= 3 %}

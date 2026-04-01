@@ -582,6 +582,10 @@ video {
   visibility: collapse;
 }
 
+.static {
+  position: static;
+}
+
 .fixed {
   position: fixed;
 }
@@ -741,6 +745,10 @@ video {
 
 .grid {
   display: grid;
+}
+
+.contents {
+  display: contents;
 }
 
 .hidden {
@@ -1061,6 +1069,10 @@ video {
   text-transform: uppercase;
 }
 
+.lowercase {
+  text-transform: lowercase;
+}
+
 .capitalize {
   text-transform: capitalize;
 }
@@ -1076,6 +1088,11 @@ video {
 .text-gray-200 {
   --tw-text-opacity: 1;
   color: rgb(229 231 235 / var(--tw-text-opacity, 1));
+}
+
+.text-gray-500 {
+  --tw-text-opacity: 1;
+  color: rgb(107 114 128 / var(--tw-text-opacity, 1));
 }
 
 .text-gray-600 {
@@ -1620,6 +1637,25 @@ body.htmx-settling *{
 
 .card-preview.card-sm{
   max-width:200px;
+}
+
+/* Page header - consistent section heading across all pages */
+
+.page-header {
+  margin-bottom: 1.25rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.page-header > h2 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin: 0 0 0.25rem 0;
+}
+
+.page-header > p {
+  font-size: 0.9rem;
+  margin: 0;
 }
 
 /* Buttons, inputs */
@@ -4935,6 +4971,7 @@ img.lqip.loaded {
 }
 
 /* Pool size badge for chip context (R21 M2) */
+
 .badge-pool {
   font-size: 10px;
   color: #6b7280;
@@ -5605,6 +5642,71 @@ img.lqip.loaded {
   border-radius: 10px;
 }
 
+/* Contextual help tooltips — shared fixed panel avoids overflow clipping */
+
+.help-tip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+}
+
+.help-tip-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  color: var(--text-muted);
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.help-tip-btn:hover {
+  color: var(--primary);
+  border-color: var(--primary);
+}
+
+.help-tip-btn:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.help-tip-panel {
+  position: fixed;
+  display: none;
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 12px;
+  line-height: 1.45;
+  width: 200px;
+  box-shadow: 0 4px 14px rgba(0,0,0,.35);
+  z-index: 9999;
+  white-space: normal;
+  text-align: left;
+  font-weight: normal;
+}
+
+.help-tip-panel a {
+  color: var(--primary);
+  font-size: 11px;
+  text-decoration: none;
+  display: block;
+  margin-top: 5px;
+}
+
+.help-tip-panel a:hover {
+  text-decoration: underline;
+}
+
 .pin-btn {
   position: absolute;
   top: 4px;
@@ -5834,31 +5936,6 @@ footer.site-footer {
   flex-shrink: 0;
 }
 
-.hover\:opacity-100:hover {
-  opacity: 1;
-}
-
-@media (prefers-color-scheme: dark) {
-  .dark\:border-gray-700 {
-    --tw-border-opacity: 1;
-    border-color: rgb(55 65 81 / var(--tw-border-opacity, 1));
-  }
-
-  .dark\:bg-gray-800\/50 {
-    background-color: rgb(31 41 55 / 0.5);
-  }
-
-  .dark\:text-gray-300 {
-    --tw-text-opacity: 1;
-    color: rgb(209 213 219 / var(--tw-text-opacity, 1));
-  }
-
-  .dark\:text-gray-400 {
-    --tw-text-opacity: 1;
-    color: rgb(156 163 175 / var(--tw-text-opacity, 1));
-  }
-}
-
 /* ============================================================
    Budget Mode — Badge, Tier Labels, Price Tooltip
    ============================================================ */
@@ -5890,6 +5967,7 @@ footer.site-footer {
 }
 
 /* Tier badges on the pickups table */
+
 .tier-badge {
   display: inline-block;
   padding: .1rem .5rem;
@@ -5916,6 +5994,7 @@ footer.site-footer {
 }
 
 /* Inline price tooltip on card names */
+
 .card-name-price-hover {
   cursor: default;
   position: relative;
@@ -5939,6 +6018,7 @@ footer.site-footer {
 }
 
 /* Price overlay on card thumbnails (step5 tiles + deck summary thumbs) */
+
 .card-price-overlay {
   position: absolute;
   top: 6px;
@@ -5955,9 +6035,13 @@ footer.site-footer {
   white-space: nowrap;
   line-height: 16px;
 }
-.card-price-overlay:empty { display: none; }
+
+.card-price-overlay:empty {
+  display: none;
+}
 
 /* Inline price in deck summary list rows */
+
 .card-price-inline {
   font-size: 11px;
   color: var(--muted, #94a3b8);
@@ -5965,17 +6049,23 @@ footer.site-footer {
   white-space: nowrap;
   padding: 0 2px;
 }
-.card-price-inline:empty { color: transparent; }
+
+.card-price-inline:empty {
+  color: transparent;
+}
 
 /* Over-budget highlight — gold/amber, matching the locked card style */
+
 .card-tile.over-budget {
   border-color: #f5c518 !important;
   box-shadow: inset 0 0 8px rgba(245, 197, 24, .25), 0 0 5px #f5c518 !important;
 }
+
 .stack-card.over-budget {
   border-color: #f5c518 !important;
   box-shadow: 0 6px 18px rgba(0,0,0,.55), 0 0 7px #f5c518 !important;
 }
+
 .list-row.over-budget .name {
   background: rgba(245, 197, 24, .12);
   box-shadow: 0 0 0 1px #f5c518;
@@ -5983,6 +6073,7 @@ footer.site-footer {
 }
 
 /* Budget price summary bar in deck summary */
+
 .budget-price-bar {
   font-size: 13px;
   padding: .3rem .5rem;
@@ -5991,10 +6082,19 @@ footer.site-footer {
   border: 1px solid var(--border, #333);
   background: var(--panel, #1a1f2e);
 }
-.budget-price-bar.under { border-color: #34d399; color: #a7f3d0; }
-.budget-price-bar.over  { border-color: #f5c518; color: #fde68a; }
 
-/* M5: Budget review panel */
+.budget-price-bar.under {
+  border-color: #34d399;
+  color: #a7f3d0;
+}
+
+.budget-price-bar.over  {
+  border-color: #f5c518;
+  color: #fde68a;
+}
+
+/* Budget review panel */
+
 .budget-review-panel {
   border: 1px solid var(--border, #444);
   border-left: 4px solid #f5c518;
@@ -6002,6 +6102,7 @@ footer.site-footer {
   background: var(--panel, #1a1f2e);
   padding: .75rem 1rem;
 }
+
 .budget-review-header {
   display: flex;
   flex-wrap: wrap;
@@ -6009,14 +6110,25 @@ footer.site-footer {
   gap: .5rem;
   margin-bottom: .5rem;
 }
-.budget-review-summary { flex: 1 1 auto; }
-.budget-review-cards { display: flex; flex-direction: column; gap: .5rem; margin-top: .5rem; }
+
+.budget-review-summary {
+  flex: 1 1 auto;
+}
+
+.budget-review-cards {
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+  margin-top: .5rem;
+}
+
 .budget-review-card-row {
   border: 1px solid var(--border, #333);
   border-radius: 4px;
   padding: .4rem .6rem;
   background: var(--bg, #141824);
 }
+
 .budget-review-card-info {
   display: flex;
   flex-wrap: wrap;
@@ -6024,9 +6136,22 @@ footer.site-footer {
   gap: .4rem;
   margin-bottom: .25rem;
 }
-.budget-review-card-name { font-weight: 600; }
-.budget-review-card-price { color: #f5c518; }
-.budget-review-alts { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; }
+
+.budget-review-card-name {
+  font-weight: 600;
+}
+
+.budget-review-card-price {
+  color: #f5c518;
+}
+
+.budget-review-alts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .4rem;
+}
+
 .btn-alt-swap {
   font-size: .8rem;
   padding: .2rem .5rem;
@@ -6038,18 +6163,64 @@ footer.site-footer {
   align-items: center;
   gap: .3rem;
 }
-.btn-alt-swap:hover { background: var(--hover, #252d3d); }
-.alt-price { color: #34d399; font-size: .75rem; }
-.budget-review-no-alts { font-size: .8rem; }
-.budget-review-subtitle { font-size: .85rem; margin-bottom: .5rem; }
-.budget-review-actions { display: flex; flex-wrap: wrap; gap: .5rem; }
-.chip-red { background: rgba(239,68,68,.15); color: #fca5a5; border-color: #ef4444; }
-.chip-green { background: rgba(34,197,94,.15); color: #86efac; border-color: #22c55e; }
-.chip-subtle { background: rgba(148,163,184,.08); color: var(--muted, #94a3b8); border-color: rgba(148,163,184,.2); font-size: .7rem; padding: 1px 6px; }
 
-/* M8: Price category stacked bar */
-.price-cat-section { margin: .6rem 0 .2rem 0; }
-.price-cat-heading { font-size: 12px; color: var(--muted, #94a3b8); margin-bottom: .3rem; font-weight: 600; }
+.btn-alt-swap:hover {
+  background: var(--hover, #252d3d);
+}
+
+.alt-price {
+  color: #34d399;
+  font-size: .75rem;
+}
+
+.budget-review-no-alts {
+  font-size: .8rem;
+}
+
+.budget-review-subtitle {
+  font-size: .85rem;
+  margin-bottom: .5rem;
+}
+
+.budget-review-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+}
+
+.chip-red {
+  background: rgba(239,68,68,.15);
+  color: #fca5a5;
+  border-color: #ef4444;
+}
+
+.chip-green {
+  background: rgba(34,197,94,.15);
+  color: #86efac;
+  border-color: #22c55e;
+}
+
+.chip-subtle {
+  background: rgba(148,163,184,.08);
+  color: var(--muted, #94a3b8);
+  border-color: rgba(148,163,184,.2);
+  font-size: .7rem;
+  padding: 1px 6px;
+}
+
+/* Price category stacked bar */
+
+.price-cat-section {
+  margin: .6rem 0 .2rem 0;
+}
+
+.price-cat-heading {
+  font-size: 12px;
+  color: var(--muted, #94a3b8);
+  margin-bottom: .3rem;
+  font-weight: 600;
+}
+
 .price-cat-bar {
   display: flex;
   height: 18px;
@@ -6058,12 +6229,18 @@ footer.site-footer {
   border: 1px solid var(--border, #333);
   background: var(--panel, #1a1f2e);
 }
+
 .price-cat-seg {
   height: 100%;
   transition: opacity .15s;
   position: relative;
 }
-.price-cat-seg:hover { opacity: .75; cursor: default; }
+
+.price-cat-seg:hover {
+  opacity: .75;
+  cursor: default;
+}
+
 .price-cat-legend {
   display: flex;
   flex-wrap: wrap;
@@ -6072,12 +6249,33 @@ footer.site-footer {
   font-size: 11px;
   color: var(--muted, #94a3b8);
 }
-.price-cat-legend-item { display: flex; align-items: center; gap: .3rem; }
-.price-cat-swatch { width: 9px; height: 9px; border-radius: 2px; flex-shrink: 0; }
 
-/* M8: Price histogram bars */
-.price-hist-section { margin: .75rem 0 .2rem 0; }
-.price-hist-heading { font-size: 12px; color: var(--muted, #94a3b8); margin-bottom: .3rem; font-weight: 600; }
+.price-cat-legend-item {
+  display: flex;
+  align-items: center;
+  gap: .3rem;
+}
+
+.price-cat-swatch {
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+/* Price histogram bars */
+
+.price-hist-section {
+  margin: .75rem 0 .2rem 0;
+}
+
+.price-hist-heading {
+  font-size: 12px;
+  color: var(--muted, #94a3b8);
+  margin-bottom: .3rem;
+  font-weight: 600;
+}
+
 .price-hist-bars {
   display: flex;
   align-items: flex-end;
@@ -6085,6 +6283,7 @@ footer.site-footer {
   height: 80px;
   margin-bottom: 0;
 }
+
 .price-hist-column {
   flex: 1;
   display: flex;
@@ -6095,18 +6294,24 @@ footer.site-footer {
   cursor: pointer;
   transition: opacity .15s;
 }
-.price-hist-column:hover { opacity: .8; }
+
+.price-hist-column:hover {
+  opacity: .8;
+}
+
 .price-hist-bar {
   width: 100%;
   border-radius: 3px 3px 0 0;
   min-height: 2px;
 }
+
 .price-hist-xlabels {
   display: flex;
   gap: 3px;
   margin-top: 2px;
   margin-bottom: .25rem;
 }
+
 .price-hist-xlabel {
   flex: 1;
   font-size: 10px;
@@ -6116,10 +6321,104 @@ footer.site-footer {
   word-break: break-all;
   line-height: 1.2;
 }
-.price-hist-count { font-size: 11px; color: var(--muted, #94a3b8); margin-top: .1rem; }
 
-/* M9: Stale price indicators */
-.stale-price-indicator { position: absolute; top: 4px; right: 4px; font-size: 10px; color: #f59e0b; cursor: default; pointer-events: auto; z-index: 2; }
-.stale-price-badge { font-size: 10px; color: #f59e0b; margin-left: 2px; vertical-align: middle; cursor: default; }
-.stale-banner { background: rgba(245,158,11,.08); border: 1px solid rgba(245,158,11,.35); border-radius: 6px; padding: .4rem .75rem; font-size: 12px; color: #f59e0b; margin-bottom: .6rem; }
+.price-hist-count {
+  font-size: 11px;
+  color: var(--muted, #94a3b8);
+  margin-top: .1rem;
+}
+
+/* Stale price indicators */
+
+.stale-price-indicator {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  font-size: 10px;
+  color: #f59e0b;
+  cursor: default;
+  pointer-events: auto;
+  z-index: 2;
+}
+
+.stale-price-badge {
+  font-size: 10px;
+  color: #f59e0b;
+  margin-left: 2px;
+  vertical-align: middle;
+  cursor: default;
+}
+
+.stale-banner {
+  background: rgba(245,158,11,.08);
+  border: 1px solid rgba(245,158,11,.35);
+  border-radius: 6px;
+  padding: .4rem .75rem;
+  font-size: 12px;
+  color: #f59e0b;
+  margin-bottom: .6rem;
+}
+
+/* Running budget chip */
+
+.running-budget-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: .3rem;
+  padding: .2rem .6rem;
+  border-radius: 999px;
+  font-size: .82rem;
+  font-weight: 600;
+  border: 1px solid var(--border, #444);
+  background: var(--panel, #1a1f2e);
+  color: var(--text, #e5e7eb);
+  white-space: nowrap;
+}
+
+/* Pickups table */
+
+.pickups-table th,
+.pickups-table td {
+  font-size: .92rem;
+}
+
+.hover\:text-gray-700:hover {
+  --tw-text-opacity: 1;
+  color: rgb(55 65 81 / var(--tw-text-opacity, 1));
+}
+
+.hover\:opacity-100:hover {
+  opacity: 1;
+}
+
+@media (prefers-color-scheme: dark) {
+  .dark\:border-gray-700 {
+    --tw-border-opacity: 1;
+    border-color: rgb(55 65 81 / var(--tw-border-opacity, 1));
+  }
+
+  .dark\:bg-gray-800\/50 {
+    background-color: rgb(31 41 55 / 0.5);
+  }
+
+  .dark\:text-gray-300 {
+    --tw-text-opacity: 1;
+    color: rgb(209 213 219 / var(--tw-text-opacity, 1));
+  }
+
+  .dark\:text-gray-400 {
+    --tw-text-opacity: 1;
+    color: rgb(156 163 175 / var(--tw-text-opacity, 1));
+  }
+
+  .dark\:text-gray-500 {
+    --tw-text-opacity: 1;
+    color: rgb(107 114 128 / var(--tw-text-opacity, 1));
+  }
+
+  .dark\:hover\:text-gray-300:hover {
+    --tw-text-opacity: 1;
+    color: rgb(209 213 219 / var(--tw-text-opacity, 1));
+  }
+}
 

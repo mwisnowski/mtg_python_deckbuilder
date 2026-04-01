@@ -2,7 +2,9 @@
 {% block content %}
 {% set enable_ui = random_ui %}
 <section id="random-modes" aria-labelledby="random-heading">
-  <h2 id="random-heading">Random Modes</h2>
+  <div class="page-header">
+    <h2 id="random-heading">Random</h2>
+  </div>
   {% if not enable_ui %}
     <div class="notice" role="status">Random UI is disabled. Set <code>RANDOM_UI=1</code> to enable.</div>
   {% else %}
@@ -29,6 +31,7 @@
             <span id="theme-tooltip-text" class="sr-only">Explain theme fallback order</span>
             <div id="theme-tooltip-panel" class="tooltip-panel" role="dialog" aria-modal="false">
               <p>We attempt your Primary + Secondary + Tertiary first. If that has no hits, we relax to Primary + Secondary, then Primary + Tertiary, Primary only, synergy overlap, and finally the full pool.</p>
+              <p style="margin-top:6px;"><a href="/help/random_build#multi-theme-fallback-cascade" target="_blank" rel="noopener noreferrer" style="color:var(--primary,#6366f1); font-size:11px;">Full guide &rarr;</a></p>
             </div>
           </span>
         </span>

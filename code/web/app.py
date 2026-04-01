@@ -2342,6 +2342,7 @@ from .routes import card_browser as card_browser_routes  # noqa: E402
 from .routes import compare as compare_routes  # noqa: E402
 from .routes import api as api_routes  # noqa: E402
 from .routes import price as price_routes  # noqa: E402
+from .routes import docs as docs_routes  # noqa: E402
 app.include_router(build_routes.router)
 app.include_router(build_validation_routes.router, prefix="/build")
 app.include_router(build_multicopy_routes.router, prefix="/build")
@@ -2364,6 +2365,7 @@ app.include_router(telemetry_routes.router)
 app.include_router(cards_routes.router)
 app.include_router(card_browser_routes.router)
 app.include_router(compare_routes.router)
+app.include_router(docs_routes.router)
 app.include_router(api_routes.router)
 app.include_router(price_routes.router)
 

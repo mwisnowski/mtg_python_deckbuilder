@@ -1,10 +1,10 @@
 {% extends "base.html" %}
 {% block content %}
-<h2>Build from JSON</h2>
+<div class="page-header">
+  <h2>Build from JSON</h2>
+  <p class="muted">Run a non-interactive deck build using a saved JSON configuration. Upload a JSON file, view its details, or run it headlessly to generate deck exports and a build summary.</p>
+</div>
 <div style="display:grid; grid-template-columns: 1fr minmax(360px, 520px); gap:16px; align-items:start;">
-  <p class="muted" style="max-width: 70ch; margin:0;">
-    Run a non-interactive deck build using a saved JSON configuration. Upload a JSON file, view its details, or run it headlessly to generate deck exports and a build summary.
-  </p>
   <div>
     <div style="display:flex; justify-content:space-between; align-items:center;">
       <strong style="font-size:14px;">Example: {{ example_name }}</strong>

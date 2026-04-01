@@ -48,7 +48,7 @@
         {% include "build/_new_deck_additional_themes.html" %}
         {% endif %}
         <div class="mt-2" id="newdeck-bracket-slot">
-          <label>Bracket
+          <label><span style="display:inline-flex; align-items:center; gap:4px;">Bracket <span class="help-tip"><button type="button" class="help-tip-btn" data-tip="Restricts deck picks to the power-level rules for that bracket tier." data-tip-href="/help/bracket_compliance#bracket-tiers" aria-label="Bracket compliance help"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true" width="11" height="11"><circle cx="8" cy="8" r="6.5"/><line x1="8" y1="7" x2="8" y2="10.5" stroke-linecap="round"/><circle cx="8" cy="4.5" r="0.75" fill="currentColor" stroke="none"/></svg></button></span></span>
             <select name="bracket">
               {% for b in brackets %}
                 {% if not gc_commander or b.level >= 3 %}
@@ -89,12 +89,12 @@
             </div>
             <label for="pref-mc-chk" class="form-checkbox-label" title="When enabled, include a Multi-Copy package for matching archetypes (e.g., tokens/tribal).">
               <input type="checkbox" name="enable_multicopy" id="pref-mc-chk" value="1" {% if form and form.enable_multicopy %}checked{% endif %} />
-              <span>Enable Multi-Copy package</span>
+              <span>Enable Multi-Copy package <span class="help-tip"><button type="button" class="help-tip-btn" data-tip="Includes multiple copies of a single archetype card (tokens, slivers, etc.)." data-tip-href="/help/multi_copy" aria-label="Multi-Copy package help"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true" width="11" height="11"><circle cx="8" cy="8" r="6.5"/><line x1="8" y1="7" x2="8" y2="10.5" stroke-linecap="round"/><circle cx="8" cy="4.5" r="0.75" fill="currentColor" stroke="none"/></svg></button></span></span>
             </label>
-            <div class="flex flex-col gap-2 mt-3">
+            <div class="flex flex-col gap-2">
               <label for="use-owned-chk" class="form-checkbox-label" title="Limit the pool to cards you already own. Cards outside your owned library will be skipped.">
                 <input type="checkbox" name="use_owned_only" id="use-owned-chk" value="1" {% if form and form.use_owned_only %}checked{% endif %} />
-                <span>Use only owned cards</span>
+                <span>Use only owned cards <span class="help-tip"><button type="button" class="help-tip-btn" data-tip="Limits card picks to your uploaded owned-card library only." data-tip-href="/help/owned_cards#build-modes" aria-label="Owned cards help"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true" width="11" height="11"><circle cx="8" cy="8" r="6.5"/><line x1="8" y1="7" x2="8" y2="10.5" stroke-linecap="round"/><circle cx="8" cy="4.5" r="0.75" fill="currentColor" stroke="none"/></svg></button></span></span>
               </label>
               <label for="prefer-owned-chk" class="form-checkbox-label" title="Still allow unowned cards, but rank owned cards higher when choosing picks.">
                 <input type="checkbox" name="prefer_owned" id="prefer-owned-chk" value="1" {% if form and form.prefer_owned %}checked{% endif %} />
@@ -106,7 +106,7 @@
               </label>
               <label for="smart-lands-chk" class="form-checkbox-label" title="When enabled, the builder automatically adjusts the land count and mana-base profile based on your commander's speed and color complexity.">
                 <input type="checkbox" name="enable_smart_lands" id="smart-lands-chk" value="1" {% if form and form.enable_smart_lands %}checked{% endif %} />
-                <span>Smart Land Bases</span>
+                <span>Smart Land Bases <span class="help-tip"><button type="button" class="help-tip-btn" data-tip="Auto-adjusts land count and mana profile based on commander speed and color complexity." data-tip-href="/help/land_bases#speed-categories-land-counts" aria-label="Smart Land Bases help"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true" width="11" height="11"><circle cx="8" cy="8" r="6.5"/><line x1="8" y1="7" x2="8" y2="10.5" stroke-linecap="round"/><circle cx="8" cy="4.5" r="0.75" fill="currentColor" stroke="none"/></svg></button></span></span>
               </label>
             </div>
           </div>
@@ -115,7 +115,7 @@
       {% include "build/_new_deck_ideals.html" %}
       {% if allow_must_haves %}
       <fieldset>
-        <legend>Include/Exclude Cards</legend>
+        <legend>Include/Exclude Cards <span class="help-tip"><button type="button" class="help-tip-btn" data-tip="Force specific cards into or out of your deck before the build runs." data-tip-href="/help/include_exclude#adding-cards" aria-label="Include/Exclude help"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true" width="11" height="11"><circle cx="8" cy="8" r="6.5"/><line x1="8" y1="7" x2="8" y2="10.5" stroke-linecap="round"/><circle cx="8" cy="4.5" r="0.75" fill="currentColor" stroke="none"/></svg></button></span></legend>
         <div class="include-exclude-grid">
           <!-- Include Cards Column (Left, Green) -->
           <div>
@@ -214,7 +214,7 @@
       {% include "build/_new_deck_skip_controls.html" %}
       {% if enable_budget_mode %}
       <fieldset>
-        <legend>Budget</legend>
+        <legend>Budget <span class="help-tip"><button type="button" class="help-tip-btn" data-tip="Set deck and per-card price ceilings. Over-budget cards are flagged during the build." data-tip-href="/help/budget_mode#setting-a-budget" aria-label="Budget mode help"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true" width="11" height="11"><circle cx="8" cy="8" r="6.5"/><line x1="8" y1="7" x2="8" y2="10.5" stroke-linecap="round"/><circle cx="8" cy="4.5" r="0.75" fill="currentColor" stroke="none"/></svg></button></span></legend>
         <div class="flex flex-col gap-3">
           <label class="block">
             <span>Total budget ($)</span>
@@ -270,6 +270,7 @@
         <button type="button" class="btn" onclick="this.closest('.modal').remove()">Cancel</button>
         <div class="modal-footer-left">
           <button type="submit" name="quick_build" value="1" class="btn-continue" id="quick-build-btn" title="Build entire deck automatically without approval steps">Quick Build</button>
+          <span class="help-tip" style="margin-left:6px;"><button type="button" class="help-tip-btn" data-tip="Builds the complete deck in one step without step-by-step approval prompts." data-tip-href="/help/quick_build_skip_controls#quick-build" aria-label="Quick Build help"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true" width="11" height="11"><circle cx="8" cy="8" r="6.5"/><line x1="8" y1="7" x2="8" y2="10.5" stroke-linecap="round"/><circle cx="8" cy="4.5" r="0.75" fill="currentColor" stroke="none"/></svg></button></span>
           <button type="submit" class="btn-continue" id="create-btn">Build Deck</button>
         </div>
       </div>

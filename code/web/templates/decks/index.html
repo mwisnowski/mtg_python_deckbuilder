@@ -1,8 +1,10 @@
 {% extends "base.html" %}
 {% block banner_subtitle %}Finished Decks{% endblock %}
 {% block content %}
-<h2 id="decks-heading">Finished Decks</h2>
-<p class="muted">These are exported decklists from previous runs. Open a deck to view the final summary, download CSV/TXT, and inspect card types and curve.</p>
+<div class="page-header">
+  <h2 id="decks-heading">Finished Decks</h2>
+  <p class="muted">These are exported decklists from previous runs. Open a deck to view the final summary, download CSV/TXT, and inspect card types and curve.</p>
+</div>
 
 {% if error %}
   <div class="error">{{ error }}</div>

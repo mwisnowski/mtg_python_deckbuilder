@@ -17,14 +17,21 @@ Enable the theme selector and browser with `ENABLE_THEMES=1` (default: on).
 Each theme card in the browser displays up to three badge types:
 
 ### Quality Badge (`SHOW_THEME_QUALITY_BADGES=1`)
-Editorial quality score based on synergy depth, card count, and thematic coherence. Assigned during catalog curation.
+Automatically computed score based on four factors, normalized to 0–100:
 
-| Badge | Meaning |
-|-------|---------|
-| Excellent | Strong synergy, large pool, well-curated |
-| Good | Solid theme with reasonable card support |
-| Fair | Usable but limited pool or marginal synergy |
-| Poor | Sparse pool or weak theme coherence |
+| Factor | Max points | What it measures |
+|--------|-----------|------------------|
+| Card synergy quality | 30 | EDHREC rank and synergy data richness for the theme's example cards |
+| Uniqueness ratio | 40 | Fraction of theme cards that appear in fewer than 25% of all themes |
+| Description quality | 20 | Manual editorial description (10 pts), auto-generated rule (5 pts), generic (0 pts) |
+| Curation bonus | 10 | Theme has hand-curated synergy data |
+
+| Badge | Score threshold | Meaning |
+|-------|----------------|---------|
+| Excellent | ≥ 75 / 100 | Strong synergy, distinctive card pool, well-curated |
+| Good | 60–74 | Solid theme with reasonable card support |
+| Fair | 40–59 | Usable but limited pool or marginal synergy |
+| Poor | < 40 | Sparse pool or weak theme coherence |
 
 ### Pool Size Badge (`SHOW_THEME_POOL_BADGES=1`)
 Number of on-theme cards available in the catalog.
@@ -102,3 +109,11 @@ docker compose run --rm --entrypoint bash web -lc "python -m code.scripts.build_
 # Local:
 python -m code.scripts.build_theme_catalog
 ```
+
+---
+
+## See Also
+
+- [Build Wizard](build_wizard.md) — how themes are selected and used during the build workflow
+- [Random Build](random_build.md) — use themes as constraints for randomized commander selection
+- [Partner Mechanics](partner_mechanics.md) — finding themes that work across both commanders' color identity

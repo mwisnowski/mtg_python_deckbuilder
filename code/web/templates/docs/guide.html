@@ -1,0 +1,588 @@
+{% extends "base.html" %}
+{% from 'partials/_buttons.html' import button %}
+
+{% block title %}{{ page_title }} - MTG Deckbuilder{% endblock %}
+
+{% block content %}
+<!-- Mobile guide nav toggle (must be outside sidebar due to CSS transform/fixed positioning) -->
+<button class="docs-sidebar-toggle" id="docsMobileToggle" aria-label="Toggle guide navigation" aria-expanded="false">
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+    <line x1="3" y1="12" x2="21" y2="12"></line>
+    <line x1="3" y1="6" x2="21" y2="6"></line>
+    <line x1="3" y1="18" x2="21" y2="18"></line>
+  </svg>
+</button>
+
+<div class="docs-layout">
+  
+  <!-- Sidebar navigation -->
+  <aside class="docs-sidebar" id="docsSidebar">
+    
+    <div class="docs-sidebar-header">
+      <h3>Documentation</h3>
+      {{ button('← All Guides', variant='ghost', href='/help', size='sm', classes='docs-back-link') }}
+    </div>
+    
+    <!-- Table of contents for current guide -->
+    {% if toc_html %}
+    <div class="docs-toc">
+      <h4 class="docs-toc-title">On This Page</h4>
+      <div class="docs-toc-content">
+        {{ toc_html | safe }}
+      </div>
+    </div>
+    {% endif %}
+    
+    <!-- All guides navigation (collapsible, collapsed by default if TOC present) -->
+    <details class="docs-all-guides" {% if not toc_html %}open{% endif %}>
+      <summary class="docs-all-guides-toggle">All Guides</summary>
+      <nav class="docs-nav" aria-label="Documentation navigation">
+        {% for guide in all_guides %}
+        <a 
+          href="/help/{{ guide.name }}" 
+          class="docs-nav-item {% if guide.name == guide_name %}active{% endif %}"
+          {% if guide.name == guide_name %}aria-current="page"{% endif %}
+        >
+          {{ guide.title }}
+        </a>
+        {% endfor %}
+      </nav>
+    </details>
+  </aside>
+
+  <!-- Main content -->
+  <main class="docs-content">
+    <article class="docs-article">
+      
+      <!-- Guide header -->
+      <header class="docs-header">
+        <h1>{{ guide_title }}</h1>
+        {% if guide_description %}
+        <p class="docs-description">{{ guide_description }}</p>
+        {% endif %}
+      </header>
+
+      <!-- Rendered markdown content -->
+      <div class="docs-body markdown-content">
+        {{ html_content | safe }}
+      </div>
+
+      <!-- Footer navigation -->
+      <footer class="docs-footer">
+        {{ button('← Back to All Guides', variant='primary', href='/help', size='md') }}
+      </footer>
+
+    </article>
+  </main>
+
+</div>
+
+<style>
+/* Layout */
+.docs-layout {
+  display: grid;
+  grid-template-columns: minmax(280px, 320px) 1fr;
+  gap: 2rem;
+  max-width: 1400px;
+  margin: 0;
+  margin-right: auto;
+  padding: 2rem 1rem;
+  min-height: calc(100vh - 120px);
+  align-items: start;
+}
+
+/* Sidebar */
+.docs-sidebar {
+  position: sticky;
+  top: 1rem;
+  height: auto;
+  max-height: none;
+  overflow-y: visible;
+  padding: 1rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.docs-sidebar-header {
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.docs-sidebar-header h3 {
+  margin: 0 0 0.75rem 0;
+  font-size: 1.1rem;
+  color: var(--text);
+}
+
+.docs-back-link {
+  width: 100%;
+  justify-content: flex-start;
+}
+
+/* Table of contents */
+.docs-toc {
+  margin-bottom: 1.5rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.docs-toc-title {
+  margin: 0 0 0.75rem 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.docs-toc-content {
+  font-size: 0.9rem;
+}
+
+.docs-toc-content ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.docs-toc-content li {
+  margin: 0;
+  padding: 0;
+}
+
+.docs-toc-content a {
+  display: block;
+  padding: 0.4rem 0.5rem;
+  color: var(--text-muted);
+  text-decoration: none;
+  border-radius: 4px;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.docs-toc-content a:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.docs-toc-content a:focus {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* Nested TOC items (H3, H4, etc.) */
+.docs-toc-content ul ul {
+  padding-left: 0.75rem;
+  margin-top: 0.25rem;
+}
+
+/* All guides collapsible section */
+.docs-all-guides {
+  margin-top: 1rem;
+}
+
+.docs-all-guides-toggle {
+  cursor: pointer;
+  padding: 0.5rem 0.5rem 0.75rem 0.5rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  user-select: none;
+  list-style: none;
+  border-bottom: 1px solid var(--border);
+  transition: color 0.2s;
+}
+
+.docs-all-guides-toggle:hover {
+  color: var(--text);
+}
+
+.docs-all-guides-toggle::-webkit-details-marker {
+  display: none;
+}
+
+.docs-all-guides-toggle::before {
+  content: '▼';
+  display: inline-block;
+  margin-right: 0.5rem;
+  font-size: 0.7rem;
+  transition: transform 0.2s;
+}
+
+.docs-all-guides:not([open]) .docs-all-guides-toggle::before {
+  transform: rotate(-90deg);
+}
+
+.docs-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.docs-nav-item {
+  padding: 0.5rem 0.75rem;
+  color: var(--text-muted);
+  text-decoration: none;
+  border-radius: 4px;
+  font-size: 0.95rem;
+  transition: background-color 0.2s, color 0.2s, transform 0.1s;
+}
+
+.docs-nav-item:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+  transform: translateX(2px);
+}
+
+.docs-nav-item:focus {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.docs-nav-item.active {
+  background: var(--primary);
+  color: white;
+  font-weight: 600;
+}
+
+.docs-nav-item.active:focus {
+  outline-color: var(--text);
+}
+
+/* Main content */
+.docs-content {
+  min-width: 0; /* Prevent grid overflow */
+}
+
+.docs-article {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 2rem;
+}
+
+.docs-header {
+  padding-bottom: 1.5rem;
+  border-bottom: 2px solid var(--border);
+  margin-bottom: 2rem;
+}
+
+.docs-header h1 {
+  margin: 0 0 0.5rem 0;
+  font-size: 2rem;
+  color: var(--text);
+}
+
+.docs-description {
+  color: var(--text-muted);
+  margin: 0;
+  font-size: 1.05rem;
+  line-height: 1.6;
+}
+
+.docs-body {
+  line-height: 1.7;
+  color: var(--text);
+}
+
+.docs-footer {
+  margin-top: 3rem;
+  padding-top: 2rem;
+  border-top: 1px solid var(--border);
+}
+
+/* Markdown content styling */
+.markdown-content h1,
+.markdown-content h2,
+.markdown-content h3,
+.markdown-content h4,
+.markdown-content h5,
+.markdown-content h6 {
+  margin-top: 1.5em;
+  margin-bottom: 0.75em;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--text);
+  scroll-margin-top: 68px; /* banner height (52px) + breathing room */
+}
+
+.markdown-content h1 { font-size: 1.8rem; border-bottom: 2px solid var(--border); padding-bottom: 0.3em; }
+.markdown-content h2 { font-size: 1.5rem; border-bottom: 1px solid var(--border); padding-bottom: 0.25em; }
+.markdown-content h3 { font-size: 1.25rem; }
+.markdown-content h4 { font-size: 1.1rem; }
+.markdown-content h5 { font-size: 1rem; }
+.markdown-content h6 { font-size: 0.95rem; color: var(--text-muted); }
+
+.markdown-content p {
+  margin: 1em 0;
+}
+
+.markdown-content a {
+  color: var(--primary);
+  text-decoration: underline;
+  transition: color 0.2s;
+}
+
+.markdown-content a:hover {
+  color: var(--primary-hover);
+}
+
+.markdown-content ul,
+.markdown-content ol {
+  margin: 1em 0;
+  padding-left: 2em;
+}
+
+.markdown-content li {
+  margin: 0.5em 0;
+}
+
+.markdown-content code {
+  background: var(--surface-alt);
+  padding: 0.2em 0.4em;
+  border-radius: 3px;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 0.9em;
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+.markdown-content pre {
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 1em;
+  overflow-x: auto;
+  margin: 1em 0;
+}
+
+.markdown-content pre code {
+  background: none;
+  padding: 0;
+  border: none;
+  font-size: 0.9em;
+  display: block;
+}
+
+.markdown-content blockquote {
+  border-left: 4px solid var(--primary);
+  padding-left: 1em;
+  margin: 1em 0;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.markdown-content table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1em 0;
+  border: 1px solid var(--border);
+}
+
+.markdown-content th,
+.markdown-content td {
+  border: 1px solid var(--border);
+  padding: 0.75em;
+  text-align: left;
+}
+
+.markdown-content th {
+  background: var(--surface-alt);
+  font-weight: 600;
+}
+
+.markdown-content tr:nth-child(even) {
+  background: var(--surface-hover);
+}
+
+.markdown-content img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 4px;
+  margin: 1em 0;
+}
+
+.markdown-content hr {
+  border: none;
+  border-top: 2px solid var(--border);
+  margin: 2em 0;
+}
+
+/* Mobile responsive */
+/* Sidebar toggle tab (integrated into sidebar) */
+.docs-sidebar-toggle {
+  display: none; /* Hidden on desktop */
+}
+
+@media (max-width: 968px) {
+  /* Toggle is a fixed sibling of sidebar - visible regardless of sidebar transform */
+  .docs-sidebar-toggle {
+    display: flex;
+    position: fixed;
+    top: 60px; /* Below banner */
+    left: 0;
+    z-index: 100;
+    background: var(--surface-sidebar);
+    color: var(--surface-sidebar-text);
+    border: 1px solid var(--border);
+    border-left: none;
+    border-radius: 0 6px 6px 0;
+    padding: 0.75rem 0.5rem;
+    cursor: pointer;
+    box-shadow: 2px 0 8px rgba(0, 0, 0, 0.3);
+    transition: left 0.3s ease-in-out, border-radius 0.3s;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .docs-sidebar-toggle:hover {
+    background: color-mix(in srgb, var(--surface-sidebar) 85%, var(--surface-sidebar-text) 15%);
+  }
+
+  /* When sidebar is open, shift toggle to be at edge of open sidebar */
+  .docs-sidebar-toggle.sidebar-open {
+    left: 280px;
+    border-radius: 0 6px 6px 0;
+    border-left: none;
+  }
+
+  .docs-layout {
+    grid-template-columns: 1fr;
+    padding: 1rem;
+  }
+
+  .docs-sidebar {
+    position: fixed;
+    top: 52px; /* Below top banner */
+    left: 0;
+    width: 280px;
+    height: calc(100vh - 52px);
+    z-index: 50;
+    max-height: none;
+    margin-bottom: 0;
+    border-radius: 0;
+    border-left: none;
+    border-top: none;
+    border-bottom: none;
+    background: var(--surface-sidebar);
+    color: var(--surface-sidebar-text);
+    box-shadow: 2px 0 8px rgba(0, 0, 0, 0.3);
+    transform: translateX(-100%);
+    transition: transform 0.3s ease-in-out;
+    overflow-y: auto;
+  }
+
+  .docs-sidebar.mobile-open {
+    transform: translateX(0);
+  }
+
+  /* Backdrop when sidebar is open */
+  .docs-sidebar::before {
+    content: '';
+    position: fixed;
+    top: 52px;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s;
+    z-index: -1;
+  }
+
+  .docs-sidebar.mobile-open::before {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  /* Sidebar content (not the toggle) */
+  .docs-sidebar-header,
+  .docs-toc,
+  .docs-all-guides {
+    position: relative;
+    z-index: 1;
+  }
+
+  .docs-article {
+    padding: 1.5rem;
+  }
+
+  .docs-header h1 {
+    font-size: 1.5rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .docs-article {
+    padding: 1rem;
+  }
+
+  .markdown-content h1 { font-size: 1.5rem; }
+  .markdown-content h2 { font-size: 1.25rem; }
+  .markdown-content h3 { font-size: 1.1rem; }
+}
+</style>
+
+<script>
+// Smooth anchor scrolling
+document.addEventListener('DOMContentLoaded', function() {
+  const links = document.querySelectorAll('.markdown-content a[href^="#"], .docs-toc-content a[href^="#"]');
+  links.forEach(link => {
+    link.addEventListener('click', function(e) {
+      e.preventDefault();
+      const target = document.querySelector(this.getAttribute('href'));
+      if (target) {
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        
+        // Close mobile sidebar after navigation
+        if (window.innerWidth <= 968) {
+          const sidebar = document.getElementById('docsSidebar');
+          const toggleButton = document.getElementById('docsMobileToggle');
+          if (sidebar && toggleButton) {
+            sidebar.classList.remove('mobile-open');
+            toggleButton.classList.remove('sidebar-open');
+            toggleButton.setAttribute('aria-expanded', 'false');
+          }
+        }
+      }
+    });
+  });
+  
+  // Mobile sidebar toggle
+  const toggleButton = document.getElementById('docsMobileToggle');
+  const sidebar = document.getElementById('docsSidebar');
+  
+  if (toggleButton && sidebar) {
+    toggleButton.addEventListener('click', function(e) {
+      e.stopPropagation();
+      const isOpen = sidebar.classList.toggle('mobile-open');
+      toggleButton.classList.toggle('sidebar-open', isOpen);
+      toggleButton.setAttribute('aria-expanded', isOpen);
+    });
+    
+    // Close sidebar when clicking backdrop
+    sidebar.addEventListener('click', function(e) {
+      if (e.target === sidebar || e.target.classList.contains('docs-sidebar')) {
+        sidebar.classList.remove('mobile-open');
+        toggleButton.classList.remove('sidebar-open');
+        toggleButton.setAttribute('aria-expanded', 'false');
+      }
+    });
+    
+    // Close sidebar on escape key
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape' && sidebar.classList.contains('mobile-open')) {
+        sidebar.classList.remove('mobile-open');
+        toggleButton.classList.remove('sidebar-open');
+        toggleButton.setAttribute('aria-expanded', 'false');
+      }
+    });
+  }
+});
+</script>
+{% endblock %}

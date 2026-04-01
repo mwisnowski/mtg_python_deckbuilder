@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% from 'partials/_buttons.html' import button %}
+{% from 'partials/_panels.html' import simple_panel %}
+
+{% block title %}{{ page_title }} - MTG Deckbuilder{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h2>Documentation</h2>
+  <p class="muted">User guides and feature documentation</p>
+</div>
+
+  {% if guides %}
+  <div class="docs-index">
+    {% for guide in guides %}
+    <div class="doc-card">
+      <h3 class="doc-card-title">
+        <a href="/help/{{ guide.name }}">{{ guide.title }}</a>
+      </h3>
+      {% if guide.description %}
+      <p class="doc-card-description">{{ guide.description }}</p>
+      {% endif %}
+      <div class="doc-card-actions">
+        {{ button('Read Guide →', variant='ghost', href='/help/' + guide.name, size='sm') }}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div style="padding: 2rem; text-align: center; color: var(--text-muted);">
+    <p>No documentation guides available.</p>
+  </div>
+  {% endif %}
+
+<style>
+.docs-index {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1.5rem;
+  margin-top: 0;
+}
+
+.doc-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1.5rem;
+  transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+}
+
+.doc-card:hover {
+  border-color: var(--primary);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transform: translateY(-2px);
+}
+
+.doc-card:focus-within {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.doc-card-title {
+  margin: 0 0 0.75rem 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.doc-card-title a {
+  color: var(--text);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.doc-card-title a:hover {
+  color: var(--primary);
+}
+
+.doc-card-description {
+  color: var(--text-muted);
+  margin: 0 0 1rem 0;
+  line-height: 1.5;
+  font-size: 0.95rem;
+}
+
+.doc-card-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+@media (max-width: 768px) {
+  .docs-index {
+    grid-template-columns: 1fr;
+  }
+}
+</style>
+{% endblock %}

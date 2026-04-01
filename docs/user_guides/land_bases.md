@@ -113,3 +113,11 @@ A **backfill** step at the end of all land phases adds basics from the color ide
 - Smart Lands only adjusts **counts** — the existing land-selection steps (duals, fetches, triples, ETB optimization, etc.) run unchanged on the updated targets.
 - Colorless commanders fall back to `mid` profile with 35 lands (no color identity to analyze).
 - If the analysis fails for any reason, it silently falls back to `mid` profile and fixed 35-land target — builds are never blocked.
+
+---
+
+## See Also
+
+- [Build Wizard](build_wizard.md) — land base options in the context of the full build workflow
+- [Budget Mode](budget_mode.md) — price filtering that affects which lands are available in the pool
+- [Quick Build & Skip Controls](quick_build_skip_controls.md) — skip specific land stages if you want to handle lands manually

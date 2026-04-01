@@ -2,46 +2,24 @@
 
 ## [Unreleased]
 ### Added
-_No unreleased changes yet_
+- **Web documentation portal**: All 13 user guides are now accessible at `/help` directly in the app — no need to navigate to GitHub. A guide index lists every guide with a description; each guide page renders full markdown with heading anchors for deep linking.
+- **In-guide table of contents**: Each guide page displays a sidebar with an auto-generated "On This Page" section linking to all headings in the current guide. Collapses to a hamburger toggle on mobile.
+- **Contextual help links**: Small help icons throughout the build wizard, bracket selector, owned cards mode, partner selection, and other UI areas link directly to the relevant guide section in a new tab — without interrupting the current workflow.
+- **Documentation: Multi-Copy Package guide**: New dedicated guide covers all multi-copy card archetypes, count recommendations, exclusive groups, bracket interaction, and FAQ.
+- **Documentation: See Also cross-links**: All 13 user guides end with a See Also section linking to related guides.
+- **Documentation: FAQ sections**: FAQ sections added to 5 guides (Bracket Compliance, Include/Exclude, Locks/Replace/Permalinks, Owned Cards, Budget Mode).
+- **Documentation: quality scoring and enforcement detail**: `theme_browser.md` documents the 4-factor badge scoring formula; `bracket_compliance.md` includes a full enforcement matrix.
+- **Consistent page headers**: All pages now share a unified header style — same font size, description line, and separator — replacing the previous mix of different heading sizes and layouts.
+- **"Help & Guides" button on home page**: Quick link to the documentation portal from the home page.
 
 ### Changed
-_No unreleased changes yet_
+- **Docker: `docs/` volume mount added**: `docker-compose.yml` and `dockerhub-docker-compose.yml` now mount `./docs` so documentation edits reflect immediately without a container rebuild.
 
 ### Fixed
-- Bug fixes in `theme_preview.py` and `app.py` uncovered by the test suite.
-- Pydantic V2 deprecation warning resolved in `DeckExportRequest`.
+- **Bug: missing `idx` argument** in `project_detail()` call inside `theme_preview.py` caused theme preview pages to crash.
+- **Bug: `build_permalinks` router not mounted** in `app.py` caused all permalink-related endpoints to return 404.
+- **Pydantic V2 deprecation warning** silenced: `DeckExportRequest` now uses `model_config = ConfigDict(...)` instead of the deprecated inner `class Config`.
 
 ### Removed
-- 16 fragmented/stale test files consolidated or deleted; 7 permanently-skipped tests removed.
-
-## [4.4.2] - 2026-03-26
-### Added
-- **Community links**: GitHub, issue tracker, feature request, and DockerHub links in the footer and home page.
-- **Feature request templates**: GitHub issue templates for General Theme Requests, Commander-Specific Theme Requests, and Other Feature Requests.
-- **Feedback prompts**: Inline prompts on the Themes and Commanders pages linking to the relevant request templates.
-
-### Added
-- **Smart Land Bases checkbox**: The New Deck modal now has a **Smart Land Bases** checkbox in the Preferences section (checked by default). Enables or disables smart land analysis per-build without needing environment variables.
-
-### Removed
-- **`ENABLE_SMART_LANDS` environment variable**: Replaced by the per-build checkbox. Use `LAND_PROFILE` or `LAND_COUNT` for headless overrides.
-
-## [4.3.1] - 2026-03-25
-### Added
-- **Smart Land Bases**: Land count and basic-to-dual ratio are now adjusted automatically based on the commander's speed and color-pip intensity. Controlled by `ENABLE_SMART_LANDS=1` (default on in Docker).
-  - **Speed detection**: Commander CMC determines a speed category applied as an offset to the user's configured ideal land count. Fast (CMC < 3) = −2 lands, mid = ±0, slow (CMC > 4) = +2 to +4 scaling with color count.
-  - **Profile selection**: Basics-heavy (~60% basics) for 1–2 color / low-pip decks; Balanced for moderate pip density; Fixing-heavy (minimal basics, more duals/fetches) for 3+ color or high-pip pools (≥15 double-pip or ≥3 triple-or-more-pip cards).
-  - **ETB tapped tolerance** is automatically tightened for fast decks and loosened for slow decks.
-  - **Budget override**: Low-budget 3+ color decks are pushed to basics-heavy automatically.
-  - **Slot earmarking**: Non-land ideal counts are scaled to fit within the remaining slots after the land target is set.
-  - **Backfill**: A final land step pads with basics if any land phase falls short.
-  - Override with `LAND_PROFILE=basics|mid|fixing` or `LAND_COUNT=<n>`. A **Smart Lands** notice in the Land Summary explains the chosen profile.
-
-### Changed
-_No changes_
-
-### Fixed
-_No changes_
-
-### Removed
-_No changes_
+- **16 test files deleted**: 5 stale/broken tests and 11 single-test files merged into their domain equivalents to reduce fragmentation.
+- **7 permanently-skipped tests removed**: 3 obsolete `apply_combo_tags` tests (API changed), 2 obsolete commander catalog tests (parquet architecture), and 2 "run manually" performance tests that never ran in CI.

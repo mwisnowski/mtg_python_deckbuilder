@@ -37,6 +37,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY code/ ./code/
 COPY mypy.ini .
 
+# Copy documentation for web-accessible docs feature
+COPY docs/ ./docs/
+
 # Tailwind source is already in code/web/static/tailwind.css from COPY code/
 # TypeScript sources are in code/web/static/ts/ from COPY code/
 

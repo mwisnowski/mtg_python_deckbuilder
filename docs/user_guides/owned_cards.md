@@ -77,3 +77,27 @@ In headless mode, set the owned card mode via JSON config:
 ```
 
 Use `"prefer_owned": true` for soft weighting, `"owned_only": true` for hard filtering. The two are mutually exclusive; `owned_only` takes precedence if both are set.
+
+---
+
+## FAQ
+
+**My owned card file uploaded but no cards are being filtered — what's wrong?**
+Check that the file is in a supported format (plain text, one card per line, or a standard CSV export). Card names must match the Scryfall canonical name exactly (e.g., "Sol Ring" not "sol ring"). Check the diagnostics page for parse errors.
+
+**Can I use multiple owned card files?**
+Yes. All files in the `owned_cards/` directory are merged automatically. If the same card appears in multiple files, it is counted once.
+
+**Does `prefer_owned` guarantee my owned cards appear in the deck?**
+No — `prefer_owned` adds a weight boost during pool selection, but owned cards compete with the rest of the pool. If you need a specific card guaranteed, add it to Must Include instead.
+
+**What happens if I'm in `owned_only` mode and there aren't enough owned cards in a category?**
+The builder fills the category with the cards available and may produce a deck with fewer cards than the ideal count for that slot. The build summary will note any under-filled categories.
+
+---
+
+## See Also
+
+- [Build Wizard](build_wizard.md) — owned card preferences in the context of the full build flow
+- [Locks, Replace & Permalinks](locks_replace_permalinks.md) — toggle owned-only filtering in the Replace alternatives panel
+- [Budget Mode](budget_mode.md) — combine price limits with owned card filtering for tighter constraints

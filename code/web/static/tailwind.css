@@ -196,6 +196,22 @@ body.htmx-settling *{ transition-duration: 0s !important; }
 }
 .card-preview.card-sm{ max-width:200px; }
 
+/* Page header - consistent section heading across all pages */
+.page-header {
+	margin-bottom: 1.25rem;
+	padding-bottom: 1rem;
+	border-bottom: 1px solid var(--border);
+}
+.page-header > h2 {
+	font-size: 1.5rem;
+	font-weight: 600;
+	margin: 0 0 0.25rem 0;
+}
+.page-header > p {
+	font-size: 0.9rem;
+	margin: 0;
+}
+
 /* Buttons, inputs */
 button{ background: var(--blue-main); color:#fff; border:none; border-radius:6px; padding:.45rem .7rem; cursor:pointer; }
 button:hover{ filter:brightness(1.05); }
@@ -3376,6 +3392,64 @@ img.lqip.loaded { filter: blur(0); opacity: 1; }
 	font-size: 10px;
 	padding: 2px 5px;
 	border-radius: 10px;
+}
+
+/* Contextual help tooltips — shared fixed panel avoids overflow clipping */
+.help-tip {
+	position: relative;
+	display: inline-flex;
+	align-items: center;
+	vertical-align: middle;
+}
+.help-tip-btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 14px;
+	height: 14px;
+	color: var(--text-muted);
+	background: none;
+	border: 1px solid var(--border);
+	border-radius: 50%;
+	cursor: pointer;
+	padding: 0;
+	flex-shrink: 0;
+	transition: color 0.15s, border-color 0.15s;
+}
+.help-tip-btn:hover {
+	color: var(--primary);
+	border-color: var(--primary);
+}
+.help-tip-btn:focus-visible {
+	outline: 2px solid var(--primary);
+	outline-offset: 2px;
+}
+.help-tip-panel {
+	position: fixed;
+	display: none;
+	background: var(--panel);
+	color: var(--text);
+	border: 1px solid var(--border);
+	border-radius: 8px;
+	padding: 8px 10px;
+	font-size: 12px;
+	line-height: 1.45;
+	width: 200px;
+	box-shadow: 0 4px 14px rgba(0,0,0,.35);
+	z-index: 9999;
+	white-space: normal;
+	text-align: left;
+	font-weight: normal;
+}
+.help-tip-panel a {
+	color: var(--primary);
+	font-size: 11px;
+	text-decoration: none;
+	display: block;
+	margin-top: 5px;
+}
+.help-tip-panel a:hover {
+	text-decoration: underline;
 }
 
 .pin-btn {

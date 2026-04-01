@@ -60,8 +60,10 @@
 </style>
 
 <section class="card-browser-container">
-  <h3>Card Browser</h3>
-  <p class="muted">Browse all {{ total_cards }} cards with filters and search.</p>
+  <div class="page-header">
+    <h2>All Cards</h2>
+    <p class="muted">Browse all {{ total_cards }} cards with filters and search.</p>
+  </div>
 
   {# Error message #}
   {% if error %}

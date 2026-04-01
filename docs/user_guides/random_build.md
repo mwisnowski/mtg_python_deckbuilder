@@ -32,6 +32,30 @@ If a specific theme combination cannot be satisfied (too few on-theme cards for 
 
 ---
 
+## Multi-Theme Fallback Cascade
+
+When you specify multiple themes (Primary + Secondary + Tertiary), the builder attempts to find commanders matching all themes using a **fallback cascade**. This ensures you get a valid commander even when exact combinations don't exist:
+
+**Fallback Order** (AND logic):
+1. **Primary + Secondary + Tertiary** — Exact match (all 3 themes)
+2. **Primary + Secondary** — Drop tertiary theme
+3. **Primary + Tertiary** — Drop secondary theme (treat tertiary as secondary)
+4. **Primary only** — Use only the primary theme
+5. **Synergy fallback** — Find commanders with theme tag overlap/token substring matches with Primary
+6. **Full pool fallback** — Any commander (last resort)
+
+**Fallback Notices:**
+- **Combo Fallback** (blue/info): One or more themes were dropped (combinations 2-4). The builder found a commander but couldn't match all requested themes.
+- **Synergy Fallback** (amber/warning): Exact theme match failed; using commanders with overlapping keywords/tokens from your primary theme.
+- **Full Pool Fallback** (strong warning): No theme matches found; falling back to the entire commander pool. Your theme inputs were too restrictive.
+
+**Example:**
+- Request: `Primary: Aggro`, `Secondary: Tokens`, `Tertiary: Goblins`
+- If no commander has all three tags, the builder tries `Aggro + Tokens`, then `Aggro + Goblins`, then `Aggro` only
+- Fallback reason is displayed clearly in the result, explaining which combination was used
+
+---
+
 ## Reproducible Builds (Seeds)
 
 Set `RANDOM_SEED` to any integer or string to produce the same commander + theme combination every time:
@@ -87,3 +111,11 @@ File path takes precedence over the inline `RANDOM_CONSTRAINTS` value.
 | `RANDOM_TELEMETRY` | `0` | Enable lightweight timing and attempt count metrics. |
 
 For rate limiting random endpoints see the [Docker guide](../../DOCKER.md) — Random rate limiting section.
+
+---
+
+## See Also
+
+- [Theme Browser](theme_browser.md) — explore and evaluate themes before using them as random constraints
+- [Quick Build & Skip Controls](quick_build_skip_controls.md) — combine with Quick Build for fully automated random decks
+- [Build Wizard](build_wizard.md) — the standard build flow if you want more control over selections

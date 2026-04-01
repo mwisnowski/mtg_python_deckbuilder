@@ -1,8 +1,10 @@
 {% extends "base.html" %}
 {% block content %}
 <section>
-  <h2>Diagnostics</h2>
-  <p class="muted">Use these tools to verify error handling surfaces.</p>
+  <div class="page-header">
+    <h2>Diagnostics</h2>
+    <p class="muted">Use these tools to verify error handling surfaces.</p>
+  </div>
   <details class="card" style="background: var(--panel); border:1px solid var(--border); border-radius:10px; padding:.75rem; margin-bottom:.75rem">
     <summary style="cursor:pointer; user-select:none; margin-top:0; font-size:1.17em; font-weight:bold;">System summary</summary>
     <div id="sysSummary" class="muted" style="margin-top:.5rem">Loading…</div>

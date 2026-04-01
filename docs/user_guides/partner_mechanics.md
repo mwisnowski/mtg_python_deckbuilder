@@ -103,3 +103,11 @@ Exported configs (`HEADLESS_EXPORT_JSON=1`) include the resolved partner fields:
 | `ENABLE_PARTNER_MECHANICS` | `0` | Unlock partner/background inputs in the web builder and headless runner. |
 | `ENABLE_PARTNER_SUGGESTIONS` | `0` | Show ranked partner suggestion chips in the web builder. |
 | `PARTNER_SUGGESTIONS_DATASET` | _(auto)_ | Override path to `partner_synergy.json` inside the container. |
+
+---
+
+## See Also
+
+- [Build Wizard](build_wizard.md) — partner selection in the context of the full build flow
+- [Bracket Compliance](bracket_compliance.md) — bracket implications when a commander is on the Game Changers list
+- [Theme Browser](theme_browser.md) — find themes compatible with both commanders' color identity

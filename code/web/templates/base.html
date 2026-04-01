@@ -91,6 +91,7 @@
           <a href="/decks">Finished Decks</a>
           <a href="/themes/">Themes</a>
           {% if random_ui %}<a href="/random">Random</a>{% endif %}
+          <a href="/help">Help</a>
           {% if show_diagnostics %}<a href="/diagnostics">Diagnostics</a>{% endif %}
           {% if show_logs %}<a href="/logs">Logs</a>{% endif %}
         </nav>
@@ -555,6 +556,63 @@
     }
     document.addEventListener('DOMContentLoaded', function(){ initPriceDisplay(); });
     document.addEventListener('htmx:afterSwap', function(){ setTimeout(initPriceDisplay, 80); });
+  })();
+  </script>
+  <!-- Shared help-tip panel: position:fixed to avoid overflow clipping in any container -->
+  <div id="g-help-tip" class="help-tip-panel" role="tooltip"></div>
+  <script>
+  (function() {
+    var P = null, hide = null, activeBtn = null;
+    function panel() { return P || (P = document.getElementById('g-help-tip')); }
+    function show(btn) {
+      clearTimeout(hide);
+      var t = btn.getAttribute('data-tip') || '';
+      var h = btn.getAttribute('data-tip-href') || '';
+      var p = panel();
+      p.innerHTML = t + (h ? '<a href="' + h + '" target="_blank" rel="noopener noreferrer">Full guide &rarr;</a>' : '');
+      p.style.display = 'block';
+      activeBtn = btn;
+      var r = btn.getBoundingClientRect();
+      var w = 200, m = 8;
+      var left = r.left + r.width / 2 - w / 2;
+      left = Math.max(m, Math.min(left, window.innerWidth - w - m));
+      p.style.left = left + 'px';
+      var ph = p.offsetHeight || 88;
+      p.style.top = r.top >= ph + 10 ? (r.top - ph - 6) + 'px' : (r.bottom + 6) + 'px';
+    }
+    function doHide(ms) {
+      clearTimeout(hide);
+      hide = setTimeout(function() { var p = panel(); p.style.display = 'none'; activeBtn = null; }, ms || 0);
+    }
+    // Desktop hover
+    document.addEventListener('mouseover', function(e) {
+      var b = e.target.closest && e.target.closest('.help-tip-btn');
+      if (b) { show(b); return; }
+      if (e.target.closest && e.target.closest('#g-help-tip')) clearTimeout(hide);
+    });
+    document.addEventListener('mouseout', function(e) {
+      var r = e.relatedTarget;
+      if (e.target.closest && e.target.closest('.help-tip-btn')) {
+        if (r && r.closest && r.closest('#g-help-tip')) return;
+        doHide(150);
+      }
+      if (e.target.closest && e.target.closest('#g-help-tip')) {
+        if (r && r.closest && r.closest('.help-tip-btn')) return;
+        doHide(150);
+      }
+    });
+    // Mobile tap
+    document.addEventListener('click', function(e) {
+      var b = e.target.closest && e.target.closest('.help-tip-btn');
+      if (b) {
+        if (panel().style.display === 'block' && activeBtn === b) { doHide(0); }
+        else { show(b); }
+        e.stopPropagation();
+        return;
+      }
+      if (e.target.closest && e.target.closest('#g-help-tip')) return;
+      doHide(0);
+    });
   })();
   </script>
   </body>

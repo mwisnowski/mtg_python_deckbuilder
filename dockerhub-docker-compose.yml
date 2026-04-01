@@ -42,6 +42,7 @@ services:
       SHOW_MISC_POOL: "0"
       WEB_THEME_PICKER_DIAGNOSTICS: "1"  # 1=enable extra theme catalog diagnostics fields, uncapped view & /themes/metrics
       ENABLE_CARD_DETAILS: "1"      # 1=show Card Details button in card browser (with similarity cache)
+      ENABLE_WEB_DOCS: "1"          # 1=enable web-accessible documentation at /docs
       SIMILARITY_CACHE_ENABLED: "1"   # 1=use pre-computed similarity cache; 0=real-time calculation
       SIMILARITY_CACHE_PATH: "card_files/similarity_cache.parquet"  # Path to Parquet cache file
       ENABLE_BATCH_BUILD: "1"       # 1=enable Build X and Compare feature; 0=hide build count slider
@@ -269,5 +270,6 @@ services:
       - ${PWD}/card_files:/app/card_files
       - ${PWD}/config:/app/config
       - ${PWD}/owned_cards:/app/owned_cards
+      - ${PWD}/docs:/app/docs
     working_dir: /app
     restart: "no"

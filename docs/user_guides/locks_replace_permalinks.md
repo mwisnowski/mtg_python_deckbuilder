@@ -71,3 +71,24 @@ Permalink URLs are self-contained — no server state is required. Anyone with t
 ## Combos (Step 5 Panel)
 
 The Combos section in Step 5 lists known two-card combo pairs detected in the current deck. This is informational — no cards are added or removed automatically. Use locks to preserve combo pairs across rebuilds, or add individual combo cards to Must Include if you want them guaranteed.
+
+---
+
+## FAQ
+
+**Can I share a permalink with someone who has a different card catalog version?**
+Permalinks encode names and settings, not card data. As long as the commander and theme names are still valid in the recipient's catalog, the build will restore correctly. Cards that no longer exist in the catalog will be skipped.
+
+**Are locks preserved when I export to CSV or TXT?**
+Locks are session metadata and are stored in the summary JSON sidecar (`*.summary.json`) alongside the export. The CSV/TXT card list itself does not include lock state.
+
+**What if I accidentally replace a card I wanted to keep?**
+Replaced cards move out of the deck immediately. If you haven't rebuilt, you can replace again to bring a similar card back in. For guaranteed cards, use Must Include so they aren't displaced by Replace or Rebuild.
+
+---
+
+## See Also
+
+- [Build Wizard](build_wizard.md) — locks and replace in the context of the Step 5 review
+- [Include / Exclude Lists](include_exclude.md) — guarantee specific cards before the build runs instead of after
+- [Owned Cards](owned_cards.md) — restrict Replace alternatives to your owned card library

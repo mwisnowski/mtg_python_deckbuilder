@@ -63,7 +63,9 @@ Must Include cards are inserted directly and are not subject to budget pool filt
 
 ## Multi-Copy Archetypes
 
-If a card is in Must Include and the builder detects it supports multi-copy (e.g., Relentless Rats), a count picker dialog appears. Set the desired copy count before confirming.
+Some cards have a printed exception allowing any number of copies in a Commander deck. When you add one of these cards to Must Include, a count picker dialog appears to set the desired copy count.
+
+For the full list of supported archetypes, count caps, and detailed guidance see the [Multi-Copy Package](multi_copy.md) guide.
 
 ---
 
@@ -87,3 +89,25 @@ Set include and exclude lists in the JSON config. Environment variable overrides
   "must_exclude": ["Demonic Tutor"]
 }
 ```
+
+---
+
+## FAQ
+
+**Can I include a card that isn't in my commander's color identity?**
+The builder will attempt to add it but will silently skip it if the card is outside the commander's color identity. Check the build summary for skipped cards.
+
+**What happens if my Must Include list makes the deck exceed 100 cards?**
+Must Include cards are inserted before pool selection fills the remaining slots. The total is always capped at 100 cards, with Must Includes taking priority over pool-selected cards.
+
+**Do Must Include cards count against bracket compliance?**
+Yes. A Must Include card that violates your bracket (e.g., a Game Changer at Bracket 2) will be flagged in the compliance report. The card stays in the deck regardless of enforcement mode.
+
+---
+
+## See Also
+
+- [Build Wizard](build_wizard.md) — where Include/Exclude fits in the overall build flow
+- [Multi-Copy Package](multi_copy.md) — dedicated guide for multi-copy archetype builds
+- [Bracket Compliance](bracket_compliance.md) — how Must Include cards interact with bracket enforcement
+- [Locks, Replace & Permalinks](locks_replace_permalinks.md) — lock cards in place and swap alternatives after building

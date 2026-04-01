@@ -67,3 +67,10 @@ Access the compare view from **Finished Decks** to diff any two completed builds
 | Variable | Default | Purpose |
 |----------|---------|---------|
 | `ENABLE_BATCH_BUILD` | `1` | Show the build count slider in the New Deck modal. Set to `0` to hide and restrict to single builds. |
+
+---
+
+## See Also
+
+- [Build Wizard](build_wizard.md) — step-by-step walkthrough of a single build
+- [Quick Build & Skip Controls](quick_build_skip_controls.md) — automate individual stages to speed up batch runs

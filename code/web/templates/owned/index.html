@@ -1,8 +1,10 @@
 {% extends "base.html" %}
 {% block content %}
 <section>
-  <h3>Owned Cards Library</h3>
-  <p class="muted">Upload .txt or .csv lists. We’ll extract names and keep a de-duplicated library for the web UI.</p>
+  <div class="page-header">
+    <h2>Owned Library</h2>
+    <p class="muted">Upload .txt or .csv lists. We'll extract names and keep a de-duplicated library for the web UI.</p>
+  </div>
 
   {% if error %}
   <div class="error" style="margin:.5rem 0;">{{ error }}</div>

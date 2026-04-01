@@ -1,7 +1,9 @@
 {% extends "base.html" %}
 {% block content %}
 <section>
-  <h2>Logs</h2>
+  <div class="page-header">
+    <h2>Logs</h2>
+  </div>
   <form method="get" action="/logs" class="form-row" style="gap:.5rem; align-items: center;">
     <label>Tail <input type="number" name="tail" value="{{ tail }}" min="1" max="500" style="width:80px"></label>
     <label>Filter <input type="text" name="q" value="{{ q }}" placeholder="keyword"></label>

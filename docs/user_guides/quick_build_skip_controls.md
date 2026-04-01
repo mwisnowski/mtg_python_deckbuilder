@@ -106,3 +106,10 @@ WEB_IDEALS_UI=input
 |----------|---------|---------|
 | `WEB_STAGE_ORDER` | `new` | Build stage execution order: `new` (creatures→spells→lands) or `legacy` (lands→creatures→spells). |
 | `WEB_IDEALS_UI` | `slider` | Stage tuning interface: `slider` (range inputs) or `input` (text boxes). |
+
+---
+
+## See Also
+
+- [Build Wizard](build_wizard.md) — full walkthrough covering Quick Build and Skip Controls in context
+- [Batch Build & Compare](batch_build_compare.md) — run multiple full builds in one session using Quick Build

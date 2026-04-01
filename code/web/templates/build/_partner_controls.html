@@ -22,7 +22,7 @@
 {% set partner_suggestions_has_hidden = partner_suggestions_has_hidden if partner_suggestions_has_hidden is defined else False %}
 {% if feature_available %}
   <fieldset>
-    <legend>Partner Mechanics</legend>
+    <legend>Partner Mechanics <span class="help-tip"><button type="button" class="help-tip-btn" data-tip="Select a second commander via Partner, Friends Forever, or Choose a Background." data-tip-href="/help/partner_mechanics#selecting-a-partner-in-the-web-ui" aria-label="Partner Mechanics help"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true" width="11" height="11"><circle cx="8" cy="8" r="6.5"/><line x1="8" y1="7" x2="8" y2="10.5" stroke-linecap="round"/><circle cx="8" cy="4.5" r="0.75" fill="currentColor" stroke="none"/></svg></button></span></legend>
     {% if not partner_capable %}
       <p class="muted" style="font-size:12px;">This commander doesn't support partner mechanics or backgrounds.</p>
     {% else %}

@@ -1,7 +1,9 @@
 {% extends "base.html" %}
 {% block banner_subtitle %}Build a Deck{% endblock %}
 {% block content %}
-<h2>Build a Deck</h2>
+<div class="page-header">
+  <h2>Build a Deck</h2>
+</div>
 <div style="margin:.25rem 0 1rem 0; display:flex; align-items:center; gap:.75rem; flex-wrap:wrap;">
   <button type="button" class="btn" hx-get="/build/new" hx-target="body" hx-swap="beforeend">Build a New Deck…</button>
   <span class="muted" style="margin-left:.25rem;">Quick-start wizard (name, commander, themes, ideals)</span>

@@ -87,3 +87,17 @@ No. The commander is never filtered by price — only cards drawn from the selec
 
 **Can I use budget mode with Must Include cards?**
 Yes. Must Include cards bypass the pool filter and are always added. They may appear as over-budget in the summary if they exceed the ceiling.
+
+**Why is the price shown different from what I see on a store site?**
+Prices are sourced from Scryfall bulk data and cached locally. They reflect a recent market median, not real-time retail or buylist prices. Check the stale indicator (clock icon) in the summary for cache age.
+
+**Can I set separate ceilings for different card types?**
+Not directly — the per-card ceiling applies to the full pool. To approximate type-specific limits, use Must Exclude to block expensive cards in a category before the build runs.
+
+---
+
+## See Also
+
+- [Build Wizard](build_wizard.md) — budget step in context of the full build workflow
+- [Locks, Replace & Permalinks](locks_replace_permalinks.md) — use Replace to swap out over-budget cards after building
+- [Land Bases](land_bases.md) — land counts and profile choices that affect overall deck cost

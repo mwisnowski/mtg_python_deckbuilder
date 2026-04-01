@@ -61,6 +61,15 @@ Set `enforcement_mode` in your JSON config to control how the builder handles br
 }
 ```
 
+### Enforcement Examples (Bracket 3 — Upgraded)
+
+| Scenario | `validate` | `prefer` | `strict` |
+|----------|------------|----------|---------|
+| 1–3 Game Changers in pool | Proceeds; each flagged in report | Proceeds; included within 3-card cap | Proceeds; included within 3-card cap |
+| 4+ Game Changers in pool | All flagged FAIL in report | Caps selection at 3; extras skipped | Build fails listing the violating cards |
+| Mass land denial card | Flagged WARN/FAIL in report | Avoided if alternatives exist in pool | Build fails if card cannot be excluded |
+| Must Include card violates bracket | Flagged in report; card stays | Flagged in report; card stays | Flagged in report; card stays (Must Include always wins) |
+
 ---
 
 ## Rule Zero Notes
@@ -107,3 +116,27 @@ The Game Changers list and companion lists are static JSON files in `config/card
 | `bracket` | `exhibition` \| `core` \| `upgraded` \| `optimized` \| `cedh` | Bracket selection. Defaults to `core` if unset. |
 | `enforcement_mode` | `validate` \| `prefer` \| `strict` | How violations are handled during building. |
 | `rule_zero_notes` | string | Optional table agreement notes included in the compliance report. |
+
+---
+
+## FAQ
+
+**My deck passed Bracket 2 but the table says it feels more like Bracket 3 — why?**
+The compliance check runs against the official card lists (Game Changers, extra turns, tutors, combos). Cards not on those lists are not flagged even if they're powerful in context. Use the compliance report as a starting point, then discuss with your table.
+
+**I set `enforcement_mode: strict` but my Must Include card still violates the bracket.**
+Must Include cards always bypass enforcement filtering — they are inserted directly before pool selection runs. The compliance report will still flag the violation. Adjust the Must Include list or the bracket to resolve it.
+
+**Why does the compliance check flag a two-card combo I didn't intend?**
+Combo detection runs against a known list of two-card infinite combinations. If your synergies happen to match a known combo pattern, they'll be flagged. The report is informational — no cards are removed automatically.
+
+**Can I update the Game Changers list when WotC publishes new cards?**
+Yes. Edit the JSON files in `config/card_lists/` (e.g., `game_changers.json`). Each file has a `source_url` field pointing to the canonical source. Restart the server after editing.
+
+---
+
+## See Also
+
+- [Build Wizard](build_wizard.md) — step-by-step guide covering bracket selection in context
+- [Include / Exclude Lists](include_exclude.md) — how Must Include cards interact with bracket enforcement
+- [Partner Mechanics](partner_mechanics.md) — bracket implications when the commander is on the Game Changers list

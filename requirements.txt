@@ -20,4 +20,7 @@ pydantic>=2.5.0
 # YAML parsing for theme whitelist governance
 PyYAML>=6.0
 
+# Markdown rendering for web-accessible documentation
+markdown>=3.5.0
+
 # Development dependencies are in requirements-dev.txt

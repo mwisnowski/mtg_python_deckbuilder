@@ -8,6 +8,9 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 - Link PRs/issues inline when helpful, e.g., (#123) or [#123]. Reference-style links at the bottom are encouraged for readability.
 
 ## [Unreleased]
+_No unreleased changes yet._
+
+## [4.5.1] - 2026-04-01
 ### Added
 - **Web documentation portal**: All 13 user guides are now accessible at `/help` directly in the app — no need to navigate to GitHub. A guide index lists every guide with a description; each guide page renders full markdown with heading anchors for deep linking.
 - **In-guide table of contents**: Each guide page displays a sidebar with an auto-generated "On This Page" section linking to all headings in the current guide. Collapses to a hamburger toggle on mobile.

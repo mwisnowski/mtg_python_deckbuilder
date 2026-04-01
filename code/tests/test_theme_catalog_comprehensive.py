@@ -410,7 +410,9 @@ def test_yaml_schema_export() -> None:
 
 def test_rebuild_idempotent() -> None:
     """Test that catalog rebuild is idempotent."""
-    ensure_catalog()
+    # Always do a fresh build first to avoid ordering dependencies from other tests
+    rc0, out0, err0 = _run([sys.executable, str(BUILD_SCRIPT)])
+    assert rc0 == 0, f"initial build failed: {err0 or out0}"
     rc, out, err = _run([sys.executable, str(VALIDATE_SCRIPT), '--rebuild-pass'])
     assert rc == 0, f"validation with rebuild failed: {err or out}"
     assert 'validation passed' in out.lower()
@@ -441,7 +443,9 @@ def test_duplicate_yaml_id_detection(tmp_path: Path) -> None:
 
 def test_normalization_alias_absent() -> None:
     """Test that normalized aliases are absent from display_name."""
-    ensure_catalog()
+    # Always do a fresh build first to avoid ordering dependencies from other tests
+    rc0, out0, err0 = _run([sys.executable, str(BUILD_SCRIPT)])
+    assert rc0 == 0, f"initial build failed: {err0 or out0}"
     # Aliases defined in whitelist (e.g., Pillow Fort) should not appear as display_name
     rc, out, err = _run([sys.executable, str(VALIDATE_SCRIPT)])
     assert rc == 0, f"validation failed unexpectedly: {out or err}"

@@ -15,10 +15,13 @@ _No unreleased changes yet_
 _No unreleased changes yet_
 
 ### Fixed
-_No unreleased changes yet_
+- **Bug: missing `idx` argument** in `project_detail()` call inside `theme_preview.py` caused theme preview pages to crash.
+- **Bug: `build_permalinks` router not mounted** in `app.py` caused all permalink-related endpoints to return 404.
+- **Pydantic V2 deprecation warning** silenced: `DeckExportRequest` now uses `model_config = ConfigDict(...)` instead of the deprecated inner `class Config`.
 
 ### Removed
-_No unreleased changes yet_
+- **16 test files deleted**: 5 stale/broken tests and 11 single-test files merged into their domain equivalents to reduce fragmentation.
+- **7 permanently-skipped tests removed**: 3 obsolete M4-era `apply_combo_tags` tests (API changed), 2 obsolete M4-era commander catalog tests (parquet architecture), and 2 "run manually" performance tests that never ran in CI.
 
 ## [4.4.2] - 2026-03-26
 ### Added

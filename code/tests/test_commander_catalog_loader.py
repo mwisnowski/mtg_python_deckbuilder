@@ -38,21 +38,4 @@ def test_commander_catalog_basic_normalization(monkeypatch: pytest.MonkeyPatch) 
         assert "Goblin Kindred" in krenko.themes or "goblin kindred" in [t.lower() for t in krenko.themes]
 
 
-def test_commander_catalog_cache_invalidation(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test commander catalog cache invalidation.
-    
-    M4 NOTE: This test is skipped because commander data now comes from all_cards.parquet,
-    which is managed globally, not per-test-directory. Cache invalidation is tested
-    at the file level in test_data_loader.py.
-    """
-    pytest.skip("M4: Cache invalidation testing moved to integration level (all_cards.parquet managed globally)")
 
-
-def test_commander_theme_labels_unescape(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test theme label escaping in commander data.
-    
-    M4 NOTE: This test is skipped because we can't easily inject custom test data
-    into all_cards.parquet without affecting other tests. The theme label unescaping
-    logic is still tested in the theme tag parsing tests.
-    """
-    pytest.skip("M4: Custom test data injection not supported with global all_cards.parquet")

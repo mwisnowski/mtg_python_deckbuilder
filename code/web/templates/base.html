@@ -399,6 +399,9 @@
   {% endif %}
   <!-- Toast after reload, setup poller, nav highlighter moved to app.ts -->
   <!-- Hover card panel system moved to cardHover.ts -->
+  {% if prefetch_enabled %}
+  <script src="/static/js/prefetch-hover.js?v=20260401-1"></script>
+  {% endif %}
   <!-- Price tooltip: lightweight fetch on mouseenter for .card-name-price-hover -->
   <script>
   (function(){

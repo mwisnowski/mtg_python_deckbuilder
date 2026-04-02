@@ -76,7 +76,7 @@
             {% endif %}
             <form action="/decks/view" method="get" style="display:inline; margin:0;">
               <input type="hidden" name="name" value="{{ it.name }}" />
-              <button type="submit" aria-label="Open deck {{ it.commander }}">Open</button>
+              <button type="submit" aria-label="Open deck {{ it.commander }}"{% if prefetch_enabled %} data-prefetch="1" data-prefetch-url="/decks/view?name={{ it.name|urlencode }}"{% endif %}>Open</button>
             </form>
           </div>
         </div>

@@ -300,6 +300,7 @@ See `.env.example` for the full catalog. Common knobs:
 | `THEME` | `dark` | Initial UI theme (`system`, `light`, or `dark`). |
 | `WEB_STAGE_ORDER` | `new` | Build stage execution order: `new` (creatures→spells→lands) or `legacy` (lands→creatures→spells). |
 | `WEB_IDEALS_UI` | `slider` | Ideal counts interface: `slider` (range inputs with live validation) or `input` (text boxes with placeholders). |
+| `WEB_PREFETCH` | `0` | Enable hover-intent prefetch on key navigation targets (e.g. the Open button on Finished Decks). Requires `1` to activate; respects Data Saver / slow connections. |
 | `ENABLE_CARD_DETAILS` | `0` | Show card detail pages with similar card recommendations at `/cards/<name>`. |
 | `SIMILARITY_CACHE_ENABLED` | `1` | Use pre-computed similarity cache for fast card detail pages. |
 | `ENABLE_BATCH_BUILD` | `1` | Enable Build X and Compare feature (build multiple decks in parallel and compare results). |

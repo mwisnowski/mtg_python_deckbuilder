@@ -234,6 +234,7 @@ RATE_LIMIT_SUGGEST = _as_int(os.getenv("RANDOM_RATE_LIMIT_SUGGEST"), 30)
 RANDOM_STRUCTURED_LOGS = _as_bool(os.getenv("RANDOM_STRUCTURED_LOGS"), False)
 RANDOM_REROLL_THROTTLE_MS = _as_int(os.getenv("RANDOM_REROLL_THROTTLE_MS"), 350)
 USER_THEME_LIMIT = _as_int(os.getenv("USER_THEME_LIMIT"), 8)
+ENABLE_PREFETCH = _as_bool(os.getenv("WEB_PREFETCH"), False)
 
 _THEME_MODE_ENV = (os.getenv("THEME_MATCH_MODE") or "").strip().lower()
 DEFAULT_THEME_MATCH_MODE = "strict" if _THEME_MODE_ENV in {"strict", "s"} else "permissive"
@@ -364,6 +365,7 @@ templates.env.globals.update({
     "theme_picker_diagnostics": THEME_PICKER_DIAGNOSTICS,
     "user_theme_limit": USER_THEME_LIMIT,
     "default_theme_match_mode": DEFAULT_THEME_MATCH_MODE,
+    "prefetch_enabled": ENABLE_PREFETCH,
 })
 
 # Expose catalog hash (for cache versioning / service worker) – best-effort, fallback to 'dev'

@@ -11,7 +11,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from ..app import templates
 from ..services.orchestrator import tags_for_commander
 from ..services.summary_utils import format_theme_label, format_theme_list, summary_ctx
-from ..app import ENABLE_BUDGET_MODE
+from ..app import ENABLE_BUDGET_MODE, ENABLE_PREFETCH
 
 
 router = APIRouter(prefix="/decks")
@@ -445,7 +445,10 @@ async def decks_view(request: Request, name: str) -> HTMLResponse:
             except Exception:
                 pass
 
-    return templates.TemplateResponse("decks/view.html", ctx)
+    resp = templates.TemplateResponse("decks/view.html", ctx)
+    if ENABLE_PREFETCH:
+        resp.headers["Cache-Control"] = "private, max-age=30, must-revalidate"
+    return resp
 
 
 @router.get("/compare", response_class=HTMLResponse)

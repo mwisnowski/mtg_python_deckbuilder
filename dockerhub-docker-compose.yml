@@ -131,6 +131,7 @@ services:
       
       # Ideals UI Mode
       WEB_IDEALS_UI: "slider"       # input|slider. 'slider' (default): range sliders. 'input': text boxes
+      WEB_PREFETCH: "0"             # 1=enable hover-intent prefetch on key navigation targets (e.g. Open Deck)
       
       # Tagging Refinement Feature Flags
       TAG_NORMALIZE_KEYWORDS: "1"   # 1=normalize keywords & filter specialty mechanics (recommended)

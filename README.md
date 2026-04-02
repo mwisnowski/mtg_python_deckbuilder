@@ -34,6 +34,7 @@ A web-first Commander/EDH deckbuilder with a shared core for CLI, headless, and 
 - [Development setup](#development-setup)
 - [Troubleshooting](#troubleshooting)
 - [Contributing](#contributing)
+- [Supply chain security](#supply-chain-security)
 - [License & attribution](#license--attribution)
 - [Further reading](#further-reading)
 
@@ -443,6 +444,30 @@ When adding features, favor the web UI first, keep public builder APIs stable, a
 
 ## Contributing
 Pull requests are welcome—follow the conventional commit style, keep diffs focused, add or update tests when behavior changes, and document new env vars or workflows. Review `CONTRIBUTING_EDITORIAL.md` for editorial tooling guidance.
+
+---
+
+## Supply chain security
+Every tagged release includes SBOM (Software Bill of Materials) files attached to the GitHub Release assets:
+
+| File | Format | Contents |
+|------|--------|----------|
+| `sbom-source.spdx.json` | SPDX 2.x JSON | Python dependency tree from source |
+| `sbom-source.cyclonedx.json` | CycloneDX JSON | Python dependency tree from source |
+| `sbom-image-vX.Y.Z.cyclonedx.json` | CycloneDX JSON | Full container image (OS + app) |
+
+Build provenance attestations are published to the GitHub Attestations API for the multi-arch container image. To verify:
+
+```bash
+gh attestation verify oci://docker.io/mwisnowski/mtg-python-deckbuilder:latest \
+  --repo mwisnowski/mtg_python_deckbuilder
+```
+
+To inspect an SBOM locally (requires [Syft](https://github.com/anchore/syft)):
+
+```bash
+syft convert sbom-source.cyclonedx.json -o table
+```
 
 ---
 

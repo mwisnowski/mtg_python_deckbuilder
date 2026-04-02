@@ -8,6 +8,9 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 - Link PRs/issues inline when helpful, e.g., (#123) or [#123]. Reference-style links at the bottom are encouraged for readability.
 
 ## [Unreleased]
+_No unreleased changes yet._
+
+## [4.5.3] - 2026-04-02
 ### Added
 - **SBOM & supply chain provenance**: Every tagged release now attaches source SBOMs (SPDX + CycloneDX JSON) for Python dependencies and a CycloneDX container image SBOM to the GitHub Release assets. Build provenance attestations (SLSA-style) are published for the multi-arch Docker image via the GitHub Attestations API. `provenance: mode=max` is enabled on all arch builds.
 

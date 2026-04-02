@@ -119,6 +119,7 @@ jobs:
           platforms: linux/amd64
           tags: ${{ steps.arch_tag.outputs.tag }}
           labels: ${{ needs.prepare.outputs.labels }}
+          provenance: mode=max
           build-args: |
             APP_VERSION=${{ needs.prepare.outputs.version }}
 
@@ -171,6 +172,7 @@ jobs:
           platforms: linux/arm64
           tags: ${{ steps.arch_tag.outputs.tag }}
           labels: ${{ needs.prepare.outputs.labels }}
+          provenance: mode=max
           build-args: |
             APP_VERSION=${{ needs.prepare.outputs.version }}
 
@@ -178,6 +180,10 @@ jobs:
     name: Create latest multi-arch manifest
     runs-on: ubuntu-latest
     needs: [prepare, build_amd64, build_arm64]
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
     steps:
       - name: Docker Hub login
         uses: docker/login-action@v3.5.0
@@ -196,4 +202,39 @@ jobs:
           docker buildx imagetools create -t mwisnowski/mtg-python-deckbuilder:latest $SOURCES
           echo "Inspecting latest"
           docker buildx imagetools inspect mwisnowski/mtg-python-deckbuilder:latest
+
+      - name: Extract manifest digest
+        id: inspect
+        shell: bash
+        run: |
+          DIGEST=$(docker buildx imagetools inspect mwisnowski/mtg-python-deckbuilder:latest \
+            | grep -E '^Digest:' | awk '{print $2}' | head -1)
+          echo "Manifest digest: $DIGEST"
+          echo "digest=$DIGEST" >> $GITHUB_OUTPUT
+
+      - name: Attest image build provenance
+        uses: actions/attest-build-provenance@v2.2.3
+        with:
+          subject-name: index.docker.io/mwisnowski/mtg-python-deckbuilder
+          subject-digest: ${{ steps.inspect.outputs.digest }}
+          push-to-registry: false
+
+      - name: Generate image SBOM (CycloneDX)
+        uses: anchore/sbom-action@v0.24.0
+        with:
+          image: mwisnowski/mtg-python-deckbuilder:latest
+          format: cyclonedx-json
+          output-file: sbom-image-${{ needs.prepare.outputs.version }}.cyclonedx.json
+          upload-artifact: false
+          upload-release-assets: false
+
+      - name: Upload image SBOM to GitHub Release
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload ${{ needs.prepare.outputs.version }} \
+            sbom-image-${{ needs.prepare.outputs.version }}.cyclonedx.json \
+            --repo ${{ github.repository }} \
+            --clobber
 

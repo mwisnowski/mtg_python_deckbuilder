@@ -1,6 +1,9 @@
 # MTG Python Deckbuilder
 
 ## [Unreleased]
+_No unreleased changes yet._
+
+## [4.5.2] - 2026-04-01
 ### Added
-- **Hover-intent prefetch** (`WEB_PREFETCH=1`): Hovering over an "Open" button on the Finished Decks page now prefetches the deck view in the background after a 100 ms delay, eliminating the CSV-parse wait on click. On Chrome 108+, uses the Speculation Rules API for full prerender (`data-prerender-ok="1"`); falls back to `rel=prefetch` on other browsers. Feature-flagged and off by default; respects Data Saver / 2G connections and limits concurrent prefetches to 2.
+- Hover-intent prefetch (`WEB_PREFETCH=1`): hovering the Open button on the Finished Decks page prefetches the deck view after 100 ms, making it load near-instantly. Off by default; Data Saver / slow connections are respected automatically.
 

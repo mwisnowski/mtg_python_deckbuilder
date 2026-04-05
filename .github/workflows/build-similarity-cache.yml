@@ -280,6 +280,7 @@ jobs:
           - `card_files/processed/commander_cards.parquet` - Commander-only cache (fast lookups)
           - `card_files/processed/.tagging_complete.json` - Tagging status
           - `card_files/prices_cache.json` - Scryfall price cache
+          - `card_files/ck_prices_cache.json` - Card Kingdom price cache
           - `card_files/prices_cache.json.ts` - Per-card price timestamps (if present)
           EOF
           
@@ -293,6 +294,7 @@ jobs:
           git add -f card_files/processed/commander_cards.parquet
           git add -f card_files/processed/.tagging_complete.json
           git add -f card_files/prices_cache.json
+          git add -f card_files/ck_prices_cache.json 2>/dev/null || true
           git add -f card_files/prices_cache.json.ts 2>/dev/null || true
           git add -f README-cache.md
           

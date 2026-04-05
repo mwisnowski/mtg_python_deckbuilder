@@ -1377,9 +1377,12 @@ def _ensure_setup_ready(out, force: bool = False) -> None:
                 base_url = "https://raw.githubusercontent.com/mwisnowski/mtg_python_deckbuilder/similarity-cache-data"
                 files_to_download = [
                     ("card_files/processed/all_cards.parquet", "card_files/processed/all_cards.parquet"),
+                    ("card_files/processed/commander_cards.parquet", "card_files/processed/commander_cards.parquet"),
                     ("card_files/processed/.tagging_complete.json", "card_files/processed/.tagging_complete.json"),
                     ("card_files/similarity_cache.parquet", "card_files/similarity_cache.parquet"),
                     ("card_files/similarity_cache_metadata.json", "card_files/similarity_cache_metadata.json"),
+                    ("card_files/prices_cache.json", "card_files/prices_cache.json"),
+                    ("card_files/ck_prices_cache.json", "card_files/ck_prices_cache.json"),
                 ]
                 
                 download_success = True

@@ -138,6 +138,8 @@ async def download_github():
             ("card_files/processed/.tagging_complete.json", "card_files/processed/.tagging_complete.json"),
             ("card_files/similarity_cache.parquet", "card_files/similarity_cache.parquet"),
             ("card_files/similarity_cache_metadata.json", "card_files/similarity_cache_metadata.json"),
+            ("card_files/prices_cache.json", "card_files/prices_cache.json"),
+            ("card_files/ck_prices_cache.json", "card_files/ck_prices_cache.json"),
         ]
         
         downloaded = []

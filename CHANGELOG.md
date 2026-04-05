@@ -20,6 +20,11 @@ _No unreleased changes yet_
 ### Removed
 _No unreleased changes yet_
 
+## [4.6.2] - 2026-04-04
+### Fixed
+- **CK prices missing after GitHub cache download**: `ck_prices_cache.json` was not included in the files committed to `similarity-cache-data` by the build workflow, nor fetched by the `Download from GitHub` button or the orchestrator auto-download flow. All three paths now include the file (graceful 404 handling preserves backward compatibility with existing cache branches).
+- **`commander_cards.parquet` missing from orchestrator download**: The orchestrator's auto-download list was missing `commander_cards.parquet`, which the route handler already included. Both lists are now consistent.
+
 ## [4.6.1] - 2026-04-04
 ### Added
 - **Card Kingdom prices**: All price displays now show both TCGPlayer (TCG) and Card Kingdom (CK) prices side by side

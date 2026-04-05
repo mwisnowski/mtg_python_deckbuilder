@@ -82,6 +82,17 @@ async def _lifespan(app: FastAPI):  # pragma: no cover - simple infra glue
             get_similarity()  # Pre-initialize singleton (one-time cost: ~2-3s)
     except Exception:
         pass
+    # Warm up price cache in background so first deck view request is fast
+    try:
+        import threading as _threading
+        from .services.price_service import get_price_service as _get_ps
+        _ps = _get_ps()
+        _t = _threading.Thread(target=_ps._ensure_loaded, daemon=True, name="price-cache-warmup")
+        _t.start()
+        _t2 = _threading.Thread(target=_ps._ensure_ck_loaded, daemon=True, name="ck-price-cache-warmup")
+        _t2.start()
+    except Exception:
+        pass
     # Start price auto-refresh scheduler (optional, 1 AM UTC daily)
     if PRICE_AUTO_REFRESH:
         try:

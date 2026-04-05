@@ -1,7 +1,7 @@
 {% extends "base.html" %}
-{% block banner_subtitle %}Budget Pickups{% endblock %}
+{% block banner_subtitle %}Upgrade Suggestions{% endblock %}
 {% block content %}
-<h2>Pickups List</h2>
+<h2>Upgrade Suggestions</h2>
 {% if commander %}
 <div class="muted" style="margin-bottom:.5rem;">Deck: <strong>{{ commander }}</strong>{% if name %} — <span class="muted text-xs">{{ name }}</span>{% endif %}</div>
 {% endif %}
@@ -30,13 +30,35 @@
 
 {% if budget_report.pickups_list %}
 <p class="muted text-sm" style="margin-bottom:.5rem;">
-  Cards you don't own yet that fit the deck's themes and budget. Sorted by theme match priority.
+  Cards that fit the deck's themes and budget. Owned cards are free upgrades — just swap one in. Sorted by theme match priority.
+  <span class="price-legend" style="display:block; margin-top:.2rem;">TCG = TCGPlayer &middot; CK = Card Kingdom</span>
 </p>
+
+{# Cart toolbar #}
+<div class="cart-toolbar" id="cart-toolbar">
+  <label style="display:inline-flex;align-items:center;gap:.35rem;cursor:pointer;font-size:.85rem;">
+    <input type="checkbox" id="cart-select-all" checked aria-label="Select all cards">
+    <span>Select all</span>
+  </label>
+  <span id="cart-selected-count" class="cart-label"></span>
+  <button id="btn-copy-tcg" class="btn btn-sm" type="button" onclick="cartCopyTCG()">Open in TCGPlayer</button>
+  <button id="btn-copy-ck" class="btn btn-sm" type="button" onclick="cartCopyCK()">Open in Card Kingdom</button>
+</div>
+{# Fallback textarea (shown when Clipboard API is unavailable) #}
+<div id="cart-fallback-wrap" class="cart-fallback-wrap" style="display:none;">
+  <p>Clipboard access unavailable. Select all and copy the text below:</p>
+  <textarea id="cart-fallback-text" class="cart-fallback-textarea" readonly aria-label="Card list for manual copy"></textarea>
+  <button type="button" class="btn btn-sm" style="margin-top:.4rem;" onclick="document.getElementById('cart-fallback-wrap').style.display='none';">Close</button>
+</div>
+
 <table class="pickups-table" style="width:100%; border-collapse:collapse;">
   <thead>
     <tr>
+      <th class="cart-cb-th" aria-label="Select"></th>
       <th style="text-align:left; padding:.4rem .5rem; border-bottom:1px solid var(--border,#333);">Card</th>
-      <th style="text-align:right; padding:.4rem .5rem; border-bottom:1px solid var(--border,#333);">Price</th>
+      <th style="text-align:right; padding:.4rem .5rem; border-bottom:1px solid var(--border,#333);">TCG</th>
+      <th style="text-align:right; padding:.4rem .5rem; border-bottom:1px solid var(--border,#333);">CK</th>
+      <th style="text-align:center; padding:.4rem .5rem; border-bottom:1px solid var(--border,#333);">Owned</th>
       <th style="text-align:center; padding:.4rem .5rem; border-bottom:1px solid var(--border,#333);">Tier</th>
       <th style="text-align:right; padding:.4rem .5rem; border-bottom:1px solid var(--border,#333);">Priority</th>
     </tr>
@@ -44,14 +66,31 @@
   <tbody>
     {% for card in budget_report.pickups_list %}
     <tr>
+      <td class="cart-cb-td">
+        <input type="checkbox" class="cart-cb" data-card-name="{{ card.card|e }}" checked aria-label="Select {{ card.card|e }}">
+      </td>
       <td style="padding:.35rem .5rem; border-bottom:1px solid var(--border-subtle,#222);">
         <span class="card-name-price-hover" data-card-name="{{ card.card|e }}">{{ card.card }}</span>
       </td>
       <td style="text-align:right; padding:.35rem .5rem; border-bottom:1px solid var(--border-subtle,#222);">
-        {% if card.price is not none %}
+        {% if owned_names is defined and card.card|lower in owned_names %}
+          <span class="muted text-sm">owned</span>
+        {% elif card.price is not none %}
           ${{ "%.2f"|format(card.price) }}{% if stale_prices is defined and card.card|lower in stale_prices %}<span class="stale-price-badge" title="Price may be outdated (>24h)">&#x23F1;</span>{% endif %}
         {% else %}
           <span class="muted">–</span>
+        {% endif %}
+      </td>
+      <td style="text-align:right; padding:.35rem .5rem; border-bottom:1px solid var(--border-subtle,#222);">
+        {% if card.ck_price is not none %}
+          ${{ "%.2f"|format(card.ck_price) }}
+        {% else %}
+          <span class="muted">–</span>
+        {% endif %}
+      </td>
+      <td style="text-align:center; padding:.35rem .5rem; border-bottom:1px solid var(--border-subtle,#222);">
+        {% if owned_names is defined and card.card|lower in owned_names %}
+          <span class="owned-badge" title="You own this card">yes</span>
         {% endif %}
       </td>
       <td style="text-align:center; padding:.35rem .5rem; border-bottom:1px solid var(--border-subtle,#222);">
@@ -64,8 +103,84 @@
     {% endfor %}
   </tbody>
 </table>
+
+<script>
+(function () {
+  var allCb = document.getElementById('cart-select-all');
+
+  function getCheckedNames() {
+    return Array.from(document.querySelectorAll('.cart-cb:checked'))
+      .map(function (cb) { return cb.getAttribute('data-card-name'); });
+  }
+
+  function updateState() {
+    var all = document.querySelectorAll('.cart-cb');
+    var checked = document.querySelectorAll('.cart-cb:checked');
+    var n = checked.length, total = all.length;
+    var countEl = document.getElementById('cart-selected-count');
+    if (countEl) countEl.textContent = n + ' of ' + total + ' selected';
+    var btnTCG = document.getElementById('btn-copy-tcg');
+    var btnCK = document.getElementById('btn-copy-ck');
+    if (btnTCG) btnTCG.disabled = n === 0;
+    if (btnCK) btnCK.disabled = n === 0;
+    if (allCb) {
+      allCb.indeterminate = n > 0 && n < total;
+      allCb.checked = n === total;
+    }
+  }
+
+  if (allCb) {
+    allCb.addEventListener('change', function () {
+      document.querySelectorAll('.cart-cb').forEach(function (cb) { cb.checked = allCb.checked; });
+      updateState();
+    });
+  }
+  document.querySelectorAll('.cart-cb').forEach(function (cb) {
+    cb.addEventListener('change', updateState);
+  });
+
+  function stripDFC(n) { return n.split(' // ')[0].trim(); }
+
+  function showFallback(text) {
+    var wrap = document.getElementById('cart-fallback-wrap');
+    var ta = document.getElementById('cart-fallback-text');
+    if (!wrap || !ta) return;
+    ta.value = text;
+    wrap.style.display = 'block';
+    ta.focus();
+    ta.select();
+  }
+
+  function showCartToast(msg) {
+    var el = document.createElement('div');
+    el.className = 'cart-toast-top';
+    el.textContent = msg;
+    document.body.appendChild(el);
+    setTimeout(function () { el.classList.add('hide'); setTimeout(function () { el.remove(); }, 300); }, 6000);
+  }
+
+  function openAfterCopy(url, vendorName) {
+    var names = getCheckedNames();
+    if (!names.length) return;
+    var text = names.map(function (n) { return '1 ' + stripDFC(n); }).join('\n');
+    function doOpen() {
+      showCartToast('List copied — paste into ' + vendorName + ' with Ctrl+V');
+      setTimeout(function () { window.open(url, '_blank'); }, 400);
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(doOpen).catch(function () { showFallback(text); window.open(url, '_blank'); });
+    } else { showFallback(text); window.open(url, '_blank'); }
+  }
+
+  window.cartCopyTCG = function () { openAfterCopy('https://www.tcgplayer.com/massentry', 'TCGPlayer'); };
+  window.cartCopyCK  = function () { openAfterCopy('https://www.cardkingdom.com/builder',  'Card Kingdom'); };
+
+  updateState();
+})();
+</script>
+
 {% else %}
-<div class="panel muted">No pickups suggestions available — your deck may already fit the budget well.</div>
+<div class="panel muted">No upgrade suggestions available — your deck may already fit the budget well.</div>
 {% endif %}
 
 {% if budget_report.over_budget_cards %}
@@ -102,3 +217,4 @@
   <a href="/decks" class="btn" role="button">All Decks</a>
 </div>
 {% endblock %}
+

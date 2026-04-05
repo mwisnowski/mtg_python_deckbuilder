@@ -396,12 +396,24 @@ interface PointerEventLike {
       nameEl.textContent = nm;
       rarityEl.textContent = rarity;
       if (priceEl) {
-        const priceRaw = (attr('data-price') || '').trim();
-        const priceNum = priceRaw ? parseFloat(priceRaw) : NaN;
         const isStale = attr('data-stale') === '1';
-        priceEl.innerHTML = !isNaN(priceNum)
-          ? '$' + priceNum.toFixed(2) + (isStale ? ' <span style="color:#f59e0b;font-size:10px;" title="Price may be outdated (>24h)">\u23F1</span>' : '')
-          : '';
+        const staleSpan = isStale ? ' <span style="color:#f59e0b;font-size:10px;" title="Price may be outdated (>24h)">\u23F1</span>' : '';
+        // Prefer the shared price cache (populated by initPriceDisplay with both TCG+CK)
+        const globalCache = (window as any)._priceNum as Record<string, {tcg: number|null, ck: number|null}|null> | undefined;
+        const cached = globalCache && globalCache[nm];
+        if (cached && (cached.tcg !== null || cached.ck !== null)) {
+          const parts: string[] = [];
+          if (cached.tcg !== null) parts.push('<span class="price-src-label">TCG</span> $' + (cached.tcg as number).toFixed(2) + staleSpan);
+          if (cached.ck !== null) parts.push('<span class="price-src-label">CK</span> $' + (cached.ck as number).toFixed(2));
+          priceEl.innerHTML = parts.join(' <span class="price-sep">\u00B7</span> ');
+        } else {
+          // Fallback: data-price (TCG only, set server-side in _step5.html)
+          const priceRaw = (attr('data-price') || '').trim();
+          const priceNum = priceRaw ? parseFloat(priceRaw) : NaN;
+          priceEl.innerHTML = !isNaN(priceNum)
+            ? '<span class="price-src-label">TCG</span> $' + priceNum.toFixed(2) + staleSpan
+            : '';
+        }
       }
 
       const roleLabel = displayLabel(role);
@@ -680,7 +692,12 @@ interface PointerEventLike {
 
       // Recognized container classes
       const container = el.closest && el.closest('.card-sample, .commander-cell, .commander-thumb, .commander-card, .candidate-tile, .card-preview, .stack-card');
-      if (container) return container;
+      if (container) {
+        // .card-preview is also used as a plain layout aside (no data-card-name on it);
+        // only treat it as a hover target when the attribute lives directly on the element.
+        if (container.classList.contains('card-preview') && !container.hasAttribute('data-card-name')) return null;
+        return container;
+      }
 
       // Image-based detection (any card image carrying data-card-name)
       if (el.matches && (el.matches('img.card-thumb') || el.matches('img[data-card-name]') || el.classList.contains('commander-img'))) {

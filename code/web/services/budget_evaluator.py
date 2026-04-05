@@ -468,15 +468,18 @@ class BudgetEvaluatorService(BaseService):
         # Batch price lookup for all candidates
         candidate_names = list(candidates.keys())
         prices = self._price_svc.get_prices_batch(candidate_names, region=region, foil=foil)
+        ck_prices = self._price_svc.get_ck_prices_batch(candidate_names)
 
         results = []
         for name, info in candidates.items():
             price = prices.get(name)
             if price is None or price > max_price:
                 continue
+            ck_price = ck_prices.get(name)
             results.append({
                 "name": name,
                 "price": round(price, 2),
+                "ck_price": round(ck_price, 2) if ck_price is not None else None,
                 "tags": info["tags"],
                 "shared_tags": sorted(info["shared_tags"]),
             })
@@ -540,13 +543,11 @@ class BudgetEvaluatorService(BaseService):
     def _get_card_tags(self, card_name: str) -> List[str]:
         """Look up theme tags for a single card from the card index."""
         try:
-            from code.web.services.card_index import maybe_build_index, _CARD_INDEX
+            from code.web.services.card_index import maybe_build_index, lookup_card
             maybe_build_index()
-            needle = card_name.lower()
-            for cards in _CARD_INDEX.values():
-                for c in cards:
-                    if c.get("name", "").lower() == needle:
-                        return list(c.get("tags", []))
+            entry = lookup_card(card_name)
+            if entry:
+                return list(entry.get("tags", []))
         except Exception:
             pass
         return []
@@ -554,17 +555,14 @@ class BudgetEvaluatorService(BaseService):
     def _get_card_broad_type(self, card_name: str) -> Optional[str]:
         """Return the first matching broad MTG type for a card (e.g. 'Land', 'Creature')."""
         try:
-            from code.web.services.card_index import maybe_build_index, _CARD_INDEX
+            from code.web.services.card_index import maybe_build_index, lookup_card
             maybe_build_index()
-            needle = card_name.lower()
-            for cards in _CARD_INDEX.values():
-                for c in cards:
-                    if c.get("name", "").lower() == needle:
-                        type_line = c.get("type_line", "")
-                        for broad in _BROAD_TYPES:
-                            if broad in type_line:
-                                return broad
-                        return None
+            entry = lookup_card(card_name)
+            if entry:
+                type_line = entry.get("type_line", "")
+                for broad in _BROAD_TYPES:
+                    if broad in type_line:
+                        return broad
         except Exception:
             pass
         return None
@@ -620,16 +618,13 @@ class BudgetEvaluatorService(BaseService):
         # Collect all unique tags from the current deck
         deck_tags: Set[str] = set()
         try:
-            from code.web.services.card_index import maybe_build_index, _CARD_INDEX
+            from code.web.services.card_index import maybe_build_index, _CARD_INDEX, lookup_card
             maybe_build_index()
 
             for name in decklist:
-                needle = name.lower()
-                for cards in _CARD_INDEX.values():
-                    for c in cards:
-                        if c.get("name", "").lower() == needle:
-                            deck_tags.update(c.get("tags", []))
-                            break
+                card_entry = lookup_card(name)
+                if card_entry:
+                    deck_tags.update(card_entry.get("tags", []))
 
             if not deck_tags:
                 return []
@@ -664,6 +659,7 @@ class BudgetEvaluatorService(BaseService):
         top_candidates = sorted(candidates.values(), key=lambda x: x["score"], reverse=True)[:200]
         names = [c["name"] for c in top_candidates]
         prices = self._price_svc.get_prices_batch(names, region=region, foil=foil)
+        ck_prices = self._price_svc.get_ck_prices_batch(names)
 
         tier_ceilings = self.calculate_tier_ceilings(budget_remaining)
         pickups: List[Pickup] = []
@@ -679,9 +675,11 @@ class BudgetEvaluatorService(BaseService):
                 tier = "M"
             if price <= tier_ceilings["S"]:
                 tier = "S"
+            ck_price = ck_prices.get(c["name"])
             pickups.append({
                 "card": c["name"],
                 "price": round(price, 2),
+                "ck_price": round(ck_price, 2) if ck_price is not None else None,
                 "tier": tier,
                 "priority": c["score"],
                 "tags": c["tags"],

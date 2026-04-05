@@ -55,7 +55,7 @@
                   {% if alt.price %}data-price="{{ alt.price }}"{% endif %}
                   title="{{ alt.shared_tags|join(', ') if alt.shared_tags else '' }}">
             {{ alt.name }}
-            {% if alt.price %}<span class="alt-price">${{ '%.2f'|format(alt.price|float) }}</span>{% endif %}
+            {% if alt.price or alt.ck_price %}<span class="alt-price">{% if alt.price %}TCG ${{ '%.2f'|format(alt.price|float) }}{% endif %}{% if alt.price and alt.ck_price %} · {% endif %}{% if alt.ck_price %}CK ${{ '%.2f'|format(alt.ck_price|float) }}{% endif %}</span>{% endif %}
           </button>
         </form>
         {% endfor %}

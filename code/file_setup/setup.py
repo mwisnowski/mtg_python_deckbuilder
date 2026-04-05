@@ -414,7 +414,7 @@ def regenerate_processed_parquet() -> None:
 
 def refresh_prices_parquet(output_func=None) -> None:
     """Rebuild the price cache from local Scryfall bulk data and write
-    ``price`` / ``price_updated`` columns into all_cards.parquet and
+    ``price`` / ``priceUpdated`` / ``scryfallID`` / ``ckPrice`` / ``ckPriceUpdated`` columns into all_cards.parquet and
     commander_cards.parquet.
 
     This is safe to call from both the web app and CLI contexts.
@@ -455,17 +455,39 @@ def refresh_prices_parquet(output_func=None) -> None:
     name_col = "faceName" if "faceName" in df.columns else "name"
     card_names = df[name_col].fillna("").tolist()
 
-    _log(f"Fetching prices for {len(card_names):,} cards …")
+    # --- scryfallID column (from the map populated during _rebuild_cache) ---
+    scryfall_id_map = getattr(svc, "_scryfall_id_map", {})
+    if scryfall_id_map:
+        df["scryfallID"] = df[name_col].map(lambda n: scryfall_id_map.get(n.lower()) if n else None)
+        mapped = df["scryfallID"].notna().sum()
+        _log(f"Added scryfallID column — {mapped:,} of {len(card_names):,} cards mapped.")
+    else:
+        _log("Warning: scryfallID map empty; skipping scryfallID column.")
+
+    # --- TCGPlayer (Scryfall) prices ---
+    _log(f"Fetching TCGPlayer prices for {len(card_names):,} cards …")
     prices = svc.get_prices_batch(card_names)
     priced = sum(1 for p in prices.values() if p is not None)
 
     now_iso = datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
     df["price"] = df[name_col].map(lambda n: prices.get(n) if n else None)
-    df["price_updated"] = now_iso
+    df["priceUpdated"] = now_iso
+
+    # --- Card Kingdom prices ---
+    _log("Fetching Card Kingdom price list …")
+    try:
+        svc._rebuild_ck_cache()
+        ck_prices = svc.get_ck_prices_batch(card_names)
+        ck_priced = sum(1 for p in ck_prices.values() if p is not None)
+        df["ckPrice"] = df[name_col].map(lambda n: ck_prices.get(n) if n else None)
+        df["ckPriceUpdated"] = now_iso
+        _log(f"Added ckPrice column — {ck_priced:,} of {len(card_names):,} cards priced.")
+    except Exception as exc:
+        _log(f"Warning: CK price fetch failed ({exc}). Skipping ckPrice column.")
 
     loader = DataLoader()
     loader.write_cards(df, processed_path)
-    _log(f"Updated all_cards.parquet — {priced:,} of {len(card_names):,} cards priced.")
+    _log(f"Updated all_cards.parquet — {priced:,} of {len(card_names):,} cards priced (TCGPlayer).")
 
     # Update commander_cards.parquet by applying the same price columns.
     processed_dir = os.path.dirname(processed_path)

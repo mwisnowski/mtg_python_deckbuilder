@@ -27,6 +27,8 @@ RARITY_COL = "rarity"
 
 _CARD_INDEX: Dict[str, List[Dict[str, Any]]] = {}
 _CARD_INDEX_MTIME: float | None = None
+# Reverse lookup: lowercase card name → card dict (first occurrence per name)
+_NAME_INDEX: Dict[str, Dict[str, Any]] = {}
 
 _RARITY_NORM = {
     "mythic rare": "mythic",
@@ -50,7 +52,7 @@ def maybe_build_index() -> None:
 
     M4: Loads from all_cards.parquet instead of CSV files.
     """
-    global _CARD_INDEX, _CARD_INDEX_MTIME
+    global _CARD_INDEX, _CARD_INDEX_MTIME, _NAME_INDEX
     
     try:
         from path_util import get_processed_cards_path
@@ -99,6 +101,14 @@ def maybe_build_index() -> None:
                 })
         
         _CARD_INDEX = new_index
+        # Build name → card reverse index for O(1) lookups
+        new_name_index: Dict[str, Dict[str, Any]] = {}
+        for cards in new_index.values():
+            for c in cards:
+                key = c.get("name", "").lower()
+                if key and key not in new_name_index:
+                    new_name_index[key] = c
+        _NAME_INDEX = new_name_index
         _CARD_INDEX_MTIME = latest
     except Exception:
         # Defensive: if anything fails, leave index unchanged
@@ -107,9 +117,20 @@ def maybe_build_index() -> None:
 def get_tag_pool(tag: str) -> List[Dict[str, Any]]:
     return _CARD_INDEX.get(tag, [])
 
+
+def lookup_card(name: str) -> Optional[Dict[str, Any]]:
+    """O(1) lookup of a card dict by name. Returns None if not found."""
+    return _NAME_INDEX.get(name.lower().strip()) if name else None
+
+
 def lookup_commander(name: Optional[str]) -> Optional[Dict[str, Any]]:
     if not name:
         return None
+    # Fast path via name index
+    result = _NAME_INDEX.get(name.lower().strip())
+    if result is not None:
+        return result
+    # Fallback: full scan (handles index not yet built)
     needle = name.lower().strip()
     for tag_cards in _CARD_INDEX.values():
         for c in tag_cards:

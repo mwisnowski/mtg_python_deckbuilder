@@ -84,6 +84,7 @@
         cursor: pointer;
         border-radius: 8px;
         transition: transform 0.2s;
+        position: relative;
     }
 
     .similar-card-image:hover {
@@ -235,6 +236,8 @@
         <div class="similar-card-tile card-tile" data-card-name="{{ card.name }}">
             <!-- Card Image (uses hover system for preview) -->
             <div class="similar-card-image">
+                {# Price overlay #}
+                <div class="card-price-overlay" data-price-for="{{ card.name }}" aria-hidden="true"></div>
                 <img src="{{ card.name|card_image('normal') }}" 
                      alt="{{ card.name }}" 
                      loading="lazy"

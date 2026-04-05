@@ -39,7 +39,7 @@
                   hx-target="closest .alts"
                   hx-swap="outerHTML"
                   title="Lock this alternative and unlock the current pick">
-            {{ it.name }}{% if it.price %} <span style="font-size:11px;opacity:.7;font-weight:normal;">${{ "%.2f"|format(it.price|float) }}</span>{% endif %}
+            {{ it.name }}{% if it.price or it.ck_price %} <span class="alt-prices">{% if it.price %}<span class="price-src-label">TCG</span> ${{ "%.2f"|format(it.price|float) }}{% endif %}{% if it.price and it.ck_price %} · {% endif %}{% if it.ck_price %}<span class="price-src-label">CK</span> ${{ "%.2f"|format(it.ck_price|float) }}{% endif %}</span>{% endif %}
           </button>
         </li>
       {% endfor %}

@@ -546,6 +546,18 @@ class PriceService(BaseService):
             # rather than blocking every request. CK rebuild happens via Setup page.
             self._ck_loaded = True
 
+    def invalidate_ck_cache(self) -> None:
+        """Reset the CK loaded flag so the cache is re-read from disk on next access.
+
+        Call this after externally writing a new ck_prices_cache.json (e.g. after
+        downloading a pre-built cache from GitHub) so the in-memory singleton
+        picks up the new file without a container restart.
+        """
+        with self._lock:
+            self._ck_loaded = False
+            self._ck_cache = {}
+        logger.info("CK price cache invalidated — will reload on next access.")
+
     def _rebuild_ck_cache(self) -> None:
         """Fetch the Card Kingdom price list and cache retail prices by card name.
 

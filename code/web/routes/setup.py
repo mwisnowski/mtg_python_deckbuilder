@@ -172,6 +172,14 @@ async def download_github():
             msg = f"Downloaded {len(downloaded)} file(s) from GitHub"
             if failed:
                 msg += f" ({len(failed)} unavailable)"
+            # Invalidate in-memory CK price cache if the file was downloaded
+            # so the singleton reloads it without a container restart.
+            if any("ck_prices_cache.json" in f for f in downloaded):
+                try:
+                    from code.web.services.price_service import get_price_service
+                    get_price_service().invalidate_ck_cache()
+                except Exception:
+                    pass
             return JSONResponse({
                 "ok": True,
                 "message": msg,

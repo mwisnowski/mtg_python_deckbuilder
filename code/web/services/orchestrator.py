@@ -1408,6 +1408,13 @@ def _ensure_setup_ready(out, force: bool = False) -> None:
                         "percent": 100,
                         "finished_at": _dt.now().isoformat(timespec='seconds')
                     })
+                    # Invalidate in-memory CK price cache so the singleton picks up
+                    # the newly downloaded ck_prices_cache.json without a restart.
+                    try:
+                        from code.web.services.price_service import get_price_service
+                        get_price_service().invalidate_ck_cache()
+                    except Exception:
+                        pass
                     # Refresh theme catalog after successful download
                     _refresh_theme_catalog(out, force=False, fast_path=True)
                     return

@@ -20,6 +20,10 @@ _No unreleased changes yet_
 ### Removed
 _No unreleased changes yet_
 
+## [4.6.3] - 2026-04-04
+### Fixed
+- **CK prices not loading after GitHub cache download**: The `PriceService` singleton sets `_ck_loaded = True` as a graceful fallback when `ck_prices_cache.json` is missing at startup, preventing it from reloading the file if it is later written to disk. Added `invalidate_ck_cache()` to `PriceService`; the `Download from GitHub` route and the orchestrator auto-download now call it after successfully downloading `ck_prices_cache.json`, so CK prices appear immediately without a container restart.
+
 ## [4.6.2] - 2026-04-04
 ### Fixed
 - **CK prices missing after GitHub cache download**: `ck_prices_cache.json` was not included in the files committed to `similarity-cache-data` by the build workflow, nor fetched by the `Download from GitHub` button or the orchestrator auto-download flow. All three paths now include the file (graceful 404 handling preserves backward compatibility with existing cache branches).

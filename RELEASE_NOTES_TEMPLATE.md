@@ -14,7 +14,7 @@
 - **Price source legend**: "TCG = TCGPlayer · CK = Card Kingdom" label added to the deck summary and Pickups pages for clarity
 - **Shopping cart export**: One-click deck purchasing via TCGPlayer and Card Kingdom
   - **Upgrade Suggestions page**: Per-card checkboxes with select-all toggle; "Open in TCGPlayer" and "Open in Card Kingdom" buttons copy the selected card list to the clipboard and open the vendor's mass-entry page in a new tab
-  - **Finished deck view**: "Buy This Deck" toolbar with the same TCGPlayer and Card Kingdom buttons for the full deck list
+  - **Finished deck view**: "Buy This Deck" toolbar with the same TCGPlayer and Card Kingdom buttons for the complete deck list (commander + all 99 cards)
   - Clipboard copy shows a confirmation toast; falls back to a copyable text area if clipboard API is unavailable
 
 ### Changed

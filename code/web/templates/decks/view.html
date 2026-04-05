@@ -79,6 +79,9 @@
     </div>
     {# Buy This Deck: collect all cards, strip DFC names, open vendor + copy to clipboard #}
     {%- set _buy_cards = [] -%}
+    {%- if commander_base -%}
+      {%- set _ = _buy_cards.append({'name': commander_base, 'count': 1}) -%}
+    {%- endif -%}
     {%- if summary and summary.type_breakdown and summary.type_breakdown.cards -%}
       {%- for _btype, _bclist in summary.type_breakdown.cards.items() -%}
         {%- for _bc in _bclist -%}

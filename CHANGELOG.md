@@ -9,6 +9,19 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 
 ## [Unreleased]
 ### Added
+_No unreleased changes yet_
+
+### Changed
+_No unreleased changes yet_
+
+### Fixed
+_No unreleased changes yet_
+
+### Removed
+_No unreleased changes yet_
+
+## [4.6.1] - 2026-04-04
+### Added
 - **Card Kingdom prices**: All price displays now show both TCGPlayer (TCG) and Card Kingdom (CK) prices side by side
   - Card tile overlays and inline pricing in deck summary, build wizard, and Pickups page
   - Card hover panel

@@ -897,8 +897,16 @@ class ReportingMixin:
 
         headers = [
             "Name","Count","Type","ManaCost","ManaValue","Colors","Power","Toughness",
-            "Role","SubRole","AddedBy","TriggerTag","Synergy","Tags","MetadataTags","Text","DFCNote","Owned","Price"
+            "Role","SubRole","AddedBy","TriggerTag","Synergy","Tags","MetadataTags","Text","DFCNote","Owned","Price (TCGPlayer)"
         ]
+
+        # Auto-inject price service when running in the web context
+        if price_lookup is None:
+            try:
+                from code.web.services.price_service import get_price_service
+                price_lookup = get_price_service().get_prices_batch
+            except Exception:
+                pass
 
         # Batch price lookup (no-op when price_lookup not provided)
         card_names_list = list(self.card_library.keys())
@@ -1068,7 +1076,7 @@ class ReportingMixin:
                 total_price = sum(
                     v for v in prices_map.values() if v is not None
                 )
-                price_col_index = headers.index('Price')
+                price_col_index = headers.index('Price (TCGPlayer)')
                 summary_row = [''] * len(headers)
                 summary_row[0] = 'Total'
                 summary_row[price_col_index] = f'{total_price:.2f}'

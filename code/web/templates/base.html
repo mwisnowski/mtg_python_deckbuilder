@@ -434,7 +434,10 @@
       fetch('/api/price/' + encodeURIComponent(name))
         .then(function(r){ return r.ok ? r.json() : null; })
         .then(function(d){
-          var label = (d && d.found && d.price != null) ? ('$' + parseFloat(d.price).toFixed(2)) : 'Price unavailable';
+          var parts = [];
+          if (d && d.found && d.price != null) parts.push('TCG: $' + parseFloat(d.price).toFixed(2));
+          if (d && d.ck_price != null) parts.push('CK: $' + parseFloat(d.ck_price).toFixed(2));
+          var label = parts.length ? parts.join('  ') : 'Price unavailable';
           _priceCache[name] = label;
           _showTip(el, label);
         })
@@ -454,7 +457,8 @@
       'Snow-Covered Plains','Snow-Covered Island','Snow-Covered Swamp',
       'Snow-Covered Mountain','Snow-Covered Forest'
     ]);
-    var _priceNum = {}; // card name -> float|null
+    var _priceNum = {}; // card name -> {tcg, ck}|null
+    window._priceNum = _priceNum;  // expose for cardHover.js
     var _deckPrices = {}; // accumulated across build stages: card name -> float
     var _buildToken = null;
     function _fetchNum(name) {
@@ -462,9 +466,12 @@
       return fetch('/api/price/' + encodeURIComponent(name))
         .then(function(r){ return r.ok ? r.json() : null; })
         .then(function(d){
-          var p = (d && d.found && d.price != null) ? parseFloat(d.price) : null;
-          _priceNum[name] = p; return p;
-        }).catch(function(){ _priceNum[name] = null; return null; });
+          var obj = {
+            tcg: (d && d.found && d.price != null) ? parseFloat(d.price) : null,
+            ck: (d && d.ck_price != null) ? parseFloat(d.ck_price) : null,
+          };
+          _priceNum[name] = obj; return obj;
+        }).catch(function(){ var obj = {tcg:null,ck:null}; _priceNum[name] = obj; return obj; });
     }
     function _getBuildToken() {
       var el = document.querySelector('[data-build-id]');
@@ -507,17 +514,24 @@
 
       var prevTotal = Object.values(_deckPrices).reduce(function(s,p){ return s + (p||0); }, 0);
       var promises = [];
-      toFetch.forEach(function(name){ promises.push(_fetchNum(name).then(function(p){ return {name:name,price:p}; })); });
+      toFetch.forEach(function(name){ promises.push(_fetchNum(name).then(function(obj){ return {name:name,price:obj}; })); });
       Promise.all(promises).then(function(results){
         var map = {};
         var prevTotal2 = Object.values(_deckPrices).reduce(function(s,p){ return s + (p||0); }, 0);
-        results.forEach(function(r){ map[r.name] = r.price; if (r.price !== null) _deckPrices[r.name] = r.price; });
+        results.forEach(function(r){ map[r.name] = r.price; if (r.price && r.price.tcg !== null) _deckPrices[r.name] = r.price.tcg; });
         overlays.forEach(function(el){
           var name = el.dataset.priceFor;
           if (!name || BASIC_LANDS.has(name)) { el.style.display='none'; return; }
-          var p = map[name];
-          el.textContent = p !== null ? ('$' + p.toFixed(2)) : '';
-          if (ceiling !== null && p !== null && p > ceiling) {
+          var obj = map[name];
+          var tcg = obj ? obj.tcg : null;
+          var ck = obj ? obj.ck : null;
+          if (tcg !== null || ck !== null) {
+            var parts = [];
+            if (tcg !== null) parts.push('<span class="price-src-label">TCG</span> $' + tcg.toFixed(2));
+            if (ck !== null) parts.push('<span class="price-src-label">CK</span> $' + ck.toFixed(2));
+            el.innerHTML = parts.join('<br>');
+          } else { el.innerHTML = ''; }
+          if (ceiling !== null && tcg !== null && tcg > ceiling) {
             var tile = el.closest('.card-tile,.stack-card');
             if (tile) tile.classList.add('over-budget');
           }
@@ -525,9 +539,16 @@
         inlines.forEach(function(el){
           var name = el.dataset.priceFor;
           if (!name || BASIC_LANDS.has(name)) { el.style.display='none'; return; }
-          var p = map[name];
-          el.textContent = p !== null ? ('$' + p.toFixed(2)) : '';
-          if (ceiling !== null && p !== null && p > ceiling) {
+          var obj = map[name];
+          var tcg = obj ? obj.tcg : null;
+          var ck = obj ? obj.ck : null;
+          if (tcg !== null || ck !== null) {
+            var parts = [];
+            if (tcg !== null) parts.push('<span class="price-src-label">TCG</span> $' + tcg.toFixed(2));
+            if (ck !== null) parts.push('<span class="price-src-label">CK</span> $' + ck.toFixed(2));
+            el.innerHTML = parts.join(' <span class="price-sep">·</span> ');
+          } else { el.innerHTML = ''; }
+          if (ceiling !== null && tcg !== null && tcg > ceiling) {
             var row = el.closest('.list-row');
             if (row) row.classList.add('over-budget');
           }
@@ -543,7 +564,7 @@
             var n = el.dataset.priceFor;
             if (n && !BASIC_LANDS.has(n) && !allNames.has(n)) {
               allNames.add(n);
-              sumTotal += (map[n] || 0);
+              sumTotal += (map[n] ? (map[n].tcg || 0) : 0);
             }
           });
           if (totalCap !== null) {

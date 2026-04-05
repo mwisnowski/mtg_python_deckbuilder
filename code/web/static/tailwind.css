@@ -3728,6 +3728,43 @@ footer.site-footer {
   color: var(--muted, #b6b8bd);
 }
 
+.owned-badge {
+  display: inline-block;
+  padding: .1rem .45rem;
+  border-radius: 4px;
+  font-size: .75rem;
+  font-weight: 600;
+  color: var(--ok, #16a34a);
+  border: 1px solid var(--ok, #16a34a);
+  background: transparent;
+}
+
+/* Dual-price source labels (TCG / CK) */
+.price-src-label {
+  font-size: .65rem;
+  font-weight: 600;
+  opacity: .65;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.price-sep {
+  opacity: .4;
+}
+
+.alt-prices {
+  font-size: 11px;
+  opacity: .7;
+  font-weight: normal;
+}
+
+/* Price source legend (TCG = TCGPlayer · CK = Card Kingdom) */
+.price-legend {
+  font-size: .7rem;
+  opacity: .55;
+  letter-spacing: .02em;
+}
+
 /* Inline price tooltip on card names */
 .card-name-price-hover {
   cursor: default;
@@ -3956,4 +3993,87 @@ footer.site-footer {
 .pickups-table td {
   font-size: .92rem;
 }
+
+/* Shopping cart toolbar — pickups page */
+.cart-toolbar {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  flex-wrap: wrap;
+  margin-bottom: .75rem;
+  padding: .45rem .6rem;
+  background: var(--panel, #1a1f2e);
+  border: 1px solid var(--border, #333);
+  border-radius: 6px;
+}
+.cart-toolbar .cart-label {
+  font-size: .82rem;
+  color: var(--muted, #94a3b8);
+  white-space: nowrap;
+}
+.cart-copy-feedback {
+  font-size: .8rem;
+  font-weight: 600;
+  color: #34d399;
+  margin-left: .25rem;
+}
+.cart-copy-feedback.error { color: #f87171; }
+.cart-fallback-wrap {
+  margin-top: .6rem;
+  padding: .5rem .6rem;
+  background: var(--panel, #1a1f2e);
+  border: 1px solid var(--border, #333);
+  border-radius: 6px;
+}
+.cart-fallback-wrap p {
+  font-size: .8rem;
+  color: var(--muted, #94a3b8);
+  margin: 0 0 .4rem 0;
+}
+.cart-fallback-textarea {
+  width: 100%;
+  min-height: 110px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: .8rem;
+  padding: .4rem .5rem;
+  background: var(--bg, #0f172a);
+  color: var(--text, #e5e7eb);
+  border: 1px solid var(--border, #333);
+  border-radius: 4px;
+  resize: vertical;
+  box-sizing: border-box;
+}
+.cart-cb-th {
+  width: 2.2rem;
+  text-align: center;
+  padding: .4rem .25rem;
+  border-bottom: 1px solid var(--border, #333);
+}
+.cart-cb-td {
+  text-align: center;
+  padding: .35rem .25rem;
+  border-bottom: 1px solid var(--border-subtle, #222);
+}
+
+/* Top-center toast for buy/cart copy confirmation */
+.cart-toast-top {
+  position: fixed;
+  top: 1.25rem;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--panel, #1a1f2e);
+  color: var(--text, #e5e7eb);
+  border: 1px solid #34d399;
+  border-radius: 10px;
+  padding: .6rem 1.4rem;
+  font-size: 1rem;
+  font-weight: 600;
+  box-shadow: 0 8px 28px rgba(0,0,0,.45);
+  z-index: 10000;
+  white-space: nowrap;
+  pointer-events: none;
+  transition: opacity .25s ease, transform .25s ease;
+}
+.cart-toast-top.hide { opacity: 0; transform: translateX(-50%) translateY(-6px); }
+
 

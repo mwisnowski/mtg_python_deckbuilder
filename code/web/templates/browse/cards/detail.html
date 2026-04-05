@@ -247,7 +247,29 @@
                     <span class="card-stat-value">{{ card.rarity | capitalize }}</span>
                 </div>
                 {% endif %}
+
+                <div class="card-stat" id="card-detail-price-wrap" style="display:none;">
+                    <span class="card-stat-label">Price</span>
+                    <span class="card-stat-value" id="card-detail-price-display"></span>
+                </div>
             </div>
+            <script>
+            (function(){
+                var name = {{ card.name | tojson }};
+                fetch('/api/price/' + encodeURIComponent(name))
+                    .then(function(r){ return r.ok ? r.json() : null; })
+                    .then(function(d){
+                        if (!d) return;
+                        var parts = [];
+                        if (d.price != null) parts.push('<span class="price-src-label">TCG</span> $' + parseFloat(d.price).toFixed(2));
+                        if (d.ck_price != null) parts.push('<span class="price-src-label">CK</span> $' + parseFloat(d.ck_price).toFixed(2));
+                        if (parts.length) {
+                            document.getElementById('card-detail-price-display').innerHTML = parts.join(' <span class="price-sep">\u00B7</span> ');
+                            document.getElementById('card-detail-price-wrap').style.display = '';
+                        }
+                    }).catch(function(){});
+            })();
+            </script>
 
             <!-- Oracle Text -->
             {% if card.text %}

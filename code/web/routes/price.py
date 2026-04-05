@@ -68,9 +68,11 @@ async def get_card_price(
     name = unquote(card_name).strip()
     svc = get_price_service()
     price = svc.get_price(name, region=region, foil=foil)
+    ck_price = svc.get_ck_price(name)
     return JSONResponse({
         "card_name": name,
         "price": price,
+        "ck_price": ck_price,
         "region": region,
         "foil": foil,
         "found": price is not None,

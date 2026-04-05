@@ -45,6 +45,8 @@
        {% if commander_overlap_tags %}data-overlaps="{{ commander_overlap_tags|join(', ') }}"{% endif %}
      {% if commander_reason_text %}data-reasons="{{ commander_reason_text|e }}"{% endif %}
            width="320" />
+      {# Price overlay — ensures commander price is loaded into window._priceNum for the hover panel #}
+      <div class="card-price-overlay" data-price-for="{{ commander_base }}" aria-hidden="true"></div>
     </div>
     <div class="muted" style="margin-top:.25rem;">Commander: <span data-card-name="{{ commander }}"
     data-original-name="{{ commander }}"
@@ -69,12 +71,71 @@
       {% endif %}
       <a href="/decks/compare?A={{ name|urlencode }}" class="btn" role="button" title="Compare this deck with another">Compare…</a>
       {% if budget_report %}
-      <a href="/decks/pickups?name={{ name|urlencode }}" class="btn" role="button" title="View cards to acquire for this budget build">Pickups List</a>
+      <a href="/decks/pickups?name={{ name|urlencode }}" class="btn" role="button" title="View upgrade suggestions for this deck">Upgrade Suggestions</a>
       {% endif %}
       <form method="get" action="/decks" style="display:inline; margin:0;">
         <button type="submit">Back to Finished Decks</button>
       </form>
     </div>
+    {# Buy This Deck: collect all cards, strip DFC names, open vendor + copy to clipboard #}
+    {%- set _buy_cards = [] -%}
+    {%- if summary and summary.type_breakdown and summary.type_breakdown.cards -%}
+      {%- for _btype, _bclist in summary.type_breakdown.cards.items() -%}
+        {%- for _bc in _bclist -%}
+          {%- if _bc.name -%}
+            {%- set _ = _buy_cards.append({'name': _bc.name, 'count': (_bc.count if _bc.count and _bc.count > 1 else 1)}) -%}
+          {%- endif -%}
+        {%- endfor -%}
+      {%- endfor -%}
+    {%- endif -%}
+    {% if _buy_cards %}
+    <div class="cart-toolbar" style="margin-top:.6rem; flex-direction:column; align-items:flex-start; gap:.35rem;" id="buy-deck-toolbar">
+      <span class="cart-label" style="font-weight:600; color:var(--text,#e5e7eb);">Buy this deck:</span>
+      <div style="display:flex; gap:.4rem; flex-wrap:wrap;">
+        <button class="btn btn-sm" type="button" onclick="buyViaTCG()">Open in TCGPlayer</button>
+        <button class="btn btn-sm" type="button" onclick="buyViaCK()">Open in Card Kingdom</button>
+      </div>
+    </div>
+    <div id="buy-fallback-wrap" class="cart-fallback-wrap" style="display:none;">
+      <p>Clipboard access unavailable. Select all and copy the text below, then paste it at the vendor site:</p>
+      <textarea id="buy-fallback-text" class="cart-fallback-textarea" readonly aria-label="Deck list for manual copy"></textarea>
+      <button type="button" class="btn btn-sm" style="margin-top:.4rem;" onclick="document.getElementById('buy-fallback-wrap').style.display='none';">Close</button>
+    </div>
+    <script>
+    (function () {
+      var _buyCards = {{ _buy_cards | tojson }};
+      function stripDFC(n) { return n.split(' // ')[0].trim(); }
+      function buildList(cards) {
+        return cards.map(function (c) { return c.count + ' ' + stripDFC(c.name); }).join('\n');
+      }
+      function showFallback(text) {
+        var wrap = document.getElementById('buy-fallback-wrap');
+        var ta = document.getElementById('buy-fallback-text');
+        if (!wrap || !ta) return;
+        ta.value = text; wrap.style.display = 'block'; ta.focus(); ta.select();
+      }
+      function showCartToast(msg) {
+        var el = document.createElement('div');
+        el.className = 'cart-toast-top';
+        el.textContent = msg;
+        document.body.appendChild(el);
+        setTimeout(function () { el.classList.add('hide'); setTimeout(function () { el.remove(); }, 300); }, 6000);
+      }
+      function openAfterCopy(url, vendorName) {
+        var text = buildList(_buyCards);
+        function doOpen() {
+          showCartToast('List copied — paste into ' + vendorName + ' with Ctrl+V');
+          setTimeout(function () { window.open(url, '_blank'); }, 400);
+        }
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(doOpen).catch(function () { showFallback(text); window.open(url, '_blank'); });
+        } else { showFallback(text); window.open(url, '_blank'); }
+      }
+      window.buyViaTCG = function () { openAfterCopy('https://www.tcgplayer.com/massentry', 'TCGPlayer'); };
+      window.buyViaCK  = function () { openAfterCopy('https://www.cardkingdom.com/builder',  'Card Kingdom'); };
+    })();
+    </script>
+    {% endif %}
     {% if budget_report %}
     {% set bstatus = budget_report.budget_status %}
     <div class="budget-badge budget-badge--{{ bstatus }}" style="margin-top:.6rem;">

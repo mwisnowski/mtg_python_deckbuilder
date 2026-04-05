@@ -601,6 +601,13 @@ async def decks_pickups(request: Request, name: str) -> HTMLResponse:
     except Exception:
         pass
 
+    owned: set[str] = set()
+    try:
+        from ..services.build_utils import owned_set as _owned_set
+        owned = _owned_set()
+    except Exception:
+        pass
+
     return templates.TemplateResponse(
         "decks/pickups.html",
         {
@@ -612,6 +619,7 @@ async def decks_pickups(request: Request, name: str) -> HTMLResponse:
             "error": error_msg,
             "stale_prices": stale_prices,
             "stale_prices_global": stale_prices_global,
+            "owned_names": owned,
         },
     )
 

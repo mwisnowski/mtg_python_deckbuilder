@@ -8,7 +8,7 @@ _No unreleased changes yet_
 _No unreleased changes yet_
 
 ### Fixed
-_No unreleased changes yet_
+- Card hover preview now works correctly for example cards in the theme browser
 
 ### Removed
 _No unreleased changes yet_

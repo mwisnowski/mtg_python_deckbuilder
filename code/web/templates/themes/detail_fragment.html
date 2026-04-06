@@ -185,7 +185,7 @@
         {% for c in theme.example_cards %}
         {% set base_c = (c.split(' - Synergy (')[0] if ' - Synergy (' in c else c) %}
         <div class="ex-card text-center" style="position:relative" data-card-name="{{ base_c }}" data-role="example_card" data-tags="{{ theme.synergies|join(', ') }}" data-original-name="{{ c }}">
-          <img class="card-thumb w-full h-auto border border-[var(--border)] rounded-[10px]" loading="lazy" decoding="async" alt="{{ c }} image" src="{{ base_c|card_image('small') }}" />
+          <img class="card-thumb w-full h-auto border border-[var(--border)] rounded-[10px]" loading="lazy" decoding="async" alt="{{ c }} image" src="{{ base_c|card_image('small') }}" data-card-name="{{ base_c }}" data-original-name="{{ c }}" data-role="example_card" data-tags="{{ theme.synergies|join(', ') }}" />
           <div class="card-price-overlay" data-price-for="{{ base_c }}" aria-hidden="true"></div>
           <div class="text-[11px] mt-1 whitespace-nowrap overflow-hidden text-ellipsis font-semibold card-ref" data-card-name="{{ base_c }}" data-tags="{{ theme.synergies|join(', ') }}" data-original-name="{{ c }}">{{ c }}</div>
         </div>

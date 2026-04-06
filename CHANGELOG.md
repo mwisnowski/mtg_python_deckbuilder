@@ -15,7 +15,7 @@ _No unreleased changes yet_
 _No unreleased changes yet_
 
 ### Fixed
-_No unreleased changes yet_
+- **Card hover preview in theme browser (#70)**: Example card thumbnails in the theme detail/browser page were showing the wrong card image (a fuzzy search for "Card") when hovered. The `<img>` elements inside `.ex-card` containers lacked `data-card-name` attributes, so the hover system fell back to the literal string "Card". Added `data-card-name`, `data-original-name`, `data-role`, and `data-tags` to example card `<img>` elements in `detail_fragment.html` to match the existing commander image pattern.
 
 ### Removed
 _No unreleased changes yet_

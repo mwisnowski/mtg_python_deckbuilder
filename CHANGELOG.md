@@ -16,6 +16,7 @@ _No unreleased changes yet_
 
 ### Fixed
 - **Card hover preview in theme browser (#70)**: Example card thumbnails in the theme detail/browser page were showing the wrong card image (a fuzzy search for "Card") when hovered. The `<img>` elements inside `.ex-card` containers lacked `data-card-name` attributes, so the hover system fell back to the literal string "Card". Added `data-card-name`, `data-original-name`, `data-role`, and `data-tags` to example card `<img>` elements in `detail_fragment.html` to match the existing commander image pattern.
+- **Enter key cancels commander search in new deck modal (#71)**: Pressing Enter while typing a commander name in the new deck wizard would submit the form before the autocomplete candidates loaded (due to the 220 ms search delay), resulting in "Commander not found". A capture-phase keydown handler now intercepts Enter on the commander field, and a direct `fetch()` call bypasses HTMX timing entirely — it fetches and auto-selects the first match immediately, then triggers the inspect/theme load. When candidates are already visible, Enter selects the highlighted one as before.
 
 ### Removed
 _No unreleased changes yet_

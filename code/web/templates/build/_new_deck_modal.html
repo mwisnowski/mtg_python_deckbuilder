@@ -1088,23 +1088,35 @@
     try {
       var form = modal ? modal.querySelector('form') : document.querySelector('.modal form');
       if (form){
-        // Form-level Enter: if suggestions exist, pick the first by default
+        // Form-level keydown (capture): handles commander Enter + Enter elsewhere
         form.addEventListener('keydown', function(e){
           try{
-            if (e.key !== 'Enter' || e.shiftKey || e.altKey || e.ctrlKey || e.metaKey) return;
+            if (e.key !== 'Enter') return;
+            if (e.shiftKey || e.altKey || e.ctrlKey || e.metaKey) return;
             // Allow Enter in include/exclude textareas for newlines
-            if (document.activeElement && 
-                (document.activeElement.id === 'include_cards_textarea' || 
+            if (document.activeElement &&
+                (document.activeElement.id === 'include_cards_textarea' ||
                  document.activeElement.id === 'exclude_cards_textarea')) {
               return;
             }
+            var inCmd = !!(e.target && e.target.name === 'commander');
             var list = document.getElementById('newdeck-candidates');
-            var first = list && list.querySelector('button.candidate-btn');
-            if (first){
-              e.preventDefault(); e.stopPropagation(); first.click();
-            } else {
-              // No suggestions: allow normal form submit
+            var btns = list ? Array.prototype.slice.call(list.querySelectorAll('button.candidate-btn')) : [];
+            var getIdx = function(){ return btns.findIndex(function(b){ return b.classList.contains('active'); }); };
+            if (inCmd){
+              e.preventDefault(); e.stopPropagation();
+              if (btns.length){
+                var ci2 = form.querySelector('input[name="commander"]');
+                var t = btns[getIdx() >= 0 ? getIdx() : 0];
+                if (t && ci2){ ci2.dataset.confirmedName = t.getAttribute('data-name')||''; t.click(); }
+              } else {
+                var ci3 = form.querySelector('input[name="commander"]');
+                if (ci3 && ci3.value.trim()) fetchAndSelectFirst(ci3, form);
+              }
+              return;
             }
+            // Non-commander Enter: if suggestions present, pick active/first; else allow submit
+            if (btns.length){ e.preventDefault(); e.stopPropagation(); (btns[getIdx()>=0?getIdx():0]).click(); }
           }catch(_){ }
         }, true);
         // Name field: only block Enter if suggestions exist; otherwise allow submit
@@ -1122,67 +1134,50 @@
         // In commander field, Enter picks the first candidate (if any) without closing the modal
         var cmdEl = form.querySelector('input[name=\"commander\"]');
         if (cmdEl){
-          function handleEnterNav(e){
-            // Enter selects the highlighted (or first) suggestion
-            var list = document.getElementById('newdeck-candidates');
-            var btns = list ? Array.prototype.slice.call(list.querySelectorAll('button.candidate-btn')) : [];
-            var getActiveIndex = function(){ return btns.findIndex(function(b){ return b.classList.contains('active'); }); };
-            if (!btns.length) return; // nothing to do, but we've already prevented default
-            // Skip if a request is in-flight to avoid fighting with swap timing
-            try{ if (cmdEl.matches('.htmx-request') || list.matches('.htmx-request')) return; }catch(_){ }
-            if (e.key === 'Enter'){
-              var idx = getActiveIndex();
-              var target = btns[(idx >= 0 ? idx : 0)];
-              if (target) { target.click(); }
-            }
+          cmdEl.dataset.confirmedName = '';
+          cmdEl.addEventListener('input', function(){ cmdEl.dataset.confirmedName = ''; });
+          // Fetch candidates directly, resolve exact name, trigger inspect — avoids HTMX swap timing.
+          function fetchAndSelectFirst(ci, f) {
+            var val = ci.value.trim();
+            if (!val) return;
+            fetch('/build/new/candidates?commander=' + encodeURIComponent(val), {headers: {'HX-Request': 'true'}})
+              .then(function(r){ return r.text(); })
+              .then(function(html){
+                try {
+                  var tmp = document.createElement('div');
+                  tmp.innerHTML = html;
+                  var btn = tmp.querySelector('button.candidate-btn');
+                  if (!btn) return;
+                  var name = btn.getAttribute('data-name') || val;
+                  var display = btn.getAttribute('data-display') || name;
+                  ci.value = name;
+                  ci.dataset.confirmedName = name;
+                  var nm = f ? f.querySelector('input[name="name"]') : null;
+                  if (nm && !nm.value.trim()) nm.value = display;
+                  var candidateList = document.getElementById('newdeck-candidates');
+                  if (candidateList) {
+                    candidateList.innerHTML = html;
+                    var allBtns = candidateList.querySelectorAll('button.candidate-btn');
+                    allBtns.forEach(function(b){ b.classList.remove('active'); b.setAttribute('aria-selected','false'); });
+                    if (allBtns[0]) { allBtns[0].classList.add('active'); allBtns[0].setAttribute('aria-selected','true'); }
+                  }
+                  htmx.ajax('GET', '/build/new/inspect?name=' + encodeURIComponent(name), {target: '#newdeck-tags-slot', swap: 'innerHTML'});
+                } catch(_) {}
+              }).catch(function(){});
           }
-          // Capture keydown early to prevent submit on Enter (arrows left to default behavior)
-          cmdEl.addEventListener('keydown', function(e){
-            if (e.key === 'Enter'){
-              var list = document.getElementById('newdeck-candidates');
-              var hasBtns = !!(list && list.querySelector('button.candidate-btn'));
-              if (hasBtns){
-                e.preventDefault();
-                e.stopPropagation();
-                handleEnterNav(e);
-              }
-            }
-          }, true);
-          // Defensive: also block Enter on keyup (in case a browser tries to submit on keyup)
+          // Keyup: block Enter to prevent any browser trying to submit on keyup
           cmdEl.addEventListener('keyup', function(e){ if (e.key === 'Enter'){ e.preventDefault(); e.stopPropagation(); } });
-      // Global fallback: capture keydown at the document level so Enter never slips through when the commander input is focused
-          document.addEventListener('keydown', function(e){
-            try{
-              // Allow Enter in include/exclude textareas for newlines
-              if (document.activeElement && 
-                  (document.activeElement.id === 'include_cards_textarea' || 
-                   document.activeElement.id === 'exclude_cards_textarea')) {
-                return;
-              }
-              if (document.activeElement !== cmdEl) return;
-        if (e.key !== 'Enter') return;
-              var list = document.getElementById('newdeck-candidates');
-              var hasBtns = !!(list && list.querySelector('button.candidate-btn'));
-              if (!hasBtns) return;
-              e.preventDefault();
-              e.stopPropagation();
-              handleEnterNav(e);
-            }catch(_){ }
-          }, true);
-          // Reset candidate highlight when the list updates
+          // Highlight first candidate when list updates
           document.body.addEventListener('htmx:afterSwap', function(ev){
             try {
               var tgt = ev && ev.detail && ev.detail.target ? ev.detail.target : null;
-              if (!tgt) return;
-              if (tgt.id === 'newdeck-candidates'){
-                var first = tgt.querySelector('button.candidate-btn');
-                if (first){
-                  // Clear any lingering active classes, then set the first as active for immediate Enter selection
-                  tgt.querySelectorAll('button.candidate-btn').forEach(function(b){ b.classList.remove('active'); b.setAttribute('aria-selected','false'); });
-                  first.classList.add('active');
-                  first.setAttribute('aria-selected','true');
-                  try{ cmdEl.setAttribute('aria-activedescendant', first.id || ''); }catch(_){ }
-                }
+              if (!tgt || tgt.id !== 'newdeck-candidates') return;
+              var first = tgt.querySelector('button.candidate-btn');
+              if (first){
+                tgt.querySelectorAll('button.candidate-btn').forEach(function(b){ b.classList.remove('active'); b.setAttribute('aria-selected','false'); });
+                first.classList.add('active');
+                first.setAttribute('aria-selected','true');
+                try{ cmdEl.setAttribute('aria-activedescendant', first.id || ''); }catch(_){ }
               }
             } catch(_){}
           });
@@ -1190,9 +1185,52 @@
       }
     } catch(_){ }
     // Close on Escape
-    function closeModal(){ try{ var m = document.querySelector('.modal'); if(m){ m.remove(); document.removeEventListener('keydown', onKey); } }catch(_){} }
+    function closeModal(){ try{ var m = document.querySelector('.modal'); if(m){ m.remove(); document.removeEventListener('keydown', onKey); document.removeEventListener('submit', newDeckSubmitGuard, true); } }catch(_){} }
     function onKey(e){ if (e.key === 'Escape'){ e.preventDefault(); closeModal(); } }
     document.addEventListener('keydown', onKey);
+    // Document-level submit guard: blocks submission when commander field is unconfirmed.
+    // Self-contained — does not rely on closure variables, uses fresh DOM lookups.
+    function newDeckSubmitGuard(e) {
+      try {
+        var modal = document.getElementById('new-deck-modal');
+        if (!modal || e.target.tagName !== 'FORM' || !modal.contains(e.target)) return;
+        var f = e.target;
+        var ci = f.querySelector('input[name="commander"]');
+        if (!ci) return;
+        var val = ci.value.trim();
+        if (!val || ci.dataset.confirmedName) return;
+        e.preventDefault();
+        e.stopPropagation();
+        var list = document.getElementById('newdeck-candidates');
+        var active = list && (list.querySelector('button.candidate-btn.active') || list.querySelector('button.candidate-btn'));
+        if (active) {
+          ci.dataset.confirmedName = active.getAttribute('data-name') || ci.value;
+          active.click();
+        } else {
+          // Fetch candidates directly and select first
+          fetch('/build/new/candidates?commander=' + encodeURIComponent(val), {headers: {'HX-Request': 'true'}})
+            .then(function(r){ return r.text(); })
+            .then(function(html){
+              try {
+                var tmp = document.createElement('div');
+                tmp.innerHTML = html;
+                var btn = tmp.querySelector('button.candidate-btn');
+                if (!btn) return;
+                var name = btn.getAttribute('data-name') || val;
+                var display = btn.getAttribute('data-display') || name;
+                ci.value = name;
+                ci.dataset.confirmedName = name;
+                var nm = f.querySelector('input[name="name"]');
+                if (nm && !nm.value.trim()) nm.value = display;
+                var candidateList = document.getElementById('newdeck-candidates');
+                if (candidateList) { candidateList.innerHTML = html; }
+                htmx.ajax('GET', '/build/new/inspect?name=' + encodeURIComponent(name), {target: '#newdeck-tags-slot', swap: 'innerHTML'});
+              } catch(_) {}
+            }).catch(function(){});
+        }
+      } catch(_) {}
+    }
+    document.addEventListener('submit', newDeckSubmitGuard, true);
   })();
 
 

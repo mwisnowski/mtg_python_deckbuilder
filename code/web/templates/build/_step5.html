@@ -342,9 +342,7 @@
           <input type="hidden" name="show_skipped" value="{{ '1' if show_skipped else '0' }}" />
           <button type="submit" class="btn-continue" data-action="continue">Restart Build</button>
         </form>
-        <form hx-post="/build/reset-all" hx-target="#wizard" hx-swap="innerHTML" class="inline-form">
-          <button type="submit" class="btn" title="Start a brand new build (clears selections)">New build</button>
-        </form>
+        <button type="button" class="btn" hx-get="/build/new?reset=1" hx-target="body" hx-swap="beforeend" title="Start a brand new build (clears selections)">New build</button>
   <button type="button" class="btn-back" data-action="back" hx-get="/build/step4" hx-target="#wizard" hx-swap="innerHTML">Back</button>
       </div>
   {% else %}
@@ -378,9 +376,7 @@
         <form hx-post="/build/step5/reset-stage" hx-target="#wizard" hx-swap="innerHTML" class="inline-form">
           <button type="submit" class="btn" title="Reset this stage to pre-stage picks">Reset stage</button>
         </form>
-        <form hx-post="/build/reset-all" hx-target="#wizard" hx-swap="innerHTML" class="inline-form">
-          <button type="submit" class="btn" title="Start a brand new build (clears selections)">New build</button>
-        </form>
+        <button type="button" class="btn" hx-get="/build/new?reset=1" hx-target="body" hx-swap="beforeend" title="Start a brand new build (clears selections)">New build</button>
         <label class="muted form-label-icon ml-2">
           <input type="checkbox" name="__toggle_show_skipped" data-pref="build:show_skipped" {% if show_skipped %}checked{% endif %}
                  onchange="const val=this.checked?'1':'0'; for(const f of this.closest('section').querySelectorAll('form')){ const h=f.querySelector('input[name=show_skipped]'); if(h) h.value=val; }" />

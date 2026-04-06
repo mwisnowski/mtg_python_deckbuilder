@@ -1152,8 +1152,6 @@
                   var display = btn.getAttribute('data-display') || name;
                   ci.value = name;
                   ci.dataset.confirmedName = name;
-                  var nm = f ? f.querySelector('input[name="name"]') : null;
-                  if (nm && !nm.value.trim()) nm.value = display;
                   var candidateList = document.getElementById('newdeck-candidates');
                   if (candidateList) {
                     candidateList.innerHTML = html;

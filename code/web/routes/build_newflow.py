@@ -64,11 +64,15 @@ _ARCHETYPE_JS_MAP: dict[str, dict] = {
 # ==============================================================================
 
 @router.get("/new", response_class=HTMLResponse)
-async def build_new_modal(request: Request) -> HTMLResponse:
+async def build_new_modal(request: Request, reset: str = Query("")) -> HTMLResponse:
     """Return the New Deck modal content (for an overlay)."""
     sid = request.cookies.get("sid") or new_sid()
     sess = get_session(sid)
-    
+
+    # Full session reset when requested (e.g. from "New Build" on summary page)
+    if reset == "1":
+        sess.clear()
+
     # Clear build context to allow skip controls to work
     # (Otherwise toggle endpoint thinks build is in progress)
     if "build_ctx" in sess:

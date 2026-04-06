@@ -364,7 +364,13 @@ async def build_step1_confirm(request: Request) -> HTMLResponse:
 
 @router.post("/reset-all", response_class=HTMLResponse)
 async def build_reset_all(request: Request) -> HTMLResponse:
-    return RedirectResponse("/build", status_code=302)
+    sid = request.cookies.get("sid") or new_sid()
+    sess = get_session(sid)
+    sess.clear()
+    resp = HTMLResponse("", status_code=200)
+    resp.headers["HX-Redirect"] = "/build"
+    resp.set_cookie("sid", sid, httponly=True, samesite="lax")
+    return resp
 
 
 # ============================================================================

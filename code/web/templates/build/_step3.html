@@ -38,9 +38,7 @@
         </div>
       </form>
       <div style="margin-top:.5rem;">
-        <form hx-post="/build/reset-all" hx-target="#wizard" hx-swap="innerHTML" style="display:inline; margin:0;">
-          <button type="submit">Start over</button>
-        </form>
+        <button type="button" hx-get="/build/new?reset=1" hx-target="body" hx-swap="beforeend">Start over</button>
       </div>
     </div>
   </div>

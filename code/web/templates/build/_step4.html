@@ -37,9 +37,7 @@
 									<button type="submit" class="btn-continue" data-action="continue">Build Deck</button>
 								</form>
 								<button type="button" class="btn-back" data-action="back" hx-get="/build/step3" hx-target="#wizard" hx-swap="innerHTML">Back</button>
-								<form hx-post="/build/reset-all" hx-target="#wizard" hx-swap="innerHTML" style="display:inline; margin:0;">
-									<button type="submit">Start over</button>
-								</form>
+							<button type="button" hx-get="/build/new?reset=1" hx-target="body" hx-swap="beforeend">Start over</button>
 							</div>
 		</div>
 	</div>

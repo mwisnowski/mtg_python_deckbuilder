@@ -20,6 +20,10 @@ _No unreleased changes yet_
 ### Removed
 _No unreleased changes yet_
 
+## [4.7.2] - 2026-04-08
+### Fixed
+- **Scryfall image fallback rate limiting**: When the local image cache is disabled or a card image is not cached, the app redirects to the Scryfall API. Under heavy load (e.g., 100 uncached card images loading at once), all redirects would fire simultaneously and hit Scryfall's 10 req/sec limit. Added a server-side async token-bucket throttler that spaces Scryfall fallback redirects at ≤10/sec, keeping the app within Scryfall's published guidelines without affecting cached image serving.
+
 ## [4.7.1] - 2026-04-08
 ### Added
 - **Potential Upgrades page**: New page accessible from any saved deck's view, surfacing card suggestions across three pools:

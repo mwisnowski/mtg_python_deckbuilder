@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import threading
+import time
 from pathlib import Path
 from urllib.parse import quote_plus
 
@@ -18,6 +20,27 @@ router = APIRouter(prefix="/api")
 
 # Global image cache instance
 _image_cache = ImageCache()
+
+# ---------------------------------------------------------------------------
+# Scryfall fallback rate limiter
+# Scryfall guideline: ≤10 req/sec (100 ms between requests).
+# We use a simple async token bucket so concurrent image requests are spread
+# out rather than all firing at Scryfall simultaneously.
+# ---------------------------------------------------------------------------
+_SCRYFALL_MIN_INTERVAL = 0.10  # seconds between fallback redirects (10 req/s)
+_scryfall_lock = asyncio.Lock()
+_scryfall_last_redirect: float = 0.0
+
+
+async def _scryfall_rate_limit() -> None:
+    """Throttle Scryfall API fallback redirects to ≤10 req/sec."""
+    global _scryfall_last_redirect
+    async with _scryfall_lock:
+        now = time.monotonic()
+        wait = _SCRYFALL_MIN_INTERVAL - (now - _scryfall_last_redirect)
+        if wait > 0:
+            await asyncio.sleep(wait)
+        _scryfall_last_redirect = time.monotonic()
 
 
 @router.get("/images/status")
@@ -203,6 +226,7 @@ async def get_card_image(size: str, card_name: str, face: str = Query(default="f
             logger.warning(f"Could not lookup full card name for back face '{card_name}': {e}")
     
     scryfall_url = f"https://api.scryfall.com/cards/named?{scryfall_params}"
+    await _scryfall_rate_limit()
     return RedirectResponse(scryfall_url)
 
 

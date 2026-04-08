@@ -20,6 +20,11 @@ _No unreleased changes yet_
 ### Removed
 _No unreleased changes yet_
 
+## [4.7.4] - 2026-04-08
+### Changed
+- **Image caching RAM reduction**: Bulk data JSON is now streamed line-by-line instead of loaded all at once, dropping peak RAM during image caching from ~1.5–2.5 GB to ~175 MB. Image bytes are streamed directly to disk rather than buffered in memory. CDN download delay halved from 50 ms to 25 ms (Scryfall CDN has no rate limit).
+- **Standard art preference**: Image caching now picks the most standard-looking printing per card (non-full-art, black border, non-promo, non-showcase/extendedart) instead of whichever printing appeared first in bulk data.
+
 ## [4.7.3] - 2026-04-08
 ### Fixed
 - **Scryfall image fallback rate limit correction**: The `/cards/named` endpoint has a documented limit of 2 req/sec (500 ms), not 10 req/sec. Corrected the server-side throttler interval from 100 ms to 500 ms to match Scryfall's published rate limit.

@@ -30,17 +30,19 @@ import json
 import logging
 import os
 import re
+import shutil
 import time
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Generator, Optional
 from urllib.request import Request, urlopen
 
 from code.file_setup.scryfall_bulk_data import ScryfallBulkDataClient
 
 logger = logging.getLogger(__name__)
 
-# Scryfall CDN has no rate limits, but we'll be conservative
-DOWNLOAD_DELAY = 0.05  # 50ms between image downloads (20 req/sec)
+# Scryfall CDN (cards.scryfall.io) has no hard rate limits.
+# We use a small delay to be a polite CDN citizen.
+DOWNLOAD_DELAY = 0.025  # 25ms between image downloads (~40 req/sec)
 
 # Image sizes to cache
 IMAGE_SIZES = ["small", "normal"]
@@ -200,9 +202,8 @@ class ImageCache:
             req.add_header("User-Agent", "MTG-Deckbuilder/3.0 (Image Cache)")
 
             with urlopen(req, timeout=30) as response:
-                image_data = response.read()
                 with open(output_path, "wb") as f:
-                    f.write(image_data)
+                    shutil.copyfileobj(response, f, length=65536)
 
             return True
 
@@ -213,16 +214,53 @@ class ImageCache:
                 output_path.unlink()
             return False
 
-    def _load_bulk_data(self) -> list[dict[str, Any]]:
-        """
-        Load card data from bulk data JSON.
+    # Frame effects that mark a non-standard treatment (showcase, extended-art, etc.).
+    _SPECIAL_FRAME_EFFECTS: frozenset[str] = frozenset(
+        {"showcase", "extendedart", "inverted", "step_and_compleat_foil",
+         "etched", "sunmoondfc", "compasslandmark", "mooneldraziclock"}
+    )
 
-        Returns:
-            List of card objects with image URLs
+    def _score_printing(self, card: dict[str, Any]) -> int:
+        """
+        Score a printing by how "standard" it looks.
+
+        Higher = more standard frame, preferred for image caching.
+        Fields used: full_art, textless, promo, border_color, booster,
+        variation, frame_effects.
+        """
+        score = 0
+        if not card.get("full_art", False):
+            score += 3
+        if not card.get("textless", False):
+            score += 2
+        if not card.get("promo", False):
+            score += 2
+        if card.get("border_color") == "black":
+            score += 3
+        if card.get("booster", False):
+            score += 1
+        if not card.get("variation", False):
+            score += 1
+        frame_effects = card.get("frame_effects") or []
+        if not any(e in self._SPECIAL_FRAME_EFFECTS for e in frame_effects):
+            score += 2
+        return score
+
+    def _stream_card_image_data(
+        self,
+    ) -> Generator[tuple[str, dict[str, str]], None, None]:
+        """
+        Stream image URI data for our cards from bulk JSON, yielding the most
+        standard-looking printing per card name.
+
+        Does a single pass through the bulk JSON, scoring each printing with
+        `_score_printing` and keeping only the best-scoring one per card name.
+        Only minimal data (image URIs + card name) is retained, so peak RAM
+        stays in the tens-of-MB range. Yields (face_name, image_uris) tuples
+        for the chosen printing of every card in our dataset.
 
         Raises:
-            FileNotFoundError: If bulk data file doesn't exist
-            json.JSONDecodeError: If file is invalid JSON
+            FileNotFoundError: If bulk data file doesn't exist.
         """
         if not self.bulk_data_path.exists():
             raise FileNotFoundError(
@@ -230,48 +268,65 @@ class ImageCache:
                 "Run download_bulk_data() first."
             )
 
-        logger.info(f"Loading bulk data from {self.bulk_data_path}")
-        with open(self.bulk_data_path, "r", encoding="utf-8") as f:
-            return json.load(f)
-
-    def _filter_to_our_cards(self, bulk_cards: list[dict[str, Any]]) -> list[dict[str, Any]]:
-        """
-        Filter bulk data to only cards in our all_cards.parquet file.
-        Deduplicates by card name (takes first printing only).
-
-        Args:
-            bulk_cards: Full Scryfall bulk data
-
-        Returns:
-            Filtered list of cards matching our dataset (one per unique name)
-        """
+        # Load only card names from parquet — a small set of strings.
+        our_card_names: set[str] | None = None
         try:
             import pandas as pd
             from code.path_util import get_processed_cards_path
-            
-            # Load our card names
+
             parquet_path = get_processed_cards_path()
             df = pd.read_parquet(parquet_path, columns=["name"])
             our_card_names = set(df["name"].str.lower())
-            
-            logger.info(f"Filtering {len(bulk_cards)} Scryfall cards to {len(our_card_names)} cards in our dataset")
-            
-            # Filter and deduplicate - keep only first printing of each card
-            seen_names = set()
-            filtered = []
-            
-            for card in bulk_cards:
-                card_name_lower = card.get("name", "").lower()
-                if card_name_lower in our_card_names and card_name_lower not in seen_names:
-                    filtered.append(card)
-                    seen_names.add(card_name_lower)
-            
-            logger.info(f"Filtered to {len(filtered)} unique cards with image data")
-            return filtered
-            
+            logger.info(
+                f"Streaming bulk data for {len(our_card_names)} cards in our dataset"
+            )
         except Exception as e:
-            logger.warning(f"Could not filter to our cards: {e}. Using all Scryfall cards.")
-            return bulk_cards
+            logger.warning(f"Could not load card names from parquet: {e}. Streaming all cards.")
+
+        # best: name_lower -> (score, [(face_name, image_uris)])
+        # Stores only the minimal image URI data needed — not full card objects.
+        best: dict[str, tuple[int, list[tuple[str, dict[str, str]]]]] = {}
+
+        with open(self.bulk_data_path, "r", encoding="utf-8") as fh:
+            for raw_line in fh:
+                line = raw_line.strip().rstrip(",")
+                if not line or line in ("[", "]"):
+                    continue
+                try:
+                    card = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+
+                card_name: str = card.get("name", "")
+                if not card_name:
+                    continue
+
+                name_lower = card_name.lower()
+                if our_card_names is not None and name_lower not in our_card_names:
+                    continue
+
+                # Collect image-URI faces for this printing.
+                faces: list[tuple[str, dict[str, str]]] = []
+                if card.get("image_uris"):
+                    faces.append((card_name, card["image_uris"]))
+                elif card.get("card_faces"):
+                    for face in card["card_faces"]:
+                        if face.get("image_uris"):
+                            face_name: str = face.get("name", card_name)
+                            faces.append((face_name, face["image_uris"]))
+
+                if not faces:
+                    continue
+
+                score = self._score_printing(card)
+                existing = best.get(name_lower)
+                if existing is None or score > existing[0]:
+                    best[name_lower] = (score, faces)
+
+        # Yield the best printing for each card.
+        for _score, faces in best.values():
+            for face_name, image_uris in faces:
+                yield face_name, image_uris
 
     def download_bulk_data(self, progress_callback=None) -> None:
         """
@@ -320,10 +375,21 @@ class ImageCache:
 
         logger.info(f"Starting image download for sizes: {sizes}")
 
-        # Load bulk data and filter to our cards
-        bulk_cards = self._load_bulk_data()
-        cards = self._filter_to_our_cards(bulk_cards)
-        total_cards = len(cards) if max_cards is None else min(max_cards, len(cards))
+        # Estimate total from parquet so the progress bar has a denominator.
+        # This is a lightweight read (one column) and avoids loading bulk JSON twice.
+        total_cards: int = 0
+        try:
+            import pandas as pd
+            from code.path_util import get_processed_cards_path
+
+            df_est = pd.read_parquet(get_processed_cards_path(), columns=["name"])
+            total_cards = len(df_est)
+            del df_est  # release immediately
+        except Exception:
+            pass  # progress will show 0 total if parquet unavailable
+
+        if max_cards is not None:
+            total_cards = min(max_cards, total_cards) if total_cards else max_cards
 
         stats = {
             "total": total_cards,
@@ -332,65 +398,33 @@ class ImageCache:
             "failed": 0,
         }
 
-        for i, card in enumerate(cards[:total_cards]):
-            card_name = card.get("name")
-            if not card_name:
-                stats["skipped"] += 1
-                continue
+        # Stream bulk JSON one card at a time — never loads entire file into RAM.
+        card_index = 0
+        for face_name, image_uris in self._stream_card_image_data():
+            if max_cards is not None and card_index >= max_cards:
+                break
 
-            # Collect all faces to download (single-faced or multi-faced)
-            faces_to_download = []
-            
-            # Check if card has direct image_uris (single-faced card)
-            if card.get("image_uris"):
-                faces_to_download.append({
-                    "name": card_name,
-                    "image_uris": card["image_uris"],
-                })
-            # Handle double-faced cards (get all faces)
-            elif card.get("card_faces"):
-                for face_idx, face in enumerate(card["card_faces"]):
-                    if face.get("image_uris"):
-                        # For multi-faced cards, append face name or index
-                        face_name = face.get("name", f"{card_name}_face{face_idx}")
-                        faces_to_download.append({
-                            "name": face_name,
-                            "image_uris": face["image_uris"],
-                        })
-            
-            # Skip if no faces found
-            if not faces_to_download:
-                logger.debug(f"No image URIs for {card_name}")
-                stats["skipped"] += 1
-                continue
+            for size in sizes:
+                image_url = image_uris.get(size)
+                if not image_url:
+                    continue
 
-            # Download each face in each requested size
-            for face in faces_to_download:
-                face_name = face["name"]
-                image_uris = face["image_uris"]
-                
-                for size in sizes:
-                    image_url = image_uris.get(size)
-                    if not image_url:
-                        continue
+                safe_name = sanitize_filename(face_name)
+                output_path = self.base_dir / size / f"{safe_name}.jpg"
 
-                    # Check if already cached
-                    safe_name = sanitize_filename(face_name)
-                    output_path = self.base_dir / size / f"{safe_name}.jpg"
+                if output_path.exists():
+                    stats["skipped"] += 1
+                    continue
 
-                    if output_path.exists():
-                        stats["skipped"] += 1
-                        continue
+                if self._download_image(image_url, output_path):
+                    stats["downloaded"] += 1
+                else:
+                    stats["failed"] += 1
 
-                    # Download image
-                    if self._download_image(image_url, output_path):
-                        stats["downloaded"] += 1
-                    else:
-                        stats["failed"] += 1
+            card_index += 1
 
-            # Progress callback
             if progress_callback:
-                progress_callback(i + 1, total_cards, card_name)
+                progress_callback(card_index, total_cards, face_name)
 
         # Invalidate cached summary since we just downloaded new images
         self.invalidate_summary_cache()

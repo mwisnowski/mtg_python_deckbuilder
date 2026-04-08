@@ -1,0 +1,14 @@
+{% if swaps %}
+<div class="muted text-xs" style="margin-bottom:.3rem; font-weight:600;">Swap targets:</div>
+<ul style="margin:0; padding-left:1.1rem; font-size:.85em;">
+  {% for swap in swaps %}
+  <li style="margin-bottom:.2rem;">
+    <span data-card-name="{{ swap.name }}" style="cursor:pointer;">{{ swap.name }}</span>
+    {% if swap.cmc %}<span class="muted text-xs">(CMC {{ swap.cmc|int }})</span>{% endif %}
+    &mdash; <span class="muted">{{ swap.reason }}</span>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<div class="muted text-xs">No swap candidates found.</div>
+{% endif %}

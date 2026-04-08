@@ -1,0 +1,80 @@
+<div class="card-browser-tile card-tile"
+     data-card-name="{{ upgrade_card.name }}"
+     data-upgrade-roles="{{ upgrade_card.roles|join(';') }}"
+     data-upgrade-matched="{{ upgrade_card.matched_tags|join(';') }}">
+  {# Card image — uses local cache via card_image filter, same as card browser #}
+  <div class="card-browser-tile-image">
+    <img
+      loading="lazy"
+      decoding="async"
+      alt="{{ upgrade_card.name }}"
+      src="{{ upgrade_card.name|card_image('normal') }}"
+      onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
+      data-card-name="{{ upgrade_card.name }}"
+    />
+    {# Fallback for missing images #}
+    <div style="display:none; width:100%; height:100%; align-items:center; justify-content:center; background:#1a1d24; color:#9ca3af; font-size:12px; padding:.5rem; text-align:center; position:absolute; top:0; left:0;">
+      {{ upgrade_card.name }}
+    </div>
+    {# Price overlay — populated by JS from /api/price/card/:name #}
+    <div class="card-price-overlay" data-price-for="{{ upgrade_card.name }}" aria-hidden="true"></div>
+    {# New badge #}
+    {% if upgrade_card.is_new_card %}
+    <div class="card-new-badge" title="Recently Released" aria-hidden="true">New</div>
+    {% endif %}
+  </div>
+
+  {# Info block: name + swap strip only; roles/reasons shown in hover panel #}
+  <div class="card-browser-tile-info">
+    <div style="display:flex; align-items:center; gap:.35rem; flex-wrap:wrap;">
+      <div class="card-browser-tile-name" style="flex:1; min-width:0;">
+        <a href="https://scryfall.com/search?q=%21%22{{ upgrade_card.name|urlencode }}%22"
+           target="_blank"
+           rel="noopener noreferrer"
+           data-card-name="{{ upgrade_card.name }}"
+           style="text-decoration:none; color:inherit;">{{ upgrade_card.name }}</a>
+      </div>
+      {% if upgrade_card.fit_score and upgrade_card.fit_score > 0 %}
+      <span class="upgrade-score-pill" title="Synergy score (higher = better fit): {{ upgrade_card.fit_score }}">{{ upgrade_card.fit_score }}</span>
+      {% endif %}
+    </div>
+
+    {# Swap strip — horizontal row of candidate images with names below #}
+    {% if upgrade_card.swap_candidates %}
+    <div class="upgrade-swap-strip">
+      {% for swap in upgrade_card.swap_candidates %}
+      <div class="card-tile upgrade-swap-item"
+           data-card-name="{{ swap.name }}"
+           data-swap-reason="{{ swap.reason }}"
+           data-swap-roles="{{ swap.roles|join(';') }}"
+           data-swap-score="{{ swap.swap_score }}">
+        <div style="position:relative; display:inline-block;">
+          <img class="upgrade-swap-thumb"
+               src="{{ swap.name|card_image('small') }}"
+               alt="{{ swap.name }}"
+               data-card-name="{{ swap.name }}"
+               loading="lazy"
+               decoding="async"
+               onerror="this.style.display='none'" />
+          <div class="card-price-overlay" data-price-for="{{ swap.name }}" aria-hidden="true"></div>
+        </div>
+        <span class="upgrade-swap-name">{{ swap.name }}</span>
+        {% if swap.swap_score and swap.swap_score > 0 %}
+        {% set _rs = [(swap.swap_score / 2.0)|round(1), 10.0]|min %}
+        <span class="upgrade-swap-score-pill" title="Replaceability score (1-10): how upgradable this card is">{{ _rs }}</span>
+        {% endif %}
+        <form hx-post="/decks/upgrades/apply-swap"
+              hx-target="this"
+              hx-swap="outerHTML"
+              style="display:inline; margin:0;">
+          <input type="hidden" name="name" value="{{ name }}">
+          <input type="hidden" name="remove" value="{{ swap.name }}">
+          <input type="hidden" name="add" value="{{ upgrade_card.name }}">
+          <button type="submit" class="upgrade-swap-btn" hx-disabled-elt="this" title="Remove {{ swap.name }} and add {{ upgrade_card.name }} to your deck">Apply</button>
+        </form>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+</div>

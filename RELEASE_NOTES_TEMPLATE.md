@@ -2,14 +2,27 @@
 
 ## [Unreleased]
 ### Added
-_No unreleased changes yet_
+- **Potential Upgrades page**: New page accessible from any saved deck's view, surfacing card suggestions across three pools:
+  - **New Cards** — first printings only (no reprints) from the last three expansion release windows or the last six months, whichever covers more ground; excludes cards already in your deck
+  - **General Upgrades** — full legal card pool filtered to your deck's color identity, with meaningful theme and role overlap; cards that fill gaps in your current role spread rank higher
+  - **Possible Upgrades** — a third tab for cards that fit your deck's colors and themes but couldn't be matched with confident swap targets (price range mismatch or insufficient role overlap); shown for manual review without swap buttons
+  - Each suggestion shows 3+ swap targets from your current deck — cards the algorithm considers reasonable cuts based on role overlap and mana cost; commander and locked cards are never suggested as swap targets
+  - **Apply swap**: clicking a swap button rewrites the saved deck file (CSV + TXT + summary) in place with a `.bak` backup; the suggestion tile dims to confirm the change
+  - Synergy fit score (teal pill) on each suggestion; amber replaceability score (1–10) on each swap target — the two scores measure different things and are not directly comparable
+  - Hover any card for the full detail panel: matched tags, role overlap, swap reasoning, and price; TCGPlayer + Card Kingdom prices shown via the same overlay as the rest of the app
+  - Expandable score formula explainer at the top of the page, with a plain-English disclaimer about what the algorithm can and cannot account for
+  - New Cards window label shows full set names and date range, updated dynamically (e.g., at time of implementation: "Final Fantasy Commander, Lorwyn Eclipsed, TMNT (Oct 2025 – Mar 2026)")
+  - Paginated display (16 cards per page by default)
+  - Configurable via `ENABLE_UPGRADE_SUGGESTIONS`, `UPGRADE_PAGE_SIZE`, and `UPGRADE_WINDOW_MONTHS` environment variables
+- **User guide**: `docs/user_guides/suggested_upgrades.md` covering all three upgrade pools, scoring formulas, swap target interpretation, caveats, and environment variables; accessible via the in-app help portal at `/help`
+- **`isNew` card badge**: "New" teal pill on any card first-printed within the active release window, visible across card tiles in the browser, build wizard, deck summary, theme browser, and card hover panel; controlled by `SHOW_NEW_BADGE` (default: on)
 
 ### Changed
 _No unreleased changes yet_
 
 ### Fixed
-_No unreleased changes yet_
+- **Card Kingdom prices not refreshing daily**: CK prices were only refreshed manually or at container startup; the nightly TCGPlayer price rebuild now also triggers a CK cache refresh
 
 ### Removed
-_No unreleased changes yet_
+- **Pickups page hidden**: The "Upgrade Suggestions" (Pickups) page is no longer linked from the deck view; it has been superseded by the new Potential Upgrades page. The route (`/decks/pickups`) remains accessible for backward compatibility.
 

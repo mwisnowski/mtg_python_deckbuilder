@@ -105,7 +105,11 @@
         {% set tags_all = preview.synergies_used[:] if preview.synergies_used else [] %}
         {% for ov in overlaps %}{% if ov not in tags_all %}{% set _ = tags_all.append(ov) %}{% endif %}{% endfor %}
   <div class="commander-cell" data-card-name="{{ base }}" data-role="commander_example" data-tags="{{ tags_all|join(', ') if tags_all }}" data-overlaps="{{ overlaps|join(', ') if overlaps }}" data-original-name="{{ name }}">
+    <div style="position:relative; display:inline-block;">
     <img class="card-thumb" width="230" src="{{ base|card_image('small') }}" alt="{{ base }} image" loading="lazy" decoding="async" data-card-name="{{ base }}" data-role="commander_example" data-tags="{{ tags_all|join(', ') if tags_all }}" data-overlaps="{{ overlaps|join(', ') if overlaps }}" data-original-name="{{ name }}" data-placeholder-color="#0b0d12" onload="this.setAttribute('data-loaded', '1');" />
+    <div class="card-price-overlay" data-price-for="{{ base }}" aria-hidden="true"></div>
+    {% if show_new_badge and base in new_card_names %}<div class="card-new-badge" title="Recently Released" aria-hidden="true">New</div>{% endif %}
+    </div>
       <div class="commander-name" title="{{ name }}">{{ name }}</div>
         </div>
         {% endfor %}
@@ -132,7 +136,11 @@
               {% set tags_all = preview.synergies_used[:] if preview.synergies_used else [] %}
               {% for ov in overlaps %}{% if ov not in tags_all %}{% set _ = tags_all.append(ov) %}{% endif %}{% endfor %}
               <div class="commander-cell synergy" data-card-name="{{ base }}" data-role="synergy_commander" data-tags="{{ tags_all|join(', ') if tags_all }}" data-overlaps="{{ overlaps|join(', ') if overlaps }}" data-original-name="{{ name }}">
+                <div style="position:relative; display:inline-block;">
                 <img class="card-thumb" width="230" src="{{ base|card_image('small') }}" alt="{{ base }} image" loading="lazy" decoding="async" data-card-name="{{ base }}" data-role="synergy_commander" data-tags="{{ tags_all|join(', ') if tags_all }}" data-overlaps="{{ overlaps|join(', ') if overlaps }}" data-original-name="{{ name }}" data-placeholder-color="#0b0d12" onload="this.setAttribute('data-loaded', '1');" />
+                <div class="card-price-overlay" data-price-for="{{ base }}" aria-hidden="true"></div>
+                {% if show_new_badge and base in new_card_names %}<div class="card-new-badge" title="Recently Released" aria-hidden="true">New</div>{% endif %}
+                </div>
                 <div class="commander-name" title="{{ name }}">{{ name }}</div>
               </div>
             {% endfor %}

@@ -86,7 +86,8 @@ CSV_PROCESSING_COLUMNS: List[str] = [
     'power',       # Power (for creatures)
     'toughness',   # Toughness (for creatures)
     'keywords',    # Card's keywords
-    'side'         # Side identifier for multi-faced cards
+    'side',        # Side identifier for multi-faced cards
+    'printings'    # Set codes this card has been printed in (comma-separated)
 ]
 
 # Configuration for DataFrame sorting operations

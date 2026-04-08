@@ -1367,63 +1367,67 @@ def _ensure_setup_ready(out, force: bool = False) -> None:
                 _write_status({"running": False, "phase": "requires_setup", "message": "Setup required (auto disabled)."})
                 return
             
-            # Try downloading pre-tagged data from GitHub first (faster than local build)
-            try:
-                import urllib.request
-                import urllib.error
-                out("[SETUP] Attempting to download pre-tagged data from GitHub...")
-                _write_status({"running": True, "phase": "download", "message": "Downloading pre-tagged data from GitHub...", "percent": 5})
-                
-                base_url = "https://raw.githubusercontent.com/mwisnowski/mtg_python_deckbuilder/similarity-cache-data"
-                files_to_download = [
-                    ("card_files/processed/all_cards.parquet", "card_files/processed/all_cards.parquet"),
-                    ("card_files/processed/commander_cards.parquet", "card_files/processed/commander_cards.parquet"),
-                    ("card_files/processed/.tagging_complete.json", "card_files/processed/.tagging_complete.json"),
-                    ("card_files/similarity_cache.parquet", "card_files/similarity_cache.parquet"),
-                    ("card_files/similarity_cache_metadata.json", "card_files/similarity_cache_metadata.json"),
-                    ("card_files/prices_cache.json", "card_files/prices_cache.json"),
-                    ("card_files/ck_prices_cache.json", "card_files/ck_prices_cache.json"),
-                ]
-                
-                download_success = True
-                for remote_path, local_path in files_to_download:
-                    try:
-                        remote_url = f"{base_url}/{remote_path}"
-                        os.makedirs(os.path.dirname(local_path), exist_ok=True)
-                        urllib.request.urlretrieve(remote_url, local_path)
-                        out(f"[SETUP] Downloaded: {local_path}")
-                    except urllib.error.HTTPError as e:
-                        if e.code == 404:
-                            out(f"[SETUP] File not available on GitHub (404): {remote_path}")
-                            download_success = False
-                            break
-                        raise
-                
-                if download_success:
-                    out("[SETUP] ✓ Successfully downloaded pre-tagged data from GitHub. Skipping local setup/tagging.")
-                    _write_status({
-                        "running": False,
-                        "phase": "done",
-                        "message": "Setup complete (downloaded from GitHub)",
-                        "percent": 100,
-                        "finished_at": _dt.now().isoformat(timespec='seconds')
-                    })
-                    # Invalidate in-memory CK price cache so the singleton picks up
-                    # the newly downloaded ck_prices_cache.json without a restart.
-                    try:
-                        from code.web.services.price_service import get_price_service
-                        get_price_service().invalidate_ck_cache()
-                    except Exception:
-                        pass
-                    # Refresh theme catalog after successful download
-                    _refresh_theme_catalog(out, force=False, fast_path=True)
-                    return
-                else:
-                    out("[SETUP] GitHub download incomplete. Falling back to local setup/tagging...")
+            # Try downloading pre-tagged data from GitHub first (faster than local build).
+            # Skip when force=True — caller explicitly wants a fresh local rebuild.
+            if force:
+                out("[SETUP] Force mode: skipping GitHub download, running local setup...")
+            else:
+                try:
+                    import urllib.request
+                    import urllib.error
+                    out("[SETUP] Attempting to download pre-tagged data from GitHub...")
+                    _write_status({"running": True, "phase": "download", "message": "Downloading pre-tagged data from GitHub...", "percent": 5})
+                    
+                    base_url = "https://raw.githubusercontent.com/mwisnowski/mtg_python_deckbuilder/similarity-cache-data"
+                    files_to_download = [
+                        ("card_files/processed/all_cards.parquet", "card_files/processed/all_cards.parquet"),
+                        ("card_files/processed/commander_cards.parquet", "card_files/processed/commander_cards.parquet"),
+                        ("card_files/processed/.tagging_complete.json", "card_files/processed/.tagging_complete.json"),
+                        ("card_files/similarity_cache.parquet", "card_files/similarity_cache.parquet"),
+                        ("card_files/similarity_cache_metadata.json", "card_files/similarity_cache_metadata.json"),
+                        ("card_files/prices_cache.json", "card_files/prices_cache.json"),
+                        ("card_files/ck_prices_cache.json", "card_files/ck_prices_cache.json"),
+                    ]
+                    
+                    download_success = True
+                    for remote_path, local_path in files_to_download:
+                        try:
+                            remote_url = f"{base_url}/{remote_path}"
+                            os.makedirs(os.path.dirname(local_path), exist_ok=True)
+                            urllib.request.urlretrieve(remote_url, local_path)
+                            out(f"[SETUP] Downloaded: {local_path}")
+                        except urllib.error.HTTPError as e:
+                            if e.code == 404:
+                                out(f"[SETUP] File not available on GitHub (404): {remote_path}")
+                                download_success = False
+                                break
+                            raise
+                    
+                    if download_success:
+                        out("[SETUP] ✓ Successfully downloaded pre-tagged data from GitHub. Skipping local setup/tagging.")
+                        _write_status({
+                            "running": False,
+                            "phase": "done",
+                            "message": "Setup complete (downloaded from GitHub)",
+                            "percent": 100,
+                            "finished_at": _dt.now().isoformat(timespec='seconds')
+                        })
+                        # Invalidate in-memory CK price cache so the singleton picks up
+                        # the newly downloaded ck_prices_cache.json without a restart.
+                        try:
+                            from code.web.services.price_service import get_price_service
+                            get_price_service().invalidate_ck_cache()
+                        except Exception:
+                            pass
+                        # Refresh theme catalog after successful download
+                        _refresh_theme_catalog(out, force=False, fast_path=True)
+                        return
+                    else:
+                        out("[SETUP] GitHub download incomplete. Falling back to local setup/tagging...")
+                        _write_status({"running": True, "phase": "setup", "message": "GitHub download failed, running local setup...", "percent": 0})
+                except Exception as e:
+                    out(f"[SETUP] GitHub download failed ({e}). Falling back to local setup/tagging...")
                     _write_status({"running": True, "phase": "setup", "message": "GitHub download failed, running local setup...", "percent": 0})
-            except Exception as e:
-                out(f"[SETUP] GitHub download failed ({e}). Falling back to local setup/tagging...")
-                _write_status({"running": True, "phase": "setup", "message": "GitHub download failed, running local setup...", "percent": 0})
             
             try:
                 from file_setup.setup import initial_setup
@@ -1469,14 +1473,37 @@ def _ensure_setup_ready(out, force: bool = False) -> None:
                     "running": True,
                     "phase": "tagging",
                     "message": f"Tagging complete ({mode_label} mode)",
-                    "percent": 90,
+                    "percent": 85,
                 })
                 out(f"✓ Tagging complete ({mode_label} mode)")
-                
+
             except Exception as e:
                 out(f"Tagging failed: {e}")
                 _write_status({"running": False, "phase": "error", "message": f"Tagging failed: {e}"})
                 return
+
+            # Refresh prices + isNew after tagging (tagging rewrites the parquet
+            # and would otherwise drop these columns).
+            try:
+                _write_status({
+                    "running": True,
+                    "phase": "pricing",
+                    "message": "Refreshing prices and new-card window...",
+                    "percent": 88,
+                })
+                out("Refreshing prices and new-card window...")
+                from file_setup.setup import refresh_prices_parquet
+                refresh_prices_parquet(out)
+                out("✓ Prices and isNew refreshed")
+                _write_status({
+                    "running": True,
+                    "phase": "pricing",
+                    "message": "Price refresh complete",
+                    "percent": 90,
+                })
+            except Exception as e:
+                out(f"Warning: Price refresh failed (non-fatal): {e}")
+                _write_status({"running": True, "phase": "pricing", "message": f"Price refresh failed (non-fatal): {e}", "percent": 90})
             try:
                 os.makedirs('csv_files', exist_ok=True)
                 with open(flag_path, 'w', encoding='utf-8') as _fh:
@@ -2050,6 +2077,9 @@ def run_build(commander: str, tags: List[str], bracket: int, ideals: Dict[str, i
                 budget_cfg = getattr(b, 'budget_config', None)
                 if isinstance(budget_cfg, dict) and budget_cfg.get('total'):
                     meta['budget_config'] = budget_cfg
+                ideal_counts = getattr(b, 'ideal_counts', None)
+                if isinstance(ideal_counts, dict) and ideal_counts:
+                    meta['ideal_counts'] = {k: int(v) for k, v in ideal_counts.items()}
                 payload = {"meta": meta, "summary": summary}
                 with open(sidecar, 'w', encoding='utf-8') as f:
                     _json.dump(payload, f, ensure_ascii=False, indent=2)
@@ -2901,6 +2931,9 @@ def run_stage(ctx: Dict[str, Any], rerun: bool = False, show_skipped: bool = Fal
                 budget_cfg = getattr(b, 'budget_config', None)
                 if isinstance(budget_cfg, dict) and budget_cfg.get('total'):
                     meta['budget_config'] = budget_cfg
+                ideal_counts = getattr(b, 'ideal_counts', None)
+                if isinstance(ideal_counts, dict) and ideal_counts:
+                    meta['ideal_counts'] = {k: int(v) for k, v in ideal_counts.items()}
                 payload = {"meta": meta, "summary": summary}
                 with open(sidecar, 'w', encoding='utf-8') as f:
                     _json.dump(payload, f, ensure_ascii=False, indent=2)
@@ -3755,6 +3788,9 @@ def run_stage(ctx: Dict[str, Any], rerun: bool = False, show_skipped: bool = Fal
             budget_cfg = getattr(b, 'budget_config', None)
             if isinstance(budget_cfg, dict) and budget_cfg.get('total'):
                 meta['budget_config'] = budget_cfg
+            ideal_counts = getattr(b, 'ideal_counts', None)
+            if isinstance(ideal_counts, dict) and ideal_counts:
+                meta['ideal_counts'] = {k: int(v) for k, v in ideal_counts.items()}
             payload = {"meta": meta, "summary": summary}
             with open(sidecar, 'w', encoding='utf-8') as f:
                 _json.dump(payload, f, ensure_ascii=False, indent=2)

@@ -853,7 +853,7 @@ class TestJSONPersistence:
         original_config = {
             "commander": "Aang, Airbending Master",
             "primary_tag": "Exile Matters",
-            "secondary_tag": "Airbending", 
+            "secondary_tag": "Airbend", 
             "tertiary_tag": "Token Creation",
             "bracket_level": 4,
             "use_multi_theme": True,

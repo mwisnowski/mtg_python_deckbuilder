@@ -18,7 +18,7 @@ from deck_builder.theme_resolution import (
     parse_theme_list,
     resolve_additional_theme_inputs,
 )
-from file_setup.setup import initial_setup
+from file_setup.setup import initial_setup, run_full_pipeline
 from tagging import tagger
 from exceptions import CommanderValidationError
 
@@ -37,11 +37,10 @@ def _ensure_data_ready():
     parquet_path = get_processed_cards_path()
     tagging_json = os.path.join("csv_files", ".tagging_complete.json")
     
-    # If all_cards.parquet is missing, run full setup+tagging
+    # If all_cards.parquet is missing, run full pipeline
     if not os.path.isfile(parquet_path):
-        print("all_cards.parquet not found, running full setup and tagging...")
-        initial_setup()
-        tagger.run_tagging(parallel=True)  # Use parallel tagging for performance
+        print("all_cards.parquet not found, running full setup pipeline...")
+        run_full_pipeline(output_func=print, parallel=True)
         _write_tagging_flag(tagging_json)
     # If tagging_complete is missing or stale, run tagging
     elif not os.path.isfile(tagging_json) or _is_stale(parquet_path, tagging_json):

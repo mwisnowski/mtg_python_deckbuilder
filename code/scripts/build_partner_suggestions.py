@@ -41,9 +41,11 @@ except Exception:  # pragma: no cover - fallback when builder constants unavaila
 
 DEFAULT_DECK_DIR = ROOT / "deck_files"
 DEFAULT_OUTPUT_PATH = ROOT / "config" / "analytics" / "partner_synergy.json"
-DEFAULT_COMMANDER_CSV = (
-    Path(getattr(_bc, "COMMANDER_CSV_PATH", "")) if getattr(_bc, "COMMANDER_CSV_PATH", "") else ROOT / "csv_files" / "commander_cards.csv"
-)
+try:
+    from code.path_util import get_commander_cards_path as _get_commander_path
+    DEFAULT_COMMANDER_PATH = Path(_get_commander_path()).resolve()
+except Exception:  # pragma: no cover
+    DEFAULT_COMMANDER_PATH = ROOT / "card_files" / "processed" / "commander_cards.parquet"
 
 _WUBRG_ORDER: Tuple[str, ...] = ("W", "U", "B", "R", "G", "C")
 _COLOR_PRIORITY = {color: index for index, color in enumerate(_WUBRG_ORDER)}
@@ -327,7 +329,7 @@ def _normalize_partner_mode(value: str | None) -> str:
 def _resolve_commander_csv(path: str | Path | None) -> Path:
     if path:
         return Path(path).resolve()
-    return Path(DEFAULT_COMMANDER_CSV).resolve()
+    return DEFAULT_COMMANDER_PATH
 
 
 def _resolve_deck_dir(path: str | Path | None) -> Path:
@@ -342,14 +344,17 @@ def _resolve_output(path: str | Path | None) -> Path:
     return Path(DEFAULT_OUTPUT_PATH).resolve()
 
 
-def _load_commander_catalog(commander_csv: Path) -> pd.DataFrame:
-    if not commander_csv.exists():
-        raise FileNotFoundError(f"Commander catalog not found: {commander_csv}")
-    converters = getattr(_bc, "COMMANDER_CONVERTERS", None)
-    if converters:
-        df = pd.read_csv(commander_csv, converters=converters)
-    else:  # pragma: no cover - legacy path
-        df = pd.read_csv(commander_csv)
+def _load_commander_catalog(commander_path: Path) -> pd.DataFrame:
+    if not commander_path.exists():
+        raise FileNotFoundError(f"Commander catalog not found: {commander_path}")
+    if str(commander_path).endswith(".parquet"):
+        df = pd.read_parquet(commander_path)
+    else:  # pragma: no cover - legacy CSV fallback
+        converters = getattr(_bc, "COMMANDER_CONVERTERS", None)
+        if converters:
+            df = pd.read_csv(commander_path, converters=converters)
+        else:
+            df = pd.read_csv(commander_path)
     if "themeTags" not in df.columns:
         df["themeTags"] = [[] for _ in range(len(df))]
     if "roleTags" not in df.columns:
@@ -671,7 +676,7 @@ def build_partner_suggestions(
     output_file = _resolve_output(output_path)
     output_file.parent.mkdir(parents=True, exist_ok=True)
 
-    commander_df = _load_commander_catalog(commander_csv_path)
+    commander_df = _load_commander_catalog(commander_csv_path)  # accepts .parquet or .csv
     commander_index, theme_map = _build_commander_index(commander_df)
     deck_records = _collect_deck_records(deck_directory)
     _infer_missing_modes(deck_records, commander_index)

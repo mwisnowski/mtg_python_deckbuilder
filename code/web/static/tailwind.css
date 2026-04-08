@@ -487,7 +487,7 @@ small, .muted{ color: var(--muted); }
 .stack-card.game-changer { outline: 2px solid var(--green-main); }
 
 /* Image button inside card tiles */
-.card-tile .img-btn{ display:block; padding:0; background:transparent; border:none; cursor:pointer; width:100%; }
+.card-tile .img-btn{ display:block; padding:0; background:transparent; border:none; cursor:pointer; width:100%; position:relative; }
 
 /* Stage Navigator */
 .stage-nav { margin:.5rem 0 1rem; }
@@ -2964,10 +2964,10 @@ img.lqip.loaded { filter: blur(0); opacity: 1; }
 	color: #102746;
 	border: 1px solid rgba(10, 54, 82, 0.6);
 	border-radius: 9999px;
-	padding: 3px 10px;
-	font-size: 13px;
-	margin-right: 6px;
-	margin-top: 4px;
+	padding: 2px 8px;
+	font-size: 11px;
+	margin-right: 4px;
+	margin-top: 3px;
 	font-weight: 500;
 	letter-spacing: 0.02em;
 }
@@ -3554,7 +3554,12 @@ img.lqip.loaded { filter: blur(0); opacity: 1; }
 	gap: 1rem;
 }
 
+.commander-card {
+	position: relative;
+}
+
 .commander-cell {
+	position: relative;
 	display: flex;
 	flex-direction: column;
 	gap: 0.35rem;
@@ -3597,6 +3602,176 @@ img.lqip.loaded { filter: blur(0); opacity: 1; }
 	letter-spacing: 0.05em;
 	text-transform: uppercase;
 	opacity: 0.75;
+}
+
+/* ── Upgrade suggestions grid (M5) ───────────────────────────────────── */
+.upgrade-grid {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 1rem;
+	margin-bottom: 1rem;
+}
+
+.upgrade-tile {
+	flex: 0 0 293px;
+	max-width: 293px;
+	display: flex;
+	flex-direction: column;
+	background: var(--card-bg, #1a1d24);
+	border: 1px solid var(--border);
+	border-radius: 8px;
+	overflow: hidden;
+	transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.upgrade-tile:hover {
+	transform: translateY(-2px);
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+	border-color: color-mix(in srgb, var(--border) 50%, var(--ring) 50%);
+}
+
+.upgrade-tile-image {
+	position: relative;
+	width: 100%;
+	height: 408px;
+	overflow: hidden;
+	background: #0a0b0e;
+	flex-shrink: 0;
+}
+
+.upgrade-tile-image img {
+	width: 100%;
+	height: 100%;
+	object-fit: contain;
+}
+
+.upgrade-tile-info {
+	padding: 0.5rem 0.6rem;
+	display: flex;
+	flex-direction: column;
+	gap: 0.3rem;
+	flex: 1;
+}
+
+/* Inline swap target strip inside upgrade tiles — horizontal flex row */
+.upgrade-swap-strip {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: flex-start;
+	gap: .4rem;
+	margin-top: .4rem;
+	border-top: 1px solid var(--border, rgba(255,255,255,.1));
+	padding-top: .4rem;
+	width: 100%;
+}
+
+/* Items don't grow — pack tight to the left */
+.upgrade-swap-item {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	flex: 0 0 auto;
+	width: 120px;
+	gap: .15rem;
+	cursor: pointer;
+}
+
+.upgrade-swap-thumb {
+	width: 120px;
+	height: auto;
+	border-radius: 4px;
+	display: block;
+}
+
+.upgrade-swap-name {
+	font-size: .65rem;
+	text-align: center;
+	overflow-wrap: break-word;
+	line-height: 1.2;
+	width: 120px;
+	max-width: 120px;
+	color: var(--text);
+}
+
+.upgrade-score-pill {
+	display: inline-block;
+	padding: 1px 6px;
+	border-radius: 10px;
+	font-size: 10px;
+	font-weight: 600;
+	background: rgba(6, 182, 212, .85);
+	color: #fff;
+	letter-spacing: .2px;
+	white-space: nowrap;
+	flex-shrink: 0;
+}
+
+/* Swap target replaceability score — amber to distinguish from fit score */
+.upgrade-swap-score-pill {
+	display: inline-block;
+	padding: 1px 6px;
+	border-radius: 10px;
+	font-size: 10px;
+	font-weight: 600;
+	background: rgba(217, 119, 6, .85);
+	color: #fff;
+	letter-spacing: .2px;
+	white-space: nowrap;
+	flex-shrink: 0;
+}
+
+/* Apply-swap button on each swap candidate row */
+.upgrade-swap-btn {
+	display: inline-block;
+	padding: 1px 7px;
+	border-radius: 8px;
+	font-size: 10px;
+	font-weight: 600;
+	background: rgba(99, 102, 241, .75);
+	color: #fff;
+	border: none;
+	cursor: pointer;
+	white-space: nowrap;
+	flex-shrink: 0;
+	transition: background .15s;
+}
+.upgrade-swap-btn:hover {
+	background: rgba(99, 102, 241, 1);
+}
+.upgrade-swap-btn:disabled {
+	opacity: .5;
+	cursor: not-allowed;
+}
+
+/* Swap confirmed state */
+.upgrade-swap-applied {
+	display: inline-block;
+	padding: 1px 8px;
+	border-radius: 8px;
+	font-size: 10px;
+	font-weight: 600;
+	color: var(--success, #22c55e);
+}
+
+/* Swap inline error */
+.upgrade-swap-error {
+	display: inline-block;
+	font-size: 10px;
+	color: var(--danger, #ef4444);
+	padding: 1px 0;
+}
+
+/* Stale swap tile — target card already removed, or upgrade card already added to deck */
+.upgrade-swap-stale {
+	opacity: .35;
+	pointer-events: none;
+	transition: opacity .3s ease;
+}
+
+/* Chosen swap tile — the target card that was actually selected for the swap */
+.upgrade-swap-item.upgrade-swap-chosen {
+	border-color: var(--success, #22c55e);
+	opacity: .7;
 }
 
 .derived-badge {
@@ -3806,6 +3981,46 @@ footer.site-footer {
   line-height: 16px;
 }
 .card-price-overlay:empty { display: none; }
+
+/* "New" badge on card thumbnails — lower-right, teal pill */
+.card-new-badge {
+  position: absolute;
+  bottom: 6px;
+  right: 6px;
+  background: rgba(6, 182, 212, .85);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 10px;
+  pointer-events: none;
+  z-index: 4;
+  white-space: nowrap;
+  line-height: 16px;
+  letter-spacing: .03em;
+}
+
+/* "Reprint" badge on card thumbnails — lower-right, gray pill */
+/* When stacked above a New badge, shifts up by badge height (20px) + 4px gap */
+.card-reprint-badge {
+  position: absolute;
+  bottom: 6px;
+  right: 6px;
+  background: rgba(100, 116, 139, .85);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 10px;
+  pointer-events: none;
+  z-index: 4;
+  white-space: nowrap;
+  line-height: 16px;
+  letter-spacing: .03em;
+}
+.card-reprint-badge--stacked {
+  bottom: 30px;
+}
 
 /* Inline price in deck summary list rows */
 .card-price-inline {

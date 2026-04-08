@@ -238,6 +238,7 @@
             <div class="similar-card-image">
                 {# Price overlay #}
                 <div class="card-price-overlay" data-price-for="{{ card.name }}" aria-hidden="true"></div>
+                {% if show_new_badge and card.isNew %}<div class="card-new-badge" title="Recently Released" aria-hidden="true">New</div>{% endif %}
                 <img src="{{ card.name|card_image('normal') }}" 
                      alt="{{ card.name }}" 
                      loading="lazy"

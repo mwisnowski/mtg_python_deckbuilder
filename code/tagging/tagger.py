@@ -4527,10 +4527,10 @@ def tag_for_bending(df: pd.DataFrame, color: str) -> None:
         earth_mask = tag_utils.create_text_mask(df, 'earthbend')
         bending_mask = air_mask | water_mask | fire_mask | earth_mask
         rules = [
-            {'mask': air_mask, 'tags': ['Airbending', 'Exile Matters', 'Leave the Battlefield']},
-            {'mask': water_mask, 'tags': ['Waterbending', 'Cost Reduction', 'Big Mana']},
-            {'mask': fire_mask, 'tags': ['Aggro', 'Combat Matters', 'Firebending', 'Mana Dork', 'Ramp', 'X Spells']},
-            {'mask': earth_mask, 'tags': ['Earthbending', 'Lands Matter', 'Landfall']},
+            {'mask': air_mask, 'tags': ['Airbend', 'Exile Matters', 'Leave the Battlefield']},
+            {'mask': water_mask, 'tags': ['Waterbend', 'Cost Reduction', 'Big Mana']},
+            {'mask': fire_mask, 'tags': ['Aggro', 'Combat Matters', 'Firebend', 'Mana Dork', 'Ramp', 'X Spells']},
+            {'mask': earth_mask, 'tags': ['Earthbend', 'Lands Matter', 'Landfall']},
             {'mask': bending_mask, 'tags': ['Bending']},
         ]
         tag_utils.tag_with_rules_and_logging(df, rules, 'bending effects', color=color, logger=logger)

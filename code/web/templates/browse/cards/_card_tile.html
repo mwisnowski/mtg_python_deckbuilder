@@ -22,6 +22,16 @@
     {# Price overlay #}
     <div class="card-price-overlay" data-price-for="{{ card.name }}" aria-hidden="true"></div>
 
+    {# Reprint badge — lower-right; shifts up when New badge is also present #}
+    {% if card.isReprint %}
+    <div class="card-reprint-badge{% if show_new_badge and card.isNew %} card-reprint-badge--stacked{% endif %}" title="Reprinted Card" aria-hidden="true">Reprint</div>
+    {% endif %}
+
+    {# New card badge — lower-right #}
+    {% if show_new_badge and card.isNew %}
+    <div class="card-new-badge" title="Recently Released" aria-hidden="true">New</div>
+    {% endif %}
+
     {# Owned indicator #}
     {% if card.is_owned %}
     <div style="position:absolute; top:4px; right:4px; background:rgba(34,197,94,0.9); color:white; padding:2px 6px; border-radius:4px; font-size:12px; font-weight:600;">

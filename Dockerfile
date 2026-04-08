@@ -40,8 +40,8 @@ COPY mypy.ini .
 # Copy documentation for web-accessible docs feature
 COPY docs/ ./docs/
 
-# Tailwind source is already in code/web/static/tailwind.css from COPY code/
-# TypeScript sources are in code/web/static/ts/ from COPY code/
+# Explicitly re-copy tailwind.css so any change to it busts the npm build cache
+COPY code/web/static/tailwind.css ./code/web/static/tailwind.css
 
 # Force fresh builds by removing any compiled artifacts
 RUN rm -f ./code/web/static/styles.css

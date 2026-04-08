@@ -25,6 +25,8 @@
       data-hover-simple="true"
       class="commander-thumb-img"
     />
+    <div class="card-price-overlay" data-price-for="{{ record.name }}" aria-hidden="true"></div>
+    {% if show_new_badge and record.name in new_card_names %}<div class="card-new-badge" title="Recently Released" aria-hidden="true">New</div>{% endif %}
   </div>
   <div class="commander-main">
     <div class="commander-header">

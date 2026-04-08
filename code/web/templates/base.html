@@ -450,6 +450,11 @@
   })();
   </script>
   <!-- Budget price display: injects prices on card tiles and list rows, tracks running total -->
+  {% if show_new_badge %}
+  <script>
+  window._newCardNames = new Set({{ new_card_names | list | tojson }});
+  </script>
+  {% endif %}
   <script>
   (function(){
     var BASIC_LANDS = new Set([

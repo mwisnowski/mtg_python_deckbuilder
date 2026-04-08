@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block banner_subtitle %}Potential Upgrades{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h2>Potential Upgrades</h2>
+  <p class="muted">
+    {% if commander %}<strong data-card-name="{{ commander }}">{{ commander }}</strong>{% if name %} | {{ name }}{% endif %}{% endif %}
+    {% if window_label and section == "new" %}
+      {% if commander %}<br>{% endif %}New cards from: <strong>{{ window_label }}</strong>
+    {% endif %}
+  </p>
+</div>
+
+<div style="display:flex; gap:.5rem; flex-wrap:wrap; margin-bottom:1rem;">
+  <a href="/decks/upgrades?name={{ name|urlencode }}&section=new&page=1"
+     class="btn{% if section == 'new' %} btn-active{% endif %}"
+     role="button">New Cards{% if section == "new" and total_cards %} ({{ total_cards }}){% endif %}</a>
+  <a href="/decks/upgrades?name={{ name|urlencode }}&section=general&page=1"
+     class="btn{% if section == 'general' %} btn-active{% endif %}"
+     role="button">General Upgrades{% if section == "general" and total_cards %} ({{ total_cards }}){% endif %}</a>
+  <a href="/decks/upgrades?name={{ name|urlencode }}&section=possible&page=1"
+     class="btn{% if section == 'possible' %} btn-active{% endif %}"
+     role="button">Possible Upgrades{% if section == "possible" and total_cards %} ({{ total_cards }}){% endif %}</a>
+  <a href="/decks/view?name={{ name|urlencode }}" class="btn" role="button">Back to Deck</a>
+</div>
+
+<div id="upgrade-stale-banner" class="stale-banner" style="display:none;" role="alert">
+  A swap was applied: some suggestions on this page may now be stale. <a href="" style="color:inherit; text-decoration:underline;">Refresh</a> to reload with the updated deck.
+</div>
+
+<details class="upgrade-score-info" style="margin-bottom:1rem;">
+  <summary class="muted text-xs" style="cursor:pointer; user-select:none;">How are the scores calculated?</summary>
+  <div class="panel" style="margin-top:.4rem; font-size:.82rem; line-height:1.6;">
+    <p style="margin:0 0 .5rem;"><strong>Synergy score</strong> <span class="upgrade-score-pill" style="vertical-align:middle;">teal</span>: how well a suggested card fits your deck&rsquo;s themes and roles.</p>
+    {% if section == "new" %}
+    <p style="margin:0 0 .5rem;"><code>score = 2 &times; matched tags + 1 &divide; log<sub>10</sub>(EDHREC rank + 10)</code><br>
+    More theme/role matches and a lower EDHREC rank both raise this number. Normalized to a 1&ndash;10 scale across all suggestions for this deck.</p>
+    {% else %}
+    <p style="margin:0 0 .5rem;"><code>score = 2 &times; theme matches + 1.5 &times; role-gap fills + 1 &divide; log<sub>10</sub>(EDHREC rank + 10)</code><br>
+    Cards that cover gaps in your deck&rsquo;s role spread and rank well on EDHREC score highest. Normalized to a 1&ndash;10 scale across all suggestions for this deck (the relative ranking between cards matters more than the absolute value).</p>
+    {% endif %}
+    <p style="margin:.75rem 0 .5rem;"><strong>Replaceability score</strong> <span class="upgrade-swap-score-pill" style="vertical-align:middle;">amber</span>: how swappable a <em>current deck card</em> is for <em>this specific suggestion</em> (1&ndash;10).</p>
+    <p style="margin:0 0 .5rem;"><code>score = role overlap weight + CMC saved bonus + quality adjustment</code><br>
+    Higher means the card shares more roles with the suggestion and/or has a high CMC relative to what would replace it, making it a stronger swap-out candidate. Double-faced cards are penalized to reflect the utility both sides provide.</p>
+    <p style="margin:.4rem 0 0; font-size:.78rem;" class="muted">
+      Note: the same deck card may show a different replaceability score in <strong>New Cards</strong> vs <strong>General Upgrades</strong>; this is expected. The score is not a fixed property of the card; it measures how well that card fits as a cut <em>for the specific incoming suggestion</em>. A card with high CMC and strong role overlap will score higher as a swap target for some suggestions than others.
+    </p>
+    <hr style="border:none; border-top:1px solid var(--border); margin:.75rem 0;">
+    <p style="margin:0 0 .4rem;"><strong>Price ratio filter</strong>: swap targets are chosen based on the suggestion&rsquo;s price range.</p>
+    <p style="margin:0 0 .4rem; font-size:.82rem;">
+      <strong>Under $2</strong>: the swap target must also be under $2 (cheap suggestions stay in the cheap range).<br>
+      <strong>$2 and up</strong>: <code>0.5 &le; suggestion / cut &le; 2.0</code> &mdash; e.g. a $5 suggestion pairs with targets priced $2.50&ndash;$10.<br>
+      Suggestions above the deck&rsquo;s per-card budget ceiling lose swap targets but still appear for reference.
+    </p>
+    <p style="margin:0 0 .4rem; font-size:.8rem;" class="muted">Cards that pass the synergy check but fail the price ratio (or have too few role-matching cut candidates) appear in the <strong>Possible Upgrades</strong> tab without swap targets.</p>
+    <hr style="border:none; border-top:1px solid var(--border); margin:.75rem 0;">
+    <p class="muted" style="margin:0; font-size:.78rem;">
+      <strong>Heads up:</strong> These are algorithmic suggestions, not prescriptions. The tool weighs role overlap, theme tag coverage, CMC efficiency, and EDHREC popularity, but it cannot account for everything: specific combo lines, political utility, pet cards, budget constraints, regional card availability, power-level preferences, or subtle synergies that aren&rsquo;t captured in role tags. A high replaceability score on a target card means the algorithm thinks it&rsquo;s a reasonable swap candidate; it doesn&rsquo;t mean you <em>must</em> cut it. Always apply your own judgment before making changes.
+    </p>
+  </div>
+</details>
+
+{% if section == "possible" %}
+<p class="muted" style="margin-bottom:.75rem; font-size:.85rem; line-height:1.55;">
+  These cards fit your deck&rsquo;s color identity and themes but the algorithm couldn&rsquo;t find a confident swap target for them &mdash; the price difference between the suggestion and available cut candidates fell outside the 50&ndash;200% band, or there wasn&rsquo;t enough role overlap for a reliable match. No swap button is shown; review these manually.
+</p>
+{% endif %}
+{% include "decks/_upgrade_cards_fragment.html" %}
+{% endblock %}

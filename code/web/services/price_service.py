@@ -521,6 +521,12 @@ class PriceService(BaseService):
                 self._lazy_ts[key] = built_at
         self._save_lazy_ts()
 
+        # Refresh CK prices alongside TCGPlayer so both stay current daily.
+        try:
+            self._rebuild_ck_cache()
+        except Exception as exc:
+            logger.warning("CK cache refresh failed during price rebuild: %s", exc)
+
     # ------------------------------------------------------------------
     # CK internal helpers
     # ------------------------------------------------------------------

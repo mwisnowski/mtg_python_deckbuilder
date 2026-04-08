@@ -47,6 +47,8 @@
          loading="lazy" decoding="async" data-lqip="1"
          srcset="{{ commander_base|card_image('small') }} 160w, {{ commander_base|card_image('normal') }} 488w"
          sizes="(max-width: 900px) 100vw, 320px" />
+  <div class="card-price-overlay" data-price-for="{{ commander_base }}" aria-hidden="true"></div>
+  {% if show_new_badge and commander_base in new_card_names %}<div class="card-new-badge" title="Recently Released" aria-hidden="true">New</div>{% endif %}
   </div>
   <div class="muted mt-1">
     Commander: <span data-card-name="{{ commander }}"
@@ -444,9 +446,10 @@
                 <img class="card-thumb" src="{{ c.name|card_image('normal') }}" alt="{{ c.name }} image" width="160" data-card-name="{{ c.name }}" loading="lazy" decoding="async" data-lqip="1"
                   srcset="{{ c.name|card_image('small') }} 160w, {{ c.name|card_image('normal') }} 488w"
                   sizes="160px" />
+              <div class="card-price-overlay" data-price-for="{{ c.name }}" aria-hidden="true"></div>
+              {% if show_new_badge and c.name in new_card_names %}<div class="card-new-badge" title="Recently Released" aria-hidden="true">New</div>{% endif %}
       </div>
               <div class="owned-badge" title="{{ 'Owned' if owned else 'Not owned' }}" aria-label="{{ 'Owned' if owned else 'Not owned' }}">{% if owned %}✔{% else %}✖{% endif %}</div>
-              <div class="card-price-overlay" data-price-for="{{ c.name }}" aria-hidden="true"></div>
               {% if stale_prices is defined and c.name|lower in stale_prices %}<div class="stale-price-indicator" title="Price may be outdated (>24h)">&#x23F1;</div>{% endif %}
               <div class="name">{{ c.name|safe }}{% if c.count and c.count > 1 %} ×{{ c.count }}{% endif %}</div>
     <div class="lock-box" id="lock-{{ group_idx }}-{{ loop.index0 }}" class="flex justify-center gap-1 mt-1">
@@ -494,9 +497,10 @@
               <img class="card-thumb" src="{{ c.name|card_image('normal') }}" alt="{{ c.name }} image" width="160" data-card-name="{{ c.name }}" loading="lazy" decoding="async" data-lqip="1"
                 srcset="{{ c.name|card_image('small') }} 160w, {{ c.name|card_image('normal') }} 488w"
                 sizes="160px" />
+            <div class="card-price-overlay" data-price-for="{{ c.name }}" aria-hidden="true"></div>
+            {% if show_new_badge and c.name in new_card_names %}<div class="card-new-badge" title="Recently Released" aria-hidden="true">New</div>{% endif %}
             </div>
             <div class="owned-badge" title="{{ 'Owned' if owned else 'Not owned' }}" aria-label="{{ 'Owned' if owned else 'Not owned' }}">{% if owned %}✔{% else %}✖{% endif %}</div>
-            <div class="card-price-overlay" data-price-for="{{ c.name }}" aria-hidden="true"></div>
             {% if stale_prices is defined and c.name|lower in stale_prices %}<div class="stale-price-indicator" title="Price may be outdated (>24h)">&#x23F1;</div>{% endif %}
             <div class="name">{{ c.name|safe }}{% if c.count and c.count > 1 %} ×{{ c.count }}{% endif %}</div>
     <div class="lock-box" id="lock-{{ loop.index0 }}" class="flex justify-center gap-1 mt-1">

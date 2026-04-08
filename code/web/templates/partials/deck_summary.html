@@ -122,7 +122,7 @@
                 <img class="card-thumb" loading="lazy" decoding="async" src="{{ c.name|card_image('normal') }}" alt="{{ c.name }} image" data-card-name="{{ c.name }}" data-count="{{ cnt }}" data-role="{{ c.role }}" data-tags="{{ (c.tags|map('trim')|join(', ')) if c.tags else '' }}"{% if overlaps %} data-overlaps="{{ overlaps|join(', ') }}"{% endif %}
                      srcset="{{ c.name|card_image('small') }} 160w, {{ c.name|card_image('normal') }} 488w"
                      sizes="(max-width: 1200px) 160px, 240px" />
-                <div class="count-badge">{{ cnt }}x</div>                <div class="card-price-overlay" data-price-for="{{ c.name }}" aria-hidden="true"></div>                <div class="owned-badge" title="{{ 'Owned' if owned else 'Not owned' }}" aria-label="{{ 'Owned' if owned else 'Not owned' }}">{% if owned %}✔{% else %}✖{% endif %}</div>
+                <div class="count-badge">{{ cnt }}x</div>                <div class="card-price-overlay" data-price-for="{{ c.name }}" aria-hidden="true"></div>                {% if show_new_badge and c.isNew %}<div class="card-new-badge" title="Recently Released" aria-hidden="true">New</div>{% endif %}                <div class="owned-badge" title="{{ 'Owned' if owned else 'Not owned' }}" aria-label="{{ 'Owned' if owned else 'Not owned' }}">{% if owned %}✔{% else %}✖{% endif %}</div>
                 {% if c.dfc_land %}
                   <div class="dfc-thumb-badge {% if c.dfc_adds_extra_land %}extra{% else %}counts{% endif %}" title="{{ c.dfc_note or 'Modal double-faced land' }}">DFC{% if c.dfc_adds_extra_land %}+1{% endif %}</div>
                 {% endif %}

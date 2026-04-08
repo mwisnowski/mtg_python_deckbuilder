@@ -257,7 +257,11 @@ CONTEXT_WINDOW_SIZE: Final[int] = 70  # Characters to examine around a regex mat
 REQUIRED_COLUMNS: List[str] = [
     'name', 'faceName', 'edhrecRank', 'colorIdentity', 'colors',
     'manaCost', 'manaValue', 'type', 'creatureTypes', 'text',
-    'power', 'toughness', 'keywords', 'themeTags', 'layout', 'side'
+    'power', 'toughness', 'keywords', 'themeTags', 'layout', 'side',
+    # Extended columns preserved through tagging
+    'metadataTags', 'comboTags', 'backType',
+    'isCommander', 'isBackground',
+    'printings', 'printingCount', 'isReprint',
 ]
 
 # =============================================================================

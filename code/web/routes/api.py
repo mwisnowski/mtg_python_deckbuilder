@@ -23,11 +23,11 @@ _image_cache = ImageCache()
 
 # ---------------------------------------------------------------------------
 # Scryfall fallback rate limiter
-# Scryfall guideline: ≤10 req/sec (100 ms between requests).
+# /cards/named endpoint rate limit: 2 req/sec (500 ms between requests).
 # We use a simple async token bucket so concurrent image requests are spread
 # out rather than all firing at Scryfall simultaneously.
 # ---------------------------------------------------------------------------
-_SCRYFALL_MIN_INTERVAL = 0.10  # seconds between fallback redirects (10 req/s)
+_SCRYFALL_MIN_INTERVAL = 0.50  # seconds between fallback redirects (2 req/s per Scryfall docs)
 _scryfall_lock = asyncio.Lock()
 _scryfall_last_redirect: float = 0.0
 

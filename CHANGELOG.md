@@ -20,6 +20,10 @@ _No unreleased changes yet_
 ### Removed
 _No unreleased changes yet_
 
+## [4.7.3] - 2026-04-08
+### Fixed
+- **Scryfall image fallback rate limit correction**: The `/cards/named` endpoint has a documented limit of 2 req/sec (500 ms), not 10 req/sec. Corrected the server-side throttler interval from 100 ms to 500 ms to match Scryfall's published rate limit.
+
 ## [4.7.2] - 2026-04-08
 ### Fixed
 - **Scryfall image fallback rate limiting**: When the local image cache is disabled or a card image is not cached, the app redirects to the Scryfall API. Under heavy load (e.g., 100 uncached card images loading at once), all redirects would fire simultaneously and hit Scryfall's 10 req/sec limit. Added a server-side async token-bucket throttler that spaces Scryfall fallback redirects at ≤10/sec, keeping the app within Scryfall's published guidelines without affecting cached image serving.

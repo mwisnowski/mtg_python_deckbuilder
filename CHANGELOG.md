@@ -9,6 +9,19 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 
 ## [Unreleased]
 ### Added
+_No unreleased changes yet_
+
+### Changed
+_No unreleased changes yet_
+
+### Fixed
+_No unreleased changes yet_
+
+### Removed
+_No unreleased changes yet_
+
+## [4.7.1] - 2026-04-08
+### Added
 - **Potential Upgrades page**: New page accessible from any saved deck's view, surfacing card suggestions across three pools:
   - **New Cards** — first printings only (no reprints) from the last three expansion release windows or the last six months, whichever covers more ground; excludes cards already in your deck
   - **General Upgrades** — full legal card pool filtered to your deck's color identity, with meaningful theme and role overlap; cards that fill gaps in your current role spread rank higher
@@ -25,7 +38,7 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 - **`isNew` card badge**: "New" teal pill on any card first-printed within the active release window, visible across card tiles in the browser, build wizard, deck summary, theme browser, and card hover panel; controlled by `SHOW_NEW_BADGE` (default: on)
 
 ### Changed
-_No unreleased changes yet_
+_No changes_
 
 ### Fixed
 - **Card Kingdom prices not refreshing daily**: CK prices were only refreshed manually or at container startup; the nightly TCGPlayer price rebuild now also triggers a CK cache refresh

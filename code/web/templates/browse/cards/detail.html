@@ -192,7 +192,7 @@
     <!-- Card Header -->
     <div class="card-detail-header">
         <!-- Card Image (no hover on detail page) -->
-        <div class="card-image-large">
+        <div class="card-image-large" style="position:relative;">
             <img src="{{ card.name|card_image('normal') }}" 
                  alt="{{ card.name }}" 
                  loading="lazy"
@@ -201,6 +201,7 @@
             <div style="display:none; width:100%; height:680px; align-items:center; justify-content:center; background:#1a1d24; color:#9ca3af; font-size:18px; padding:2rem; text-align:center; border-radius:12px;">
                 {{ card.name }}
             </div>
+            {% if show_new_badge and card.isNew %}<div class="card-new-badge" title="Recently Released" aria-hidden="true">New</div>{% endif %}
         </div>
 
         <!-- Card Info -->

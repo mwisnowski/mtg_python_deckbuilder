@@ -567,6 +567,11 @@ async def theme_detail_fragment(
         detail.pop('has_fallback_description', None)
         detail.pop('editorial_quality', None)
         detail.pop('uncapped_synergies', None)
+    try:
+        from code.file_setup.setup import get_new_card_names
+        new_card_names = get_new_card_names()
+    except Exception:
+        new_card_names = frozenset()
     return _templates.TemplateResponse(
         "themes/detail_fragment.html",
         {
@@ -575,6 +580,7 @@ async def theme_detail_fragment(
             "diagnostics": diag,
             "uncapped": uncapped_enabled,
             "yaml_available": diag,  # gate by diagnostics flag
+            "new_card_names": new_card_names,
         },
     )
 

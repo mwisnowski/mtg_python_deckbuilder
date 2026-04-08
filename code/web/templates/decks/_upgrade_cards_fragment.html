@@ -1,0 +1,68 @@
+<div id="upgrade-card-list">
+  {% if not cards %}
+  <div class="panel">
+    {% if section == "new" %}
+    No new cards found for this deck's color identity in the current window.
+    {% else %}
+    No general upgrade suggestions found for this deck.
+    {% endif %}
+  </div>
+  {% else %}
+
+  {% if section == "general" and card_tiers is defined %}
+    {# Group cards by tier for display headings #}
+    {% set ns = namespace(current_tier='') %}
+    {% for card in cards %}
+      {% set tier = card_tiers[loop.index0] %}
+      {% if tier != ns.current_tier %}
+        {% if ns.current_tier %}
+        </div>
+        {% endif %}
+        <h3 class="muted text-sm" style="margin:.75rem 0 .4rem; text-transform:uppercase; letter-spacing:.05em;">{{ tier }}</h3>
+        <div class="card-browser-grid">
+        {% set ns.current_tier = tier %}
+      {% endif %}
+      {% with upgrade_card = card, card_idx = loop.index %}
+        {% include "decks/_upgrade_card.html" %}
+      {% endwith %}
+    {% endfor %}
+    {% if ns.current_tier %}
+    </div>
+    {% endif %}
+  {% else %}
+    <div class="card-browser-grid">
+    {% for card in cards %}
+      {% with upgrade_card = card, card_idx = loop.index %}
+        {% include "decks/_upgrade_card.html" %}
+      {% endwith %}
+    {% endfor %}
+    </div>
+  {% endif %}
+
+  {# Pagination #}
+  {% if total_pages > 1 %}
+  <div style="display:flex; gap:.5rem; align-items:center; margin-top:1rem; flex-wrap:wrap;">
+    {% if page > 1 %}
+    <a class="btn btn-sm"
+       role="button"
+       href="/decks/upgrades?name={{ name|urlencode }}&section={{ section }}&page={{ page - 1 }}"
+       hx-get="/decks/upgrades/cards?name={{ name|urlencode }}&section={{ section }}&page={{ page - 1 }}"
+       hx-target="#upgrade-card-list"
+       hx-swap="outerHTML"
+       hx-push-url="/decks/upgrades?name={{ name|urlencode }}&section={{ section }}&page={{ page - 1 }}">&laquo; Prev</a>
+    {% endif %}
+    <span class="muted text-sm">Page {{ page }} of {{ total_pages }}</span>
+    {% if page < total_pages %}
+    <a class="btn btn-sm"
+       role="button"
+       href="/decks/upgrades?name={{ name|urlencode }}&section={{ section }}&page={{ page + 1 }}"
+       hx-get="/decks/upgrades/cards?name={{ name|urlencode }}&section={{ section }}&page={{ page + 1 }}"
+       hx-target="#upgrade-card-list"
+       hx-swap="outerHTML"
+       hx-push-url="/decks/upgrades?name={{ name|urlencode }}&section={{ section }}&page={{ page + 1 }}">Next &raquo;</a>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  {% endif %}
+</div>

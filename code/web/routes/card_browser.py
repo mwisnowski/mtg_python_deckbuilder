@@ -8,6 +8,7 @@ Complements the existing API routes in cards.py for tag-based card queries.
 from __future__ import annotations
 
 import logging
+import re
 from difflib import SequenceMatcher
 from typing import TYPE_CHECKING
 
@@ -176,6 +177,8 @@ async def card_browser_index(
     power_max: int = Query(None, description="Maximum power filter", ge=0, le=99),
     tough_min: int = Query(None, description="Minimum toughness filter", ge=0, le=99),
     tough_max: int = Query(None, description="Maximum toughness filter", ge=0, le=99),
+    is_new: bool = Query(False, description="Filter to recently released cards only"),
+    set_code: str = Query("", description="Filter by set code (e.g. ALA)", max_length=6),
 ):
     """
     Main card browser page.
@@ -341,6 +344,20 @@ async def card_browser_index(
             filtered_df = filtered_df[
                 filtered_df['toughness'].isna() | (filtered_df['toughness'] <= str(tough_max))
             ]
+        
+        # isNew filter
+        if is_new and 'isNew' in filtered_df.columns:
+            filtered_df = filtered_df[filtered_df['isNew'] == True]  # noqa: E712
+        
+        # Set code filter (sanitize to alphanumeric only to prevent regex injection)
+        if set_code:
+            safe_set_code = re.sub(r'[^A-Z0-9]', '', set_code.upper())[:6]
+            if safe_set_code and 'printings' in filtered_df.columns:
+                filtered_df = filtered_df[
+                    filtered_df['printings'].str.contains(
+                        r'\b' + safe_set_code + r'\b', na=False, regex=True
+                    )
+                ]
         
         # Apply sorting
         if sort == "name_desc":
@@ -520,6 +537,8 @@ async def card_browser_index(
                 "power_max": power_max,
                 "tough_min": tough_min,
                 "tough_max": tough_max,
+                "is_new": is_new,
+                "set_code": set_code,
                 "all_colors": all_colors,
                 "all_types": all_types,
                 "all_rarities": all_rarities,
@@ -592,6 +611,8 @@ async def card_browser_grid(
     power_max: int = Query(None, description="Maximum power filter", ge=0, le=99),
     tough_min: int = Query(None, description="Minimum toughness filter", ge=0, le=99),
     tough_max: int = Query(None, description="Maximum toughness filter", ge=0, le=99),
+    is_new: bool = Query(False, description="Filter to recently released cards only"),
+    set_code: str = Query("", description="Filter by set code (e.g. ALA)", max_length=6),
 ):
     """
     HTMX endpoint for paginated card grid.
@@ -756,6 +777,20 @@ async def card_browser_grid(
                 filtered_df['toughness'].isna() | (filtered_df['toughness'] <= str(tough_max))
             ]
         
+        # isNew filter
+        if is_new and 'isNew' in filtered_df.columns:
+            filtered_df = filtered_df[filtered_df['isNew'] == True]  # noqa: E712
+        
+        # Set code filter (sanitize to alphanumeric only to prevent regex injection)
+        if set_code:
+            safe_set_code = re.sub(r'[^A-Z0-9]', '', set_code.upper())[:6]
+            if safe_set_code and 'printings' in filtered_df.columns:
+                filtered_df = filtered_df[
+                    filtered_df['printings'].str.contains(
+                        r'\b' + safe_set_code + r'\b', na=False, regex=True
+                    )
+                ]
+        
         # Apply sorting (same logic as main endpoint)
         if sort == "name_desc":
             filtered_df['_sort_key'] = filtered_df['name'].str.replace('"', '', regex=False).str.replace("'", '', regex=False)
@@ -858,6 +893,8 @@ async def card_browser_grid(
                 "power_max": power_max,
                 "tough_min": tough_min,
                 "tough_max": tough_max,
+                "is_new": is_new,
+                "set_code": set_code,
                 "enable_card_details": ENABLE_CARD_DETAILS,
             },
         )

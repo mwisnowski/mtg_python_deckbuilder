@@ -585,6 +585,7 @@ class ReportingMixin:
                 'count': cnt,
                 'role': info.get('Role', '') or '',
                 'tags': list(info.get('Tags', []) or []),
+                'isNew': bool(row_lookup.get(name, None) is not None and row_lookup[name].get('isNew', False)),
             }
             dfc_meta = dfc_land_lookup.get(name)
             if dfc_meta:

@@ -21,7 +21,7 @@ if getattr(sys, 'frozen', False):  # PyInstaller frozen
 
 # Local imports
 from deck_builder import DeckBuilder
-from file_setup.setup import initial_setup
+from file_setup.setup import initial_setup, run_full_pipeline
 from tagging import tagger
 import logging_util
 from settings import CSV_DIRECTORY
@@ -67,8 +67,7 @@ def _ensure_data_ready() -> None:
             logger.info("Tagging completion flag not found. Performing full tagging...")
             refresh_needed = True
         if refresh_needed:
-            initial_setup()
-            tagger.run_tagging(parallel=True)  # Use parallel tagging for performance
+            run_full_pipeline(output_func=lambda msg: logger.info(msg), parallel=True)
             # Write tagging completion flag
             try:
                 os.makedirs(CSV_DIRECTORY, exist_ok=True)

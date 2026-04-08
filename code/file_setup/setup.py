@@ -274,12 +274,19 @@ def process_raw_parquet(raw_path: str, output_path: str) -> pd.DataFrame:
     # isBackground: boolean flag
     df['isBackground'] = df.apply(is_background, axis=1)
     
+    # printingCount: number of distinct printings (derived from printings column)
+    df['printingCount'] = df['printings'].fillna('').apply(
+        lambda x: len([s for s in x.split(',') if s.strip()])
+    )
+    # isReprint: True if card has been printed more than once
+    df['isReprint'] = df['printingCount'] > 1
+
     # Reorder columns to match CARD_DATA_COLUMNS
     # CARD_DATA_COLUMNS has: name, faceName, edhrecRank, colorIdentity, colors,
     #                        manaCost, manaValue, type, creatureTypes, text,
     #                        power, toughness, keywords, themeTags, layout, side
-    # We need to add isCommander and isBackground at the end
-    final_columns = settings.CARD_DATA_COLUMNS + ['isCommander', 'isBackground']
+    # We need to add isCommander, isBackground, printings, printingCount, isReprint at the end
+    final_columns = settings.CARD_DATA_COLUMNS + ['isCommander', 'isBackground', 'printings', 'printingCount', 'isReprint']
     
     # Ensure all columns exist
     for col in final_columns:
@@ -412,6 +419,120 @@ def regenerate_processed_parquet() -> None:
     logger.info(f"✓ Regenerated {processed_path}")
 
 
+def _compute_is_new_from_bulk(bulk_path: str, window_months: int, today) -> "frozenset[str]":
+    """Return a frozenset of lowercase card names that qualify as 'new'.
+
+    A card is new when all of:
+    - released_at <= today (no spoilers)
+    - reprint == False (first printing only)
+    - set belongs to last 3 expansion windows OR released_at >= today - window_months months
+    """
+    import json
+    import datetime
+
+    if not os.path.exists(bulk_path):
+        return frozenset()
+
+    rolling_cutoff = today - datetime.timedelta(days=window_months * 30)
+
+    # Pass 1: determine last 3 expansion windows (expansion + commander precons)
+    expansion_sets: dict = {}
+    try:
+        with open(bulk_path, "r", encoding="utf-8") as fh:
+            for raw_line in fh:
+                line = raw_line.strip().rstrip(",")
+                if not line or line in ("[", "]"):
+                    continue
+                try:
+                    card = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                st = card.get("set_type", "")
+                sc = card.get("set", "")
+                ra = card.get("released_at", "")
+                if st in ("expansion", "commander") and ra and sc and sc not in expansion_sets:
+                    try:
+                        d = datetime.date.fromisoformat(ra)
+                        if d <= today:
+                            expansion_sets[sc] = d
+                    except ValueError:
+                        pass
+    except Exception:
+        pass
+
+    all_dates = sorted(set(expansion_sets.values()), reverse=True)
+    window_dates = set(all_dates[:3])
+    window_set_codes = frozenset(sc for sc, d in expansion_sets.items() if d in window_dates)
+
+    # Pass 2: collect card names that match the new-card criteria
+    new_names: set = set()
+    try:
+        with open(bulk_path, "r", encoding="utf-8") as fh:
+            for raw_line in fh:
+                line = raw_line.strip().rstrip(",")
+                if not line or line in ("[", "]"):
+                    continue
+                try:
+                    card = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                name = card.get("name", "")
+                ra = card.get("released_at", "")
+                reprint = card.get("reprint", True)
+                sc = card.get("set", "")
+                if not name or not ra or reprint:
+                    continue
+                try:
+                    card_date = datetime.date.fromisoformat(ra)
+                except ValueError:
+                    continue
+                if card_date > today:
+                    continue
+                # For set-based window: require the card's own released_at matches the
+                # set's registered window date.  This prevents mixed-date sets (e.g. FIC
+                # which has cards at both 2025-06-13 and 2025-12-05) from pulling in old
+                # cards just because a newer batch in the same set code hit the window.
+                in_set_window = (sc in window_set_codes and card_date == expansion_sets.get(sc))
+                if in_set_window or card_date >= rolling_cutoff:
+                    lower = name.lower()
+                    new_names.add(lower)
+                    if " // " in name:  # also index each DFC face
+                        for face in name.split(" // "):
+                            new_names.add(face.strip().lower())
+    except Exception:
+        pass
+
+    return frozenset(new_names)
+
+
+_new_card_names_cache: "tuple[float, frozenset] | None" = None
+
+
+def get_new_card_names() -> "frozenset[str]":
+    """Return a frozenset of lowercase names currently marked isNew in parquet.
+    Cached for 1 hour so repeated template calls are cheap.
+    """
+    import time
+    global _new_card_names_cache
+    now = time.time()
+    if _new_card_names_cache is not None and (now - _new_card_names_cache[0]) < 3600.0:
+        return _new_card_names_cache[1]
+    try:
+        processed_path = get_processed_cards_path()
+        if not os.path.exists(processed_path):
+            return frozenset()
+        df = pd.read_parquet(processed_path)
+        if "isNew" not in df.columns:
+            return frozenset()
+        name_col = "faceName" if "faceName" in df.columns else "name"
+        mask = df["isNew"].fillna(False).astype(bool)
+        names = frozenset(df.loc[mask, name_col].dropna().str.lower().tolist())
+        _new_card_names_cache = (now, names)
+        return names
+    except Exception:
+        return frozenset()
+
+
 def refresh_prices_parquet(output_func=None) -> None:
     """Rebuild the price cache from local Scryfall bulk data and write
     ``price`` / ``priceUpdated`` / ``scryfallID`` / ``ckPrice`` / ``ckPriceUpdated`` columns into all_cards.parquet and
@@ -485,6 +606,20 @@ def refresh_prices_parquet(output_func=None) -> None:
     except Exception as exc:
         _log(f"Warning: CK price fetch failed ({exc}). Skipping ckPrice column.")
 
+    # --- isNew / isNewUpdated columns (new-card detection window) ---
+    import datetime as _dt
+    try:
+        _today = _dt.date.today()
+        _window_months = int(os.environ.get("UPGRADE_WINDOW_MONTHS", "6"))
+        _is_new = _compute_is_new_from_bulk(bulk_path, _window_months, _today)
+        df["isNew"] = df[name_col].fillna("").str.lower().isin(_is_new)
+        df["isNewUpdated"] = _today.isoformat()
+        _log(f"Added isNew column — {int(df['isNew'].sum()):,} new cards in window.")
+    except Exception as _exc:
+        _log(f"Warning: Could not compute isNew column ({_exc}). Setting to False.")
+        df["isNew"] = False
+        df["isNewUpdated"] = ""
+
     loader = DataLoader()
     loader.write_cards(df, processed_path)
     _log(f"Updated all_cards.parquet — {priced:,} of {len(card_names):,} cards priced (TCGPlayer).")
@@ -498,3 +633,53 @@ def refresh_prices_parquet(output_func=None) -> None:
         _log(f"Updated commander_cards.parquet ({len(cmd_df):,} commanders).")
 
     _log("Price refresh complete.")
+
+
+def run_full_pipeline(output_func=None, parallel: bool = True) -> None:
+    """Run the complete local setup pipeline in the correct order.
+
+    Steps (must run in this sequence):
+    1. initial_setup()        — download MTGJSON parquet + process
+    2. run_tagging()          — tag all cards (must precede prices)
+    3. refresh_prices_parquet() — write price / isNew columns into parquet
+    4. build_cache()          — pre-compute similarity cache
+
+    Use this instead of calling each step individually.  The web orchestrator
+    runs the steps separately for fine-grained progress reporting; all other
+    entry points (CLI, headless, dev commands) should call this function.
+
+    Args:
+        output_func: Optional callable(str) for progress messages.
+        parallel: Use parallel processing for tagging and similarity cache.
+    """
+    _log = output_func or (lambda msg: logger.info(msg))
+
+    _log("=" * 70)
+    _log("Starting full setup pipeline")
+    _log("=" * 70)
+
+    # Step 1: download + process raw parquet
+    _log("[1/4] Running initial setup (download + process)...")
+    initial_setup()
+    _log("✓ Initial setup complete")
+
+    # Step 2: tag all cards (must come before prices)
+    _log(f"[2/4] Running tagging (parallel={parallel})...")
+    from code.tagging.tagger import run_tagging
+    run_tagging(parallel=parallel)
+    _log("✓ Tagging complete")
+
+    # Step 3: refresh prices + isNew (must come after tagging)
+    _log("[3/4] Refreshing prices and isNew window...")
+    refresh_prices_parquet(output_func=output_func)
+    _log("✓ Prices and isNew refreshed")
+
+    # Step 4: build similarity cache
+    _log(f"[4/4] Building similarity cache (parallel={parallel})...")
+    from code.scripts.build_similarity_cache_parquet import build_cache
+    build_cache(parallel=parallel, checkpoint_interval=1000, force=True)
+    _log("✓ Similarity cache built")
+
+    _log("=" * 70)
+    _log("Full pipeline complete")
+    _log("=" * 70)

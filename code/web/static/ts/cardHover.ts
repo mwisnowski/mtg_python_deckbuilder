@@ -117,12 +117,13 @@ interface PointerEventLike {
     panel.setAttribute('role', 'dialog');
     panel.setAttribute('aria-label', 'Card detail hover panel');
     panel.setAttribute('aria-hidden', 'true');
-    panel.style.cssText = 'display:none;position:fixed;z-index:9999;width:560px;max-width:98vw;background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:18px;box-shadow:0 16px 42px rgba(0,0,0,.75);color:var(--text);font-size:14px;line-height:1.45;pointer-events:none;';
+    panel.style.cssText = 'display:none;position:fixed;z-index:9999;width:570px;max-width:98vw;background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:24px;box-shadow:0 16px 42px rgba(0,0,0,.75);color:var(--text);font-size:21px;line-height:1.45;pointer-events:none;';
     panel.innerHTML = '' +
       '<div class="hcp-header" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;gap:6px;">' +
-      '<div class="hcp-name" style="font-weight:600;font-size:16px;flex:1;padding-right:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">&nbsp;</div>' +
-      '<div class="hcp-rarity" style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;opacity:.75;"></div>' +
-      '<div class="hcp-price" style="font-size:12px;font-weight:500;white-space:nowrap;"></div>' +
+      '<div class="hcp-name" style="font-weight:600;font-size:24px;flex:1;padding-right:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">&nbsp;</div>' +
+      '<div class="hcp-rarity" style="font-size:16px;text-transform:uppercase;letter-spacing:.5px;opacity:.75;"></div>' +
+      '<div class="hcp-price" style="font-size:18px;font-weight:500;white-space:nowrap;"></div>' +
+      '<span class="hcp-new-badge" aria-label="Recently Released" style="display:none;padding:2px 7px;border-radius:10px;font-size:16px;font-weight:600;background:rgba(6,182,212,.85);color:#fff;letter-spacing:.3px;">New</span>' +
       '<button type="button" class="hcp-close" aria-label="Close card details"><span aria-hidden="true">✕</span></button>' +
       '</div>' +
       '<div class="hcp-body">' +
@@ -131,13 +132,13 @@ interface PointerEventLike {
       '</div>' +
       '<div class="hcp-right" style="display:flex;flex-direction:column;min-width:0;">' +
       '<div style="display:flex;align-items:center;gap:6px;margin:0 0 4px;flex-wrap:wrap;">' +
-      '<div class="hcp-role" style="display:inline-block;padding:3px 8px;font-size:11px;letter-spacing:.65px;border:1px solid var(--border);border-radius:12px;background:var(--bg);text-transform:uppercase;">&nbsp;</div>' +
+      '<div class="hcp-role" style="display:inline-block;padding:2px 7px;font-size:12px;letter-spacing:.65px;border:1px solid var(--border);border-radius:12px;background:var(--bg);text-transform:uppercase;">&nbsp;</div>' +
       '<div class="hcp-overlaps" style="flex:1;min-height:14px;"></div>' +
       '</div>' +
       '<ul class="hcp-taglist" aria-label="Themes"></ul>' +
-      '<div class="hcp-meta" style="font-size:12px;opacity:.85;margin:2px 0 6px;"></div>' +
-      '<ul class="hcp-reasons" style="list-style:disc;margin:4px 0 8px 18px;padding:0;font-size:11px;line-height:1.35;"></ul>' +
-      '<div class="hcp-tags" style="font-size:11px;opacity:.55;word-break:break-word;"></div>' +
+      '<div class="hcp-meta" style="font-size:18px;opacity:.85;margin:2px 0 6px;"></div>' +
+      '<ul class="hcp-reasons" style="list-style:disc;margin:4px 0 8px 18px;padding:0;font-size:16px;line-height:1.35;"></ul>' +
+      '<div class="hcp-tags" style="font-size:16px;opacity:.55;word-break:break-word;"></div>' +
       '</div>' +
       '</div>';
     document.body.appendChild(panel);
@@ -160,6 +161,7 @@ interface PointerEventLike {
     const nameEl = panel.querySelector('.hcp-name') as HTMLElement;
     const rarityEl = panel.querySelector('.hcp-rarity') as HTMLElement;
     const priceEl = panel.querySelector('.hcp-price') as HTMLElement;
+    const newBadgeEl = panel.querySelector('.hcp-new-badge') as HTMLElement;
     const metaEl = panel.querySelector('.hcp-meta') as HTMLElement;
     const reasonsList = panel.querySelector('.hcp-reasons') as HTMLElement;
     const tagsEl = panel.querySelector('.hcp-tags') as HTMLElement;
@@ -297,6 +299,11 @@ interface PointerEventLike {
       const tagListEl = panel.querySelector('.hcp-taglist') as HTMLElement;
       const overlapsEl = panel.querySelector('.hcp-overlaps') as HTMLElement;
       const overlapsAttr = attr('data-overlaps') || '';
+      const upgradeSwapReason = attr('data-swap-reason');
+      const upgradeSwapRolesRaw = attr('data-swap-roles');
+      const upgradeSwapScore = attr('data-swap-score');
+      const upgradeRolesRaw = attr('data-upgrade-roles');
+      const upgradeMatchedRaw = attr('data-upgrade-matched');
 
       function displayLabel(text: string): string {
         if (!text) return '';
@@ -415,6 +422,12 @@ interface PointerEventLike {
             : '';
         }
       }
+      // Show "New" badge when card is in the recently-released window
+      if (newBadgeEl) {
+        const newNames = (window as any)._newCardNames as Set<string> | undefined;
+        const isNew = !!(newNames && newNames.has(nm));
+        newBadgeEl.style.display = isNew ? 'inline-block' : 'none';
+      }
 
       const roleLabel = displayLabel(role);
       const roleKey = (roleLabel || role || '').toLowerCase();
@@ -425,13 +438,53 @@ interface PointerEventLike {
         mana ? ('Mana: ' + mana) : ''
       ].filter(Boolean).join(' • ');
 
-      reasonsList.innerHTML = '';
-      reasonsRaw.split(';').map((r) => r.trim()).filter(Boolean).forEach((r) => {
+      function appendReason(list: HTMLElement, text: string): void {
+        const colonIdx = text.indexOf(':');
+        if (colonIdx > -1) {
+          const header = text.slice(0, colonIdx).trim();
+          const body = text.slice(colonIdx + 1).trim()
+            // strip leading filler words before the items
+            .replace(/^(covers?|adds?|includes?|with)\s+/i, '');
+          const parts = body.split(',').map((p) => p.trim()).filter(Boolean);
+          if (parts.length) {
+            const parent = document.createElement('li');
+            parent.style.margin = '2px 0';
+            parent.style.listStyle = 'none';
+            parent.style.marginLeft = '-18px';
+            const label = document.createElement('span');
+            label.style.fontWeight = '600';
+            label.textContent = header + ':';
+            parent.appendChild(label);
+            const sub = document.createElement('ul');
+            sub.style.listStyle = 'disc';
+            sub.style.margin = '2px 0 2px 18px';
+            sub.style.padding = '0';
+            parts.forEach((p) => {
+              const sl = document.createElement('li');
+              sl.style.margin = '1px 0';
+              sl.textContent = p;
+              sub.appendChild(sl);
+            });
+            parent.appendChild(sub);
+            list.appendChild(parent);
+            return;
+          }
+        }
         const li = document.createElement('li');
         li.style.margin = '2px 0';
-        li.textContent = r;
-        reasonsList.appendChild(li);
+        li.textContent = text;
+        list.appendChild(li);
+      }
+
+      reasonsList.innerHTML = '';
+      reasonsRaw.split(';').map((r) => r.trim()).filter(Boolean).forEach((r) => {
+        appendReason(reasonsList, r);
       });
+
+      // Upgrade page: inject swap reason from data-swap-reason on the .card-tile wrapper
+      if (upgradeSwapReason) {
+        appendReason(reasonsList, upgradeSwapReason);
+      }
 
       // Build inline tag list with overlap highlighting
       if (tagListEl) {
@@ -446,6 +499,12 @@ interface PointerEventLike {
             const label = displayLabel(o);
             return `<span class="hcp-ov-chip" title="Overlapping synergy">${label}</span>`;
           }).join('');
+        } else if (upgradeMatchedRaw) {
+          // Upgrade page: show matched tags as overlap chips
+          const matched = upgradeMatchedRaw.split(';').map((t) => t.trim()).filter(Boolean);
+          overlapsEl.innerHTML = matched.length
+            ? matched.map((o) => `<span class="hcp-ov-chip" title="Matched upgrade tag">${displayLabel(o)}</span>`).join('')
+            : '';
         } else {
           overlapsEl.innerHTML = '';
         }
@@ -467,6 +526,12 @@ interface PointerEventLike {
             }
           }
 
+          // Swap item hover: show all roles as plain tags when no standard tag data
+          if (!tagText && upgradeSwapRolesRaw) {
+            const swapRoles = upgradeSwapRolesRaw.split(';').map((r) => r.trim()).filter(Boolean);
+            tagText = swapRoles.map(displayLabel).join(', ');
+          }
+
           tagsEl.textContent = tagText;
           tagsEl.style.display = tagText ? '' : 'none';
         }
@@ -477,6 +542,16 @@ interface PointerEventLike {
         roleEl.style.display = roleLabel ? 'inline-block' : 'none';
       }
 
+      // Upgrade page: populate role chip from data-upgrade-roles when no standard role
+      // Swap items deliberately skip the role chip — all their tags show in the plain tags line below
+      if (upgradeRolesRaw && roleEl && !roleLabel) {
+        const roles = upgradeRolesRaw.split(';').map((r) => r.trim()).filter(Boolean);
+        if (roles.length) {
+          roleEl.textContent = roles.map(displayLabel).join(', ');
+          roleEl.style.display = 'inline-block';
+        }
+      }
+
       panel.classList.toggle('is-payoff', role === 'payoff');
       panel.classList.toggle('is-commander', isCommanderRole);
 
@@ -484,7 +559,8 @@ interface PointerEventLike {
         !!roleLabel || !!mana || !!rarity ||
         (reasonsRaw && reasonsRaw.trim()) ||
         (overlapArr && overlapArr.length) ||
-        (allTags && allTags.length)
+        (allTags && allTags.length) ||
+        !!upgradeSwapReason || !!upgradeRolesRaw || !!upgradeMatchedRaw || !!upgradeSwapRolesRaw
       );
 
       panel.classList.toggle('hcp-simple', !hasDetails);

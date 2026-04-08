@@ -176,21 +176,15 @@ templates.env.filters["slugify"] = _slugify
 _orig_template_response = templates.TemplateResponse
 
 def _compat_template_response(*args, **kwargs):
-    try:
-        if args and isinstance(args[0], str):
-            name = args[0]
-            ctx = args[1] if len(args) > 1 else {}
-            req = None
-            try:
-                if isinstance(ctx, dict):
-                    req = ctx.get("request")
-            except Exception:
-                req = None
+    # Detect old-style call: TemplateResponse("name.html", context)
+    # and convert to new Starlette API: TemplateResponse(request, "name", context)
+    if args and isinstance(args[0], str):
+        name = args[0]
+        ctx = args[1] if len(args) > 1 else {}
+        if isinstance(ctx, dict):
+            req = ctx.get("request")
             if req is not None:
                 return _orig_template_response(req, name, ctx, **kwargs)
-    except Exception:
-        # Fall through to original behavior on any unexpected error
-        pass
     return _orig_template_response(*args, **kwargs)
 
 templates.TemplateResponse = _compat_template_response
@@ -246,6 +240,39 @@ RANDOM_STRUCTURED_LOGS = _as_bool(os.getenv("RANDOM_STRUCTURED_LOGS"), False)
 RANDOM_REROLL_THROTTLE_MS = _as_int(os.getenv("RANDOM_REROLL_THROTTLE_MS"), 350)
 USER_THEME_LIMIT = _as_int(os.getenv("USER_THEME_LIMIT"), 8)
 ENABLE_PREFETCH = _as_bool(os.getenv("WEB_PREFETCH"), False)
+SHOW_NEW_BADGE = _as_bool(os.getenv("SHOW_NEW_BADGE"), True)
+ENABLE_UPGRADE_SUGGESTIONS = _as_bool(os.getenv("ENABLE_UPGRADE_SUGGESTIONS"), True)
+
+
+class _NewCardNamesProxy:
+    """Thin lazy proxy over get_new_card_names() so all Jinja templates can use
+    `{% if name in new_card_names %}` without per-route context injection.
+    The underlying frozenset is cached for 1 hour by get_new_card_names()."""
+    def __contains__(self, item: str) -> bool:
+        from ..file_setup.setup import get_new_card_names as _gcn  # type: ignore[import]
+        try:
+            return str(item).lower() in _gcn()
+        except Exception:
+            return False
+
+    def __iter__(self):
+        from ..file_setup.setup import get_new_card_names as _gcn  # type: ignore[import]
+        try:
+            return iter(_gcn())
+        except Exception:
+            return iter(frozenset())
+
+    def __len__(self) -> int:
+        from ..file_setup.setup import get_new_card_names as _gcn  # type: ignore[import]
+        try:
+            return len(_gcn())
+        except Exception:
+            return 0
+
+    def __bool__(self) -> bool:
+        return True  # always truthy so {% if new_card_names %} works
+UPGRADE_WINDOW_MONTHS = _as_int(os.getenv("UPGRADE_WINDOW_MONTHS"), 6)
+UPGRADE_PAGE_SIZE = _as_int(os.getenv("UPGRADE_PAGE_SIZE"), 16)
 
 _THEME_MODE_ENV = (os.getenv("THEME_MATCH_MODE") or "").strip().lower()
 DEFAULT_THEME_MATCH_MODE = "strict" if _THEME_MODE_ENV in {"strict", "s"} else "permissive"
@@ -377,6 +404,9 @@ templates.env.globals.update({
     "user_theme_limit": USER_THEME_LIMIT,
     "default_theme_match_mode": DEFAULT_THEME_MATCH_MODE,
     "prefetch_enabled": ENABLE_PREFETCH,
+    "show_new_badge": SHOW_NEW_BADGE,
+    "new_card_names": _NewCardNamesProxy(),
+    "enable_upgrade_suggestions": ENABLE_UPGRADE_SUGGESTIONS,
 })
 
 # Expose catalog hash (for cache versioning / service worker) – best-effort, fallback to 'dev'
@@ -2344,6 +2374,7 @@ from .routes import build_compliance as build_compliance_routes  # noqa: E402
 from .routes import build_permalinks as build_permalinks_routes  # noqa: E402
 from .routes import configs as config_routes  # noqa: E402
 from .routes import decks as decks_routes  # noqa: E402
+from .routes import upgrade_suggestions as upgrade_suggestions_routes  # noqa: E402
 from .routes import setup as setup_routes  # noqa: E402
 from .routes import owned as owned_routes  # noqa: E402
 from .routes import themes as themes_routes  # noqa: E402
@@ -2369,6 +2400,7 @@ app.include_router(build_compliance_routes.router)
 app.include_router(build_permalinks_routes.router)
 app.include_router(config_routes.router)
 app.include_router(decks_routes.router)
+app.include_router(upgrade_suggestions_routes.router)
 app.include_router(setup_routes.router)
 app.include_router(owned_routes.router)
 app.include_router(themes_routes.router)

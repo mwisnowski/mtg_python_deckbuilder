@@ -235,6 +235,22 @@
         <button type="button" class="btn" onclick="window.location.href='/cards'" style="background-color: #666;">Clear Filters</button>
       </div>
 
+      {# Quick filters row: New Only + Set Code #}
+      <div class="filter-row" style="margin-top: 0.5rem;">
+        <label style="display:flex; align-items:center; gap:0.4rem; cursor:pointer; white-space:nowrap;">
+          <input type="checkbox" id="filter-is-new" onchange="applyFilter()"
+                 {% if is_new %}checked{% endif %} />
+          New Only
+        </label>
+
+        <label for="filter-set-code" style="white-space:nowrap;">Set Code</label>
+        <input type="text" id="filter-set-code" maxlength="6"
+               placeholder="e.g. ALA" value="{{ set_code }}"
+               style="width:80px; text-transform:uppercase;"
+               oninput="this.value=this.value.toUpperCase()"
+               onchange="applyFilter()" />
+      </div>
+
       {# Advanced filters row #}
       <div class="filter-row" style="margin-top: 0.75rem;">
         {# CMC range filter #}
@@ -348,7 +364,7 @@
     <button 
       type="button"
       class="btn"
-      hx-get="/cards/grid?cursor={{ last_card|urlencode }}{% if search %}&search={{ search|urlencode }}{% endif %}{% for theme in themes %}&themes={{ theme|urlencode }}{% endfor %}{% if color %}&color={{ color|urlencode }}{% endif %}{% if card_type %}&card_type={{ card_type|urlencode }}{% endif %}{% if rarity %}&rarity={{ rarity|urlencode }}{% endif %}{% if sort and sort != 'name_asc' %}&sort={{ sort|urlencode }}{% endif %}{% if cmc_min %}&cmc_min={{ cmc_min }}{% endif %}{% if cmc_max %}&cmc_max={{ cmc_max }}{% endif %}{% if power_min %}&power_min={{ power_min }}{% endif %}{% if power_max %}&power_max={{ power_max }}{% endif %}{% if tough_min %}&tough_min={{ tough_min }}{% endif %}{% if tough_max %}&tough_max={{ tough_max }}{% endif %}"
+      hx-get="/cards/grid?cursor={{ last_card|urlencode }}{% if search %}&search={{ search|urlencode }}{% endif %}{% for theme in themes %}&themes={{ theme|urlencode }}{% endfor %}{% if color %}&color={{ color|urlencode }}{% endif %}{% if card_type %}&card_type={{ card_type|urlencode }}{% endif %}{% if rarity %}&rarity={{ rarity|urlencode }}{% endif %}{% if sort and sort != 'name_asc' %}&sort={{ sort|urlencode }}{% endif %}{% if cmc_min %}&cmc_min={{ cmc_min }}{% endif %}{% if cmc_max %}&cmc_max={{ cmc_max }}{% endif %}{% if power_min %}&power_min={{ power_min }}{% endif %}{% if power_max %}&power_max={{ power_max }}{% endif %}{% if tough_min %}&tough_min={{ tough_min }}{% endif %}{% if tough_max %}&tough_max={{ tough_max }}{% endif %}{% if is_new %}&is_new=true{% endif %}{% if set_code %}&set_code={{ set_code|urlencode }}{% endif %}"
       hx-target="#card-grid"
       hx-swap="beforeend"
       hx-indicator="#load-indicator">
@@ -462,6 +478,8 @@ function applyFilter() {
   const powerMax = document.getElementById('filter-power-max')?.value || '';
   const toughMin = document.getElementById('filter-tough-min')?.value || '';
   const toughMax = document.getElementById('filter-tough-max')?.value || '';
+  const isNew = document.getElementById('filter-is-new')?.checked || false;
+  const setCode = document.getElementById('filter-set-code')?.value || '';
   
   // Collect selected themes
   const themeChips = document.querySelectorAll('#selected-themes .theme-chip');
@@ -481,6 +499,8 @@ function applyFilter() {
   if (powerMax) params.set('power_max', powerMax);
   if (toughMin) params.set('tough_min', toughMin);
   if (toughMax) params.set('tough_max', toughMax);
+  if (isNew) params.set('is_new', 'true');
+  if (setCode) params.set('set_code', setCode.toUpperCase());
   
   window.location.href = `/cards?${params.toString()}`;
 }

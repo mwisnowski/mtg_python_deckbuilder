@@ -3,6 +3,8 @@
   <div class="panel">
     {% if section == "new" %}
     No new cards found for this deck's color identity in the current window.
+    {% elif section == "possible" %}
+    No possible upgrades found &mdash; every suggestion in the general pool had at least 2 viable swap targets.
     {% else %}
     No general upgrade suggestions found for this deck.
     {% endif %}
@@ -38,6 +40,7 @@
     {% endfor %}
     </div>
   {% endif %}
+
 
   {# Pagination #}
   {% if total_pages > 1 %}

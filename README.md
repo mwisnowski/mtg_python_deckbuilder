@@ -205,10 +205,11 @@ Investigate theme synergies and diagnostics.
 - Advanced editorial knobs (`EDITORIAL_*`, `SPLASH_ADAPTIVE`, etc.) live in `.env.example` and are summarized in the env table below.
 
 ### Finished Decks
-Review, compare, and export previous builds.
+Review, compare, export, and improve previous builds.
 - Reads from the `deck_files/` volume.
 - Compare view can diff two builds, copy summaries, and download text lists.
 - Locks, replace history, and compliance metadata persist per deck.
+- **Potential Upgrades**: every saved deck has an "Upgrades" button that surfaces algorithmically ranked suggestions across three tabs — New Cards (first printings from recent sets), General Upgrades (full legal pool by theme/role fit), and Possible Upgrades (candidates that didn't find a confident swap target). Each suggestion shows scored swap targets; clicking a swap button rewrites the deck file in place.
 
 ### Random Build
 Spin up surprise decks with deterministic fallbacks.

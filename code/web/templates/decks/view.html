@@ -71,9 +71,7 @@
       </form>
       {% endif %}
       <a href="/decks/compare?A={{ name|urlencode }}" class="btn" role="button" title="Compare this deck with another">Compare…</a>
-      {% if budget_report %}
-      <a href="/decks/pickups?name={{ name|urlencode }}" class="btn" role="button" title="View upgrade suggestions for this deck">Upgrade Suggestions</a>
-      {% endif %}
+
       {% if enable_upgrade_suggestions %}
       <a href="/decks/upgrades?name={{ name|urlencode }}" class="btn" role="button" title="View potential card upgrades">Potential Upgrades</a>
       {% endif %}

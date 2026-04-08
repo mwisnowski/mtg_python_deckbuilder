@@ -3720,6 +3720,60 @@ img.lqip.loaded { filter: blur(0); opacity: 1; }
 	flex-shrink: 0;
 }
 
+/* Apply-swap button on each swap candidate row */
+.upgrade-swap-btn {
+	display: inline-block;
+	padding: 1px 7px;
+	border-radius: 8px;
+	font-size: 10px;
+	font-weight: 600;
+	background: rgba(99, 102, 241, .75);
+	color: #fff;
+	border: none;
+	cursor: pointer;
+	white-space: nowrap;
+	flex-shrink: 0;
+	transition: background .15s;
+}
+.upgrade-swap-btn:hover {
+	background: rgba(99, 102, 241, 1);
+}
+.upgrade-swap-btn:disabled {
+	opacity: .5;
+	cursor: not-allowed;
+}
+
+/* Swap confirmed state */
+.upgrade-swap-applied {
+	display: inline-block;
+	padding: 1px 8px;
+	border-radius: 8px;
+	font-size: 10px;
+	font-weight: 600;
+	color: var(--success, #22c55e);
+}
+
+/* Swap inline error */
+.upgrade-swap-error {
+	display: inline-block;
+	font-size: 10px;
+	color: var(--danger, #ef4444);
+	padding: 1px 0;
+}
+
+/* Stale swap tile — target card already removed, or upgrade card already added to deck */
+.upgrade-swap-stale {
+	opacity: .35;
+	pointer-events: none;
+	transition: opacity .3s ease;
+}
+
+/* Chosen swap tile — the target card that was actually selected for the swap */
+.upgrade-swap-item.upgrade-swap-chosen {
+	border-color: var(--success, #22c55e);
+	opacity: .7;
+}
+
 .derived-badge {
 	background: var(--panel-alt);
 	border: 1px solid var(--border);

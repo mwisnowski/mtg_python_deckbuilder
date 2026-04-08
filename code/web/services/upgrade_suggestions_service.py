@@ -57,6 +57,7 @@ class UpgradeCandidate:
     matched_tags: list[str] = field(default_factory=list)
     swap_candidates: list[SwapCandidate] = field(default_factory=list)
     fit_score: float = 0.0
+    price: Optional[float] = None
 
 
 @dataclass
@@ -78,6 +79,7 @@ class DeckCard:
     is_commander: bool = field(default=False)
     is_locked: bool = field(default=False)
     card_type: str = field(default="")
+    is_dfc: bool = field(default=False)  # double-faced card; CMC bump applied in swap scoring
 
 
 @dataclass
@@ -98,6 +100,7 @@ class SwapCandidate:
     cmc: float
     swap_score: float
     reason: str
+    price: Optional[float] = None
 
 
 # ---------------------------------------------------------------------------
@@ -569,7 +572,7 @@ class UpgradeSuggestionsService:
         for card in swappable:
             # Double-faced cards provide more value than their CMC suggests.
             # Reducing the effective cmc_delta makes them harder to flag as swap targets.
-            dfc_adj = _DFC_CMC_BUMP if " // " in card.name else 0.0
+            dfc_adj = _DFC_CMC_BUMP if (card.is_dfc or " // " in card.name) else 0.0
             dfc_note = " (double-faced)" if dfc_adj else ""
             card_roles = set(card.roles)
             overlap = suggestion_roles & card_roles
@@ -647,13 +650,13 @@ class UpgradeSuggestionsService:
         if len(result) < top_n:
             fallback_pool = sorted(
                 [c for c in swappable if c.name not in used_names],
-                key=lambda c: c.cmc - (_DFC_CMC_BUMP if " // " in c.name else 0.0),
+                key=lambda c: c.cmc - (_DFC_CMC_BUMP if (c.is_dfc or " // " in c.name) else 0.0),
                 reverse=True,
             )
             for card in fallback_pool:
                 if len(result) >= top_n:
                     break
-                eff = card.cmc - (_DFC_CMC_BUMP if " // " in card.name else 0.0)
+                eff = card.cmc - (_DFC_CMC_BUMP if (card.is_dfc or " // " in card.name) else 0.0)
                 score = eff * _CMC_WEIGHT
                 result.append(SwapCandidate(
                     name=card.name,

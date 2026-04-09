@@ -426,8 +426,9 @@ class ImageCache:
             if progress_callback:
                 progress_callback(card_index, total_cards, face_name)
 
-        # Invalidate cached summary since we just downloaded new images
+        # Invalidate cached summary and in-memory index so new images are found immediately
         self.invalidate_summary_cache()
+        self.invalidate_index()
 
         logger.info(f"Image download complete: {stats}")
         return stats
@@ -513,6 +514,12 @@ class ImageCache:
 
         return stats
     
+    def invalidate_index(self) -> None:
+        """Reset the in-memory image index so it is rebuilt on the next access."""
+        self._image_index.clear()
+        self._index_built = False
+        logger.debug("Invalidated in-memory image index")
+
     def invalidate_summary_cache(self) -> None:
         """Delete the cached summary file to force regeneration on next call."""
         if not self.is_enabled():

@@ -1,4 +1,4 @@
-# 🃏 MTG Python Deckbuilder
+# MTG Python Deckbuilder
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
@@ -27,6 +27,7 @@ A web-first Commander/EDH deckbuilder with a shared core for CLI, headless, and 
   - [Random Build](#random-build)
   - [Diagnostics](#diagnostics)
   - [View Logs](#view-logs)
+  - [Help & Guides](#help--guides)
 - [CLI & headless flows](#cli--headless-flows)
 - [Data, exports, and volumes](#data-exports-and-volumes)
 - [Environment variables](#environment-variables)
@@ -43,13 +44,13 @@ A web-first Commander/EDH deckbuilder with a shared core for CLI, headless, and 
 ## Quick start
 Pick the path that fits your setup. All commands target Windows PowerShell.
 
-### Option 1 — Docker Compose (recommended web experience)
+### Option 1: Docker Compose (recommended web experience)
 ```powershell
 docker compose up --build --no-deps -d web
 ```
 The Web UI starts on http://localhost:8080. First boot seeds data, refreshes decks, and tags cards automatically (see env defaults in `docker-compose.yml`). Use `docker compose stop web` / `docker compose start web` to pause or resume.
 
-### Option 2 — Docker Hub image
+### Option 2: Docker Hub image
 ```powershell
 docker run --rm -p 8080:8080 `
   -v "${PWD}/deck_files:/app/deck_files" `
@@ -61,7 +62,7 @@ docker run --rm -p 8080:8080 `
 ```
 Brings up the same web UI using the prebuilt image. All volumes persist on the host.
 
-### Option 3 — Run from source
+### Option 3: Run from source
 ```powershell
 python -m venv .venv
 .\venv\Scripts\Activate.ps1
@@ -88,6 +89,7 @@ Start here for interactive deck creation.
   - See `docs/user_guides/batch_build_compare.md` for full guide
 - **Quick Build**: One-click automation runs the full workflow with live progress (Creatures → Spells → Lands → Final Touches → Summary). Available in New Deck wizard.
 - **Skip Controls**: Granular stage-skipping toggles in New Deck wizard (21 flags: land steps, creature stages, spell categories). Auto-advance without approval prompts.
+- **Combo preferences**: configure combo count target and early/late balance in the Preferences step of the wizard.
 - Add supplemental themes in the **Additional Themes** section (ENABLE_CUSTOM_THEMES): fuzzy suggestions, removable chips, and strict/permissive matching toggles respect `THEME_MATCH_MODE` and `USER_THEME_LIMIT`.
 - Partner mechanics (ENABLE_PARTNER_MECHANICS): Step 2 and the quick-start modal auto-enable partner controls for eligible commanders, show only legal partner/background/Doctor options, and keep previews, warnings, and theme chips in sync.
   - Partner suggestions (ENABLE_PARTNER_SUGGESTIONS): ranked chips appear beside the partner selector, recommending popular partner/background/Doctor pairings based on the analytics dataset; selections respect existing partner mode and lock states.
@@ -101,6 +103,7 @@ Start here for interactive deck creation.
 - `WEB_AUTO_ENFORCE=1` re-runs bracket enforcement automatically after each build.
 - `WEB_STAGE_ORDER=new` (default) runs creatures/spells before lands for better pip analysis. Use `legacy` for original lands-first order.
 - `WEB_IDEALS_UI=slider` (default) shows interactive range sliders for ideal counts with live validation. Use `input` for traditional text boxes.
+- See [`docs/user_guides/build_wizard.md`](docs/user_guides/build_wizard.md) for the full 8-step wizard walkthrough.
 
 ### Run a JSON Config
 Execute saved configs without manual input.
@@ -188,9 +191,9 @@ Search and explore all 29,839 Magic cards.
 Investigate theme synergies and diagnostics.
 - `ENABLE_THEMES=1` keeps the tile visible (default).
 - Theme cards display three badge types:
-  - **Quality** (Excellent/Good/Fair/Poor) — editorial score based on synergy depth and card count. Toggle with `SHOW_THEME_QUALITY_BADGES`.
-  - **Pool size** (Vast/Large/Moderate/Small/Tiny) — number of on-theme cards in the catalog. Toggle with `SHOW_THEME_POOL_BADGES`.
-  - **Popularity** — how often the theme appears in builds. Toggle with `SHOW_THEME_POPULARITY_BADGES`.
+  - **Quality** (Excellent/Good/Fair/Poor): editorial score based on synergy depth and card count. Toggle with `SHOW_THEME_QUALITY_BADGES`.
+  - **Pool size** (Vast/Large/Moderate/Small/Tiny): number of on-theme cards in the catalog. Toggle with `SHOW_THEME_POOL_BADGES`.
+  - **Popularity**: how often the theme appears in builds. Toggle with `SHOW_THEME_POPULARITY_BADGES`.
   - Filter chips let you narrow the catalog by any badge combination. Toggle with `SHOW_THEME_FILTERS`.
 - Extra tooling (`/themes/metrics`, uncapped synergies, editorial quality) is gated by `WEB_THEME_PICKER_DIAGNOSTICS=1`.
 - Rebuild the merged catalog as needed:
@@ -209,13 +212,19 @@ Review, compare, export, and improve previous builds.
 - Reads from the `deck_files/` volume.
 - Compare view can diff two builds, copy summaries, and download text lists.
 - Locks, replace history, and compliance metadata persist per deck.
-- **Potential Upgrades**: every saved deck has an "Upgrades" button that surfaces algorithmically ranked suggestions across three tabs — New Cards (first printings from recent sets), General Upgrades (full legal pool by theme/role fit), and Possible Upgrades (candidates that didn't find a confident swap target). Each suggestion shows scored swap targets; clicking a swap button rewrites the deck file in place.
+- All card prices display both TCGPlayer and Card Kingdom values side by side.
+- **Buy This Deck**: one-click shopping cart export sends the full deck list to TCGPlayer or Card Kingdom for mass purchase; available on the deck view toolbar.
+- **Potential Upgrades**: every saved deck has a "Potential Upgrades" button that surfaces algorithmically ranked suggestions across three tabs: New Cards (first printings from recent sets), General Upgrades (full legal pool by theme/role fit), and Possible Upgrades (candidates that didn't find a confident swap target). Each suggestion shows scored swap targets; clicking a swap button rewrites the deck file in place. Controlled by `ENABLE_UPGRADE_SUGGESTIONS`, `UPGRADE_PAGE_SIZE`, and `UPGRADE_WINDOW_MONTHS`.
+- See [`docs/user_guides/suggested_upgrades.md`](docs/user_guides/suggested_upgrades.md) for scoring details, swap interpretation, and caveats.
 
 ### Random Build
 Spin up surprise decks with deterministic fallbacks.
 - Enable backend endpoints with `RANDOM_MODES=1` and the UI tile with `RANDOM_UI=1`.
 - Fine-tune with `RANDOM_MAX_ATTEMPTS`, `RANDOM_TIMEOUT_MS`, `RANDOM_PRIMARY_THEME`, `RANDOM_SEED`, and `RANDOM_AUTO_FILL`.
+- **Constraints**: use `RANDOM_CONSTRAINTS` (inline JSON) or `RANDOM_CONSTRAINTS_PATH` (file) to restrict color identity or CMC range for random picks.
+- **Theme fallback cascade**: when all three themes cannot be satisfied together, the builder progressively drops themes down to a single-theme or full-pool build, showing a color-coded notice explaining the fallback.
 - Random flows honor include/exclude lists, owned filters, and bracket enforcement.
+- See [`docs/user_guides/random_build.md`](docs/user_guides/random_build.md) for the full guide including seeds, constraints, and rate limiting.
 
 ### Diagnostics
 Peek at health & performance.
@@ -232,6 +241,13 @@ Tail and download logs without leaving the browser.
 - Raw files live under the mounted `logs/` directory.
 - `/status/logs?tail=N` returns JSON payloads for automation.
 
+### Help & Guides
+Browse all user guides without leaving the browser.
+- Accessible at `/help`: a guide index listing every guide with descriptions and deep-linking anchor support.
+- Each guide page displays a sidebar table of contents for quick navigation.
+- Contextual help icons throughout the build wizard link directly to the relevant guide section without interrupting the workflow.
+- Also reachable via the "Help & Guides" button on the home page.
+
 ---
 
 ## CLI & headless flows
@@ -245,22 +261,24 @@ The CLI and headless runners share the builder core.
 ---
 
 ## Budget Mode
-Control per-card cost to build within a price target.
+Control total deck cost and per-card price targets.
 - Enable with `ENABLE_BUDGET_MODE=1` (default: on). Adds budget controls and a price summary panel to the builder.
-- Set a **per-card price ceiling** in the New Deck modal (UI input — not an env var).
-- **Soft enforcement only**: cards exceeding the ceiling are filtered from the selection pool, but no cards are hard-rejected from the final result. A budget summary shows total cost and flags over-budget cards for review.
+- Set a **total budget cap** and an optional **per-card price ceiling** in the New Deck modal (UI inputs, not env vars).
+- **Soft enforcement only**: cards exceeding the per-card ceiling are filtered from the selection pool, but no cards are hard-rejected from the final result. A budget summary shows total cost and flags over-budget cards for review.
 - Pool tolerance (`BUDGET_POOL_TOLERANCE`, default `0.15`): fractional headroom above the ceiling before exclusion (e.g. `0.15` = 15%). Smooths results for borderline-priced cards.
-- Price data is sourced from Scryfall bulk data and cached locally. `PRICE_LAZY_REFRESH=1` refreshes stale entries in the background.
-- See [`docs/user_guides/budget_mode.md`](docs/user_guides/budget_mode.md) for the full guide, FAQ, and export details. _(guide coming in Tier 2 docs)_
+- Price data shows both TCGPlayer and Card Kingdom prices, sourced from Scryfall bulk data and cached locally. `PRICE_LAZY_REFRESH=1` refreshes stale entries in the background.
+- Price charts in the deck summary show total spend broken down by card role category.
+- See [`docs/user_guides/budget_mode.md`](docs/user_guides/budget_mode.md) for the full guide, FAQ, and export details.
 
 ---
 
 ## Smart Land Bases
 Automatic land count and basics-to-duals ratio based on deck speed and color intensity.
-- Enable with `ENABLE_SMART_LANDS=1` (default: on in Docker).
+- Enabled by default; toggle per-build via the **Smart Land Bases** checkbox in the New Deck modal. Use `LAND_PROFILE` or `LAND_COUNT` for headless/CLI overrides.
 - **Speed detection**: commander CMC blended with pool average CMC determines fast (33 lands), mid (35), or slow (37–39) targets.
 - **Profile selection**: 1–2 color / low-pip decks get a basics-heavy profile; 3+ color / high-pip decks get a fixing-heavy profile with minimal basics.
-- **ETB tapped tolerance** is adjusted automatically — fast decks avoid tapped lands; slow decks tolerate more.
+- **ETB tapped tolerance** is adjusted automatically: fast decks avoid tapped lands; slow decks tolerate more.
+- **Budget override**: decks with a low budget cap and 3+ colors are automatically pushed to the basics-heavy profile to keep non-basic costs down.
 - The **Land Summary** section shows a "Smart Lands" notice explaining the chosen profile in plain English.
 - Override with `LAND_PROFILE=basics|mid|fixing` or `LAND_COUNT=<n>` env vars.
 - See [`docs/user_guides/land_bases.md`](docs/user_guides/land_bases.md) for the full guide.
@@ -328,7 +346,6 @@ Most defaults are defined in `docker-compose.yml` and documented in `.env.exampl
 ### Smart Land Bases
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `ENABLE_SMART_LANDS` | `1` | Enable automatic land count and profile selection based on commander speed and pip density. |
 | `LAND_PROFILE` | _(auto)_ | Force a specific profile: `basics`, `mid`, or `fixing`. Skips auto-detection. |
 | `LAND_COUNT` | _(auto)_ | Force total land count (e.g. `36`). Skips curve calculation. |
 
@@ -345,6 +362,9 @@ Most defaults are defined in `docker-compose.yml` and documented in `.env.exampl
 | `RANDOM_PRIMARY_THEME` / `RANDOM_SECONDARY_THEME` / `RANDOM_TERTIARY_THEME` | _(blank)_ | Override selected themes. |
 | `RANDOM_SEED` | _(blank)_ | Deterministic seed for reproducible builds. |
 | `RANDOM_AUTO_FILL` | `1` | Allow auto-fill of missing theme slots. |
+| `RANDOM_CONSTRAINTS` | _(blank)_ | Inline JSON to restrict color identity or CMC range for random builds. |
+| `RANDOM_CONSTRAINTS_PATH` | _(blank)_ | Path to a JSON file containing random build constraints. |
+| `RANDOM_STRICT_THEME_MATCH` | `0` | Reject random builds that do not satisfy all requested themes (disables fallback cascade). |
 
 ### Random rate limiting (optional)
 | Variable | Default | Purpose |
@@ -366,6 +386,7 @@ Most defaults are defined in `docker-compose.yml` and documented in `.env.exampl
 | `WEB_AUTO_ENFORCE` | `0` | Auto-apply bracket enforcement after builds. |
 | `WEB_THEME_PICKER_DIAGNOSTICS` | `1` | Enable theme diagnostics endpoints. |
 | `THEME_MIN_CARDS` | `5` | Minimum card count for themes. Themes with fewer cards are stripped from catalogs, JSON files, and parquet metadata during setup/tagging. Set to 1 to keep all themes. |
+| `WEB_PREFETCH` | `0` | Hover-intent prefetch on the Finished Decks page; preloads the deck view after a 100 ms hover delay to eliminate CSV-parse wait on click. |
 
 ### Paths & overrides
 | Variable | Default | Purpose |
@@ -379,6 +400,13 @@ Most defaults are defined in `docker-compose.yml` and documented in `.env.exampl
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `EDITORIAL_TEST_USE_FIXTURES` | `0` | When set to `1`, editorial governance tests stage lightweight catalog fixtures instead of requiring generated YAML/JSON data. |
+
+### Potential Upgrades
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `ENABLE_UPGRADE_SUGGESTIONS` | `1` | Enable the Potential Upgrades page and surfacing suggestions on saved deck views. |
+| `UPGRADE_PAGE_SIZE` | `16` | Number of upgrade suggestions shown per page. |
+| `UPGRADE_WINDOW_MONTHS` | `6` | Months of release history considered for the New Cards tab. |
 
 ### Supplemental themes
 | Variable | Default | Purpose |
@@ -423,7 +451,7 @@ deck_files/           Generated deck exports (CSV/TXT/JSON)
    ```powershell
    uvicorn code.web.app:app --host 127.0.0.1 --port 8080
    ```
-4. Run tests (prefer targeted files—no wildcards):
+4. Run tests (prefer targeted files, no wildcards):
    ```powershell
    C:/Users/Matt/mtg_python/mtg_python_deckbuilder/.venv/Scripts/python.exe -m pytest -q code/tests/test_random_determinism.py code/tests/test_permalinks_and_locks.py
    ```
@@ -444,7 +472,7 @@ When adding features, favor the web UI first, keep public builder APIs stable, a
 ---
 
 ## Contributing
-Pull requests are welcome—follow the conventional commit style, keep diffs focused, add or update tests when behavior changes, and document new env vars or workflows. Review `CONTRIBUTING_EDITORIAL.md` for editorial tooling guidance.
+Pull requests are welcome; follow the conventional commit style, keep diffs focused, add or update tests when behavior changes, and document new env vars or workflows. Review `CONTRIBUTING_EDITORIAL.md` for editorial tooling guidance.
 
 ---
 
@@ -478,6 +506,24 @@ Licensed under the [MIT License](LICENSE). Card data and imagery are provided by
 ---
 
 ## Further reading
+
+### User guides (also accessible in-app at `/help`)
+- [Build Wizard](docs/user_guides/build_wizard.md) – 8-step wizard flow, theme picker, combo preferences, and ideal count sliders.
+- [Batch Build & Compare](docs/user_guides/batch_build_compare.md) – parallel builds, overlap statistics, and Synergy Builder.
+- [Quick Build & Skip Controls](docs/user_guides/quick_build_skip_controls.md) – auto-advance stages and stage order.
+- [Bracket Compliance](docs/user_guides/bracket_compliance.md) – enforcement modes, card lists, and rule-zero notes.
+- [Include/Exclude](docs/user_guides/include_exclude.md) – must-have and must-exclude lists, priority order, and conflict resolution.
+- [Locks, Replace & Permalinks](docs/user_guides/locks_replace_permalinks.md) – locking cards, replacement workflow, and shareable links.
+- [Partner Mechanics](docs/user_guides/partner_mechanics.md) – Partner, Background, Doctor, and Partner With flows.
+- [Owned Cards](docs/user_guides/owned_cards.md) – upload formats, build modes, and library management.
+- [Budget Mode](docs/user_guides/budget_mode.md) – budget cap, per-card ceiling, price data, and Card Kingdom integration.
+- [Smart Land Bases](docs/user_guides/land_bases.md) – speed detection, profile selection, and slot earmarking.
+- [Multi-Copy Cards](docs/user_guides/multi_copy.md) – supported archetypes, copy caps, and exclusive groups.
+- [Random Build](docs/user_guides/random_build.md) – constraints, fallback cascade, seeds, and rate limiting.
+- [Potential Upgrades](docs/user_guides/suggested_upgrades.md) – new cards, general upgrades, scoring formulas, and shopping cart.
+- [Theme Browser](docs/user_guides/theme_browser.md) – quality badges, pool size, popularity, and editorial scoring.
+
+### Developer references
 - [Random mode developer guide](docs/random_mode/developer_guide.md) – architecture, seed infrastructure, and diagnostic tooling for the random build system.
 - [Random mode diagnostics](docs/random_mode/diagnostics.md) – runtime metrics, telemetry flags, and structured log formats.
 - [Web backend: error handling](docs/web_backend/error_handling.md) – structured error responses, request IDs, and logging conventions.

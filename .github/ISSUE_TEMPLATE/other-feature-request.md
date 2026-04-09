@@ -1,5 +1,5 @@
 ---
-name: 'Other Feature Request '
+name: Other Feature Request
 about: Request a new app feature, UI improvement, workflow enhancement, or any functionality
   not related to theme or commander data.
 title: ''

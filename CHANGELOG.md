@@ -20,6 +20,14 @@ _No unreleased changes yet_
 ### Removed
 _No unreleased changes yet_
 
+## [4.7.5] - 2026-04-08
+### Fixed
+- **Help portal guide ordering**: Potential Upgrades guide now appears in the correct position in the `/help` page grid instead of falling to the end alphabetically.
+- **Guide description rendering**: Inline markdown markers (bold, italic, code) in a guide's first paragraph are now stripped before use as the card description, preventing literal asterisks from appearing as plain text.
+
+### Changed
+- **Cross-reference links**: Build Wizard and Batch Build & Compare guides now link to the Potential Upgrades guide in their See Also sections.
+
 ## [4.7.4] - 2026-04-08
 ### Changed
 - **Image caching RAM reduction**: Bulk data JSON is now streamed line-by-line instead of loaded all at once, dropping peak RAM during image caching from ~1.5–2.5 GB to ~175 MB. Image bytes are streamed directly to disk rather than buffered in memory. CDN download delay halved from 50 ms to 25 ms (Scryfall CDN has no rate limit).

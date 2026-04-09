@@ -13,8 +13,11 @@ _No unreleased changes yet_
 ### Removed
 _No unreleased changes yet_
 
-## [4.7.4] - 2026-04-08
+## [4.7.5] - 2026-04-08
+### Fixed
+- Potential Upgrades guide now appears in the correct position in the help portal grid
+- Guide description cards no longer show literal asterisks when the first paragraph contains bold/italic text
+
 ### Changed
-- Image caching RAM reduced from ~1.5–2.5 GB to ~175 MB via line-by-line JSON streaming
-- Image caching now prefers standard-frame printings (non-full-art, black border, non-promo, non-showcase)
+- Build Wizard and Batch Build & Compare guides cross-link to the Potential Upgrades guide
 

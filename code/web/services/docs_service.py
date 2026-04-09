@@ -180,6 +180,7 @@ class DocsService(CachedService[str, GuideContent]):
             "locks_replace_permalinks",
             "random_build",
             "batch_build_compare",
+            "suggested_upgrades",
         ]
         
         guides = []
@@ -261,7 +262,9 @@ class DocsService(CachedService[str, GuideContent]):
                     found_title = True
                     continue
                 if found_title and line and not line.startswith('#'):
-                    metadata["description"] = line[:200]  # Limit description length
+                    # Strip inline markdown markers so the description renders as plain text
+                    plain = re.sub(r'[*_`]', '', line)
+                    metadata["description"] = plain[:200]  # Limit description length
                     break
             
             return metadata

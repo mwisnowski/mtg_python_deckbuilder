@@ -253,3 +253,4 @@ Key settings for the build wizard:
 - [Multi-Copy Package](multi_copy.md) — build with many copies of a single archetype card
 - [Random Build](random_build.md) — spin up a randomized deck with one click
 - [Batch Build & Compare](batch_build_compare.md) — generate and compare multiple builds at once
+- [Potential Upgrades](suggested_upgrades.md) — find new cards and swap targets for a saved deck

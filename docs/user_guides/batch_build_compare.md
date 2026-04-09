@@ -74,3 +74,4 @@ Access the compare view from **Finished Decks** to diff any two completed builds
 
 - [Build Wizard](build_wizard.md) — step-by-step walkthrough of a single build
 - [Quick Build & Skip Controls](quick_build_skip_controls.md) — automate individual stages to speed up batch runs
+- [Potential Upgrades](suggested_upgrades.md) — find new cards and swap targets for a saved deck

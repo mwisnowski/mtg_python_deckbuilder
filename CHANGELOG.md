@@ -20,6 +20,10 @@ _No unreleased changes yet_
 ### Removed
 _No unreleased changes yet_
 
+## [4.7.6] - 2026-04-08
+### Fixed
+- **Image cache index not refreshed after download**: After downloading card images via the UI, the in-memory image index was never invalidated, so the app continued redirecting to Scryfall for every card until the container was restarted. The index is now cleared at the end of every download so images are served from cache immediately without a restart.
+
 ## [4.7.5] - 2026-04-08
 ### Fixed
 - **Help portal guide ordering**: Potential Upgrades guide now appears in the correct position in the `/help` page grid instead of falling to the end alphabetically.

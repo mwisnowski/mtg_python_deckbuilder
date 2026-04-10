@@ -58,6 +58,27 @@ logger.addHandler(logging_util.file_handler)
 logger.addHandler(logging_util.stream_handler)
 
 
+def _load_banned_cards() -> List[str]:
+    """Return the commander banned card list.
+
+    Prefers ``config/card_lists/banned_cards.json`` (written by
+    ``refresh_card_lists_from_bulk``) so the list stays current with Scryfall
+    without manual edits.  Falls back to the hardcoded ``BANNED_CARDS``
+    constant when the file is missing or unreadable (e.g. first run before
+    any price refresh has been executed).
+    """
+    json_path = Path("config/card_lists/banned_cards.json")
+    if json_path.exists():
+        try:
+            data = json.loads(json_path.read_text(encoding="utf-8"))
+            cards = [str(c).strip() for c in data.get("cards", []) if str(c).strip()]
+            if cards:
+                return cards
+        except Exception:
+            pass
+    return list(BANNED_CARDS)
+
+
 def _is_primary_side(value: object) -> bool:
     """Return True when the provided side marker corresponds to a primary face."""
     try:
@@ -387,7 +408,7 @@ def save_color_filtered_csvs(df: pd.DataFrame, out_dir: Union[str, Path]) -> Non
     # Base-filter once for efficiency, then per-color filter without redoing base filters
     try:
         # Apply full standard filtering including banned list once, then slice per color
-        base_df = filter_dataframe(df, BANNED_CARDS)
+        base_df = filter_dataframe(df, _load_banned_cards())
     except Exception as e:
         # Wrap any unexpected issues as DataFrameProcessingError
         raise DataFrameProcessingError(
@@ -546,7 +567,7 @@ def filter_by_color_identity(df: pd.DataFrame, color_identity: str) -> pd.DataFr
             
         # Apply base filtering
         with tqdm(total=1, desc='Applying base filtering') as pbar:
-            filtered_df = filter_dataframe(df, BANNED_CARDS)
+            filtered_df = filter_dataframe(df, _load_banned_cards())
             pbar.update(1)
             
         # Filter by color identity

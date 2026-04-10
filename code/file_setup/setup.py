@@ -16,7 +16,9 @@ Introduced in v3.0.0 as part of CSV→Parquet migration.
 
 from __future__ import annotations
 
+import json
 import os
+from pathlib import Path
 
 import pandas as pd
 import requests
@@ -27,10 +29,10 @@ from .setup_constants import (
     CSV_PROCESSING_COLUMNS,
     CARD_TYPES_TO_EXCLUDE,
     NON_LEGAL_SETS,
-    BANNED_CARDS,
     FILTER_CONFIG,
     SORT_CONFIG,
 )
+from .setup_utils import _load_banned_cards
 import logging_util
 from path_util import card_files_raw_dir, get_processed_cards_path
 import settings
@@ -229,7 +231,7 @@ def process_raw_parquet(raw_path: str, output_path: str) -> pd.DataFrame:
     
     # Step 4: Remove banned cards
     logger.info("Removing banned cards")
-    banned_set = {b.casefold() for b in BANNED_CARDS}
+    banned_set = {b.casefold() for b in _load_banned_cards()}
     name_lc = df['name'].astype(str).str.casefold()
     face_lc = df['faceName'].astype(str).str.casefold() if 'faceName' in df.columns else name_lc
     mask = ~(name_lc.isin(banned_set) | face_lc.isin(banned_set))
@@ -344,7 +346,20 @@ def initial_setup() -> None:
         logger.info("Skipping download (delete file to re-download)")
     else:
         download_parquet_from_mtgjson(raw_path)
-    
+
+    # Step 1b: Download Scryfall bulk data and refresh card lists (banned + game changers)
+    # Must run before process_raw_parquet so the dynamic banned list is ready for filtering.
+    bulk_path = os.path.join(raw_dir, "scryfall_bulk_data.json")
+    try:
+        from code.file_setup.scryfall_bulk_data import ScryfallBulkDataClient
+        logger.info("Downloading fresh Scryfall bulk data …")
+        client = ScryfallBulkDataClient()
+        info = client.get_bulk_data_info()
+        client.download_bulk_data(info["download_uri"], bulk_path)
+        refresh_card_lists_from_bulk(bulk_path)
+    except Exception as exc:
+        logger.warning(f"Could not refresh card lists from bulk data ({exc}). Using existing lists.")
+
     # Step 2: Process raw → processed
     processed_path = get_processed_cards_path()
     
@@ -508,6 +523,93 @@ def _compute_is_new_from_bulk(bulk_path: str, window_months: int, today) -> "fro
 _new_card_names_cache: "tuple[float, frozenset] | None" = None
 
 
+def refresh_card_lists_from_bulk(bulk_path: str, output_func=None) -> None:
+    """Scan the local Scryfall bulk data and update card list JSON files.
+
+    Writes (or overwrites) two files:
+    - ``config/card_lists/game_changers.json`` — cards where ``game_changer == True``
+    - ``config/card_lists/banned_cards.json``  — cards where ``legalities.commander == "banned"``
+
+    This keeps both lists in sync with Scryfall without manual maintenance.
+    Called automatically during ``refresh_prices_parquet()`` which already downloads
+    a fresh copy of the bulk data.
+
+    Args:
+        bulk_path: Path to the local Scryfall bulk data JSON file.
+        output_func: Optional callable(str) for progress messages.
+    """
+    import datetime as _dt
+
+    _log = output_func or (lambda msg: logger.info(msg))
+
+    if not os.path.exists(bulk_path):
+        _log("Warning: Scryfall bulk data not found — skipping card list refresh.")
+        return
+
+    _log("Refreshing card lists from Scryfall bulk data …")
+    game_changers: set[str] = set()
+    banned: set[str] = set()
+
+    try:
+        with open(bulk_path, "r", encoding="utf-8") as fh:
+            for raw_line in fh:
+                line = raw_line.strip().rstrip(",")
+                if not line or line in ("[", "]"):
+                    continue
+                try:
+                    card = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+
+                name: str = card.get("name", "")
+                if not name:
+                    continue
+
+                # Game Changers
+                if card.get("game_changer") is True:
+                    game_changers.add(name)
+
+                # Commander banned list
+                legalities = card.get("legalities") or {}
+                if legalities.get("commander") == "banned":
+                    banned.add(name)
+
+    except Exception as exc:
+        _log(f"Warning: Error scanning bulk data for card lists ({exc}). Skipping.")
+        return
+
+    now_iso = _dt.datetime.utcnow().strftime("%Y-%m-%d")
+
+    # Write game_changers.json
+    gc_path = Path("config/card_lists/game_changers.json")
+    try:
+        gc_path.parent.mkdir(parents=True, exist_ok=True)
+        gc_data = {
+            "cards": sorted(game_changers),
+            "list_version": f"scryfall-{now_iso}",
+            "generated_at": now_iso,
+            "source": "scryfall bulk data (game_changer field)",
+        }
+        gc_path.write_text(json.dumps(gc_data, indent=2, ensure_ascii=False), encoding="utf-8")
+        _log(f"Updated game_changers.json — {len(game_changers)} cards.")
+    except Exception as exc:
+        _log(f"Warning: Could not write game_changers.json ({exc}).")
+
+    # Write banned_cards.json
+    ban_path = Path("config/card_lists/banned_cards.json")
+    try:
+        ban_data = {
+            "cards": sorted(banned),
+            "list_version": f"scryfall-{now_iso}",
+            "generated_at": now_iso,
+            "source": "scryfall bulk data (legalities.commander == banned)",
+        }
+        ban_path.write_text(json.dumps(ban_data, indent=2, ensure_ascii=False), encoding="utf-8")
+        _log(f"Updated banned_cards.json — {len(banned)} cards.")
+    except Exception as exc:
+        _log(f"Warning: Could not write banned_cards.json ({exc}).")
+
+
 def get_new_card_names() -> "frozenset[str]":
     """Return a frozenset of lowercase names currently marked isNew in parquet.
     Cached for 1 hour so repeated template calls are cheap.
@@ -549,18 +651,30 @@ def refresh_prices_parquet(output_func=None) -> None:
 
     _log = output_func or (lambda msg: logger.info(msg))
 
-    # Download a fresh copy of the Scryfall bulk data before rebuilding.
+    # Download a fresh copy of the Scryfall bulk data before rebuilding,
+    # but skip the network fetch if initial_setup already downloaded it recently (< 1 h).
+    import time as _time
     try:
         from code.file_setup.scryfall_bulk_data import ScryfallBulkDataClient
         from code.path_util import card_files_raw_dir
         bulk_path = os.path.join(card_files_raw_dir(), "scryfall_bulk_data.json")
-        _log("Downloading fresh Scryfall bulk data …")
-        client = ScryfallBulkDataClient()
-        info = client.get_bulk_data_info()
-        client.download_bulk_data(info["download_uri"], bulk_path)
-        _log("Scryfall bulk data downloaded.")
+        _bulk_age_h = ((_time.time() - os.path.getmtime(bulk_path)) / 3600) if os.path.exists(bulk_path) else None
+        if _bulk_age_h is None or _bulk_age_h > 1:
+            _log("Downloading fresh Scryfall bulk data …")
+            client = ScryfallBulkDataClient()
+            info = client.get_bulk_data_info()
+            client.download_bulk_data(info["download_uri"], bulk_path)
+            _log("Scryfall bulk data downloaded.")
+        else:
+            _log(f"Scryfall bulk data is fresh ({_bulk_age_h:.1f}h old) — skipping re-download.")
     except Exception as exc:
         _log(f"Warning: Could not download fresh bulk data ({exc}). Using existing local copy.")
+
+    # Refresh game_changers.json and banned_cards.json from the fresh bulk data.
+    try:
+        refresh_card_lists_from_bulk(bulk_path, output_func=_log)
+    except Exception as exc:
+        _log(f"Warning: Card list refresh failed ({exc}). Existing lists unchanged.")
 
     _log("Rebuilding price cache from Scryfall bulk data …")
     svc = get_price_service()

@@ -2,7 +2,8 @@
 
 ## [Unreleased]
 ### Added
-_No unreleased changes yet_
+- **Dynamic banned and game changer lists**: The Commander banned list and Game Changers list are now sourced automatically from Scryfall bulk data instead of being hardcoded. A new `banned_cards.json` is written alongside the existing `game_changers.json` in `config/card_lists/` during setup, both stamped with the Scryfall data date. The hardcoded list in `setup_constants.py` remains as a bootstrap fallback for first runs before any data has been downloaded.
+- **Bulk data download moved earlier in pipeline**: Scryfall bulk data is now downloaded in `initial_setup()` (Step 1b), before the parquet is processed, so the dynamic banned list is applied at filter time. `refresh_prices_parquet()` skips a redundant re-download if the file is already less than 1 hour old.
 
 ### Changed
 _No unreleased changes yet_
@@ -12,16 +13,4 @@ _No unreleased changes yet_
 
 ### Removed
 _No unreleased changes yet_
-
-## [4.7.6] - 2026-04-08
-### Fixed
-- Card images are now served from local cache immediately after downloading via the UI — no container restart required
-
-## [4.7.5] - 2026-04-08
-### Fixed
-- Potential Upgrades guide now appears in the correct position in the help portal grid
-- Guide description cards no longer show literal asterisks when the first paragraph contains bold/italic text
-
-### Changed
-- Build Wizard and Batch Build & Compare guides cross-link to the Potential Upgrades guide
 

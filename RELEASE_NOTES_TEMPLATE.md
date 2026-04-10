@@ -2,7 +2,8 @@
 
 ## [Unreleased]
 ### Added
-_No unreleased changes yet_
+- The Commander banned list and Game Changers list are now kept in sync with Scryfall automatically — no more manual updates when cards get banned or added to the game changers list
+- Scryfall data is now fetched earlier in the setup process so filtering is always based on the latest list
 
 ### Changed
 _No unreleased changes yet_

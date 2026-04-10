@@ -9,8 +9,7 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 
 ## [Unreleased]
 ### Added
-- **Dynamic banned and game changer lists**: The Commander banned list and Game Changers list are now sourced automatically from Scryfall bulk data instead of being hardcoded. A new `banned_cards.json` is written alongside the existing `game_changers.json` in `config/card_lists/` during setup, both stamped with the Scryfall data date. The hardcoded list in `setup_constants.py` remains as a bootstrap fallback for first runs before any data has been downloaded.
-- **Bulk data download moved earlier in pipeline**: Scryfall bulk data is now downloaded in `initial_setup()` (Step 1b), before the parquet is processed, so the dynamic banned list is applied at filter time. `refresh_prices_parquet()` skips a redundant re-download if the file is already less than 1 hour old.
+_No unreleased changes yet_
 
 ### Changed
 _No unreleased changes yet_
@@ -20,6 +19,11 @@ _No unreleased changes yet_
 
 ### Removed
 _No unreleased changes yet_
+
+## [4.7.7] - 2026-04-10
+### Added
+- **Dynamic banned and game changer lists**: The Commander banned list and Game Changers list are now sourced automatically from Scryfall bulk data instead of being hardcoded. A new `banned_cards.json` is written alongside the existing `game_changers.json` in `config/card_lists/` during setup, both stamped with the Scryfall data date. The hardcoded list in `setup_constants.py` remains as a bootstrap fallback for first runs before any data has been downloaded.
+- **Bulk data download moved earlier in pipeline**: Scryfall bulk data is now downloaded in `initial_setup()` (Step 1b), before the parquet is processed, so the dynamic banned list is applied at filter time. `refresh_prices_parquet()` skips a redundant re-download if the file is already less than 1 hour old.
 
 ## [4.7.6] - 2026-04-08
 ### Fixed

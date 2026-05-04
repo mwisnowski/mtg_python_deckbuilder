@@ -275,6 +275,5 @@ services:
       - ${PWD}/card_files:/app/card_files
       - ${PWD}/config:/app/config
       - ${PWD}/owned_cards:/app/owned_cards
-      - ${PWD}/docs:/app/docs
     working_dir: /app
     restart: "no"

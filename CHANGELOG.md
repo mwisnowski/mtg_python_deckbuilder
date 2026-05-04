@@ -15,7 +15,7 @@ _No unreleased changes yet_
 _No unreleased changes yet_
 
 ### Fixed
-_No unreleased changes yet_
+- **Image download 404 fallback**: When the Scryfall CDN serves a Cloudflare-cached 404 for the `default_cards` bulk data file, the image download now automatically retries with `unique_artwork` then `all_cards` before failing. This prevents a total image download failure due to transient CDN cache issues on Scryfall's end.
 
 ### Removed
 _No unreleased changes yet_

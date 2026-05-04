@@ -11,12 +11,15 @@ import logging
 import os
 import time
 from typing import Any
+from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 logger = logging.getLogger(__name__)
 
 BULK_DATA_API_URL = "https://api.scryfall.com/bulk-data"
 DEFAULT_BULK_TYPE = "default_cards"  # All cards in Scryfall's database
+# Fallback types if the primary bulk type CDN URL returns 404 (e.g. Cloudflare cache issue)
+FALLBACK_BULK_TYPES = ["unique_artwork", "all_cards"]
 RATE_LIMIT_DELAY = 0.1  # 100ms between requests (50-100ms per Scryfall guidelines)
 
 
@@ -164,7 +167,28 @@ class ScryfallBulkDataClient:
         Raises:
             Exception: If fetch or download fails
         """
-        info = self.get_bulk_data_info(bulk_type)
-        download_uri = info["download_uri"]
-        self.download_bulk_data(download_uri, output_path, progress_callback)
-        return output_path
+        types_to_try = [bulk_type] + [t for t in FALLBACK_BULK_TYPES if t != bulk_type]
+        last_exc: Exception | None = None
+        for attempt_type in types_to_try:
+            try:
+                info = self.get_bulk_data_info(attempt_type)
+                download_uri = info["download_uri"]
+                if attempt_type != bulk_type:
+                    logger.warning(
+                        f"Bulk type '{bulk_type}' unavailable; using '{attempt_type}' as fallback"
+                    )
+                self.download_bulk_data(download_uri, output_path, progress_callback)
+                return output_path
+            except HTTPError as exc:
+                if exc.code == 404:
+                    logger.warning(
+                        f"Bulk type '{attempt_type}' download_uri returned 404 "
+                        "(possible Scryfall CDN cache issue); trying next type"
+                    )
+                    last_exc = exc
+                    continue
+                raise
+        raise RuntimeError(
+            "All bulk data types returned 404. This is likely a temporary Scryfall CDN issue; "
+            "please try again later."
+        ) from last_exc

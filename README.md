@@ -464,7 +464,7 @@ When adding features, favor the web UI first, keep public builder APIs stable, a
 
 ## Troubleshooting
 - **Blank page after start**: Visit `/healthz`, check `/logs`, ensure `SHOW_LOGS=1`, and inspect host `logs/` for stack traces.
-- **Stale data**: Run Initial Setup or delete `csv_files/.tagging_complete.json` to force reseeding.
+- **Stale data**: Run Initial Setup or delete `card_files/processed/.tagging_complete.json` to force reseeding.
 - **Owned-only build fails**: Confirm owned files were uploaded correctly and that `owned_cards/` is mounted.
 - **Random build stalls**: Lower `RANDOM_MAX_ATTEMPTS`, increase `RANDOM_TIMEOUT_MS`, and verify selected themes exist via `/themes/`.
 - **Commander list outdated**: Rerun the commander refresh script or Initial Setup.

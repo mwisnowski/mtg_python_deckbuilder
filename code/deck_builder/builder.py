@@ -164,7 +164,7 @@ class DeckBuilder(
                 from code.path_util import get_processed_cards_path
                 
                 parquet_path = get_processed_cards_path()
-                flag_path = os.path.join(CSV_DIRECTORY, '.tagging_complete.json')
+                flag_path = os.path.join('card_files', 'processed', '.tagging_complete.json')
                 refresh_needed = False
                 
                 if not os.path.exists(parquet_path):
@@ -188,7 +188,7 @@ class DeckBuilder(
                     from tagging import tagger as _tagger
                     _tagger.run_tagging()
                     try:
-                        os.makedirs(CSV_DIRECTORY, exist_ok=True)
+                        os.makedirs(os.path.join('card_files', 'processed'), exist_ok=True)
                         with open(flag_path, 'w', encoding='utf-8') as _fh:
                             _json.dump({'tagged_at': _dt.now().isoformat(timespec='seconds')}, _fh)
                     except Exception:

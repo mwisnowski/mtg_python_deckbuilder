@@ -15,10 +15,14 @@ _No unreleased changes yet_
 _No unreleased changes yet_
 
 ### Fixed
-- **Setup readiness check always failing on fresh hosts**: The setup-complete flag path was still referencing the old `csv_files/.tagging_complete.json` location in `orchestrator.py`, `themes.py`, `builder.py`, and `headless_runner.py`, while the tagger writes it to `card_files/processed/.tagging_complete.json` (since the Parquet migration). Fixed all references to point to the correct path.
+_No unreleased changes yet_
 
 ### Removed
 _No unreleased changes yet_
+
+## [4.7.9] - 2026-06-09
+### Fixed
+- **Setup readiness check always failing on fresh hosts**: The setup-complete flag path was still referencing the old `csv_files/.tagging_complete.json` location in `orchestrator.py`, `themes.py`, `builder.py`, and `headless_runner.py`, while the tagger writes it to `card_files/processed/.tagging_complete.json` (since the Parquet migration). Fixed all references to point to the correct path.
 
 ## [4.7.8] - 2026-05-04
 ### Fixed

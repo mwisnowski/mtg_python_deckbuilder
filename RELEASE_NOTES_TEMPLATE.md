@@ -8,7 +8,7 @@ _No unreleased changes yet_
 _No unreleased changes yet_
 
 ### Fixed
-- Setup readiness check now correctly locates the tagging completion flag at `card_files/processed/.tagging_complete.json`, resolving a "Setup required" false-positive on fresh hosts after the Parquet migration.
+_No unreleased changes yet_
 
 ### Removed
 _No unreleased changes yet_

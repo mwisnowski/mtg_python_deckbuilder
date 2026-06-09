@@ -1045,7 +1045,7 @@ def is_setup_ready() -> bool:
     try:
         from path_util import get_processed_cards_path
         parquet_path = get_processed_cards_path()
-        flag_path = os.path.join('csv_files', '.tagging_complete.json')
+        flag_path = os.path.join('card_files', 'processed', '.tagging_complete.json')
         return os.path.exists(parquet_path) and os.path.exists(flag_path)
     except Exception:
         return False
@@ -1088,7 +1088,7 @@ def is_setup_stale() -> bool:
 
         # If tagging completed recently, treat as fresh regardless of cards.csv mtime
         try:
-            tag_flag = os.path.join('csv_files', '.tagging_complete.json')
+            tag_flag = os.path.join('card_files', 'processed', '.tagging_complete.json')
             if os.path.exists(tag_flag):
                 with open(tag_flag, 'r', encoding='utf-8') as f:
                     tf = json.load(f) or {}
@@ -1329,7 +1329,7 @@ def _ensure_setup_ready(out, force: bool = False) -> None:
         # M4 (Parquet Migration): Check for processed Parquet file instead of CSV
         from path_util import get_processed_cards_path
         cards_path = get_processed_cards_path()
-        flag_path = os.path.join('csv_files', '.tagging_complete.json')
+        flag_path = os.path.join('card_files', 'processed', '.tagging_complete.json')
         auto_setup_enabled = _is_truthy_env('WEB_AUTO_SETUP', '1')
         # Allow tuning of time-based refresh; default 7 days
         try:
@@ -1593,7 +1593,7 @@ def _ensure_setup_ready(out, force: bool = False) -> None:
         # Only attempt if we did NOT just perform a refresh (refresh_needed False) and auto-setup enabled
         # We detect refresh_needed by checking presence of the status flag percent=100 and phase done.
         status_path = os.path.join('csv_files', '.setup_status.json')
-        tag_flag = os.path.join('csv_files', '.tagging_complete.json')
+        tag_flag = os.path.join('card_files', 'processed', '.tagging_complete.json')
         auto_setup_enabled = _is_truthy_env('WEB_AUTO_SETUP', '1')
         if not auto_setup_enabled:
             return

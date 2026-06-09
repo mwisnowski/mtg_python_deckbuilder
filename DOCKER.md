@@ -398,4 +398,4 @@ Use the `--compat-snapshot` or other script arguments as needed.
 - **Files missing on the host:** ensure the host directories exist before starting Compose; Windows will create empty folders if the path is invalid.
 - **Long first boot:** dataset downloads and tagging can take several minutes the first time. Watch progress at `/setup`.
 - **Random build hangs:** lower `RANDOM_MAX_ATTEMPTS` or raise `RANDOM_TIMEOUT_MS`, and confirm your theme overrides are valid slugs via `/themes/`.
-- **Commander catalog outdated:** rerun the refresh command above or delete `csv_files/.tagging_complete.json` to force a full rebuild on next start.
+- **Commander catalog outdated:** rerun the refresh command above or delete `card_files/processed/.tagging_complete.json` to force a full rebuild on next start.

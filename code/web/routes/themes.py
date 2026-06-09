@@ -43,7 +43,7 @@ except Exception:  # Fallback (tests/minimal contexts)
 THEME_LIST_PATH = Path("config/themes/theme_list.json")
 CATALOG_DIR = Path("config/themes/catalog")
 STATUS_PATH = Path("csv_files/.setup_status.json")
-TAG_FLAG_PATH = Path("csv_files/.tagging_complete.json")
+TAG_FLAG_PATH = Path("card_files/processed/.tagging_complete.json")
 
 
 def _iso(ts: float | int | None) -> Optional[str]:

@@ -1,0 +1,237 @@
+{% extends "base.html" %}
+{% block banner_subtitle %}Import a Deck{% endblock %}
+{% block content %}
+<style>
+  #theme-import-dropdown {
+    background: var(--surface-2, #1e2530);
+    border: 1px solid var(--border, #374151);
+    border-radius: 4px;
+    box-shadow: 0 4px 12px rgba(0,0,0,.3);
+    max-height: 220px;
+    overflow-y: auto;
+  }
+  #theme-import-dropdown .autocomplete-item {
+    padding: .45rem .65rem;
+    cursor: pointer;
+    font-size: .875rem;
+    border-bottom: 1px solid var(--border, #374151);
+  }
+  #theme-import-dropdown .autocomplete-item:last-child { border-bottom: none; }
+  #theme-import-dropdown .autocomplete-item:hover,
+  #theme-import-dropdown .autocomplete-item.active {
+    background: var(--surface-3, #252d3a);
+    color: var(--text, #e2e8f0);
+  }
+  #theme-import-dropdown .autocomplete-empty,
+  #theme-import-dropdown .autocomplete-error { padding:.45rem .65rem; font-size:.82rem; color:var(--muted); }
+</style>
+<div class="page-header">
+  <h2>Import a Deck</h2>
+  <p class="muted">Paste a deck list or upload a <code>.txt</code> file from Moxfield, Archidekt, TappedOut, EDHREC, or the native export format.</p>
+</div>
+
+<div class="panel" style="max-width:680px;">
+  <form
+    id="import-form"
+    hx-post="/decks/import"
+    hx-target="#import-result"
+    hx-swap="innerHTML"
+    hx-indicator="#import-spinner"
+    enctype="multipart/form-data"
+    method="post"
+  >
+    {# File upload #}
+    <div style="margin-bottom:1rem;">
+      <label style="display:block; font-weight:600; margin-bottom:.25rem;">Upload .txt file</label>
+      <div style="display:flex; align-items:center; gap:.5rem;">
+        <label for="import-file" class="btn btn-secondary" style="cursor:pointer; white-space:nowrap;">Choose File</label>
+        <input type="file" id="import-file" name="file" accept=".txt,text/plain" class="hidden" />
+        <span id="import-file-name" class="muted" style="font-size:.85rem;">No file chosen</span>
+      </div>
+      <p class="muted" style="font-size:.8rem; margin:.35rem 0 0;">Max 512 KB plain-text only.</p>
+    </div>
+
+    <div style="margin-bottom:.75rem; color:var(--muted); font-size:.85rem; text-align:center;">— or —</div>
+
+    {# Paste textarea #}
+    <div style="margin-bottom:1rem;">
+      <label for="import-text" style="display:block; font-weight:600; margin-bottom:.25rem;">Paste deck list</label>
+      <textarea
+        id="import-text"
+        name="text"
+        rows="14"
+        class="form-textarea"
+        placeholder="1 Sol Ring&#10;1 Arcane Signet&#10;…&#10;&#10;Supports Moxfield, Archidekt, TappedOut, EDHREC, and native export formats."
+        style="font-family:monospace; font-size:.82rem;"
+      ></textarea>
+    </div>
+
+    {# Commander override #}
+    <div style="margin-bottom:1rem;">
+      <label for="import-commander" style="display:block; font-weight:600; margin-bottom:.25rem;">
+        Commander <span class="muted" style="font-weight:400;">(optional — overrides auto-detection)</span>
+      </label>
+      <input
+        type="text"
+        id="import-commander"
+        name="commander"
+        placeholder="e.g. Atraxa, Praetors' Voice"
+        class="form-input"
+        autocomplete="off"
+      />
+    </div>
+
+    {# Themes #}
+    <div style="margin-bottom:1rem;">
+      <label for="import-themes" style="display:block; font-weight:600; margin-bottom:.25rem;">
+        What are your deck&rsquo;s themes? <span class="muted" style="font-weight:400;">(optional)</span>
+      </label>
+      <div style="position:relative;">
+        <input
+          type="text"
+          id="import-themes"
+          name="themes"
+          placeholder="e.g. {{ placeholder_themes | default('Spells Matter, Go Wide, Tokens') }}"
+          class="form-input"
+          autocomplete="off"
+          style="width:100%;"
+        />
+        <div id="theme-import-dropdown" class="autocomplete-dropdown" role="listbox" aria-label="Theme suggestions"
+             style="display:none; position:absolute; z-index:200; width:100%; top:100%; left:0;"></div>
+      </div>
+      <p class="muted" style="font-size:.8rem; margin:.25rem 0 0;">Comma-separated. Type to search the theme catalog.</p>
+    </div>
+
+    <script>
+    (function () {
+      const input = document.getElementById('import-themes');
+      const dropdown = document.getElementById('theme-import-dropdown');
+      let _debounce = null;
+
+      function currentSegment() {
+        // Return the text after the last comma (trimmed), which is the active query
+        const val = input.value;
+        const lastComma = val.lastIndexOf(',');
+        return lastComma === -1 ? val.trim() : val.slice(lastComma + 1).trim();
+      }
+
+      function applySelection(theme) {
+        const val = input.value;
+        const lastComma = val.lastIndexOf(',');
+        // Replace only the current segment, keep everything before the last comma
+        if (lastComma === -1) {
+          input.value = theme + ', ';
+        } else {
+          input.value = val.slice(0, lastComma + 1) + ' ' + theme + ', ';
+        }
+        closeDropdown();
+        input.focus();
+      }
+
+      function closeDropdown() {
+        dropdown.style.display = 'none';
+        dropdown.innerHTML = '';
+      }
+
+      function renderDropdown(html) {
+        dropdown.innerHTML = html;
+        const hasItems = dropdown.querySelector('.autocomplete-item');
+        dropdown.style.display = hasItems ? 'block' : 'none';
+        dropdown.querySelectorAll('.autocomplete-item').forEach(function (item) {
+          item.addEventListener('mousedown', function (e) {
+            e.preventDefault(); // prevent blur before mousedown resolves
+            applySelection(item.dataset.value || item.textContent.trim());
+          });
+        });
+      }
+
+      input.addEventListener('input', function () {
+        clearTimeout(_debounce);
+        const q = currentSegment();
+        if (q.length < 2) { closeDropdown(); return; }
+        _debounce = setTimeout(function () {
+          fetch('/cards/theme-autocomplete?q=' + encodeURIComponent(q) + '&limit=10')
+            .then(function (r) { return r.text(); })
+            .then(renderDropdown)
+            .catch(closeDropdown);
+        }, 200);
+      });
+
+      // Keyboard navigation
+      input.addEventListener('keydown', function (e) {
+        const items = dropdown.querySelectorAll('.autocomplete-item');
+        const active = dropdown.querySelector('.autocomplete-item.active');
+        if (e.key === 'Escape') { closeDropdown(); return; }
+        if (!items.length) return;
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          const next = active ? active.nextElementSibling : items[0];
+          if (active) active.classList.remove('active');
+          if (next) next.classList.add('active');
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          const prev = active ? active.previousElementSibling : items[items.length - 1];
+          if (active) active.classList.remove('active');
+          if (prev) prev.classList.add('active');
+        } else if (e.key === 'Enter' || e.key === 'Tab') {
+          if (active) {
+            e.preventDefault();
+            applySelection(active.dataset.value || active.textContent.trim());
+          }
+        }
+      });
+
+      input.addEventListener('blur', function () {
+        // Small delay so mousedown on dropdown items fires first
+        setTimeout(closeDropdown, 150);
+      });
+    }());
+    </script>
+
+    {# Auto-detect checkbox #}
+    <div style="margin-bottom:1.25rem; display:flex; align-items:center; gap:.5rem;">
+      <input type="checkbox" id="import-autodetect" name="auto_detect" value="true" checked style="width:auto;" />
+      <label for="import-autodetect" style="margin:0; font-weight:400;">Also auto-detect themes from card tags</label>
+    </div>
+
+    <div style="display:flex; align-items:center; gap:.75rem;">
+      <button type="submit" id="import-submit" class="btn btn-primary">Analyse Deck</button>
+      <span id="import-spinner" class="htmx-indicator muted" style="font-size:.85rem;">Analysing…</span>
+    </div>
+  </form>
+</div>
+
+{# Results injected here by HTMX, or pre-populated when restoring via token #}
+<div id="import-result" style="margin-top:1.5rem;">{{ preloaded_result | default('') | safe }}</div>
+
+<script>
+  // Disable textarea when file chosen and vice versa for cleaner UX
+  (function () {
+    var fileInput = document.getElementById('import-file');
+    var textInput = document.getElementById('import-text');
+    var fileLabel = document.querySelector('label[for="import-file"]');
+    var fileName  = document.getElementById('import-file-name');
+    if (!fileInput || !textInput) return;
+    fileInput.addEventListener('change', function () {
+      if (fileInput.files && fileInput.files.length > 0) {
+        if (fileName) fileName.textContent = fileInput.files[0].name;
+        textInput.disabled = true;
+        textInput.style.opacity = '0.4';
+      } else {
+        if (fileName) fileName.textContent = 'No file chosen';
+        textInput.disabled = false;
+        textInput.style.opacity = '';
+      }
+    });
+    textInput.addEventListener('input', function () {
+      if (textInput.value.trim()) {
+        fileInput.disabled = true;
+        if (fileLabel) fileLabel.style.opacity = '0.4';
+      } else {
+        fileInput.disabled = false;
+        if (fileLabel) fileLabel.style.opacity = '';
+      }
+    });
+  })();
+</script>
+{% endblock %}

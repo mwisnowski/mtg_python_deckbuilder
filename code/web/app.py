@@ -2379,6 +2379,7 @@ from .routes import setup as setup_routes  # noqa: E402
 from .routes import owned as owned_routes  # noqa: E402
 from .routes import themes as themes_routes  # noqa: E402
 from .routes import commanders as commanders_routes  # noqa: E402
+from .routes import deck_import as deck_import_routes  # noqa: E402
 from .routes import partner_suggestions as partner_suggestions_routes  # noqa: E402
 from .routes import telemetry as telemetry_routes  # noqa: E402
 from .routes import cards as cards_routes  # noqa: E402
@@ -2405,6 +2406,7 @@ app.include_router(setup_routes.router)
 app.include_router(owned_routes.router)
 app.include_router(themes_routes.router)
 app.include_router(commanders_routes.router)
+app.include_router(deck_import_routes.router)
 app.include_router(partner_suggestions_routes.router)
 app.include_router(telemetry_routes.router)
 app.include_router(cards_routes.router)

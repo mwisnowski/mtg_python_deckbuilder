@@ -22,11 +22,29 @@
      class="btn{% if section == 'possible' %} btn-active{% endif %}"
      role="button">Possible Upgrades{% if section == "possible" and total_cards %} ({{ total_cards }}){% endif %}</a>
   <a href="/decks/view?name={{ name|urlencode }}" class="btn" role="button">Back to Deck</a>
+  {% if back_url is defined and back_url %}
+  <a href="{{ back_url }}" class="btn" role="button">Back to Import</a>
+  {% endif %}
 </div>
 
 <div id="upgrade-stale-banner" class="stale-banner" style="display:none;" role="alert">
   A swap was applied: some suggestions on this page may now be stale. <a href="" style="color:inherit; text-decoration:underline;">Refresh</a> to reload with the updated deck.
 </div>
+
+{% if duplicate_card_names is defined and duplicate_card_names %}
+<div class="panel" role="alert" style="border-left:3px solid var(--info,#3b82f6); margin-bottom:1rem;">
+  <strong style="color:var(--info,#3b82f6);">{{ duplicate_card_names|length }} card{% if duplicate_card_names|length != 1 %}s{% endif %} with multiple copies</strong>
+  — Commander allows only 1 copy of each non-basic card.
+  Go back to the import analysis to remove the extras, then use the suggestions below to find replacements.
+  <div style="display:flex; flex-wrap:wrap; gap:.3rem; margin-top:.4rem;">
+    {% for name in duplicate_card_names %}
+    <span style="font-size:.8rem; padding:.1rem .45rem; border-radius:999px; background:#1e3a5f33; color:var(--info,#93c5fd); border:1px solid currentColor;">
+      <span data-card-name="{{ name }}" style="cursor:help;">{{ name }}</span>
+    </span>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
 
 <details class="upgrade-score-info" style="margin-bottom:1rem;">
   <summary class="muted text-xs" style="cursor:pointer; user-select:none;">How are the scores calculated?</summary>

@@ -3507,7 +3507,7 @@ def tag_for_special_counters(df: pd.DataFrame, color: str) -> None:
     try:
         rules = []
         for counter_type in tag_constants.COUNTER_TYPES:
-            pattern = f'{counter_type} counter'
+            pattern = re.escape(counter_type) + r' counter'
             mask = tag_utils.create_text_mask(df, pattern)
             tags = [f'{counter_type} Counters', 'Counters Matter']
             rules.append({ 'mask': mask, 'tags': tags })

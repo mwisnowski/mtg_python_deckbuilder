@@ -51,6 +51,8 @@ def _list_decks() -> list[dict]:
                 meta["tags"] = _m.get('tags') or meta.get("tags") or []
                 if _m.get('name'):
                     meta["display"] = _m.get('name')
+                if _m.get('source'):
+                    meta["source"] = _m.get('source')
             except Exception:
                 pass
         # Fallback to parsing commander/themes from filename convention Commander_Themes_YYYYMMDD

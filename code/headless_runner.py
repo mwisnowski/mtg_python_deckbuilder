@@ -35,7 +35,7 @@ def _ensure_data_ready():
     from path_util import get_processed_cards_path
     
     parquet_path = get_processed_cards_path()
-    tagging_json = os.path.join("csv_files", ".tagging_complete.json")
+    tagging_json = os.path.join("card_files", "processed", ".tagging_complete.json")
     
     # If all_cards.parquet is missing, run full pipeline
     if not os.path.isfile(parquet_path):

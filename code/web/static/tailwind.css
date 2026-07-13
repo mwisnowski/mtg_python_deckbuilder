@@ -350,6 +350,17 @@ small, .muted{ color: var(--muted); }
   background: #0c5aa6;
   border-color: #0c5aa6;
 }
+.home-button-import,
+.home-button.btn-secondary.home-button-import {
+  background: #0d47a1;
+  color: #fff;
+  border-color: #0d47a1;
+}
+.home-button-import:hover,
+.home-button.btn-secondary.home-button-import:hover {
+  background: #0a3472;
+  border-color: #0a3472;
+}
 
 /* Card grid for added cards (responsive, compact tiles) */
 .card-grid{

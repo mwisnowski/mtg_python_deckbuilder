@@ -20,6 +20,15 @@ _No unreleased changes yet_
 ### Removed
 _No unreleased changes yet_
 
+## [4.8.1] - 2026-07-13
+### Added
+- User guide for the Deck Import & Analysis feature, accessible from the `/help` portal
+
+### Changed
+- Home page: Import a Deck promoted to the second button position; Build a Deck uses a distinct darker blue, Import a Deck uses the standard blue
+- Sidebar navigation: Import Deck moved to second position (below Build); Build from JSON removed from sidebar (still accessible via the home page)
+- Import page: Choose File button updated to standard blue for visual consistency
+
 ## [4.8.0] - 2026-07-13
 ### Added
 - **Deck Import & Analysis**: New `/decks/import` page for importing existing deck lists from Moxfield, Archidekt, TappedOut, EDHREC, and native export formats:

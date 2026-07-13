@@ -168,6 +168,7 @@ class DocsService(CachedService[str, GuideContent]):
         # Define logical ordering for deckbuilding workflow
         guide_order = [
             "build_wizard",
+            "deck_import",
             "theme_browser",
             "partner_mechanics",
             "budget_mode",

@@ -4,7 +4,8 @@
 {% block content %}
 <section>
   <div class="actions-grid" style="max-width: calc(4 * 220px + 3 * .75rem);">
-    {{ button('Build a Deck', variant='primary', href='/build', classes='action-button home-button') }}
+    {{ button('Build a Deck', variant='secondary', href='/build', classes='action-button home-button', attrs='style="background:#0d47a1;color:#fff;border-color:#0d47a1;" onmouseover="this.style.background=\'#0a3472\';this.style.borderColor=\'#0a3472\';" onmouseout="this.style.background=\'#0d47a1\';this.style.borderColor=\'#0d47a1\';"') }}
+    {{ button('Import a Deck', variant='primary', href='/decks/import', classes='action-button home-button') }}
     {{ button('Run a JSON Config', variant='secondary', href='/configs', classes='action-button home-button') }}
     {% if show_setup %}{{ button('Initial Setup', variant='secondary', href='/setup', classes='action-button home-button') }}{% endif %}
     {{ button('Owned Library', variant='secondary', href='/owned', classes='action-button home-button') }}

@@ -1,0 +1,617 @@
+{# Analysis results partial — rendered by POST /decks/import and swapped into #import-result #}
+
+{% if parse_errors %}
+  <div class="panel" role="alert" style="border-left:3px solid var(--error, #f87171);">
+    <strong>Could not import deck</strong>
+    <ul style="margin:.5rem 0 0; padding-left:1.25rem;">
+      {% for err in parse_errors %}
+        <li>{{ err }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+{% else %}
+
+{# ------------------------------------------------------------------ #}
+{# Header: commander + color identity                                  #}
+{# ------------------------------------------------------------------ #}
+<div class="panel">
+  <div style="display:flex; gap:1rem; align-items:flex-start; flex-wrap:wrap;">
+    {# Commander image(s) — no data-card-name so hover is intentionally disabled #}
+    {% if analysis.commander_name %}
+      {% set _cmd_parts = analysis.commander_name.split(' + ') %}
+      <div style="display:flex; gap:.5rem; flex-shrink:0;">
+        {% for _part in _cmd_parts %}
+          <div style="display:flex; flex-direction:column; align-items:center; gap:.4rem;">
+            <img src="{{ _part.strip()|card_image('normal') }}"
+                 alt="{{ _part.strip() }} card image"
+                 width="{{ 200 if _cmd_parts|length > 1 else 240 }}"
+                 style="border-radius:4.75%; display:block;"
+                 loading="eager" decoding="async" />
+            <div style="font-size:.9rem; font-weight:600; text-align:center;">{{ _part.strip() }}</div>
+            {# Color identity dots per part when partners; shared row shown below for single #}
+            {% if _cmd_parts|length > 1 and analysis.color_identity %}
+              <div class="mana-dots" style="justify-content:center;" aria-label="Color identity">
+                {% for pip in analysis.color_identity %}
+                  {% if pip == 'W' %}<span class="dot white" title="White"></span>
+                  {% elif pip == 'U' %}<span class="dot blue" title="Blue"></span>
+                  {% elif pip == 'B' %}<span class="dot black" title="Black"></span>
+                  {% elif pip == 'R' %}<span class="dot red" title="Red"></span>
+                  {% elif pip == 'G' %}<span class="dot green" title="Green"></span>
+                  {% else %}<span class="dot" style="background:var(--muted);" title="{{ pip }}"></span>
+                  {% endif %}
+                {% endfor %}
+              </div>
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+    {# Name + color dots (single commander) + card count #}
+    <div style="flex:1; min-width:0;">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:.5rem;">
+        <div>
+          {% if analysis.commander_name and analysis.commander_name.split(' + ')|length == 1 %}
+            <h3 style="margin:0 0 .35rem;">{{ analysis.commander_name }}</h3>
+          {% elif not analysis.commander_name %}
+            <h3 style="margin:0 0 .35rem;"><span class="muted">Commander not detected</span></h3>
+          {% endif %}
+          {% if analysis.color_identity and analysis.commander_name and analysis.commander_name.split(' + ')|length == 1 %}
+            <div class="mana-dots" aria-label="Color identity">
+              {% for pip in analysis.color_identity %}
+                {% if pip == 'W' %}<span class="dot white" title="White"></span>
+                {% elif pip == 'U' %}<span class="dot blue" title="Blue"></span>
+                {% elif pip == 'B' %}<span class="dot black" title="Black"></span>
+                {% elif pip == 'R' %}<span class="dot red" title="Red"></span>
+                {% elif pip == 'G' %}<span class="dot green" title="Green"></span>
+                {% else %}<span class="dot" style="background:var(--muted);" title="{{ pip }}"></span>
+                {% endif %}
+              {% endfor %}
+            </div>
+          {% endif %}
+        </div>
+        <div class="muted" style="font-size:.82rem; text-align:right;">
+          {{ analysis.total_cards }} card{% if analysis.total_cards != 1 %}s{% endif %}
+          {% if enriched.unrecognized %}
+            <br><span style="color:var(--warn, #f59e0b);">{{ enriched.unrecognized|length }} unrecognized</span>
+          {% endif %}
+          {% set sb_count = enriched.cards | selectattr("section", "equalto", "Sideboard") | map(attribute="quantity") | sum %}
+          {% if sb_count > 0 %}
+            <br><span class="muted">{{ sb_count }} sideboard/considering excluded</span>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ------------------------------------------------------------------ #}
+{# Warnings from parser                                                #}
+{# ------------------------------------------------------------------ #}
+{% if parsed.warnings %}
+  <div class="panel" style="border-left:3px solid var(--warn, #f59e0b); margin-top:.5rem;">
+    <strong>Warnings</strong>
+    <ul style="margin:.4rem 0 0; padding-left:1.25rem; font-size:.85rem;">
+      {% for w in parsed.warnings %}
+        <li>{{ w }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+{% endif %}
+
+{# Prominent unrecognized warning if >50% of cards unknown #}
+{% if unrecognized_pct > 50 %}
+  <div class="panel" role="alert" style="border-left:3px solid var(--error, #f87171); margin-top:.5rem;">
+    <strong>Many cards not recognized ({{ unrecognized_pct }}%)</strong> — tag analysis will be incomplete.
+    Check card names or confirm this is a valid deck export.
+  </div>
+{% endif %}
+
+{# Duplicate non-basic card resolution panel #}
+{% if duplicate_cards %}
+<div id="duplicate-panel" class="panel" style="border-left:3px solid var(--info,#3b82f6); margin-top:.5rem;">
+  <strong style="color:var(--info,#3b82f6);">{{ duplicate_cards|length }} card{% if duplicate_cards|length != 1 %}s{% endif %} with multiple copies</strong>
+  — Commander allows only 1 copy of each non-basic card (unless the card permits it).
+  Choose a replacement for each extra copy, or remove it without replacement.
+  <div style="display:flex; flex-direction:column; gap:.75rem; margin-top:.65rem;">
+    {% for c in duplicate_cards %}
+    <div class="dup-card-block" data-dup-name="{{ c.name }}"
+         style="border:1px solid var(--border,#374151); border-radius:6px; padding:.5rem .65rem; background:var(--surface-1,#161b22);">
+      {# Header row #}
+      <div style="display:flex; align-items:center; gap:.6rem; flex-wrap:wrap;">
+        <span data-card-name="{{ c.name }}" style="font-weight:600; font-size:.9rem; cursor:help; border-bottom:1px dotted var(--muted);">{{ c.name }}</span>
+        <span class="muted" style="font-size:.78rem;">{{ c.quantity }} copies — remove {{ c.quantity - 1 }}</span>
+        {# Tags #}
+        <div style="display:flex; flex-wrap:wrap; gap:.2rem; flex:1;">
+          {% for tag in c.tags[:6] %}
+          <span style="padding:.05rem .35rem; border-radius:999px; font-size:.67rem; color:var(--muted); border:1px solid var(--border,#374151);">{{ tag }}</span>
+          {% endfor %}
+        </div>
+      </div>
+
+      {# Replacement picker — lazy loaded via HTMX #}
+      <div id="repl-pool-{{ loop.index }}"
+           hx-get="/decks/import/duplicate-replacements?token={{ upgrade_token }}&card_name={{ c.name | urlencode }}"
+           hx-trigger="load"
+           hx-swap="innerHTML">
+        <p class="muted" style="font-size:.8rem; margin:.4rem 0 0;">Loading replacements…</p>
+      </div>
+
+      {# Action buttons #}
+      <div style="display:flex; gap:.5rem; margin-top:.5rem; flex-wrap:wrap;">
+        {# Swap: remove extra copy + insert chosen replacement #}
+        <form action="/decks/import/swap-duplicate" method="post" style="margin:0;"
+              hx-post="/decks/import/swap-duplicate" hx-target="#import-result" hx-swap="innerHTML"
+              id="swap-form-{{ loop.index }}"
+              onsubmit="this.querySelector('[data-swap-btn]').disabled=true; this.querySelector('[data-swap-btn]').textContent='Swapping…';">
+          <input type="hidden" name="token" value="{{ upgrade_token }}" />
+          <input type="hidden" name="remove_card" value="{{ c.name }}" />
+          {# replacement_name filled by hidden input updated by JS on radio select #}
+          <input type="hidden" name="replacement_name" id="repl-val-{{ loop.index }}" value="" />
+          <button type="submit" data-swap-btn class="btn btn-primary" style="font-size:.78rem; padding:.2rem .65rem;"
+                  id="swap-btn-{{ loop.index }}" disabled>
+            Swap in replacement
+          </button>
+        </form>
+        {# Remove without replacement #}
+        <form action="/decks/import/prune" method="post" style="margin:0;"
+              hx-post="/decks/import/prune" hx-target="#import-result" hx-swap="innerHTML"
+              onsubmit="this.querySelector('button').disabled=true; this.querySelector('button').textContent='Removing…';">
+          <input type="hidden" name="token" value="{{ upgrade_token }}" />
+          <input type="hidden" name="mode" value="manual" />
+          <input type="hidden" name="remove" value="{{ c.name }}" />
+          <button type="submit" class="btn" style="font-size:.78rem; padding:.2rem .65rem;">Remove without replacement</button>
+        </form>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<script>
+(function () {
+  // When user picks a replacement in any pool, enable the swap button for that
+  // card and disable (grey out) that same card in all other pools.
+  window._dupPickRepl = function (replName, originalCardName) {
+    // Find the block for this original card
+    var block = document.querySelector('.dup-card-block[data-dup-name="' + originalCardName + '"]');
+    if (!block) return;
+
+    // Enable matching swap button
+    var btn = block.querySelector('[data-swap-btn]');
+    var hidden = block.querySelector('input[name="replacement_name"]');
+    if (btn) btn.disabled = false;
+    if (hidden) hidden.value = replName;
+
+    // Disable this replacement option in every OTHER pool
+    document.querySelectorAll('.duplicate-replacement-pool').forEach(function (pool) {
+      if (pool.dataset.original === originalCardName) return; // skip own pool
+      pool.querySelectorAll('.dup-option[data-repl-name="' + replName + '"]').forEach(function (opt) {
+        opt.style.opacity = '0.35';
+        opt.style.pointerEvents = 'none';
+        var radio = opt.querySelector('input[type="radio"]');
+        if (radio && radio.checked) {
+          radio.checked = false;
+          // Also disable the swap button for that pool
+          var parentBlock = pool.closest('.dup-card-block');
+          if (parentBlock) {
+            var otherBtn = parentBlock.querySelector('[data-swap-btn]');
+            var otherHidden = parentBlock.querySelector('input[name="replacement_name"]');
+            if (otherBtn) otherBtn.disabled = true;
+            if (otherHidden) otherHidden.value = '';
+          }
+        }
+      });
+    });
+
+    // Restore options in own pool if previously greyed by other pools
+    if (block) {
+      // Un-grey all options in this pool except those selected elsewhere
+      var myPool = block.querySelector('.duplicate-replacement-pool');
+      if (myPool) {
+        var takenElsewhere = new Set();
+        document.querySelectorAll('.dup-card-block').forEach(function (b) {
+          if (b === block) return;
+          var h = b.querySelector('input[name="replacement_name"]');
+          if (h && h.value) takenElsewhere.add(h.value);
+        });
+        myPool.querySelectorAll('.dup-option').forEach(function (opt) {
+          if (takenElsewhere.has(opt.dataset.replName)) {
+            opt.style.opacity = '0.35';
+            opt.style.pointerEvents = 'none';
+          } else {
+            opt.style.opacity = '';
+            opt.style.pointerEvents = '';
+          }
+        });
+      }
+    }
+  };
+}());
+</script>
+{% endif %}
+
+{# ------------------------------------------------------------------ #}
+{# Recently auto-cut cards panel                                       #}
+{# ------------------------------------------------------------------ #}
+{% if recently_cut %}
+<div class="panel" style="border-left:3px solid var(--success,#22c55e); margin-top:.5rem;">
+  <details>
+    <summary style="cursor:pointer; list-style:none; display:flex; justify-content:space-between; align-items:center; user-select:none;">
+      <strong style="color:var(--success,#22c55e);">{{ recently_cut|length }} card{% if recently_cut|length != 1 %}s{% endif %} removed</strong>
+      <span class="muted" style="font-size:.8rem;">click to see why they were chosen</span>
+    </summary>
+    <div style="display:flex; flex-direction:column; gap:.3rem; margin-top:.5rem;">
+      {% for cut in recently_cut %}
+      {% set card = cut.card %}
+      <div style="padding:.35rem .5rem; border-radius:4px; background:var(--surface-2,#1e2530); font-size:.82rem;">
+        <span data-card-name="{{ card.name }}"
+              style="cursor:help; border-bottom:1px dotted var(--muted);">{{ card.name }}</span>
+        <span class="muted" style="margin-left:.4rem;">{{ card.type_line }}</span>
+        <div style="display:flex; flex-wrap:wrap; gap:.2rem; margin-top:.25rem;">
+          {% for t in cut.theme_hits %}
+          <span style="padding:.05rem .4rem; border-radius:999px; font-size:.68rem; background:var(--teal-muted,#0f766e22); color:var(--teal,#0d9488); border:1px solid currentColor;" title="Matches deck theme">{{ t }}</span>
+          {% endfor %}
+          {% for r in cut.role_hits %}
+          <span style="padding:.05rem .4rem; border-radius:999px; font-size:.68rem; background:var(--green-muted,#14532d22); color:var(--green,#22c55e); border:1px solid currentColor;" title="Covers this staple role">{{ r }}</span>
+          {% endfor %}
+          {% if not cut.theme_hits and not cut.role_hits %}
+          <span style="padding:.05rem .4rem; border-radius:999px; font-size:.68rem; background:var(--warn-muted,#78350f22); color:var(--warn,#f59e0b); border:1px solid currentColor;">No theme or role match</span>
+          {% endif %}
+          {% for reason in cut.weakness_reasons %}
+          <span style="padding:.05rem .4rem; border-radius:999px; font-size:.68rem; background:#7f1d1d22; color:#f87171; border:1px solid currentColor;" title="Why this card was cut">{{ reason }}</span>
+          {% endfor %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </details>
+</div>
+{% endif %}
+
+{# ------------------------------------------------------------------ #}
+{# Under-limit panel (<100 cards)                                      #}
+{# ------------------------------------------------------------------ #}
+{% if analysis.total_cards < 100 %}
+{% set n_to_add = 100 - analysis.total_cards %}
+<div id="fill-panel" class="panel" style="border-left:3px solid var(--teal,#0d9488); margin-top:.5rem;">
+  <strong style="color:var(--teal,#0d9488);">Deck has {{ analysis.total_cards }} cards</strong>
+  — you need {{ n_to_add }} more card{% if n_to_add != 1 %}s{% endif %} to reach 100.
+  Suggestions below are prioritised by staple-role gaps (Ramp, Removal, etc.) then theme fit.
+  <div id="fill-suggestions-container"
+       hx-get="/decks/import/fill-suggestions?token={{ upgrade_token }}"
+       hx-trigger="load"
+       hx-swap="innerHTML"
+       style="margin-top:.5rem;">
+    <p class="muted" style="font-size:.8rem;">Loading suggestions…</p>
+  </div>
+</div>
+{% endif %}
+
+{# ------------------------------------------------------------------ #}
+{# Over-limit panel (>100 cards)                                       #}
+{# ------------------------------------------------------------------ #}
+{% if analysis.total_cards > 100 %}
+<div id="prune-panel" class="panel" style="border-left:3px solid var(--warn,#f59e0b); margin-top:.5rem;">
+  <strong>Deck has {{ analysis.total_cards }} cards</strong> — Commander format requires exactly 100
+  (including your commander). Remove {{ analysis.total_cards - 100 }} card{% if analysis.total_cards - 100 != 1 %}s{% endif %}.
+
+  <div style="display:flex; gap:.5rem; flex-wrap:wrap; margin-top:.6rem;">
+    {# Auto-cut #}
+    <form action="/decks/import/prune" method="post" style="margin:0;"
+          hx-post="/decks/import/prune" hx-target="#import-result" hx-swap="innerHTML"
+          onsubmit="this.querySelector('[data-auto]').disabled=true; this.querySelector('[data-auto]').textContent='Cutting…';">
+      <input type="hidden" name="token" value="{{ upgrade_token }}" />
+      <input type="hidden" name="mode" value="auto" />
+      <button type="submit" class="btn btn-primary" data-auto style="font-size:.85rem;">
+        Auto-cut {{ analysis.total_cards - 100 }} weakest card{% if analysis.total_cards - 100 != 1 %}s{% endif %}
+      </button>
+    </form>
+
+    {# Toggle manual prune list #}
+    <button type="button" class="btn" style="font-size:.85rem;"
+            hx-get="/decks/import/prune/candidates?token={{ upgrade_token }}"
+            hx-target="#prune-manual-list"
+            hx-swap="innerHTML"
+            onclick="document.getElementById('prune-manual-list').style.display='block';">
+      Choose manually
+    </button>
+  </div>
+
+  {# Inline manual prune list — populated by HTMX or pre-populated when cut_candidates is set #}
+  <div id="prune-manual-list" {% if not cut_candidates %}style="display:none;"{% endif %} style="margin-top:.75rem;">
+    {% if cut_candidates %}
+      {% set token = upgrade_token %}
+      {% set n_to_cut = analysis.total_cards - 100 %}
+      {% include "decks/_prune_candidates.html" %}
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+
+{# ------------------------------------------------------------------ #}
+{# Themes                                                              #}
+{# ------------------------------------------------------------------ #}
+{% set themes = analysis.themes %}
+{% set all_current_themes = themes.user_confirmed | join(', ') %}
+<div class="panel" style="margin-top:.5rem;">
+  <div style="display:flex; align-items:baseline; gap:.75rem; margin-bottom:.6rem; flex-wrap:wrap;">
+    <h4 style="margin:0;">Themes</h4>
+    <button type="button" class="btn" style="font-size:.75rem; padding:.15rem .5rem;"
+            onclick="var f=document.getElementById('theme-correction-form'); f.style.display=f.style.display==='none'?'block':'none';">
+      Edit themes
+    </button>
+  </div>
+
+  {# Inline correction form — hidden by default #}
+  <div id="theme-correction-form" style="display:none; margin-bottom:.75rem; padding:.6rem .75rem; background:var(--surface-2,#1e2530); border-radius:5px; border:1px solid var(--border,#374151);">
+    <p class="muted" style="font-size:.78rem; margin:0 0 .4rem;">Override detected themes. Comma-separated. Leave blank to keep auto-detection only.</p>
+    <div style="position:relative;">
+      <input type="text" id="theme-correction-input" value="{{ all_current_themes }}"
+             placeholder="e.g. Spells Matter, Otter Kindred"
+             class="form-input" autocomplete="off" style="width:100%;" />
+      <div id="theme-correction-dropdown" class="autocomplete-dropdown" role="listbox"
+           style="display:none; position:absolute; z-index:200; width:100%; top:100%; left:0;
+                  background:var(--surface-2,#1e2530); border:1px solid var(--border,#374151);
+                  border-radius:4px; box-shadow:0 4px 12px rgba(0,0,0,.3); max-height:200px; overflow-y:auto;"></div>
+    </div>
+    <div style="display:flex; gap:.5rem; margin-top:.45rem; flex-wrap:wrap;">
+      <form action="/decks/import/update-themes" method="post" style="margin:0;"
+            hx-post="/decks/import/update-themes" hx-target="#import-result" hx-swap="innerHTML"
+            onsubmit="this.querySelector('[name=themes]').value = document.getElementById('theme-correction-input').value; this.querySelector('button').disabled=true;">
+        <input type="hidden" name="token" value="{{ upgrade_token }}" />
+        <input type="hidden" name="themes" value="" />
+        <button type="submit" class="btn btn-primary" style="font-size:.78rem; padding:.2rem .6rem;">Apply</button>
+      </form>
+      <button type="button" class="btn" style="font-size:.78rem; padding:.2rem .6rem;"
+              onclick="document.getElementById('theme-correction-form').style.display='none';">Cancel</button>
+    </div>
+  </div>
+
+  {# Unified theme list: user themes first, then auto-detected #}
+  {% set all_themes = themes.user_confirmed + themes.confirmed + themes.possible %}
+  {% if all_themes %}
+    <div style="display:grid; gap:.3rem;">
+      {% for t in all_themes %}
+        {% set detail = themes.theme_details.get(t) %}
+        {% set is_user = detail.is_user_theme if detail else false %}
+        {% set in_cmd  = detail.in_commander  if detail else false %}
+        {% set card_count = detail.card_count if detail else 0 %}
+        {% set top_cards  = detail.top_cards  if detail else [] %}
+        <details style="border:1px solid var(--border,#374151); border-radius:5px; padding:.3rem .6rem; background:var(--surface-2,#1e2530);">
+          <summary style="cursor:pointer; list-style:none; display:flex; align-items:center; gap:.4rem; flex-wrap:wrap; user-select:none; padding:.15rem 0;">
+            <span style="font-weight:500; font-size:.88rem;">{{ t }}</span>
+            {% if is_user %}
+              <span style="font-size:.68rem; padding:.08rem .38rem; border-radius:999px; background:var(--teal-muted,#0f766e22); color:var(--teal,#0d9488); border:1px solid currentColor;" title="You entered this theme manually">Manual</span>
+            {% endif %}
+            {% if in_cmd %}
+              <span style="font-size:.68rem; padding:.08rem .38rem; border-radius:999px; background:var(--success-muted,#16a34a22); color:var(--success,#16a34a); border:1px solid currentColor;" title="This theme appears in the commander's own tags">Commander</span>
+            {% endif %}
+            <span class="muted" style="font-size:.78rem; margin-left:auto;">{{ card_count }} card{% if card_count != 1 %}s{% endif %}</span>
+          </summary>
+          {% if top_cards %}
+            <ul style="margin:.35rem 0 .15rem; padding-left:1.1rem; font-size:.8rem; font-family:monospace; line-height:1.7; column-count:2; column-gap:1.5rem;">
+              {% for name, rank in top_cards %}
+                {% set base_name = name.split(' // ')[0] if ' // ' in name else name %}
+                <li style="break-inside:avoid;">
+                  <span data-card-name="{{ base_name }}" style="cursor:default;">{{ name }}</span>{% if rank is not none %}<span class="muted" style="font-size:.7rem;"> #{{ rank }}</span>{% endif %}
+                </li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <p class="muted" style="font-size:.78rem; margin:.25rem 0 .1rem; padding-left:.1rem;">No tagged cards found in this deck.</p>
+          {% endif %}
+        </details>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  {# Unmatched user themes (inline warnings) #}
+  {% if themes.unmatched_user_themes %}
+    <div style="margin-top:.4rem; font-size:.82rem;">
+      {% for t in themes.unmatched_user_themes %}
+        <div style="color:var(--warn-dark,#b45309); margin-bottom:.2rem;">
+          &ldquo;{{ t }}&rdquo; &mdash; no matching theme found.
+          <a href="/themes/" style="font-size:.78rem;">Browse themes &rarr;</a>
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  {% if not all_themes and not themes.unmatched_user_themes %}
+    <p class="muted" style="font-size:.82rem; margin:0;">No themes detected. Click <strong>Edit themes</strong> to set them manually.</p>
+  {% endif %}
+</div>
+<script>
+(function () {
+  var input = document.getElementById('theme-correction-input');
+  var dropdown = document.getElementById('theme-correction-dropdown');
+  if (!input || !dropdown) return;
+  var _t = null;
+  function seg() { var v=input.value, i=v.lastIndexOf(','); return i===-1?v.trim():v.slice(i+1).trim(); }
+  function apply(theme) {
+    var v=input.value, i=v.lastIndexOf(',');
+    input.value = (i===-1 ? '' : v.slice(0,i+1)+' ') + theme + ', ';
+    close(); input.focus();
+  }
+  function close() { dropdown.style.display='none'; dropdown.innerHTML=''; }
+  function render(html) {
+    dropdown.innerHTML=html;
+    var hasItems=dropdown.querySelector('.autocomplete-item');
+    dropdown.style.display=hasItems?'block':'none';
+    dropdown.querySelectorAll('.autocomplete-item').forEach(function(el){
+      el.style.cssText='padding:.4rem .6rem;cursor:pointer;font-size:.875rem;border-bottom:1px solid var(--border,#374151);';
+      el.addEventListener('mouseover',function(){el.style.background='var(--surface-3,#252d3a)';});
+      el.addEventListener('mouseout',function(){el.style.background='';});
+      el.addEventListener('mousedown',function(e){e.preventDefault();apply(el.dataset.value||el.textContent.trim());});
+    });
+  }
+  input.addEventListener('input',function(){
+    clearTimeout(_t); var q=seg(); if(q.length<2){close();return;}
+    _t=setTimeout(function(){
+      fetch('/cards/theme-autocomplete?q='+encodeURIComponent(q)+'&limit=10').then(function(r){return r.text();}).then(render).catch(close);
+    },200);
+  });
+  input.addEventListener('keydown',function(e){
+    var items=dropdown.querySelectorAll('.autocomplete-item');
+    var act=dropdown.querySelector('.autocomplete-item.active');
+    if(e.key==='Escape'){close();return;}
+    if(!items.length)return;
+    if(e.key==='ArrowDown'){e.preventDefault();var n=act?act.nextElementSibling:items[0];if(act)act.classList.remove('active');if(n)n.classList.add('active');}
+    else if(e.key==='ArrowUp'){e.preventDefault();var p=act?act.previousElementSibling:items[items.length-1];if(act)act.classList.remove('active');if(p)p.classList.add('active');}
+    else if((e.key==='Enter'||e.key==='Tab')&&act){e.preventDefault();apply(act.dataset.value||act.textContent.trim());}
+  });
+  input.addEventListener('blur',function(){setTimeout(close,150);});
+}());
+</script>
+
+{# ------------------------------------------------------------------ #}
+{# Functional composition                                              #}
+{# ------------------------------------------------------------------ #}
+<div class="panel" style="margin-top:.5rem;">
+  <h4 style="margin:0 0 .25rem;">Functional Composition</h4>
+  <p class="muted" style="font-size:.78rem; margin:0 0 .75rem;">Targets are baseline recommendations for Commander, not requirements.</p>
+  <div style="display:grid; gap:.4rem;">
+    {% set role_labels = {
+      "ramp": "Ramp",
+      "removal": "Removal",
+      "wipes": "Board Wipes",
+      "card_advantage": "Card Draw",
+      "protection": "Protection",
+      "lands": "Lands"
+    } %}
+    {% for role_key, rc in analysis.role_counts.items() %}
+      {% set label = role_labels.get(role_key, role_key) %}
+      {% set pct = [((rc.actual / rc.target * 100) | int), 100] | min if rc.target > 0 else 0 %}
+      {% if rc.status == "good" %}
+        {% set bar_color = "var(--success, #16a34a)" %}
+        {% set status_label = "Good" %}
+      {% elif rc.status == "low" %}
+        {% set bar_color = "var(--warn, #f59e0b)" %}
+        {% set status_label = "Low" %}
+      {% else %}
+        {% set bar_color = "var(--error, #f87171)" %}
+        {% set status_label = "Critical" %}
+      {% endif %}
+      <div>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:.15rem;">
+          <span style="font-size:.85rem; font-weight:500;">{{ label }}</span>
+          <span style="font-size:.8rem; color:{{ bar_color }};">{{ rc.actual }} / {{ rc.target }} &mdash; {{ status_label }}</span>
+        </div>
+        <div style="background:var(--surface-2,#e5e7eb); border-radius:4px; height:6px; overflow:hidden;">
+          <div style="width:{{ pct }}%; height:100%; background:{{ bar_color }}; border-radius:4px; transition:width .3s;"></div>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+</div>
+
+{# ------------------------------------------------------------------ #}
+{# CMC curve                                                           #}
+{# ------------------------------------------------------------------ #}
+{% if analysis.cmc_curve %}
+<div class="panel" style="margin-top:.5rem;">
+  <h4 style="margin:0 0 .75rem;">CMC Curve</h4>
+  {% set max_cmc_count = analysis.cmc_curve.values() | max %}
+  <div style="display:flex; align-items:flex-end; gap:.35rem; height:64px;">
+    {% for cmc_val in range(8) %}
+      {% set count = analysis.cmc_curve.get(cmc_val, 0) %}
+      {% set bar_h = ((count / max_cmc_count * 100) | int) if max_cmc_count > 0 else 0 %}
+      <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:.2rem; height:100%; justify-content:flex-end;">
+        <span style="font-size:.7rem; color:var(--muted);">{{ count }}</span>
+        <div style="width:100%; background:var(--accent,#38bdf8); border-radius:3px 3px 0 0; height:{{ bar_h }}%;" title="{{ cmc_val }}{% if cmc_val == 7 %}+{% endif %}: {{ count }} card{% if count != 1 %}s{% endif %}"></div>
+        <span style="font-size:.7rem; color:var(--muted);">{{ cmc_val }}{% if cmc_val == 7 %}+{% endif %}</span>
+      </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+{# ------------------------------------------------------------------ #}
+{# Card type breakdown                                                 #}
+{# ------------------------------------------------------------------ #}
+{% if analysis.type_breakdown %}
+{# Build a name→enriched-card lookup for hover data #}
+{% set ns = namespace(card_map={}) %}
+{% for c in enriched.cards %}
+  {% set tags_str = c.tags | join(', ') if c.tags else '' %}
+  {% set _ = ns.card_map.update({c.name: {'tags': tags_str, 'type_line': c.type_line, 'cmc': c.cmc, 'price': c.price}}) %}
+{% endfor %}
+<div class="panel" style="margin-top:.5rem;">
+  <h4 style="margin:0 0 .6rem;">Cards by Type</h4>
+  <div style="display:grid; gap:.3rem;">
+    {% for type_label, card_list in analysis.type_breakdown.items() %}
+      {% set type_total = card_list | sum(attribute=1) %}
+      <details>
+        <summary style="cursor:pointer; list-style:none; display:flex; justify-content:space-between; align-items:center; padding:.3rem .1rem; user-select:none;">
+          <span style="font-size:.88rem; font-weight:500;">{{ type_label }}</span>
+          <span class="muted" style="font-size:.82rem;">{{ type_total }} card{% if type_total != 1 %}s{% endif %}</span>
+        </summary>
+        <ul style="margin:.3rem 0 .5rem; padding-left:1.25rem; font-size:.82rem; font-family:monospace; line-height:1.75; column-count:2; column-gap:1.5rem;">
+          {% for name, qty in card_list %}
+            {% set card_info = ns.card_map.get(name, {}) %}
+            {% set base_name = name.split(' // ')[0] if ' // ' in name else name %}
+            {% set is_basic = 'Basic Land' in card_info.get('type_line', '') %}
+            <li style="break-inside:avoid;">
+              {% if qty > 1 %}<span class="muted">{{ qty }}×</span> {% endif %}<span
+                data-card-name="{{ base_name }}"
+                data-tags="{{ card_info.get('tags', '') }}"
+                {% if card_info.get('price') is not none %}data-price="{{ card_info.get('price') }}"{% endif %}
+                style="cursor:default;">{{ name }}</span>{% if qty > 1 and not is_basic %} <span style="font-size:.65rem; padding:.05rem .35rem; border-radius:999px; background:var(--warn-muted,#78350f22); color:var(--warn,#f59e0b); border:1px solid currentColor; vertical-align:middle;" title="{{ qty }} copies — only 1 allowed in Commander unless the card permits it">{{ qty }} copies</span>{% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+        {# Creature subtype breakdown — shown inline under the Creature row #}
+        {% if type_label == 'Creature' and analysis.creature_subtype_counts %}
+        <div style="margin:.1rem 0 .6rem .1rem; padding:.45rem .6rem; background:var(--surface-2,#1e2530); border-radius:4px; border:1px solid var(--border,#374151);">
+          <span class="muted" style="font-size:.75rem; display:block; margin-bottom:.35rem; letter-spacing:.03em; text-transform:uppercase;">Creature types (≥5)</span>
+          <div style="display:flex; flex-wrap:wrap; gap:.3rem .5rem;">
+            {% for subtype, count in analysis.creature_subtype_counts.items() %}
+              <span style="font-size:.8rem; white-space:nowrap;">
+                <span style="color:var(--text,#e2e8f0);">{{ subtype }}</span>
+                <span class="muted" style="font-size:.75rem;">×{{ count }}</span>
+              </span>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
+      </details>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+{# ------------------------------------------------------------------ #}
+{# Unrecognized cards (collapsible)                                    #}
+{# ------------------------------------------------------------------ #}
+{% if enriched.unrecognized %}
+<div class="panel" style="margin-top:.5rem;">
+  <details>
+    <summary style="cursor:pointer; font-weight:600; list-style:none; display:flex; align-items:center; gap:.4rem;">
+      <span style="color:var(--warn,#f59e0b);">{{ enriched.unrecognized|length }} unrecognized card{% if enriched.unrecognized|length != 1 %}s{% endif %}</span>
+      <span class="muted" style="font-size:.78rem; font-weight:400;">(not found in card database)</span>
+    </summary>
+    <ul style="margin:.5rem 0 0; padding-left:1.25rem; font-size:.82rem; font-family:monospace; line-height:1.7;">
+      {% for name in enriched.unrecognized %}
+        <li>{{ name }}</li>
+      {% endfor %}
+    </ul>
+  </details>
+</div>
+{% endif %}
+
+{# ------------------------------------------------------------------ #}
+{# Action buttons                                                      #}
+{# ------------------------------------------------------------------ #}
+<div style="display:flex; gap:.5rem; flex-wrap:wrap; margin-top:1rem;">
+  {% if upgrade_token %}
+  <a href="/decks/import/upgrades?token={{ upgrade_token }}&section=new" class="btn btn-primary" role="button">View Upgrade Suggestions</a>
+  <form action="/decks/import/save" method="post" style="display:inline; margin:0;"
+        onsubmit="this.querySelector('button').disabled=true; this.querySelector('button').textContent='Saving…';">
+    <input type="hidden" name="token" value="{{ upgrade_token }}" />
+    <button type="submit" class="btn btn-secondary">Save to Deck Files</button>
+  </form>
+  {% endif %}
+  <a href="/decks/import" class="btn" role="button">Import Another Deck</a>
+</div>
+
+{% endif %}{# /parse_errors else #}

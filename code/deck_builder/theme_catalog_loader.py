@@ -128,7 +128,7 @@ def _load_catalog_cached(path_str: str, mtime: float) -> tuple[tuple[ThemeCatalo
         for row in reader:
             if not row:
                 continue
-            theme = str(row.get("theme", "")).strip()
+            theme = str(row.get("theme", "")).strip().lstrip("\\")
             if not theme:
                 continue
             try:

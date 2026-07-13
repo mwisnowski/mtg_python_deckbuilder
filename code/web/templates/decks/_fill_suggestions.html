@@ -1,0 +1,49 @@
+{# Partial: fill suggestions for under-100 decks.
+   Loaded lazily via HTMX GET /decks/import/fill-suggestions.
+   Groups cards by fill_reason so the user can see what gap each fills.
+#}
+{% if not suggestions %}
+<p class="muted" style="font-size:.82rem; margin:.4rem 0 0;">No suggestions found in color identity.</p>
+{% else %}
+<p class="muted" style="font-size:.78rem; margin:.15rem 0 .4rem;">
+  Showing {{ suggestions | length }} options — you need {{ n_to_add }}, pick any mix that suits your build.
+  Sorted by fit score (themes + roles + popularity). Teal pills = addresses a shortfall.
+</p>
+{% set ns = namespace(current_reason='') %}
+<div style="display:flex; flex-direction:column; gap:.2rem; max-height:420px; overflow-y:auto; padding-right:.25rem;">
+  {% for s in suggestions %}
+    {% if s.fill_reason != ns.current_reason %}
+      {% set ns.current_reason = s.fill_reason %}
+      <div style="font-size:.75rem; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; margin-top:.5rem; padding:.15rem 0 .1rem; border-bottom:1px solid var(--border,#374151);">
+        {{ s.fill_reason }}
+      </div>
+    {% endif %}
+    <div class="fill-option" style="display:flex; align-items:flex-start; gap:.6rem; padding:.3rem .5rem; border-radius:4px; background:var(--surface-2,#1e2530);">
+      <div style="flex:1; min-width:0;">
+        <span data-card-name="{{ s.name }}" style="font-size:.875rem; cursor:help; border-bottom:1px dotted var(--muted);">{{ s.name }}</span>
+        <span class="muted" style="font-size:.75rem; margin-left:.4rem;">CMC {{ s.cmc | int }}</span>
+        {% if s.price is not none %}<span class="muted" style="font-size:.75rem; margin-left:.35rem;">${{ "%.2f" | format(s.price) }}</span>{% endif %}
+        {% if s.edhrec_rank %}<span class="muted" style="font-size:.72rem; margin-left:.35rem;">EDHREC #{{ s.edhrec_rank }}</span>{% endif %}
+        <div style="display:flex; flex-wrap:wrap; gap:.2rem; margin-top:.2rem;">
+          {% for role in s.matched_roles %}
+          <span style="padding:.05rem .35rem; border-radius:999px; font-size:.68rem; color:var(--teal,#0d9488); border:1px solid var(--teal,#0d9488); background:var(--teal-muted,#0f766e18);" title="Addresses a shortfall in your deck">{{ role }}</span>
+          {% endfor %}
+          {% for role in s.roles %}
+            {% if role not in s.matched_roles %}
+          <span style="padding:.05rem .35rem; border-radius:999px; font-size:.68rem; color:var(--muted); border:1px solid var(--border,#374151);">{{ role }}</span>
+            {% endif %}
+          {% endfor %}
+        </div>
+      </div>
+      {# Add card to deck #}
+      <form action="/decks/import/add-card" method="post" style="margin:0; flex-shrink:0;"
+            hx-post="/decks/import/add-card" hx-target="#import-result" hx-swap="innerHTML"
+            onsubmit="this.querySelector('button').disabled=true; this.querySelector('button').textContent='Adding…';">
+        <input type="hidden" name="token" value="{{ token }}" />
+        <input type="hidden" name="card_name" value="{{ s.name }}" />
+        <button type="submit" class="btn btn-primary" style="font-size:.75rem; padding:.2rem .55rem;">Add</button>
+      </form>
+    </div>
+  {% endfor %}
+</div>
+{% endif %}

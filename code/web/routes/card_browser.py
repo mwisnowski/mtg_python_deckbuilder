@@ -114,7 +114,7 @@ def get_theme_catalog() -> list[str]:
                     
                     for row in reader:
                         if 'theme' in row and row['theme']:
-                            themes.append(row['theme'])
+                            themes.append(row['theme'].lstrip('\\'))
                     
                     _theme_catalog = themes
                     print(f"Loaded {len(themes)} themes from catalog: {catalog_path}", flush=True)

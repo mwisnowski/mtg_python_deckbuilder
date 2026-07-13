@@ -1,0 +1,37 @@
+{# Partial: replacement picker for one duplicate card.
+   Loaded lazily via HTMX GET /decks/import/duplicate-replacements.
+   Submits a combined "remove original copy + add replacement" via POST /decks/import/swap-duplicate.
+   Uses data-pool-card to coordinate cross-pool deduplication via a custom JS event.
+#}
+{% if not replacements %}
+<p class="muted" style="font-size:.82rem; margin:.5rem 0 0;">No replacements found in color identity.</p>
+{% else %}
+<div class="duplicate-replacement-pool" data-original="{{ card.name }}"
+     style="display:flex; flex-direction:column; gap:.25rem; margin-top:.4rem; max-height:280px; overflow-y:auto; padding-right:.25rem;">
+  {% for r in replacements %}
+  <label class="dup-option" data-repl-name="{{ r.name }}"
+         style="display:flex; align-items:flex-start; gap:.6rem; padding:.35rem .5rem; border-radius:4px; cursor:pointer; background:var(--surface-2,#1e2530);">
+    <input type="radio" name="replacement_for_{{ card.name | replace(' ','_') | replace("'","") }}"
+           value="{{ r.name }}"
+           data-pool-card="{{ r.name }}"
+           style="flex-shrink:0; margin-top:.2rem;"
+           onchange="window._dupPickRepl && window._dupPickRepl('{{ r.name }}', '{{ card.name }}')" />
+    <div style="flex:1; min-width:0;">
+      <span data-card-name="{{ r.name }}"
+            style="font-size:.875rem; cursor:help; border-bottom:1px dotted var(--muted);">{{ r.name }}</span>
+      <span class="muted" style="font-size:.75rem; margin-left:.4rem;">CMC {{ r.cmc | int }}</span>
+      {% if r.price is not none %}<span class="muted" style="font-size:.75rem; margin-left:.35rem;">${{ "%.2f" | format(r.price) }}</span>{% endif %}
+      {% if r.edhrec_rank %}<span class="muted" style="font-size:.72rem; margin-left:.35rem;">EDHREC #{{ r.edhrec_rank }}</span>{% endif %}
+      <div style="display:flex; flex-wrap:wrap; gap:.2rem; margin-top:.2rem;">
+        {% for role in r.matched_roles %}
+        <span style="padding:.05rem .4rem; border-radius:999px; font-size:.68rem; background:var(--teal-muted,#0f766e22); color:var(--teal,#0d9488); border:1px solid currentColor;" title="Fills same role as original">{{ role }}</span>
+        {% endfor %}
+        {% for role in r.roles %}{% if role not in r.matched_roles %}
+        <span style="padding:.05rem .4rem; border-radius:999px; font-size:.68rem; color:var(--muted); border:1px solid var(--border,#374151);">{{ role }}</span>
+        {% endif %}{% endfor %}
+      </div>
+    </div>
+  </label>
+  {% endfor %}
+</div>
+{% endif %}

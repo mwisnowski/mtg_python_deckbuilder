@@ -49,6 +49,9 @@
               {% else %}
                 <strong data-card-name="{{ it.commander }}">{{ it.commander }}</strong>
               {% endif %}
+              {% if it.source == 'imported' %}
+                <span style="display:inline-block; margin-left:.35rem; padding:1px 7px; border-radius:999px; font-size:11px; font-weight:600; background:var(--info-bg, #1e3a5f); color:var(--info-text, #93c5fd); border:1px solid var(--info-border, #3b82f6); vertical-align:middle;">Imported</span>
+              {% endif %}
             </div>
             {% if it.tags and it.tags|length %}
             <div class="muted" style="font-size:12px;">Themes: {{ it.tags|join(', ') }}</div>

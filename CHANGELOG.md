@@ -9,7 +9,20 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 
 ## [Unreleased]
 ### Added
-- **Deck Import & Analysis — Post-M6 improvements** (Roadmap 24 continued):
+_No unreleased changes yet_
+
+### Changed
+_No unreleased changes yet_
+
+### Fixed
+_No unreleased changes yet_
+
+### Removed
+_No unreleased changes yet_
+
+## [4.8.0] - 2026-07-13
+### Added
+- **Deck Import & Analysis**: New `/decks/import` page for importing existing deck lists from Moxfield, Archidekt, TappedOut, EDHREC, and native export formats:
   - Per-card duplicate resolution: each duplicate card gets its own lazy-loaded replacement pool (tiered by type + functional role), radio-select with HTMX swap
   - Fill suggestions for under-100 decks: 3 independent sections (role shortfalls, theme fit, general synergy), each scored by composite fitness — theme match (+3 pts), shortfall role (+2.5 pts), other staple role (+1 pt), EDHRec popularity; cards sorted by score descending within each section; teal role pills highlight cards that address a deck shortfall, muted pills show other covered roles
   - Theme autocomplete on the import form: segment-aware, keyboard-navigable dropdown fetching `/cards/theme-autocomplete`
@@ -26,7 +39,7 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 - **Theme catalog escape characters**: `\+1/\+0 Counters`, `\+0/\+1 Counters`, `\+2/\+2 Counters` displayed with literal backslashes in autocomplete and theme panels; root cause was regex raw strings used as tag names in `COUNTER_TYPES`
 
 ### Removed
-_No unreleased changes yet_
+_No changes_
 
 ## [4.7.9] - 2026-06-09
 ### Fixed

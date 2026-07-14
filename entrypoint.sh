@@ -72,6 +72,15 @@ seed_defaults
 # Ensure we're at repo root so the `code` package resolves correctly
 cd /app || exit 1
 
+# Rebuild styles.css from tailwind.css if missing or stale.
+# The code/web/static/ volume mount (local dev compose) may not have a compiled
+# styles.css on a new host, or it may lag behind tailwind.css after CSS changes.
+# npm/node_modules are baked into the image so this is always safe to run.
+if [ ! -f /app/code/web/static/styles.css ] || [ /app/code/web/static/tailwind.css -nt /app/code/web/static/styles.css ]; then
+    echo "Rebuilding styles.css from tailwind.css..."
+    npm run build:css 2>/dev/null || echo "Warning: CSS build failed, styles may be missing or incomplete"
+fi
+
 # Select mode: default to Web UI
 MODE="${APP_MODE:-web}"
 

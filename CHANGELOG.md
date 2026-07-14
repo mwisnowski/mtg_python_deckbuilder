@@ -20,6 +20,10 @@ _No unreleased changes yet_
 ### Removed
 _No unreleased changes yet_
 
+## [4.8.3] - 2026-07-14
+### Fixed
+- **Missing CSS on new hosts**: `entrypoint.sh` now rebuilds `styles.css` from `tailwind.css` at container startup if the compiled file is absent or older than the source; the local dev `docker-compose.yml` mounts `code/web/static/` as a volume which overwrites the Docker-compiled CSS with the host directory — on a fresh clone the compiled CSS is absent (gitignored), causing broken layouts across the owned library, card browser filters, and card detail page
+
 ## [4.8.2] - 2026-07-14
 ### Added
 - **Card Detail Page** (`/cards/{name}`): Fully redesigned with a 2-column grid layout

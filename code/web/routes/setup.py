@@ -202,6 +202,45 @@ async def download_github():
         }, status_code=500)
 
 
+@router.get("/rulings-status")
+async def rulings_status():
+    """Return basic info about the rulings cache file."""
+    from code.file_setup.rulings_cache import RULINGS_CACHE_PATH
+    import json as _json_inner
+    import datetime
+
+    if not RULINGS_CACHE_PATH.exists():
+        return JSONResponse({"exists": False})
+
+    try:
+        stat = RULINGS_CACHE_PATH.stat()
+        built_at = datetime.datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%d %H:%M")
+        with open(RULINGS_CACHE_PATH, encoding="utf-8") as f:
+            data = _json_inner.load(f)
+        card_count = len(data)
+        return JSONResponse({"exists": True, "card_count": card_count, "built_at": built_at})
+    except Exception as e:
+        return JSONResponse({"exists": False, "error": str(e)})
+
+
+@router.post("/refresh-rulings")
+async def refresh_rulings():
+    """Start a background thread to rebuild the rulings cache from Scryfall."""
+    def _runner():
+        try:
+            print("[RULINGS THREAD] Starting rulings cache build...")
+            from code.file_setup.rulings_cache import build_rulings_cache
+            build_rulings_cache(output_func=print)
+            print("[RULINGS THREAD] Rulings cache build complete.")
+        except Exception as e:
+            import traceback
+            print(f"[RULINGS THREAD] Failed: {e}\n{traceback.format_exc()}")
+
+    t = threading.Thread(target=_runner, daemon=True)
+    t.start()
+    return JSONResponse({"ok": True, "message": "Rulings cache build started in background."}, status_code=202)
+
+
 @router.get("/", response_class=HTMLResponse)
 async def setup_index(request: Request) -> HTMLResponse:
     import code.settings as settings

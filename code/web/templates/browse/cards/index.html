@@ -73,37 +73,46 @@
   {% endif %}
 
   {# Filters Panel #}
-  <div class="card-browser-filters" style="position: relative;">
-    {# Keyboard shortcuts help button (desktop only) #}
-    <button 
-      type="button" 
-      id="shortcuts-help-btn"
-      class="shortcuts-help-btn"
-      style="position: absolute; top: 0.5rem; right: 0.5rem; width: 28px; height: 28px; border-radius: 50%; background: #444; border: 1px solid #666; color: #fff; font-weight: bold; cursor: pointer; font-size: 16px; display: none; align-items: center; justify-content: center; padding: 0; line-height: 1;"
-      title="Keyboard Shortcuts"
-      onclick="toggleShortcutsHelp()"
-    >?</button>
-    
-    {# Shortcuts help tooltip #}
-    <div 
-      id="shortcuts-help-tooltip"
-      style="display: none; position: absolute; top: 2.5rem; right: 0.5rem; background: #2a2a2a; border: 1px solid #666; border-radius: 6px; padding: 1rem; min-width: 320px; max-width: 400px; z-index: 1000; box-shadow: 0 4px 6px rgba(0,0,0,0.3);"
-    >
-      <h4 style="margin-top: 0; margin-bottom: 0.75rem; font-size: 1.1rem;">Keyboard Shortcuts</h4>
-      <div style="font-size: 0.9rem; line-height: 1.6;">
-        <div style="margin-bottom: 0.5rem;"><strong>Enter</strong> - Add first theme match / Select autocomplete</div>
-        <div style="margin-bottom: 0.5rem;"><strong>Shift+Enter</strong> - Add current theme & apply filters</div>
-        <div style="margin-bottom: 0.5rem;"><strong>Escape</strong> - Close dropdown</div>
-        <div style="margin-bottom: 0.5rem;"><strong>Escape×2</strong> - Clear all filters (within 0.5s)</div>
-        <div style="margin-bottom: 0.5rem;"><strong>↑/↓</strong> - Navigate autocomplete</div>
+  <div class="card-browser-filters">
+    {# Collapse toggle bar #}
+    <div class="filter-collapse-bar">
+      <button type="button" class="filter-collapse-btn" id="filter-toggle-btn" onclick="toggleFilterPanel()" aria-expanded="true" title="Toggle filters">
+        <svg class="collapse-chevron" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="2 5 7 10 12 5"/></svg>
+        Filters<span id="filter-active-count" style="font-size:0.8rem; color:var(--muted); font-weight:normal;"></span>
+      </button>
+      {# Keyboard shortcuts help button (desktop only) #}
+      <div style="position:relative;">
+        <button 
+          type="button" 
+          id="shortcuts-help-btn"
+          class="shortcuts-help-btn"
+          style="width: 28px; height: 28px; border-radius: 50%; background: #444; border: 1px solid #666; color: #fff; font-weight: bold; cursor: pointer; font-size: 16px; display: none; align-items: center; justify-content: center; padding: 0; line-height: 1;"
+          title="Keyboard Shortcuts"
+          onclick="toggleShortcutsHelp()"
+        >?</button>
+        {# Shortcuts help tooltip #}
+        <div 
+          id="shortcuts-help-tooltip"
+          style="display: none; position: absolute; top: 2.5rem; right: 0; background: #2a2a2a; border: 1px solid #666; border-radius: 6px; padding: 1rem; min-width: 320px; max-width: 400px; z-index: 1000; box-shadow: 0 4px 6px rgba(0,0,0,0.3);"
+        >
+          <h4 style="margin-top: 0; margin-bottom: 0.75rem; font-size: 1.1rem;">Keyboard Shortcuts</h4>
+          <div style="font-size: 0.9rem; line-height: 1.6;">
+            <div style="margin-bottom: 0.5rem;"><strong>Enter</strong> - Add first theme match / Select autocomplete</div>
+            <div style="margin-bottom: 0.5rem;"><strong>Shift+Enter</strong> - Add current theme & apply filters</div>
+            <div style="margin-bottom: 0.5rem;"><strong>Escape</strong> - Close dropdown</div>
+            <div style="margin-bottom: 0.5rem;"><strong>Escape×2</strong> - Clear all filters (within 0.5s)</div>
+            <div style="margin-bottom: 0.5rem;"><strong>↑/↓</strong> - Navigate autocomplete</div>
+          </div>
+          <button 
+            type="button" 
+            onclick="toggleShortcutsHelp()" 
+            style="margin-top: 0.75rem; padding: 0.4rem 0.8rem; background: #555; border: 1px solid #777; border-radius: 4px; color: #fff; cursor: pointer; width: 100%;"
+          >Close</button>
+        </div>
       </div>
-      <button 
-        type="button" 
-        onclick="toggleShortcutsHelp()" 
-        style="margin-top: 0.75rem; padding: 0.4rem 0.8rem; background: #555; border: 1px solid #777; border-radius: 4px; color: #fff; cursor: pointer; width: 100%;"
-      >Close</button>
     </div>
-    
+
+    <div class="filter-collapsible" id="filter-collapsible">
     {# Search bar #}
     <div class="filter-section">
       <form method="get" id="card-search-form">
@@ -332,6 +341,7 @@
         </div>
       </div>
     </div>
+    </div>{# end .filter-collapsible #}
   </div>
 
   {# Results info bar with page indicator #}
@@ -977,5 +987,41 @@ window.addEventListener('load', function() {
   {% endfor %}
   {% endif %}
 });
+</script>
+<script>
+(function() {
+  var panel = document.querySelector('.card-browser-filters');
+  if (!panel) return;
+  var STORAGE_KEY = 'cards-filter-collapsed';
+  function updateCount() {
+    var el = document.getElementById('filter-active-count');
+    if (!el) return;
+    var n = 0;
+    var si = document.getElementById('search-input');
+    if (si && si.value) n++;
+    var fc = document.getElementById('filter-color');
+    if (fc && fc.value) n++;
+    var ft = document.getElementById('filter-type');
+    if (ft && ft.value) n++;
+    var fr = document.getElementById('filter-rarity');
+    if (fr && fr.value) n++;
+    var fn = document.getElementById('filter-is-new');
+    if (fn && fn.checked) n++;
+    n += document.querySelectorAll('#selected-themes .theme-chip').length;
+    el.textContent = n > 0 ? ' (' + n + ' active)' : '';
+  }
+  window.toggleFilterPanel = function() {
+    var collapsed = panel.classList.toggle('filters-collapsed');
+    var btn = document.getElementById('filter-toggle-btn');
+    if (btn) btn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+    localStorage.setItem(STORAGE_KEY, collapsed ? '1' : '0');
+  };
+  if (localStorage.getItem(STORAGE_KEY) === '1') {
+    panel.classList.add('filters-collapsed');
+    var btn = document.getElementById('filter-toggle-btn');
+    if (btn) btn.setAttribute('aria-expanded', 'false');
+  }
+  updateCount();
+})();
 </script>
 {% endblock %}

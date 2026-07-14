@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Request, UploadFile, File
+from fastapi import APIRouter, Request, UploadFile, File, Query
 from fastapi.responses import HTMLResponse, Response
 from ..app import templates
 from ..services import owned_store as store
@@ -106,8 +106,114 @@ def _build_owned_context(request: Request, notice: str | None = None, error: str
 
 
 @router.get("/", response_class=HTMLResponse)
-async def owned_index(request: Request) -> HTMLResponse:
+async def owned_index(
+    request: Request,
+    search: str = Query(""),
+    sort_by: str = Query("name"),
+    filter_type: str = Query(""),
+    filter_tags: list[str] = Query([]),
+    filter_color: str = Query(""),
+    cmc_min: str = Query(""),
+    cmc_max: str = Query(""),
+    power_min: str = Query(""),
+    power_max: str = Query(""),
+    tough_min: str = Query(""),
+    tough_max: str = Query(""),
+) -> HTMLResponse:
     ctx = _build_owned_context(request)
+
+    names: list[str] = ctx["names"]
+    tags_by_name: dict = ctx.get("tags_by_name") or {}
+    type_by_name: dict = ctx.get("type_by_name") or {}
+    colors_by_name: dict = ctx.get("colors_by_name") or {}
+    added_at_map: dict = ctx.get("added_at_map") or {}
+    total_count: int = ctx["count"]
+
+    # Search filter
+    if search:
+        sq = search.strip().lower()
+        names = [n for n in names if sq in n.lower()]
+
+    # Type filter
+    if filter_type:
+        ft = filter_type.lower()
+        names = [n for n in names if ft in (type_by_name.get(n) or "").lower()]
+
+    # Tag filter (AND logic: card must have ALL selected themes)
+    for ftag in filter_tags:
+        ftag_lower = ftag.lower()
+        names = [n for n in names if any(t.lower() == ftag_lower for t in (tags_by_name.get(n) or []))]
+
+    # Color filter
+    if filter_color:
+        fcode = _canon_color_code(list(filter_color.upper()))
+        names = [n for n in names if _canon_color_code(colors_by_name.get(n) or []) == fcode]
+
+    # CMC / Power / Toughness range filters
+    if cmc_min or cmc_max or power_min or power_max or tough_min or tough_max:
+        stats_map = store.get_stats_map()
+
+        def _to_float(s: str) -> float | None:
+            try:
+                return float(s) if s else None
+            except (ValueError, TypeError):
+                return None
+
+        cmc_lo = _to_float(cmc_min)
+        cmc_hi = _to_float(cmc_max)
+        pw_lo  = _to_float(power_min)
+        pw_hi  = _to_float(power_max)
+        th_lo  = _to_float(tough_min)
+        th_hi  = _to_float(tough_max)
+
+        def _in_range(val: object, lo: float | None, hi: float | None) -> bool:
+            if lo is None and hi is None:
+                return True
+            try:
+                v = float(val)  # type: ignore[arg-type]
+            except (ValueError, TypeError):
+                return False
+            return (lo is None or v >= lo) and (hi is None or v <= hi)
+
+        filtered: list[str] = []
+        for n in names:
+            s = stats_map.get(n) or {}
+            if not _in_range(s.get("manaValue"), cmc_lo, cmc_hi):
+                continue
+            if not _in_range(s.get("power"), pw_lo, pw_hi):
+                continue
+            if not _in_range(s.get("toughness"), th_lo, th_hi):
+                continue
+            filtered.append(n)
+        names = filtered
+
+    # Sort
+    if sort_by == "type":
+        names.sort(key=lambda n: (type_by_name.get(n) or "").lower())
+    elif sort_by == "color":
+        names.sort(key=lambda n: "".join(colors_by_name.get(n) or []))
+    elif sort_by == "tags":
+        names.sort(key=lambda n: len(tags_by_name.get(n) or []))
+    elif sort_by == "recent":
+        names.sort(key=lambda n: -(added_at_map.get(n) or 0))
+    # else "name": already A-Z from _build_owned_context
+
+    ctx.update({
+        "names": names,
+        "count": total_count,
+        "filtered_count": len(names),
+        "search": search,
+        "sort_by": sort_by,
+        "filter_type": filter_type,
+        "filter_tags": filter_tags,
+        "filter_color": filter_color,
+        "cmc_min": cmc_min,
+        "cmc_max": cmc_max,
+        "power_min": power_min,
+        "power_max": power_max,
+        "tough_min": tough_min,
+        "tough_max": tough_max,
+    })
     return templates.TemplateResponse("owned/index.html", ctx)
 
 
@@ -169,6 +275,24 @@ async def owned_remove(request: Request) -> HTMLResponse:
 
 
 # Bulk user-tag endpoints removed by request.
+
+
+@router.get("/search-autocomplete", response_class=HTMLResponse)
+async def owned_search_autocomplete(
+    q: str = Query(..., min_length=2),
+    limit: int = Query(10, ge=1, le=20),
+) -> HTMLResponse:
+    """Return card name suggestions from the owned library for the search autocomplete."""
+    names, _, _, _ = store.get_enriched()
+    ql = q.strip().lower()
+    matches = [n for n in names if ql in n.lower()][:limit]
+    if not matches:
+        return HTMLResponse(content='<div class="autocomplete-empty">No matches in owned library</div>')
+    html = "\n".join(
+        f'<div class="autocomplete-item" data-value="{n}" role="option">{n}</div>'
+        for n in matches
+    )
+    return HTMLResponse(content=html)
 
 
 """

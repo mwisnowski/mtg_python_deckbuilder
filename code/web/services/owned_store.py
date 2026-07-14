@@ -183,6 +183,22 @@ def _enrich_from_csvs(target_names: Iterable[str]) -> Dict[str, Dict[str, object
                     parts = [c.strip() for c in colors_raw.split(',') if c.strip()]
                     entry['colors'] = parts
 
+            # Numeric stats (manaValue, power, toughness)
+            if entry.get('manaValue') is None:
+                mv_raw = row.get('manaValue')
+                try:
+                    entry['manaValue'] = float(mv_raw) if mv_raw is not None else None
+                except (ValueError, TypeError):
+                    pass
+            if not entry.get('power'):
+                pw = str(row.get('power') or '').strip()
+                if pw and pw.lower() not in ('nan', 'none', ''):
+                    entry['power'] = pw
+            if not entry.get('toughness'):
+                th = str(row.get('toughness') or '').strip()
+                if th and th.lower() not in ('nan', 'none', ''):
+                    entry['toughness'] = th
+
     except Exception:
         # Defensive: return empty or partial meta
         pass
@@ -252,6 +268,56 @@ def get_enriched() -> Tuple[List[str], Dict[str, List[str]], Dict[str, str], Dic
         if cols:
             colors_by_name[n] = [str(x).upper() for x in cols if str(x)]
     return names, tags_by_name, type_by_name, colors_by_name
+
+
+def get_stats_map() -> Dict[str, Dict[str, object]]:
+    """Return {name: {manaValue, power, toughness}} for all owned names.
+    Falls back to a parquet lookup for any entries missing numeric stats.
+    """
+    data = _load_raw()
+    names: List[str] = [str(x).strip() for x in (data.get("names") or []) if str(x).strip()]
+    meta: Dict[str, Dict[str, object]] = data.get("meta") or {}
+
+    result: Dict[str, Dict[str, object]] = {}
+    missing: List[str] = []
+    for n in names:
+        info = meta.get(n) or {}
+        mv = info.get('manaValue')
+        entry: Dict[str, object] = {
+            'manaValue': float(mv) if mv is not None else None,
+            'power': info.get('power'),
+            'toughness': info.get('toughness'),
+        }
+        result[n] = entry
+        if entry['manaValue'] is None and entry['power'] is None:
+            missing.append(n)
+
+    # Batch parquet lookup for cards that weren't enriched yet
+    if missing:
+        try:
+            from deck_builder import builder_utils as bu
+            df = bu._load_all_cards_parquet()
+            if not df.empty:
+                want = {n.lower() for n in missing}
+                df['_nl'] = df['name'].str.lower()
+                for _, row in df[df['_nl'].isin(want)].iterrows():
+                    nm = str(row.get('name') or '').strip()
+                    if nm not in result:
+                        continue
+                    try:
+                        mv_raw = row.get('manaValue')
+                        result[nm]['manaValue'] = float(mv_raw) if mv_raw is not None else None
+                    except (ValueError, TypeError):
+                        pass
+                    pw = str(row.get('power') or '').strip()
+                    if pw and pw.lower() not in ('nan', 'none'):
+                        result[nm]['power'] = pw
+                    th = str(row.get('toughness') or '').strip()
+                    if th and th.lower() not in ('nan', 'none'):
+                        result[nm]['toughness'] = th
+        except Exception:
+            pass
+    return result
 
 
 # add_user_tag/remove_user_tag removed; user-defined tags are not persisted anymore

@@ -166,6 +166,18 @@
     <span class="muted" style="align-self:center; font-size:.85rem;">Rebuilds price data from local Scryfall bulk data (requires Setup to have run).</span>
   </div>
   {% endif %}
+
+  <details style="margin-top:1.25rem;" open>
+    <summary>Card Rulings Cache</summary>
+    <div style="margin-top:.5rem; padding:1rem; border:1px solid var(--border); background:var(--panel); border-radius:8px;">
+      <div class="muted">Status:</div>
+      <div style="margin-top:.25rem;" id="rulings-cache-status">Checking…</div>
+    </div>
+  </details>
+  <div style="margin-top:.75rem; display:flex; gap:.5rem; flex-wrap:wrap;">
+    {{ button('Refresh Rulings Cache', variant='primary', onclick='refreshRulingsCache()', attrs='id="btn-refresh-rulings"') }}
+    <span class="muted" style="align-self:center; font-size:.85rem;">Downloads Scryfall rulings bulk file (~25 MB, one request). Live fallback handles misses automatically.</span>
+  </div>
 </section>
 <script>
 (function(){
@@ -641,8 +653,7 @@
   setInterval(pollSimilarityStatus, 10000); // Poll every 10s
   {% endif %}
 
-  window.refreshPriceCache = function(){
-    var btn = document.getElementById('btn-refresh-prices');
+  window.refreshPriceCache = function(){    var btn = document.getElementById('btn-refresh-prices');
     if (btn) { btn.disabled = true; btn.textContent = 'Refreshing…'; }
     fetch('/api/price/refresh', { method: 'POST' })
       .then(function(r){ return r.json(); })
@@ -671,6 +682,46 @@
   // Initialize image status polling
   pollImageStatus();
   setInterval(pollImageStatus, 10000); // Poll every 10s
+
+  // Rulings cache status
+  function pollRulingsStatus(){
+    fetch('/setup/rulings-status', { cache: 'no-store' })
+      .then(function(r){ return r.json(); })
+      .then(function(data){
+        var el = document.getElementById('rulings-cache-status');
+        if (!el) return;
+        if (data.exists) {
+          el.textContent = 'Cache found — ' + data.card_count.toLocaleString() + ' cards • Last built: ' + data.built_at;
+          el.style.color = '';
+        } else {
+          el.textContent = 'No cache yet. Click "Refresh Rulings Cache" to build it. The live Scryfall fallback handles misses until then.';
+          el.style.color = '#94a3b8';
+        }
+      })
+      .catch(function(){
+        var el = document.getElementById('rulings-cache-status');
+        if (el) el.textContent = 'Unable to check status.';
+      });
+  }
+
+  window.refreshRulingsCache = function(){
+    var btn = document.getElementById('btn-refresh-rulings');
+    if (!confirm('Download Scryfall rulings bulk file (~25 MB) and build the local cache? This runs in the background and takes 1-2 minutes.')) return;
+    if (btn) { btn.disabled = true; btn.textContent = 'Building… (check container logs)'; }
+    fetch('/setup/refresh-rulings', { method: 'POST' })
+      .then(function(r){ return r.json(); })
+      .then(function(data){
+        if (data.ok) {
+          if (btn) btn.textContent = 'Running in background — check logs for progress.';
+          setTimeout(function(){ if (btn) { btn.disabled = false; btn.textContent = 'Refresh Rulings Cache'; } pollRulingsStatus(); }, 10000);
+        } else {
+          if (btn) { btn.disabled = false; btn.textContent = 'Start failed — see logs'; setTimeout(function(){ btn.textContent = 'Refresh Rulings Cache'; }, 3000); }
+        }
+      })
+      .catch(function(){ if (btn) { btn.disabled = false; btn.textContent = 'Refresh Rulings Cache'; } });
+  };
+
+  pollRulingsStatus();
 
   setInterval(poll, 3000);
   poll();

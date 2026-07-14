@@ -797,3 +797,25 @@ def run_full_pipeline(output_func=None, parallel: bool = True) -> None:
     _log("=" * 70)
     _log("Full pipeline complete")
     _log("=" * 70)
+
+
+def refresh_rulings_cache(output_func=None) -> None:
+    """Fetch and cache Scryfall rulings for all cards.
+
+    Downloads the Scryfall rulings bulk file (~25 MB, one request) and maps
+    rulings to cards in the dataset by oracle_id. Much faster than per-card
+    API calls — typically completes in 1-2 minutes.
+
+    This is an optional step that is NOT part of the default pipeline. Call it
+    independently to pre-populate card_files/processed/rulings_cache.json.
+    The live Scryfall fallback handles individual cache misses automatically.
+
+    Requires all_cards.parquet to already exist (run initial_setup() first).
+    Requires card_files/raw/scryfall_bulk_data.json for oracle_id mapping
+    (downloaded during initial_setup()).
+
+    Args:
+        output_func: Optional callable(str) for progress messages.
+    """
+    from code.file_setup.rulings_cache import build_rulings_cache
+    build_rulings_cache(output_func=output_func)

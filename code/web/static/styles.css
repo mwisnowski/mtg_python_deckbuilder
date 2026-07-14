@@ -1754,6 +1754,19 @@ label{
   border-color:#9ca3af;
 }
 
+/* Card tile stats row */
+
+.tile-cmc {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.tile-pips {
+  display: flex;
+  gap: 2px;
+  align-items: center;
+}
+
 select,input[type="text"],input[type="number"]{
   background: var(--panel);
   color:var(--text);
@@ -2057,6 +2070,19 @@ small, .muted{
 .home-button.btn-primary:hover {
   background: #0c5aa6;
   border-color: #0c5aa6;
+}
+
+.home-button-import,
+.home-button.btn-secondary.home-button-import {
+  background: #0d47a1;
+  color: #fff;
+  border-color: #0d47a1;
+}
+
+.home-button-import:hover,
+.home-button.btn-secondary.home-button-import:hover {
+  background: #0a3472;
+  border-color: #0a3472;
 }
 
 /* Card grid for added cards (responsive, compact tiles) */
@@ -2975,6 +3001,87 @@ img.lqip.loaded {
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 1rem;
+  position: sticky;
+  top: var(--banner-h);
+  z-index: 5;
+  box-shadow: 0 3px 8px rgba(0,0,0,.35);
+}
+
+/* Filter collapse toggle */
+
+.filter-collapse-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+
+.card-browser-filters.filters-collapsed .filter-collapse-bar {
+  margin-bottom: 0;
+}
+
+.filter-collapse-btn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  cursor: pointer;
+  padding: 0.3rem 0.6rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1;
+  transition: background 0.15s;
+}
+
+.filter-collapse-btn:hover {
+  background: var(--hover);
+}
+
+.filter-collapse-btn .collapse-chevron {
+  transition: transform 0.2s ease;
+}
+
+.card-browser-filters.filters-collapsed .filter-collapse-btn .collapse-chevron {
+  transform: rotate(-180deg);
+}
+
+.card-browser-filters.filters-collapsed .filter-collapsible {
+  display: none;
+}
+
+/* Owned Library — management bar (upload / clear / export) */
+
+.owned-mgmt-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.5rem 0 0.75rem;
+}
+
+/* Owned Library — sticky filter + bulk-action bar */
+
+.owned-filter-bar {
+  position: sticky;
+  top: var(--banner-h);
+  z-index: 5;
+  margin-bottom: 0.75rem;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.35);
+}
+
+/* Owned Library — card grid (full-page scroll, no box wrapper) */
+
+.owned-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 220px));
+  gap: 0.75rem;
+  list-style: none;
+  margin: 0;
+  padding: 0 0 2rem;
+  justify-content: start;
 }
 
 .filter-section {
@@ -3413,6 +3520,500 @@ img.lqip.loaded {
   font-size: 0.85rem;
   font-weight: 500;
 }
+
+/* --- Mana Symbols -------------------------------------------------------- */
+
+.mana-sym {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2em;
+  height: 2em;
+  border-radius: 50%;
+  font-size: 0.75em;
+  font-weight: 700;
+  vertical-align: middle;
+  margin: 0 0.1em;
+  line-height: 1;
+  border: 1px solid rgba(0,0,0,0.25);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.3);
+}
+
+.mana-generic {
+  background: #b0b0b0;
+  color: #111;
+}
+
+.mana-w       {
+  background: #f8f4d4;
+  color: #222;
+  border-color: #c4b87d;
+}
+
+.mana-u       {
+  background: #1469a0;
+  color: #fff;
+}
+
+.mana-b       {
+  background: #2a2020;
+  color: #ccc;
+  border-color: #555;
+}
+
+.mana-r       {
+  background: #d32029;
+  color: #fff;
+}
+
+.mana-g       {
+  background: #00733e;
+  color: #fff;
+}
+
+.mana-c       {
+  background: #c2c2c2;
+  color: #333;
+  border-color: #aaa;
+}
+
+.mana-s       {
+  background: #cde;
+  color: #222;
+}
+
+.mana-t       {
+  background: #888;
+  color: #fff;
+}
+
+.mana-q       {
+  background: #888;
+  color: #fff;
+}
+
+.mana-e       {
+  background: #a0c;
+  color: #fff;
+}
+
+.mana-hybrid {
+  background: linear-gradient(135deg, #b0b0b0 50%, #d4d4d4 50%);
+  color: #111;
+  width: 2em;
+  height: 2em;
+  position: relative;
+  overflow: hidden;
+}
+
+.mana-hybrid .mana-hyb-a,
+.mana-hybrid .mana-hyb-b {
+  position: absolute;
+  font-size: 0.58rem;
+  font-weight: 800;
+  line-height: 1;
+  text-shadow: 0 0 3px rgba(0,0,0,0.55);
+}
+
+.mana-hybrid .mana-hyb-a {
+  top: 1px;
+  left: 3px;
+}
+
+.mana-hybrid .mana-hyb-b {
+  bottom: 1px;
+  right: 3px;
+}
+
+/* --- End Mana Symbols ---------------------------------------------------- */
+
+/* --- Card Rulings -------------------------------------------------------- */
+
+.rulings-section {
+  margin-top: 0;
+}
+
+.rulings-heading {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 0.75rem;
+}
+
+/* Rulings as a clean 2-col table: date | ruling text */
+
+.rulings-table {
+  width: 100%;
+  border-collapse: collapse;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  font-size: 0.875rem;
+}
+
+.rulings-table .ruling-date-cell {
+  white-space: nowrap;
+  vertical-align: top;
+  padding: 0.6rem 0.75rem;
+  color: var(--muted);
+  font-size: 0.8rem;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  background: var(--panel);
+  width: 6.5rem;
+}
+
+.rulings-table .ruling-text-cell {
+  padding: 0.6rem 0.85rem;
+  color: var(--text);
+  line-height: 1.55;
+  border-bottom: 1px solid var(--border);
+}
+
+.rulings-table .ruling-row:last-child .ruling-date-cell,
+.rulings-table .ruling-row:last-child .ruling-text-cell {
+  border-bottom: none;
+}
+
+.rulings-toggle {
+  margin-top: 0.75rem;
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--ring);
+  padding: 0.4rem 1rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.rulings-toggle:hover {
+  background: var(--ring);
+  color: white;
+  border-color: var(--ring);
+}
+
+.rulings-empty {
+  font-size: 0.9rem;
+  color: var(--muted);
+  font-style: italic;
+}
+
+/* --- End Card Rulings ---------------------------------------------------- */
+
+/* --- Card Detail Page Layout --------------------------------------------- */
+
+.card-detail-container {
+  max-width: 1800px;
+  margin: 0 auto;
+  padding: 2rem 1rem;
+}
+
+.card-title {
+  font-size: 2rem;
+  font-weight: bold;
+  margin-bottom: 0.4rem;
+  color: var(--text);
+  line-height: 1.2;
+}
+
+.card-type {
+  font-size: 1rem;
+  color: var(--muted);
+  margin-bottom: 0.9rem;
+}
+
+.card-colors {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.9rem;
+}
+
+.card-mana-cost {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.15rem;
+  margin-bottom: 0.9rem;
+}
+
+.ci-pips {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  align-items: center;
+}
+
+.color-symbol {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 13px;
+  border: 2px solid currentColor;
+}
+
+.color-W {
+  background: #F0E68C;
+  color: #000;
+}
+
+.color-U {
+  background: #0E68AB;
+  color: #fff;
+}
+
+.color-B {
+  background: #150B00;
+  color: #fff;
+}
+
+.color-R {
+  background: #D32029;
+  color: #fff;
+}
+
+.color-G {
+  background: #00733E;
+  color: #fff;
+}
+
+.color-C {
+  background: #ccc;
+  color: #000;
+}
+
+.card-text {
+  background: var(--panel);
+  padding: 1.25rem;
+  border-radius: 8px;
+  margin-bottom: 1.25rem;
+  line-height: 1.65;
+  border: 1px solid var(--border);
+  font-size: 0.95rem;
+}
+
+.similar-section {
+  margin-top: 2rem;
+  padding-top: 2rem;
+  border-top: 2px solid var(--border);
+}
+
+.card-detail-grid {
+  display: grid;
+  grid-template-columns: 360px 1fr;
+  grid-template-rows: auto auto;
+  grid-template-areas:
+		"cd-image  cd-info"
+		"cd-price  cd-rulings";
+  gap: 1.75rem 2rem;
+  align-items: start;
+  margin-bottom: 3rem;
+}
+
+.card-area-image    {
+  grid-area: cd-image;
+}
+
+.card-area-info     {
+  grid-area: cd-info;
+}
+
+.card-area-price    {
+  grid-area: cd-price;
+}
+
+.card-area-rulings  {
+  grid-area: cd-rulings;
+}
+
+@media (max-width: 900px) {
+  .card-detail-grid {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+			"cd-image"
+			"cd-info"
+			"cd-price"
+			"cd-rulings";
+  }
+
+  .card-area-image {
+    max-width: 360px;
+    margin: 0 auto;
+    width: 100%;
+  }
+}
+
+/* Stats table */
+
+.card-stats-table {
+  width: 100%;
+  border-collapse: collapse;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 1.25rem;
+  font-size: 0.9rem;
+}
+
+.card-stats-table th {
+  background: var(--panel);
+  color: var(--muted);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  font-size: 0.75rem;
+  padding: 0.55rem 0.85rem;
+  text-align: left;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+  width: 40%;
+}
+
+.card-stats-table td {
+  padding: 0.55rem 0.85rem;
+  font-weight: 600;
+  color: var(--text);
+  border-bottom: 1px solid var(--border);
+}
+
+.card-stats-table tr:last-child th,
+.card-stats-table tr:last-child td {
+  border-bottom: none;
+}
+
+/* Price panel (bottom-left on desktop) */
+
+.card-price-panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+}
+
+.card-price-panel-heading {
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--muted);
+  margin-bottom: 0.5rem;
+}
+
+.card-price-values {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.card-price-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.card-price-source {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  background: var(--ring);
+  color: #fff;
+  min-width: 2.5rem;
+  text-align: center;
+}
+
+.card-price-amount {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.card-price-loading {
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-style: italic;
+}
+
+/* Section heading shared style */
+
+.cd-section-heading {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 0.75rem;
+}
+
+/* External links (Scryfall, EDHREC) */
+
+.scryfall-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.8rem;
+  color: var(--ring);
+  text-decoration: none;
+  margin-bottom: 0.85rem;
+  opacity: 0.85;
+  transition: opacity 0.15s;
+}
+
+.scryfall-link:hover {
+  opacity: 1;
+  text-decoration: underline;
+}
+
+/* External link pill buttons (Scryfall, Gatherer, EDHREC) */
+
+.card-ext-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.85rem;
+}
+
+.ext-link-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--ring);
+  background: color-mix(in srgb, var(--ring) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ring) 35%, transparent);
+  border-radius: 99px;
+  padding: 0.25rem 0.75rem;
+  text-decoration: none;
+  transition: background 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+
+.ext-link-btn:hover {
+  background: color-mix(in srgb, var(--ring) 22%, transparent);
+  border-color: var(--ring);
+  text-decoration: none;
+}
+
+.stat-link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.stat-link:hover {
+  text-decoration: underline;
+  color: var(--ring);
+}
+
+/* --- End Card Detail Page Layout ----------------------------------------- */
 
 .back-button {
   display: inline-flex;
@@ -6267,6 +6868,23 @@ footer.site-footer {
   display: none;
 }
 
+/* "Owned" badge on card thumbnails — top-right, green pill */
+
+.card-owned-badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background: rgba(34, 197, 94, 0.9);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  pointer-events: none;
+  z-index: 4;
+  white-space: nowrap;
+}
+
 /* "New" badge on card thumbnails — lower-right, teal pill */
 
 .card-new-badge {
@@ -6285,8 +6903,6 @@ footer.site-footer {
   line-height: 16px;
   letter-spacing: .03em;
 }
-
-/* "Reprint" badge on card thumbnails — lower-right, gray pill */
 
 /* When stacked above a New badge, shifts up by badge height (20px) + 4px gap */
 

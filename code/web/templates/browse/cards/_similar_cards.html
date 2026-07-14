@@ -55,10 +55,10 @@
 
     .similar-cards-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, 280px);
+        grid-template-columns: repeat(auto-fit, minmax(240px, 320px));
         gap: 1.25rem;
         margin-bottom: 2rem;
-        justify-content: start;
+        justify-content: center;
     }
 
     .similar-card-tile {
@@ -70,7 +70,8 @@
         display: flex;
         flex-direction: column;
         gap: 0.6rem;
-        width: 280px;
+        width: 100%;
+        margin: 0 auto;
     }
 
     .similar-card-tile:hover {

@@ -2,275 +2,96 @@
 
 {% block title %}{{ card.name }} - Card Details{% endblock %}
 
-{% block head %}
-<style>
-    .card-detail-container {
-        max-width: 1400px;
-        margin: 0 auto;
-        padding: 2rem 1rem;
-    }
-
-    .card-detail-header {
-        display: flex;
-        gap: 2rem;
-        margin-bottom: 3rem;
-        flex-wrap: wrap;
-    }
-
-    .card-image-large {
-        flex: 0 0 auto;
-        max-width: 360px;
-        cursor: pointer;
-        transition: transform 0.2s;
-    }
-
-    .card-image-large:hover {
-        transform: scale(1.02);
-    }
-
-    .card-image-large img {
-        width: 100%;
-        height: auto;
-        border-radius: 12px;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-    }
-
-    .card-info {
-        flex: 1;
-        min-width: 300px;
-    }
-
-    .card-title {
-        font-size: 2rem;
-        font-weight: bold;
-        margin-bottom: 0.5rem;
-        color: var(--text);
-    }
-
-    .card-type {
-        font-size: 1.1rem;
-        color: var(--muted);
-        margin-bottom: 1rem;
-    }
-
-    .card-stats {
-        display: flex;
-        gap: 2rem;
-        margin-bottom: 1.5rem;
-        flex-wrap: wrap;
-    }
-
-    .card-stat {
-        display: flex;
-        flex-direction: column;
-    }
-
-    .card-stat-label {
-        font-size: 0.85rem;
-        color: var(--muted);
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        margin-bottom: 0.25rem;
-    }
-
-    .card-stat-value {
-        font-size: 1.25rem;
-        font-weight: 600;
-        color: var(--text);
-    }
-
-    .card-text {
-        background: var(--panel);
-        padding: 1.5rem;
-        border-radius: 8px;
-        margin-bottom: 1.5rem;
-        line-height: 1.6;
-        white-space: pre-wrap;
-        border: 1px solid var(--border);
-    }
-
-    .card-colors {
-        display: flex;
-        gap: 0.5rem;
-        margin-bottom: 1rem;
-    }
-
-    .color-symbol {
-        width: 24px;
-        height: 24px;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-weight: bold;
-        font-size: 14px;
-        border: 2px solid currentColor;
-    }
-
-    .color-W { background: #F0E68C; color: #000; }
-    .color-U { background: #0E68AB; color: #fff; }
-    .color-B { background: #150B00; color: #fff; }
-    .color-R { background: #D32029; color: #fff; }
-    .color-G { background: #00733E; color: #fff; }
-    .color-C { background: #ccc; color: #000; }
-
-    .card-tags {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.5rem;
-        margin-bottom: 1rem;
-    }
-
-    .card-tag {
-        background: var(--ring);
-        color: white;
-        padding: 0.35rem 0.75rem;
-        border-radius: 16px;
-        font-size: 0.85rem;
-        font-weight: 500;
-    }
-
-    .back-button {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.5rem;
-        padding: 0.75rem 1.5rem;
-        background: var(--panel);
-        color: var(--text);
-        text-decoration: none;
-        border-radius: 8px;
-        border: 1px solid var(--border);
-        font-weight: 500;
-        transition: all 0.2s;
-        margin-bottom: 2rem;
-    }
-
-    .back-button:hover {
-        background: var(--ring);
-        color: white;
-        border-color: var(--ring);
-    }
-
-    .similar-section {
-        margin-top: 3rem;
-        padding-top: 2rem;
-        border-top: 2px solid var(--border);
-    }
-
-    /* Responsive adjustments */
-    @media (max-width: 768px) {
-        .card-detail-header {
-            flex-direction: column;
-            align-items: center;
-        }
-
-        .card-image-large {
-            max-width: 100%;
-        }
-
-        .card-stats {
-            gap: 1rem;
-        }
-
-        .card-title {
-            font-size: 1.5rem;
-        }
-    }
-</style>
-{% endblock %}
-
 {% block content %}
 <div class="card-detail-container">
     <!-- Back Button -->
-    <a href="/cards" class="back-button">
+    <a href="{{ back_url | default('/cards') }}" class="back-button">
         <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
             <path d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z"/>
         </svg>
-        Back to Card Browser
+        {{ back_text | default('Back to Card Browser') }}
     </a>
 
-    <!-- Card Header -->
-    <div class="card-detail-header">
-        <!-- Card Image (no hover on detail page) -->
-        <div class="card-image-large" style="position:relative;">
-            <img src="{{ card.name|card_image('normal') }}" 
-                 alt="{{ card.name }}" 
+    <!-- 2-column grid: [image | info] / [price | rulings] -->
+    <div class="card-detail-grid">
+
+        <!-- ── LEFT TOP: Card Image ───────────────────────────── -->
+        <div class="card-area-image card-image-large" style="position:relative;">
+            <img src="{{ card.name|card_image('normal') }}"
+                 alt="{{ card.name }}"
                  loading="lazy"
                  onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-            {# Fallback for missing images #}
-            <div style="display:none; width:100%; height:680px; align-items:center; justify-content:center; background:#1a1d24; color:#9ca3af; font-size:18px; padding:2rem; text-align:center; border-radius:12px;">
+            <div style="display:none; width:100%; height:500px; align-items:center; justify-content:center; background:#1a1d24; color:#9ca3af; font-size:18px; padding:2rem; text-align:center; border-radius:12px;">
                 {{ card.name }}
             </div>
-            {% if show_new_badge and card.isNew %}<div class="card-new-badge" title="Recently Released" aria-hidden="true">New</div>{% endif %}
+            {% if show_new_badge and card.isNew %}
+            <div class="card-new-badge" title="Recently Released" aria-hidden="true">New</div>
+            {% endif %}
         </div>
 
-        <!-- Card Info -->
-        <div class="card-info">
+        <!-- ── RIGHT TOP: Card Info ───────────────────────────── -->
+        <div class="card-area-info">
             <h1 class="card-title">{{ card.name }}</h1>
-            
-            <div class="card-type">{{ card.type }}</div>
-
-            <!-- Color Identity -->
-            {% if card.colors %}
-            <div class="card-colors">
-                {% for color in card.colors %}
-                <span class="color-symbol color-{{ color }}">{{ color }}</span>
-                {% endfor %}
+            <div class="card-ext-links">
+                {% if scryfall_url %}<a href="{{ scryfall_url }}" target="_blank" rel="noopener" class="ext-link-btn">Scryfall ↗</a>{% endif %}
+                {% if gatherer_url %}<a href="{{ gatherer_url }}" target="_blank" rel="noopener" class="ext-link-btn">Gatherer ↗</a>{% endif %}
+                {% if card.edhrecRank %}<a href="https://edhrec.com/cards/{{ card.name | lower | replace(' ', '-') | replace(',', '') | replace("'", '') }}" target="_blank" rel="noopener" class="ext-link-btn">EDHREC ↗</a>{% endif %}
             </div>
+
+            <!-- Casting cost pip row -->
+            {% if card.manaCost %}
+            <div class="card-mana-cost">{{ card.manaCost }}</div>
             {% endif %}
 
-            <!-- Stats -->
-            <div class="card-stats">
+            <!-- Stats table -->
+            {% set type_parts = card.type.split(' — ') if card.type else [] %}
+            <table class="card-stats-table">
+                {% if type_parts|length > 1 %}
+                <tr>
+                    <th>{{ type_parts[0] }}</th>
+                    <td>{{ type_parts[1] }}</td>
+                </tr>
+                {% elif card.type %}
+                <tr>
+                    <th colspan="2">{{ card.type }}</th>
+                </tr>
+                {% endif %}
                 {% if card.manaValue is not none %}
-                <div class="card-stat">
-                    <span class="card-stat-label">Mana Value</span>
-                    <span class="card-stat-value">{{ card.manaValue }}</span>
-                </div>
+                <tr>
+                    <th>Mana Value</th>
+                    <td>{{ card.manaValue | int }}</td>
+                </tr>
                 {% endif %}
-
                 {% if card.power is not none and card.power != 'NaN' and card.power|string != 'nan' %}
-                <div class="card-stat">
-                    <span class="card-stat-label">Power / Toughness</span>
-                    <span class="card-stat-value">{{ card.power }} / {{ card.toughness }}</span>
-                </div>
+                <tr>
+                    <th>Power / Toughness</th>
+                    <td>{{ card.power }} / {{ card.toughness }}</td>
+                </tr>
                 {% endif %}
-
-                {% if card.edhrecRank %}
-                <div class="card-stat">
-                    <span class="card-stat-label">EDHREC Rank</span>
-                    <span class="card-stat-value">#{{ card.edhrecRank }}</span>
-                </div>
-                {% endif %}
-
                 {% if card.rarity %}
-                <div class="card-stat">
-                    <span class="card-stat-label">Rarity</span>
-                    <span class="card-stat-value">{{ card.rarity | capitalize }}</span>
-                </div>
+                <tr>
+                    <th>Rarity</th>
+                    <td>{{ card.rarity | capitalize }}</td>
+                </tr>
                 {% endif %}
-
-                <div class="card-stat" id="card-detail-price-wrap" style="display:none;">
-                    <span class="card-stat-label">Price</span>
-                    <span class="card-stat-value" id="card-detail-price-display"></span>
-                </div>
-            </div>
-            <script>
-            (function(){
-                var name = {{ card.name | tojson }};
-                fetch('/api/price/' + encodeURIComponent(name))
-                    .then(function(r){ return r.ok ? r.json() : null; })
-                    .then(function(d){
-                        if (!d) return;
-                        var parts = [];
-                        if (d.price != null) parts.push('<span class="price-src-label">TCG</span> $' + parseFloat(d.price).toFixed(2));
-                        if (d.ck_price != null) parts.push('<span class="price-src-label">CK</span> $' + parseFloat(d.ck_price).toFixed(2));
-                        if (parts.length) {
-                            document.getElementById('card-detail-price-display').innerHTML = parts.join(' <span class="price-sep">\u00B7</span> ');
-                            document.getElementById('card-detail-price-wrap').style.display = '';
-                        }
-                    }).catch(function(){});
-            })();
-            </script>
+                {% if card.edhrecRank %}
+                <tr>
+                    <th>EDHREC Rank</th>
+                    <td>#{{ card.edhrecRank | int }}</td>
+                </tr>
+                {% endif %}
+                {% if card.colorIdentity %}
+                <tr>
+                    <th>Color Identity</th>
+                    <td>
+                        {% set ci_list = card.colorIdentity.replace(' ', '').split(',') if card.colorIdentity is string else card.colorIdentity %}
+                        <span class="ci-pips">
+                        {% for c in ci_list %}{% if c %}<span class="color-symbol color-{{ c }}" title="{{ c }}"></span>{% endif %}{% endfor %}
+                        </span>
+                    </td>
+                </tr>
+                {% endif %}
+            </table>
 
             <!-- Oracle Text -->
             {% if card.text %}
@@ -279,6 +100,7 @@
 
             <!-- Theme Tags -->
             {% if card.themeTags_parsed and card.themeTags_parsed|length > 0 %}
+            <p class="cd-section-heading" style="margin-top:1rem;">Themes</p>
             <div class="card-tags">
                 {% for tag in card.themeTags_parsed %}
                 <span class="card-tag">{{ tag }}</span>
@@ -286,11 +108,155 @@
             </div>
             {% endif %}
         </div>
-    </div>
+
+        <!-- ── LEFT BOTTOM: Price ─────────────────────────────── -->
+        <div class="card-area-price card-price-panel">
+            <p class="card-price-panel-heading">Market Price</p>
+            <div class="card-price-values" id="card-price-values">
+                <span class="card-price-loading">Loading…</span>
+            </div>
+        </div>
+
+        <!-- ── RIGHT BOTTOM: Rulings ──────────────────────────── -->
+        <div class="card-area-rulings rulings-section">
+            <h3 class="rulings-heading">Rulings</h3>
+            {% if rulings %}
+            <table class="rulings-table">
+                {% for ruling in rulings %}
+                <tr class="ruling-row{% if loop.index > 3 %} ruling-hidden{% endif %}">
+                    <td class="ruling-date-cell">{{ ruling.published_at }}</td>
+                    <td class="ruling-text-cell">{{ ruling.comment }}</td>
+                </tr>
+                {% endfor %}
+            </table>
+            {% if rulings|length > 3 %}
+            <button class="rulings-toggle" onclick="toggleRulings(this)" data-count="{{ rulings|length }}">
+                Show all {{ rulings|length }} rulings
+            </button>
+            {% endif %}
+            {% else %}
+            <p class="rulings-empty">No official rulings for this card.</p>
+            {% endif %}
+        </div>
+
+    </div>{# end .card-detail-grid #}
 
     <!-- Similar Cards Section -->
     <div class="similar-section">
         {% include "browse/cards/_similar_cards.html" %}
     </div>
 </div>
+
+<script>
+// Price loader
+(function(){
+    var name = {{ card.name | tojson }};
+    fetch('/api/price/' + encodeURIComponent(name))
+        .then(function(r){ return r.ok ? r.json() : null; })
+        .then(function(d){
+            var el = document.getElementById('card-price-values');
+            if (!el) return;
+            if (!d || (d.price == null && d.ck_price == null)) {
+                el.innerHTML = '<span class="card-price-loading">No price data available.</span>';
+                return;
+            }
+            var html = '';
+            if (d.price != null) {
+                html += '<div class="card-price-row"><span class="card-price-source">TCG</span><span class="card-price-amount">$' + parseFloat(d.price).toFixed(2) + '</span></div>';
+            }
+            if (d.ck_price != null) {
+                html += '<div class="card-price-row"><span class="card-price-source">CK</span><span class="card-price-amount">$' + parseFloat(d.ck_price).toFixed(2) + '</span></div>';
+            }
+            el.innerHTML = html;
+        })
+        .catch(function(){
+            var el = document.getElementById('card-price-values');
+            if (el) el.innerHTML = '<span class="card-price-loading">Unavailable.</span>';
+        });
+})();
+
+// Mana symbol renderer
+(function(){
+    var MANA_CLASS = {
+        'W':'mana-w','U':'mana-u','B':'mana-b','R':'mana-r','G':'mana-g',
+        'C':'mana-c','S':'mana-s','T':'mana-t','Q':'mana-q','E':'mana-e'
+    };
+    var MANA_BG = {
+        'W':'#f8f4d4','U':'#1469a0','B':'#2a2020','R':'#d32029',
+        'G':'#00733e','C':'#c2c2c2','S':'#c8dde8','T':'#888','Q':'#888'
+    };
+    var MANA_DARK = {'U':1,'B':1,'R':1,'G':1,'T':1,'Q':1};
+    var MANA_DISPLAY = {'T':'<span style="display:inline-block;transform:rotate(180deg);line-height:1">↻</span>','Q':'↺'};
+    var NUM_WORDS = {
+        '0':'Zero','1':'One','2':'Two','3':'Three','4':'Four','5':'Five',
+        '6':'Six','7':'Seven','8':'Eight','9':'Nine','10':'Ten',
+        '11':'Eleven','12':'Twelve','13':'Thirteen','14':'Fourteen','15':'Fifteen',
+        '16':'Sixteen','20':'Twenty'
+    };
+    var COLOR_NAMES = {'W':'White','U':'Blue','B':'Black','R':'Red','G':'Green','C':'Colorless','S':'Snow'};
+    function symBg(s)  { return /^\d+$/.test(s) ? '#b0b0b0' : (MANA_BG[s.toUpperCase()] || '#b0b0b0'); }
+    function symFg(s)  { return (MANA_DARK[s.toUpperCase()] ? '#fff' : '#111'); }
+    function numWord(n) { return NUM_WORDS[n] || n; }
+    function manaTooltip(sym) {
+        var up = sym.toUpperCase();
+        if (up === 'T') return 'Tap';
+        if (up === 'Q') return 'Untap';
+        if (up === 'E') return 'Energy Counter';
+        if (sym.indexOf('/') !== -1) {
+            var p = sym.split('/');
+            var a = p[0], b = (p[1]||'');
+            if (b.toUpperCase() === 'P') {
+                return 'One ' + (COLOR_NAMES[a.toUpperCase()]||a) + ' Mana or 2 Life';
+            }
+            if (/^\d+$/.test(a)) {
+                return numWord(a) + ' Mana of Any Color or One ' + (COLOR_NAMES[b.toUpperCase()]||b) + ' Mana';
+            }
+            return 'One ' + (COLOR_NAMES[a.toUpperCase()]||a) + ' or One ' + (COLOR_NAMES[b.toUpperCase()]||b) + ' Mana';
+        }
+        if (/^\d+$/.test(sym)) {
+            if (sym === '0') return 'Zero Generic Mana';
+            return numWord(sym) + ' Mana of Any Color';
+        }
+        if (up === 'X' || up === 'Y' || up === 'Z') return up + ' Mana of Any Color';
+        var cn = COLOR_NAMES[up];
+        return cn ? 'One ' + cn + ' Mana' : sym;
+    }
+    function renderMana(el) {
+        if (!el) return;
+        el.innerHTML = el.innerHTML.replace(/\{([^}]+)\}/g, function(_, sym) {
+            var up = sym.toUpperCase();
+            var tip = manaTooltip(sym);
+            if (sym.indexOf('/') !== -1) {
+                var p = sym.split('/');
+                var c1 = symBg(p[0]), c2 = symBg(p[1]||'');
+                var f1 = symFg(p[0]), f2 = symFg(p[1]||'');
+                var bg = 'linear-gradient(135deg,' + c1 + ' 50%,' + c2 + ' 50%)';
+                return '<span class="mana-sym mana-hybrid" style="background:' + bg + '" title="' + tip + '">'
+                     + '<span class="mana-hyb-a" style="color:' + f1 + '">' + p[0] + '</span>'
+                     + '<span class="mana-hyb-b" style="color:' + f2 + '">' + (p[1]||'') + '</span>'
+                     + '</span>';
+            }
+            var cls = MANA_CLASS[up] || 'mana-generic';
+            var display = MANA_DISPLAY[up] || sym;
+            return '<span class="mana-sym ' + cls + '" title="' + tip + '">' + display + '</span>';
+        });
+    }
+    document.querySelectorAll('.card-text, .ruling-text-cell, .card-mana-cost').forEach(renderMana);
+})();
+
+// Rulings toggle
+function toggleRulings(btn) {
+    var expanded = btn.getAttribute('data-expanded') === '1';
+    if (expanded) {
+        document.querySelectorAll('.ruling-hidden').forEach(function(el){ el.style.display = 'none'; });
+        btn.setAttribute('data-expanded', '0');
+        btn.textContent = 'Show all ' + btn.getAttribute('data-count') + ' rulings';
+    } else {
+        document.querySelectorAll('.ruling-row').forEach(function(el){ el.style.display = ''; });
+        btn.setAttribute('data-expanded', '1');
+        btn.textContent = 'Show fewer rulings';
+    }
+}
+document.querySelectorAll('.ruling-hidden').forEach(function(el){ el.style.display = 'none'; });
+</script>
 {% endblock %}

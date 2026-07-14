@@ -1348,7 +1348,11 @@ interface SkeletonManager {
       document.querySelectorAll('img[data-lqip]')
         .forEach(function(img){
           img.classList.add('lqip');
-          img.addEventListener('load', function(){ img.classList.add('loaded'); }, { once: true });
+          if ((img as HTMLImageElement).complete) {
+            img.classList.add('loaded');
+          } else {
+            img.addEventListener('load', function(){ img.classList.add('loaded'); }, { once: true });
+          }
         });
     }catch(_){ }
   });

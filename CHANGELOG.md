@@ -9,6 +9,19 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 
 ## [Unreleased]
 ### Added
+_No unreleased changes yet_
+
+### Changed
+_No unreleased changes yet_
+
+### Fixed
+_No unreleased changes yet_
+
+### Removed
+_No unreleased changes yet_
+
+## [4.8.2] - 2026-07-14
+### Added
 - **Card Detail Page** (`/cards/{name}`): Fully redesigned with a 2-column grid layout
   - Card image with "New" badge for recently released cards
   - Stats table: card type, mana value, power/toughness, rarity, EDHREC rank, color identity pips
@@ -38,9 +51,6 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 
 ### Fixed
 - **Similar cards refresh button**: `/{card_name:path}/similar` HTMX endpoint now registered before the `/{card_name:path}` catch-all route; previously the greedy `:path` matcher captured `/similar` as part of the card name, returning a 404
-
-### Removed
-_No unreleased changes yet_
 
 ## [4.8.1] - 2026-07-13
 ### Added

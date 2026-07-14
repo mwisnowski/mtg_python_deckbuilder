@@ -757,6 +757,7 @@ def run_full_pipeline(output_func=None, parallel: bool = True) -> None:
     2. run_tagging()          — tag all cards (must precede prices)
     3. refresh_prices_parquet() — write price / isNew columns into parquet
     4. build_cache()          — pre-compute similarity cache
+    5. refresh_rulings_cache() — download Scryfall bulk rulings (~25 MB)
 
     Use this instead of calling each step individually.  The web orchestrator
     runs the steps separately for fine-grained progress reporting; all other
@@ -789,10 +790,18 @@ def run_full_pipeline(output_func=None, parallel: bool = True) -> None:
     _log("✓ Prices and isNew refreshed")
 
     # Step 4: build similarity cache
-    _log(f"[4/4] Building similarity cache (parallel={parallel})...")
+    _log(f"[4/5] Building similarity cache (parallel={parallel})...")
     from code.scripts.build_similarity_cache_parquet import build_cache
     build_cache(parallel=parallel, checkpoint_interval=1000, force=True)
     _log("✓ Similarity cache built")
+
+    # Step 5: build rulings cache (downloads ~25 MB Scryfall bulk file once)
+    _log("[5/5] Building rulings cache from Scryfall bulk data...")
+    try:
+        refresh_rulings_cache(output_func=output_func)
+        _log("✓ Rulings cache built")
+    except Exception as e:
+        _log(f"Warning: Rulings cache build failed (non-fatal): {e}")
 
     _log("=" * 70)
     _log("Full pipeline complete")

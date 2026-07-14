@@ -33,6 +33,17 @@ seed_defaults() {
         fi
     fi
 
+    # Copy/download rulings cache
+    if [ ! -f /app/card_files/processed/rulings_cache.json ]; then
+        if [ -f /.defaults/card_files/processed/rulings_cache.json ]; then
+            echo "Copying pre-built rulings cache from image..."
+            cp /.defaults/card_files/processed/rulings_cache.json /app/card_files/processed/ 2>/dev/null || true
+        else
+            echo "Downloading rulings cache from GitHub..."
+            wget -q https://raw.githubusercontent.com/mwisnowski/mtg_python_deckbuilder/similarity-cache-data/card_files/processed/rulings_cache.json -O /app/card_files/processed/rulings_cache.json 2>/dev/null || echo "Warning: Could not download rulings cache (live Scryfall fallback will be used)"
+        fi
+    fi
+
     # Copy from baked-in defaults if targets are missing
     if [ -d "/.defaults/config" ]; then
         # deck.json

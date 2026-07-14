@@ -222,6 +222,16 @@ jobs:
         run: |
           python -m code.scripts.build_similarity_cache_parquet --parallel --checkpoint-interval 1000 --force
       
+      - name: Build rulings cache from Scryfall bulk data
+        if: steps.check_cache.outputs.needs_build == 'true'
+        run: |
+          python -c "from code.file_setup.rulings_cache import build_rulings_cache; build_rulings_cache(output_func=print)"
+          if [ ! -f "card_files/processed/rulings_cache.json" ]; then
+            echo "WARNING: Rulings cache not created (non-fatal, live fallback will be used)"
+          else
+            echo "✓ Rulings cache built"
+          fi
+      
       - name: Verify cache was created
         if: steps.check_cache.outputs.needs_build == 'true'
         run: |
@@ -236,6 +246,11 @@ jobs:
           if [ ! -f "card_files/processed/commander_cards.parquet" ]; then
             echo "ERROR: Commander cache not created"
             exit 1
+          fi
+          
+          # Rulings cache is non-fatal (live fallback available)
+          if [ ! -f "card_files/processed/rulings_cache.json" ]; then
+            echo "WARNING: Rulings cache not created (live Scryfall fallback will be used)"
           fi
           
           echo "✓ All cache files created successfully"
@@ -282,6 +297,7 @@ jobs:
           - `card_files/prices_cache.json` - Scryfall price cache
           - `card_files/ck_prices_cache.json` - Card Kingdom price cache
           - `card_files/prices_cache.json.ts` - Per-card price timestamps (if present)
+          - `card_files/processed/rulings_cache.json` - Official card rulings from Scryfall bulk data
           EOF
           
           # Start with clean index
@@ -296,6 +312,7 @@ jobs:
           git add -f card_files/prices_cache.json
           git add -f card_files/ck_prices_cache.json 2>/dev/null || true
           git add -f card_files/prices_cache.json.ts 2>/dev/null || true
+          git add -f card_files/processed/rulings_cache.json 2>/dev/null || true
           git add -f README-cache.md
           
           # Create a new commit

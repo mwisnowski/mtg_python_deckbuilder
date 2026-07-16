@@ -18,6 +18,9 @@ RELEASE_NOTES.md
 .venv/
 __pycache__/
 
+# Secrets — never commit credentials
+secrets.env
+
 .github/*.md
 
 config/themes/catalog/
@@ -35,6 +38,7 @@ card_files/*
 
 deck_files/
 dist/
+data/
 
 logs/
 !logs/

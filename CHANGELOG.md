@@ -9,16 +9,18 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 
 ## [Unreleased]
 ### Added
-_No unreleased changes yet_
+- **User accounts**: Self-service registration, login, logout, and per-user file isolation (`deck_files/{user_id}/`, `owned_cards/{user_id}/`, `config/{user_id}/`)
+- **Admin panel** (`/admin/`): Create, deactivate, and delete accounts; grant/revoke admin role; change passwords when SMTP is not configured (hides Change Password when users can self-serve via forgot-password)
+- **Env-based admin account**: Synthetic admin configured via `ADMIN_USERNAME`/`ADMIN_PASSWORD` in `secrets.env`; disable with `ADMIN_ENABLED=0` after promoting a real DB user to admin
+- **Profile page** (`/auth/profile`): Authenticated users can change their own password
+- **Audit log** (`/admin/audit`): Login, logout, failed attempts, registration, and all admin actions recorded; capped at 10,000 rows
+- **Welcome & account-created emails**: New registrants receive a welcome email; admin-created accounts receive a set-password link — both require SMTP to be configured
+- **Password reset**: Forgot-password flow with signed, time-limited email tokens; reset URL logged instead when SMTP is not configured; form replaced with a "contact your administrator" message when SMTP is disabled
+- **Login rate limiting**: Per-IP (5 attempts / 10 min) and per-username (10 attempts / 15 min) lockout to slow brute-force attempts
+- **`secrets.env` / `secrets.env.example`**: Gitignored credential file (`SESSION_SECRET`, `ADMIN_*`, `SMTP_*`) loaded via compose `env_file`; example template committed for reference
 
 ### Changed
-_No unreleased changes yet_
-
-### Fixed
-_No unreleased changes yet_
-
-### Removed
-_No unreleased changes yet_
+- Setup, Diagnostics, and Logs pages restricted to admin accounts; non-admin users see an informational note on the homepage when setup has not been run
 
 ## [4.8.3] - 2026-07-14
 ### Fixed

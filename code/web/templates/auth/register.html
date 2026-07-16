@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="auth-page">
+  <div class="auth-card">
+    <h2>Create Account</h2>
+
+    {% if error %}
+    <div class="auth-error">{{ error }}</div>
+    {% endif %}
+
+    <form method="post" action="/auth/register" autocomplete="on">
+      <div style="display:flex; flex-direction:column; gap:1rem;">
+        <div class="auth-field">
+          <label for="username">Username</label>
+          <input class="form-input" type="text" id="username" name="username" required autocomplete="username" autofocus maxlength="64">
+        </div>
+        <div class="auth-field">
+          <label for="email">Email</label>
+          <input class="form-input" type="email" id="email" name="email" required autocomplete="email">
+        </div>
+        <div class="auth-field">
+          <label for="password">Password <span style="font-weight:normal; color:var(--muted);">(min 8 characters)</span></label>
+          <input class="form-input" type="password" id="password" name="password" required autocomplete="new-password" minlength="8">
+        </div>
+        <div class="auth-field">
+          <label for="confirm">Confirm Password</label>
+          <input class="form-input" type="password" id="confirm" name="confirm" required autocomplete="new-password" minlength="8">
+        </div>
+        <div class="auth-actions">
+          <button type="submit" class="btn">Sign Up</button>
+        </div>
+      </div>
+    </form>
+
+    <p class="auth-alt">Already have an account? <a href="/auth/login">Log In</a></p>
+  </div>
+</div>
+{% endblock %}

@@ -7,10 +7,14 @@ import os
 import time
 
 
-def _owned_dir() -> Path:
-    """Resolve the owned cards directory (shared with CLI) for persistence.
+def _owned_dir(user_id: str | None = None) -> Path:
+    """Resolve the owned cards directory.
 
-    Precedence:
+    When *user_id* is provided the directory is scoped:
+      ``<base>/guest/``   for the shared guest account
+      ``<base>/{user_id}/`` for authenticated users
+
+    Precedence for the base path:
     - OWNED_CARDS_DIR env var
     - CARD_LIBRARY_DIR env var (back-compat)
     - ./owned_cards (if exists)
@@ -18,6 +22,9 @@ def _owned_dir() -> Path:
     - default ./owned_cards
     """
     env_dir = os.getenv("OWNED_CARDS_DIR") or os.getenv("CARD_LIBRARY_DIR")
+    if user_id:
+        base = Path(env_dir).resolve() if env_dir else Path("owned_cards").resolve()
+        return base / user_id
     if env_dir:
         return Path(env_dir).resolve()
     for name in ("owned_cards", "card_library"):
@@ -27,8 +34,8 @@ def _owned_dir() -> Path:
     return Path("owned_cards").resolve()
 
 
-def _db_path() -> Path:
-    d = _owned_dir()
+def _db_path(user_id: str | None = None) -> Path:
+    d = _owned_dir(user_id)
     try:
         d.mkdir(parents=True, exist_ok=True)
     except Exception:
@@ -36,8 +43,8 @@ def _db_path() -> Path:
     return (d / ".web_owned_db.json").resolve()
 
 
-def _load_raw() -> dict:
-    p = _db_path()
+def _load_raw(user_id: str | None = None) -> dict:
+    p = _db_path(user_id)
     if p.exists():
         try:
             with p.open("r", encoding="utf-8") as f:
@@ -54,8 +61,8 @@ def _load_raw() -> dict:
     return {"names": [], "meta": {}}
 
 
-def _save_raw(data: dict) -> None:
-    p = _db_path()
+def _save_raw(data: dict, user_id: str | None = None) -> None:
+    p = _db_path(user_id)
     try:
         with p.open("w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
@@ -63,8 +70,8 @@ def _save_raw(data: dict) -> None:
         pass
 
 
-def get_names() -> List[str]:
-    data = _load_raw()
+def get_names(user_id: str | None = None) -> List[str]:
+    data = _load_raw(user_id)
     names = data.get("names") or []
     if not isinstance(names, list):
         return []
@@ -83,13 +90,13 @@ def get_names() -> List[str]:
     return out
 
 
-def clear() -> None:
-    _save_raw({"names": [], "meta": {}})
+def clear(user_id: str | None = None) -> None:
+    _save_raw({"names": [], "meta": {}}, user_id)
 
 
-def add_names(names: Iterable[str]) -> Tuple[int, int]:
+def add_names(names: Iterable[str], user_id: str | None = None) -> Tuple[int, int]:
     """Add a batch of names; returns (added_count, total_after)."""
-    data = _load_raw()
+    data = _load_raw(user_id)
     cur = [str(x).strip() for x in (data.get("names") or []) if str(x).strip()]
     cur_set = {n.lower() for n in cur}
     added = 0
@@ -119,7 +126,7 @@ def add_names(names: Iterable[str]) -> Tuple[int, int]:
         else:
             if "added_at" not in info:
                 info["added_at"] = now
-    _save_raw(data)
+    _save_raw(data, user_id)
     return added, len(cur)
 
 
@@ -206,11 +213,11 @@ def _enrich_from_csvs(target_names: Iterable[str]) -> Dict[str, Dict[str, object
     return meta
 
 
-def add_and_enrich(names: Iterable[str]) -> Tuple[int, int]:
+def add_and_enrich(names: Iterable[str], user_id: str | None = None) -> Tuple[int, int]:
     """Add names and enrich their metadata from Parquet (M4).
     Returns (added_count, total_after).
     """
-    data = _load_raw()
+    data = _load_raw(user_id)
     current_names = [str(x).strip() for x in (data.get("names") or []) if str(x).strip()]
     cur_set = {n.lower() for n in current_names}
     new_names: List[str] = []
@@ -241,15 +248,15 @@ def add_and_enrich(names: Iterable[str]) -> Tuple[int, int]:
                 entry["added_at"] = now
     data["names"] = current_names
     data["meta"] = meta
-    _save_raw(data)
+    _save_raw(data, user_id)
     return len(new_names), len(current_names)
 
 
-def get_enriched() -> Tuple[List[str], Dict[str, List[str]], Dict[str, str], Dict[str, List[str]]]:
+def get_enriched(user_id: str | None = None) -> Tuple[List[str], Dict[str, List[str]], Dict[str, str], Dict[str, List[str]]]:
     """Return names and metadata dicts (tags_by_name, type_by_name, colors_by_name).
     If metadata missing, returns empty for those entries.
     """
-    data = _load_raw()
+    data = _load_raw(user_id)
     names = [str(x).strip() for x in (data.get("names") or []) if str(x).strip()]
     meta: Dict[str, Dict[str, object]] = data.get("meta") or {}
     tags_by_name: Dict[str, List[str]] = {}
@@ -270,11 +277,11 @@ def get_enriched() -> Tuple[List[str], Dict[str, List[str]], Dict[str, str], Dic
     return names, tags_by_name, type_by_name, colors_by_name
 
 
-def get_stats_map() -> Dict[str, Dict[str, object]]:
+def get_stats_map(user_id: str | None = None) -> Dict[str, Dict[str, object]]:
     """Return {name: {manaValue, power, toughness}} for all owned names.
     Falls back to a parquet lookup for any entries missing numeric stats.
     """
-    data = _load_raw()
+    data = _load_raw(user_id)
     names: List[str] = [str(x).strip() for x in (data.get("names") or []) if str(x).strip()]
     meta: Dict[str, Dict[str, object]] = data.get("meta") or {}
 
@@ -323,9 +330,9 @@ def get_stats_map() -> Dict[str, Dict[str, object]]:
 # add_user_tag/remove_user_tag removed; user-defined tags are not persisted anymore
 
 
-def get_added_at_map() -> Dict[str, int]:
+def get_added_at_map(user_id: str | None = None) -> Dict[str, int]:
     """Return a mapping of name -> added_at unix timestamp (if known)."""
-    data = _load_raw()
+    data = _load_raw(user_id)
     meta: Dict[str, Dict[str, object]] = data.get("meta") or {}
     out: Dict[str, int] = {}
     for n, info in meta.items():
@@ -338,12 +345,12 @@ def get_added_at_map() -> Dict[str, int]:
     return out
 
 
-def remove_names(names: Iterable[str]) -> Tuple[int, int]:
+def remove_names(names: Iterable[str], user_id: str | None = None) -> Tuple[int, int]:
     """Remove a batch of names; returns (removed_count, total_after)."""
     target = {str(n).strip().lower() for n in (names or []) if str(n).strip()}
     if not target:
-        return 0, len(get_names())
-    data = _load_raw()
+        return 0, len(get_names(user_id))
+    data = _load_raw(user_id)
     cur = [str(x).strip() for x in (data.get("names") or []) if str(x).strip()]
     before = len(cur)
     cur_kept: List[str] = []
@@ -362,7 +369,7 @@ def remove_names(names: Iterable[str]) -> Tuple[int, int]:
         except Exception:
             continue
     data["meta"] = meta
-    _save_raw(data)
+    _save_raw(data, user_id)
     return removed, len(cur_kept)
 
 

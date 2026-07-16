@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="auth-page">
+  <div class="auth-card">
+    <h2>Log In</h2>
+
+    {% if reset_success %}
+    <div class="auth-success">Your password has been reset. Please log in.</div>
+    {% endif %}
+
+    {% if error %}
+    <div class="auth-error">{{ error }}</div>
+    {% endif %}
+
+    <form method="post" action="/auth/login" autocomplete="on">
+      <div style="display:flex; flex-direction:column; gap:1rem;">
+        <div class="auth-field">
+          <label for="login">Username or Email</label>
+          <input class="form-input" type="text" id="login" name="login" required autocomplete="username" autofocus>
+        </div>
+        <div class="auth-field">
+          <label for="password">Password</label>
+          <input class="form-input" type="password" id="password" name="password" required autocomplete="current-password">
+        </div>
+        <div class="auth-actions">
+          <button type="submit" class="btn">Log In</button>
+          <a href="/auth/forgot" class="auth-link">Forgot password?</a>
+        </div>
+      </div>
+    </form>
+
+    <p class="auth-alt">Don't have an account? <a href="/auth/register">Sign Up</a></p>
+  </div>
+</div>
+{% endblock %}

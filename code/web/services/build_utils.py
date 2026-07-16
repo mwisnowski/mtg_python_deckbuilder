@@ -147,7 +147,7 @@ def owned_names() -> list[str]:
         return []
 
 
-def start_ctx_from_session(sess: dict, *, set_on_session: bool = True) -> Dict[str, Any]:
+def start_ctx_from_session(sess: dict, *, set_on_session: bool = True, deck_dir: str | None = None) -> Dict[str, Any]:
     """Create a staged build context from the current session selections.
 
     Pulls commander, tags, bracket, ideals, tag_mode, ownership flags, locks, custom name,
@@ -167,6 +167,7 @@ def start_ctx_from_session(sess: dict, *, set_on_session: bool = True) -> Dict[s
     partner_enabled = bool(sess.get("partner_enabled")) and _app_bool("ENABLE_PARTNER_MECHANICS", True)
     secondary_commander = sess.get("secondary_commander") if partner_enabled else None
     background_choice = sess.get("background") if partner_enabled else None
+    resolved_deck_dir = deck_dir or str(sess.get("deck_dir") or "deck_files")
     ctx = orch.start_build_ctx(
         commander=sess.get("commander"),
         tags=sess.get("tags", []),
@@ -178,6 +179,7 @@ def start_ctx_from_session(sess: dict, *, set_on_session: bool = True) -> Dict[s
         owned_names=owned_names_list,
         locks=list(sess.get("locks", [])),
         custom_export_base=sess.get("custom_export_base"),
+        deck_dir=resolved_deck_dir,
         multi_copy=sess.get("multi_copy"),
         prefer_combos=bool(sess.get("prefer_combos")),
         combo_target_count=int(sess.get("combo_target_count", 2)),

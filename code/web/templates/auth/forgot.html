@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="auth-page">
+  <div class="auth-card">
+    <h2>Forgot Password</h2>
+
+    {% if submitted %}
+    <div class="auth-success">
+      If that email is registered, you'll receive a reset link shortly.
+      {% if not error %}Check your inbox (or server logs if SMTP isn't configured).{% endif %}
+    </div>
+    <p class="auth-alt"><a href="/auth/login">Back to Log In</a></p>
+
+    {% elif not smtp_configured %}
+    <div class="auth-error">
+      Password reset by email is not configured on this server.<br>
+      Please contact an administrator to have your password reset.
+    </div>
+    <p class="auth-alt"><a href="/auth/login">Back to Log In</a></p>
+
+    {% else %}
+
+    {% if error %}
+    <div class="auth-error">{{ error }}</div>
+    {% endif %}
+
+    <p style="margin:0; font-size:.9rem; color:var(--muted);">Enter your email address and we'll send you a link to reset your password.</p>
+
+    <form method="post" action="/auth/forgot">
+      <div style="display:flex; flex-direction:column; gap:1rem;">
+        <div class="auth-field">
+          <label for="email">Email</label>
+          <input class="form-input" type="email" id="email" name="email" required autocomplete="email" autofocus>
+        </div>
+        <div class="auth-actions">
+          <button type="submit" class="btn">Send Reset Link</button>
+          <a href="/auth/login" class="auth-link">Back to Log In</a>
+        </div>
+      </div>
+    </form>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

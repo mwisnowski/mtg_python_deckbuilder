@@ -365,10 +365,36 @@ See `.env.example` for the full catalog. Common knobs:
 
 Advanced editorial and theme-catalog knobs (`EDITORIAL_*`, `SPLASH_ADAPTIVE`, etc.) are documented inline in `docker-compose.yml` and `.env.example`.
 
+### User authentication & email
+
+Sensitive credentials (`SESSION_SECRET`, admin account, SMTP) belong in `secrets.env` — not in `docker-compose.yml`. Copy `secrets.env.example` to `secrets.env` and fill in your values; the file is gitignored and loaded automatically at compose startup.
+
+```bash
+cp secrets.env.example secrets.env
+# edit secrets.env with your actual values
+```
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `SESSION_SECRET` | _(random)_ | Secret key used to sign session cookies. **Set this in production** — if unset, a random key is generated on each restart, invalidating all existing sessions. Generate with `openssl rand -hex 32`. Set in `secrets.env`. |
+| `SESSION_SECURE_COOKIES` | `0` | Set to `1` to add the `Secure` flag to session cookies (requires HTTPS). |
+| `ADMIN_USERNAME` | _(unset)_ | Username for the env-based admin account. If unset, no synthetic admin exists. Set in `secrets.env`. |
+| `ADMIN_PASSWORD` | _(unset)_ | Password for the env-based admin account. Set in `secrets.env`. |
+| `ADMIN_ENABLED` | `1` | Set to `0` to disable the env-based admin after promoting a DB user to admin role. |
+| `ENABLE_SMTP` | `1` | Set to `0` to disable email delivery even when SMTP credentials are present in `secrets.env`. |
+| `SMTP_HOST` | _(unset)_ | SMTP server hostname. If unset (or `ENABLE_SMTP=0`), password-reset URLs are written to the app log instead of emailed. Set in `secrets.env`. |
+| `SMTP_PORT` | `587` | SMTP port. Use `587` for STARTTLS (default) or `465` for SSL. |
+| `SMTP_USERNAME` | _(unset)_ | SMTP login username. Set in `secrets.env`. |
+| `SMTP_PASSWORD` | _(unset)_ | SMTP login password. Set in `secrets.env`. |
+| `SMTP_FROM` | _(unset)_ | Sender address for emails (e.g. `noreply@example.com`). Set in `secrets.env`. |
+| `SMTP_TLS` | `1` | `1` = STARTTLS (default for port 587); `0` = plain. |
+| `SMTP_SSL` | `0` | `1` = SSL (use with port 465). |
+
 ## Shared volumes
 
 | Host path | Container path | Contents |
 | --- | --- | --- |
+| `data/` | `/app/data` | SQLite user database (`users.db`). Persist this volume to keep user accounts across restarts. |
 | `deck_files/` | `/app/deck_files` | CSV/TXT exports, summary JSON, compliance reports. |
 | `logs/` | `/app/logs` | Application logs and taxonomy snapshots. |
 | `csv_files/` | `/app/csv_files` | Card datasets, commander catalog, tagging flags. |
@@ -399,3 +425,7 @@ Use the `--compat-snapshot` or other script arguments as needed.
 - **Long first boot:** dataset downloads and tagging can take several minutes the first time. Watch progress at `/setup`.
 - **Random build hangs:** lower `RANDOM_MAX_ATTEMPTS` or raise `RANDOM_TIMEOUT_MS`, and confirm your theme overrides are valid slugs via `/themes/`.
 - **Commander catalog outdated:** rerun the refresh command above or delete `card_files/processed/.tagging_complete.json` to force a full rebuild on next start.
+- **Can't log in / sessions reset on restart:** confirm `SESSION_SECRET` is set in `secrets.env` and not left blank.
+- **Admin account not working:** verify `ADMIN_USERNAME` and `ADMIN_PASSWORD` are set in `secrets.env` (plain `KEY=VALUE` format, no quotes). Check that `ADMIN_ENABLED` is not `0`.
+- **Password-reset emails not arriving:** confirm `SMTP_HOST` is set and `ENABLE_SMTP=1` in `secrets.env`/`docker-compose.yml`. If SMTP is not configured, reset links are printed to the app log (`logs/`).
+- **Rate-limited login:** per-IP lockout (5 attempts/10 min) and per-username lockout (10 attempts/15 min) are in-memory and reset on container restart.

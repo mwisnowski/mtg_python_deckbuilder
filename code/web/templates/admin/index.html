@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-content">
+  <div style="display:flex; align-items:center; gap:1rem; margin-bottom:1rem;">
+    <h2 style="margin:0;">Admin — User Management</h2>
+    <a href="/admin/audit" class="btn btn-sm btn-ghost">Audit Log</a>
+  </div>
+
+  {% if error %}
+  <div class="auth-error" style="margin-bottom:1rem;">{{ error }}</div>
+  {% endif %}
+  {% if success %}
+  <div class="auth-success" style="margin-bottom:1rem;">{{ success }}</div>
+  {% endif %}
+
+  <!-- Create user -->
+  <section class="card" style="margin-bottom:1.5rem; padding:1.25rem;">
+    <h3 style="margin-top:0;">Create User</h3>
+    <form method="post" action="/admin/users/create" style="display:flex; flex-wrap:wrap; gap:0.75rem; align-items:flex-end;">
+      <div class="auth-field" style="flex:1; min-width:140px;">
+        <label for="new-username">Username</label>
+        <input class="form-input" type="text" id="new-username" name="username" required autocomplete="off">
+      </div>
+      <div class="auth-field" style="flex:1; min-width:180px;">
+        <label for="new-email">Email</label>
+        <input class="form-input" type="email" id="new-email" name="email" required autocomplete="off">
+      </div>
+      <div class="auth-field" style="flex:1; min-width:160px;">
+        <label for="new-password">Password</label>
+        <input class="form-input" type="password" id="new-password" name="password" required minlength="8" autocomplete="new-password">
+      </div>
+      <div>
+        <button type="submit" class="btn">Create</button>
+      </div>
+    </form>
+  </section>
+
+  <!-- User list -->
+  <section class="card" style="padding:1.25rem;">
+    <h3 style="margin-top:0;">Users ({{ users | length }})</h3>
+    {% if not users %}
+    <p style="color:var(--text-muted);">No non-guest accounts registered yet.</p>
+    {% else %}
+    {% set _me = request.state.current_user.id %}
+    <table style="width:100%; border-collapse:collapse; font-size:0.9rem;">
+      <thead>
+        <tr style="border-bottom:1px solid var(--border); text-align:left;">
+          <th style="padding:0.5rem 0.75rem;">Username</th>
+          <th style="padding:0.5rem 0.75rem;">Status</th>
+          <th style="padding:0.5rem 0.75rem; text-align:right;">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for u in users %}
+        {% set _is_self = (u.id == _me) %}
+        <tr style="border-bottom:1px solid var(--border-subtle, var(--border));{% if not u.is_active %} opacity:0.55;{% endif %}">
+          <td style="padding:0.5rem 0.75rem;">
+            {{ u.username }}
+            {% if u.is_admin %}<span style="margin-left:.4rem; padding:1px 6px; border-radius:999px; font-size:11px; font-weight:600; background:var(--blue-main); color:#fff;">Admin</span>{% endif %}
+            {% if _is_self %}<span style="margin-left:.4rem; padding:1px 6px; border-radius:999px; font-size:11px; color:var(--text-muted);">(you)</span>{% endif %}
+          </td>
+          <td style="padding:0.5rem 0.75rem; color:var(--text-muted);">{{ "Active" if u.is_active else "Inactive" }}</td>
+          <td style="padding:0.5rem 0.75rem; text-align:right; display:flex; gap:0.5rem; justify-content:flex-end; flex-wrap:wrap;">
+            <!-- Grant / revoke admin -->
+            {% if u.is_admin %}
+            <form method="post" action="/admin/users/{{ u.id }}/revoke-admin" onsubmit="return confirm('Revoke admin from {{ u.username }}?');">
+              <button type="submit" class="btn btn-sm btn-ghost" {% if _is_self %}disabled title="Cannot revoke your own admin access"{% endif %}>Revoke Admin</button>
+            </form>
+            {% else %}
+            <form method="post" action="/admin/users/{{ u.id }}/grant-admin" onsubmit="return confirm('Grant admin to {{ u.username }}?');">
+              <button type="submit" class="btn btn-sm btn-ghost">Grant Admin</button>
+            </form>
+            {% endif %}
+            <!-- Activate / deactivate -->
+            <form method="post" action="/admin/users/{{ u.id }}/toggle-active" onsubmit="return confirm('{% if u.is_active %}Deactivate{% else %}Activate{% endif %} user {{ u.username }}?');">
+              <button type="submit" class="btn btn-sm btn-ghost" {% if _is_self %}disabled title="Cannot deactivate your own account"{% endif %}>
+                {{ "Deactivate" if u.is_active else "Activate" }}
+              </button>
+            </form>
+            <!-- Change password (only when SMTP is not configured; otherwise users self-serve) -->
+            {% if not smtp_configured %}
+            <details style="display:inline-block; position:relative;">
+              <summary class="btn btn-sm btn-ghost" style="cursor:pointer; list-style:none;">Change Password</summary>
+              <div style="position:absolute; right:0; z-index:10; background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:0.75rem; min-width:220px; top:2rem;">
+                <form method="post" action="/admin/users/{{ u.id }}/password" style="display:flex; flex-direction:column; gap:0.5rem;">
+                  <input class="form-input" type="password" name="new_password" placeholder="New password (8+ chars)" required minlength="8" autocomplete="new-password">
+                  <button type="submit" class="btn btn-sm">Set Password</button>
+                </form>
+              </div>
+            </details>
+            {% endif %}
+            <!-- Delete -->
+            <form method="post" action="/admin/users/{{ u.id }}/delete" onsubmit="return confirm('Delete user {{ u.username }}? This cannot be undone.');">
+              <button type="submit" class="btn btn-sm" style="background:var(--danger, #c0392b); color:#fff; border-color:var(--danger, #c0392b);">Delete</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

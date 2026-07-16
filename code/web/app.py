@@ -22,6 +22,9 @@ from .services.combo_utils import detect_all as _detect_all
 from .services.theme_catalog_loader import prewarm_common_filters, load_index
 from .services.commander_catalog_loader import load_commander_catalog
 from .services.tasks import get_session, new_sid, set_session_value
+from .services.user_db import init_db, ensure_guest_user
+from .services.audit_db import init_audit_db
+from .services.auth import AuthMiddleware
 from code.exceptions import DeckBuilderError
 from .utils.responses import deck_builder_error_response
 
@@ -43,6 +46,13 @@ async def _lifespan(app: FastAPI):  # pragma: no cover - simple infra glue
 
     Failures in warm tasks are intentionally swallowed to avoid blocking app start.
     """
+    # Initialise SQLite user store and ensure guest account exists
+    try:
+        init_db()
+        ensure_guest_user()
+        init_audit_db()
+    except Exception:
+        logger.exception("user_db: startup init failed — auth will not work")
     # Prewarm theme filter cache (guarded internally by env flag)
     try:
         prewarm_common_filters()
@@ -113,6 +123,7 @@ async def _lifespan(app: FastAPI):  # pragma: no cover - simple infra glue
 
 app = FastAPI(title="MTG Deckbuilder Web UI", lifespan=_lifespan)
 app.add_middleware(GZipMiddleware, minimum_size=500)
+app.add_middleware(AuthMiddleware)
 
 # Mount static if present
 if _STATIC_DIR.exists():
@@ -139,6 +150,10 @@ def _price_cache_built_at() -> "str | None":
         return None
 
 templates.env.globals["_price_cache_ts"] = _price_cache_built_at
+
+# Expose SMTP availability so templates can conditionally hide email-dependent UI
+from .services.email import is_smtp_configured as _is_smtp_configured
+templates.env.globals["smtp_configured"] = _is_smtp_configured()
 
 # Add custom Jinja2 filter for card image URLs
 def card_image_url(card_name: str, size: str = "normal") -> str:
@@ -951,7 +966,12 @@ async def request_id_middleware(request: Request, call_next):
 
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request) -> HTMLResponse:
-    return templates.TemplateResponse("home.html", {"request": request, "version": os.getenv("APP_VERSION", "dev")})
+    from .services.orchestrator import is_setup_ready
+    return templates.TemplateResponse("home.html", {
+        "request": request,
+        "version": os.getenv("APP_VERSION", "dev"),
+        "setup_ready": is_setup_ready(),
+    })
 
 
 @app.get("/docs/components", response_class=HTMLResponse)
@@ -2388,6 +2408,8 @@ from .routes import compare as compare_routes  # noqa: E402
 from .routes import api as api_routes  # noqa: E402
 from .routes import price as price_routes  # noqa: E402
 from .routes import docs as docs_routes  # noqa: E402
+from .routes import auth as auth_routes  # noqa: E402
+from .routes import admin as admin_routes  # noqa: E402
 app.include_router(build_routes.router)
 app.include_router(build_validation_routes.router, prefix="/build")
 app.include_router(build_multicopy_routes.router, prefix="/build")
@@ -2415,6 +2437,8 @@ app.include_router(compare_routes.router)
 app.include_router(docs_routes.router)
 app.include_router(api_routes.router)
 app.include_router(price_routes.router)
+app.include_router(auth_routes.router)
+app.include_router(admin_routes.router)
 
 # Warm validation cache early to reduce first-call latency in tests and dev
 try:
@@ -2605,8 +2629,10 @@ async def logs_page(
     level: str | None = Query(None),
 ) -> Response:
     if not SHOW_LOGS:
-        # Respect feature flag
         raise HTTPException(status_code=404, detail="Not Found")
+    _u = getattr(request.state, "current_user", None)
+    if not (_u and _u.get("is_admin")):
+        raise HTTPException(status_code=403, detail="Admin access required.")
     # Reuse status_logs logic
     data = await status_logs(tail=tail, q=q, level=level)
     lines: list[str]
@@ -2627,7 +2653,10 @@ async def logs_page(
 
 # Error trigger route for demoing HTMX/global error handling (feature-flagged)
 @app.get("/diagnostics/trigger-error")
-async def trigger_error(kind: str = Query("http")):
+async def trigger_error(request: Request, kind: str = Query("http")):
+    _u = getattr(request.state, "current_user", None)
+    if not (_u and _u.get("is_admin")):
+        raise HTTPException(status_code=403, detail="Admin access required.")
     if kind == "http":
         raise HTTPException(status_code=418, detail="Teapot: example error for testing")
     raise RuntimeError("Example unhandled error for testing")
@@ -2637,6 +2666,9 @@ async def trigger_error(kind: str = Query("http")):
 async def diagnostics_home(request: Request) -> HTMLResponse:
     if not SHOW_DIAGNOSTICS:
         raise HTTPException(status_code=404, detail="Not Found")
+    _u = getattr(request.state, "current_user", None)
+    if not (_u and _u.get("is_admin")):
+        raise HTTPException(status_code=403, detail="Admin access required.")
     # Build a sanitized context and pre-render to surface template errors clearly
     try:
         summary = load_merge_summary() or {"updated_at": None, "colors": {}}
@@ -2682,6 +2714,9 @@ async def diagnostics_perf(request: Request) -> HTMLResponse:
     """Synthetic scroll performance page (diagnostics only)."""
     if not SHOW_DIAGNOSTICS:
         raise HTTPException(status_code=404, detail="Not Found")
+    _u = getattr(request.state, "current_user", None)
+    if not (_u and _u.get("is_admin")):
+        raise HTTPException(status_code=403, detail="Admin access required.")
     return templates.TemplateResponse("diagnostics/perf.html", {"request": request})
 
 
@@ -2690,6 +2725,9 @@ async def diagnostics_quality(request: Request) -> HTMLResponse:
     """Theme catalog quality dashboard (diagnostics only)."""
     if not SHOW_DIAGNOSTICS:
         raise HTTPException(status_code=404, detail="Not Found")
+    _u = getattr(request.state, "current_user", None)
+    if not (_u and _u.get("is_admin")):
+        raise HTTPException(status_code=403, detail="Admin access required.")
     
     from .services.theme_catalog_loader import load_index as _load_idx
     

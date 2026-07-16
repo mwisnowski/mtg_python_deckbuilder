@@ -23,4 +23,9 @@ PyYAML>=6.0
 # Markdown rendering for web-accessible documentation
 markdown>=3.5.0
 
+# Auth / user accounts
+bcrypt>=4.0.0
+itsdangerous>=2.1.0
+aiosmtplib>=3.0.0
+
 # Development dependencies are in requirements-dev.txt

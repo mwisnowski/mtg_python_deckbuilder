@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-content">
+  <div style="display:flex; align-items:center; gap:1rem; margin-bottom:1rem;">
+    <h2 style="margin:0;">Audit Log</h2>
+    <a href="/admin/" class="btn btn-sm btn-ghost">&#8592; Users</a>
+  </div>
+
+  {% if not events %}
+  <p style="color:var(--text-muted);">No events recorded yet.</p>
+  {% else %}
+  <div style="overflow-x:auto;">
+    <table style="width:100%; border-collapse:collapse; font-size:0.85rem;">
+      <thead>
+        <tr style="border-bottom:1px solid var(--border); text-align:left;">
+          <th style="padding:0.4rem 0.75rem; white-space:nowrap;">Time</th>
+          <th style="padding:0.4rem 0.75rem;">Event</th>
+          <th style="padding:0.4rem 0.75rem;">User</th>
+          <th style="padding:0.4rem 0.75rem;">IP</th>
+          <th style="padding:0.4rem 0.75rem;">Detail</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for e in events %}
+        {% set _severity = "var(--danger, #c0392b)" if "failed" in e.event_type or "rate_limited" in e.event_type or "delete" in e.event_type else ("var(--blue-main)" if "login" == e.event_type or "register" == e.event_type else "var(--text-muted)") %}
+        <tr style="border-bottom:1px solid var(--border-subtle, var(--border));">
+          <td style="padding:0.4rem 0.75rem; white-space:nowrap; color:var(--text-muted);">{{ e.created_at_fmt }}</td>
+          <td style="padding:0.4rem 0.75rem;">
+            <span style="color:{{ _severity }}; font-weight:500;">{{ e.event_type }}</span>
+          </td>
+          <td style="padding:0.4rem 0.75rem;">{{ e.username or "—" }}</td>
+          <td style="padding:0.4rem 0.75rem; color:var(--text-muted);">{{ e.ip or "—" }}</td>
+          <td style="padding:0.4rem 0.75rem; color:var(--text-muted);">{{ e.detail or "" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p style="font-size:.8rem; color:var(--text-muted); margin-top:.75rem;">Showing up to 200 most recent events. Log is capped at 10 000 rows total.</p>
+  {% endif %}
+</div>
+{% endblock %}

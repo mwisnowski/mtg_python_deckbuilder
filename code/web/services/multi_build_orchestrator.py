@@ -151,7 +151,9 @@ class MultiBuildOrchestrator:
             "locks": set(config.get("locks", [])),
             "replace_mode": True,
             # Add build index to context for debugging
-            "batch_build_index": build_index
+            "batch_build_index": build_index,
+            # Thread per-user deck export directory through to the build context
+            "deck_dir": config.get("deck_dir") or "deck_files",
         }
         
         # Handle partner mechanics if present

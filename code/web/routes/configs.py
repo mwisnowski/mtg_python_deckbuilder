@@ -14,18 +14,33 @@ from ..services import orchestrator as orch
 router = APIRouter(prefix="/configs")
 
 
-def _config_dir() -> Path:
-    # Prefer explicit env var if provided, else default to ./config
+def _user_id(request) -> str:
+    """Return the scoped directory name for the current user."""
+    u = getattr(getattr(request, "state", None), "current_user", None)
+    if u and not u.get("is_guest") and u.get("id"):
+        return str(u["id"])
+    return "guest"
+
+
+def _deck_dir(user_id: str = "guest") -> Path:
+    p = os.getenv("DECK_EXPORTS")
+    if p:
+        return (Path(p) / user_id).resolve()
+    return (Path.cwd() / "deck_files" / user_id).resolve()
+
+
+def _config_dir(user_id: str = "guest") -> Path:
+    # Prefer explicit env var if provided, else default to ./config/{user_id}
     p = os.getenv("DECK_CONFIG")
     if p:
-        # If env points to a file, use its parent dir; else treat as dir
         pp = Path(p)
-        return (pp.parent if pp.suffix else pp).resolve()
-    return (Path.cwd() / "config").resolve()
+        base = pp.parent if pp.suffix else pp
+        return (base / user_id).resolve()
+    return (Path.cwd() / "config" / user_id).resolve()
 
 
-def _list_configs() -> list[dict]:
-    d = _config_dir()
+def _list_configs(user_id: str = "guest") -> list[dict]:
+    d = _config_dir(user_id)
     try:
         d.mkdir(parents=True, exist_ok=True)
     except Exception:
@@ -48,12 +63,13 @@ def _list_configs() -> list[dict]:
 
 @router.get("/", response_class=HTMLResponse)
 async def configs_index(request: Request) -> HTMLResponse:
-    items = _list_configs()
+    uid = _user_id(request)
+    items = _list_configs(uid)
     # Load example deck.json from the config directory, if present
     example_json = None
     example_name = "deck.json"
     try:
-        example_path = _config_dir() / example_name
+        example_path = _config_dir(uid) / example_name
         if example_path.exists() and example_path.is_file():
             example_json = example_path.read_text(encoding="utf-8")
     except Exception:
@@ -66,7 +82,8 @@ async def configs_index(request: Request) -> HTMLResponse:
 
 @router.get("/view", response_class=HTMLResponse)
 async def configs_view(request: Request, name: str) -> HTMLResponse:
-    base = _config_dir()
+    uid = _user_id(request)
+    base = _config_dir(uid)
     p = (base / name).resolve()
     # Safety: ensure the resolved path is within config dir
     try:
@@ -77,14 +94,14 @@ async def configs_view(request: Request, name: str) -> HTMLResponse:
     if not (p.exists() and p.is_file() and p.suffix.lower() == ".json"):
         return templates.TemplateResponse(
             "configs/index.html",
-            {"request": request, "items": _list_configs(), "error": "Config not found."},
+            {"request": request, "items": _list_configs(uid), "error": "Config not found."},
         )
     try:
         data = json.loads(p.read_text(encoding="utf-8"))
     except Exception as e:
         return templates.TemplateResponse(
             "configs/index.html",
-            {"request": request, "items": _list_configs(), "error": f"Failed to read JSON: {e}"},
+            {"request": request, "items": _list_configs(uid), "error": f"Failed to read JSON: {e}"},
         )
     return templates.TemplateResponse(
         "configs/view.html",
@@ -94,7 +111,8 @@ async def configs_view(request: Request, name: str) -> HTMLResponse:
 
 @router.post("/run", response_class=HTMLResponse)
 async def configs_run(request: Request, name: str = Form(...), use_owned_only: str | None = Form(None)) -> HTMLResponse:
-    base = _config_dir()
+    uid = _user_id(request)
+    base = _config_dir(uid)
     p = (base / name).resolve()
     try:
         if base not in p.parents and p != base:
@@ -104,14 +122,14 @@ async def configs_run(request: Request, name: str = Form(...), use_owned_only: s
     if not (p.exists() and p.is_file() and p.suffix.lower() == ".json"):
         return templates.TemplateResponse(
             "configs/index.html",
-            {"request": request, "items": _list_configs(), "error": "Config not found."},
+            {"request": request, "items": _list_configs(uid), "error": "Config not found."},
         )
     try:
         cfg = json.loads(p.read_text(encoding="utf-8"))
     except Exception as e:
         return templates.TemplateResponse(
             "configs/index.html",
-            {"request": request, "items": _list_configs(), "error": f"Failed to read JSON: {e}"},
+            {"request": request, "items": _list_configs(uid), "error": f"Failed to read JSON: {e}"},
         )
 
     commander = cfg.get("commander", "")
@@ -177,13 +195,15 @@ async def configs_run(request: Request, name: str = Form(...), use_owned_only: s
         bracket=bracket,
         ideals=ideals,
         tag_mode=tag_mode,
-    use_owned_only=owned_flag,
+        use_owned_only=owned_flag,
         owned_names=owned_names,
         # Thread combo prefs through staged headless run
         prefer_combos=prefer_combos,
         combo_target_count=combo_target_count,
         combo_balance=combo_balance,
+        deck_dir=str(_deck_dir(uid)),
     )
+
     if not res.get("ok"):
         return templates.TemplateResponse(
             "configs/run_result.html",
@@ -228,10 +248,11 @@ async def configs_upload(request: Request, file: UploadFile = File(...)) -> HTML
     except Exception as e:
         return templates.TemplateResponse(
             "configs/index.html",
-            {"request": request, "items": _list_configs(), "error": f"Invalid JSON: {e}"},
+            {"request": request, "items": _list_configs(_user_id(request)), "error": f"Invalid JSON: {e}"},
         )
     # Save to config dir with original filename (or unique)
-    d = _config_dir()
+    uid = _user_id(request)
+    d = _config_dir(uid)
     d.mkdir(parents=True, exist_ok=True)
     fname = file.filename or "config.json"
     out = d / fname
@@ -243,5 +264,5 @@ async def configs_upload(request: Request, file: UploadFile = File(...)) -> HTML
     out.write_text(json.dumps(data, indent=2), encoding="utf-8")
     return templates.TemplateResponse(
         "configs/index.html",
-        {"request": request, "items": _list_configs(), "notice": f"Uploaded {out.name}"},
+        {"request": request, "items": _list_configs(uid), "notice": f"Uploaded {out.name}"},
     )

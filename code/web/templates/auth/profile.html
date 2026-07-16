@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="auth-page">
+  <div class="auth-card">
+    <h2>Your Profile</h2>
+
+    <div style="margin-bottom:1.25rem; font-size:.9rem; color:var(--text-muted);">
+      <strong>Username:</strong> {{ request.state.current_user.username }}
+    </div>
+
+    {% if request.state.current_user.id == "__admin__" %}
+    <div class="auth-error">
+      The admin account password is managed via environment variables and cannot be changed here.
+    </div>
+    <p class="auth-alt"><a href="/">Back to Home</a></p>
+
+    {% else %}
+
+    <h3 style="margin-top:0; margin-bottom:1rem;">Change Password</h3>
+
+    {% if success %}
+    <div class="auth-success">{{ success }}</div>
+    {% endif %}
+    {% if error %}
+    <div class="auth-error">{{ error }}</div>
+    {% endif %}
+
+    <form method="post" action="/auth/profile/password" autocomplete="on">
+      <div style="display:flex; flex-direction:column; gap:1rem;">
+        <div class="auth-field">
+          <label for="current_password">Current Password</label>
+          <input class="form-input" type="password" id="current_password" name="current_password"
+                 required autocomplete="current-password" autofocus>
+        </div>
+        <div class="auth-field">
+          <label for="new_password">New Password</label>
+          <input class="form-input" type="password" id="new_password" name="new_password"
+                 required minlength="8" autocomplete="new-password">
+        </div>
+        <div class="auth-field">
+          <label for="confirm">Confirm New Password</label>
+          <input class="form-input" type="password" id="confirm" name="confirm"
+                 required minlength="8" autocomplete="new-password">
+        </div>
+        <div class="auth-actions">
+          <button type="submit" class="btn">Update Password</button>
+          <a href="/" class="auth-link">Cancel</a>
+        </div>
+      </div>
+    </form>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

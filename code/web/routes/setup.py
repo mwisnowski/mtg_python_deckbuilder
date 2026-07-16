@@ -3,13 +3,18 @@ from __future__ import annotations
 import threading
 from typing import Optional
 from fastapi import APIRouter, Request
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from pathlib import Path
 import json as _json
-from fastapi.responses import HTMLResponse, JSONResponse
 from ..app import templates
 from ..services.orchestrator import _ensure_setup_ready
 
 router = APIRouter(prefix="/setup")
+
+
+def _require_admin(request: Request) -> bool:
+    user = getattr(request.state, "current_user", None)
+    return bool(user and user.get("is_admin"))
 
 
 def _kickoff_setup_async(force: bool = False):
@@ -37,7 +42,8 @@ def _kickoff_setup_async(force: bool = False):
 
 @router.get("/running", response_class=HTMLResponse)
 async def setup_running(request: Request, start: Optional[int] = 0, next: Optional[str] = None, force: Optional[bool] = None) -> HTMLResponse:
-    # Optionally start the setup/tagging in the background if requested
+    if not _require_admin(request):
+        return RedirectResponse("/auth/login", status_code=303)
     try:
         if start and int(start) != 0:
             # honor optional force flag from query
@@ -60,6 +66,8 @@ async def setup_running(request: Request, start: Optional[int] = 0, next: Option
 @router.post("/start")
 async def setup_start(request: Request):
     """POST endpoint for setup/tagging. Accepts JSON body {"force": true/false} or query string ?force=1"""
+    if not _require_admin(request):
+        return JSONResponse({"ok": False, "error": "Admin required"}, status_code=403)
     force = False
     try:
         # Try to parse JSON body first
@@ -96,28 +104,26 @@ async def setup_start_get(request: Request):
 
     Useful as a fallback from clients that cannot POST JSON.
     """
+    if not _require_admin(request):
+        return JSONResponse({"ok": False, "error": "Admin required"}, status_code=403)
+    force = False
     try:
-        # Determine force from query params
-        force = False
-        try:
-            q_force = request.query_params.get('force')
-            if q_force is not None:
-                force = q_force.strip().lower() in {"1", "true", "yes", "on"}
-        except Exception:
-            pass
-        # Write immediate status so UI reflects the start
-        try:
-            p = Path("csv_files")
-            p.mkdir(parents=True, exist_ok=True)
-            status = {"running": True, "phase": "setup", "message": "Starting setup/tagging...", "color": None}
-            with (p / ".setup_status.json").open('w', encoding='utf-8') as f:
-                _json.dump(status, f)
-        except Exception:
-            pass
-        _kickoff_setup_async(force=bool(force))
-        return JSONResponse({"ok": True, "started": True, "force": bool(force)}, status_code=202)
+        q_force = request.query_params.get('force')
+        if q_force is not None:
+            force = q_force.strip().lower() in {"1", "true", "yes", "on"}
     except Exception:
-        return JSONResponse({"ok": False}, status_code=500)
+        pass
+    # Write immediate status so UI reflects the start
+    try:
+        p = Path("csv_files")
+        p.mkdir(parents=True, exist_ok=True)
+        status = {"running": True, "phase": "setup", "message": "Starting setup/tagging...", "color": None}
+        with (p / ".setup_status.json").open('w', encoding='utf-8') as f:
+            _json.dump(status, f)
+    except Exception:
+        pass
+    _kickoff_setup_async(force=bool(force))
+    return JSONResponse({"ok": True, "started": True, "force": bool(force)}, status_code=202)
 
 
 @router.post("/download-github")
@@ -244,6 +250,8 @@ async def refresh_rulings():
 
 @router.get("/", response_class=HTMLResponse)
 async def setup_index(request: Request) -> HTMLResponse:
+    if not _require_admin(request):
+        return RedirectResponse("/auth/login", status_code=303)
     import code.settings as settings
     from code.file_setup.image_cache import ImageCache
     from code.web.services.price_service import get_price_service

@@ -4,10 +4,17 @@ from fastapi import APIRouter, Request, UploadFile, File, Query
 from fastapi.responses import HTMLResponse, Response
 from ..app import templates
 from ..services import owned_store as store
-# Session helpers are not required for owned routes
 
 
 router = APIRouter(prefix="/owned")
+
+
+def _user_id(request: Request) -> str:
+    """Return the store key for the current user (UUID or 'guest')."""
+    u = getattr(request.state, "current_user", None)
+    if u and not u.get("is_guest") and u.get("id"):
+        return str(u["id"])
+    return "guest"
 
 
 def _canon_color_code(seq: list[str] | tuple[str, ...]) -> str:
@@ -71,12 +78,10 @@ def _build_color_combos(names_sorted: list[str], colors_by_name: dict[str, list[
 
 
 def _build_owned_context(request: Request, notice: str | None = None, error: str | None = None) -> dict:
-    """Build the template context for the Owned Library page, including
-    enrichment from csv_files and filter option lists.
-    """
-    # Read enriched data from the store (fast path; avoids per-request CSV parsing)
-    names, tags_by_name, type_by_name, colors_by_name = store.get_enriched()
-    added_at_map = store.get_added_at_map()
+    """Build the template context for the Owned Library page."""
+    uid = _user_id(request)
+    names, tags_by_name, type_by_name, colors_by_name = store.get_enriched(uid)
+    added_at_map = store.get_added_at_map(uid)
     # Default sort by name (case-insensitive)
     names_sorted = sorted(names, key=lambda s: s.lower())
     # Build filter option sets
@@ -151,7 +156,7 @@ async def owned_index(
 
     # CMC / Power / Toughness range filters
     if cmc_min or cmc_max or power_min or power_max or tough_min or tough_max:
-        stats_map = store.get_stats_map()
+        stats_map = store.get_stats_map(_user_id(request))
 
         def _to_float(s: str) -> float | None:
             try:
@@ -227,7 +232,7 @@ async def owned_upload(request: Request, file: UploadFile = File(...)) -> HTMLRe
         else:
             names = store.parse_txt_bytes(content)
         # Add and enrich immediately so the page doesn't need to parse CSVs
-        added, total = store.add_and_enrich(names)
+        added, total = store.add_and_enrich(names, _user_id(request))
         notice = f"Added {added} new name(s). Total: {total}."
         ctx = _build_owned_context(request, notice=notice)
         return templates.TemplateResponse("owned/index.html", ctx)
@@ -239,7 +244,7 @@ async def owned_upload(request: Request, file: UploadFile = File(...)) -> HTMLRe
 @router.post("/clear", response_class=HTMLResponse)
 async def owned_clear(request: Request) -> HTMLResponse:
     try:
-        store.clear()
+        store.clear(_user_id(request))
         ctx = _build_owned_context(request, notice="Library cleared.")
         return templates.TemplateResponse("owned/index.html", ctx)
     except Exception as e:
@@ -265,7 +270,7 @@ async def owned_remove(request: Request) -> HTMLResponse:
             raw = form.get("names") or ""
             if raw:
                 names = [s.strip() for s in str(raw).split(',') if s.strip()]
-        removed, total = store.remove_names(names)
+        removed, total = store.remove_names(names, _user_id(request))
         notice = f"Removed {removed} name(s). Total: {total}."
         ctx = _build_owned_context(request, notice=notice)
         return templates.TemplateResponse("owned/index.html", ctx)
@@ -279,11 +284,12 @@ async def owned_remove(request: Request) -> HTMLResponse:
 
 @router.get("/search-autocomplete", response_class=HTMLResponse)
 async def owned_search_autocomplete(
+    request: Request,
     q: str = Query(..., min_length=2),
     limit: int = Query(10, ge=1, le=20),
 ) -> HTMLResponse:
     """Return card name suggestions from the owned library for the search autocomplete."""
-    names, _, _, _ = store.get_enriched()
+    names, _, _, _ = store.get_enriched(_user_id(request))
     ql = q.strip().lower()
     matches = [n for n in names if ql in n.lower()][:limit]
     if not matches:
@@ -304,9 +310,9 @@ Note: Per request, all user tag add/remove endpoints have been removed.
 
 
 @router.get("/export")
-async def owned_export_txt() -> Response:
+async def owned_export_txt(request: Request) -> Response:
     """Download the owned library as a simple TXT (one name per line)."""
-    names, _, _, _ = store.get_enriched()
+    names, _, _, _ = store.get_enriched(_user_id(request))
     # Stable case-insensitive sort
     lines = "\n".join(sorted((names or []), key=lambda s: s.lower()))
     return Response(
@@ -317,9 +323,9 @@ async def owned_export_txt() -> Response:
 
 
 @router.get("/export.csv")
-async def owned_export_csv() -> Response:
+async def owned_export_csv(request: Request) -> Response:
     """Download the owned library with enrichment as CSV (Name,Type,Colors,Tags)."""
-    names, tags_by_name, type_by_name, colors_by_name = store.get_enriched()
+    names, tags_by_name, type_by_name, colors_by_name = store.get_enriched(_user_id(request))
     # Prepare CSV content
     import csv
     from io import StringIO
@@ -385,7 +391,7 @@ async def owned_export_visible_csv(request: Request) -> Response:
             if raw:
                 names = [s.strip() for s in str(raw).split(',') if s.strip()]
         # Build CSV using current enrichment
-        all_names, tags_by_name, type_by_name, colors_by_name = store.get_enriched()
+        all_names, tags_by_name, type_by_name, colors_by_name = store.get_enriched(_user_id(request))
         import csv
         from io import StringIO
         buf = StringIO()

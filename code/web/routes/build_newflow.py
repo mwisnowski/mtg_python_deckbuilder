@@ -44,6 +44,18 @@ from ..services import custom_theme_manager as theme_mgr
 router = APIRouter()
 
 
+def _user_deck_dir(request: Request) -> str:
+    """Return the scoped deck export directory string for the current user."""
+    import os
+    from pathlib import Path
+    u = getattr(getattr(request, "state", None), "current_user", None)
+    uid = str(u["id"]) if (u and not u.get("is_guest") and u.get("id")) else "guest"
+    base = os.getenv("DECK_EXPORTS")
+    if base:
+        return str((Path(base) / uid).resolve())
+    return str((Path.cwd() / "deck_files" / uid).resolve())
+
+
 # Pre-built JS-serialisable map of multi-copy archetypes for client-side popup detection.
 # Keys are lowercased card names; values contain what the popup needs.
 _ARCHETYPE_JS_MAP: dict[str, dict] = {
@@ -1012,6 +1024,7 @@ async def build_new_submit(
     if "replace_mode" not in sess:
         sess["replace_mode"] = True
     # Centralized staged context creation
+    sess["deck_dir"] = _user_deck_dir(request)
     sess["build_ctx"] = start_ctx_from_session(sess)
     
     # Validate and normalize build_count
@@ -1089,6 +1102,9 @@ async def build_new_submit(
             logging.getLogger(__name__).warning(f"[Batch] Failed to load color identity for {sess.get('commander')}: {e}")
             pass  # Not critical, synergy builder will skip basics if missing
         
+        # Include per-user deck directory so batch builds export to the right path
+        batch_config["deck_dir"] = _user_deck_dir(request)
+
         # Queue the batch
         batch_id = queue_builds(batch_config, build_count, sid)
         

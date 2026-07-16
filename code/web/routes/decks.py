@@ -17,30 +17,39 @@ from ..app import ENABLE_BUDGET_MODE, ENABLE_PREFETCH
 router = APIRouter(prefix="/decks")
 
 
-def _deck_dir() -> Path:
-    # Prefer explicit env var if provided, else default to ./deck_files
+def _user_id(request: Request) -> str:
+    """Return the scoped directory name for the current user.
+
+    Authenticated users get their UUID; everyone else (including guest) uses 'guest'.
+    """
+    u = getattr(request.state, "current_user", None)
+    if u and not u.get("is_guest") and u.get("id"):
+        return str(u["id"])
+    return "guest"
+
+
+def _deck_dir(user_id: str = "guest") -> Path:
+    # Prefer explicit env var if provided, else default to ./deck_files/{user_id}
     p = os.getenv("DECK_EXPORTS")
     if p:
-        return Path(p).resolve()
-    return (Path.cwd() / "deck_files").resolve()
+        return (Path(p) / user_id).resolve()
+    return (Path.cwd() / "deck_files" / user_id).resolve()
 
 
-def _list_decks() -> list[dict]:
-    d = _deck_dir()
+def _list_from_dir(d: Path) -> list[dict]:
+    """Read CSV deck entries from a single directory."""
     try:
         d.mkdir(parents=True, exist_ok=True)
     except Exception:
         pass
     items: list[dict] = []
-    # Prefer CSV entries and pair with matching TXT if present
     for p in sorted(d.glob("*.csv"), key=lambda x: x.stat().st_mtime, reverse=True):
-        meta = {"name": p.name, "path": str(p), "mtime": p.stat().st_mtime}
+        meta: dict = {"name": p.name, "path": str(p), "mtime": p.stat().st_mtime}
         stem = p.stem
         txt = p.with_suffix('.txt')
         if txt.exists():
             meta["txt_name"] = txt.name
             meta["txt_path"] = str(txt)
-        # Prefer sidecar summary meta if present
         sidecar = p.with_suffix('.summary.json')
         if sidecar.exists():
             try:
@@ -55,7 +64,6 @@ def _list_decks() -> list[dict]:
                     meta["source"] = _m.get('source')
             except Exception:
                 pass
-        # Fallback to parsing commander/themes from filename convention Commander_Themes_YYYYMMDD
         if not meta.get("commander"):
             parts = stem.split('_')
             if len(parts) >= 3:
@@ -66,6 +74,78 @@ def _list_decks() -> list[dict]:
                 meta["tags"] = []
         items.append(meta)
     return items
+
+
+def _list_decks(user_id: str = "guest") -> list[dict]:
+    """Return decks from the user-scoped directory."""
+    return _list_from_dir(_deck_dir(user_id))
+
+
+def _list_guest_decks() -> list[dict]:
+    """Return decks from the shared guest directory (visible to all users)."""
+    return _list_from_dir(_deck_dir("guest"))
+
+
+def _list_legacy_decks() -> list[dict]:
+    """Return CSV files sitting directly in the root deck_files/ directory.
+
+    These are pre-auth builds that landed in the root before user accounts
+    were introduced.  They are visible to everyone.
+    """
+    root = Path(os.getenv("DECK_EXPORTS") or "deck_files").resolve()
+    if not root.exists():
+        return []
+    # Only files directly in root (not in sub-dirs like guest/ or uuid/)
+    return _list_from_dir(root)
+
+
+def _deck_base_for_section(uid: str, section: str) -> Path:
+    """Return the validated base directory for a given section key."""
+    if section == "guest":
+        return _deck_dir("guest")
+    if section == "legacy":
+        return Path(os.getenv("DECK_EXPORTS") or "deck_files").resolve()
+    return _deck_dir(uid)  # "mine" or unrecognised → user's own dir
+
+
+def _index_sections(uid: str) -> list[dict]:
+    """Build the ordered sections list for the deck index page."""
+    is_guest = uid == "guest"
+    sections = []
+
+    my_decks = _list_decks(uid)
+    sections.append({
+        "id": "mine",
+        "label": "Decks" if is_guest else "My Decks",
+        "subtitle": None if is_guest else "Decks built with your account.",
+        "decks": my_decks,
+    })
+
+    if not is_guest:
+        guest_decks = _list_guest_decks()
+        if guest_decks:
+            sections.append({
+                "id": "guest",
+                "label": "Community Builds",
+                "subtitle": "Decks built while not logged in — visible to everyone.",
+                "decks": guest_decks,
+            })
+
+    legacy_decks = _list_legacy_decks()
+    if legacy_decks:
+        # For legacy, exclude any files that are already the user's own deck (same filename)
+        my_names = {d["name"] for d in my_decks}
+        guest_names = {d["name"] for sec in sections if sec["id"] == "guest" for d in sec["decks"]}
+        filtered = [d for d in legacy_decks if d["name"] not in my_names and d["name"] not in guest_names]
+        if filtered:
+            sections.append({
+                "id": "legacy",
+                "label": "Legacy Decks",
+                "subtitle": "Decks from before user accounts were added — visible to everyone.",
+                "decks": filtered,
+            })
+
+    return sections
 
 
 def _safe_within(base: Path, target: Path) -> bool:
@@ -260,16 +340,17 @@ def _read_deck_counts(csv_path: Path) -> Dict[str, int]:
 
 @router.get("/", response_class=HTMLResponse)
 async def decks_index(request: Request) -> HTMLResponse:
-    items = _list_decks()
-    return templates.TemplateResponse("decks/index.html", {"request": request, "items": items})
+    uid = _user_id(request)
+    return templates.TemplateResponse("decks/index.html", {"request": request, "sections": _index_sections(uid)})
 
 
 @router.get("/view", response_class=HTMLResponse)
-async def decks_view(request: Request, name: str) -> HTMLResponse:
-    base = _deck_dir()
+async def decks_view(request: Request, name: str, section: str = "mine") -> HTMLResponse:
+    uid = _user_id(request)
+    base = _deck_base_for_section(uid, section)
     p = (base / name).resolve()
     if not _safe_within(base, p) or not (p.exists() and p.is_file() and p.suffix.lower() == ".csv"):
-        return templates.TemplateResponse("decks/index.html", {"request": request, "items": _list_decks(), "error": "Deck not found."})
+        return templates.TemplateResponse("decks/index.html", {"request": request, "sections": _index_sections(uid), "error": "Deck not found."})
 
     # Try to load sidecar summary JSON first
     summary = None
@@ -455,14 +536,16 @@ async def decks_view(request: Request, name: str) -> HTMLResponse:
 
 @router.get("/compare", response_class=HTMLResponse)
 async def decks_compare(request: Request, A: Optional[str] = None, B: Optional[str] = None) -> HTMLResponse:
-    """Compare two finished deck CSVs and show diffs.
+    """
+    Compare two finished deck CSVs and show diffs.
 
     Query params:
       - A: filename of first deck (e.g., Alena_..._20250827.csv)
       - B: filename of second deck
     """
-    base = _deck_dir()
-    items = _list_decks()
+    uid = _user_id(request)
+    base = _deck_dir(uid)
+    items = _list_decks(uid)
     # Build select options with friendly display labels
     options: List[Dict[str, str]] = []
     for it in items:
@@ -539,12 +622,13 @@ async def decks_compare(request: Request, A: Optional[str] = None, B: Optional[s
 @router.get("/pickups", response_class=HTMLResponse)
 async def decks_pickups(request: Request, name: str) -> HTMLResponse:
     """Show the pickups list for a deck that was built with budget mode enabled."""
-    base = _deck_dir()
+    uid = _user_id(request)
+    base = _deck_dir(uid)
     p = (base / name).resolve()
     if not _safe_within(base, p) or not (p.exists() and p.is_file() and p.suffix.lower() == ".csv"):
         return templates.TemplateResponse(
             "decks/index.html",
-            {"request": request, "items": _list_decks(), "error": "Deck not found."},
+            {"request": request, "sections": _index_sections(uid), "error": "Deck not found."},
         )
 
     meta_info: Dict[str, Any] = {}
@@ -627,9 +711,10 @@ async def decks_pickups(request: Request, name: str) -> HTMLResponse:
 
 
 @router.get("/download-csv")
-async def decks_download_csv(name: str) -> Response:
+async def decks_download_csv(request: Request, name: str, section: str = "mine") -> Response:
     """Serve a CSV export with live prices fetched at download time."""
-    base = _deck_dir()
+    uid = _user_id(request)
+    base = _deck_base_for_section(uid, section)
     p = (base / name).resolve()
     if not _safe_within(base, p) or not (p.exists() and p.is_file() and p.suffix.lower() == ".csv"):
         return HTMLResponse("File not found", status_code=404)
@@ -683,3 +768,43 @@ async def decks_download_csv(name: str) -> Response:
         media_type="text/csv",
         headers={"Content-Disposition": f'attachment; filename="{p.name}"'},
     )
+
+
+@router.post("/delete")
+async def decks_delete(request: Request, name: str, section: str = "mine") -> Response:
+    """Delete a finished deck and its sidecars.
+
+    - 'mine' section: any authenticated (non-guest) user may delete their own decks.
+    - 'guest' / 'legacy' sections: admin only.
+    """
+    uid = _user_id(request)
+    user = getattr(request.state, "current_user", None)
+    is_admin = bool(user and user.get("is_admin"))
+    is_guest_user = not user or bool(user.get("is_guest"))
+
+    # Permission check
+    if section in ("guest", "legacy"):
+        if not is_admin:
+            return Response("Forbidden", status_code=403)
+    else:
+        # 'mine'
+        if is_guest_user:
+            return Response("Forbidden", status_code=403)
+
+    base = _deck_base_for_section(uid, section)
+    p = (base / name).resolve()
+    if not _safe_within(base, p) or not (p.exists() and p.is_file() and p.suffix.lower() == ".csv"):
+        return Response("Not found", status_code=404)
+
+    # Delete CSV + known sidecars
+    stem = p.stem
+    for suffix in (".csv", ".txt", ".summary.json", "_compliance.json"):
+        candidate = p.parent / (stem + suffix)
+        try:
+            if candidate.exists():
+                candidate.unlink()
+        except Exception:
+            pass
+
+    # Return empty 200 — HTMX will swap the panel out of the DOM
+    return Response("", status_code=200)

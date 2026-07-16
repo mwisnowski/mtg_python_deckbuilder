@@ -39,6 +39,18 @@ from .build_multicopy import _rebuild_ctx_with_multicopy
 router = APIRouter()
 
 
+def _user_deck_dir(request: Request) -> str:
+    """Return the scoped deck export directory string for the current user."""
+    import os
+    from pathlib import Path
+    u = getattr(getattr(request, "state", None), "current_user", None)
+    uid = str(u["id"]) if (u and not u.get("is_guest") and u.get("id")) else "guest"
+    base = os.getenv("DECK_EXPORTS")
+    if base:
+        return str((Path(base) / uid).resolve())
+    return str((Path.cwd() / "deck_files" / uid).resolve())
+
+
 def _merge_hx_trigger(response: Any, payload: dict[str, Any]) -> None:
     """Merge HX-Trigger header data into response."""
     if not payload or response is None:
@@ -968,6 +980,7 @@ async def build_step5_start(request: Request) -> HTMLResponse:
     try:
         import time as _time
         sess["build_id"] = str(int(_time.time() * 1000))
+        sess["deck_dir"] = _user_deck_dir(request)
         sess["build_ctx"] = start_ctx_from_session(sess)
         show_skipped = False
         try:
@@ -1014,6 +1027,7 @@ async def build_step5_continue(request: Request) -> HTMLResponse:
         return resp
     # Ensure build context exists; if not, start it first
     if not sess.get("build_ctx"):
+        sess["deck_dir"] = _user_deck_dir(request)
         sess["build_ctx"] = start_ctx_from_session(sess)
     else:
         # If context exists already, rebuild ONLY when the multi-copy selection changed or hasn't been applied yet
@@ -1105,6 +1119,7 @@ async def build_step5_rerun(request: Request) -> HTMLResponse:
         return resp
     # Rerun requires an existing context; if missing, create it and run first stage as rerun
     if not sess.get("build_ctx"):
+        sess["deck_dir"] = _user_deck_dir(request)
         sess["build_ctx"] = start_ctx_from_session(sess)
     else:
         # Ensure latest locks are reflected in the existing context
@@ -1207,6 +1222,7 @@ async def build_step5_rewind(request: Request, to: str = Form(...)) -> HTMLRespo
             ctx["last_visible_idx"] = int(target_i) - 1
     except Exception:
         # As a fallback, restart ctx and run forward until target
+        sess["deck_dir"] = _user_deck_dir(request)
         sess["build_ctx"] = start_ctx_from_session(sess)
         ctx = sess["build_ctx"]
         # Run forward until reaching target

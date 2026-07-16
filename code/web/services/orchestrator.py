@@ -1704,7 +1704,7 @@ def _ensure_setup_ready(out, force: bool = False) -> None:
             pass
 
 
-def run_build(commander: str, tags: List[str], bracket: int, ideals: Dict[str, int], tag_mode: str | None = None, *, use_owned_only: bool | None = None, prefer_owned: bool | None = None, owned_names: List[str] | None = None, prefer_combos: bool | None = None, combo_target_count: int | None = None, combo_balance: str | None = None) -> Dict[str, Any]:
+def run_build(commander: str, tags: List[str], bracket: int, ideals: Dict[str, int], tag_mode: str | None = None, *, use_owned_only: bool | None = None, prefer_owned: bool | None = None, owned_names: List[str] | None = None, prefer_combos: bool | None = None, combo_target_count: int | None = None, combo_balance: str | None = None, deck_dir: str = "deck_files") -> Dict[str, Any]:
     """Run the deck build end-to-end with provided selections and capture logs.
 
     Returns: { ok: bool, log: str, csv_path: Optional[str], txt_path: Optional[str], error: Optional[str] }
@@ -1981,7 +1981,7 @@ def run_build(commander: str, tags: List[str], bracket: int, ideals: Dict[str, i
             except Exception:
                 pass
             if hasattr(b, 'export_decklist_csv'):
-                csv_path = b.export_decklist_csv()
+                csv_path = b.export_decklist_csv(directory=deck_dir)
         except Exception as e:
             out(f"CSV export failed: {e}")
         try:
@@ -1989,7 +1989,7 @@ def run_build(commander: str, tags: List[str], bracket: int, ideals: Dict[str, i
                 # Try to mirror build_deck_full behavior by displaying the contents
                 import os as _os
                 base, _ext = _os.path.splitext(_os.path.basename(csv_path)) if csv_path else (f"deck_{b.timestamp}", "")
-                txt_path = b.export_decklist_text(filename=base + '.txt')
+                txt_path = b.export_decklist_text(directory=deck_dir, filename=base + '.txt')
                 try:
                     b._display_txt_contents(txt_path)
                 except Exception:
@@ -2009,19 +2009,7 @@ def run_build(commander: str, tags: List[str], bracket: int, ideals: Dict[str, i
                             b.enforce_and_reexport(base_stem=base, mode='auto')
                 except Exception:
                     pass
-                # Load compliance JSON for UI consumption
-                try:
-                    # Prefer the in-memory report (with enforcement plan) when available
-                    if rep0 is not None:
-                        compliance_obj = rep0
-                    else:
-                        import json as _json
-                        comp_path = _os.path.join('deck_files', f"{base}_compliance.json")
-                        if _os.path.exists(comp_path):
-                            with open(comp_path, 'r', encoding='utf-8') as _cf:
-                                compliance_obj = _json.load(_cf)
-                except Exception:
-                    compliance_obj = None
+                # Load compliance JSON for UI consumption\n                try:\n                    # Prefer the in-memory report (with enforcement plan) when available\n                    if rep0 is not None:\n                        compliance_obj = rep0\n                    else:\n                        import json as _json\n                        comp_path = _os.path.join(deck_dir, f\"{base}_compliance.json\")\n                        if _os.path.exists(comp_path):\n                            with open(comp_path, 'r', encoding='utf-8') as _cf:\n                                compliance_obj = _json.load(_cf)\n                except Exception:\n                    compliance_obj = None
         except Exception as e:
             out(f"Text export failed: {e}")
 
@@ -2549,6 +2537,7 @@ def start_build_ctx(
     owned_names: List[str] | None = None,
     locks: List[str] | None = None,
     custom_export_base: str | None = None,
+    deck_dir: str = "deck_files",
     multi_copy: Dict[str, Any] | None = None,
     prefer_combos: bool | None = None,
     combo_target_count: int | None = None,
@@ -2741,6 +2730,7 @@ def start_build_ctx(
     "history": [],  # list of {i, key, label, snapshot}
         "locks": {str(n).strip().lower() for n in (locks or []) if str(n).strip()},
     "custom_export_base": str(custom_export_base).strip() if isinstance(custom_export_base, str) and custom_export_base.strip() else None,
+        "deck_dir": str(deck_dir) if deck_dir else "deck_files",
         "swap_mdfc_basics": bool(swap_mdfc_basics),
     }
     return ctx
@@ -2797,6 +2787,7 @@ def run_stage(ctx: Dict[str, Any], rerun: bool = False, show_skipped: bool = Fal
 
     # If all stages done, finalize exports (interactive/manual build)
     if ctx["idx"] >= len(stages):
+        deck_dir = str(ctx.get("deck_dir") or "deck_files")
         # Apply custom export base if present in context
         try:
             custom_base = ctx.get("custom_export_base")
@@ -2806,14 +2797,14 @@ def run_stage(ctx: Dict[str, Any], rerun: bool = False, show_skipped: bool = Fal
             pass
         if not ctx.get("txt_path") and hasattr(b, 'export_decklist_text'):
             try:
-                ctx["csv_path"] = b.export_decklist_csv()
+                ctx["csv_path"] = b.export_decklist_csv(directory=deck_dir)
             except Exception as e:
                 logs.append(f"CSV export failed: {e}")
         if not ctx.get("txt_path") and hasattr(b, 'export_decklist_text'):
             try:
                 import os as _os
                 base, _ext = _os.path.splitext(_os.path.basename(ctx.get("csv_path") or f"deck_{b.timestamp}.csv"))
-                ctx["txt_path"] = b.export_decklist_text(filename=base + '.txt')
+                ctx["txt_path"] = b.export_decklist_text(directory=deck_dir, filename=base + '.txt')
                 # Export the run configuration JSON for manual builds
                 try:
                     b.export_run_config_json(directory='config', filename=base + '.json')
@@ -2840,7 +2831,7 @@ def run_stage(ctx: Dict[str, Any], rerun: bool = False, show_skipped: bool = Fal
                         ctx["compliance"] = rep0
                     else:
                         import json as _json
-                        comp_path = _os.path.join('deck_files', f"{base}_compliance.json")
+                        comp_path = _os.path.join(deck_dir, f"{base}_compliance.json")
                         if _os.path.exists(comp_path):
                             with open(comp_path, 'r', encoding='utf-8') as _cf:
                                 ctx["compliance"] = _json.load(_cf)
@@ -3685,6 +3676,7 @@ def run_stage(ctx: Dict[str, Any], rerun: bool = False, show_skipped: bool = Fal
 
     # If we reached here, all remaining stages were no-ops; finalize exports
     ctx["idx"] = len(stages)
+    deck_dir = str(ctx.get("deck_dir") or "deck_files")
     # Apply custom export base if present
     try:
         custom_base = ctx.get("custom_export_base")
@@ -3694,14 +3686,14 @@ def run_stage(ctx: Dict[str, Any], rerun: bool = False, show_skipped: bool = Fal
         pass
     if not ctx.get("csv_path") and hasattr(b, 'export_decklist_csv'):
         try:
-            ctx["csv_path"] = b.export_decklist_csv()
+            ctx["csv_path"] = b.export_decklist_csv(directory=deck_dir)
         except Exception as e:
             logs.append(f"CSV export failed: {e}")
     if not ctx.get("txt_path") and hasattr(b, 'export_decklist_text'):
         try:
             import os as _os
             base, _ext = _os.path.splitext(_os.path.basename(ctx.get("csv_path") or f"deck_{b.timestamp}.csv"))
-            ctx["txt_path"] = b.export_decklist_text(filename=base + '.txt')
+            ctx["txt_path"] = b.export_decklist_text(directory=deck_dir, filename=base + '.txt')
             # Export the run configuration JSON for manual builds
             try:
                 b.export_run_config_json(directory='config', filename=base + '.json')
@@ -3727,7 +3719,7 @@ def run_stage(ctx: Dict[str, Any], rerun: bool = False, show_skipped: bool = Fal
                     ctx["compliance"] = rep0
                 else:
                     import json as _json
-                    comp_path = _os.path.join('deck_files', f"{base}_compliance.json")
+                    comp_path = _os.path.join(deck_dir, f"{base}_compliance.json")
                     if _os.path.exists(comp_path):
                         with open(comp_path, 'r', encoding='utf-8') as _cf:
                             ctx["compliance"] = _json.load(_cf)

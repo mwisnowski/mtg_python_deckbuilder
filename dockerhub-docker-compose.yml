@@ -268,7 +268,25 @@ services:
       # Redis backend (optional)
       # THEME_PREVIEW_REDIS_URL: "redis://redis:6379/0"
       # THEME_PREVIEW_REDIS_DISABLE: "0"        # 1=force disable redis even if URL is set
+
+      # ------------------------------------------------------------------
+      # User Authentication
+      # SESSION_SECRET: required in production — set to a random 32-byte hex string.
+      #   Generate one with: openssl rand -hex 32
+      #   If unset, a random key is used each restart (all sessions invalidated).
+      # SESSION_SECURE_COOKIES: set to 1 when serving over HTTPS.
+      # SMTP_*: credentials go in secrets.env only — never in docker-compose.yml.
+      #   ENABLE_SMTP: 0 disables email even when credentials are present in secrets.env.
+      # ------------------------------------------------------------------
+
+      # Auth / Session
+      # SESSION_SECRET: "paste-64-char-hex-from-secrets-token-hex-32-here"  # Required in production
+      # SESSION_SECURE_COOKIES: "0"   # 1=Secure flag on session cookie (requires HTTPS)
+
+      # SMTP (credentials in secrets.env)
+      ENABLE_SMTP: "0"              # 1=enable email (requires SMTP_HOST in secrets.env); 0=disable
     volumes:
+      - ${PWD}/data:/app/data
       - ${PWD}/deck_files:/app/deck_files
       - ${PWD}/logs:/app/logs
       - ${PWD}/csv_files:/app/csv_files

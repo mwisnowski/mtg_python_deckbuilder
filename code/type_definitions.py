@@ -49,6 +49,18 @@ PlaneswalkerDF = pd.DataFrame
 NonPlaneswalkerDF = pd.DataFrame
 SorceryDF = pd.DataFrame
 
+# Auth / user accounts
+class User(TypedDict):
+    id: str               # UUID or "__admin__" for the synthetic admin account
+    username: str
+    email: str
+    password_hash: str
+    is_guest: bool
+    is_active: bool
+    is_admin: bool
+    created_at: float     # unix timestamp
+    updated_at: float     # unix timestamp
+
 # Bracket compliance typing
 Verdict = Literal["PASS", "WARN", "FAIL"]
 

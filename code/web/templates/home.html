@@ -7,7 +7,13 @@
     {{ button('Build a Deck', variant='secondary', href='/build', classes='action-button home-button', attrs='style="background:#0d47a1;color:#fff;border-color:#0d47a1;" onmouseover="this.style.background=\'#0a3472\';this.style.borderColor=\'#0a3472\';" onmouseout="this.style.background=\'#0d47a1\';this.style.borderColor=\'#0d47a1\';"') }}
     {{ button('Import a Deck', variant='primary', href='/decks/import', classes='action-button home-button') }}
     {{ button('Run a JSON Config', variant='secondary', href='/configs', classes='action-button home-button') }}
-    {% if show_setup %}{{ button('Initial Setup', variant='secondary', href='/setup', classes='action-button home-button') }}{% endif %}
+    {% set _is_admin = request.state.current_user and request.state.current_user.is_admin %}
+    {% if show_setup and _is_admin %}{{ button('Initial Setup', variant='secondary', href='/setup', classes='action-button home-button') }}{% endif %}
+    {% if show_setup and not _is_admin and not setup_ready %}
+    <div style="grid-column:1/-1; padding:.6rem .9rem; border-radius:6px; background:var(--info-bg,#1e3a5f); color:var(--info-text,#93c5fd); border:1px solid var(--info-border,#3b82f6); font-size:.875rem;">
+      Initial setup has not been completed yet. Sign in as an admin to run it.
+    </div>
+    {% endif %}
     {{ button('Owned Library', variant='secondary', href='/owned', classes='action-button home-button') }}
     {{ button('Browse All Cards', variant='secondary', href='/cards', classes='action-button home-button') }}
     {% if show_commanders %}{{ button('Browse Commanders', variant='secondary', href='/commanders', classes='action-button home-button') }}{% endif %}
@@ -15,8 +21,8 @@
     {{ button('Browse Themes', variant='secondary', href='/themes/', classes='action-button home-button') }}
     {{ button('Help & Guides', variant='secondary', href='/help', classes='action-button home-button') }}
     {% if random_ui %}{{ button('Random Build', variant='secondary', href='/random', classes='action-button home-button') }}{% endif %}
-    {% if show_diagnostics %}{{ button('Diagnostics', variant='secondary', href='/diagnostics', classes='action-button home-button') }}{% endif %}
-    {% if show_logs %}{{ button('View Logs', variant='secondary', href='/logs', classes='action-button home-button') }}{% endif %}
+    {% if show_diagnostics and _is_admin %}{{ button('Diagnostics', variant='secondary', href='/diagnostics', classes='action-button home-button') }}{% endif %}
+    {% if show_logs and _is_admin %}{{ button('View Logs', variant='secondary', href='/logs', classes='action-button home-button') }}{% endif %}
   </div>
   <div id="themes-quick" style="margin-top:1rem; font-size:.85rem; color:var(--text-muted);">
     <span id="themes-quick-status">Themes: …</span>

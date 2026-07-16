@@ -28,6 +28,7 @@ A web-first Commander/EDH deckbuilder with a shared core for CLI, headless, and 
   - [Diagnostics](#diagnostics)
   - [View Logs](#view-logs)
   - [Help & Guides](#help--guides)
+- [User accounts](#user-accounts)
 - [CLI & headless flows](#cli--headless-flows)
 - [Data, exports, and volumes](#data-exports-and-volumes)
 - [Environment variables](#environment-variables)
@@ -49,6 +50,8 @@ Pick the path that fits your setup. All commands target Windows PowerShell.
 docker compose up --build --no-deps -d web
 ```
 The Web UI starts on http://localhost:8080. First boot seeds data, refreshes decks, and tags cards automatically (see env defaults in `docker-compose.yml`). Use `docker compose stop web` / `docker compose start web` to pause or resume.
+
+> **Production tip**: copy `secrets.env.example` to `secrets.env` and fill in `SESSION_SECRET`, `ADMIN_USERNAME`/`ADMIN_PASSWORD`, and SMTP credentials before your first start. The file is gitignored and loaded automatically by compose.
 
 ### Option 2: Docker Hub image
 ```powershell
@@ -250,6 +253,48 @@ Browse all user guides without leaving the browser.
 
 ---
 
+## User accounts
+
+### Guest mode
+The app works without any sign-up. Unauthenticated visitors automatically use a shared Guest account; decks and configs are saved per-session but are not private.
+
+### Registration & login
+- Register at `/auth/register` (username, email, password).
+- Log in at `/auth/login`; a session cookie is set on success.
+- Your decks, owned-card lists, and saved configs are isolated in user-specific directories.
+- **Login protection**: 5 failed attempts per IP in 10 minutes, or 10 failed attempts for the same username in 15 minutes, triggers a temporary lockout.
+
+### Admin account
+An env-based admin account is used to access the admin panel and restricted pages (Setup, Diagnostics, Logs) before any DB users are promoted to admin.
+
+1. Copy `secrets.env.example` to `secrets.env`.
+2. Set `ADMIN_USERNAME`, `ADMIN_PASSWORD`, and `SESSION_SECRET` (generate with `openssl rand -hex 32`).
+3. Restart the container. Log in with those credentials to access `/admin/`.
+4. Once you have promoted a DB user to admin via the admin panel, you can disable the env account with `ADMIN_ENABLED=0`.
+
+### Admin panel (`/admin/`)
+- Create, activate/deactivate, and delete user accounts
+- Grant or revoke admin role (cannot revoke your own admin)
+- Change user passwords (shown only when SMTP is not configured)
+- View the audit log (`/admin/audit`) — last 200 auth and admin events
+
+### Profile page (`/auth/profile`)
+Logged-in users can change their own password from the profile page.
+
+### Password reset & SMTP
+Set `SMTP_HOST` (and other `SMTP_*` vars) in `secrets.env` to enable email. Three email types are sent when SMTP is configured:
+- **Welcome email** — on self-registration
+- **Account-created email** — when admin creates a user (includes a one-time set-password link)
+- **Password-reset email** — via the "Forgot password?" flow
+
+When SMTP is not configured, the "Forgot password?" page shows a "contact your administrator" message instead of the email form. Reset URLs are written to the app log for development use.
+
+Set `ENABLE_SMTP=0` in `docker-compose.yml` to disable email delivery without removing credentials from `secrets.env`.
+
+See [`DOCKER.md`](DOCKER.md) for the full list of SMTP and auth env vars.
+
+---
+
 ## CLI & headless flows
 The CLI and headless runners share the builder core.
 - Launch menu-driven CLI: `python code/main.py`.
@@ -288,6 +333,7 @@ Automatic land count and basics-to-duals ratio based on deck speed and color int
 ## Data, exports, and volumes
 | Host path | Container path | Purpose |
 | --- | --- | --- |
+| `data/` | `/app/data` | SQLite user database (`users.db`) — persist to keep accounts across restarts |
 | `deck_files/` | `/app/deck_files` | CSV/TXT exports, compliance JSON, summary JSON |
 | `logs/` | `/app/logs` | Application logs, taxonomy snapshots |
 | `csv_files/` | `/app/csv_files` | Card datasets, commander catalog, tagging metadata |
@@ -388,6 +434,21 @@ Most defaults are defined in `docker-compose.yml` and documented in `.env.exampl
 | `THEME_MIN_CARDS` | `5` | Minimum card count for themes. Themes with fewer cards are stripped from catalogs, JSON files, and parquet metadata during setup/tagging. Set to 1 to keep all themes. |
 | `WEB_PREFETCH` | `0` | Hover-intent prefetch on the Finished Decks page; preloads the deck view after a 100 ms hover delay to eliminate CSV-parse wait on click. |
 
+### User accounts & email
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `SESSION_SECRET` | _(random)_ | Secret key for signing session cookies. Set in production or sessions reset on every restart. Set in `secrets.env`. |
+| `SESSION_SECURE_COOKIES` | `0` | `1` = add `Secure` flag to cookies (requires HTTPS). |
+| `ADMIN_USERNAME` | _(unset)_ | Username for the env-based admin account. If unset, no synthetic admin exists. Set in `secrets.env`. |
+| `ADMIN_PASSWORD` | _(unset)_ | Password for the env-based admin account. Set in `secrets.env`. |
+| `ADMIN_ENABLED` | `1` | Set to `0` to disable the env-based admin after promoting a DB user to admin role. |
+| `ENABLE_SMTP` | `1` | Set to `0` to disable email delivery even when SMTP credentials are present. |
+| `SMTP_HOST` | _(unset)_ | SMTP server. If unset (or `ENABLE_SMTP=0`), password-reset links are logged instead of emailed. Set in `secrets.env`. |
+| `SMTP_PORT` | `587` | SMTP port (`587` STARTTLS / `465` SSL). |
+| `SMTP_USERNAME` / `SMTP_PASSWORD` | _(unset)_ | SMTP credentials. Set in `secrets.env`. |
+| `SMTP_FROM` | _(unset)_ | Sender address for all transactional emails. |
+| `SMTP_TLS` / `SMTP_SSL` | `1` / `0` | STARTTLS or SSL mode. |
+
 ### Paths & overrides
 | Variable | Default | Purpose |
 | --- | --- | --- |
@@ -468,6 +529,9 @@ When adding features, favor the web UI first, keep public builder APIs stable, a
 - **Owned-only build fails**: Confirm owned files were uploaded correctly and that `owned_cards/` is mounted.
 - **Random build stalls**: Lower `RANDOM_MAX_ATTEMPTS`, increase `RANDOM_TIMEOUT_MS`, and verify selected themes exist via `/themes/`.
 - **Commander list outdated**: Rerun the commander refresh script or Initial Setup.
+- **Sessions reset on restart**: Set `SESSION_SECRET` in `secrets.env` — without it a new random key is generated each time.
+- **Admin login not working**: Verify `ADMIN_USERNAME` and `ADMIN_PASSWORD` are set in `secrets.env` (plain `KEY=VALUE` format) and `ADMIN_ENABLED` is not `0`.
+- **Password-reset emails not arriving**: Confirm `SMTP_HOST` is set in `secrets.env` and `ENABLE_SMTP=1`. Reset URLs are logged to `logs/` when SMTP is not configured.
 
 ---
 

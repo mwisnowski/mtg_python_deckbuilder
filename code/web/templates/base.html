@@ -67,6 +67,21 @@
           <h1 style="margin:0; white-space: nowrap;">MTG Deckbuilder</h1>
         </div>
         <div id="banner-status" class="banner-status" role="status" aria-live="polite"></div>
+        <div class="banner-right">
+          {% if request.state.current_user and not request.state.current_user.is_guest %}
+            <span class="banner-username">{{ request.state.current_user.username }}</span>
+            <a href="/auth/profile" class="btn btn-ghost btn-sm" style="color:var(--surface-banner-text); border-color:var(--border);">Profile</a>
+            {% if request.state.current_user.is_admin %}
+              <a href="/admin/" class="btn btn-ghost btn-sm" style="color:var(--surface-banner-text); border-color:var(--border);">Admin</a>
+            {% endif %}
+            <form method="post" action="/auth/logout" style="display:contents;">
+              <button type="submit" class="btn btn-ghost btn-sm" style="color:var(--surface-banner-text); border-color:var(--border);">Log Out</button>
+            </form>
+          {% else %}
+            <a href="/auth/login" class="btn btn-ghost btn-sm" style="color:var(--surface-banner-text); border-color:var(--border);">Log In</a>
+            <a href="/auth/register" class="btn btn-sm">Sign Up</a>
+          {% endif %}
+        </div>
       </div>
     </header>
     <div class="layout">
@@ -84,7 +99,8 @@
           <a href="/">Home</a>
           <a href="/build">Build</a>
           <a href="/decks/import">Import Deck</a>
-          {% if show_setup %}<a href="/setup">Setup/Tag</a>{% endif %}
+          {% set _is_admin = request.state.current_user and request.state.current_user.is_admin %}
+          {% if show_setup and _is_admin %}<a href="/setup">Setup/Tag</a>{% endif %}
           <a href="/owned">Owned Library</a>
           <a href="/cards">All Cards</a>
           {% if show_commanders %}<a href="/commanders">Commanders</a>{% endif %}
@@ -92,8 +108,8 @@
           <a href="/themes/">Themes</a>
           {% if random_ui %}<a href="/random">Random</a>{% endif %}
           <a href="/help">Help</a>
-          {% if show_diagnostics %}<a href="/diagnostics">Diagnostics</a>{% endif %}
-          {% if show_logs %}<a href="/logs">Logs</a>{% endif %}
+          {% if show_diagnostics and _is_admin %}<a href="/diagnostics">Diagnostics</a>{% endif %}
+          {% if show_logs and _is_admin %}<a href="/logs">Logs</a>{% endif %}
         </nav>
         {% if enable_themes %}
         <div class="sidebar-theme" role="group" aria-label="Theme">

@@ -280,11 +280,21 @@ services:
       # ------------------------------------------------------------------
 
       # Auth / Session
-      # SESSION_SECRET: "paste-64-char-hex-from-secrets-token-hex-32-here"  # Required in production
+      # SESSION_SECRET and ADMIN_* credentials are loaded from secrets.env (see that file).
       # SESSION_SECURE_COOKIES: "0"   # 1=Secure flag on session cookie (requires HTTPS)
+
+      # Admin account (credentials loaded from secrets.env — never commit secrets.env)
+      # Create secrets.env alongside docker-compose.yml with:
+      #   ADMIN_USERNAME=admin
+      #   ADMIN_PASSWORD=<strong-password>
+      # The admin account is never stored in the database; it is synthesised at
+      # runtime from these env vars. Leave both unset to disable the admin account.
 
       # SMTP (credentials in secrets.env)
       ENABLE_SMTP: "0"              # 1=enable email (requires SMTP_HOST in secrets.env); 0=disable
+    env_file:
+      - path: secrets.env
+        required: false
     volumes:
       - ${PWD}/data:/app/data
       - ${PWD}/deck_files:/app/deck_files

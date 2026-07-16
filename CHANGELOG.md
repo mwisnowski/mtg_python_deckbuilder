@@ -9,6 +9,19 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 
 ## [Unreleased]
 ### Added
+_No unreleased changes yet_
+
+### Changed
+_No unreleased changes yet_
+
+### Fixed
+_No unreleased changes yet_
+
+### Removed
+_No unreleased changes yet_
+
+## [4.9.0] - 2026-07-15
+### Added
 - **User accounts**: Self-service registration, login, logout, and per-user file isolation (`deck_files/{user_id}/`, `owned_cards/{user_id}/`, `config/{user_id}/`)
 - **Admin panel** (`/admin/`): Create, deactivate, and delete accounts; grant/revoke admin role; change passwords when SMTP is not configured (hides Change Password when users can self-serve via forgot-password)
 - **Env-based admin account**: Synthetic admin configured via `ADMIN_USERNAME`/`ADMIN_PASSWORD` in `secrets.env`; disable with `ADMIN_ENABLED=0` after promoting a real DB user to admin

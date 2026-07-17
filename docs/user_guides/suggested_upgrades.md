@@ -8,6 +8,8 @@ The **Potential Upgrades** page surfaces card suggestions for any saved deck, or
 
 From any finished deck's view page, click **Potential Upgrades**. The button only appears for saved decks (not mid-build previews).
 
+Anyone who can view a deck (its owner, or anyone if the deck is Unlisted/Public) can browse suggestions here. Only the deck's owner (or an admin) can click **Apply** to actually swap a card into the saved deck; other viewers see the same suggestions without the Apply button.
+
 ---
 
 ## Two Upgrade Sections

@@ -12,6 +12,22 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 _No unreleased changes yet_
 
 ### Changed
+_No unreleased changes yet_
+
+### Fixed
+_No unreleased changes yet_
+
+### Removed
+_No unreleased changes yet_
+
+### Security
+_No unreleased changes yet_
+
+## [4.9.2] - 2026-07-17
+### Added
+_No changes_
+
+### Changed
 - "Popular in your past builds" theme recommendations now consider every past build across all accounts, not just the shared pre-accounts folder; a deck's visibility (private/unlisted/public) has no bearing on this signal
 
 ### Fixed
@@ -20,7 +36,7 @@ _No unreleased changes yet_
 - **Synergy deck export** (Batch Build & Compare) had the same shared-root-folder and sidecar-format issue as imported decks; fixed the same way
 
 ### Removed
-_No unreleased changes yet_
+_No changes_
 
 ### Security
 - **File download endpoint hardening**: the internal file-download link used by CSV/TXT export buttons validated access with a loose check on the file path that could be manipulated to read another account's deck files. It now only serves files that resolve to the current account's own deck folder or the public pre-accounts folder

@@ -9,6 +9,22 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 
 ## [Unreleased]
 ### Added
+_No unreleased changes yet_
+
+### Changed
+_No unreleased changes yet_
+
+### Fixed
+_No unreleased changes yet_
+
+### Removed
+_No unreleased changes yet_
+
+### Security
+_No unreleased changes yet_
+
+## [4.9.1] - 2026-07-17
+### Added
 - **Deck visibility**: mark any deck Private, Unlisted, or Public, and control who can see or find it
   - Shareable links for Unlisted/Public decks (`/decks/<username>/<deck-name>`) with a one-click Copy Link button
   - "Other Users' Decks" section on the Finished Decks page shows Public decks shared by other accounts, with commander/theme search and a "Personal only" toggle
@@ -25,7 +41,10 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 - Newly built decks (including after automatic bracket-compliance fixes) could land in the shared decks folder instead of your own account folder; exports and compliance reports now consistently save to the right place
 
 ### Removed
-_No unreleased changes yet_
+_No changes_
+
+### Security
+- Bumped the `postcss` dev dependency to 8.5.10, fixing a moderate XSS advisory (CVE-2026-41305 / GHSA-qx2v-qp2m-jg93) in CSS stringify output. Build-time only; no user-facing exposure.
 
 ## [4.9.0] - 2026-07-15
 ### Added

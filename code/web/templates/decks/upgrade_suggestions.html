@@ -12,16 +12,22 @@
 </div>
 
 <div style="display:flex; gap:.5rem; flex-wrap:wrap; margin-bottom:1rem;">
-  <a href="/decks/upgrades?name={{ name|urlencode }}&section=new&page=1"
+  <a href="/decks/upgrades?name={{ name|urlencode }}&section=new&page=1&owner={{ owner|urlencode }}"
      class="btn{% if section == 'new' %} btn-active{% endif %}"
      role="button">New Cards{% if section == "new" and total_cards %} ({{ total_cards }}){% endif %}</a>
-  <a href="/decks/upgrades?name={{ name|urlencode }}&section=general&page=1"
+  <a href="/decks/upgrades?name={{ name|urlencode }}&section=general&page=1&owner={{ owner|urlencode }}"
      class="btn{% if section == 'general' %} btn-active{% endif %}"
      role="button">General Upgrades{% if section == "general" and total_cards %} ({{ total_cards }}){% endif %}</a>
-  <a href="/decks/upgrades?name={{ name|urlencode }}&section=possible&page=1"
+  <a href="/decks/upgrades?name={{ name|urlencode }}&section=possible&page=1&owner={{ owner|urlencode }}"
      class="btn{% if section == 'possible' %} btn-active{% endif %}"
      role="button">Possible Upgrades{% if section == "possible" and total_cards %} ({{ total_cards }}){% endif %}</a>
+  {% if is_owner %}
   <a href="/decks/view?name={{ name|urlencode }}" class="btn" role="button">Back to Deck</a>
+  {% elif owner_username %}
+  <a href="/decks/{{ owner_username }}/{{ name|urlencode }}" class="btn" role="button">Back to Deck</a>
+  {% else %}
+  <a href="/decks" class="btn" role="button">Back to Finished Decks</a>
+  {% endif %}
   {% if back_url is defined and back_url %}
   <a href="{{ back_url }}" class="btn" role="button">Back to Import</a>
   {% endif %}

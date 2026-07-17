@@ -32,7 +32,8 @@ from ..services.upgrade_suggestions_service import (
     UpgradeSuggestionsService,
     _DEFAULT_IDEAL_ROLE_TAGS,
 )
-from .decks import _deck_dir, _safe_within
+from .decks import _deck_dir, _safe_within, _user_id, _check_deck_access
+from ..services.user_db import get_user_by_id
 
 router = APIRouter(prefix="/decks", tags=["upgrades"])
 
@@ -53,7 +54,7 @@ def _get_svc() -> UpgradeSuggestionsService:
 # Deck loading helpers
 # ---------------------------------------------------------------------------
 
-def _load_deck(name: str) -> tuple[Path, dict, list[DeckCard], list[str], list[str]]:
+def _load_deck(name: str, owner_user_id: str) -> tuple[Path, dict, list[DeckCard], list[str], list[str]]:
     """Load a deck CSV and return (csv_path, meta, deck_cards, themes, color_identity).
 
     Parses the CSV directly to capture proper CMC values.  Skips the trailing
@@ -64,7 +65,7 @@ def _load_deck(name: str) -> tuple[Path, dict, list[DeckCard], list[str], list[s
     import csv as _csv
     import json as _json
 
-    deck_dir = _deck_dir()
+    deck_dir = _deck_dir(owner_user_id)
     target = (deck_dir / name).resolve()
     if not _safe_within(deck_dir, target):
         raise HTTPException(status_code=404, detail="Deck not found")
@@ -485,12 +486,19 @@ async def deck_upgrades(
     name: str = Query(..., description="Deck CSV filename"),
     section: str = Query("new"),
     page: int = Query(1, ge=1),
+    owner: Optional[str] = Query(None, description="Owner's user id; defaults to the current user"),
 ) -> HTMLResponse:
     if not ENABLE_UPGRADE_SUGGESTIONS:
         raise HTTPException(status_code=404, detail="Upgrade suggestions disabled")
 
+    uid = _user_id(request)
+    owner_user_id = owner or uid
+    if not _check_deck_access(request, owner_user_id, name):
+        raise HTTPException(status_code=404, detail="Deck not found")
+    is_owner = owner_user_id == uid
+
     per_page = max(5, min(50, int(UPGRADE_PAGE_SIZE)))
-    csv_path, meta, deck_cards, themes, color_identity = _load_deck(name)
+    csv_path, meta, deck_cards, themes, color_identity = _load_deck(name, owner_user_id)
     excluded_names: set[str] = meta.get("excluded_names") or set()
     card_ceiling: Optional[float] = meta.get("card_ceiling")
 
@@ -505,6 +513,9 @@ async def deck_upgrades(
     ctx = {
         "request": request,
         "name": name,
+        "owner": owner_user_id,
+        "is_owner": is_owner,
+        "owner_username": None if is_owner else (get_user_by_id(owner_user_id) or {}).get("username"),
         "commander": meta.get("commander", ""),
         "color_identity": color_identity,
         "section": section,
@@ -520,12 +531,19 @@ async def deck_upgrades_cards(
     name: str = Query(...),
     section: str = Query("new"),
     page: int = Query(1, ge=1),
+    owner: Optional[str] = Query(None, description="Owner's user id; defaults to the current user"),
 ) -> HTMLResponse:
     if not ENABLE_UPGRADE_SUGGESTIONS:
         raise HTTPException(status_code=404, detail="Upgrade suggestions disabled")
 
+    uid = _user_id(request)
+    owner_user_id = owner or uid
+    if not _check_deck_access(request, owner_user_id, name):
+        raise HTTPException(status_code=404, detail="Deck not found")
+    is_owner = owner_user_id == uid
+
     per_page = max(5, min(50, int(UPGRADE_PAGE_SIZE)))
-    csv_path, meta, deck_cards, themes, color_identity = _load_deck(name)
+    csv_path, meta, deck_cards, themes, color_identity = _load_deck(name, owner_user_id)
     excluded_names: set[str] = meta.get("excluded_names") or set()
     card_ceiling: Optional[float] = meta.get("card_ceiling")
 
@@ -540,6 +558,8 @@ async def deck_upgrades_cards(
     ctx = {
         "request": request,
         "name": name,
+        "owner": owner_user_id,
+        "is_owner": is_owner,
         "commander": meta.get("commander", ""),
         "color_identity": color_identity,
         "section": section,
@@ -554,11 +574,16 @@ async def deck_upgrades_swaps(
     request: Request,
     name: str = Query(...),
     card: str = Query(...),
+    owner: Optional[str] = Query(None, description="Owner's user id; defaults to the current user"),
 ) -> HTMLResponse:
     if not ENABLE_UPGRADE_SUGGESTIONS:
         raise HTTPException(status_code=404, detail="Upgrade suggestions disabled")
 
-    csv_path, meta, deck_cards, themes, color_identity = _load_deck(name)
+    owner_user_id = owner or _user_id(request)
+    if not _check_deck_access(request, owner_user_id, name):
+        raise HTTPException(status_code=404, detail="Deck not found")
+
+    csv_path, meta, deck_cards, themes, color_identity = _load_deck(name, owner_user_id)
 
     # Look up the card's roles from the parquet to build a proper UpgradeCandidate.
     roles: list[str] = []
@@ -934,8 +959,12 @@ async def deck_upgrades_apply_swap(
     name: str = Form(...),
     remove: str = Form(...),
     add: str = Form(...),
+    owner: Optional[str] = Form(None, description="Owner's user id; defaults to the current user"),
 ) -> HTMLResponse:
     """Apply a card swap: remove `remove` from the deck and insert `add`.
+
+    Only the deck's owner (or an admin) may apply a swap; other viewers may
+    see suggestions but cannot modify the deck.
 
     Returns a small HTMX fragment replacing the swap-item row:
     - Success: a green "Swapped" confirmation chip
@@ -944,8 +973,17 @@ async def deck_upgrades_apply_swap(
     if not ENABLE_UPGRADE_SUGGESTIONS:
         raise HTTPException(status_code=404, detail="Upgrade suggestions disabled")
 
+    uid = _user_id(request)
+    owner_user_id = owner or uid
+    user = getattr(request.state, "current_user", None)
+    is_admin = bool(user and user.get("is_admin"))
+    if owner_user_id != uid and not is_admin:
+        return HTMLResponse(
+            '<span class="upgrade-swap-error">Only the deck owner can apply upgrades.</span>'
+        )
+
     # --- Resolve and validate deck path ---
-    deck_dir = _deck_dir()
+    deck_dir = _deck_dir(owner_user_id)
     csv_path = (deck_dir / name).resolve()
     if not _safe_within(deck_dir, csv_path):
         raise HTTPException(status_code=403, detail="Invalid deck path")
@@ -953,7 +991,7 @@ async def deck_upgrades_apply_swap(
         raise HTTPException(status_code=404, detail="Deck not found")
 
     # --- Load deck to validate remove/add ---
-    _, meta, deck_cards, _, _ = _load_deck(name)
+    _, meta, deck_cards, _, _ = _load_deck(name, owner_user_id)
 
     deck_names_lower = {c.name.lower() for c in deck_cards}
     commanders_lower = {c.name.lower() for c in deck_cards if c.is_commander}

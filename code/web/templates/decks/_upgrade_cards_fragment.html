@@ -48,21 +48,21 @@
     {% if page > 1 %}
     <a class="btn btn-sm"
        role="button"
-       href="/decks/upgrades?name={{ name|urlencode }}&section={{ section }}&page={{ page - 1 }}"
-       hx-get="/decks/upgrades/cards?name={{ name|urlencode }}&section={{ section }}&page={{ page - 1 }}"
+       href="/decks/upgrades?name={{ name|urlencode }}&section={{ section }}&page={{ page - 1 }}&owner={{ owner|urlencode }}"
+       hx-get="/decks/upgrades/cards?name={{ name|urlencode }}&section={{ section }}&page={{ page - 1 }}&owner={{ owner|urlencode }}"
        hx-target="#upgrade-card-list"
        hx-swap="outerHTML"
-       hx-push-url="/decks/upgrades?name={{ name|urlencode }}&section={{ section }}&page={{ page - 1 }}">&laquo; Prev</a>
+       hx-push-url="/decks/upgrades?name={{ name|urlencode }}&section={{ section }}&page={{ page - 1 }}&owner={{ owner|urlencode }}">&laquo; Prev</a>
     {% endif %}
     <span class="muted text-sm">Page {{ page }} of {{ total_pages }}</span>
     {% if page < total_pages %}
     <a class="btn btn-sm"
        role="button"
-       href="/decks/upgrades?name={{ name|urlencode }}&section={{ section }}&page={{ page + 1 }}"
-       hx-get="/decks/upgrades/cards?name={{ name|urlencode }}&section={{ section }}&page={{ page + 1 }}"
+       href="/decks/upgrades?name={{ name|urlencode }}&section={{ section }}&page={{ page + 1 }}&owner={{ owner|urlencode }}"
+       hx-get="/decks/upgrades/cards?name={{ name|urlencode }}&section={{ section }}&page={{ page + 1 }}&owner={{ owner|urlencode }}"
        hx-target="#upgrade-card-list"
        hx-swap="outerHTML"
-       hx-push-url="/decks/upgrades?name={{ name|urlencode }}&section={{ section }}&page={{ page + 1 }}">Next &raquo;</a>
+       hx-push-url="/decks/upgrades?name={{ name|urlencode }}&section={{ section }}&page={{ page + 1 }}&owner={{ owner|urlencode }}">Next &raquo;</a>
     {% endif %}
   </div>
   {% endif %}

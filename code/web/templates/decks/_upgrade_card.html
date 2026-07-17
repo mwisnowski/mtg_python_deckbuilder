@@ -63,15 +63,19 @@
         {% set _rs = [(swap.swap_score / 2.0)|round(1), 10.0]|min %}
         <span class="upgrade-swap-score-pill" title="Replaceability score (1-10): how upgradable this card is">{{ _rs }}</span>
         {% endif %}
+        {% set _can_apply = is_owner or (request.state.current_user and request.state.current_user.is_admin) %}
+        {% if _can_apply %}
         <form hx-post="/decks/upgrades/apply-swap"
               hx-target="this"
               hx-swap="outerHTML"
               style="display:inline; margin:0;">
           <input type="hidden" name="name" value="{{ name }}">
+          <input type="hidden" name="owner" value="{{ owner }}">
           <input type="hidden" name="remove" value="{{ swap.name }}">
           <input type="hidden" name="add" value="{{ upgrade_card.name }}">
           <button type="submit" class="upgrade-swap-btn" hx-disabled-elt="this" title="Remove {{ swap.name }} and add {{ upgrade_card.name }} to your deck">Apply</button>
         </form>
+        {% endif %}
       </div>
       {% endfor %}
     </div>

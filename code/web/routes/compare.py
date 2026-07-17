@@ -525,9 +525,9 @@ async def export_synergy_deck(request: Request, batch_id: str):
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     base_filename = f"{commander_name}_Synergy_{timestamp}"
     
-    # Prepare deck_files directory
+    # Prepare deck_files directory (per-user, matching how the batch itself was built)
     from pathlib import Path
-    deck_files_dir = Path("deck_files")
+    deck_files_dir = Path(config.get("deck_dir") or "deck_files")
     deck_files_dir.mkdir(parents=True, exist_ok=True)
     
     # Create CSV content
@@ -601,9 +601,12 @@ async def export_synergy_deck(request: Request, batch_id: str):
         csv_path.write_text(csv_content, encoding='utf-8')
         txt_path.write_text(txt_content, encoding='utf-8')
         
-        # Create summary JSON (similar to individual builds)
-        summary_data = {
+        # Create summary JSON (similar to individual builds).  Nested under
+        # "meta" to match the schema every other saved-deck view expects.
+        from ..services.deck_visibility import resolve_visibility_for_write
+        meta_data = {
             "commander": config.get("commander", "Unknown"),
+            "name": config.get("commander", "Unknown"),
             "tags": config.get("tags", []),
             "colors": config.get("colors", []),
             "bracket_level": config.get("bracket"),
@@ -617,9 +620,10 @@ async def export_synergy_deck(request: Request, batch_id: str):
                 "high_frequency_count": synergy_deck["high_frequency_count"],
                 "source_builds": len(builds)
             },
-            "exported_at": timestamp
+            "exported_at": timestamp,
+            "visibility": resolve_visibility_for_write(csv_path, deck_dir=deck_files_dir),
         }
-        summary_path.write_text(json.dumps(summary_data, indent=2), encoding='utf-8')
+        summary_path.write_text(json.dumps({"meta": meta_data, "summary": {}}, indent=2), encoding='utf-8')
         
         # Create compliance JSON (basic compliance for synergy deck)
         compliance_data = {

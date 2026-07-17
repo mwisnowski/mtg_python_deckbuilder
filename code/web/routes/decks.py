@@ -585,6 +585,7 @@ def _render_deck_view(
         "tags": tags,
         "display_name": display_name,
         "is_owner": is_owner,
+        "owner_user_id": owner_user_id,
         "deck_visibility": _get_deck_visibility_by_path(p),
         "visibility_options": VALID_VISIBILITIES,
         "share_url": f"/decks/{owner_username}/{p.name}" if owner_username else None,

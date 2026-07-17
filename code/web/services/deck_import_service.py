@@ -1987,10 +1987,13 @@ def save_imported_deck(
     token: str,
     enriched: "EnrichedDeck",
     analysis: "DeckAnalysis",
+    deck_dir: Optional[str] = None,
 ) -> tuple[str, str, str]:
     """Write permanent deck files for an imported deck.
 
-    Creates three files atomically in ``deck_files/``:
+    Creates three files atomically in ``deck_dir`` (defaults to the shared
+    ``deck_files/`` root when omitted; callers should pass the importing
+    user's own per-user directory, e.g. ``deck_files/{user_id}/``):
       - ``{slug}_{date}.csv``   - full card list in built-deck CSV schema
       - ``{slug}_{date}.txt``   - one-line-per-card plain text list
       - ``{slug}_{date}.summary.json`` - metadata sidecar (source="imported")
@@ -2001,26 +2004,27 @@ def save_imported_deck(
     """
     import os  # noqa: PLC0415
 
+    deck_dir = deck_dir or _DECK_FILES_DIR
     commander_name = analysis.commander_name or "Unknown"
     slug = _safe_slug(commander_name)
     today = _date.today().strftime("%Y%m%d")
     base = f"{slug}_{today}"
 
     # Avoid clobbering an existing file for same commander on same day
-    os.makedirs(_DECK_FILES_DIR, exist_ok=True)
+    os.makedirs(deck_dir, exist_ok=True)
     counter = 0
     while True:
         suffix = f"_{counter}" if counter else ""
         csv_name = f"{base}{suffix}.csv"
-        csv_path = os.path.join(_DECK_FILES_DIR, csv_name)
+        csv_path = os.path.join(deck_dir, csv_name)
         if not os.path.exists(csv_path):
             break
         counter += 1
 
     txt_name = csv_name.replace(".csv", ".txt")
     summary_name = csv_name.replace(".csv", ".summary.json")
-    txt_path = os.path.join(_DECK_FILES_DIR, txt_name)
-    summary_path = os.path.join(_DECK_FILES_DIR, summary_name)
+    txt_path = os.path.join(deck_dir, txt_name)
+    summary_path = os.path.join(deck_dir, summary_name)
 
     themes = (
         analysis.themes.user_confirmed
@@ -2092,6 +2096,8 @@ def save_imported_deck(
 
     # --- Summary JSON ---
     try:
+        from .deck_visibility import resolve_visibility_for_write  # noqa: PLC0415
+
         meta = {
             "commander": commander_name,
             "commander_names": [commander_name],
@@ -2102,6 +2108,7 @@ def save_imported_deck(
             "csv": csv_name,
             "txt": txt_name,
             "import_token": token,
+            "visibility": resolve_visibility_for_write(csv_path, deck_dir=deck_dir),
         }
         with open(summary_path, "w", encoding="utf-8") as fh:
             json.dump({"meta": meta, "summary": {}}, fh, ensure_ascii=False, indent=2)

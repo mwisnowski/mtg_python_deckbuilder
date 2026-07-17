@@ -2432,6 +2432,7 @@ from .routes import build_compliance as build_compliance_routes  # noqa: E402
 from .routes import build_permalinks as build_permalinks_routes  # noqa: E402
 from .routes import configs as config_routes  # noqa: E402
 from .routes import decks as decks_routes  # noqa: E402
+from .routes.decks import _deck_dir as _decks_deck_dir, _user_id as _decks_user_id  # noqa: E402
 from .routes import upgrade_suggestions as upgrade_suggestions_routes  # noqa: E402
 from .routes import setup as setup_routes  # noqa: E402
 from .routes import owned as owned_routes  # noqa: E402
@@ -2622,27 +2623,41 @@ async def random_modes_page(request: Request) -> HTMLResponse:
         },
     )
 
-# Lightweight file download endpoint for exports
+# Lightweight file download endpoint for exports.
+#
+# SECURITY: only serves files that resolve to (a) the current requester's own
+# deck-export directory or (b) the shared pre-accounts "legacy" deck_files/
+# root (files directly in the root, always visible to everyone - the same
+# rule the Finished Decks "legacy" section already uses). Anything else is
+# rejected. Do NOT relax this to a substring/"contains deck_files" check -
+# that previously allowed path traversal (e.g. "config/../../secrets.env")
+# and cross-user file disclosure (any user's deck_files/{other_uuid}/... was
+# readable by anyone, private decks included) since the check ran on the
+# raw, unresolved path string instead of a resolved, directory-scoped one.
 @app.get("/files")
-async def get_file(path: str):
+async def get_file(request: Request, path: str):
     try:
-        p = Path(path)
-        if not p.exists() or not p.is_file():
-            return PlainTextResponse("File not found", status_code=404)
-        # Only allow returning files within the workspace directory for safety
-        # (best-effort: require relative to current working directory)
-        try:
-            cwd = Path.cwd().resolve()
-            if cwd not in p.resolve().parents and p.resolve() != cwd:
-                # Still allow if under deck_files or config
-                allowed = any(seg in ("deck_files", "config", "logs") for seg in p.parts)
-                if not allowed:
-                    return PlainTextResponse("Access denied", status_code=403)
-        except Exception:
-            pass
-        return FileResponse(path)
+        target = Path(path).resolve()
     except Exception:
-        return PlainTextResponse("Error serving file", status_code=500)
+        return PlainTextResponse("Invalid path", status_code=400)
+
+    if target.suffix.lower() not in (".csv", ".txt", ".json"):
+        return PlainTextResponse("Access denied", status_code=403)
+
+    own_dir = _decks_deck_dir(_decks_user_id(request))
+    legacy_root = Path(os.getenv("DECK_EXPORTS") or "deck_files").resolve()
+    # own_dir is allowed at any depth (deck files sit directly in it today,
+    # but this keeps room for future sidecars); legacy_root must match
+    # exactly - not a subdirectory - so other users' per-user folders (which
+    # also live under deck_files/) are never reachable this way.
+    allowed = own_dir in target.parents or target.parent == own_dir or target.parent == legacy_root
+    if not allowed:
+        return PlainTextResponse("Access denied", status_code=403)
+
+    if not target.exists() or not target.is_file():
+        return PlainTextResponse("File not found", status_code=404)
+
+    return FileResponse(str(target))
 
 # Serve /favicon.ico from static (prefer .ico, fallback to .png)
 @app.get("/favicon.ico")

@@ -31,6 +31,7 @@ from ..services.deck_import_service import (
     write_temp_session,
 )
 from ..services.tasks import get_session_value, new_sid, set_session_value
+from .decks import _deck_dir, _user_id
 
 router = APIRouter(prefix="/decks", tags=["import"])
 
@@ -357,7 +358,11 @@ async def post_import_save(
     request: Request,
     token: str = Form(...),
 ) -> HTMLResponse:
-    """Save an imported deck to deck_files/ as permanent CSV + TXT + summary.json.
+    """Save an imported deck as permanent CSV + TXT + summary.json.
+
+    Saves into the current user's own deck directory (``deck_files/{user_id}/``,
+    or ``deck_files/guest/`` for guests) so imported decks are scoped the same
+    way as built decks.
 
     Reads enriched/analysis from session (primary) or temp file (fallback).
     On success, redirects to the new deck's view page.
@@ -374,7 +379,8 @@ async def post_import_save(
         enriched, analysis, _ = temp_result
 
     try:
-        csv_name, _txt_name, _summary_name = save_imported_deck(token, enriched, analysis)
+        deck_dir = str(_deck_dir(_user_id(request)))
+        csv_name, _txt_name, _summary_name = save_imported_deck(token, enriched, analysis, deck_dir=deck_dir)
     except Exception as exc:
         ctx = {
             "request": request,

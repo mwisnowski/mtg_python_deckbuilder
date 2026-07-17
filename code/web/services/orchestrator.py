@@ -716,27 +716,48 @@ def _get_cached_commander_df():
 
 
 def _get_past_builds_index() -> Dict[str, List[Dict[str, Any]]]:
-    """M7: Return cached index of past builds: commander_name -> list of {tags, age_days}."""
+    """M7: Return cached index of past builds: commander_name -> list of {tags, age_days}.
+
+    Scans every user's deck directory (not just the shared root/legacy area),
+    since this theme-popularity signal should reflect all past builds
+    regardless of who built them. Deck visibility controls who can *view* a
+    deck, not whether it contributes to this recommendation.
+    """
     global _PAST_BUILDS_CACHE
-    
-    deck_files_dir = 'deck_files'
+
+    deck_files_dir = os.getenv("DECK_EXPORTS") or 'deck_files'
     need_rebuild = _PAST_BUILDS_CACHE["index"] is None
-    
-    if not need_rebuild:
-        # Check if deck_files directory has changed
+
+    def _current_signature() -> float:
+        """Max mtime across the root dir and every immediate subdirectory (per-user folders)."""
+        latest = 0.0
         try:
             if os.path.exists(deck_files_dir):
-                current_mtime = os.path.getmtime(deck_files_dir)
-                cached_mtime = _PAST_BUILDS_CACHE.get("mtime")
-                if cached_mtime is None or current_mtime > cached_mtime:
-                    need_rebuild = True
+                latest = os.path.getmtime(deck_files_dir)
+                for entry in os.scandir(deck_files_dir):
+                    if entry.is_dir():
+                        try:
+                            latest = max(latest, entry.stat().st_mtime)
+                        except OSError:
+                            continue
         except Exception:
             pass
-    
+        return latest
+
+    if not need_rebuild:
+        try:
+            current_mtime = _current_signature()
+            cached_mtime = _PAST_BUILDS_CACHE.get("mtime")
+            if cached_mtime is None or current_mtime > cached_mtime:
+                need_rebuild = True
+        except Exception:
+            pass
+
     if need_rebuild:
         index: Dict[str, List[Dict[str, Any]]] = {}
         try:
-            for path in glob(os.path.join(deck_files_dir, '*.summary.json')):
+            pattern = os.path.join(deck_files_dir, '**', '*.summary.json')
+            for path in glob(pattern, recursive=True):
                 try:
                     st = os.stat(path)
                     age_days = max(0, (time.time() - st.st_mtime) / 86400.0)
@@ -760,8 +781,7 @@ def _get_past_builds_index() -> Dict[str, List[Dict[str, Any]]]:
                     continue
             
             _PAST_BUILDS_CACHE["index"] = index
-            if os.path.exists(deck_files_dir):
-                _PAST_BUILDS_CACHE["mtime"] = os.path.getmtime(deck_files_dir)
+            _PAST_BUILDS_CACHE["mtime"] = _current_signature()
         except Exception:
             _PAST_BUILDS_CACHE["index"] = {}
             _PAST_BUILDS_CACHE["mtime"] = None

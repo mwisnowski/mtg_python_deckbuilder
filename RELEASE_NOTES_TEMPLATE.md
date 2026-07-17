@@ -13,7 +13,6 @@
 
 ### Changed
 - Finished Decks page sections reordered: your decks, then other users' public decks, then community/legacy decks
-- Removed the "TXT only" filter on the Finished Decks page (wasn't behaving reliably and rarely useful)
 
 ### Fixed
 - Newly built decks (including after automatic bracket-compliance fixes) could land in the shared decks folder instead of your own account folder; exports and compliance reports now consistently save to the right place

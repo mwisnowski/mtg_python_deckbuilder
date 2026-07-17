@@ -58,6 +58,7 @@ class User(TypedDict):
     is_guest: bool
     is_active: bool
     is_admin: bool
+    default_visibility: str  # "public"|"unlisted"|"private" — default for new deck builds
     created_at: float     # unix timestamp
     updated_at: float     # unix timestamp
 

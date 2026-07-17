@@ -14,6 +14,8 @@ Access the builder at `/build` or click **Build** in the sidebar.
 
 ## Step 1: Choose a Commander
 
+**Visibility**: At the top of the modal, choose who can see this deck once it's built: **Private** (only you), **Unlisted** (viewable by anyone with the direct link), or **Public** (also listed under "Other Users' Decks" on the Finished Decks page). This defaults to your default visibility preference set on `/auth/profile`, and only applies to this one build; changing it here doesn't update your saved default. You can change a deck's visibility later from its page or the Finished Decks list. Guests don't see this selector; their builds are always Private.
+
 Select your commander from the search field in the modal. Type the commander's name to see matches.
 
 **Partner Commanders**: If your commander has Partner, Choose a Partner, or has a Background, you'll be prompted to select a second commander in a follow-up step.

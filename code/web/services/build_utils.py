@@ -192,6 +192,7 @@ def start_ctx_from_session(sess: dict, *, set_on_session: bool = True, deck_dir:
         secondary_commander=secondary_commander,
         background_commander=background_choice,
         budget_config=sess.get("budget_config"),
+        deck_visibility=sess.get("deck_visibility"),
     )
     if set_on_session:
         sess["build_ctx"] = ctx

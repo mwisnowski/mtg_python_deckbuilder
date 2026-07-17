@@ -56,6 +56,22 @@ def _user_deck_dir(request: Request) -> str:
     return str((Path.cwd() / "deck_files" / uid).resolve())
 
 
+def _user_default_visibility(request: Request) -> str:
+    """Return the current user's default visibility preference for new builds."""
+    u = getattr(getattr(request, "state", None), "current_user", None)
+    uid = str(u["id"]) if (u and not u.get("is_guest") and u.get("id")) else "guest"
+    try:
+        from ..services.user_db import get_default_visibility
+        return get_default_visibility(uid)
+    except Exception:
+        return "private"
+
+
+def _is_guest_request(request: Request) -> bool:
+    u = getattr(getattr(request, "state", None), "current_user", None)
+    return not u or bool(u.get("is_guest"))
+
+
 # Pre-built JS-serialisable map of multi-copy archetypes for client-side popup detection.
 # Keys are lowercased card names; values contain what the popup needs.
 _ARCHETYPE_JS_MAP: dict[str, dict] = {
@@ -119,7 +135,9 @@ async def build_new_modal(request: Request, reset: str = Query("")) -> HTMLRespo
         ]
         for key in commander_keys:
             sess.pop(key, None)
-    
+        # M7: Reset per-build visibility choice to the profile default for each new build
+        sess["deck_visibility"] = _user_default_visibility(request)
+
     theme_context = _custom_theme_context(request, sess)
     ctx = {
         "request": request,
@@ -133,8 +151,10 @@ async def build_new_modal(request: Request, reset: str = Query("")) -> HTMLRespo
         "enable_budget_mode": ENABLE_BUDGET_MODE,
         "ideals_ui_mode": WEB_IDEALS_UI,  # 'input' or 'slider'
         "multi_copy_archetypes_js": _ARCHETYPE_JS_MAP,
+        "is_guest": _is_guest_request(request),
         "form": {
             "commander": sess.get("commander", ""),  # Pre-fill for quick-build
+            "deck_visibility": sess.get("deck_visibility") or _user_default_visibility(request),
             "prefer_combos": bool(sess.get("prefer_combos")),
             "combo_count": sess.get("combo_target_count"),
             "combo_balance": sess.get("combo_balance"),
@@ -427,6 +447,7 @@ async def build_new_submit(
     wipes: int = Form(None),
     card_advantage: int = Form(None),
     protection: int = Form(None),
+    deck_visibility: str | None = Form(None),
     prefer_combos: bool = Form(False),
     combo_count: int | None = Form(None),
     combo_balance: str | None = Form(None),
@@ -1023,6 +1044,13 @@ async def build_new_submit(
     # Immediately initialize a build context and run the first stage, like hitting Build Deck on review
     if "replace_mode" not in sess:
         sess["replace_mode"] = True
+    # M7: Persist the per-build visibility choice (guests always build private)
+    if _is_guest_request(request):
+        sess["deck_visibility"] = "private"
+    elif deck_visibility in ("public", "unlisted", "private"):
+        sess["deck_visibility"] = deck_visibility
+    elif not sess.get("deck_visibility"):
+        sess["deck_visibility"] = _user_default_visibility(request)
     # Centralized staged context creation
     sess["deck_dir"] = _user_deck_dir(request)
     sess["build_ctx"] = start_ctx_from_session(sess)

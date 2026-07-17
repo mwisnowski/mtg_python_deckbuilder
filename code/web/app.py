@@ -155,6 +155,12 @@ templates.env.globals["_price_cache_ts"] = _price_cache_built_at
 from .services.email import is_smtp_configured as _is_smtp_configured
 templates.env.globals["smtp_configured"] = _is_smtp_configured()
 
+# "What's New" promo (top-bar badge + homepage banner). Bump this id whenever a
+# new feature should be advertised — changing it makes the promo reappear even
+# for users who dismissed the previous one (see base.html / home.html).
+templates.env.globals["WHATS_NEW_ID"] = "user-accounts-deck-visibility"
+templates.env.globals["WHATS_NEW_LABEL"] = "New: User Accounts & Deck Visibility"
+
 # Add custom Jinja2 filter for card image URLs
 def card_image_url(card_name: str, size: str = "normal") -> str:
     """
@@ -556,6 +562,31 @@ def _client_ip(request: Request) -> str:
     except Exception:
         pass
     return "unknown"
+
+
+def _user_deck_dir(request: Request) -> str:
+    """Return the scoped deck export directory string for the current user.
+
+    Mirrors ``routes/build_wizard.py::_user_deck_dir`` so Random-mode builds land
+    in the same per-user directory as wizard builds instead of the shared root.
+    """
+    u = getattr(getattr(request, "state", None), "current_user", None)
+    uid = str(u["id"]) if (u and not u.get("is_guest") and u.get("id")) else "guest"
+    base = os.getenv("DECK_EXPORTS")
+    if base:
+        return str((Path(base) / uid).resolve())
+    return str((Path.cwd() / "deck_files" / uid).resolve())
+
+
+def _user_default_visibility(request: Request) -> str:
+    """Return the current user's default visibility preference for new builds."""
+    u = getattr(getattr(request, "state", None), "current_user", None)
+    uid = str(u["id"]) if (u and not u.get("is_guest") and u.get("id")) else "guest"
+    try:
+        from .services.user_db import get_default_visibility
+        return get_default_visibility(uid)
+    except Exception:
+        return "private"
 
 
 def _enforce_random_session_throttle(request: Request) -> None:
@@ -1289,6 +1320,8 @@ async def api_random_full_build(request: Request):
             auto_fill_secondary=auto_fill_secondary_enabled,
             auto_fill_tertiary=auto_fill_tertiary_enabled,
             strict_theme_match=strict_theme_match,
+            deck_dir=_user_deck_dir(request),
+            default_visibility=_user_default_visibility(request),
         )
 
         requested_themes = {
@@ -1524,6 +1557,8 @@ async def api_random_reroll(request: Request):
             auto_fill_secondary=auto_fill_secondary_enabled,
             auto_fill_tertiary=auto_fill_tertiary_enabled,
             strict_theme_match=strict_theme_match,
+            deck_dir=_user_deck_dir(request),
+            default_visibility=_user_default_visibility(request),
         )
 
         requested_themes = {
@@ -1937,7 +1972,7 @@ async def hx_random_reroll(request: Request):
                 # Perform exactly one export sequence now
                 if not csv_path and hasattr(builder, 'export_decklist_csv'):
                     try:
-                        csv_path = builder.export_decklist_csv()
+                        csv_path = builder.export_decklist_csv(directory=_user_deck_dir(request))
                     except Exception:
                         csv_path = None
                 if csv_path and isinstance(csv_path, str):
@@ -1947,7 +1982,7 @@ async def hx_random_reroll(request: Request):
                         try:
                             base_name = _os.path.basename(base_path) + '.txt'
                             if hasattr(builder, 'export_decklist_text'):
-                                txt_path = builder.export_decklist_text(filename=base_name)
+                                txt_path = builder.export_decklist_text(directory=_os.path.dirname(base_path), filename=base_name)
                         except Exception:
                             # Fallback: if a txt already exists from a prior build reuse it
                             if _os.path.isfile(base_path + '.txt'):
@@ -1962,7 +1997,7 @@ async def hx_random_reroll(request: Request):
                     else:
                         try:
                             if hasattr(builder, 'compute_and_print_compliance'):
-                                compliance = builder.compute_and_print_compliance(base_stem=_os.path.basename(base_path))
+                                compliance = builder.compute_and_print_compliance(base_stem=_os.path.basename(base_path), deck_dir=_os.path.dirname(base_path) or _user_deck_dir(request))
                         except Exception:
                             compliance = None
                     if summary:
@@ -1998,6 +2033,7 @@ async def hx_random_reroll(request: Request):
                                 custom_base = None
                             if isinstance(custom_base, str) and custom_base.strip():
                                 meta["name"] = custom_base.strip()
+                            meta["visibility"] = _user_default_visibility(request)
                             try:
                                 with open(sidecar, 'w', encoding='utf-8') as f:
                                     _json_mod.dump({"meta": meta, "summary": summary}, f, ensure_ascii=False, indent=2)
@@ -2051,6 +2087,8 @@ async def hx_random_reroll(request: Request):
                 auto_fill_secondary=auto_fill_secondary_enabled,
                 auto_fill_tertiary=auto_fill_tertiary_enabled,
                 strict_theme_match=strict_theme_match,
+                deck_dir=_user_deck_dir(request),
+                default_visibility=_user_default_visibility(request),
             )
             resolved_theme_info = {
                 "primary": getattr(res, "primary_theme", None),
@@ -2619,6 +2657,11 @@ async def favicon():
     except Exception:
         return PlainTextResponse("Error", status_code=500)
 
+# Discourage search engine indexing — this app hosts personal/other-users' deck
+# data and is generally intended for self-hosted, private, or small-group use.
+@app.get("/robots.txt")
+async def robots_txt():
+    return PlainTextResponse("User-agent: *\nDisallow: /\n")
 
 # Simple Logs page (optional, controlled by SHOW_LOGS)
 @app.get("/logs", response_class=HTMLResponse)

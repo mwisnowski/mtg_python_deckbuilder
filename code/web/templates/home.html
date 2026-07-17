@@ -3,6 +3,18 @@
 
 {% block content %}
 <section>
+  <div id="whats-new-banner" data-whats-new-id="{{ WHATS_NEW_ID }}" style="display:none; margin-bottom:1.25rem; padding:.75rem 1rem; border-radius:8px; background:var(--info-bg,#1e3a5f); color:var(--info-text,#93c5fd); border:1px solid var(--info-border,#3b82f6); font-size:.9rem; display:flex; align-items:center; justify-content:space-between; gap:1rem; flex-wrap:wrap;">
+    <div>
+      <strong>{{ WHATS_NEW_LABEL }}</strong>
+      <span style="margin-left:.4rem;">Create an account to save your builds under your own login, then choose whether each deck is Private, Unlisted (shareable by link), or Public.</span>
+    </div>
+    <div style="display:flex; gap:.5rem; align-items:center; flex-shrink:0;">
+      {% if not request.state.current_user or request.state.current_user.is_guest %}
+      <a href="/auth/register" class="btn btn-sm">Sign Up</a>
+      {% endif %}
+      <button type="button" id="whats-new-dismiss" class="btn btn-sm" style="background:transparent;" title="Dismiss" aria-label="Dismiss">&times;</button>
+    </div>
+  </div>
   <div class="actions-grid" style="max-width: calc(4 * 220px + 3 * .75rem);">
     {{ button('Build a Deck', variant='secondary', href='/build', classes='action-button home-button', attrs='style="background:#0d47a1;color:#fff;border-color:#0d47a1;" onmouseover="this.style.background=\'#0a3472\';this.style.borderColor=\'#0a3472\';" onmouseout="this.style.background=\'#0d47a1\';this.style.borderColor=\'#0d47a1\';"') }}
     {{ button('Import a Deck', variant='primary', href='/decks/import', classes='action-button home-button') }}
@@ -36,6 +48,42 @@
 </section>
 <script>
 (function(){
+  // "What's New" banner: shows once per feature (versioned by data-whats-new-id),
+  // tracked via a cookie (not localStorage) so it reliably expires on its own.
+  // To advertise a future feature, update the id on #whats-new-banner and its
+  // copy; changing the id makes it reappear even for users who dismissed the last one.
+  var DISMISS_COOKIE = 'whats_new_dismissed';
+  var DISMISS_DAYS = 30;
+  function getCookie(name){
+    try {
+      var parts = ('; ' + document.cookie).split('; ' + name + '=');
+      if (parts.length < 2) return '';
+      return decodeURIComponent(parts.pop().split(';').shift() || '');
+    } catch(_) { return ''; }
+  }
+  function setCookie(name, value, days){
+    try {
+      var maxAge = days * 24 * 60 * 60;
+      document.cookie = name + '=' + encodeURIComponent(value) + '; max-age=' + maxAge + '; path=/; SameSite=Lax';
+    } catch(_){}
+  }
+  try {
+    var banner = document.getElementById('whats-new-banner');
+    if (banner) {
+      var featureId = banner.getAttribute('data-whats-new-id') || '';
+      var dismissedId = getCookie(DISMISS_COOKIE);
+      if (featureId && dismissedId !== featureId) {
+        banner.style.display = 'flex';
+      }
+      var dismissBtn = document.getElementById('whats-new-dismiss');
+      if (dismissBtn) {
+        dismissBtn.addEventListener('click', function(){
+          setCookie(DISMISS_COOKIE, featureId, DISMISS_DAYS);
+          banner.style.display = 'none';
+        });
+      }
+    }
+  } catch(_){}
   function upd(data){
     var el = document.getElementById('themes-quick-status');
     if(!el) return;

@@ -548,3 +548,44 @@ def test_forgot_route_shows_submitted_without_smtp(client, caplog):
     finally:
         email_mod._SMTP_HOST = original
 
+
+# ---------------------------------------------------------------------------
+# M6: profile default visibility preference
+# ---------------------------------------------------------------------------
+
+def test_profile_page_shows_default_visibility_select(client):
+    client.post("/auth/register", data={
+        "username": "visuser", "email": "visuser@example.com",
+        "password": "password123", "confirm": "password123",
+    })
+    resp = client.get("/auth/profile")
+    assert resp.status_code == 200
+    assert 'id="default_visibility"' in resp.text
+    assert 'value="private" selected' in resp.text
+
+
+def test_profile_update_preferences_persists_value(client):
+    from code.web.services.user_db import get_user_by_username, get_default_visibility
+    client.post("/auth/register", data={
+        "username": "visuser2", "email": "visuser2@example.com",
+        "password": "password123", "confirm": "password123",
+    })
+    resp = client.post("/auth/profile/preferences", data={"default_visibility": "public"})
+    assert resp.status_code == 200
+    user = get_user_by_username("visuser2")
+    assert get_default_visibility(user["id"]) == "public"
+
+
+def test_profile_update_preferences_rejects_invalid_value(client):
+    client.post("/auth/register", data={
+        "username": "visuser3", "email": "visuser3@example.com",
+        "password": "password123", "confirm": "password123",
+    })
+    resp = client.post("/auth/profile/preferences", data={"default_visibility": "bogus"})
+    assert resp.status_code == 400
+
+
+def test_profile_update_preferences_forbidden_for_guest(client):
+    resp = client.post("/auth/profile/preferences", data={"default_visibility": "public"})
+    assert resp.status_code == 403
+

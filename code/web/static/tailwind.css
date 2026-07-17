@@ -4810,4 +4810,41 @@ footer.site-footer {
 }
 .cart-toast-top.hide { opacity: 0; transform: translateX(-50%) translateY(-6px); }
 
+/* Deck visibility badges (Roadmap 30) */
+.visibility-badge {
+  display: inline-block;
+  margin-left: .35rem;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  vertical-align: middle;
+  border: 1px solid var(--border, #2a2b2f);
+}
+.visibility-badge--public {
+  background: var(--info-bg, #14532d);
+  color: var(--ok, #4ade80);
+  border-color: var(--ok, #16a34a);
+}
+.visibility-badge--unlisted {
+  background: var(--info-bg, #1e3a5f);
+  color: var(--info-text, #93c5fd);
+  border-color: var(--info-border, #3b82f6);
+}
+.visibility-badge--private {
+  background: var(--panel, #1a1b1e);
+  color: var(--muted, #b6b8bd);
+  border-color: var(--border, #2a2b2f);
+}
+.deck-visibility-controls select {
+  font-size: 12px;
+  padding: 2px 6px;
+}
+.deck-share-url code {
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: var(--panel, #1a1b1e);
+  border: 1px solid var(--border, #2a2b2f);
+}
+
 

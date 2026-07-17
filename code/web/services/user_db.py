@@ -84,6 +84,11 @@ def init_db() -> None:
             conn.execute("ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0")
         except sqlite3.OperationalError:
             pass  # column already exists
+        # Migration: add default_visibility column if not already present
+        try:
+            conn.execute("ALTER TABLE users ADD COLUMN default_visibility TEXT NOT NULL DEFAULT 'private'")
+        except sqlite3.OperationalError:
+            pass  # column already exists
         conn.commit()
     logger.info("user_db: initialised at %s", _DB_PATH)
 
@@ -120,6 +125,7 @@ def _row_to_user(row: sqlite3.Row) -> User:
         is_guest=bool(row["is_guest"]),
         is_active=bool(row["is_active"]),
         is_admin=bool(row["is_admin"]) if "is_admin" in keys else False,
+        default_visibility=str(row["default_visibility"]) if "default_visibility" in keys and row["default_visibility"] else "private",
         created_at=float(row["created_at"]),
         updated_at=float(row["updated_at"]),
     )
@@ -243,6 +249,36 @@ def update_password(user_id: str, new_password: str) -> None:
         conn.execute(
             "UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?",
             (new_hash, now, user_id),
+        )
+        conn.commit()
+
+
+_VALID_DEFAULT_VISIBILITIES = ("public", "unlisted", "private")
+
+
+def get_default_visibility(user_id: str) -> str:
+    """Return the user's default visibility preference for new deck builds.
+
+    Missing user, missing column value, or invalid value all fall back to 'private'.
+    """
+    if user_id == "guest" or user_id == "__admin__":
+        return "private"
+    user = get_user_by_id(user_id)
+    if not user:
+        return "private"
+    value = user.get("default_visibility")
+    return value if value in _VALID_DEFAULT_VISIBILITIES else "private"
+
+
+def set_default_visibility(user_id: str, visibility: str) -> None:
+    """Persist the user's default visibility preference. Raises ValueError for an invalid value."""
+    if visibility not in _VALID_DEFAULT_VISIBILITIES:
+        raise ValueError(f"Invalid visibility: {visibility!r}")
+    now = time.time()
+    with _connect() as conn:
+        conn.execute(
+            "UPDATE users SET default_visibility = ?, updated_at = ? WHERE id = ?",
+            (visibility, now, user_id),
         )
         conn.commit()
 

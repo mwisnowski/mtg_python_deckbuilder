@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block banner_subtitle %}Finished Decks{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h2>This deck is private</h2>
+</div>
+<div class="muted" style="max-width:1080px; margin-top:.5rem; line-height:1.6; font-size:.95rem;">
+  <p>Oops! Looks like the deck you're trying to look at is marked <strong>Private</strong>. Check with the person who sent you the link; if they meant to share it, ask them to set the visibility to <strong>Unlisted</strong> or <strong>Public</strong> instead.</p>
+  <p><a href="/decks/" class="btn" role="button">Back to Finished Decks</a></p>
+</div>
+{% endblock %}

@@ -1997,7 +1997,7 @@ def run_build(commander: str, tags: List[str], bracket: int, ideals: Dict[str, i
                 # Compute bracket compliance and save JSON alongside exports
                 try:
                     if hasattr(b, 'compute_and_print_compliance'):
-                        rep0 = b.compute_and_print_compliance(base_stem=base)
+                        rep0 = b.compute_and_print_compliance(base_stem=base, deck_dir=deck_dir)
                         # Attach planning preview (no mutation) and only auto-enforce if explicitly enabled
                         rep0 = _attach_enforcement_plan(b, rep0)
                         try:
@@ -2006,10 +2006,22 @@ def run_build(commander: str, tags: List[str], bracket: int, ideals: Dict[str, i
                         except Exception:
                             _auto = False
                         if _auto and isinstance(rep0, dict) and rep0.get('overall') == 'FAIL' and hasattr(b, 'enforce_and_reexport'):
-                            b.enforce_and_reexport(base_stem=base, mode='auto')
+                            b.enforce_and_reexport(base_stem=base, mode='auto', deck_dir=deck_dir)
                 except Exception:
                     pass
-                # Load compliance JSON for UI consumption\n                try:\n                    # Prefer the in-memory report (with enforcement plan) when available\n                    if rep0 is not None:\n                        compliance_obj = rep0\n                    else:\n                        import json as _json\n                        comp_path = _os.path.join(deck_dir, f\"{base}_compliance.json\")\n                        if _os.path.exists(comp_path):\n                            with open(comp_path, 'r', encoding='utf-8') as _cf:\n                                compliance_obj = _json.load(_cf)\n                except Exception:\n                    compliance_obj = None
+                # Load compliance JSON for UI consumption
+                try:
+                    # Prefer the in-memory report (with enforcement plan) when available
+                    if rep0 is not None:
+                        compliance_obj = rep0
+                    else:
+                        import json as _json
+                        comp_path = _os.path.join(deck_dir, f"{base}_compliance.json")
+                        if _os.path.exists(comp_path):
+                            with open(comp_path, 'r', encoding='utf-8') as _cf:
+                                compliance_obj = _json.load(_cf)
+                except Exception:
+                    compliance_obj = None
         except Exception as e:
             out(f"Text export failed: {e}")
 
@@ -2068,6 +2080,8 @@ def run_build(commander: str, tags: List[str], bracket: int, ideals: Dict[str, i
                 ideal_counts = getattr(b, 'ideal_counts', None)
                 if isinstance(ideal_counts, dict) and ideal_counts:
                     meta['ideal_counts'] = {k: int(v) for k, v in ideal_counts.items()}
+                from .deck_visibility import resolve_visibility_for_write
+                meta["visibility"] = resolve_visibility_for_write(csv_path, deck_dir=deck_dir)
                 payload = {"meta": meta, "summary": summary}
                 with open(sidecar, 'w', encoding='utf-8') as f:
                     _json.dump(payload, f, ensure_ascii=False, indent=2)
@@ -2550,6 +2564,7 @@ def start_build_ctx(
     secondary_commander: str | None = None,
     background_commander: str | None = None,
     budget_config: Dict[str, Any] | None = None,
+    deck_visibility: str | None = None,
 ) -> Dict[str, Any]:
     logs: List[str] = []
 
@@ -2731,6 +2746,7 @@ def start_build_ctx(
         "locks": {str(n).strip().lower() for n in (locks or []) if str(n).strip()},
     "custom_export_base": str(custom_export_base).strip() if isinstance(custom_export_base, str) and custom_export_base.strip() else None,
         "deck_dir": str(deck_dir) if deck_dir else "deck_files",
+        "deck_visibility": deck_visibility if deck_visibility in ("public", "unlisted", "private") else None,
         "swap_mdfc_basics": bool(swap_mdfc_basics),
     }
     return ctx
@@ -2813,7 +2829,7 @@ def run_stage(ctx: Dict[str, Any], rerun: bool = False, show_skipped: bool = Fal
                 # Compute bracket compliance and save JSON alongside exports
                 try:
                     if hasattr(b, 'compute_and_print_compliance'):
-                        rep0 = b.compute_and_print_compliance(base_stem=base)
+                        rep0 = b.compute_and_print_compliance(base_stem=base, deck_dir=deck_dir)
                         rep0 = _attach_enforcement_plan(b, rep0)
                         try:
                             import os as __os
@@ -2821,7 +2837,7 @@ def run_stage(ctx: Dict[str, Any], rerun: bool = False, show_skipped: bool = Fal
                         except Exception:
                             _auto = False
                         if _auto and isinstance(rep0, dict) and rep0.get('overall') == 'FAIL' and hasattr(b, 'enforce_and_reexport'):
-                            b.enforce_and_reexport(base_stem=base, mode='auto')
+                            b.enforce_and_reexport(base_stem=base, mode='auto', deck_dir=deck_dir)
                 except Exception:
                     pass
                 # Load compliance JSON for UI consumption
@@ -2925,6 +2941,8 @@ def run_stage(ctx: Dict[str, Any], rerun: bool = False, show_skipped: bool = Fal
                 ideal_counts = getattr(b, 'ideal_counts', None)
                 if isinstance(ideal_counts, dict) and ideal_counts:
                     meta['ideal_counts'] = {k: int(v) for k, v in ideal_counts.items()}
+                from .deck_visibility import resolve_visibility_for_write
+                meta["visibility"] = resolve_visibility_for_write(csv_path, deck_dir=deck_dir, override=ctx.get("deck_visibility"))
                 payload = {"meta": meta, "summary": summary}
                 with open(sidecar, 'w', encoding='utf-8') as f:
                     _json.dump(payload, f, ensure_ascii=False, indent=2)
@@ -3702,7 +3720,7 @@ def run_stage(ctx: Dict[str, Any], rerun: bool = False, show_skipped: bool = Fal
             # Compute bracket compliance and save JSON alongside exports
             try:
                 if hasattr(b, 'compute_and_print_compliance'):
-                    rep0 = b.compute_and_print_compliance(base_stem=base)
+                    rep0 = b.compute_and_print_compliance(base_stem=base, deck_dir=deck_dir)
                     rep0 = _attach_enforcement_plan(b, rep0)
                     try:
                         import os as __os
@@ -3710,7 +3728,7 @@ def run_stage(ctx: Dict[str, Any], rerun: bool = False, show_skipped: bool = Fal
                     except Exception:
                         _auto = False
                     if _auto and isinstance(rep0, dict) and rep0.get('overall') == 'FAIL' and hasattr(b, 'enforce_and_reexport'):
-                        b.enforce_and_reexport(base_stem=base, mode='auto')
+                        b.enforce_and_reexport(base_stem=base, mode='auto', deck_dir=deck_dir)
             except Exception:
                 pass
             # Load compliance JSON for UI consumption
@@ -3783,6 +3801,8 @@ def run_stage(ctx: Dict[str, Any], rerun: bool = False, show_skipped: bool = Fal
             ideal_counts = getattr(b, 'ideal_counts', None)
             if isinstance(ideal_counts, dict) and ideal_counts:
                 meta['ideal_counts'] = {k: int(v) for k, v in ideal_counts.items()}
+            from .deck_visibility import resolve_visibility_for_write
+            meta["visibility"] = resolve_visibility_for_write(csv_path, deck_dir=deck_dir, override=ctx.get("deck_visibility"))
             payload = {"meta": meta, "summary": summary}
             with open(sidecar, 'w', encoding='utf-8') as f:
                 _json.dump(payload, f, ensure_ascii=False, indent=2)

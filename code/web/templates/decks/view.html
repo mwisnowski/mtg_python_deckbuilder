@@ -79,6 +79,34 @@
         <button type="submit">Back to Finished Decks</button>
       </form>
     </div>
+    {% if is_owner %}
+    <div class="deck-visibility-controls" style="margin-top:.6rem; display:flex; align-items:center; gap:.5rem; flex-wrap:wrap;">
+      <label for="deck-visibility" class="muted" style="font-size:12px;">Visibility:</label>
+      <select id="deck-visibility" name="visibility"
+              hx-post="/decks/set-visibility"
+              hx-vals='js:{"deck_name": "{{ name }}", "visibility": event.target.value}'
+              hx-trigger="change"
+              hx-target="#deck-visibility-toast"
+              hx-swap="innerHTML">
+        <option value="private" {% if deck_visibility == "private" %}selected{% endif %}>Private</option>
+        <option value="unlisted" {% if deck_visibility == "unlisted" %}selected{% endif %}>Unlisted</option>
+        <option value="public" {% if deck_visibility == "public" %}selected{% endif %}>Public</option>
+      </select>
+      <span id="deck-visibility-toast"></span>
+    </div>
+    {% endif %}
+    <div id="deck-share-url-block">
+      {% if deck_visibility == "private" %}
+      <div class="muted deck-share-url-message" style="font-size:12px; margin-top:.35rem;">
+        This deck is private: the link won't work for anyone else until you set visibility to Unlisted or Public.
+      </div>
+      {% elif share_url %}
+      <div class="muted deck-share-url" style="font-size:12px; margin-top:.35rem;">
+        <span id="deck-share-url-value" style="display:none;">{{ request.url.scheme }}://{{ request.url.netloc }}{{ share_url }}</span>
+        <button type="button" class="btn btn-sm" onclick="try{ navigator.clipboard.writeText(document.getElementById('deck-share-url-value').textContent); if(window.toast) toast('Link copied.', 'success'); }catch(_){}">Copy Shareable Link</button>
+      </div>
+      {% endif %}
+    </div>
     {# Buy This Deck: collect all cards, strip DFC names, open vendor + copy to clipboard #}
     {%- set _buy_cards = [] -%}
     {%- if commander_base -%}

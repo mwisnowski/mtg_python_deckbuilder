@@ -31,6 +31,8 @@ from ..services.user_db import (
     update_password,
     set_reset_token_hash,
     consume_reset_token,
+    get_default_visibility,
+    set_default_visibility,
 )
 from ..services.email import send_password_reset, send_welcome_email
 from ..services.audit_db import log_event as _audit
@@ -296,6 +298,9 @@ async def profile_page(request: Request):
         "request": request,
         "error": None,
         "success": None,
+        "default_visibility": get_default_visibility(user["id"]),
+        "prefs_error": None,
+        "prefs_success": None,
     })
 
 
@@ -313,6 +318,8 @@ async def profile_change_password(
     def _err(msg: str):
         return templates.TemplateResponse("auth/profile.html", {
             "request": request, "error": msg, "success": None,
+            "default_visibility": get_default_visibility(user["id"]),
+            "prefs_error": None, "prefs_success": None,
         }, status_code=400)
 
     if user["id"] == _ADMIN_ID:
@@ -329,4 +336,24 @@ async def profile_change_password(
         "request": request,
         "error": None,
         "success": "Password updated successfully.",
+        "default_visibility": get_default_visibility(user["id"]),
+        "prefs_error": None,
+        "prefs_success": None,
     })
+
+
+@router.post("/profile/preferences", response_class=HTMLResponse)
+async def profile_update_preferences(
+    request: Request,
+    default_visibility: str = Form(...),
+):
+    """Update the user's default visibility preference for new deck builds."""
+    user = _current_user(request)
+    if not user or user.get("is_guest"):
+        return HTMLResponse("Forbidden", status_code=403)
+    try:
+        set_default_visibility(user["id"], default_visibility)
+    except ValueError:
+        return HTMLResponse("Invalid visibility.", status_code=400)
+    _audit("default_visibility_change", user_id=user["id"], username=user["username"], ip=_get_client_ip(request))
+    return HTMLResponse("<script>window.toast && window.toast('Default visibility updated.', 'success');</script>")

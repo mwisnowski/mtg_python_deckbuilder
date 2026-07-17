@@ -1291,8 +1291,16 @@ def build_random_full_deck(
     auto_fill_secondary: Optional[bool] = None,
     auto_fill_tertiary: Optional[bool] = None,
     strict_theme_match: bool = False,
+    deck_dir: str = "deck_files",
+    default_visibility: str = "private",
 ) -> RandomFullBuildResult:
     """Select a commander deterministically, then run a full deck build via DeckBuilder.
+
+    ``deck_dir`` controls where CSV/TXT/sidecar artifacts are written (defaults to the
+    shared root ``deck_files`` for CLI/legacy callers; web callers should pass the
+    caller's user-scoped export directory). ``default_visibility`` sets the sidecar's
+    ``visibility`` field for brand-new sidecars (web callers should pass the owning
+    user's profile preference; CLI callers keep the "private" default).
 
     Returns a compact result including the seed, commander, and a summarized decklist.
     """
@@ -1580,6 +1588,7 @@ def build_random_full_deck(
         secondary_commander = commander_meta.get("secondary_commander")
         if secondary_commander:
             meta_payload["secondary_commander"] = secondary_commander
+        meta_payload["visibility"] = default_visibility if default_visibility in ("public", "unlisted", "private") else "private"
         return meta_payload
 
     # Attempt to reuse existing export performed inside builder (headless run already exported)
@@ -1608,7 +1617,7 @@ def build_random_full_deck(
                 # Compute compliance if not already saved
                 try:
                     if hasattr(builder, 'compute_and_print_compliance'):
-                        compliance = builder.compute_and_print_compliance(base_stem=_os.path.basename(base_path))
+                        compliance = builder.compute_and_print_compliance(base_stem=_os.path.basename(base_path), deck_dir=_os.path.dirname(base_path) or deck_dir)
                 except Exception:
                     compliance = None
             # Write summary sidecar if missing
@@ -1634,7 +1643,7 @@ def build_random_full_deck(
                         import re as _re
                         cmdr = (getattr(builder, 'commander_name', '') or getattr(builder, 'commander', '') or '')
                         slug = _re.sub(r'[^A-Za-z0-9_]+', '', cmdr) or 'deck'
-                        pattern = f"deck_files/{slug}_*_{today}.csv"
+                        pattern = _os.path.join(deck_dir, f"{slug}_*_{today}.csv")
                         for path in sorted(_glob.glob(pattern)):
                             base_name = _os.path.basename(path)
                             if '_1.csv' not in base_name:  # prefer original
@@ -1646,7 +1655,7 @@ def build_random_full_deck(
                         csv_path = existing_base
                         base_path, _ = _os.path.splitext(csv_path)
                     else:
-                        tmp_csv = builder.export_decklist_csv()
+                        tmp_csv = builder.export_decklist_csv(directory=deck_dir)
                         stem_base, ext = _os.path.splitext(tmp_csv)
                         if stem_base.endswith('_1'):
                             original = stem_base[:-2] + ext
@@ -1662,13 +1671,13 @@ def build_random_full_deck(
                         if _os.path.isfile(target_txt):
                             txt_path = target_txt
                         else:
-                            tmp_txt = builder.export_decklist_text(filename=_os.path.basename(base_path) + '.txt')
+                            tmp_txt = builder.export_decklist_text(directory=deck_dir, filename=_os.path.basename(base_path) + '.txt')
                             if tmp_txt.endswith('_1.txt') and _os.path.isfile(target_txt):
                                 txt_path = target_txt
                             else:
                                 txt_path = tmp_txt
                     if hasattr(builder, 'compute_and_print_compliance'):
-                        compliance = builder.compute_and_print_compliance(base_stem=_os.path.basename(base_path))
+                        compliance = builder.compute_and_print_compliance(base_stem=_os.path.basename(base_path), deck_dir=_os.path.dirname(base_path) or deck_dir)
                     if summary:
                         sidecar = base_path + '.summary.json'
                         if not _os.path.isfile(sidecar):

@@ -1,16 +1,25 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Form, Request
 from fastapi.responses import HTMLResponse, Response
 from pathlib import Path
 import csv
 import io
+import json
 import os
+import time
 from typing import Any, Dict, List, Optional, Tuple
 
 from ..app import templates
 from ..services.orchestrator import tags_for_commander
 from ..services.summary_utils import format_theme_label, format_theme_list, summary_ctx
+from ..services.user_db import get_user_by_id, get_user_by_username
+from ..services.deck_visibility import (
+    DEFAULT_VISIBILITY,
+    VALID_VISIBILITIES,
+    get_deck_visibility as _get_deck_visibility_by_path,
+    set_deck_visibility as _set_deck_visibility_by_path,
+)
 from ..app import ENABLE_BUDGET_MODE, ENABLE_PREFETCH
 
 
@@ -64,6 +73,7 @@ def _list_from_dir(d: Path) -> list[dict]:
                     meta["source"] = _m.get('source')
             except Exception:
                 pass
+        meta["visibility"] = _get_deck_visibility_by_path(p)
         if not meta.get("commander"):
             parts = stem.split('_')
             if len(parts) >= 3:
@@ -108,6 +118,104 @@ def _deck_base_for_section(uid: str, section: str) -> Path:
     return _deck_dir(uid)  # "mine" or unrecognised → user's own dir
 
 
+def _check_deck_access(request: Request, owner_user_id: str, deck_name: str) -> bool:
+    """Return True if the current requester may view/download this deck.
+
+    Owner and admins are always allowed. Public and unlisted decks are
+    accessible to anyone with the URL (guests included). Private decks are
+    only accessible to the owner/admin. Callers should 404 (never 403) on
+    denial so deck existence is never revealed to non-owners.
+    """
+    uid = _user_id(request)
+    user = getattr(request.state, "current_user", None)
+    if uid == owner_user_id or bool(user and user.get("is_admin")):
+        return True
+    visibility = _get_deck_visibility_by_path(_deck_dir(owner_user_id) / deck_name)
+    return visibility in ("public", "unlisted")
+
+
+def get_deck_visibility(user_id: str, deck_name: str) -> str:
+    """Return a deck's visibility ('public'|'unlisted'|'private') for the given owner.
+
+    Missing sidecar or visibility key defaults to 'private'.
+    """
+    return _get_deck_visibility_by_path(_deck_dir(user_id) / deck_name)
+
+
+def set_deck_visibility(user_id: str, deck_name: str, visibility: str) -> None:
+    """Set a deck's visibility for the given owner.
+
+    Raises ValueError for an invalid visibility value, FileNotFoundError if
+    the deck's sidecar does not exist.
+    """
+    _set_deck_visibility_by_path(_deck_dir(user_id) / deck_name, visibility)
+
+
+_PUBLIC_DECKS_CACHE: Dict[str, Any] = {"data": None, "ts": 0.0}
+_PUBLIC_DECKS_CACHE_TTL = 60.0
+
+
+def _scan_public_decks() -> List[dict]:
+    """Scan every user's deck directory for public decks. No caching here."""
+    root = Path(os.getenv("DECK_EXPORTS") or "deck_files").resolve()
+    if not root.exists():
+        return []
+    items: List[dict] = []
+    for user_dir in root.iterdir():
+        if not user_dir.is_dir() or user_dir.name == "guest":
+            continue  # guest decks are always private (M1 design decision)
+        user_id = user_dir.name
+        try:
+            owner = get_user_by_id(user_id)
+        except Exception:
+            owner = None
+        username = owner.get("username") if owner else None
+        if not username:
+            continue  # can't build a shareable URL without a known username
+        for sidecar in user_dir.glob("*.summary.json"):
+            try:
+                payload = json.loads(sidecar.read_text(encoding="utf-8"))
+            except Exception:
+                continue
+            meta = payload.get("meta") if isinstance(payload, dict) else None
+            if not isinstance(meta, dict) or meta.get("visibility") != "public":
+                continue
+            try:
+                mtime = sidecar.stat().st_mtime
+            except Exception:
+                mtime = 0.0
+            csv_name = sidecar.name[: -len(".summary.json")] + ".csv"
+            has_txt = (user_dir / (sidecar.name[: -len(".summary.json")] + ".txt")).exists()
+            items.append({
+                "user_id": user_id,
+                "username": username,
+                "name": csv_name,
+                "commander": meta.get("commander") or "",
+                "tags": list(meta.get("tags") or []),
+                "display": meta.get("name") or "",
+                "mtime": mtime,
+                "has_txt": has_txt,
+            })
+    return items
+
+
+def list_public_decks(exclude_user_id: str, limit: int = 20) -> List[dict]:
+    """Return public decks from all users (excluding ``exclude_user_id``).
+
+    Results are cached in memory for 60s to avoid repeated filesystem scans;
+    sorted by most recently modified first and capped at ``limit``.
+    """
+    now = time.time()
+    cached = _PUBLIC_DECKS_CACHE.get("data")
+    if cached is None or (now - _PUBLIC_DECKS_CACHE.get("ts", 0.0)) >= _PUBLIC_DECKS_CACHE_TTL:
+        cached = _scan_public_decks()
+        _PUBLIC_DECKS_CACHE["data"] = cached
+        _PUBLIC_DECKS_CACHE["ts"] = now
+    filtered = [it for it in cached if it["user_id"] != exclude_user_id]
+    filtered.sort(key=lambda it: it.get("mtime", 0), reverse=True)
+    return filtered[:limit]
+
+
 def _index_sections(uid: str) -> list[dict]:
     """Build the ordered sections list for the deck index page."""
     is_guest = uid == "guest"
@@ -120,6 +228,15 @@ def _index_sections(uid: str) -> list[dict]:
         "subtitle": None if is_guest else "Decks built with your account.",
         "decks": my_decks,
     })
+
+    public_decks = list_public_decks(exclude_user_id=uid)
+    if public_decks:
+        sections.append({
+            "id": "others",
+            "label": "Other Users' Decks",
+            "subtitle": "Public decks shared by other users.",
+            "decks": public_decks,
+        })
 
     if not is_guest:
         guest_decks = _list_guest_decks()
@@ -352,6 +469,78 @@ async def decks_view(request: Request, name: str, section: str = "mine") -> HTML
     if not _safe_within(base, p) or not (p.exists() and p.is_file() and p.suffix.lower() == ".csv"):
         return templates.TemplateResponse("decks/index.html", {"request": request, "sections": _index_sections(uid), "error": "Deck not found."})
 
+    # "legacy" decks predate visibility/ownership; treat as always accessible.
+    owner_user_id = None if section == "legacy" else (uid if section == "mine" else "guest")
+    if owner_user_id and not _check_deck_access(request, owner_user_id, name):
+        return templates.TemplateResponse(
+            "decks/index.html",
+            {"request": request, "sections": _index_sections(uid), "error": "Deck not found."},
+            status_code=404,
+        )
+
+    is_owner = bool(owner_user_id) and owner_user_id == uid and uid != "guest"
+    owner_username: Optional[str] = None
+    if is_owner:
+        user = getattr(request.state, "current_user", None)
+        owner_username = user.get("username") if user else None
+
+    return _render_deck_view(
+        request,
+        uid,
+        p,
+        owner_user_id=owner_user_id or "guest",
+        is_owner=is_owner,
+        owner_username=owner_username,
+    )
+
+
+@router.get("/{username}/{deck_name}", response_class=HTMLResponse)
+async def decks_view_by_username(request: Request, username: str, deck_name: str) -> HTMLResponse:
+    """Namespaced deck view: resolves `username` to an owner and renders their deck."""
+    uid = _user_id(request)
+    owner = get_user_by_username(username)
+    if not owner:
+        return templates.TemplateResponse(
+            "decks/index.html",
+            {"request": request, "sections": _index_sections(uid), "error": "Deck not found."},
+            status_code=404,
+        )
+    owner_user_id = str(owner["id"])
+    base = _deck_dir(owner_user_id)
+    p = (base / deck_name).resolve()
+    if not _safe_within(base, p) or not (p.exists() and p.is_file() and p.suffix.lower() == ".csv"):
+        return templates.TemplateResponse(
+            "decks/index.html",
+            {"request": request, "sections": _index_sections(uid), "error": "Deck not found."},
+            status_code=404,
+        )
+    if not _check_deck_access(request, owner_user_id, deck_name):
+        return templates.TemplateResponse(
+            "decks/private_notice.html",
+            {"request": request},
+            status_code=403,
+        )
+    is_owner = (owner_user_id == uid) and uid != "guest"
+    return _render_deck_view(
+        request,
+        uid,
+        p,
+        owner_user_id=owner_user_id,
+        is_owner=is_owner,
+        owner_username=str(owner["username"]),
+    )
+
+
+def _render_deck_view(
+    request: Request,
+    uid: str,
+    p: Path,
+    *,
+    owner_user_id: str,
+    is_owner: bool,
+    owner_username: Optional[str] = None,
+) -> HTMLResponse:
+    """Build and render the deck-view template for an already-access-checked deck path."""
     # Try to load sidecar summary JSON first
     summary = None
     commander_name = ''
@@ -395,6 +584,10 @@ async def decks_view(request: Request, name: str, section: str = "mine") -> HTML
         "commander": commander_name,
         "tags": tags,
         "display_name": display_name,
+        "is_owner": is_owner,
+        "deck_visibility": _get_deck_visibility_by_path(p),
+        "visibility_options": VALID_VISIBILITIES,
+        "share_url": f"/decks/{owner_username}/{p.name}" if owner_username else None,
     }
     ctx.update(summary_ctx(summary=summary, commander=commander_name, tags=tags, meta=meta_info))
 
@@ -718,6 +911,51 @@ async def decks_download_csv(request: Request, name: str, section: str = "mine")
     p = (base / name).resolve()
     if not _safe_within(base, p) or not (p.exists() and p.is_file() and p.suffix.lower() == ".csv"):
         return HTMLResponse("File not found", status_code=404)
+    owner_user_id = None if section == "legacy" else (uid if section == "mine" else "guest")
+    if owner_user_id and not _check_deck_access(request, owner_user_id, name):
+        return HTMLResponse("File not found", status_code=404)
+    return _build_csv_download_response(p)
+
+
+@router.get("/{username}/{deck_name}/download")
+async def decks_download_csv_by_username(request: Request, username: str, deck_name: str) -> Response:
+    """Namespaced CSV download: resolves `username` to an owner and serves their deck."""
+    owner = get_user_by_username(username)
+    if not owner:
+        return HTMLResponse("File not found", status_code=404)
+    owner_user_id = str(owner["id"])
+    if not _check_deck_access(request, owner_user_id, deck_name):
+        return HTMLResponse("File not found", status_code=404)
+    base = _deck_dir(owner_user_id)
+    p = (base / deck_name).resolve()
+    if not _safe_within(base, p) or not (p.exists() and p.is_file() and p.suffix.lower() == ".csv"):
+        return HTMLResponse("File not found", status_code=404)
+    return _build_csv_download_response(p)
+
+
+@router.get("/{username}/{deck_name}/download-txt")
+async def decks_download_txt_by_username(request: Request, username: str, deck_name: str) -> Response:
+    """Namespaced TXT download: resolves `username` to an owner and serves their deck's TXT export."""
+    owner = get_user_by_username(username)
+    if not owner:
+        return HTMLResponse("File not found", status_code=404)
+    owner_user_id = str(owner["id"])
+    if not _check_deck_access(request, owner_user_id, deck_name):
+        return HTMLResponse("File not found", status_code=404)
+    base = _deck_dir(owner_user_id)
+    p = (base / deck_name).resolve()
+    txt_p = p.with_suffix(".txt")
+    if not _safe_within(base, txt_p) or not (txt_p.exists() and txt_p.is_file() and txt_p.suffix.lower() == ".txt"):
+        return HTMLResponse("File not found", status_code=404)
+    return Response(
+        content=txt_p.read_bytes(),
+        media_type="text/plain; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{txt_p.name}"'},
+    )
+
+
+def _build_csv_download_response(p: Path) -> Response:
+    """Read a deck CSV, attach live prices, and build the download response."""
     try:
         with p.open("r", encoding="utf-8", newline="") as f:
             reader = csv.reader(f)
@@ -767,6 +1005,52 @@ async def decks_download_csv(request: Request, name: str, section: str = "mine")
         content=output.getvalue().encode("utf-8"),
         media_type="text/csv",
         headers={"Content-Disposition": f'attachment; filename="{p.name}"'},
+    )
+
+
+@router.post("/set-visibility", response_class=HTMLResponse)
+async def decks_set_visibility(
+    request: Request,
+    deck_name: str = Form(...),
+    visibility: str = Form(...),
+) -> HTMLResponse:
+    """Update a deck's visibility. Owner-only; guests are forbidden."""
+    uid = _user_id(request)
+    user = getattr(request.state, "current_user", None)
+    if uid == "guest" or not user or user.get("is_guest"):
+        return HTMLResponse("Forbidden", status_code=403)
+    if visibility not in VALID_VISIBILITIES:
+        return HTMLResponse("Invalid visibility.", status_code=400)
+    base = _deck_dir(uid)
+    p = (base / deck_name).resolve()
+    if not _safe_within(base, p) or not (p.exists() and p.is_file() and p.suffix.lower() == ".csv"):
+        return HTMLResponse("Deck not found.", status_code=404)
+    try:
+        _set_deck_visibility_by_path(p, visibility)
+    except (ValueError, FileNotFoundError):
+        return HTMLResponse("Deck not found.", status_code=404)
+    label = {"public": "Public", "unlisted": "Unlisted", "private": "Private"}.get(visibility, visibility)
+    username = user.get("username") if user else None
+    share_block = ""
+    if visibility == "private":
+        share_block = (
+            '<div class="muted deck-share-url-message" style="font-size:12px; margin-top:.35rem;">'
+            "This deck is private &mdash; the link won't work for anyone else until you set visibility "
+            "to Unlisted or Public.</div>"
+        )
+    elif username:
+        share_url = f"/decks/{username}/{deck_name}"
+        full_url = f"{request.url.scheme}://{request.url.netloc}{share_url}"
+        share_block = (
+            '<div class="muted deck-share-url" style="font-size:12px; margin-top:.35rem;">'
+            f'<span id="deck-share-url-value" style="display:none;">{full_url}</span> '
+            '<button type="button" class="btn btn-sm" onclick="try{ navigator.clipboard.writeText('
+            "document.getElementById('deck-share-url-value').textContent); if(window.toast) "
+            "toast('Link copied.', 'success'); }catch(_){}\">Copy Shareable Link</button></div>"
+        )
+    return HTMLResponse(
+        f"<script>window.toast && window.toast('Visibility set to {label}.', 'success');</script>"
+        f'<div id="deck-share-url-block" hx-swap-oob="true">{share_block}</div>'
     )
 
 

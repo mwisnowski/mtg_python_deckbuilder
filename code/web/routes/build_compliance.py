@@ -507,14 +507,15 @@ async def build_enforce_apply(request: Request) -> HTMLResponse:
             base_stem = _os.path.splitext(_os.path.basename(csv_path))[0]
     except Exception:
         base_stem = None
+    deck_dir = str(ctx.get("deck_dir") or "deck_files")
     # If missing, export once to establish base
     if not base_stem:
         try:
-            ctx["csv_path"] = b.export_decklist_csv()
+            ctx["csv_path"] = b.export_decklist_csv(directory=deck_dir)
             import os as _os
             base_stem = _os.path.splitext(_os.path.basename(ctx["csv_path"]))[0]
             # Also produce a text export for completeness
-            ctx["txt_path"] = b.export_decklist_text(filename=base_stem + '.txt')
+            ctx["txt_path"] = b.export_decklist_text(directory=deck_dir, filename=base_stem + '.txt')
         except Exception:
             base_stem = None
     # Add lock placeholders into the library before enforcement so user choices are present
@@ -559,7 +560,7 @@ async def build_enforce_apply(request: Request) -> HTMLResponse:
         pass
     # Run enforcement + re-exports (tops up to 100 internally)
     try:
-        rep = b.enforce_and_reexport(base_stem=base_stem, mode='auto')
+        rep = b.enforce_and_reexport(base_stem=base_stem, mode='auto', deck_dir=deck_dir)
     except Exception as e:
         err_ctx = step5_error_ctx(request, sess, f"Enforcement failed: {e}")
         resp = templates.TemplateResponse("build/_step5.html", err_ctx)
@@ -572,7 +573,7 @@ async def build_enforce_apply(request: Request) -> HTMLResponse:
         if base_stem:
             import os as _os
             import json as _json
-            comp_path = _os.path.join('deck_files', f"{base_stem}_compliance.json")
+            comp_path = _os.path.join(deck_dir, f"{base_stem}_compliance.json")
             if _os.path.exists(comp_path):
                 with open(comp_path, 'r', encoding='utf-8') as _cf:
                     compliance = _json.load(_cf)
@@ -582,8 +583,8 @@ async def build_enforce_apply(request: Request) -> HTMLResponse:
     # Ensure csv/txt paths on ctx reflect current base
     try:
         import os as _os
-        ctx["csv_path"] = _os.path.join('deck_files', f"{base_stem}.csv") if base_stem else ctx.get("csv_path")
-        ctx["txt_path"] = _os.path.join('deck_files', f"{base_stem}.txt") if base_stem else ctx.get("txt_path")
+        ctx["csv_path"] = _os.path.join(deck_dir, f"{base_stem}.csv") if base_stem else ctx.get("csv_path")
+        ctx["txt_path"] = _os.path.join(deck_dir, f"{base_stem}.txt") if base_stem else ctx.get("txt_path")
     except Exception:
         pass
     # Compute total_cards

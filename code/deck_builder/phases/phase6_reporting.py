@@ -168,10 +168,13 @@ class ReportingMixin:
         return metadata
     """Phase 6: Reporting, summaries, and export helpers."""
 
-    def enforce_and_reexport(self, base_stem: str | None = None, mode: str = "prompt") -> dict:
+    def enforce_and_reexport(self, base_stem: str | None = None, mode: str = "prompt", deck_dir: str = "deck_files") -> dict:
         """Run bracket enforcement, then re-export CSV/TXT and recompute compliance.
 
         mode: 'prompt' for CLI interactive; 'auto' for headless/web.
+        deck_dir: directory to write the re-exported CSV/TXT/compliance JSON into
+        (defaults to the shared root ``deck_files`` for CLI callers; web callers
+        should pass the caller's user-scoped export directory).
         Returns the final compliance report dict.
         """
         try:
@@ -239,15 +242,15 @@ class ReportingMixin:
                 csv_name = base_stem + ".csv"
                 txt_name = base_stem + ".txt"
                 # Overwrite exports with updated library
-                self.export_decklist_csv(directory='deck_files', filename=csv_name, suppress_output=True)
-                self.export_decklist_text(directory='deck_files', filename=txt_name, suppress_output=True)
+                self.export_decklist_csv(directory=deck_dir, filename=csv_name, suppress_output=True)
+                self.export_decklist_text(directory=deck_dir, filename=txt_name, suppress_output=True)
                 # Re-export the JSON config to reflect any changes from enforcement
                 json_name = base_stem + ".json"
                 self.export_run_config_json(directory='config', filename=json_name, suppress_output=True)
                 # Recompute and write compliance next to them
-                self.compute_and_print_compliance(base_stem=base_stem)
+                self.compute_and_print_compliance(base_stem=base_stem, deck_dir=deck_dir)
                 # Inject enforcement details into the saved compliance JSON for UI transparency
-                comp_path = _os.path.join('deck_files', f"{base_stem}_compliance.json")
+                comp_path = _os.path.join(deck_dir, f"{base_stem}_compliance.json")
                 try:
                     if _os.path.exists(comp_path) and isinstance(report, dict) and report.get('enforcement'):
                         with open(comp_path, 'r', encoding='utf-8') as _f:
@@ -259,21 +262,21 @@ class ReportingMixin:
                     pass
             else:
                 # Fall back to default export flow
-                csv_path = self.export_decklist_csv()
+                csv_path = self.export_decklist_csv(directory=deck_dir)
                 try:
                     base, _ = _os.path.splitext(csv_path)
                     base_only = _os.path.basename(base)
                 except Exception:
                     base_only = None
-                self.export_decklist_text(filename=(base_only + '.txt') if base_only else None)
+                self.export_decklist_text(directory=deck_dir, filename=(base_only + '.txt') if base_only else None)
                 # Re-export JSON config after enforcement changes
                 if base_only:
                     self.export_run_config_json(directory='config', filename=base_only + '.json', suppress_output=True)
                 if base_only:
-                    self.compute_and_print_compliance(base_stem=base_only)
+                    self.compute_and_print_compliance(base_stem=base_only, deck_dir=deck_dir)
                     # Inject enforcement into written JSON as above
                     try:
-                        comp_path = _os.path.join('deck_files', f"{base_only}_compliance.json")
+                        comp_path = _os.path.join(deck_dir, f"{base_only}_compliance.json")
                         if _os.path.exists(comp_path) and isinstance(report, dict) and report.get('enforcement'):
                             with open(comp_path, 'r', encoding='utf-8') as _f:
                                 comp_obj = _json.load(_f)
@@ -286,10 +289,11 @@ class ReportingMixin:
             pass
         return report
 
-    def compute_and_print_compliance(self, base_stem: str | None = None) -> dict:
+    def compute_and_print_compliance(self, base_stem: str | None = None, deck_dir: str = "deck_files") -> dict:
         """Compute bracket compliance, print a compact summary, and optionally write a JSON report.
 
-        If base_stem is provided, writes deck_files/{base_stem}_compliance.json.
+        If base_stem is provided, writes {deck_dir}/{base_stem}_compliance.json (deck_dir
+        defaults to the shared root ``deck_files`` for CLI callers).
         Returns the compliance report dict.
         """
         try:
@@ -333,8 +337,8 @@ class ReportingMixin:
         if isinstance(base_stem, str) and base_stem.strip():
             try:
                 import os as _os
-                _os.makedirs('deck_files', exist_ok=True)
-                path = _os.path.join('deck_files', f"{base_stem}_compliance.json")
+                _os.makedirs(deck_dir, exist_ok=True)
+                path = _os.path.join(deck_dir, f"{base_stem}_compliance.json")
                 import json as _json
                 with open(path, 'w', encoding='utf-8') as f:
                     _json.dump(report, f, indent=2)

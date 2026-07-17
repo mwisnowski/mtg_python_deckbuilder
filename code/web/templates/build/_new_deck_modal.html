@@ -12,6 +12,17 @@
         <legend>Basics</legend>
   <div class="basics-grid grid grid-cols-[2fr_1fr] gap-4 items-start">
           <div>
+            {% if not is_guest %}
+            <label class="form-label">
+              <span>Visibility</span>
+              <select name="deck_visibility">
+                <option value="private" {% if (form.deck_visibility if form else 'private') == "private" %}selected{% endif %}>Private</option>
+                <option value="unlisted" {% if (form.deck_visibility if form else '') == "unlisted" %}selected{% endif %}>Unlisted</option>
+                <option value="public" {% if (form.deck_visibility if form else '') == "public" %}selected{% endif %}>Public</option>
+              </select>
+            </label>
+            <small class="muted block mt-1">Who can view this deck once it's built. Defaults to your profile preference; change it anytime from the deck's page.</small>
+            {% endif %}
             <label class="form-label">
               <span class="muted">Optional name (used for file names)</span>
               <input type="text" name="name" placeholder="e.g., Inti Discard Tempo" autocomplete="off" autocapitalize="off" spellcheck="false" />

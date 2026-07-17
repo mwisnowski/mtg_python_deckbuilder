@@ -48,6 +48,24 @@
         </div>
       </div>
     </form>
+
+    <h3 style="margin-top:2rem; margin-bottom:1rem;">Deck Preferences</h3>
+    <div class="auth-field">
+      <label for="default_visibility">Default Visibility for New Builds</label>
+      <select class="form-input" id="default_visibility" name="default_visibility"
+              hx-post="/auth/profile/preferences"
+              hx-trigger="change"
+              hx-target="#default-visibility-toast"
+              hx-swap="innerHTML">
+        <option value="private" {% if default_visibility == "private" %}selected{% endif %}>Private</option>
+        <option value="unlisted" {% if default_visibility == "unlisted" %}selected{% endif %}>Unlisted</option>
+        <option value="public" {% if default_visibility == "public" %}selected{% endif %}>Public</option>
+      </select>
+      <span id="default-visibility-toast"></span>
+      <p class="muted" style="font-size:.85rem; margin-top:.35rem;">
+        Applies to new decks you build. You can still override this per-build or change it later on any deck's page.
+      </p>
+    </div>
     {% endif %}
   </div>
 </div>

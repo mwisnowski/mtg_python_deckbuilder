@@ -8,6 +8,7 @@ Docker-volume-mounted so they persist across container restarts.
 """
 from __future__ import annotations
 
+import hashlib
 import logging
 import sqlite3
 import time
@@ -17,7 +18,7 @@ from typing import Optional
 
 import bcrypt as _bcrypt  # type: ignore[import]
 
-from code.type_definitions import User
+from code.type_definitions import ApiKey, User
 
 logger = logging.getLogger(__name__)
 
@@ -65,6 +66,29 @@ CREATE TABLE IF NOT EXISTS users (
 );
 """
 
+# R28: public API keys, one row per issued key. `key_hash` is a SHA-256 hex
+# digest (not bcrypt) -- the plaintext key is already a 256-bit random token
+# (secrets.token_urlsafe(32)), so a fast deterministic hash gives an indexed
+# O(1) lookup on verify. Bcrypt is for low-entropy human passwords and can't
+# be looked up by hash without an O(n) scan over every active key.
+_CREATE_API_KEYS_TABLE = """
+CREATE TABLE IF NOT EXISTS api_keys (
+    id         TEXT PRIMARY KEY,
+    user_id    TEXT NOT NULL REFERENCES users(id),
+    key_hash   TEXT NOT NULL,
+    label      TEXT,
+    created_at REAL NOT NULL,
+    last_used  REAL,
+    is_active  INTEGER NOT NULL DEFAULT 1
+);
+"""
+_CREATE_API_KEYS_HASH_INDEX = (
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_api_keys_hash ON api_keys(key_hash)"
+)
+_CREATE_API_KEYS_USER_INDEX = (
+    "CREATE INDEX IF NOT EXISTS idx_api_keys_user ON api_keys(user_id)"
+)
+
 _GUEST_EMAIL = "guest@localhost"
 _GUEST_USERNAME = "guest"
 
@@ -74,6 +98,9 @@ def init_db() -> None:
     _DATA_DIR.mkdir(parents=True, exist_ok=True)
     with _connect() as conn:
         conn.execute(_CREATE_USERS_TABLE)
+        conn.execute(_CREATE_API_KEYS_TABLE)
+        conn.execute(_CREATE_API_KEYS_HASH_INDEX)
+        conn.execute(_CREATE_API_KEYS_USER_INDEX)
         # Migration: add reset_token_hash column if not already present
         try:
             conn.execute("ALTER TABLE users ADD COLUMN reset_token_hash TEXT DEFAULT NULL")
@@ -308,3 +335,129 @@ def consume_reset_token(user_id: str, token_hash: str) -> bool:
         )
         conn.commit()
     return True
+
+
+# ---------------------------------------------------------------------------
+# Public API keys (R28)
+# ---------------------------------------------------------------------------
+
+def _hash_api_key(key_plain: str) -> str:
+    return hashlib.sha256(key_plain.encode()).hexdigest()
+
+
+def _row_to_api_key(row: sqlite3.Row) -> ApiKey:
+    return ApiKey(
+        id=row["id"],
+        user_id=row["user_id"],
+        label=row["label"],
+        created_at=float(row["created_at"]),
+        last_used=float(row["last_used"]) if row["last_used"] is not None else None,
+        is_active=bool(row["is_active"]),
+    )
+
+
+def create_api_key(user_id: str, label: Optional[str] = None) -> tuple[str, ApiKey]:
+    """Mint a new API key for *user_id*. Returns (plaintext_key, ApiKey).
+
+    The plaintext key is never stored and is only returned here, once.
+    """
+    import secrets as _secrets
+
+    key_plain = _secrets.token_urlsafe(32)
+    key_id = str(uuid.uuid4())
+    now = time.time()
+    with _connect() as conn:
+        conn.execute(
+            "INSERT INTO api_keys (id, user_id, key_hash, label, created_at, last_used, is_active)"
+            " VALUES (?, ?, ?, ?, ?, NULL, 1)",
+            (key_id, user_id, _hash_api_key(key_plain), label, now),
+        )
+        conn.commit()
+        row = conn.execute("SELECT * FROM api_keys WHERE id = ?", (key_id,)).fetchone()
+    return key_plain, _row_to_api_key(row)
+
+
+def get_or_create_api_key(user_id: str, label: str) -> tuple[Optional[str], ApiKey]:
+    """Return the existing active key for (*user_id*, *label*) if one exists, else mint one.
+
+    Used by the login endpoint's per-device reuse: repeated logins with the
+    same ``device_label`` return the same key's metadata instead of minting a
+    new key each time. Returns ``(None, ApiKey)`` when reusing an existing
+    key, since the plaintext is never re-shown after creation.
+    """
+    with _connect() as conn:
+        row = conn.execute(
+            "SELECT * FROM api_keys WHERE user_id = ? AND label = ? AND is_active = 1",
+            (user_id, label),
+        ).fetchone()
+    if row:
+        return None, _row_to_api_key(row)
+    return create_api_key(user_id, label)
+
+
+def list_api_keys(user_id: str) -> list[ApiKey]:
+    """Return the user's active API keys, oldest first. Never includes the key itself."""
+    with _connect() as conn:
+        rows = conn.execute(
+            "SELECT * FROM api_keys WHERE user_id = ? AND is_active = 1 ORDER BY created_at ASC",
+            (user_id,),
+        ).fetchall()
+    return [_row_to_api_key(r) for r in rows]
+
+
+def revoke_api_key(key_id: str, user_id: str) -> None:
+    """Deactivate a key. Raises ValueError if it doesn't exist or isn't owned by *user_id*."""
+    with _connect() as conn:
+        row = conn.execute(
+            "SELECT id FROM api_keys WHERE id = ? AND user_id = ? AND is_active = 1",
+            (key_id, user_id),
+        ).fetchone()
+        if not row:
+            raise ValueError("API key not found.")
+        conn.execute("UPDATE api_keys SET is_active = 0 WHERE id = ?", (key_id,))
+        conn.commit()
+
+
+def verify_api_key(key_plain: str) -> Optional[User]:
+    """Return the User owning *key_plain* if it's a valid, active key; else None.
+
+    Updates ``last_used`` on success as a side effect.
+    """
+    if not key_plain:
+        return None
+    key_hash = _hash_api_key(key_plain)
+    with _connect() as conn:
+        row = conn.execute(
+            "SELECT * FROM api_keys WHERE key_hash = ? AND is_active = 1", (key_hash,)
+        ).fetchone()
+        if not row:
+            return None
+        conn.execute(
+            "UPDATE api_keys SET last_used = ? WHERE id = ?", (time.time(), row["id"])
+        )
+        conn.commit()
+    user = get_user_by_id(row["user_id"])
+    if not user or not user["is_active"]:
+        return None
+    return user
+
+
+def revoke_api_key_by_plain(key_plain: str) -> bool:
+    """Deactivate the API key matching *key_plain*. Returns True if a key was found.
+
+    Used by the `POST /api/v1/auth/logout` endpoint to revoke the exact key
+    the caller authenticated with, without needing to know its key id.
+    """
+    if not key_plain:
+        return False
+    key_hash = _hash_api_key(key_plain)
+    with _connect() as conn:
+        row = conn.execute(
+            "SELECT id FROM api_keys WHERE key_hash = ? AND is_active = 1", (key_hash,)
+        ).fetchone()
+        if not row:
+            return False
+        conn.execute("UPDATE api_keys SET is_active = 0 WHERE id = ?", (row["id"],))
+        conn.commit()
+    return True
+

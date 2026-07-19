@@ -106,6 +106,39 @@ def clear_failed_username(username: str) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Generic keyed rate limiter (R28: reused by the /api/v1 bearer-token auth
+# instead of adding a new dependency like slowapi/limits)
+# ---------------------------------------------------------------------------
+
+_generic_hits: dict[str, deque[float]] = defaultdict(deque)
+_generic_lock = Lock()
+
+
+def check_and_record_rate_limit(bucket_key: str, max_count: int, window_seconds: int) -> tuple[bool, int, int]:
+    """Increment the hit counter for *bucket_key* and report limit status.
+
+    *bucket_key* should already encode whatever the limit is scoped to, e.g.
+    ``f"apikey:{api_key_id}"`` or ``f"apikey-anon:{ip}"``.
+
+    Returns ``(exceeded, remaining, reset_epoch)``. ``remaining`` is clamped
+    to 0 when exceeded; ``reset_epoch`` is an approximate unix timestamp when
+    the oldest hit in the window will fall out of it.
+    """
+    now = time.monotonic()
+    with _generic_lock:
+        q = _generic_hits[bucket_key]
+        while q and now - q[0] > window_seconds:
+            q.popleft()
+        q.append(now)
+        count = len(q)
+        oldest = q[0]
+    exceeded = count > max_count
+    remaining = max(0, max_count - count)
+    reset_epoch = int(time.time() + max(0.0, window_seconds - (now - oldest)))
+    return exceeded, remaining, reset_epoch
+
+
+# ---------------------------------------------------------------------------
 # Admin synthetic user
 # ---------------------------------------------------------------------------
 

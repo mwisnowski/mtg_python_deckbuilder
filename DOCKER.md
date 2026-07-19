@@ -308,6 +308,7 @@ See `.env.example` for the full catalog. Common knobs:
 | `SHOW_NEW_BADGE` | `1` | Show the "New" badge on recently released cards across the site. Set to `0` to suppress the badge without disabling upgrade suggestions. |
 | `UPGRADE_WINDOW_MONTHS` | `6` | Rolling-months window used to identify New Cards (cards released within the last N months). |
 | `UPGRADE_PAGE_SIZE` | `16` | Cards shown per page on the Potential Upgrades page (valid range: 5–50). |
+| `API_DOCS_ENABLED` | `1` | Serve interactive Swagger UI at `/api/v1/docs` and Redoc at `/api/v1/redoc` for the public REST API. Set to `0` to disable both in production. |
 
 ### Random build controls
 

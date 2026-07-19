@@ -62,6 +62,16 @@ class User(TypedDict):
     created_at: float     # unix timestamp
     updated_at: float     # unix timestamp
 
+
+# Public API key (R28) — never carries key_hash/plaintext; those stay in user_db.py
+class ApiKey(TypedDict):
+    id: str
+    user_id: str
+    label: Optional[str]
+    created_at: float
+    last_used: Optional[float]
+    is_active: bool
+
 # Bracket compliance typing
 Verdict = Literal["PASS", "WARN", "FAIL"]
 

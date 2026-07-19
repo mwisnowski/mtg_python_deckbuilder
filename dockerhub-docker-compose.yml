@@ -50,6 +50,7 @@ services:
       SHOW_NEW_BADGE: "1"           # 1=show "New" badge on recently released cards site-wide; 0=hide badge only
       UPGRADE_WINDOW_MONTHS: "6"    # Rolling-months window for New Cards pool (default: 6)
       UPGRADE_PAGE_SIZE: "16"       # Cards per page on Potential Upgrades (default: 16, range 5-50)
+      API_DOCS_ENABLED: "1"         # 1=serve Swagger UI at /api/v1/docs and Redoc at /api/v1/redoc; 0=disable in production
       # LAND_PROFILE: "mid"         # Optional: force a land profile (basics|mid|fixing); skips auto-detection
       # LAND_COUNT: "36"            # Optional: force total land count; skips curve calculation
       

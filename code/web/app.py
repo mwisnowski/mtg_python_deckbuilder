@@ -2449,6 +2449,7 @@ from .routes import price as price_routes  # noqa: E402
 from .routes import docs as docs_routes  # noqa: E402
 from .routes import auth as auth_routes  # noqa: E402
 from .routes import admin as admin_routes  # noqa: E402
+from .routes.api_v1.app import api_v1_app  # noqa: E402
 app.include_router(build_routes.router)
 app.include_router(build_validation_routes.router, prefix="/build")
 app.include_router(build_multicopy_routes.router, prefix="/build")
@@ -2478,6 +2479,10 @@ app.include_router(api_routes.router)
 app.include_router(price_routes.router)
 app.include_router(auth_routes.router)
 app.include_router(admin_routes.router)
+
+# Public REST API (R28): mounted as its own FastAPI sub-app (not just an
+# APIRouter) so it gets isolated docs (/api/v1/docs) and exception handlers.
+app.mount("/api/v1", api_v1_app)
 
 # Warm validation cache early to reduce first-call latency in tests and dev
 try:

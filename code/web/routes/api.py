@@ -7,8 +7,10 @@ import logging
 import threading
 import time
 from pathlib import Path
+from typing import Optional
 from urllib.parse import quote_plus
 
+import httpx
 from fastapi import APIRouter, Query
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 
@@ -30,6 +32,7 @@ _image_cache = ImageCache()
 _SCRYFALL_MIN_INTERVAL = 0.50  # seconds between fallback redirects (2 req/s per Scryfall docs)
 _scryfall_lock = asyncio.Lock()
 _scryfall_last_redirect: float = 0.0
+_SCRYFALL_USER_AGENT = "MTGPythonDeckbuilder/1.0 (contact via GitHub)"
 
 
 async def _scryfall_rate_limit() -> None:
@@ -41,6 +44,49 @@ async def _scryfall_rate_limit() -> None:
         if wait > 0:
             await asyncio.sleep(wait)
         _scryfall_last_redirect = time.monotonic()
+
+
+async def _resolve_scryfall_image_url(
+    name: str, size: str, *, exact: bool = False, face: str = "front"
+) -> Optional[str]:
+    """Resolve a direct Scryfall CDN image URL server-side.
+
+    api.scryfall.com requires a User-Agent and Accept header on every
+    request; redirecting a client straight to it (the previous approach)
+    fails with a 400 for clients that don't send those headers -- observed
+    with the mobile app's HTTP client for basic lands, which always hit
+    this fallback (not cached locally). Fetching the card JSON here (with
+    proper headers) and returning the plain CDN image URL
+    (cards.scryfall.io, no special headers required) sidesteps that.
+    """
+    params = {"exact": name} if exact else {"fuzzy": name}
+    await _scryfall_rate_limit()
+    try:
+        async with httpx.AsyncClient(
+            headers={"User-Agent": _SCRYFALL_USER_AGENT, "Accept": "application/json"},
+            timeout=10.0,
+        ) as client:
+            resp = await client.get("https://api.scryfall.com/cards/named", params=params)
+            if resp.status_code == 404:
+                return None
+            resp.raise_for_status()
+            data = resp.json()
+    except httpx.HTTPError as e:
+        logger.warning(f"Scryfall image lookup failed for '{name}': {e}")
+        return None
+    except Exception as e:
+        logger.warning(f"Unexpected error resolving Scryfall image for '{name}': {e}")
+        return None
+
+    image_uris = data.get("image_uris")
+    if not image_uris:
+        faces = data.get("card_faces") or []
+        face_index = 1 if face == "back" and len(faces) > 1 else 0
+        if face_index < len(faces):
+            image_uris = faces[face_index].get("image_uris")
+    if not image_uris:
+        return None
+    return image_uris.get(size) or image_uris.get("normal")
 
 
 @router.get("/images/status")
@@ -152,7 +198,7 @@ async def get_card_image(size: str, card_name: str, face: str = Query(default="f
     Serve card image from cache or redirect to Scryfall API.
     
     Args:
-        size: Image size ('small' or 'normal')
+        size: Image size ('small', 'normal', or 'art_crop')
         card_name: Name of the card
         face: Which face to show ('front' or 'back') for DFC cards
         
@@ -160,11 +206,11 @@ async def get_card_image(size: str, card_name: str, face: str = Query(default="f
         FileResponse if cached locally, RedirectResponse to Scryfall API otherwise
     """
     # Validate size parameter
-    if size not in ["small", "normal"]:
+    if size not in ["small", "normal", "art_crop"]:
         size = "normal"
     
-    # Check if caching is enabled
-    cache_enabled = _image_cache.is_enabled()
+    # Check if caching is enabled (local cache only stores small/normal; art_crop always redirects)
+    cache_enabled = _image_cache.is_enabled() and size != "art_crop"
     
     # Check if image exists in cache
     if cache_enabled:
@@ -198,11 +244,12 @@ async def get_card_image(size: str, card_name: str, face: str = Query(default="f
         else:
             logger.debug(f"No cached image found for: {card_name} (face: {face})")
     
-    # Fallback to Scryfall API
-    # For back face requests of DFC cards, we need the full card name
+    # Fallback to Scryfall, resolved server-side (api.scryfall.com rejects
+    # requests missing headers most simple HTTP clients don't send -- see
+    # _resolve_scryfall_image_url).
     scryfall_card_name = card_name
-    scryfall_params = f"fuzzy={quote_plus(scryfall_card_name)}&format=image&version={size}"
-    
+    use_exact = False
+
     # If this is a back face request, try to find the full DFC name
     if face == "back":
         try:
@@ -218,16 +265,19 @@ async def get_card_image(size: str, card_name: str, face: str = Query(default="f
                 dfc_matches = matching[matching['name'].str.contains(' // ', na=False, regex=False)]
                 if not dfc_matches.empty:
                     # Use the first matching DFC card's full name
-                    full_name = dfc_matches.iloc[0]['name']
-                    scryfall_card_name = full_name
-                    # Add face parameter to Scryfall request
-                    scryfall_params = f"exact={quote_plus(full_name)}&format=image&version={size}&face=back"
+                    scryfall_card_name = dfc_matches.iloc[0]['name']
+                    use_exact = True
         except Exception as e:
             logger.warning(f"Could not lookup full card name for back face '{card_name}': {e}")
-    
-    scryfall_url = f"https://api.scryfall.com/cards/named?{scryfall_params}"
-    await _scryfall_rate_limit()
-    return RedirectResponse(scryfall_url)
+
+    image_url = await _resolve_scryfall_image_url(scryfall_card_name, size, exact=use_exact, face=face)
+    if image_url:
+        return RedirectResponse(image_url)
+
+    # Last resort -- redirect straight to the Scryfall API; works for
+    # clients that do send the headers it requires (e.g. browsers).
+    scryfall_params = f"fuzzy={quote_plus(card_name)}&format=image&version={size}"
+    return RedirectResponse(f"https://api.scryfall.com/cards/named?{scryfall_params}")
 
 
 @router.post("/images/download")

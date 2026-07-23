@@ -309,6 +309,7 @@ See `.env.example` for the full catalog. Common knobs:
 | `UPGRADE_WINDOW_MONTHS` | `6` | Rolling-months window used to identify New Cards (cards released within the last N months). |
 | `UPGRADE_PAGE_SIZE` | `16` | Cards shown per page on the Potential Upgrades page (valid range: 5–50). |
 | `API_DOCS_ENABLED` | `1` | Serve interactive Swagger UI at `/api/v1/docs` and Redoc at `/api/v1/redoc` for the public REST API. Set to `0` to disable both in production. |
+| `CORS_ALLOWED_ORIGINS` | `*` | CORS policy for the public REST API. Defaults to allowing any origin (`*`) so browser-based clients, including the Flutter web dev build of the mobile companion app, work with no configuration; the API is Bearer-token authenticated, so this doesn't expose the cookie-based web UI session. Set a comma-separated allow-list to restrict to specific origins, or `none` to disable CORS entirely. |
 
 ### Random build controls
 

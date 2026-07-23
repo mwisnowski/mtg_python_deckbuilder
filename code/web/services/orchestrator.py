@@ -2980,6 +2980,7 @@ def run_stage(ctx: Dict[str, Any], rerun: bool = False, show_skipped: bool = Fal
             "txt_path": ctx.get("txt_path"),
             "summary": summary,
             "compliance": ctx.get("compliance"),
+            "include_exclude_diagnostics": getattr(b, "include_exclude_diagnostics", None),
         }
 
     # Determine which stage index to run (rerun last visible, else current)
@@ -3852,4 +3853,5 @@ def run_stage(ctx: Dict[str, Any], rerun: bool = False, show_skipped: bool = Fal
         "total_cards": total_cards,
         "added_total": 0,
         "compliance": ctx.get("compliance"),
+        "include_exclude_diagnostics": getattr(b, "include_exclude_diagnostics", None),
     }

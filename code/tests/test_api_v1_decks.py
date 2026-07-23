@@ -143,6 +143,25 @@ def test_delete_deck(client, auth, tmp_path):
     assert not csv_path.with_suffix(".txt").exists()
 
 
+def test_deck_analysis_fallback_no_sidecar(client, auth, tmp_path):
+    """Without a `.summary.json` sidecar, falls back to a CSV-only curve
+    reconstruction (pips/sources default to zero, per `_read_csv_summary`)."""
+    user, headers = auth
+    _write_sample_deck(user["id"], tmp_path)
+    resp = client.get("/api/v1/decks/Test Deck.csv/analysis", headers=headers)
+    assert resp.status_code == 200
+    data = resp.json()["data"]
+    assert data["commander"] == "Test Deck"
+    assert data["mana_curve"]["1"] == 2
+    assert data["pip_distribution"]["counts"] == {c: 0 for c in ("W", "U", "B", "R", "G")}
+
+
+def test_deck_analysis_not_found(client, auth):
+    _, headers = auth
+    resp = client.get("/api/v1/decks/Nope.csv/analysis", headers=headers)
+    assert resp.status_code == 404
+
+
 # ---------------------------------------------------------------------------
 # Milestone 8: upgrade suggestions
 # ---------------------------------------------------------------------------

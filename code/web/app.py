@@ -13,6 +13,7 @@ import logging
 import math
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.gzip import GZipMiddleware
+from starlette.middleware.cors import CORSMiddleware
 from typing import Any, Optional, Dict, Iterable, Mapping
 from contextlib import asynccontextmanager
 
@@ -26,6 +27,7 @@ from .services.user_db import init_db, ensure_guest_user
 from .services.audit_db import init_audit_db
 from .services.auth import AuthMiddleware
 from code.exceptions import DeckBuilderError
+from code.settings import CORS_ALLOWED_ORIGINS
 from .utils.responses import deck_builder_error_response
 
 # Logger for app-level logging
@@ -123,6 +125,18 @@ async def _lifespan(app: FastAPI):  # pragma: no cover - simple infra glue
 
 app = FastAPI(title="MTG Deckbuilder Web UI", lifespan=_lifespan)
 app.add_middleware(GZipMiddleware, minimum_size=500)
+if CORS_ALLOWED_ORIGINS:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=CORS_ALLOWED_ORIGINS,
+        # Credentials (cookies) can't be combined with a wildcard origin per
+        # the CORS spec; the API itself is Bearer-token authenticated, not
+        # cookie-based, so this only affects whether cookies would be sent
+        # for a specific configured origin (harmless either way for /api/v1).
+        allow_credentials=CORS_ALLOWED_ORIGINS != ["*"],
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 app.add_middleware(AuthMiddleware)
 
 # Mount static if present

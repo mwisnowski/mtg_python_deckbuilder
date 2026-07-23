@@ -163,6 +163,29 @@ ENABLE_BATCH_BUILD = os.getenv('ENABLE_BATCH_BUILD', '1').lower() not in ('0', '
 PRICE_STALE_WARNING_HOURS: int = max(0, int(os.getenv('PRICE_STALE_WARNING_HOURS', '24')))
 
 # ----------------------------------------------------------------------------------
+# PUBLIC API / CORS SETTINGS
+# ----------------------------------------------------------------------------------
+
+# CORS for the public REST API. Browser-based clients (Flutter web, other
+# self-hosted frontends, etc.) need CORS enabled to call the API from a
+# different origin; native mobile/desktop HTTP clients are never subject to
+# CORS at all, so this setting only matters for in-browser usage.
+#
+# Default: allow any origin ("*"). This API is authenticated with per-account
+# Bearer API keys (not cookies), so an open CORS policy doesn't expose the
+# cookie-based web UI session; a third-party site still can't do anything
+# without a valid API key of its own. To restrict to specific origins, set a
+# comma-separated allow-list (e.g. "http://localhost:5050,https://example.com").
+# To disable CORS entirely, set CORS_ALLOWED_ORIGINS=none.
+_cors_raw = os.getenv('CORS_ALLOWED_ORIGINS', '*').strip()
+if _cors_raw.lower() in ('none', 'off', 'disabled', '0'):
+    CORS_ALLOWED_ORIGINS: list[str] = []
+elif _cors_raw == '*' or not _cors_raw:
+    CORS_ALLOWED_ORIGINS = ['*']
+else:
+    CORS_ALLOWED_ORIGINS = [origin.strip() for origin in _cors_raw.split(',') if origin.strip()]
+
+# ----------------------------------------------------------------------------------
 # THEME CATALOG SETTINGS
 # ----------------------------------------------------------------------------------
 

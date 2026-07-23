@@ -20,13 +20,23 @@ from fastapi import APIRouter, Depends, Query, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import Response
 
+from code.services.all_cards_loader import AllCardsLoader
 from code.type_definitions import User
 
 from ...utils.api_response import err, ok
-from ..decks import _build_csv_download_response, _deck_dir, _list_decks, _safe_within
+from ..decks import _build_csv_download_response, _deck_dir, _list_decks, _read_csv_summary, _safe_within
 from .auth import get_api_user
 
 router = APIRouter(prefix="/decks", tags=["decks"])
+
+_loader: Optional[AllCardsLoader] = None
+
+
+def _get_loader() -> AllCardsLoader:
+    global _loader
+    if _loader is None:
+        _loader = AllCardsLoader()
+    return _loader
 
 
 def _rid(request: Request) -> str:
@@ -73,8 +83,26 @@ def _parse_deck_cards(csv_path: Path) -> List[Dict[str, Any]]:
                     "colors": col(row, "Colors"),
                     "role": col(row, "Role"),
                     "tags": tags,
+                    "layout": None,
                 }
             )
+
+    # Double-faced card names contain " // " (e.g. "Akki Lavarunner //
+    # Tok-Tok, Volcano Born"); look up each one's Scryfall layout so callers
+    # can tell true DFCs (transform/modal_dfc, separate front/back images --
+    # eligible for a "flip" control) apart from split/adventure/aftermath
+    # cards (single combined image, same " // " name shape, no back face).
+    dfc_names = {c["name"] for c in cards if " // " in c["name"]}
+    if dfc_names:
+        try:
+            df = _get_loader().load()
+            matches = df[df["name"].isin(dfc_names)][["name", "layout"]]
+            layouts = dict(zip(matches["name"], matches["layout"]))
+            for c in cards:
+                if c["name"] in layouts:
+                    c["layout"] = layouts[c["name"]]
+        except Exception:
+            pass
     return cards
 
 
@@ -94,6 +122,76 @@ async def get_deck_detail(filename: str, request: Request, user: User = Depends(
     cards = _parse_deck_cards(p)
     return ok(
         {"name": p.name, "cards": cards, "card_count": sum(c["count"] for c in cards)},
+        _rid(request),
+    )
+
+
+@router.get("/{filename}/analysis", summary="Get deck mana analysis")
+async def get_deck_analysis(filename: str, request: Request, user: User = Depends(get_api_user)):
+    """Commander, mana curve, pip distribution, mana sources, land summary
+    (including MDFC lands), and total price.
+
+    Reads the same `.summary.json` sidecar the HTML deck-view page uses
+    (`_render_deck_view` in `code/web/routes/decks.py`) so this data matches
+    what's shown there exactly, instead of recomputing it. Falls back to a
+    CSV-only reconstruction (curve only; pips/sources/land summary default to
+    empty/zero) for decks that predate/lack a sidecar, via the same
+    `_read_csv_summary` helper the HTML route uses for that case.
+
+    Total price is computed from the local price cache (`price_service`,
+    already used by `/api/v1/prices/{card_name}`), not a live Scryfall call
+    per card.
+    """
+    p = _resolve_deck_path(str(user["id"]), filename)
+    if p is None:
+        return err("Deck not found.", "DECK_NOT_FOUND", 404, _rid(request))
+
+    summary: Optional[Dict[str, Any]] = None
+    commander = ""
+    sidecar = p.with_suffix(".summary.json")
+    if sidecar.exists():
+        try:
+            payload = json.loads(sidecar.read_text(encoding="utf-8"))
+            if isinstance(payload, dict):
+                summary = payload.get("summary")
+                meta = payload.get("meta", {})
+                if isinstance(meta, dict):
+                    commander = meta.get("commander") or ""
+        except Exception:
+            summary = None
+
+    if not summary:
+        summary, _type_counts, _curve_counts, _type_cards = _read_csv_summary(p)
+
+    if not commander:
+        parts = p.stem.split("_")
+        commander = parts[0] if parts else ""
+
+    total_price: Optional[float] = None
+    try:
+        from ...services.price_service import get_price_service
+
+        cards = _parse_deck_cards(p)
+        names = [c["name"] for c in cards if c["name"] != commander]
+        prices = get_price_service().get_prices_batch(names)
+        found = [prices[name] * next(c["count"] for c in cards if c["name"] == name) for name in prices if prices[name] is not None]
+        if found:
+            total_price = round(sum(found), 2)
+    except Exception:
+        total_price = None
+
+    return ok(
+        jsonable_encoder(
+            {
+                "commander": commander,
+                "colors": summary.get("colors", []) if summary else [],
+                "mana_curve": (summary or {}).get("mana_curve", {}),
+                "pip_distribution": (summary or {}).get("pip_distribution", {}),
+                "mana_generation": (summary or {}).get("mana_generation", {}),
+                "land_summary": (summary or {}).get("land_summary", {}),
+                "total_price": total_price,
+            }
+        ),
         _rid(request),
     )
 

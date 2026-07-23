@@ -51,6 +51,7 @@ services:
       UPGRADE_WINDOW_MONTHS: "6"    # Rolling-months window for New Cards pool (default: 6)
       UPGRADE_PAGE_SIZE: "16"       # Cards per page on Potential Upgrades (default: 16, range 5-50)
       API_DOCS_ENABLED: "1"         # 1=serve Swagger UI at /api/v1/docs and Redoc at /api/v1/redoc; 0=disable in production
+      CORS_ALLOWED_ORIGINS: "*"      # Comma-separated allowed origins for the public API, or "*" for any (default); set to "none" to disable CORS entirely
       # LAND_PROFILE: "mid"         # Optional: force a land profile (basics|mid|fixing); skips auto-detection
       # LAND_COUNT: "36"            # Optional: force total land count; skips curve calculation
       

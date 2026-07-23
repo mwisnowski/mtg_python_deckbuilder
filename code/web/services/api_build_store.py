@@ -6,6 +6,7 @@ the TTL/cleanup pattern of `code/web/services/tasks.py`'s `SessionManager`.
 """
 from __future__ import annotations
 
+import threading
 import time
 import uuid
 from typing import Any, Dict, Optional
@@ -101,6 +102,28 @@ class ApiBuildStore(StateService):
                 return True
             return False
 
+    def set_ctx(self, build_id: str, ctx: Dict[str, Any]) -> None:
+        """Attach a live guided-mode build context (holds the `DeckBuilder`).
+
+        Not JSON-serializable -- never returned directly from an API response.
+        """
+        with self._lock:
+            state = self._state.get(build_id)
+            if state is not None:
+                state["_ctx"] = ctx
+                state.setdefault("_stage_lock", threading.Lock())
+
+    def get_ctx(self, build_id: str) -> Optional[Dict[str, Any]]:
+        with self._lock:
+            state = self._state.get(build_id)
+            return state.get("_ctx") if state else None
+
+    def get_stage_lock(self, build_id: str) -> Optional[threading.Lock]:
+        """Per-build lock serializing concurrent advance/replace calls."""
+        with self._lock:
+            state = self._state.get(build_id)
+            return state.get("_stage_lock") if state else None
+
     def _initialize_state(self, key: str) -> Dict[str, Any]:
         now = time.time()
         return {"created": now, "updated": now, "status": "queued"}
@@ -147,6 +170,18 @@ def mark_error(build_id: str, message: str) -> None:
 
 def delete_build(build_id: str) -> bool:
     return _get_store().delete_build(build_id)
+
+
+def set_ctx(build_id: str, ctx: Dict[str, Any]) -> None:
+    _get_store().set_ctx(build_id, ctx)
+
+
+def get_ctx(build_id: str) -> Optional[Dict[str, Any]]:
+    return _get_store().get_ctx(build_id)
+
+
+def get_stage_lock(build_id: str) -> Optional[threading.Lock]:
+    return _get_store().get_stage_lock(build_id)
 
 
 def cleanup_expired() -> int:

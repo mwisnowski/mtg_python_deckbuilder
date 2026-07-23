@@ -257,6 +257,7 @@ A full JSON REST API mirroring the web UI's core features, for scripting and thi
 - Base path `/api/v1`; every response is a JSON envelope (`{"ok": true, "data": ...}` or `{"ok": false, "error": ..., "code": ...}`).
 - Covers deck building, deck management, card/commander/theme browsing, owned-card lists, price checks, upgrade suggestions, headless configs, and account auth (register/login/logout), all authenticated with per-account API keys (`Authorization: Bearer <key>`).
 - Interactive docs at `/api/v1/docs` (Swagger UI) and `/api/v1/redoc`; toggle both with `API_DOCS_ENABLED`.
+- CORS is open to any origin by default so browser-based clients (e.g. the mobile companion app's web dev build) work with no setup; restrict with `CORS_ALLOWED_ORIGINS` (comma-separated allow-list) or disable entirely with `CORS_ALLOWED_ORIGINS=none`.
 
 ---
 
@@ -480,6 +481,7 @@ Most defaults are defined in `docker-compose.yml` and documented in `.env.exampl
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `API_DOCS_ENABLED` | `1` | Serve Swagger UI (`/api/v1/docs`) and Redoc (`/api/v1/redoc`) for the public REST API. Set to `0` to disable both in production. |
+| `CORS_ALLOWED_ORIGINS` | `*` | CORS policy for the public REST API. Defaults to any origin (`*`); set a comma-separated allow-list to restrict, or `none` to disable CORS entirely. |
 
 ### Supplemental themes
 | Variable | Default | Purpose |

@@ -91,6 +91,149 @@ def test_create_build_requires_commander(client, auth_headers, monkeypatch):
     assert resp.json()["code"] == "INVALID_COMMANDER"
 
 
+def test_create_build_uses_per_user_deck_dir(client, auth_headers, monkeypatch):
+    """Regression: builds must export into deck_files/{user_id}/, not the shared root
+    (see decks.py's _deck_dir), so GET /api/v1/decks/{filename} can find them."""
+    import code.web.routes.api_v1.builds as builds_route
+    from code.web.services.user_db import verify_api_key
+
+    seen_kwargs: dict = {}
+
+    def _capturing_start_build_ctx(**kwargs):
+        seen_kwargs.update(kwargs)
+        return {"stages": [0], "idx": 0}
+
+    monkeypatch.setattr(builds_route.orch, "start_build_ctx", _capturing_start_build_ctx)
+    monkeypatch.setattr(builds_route.orch, "ideal_defaults", lambda: {})
+    monkeypatch.setattr(builds_route.orch, "bracket_options", lambda: [{"level": 1}])
+
+    resp = client.post("/api/v1/builds", json={"commander": "Test Commander"}, headers=auth_headers)
+    assert resp.status_code == 202
+
+    token = auth_headers["Authorization"].split(" ", 1)[1]
+    user = verify_api_key(token)
+    expected_suffix = str(builds_route._deck_dir(str(user["id"])))
+    assert seen_kwargs["deck_dir"] == expected_suffix
+    assert seen_kwargs["deck_dir"] != "deck_files"
+
+
+def _fake_guided_orchestrator(monkeypatch, *, stage_count: int = 2):
+    """Like _fake_orchestrator, but run_stage never batches -- each call advances
+    exactly one stage and returns added_cards, matching guided-mode semantics."""
+    import code.web.routes.api_v1.builds as builds_route
+
+    class _FakeBuilder:
+        def __init__(self):
+            self.card_library = {
+                "Sol Ring": {"Count": 1, "Role": "ramp", "SubRole": "", "TriggerTag": ""},
+            }
+            self._combined_cards_df = None
+            self.commander_name = "Test Commander"
+
+    def _fake_start_build_ctx(**kwargs):
+        return {"stages": list(range(stage_count)), "idx": 0, "builder": _FakeBuilder(), "locks": set(), "alts_exclude": set()}
+
+    def _fake_run_stage(ctx, *args, **kwargs):
+        ctx["idx"] += 1
+        if ctx["idx"] >= len(ctx["stages"]):
+            return {
+                "done": True,
+                "idx": ctx["idx"],
+                "total": len(ctx["stages"]),
+                "label": "Complete",
+                "csv_path": "deck_files/Test.csv",
+                "txt_path": "deck_files/Test.txt",
+                "summary": {"type_breakdown": {"total": 100}},
+                "compliance": {"overall": "PASS"},
+            }
+        return {
+            "done": False,
+            "idx": ctx["idx"],
+            "total": len(ctx["stages"]),
+            "label": "Stage",
+            "added_cards": [{"name": "Sol Ring", "count": 1, "role": "ramp"}],
+        }
+
+    monkeypatch.setattr(builds_route.orch, "start_build_ctx", _fake_start_build_ctx)
+    monkeypatch.setattr(builds_route.orch, "run_stage", _fake_run_stage)
+    monkeypatch.setattr(builds_route.orch, "ideal_defaults", lambda: {})
+    monkeypatch.setattr(builds_route.orch, "bracket_options", lambda: [{"level": 1}])
+
+
+def test_guided_build_advance_flow(client, auth_headers, monkeypatch):
+    _fake_guided_orchestrator(monkeypatch, stage_count=2)
+
+    resp = client.post(
+        "/api/v1/builds", json={"commander": "Test Commander", "mode": "guided"}, headers=auth_headers
+    )
+    assert resp.status_code == 201
+    data = resp.json()["data"]
+    assert data["status"] == "ready"
+    assert data["mode"] == "guided"
+    build_id = data["build_id"]
+
+    # Guided builds start in "ready" state; nothing runs until /advance is called.
+    resp = client.get(f"/api/v1/builds/{build_id}", headers=auth_headers)
+    assert resp.json()["data"]["status"] == "ready"
+
+    resp = client.post(f"/api/v1/builds/{build_id}/advance", headers=auth_headers)
+    assert resp.status_code == 200
+    data = resp.json()["data"]
+    assert data["done"] is False
+    assert data["added_cards"][0]["name"] == "Sol Ring"
+
+    resp = client.post(f"/api/v1/builds/{build_id}/advance", headers=auth_headers)
+    data = resp.json()["data"]
+    assert data["done"] is True
+
+    resp = client.get(f"/api/v1/builds/{build_id}/deck", headers=auth_headers)
+    assert resp.status_code == 200
+    assert resp.json()["data"]["summary"]["type_breakdown"]["total"] == 100
+
+
+def test_guided_build_advance_rejects_auto_mode(client, auth_headers, monkeypatch):
+    _fake_orchestrator(monkeypatch)
+    resp = client.post("/api/v1/builds", json={"commander": "Test Commander"}, headers=auth_headers)
+    build_id = resp.json()["data"]["build_id"]
+
+    resp = client.post(f"/api/v1/builds/{build_id}/advance", headers=auth_headers)
+    assert resp.status_code == 404
+    assert resp.json()["code"] == "BUILD_NOT_FOUND"
+
+
+def test_guided_build_replace_and_alternatives(client, auth_headers, monkeypatch):
+    _fake_guided_orchestrator(monkeypatch, stage_count=1)
+
+    resp = client.post(
+        "/api/v1/builds", json={"commander": "Test Commander", "mode": "guided"}, headers=auth_headers
+    )
+    build_id = resp.json()["data"]["build_id"]
+
+    resp = client.get(
+        f"/api/v1/builds/{build_id}/alternatives", params={"card": "Sol Ring"}, headers=auth_headers
+    )
+    assert resp.status_code == 200
+    assert "items" in resp.json()["data"]
+
+    resp = client.post(
+        f"/api/v1/builds/{build_id}/replace",
+        json={"old_name": "Sol Ring", "new_name": "Arcane Signet"},
+        headers=auth_headers,
+    )
+    assert resp.status_code == 200
+    data = resp.json()["data"]
+    assert data["old_name"] == "Sol Ring"
+    assert data["new_name"] == "Arcane Signet"
+
+    resp = client.post(
+        f"/api/v1/builds/{build_id}/replace",
+        json={"old_name": "Not In Deck", "new_name": "Whatever"},
+        headers=auth_headers,
+    )
+    assert resp.status_code == 404
+    assert resp.json()["code"] == "CARD_NOT_IN_DECK"
+
+
 def test_full_build_lifecycle(client, auth_headers, monkeypatch):
     _fake_orchestrator(monkeypatch)
 

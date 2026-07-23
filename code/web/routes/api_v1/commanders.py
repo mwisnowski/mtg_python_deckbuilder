@@ -17,6 +17,7 @@ from ...services.commander_catalog_loader import (
     find_commander_record,
     load_commander_catalog,
 )
+from ...routes.commanders import _MIN_NAME_MATCH_SCORE, _commander_name_match_score
 from ...utils.api_response import err, ok
 
 router = APIRouter(prefix="/commanders", tags=["commanders"])
@@ -72,7 +73,33 @@ async def list_commanders(
 
     if q:
         q_lower = q.lower()
-        records = [r for r in records if q_lower in r.search_haystack]
+        substring_matches = [r for r in records if q_lower in r.search_haystack]
+
+        # Name-aware fuzzy match on top of the plain substring search above.
+        # This tolerates punctuation differences (e.g. "Bria Riptide Rogue"
+        # vs. the card's actual "Bria, Riptide Rogue") and small typos (e.g.
+        # "Riptie" vs. "Riptide") that a pure substring check would miss.
+        scored: list[tuple[float, CommanderRecord]] = []
+        for r in records:
+            score = _commander_name_match_score(q, r)
+            if score >= _MIN_NAME_MATCH_SCORE:
+                scored.append((score, r))
+
+        if scored:
+            scored.sort(key=lambda pair: (-pair[0], pair[1].display_name.lower()))
+            seen: set[int] = set()
+            merged: list[CommanderRecord] = []
+            for _score, r in scored:
+                if id(r) not in seen:
+                    seen.add(id(r))
+                    merged.append(r)
+            for r in substring_matches:
+                if id(r) not in seen:
+                    seen.add(id(r))
+                    merged.append(r)
+            records = merged
+        else:
+            records = substring_matches
 
     if colors:
         color_list = [c.strip().upper() for c in colors.split(",") if c.strip()]

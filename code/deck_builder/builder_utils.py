@@ -740,6 +740,10 @@ __all__ = [
 	'weighted_sample_without_replacement',
 	'count_existing_fetches',
 	'select_top_land_candidates',
+	'get_metadata_tags_map',
+	'fetch_land_allowed_for_colors',
+	'get_theme_tags_map',
+	'kindred_land_allowed_for_deck',
 ]
 
 
@@ -952,12 +956,14 @@ def count_existing_fetches(card_library: dict) -> int:
 	return total
 
 
-def select_top_land_candidates(df, already: set[str], basics: set[str], top_n: int) -> list[tuple[int,str,str,str]]:
-	"""Return list of (edh_rank, name, type_line, text_lower) for top_n remaining lands.
+def select_top_land_candidates(df, already: set[str], basics: set[str], top_n: int) -> list[tuple[int,str,str,str,object]]:
+	"""Return list of (edh_rank, name, type_line, text_lower, metadata_tags) for top_n remaining lands.
 
 	Falls back to large rank number if edhrecRank missing/unparseable.
+	`metadata_tags` is the raw metadataTags cell (list/ndarray/NaN/None); pass it
+	through `fetch_land_allowed_for_colors` rather than assuming its type.
 	"""
-	out: list[tuple[int,str,str,str]] = []
+	out: list[tuple[int,str,str,str,object]] = []
 	if df is None or getattr(df, 'empty', True):
 		return out
 	for _, row in df.iterrows():
@@ -974,11 +980,121 @@ def select_top_land_candidates(df, already: set[str], basics: set[str], top_n: i
 			except Exception:
 				edh_val = 999999
 			text_lower = str(row.get('text', row.get('oracleText',''))).lower()
-			out.append((edh_val, name, tline, text_lower))
+			metadata_tags = row.get('metadataTags') if 'metadataTags' in df.columns else None
+			out.append((edh_val, name, tline, text_lower, metadata_tags))
 		except Exception:
 			continue
 	out.sort(key=lambda x: x[0])
 	return out[:top_n]
+
+
+def get_metadata_tags_map(df) -> dict:
+	"""Build a name -> metadataTags lookup from a cards DataFrame.
+
+	Returns an empty dict if the DataFrame is missing/empty or lacks the
+	required columns. Values are whatever the raw cell type is (list,
+	numpy.ndarray, NaN, None); callers should go through
+	`fetch_land_allowed_for_colors` (or otherwise normalize) rather than
+	assuming a particular type.
+	"""
+	if df is None or getattr(df, 'empty', True) or 'metadataTags' not in df.columns or 'name' not in df.columns:
+		return {}
+	try:
+		return df.set_index('name')['metadataTags'].to_dict()
+	except Exception:
+		return {}
+
+
+def fetch_land_allowed_for_colors(metadata_tags, color_identity: list[str]) -> bool:
+	"""Return True if a fetch land's metadata tags are compatible with color_identity.
+
+	metadata_tags: a card's metadataTags cell (list, numpy.ndarray, NaN, or None)
+		which may contain zero or more of '<BasicType> Fetch' (e.g. 'Mountain
+		Fetch'), 'Any Basic Fetch', 'Land Fetch', 'Gate Fetch'.
+	color_identity: commander's (combined) color identity, e.g. ['R'] or ['W', 'U'].
+
+	Cards with no fetch-type tag at all aren't this function's concern -- callers
+	should only invoke it for candidates already known to be fetch lands -- and
+	return True. The universal tags ('Any Basic Fetch', 'Land Fetch', 'Gate
+	Fetch') are always allowed regardless of color. A '<BasicType> Fetch' tag
+	requires at least one overlap between its basic land type's color and
+	color_identity.
+	"""
+	import numpy as np
+	if metadata_tags is None:
+		return True
+	if isinstance(metadata_tags, float):
+		# NaN cell (pandas represents missing list-columns as float NaN)
+		return True
+	if not isinstance(metadata_tags, (list, tuple, np.ndarray)):
+		return True
+	tags = list(metadata_tags)
+	fetch_tags = [t for t in tags if isinstance(t, str) and t.endswith(' Fetch')]
+	if not fetch_tags:
+		return True
+	universal = {'Any Basic Fetch', 'Land Fetch', 'Gate Fetch'}
+	if any(t in universal for t in fetch_tags):
+		return True
+	basic_to_color = {v: k for k, v in getattr(bc, 'COLOR_TO_BASIC_LAND', {}).items() if k != 'C'}
+	allowed_colors = set(color_identity or [])
+	for t in fetch_tags:
+		basic_name = t[: -len(' Fetch')]
+		color = basic_to_color.get(basic_name)
+		if color and color in allowed_colors:
+			return True
+	return False
+
+
+def get_theme_tags_map(df) -> dict:
+	"""Build a name -> themeTags lookup from a cards DataFrame.
+
+	Mirrors `get_metadata_tags_map`. Returns an empty dict if the DataFrame is
+	missing/empty or lacks the required columns. Values are whatever the raw
+	cell type is (list, numpy.ndarray, NaN, None); callers should go through
+	`kindred_land_allowed_for_deck` (or otherwise normalize) rather than
+	assuming a particular type.
+	"""
+	if df is None or getattr(df, 'empty', True) or 'themeTags' not in df.columns or 'name' not in df.columns:
+		return {}
+	try:
+		return df.set_index('name')['themeTags'].to_dict()
+	except Exception:
+		return {}
+
+
+def kindred_land_allowed_for_deck(theme_tags, selected_tags_lower: list[str]) -> bool:
+	"""Return True if a named-tribe kindred land is relevant to the deck's chosen themes.
+
+	theme_tags: a card's themeTags cell (list, numpy.ndarray, NaN, or None) which
+		may contain zero or more '<CreatureType> Kindred' tags (e.g. 'Angel
+		Kindred'), assigned by the tagging pipeline whenever a card's own text
+		references that creature type (see `kindred_tagging()` in tagger.py).
+		This is unrelated to the six generic "choose any creature type" lands
+		(`Cavern of Souls`, `Unclaimed Territory`, etc., tracked separately via
+		`builder_constants.KINDRED_ALL_LAND_NAMES`), which never receive a
+		type-specific Kindred tag and so always return True here.
+	selected_tags_lower: the deck's selected theme tags, already lowercased.
+
+	Cards with no '<CreatureType> Kindred' tag at all aren't this function's
+	concern -- callers should only invoke it for candidates already known to
+	carry such a tag -- and return True. A land tagged for one or more specific
+	tribes is only allowed if at least one of those tribes matches a tag the
+	deck actually selected (e.g. 'Angel Kindred' land in an Angel Kindred deck).
+	"""
+	import numpy as np
+	if theme_tags is None:
+		return True
+	if isinstance(theme_tags, float):
+		# NaN cell (pandas represents missing list-columns as float NaN)
+		return True
+	if not isinstance(theme_tags, (list, tuple, np.ndarray)):
+		return True
+	tags = list(theme_tags)
+	kindred_tags = [t for t in tags if isinstance(t, str) and t.endswith(' Kindred')]
+	if not kindred_tags:
+		return True
+	selected = set(selected_tags_lower or [])
+	return any(t.lower() in selected for t in kindred_tags)
 
 
 # ---------------------------------------------------------------------------

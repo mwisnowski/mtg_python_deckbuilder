@@ -539,15 +539,16 @@ class DeckBuilder(
         for step in range(1, 9):
             m = getattr(self, f"run_land_step{step}", None)
             if callable(m):
-                logger.info(f"Land Step {step}: begin")
+                label = bc.LAND_STEP_LABELS.get(step, f"Step {step}")
+                logger.info(f"Land Step {step} ({label}): begin")
                 m()
-                logger.info(f"Land Step {step}: complete (current land count {self._current_land_count() if hasattr(self, '_current_land_count') else 'n/a'})")
+                logger.info(f"Land Step {step} ({label}): complete (current land count {self._current_land_count() if hasattr(self, '_current_land_count') else 'n/a'})")
         # Backfill step: if the builder still falls short of the land target after all steps,
         # pad with basics so the deck always reaches the configured ideal.
         self._backfill_basics_to_target()
 
     def run_land_step9(self) -> None:
-        """Land Step 9: Backfill basics to target if any steps fell short."""
+        """Land Step 9 (Backfill Basics): Backfill basics to target if any steps fell short."""
         self._backfill_basics_to_target()
 
     def _backfill_basics_to_target(self) -> None:

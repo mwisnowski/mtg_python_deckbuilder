@@ -140,7 +140,16 @@ def suggest_alternatives(
         elif role == "creature":
             if "type" in pool.columns:
                 pool = pool[pool["type"].fillna("").str.contains("Creature", case=False, na=False)]
-        # role == "land": no extra tag filter beyond the type filter above
+        # role == "land": no extra tag filter beyond the type filter above,
+        # except a color-identity safety filter for fetch-shaped lands (a
+        # fetch land is never a correct suggestion if it can't find a basic
+        # in the commander's colors)
+        if role == "land" and "metadataTags" in pool.columns:
+            colors = list(getattr(b, "color_identity", []) or [])
+            try:
+                pool = pool[pool["metadataTags"].apply(lambda mt: bu.fetch_land_allowed_for_colors(mt, colors))]
+            except Exception:
+                pass
 
         if trigger_tags:
             def _matches_trigger(tags: List[str]) -> bool:

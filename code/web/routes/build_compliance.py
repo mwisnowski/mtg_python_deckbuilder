@@ -3,6 +3,8 @@
 Phase 5 extraction from build.py:
 - POST /build/replace - Inline card replacement with undo tracking
 - POST /build/replace/undo - Undo last replacement
+- POST /build/remove-card - Remove a card entirely from the current build, with undo tracking
+- POST /build/remove-card/undo - Undo the exclude-suppression from a card removal
 - GET /build/compare - Batch build comparison stub
 - GET /build/compliance - Bracket compliance panel
 - POST /build/enforce/apply - Apply bracket enforcement
@@ -22,6 +24,7 @@ from ..services.build_utils import (
     step5_ctx_from_result,
     step5_error_ctx,
     step5_empty_ctx,
+    step5_base_ctx,
     owned_set as owned_set_helper,
 )
 from ..services import orchestrator as orch
@@ -298,6 +301,251 @@ async def build_replace(request: Request, old: str = Form(...), new: str = Form(
     except Exception:
         pass
     return HTMLResponse(hint + chip)
+
+
+def _removed_tile_html(card_name: str, *, note: str, show_rerun: bool) -> str:
+    """Render a compact placeholder that takes the place of a removed card's tile.
+
+    Keeps the `.card-tile` class (so grid sizing stays consistent) but drops the rich
+    image/lock/alternatives markup since the card is no longer in the deck.
+    """
+    rerun_btn = (
+        '<form hx-post="/build/step5/rerun" hx-target="#wizard" hx-swap="innerHTML" style="display:inline; margin:0;">'
+        '<input type="hidden" name="show_skipped" value="1" />'
+        '<button type="submit" class="btn-rerun" style="font-size:.75rem;">Rerun stage</button>'
+        '</form>'
+    ) if show_rerun else ''
+    return (
+        '<div class="card-tile card-removed" data-card-name="' + _esc(card_name) + '" data-removed="1">'
+        '<div class="removed-label">Removed</div>'
+        f'<div class="name">{_esc(card_name)}</div>'
+        f'<div class="muted" style="font-size:.75rem; margin-top:.15rem;">{_esc(note)}</div>'
+        '<div class="flex justify-center mt-1" style="gap:.35rem; flex-wrap:wrap;">'
+        + rerun_btn +
+        '<button type="button" class="btn" hx-post="/build/remove-card/undo" hx-vals=\'{"name": "' + _esc(card_name) + '"}\' '
+        'hx-target="closest .card-tile" hx-swap="outerHTML" title="Undo this removal">Undo</button>'
+        '</div>'
+        '</div>'
+    )
+
+
+@router.post("/remove-card", response_class=HTMLResponse)
+async def build_remove_card(request: Request, name: str = Form(...)) -> HTMLResponse:
+    """Remove a card entirely from the current build (no replacement) for this run only.
+
+    The freed slot is left open for later stages (e.g. land backfill) to fill naturally;
+    this does not block the card from being picked again on a stage rerun. Replaces the
+    card's tile with a compact "Removed" placeholder that can be undone. Falls back to
+    lock-and-rerun guidance if no active builder is present.
+    """
+    sid = request.cookies.get("sid") or new_sid()
+    sess = get_session(sid)
+    disp = str(name).strip()
+    key = disp.lower()
+
+    # A removed card should never remain locked
+    locks = set(sess.get("locks", []))
+    locks.discard(key)
+    sess["locks"] = list(locks)
+    try:
+        sess["last_remove"] = {"name": key}
+    except Exception:
+        pass
+    ctx = sess.get("build_ctx") or {}
+    try:
+        ctx["locks"] = {str(x) for x in locks}
+    except Exception:
+        pass
+    # Suppress from future alternative suggestions (for other cards)
+    try:
+        ex = {str(x).strip().lower() for x in (sess.get("alts_exclude", []) or [])}
+        ex.add(key)
+        sess["alts_exclude"] = list(ex)
+        sess["alts_exclude_v"] = int(sess.get("alts_exclude_v") or 0) + 1
+    except Exception:
+        pass
+
+    b: DeckBuilder | None = ctx.get("builder") if isinstance(ctx, dict) else None
+    if b is not None:
+        try:
+            lib = getattr(b, "card_library", {}) or {}
+            old_key = None
+            if disp in lib:
+                old_key = disp
+            else:
+                for k in list(lib.keys()):
+                    if str(k).strip().lower() == key:
+                        old_key = k
+                        break
+            if old_key is None:
+                raise KeyError("card not in deck")
+            entry = lib.get(old_key) or {}
+            if entry.get("Commander"):
+                raise ValueError("cannot remove the commander")
+            was_land = "land" in str(entry.get("Card Type", "")).lower()
+            entry_snapshot = dict(entry)
+            try:
+                cnt = int(entry.get("Count", 1))
+            except Exception:
+                cnt = 1
+            if cnt <= 1:
+                del lib[old_key]
+            else:
+                entry["Count"] = cnt - 1
+            if was_land:
+                try:
+                    b._color_source_cache_dirty = True
+                except Exception:
+                    pass
+            else:
+                try:
+                    b._spell_pip_cache_dirty = True
+                except Exception:
+                    pass
+            try:
+                sess["last_remove"] = {"name": key, "entry": entry_snapshot, "had_multiple": cnt > 1}
+            except Exception:
+                pass
+
+            tile = _removed_tile_html(
+                old_key,
+                note="Removed for this build. A later step may fill this slot.",
+                show_rerun=False,
+            )
+            chip = (
+                f'<div id="last-action" hx-swap-oob="true">'
+                f'<span class="chip" title="Click to dismiss">Removed <strong>{_esc(old_key)}</strong></span>'
+                f'</div>'
+            )
+            refresher = (
+                '<div hx-get="/build/compliance" hx-target="#compliance-panel" hx-swap="outerHTML" '
+                'hx-trigger="load" hx-swap-oob="true"></div>'
+            )
+            return HTMLResponse(tile + chip + refresher)
+        except Exception:
+            # Fall back to rerun guidance if inline removal fails
+            pass
+    # Fallback: no live builder to mutate directly; advise a rerun instead
+    tile = _removed_tile_html(disp, note="Couldn't remove automatically. Rerun the stage to try again.", show_rerun=True)
+    chip = (
+        f'<div id="last-action" hx-swap-oob="true">'
+        f'<span class="chip" title="Click to dismiss">Removed <strong>{_esc(disp)}</strong></span>'
+        f'</div>'
+    )
+    return HTMLResponse(tile + chip)
+
+
+@router.post("/remove-card/undo", response_class=HTMLResponse)
+async def build_remove_card_undo(request: Request, name: str = Form(None)) -> HTMLResponse:
+    """Undo the last card removal by restoring it (or its count) back into the library."""
+    sid = request.cookies.get("sid") or new_sid()
+    sess = get_session(sid)
+    last = sess.get("last_remove") or {}
+    disp = str(name).strip() if name else str(last.get("name") or "")
+    key = disp.strip().lower()
+
+    changed = False
+    restored_name = disp
+    restored_count = 1
+    restored_entry: dict[str, Any] = {}
+    ctx = sess.get("build_ctx") or {}
+    b: DeckBuilder | None = ctx.get("builder") if isinstance(ctx, dict) else None
+    entry_snapshot = last.get("entry") if isinstance(last, dict) else None
+    if b is not None and key and last.get("name") == key and entry_snapshot:
+        try:
+            lib = getattr(b, "card_library", None)
+            if lib is None:
+                lib = {}
+                b.card_library = lib
+            old_key = None
+            for k in list(lib.keys()):
+                if str(k).strip().lower() == key:
+                    old_key = k
+                    break
+            if old_key is not None and last.get("had_multiple"):
+                lib[old_key]["Count"] = int(lib[old_key].get("Count", 0)) + 1
+                restore_key = old_key
+            else:
+                restore_key = old_key or entry_snapshot.get("Card Name") or disp
+                lib[restore_key] = dict(entry_snapshot)
+            restored_name = str(restore_key)
+            restored_entry = dict(lib.get(restore_key) or {})
+            try:
+                restored_count = int(restored_entry.get("Count", 1))
+            except Exception:
+                restored_count = 1
+            was_land = "land" in str(entry_snapshot.get("Card Type", "")).lower()
+            if was_land:
+                try:
+                    b._color_source_cache_dirty = True
+                except Exception:
+                    pass
+            else:
+                try:
+                    b._spell_pip_cache_dirty = True
+                except Exception:
+                    pass
+            changed = True
+        except Exception:
+            pass
+    try:
+        ex = {str(x).strip().lower() for x in (sess.get("alts_exclude", []) or [])}
+        if key in ex:
+            ex.discard(key)
+            sess["alts_exclude"] = list(ex)
+            sess["alts_exclude_v"] = int(sess.get("alts_exclude_v") or 0) + 1
+    except Exception:
+        pass
+    try:
+        if sess.get("last_remove"):
+            del sess["last_remove"]
+    except Exception:
+        pass
+
+    chip = (
+        f'<div id="last-action" hx-swap-oob="true">'
+        f'<span class="chip" title="Click to dismiss">{"Restored" if changed else "No changes to undo"}</span>'
+        f'</div>'
+    )
+    if not changed:
+        html = (
+            '<div class="card-tile" data-card-name="' + _esc(disp) + '">'
+            f'<div class="name">{_esc(disp)}</div>'
+            '<div class="muted" style="font-size:.75rem; margin-top:.25rem;">No changes to undo.</div>'
+            '</div>'
+        )
+        return HTMLResponse(html + chip)
+
+    # Render a full card tile (image, lock, alternatives, remove) so the restored card
+    # is immediately usable without requiring a rerun of the stage.
+    base = step5_base_ctx(request, sess)
+    key_lower = restored_name.strip().lower()
+    include_lower = {str(n).strip().lower() for n in base.get("include_cards", [])}
+    exclude_lower = {str(n).strip().lower() for n in base.get("exclude_cards", [])}
+    locks_lower = {str(n).strip().lower() for n in base.get("locks", [])}
+    c = {
+        "name": restored_name,
+        "count": restored_count,
+        "role": restored_entry.get("Role") or "",
+        "sub_role": restored_entry.get("SubRole") or "",
+        "must_include": key_lower in include_lower,
+        "must_exclude": key_lower in exclude_lower,
+    }
+    tile_html = templates.env.get_template("build/_undo_restored_tile.html").render(
+        c=c,
+        owned=(key_lower in base.get("owned_set", set())),
+        is_locked=(key_lower in locks_lower),
+        game_changer=(restored_name in base.get("game_changers", [])),
+        price_cache=base.get("price_cache"),
+        stale_prices=base.get("stale_prices"),
+        allow_must_haves=base.get("allow_must_haves"),
+        show_must_have_buttons=base.get("show_must_have_buttons"),
+    )
+    refresher = (
+        '<div hx-get="/build/compliance" hx-target="#compliance-panel" hx-swap="outerHTML" '
+        'hx-trigger="load" hx-swap-oob="true"></div>'
+    )
+    return HTMLResponse(tile_html + chip + refresher)
 
 
 @router.post("/replace/undo", response_class=HTMLResponse)

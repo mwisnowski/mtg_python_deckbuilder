@@ -363,6 +363,16 @@ async def build_alternatives(
                                 pass
                         if nm_l in fetch_names:
                             return True
+                        # Non-curated fetch-shaped lands (Panorama/New Capenna/
+                        # Landscape/Alt Fetchland shapes tagged via
+                        # tag_for_fetch_lands()) aren't in fetch_names above, so
+                        # gate them on color here instead of letting them
+                        # through unfiltered.
+                        try:
+                            if not bu.fetch_land_allowed_for_colors(row.get('metadataTags'), colors):
+                                return True
+                        except Exception:
+                            pass
                         if _illegal_world_tree(nm_l):
                             return True
                         return False

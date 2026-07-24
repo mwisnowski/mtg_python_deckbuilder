@@ -7,6 +7,7 @@ __all__ = [
     'CSV_REQUIRED_COLUMNS',
     'get_commanders',
     'get_backgrounds',
+    'LAND_STEP_LABELS',
 ]
 import ast
 
@@ -14,6 +15,21 @@ import ast
 # Format string for displaying duplicate cards in deck lists
 FUZZY_MATCH_THRESHOLD: Final[int] = 90  # Threshold for fuzzy name matching
 MAX_FUZZY_CHOICES: Final[int] = 5  # Maximum number of fuzzy match choices
+
+# Human-readable labels for each numbered land build step (run_land_step1..9),
+# used in log output and the web guided-build stage list so users see what a
+# step actually does instead of just its number.
+LAND_STEP_LABELS: Final[Dict[int, str]] = {
+    1: "Basic Lands",
+    2: "Staple Lands",
+    3: "Kindred/Tribal Lands",
+    4: "Fetch Lands",
+    5: "Dual Lands",
+    6: "Triome Lands",
+    7: "Misc/Utility Lands",
+    8: "Land Optimization",
+    9: "Backfill Basics",
+}
 
 # Commander-related constants
 DUPLICATE_CARD_FORMAT: Final[str] = '{card_name} x {count}'

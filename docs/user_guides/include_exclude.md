@@ -103,6 +103,9 @@ Must Include cards are inserted before pool selection fills the remaining slots.
 **Do Must Include cards count against bracket compliance?**
 Yes. A Must Include card that violates your bracket (e.g., a Game Changer at Bracket 2) will be flagged in the compliance report. The card stays in the deck regardless of enforcement mode.
 
+**Does Must Exclude work on "guaranteed" lands like Cavern of Souls or Command Tower?**
+Yes. Several land steps add a small, fixed set of lands automatically based on your colors or a Kindred/tribal theme (e.g., staple lands like Command Tower/Exotic Orchard, or Kindred lands like Cavern of Souls/Path of Ancestry). These are hardcoded picks, not drawn from the general card pool, but Must Exclude still blocks them: add the land name (e.g. `Cavern of Souls`) to your Must Exclude list and it will never be added, even though the step would normally always include it.
+
 ---
 
 ## See Also

@@ -14,20 +14,21 @@ from fastapi.testclient import TestClient
 def sample_parquet_file(tmp_path):
     df = pd.DataFrame(
         {
-            "name": ["Sol Ring", "Lightning Bolt", "Fire // Ice", "Counterspell"],
-            "colorIdentity": ["Colorless", "R", "UR", "U"],
-            "type": ["Artifact", "Instant", "Instant // Instant", "Instant"],
-            "manaValue": [1.0, 1.0, 2.0, 2.0],
-            "rarity": ["uncommon", "common", "uncommon", "common"],
-            "themeTags": [["Ramp"], ["Removal", "Burn"], ["Removal", "Burn"], ["Counterspell"]],
-            "edhrecRank": [1.0, 50.0, 500.0, 20.0],
-            "scryfallID": ["sol-ring-id", "bolt-id", "fire-ice-id", ""],
-            "text": ["Add {C}{C}.", "Deal 3 damage.", "Deal 2 damage. // Tap target.", "Counter target spell."],
-            "power": [None, None, None, None],
-            "toughness": [None, None, None, None],
-            "printings": ["LEA", "LEA", "APC", "LEA"],
-            "layout": ["normal", "normal", "split", "normal"],
-            "isNew": [False, False, False, False],
+            "name": ["Sol Ring", "Lightning Bolt", "Fire // Ice", "Counterspell", "Chandra, Torch of Defiance", "Old Homestead Guru"],
+            "colorIdentity": ["Colorless", "R", "UR", "U", "R", "G"],
+            "type": ["Artifact", "Instant", "Instant // Instant", "Instant", "Legendary Creature — Human Wizard", "Legendary Planeswalker — Vivien"],
+            "manaValue": [1.0, 1.0, 2.0, 2.0, 4.0, 3.0],
+            "rarity": ["uncommon", "common", "uncommon", "common", "mythic", "rare"],
+            "themeTags": [["Ramp"], ["Removal", "Burn"], ["Removal", "Burn"], ["Counterspell"], [], []],
+            "edhrecRank": [1.0, 50.0, 500.0, 20.0, 300.0, 4000.0],
+            "scryfallID": ["sol-ring-id", "bolt-id", "fire-ice-id", "", "chandra-id", "guru-id"],
+            "text": ["Add {C}{C}.", "Deal 3 damage.", "Deal 2 damage. // Tap target.", "Counter target spell.", "+1: ... -3: ... -7: ...", "+1: ... -X: ..."],
+            "power": [None, None, None, None, None, None],
+            "toughness": [None, None, None, None, None, None],
+            "loyalty": [None, None, None, None, "4", "X"],
+            "printings": ["LEA", "LEA", "APC", "LEA", "KLD", "TST"],
+            "layout": ["normal", "normal", "split", "normal", "normal", "normal"],
+            "isNew": [False, False, False, False, False, False],
         }
     )
     path = tmp_path / "all_cards.parquet"
@@ -58,8 +59,8 @@ def test_list_cards_no_filters(client):
     resp = client.get("/api/v1/cards")
     assert resp.status_code == 200
     data = resp.json()["data"]
-    assert data["total_count"] == 4
-    assert len(data["cards"]) == 4
+    assert data["total_count"] == 6
+    assert len(data["cards"]) == 6
 
 
 def test_list_cards_by_query(client):
@@ -94,7 +95,24 @@ def test_list_cards_pagination(client):
     resp = client.get("/api/v1/cards", params={"page": 1, "page_size": 2})
     data = resp.json()["data"]
     assert len(data["cards"]) == 2
-    assert data["total_pages"] == 2
+    assert data["total_pages"] == 3
+
+
+def test_list_cards_loyalty_numeric(client):
+    resp = client.get("/api/v1/cards", params={"q": "loy>=4"})
+    data = resp.json()["data"]
+    names = {c["name"] for c in data["cards"]}
+    assert names == {"Chandra, Torch of Defiance"}
+
+
+def test_list_cards_loyalty_excludes_non_numeric(client):
+    # "X" loyalty (Old Homestead Guru) should be excluded from numeric
+    # comparisons rather than crashing the request.
+    resp = client.get("/api/v1/cards", params={"q": "loy>0"})
+    assert resp.status_code == 200
+    data = resp.json()["data"]
+    names = {c["name"] for c in data["cards"]}
+    assert names == {"Chandra, Torch of Defiance"}
 
 
 def test_card_detail_found(client):

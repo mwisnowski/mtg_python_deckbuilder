@@ -1549,7 +1549,7 @@ def _ensure_setup_ready(out, force: bool = False) -> None:
                     if os.path.exists(commander_csv):
                         df_cmd = pd.read_csv(commander_csv, comment='#', low_memory=False)
                         # Convert mixed-type columns to strings for Parquet compatibility
-                        for col in ["power", "toughness", "keywords"]:
+                        for col in ["power", "toughness", "loyalty", "keywords"]:
                             if col in df_cmd.columns:
                                 df_cmd[col] = df_cmd[col].astype(str)
                         df_cmd.to_parquet(commander_parquet, engine="pyarrow", compression="snappy", index=False)
@@ -1561,7 +1561,7 @@ def _ensure_setup_ready(out, force: bool = False) -> None:
                     if os.path.exists(background_csv):
                         df_bg = pd.read_csv(background_csv, comment='#', low_memory=False)
                         # Convert mixed-type columns to strings for Parquet compatibility
-                        for col in ["power", "toughness", "keywords"]:
+                        for col in ["power", "toughness", "loyalty", "keywords"]:
                             if col in df_bg.columns:
                                 df_bg[col] = df_bg[col].astype(str)
                         df_bg.to_parquet(background_parquet, engine="pyarrow", compression="snappy", index=False)
@@ -2141,7 +2141,8 @@ def _make_stages_legacy(b: DeckBuilder) -> List[Dict[str, Any]]:
     for i in range(1, 10):
         fn = getattr(b, f"run_land_step{i}", None)
         if callable(fn):
-            stages.append({"key": f"land{i}", "label": f"Lands (Step {i})", "runner_name": f"run_land_step{i}"})
+            label = bc.LAND_STEP_LABELS.get(i, f"Step {i}")
+            stages.append({"key": f"land{i}", "label": f"Lands: {label}", "runner_name": f"run_land_step{i}"})
     
     # M3: Include injection stage after lands, before creatures
     if hasattr(b, '_inject_includes_after_lands') and getattr(b, 'include_cards', None):
@@ -2308,7 +2309,8 @@ def _make_stages_new(b: DeckBuilder) -> List[Dict[str, Any]]:
     for i in range(1, 10):
         fn = getattr(b, f"run_land_step{i}", None)
         if callable(fn):
-            stages.append({"key": f"land{i}", "label": f"Lands (Step {i})", "runner_name": f"run_land_step{i}"})
+            label = bc.LAND_STEP_LABELS.get(i, f"Step {i}")
+            stages.append({"key": f"land{i}", "label": f"Lands: {label}", "runner_name": f"run_land_step{i}"})
     
     # 4) THEME FILL - Final spell topper
     if callable(getattr(b, 'fill_remaining_theme_spells', None)):

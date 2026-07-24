@@ -89,6 +89,7 @@ class LandMiscUtilityMixin:
         mono_exclude = set(getattr(bc, 'MONO_COLOR_MISC_LAND_EXCLUDE', []))
         mono_keep_always = set(getattr(bc, 'MONO_COLOR_MISC_LAND_KEEP_ALWAYS', []))
         kindred_all = set(getattr(bc, 'KINDRED_ALL_LAND_NAMES', []))
+        theme_tags_map = bu.get_theme_tags_map(df)
         text_rainbow_enabled = getattr(bc, 'MONO_COLOR_EXCLUDE_RAINBOW_TEXT', True)
         extra_rainbow_terms = [s.lower() for s in getattr(bc, 'MONO_COLOR_RAINBOW_TEXT_EXTRA', [])]
         any_color_phrases = [s.lower() for s in getattr(bc, 'ANY_COLOR_MANA_PHRASES', [])]
@@ -107,13 +108,13 @@ class LandMiscUtilityMixin:
                 with open(cand_path, 'w', newline='', encoding='utf-8') as fh:
                     wcsv = csv.writer(fh)
                     wcsv.writerow(['name','edhrecRank','type_line','has_color_fixing_terms'])
-                    for edh_val, cname, ctline, ctext_lower in top_candidates:
+                    for edh_val, cname, ctline, ctext_lower, _cmeta in top_candidates:
                         wcsv.writerow([cname, edh_val, ctline, int(bu.is_color_fixing_land(ctline, ctext_lower))])
             except Exception:
                 pass
         deck_theme_tags = [t.lower() for t in (getattr(self, 'selected_tags', []) or [])]
         theme_enabled = getattr(bc, 'MISC_LAND_THEME_MATCH_ENABLED', True) and bool(deck_theme_tags)
-        for edh_val, name, tline, text_lower in top_candidates:
+        for edh_val, name, tline, text_lower, metadata_tags in top_candidates:
             considered += 1
             note_parts: List[str] = []
             if name in self.card_library:
@@ -135,6 +136,24 @@ class LandMiscUtilityMixin:
             if name in fetch_names:
                 filtered_out.append(name)
                 detail_rows.append({'name': name,'status':'filtered','reason':'fetch-skip-misc','weight':'0'})
+                continue
+            # Non-curated fetch-shaped lands (Panorama/New Capenna/Landscape/
+            # Alt Fetchland shapes tagged via tag_for_fetch_lands()) aren't in
+            # the hardcoded fetch_names set above, so gate them on color here
+            # instead of letting them through unfiltered.
+            if not bu.fetch_land_allowed_for_colors(metadata_tags, colors):
+                filtered_out.append(name)
+                detail_rows.append({'name': name,'status':'filtered','reason':'fetch-offcolor','weight':'0'})
+                continue
+            # Named-tribe kindred lands (e.g. Seraph Sanctuary -> 'Angel
+            # Kindred', tagged whenever the card's own text references that
+            # creature type) are largely dead weight outside a deck actually
+            # built around that tribe. The generic "choose any creature
+            # type" lands in kindred_all never receive such a tag, so they're
+            # unaffected and still handled by the down-weight logic below.
+            if name not in kindred_all and not bu.kindred_land_allowed_for_deck(theme_tags_map.get(name), selected_tags_lower):
+                filtered_out.append(name)
+                detail_rows.append({'name': name,'status':'filtered','reason':'kindred-offtheme','weight':'0'})
                 continue
             w = 1
             if bu.is_color_fixing_land(tline, text_lower):
@@ -273,7 +292,7 @@ class LandMiscUtilityMixin:
             width = max(len(n) for n in added)
             for n in added:
                 note = ''
-                for edh_val, name2, tline2, text_lower2 in top_candidates:
+                for edh_val, name2, tline2, text_lower2, _meta2 in top_candidates:
                     if name2 == n and bu.is_color_fixing_land(tline2, text_lower2):
                         note = '(fixing)'
                         break
@@ -284,7 +303,7 @@ class LandMiscUtilityMixin:
             width = max(len(n) for n in added)
             for n in added:
                 note = ''
-                for edh_val, name2, tline2, text_lower2 in top_candidates:
+                for edh_val, name2, tline2, text_lower2, _meta2 in top_candidates:
                     if name2 == n and bu.is_color_fixing_land(tline2, text_lower2):
                         note = '(fixing)'
                         break

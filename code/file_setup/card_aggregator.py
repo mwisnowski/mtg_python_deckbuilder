@@ -168,8 +168,8 @@ class CardAggregator:
         duplicates_removed = original_count - len(combined_df)
 
         # Convert object columns with mixed types to strings for Parquet compatibility
-        # Common columns that may have mixed types: power, toughness, keywords
-        for col in ["power", "toughness", "keywords"]:
+        # Common columns that may have mixed types: power, toughness, loyalty, keywords
+        for col in ["power", "toughness", "loyalty", "keywords"]:
             if col in combined_df.columns:
                 combined_df[col] = combined_df[col].astype(str)
 

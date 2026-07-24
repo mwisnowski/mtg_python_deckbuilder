@@ -495,10 +495,18 @@ def filter_dataframe(df: pd.DataFrame, banned_cards: List[str]) -> pd.DataFrame:
 
                 logger.debug(f'Applied {rule_type} filter for {field}: {values}')
         
-        # Remove illegal sets
+        # Remove illegal sets, but exempt Basic Lands: they're commonly
+        # printed in silver-bordered/Un-sets (e.g. Unstable, Unhinged,
+        # Unglued) in addition to hundreds of legal sets, so the "any
+        # illegal-set printing" check below would otherwise drop them
+        # entirely (their Snow-Covered counterparts, never printed in
+        # Un-sets, aren't affected) -- Basic Lands are legal in every
+        # format regardless of any joke-set reprint.
         for set_code in NON_LEGAL_SETS:
-            filtered_df = filtered_df[~filtered_df['printings'].str.contains(set_code, na=False)]
-        logger.debug('Removed illegal sets')
+            illegal_mask = filtered_df['printings'].str.contains(set_code, na=False)
+            is_basic_land = filtered_df['type'].str.contains('Basic Land', case=False, na=False)
+            filtered_df = filtered_df[~(illegal_mask & ~is_basic_land)]
+        logger.debug('Removed illegal sets (Basic Lands exempted)')
 
         # Remove banned cards (exact, case-insensitive match on name or faceName)
         if banned_cards:

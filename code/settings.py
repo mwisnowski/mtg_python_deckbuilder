@@ -54,7 +54,7 @@ PRIMARY_COLOR_ABBR_MAP: Dict[str, str] = {
 CARD_DATA_COLUMNS: List[str] = [
     'name', 'faceName', 'edhrecRank', 'colorIdentity', 'colors',
     'manaCost', 'manaValue', 'type', 'creatureTypes', 'text',
-    'power', 'toughness', 'keywords', 'themeTags', 'layout', 'side'
+    'power', 'toughness', 'loyalty', 'keywords', 'themeTags', 'layout', 'side'
 ]
 
 # Alias for semantic clarity in different contexts

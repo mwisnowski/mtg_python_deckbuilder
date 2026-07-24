@@ -57,7 +57,7 @@ LEGENDARY_OPTIONS: List[str] = [
 
 NON_LEGAL_SETS: List[str] = [
     'PHTR', 'PH17', 'PH18', 'PH19', 'PH20', 'PH21',
-    'UGL', 'UND', 'UNH', 'UST'
+    'UGL', 'UND', 'UNH', 'UST', 'PCEL'
 ]
 
 CARD_TYPES_TO_EXCLUDE: List[str] = [
@@ -85,6 +85,7 @@ CSV_PROCESSING_COLUMNS: List[str] = [
     'text',        # Card text/rules
     'power',       # Power (for creatures)
     'toughness',   # Toughness (for creatures)
+    'loyalty',     # Loyalty (for planeswalkers)
     'keywords',    # Card's keywords
     'side',        # Side identifier for multi-faced cards
     'printings'    # Set codes this card has been printed in (comma-separated)

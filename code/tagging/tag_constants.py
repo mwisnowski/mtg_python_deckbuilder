@@ -257,7 +257,7 @@ CONTEXT_WINDOW_SIZE: Final[int] = 70  # Characters to examine around a regex mat
 REQUIRED_COLUMNS: List[str] = [
     'name', 'faceName', 'edhrecRank', 'colorIdentity', 'colors',
     'manaCost', 'manaValue', 'type', 'creatureTypes', 'text',
-    'power', 'toughness', 'keywords', 'themeTags', 'layout', 'side',
+    'power', 'toughness', 'loyalty', 'keywords', 'themeTags', 'layout', 'side',
     # Extended columns preserved through tagging
     'metadataTags', 'comboTags', 'backType',
     'isCommander', 'isBackground',
@@ -453,6 +453,64 @@ LAND_TYPES: List[str] = [
     'Cave', 'Desert', 'Gate', 'Lair', 'Locus', 'Mine',
     'Power-Plant', 'Sphere', 'Tower', 'Urza\'s'
 ]
+
+# =============================================================================
+# FETCH LAND PATTERNS (Roadmap 31, Milestone 2)
+# =============================================================================
+# Duplicated locally instead of importing deck_builder.builder_constants.BASIC_LANDS
+# to avoid a cross-package import from `tagging` -> `deck_builder`.
+FETCH_BASIC_LAND_NAMES: List[str] = ['Plains', 'Island', 'Swamp', 'Mountain', 'Forest']
+
+# Master "fetch a land card and put it onto the battlefield" clause, applied
+# only to Land permanents (see `tagger.tag_for_fetch_lands`). Captures the
+# search object phrase (used for basic/land-type extraction, group "object")
+# and whether the fetched land enters tapped (group "tapped").
+FETCH_CORE_PATTERN: str = (
+    r'search (?:your|their) library for (?:a|an|up to \w+)\s+'
+    r'(?P<object>.+?),?\s*put (?:it|them|that card) onto the battlefield(?P<tapped> tapped)?.*?then shuffle'
+)
+
+# Cards whose search-your-library-for-a-land effect is a side effect of
+# land destruction that benefits an opponent (or whichever player's land
+# was destroyed) rather than the caster -- e.g. Ghost Quarter's "Its
+# controller may search their library..." lets the *opponent* rebuild,
+# not you. These aren't "fetch lands" in the deck-building sense even
+# though they match the generic search/shuffle shape, so they're excluded
+# by name rather than trying to generalize a you-vs-opponent regex (which
+# risks false negatives on real fetch lands with unusual phrasing).
+FETCH_LAND_EXCLUDED_NAMES: List[str] = [
+    'Boseiju, Who Endures',
+    'Demolition Field',
+    'Ghost Quarter',
+    'Volatile Fault',
+]
+
+# Classic sac-fetch cost (shape a), e.g. Arid Mesa, Prismatic Vista (pay 1
+# life) and the untapped Fallen Empires cycle -- Bad River, Flood Plain,
+# Grasslands, Mountain Valley, Rocky Tar Pit (no life payment, but the land
+# itself enters tapped instead; the *fetched* land still comes in untapped,
+# which is what actually defines this shape -- see the `not tapped` check
+# in `tagger._fetch_land_tags_for_text`). Line-anchored so an extra leading
+# mana cost (e.g. Blighted Woodland's "{3}{G}, {T}, Sacrifice...") doesn't
+# match.
+FETCHLAND_COST_PATTERN: str = r'^\{t\},\s*(?:pay 1 life,\s*)?sacrifice this land:'
+
+# Panorama Land (shape b), e.g. Bant Panorama: "{1}, {T}, Sacrifice this land: ..."
+PANORAMA_COST_PATTERN: str = r'^\{1\},\s*\{t\},\s*sacrifice this land:'
+
+# Landscape Land / plain tapped-sac-fetch cost (shape d and Evolving-Wilds-
+# style catch-all cards) -- no leading mana symbol before "{T}".
+TAPPED_SAC_COST_PATTERN: str = r'^\{t\},\s*sacrifice this land:'
+
+# New Capenna ETB-sacrifice fetch trigger (shape c), e.g. Brokers Hideout:
+# "When this land enters, sacrifice it. When you do, search your library ..."
+NEW_CAPENNA_TRIGGER_PATTERN: str = r'when this land enters,\s*sacrifice it\.'
+
+# Real "Cycling {cost}" keyword. Must be distinguished from the unrelated
+# "Basic landcycling" mechanic (fetches into hand, not onto the battlefield --
+# already excluded by FETCH_CORE_PATTERN -- but this pattern is also used on
+# its own, so the word-boundary matters).
+CYCLING_KEYWORD_PATTERN: str = r'\bcycling\s*\{'
 
 LANDS_MATTER_SPECIFIC_CARDS: List[str] = [
     'Abundance',

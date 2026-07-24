@@ -17,6 +17,7 @@ def _record(name: str, security_stamp: str) -> dict[str, object]:
         "text": "",
         "power": "1",
         "toughness": "1",
+        "loyalty": "",
         "keywords": "",
         "side": "a",
         "availability": "paper,arena",

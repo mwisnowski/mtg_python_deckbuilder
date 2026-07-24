@@ -2,6 +2,7 @@ from __future__ import annotations
 from typing import List
 import random
 from .. import builder_constants as bc
+from .. import builder_utils as bu
 
 """Phase 2 (part 4): Fetch lands (Land Step 4).
 
@@ -42,6 +43,17 @@ class LandFetchMixin:
             if nm not in candidates:
                 candidates.append(nm)
         candidates = [n for n in candidates if n not in getattr(self, 'card_library', {})]
+        # Safety filter: drop any candidate whose fetch metadata tags don't
+        # overlap the commander's color identity. Belt-and-suspenders on top
+        # of the already color-keyed hardcoded lists above (they're built
+        # from tag-agnostic curation and could drift out of sync).
+        combined_df = getattr(self, '_combined_cards_df', None)
+        if combined_df is not None and not getattr(combined_df, 'empty', True):
+            tags_map = bu.get_metadata_tags_map(combined_df)
+            candidates = [
+                n for n in candidates
+                if bu.fetch_land_allowed_for_colors(tags_map.get(n), color_order)
+            ]
         if not candidates:
             self.output_func("Fetch Lands: No eligible fetch lands remaining.")
             return

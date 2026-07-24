@@ -71,6 +71,10 @@ class ReplaceCardRequest(BaseModel):
     new_name: str
 
 
+class RemoveCardRequest(BaseModel):
+    name: str
+
+
 def _default_bracket() -> int:
     opts = orch.bracket_options()
     return int(opts[0]["level"]) if opts else 1
@@ -261,9 +265,49 @@ def _guided_build_or_none(build_id: str, user_id: str) -> Optional[Dict[str, Any
     return build
 
 
-def _run_stage_sync(ctx: Dict[str, Any], lock) -> Dict[str, Any]:
+def _run_stage_sync(ctx: Dict[str, Any], lock, *, rerun: bool = False, replace: bool = False) -> Dict[str, Any]:
     with lock:
-        return orch.run_stage(ctx, rerun=False, show_skipped=False)
+        return orch.run_stage(ctx, rerun=rerun, show_skipped=False, replace=replace)
+
+
+def _finalize_stage_result(build_id: str, ctx: Dict[str, Any], result: Dict[str, Any]) -> Dict[str, Any]:
+    """Update the build store from a `run_stage` result and build the API payload.
+
+    Shared by `advance` (next stage) and `rerun` (re-draw the current stage).
+    """
+    stage_total = int(result.get("total") or len(ctx.get("stages", [])) or 0)
+    stage_idx = int(result.get("idx") or 0)
+    done = bool(result.get("done"))
+    if done:
+        build_store.mark_done(
+            build_id,
+            {
+                "csv_path": result.get("csv_path"),
+                "txt_path": result.get("txt_path"),
+                "summary": result.get("summary"),
+                "compliance": result.get("compliance"),
+                "include_exclude_diagnostics": result.get("include_exclude_diagnostics"),
+            },
+        )
+    else:
+        build_store.update_progress(
+            build_id,
+            status="running",
+            stage_idx=stage_idx,
+            stage_total=stage_total,
+            stage_label=result.get("label"),
+        )
+
+    return {
+        "done": done,
+        "status": "done" if done else "running",
+        "stage_label": result.get("label"),
+        "stage_idx": stage_idx,
+        "stage_total": stage_total,
+        "added_cards": result.get("added_cards") or [],
+        "skipped": bool(result.get("skipped")),
+        "gated": bool(result.get("gated")),
+    }
 
 
 @router.post("/{build_id}/advance", summary="Run the next build stage (guided mode)")
@@ -291,39 +335,37 @@ async def advance_build(build_id: str, request: Request, user: User = Depends(ge
         build_store.mark_error(build_id, str(exc))
         return err(str(exc), "BUILD_STAGE_FAILED", 500, _rid(request))
 
-    stage_total = int(result.get("total") or len(ctx.get("stages", [])) or 0)
-    stage_idx = int(result.get("idx") or 0)
-    done = bool(result.get("done"))
-    if done:
-        build_store.mark_done(
-            build_id,
-            {
-                "csv_path": result.get("csv_path"),
-                "txt_path": result.get("txt_path"),
-                "summary": result.get("summary"),
-                "compliance": result.get("compliance"),
-                "include_exclude_diagnostics": result.get("include_exclude_diagnostics"),
-            },
-        )
-    else:
-        build_store.update_progress(
-            build_id,
-            status="running",
-            stage_idx=stage_idx,
-            stage_total=stage_total,
-            stage_label=result.get("label"),
-        )
+    payload = _finalize_stage_result(build_id, ctx, result)
+    return ok(payload, _rid(request))
 
-    payload = {
-        "done": done,
-        "status": "done" if done else "running",
-        "stage_label": result.get("label"),
-        "stage_idx": stage_idx,
-        "stage_total": stage_total,
-        "added_cards": result.get("added_cards") or [],
-        "skipped": bool(result.get("skipped")),
-        "gated": bool(result.get("gated")),
-    }
+
+@router.post("/{build_id}/rerun", summary="Re-run the current build stage (guided mode)")
+async def rerun_build_stage(build_id: str, request: Request, user: User = Depends(get_api_user)):
+    """Re-run the most recently completed stage and pull a fresh batch of cards.
+
+    Locked cards are preserved and the stage index does not advance further;
+    use this to "reroll" a stage's picks without stepping forward.
+    """
+    build = _guided_build_or_none(build_id, user["id"])
+    if build is None:
+        return err("Guided build not found.", "BUILD_NOT_FOUND", 404, _rid(request))
+    if build.get("status") == "done":
+        return err("Build is already complete.", "BUILD_ALREADY_DONE", 409, _rid(request))
+    if build.get("status") == "error":
+        return err(build.get("error") or "Build failed.", "BUILD_FAILED", 409, _rid(request))
+
+    ctx = build_store.get_ctx(build_id)
+    lock = build_store.get_stage_lock(build_id)
+    if ctx is None or lock is None:
+        return err("Build session expired.", "BUILD_SESSION_EXPIRED", 410, _rid(request))
+
+    try:
+        result = await asyncio.to_thread(_run_stage_sync, ctx, lock, rerun=True, replace=True)
+    except Exception as exc:  # noqa: BLE001
+        build_store.mark_error(build_id, str(exc))
+        return err(str(exc), "BUILD_STAGE_FAILED", 500, _rid(request))
+
+    payload = _finalize_stage_result(build_id, ctx, result)
     return ok(payload, _rid(request))
 
 
@@ -462,6 +504,170 @@ async def replace_build_card(
         return err(str(exc), "CARD_NOT_IN_DECK", 404, _rid(request))
     except Exception as exc:  # noqa: BLE001
         return err(str(exc), "REPLACE_FAILED", 500, _rid(request))
+
+    return ok(result, _rid(request))
+
+
+def _remove_card_sync(ctx: Dict[str, Any], name: str) -> Dict[str, Any]:
+    b = ctx.get("builder")
+    disp = str(name).strip()
+    key = disp.lower()
+
+    lib = getattr(b, "card_library", {}) or {}
+    old_key = None
+    if disp in lib:
+        old_key = disp
+    else:
+        for k in list(lib.keys()):
+            if str(k).strip().lower() == key:
+                old_key = k
+                break
+    if old_key is None:
+        raise KeyError(f"'{name}' is not in the deck.")
+
+    entry = lib.get(old_key) or {}
+    if entry.get("Commander"):
+        raise ValueError("Cannot remove the commander.")
+
+    entry_snapshot = dict(entry)
+    try:
+        cnt = int(entry.get("Count", 1))
+    except Exception:
+        cnt = 1
+    if cnt <= 1:
+        del lib[old_key]
+    else:
+        entry["Count"] = cnt - 1
+
+    was_land = "land" in str(entry_snapshot.get("Card Type", "")).lower()
+    try:
+        if was_land:
+            b._color_source_cache_dirty = True
+        else:
+            b._spell_pip_cache_dirty = True
+    except Exception:
+        pass
+
+    locks = set(ctx.get("locks") or [])
+    locks.discard(key)
+    ctx["locks"] = locks
+
+    exclude = set(ctx.get("alts_exclude") or [])
+    exclude.add(key)
+    ctx["alts_exclude"] = exclude
+
+    ctx["last_remove"] = {
+        "name": key,
+        "display_name": old_key,
+        "entry": entry_snapshot,
+        "had_multiple": cnt > 1,
+    }
+
+    return {"name": old_key, "removed": True}
+
+
+def _undo_remove_card_sync(ctx: Dict[str, Any]) -> Dict[str, Any]:
+    last = ctx.get("last_remove") or {}
+    key = str(last.get("name") or "")
+    entry_snapshot = last.get("entry") if isinstance(last, dict) else None
+    b = ctx.get("builder")
+    if b is None or not key or not entry_snapshot:
+        return {"restored": False}
+
+    lib = getattr(b, "card_library", None)
+    if lib is None:
+        lib = {}
+        b.card_library = lib
+
+    old_key = None
+    for k in list(lib.keys()):
+        if str(k).strip().lower() == key:
+            old_key = k
+            break
+
+    if old_key is not None and last.get("had_multiple"):
+        lib[old_key]["Count"] = int(lib[old_key].get("Count", 0)) + 1
+        restore_key = old_key
+    else:
+        restore_key = old_key or last.get("display_name") or key
+        lib[restore_key] = dict(entry_snapshot)
+
+    restored_entry = dict(lib.get(restore_key) or {})
+    try:
+        restored_count = int(restored_entry.get("Count", 1))
+    except Exception:
+        restored_count = 1
+
+    was_land = "land" in str(entry_snapshot.get("Card Type", "")).lower()
+    try:
+        if was_land:
+            b._color_source_cache_dirty = True
+        else:
+            b._spell_pip_cache_dirty = True
+    except Exception:
+        pass
+
+    exclude = set(ctx.get("alts_exclude") or [])
+    exclude.discard(key)
+    ctx["alts_exclude"] = exclude
+    ctx.pop("last_remove", None)
+
+    return {"restored": True, "name": str(restore_key), "count": restored_count}
+
+
+@router.post("/{build_id}/remove-card", summary="Remove a card from a guided build's deck-in-progress")
+async def remove_build_card(
+    build_id: str, body: RemoveCardRequest, request: Request, user: User = Depends(get_api_user)
+):
+    """Remove `name` entirely from the deck-in-progress (unlocking it if locked).
+
+    The freed slot is left open for later stages to fill naturally; this does
+    not permanently block the card from being picked again on a stage rerun.
+    Call `POST /{build_id}/remove-card/undo` to restore it.
+    """
+    build = _guided_build_or_none(build_id, user["id"])
+    if build is None:
+        return err("Guided build not found.", "BUILD_NOT_FOUND", 404, _rid(request))
+    ctx = build_store.get_ctx(build_id)
+    lock = build_store.get_stage_lock(build_id)
+    if ctx is None or lock is None:
+        return err("Build session expired.", "BUILD_SESSION_EXPIRED", 410, _rid(request))
+
+    def _run():
+        with lock:
+            return _remove_card_sync(ctx, body.name)
+
+    try:
+        result = await asyncio.to_thread(_run)
+    except KeyError as exc:
+        return err(str(exc), "CARD_NOT_IN_DECK", 404, _rid(request))
+    except ValueError as exc:
+        return err(str(exc), "CANNOT_REMOVE_COMMANDER", 400, _rid(request))
+    except Exception as exc:  # noqa: BLE001
+        return err(str(exc), "REMOVE_FAILED", 500, _rid(request))
+
+    return ok(result, _rid(request))
+
+
+@router.post("/{build_id}/remove-card/undo", summary="Undo the last card removal")
+async def undo_remove_build_card(build_id: str, request: Request, user: User = Depends(get_api_user)):
+    """Restore the most recently removed card back into the deck-in-progress."""
+    build = _guided_build_or_none(build_id, user["id"])
+    if build is None:
+        return err("Guided build not found.", "BUILD_NOT_FOUND", 404, _rid(request))
+    ctx = build_store.get_ctx(build_id)
+    lock = build_store.get_stage_lock(build_id)
+    if ctx is None or lock is None:
+        return err("Build session expired.", "BUILD_SESSION_EXPIRED", 410, _rid(request))
+
+    def _run():
+        with lock:
+            return _undo_remove_card_sync(ctx)
+
+    try:
+        result = await asyncio.to_thread(_run)
+    except Exception as exc:  # noqa: BLE001
+        return err(str(exc), "UNDO_FAILED", 500, _rid(request))
 
     return ok(result, _rid(request))
 

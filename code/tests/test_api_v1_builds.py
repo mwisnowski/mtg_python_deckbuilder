@@ -234,6 +234,55 @@ def test_guided_build_replace_and_alternatives(client, auth_headers, monkeypatch
     assert resp.json()["code"] == "CARD_NOT_IN_DECK"
 
 
+def test_guided_build_remove_card_and_undo(client, auth_headers, monkeypatch):
+    _fake_guided_orchestrator(monkeypatch, stage_count=1)
+
+    resp = client.post(
+        "/api/v1/builds", json={"commander": "Test Commander", "mode": "guided"}, headers=auth_headers
+    )
+    build_id = resp.json()["data"]["build_id"]
+
+    resp = client.post(
+        f"/api/v1/builds/{build_id}/remove-card", json={"name": "Sol Ring"}, headers=auth_headers
+    )
+    assert resp.status_code == 200
+    data = resp.json()["data"]
+    assert data["removed"] is True
+    assert data["name"] == "Sol Ring"
+
+    resp = client.post(
+        f"/api/v1/builds/{build_id}/remove-card", json={"name": "Not In Deck"}, headers=auth_headers
+    )
+    assert resp.status_code == 404
+    assert resp.json()["code"] == "CARD_NOT_IN_DECK"
+
+    resp = client.post(f"/api/v1/builds/{build_id}/remove-card/undo", headers=auth_headers)
+    assert resp.status_code == 200
+    data = resp.json()["data"]
+    assert data["restored"] is True
+    assert data["name"] == "Sol Ring"
+    assert data["count"] == 1
+
+    # Nothing left to undo now.
+    resp = client.post(f"/api/v1/builds/{build_id}/remove-card/undo", headers=auth_headers)
+    assert resp.json()["data"]["restored"] is False
+
+
+def test_guided_build_rerun_stage(client, auth_headers, monkeypatch):
+    _fake_guided_orchestrator(monkeypatch, stage_count=2)
+
+    resp = client.post(
+        "/api/v1/builds", json={"commander": "Test Commander", "mode": "guided"}, headers=auth_headers
+    )
+    build_id = resp.json()["data"]["build_id"]
+
+    resp = client.post(f"/api/v1/builds/{build_id}/rerun", headers=auth_headers)
+    assert resp.status_code == 200
+    data = resp.json()["data"]
+    assert data["done"] is False
+    assert data["added_cards"][0]["name"] == "Sol Ring"
+
+
 def test_full_build_lifecycle(client, auth_headers, monkeypatch):
     _fake_orchestrator(monkeypatch)
 

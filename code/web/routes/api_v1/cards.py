@@ -225,6 +225,7 @@ def _serialize_card(row, *, full: bool = False) -> Dict[str, Any]:
                 "text": card.get("text"),
                 "power": card.get("power"),
                 "toughness": card.get("toughness"),
+                "loyalty": card.get("loyalty"),
                 "printings": card.get("printings"),
                 "layout": card.get("layout"),
                 "isNew": card.get("isNew"),
@@ -253,9 +254,8 @@ def _parse_color_cell(raw: Any) -> set:
 # the default) plus real Scryfall search keywords -- see
 # https://scryfall.com/docs/syntax. Only the categories relevant to this
 # dataset are supported: colors/identity, card types, card text, mana costs,
-# and power/toughness. Loyalty is intentionally unsupported (no loyalty data
-# in this dataset); rarity/tag/is=new flags are also parsed as a bonus but
-# are secondary to the `colors`/`tags`/`is_new` query params below.
+# power/toughness, and loyalty; rarity/tag/is=new flags are also parsed as a
+# bonus but are secondary to the `colors`/`tags`/`is_new` query params below.
 #
 # NOTE: bare colon (`:`) has different default semantics for color vs.
 # identity, matching how each concept is actually used:
@@ -266,9 +266,9 @@ def _parse_color_cell(raw: Any) -> set:
 #     matches BRU, BRG, etc. Use `color=br` for an exact-colors-only match.
 #
 # Examples: `c:rg`, `id<=esper`, `t:goblin -t:creature`, `o:"draw a card"`,
-# `m:2WW`, `mv>=4`, `pow>=4 tou<=2`, `pow>tou`. Any keyword may be negated
-# with a leading `-` (e.g. `-t:land`); plain words without a keyword match
-# (or exclude, with `-`) the card name.
+# `m:2WW`, `mv>=4`, `pow>=4 tou<=2`, `pow>tou`, `loy>=5`. Any keyword may be
+# negated with a leading `-` (e.g. `-t:land`); plain words without a keyword
+# match (or exclude, with `-`) the card name.
 
 _FLAG_TOKEN_RE = re.compile(r"^(-)?([A-Za-z]+)(:|>=|<=|!=|>|<|=)(.+)$")
 
@@ -280,6 +280,7 @@ _KEY_ALIASES: Dict[str, str] = {
     "identity": "identity", "id": "identity",
     "power": "power", "pow": "power",
     "toughness": "toughness", "tou": "toughness", "tough": "toughness",
+    "loyalty": "loyalty", "loy": "loyalty",
     "mana": "manacost", "m": "manacost",
     "manavalue": "cmc", "mv": "cmc", "cmc": "cmc",
     "rarity": "rarity", "r": "rarity",
@@ -291,6 +292,7 @@ _COLOR_LETTERS = set("WUBRG")
 _STAT_VALUE_ALIASES = {
     "power": "power", "pow": "power",
     "toughness": "toughness", "tou": "toughness", "tough": "toughness",
+    "loyalty": "loyalty", "loy": "loyalty",
 }
 _BRACED_SYMBOL_RE = re.compile(r"\{([^}]+)\}")
 
@@ -351,6 +353,7 @@ class ParsedSearch:
     identity_clauses: List[ColorClause] = field(default_factory=list)
     power_clauses: List[NumericClause] = field(default_factory=list)
     toughness_clauses: List[NumericClause] = field(default_factory=list)
+    loyalty_clauses: List[NumericClause] = field(default_factory=list)
     cmc_clauses: List[NumericClause] = field(default_factory=list)
     mana_cost_clauses: List[ManaCostClause] = field(default_factory=list)
     rarity: Optional[Set[str]] = None
@@ -565,10 +568,11 @@ def _apply_search_flag(parsed: ParsedSearch, canonical: str, op: str, value: str
             effective_op = "<=" if canonical == "identity" else ">="
         clause = ColorClause(op=effective_op, letters=letters, count=count, special=special, negate=negate)
         (parsed.color_clauses if canonical == "color" else parsed.identity_clauses).append(clause)
-    elif canonical in ("power", "toughness", "cmc"):
+    elif canonical in ("power", "toughness", "loyalty", "cmc"):
         target = {
             "power": parsed.power_clauses,
             "toughness": parsed.toughness_clauses,
+            "loyalty": parsed.loyalty_clauses,
             "cmc": parsed.cmc_clauses,
         }[canonical]
         compare_to = _STAT_VALUE_ALIASES.get(value.lower()) if canonical != "cmc" else None
@@ -665,6 +669,7 @@ async def list_cards(
 
     df = _apply_numeric_clauses(df, "power", parsed.power_clauses)
     df = _apply_numeric_clauses(df, "toughness", parsed.toughness_clauses)
+    df = _apply_numeric_clauses(df, "loyalty", parsed.loyalty_clauses)
     df = _apply_numeric_clauses(df, "manaValue", parsed.cmc_clauses)
     df = _apply_mana_cost_clauses(df, parsed.mana_cost_clauses)
 

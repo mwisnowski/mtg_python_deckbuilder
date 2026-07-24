@@ -610,6 +610,14 @@ def classify_tag(tag: str) -> str:
                "Targeted: Phasing", "Opponent Permanents: Phasing"]:
         return "metadata"
     
+    # Fetch-land search-target metadata patterns (Roadmap 31, Milestone 2):
+    # "<Type> Fetch" (Plains Fetch ... Forest Fetch, Gate Fetch, etc.),
+    # "Any Basic Fetch", "Land Fetch". These describe what a fetch land can
+    # search for (deck-builder plumbing), as opposed to the player-facing
+    # shape tags (Fetchland, Panorama Land, etc.) which stay theme tags.
+    if tag.endswith(" Fetch"):
+        return "metadata"
+    
     # Default: treat as theme tag
     return "theme"
 

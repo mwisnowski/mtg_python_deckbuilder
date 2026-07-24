@@ -1,0 +1,34 @@
+{% from 'partials/_macros.html' import lock_button %}
+<div class="card-tile{% if game_changer %} game-changer{% endif %}{% if is_locked %} locked{% endif %}{% if c.must_include %} must-include{% endif %}{% if c.must_exclude %} must-exclude{% endif %}"
+  data-card-name="{{ c.name }}" data-role="{{ c.role or c.sub_role or '' }}" data-owned="{{ '1' if owned else '0' }}"
+  data-must-include="{{ '1' if c.must_include else '0' }}" data-must-exclude="{{ '1' if c.must_exclude else '0' }}"
+  data-price="{{ (price_cache or {}).get(c.name|lower, {}).get('usd') or '' }}"
+  data-stale="{% if stale_prices is defined and c.name|lower in stale_prices %}1{% else %}0{% endif %}">
+  <div class="img-btn" role="button" tabindex="0" title="Tap or click to view {{ c.name }}" aria-label="View {{ c.name }} details">
+    <img class="card-thumb" src="{{ c.name|card_image('normal') }}" alt="{{ c.name }} image" width="160" data-card-name="{{ c.name }}" loading="lazy" decoding="async" data-lqip="1"
+      srcset="{{ c.name|card_image('small') }} 160w, {{ c.name|card_image('normal') }} 488w"
+      sizes="160px" />
+    <div class="card-price-overlay" data-price-for="{{ c.name }}" aria-hidden="true"></div>
+  </div>
+  <div class="owned-badge" title="{{ 'Owned' if owned else 'Not owned' }}" aria-label="{{ 'Owned' if owned else 'Not owned' }}">{% if owned %}✔{% else %}✖{% endif %}</div>
+  {% if stale_prices is defined and c.name|lower in stale_prices %}<div class="stale-price-indicator" title="Price may be outdated (>24h)">&#x23F1;</div>{% endif %}
+  <div class="name">{{ c.name|safe }}{% if c.count and c.count > 1 %} ×{{ c.count }}{% endif %}</div>
+  <div class="muted" style="font-size:.75rem; margin-top:.25rem;">Restored. It's back in the deck.</div>
+  <div class="lock-box flex justify-center gap-1 mt-1">
+    {{ lock_button(c.name, is_locked) }}
+  </div>
+  {% if allow_must_haves and show_must_have_buttons %}
+  <div class="must-have-controls" role="group" aria-label="Must have controls">
+    <button type="button" class="btn-chip must-have-btn include" data-toggle="include" data-card-name="{{ c.name }}" data-card-label="{{ c.name }}" data-active="{{ '1' if c.must_include else '0' }}" title="Must include forces future reruns to add this card whenever it's legal. Unlike Lock, it re-adds the card if it falls out.">Must include</button>
+    <button type="button" class="btn-chip must-have-btn exclude" data-toggle="exclude" data-card-name="{{ c.name }}" data-card-label="{{ c.name }}" data-active="{{ '1' if c.must_exclude else '0' }}" title="Must exclude keeps this card out of future reruns before selection. Use it when you never want the builder to pick it again.">Must exclude</button>
+  </div>
+  {% endif %}
+  <div class="flex justify-center mt-1">
+    <button type="button" class="btn" hx-get="/build/alternatives" hx-vals='{"name": "{{ c.name }}"}' hx-target="next .alts" hx-swap="innerHTML" title="Suggest alternatives">Alternatives</button>
+  </div>
+  <div class="alts mt-1"></div>
+  <div class="flex justify-center mt-1">
+    <button type="button" class="btn btn-remove-card" hx-post="/build/remove-card" hx-vals='{"name": "{{ c.name }}"}' hx-target="closest .card-tile" hx-swap="outerHTML"
+      title="Remove this card from the deck for this build">Remove Card</button>
+  </div>
+</div>

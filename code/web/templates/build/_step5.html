@@ -478,6 +478,10 @@
                 </div>
               {% endif %}
               <div id="alts-{{ group_idx }}-{{ loop.index0 }}" class="alts mt-1"></div>
+              <div class="flex justify-center mt-1">
+                <button type="button" class="btn btn-remove-card" hx-post="/build/remove-card" hx-vals='{"name": "{{ c.name }}"}' hx-target="closest .card-tile" hx-swap="outerHTML"
+                  title="Remove this card from the deck for this build">Remove Card</button>
+              </div>
             </div>
             {% endfor %}
             </div>
@@ -529,6 +533,10 @@
               </div>
             {% endif %}
             <div id="alts-{{ loop.index0 }}" class="alts mt-1"></div>
+            <div class="flex justify-center mt-1">
+              <button type="button" class="btn btn-remove-card" hx-post="/build/remove-card" hx-vals='{"name": "{{ c.name }}"}' hx-target="closest .card-tile" hx-swap="outerHTML"
+                title="Remove this card from the deck for this build">Remove Card</button>
+            </div>
           </div>
           {% endfor %}
         </div>

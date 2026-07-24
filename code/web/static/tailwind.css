@@ -415,6 +415,29 @@ small, .muted{ color: var(--muted); }
 	border-color: rgba(249,115,22,.85);
 	box-shadow: 0 0 0 1px rgba(249,115,22,.4) inset;
 }
+.card-tile.card-removed{
+	opacity: .7;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	min-height: 120px;
+}
+.card-tile.card-removed .removed-label{
+	background: rgba(239,68,68,.9);
+	color: #fff;
+	font-size: .7rem;
+	font-weight: 600;
+	padding: .1rem .4rem;
+	border-radius: 4px;
+}
+.alts-remove{ text-align:center; }
+.btn-remove-card{
+	background: transparent;
+	border: 1px solid rgba(239,68,68,.6);
+	color: #ef4444;
+}
+.btn-remove-card:hover{ background: rgba(239,68,68,.12); }
 .card-tile img{ width:160px; height:auto; border-radius:6px; box-shadow: 0 6px 18px rgba(0,0,0,.35); background:#111; }
 .card-tile .name{ font-weight:600; margin-top:.25rem; font-size:.92rem; }
 .card-tile .reason{ color:var(--muted); font-size:.85rem; margin-top:.15rem; }

@@ -220,13 +220,22 @@ class ImageCache:
          "etched", "sunmoondfc", "compasslandmark", "mooneldraziclock"}
     )
 
+    # Scryfall set_types whose cards are stylized/reskinned products (Secret
+    # Lair drops, masterpiece series, etc.) even when other fields (border,
+    # full_art) look "standard". These should never win over a genuine
+    # normal-set printing.
+    _NON_STANDARD_SET_TYPES: frozenset[str] = frozenset(
+        {"box", "masterpiece", "memorabilia", "spellbook",
+         "from_the_vault", "premium_deck", "duel_deck", "arsenal"}
+    )
+
     def _score_printing(self, card: dict[str, Any]) -> int:
         """
         Score a printing by how "standard" it looks.
 
         Higher = more standard frame, preferred for image caching.
         Fields used: full_art, textless, promo, border_color, booster,
-        variation, frame_effects.
+        variation, frame_effects, set_type.
         """
         score = 0
         if not card.get("full_art", False):
@@ -241,6 +250,8 @@ class ImageCache:
             score += 1
         if not card.get("variation", False):
             score += 1
+        if card.get("set_type") not in self._NON_STANDARD_SET_TYPES:
+            score += 3
         frame_effects = card.get("frame_effects") or []
         if not any(e in self._SPECIAL_FRAME_EFFECTS for e in frame_effects):
             score += 2

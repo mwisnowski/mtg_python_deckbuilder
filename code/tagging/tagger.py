@@ -506,6 +506,8 @@ def _tag_mechanical_themes(df: pd.DataFrame, color: str) -> None:
     print('\n====================\n')
     tag_for_land_types(df, color)
     print('\n====================\n')
+    tag_for_fetch_lands(df, color)
+    print('\n====================\n')
     tag_for_web_slinging(df, color)
     print('\n====================\n')
     tag_for_tokens(df, color)
@@ -1112,7 +1114,7 @@ def sort_theme_tags(df, color):
     # Reorder columns for final output
     # M3: Preserve ALL columns (isCommander, isBackground, metadataTags, etc.)
     # BUT exclude temporary cache columns (__*_s)
-    base_columns = ['name', 'faceName','edhrecRank', 'colorIdentity', 'colors', 'manaCost', 'manaValue', 'type', 'creatureTypes', 'text', 'power', 'toughness', 'keywords', 'themeTags', 'layout', 'side']
+    base_columns = ['name', 'faceName','edhrecRank', 'colorIdentity', 'colors', 'manaCost', 'manaValue', 'type', 'creatureTypes', 'text', 'power', 'toughness', 'loyalty', 'keywords', 'themeTags', 'layout', 'side']
     
     # Add M3 columns if present
     if 'metadataTags' in df.columns and 'metadataTags' not in base_columns:
@@ -2980,6 +2982,26 @@ def create_tokens_matter_mask(df: pd.DataFrame) -> pd.Series:
 
     return text_mask
 
+def create_generic_token_creation_mask(df: pd.DataFrame) -> pd.Series:
+    """Create a boolean mask for cards that create a token of any kind.
+
+    This is intentionally broader than create_creature_token_mask: it only requires a
+    create/put action alongside the bare word 'token', without requiring the token be
+    described as a creature/artifact/enchantment token. This catches copy-into-a-token
+    effects that never use the literal phrase "creature token" (e.g. "create a tapped
+    token that's a copy of that card, except it's a 4/4 black Zombie").
+
+    Args:
+        df: DataFrame to search
+
+    Returns:
+        Boolean Series indicating which cards create a token of any kind
+    """
+    has_create = tag_utils.create_text_mask(df, tag_constants.CREATE_ACTION_PATTERN)
+    has_token = tag_utils.create_text_mask(df, 'token')
+
+    return has_create & has_token
+
 def tag_for_tokens(df: pd.DataFrame, color: str) -> None:
     """Tag cards that create or modify tokens using vectorized operations.
 
@@ -3005,6 +3027,7 @@ def tag_for_tokens(df: pd.DataFrame, color: str) -> None:
         creature_mask = create_creature_token_mask(df)
         modifier_mask = create_token_modifier_mask(df)
         matters_mask = create_tokens_matter_mask(df)
+        generic_mask = create_generic_token_creation_mask(df)
 
         # Eldrazi Spawn/Scion special case
         spawn_patterns = [
@@ -3019,6 +3042,7 @@ def tag_for_tokens(df: pd.DataFrame, color: str) -> None:
             {'mask': modifier_mask, 'tags': ['Token Modification', 'Token Creation', 'Tokens Matter']},
             {'mask': matters_mask, 'tags': ['Tokens Matter']},
             {'mask': spawn_scion_mask, 'tags': ['Aristocrats', 'Ramp']},
+            {'mask': generic_mask, 'tags': ['Token Creation', 'Tokens Matter']},
         ]
         tag_utils.tag_with_rules_and_logging(df, rules, 'token-related cards', color=color, logger=logger)
 
@@ -4132,6 +4156,74 @@ def create_mana_rock_mask(df: pd.DataFrame) -> pd.Series:
 
     return (artifact_mask & (tap_mask | sac_mask | mana_mask)) | token_mask
 
+def _is_mana_filter_or_storage(text: str) -> bool:
+    """Detect single-clause mana filter/storage effects that don't net a gain.
+
+    Two shapes are treated as non-ramp:
+      - Charge-counter based mana batteries (e.g. Gemstone Array, Jeweled Amulet):
+        mana is banked earlier at a cost and released later, so it never increases
+        total available mana.
+      - Same-clause "pay N generic, get <=N mana back" filters (e.g. Golden Egg's
+        "{1}, {T}, Sacrifice this artifact: Add one mana of any color."): the
+        generic mana cost meets or exceeds the mana produced, so there's no gain.
+
+    Args:
+        text: Oracle text to inspect
+
+    Returns:
+        True if the text looks like a mana filter/storage effect rather than ramp
+    """
+    if not text:
+        return False
+    if 'charge counter' in text.lower():
+        return True
+
+    word_to_num = {'one': 1, 'two': 2, 'three': 3}
+    for clause_match in re.finditer(r'\{(\d+)\}[^.:]*:[^.]*?\badd\b[^.]*', text, re.IGNORECASE):
+        cost = int(clause_match.group(1))
+        clause = clause_match.group(0).lower()
+        word_match = re.search(r'add[^.]*?\b(one|two|three)\b\s+mana', clause)
+        produced = word_to_num[word_match.group(1)] if word_match else len(re.findall(r'\{[wubrgc]\}', clause))
+        if produced and cost >= produced:
+            return True
+    return False
+
+
+def create_mana_grant_mask(df: pd.DataFrame) -> pd.Series:
+    """Create a boolean mask for cards that produce or grant a mana ability.
+
+    This is intentionally broader than create_mana_dork_mask/create_mana_rock_mask: it
+    drops the Creature/Artifact type gate (so Enchantments/Planeswalkers/Battles/instants/
+    sorceries that produce or grant a mana ability to other permanents are covered too,
+    e.g. "Other permanents you control have '{T}: Add one mana of any color.'") and
+    matches worded-out mana amounts in addition to the existing `{X}`-symbol patterns.
+
+    Lands are excluded: a land tapping for its own (even multiple) colors of mana is
+    baseline mana fixing, not acceleration, and including them here would tag every
+    dual/tri-land in the game as Ramp. Mana filter/storage effects (charge-counter
+    batteries, or "pay N generic to get <=N mana back" sacrifice effects) are also
+    excluded since they don't net a mana gain the way ramp does.
+
+    Args:
+        df: DataFrame to search
+
+    Returns:
+        Boolean Series indicating which cards produce or grant mana
+    """
+    mana_symbol_patterns = [f'add {{{c}}}' for c in ['C', 'W', 'U', 'B', 'R', 'G']]
+    worded_patterns = [
+        r'add (?:one|two|three) mana',
+        r'add (?:one|two|three) (?:white|blue|black|red|green|colorless) mana',
+        r'add .*? mana of any (?:one )?colou?r',
+        r'add .*? any colou?r of mana',
+    ]
+
+    mana_mask = tag_utils.create_text_mask(df, mana_symbol_patterns + worded_patterns)
+    land_mask = tag_utils.create_type_mask(df, 'Land')
+    filter_mask = df['text'].apply(lambda t: _is_mana_filter_or_storage(str(t)) if pd.notna(t) else False)
+
+    return mana_mask & ~land_mask & ~filter_mask
+
 def create_extra_lands_mask(df: pd.DataFrame) -> pd.Series:
     """Create a boolean mask for cards that allow playing additional lands.
 
@@ -4191,6 +4283,7 @@ def tag_for_ramp(df: pd.DataFrame, color: str) -> None:
     - Mana rocks (artifacts that produce mana)
     - Extra land effects
     - Land search effects
+    - Mana-granting effects on any permanent type, including worded (non-symbol) mana amounts
 
     Args:
         df: DataFrame containing card data
@@ -4206,11 +4299,13 @@ def tag_for_ramp(df: pd.DataFrame, color: str) -> None:
         rock_mask = create_mana_rock_mask(df)
         lands_mask = create_extra_lands_mask(df)
         search_mask = create_land_search_mask(df)
+        grant_mask = create_mana_grant_mask(df)
         rules = [
             {'mask': dork_mask, 'tags': ['Mana Dork', 'Ramp']},
             {'mask': rock_mask, 'tags': ['Mana Rock', 'Ramp']},
             {'mask': lands_mask, 'tags': ['Lands Matter', 'Ramp']},
             {'mask': search_mask, 'tags': ['Lands Matter', 'Ramp']},
+            {'mask': grant_mask, 'tags': ['Ramp']},
         ]
         tag_utils.tag_with_rules_and_logging(df, rules, 'ramp effects', color=color, logger=logger)
 
@@ -4603,6 +4698,138 @@ def tag_for_land_types(df: pd.DataFrame, color: str) -> None:
 
     except Exception as e:
         logger.error(f'Error tagging non-basic land types: {str(e)}')
+        raise
+
+
+## Fetch Lands (Roadmap 31, Milestone 2)
+_FETCH_CORE_RE = re.compile(tag_constants.FETCH_CORE_PATTERN, re.IGNORECASE)
+_FETCHLAND_COST_RE = re.compile(tag_constants.FETCHLAND_COST_PATTERN, re.IGNORECASE | re.MULTILINE)
+_PANORAMA_COST_RE = re.compile(tag_constants.PANORAMA_COST_PATTERN, re.IGNORECASE | re.MULTILINE)
+_TAPPED_SAC_COST_RE = re.compile(tag_constants.TAPPED_SAC_COST_PATTERN, re.IGNORECASE | re.MULTILINE)
+_NEW_CAPENNA_TRIGGER_RE = re.compile(tag_constants.NEW_CAPENNA_TRIGGER_PATTERN, re.IGNORECASE)
+_CYCLING_KEYWORD_RE = re.compile(tag_constants.CYCLING_KEYWORD_PATTERN, re.IGNORECASE)
+
+
+def _fetch_land_type_tags(clause: str) -> List[str]:
+    """Given the object clause captured from the fetch-search sentence
+    (e.g. 'basic Forest, Plains, or Island', 'a land', 'Gate'), return the
+    specific <Type> Fetch / Any Basic Fetch / Land Fetch tags it implies.
+    """
+    tags: List[str] = []
+    for basic in tag_constants.FETCH_BASIC_LAND_NAMES:
+        if re.search(rf'\b{basic}\b', clause, re.IGNORECASE):
+            tags.append(f'{basic} Fetch')
+    if tags:
+        return tags
+
+    if re.search(r'\bbasic\b', clause, re.IGNORECASE):
+        return ['Any Basic Fetch']
+
+    for land_type in tag_constants.LAND_TYPES:
+        if land_type in tag_constants.FETCH_BASIC_LAND_NAMES:
+            continue
+        if re.search(rf'\b{re.escape(land_type)}\b', clause, re.IGNORECASE):
+            return [f'{land_type} Fetch']
+
+    if re.search(r'\bland\b', clause, re.IGNORECASE):
+        return ['Land Fetch']
+
+    return []
+
+
+def _fetch_land_tags_for_text(text: str) -> List[str]:
+    """Classify a single land card's oracle text into fetch-land shape tags
+    (Fetchland / Panorama Land / New Capenna Land / Landscape Land / Alt
+    Fetchland) plus the specific <Type> Fetch / Any Basic Fetch / Land
+    Fetch / Gate Fetch tags describing what it can find.
+
+    Returns an empty list for cards that aren't fetch lands.
+    """
+    if not isinstance(text, str) or not text:
+        return []
+
+    match = _FETCH_CORE_RE.search(text)
+    if not match:
+        return []
+
+    tags: List[str] = _fetch_land_type_tags(match.group('object'))
+    if not tags:
+        # Object clause isn't land-related (e.g. Urza's Saga's Chapter III
+        # artifact tutor also matches the generic "search ... put onto the
+        # battlefield ... shuffle" shape) -- not actually a fetch land.
+        return []
+
+    tapped = bool(match.group('tapped'))
+
+    # Named shapes (Fetchland, Panorama Land, New Capenna Land, Landscape
+    # Land) require the fetched object to name specific basic land types
+    # (e.g. "a Mountain or Plains card"). A card that only searches for "a
+    # basic land card" (Any Basic Fetch) can only ever find an actual basic
+    # land -- unlike the named-type shapes, which can also find nonbasics
+    # that merely have the named type (e.g. Flooded Strand can find Godless
+    # Shrine via its Plains/Swamp types). Prismatic Vista has the identical
+    # cost/tapped structure as the classic Fetchland cycle but only ever
+    # finds a true basic, so it must fall through to the Alt Fetchland
+    # catch-all instead of getting the Fetchland/Panorama/etc. shape tag.
+    named_types = 'Any Basic Fetch' not in tags
+
+    if named_types and not tapped and _FETCHLAND_COST_RE.search(text):
+        tags.append('Fetchland')
+    elif named_types and tapped and _NEW_CAPENNA_TRIGGER_RE.search(text) and 'gain 1 life' in text.lower():
+        tags.append('New Capenna Land')
+        tags.append('Alt Fetchland')
+    elif named_types and tapped and _PANORAMA_COST_RE.search(text) and not _CYCLING_KEYWORD_RE.search(text):
+        tags.append('Panorama Land')
+        tags.append('Alt Fetchland')
+    elif named_types and tapped and _TAPPED_SAC_COST_RE.search(text) and _CYCLING_KEYWORD_RE.search(text):
+        tags.append('Landscape Land')
+        tags.append('Alt Fetchland')
+    else:
+        tags.append('Alt Fetchland')
+
+    return tags
+
+
+def tag_for_fetch_lands(df: pd.DataFrame, color: str) -> None:
+    """Tag fetch lands with their shape (Fetchland, Panorama Land, New
+    Capenna Land, Landscape Land, Alt Fetchland) and the specific basic/land
+    types they can search for (<Type> Fetch, Any Basic Fetch, Land Fetch,
+    Gate Fetch). Scoped to actual Land permanents so tutor spells that
+    happen to mention "search your library for a land card" are excluded.
+    Also excludes `FETCH_LAND_EXCLUDED_NAMES` -- land-destruction lands
+    whose fetch clause benefits an opponent rather than the caster.
+    """
+    try:
+        land_mask = tag_utils.create_type_mask(df, 'Land')
+        if not land_mask.any():
+            return
+        if 'name' in df.columns:
+            land_mask = land_mask & ~df['name'].isin(tag_constants.FETCH_LAND_EXCLUDED_NAMES)
+            if not land_mask.any():
+                return
+
+        fetch_tags = pd.Series([[] for _ in range(len(df))], index=df.index)
+        fetch_tags.loc[land_mask] = df.loc[land_mask, 'text'].apply(_fetch_land_tags_for_text)
+
+        fetch_mask = fetch_tags.apply(bool)
+        if not fetch_mask.any():
+            logger.info('No fetch lands found for %s', color)
+            return
+
+        current_tags = df.loc[fetch_mask, 'themeTags']
+        merged_tags = pd.Series(
+            [
+                sorted(set(list(current) + list(new)))
+                for current, new in zip(current_tags, fetch_tags.loc[fetch_mask])
+            ],
+            index=current_tags.index,
+            dtype=object,
+        )
+        df.loc[fetch_mask, 'themeTags'] = merged_tags
+        logger.info('Tagged %d fetch lands for %s', int(fetch_mask.sum()), color)
+
+    except Exception as e:
+        logger.error(f'Error tagging fetch lands: {str(e)}')
         raise
 
 ## Big Mana

@@ -221,11 +221,20 @@ def process_raw_parquet(raw_path: str, output_path: str) -> pd.DataFrame:
                     logger.debug(f"Required {field} containing '{value}': {before - len(df)} removed")
     
     # Step 3: Remove illegal sets
+    # Basic Lands (Plains/Island/Swamp/Mountain/Forest) are legal in every
+    # format regardless of also having silver-bordered/Un-set reprints
+    # (e.g. Plains was printed in UST/UNH/UGL/UND alongside hundreds of
+    # legal sets). The "any illegal-set printing" check below would
+    # otherwise drop these cards entirely -- exempt Basic Lands so they
+    # survive, matching their Snow-Covered counterparts (never printed in
+    # Un-sets) which already pass through untouched.
     if 'printings' in df.columns:
         logger.info("Removing illegal sets")
         for set_code in NON_LEGAL_SETS:
             before = len(df)
-            df = df[~df['printings'].str.contains(set_code, na=False)]
+            illegal_mask = df['printings'].str.contains(set_code, na=False)
+            is_basic_land = df['type'].str.contains('Basic Land', case=False, na=False) if 'type' in df.columns else pd.Series(False, index=df.index)
+            df = df[~(illegal_mask & ~is_basic_land)]
             if len(df) < before:
                 logger.debug(f"Removed set {set_code}: {before - len(df)} cards")
     
@@ -286,7 +295,7 @@ def process_raw_parquet(raw_path: str, output_path: str) -> pd.DataFrame:
     # Reorder columns to match CARD_DATA_COLUMNS
     # CARD_DATA_COLUMNS has: name, faceName, edhrecRank, colorIdentity, colors,
     #                        manaCost, manaValue, type, creatureTypes, text,
-    #                        power, toughness, keywords, themeTags, layout, side
+    #                        power, toughness, loyalty, keywords, themeTags, layout, side
     # We need to add isCommander, isBackground, printings, printingCount, isReprint at the end
     final_columns = settings.CARD_DATA_COLUMNS + ['isCommander', 'isBackground', 'printings', 'printingCount', 'isReprint']
     

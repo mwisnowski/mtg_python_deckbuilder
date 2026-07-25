@@ -9,6 +9,22 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 
 ## [Unreleased]
 ### Added
+_No unreleased changes yet_
+
+### Changed
+_No unreleased changes yet_
+
+### Fixed
+_No unreleased changes yet_
+
+### Removed
+_No unreleased changes yet_
+
+### Security
+_No unreleased changes yet_
+
+## [5.0.0] - 2026-07-24
+### Added
 - Land build steps now show descriptive labels (e.g. "Fetch Lands", "Kindred/Tribal Lands", "Misc/Utility Lands") instead of generic "Step 3", "Step 7" numbering, both in the on-screen progress and in the build log
 - "Remove Card" button in the web build review, next to the Alternatives suggestions: lets you remove any card from the deck-in-progress at any point during the build for that run, freeing the slot for later steps (e.g. land backfill) to fill; Undo restores the card immediately
 - Guided (stage-by-stage) deck building for the public REST API: `POST /api/v1/builds` accepts `mode: "guided"` to pause after each build stage instead of running straight through; `POST /api/v1/builds/{id}/advance` runs the next stage and returns the cards it added for review, `GET /api/v1/builds/{id}/alternatives` suggests role-based swap candidates for a card already in the deck-in-progress, and `POST /api/v1/builds/{id}/replace` swaps a card in place and locks the replacement so later stages won't remove it
@@ -27,7 +43,7 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 - `POST /api/price/batch` now accepts a `printing_map` (`{card_name: scryfall_id}`) so a batch price lookup can honor chosen printings instead of always pricing the cheapest known printing per card; its response now also includes each card's CK price alongside the TCG price
 
 ### Changed
-_No unreleased changes yet_
+_No changes_
 
 ### Fixed
 - `GET /api/v1/cards/{name}` returned `CARD_NOT_FOUND` for basic lands (Plains, Island, Swamp, Mountain, Forest, Wastes), which are intentionally excluded from the local tagged card dataset; it now falls back to a live Scryfall lookup for any card missing locally
@@ -37,10 +53,10 @@ _No unreleased changes yet_
 - `Ramp` is now correctly detected for cards that grant a mana ability to other permanents or word out mana amounts instead of using mana symbols (e.g. `A Realm Reborn`); mana filters/batteries that don't actually net more mana than they cost (e.g. `Golden Egg`, `Gemstone Array`) are intentionally excluded
 
 ### Removed
-_No unreleased changes yet_
+_No changes_
 
 ### Security
-_No unreleased changes yet_
+_No changes_
 
 ## [4.10.0] - 2026-07-19
 ### Added

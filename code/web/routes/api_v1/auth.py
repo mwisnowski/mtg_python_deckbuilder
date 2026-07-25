@@ -70,3 +70,43 @@ async def get_api_user(
             },
         )
     return user
+
+
+async def get_api_user_optional(
+    request: Request,
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(_bearer_scheme),
+) -> Optional[User]:
+    """Best-effort variant of `get_api_user` for endpoints that work for both
+    authenticated and anonymous/guest callers (e.g. `/decks/public`).
+
+    Returns `None` instead of raising 401 when no/invalid credentials are
+    supplied, so guests and connected-but-signed-out callers still succeed.
+    Still applies and enforces the per-key rate limit when a valid key is
+    present.
+    """
+    if credentials is None or not credentials.credentials.strip():
+        return None
+    key_plain = credentials.credentials.strip()
+
+    user = verify_api_key(key_plain)
+    if not user:
+        return None
+
+    bucket_key = f"apikey:{hashlib.sha256(key_plain.encode()).hexdigest()}"
+    exceeded, remaining, reset_epoch = check_and_record_rate_limit(
+        bucket_key, _RATE_LIMIT_MAX, _RATE_LIMIT_WINDOW_S
+    )
+    request.state.rate_limit_remaining = remaining
+    request.state.rate_limit_reset = reset_epoch
+    if exceeded:
+        raise HTTPException(
+            status_code=429,
+            detail="Rate limit exceeded.",
+            headers={
+                "X-RateLimit-Limit": str(_RATE_LIMIT_MAX),
+                "X-RateLimit-Remaining": "0",
+                "X-RateLimit-Reset": str(reset_epoch),
+                "Retry-After": str(max(1, reset_epoch - int(time.time()))),
+            },
+        )
+    return user

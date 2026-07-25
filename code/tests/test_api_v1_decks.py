@@ -27,8 +27,13 @@ def _isolated_deck_exports(tmp_path, monkeypatch):
 
 
 @pytest.fixture()
-def client(_isolated_db, _isolated_deck_exports):
+def client(_isolated_db, _isolated_deck_exports, monkeypatch):
     from code.web.app import app
+    # Each test uses a fresh tmp_path, so the module-level public-decks cache
+    # (keyed only by a 60s TTL, not by directory) must be reset per test.
+    import code.web.routes.decks as decks_routes
+    monkeypatch.setitem(decks_routes._PUBLIC_DECKS_CACHE, "data", None)
+    monkeypatch.setitem(decks_routes._PUBLIC_DECKS_CACHE, "ts", 0.0)
     with TestClient(app, raise_server_exceptions=True) as c:
         yield c
 
@@ -221,3 +226,94 @@ def test_deck_upgrades_general_section(client, auth, tmp_path):
     data = resp.json()["data"]
     assert data["section"] == "general"
     assert isinstance(data["cards"], list)
+
+
+def _mark_public(tmp_path, user_id: str, deck_stem: str) -> None:
+    sidecar = tmp_path / "deck_files" / user_id / f"{deck_stem}.summary.json"
+    sidecar.write_text(json.dumps({"meta": {"visibility": "public"}}), encoding="utf-8")
+
+
+def test_public_decks_listing_requires_no_auth(client, auth, tmp_path):
+    """Other users' public decks and guest builds are visible with no Authorization header."""
+    user, _headers = auth
+    _write_sample_deck(user["id"], tmp_path)
+    _mark_public(tmp_path, user["id"], "Test Deck")
+    _write_sample_deck("guest", tmp_path, name="Guest Deck.csv")
+
+    resp = client.get("/api/v1/decks/public")
+    assert resp.status_code == 200
+    data = resp.json()["data"]
+    assert [d["name"] for d in data["public"]] == ["Test Deck.csv"]
+    assert data["public"][0]["username"] == "iris"
+    assert [d["name"] for d in data["guest"]] == ["Guest Deck.csv"]
+
+
+def test_public_decks_listing_excludes_private_decks(client, auth, tmp_path):
+    user, _headers = auth
+    _write_sample_deck(user["id"], tmp_path)  # no sidecar -> defaults to private
+
+    resp = client.get("/api/v1/decks/public")
+    assert resp.status_code == 200
+    assert resp.json()["data"]["public"] == []
+
+
+def test_public_decks_listing_excludes_own_decks_when_authenticated(client, auth, tmp_path):
+    """A logged-in caller's own public decks are excluded (already shown under "My Decks")."""
+    from code.web.services.user_db import create_user
+
+    user, headers = auth
+    _write_sample_deck(user["id"], tmp_path, name="My Deck.csv")
+    _mark_public(tmp_path, user["id"], "My Deck")
+
+    other = create_user("otheruser", "other@example.com", "pw")
+    _write_sample_deck(other["id"], tmp_path, name="Other Deck.csv")
+    _mark_public(tmp_path, other["id"], "Other Deck")
+
+    resp = client.get("/api/v1/decks/public", headers=headers)
+    assert resp.status_code == 200
+    names = [d["name"] for d in resp.json()["data"]["public"]]
+    assert names == ["Other Deck.csv"]
+
+    # No Authorization header at all -> nothing excluded, both decks show.
+    resp_anon = client.get("/api/v1/decks/public")
+    assert resp_anon.status_code == 200
+    anon_names = {d["name"] for d in resp_anon.json()["data"]["public"]}
+    assert anon_names == {"My Deck.csv", "Other Deck.csv"}
+
+
+def test_public_deck_detail_no_auth_required(client, auth, tmp_path):
+    user, _headers = auth
+    _write_sample_deck(user["id"], tmp_path)
+    _mark_public(tmp_path, user["id"], "Test Deck")
+
+    resp = client.get(f"/api/v1/decks/public/{user['id']}/Test Deck.csv")
+    assert resp.status_code == 200
+    data = resp.json()["data"]
+    assert data["card_count"] == 2
+
+
+def test_public_deck_detail_404_when_private(client, auth, tmp_path):
+    user, _headers = auth
+    _write_sample_deck(user["id"], tmp_path)  # defaults to private, no sidecar
+
+    resp = client.get(f"/api/v1/decks/public/{user['id']}/Test Deck.csv")
+    assert resp.status_code == 404
+
+
+def test_guest_deck_detail_always_readable(client, tmp_path):
+    """Guest/community decks don't need a visibility sidecar to be readable."""
+    _write_sample_deck("guest", tmp_path, name="Guest Deck.csv")
+
+    resp = client.get("/api/v1/decks/public/guest/Guest Deck.csv")
+    assert resp.status_code == 200
+    assert resp.json()["data"]["card_count"] == 2
+
+
+def test_public_deck_export_csv(client, auth, tmp_path):
+    user, _headers = auth
+    _write_sample_deck(user["id"], tmp_path)
+    _mark_public(tmp_path, user["id"], "Test Deck")
+
+    resp = client.get(f"/api/v1/decks/public/{user['id']}/Test Deck.csv/export", params={"format": "csv"})
+    assert resp.status_code == 200
+    assert "text/csv" in resp.headers["content-type"]

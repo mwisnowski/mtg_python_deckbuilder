@@ -3,10 +3,12 @@
 Reuses the same per-user deck directory conventions and CSV-download helper
 as the HTML web UI (`code/web/routes/decks.py`) instead of duplicating them.
 
-Auth required for every endpoint here -- decks are always scoped to the
-calling API user's own directory (`deck_files/{user_id}/`). There is no
-guest/legacy/public browsing surface in the public API; that's a web-UI-only
-concept for now (see roadmap_28_public_api.md's Milestone 5 note).
+Auth is required for most endpoints here -- decks are scoped to the calling
+API user's own directory (`deck_files/{user_id}/`). The `/public` browsing
+endpoints are the exception: they don't declare `get_api_user` and mirror
+the HTML web UI's "Other Users' Decks" and "Community Builds" sections
+(`code/web/routes/decks.py`'s `_index_sections`), so guests and connected-
+but-signed-out callers can still see public/community decks.
 """
 from __future__ import annotations
 
@@ -26,8 +28,17 @@ from code.deck_builder import builder_utils as bu
 from code.type_definitions import User
 
 from ...utils.api_response import err, ok
-from ..decks import _build_csv_download_response, _deck_dir, _list_decks, _read_csv_summary, _safe_within
-from .auth import get_api_user
+from ..decks import (
+    _build_csv_download_response,
+    _deck_dir,
+    _list_decks,
+    _list_guest_decks,
+    _read_csv_summary,
+    _safe_within,
+    get_deck_visibility,
+    list_public_decks,
+)
+from .auth import get_api_user, get_api_user_optional
 
 router = APIRouter(prefix="/decks", tags=["decks"])
 
@@ -125,6 +136,91 @@ async def list_decks(request: Request, user: User = Depends(get_api_user)):
     """List the caller's saved decks."""
     decks = _list_decks(str(user["id"]))
     return ok(jsonable_encoder(decks), _rid(request))
+
+
+@router.get("/public", summary="Browse public and community decks")
+async def list_public_and_guest_decks(
+    request: Request,
+    limit: int = Query(20, ge=1, le=50),
+    user: Optional[User] = Depends(get_api_user_optional),
+):
+    """List other users' public decks plus shared guest/community builds.
+
+    No auth required -- mirrors the HTML web UI's "Other Users' Decks" and
+    "Community Builds" sections shown on `/decks` (see `_index_sections` in
+    `code/web/routes/decks.py`), so it stays visible to guests/connected-
+    but-signed-out API callers. If a valid Bearer token IS supplied, the
+    caller's own public decks are excluded from the `public` list (they
+    already see those under their own `/decks` listing).
+    """
+    exclude_user_id = user["id"] if user else ""
+    public_items = [
+        dict(item, section="public") for item in list_public_decks(exclude_user_id=exclude_user_id, limit=limit)
+    ]
+    guest_items = [dict(item, section="guest", user_id="guest") for item in _list_guest_decks()[:limit]]
+    return ok(jsonable_encoder({"public": public_items, "guest": guest_items}), _rid(request))
+
+
+def _resolve_public_deck_path(owner_id: str, filename: str) -> Optional[Path]:
+    """Resolve a public/community deck's path, or None if not viewable.
+
+    `owner_id` is either a real user id (must have a `public`/`unlisted`
+    deck matching `filename`) or the literal `"guest"` (the shared community
+    directory is always readable, matching `_list_guest_decks()`'s behavior).
+    """
+    if owner_id != "guest" and get_deck_visibility(owner_id, filename) not in ("public", "unlisted"):
+        return None
+    base = _deck_dir(owner_id)
+    p = (base / filename).resolve()
+    if not _safe_within(base, p) or not (p.exists() and p.is_file() and p.suffix.lower() == ".csv"):
+        return None
+    return p
+
+
+@router.get("/public/{owner_id}/{filename}", summary="Get a public or community deck's detail")
+async def get_public_deck_detail(owner_id: str, filename: str, request: Request):
+    """Deck detail for a deck from the `/public` listing above. No auth required."""
+    p = _resolve_public_deck_path(owner_id, filename)
+    if p is None:
+        return err("Deck not found.", "DECK_NOT_FOUND", 404, _rid(request))
+    cards = _parse_deck_cards(p)
+    return ok(
+        {"name": p.name, "cards": cards, "card_count": sum(c["count"] for c in cards)},
+        _rid(request),
+    )
+
+
+@router.get("/public/{owner_id}/{filename}/export", summary="Export a public or community deck")
+async def export_public_deck(
+    owner_id: str,
+    filename: str,
+    request: Request,
+    format: str = Query("csv", pattern="^(csv|txt|json)$"),
+):
+    """Download a deck export from the `/public` listing above. No auth required."""
+    p = _resolve_public_deck_path(owner_id, filename)
+    if p is None:
+        return err("Deck not found.", "DECK_NOT_FOUND", 404, _rid(request))
+
+    fmt = format.lower()
+    if fmt == "csv":
+        return _build_csv_download_response(p)
+    if fmt == "txt":
+        txt_p = p.with_suffix(".txt")
+        if not txt_p.exists():
+            return err("TXT export not available for this deck.", "EXPORT_NOT_FOUND", 404, _rid(request))
+        return Response(
+            content=txt_p.read_bytes(),
+            media_type="text/plain; charset=utf-8",
+            headers={"Content-Disposition": f'attachment; filename="{txt_p.name}"'},
+        )
+    cards = _parse_deck_cards(p)
+    payload = jsonable_encoder({"name": p.name, "cards": cards, "card_count": sum(c["count"] for c in cards)})
+    return Response(
+        content=json.dumps(payload, indent=2).encode("utf-8"),
+        media_type="application/json",
+        headers={"Content-Disposition": f'attachment; filename="{p.stem}.json"'},
+    )
 
 
 @router.get("/{filename}", summary="Get deck detail")

@@ -169,30 +169,7 @@
     })();
     </script>
     {% endif %}
-    {% if budget_report %}
-    {% set bstatus = budget_report.budget_status %}
-    <div class="budget-badge budget-badge--{{ bstatus }}" style="margin-top:.6rem;">
-      {% if bstatus == 'under' %}
-        Under Budget: ${{ "%.2f"|format(budget_report.total_price) }} / ${{ "%.2f"|format(budget_config.total) }}
-      {% elif bstatus == 'soft_exceeded' %}
-        Over Budget (soft): ${{ "%.2f"|format(budget_report.total_price) }} / ${{ "%.2f"|format(budget_config.total) }}
-        (+${{ "%.2f"|format(budget_report.overage) }})
-      {% else %}
-        Hard Cap Exceeded: ${{ "%.2f"|format(budget_report.total_price) }} / ${{ "%.2f"|format(budget_config.total) }}
-        (+${{ "%.2f"|format(budget_report.overage) }})
-      {% endif %}
-    </div>
-    {% if budget_report.over_budget_cards %}
-    <div class="panel panel-info-warning" style="margin-top:.5rem;">
-      <strong>Cards over budget:</strong>
-      <ul class="muted" style="margin:.25rem 0 0 1rem; padding:0; font-size:.85em;">
-        {% for c in budget_report.over_budget_cards %}
-        <li>{{ c.card }} — ${{ "%.2f"|format(c.price) }}{% if c.ceiling_exceeded %} (above ${{ "%.2f"|format(budget_config.card_ceiling) }} ceiling){% endif %}</li>
-        {% endfor %}
-      </ul>
-    </div>
-    {% endif %}
-    {% endif %}
+    <div id="budget-badge-wrap">{% include 'partials/budget_badge.html' %}</div>
   </aside>
   <div class="grow">
     {% if summary %}
@@ -219,7 +196,7 @@
           </div>
         </div>
       {% endif %}
-  {{ render_cached('partials/deck_summary.html', name, request=request, summary=summary, game_changers=game_changers, owned_set=owned_set, combos=combos, synergies=synergies, versions=versions) | safe }}
+  {{ render_cached('partials/deck_summary.html', name ~ (':owner' if is_owner else ':guest'), request=request, summary=summary, game_changers=game_changers, owned_set=owned_set, combos=combos, synergies=synergies, versions=versions, deck_edit_ctx=deck_edit_ctx, printings=printings) | safe }}
   {# M8: Price charts accordion — placed in main area, only available on the saved deck view #}
   {% if (price_category_chart and price_category_chart.total > 0) or price_histogram_chart %}
   <section class="summary-section-lg">

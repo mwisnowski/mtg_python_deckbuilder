@@ -192,8 +192,41 @@ async def get_image_debug():
     return JSONResponse(debug_info)
 
 
+@router.get("/printings/{card_name}")
+async def get_card_printings(card_name: str):
+    """
+    List known paper printings for a card, from the printings metadata
+    index (`card_files/processed/card_printings.parquet`). Returns an
+    empty list if the index hasn't been built yet (see
+    `ImageCache.build_printings_index()`).
+
+    Args:
+        card_name: Name of the card (or a single face's name for DFCs)
+
+    Returns:
+        JSON with a list of printings (set, set_name, collector_number,
+        released_at, scryfall_id, is_default, ...) and the default printing's
+        scryfall_id.
+    """
+    printings = _image_cache.get_printings(card_name)
+    default_id = _image_cache.get_default_printing_id(card_name)
+    return JSONResponse({
+        "card_name": card_name,
+        "default_scryfall_id": default_id,
+        "printings": printings,
+    })
+
+
 @router.get("/images/{size}/{card_name}")
-async def get_card_image(size: str, card_name: str, face: str = Query(default="front")):
+async def get_card_image(
+    size: str,
+    card_name: str,
+    face: str = Query(default="front"),
+    printing: Optional[str] = Query(
+        default=None,
+        description="Scryfall ID of a specific printing to show, instead of the default printing",
+    ),
+):
     """
     Serve card image from cache or redirect to Scryfall API.
     
@@ -201,6 +234,7 @@ async def get_card_image(size: str, card_name: str, face: str = Query(default="f
         size: Image size ('small', 'normal', or 'art_crop')
         card_name: Name of the card
         face: Which face to show ('front' or 'back') for DFC cards
+        printing: Optional Scryfall ID of a specific printing to show
         
     Returns:
         FileResponse if cached locally, RedirectResponse to Scryfall API otherwise
@@ -215,22 +249,44 @@ async def get_card_image(size: str, card_name: str, face: str = Query(default="f
     # Check if image exists in cache
     if cache_enabled:
         image_path = None
-        
-        # For DFC cards, handle front/back faces differently
+
+        # Resolve which face's name to use for lookups (DFCs).
+        face_name = card_name
         if " // " in card_name:
-            if face == "back":
-                # For back face, ONLY try the back face name
-                back_face = card_name.split(" // ")[1].strip()
-                logger.debug(f"DFC back face requested: {back_face}")
-                image_path = _image_cache.get_image_path(back_face, size)
+            idx = 1 if face == "back" else 0
+            face_name = card_name.split(" // ")[idx].strip()
+
+        # Determine which printing to serve: an explicitly requested one,
+        # or the printings index's default (highest-scoring) printing for
+        # this face. Falls through to the legacy flat-file layout below if
+        # the index has no rows for this card (e.g. not built yet, or a
+        # token/emblem with no printings-index entry).
+        effective_printing = printing or _image_cache.get_default_printing_id(face_name)
+
+        if effective_printing:
+            # New per-card/per-printing layout. Works independently of
+            # IMAGE_CACHE_MODE -- if the printing isn't on disk yet
+            # (e.g. `default` mode cached a different printing, or a
+            # `full`-mode backfill is still in progress), download just
+            # that one image on demand instead of falling back to a live
+            # Scryfall name search that may resolve to a different
+            # printing than the one this app considers "default".
+            candidate_path = _image_cache.get_printing_image_path(face_name, effective_printing, size)
+            if candidate_path.exists():
+                image_path = candidate_path
             else:
-                # For front face (or unspecified), try front face name
-                front_face = card_name.split(" // ")[0].strip()
-                logger.debug(f"DFC front face requested: {front_face}")
-                image_path = _image_cache.get_image_path(front_face, size)
-        else:
-            # Single-faced card, try exact name
-            image_path = _image_cache.get_image_path(card_name, size)
+                matches = [
+                    row for row in _image_cache.get_printings(face_name)
+                    if str(row.get("scryfall_id")) == effective_printing
+                ]
+                if matches:
+                    image_url = matches[0].get(f"image_url_{size}") or matches[0].get("image_url_normal")
+                    if image_url and _image_cache._download_image(image_url, candidate_path):
+                        image_path = candidate_path
+
+        if image_path is None:
+            # Legacy flat-file layout (cards with no printings-index row).
+            image_path = _image_cache.get_image_path(face_name, size)
         
         if image_path and image_path.exists():
             logger.debug(f"Serving cached image: {card_name} ({size}, {face})")
@@ -243,6 +299,7 @@ async def get_card_image(size: str, card_name: str, face: str = Query(default="f
             )
         else:
             logger.debug(f"No cached image found for: {card_name} (face: {face})")
+
     
     # Fallback to Scryfall, resolved server-side (api.scryfall.com rejects
     # requests missing headers most simple HTTP clients don't send -- see

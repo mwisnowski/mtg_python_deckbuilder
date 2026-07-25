@@ -131,6 +131,7 @@ services:
       
       # Card Image Caching (optional, uses Scryfall bulk data API)
       CACHE_CARD_IMAGES: "1"        # 1=download images to card_files/images/, 0=fetch from Scryfall API on demand
+      IMAGE_CACHE_MODE: "default"   # default|full. 'default': cache only the best printing per card. 'full': cache every paper printing (~12-16 GB)
       
       # Build Stage Ordering
       WEB_STAGE_ORDER: "new"        # new|legacy. 'new' (default): creatures → spells → lands → fill. 'legacy': lands → creatures → spells → fill

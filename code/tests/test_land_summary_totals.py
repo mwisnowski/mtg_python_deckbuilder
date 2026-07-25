@@ -129,7 +129,9 @@ def test_deck_summary_template_renders_land_copy(sample_card_library, fake_matri
     )
     # Register required filters
     from code.web.app import card_image_url
+    from code.web.services.theme_catalog_loader import slugify
     env.filters["card_image"] = card_image_url
+    env.filters["slugify"] = slugify
     
     template = env.get_template("partials/deck_summary.html")
     html = template.render(

@@ -71,6 +71,11 @@ class ReplaceCardRequest(BaseModel):
     new_name: str
 
 
+class SetPrintingRequest(BaseModel):
+    name: str
+    scryfall_id: Optional[str] = None
+
+
 class RemoveCardRequest(BaseModel):
     name: str
 
@@ -506,6 +511,39 @@ async def replace_build_card(
         return err(str(exc), "REPLACE_FAILED", 500, _rid(request))
 
     return ok(result, _rid(request))
+
+
+@router.post("/{build_id}/printing", summary="Set a card's chosen printing (guided mode)")
+async def set_build_card_printing(
+    build_id: str, body: SetPrintingRequest, request: Request, user: User = Depends(get_api_user)
+):
+    """Choose (or clear, when `scryfall_id` is omitted/null) an alternate
+    printing's artwork for a card already in a guided build's deck-in-progress.
+
+    Baked directly onto the card's `card_library` entry (see
+    `builder_utils.set_card_printing`), so it's written into the exported
+    deck's CSV `ScryfallID` column and reflected in `build_deck_summary()` --
+    unlike the card browser, which always shows each card's default printing.
+    """
+    build = _guided_build_or_none(build_id, user["id"])
+    if build is None:
+        return err("Guided build not found.", "BUILD_NOT_FOUND", 404, _rid(request))
+    ctx = build_store.get_ctx(build_id)
+    lock = build_store.get_stage_lock(build_id)
+    if ctx is None or lock is None:
+        return err("Build session expired.", "BUILD_SESSION_EXPIRED", 410, _rid(request))
+    b = ctx.get("builder")
+    if b is None:
+        return err("Build session expired.", "BUILD_SESSION_EXPIRED", 410, _rid(request))
+
+    def _run() -> bool:
+        with lock:
+            return bu.set_card_printing(getattr(b, "card_library", {}) or {}, body.name, body.scryfall_id)
+
+    found = await asyncio.to_thread(_run)
+    if not found:
+        return err(f"'{body.name}' is not in the deck.", "CARD_NOT_IN_DECK", 404, _rid(request))
+    return ok({"name": body.name, "scryfall_id": (body.scryfall_id or None)}, _rid(request))
 
 
 def _remove_card_sync(ctx: Dict[str, Any], name: str) -> Dict[str, Any]:

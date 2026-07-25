@@ -6,7 +6,7 @@ the PriceService (Scryfall bulk data + JSON cache).
 from __future__ import annotations
 
 import threading
-from typing import List, Optional
+from typing import Dict, List, Optional
 from urllib.parse import unquote
 
 from fastapi import APIRouter, Body, Query
@@ -53,6 +53,7 @@ async def get_card_price(
     card_name: str,
     region: str = Query("usd", pattern="^(usd|eur)$"),
     foil: bool = Query(False),
+    printing: str = Query(default="", description="Scryfall ID of a specific printing to price"),
 ):
     """Look up the price for a single card.
 
@@ -60,6 +61,8 @@ async def get_card_price(
         card_name: Card name (URL-encoded, case-insensitive).
         region: Price region — ``usd`` or ``eur``.
         foil: If true, return the foil price.
+        printing: Optional Scryfall ID of a specific printing to price
+            instead of the cheapest-by-name default.
 
     Returns:
         JSON with ``card_name``, ``price`` (float or null), ``region``,
@@ -67,7 +70,7 @@ async def get_card_price(
     """
     name = unquote(card_name).strip()
     svc = get_price_service()
-    price = svc.get_price(name, region=region, foil=foil)
+    price = svc.get_price(name, region=region, foil=foil, scryfall_id=printing or None)
     ck_price = svc.get_ck_price(name)
     return JSONResponse({
         "card_name": name,
@@ -83,26 +86,35 @@ async def get_card_price(
 @track_route_access("price_batch_lookup")
 @log_route_errors("price_batch_lookup")
 async def get_prices_batch(
-    card_names: List[str] = Body(..., max_length=100),
+    card_names: List[str] = Body(..., embed=True, max_length=100),
+    printing_map: Optional[Dict[str, str]] = Body(default=None, embed=True),
     region: str = Query("usd", pattern="^(usd|eur)$"),
     foil: bool = Query(False),
 ):
     """Look up prices for multiple cards in a single request.
 
-    Request body: JSON array of card name strings (max 100).
+    Request body: ``{"card_names": [...], "printing_map": {...}}``.
 
     Args:
-        card_names: List of card names.
+        card_names: List of card names (max 100).
+        printing_map: Optional ``{name.lower(): scryfall_id}`` overrides so
+            a card with a chosen alternate printing is priced using that
+            printing instead of the cheapest-by-name default.
         region: Price region — ``usd`` or ``eur``.
         foil: If true, return foil prices.
 
     Returns:
-        JSON with ``prices`` (dict name→float|null) and ``missing`` (list
-        of names with no price data).
+        JSON with ``prices`` (dict name→{price, ck_price}) and ``missing``
+        (list of names with no TCG price data).
     """
     svc = get_price_service()
-    prices = svc.get_prices_batch(card_names, region=region, foil=foil)
-    missing = [n for n, p in prices.items() if p is None]
+    tcg_prices = svc.get_prices_batch(card_names, region=region, foil=foil, printing_map=printing_map)
+    ck_prices = svc.get_ck_prices_batch(card_names)
+    missing = [n for n, p in tcg_prices.items() if p is None]
+    prices = {
+        n: {"price": tcg_prices.get(n), "ck_price": ck_prices.get(n)}
+        for n in card_names
+    }
     return JSONResponse({
         "prices": prices,
         "missing": missing,

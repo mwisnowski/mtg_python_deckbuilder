@@ -837,3 +837,59 @@ def refresh_rulings_cache(output_func=None) -> None:
     """
     from code.file_setup.rulings_cache import build_rulings_cache
     build_rulings_cache(output_func=output_func)
+
+
+def backfill_all_printings(output_func=None, mode: str | None = None) -> None:
+    """Rebuild the card image cache using the per-card/per-printing layout.
+
+    Backs up the existing `card_files/images/` cache (rename, near-instant),
+    rebuilds `card_files/processed/card_printings.parquet` from the latest
+    Scryfall bulk data, then downloads images into the new
+    `card_files/images/{Card Name}/{size}/{scryfall_id}.jpg` layout.
+
+    This is an optional, explicitly-invoked step -- it is NOT part of
+    run_full_pipeline() or initial_setup(), since it changes the on-disk
+    image cache layout and (in 'full' mode) downloads significantly more
+    data than the existing flat-file cache.
+
+    Args:
+        output_func: Optional callable(str) for progress messages.
+        mode: 'default' (one printing per card) or 'full' (every paper
+            printing). Defaults to the IMAGE_CACHE_MODE env var.
+    """
+    _log = output_func or (lambda msg: logger.info(msg))
+    from code.file_setup.image_cache import ImageCache, get_cache_mode
+
+    cache = ImageCache()
+    if not cache.is_enabled():
+        _log("Card image caching is disabled (CACHE_CARD_IMAGES=0); nothing to do.")
+        return
+
+    resolved_mode = mode or get_cache_mode()
+    _log(f"Backfilling all printings (mode={resolved_mode})...")
+
+    backup_path = cache.backup_existing_cache()
+    if backup_path:
+        _log(f"Backed up existing image cache to {backup_path}")
+    else:
+        _log("No existing image cache to back up")
+
+    if not cache.bulk_data_path.exists():
+        _log("Downloading Scryfall bulk data...")
+        cache.download_bulk_data()
+
+    _log("Building printings index (this reads the full bulk data file)...")
+    count = cache.build_printings_index()
+    _log(f"Printings index built: {count} rows")
+
+    def progress(current, total, card_name):
+        if current % 200 == 0:
+            pct = (current / total) * 100 if total else 0
+            _log(f"  Progress: {current}/{total} ({pct:.1f}%) - {card_name}")
+
+    stats = cache.download_all_printings(mode=resolved_mode, progress_callback=progress)
+    _log(
+        f"Backfill complete: downloaded={stats['downloaded']} "
+        f"skipped={stats['skipped']} failed={stats['failed']}"
+    )
+

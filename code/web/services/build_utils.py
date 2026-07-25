@@ -88,6 +88,7 @@ def step5_base_ctx(request: Request, sess: dict, *, include_name: bool = True, i
         ctx["name"] = sess.get("custom_export_base")
     if include_locks:
         ctx["locks"] = list(sess.get("locks", []))
+        ctx["printings"] = dict(sess.get("printings") or {})
     try:
         ctx["summary_token"] = int(sess.get("step5_summary_token", 0))
     except Exception:

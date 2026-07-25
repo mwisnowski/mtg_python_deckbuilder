@@ -186,6 +186,7 @@ Search and explore all 29,839 Magic cards.
 - **Search & Filters**: Smart autocomplete for card names and themes, multi-theme filtering (up to 5), color identity, type, rarity, CMC range, power/toughness
 - **Sorting**: Name A-Z/Z-A, CMC Low/High, Power High, EDHREC Popular
 - **Card Details** (optional): Enable with `ENABLE_CARD_DETAILS=1` for individual card pages with similar card recommendations
+- **Choose Printing**: click the printing icon on any card tile to pick a specific printing (art/set) from a picker of that card's known printings; the choice is session-scoped like locks, swaps the tile's artwork and price immediately, round-trips through permalinks, and is shared across Card Browser, Build Review, Finished Decks, Owned Library, and Card Details
 - **Keyboard Shortcuts**: `Enter` to add matches, `Shift+Enter` to apply filters, double `Esc` to clear all
 - **Shareable URLs**: Filter state persists in URL for easy sharing
 - Fast lookups powered by pre-built card index and optional similarity cache (`SIMILARITY_CACHE_ENABLED=1`)
@@ -215,7 +216,7 @@ Review, compare, export, and improve previous builds.
 - Reads from the `deck_files/` volume.
 - Compare view can diff two builds, copy summaries, and download text lists.
 - Locks, replace history, and compliance metadata persist per deck.
-- All card prices display both TCGPlayer and Card Kingdom values side by side.
+- All card prices display both TCGPlayer and Card Kingdom values side by side, reflecting any printing chosen via **Choose Printing** (see Browse Cards above).
 - **Deck visibility**: mark any deck Private, Unlisted, or Public from the deck page or the Finished Decks list; Unlisted/Public decks get a shareable link (`/decks/<username>/<deck-name>`) with a one-click copy button. Public decks from other accounts appear in an "Other Users' Decks" section with commander/theme search and a "Personal only" toggle. Set a default visibility on your [profile page](#user-accounts) that applies to new builds, or override it per-build in the New Deck wizard.
 - **Buy This Deck**: one-click shopping cart export sends the full deck list to TCGPlayer or Card Kingdom for mass purchase; available on the deck view toolbar.
 - **Potential Upgrades**: every saved deck has a "Potential Upgrades" button that surfaces algorithmically ranked suggestions across three tabs: New Cards (first printings from recent sets), General Upgrades (full legal pool by theme/role fit), and Possible Upgrades (candidates that didn't find a confident swap target). Each suggestion shows scored swap targets; clicking a swap button rewrites the deck file in place. Controlled by `ENABLE_UPGRADE_SUGGESTIONS`, `UPGRADE_PAGE_SIZE`, and `UPGRADE_WINDOW_MONTHS`.
@@ -437,6 +438,7 @@ Most defaults are defined in `docker-compose.yml` and documented in `.env.exampl
 | `WEB_TAG_PARALLEL` | `1` | Enable parallel tagging workers. |
 | `WEB_TAG_WORKERS` | `4` | Worker count for tagging (compose default). |
 | `CACHE_CARD_IMAGES` | `0` | Download card images to `card_files/images/` (1=enable, 0=fetch from API on demand). Requires ~3-6 GB. |
+| `IMAGE_CACHE_MODE` | `default` | `default`=cache only the best printing per card (same footprint as above); `full`=cache every paper printing of every card (~12-16 GB). |
 | `WEB_AUTO_ENFORCE` | `0` | Auto-apply bracket enforcement after builds. |
 | `WEB_THEME_PICKER_DIAGNOSTICS` | `1` | Enable theme diagnostics endpoints. |
 | `THEME_MIN_CARDS` | `5` | Minimum card count for themes. Themes with fewer cards are stripped from catalogs, JSON files, and parquet metadata during setup/tagging. Set to 1 to keep all themes. |

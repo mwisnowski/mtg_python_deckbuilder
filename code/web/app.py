@@ -176,7 +176,7 @@ templates.env.globals["WHATS_NEW_ID"] = "user-accounts-deck-visibility"
 templates.env.globals["WHATS_NEW_LABEL"] = "New: User Accounts & Deck Visibility"
 
 # Add custom Jinja2 filter for card image URLs
-def card_image_url(card_name: str, size: str = "normal") -> str:
+def card_image_url(card_name: str, size: str = "normal", printing: str = "") -> str:
     """
     Generate card image URL (uses local cache if available, falls back to Scryfall).
     
@@ -185,6 +185,8 @@ def card_image_url(card_name: str, size: str = "normal") -> str:
     Args:
         card_name: Name of the card (may be "Front // Back" for DFCs)
         size: Image size ('small' or 'normal')
+        printing: Optional Scryfall ID of a specific printing to show instead
+            of the default printing.
     
     Returns:
         URL for the card image
@@ -197,7 +199,10 @@ def card_image_url(card_name: str, size: str = "normal") -> str:
         display_name = card_name.split(' // ')[0].strip()
     
     # Use our API endpoint which handles cache lookup and fallback
-    return f"/api/images/{size}/{quote(display_name)}"
+    url = f"/api/images/{size}/{quote(display_name)}"
+    if printing:
+        url += f"?printing={quote(printing)}"
+    return url
 
 templates.env.filters["card_image"] = card_image_url
 
@@ -689,6 +694,16 @@ def render_cached(template_name: str, cache_key: str | None, /, **ctx: Any) -> s
         return templates.get_template(template_name).render(**ctx)
     except Exception:
         return templates.get_template(template_name).render(**ctx)
+
+
+def invalidate_fragment_cache(template_name: str, cache_key: str) -> None:
+    """Evict a single `render_cached()` entry so the next request re-renders.
+
+    Called after a saved deck's on-disk state changes (e.g. a printing
+    selection) so the change is visible immediately instead of waiting up to
+    `_FRAGMENT_TTL_SECONDS` for the cached fragment to expire.
+    """
+    _FRAGMENT_CACHE.pop((template_name, str(cache_key)), None)
 
 
 # --- Session helpers for Random Modes ---

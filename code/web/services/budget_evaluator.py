@@ -258,6 +258,7 @@ class BudgetEvaluatorService(BaseService):
         include_cards: Optional[List[str]] = None,
         color_identity: Optional[List[str]] = None,
         legacy_fail_open: bool = True,
+        printing_map: Optional[Dict[str, str]] = None,
     ) -> BudgetReport:
         """Evaluate deck cost versus budget and produce a BudgetReport.
 
@@ -280,6 +281,9 @@ class BudgetEvaluatorService(BaseService):
             legacy_fail_open: If ``True`` (default), cards with no price data
                 are skipped in the budget calculation rather than causing an
                 error.
+            printing_map: Optional ``{name.lower(): scryfall_id}`` overrides so
+                cards with a chosen alternate printing are priced using that
+                printing instead of the cheapest-by-name default.
 
         Returns:
             A ``BudgetReport`` dict with the following keys:
@@ -305,7 +309,7 @@ class BudgetEvaluatorService(BaseService):
 
         include_set: Set[str] = {c.lower().strip() for c in (include_cards or [])}
         names = [n.strip() for n in decklist if n.strip()]
-        prices = self._price_svc.get_prices_batch(names, region=region, foil=foil)
+        prices = self._price_svc.get_prices_batch(names, region=region, foil=foil, printing_map=printing_map)
 
         total_price = 0.0
         include_overage = 0.0

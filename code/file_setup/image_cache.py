@@ -14,14 +14,23 @@ Features:
 
 Environment Variables:
     CACHE_CARD_IMAGES: 1=enable caching, 0=disable (default: 0)
+    IMAGE_CACHE_MODE: 'default'=cache only the best-scoring printing per card
+        (legacy footprint, ~3.4 GB), 'full'=cache every paper printing of
+        every card (~12-16 GB). Default: 'default'.
 
 Image Sizes:
     - small: 160px width (for list views)
     - normal: 488px width (for prominent displays, hover previews)
 
-Directory Structure:
-    card_files/images/small/    - Small thumbnails (~900 MB - 1.5 GB)
-    card_files/images/normal/   - Normal images (~2.4 GB - 4.5 GB)
+Directory Structure (new, per-card/per-printing layout):
+    card_files/images/{Card Name}/small/{scryfall_id}.jpg
+    card_files/images/{Card Name}/normal/{scryfall_id}.jpg
+    card_files/processed/card_printings.parquet   - printings metadata index
+
+Legacy flat-file layout (still read as a fallback for cards not yet
+migrated to the new layout):
+    card_files/images/small/{Card Name}.jpg
+    card_files/images/normal/{Card Name}.jpg
 
 See: https://scryfall.com/docs/api
 """
@@ -31,12 +40,14 @@ import logging
 import os
 import re
 import shutil
+import sys
 import time
 from pathlib import Path
 from typing import Any, Generator, Optional
 from urllib.request import Request, urlopen
 
 from code.file_setup.scryfall_bulk_data import ScryfallBulkDataClient
+from code.path_util import card_files_processed_dir
 
 logger = logging.getLogger(__name__)
 
@@ -47,8 +58,34 @@ DOWNLOAD_DELAY = 0.025  # 25ms between image downloads (~40 req/sec)
 # Image sizes to cache
 IMAGE_SIZES = ["small", "normal"]
 
+# Valid values for IMAGE_CACHE_MODE
+VALID_CACHE_MODES = ("default", "full")
+
 # Card name sanitization (filesystem-safe)
 INVALID_CHARS = r'[<>:"/\\|?*]'
+
+
+def get_cache_mode() -> str:
+    """
+    Return the configured image cache mode.
+
+    'default': only the single highest-scoring printing per card is cached
+        (matches today's footprint, ~3.4 GB), just stored in the new
+        per-card/per-printing folder layout instead of a flat filename.
+    'full': every paper printing of every card is cached (~12-16 GB).
+
+    Returns:
+        'default' or 'full'
+
+    Raises:
+        ValueError: If IMAGE_CACHE_MODE is set to an unrecognized value.
+    """
+    mode = os.getenv("IMAGE_CACHE_MODE", "default").strip().lower()
+    if mode not in VALID_CACHE_MODES:
+        raise ValueError(
+            f"Invalid IMAGE_CACHE_MODE '{mode}'; expected one of {VALID_CACHE_MODES}"
+        )
+    return mode
 
 
 def sanitize_filename(card_name: str) -> str:
@@ -89,7 +126,11 @@ class ImageCache:
         self.bulk_data_path = Path(bulk_data_path)
         self.client = ScryfallBulkDataClient()
         self._last_download_time: float = 0.0
-        
+
+        # Printings metadata index (new per-card/per-printing layout).
+        self.printings_index_path = Path(card_files_processed_dir()) / "card_printings.parquet"
+        self._printings_df = None  # lazily loaded pandas DataFrame
+
         # In-memory index of available images (avoids repeated filesystem checks)
         # Key: (size, sanitized_filename), Value: True if exists
         self._image_index: dict[tuple[str, str], bool] = {}
@@ -146,10 +187,22 @@ class ImageCache:
 
         safe_name = sanitize_filename(card_name)
         
-        # Check in-memory index first (fast)
+        # Check in-memory index first (fast) -- legacy flat-file layout.
         if (size, safe_name) in self._image_index:
             return self.base_dir / size / f"{safe_name}.jpg"
-        
+
+        # New per-card/per-printing layout: fall back to the default
+        # (highest-scoring) printing on disk, if the printings index has
+        # been built and that image has already been downloaded. This is
+        # a pure existence check (no on-demand download) -- callers that
+        # want download-on-miss should use get_printing_image_path()
+        # directly (see the /api/images route).
+        default_id = self.get_default_printing_id(card_name)
+        if default_id:
+            candidate = self.get_printing_image_path(card_name, default_id, size)
+            if candidate.exists():
+                return candidate
+
         return None
 
     def get_image_url(self, card_name: str, size: str = "normal") -> str:
@@ -239,7 +292,7 @@ class ImageCache:
         """
         score = 0
         if not card.get("full_art", False):
-            score += 3
+            score += 6
         if not card.get("textless", False):
             score += 2
         if not card.get("promo", False):
@@ -338,6 +391,305 @@ class ImageCache:
         for _score, faces in best.values():
             for face_name, image_uris in faces:
                 yield face_name, image_uris
+
+    def _stream_all_printings(self) -> Generator[dict[str, Any], None, None]:
+        """
+        Stream metadata for *every* paper (non-digital) printing of every
+        card in our dataset -- unlike `_stream_card_image_data()`, this does
+        not collapse multiple printings of the same card down to one.
+
+        Only lightweight metadata is yielded (no image bytes), for building
+        the `card_printings.parquet` index.
+
+        Raises:
+            FileNotFoundError: If bulk data file doesn't exist.
+        """
+        if not self.bulk_data_path.exists():
+            raise FileNotFoundError(
+                f"Bulk data file not found: {self.bulk_data_path}. "
+                "Run download_bulk_data() first."
+            )
+
+        our_card_names: set[str] | None = None
+        try:
+            import pandas as pd
+            from code.path_util import get_processed_cards_path
+
+            parquet_path = get_processed_cards_path()
+            df = pd.read_parquet(parquet_path, columns=["name"])
+            our_card_names = set(df["name"].str.lower())
+            logger.info(
+                f"Streaming all printings for {len(our_card_names)} cards in our dataset"
+            )
+        except Exception as e:
+            logger.warning(f"Could not load card names from parquet: {e}. Streaming all cards.")
+
+        with open(self.bulk_data_path, "r", encoding="utf-8") as fh:
+            for raw_line in fh:
+                line = raw_line.strip().rstrip(",")
+                if not line or line in ("[", "]"):
+                    continue
+                try:
+                    card = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+
+                if card.get("digital"):
+                    continue  # paper printings only
+
+                card_name: str = card.get("name", "")
+                if not card_name:
+                    continue
+
+                name_lower = card_name.lower()
+                if our_card_names is not None and name_lower not in our_card_names:
+                    continue
+
+                faces: list[tuple[str, dict[str, str]]] = []
+                if card.get("image_uris"):
+                    faces.append((card_name, card["image_uris"]))
+                elif card.get("card_faces"):
+                    for face in card["card_faces"]:
+                        if face.get("image_uris"):
+                            face_name: str = face.get("name", card_name)
+                            faces.append((face_name, face["image_uris"]))
+
+                if not faces:
+                    continue
+
+                score = self._score_printing(card)
+                scryfall_id = card.get("id", "")
+                for face_name, image_uris in faces:
+                    yield {
+                        "name": card_name,
+                        "face_name": face_name,
+                        "scryfall_id": scryfall_id,
+                        "set": card.get("set", ""),
+                        "set_name": card.get("set_name", ""),
+                        "collector_number": card.get("collector_number", ""),
+                        "released_at": card.get("released_at", ""),
+                        "finishes": list(card.get("finishes") or []),
+                        "score": score,
+                        "image_url_small": image_uris.get("small", ""),
+                        "image_url_normal": image_uris.get("normal", ""),
+                    }
+
+    def build_printings_index(self, output_path: Optional[str] = None) -> int:
+        """
+        Build the printings metadata index (`card_printings.parquet`),
+        covering every paper printing of every card in our dataset.
+
+        Always builds the *full* index regardless of `IMAGE_CACHE_MODE` --
+        the index is metadata-only (no image bytes) and is needed by the
+        printing picker even when only the default printing's image has
+        been downloaded. Only `download_all_printings()` respects the mode.
+
+        Args:
+            output_path: Where to write the parquet file. Defaults to
+                `self.printings_index_path`.
+
+        Returns:
+            Number of printing rows written.
+
+        Raises:
+            FileNotFoundError: If bulk data file doesn't exist.
+        """
+        import pandas as pd
+
+        dest = Path(output_path) if output_path else self.printings_index_path
+        dest.parent.mkdir(parents=True, exist_ok=True)
+
+        columns = [
+            "name", "face_name", "scryfall_id", "set", "set_name",
+            "collector_number", "released_at", "finishes", "score",
+            "image_url_small", "image_url_normal", "is_default",
+        ]
+
+        rows = list(self._stream_all_printings())
+        if not rows:
+            logger.warning("No printings found while building printings index")
+            pd.DataFrame(columns=columns).to_parquet(dest, index=False)
+            return 0
+
+        df = pd.DataFrame(rows)
+        # Mark every row sharing the max score for its card name as the default
+        # printing (may be more than one row on a tie -- same limitation as
+        # today's flat-file cache's first-seen-wins tie-break).
+        df["is_default"] = df.groupby("name")["score"].transform(lambda s: s == s.max())
+
+        df.to_parquet(dest, index=False)
+        self._printings_df = None  # invalidate in-memory cache
+        logger.info(f"Wrote {len(df)} printing rows to {dest}")
+        return len(df)
+
+    def _load_printings_df(self):
+        """Lazily load and cache the printings index DataFrame, or None if absent."""
+        if self._printings_df is not None:
+            return self._printings_df
+        if not self.printings_index_path.exists():
+            return None
+        import pandas as pd
+
+        self._printings_df = pd.read_parquet(self.printings_index_path)
+        return self._printings_df
+
+    def get_printings(self, card_name: str) -> list[dict[str, Any]]:
+        """
+        Return metadata for every known paper printing of a card (from the
+        printings index), or an empty list if the index hasn't been built
+        or the card has no rows.
+
+        Values are plain JSON-serializable Python types (not numpy scalars),
+        since this is consumed directly by JSON API responses.
+        """
+        df = self._load_printings_df()
+        if df is None:
+            return []
+        matches = df[df["face_name"].str.lower() == card_name.lower()]
+        if matches.empty:
+            return []
+        return json.loads(matches.to_json(orient="records"))
+
+    def get_default_printing_id(self, card_name: str) -> Optional[str]:
+        """Return the Scryfall ID of the default printing for a card.
+
+        The default is the highest-scoring (most "standard-looking", see
+        `_score_printing`) printing. Multiple printings can tie for the top
+        score (e.g. several plain non-promo reprints across sets), so ties
+        are broken by most recent `released_at` -- a current, in-print
+        reprint's art is what most players expect as the default, rather
+        than a decades-old original printing.
+        """
+        df = self._load_printings_df()
+        if df is None:
+            return None
+        matches = df[(df["face_name"].str.lower() == card_name.lower()) & (df["is_default"])]
+        if matches.empty:
+            return None
+        matches = matches.sort_values("released_at", ascending=False, na_position="last")
+        return str(matches.iloc[0]["scryfall_id"])
+
+    def get_printing_image_path(
+        self, card_name: str, scryfall_id: str, size: str = "normal"
+    ) -> Path:
+        """Build the on-disk path for a specific printing's cached image (new layout)."""
+        return self.base_dir / sanitize_filename(card_name) / size / f"{scryfall_id}.jpg"
+
+    def backup_existing_cache(self, dest: Optional[Path] = None) -> Optional[Path]:
+        """
+        Move the current image cache directory aside before a fresh
+        redownload into the new per-card/per-printing layout.
+
+        Uses a rename (not copy) so it's near-instant and doesn't itself
+        consume extra disk space -- only the subsequent redownload does.
+
+        Args:
+            dest: Backup destination. Defaults to
+                `{base_dir.parent}/images_backup_{timestamp}`.
+
+        Returns:
+            The backup path, or None if there was nothing to back up.
+
+        Raises:
+            FileExistsError: If the backup destination already exists.
+        """
+        if not self.base_dir.exists():
+            return None
+
+        if dest is None:
+            timestamp = time.strftime("%Y%m%dT%H%M%S")
+            dest = self.base_dir.parent / f"images_backup_{timestamp}"
+        dest = Path(dest)
+
+        if dest.exists():
+            raise FileExistsError(f"Backup destination already exists: {dest}")
+
+        self.base_dir.rename(dest)
+        self.invalidate_index()
+        self.invalidate_summary_cache()
+        logger.info(f"Backed up existing image cache to {dest}")
+        return dest
+
+    def download_all_printings(
+        self,
+        mode: Optional[str] = None,
+        sizes: Optional[list[str]] = None,
+        progress_callback=None,
+        max_rows: Optional[int] = None,
+    ) -> dict[str, int]:
+        """
+        Download images into the new per-card/per-printing folder layout
+        (`card_files/images/{Card Name}/{size}/{scryfall_id}.jpg`), using
+        the printings index built by `build_printings_index()`.
+
+        Args:
+            mode: 'default' (only the highest-scoring printing per card) or
+                'full' (every paper printing). Defaults to IMAGE_CACHE_MODE
+                env var (see `get_cache_mode()`).
+            sizes: Image sizes to download (default: ['small', 'normal']).
+            progress_callback: Optional callback(current, total, card_name).
+            max_rows: Maximum printing rows to download (for testing).
+
+        Returns:
+            Dictionary with download statistics.
+
+        Raises:
+            FileNotFoundError: If the printings index hasn't been built yet.
+            ValueError: If `mode` is not a recognized value.
+        """
+        if not self.is_enabled():
+            logger.info("Image caching disabled (CACHE_CARD_IMAGES=0)")
+            return {"skipped": 0}
+
+        if not self.printings_index_path.exists():
+            raise FileNotFoundError(
+                f"Printings index not found: {self.printings_index_path}. "
+                "Run build_printings_index() first."
+            )
+
+        resolved_mode = (mode or get_cache_mode()).strip().lower()
+        if resolved_mode not in VALID_CACHE_MODES:
+            raise ValueError(f"Invalid mode '{resolved_mode}'; expected one of {VALID_CACHE_MODES}")
+
+        if sizes is None:
+            sizes = IMAGE_SIZES
+
+        import pandas as pd
+
+        df = pd.read_parquet(self.printings_index_path)
+        if resolved_mode == "default":
+            df = df[df["is_default"]]
+
+        if max_rows is not None:
+            df = df.head(max_rows)
+
+        stats = {"total": len(df), "downloaded": 0, "skipped": 0, "failed": 0}
+
+        for i, row in enumerate(df.itertuples(index=False)):
+            card_folder = self.base_dir / sanitize_filename(row.face_name)
+            for size in sizes:
+                image_url = row.image_url_small if size == "small" else row.image_url_normal
+                if not image_url:
+                    continue
+
+                output_path = card_folder / size / f"{row.scryfall_id}.jpg"
+                if output_path.exists():
+                    stats["skipped"] += 1
+                    continue
+
+                if self._download_image(image_url, output_path):
+                    stats["downloaded"] += 1
+                else:
+                    stats["failed"] += 1
+
+            if progress_callback:
+                progress_callback(i + 1, len(df), row.face_name)
+
+        self.invalidate_summary_cache()
+        self.invalidate_index()
+
+        logger.info(f"Printing-aware image download complete: {stats}")
+        return stats
 
     def download_bulk_data(self, progress_callback=None) -> None:
         """
@@ -577,8 +929,42 @@ def main():
         action="store_true",
         help="Force re-download of bulk data even if recent",
     )
+    parser.add_argument(
+        "--build-printings-index",
+        action="store_true",
+        help="Build/refresh card_printings.parquet (every paper printing's metadata)",
+    )
+    parser.add_argument(
+        "--backup-cache",
+        action="store_true",
+        help="Move the existing card_files/images/ cache aside before a fresh redownload",
+    )
+    parser.add_argument(
+        "--download-printings",
+        action="store_true",
+        help="Download images into the new per-card/per-printing layout (requires --build-printings-index first)",
+    )
+    parser.add_argument(
+        "--mode",
+        choices=VALID_CACHE_MODES,
+        default=None,
+        help="Download mode for --download-printings: 'default' (one printing per card) or 'full' (every printing). Defaults to IMAGE_CACHE_MODE env var.",
+    )
 
     args = parser.parse_args()
+
+    # On Windows, stdout/stderr default to the console codepage (cp1252)
+    # when redirected to a file, which raises UnicodeEncodeError on the
+    # rare card name containing a character outside that codepage (e.g.
+    # combining/modifier letters used by a handful of real card names).
+    # A crash here would otherwise kill a multi-hour download partway
+    # through -- force UTF-8 with a safe fallback instead.
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            try:
+                stream.reconfigure(encoding="utf-8", errors="replace")
+            except Exception:
+                pass
 
     # Setup logging
     logging.basicConfig(
@@ -587,6 +973,34 @@ def main():
     )
 
     cache = ImageCache()
+
+    if args.backup_cache:
+        backup_path = cache.backup_existing_cache()
+        if backup_path:
+            print(f"Backed up existing cache to {backup_path}")
+        else:
+            print("No existing cache directory to back up")
+
+    if args.build_printings_index:
+        print("Building printings index (this reads the full bulk data file)...")
+        count = cache.build_printings_index()
+        print(f"Printings index written: {count} rows -> {cache.printings_index_path}")
+
+    if args.download_printings:
+        if not cache.is_enabled():
+            print("Image caching is disabled. Set CACHE_CARD_IMAGES=1 to enable.")
+            return
+
+        def printing_progress(current, total, card_name):
+            pct = (current / total) * 100 if total else 0
+            print(f"  Progress: {current}/{total} ({pct:.1f}%) - {card_name}", end="\r")
+
+        stats = cache.download_all_printings(mode=args.mode, sizes=args.sizes, progress_callback=printing_progress)
+        print("\n\nDownload complete:")
+        print(f"  Total: {stats['total']}")
+        print(f"  Downloaded: {stats['downloaded']}")
+        print(f"  Skipped: {stats['skipped']}")
+        print(f"  Failed: {stats['failed']}")
 
     if args.stats:
         stats = cache.cache_statistics()

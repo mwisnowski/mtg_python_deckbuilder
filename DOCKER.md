@@ -335,6 +335,7 @@ See `.env.example` for the full catalog. Common knobs:
 | `WEB_TAG_PARALLEL` | `1` | Use parallel workers during tagging. |
 | `WEB_TAG_WORKERS` | `4` | Worker count for parallel tagging. |
 | `CACHE_CARD_IMAGES` | `0` | Download card images to `card_files/images/` (1=enable, 0=fetch from API on demand). Requires ~3-6 GB. |
+| `IMAGE_CACHE_MODE` | `default` | `default`=cache only the best printing per card (same footprint as above); `full`=cache every paper printing of every card (~12-16 GB). |
 | `WEB_AUTO_ENFORCE` | `0` | Re-export decks after auto-applying compliance fixes. |
 | `WEB_THEME_PICKER_DIAGNOSTICS` | `1` | Enable theme diagnostics endpoints. |
 | `THEME_MIN_CARDS` | `5` | Minimum card count threshold for themes. Themes with fewer cards are stripped from YAML catalogs, JSON picker files, and parquet metadata during setup/tagging. Set to 1 to keep all themes. |

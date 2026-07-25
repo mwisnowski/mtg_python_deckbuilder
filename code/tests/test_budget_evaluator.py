@@ -17,8 +17,8 @@ from code.web.services.price_service import PriceService
 def _make_price_service(prices: Dict[str, Optional[float]]) -> PriceService:
     """Return a PriceService stub that returns predefined prices."""
     svc = MagicMock(spec=PriceService)
-    svc.get_price.side_effect = lambda name, region="usd", foil=False: prices.get(name)
-    svc.get_prices_batch.side_effect = lambda names, region="usd", foil=False: {
+    svc.get_price.side_effect = lambda name, region="usd", foil=False, scryfall_id=None: prices.get(name)
+    svc.get_prices_batch.side_effect = lambda names, region="usd", foil=False, printing_map=None: {
         n: prices.get(n) for n in names
     }
     return svc
@@ -61,6 +61,16 @@ def test_evaluate_under_budget(evaluator):
     assert report["budget_status"] == "under"
     assert report["total_price"] == pytest.approx(3.80)
     assert report["overage"] == 0.0
+
+
+def test_evaluate_deck_honors_printing_map(evaluator, price_svc):
+    """A card's printing_map override should be forwarded to the price
+    service and reflected in the total, instead of always using the
+    cheapest-by-name price."""
+    deck = ["Sol Ring"]
+    evaluator.evaluate_deck(deck, budget_total=10.0, printing_map={"sol ring": "abc123"})
+    first_call = price_svc.get_prices_batch.call_args_list[0]
+    assert first_call.kwargs.get("printing_map") == {"sol ring": "abc123"}
 
 
 def test_evaluate_soft_exceeded(evaluator):

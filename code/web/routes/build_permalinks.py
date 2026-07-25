@@ -14,13 +14,41 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from typing import Any
 import json
 import gzip
+from urllib.parse import quote
 from ..app import ALLOW_MUST_HAVES, templates
 from ..services.tasks import get_session, new_sid
 from ..services import orchestrator as orch
+from .api import _image_cache
+from code.deck_builder import builder_utils as bu
 from html import escape as _esc
 
 
 router = APIRouter(prefix="/build")
+
+
+def _render_card_img_html(name: str, idx: str, scryfall_id: str, *, oob: bool = False) -> str:
+    """Build the `<img class="card-thumb">` markup for a card tile.
+
+    Always renders a single normal-resolution image with no responsive
+    `srcset` -- a printing change is a deliberate user action, so we always
+    want the higher-resolution art rather than letting the browser's
+    responsive-image algorithm fall back to a small thumbnail candidate
+    sized for the tile's on-page dimensions (which caused the low-res image
+    to stick after a printing change even though it visually renders larger
+    via CSS).
+    """
+    display_name = name.split(" // ")[0].strip() if " // " in name else name
+    q = quote(display_name)
+    suffix = f"?printing={quote(scryfall_id)}" if scryfall_id else ""
+    normal_url = f"/api/images/normal/{q}{suffix}"
+    oob_attr = ' hx-swap-oob="true"' if oob else ""
+    base_attrs = (
+        f'class="card-thumb" id="card-img-{_esc(idx)}"{oob_attr} '
+        f'alt="{_esc(name)} image" data-card-name="{_esc(name)}" '
+        f'data-printing-id="{_esc(scryfall_id)}" '
+        f'loading="lazy" decoding="async" data-lqip="1"'
+    )
+    return f'<img {base_attrs} src="{_esc(normal_url)}" />'
 
 
 def _merge_hx_trigger(response: Any, payload: dict[str, Any]) -> None:
@@ -100,6 +128,146 @@ async def build_lock(request: Request, name: str = Form(...), locked: int = Form
     return HTMLResponse(html + chip)
 
 
+@router.get("/printing-picker")
+async def build_printing_picker(
+    request: Request,
+    name: str = Query(...),
+    idx: str = Query(...),
+    deck: str = Query(None),
+) -> HTMLResponse:
+    """Render the printing-selection grid for a single card tile (HTMX-based).
+
+    Loads known printings from the printings index (see `ImageCache.get_printings`)
+    and marks the currently selected one. Normally session-scoped (mirrors the
+    lock pattern) for the build wizard; when `deck` is supplied (the saved-deck
+    view, for its owner) the "currently selected" printing and each option's
+    POST target instead come from/go to that deck's on-disk CSV, so the choice
+    is persisted rather than living only in the session.
+    Rendered as a centered modal (see `.printing-panel` CSS + base.html), with
+    normal-resolution art thumbnails and each printing's price.
+    """
+    sid = request.cookies.get("sid") or new_sid()
+    sess = get_session(sid)
+    name_l = str(name).strip().lower()
+
+    deck_p = None
+    if deck:
+        from .decks import _deck_dir, _safe_within, _user_id
+        uid = _user_id(request)
+        base = _deck_dir(uid)
+        candidate = (base / deck).resolve()
+        if uid != "guest" and _safe_within(base, candidate) and candidate.exists() and candidate.is_file():
+            deck_p = candidate
+
+    if deck_p is not None:
+        selected = bu.read_printing_overrides_from_csv(deck_p).get(name_l, "")
+    else:
+        selected = str((sess.get("printings") or {}).get(name_l, ""))
+
+    face_name = name.split(" // ")[0].strip() if " // " in name else name
+    printings = _image_cache.get_printings(face_name)
+    if not printings:
+        return HTMLResponse('<div class="printing-panel-empty">No alternate printings found for this card.</div>')
+
+    try:
+        printings = sorted(printings, key=lambda p: str(p.get("released_at") or ""), reverse=True)
+    except Exception:
+        pass
+
+    from ..services.price_service import get_price_service
+    price_svc = get_price_service()
+
+    post_target = "/decks/printing" if deck_p is not None else "/build/printing"
+    deck_val = f',"deck":"{_esc(deck)}"' if deck_p is not None else ""
+
+    parts = [
+        '<div class="printing-picker-header">'
+        '<span class="printing-picker-title">Choose a printing</span>'
+        '<button type="button" class="printing-picker-close" title="Close" '
+        'onclick="this.closest(\'.printing-panel\').innerHTML=\'\';">&times;</button>'
+        "</div>",
+        f'<div class="printing-picker-grid">'
+        f'<button type="button" class="printing-option printing-option-default{" selected" if not selected else ""}" '
+        f'title="Use the default printing" hx-post="{post_target}" hx-swap="none" '
+        f'hx-vals=\'{{"name":"{_esc(name)}","scryfall_id":"","idx":"{_esc(idx)}"{deck_val}}}\'>Default</button>'
+    ]
+    for p in printings:
+        sfid = str(p.get("scryfall_id") or "")
+        if not sfid:
+            continue
+        set_code = str(p.get("set") or "").upper()
+        set_name = str(p.get("set_name") or "")
+        collector_number = str(p.get("collector_number") or "")
+        label = f"{set_code} #{collector_number}".strip()
+        thumb = f"/api/images/normal/{quote(face_name)}?printing={quote(sfid)}"
+        is_sel = " selected" if sfid == selected else ""
+        title = f"{set_name} — {label}" if set_name else label
+        try:
+            price = price_svc.get_price(face_name, scryfall_id=sfid)
+        except Exception:
+            price = None
+        price_html = f'<span class="printing-option-price">${price:.2f}</span>' if price is not None else ""
+        parts.append(
+            f'<button type="button" class="printing-option{is_sel}" title="{_esc(title)}" '
+            f'hx-post="{post_target}" hx-swap="none" '
+            f'hx-vals=\'{{"name":"{_esc(name)}","scryfall_id":"{_esc(sfid)}","idx":"{_esc(idx)}"{deck_val}}}\'>'
+            f'<img src="{_esc(thumb)}" alt="{_esc(title)}" loading="lazy" width="110" />'
+            f'<span class="printing-option-label">{_esc(label)}</span>'
+            f"{price_html}"
+            f"</button>"
+        )
+    parts.append("</div>")
+    return HTMLResponse("".join(parts))
+
+
+@router.post("/printing")
+async def build_printing(
+    request: Request,
+    name: str = Form(...),
+    scryfall_id: str = Form(""),
+    idx: str = Form(...),
+) -> HTMLResponse:
+    """Set (or clear) the selected printing for a card.
+
+    Persists to two places: the session-scoped `printings` map (used while
+    the wizard is still open, e.g. to restore the picker's "current"
+    selection), and -- if a build is in progress -- directly onto the
+    matching `card_library` entry via `set_card_printing()`, so the choice
+    is baked into the deck itself (CSV `ScryfallID` column / deck summary)
+    at export time instead of only living in the ephemeral session.
+
+    Returns the new `<img>` for the tile, plus OOB updates for the price
+    overlay's `data-printing-id` and clearing the picker panel -- mirroring
+    the lock endpoint's OOB-update pattern.
+    """
+    sid = request.cookies.get("sid") or new_sid()
+    sess = get_session(sid)
+    name_l = str(name).strip().lower()
+    scryfall_id = (scryfall_id or "").strip()
+    printings = dict(sess.get("printings") or {})
+    if scryfall_id:
+        printings[name_l] = scryfall_id
+    else:
+        printings.pop(name_l, None)
+    sess["printings"] = printings
+
+    try:
+        ctx = sess.get("build_ctx") or {}
+        builder = ctx.get("builder") if isinstance(ctx, dict) else None
+        if builder is not None:
+            bu.set_card_printing(builder.card_library, name, scryfall_id)
+    except Exception:
+        pass
+
+    img_html = _render_card_img_html(name, idx, scryfall_id, oob=True)
+    price_oob = (
+        f'<div id="price-overlay-{_esc(idx)}" class="card-price-overlay" hx-swap-oob="true" '
+        f'data-price-for="{_esc(name)}" data-printing-id="{_esc(scryfall_id)}" aria-hidden="true"></div>'
+    )
+    panel_oob = '<div id="printing-modal-root" class="printing-panel" hx-swap-oob="true"></div>'
+    return HTMLResponse(img_html + price_oob + panel_oob)
+
+
 @router.get("/permalink")
 async def build_permalink(request: Request):
     """Return a URL-safe JSON payload representing current run config (basic)."""
@@ -111,6 +279,7 @@ async def build_permalink(request: Request):
         "bracket": sess.get("bracket"),
         "ideals": sess.get("ideals"),
         "locks": list(sess.get("locks", []) or []),
+        "printings": dict(sess.get("printings") or {}),
         "tag_mode": sess.get("tag_mode", "AND"),
         "flags": {
             "owned_only": bool(sess.get("use_owned_only")),
@@ -199,6 +368,7 @@ async def build_from(request: Request, state: str | None = None) -> RedirectResp
             sess["prefer_owned"] = bool(flags.get("prefer_owned"))
             sess["swap_mdfc_basics"] = bool(flags.get("swap_mdfc_basics"))
             sess["locks"] = list(data.get("locks", []))
+            sess["printings"] = dict(data.get("printings") or {})
             # Optional random build rehydration
             try:
                 r = data.get("random") or {}

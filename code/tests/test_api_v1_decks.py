@@ -162,6 +162,38 @@ def test_deck_analysis_not_found(client, auth):
     assert resp.status_code == 404
 
 
+def test_deck_analysis_honors_printing_map(client, auth, tmp_path, monkeypatch):
+    """`total_price` must price each card via its saved printing override
+    (the CSV's `ScryfallID` column), not always the cheapest known printing
+    for that name -- this is what the mobile app's deck total reads."""
+    user, headers = auth
+    deck_dir = tmp_path / "deck_files" / user["id"]
+    deck_dir.mkdir(parents=True, exist_ok=True)
+    csv_path = deck_dir / "Priced Deck.csv"
+    csv_path.write_text(
+        "Name,Count,Type,ManaValue,Colors,Role,Tags,ScryfallID\n"
+        "Sol Ring,1,Artifact,1,Colorless,Ramp,Ramp,abc123\n"
+        "Total,1,,,,,,\n",
+        encoding="utf-8",
+    )
+    (deck_dir / "Priced Deck.txt").write_text("1 Sol Ring\n", encoding="utf-8")
+
+    captured: dict = {}
+
+    class _StubPriceService:
+        def get_prices_batch(self, names, region="usd", foil=False, printing_map=None):
+            captured["printing_map"] = printing_map
+            return {n: 20.0 for n in names}
+
+    import code.web.services.price_service as price_service_mod
+    monkeypatch.setattr(price_service_mod, "get_price_service", lambda: _StubPriceService())
+
+    resp = client.get("/api/v1/decks/Priced Deck.csv/analysis", headers=headers)
+    assert resp.status_code == 200
+    assert captured["printing_map"] == {"sol ring": "abc123"}
+    assert resp.json()["data"]["total_price"] == 20.0
+
+
 # ---------------------------------------------------------------------------
 # Milestone 8: upgrade suggestions
 # ---------------------------------------------------------------------------

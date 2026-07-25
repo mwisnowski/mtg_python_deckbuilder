@@ -11,8 +11,11 @@ import time
 from typing import Any, Dict, List, Optional, Tuple
 
 from ..app import templates
+from ..app import invalidate_fragment_cache
+from code.deck_builder import builder_utils as bu
 from ..services.orchestrator import tags_for_commander
 from ..services.summary_utils import format_theme_label, format_theme_list, summary_ctx
+from ..services.tasks import get_session, new_sid
 from ..services.user_db import get_user_by_id, get_user_by_username
 from ..services.deck_visibility import (
     DEFAULT_VISIBILITY,
@@ -455,6 +458,104 @@ def _read_deck_counts(csv_path: Path) -> Dict[str, int]:
     return counts
 
 
+def _compute_budget_badge(p: Path) -> Optional[HTMLResponse]:
+    """Recompute the budget badge fragment for *p* using current CSV printing
+    overrides, or ``None`` if budget mode isn't enabled for this deck. Used to
+    keep the "Under Budget: $X / $Y" banner in sync after a printing change
+    without requiring a full page reload.
+    """
+    if not ENABLE_BUDGET_MODE:
+        return None
+    sidecar = p.with_suffix(".summary.json")
+    if not sidecar.exists():
+        return None
+    try:
+        import json as _json
+        payload = _json.loads(sidecar.read_text(encoding="utf-8"))
+        meta_info = payload.get("meta") or {} if isinstance(payload, dict) else {}
+    except Exception:
+        return None
+    budget_config = meta_info.get("budget_config") if isinstance(meta_info, dict) else None
+    if not isinstance(budget_config, dict) or not budget_config.get("total"):
+        return None
+    try:
+        from ..services.budget_evaluator import BudgetEvaluatorService
+        card_counts = _read_deck_counts(p)
+        decklist = list(card_counts.keys())
+        color_identity = meta_info.get("color_identity") if isinstance(meta_info, dict) else None
+        include_cards = list(meta_info.get("include_cards") or []) if isinstance(meta_info, dict) else []
+        printing_map = bu.read_printing_overrides_from_csv(p)
+        svc = BudgetEvaluatorService()
+        budget_report = svc.evaluate_deck(
+            decklist=decklist,
+            budget_total=float(budget_config["total"]),
+            mode=str(budget_config.get("mode", "soft")),
+            card_ceiling=float(budget_config["card_ceiling"]) if budget_config.get("card_ceiling") else None,
+            color_identity=color_identity,
+            include_cards=include_cards or None,
+            printing_map=printing_map or None,
+        )
+    except Exception:
+        return None
+    html = templates.get_template("partials/budget_badge.html").render(
+        budget_report=budget_report, budget_config=budget_config
+    )
+    return HTMLResponse(html)
+
+
+@router.post("/printing", response_class=HTMLResponse)
+async def decks_set_printing(
+    request: Request,
+    deck: str = Form(...),
+    name: str = Form(...),
+    scryfall_id: str = Form(""),
+    idx: str = Form(...),
+) -> HTMLResponse:
+    """Persist a chosen alternate printing directly onto a saved deck's CSV.
+
+    This is the saved-deck counterpart to the build wizard's session-scoped
+    `/build/printing`: since a finished deck has no in-memory `card_library`
+    to mutate, the choice is written straight to the deck's `ScryfallID`
+    column (mirroring the mobile API's `/api/v1/decks/{filename}/printing`
+    endpoint) so it survives page reloads and is visible to every viewer.
+    Only the deck's own owner may call this -- the path is resolved inside
+    their own deck directory, so a guest or another user's deck can't be
+    targeted.
+    """
+    uid = _user_id(request)
+    if uid == "guest":
+        return HTMLResponse("", status_code=404)
+    base = _deck_dir(uid)
+    p = (base / deck).resolve()
+    if not _safe_within(base, p) or not (p.exists() and p.is_file() and p.suffix.lower() == ".csv"):
+        return HTMLResponse("", status_code=404)
+
+    from .build_permalinks import _render_card_img_html
+    from html import escape as _esc
+
+    scryfall_id = (scryfall_id or "").strip()
+    bu.set_card_printing_csv(p, name, scryfall_id or None)
+    try:
+        invalidate_fragment_cache("partials/deck_summary.html", f"{p.name}:owner")
+        invalidate_fragment_cache("partials/deck_summary.html", f"{p.name}:guest")
+    except Exception:
+        pass
+
+    img_html = _render_card_img_html(name, idx, scryfall_id, oob=True)
+    price_oob = (
+        f'<div id="price-overlay-{_esc(idx)}" class="card-price-overlay" hx-swap-oob="true" '
+        f'data-price-for="{_esc(name)}" data-printing-id="{_esc(scryfall_id)}" aria-hidden="true"></div>'
+    )
+    panel_oob = '<div id="printing-modal-root" class="printing-panel" hx-swap-oob="true"></div>'
+    badge_html = ""
+    badge_resp = _compute_budget_badge(p)
+    if badge_resp is not None:
+        badge_html = (
+            f'<div id="budget-badge-wrap" hx-swap-oob="true">{badge_resp.body.decode("utf-8")}</div>'
+        )
+    return HTMLResponse(img_html + price_oob + panel_oob + badge_html)
+
+
 @router.get("/", response_class=HTMLResponse)
 async def decks_index(request: Request) -> HTMLResponse:
     uid = _user_id(request)
@@ -541,6 +642,12 @@ def _render_deck_view(
     owner_username: Optional[str] = None,
 ) -> HTMLResponse:
     """Build and render the deck-view template for an already-access-checked deck path."""
+    # Session-scoped printing selection (mirrors the build wizard's picker;
+    # ensure a `sid` cookie exists so a selection made on this page persists).
+    had_sid_cookie = bool(request.cookies.get("sid"))
+    sid = request.cookies.get("sid") or new_sid()
+    selected_printings = dict(get_session(sid).get("printings") or {})
+
     # Try to load sidecar summary JSON first
     summary = None
     commander_name = ''
@@ -568,6 +675,25 @@ def _render_deck_view(
         # Reconstruct minimal summary from CSV
         summary, _tc, _cc, _tcs = _read_csv_summary(p)
         display_name = ''
+    # The CSV's `ScryfallID` column is the authoritative source for chosen
+    # printings -- both the web (via /decks/printing below) and the mobile
+    # API write straight to it, but the sidecar .summary.json is only a
+    # snapshot taken at export time and never kept in sync afterwards.
+    # Overlay it onto the loaded summary so a printing changed by either
+    # client is reflected here regardless of which path produced `summary`.
+    csv_overrides: Dict[str, str] = {}
+    try:
+        csv_overrides = bu.read_printing_overrides_from_csv(p)
+        if csv_overrides and isinstance(summary, dict):
+            for clist in ((summary.get('type_breakdown') or {}).get('cards') or {}).values():
+                for entry in (clist or []):
+                    if not isinstance(entry, dict):
+                        continue
+                    nm = str(entry.get('name') or '').strip().lower()
+                    if nm in csv_overrides:
+                        entry['scryfall_id'] = csv_overrides[nm]
+    except Exception:
+        pass
     stem = p.stem
     txt_path = p.with_suffix('.txt')
     # If missing still, infer from filename stem
@@ -589,6 +715,8 @@ def _render_deck_view(
         "deck_visibility": _get_deck_visibility_by_path(p),
         "visibility_options": VALID_VISIBILITIES,
         "share_url": f"/decks/{owner_username}/{p.name}" if owner_username else None,
+        "printings": selected_printings,
+        "deck_edit_ctx": {"deck": p.name} if is_owner else None,
     }
     ctx.update(summary_ctx(summary=summary, commander=commander_name, tags=tags, meta=meta_info))
 
@@ -700,6 +828,7 @@ def _render_deck_view(
                     card_ceiling=float(budget_config["card_ceiling"]) if budget_config.get("card_ceiling") else None,
                     color_identity=color_identity,
                     include_cards=include_cards or None,
+                    printing_map=csv_overrides or None,
                 )
                 ctx["budget_report"] = budget_report
                 ctx["budget_config"] = budget_config
@@ -723,6 +852,11 @@ def _render_deck_view(
                 pass
 
     resp = templates.TemplateResponse("decks/view.html", ctx)
+    if not had_sid_cookie:
+        try:
+            resp.set_cookie("sid", sid, max_age=60 * 60 * 8, httponly=True, samesite="lax")
+        except Exception:
+            pass
     if ENABLE_PREFETCH:
         resp.headers["Cache-Control"] = "private, max-age=30, must-revalidate"
     return resp
@@ -853,6 +987,7 @@ async def decks_pickups(request: Request, name: str) -> HTMLResponse:
             decklist = list(card_counts.keys())
             color_identity = meta_info.get("color_identity") if isinstance(meta_info, dict) else None
             include_cards = list(meta_info.get("include_cards") or []) if isinstance(meta_info, dict) else []
+            printing_map = bu.read_printing_overrides_from_csv(p)
             svc = BudgetEvaluatorService()
             budget_report = svc.evaluate_deck(
                 decklist=decklist,
@@ -861,6 +996,7 @@ async def decks_pickups(request: Request, name: str) -> HTMLResponse:
                 card_ceiling=float(budget_config["card_ceiling"]) if budget_config.get("card_ceiling") else None,
                 color_identity=color_identity,
                 include_cards=include_cards or None,
+                printing_map=printing_map or None,
             )
         except Exception as exc:
             error_msg = f"Budget evaluation failed: {exc}"
@@ -980,7 +1116,8 @@ def _build_csv_download_response(p: Path) -> Response:
     prices_map: Dict[str, Any] = {}
     try:
         from ..services.price_service import get_price_service
-        prices_map = get_price_service().get_prices_batch(card_names) or {}
+        printing_map = bu.read_printing_overrides_from_csv(p)
+        prices_map = get_price_service().get_prices_batch(card_names, printing_map=printing_map or None) or {}
     except Exception:
         pass
 

@@ -437,24 +437,27 @@
       {% for c in g.list %}
             {% set owned = (owned_set is defined and c.name and (c.name|lower in owned_set)) %}
             {% set is_locked = (locks is defined and (c.name|lower in locks)) %}
+            {% set card_idx = group_idx ~ '-' ~ loop.index0 %}
+            {% set sel_printing = (printings.get(c.name.lower(), '') if printings is defined else '') %}
   <div class="card-tile{% if game_changers and (c.name in game_changers) %} game-changer{% endif %}{% if is_locked %} locked{% endif %}{% if c.must_include %} must-include{% endif %}{% if c.must_exclude %} must-exclude{% endif %}"
     data-card-name="{{ c.name }}" data-role="{{ c.role or c.sub_role or '' }}" data-tags="{{ (c.tags|join(', ')) if c.tags else '' }}" data-tags-slug="{{ (c.tags_slug|join(', ')) if c.tags_slug else '' }}" data-owned="{{ '1' if owned else '0' }}"{% if c.reason %} data-reasons="{{ c.reason|e }}"{% endif %}
     data-must-include="{{ '1' if c.must_include else '0' }}" data-must-exclude="{{ '1' if c.must_exclude else '0' }}"
     data-price="{{ (price_cache or {}).get(c.name.lower(), {}).get('usd') or '' }}"
     data-stale="{% if stale_prices is defined and c.name|lower in stale_prices %}1{% else %}0{% endif %}">
   <div class="img-btn" role="button" tabindex="0" title="Tap or click to view {{ c.name }}" aria-label="View {{ c.name }} details">
-                <img class="card-thumb" src="{{ c.name|card_image('normal') }}" alt="{{ c.name }} image" width="160" data-card-name="{{ c.name }}" loading="lazy" decoding="async" data-lqip="1"
-                  srcset="{{ c.name|card_image('small') }} 160w, {{ c.name|card_image('normal') }} 488w"
+                <img class="card-thumb" id="card-img-{{ card_idx }}" src="{{ c.name|card_image('normal', sel_printing) }}" alt="{{ c.name }} image" width="160" data-card-name="{{ c.name }}" loading="lazy" decoding="async" data-lqip="1"
+                  srcset="{{ c.name|card_image('small', sel_printing) }} 160w, {{ c.name|card_image('normal', sel_printing) }} 488w"
                   sizes="160px" />
-              <div class="card-price-overlay" data-price-for="{{ c.name }}" aria-hidden="true"></div>
+              <div class="card-price-overlay" id="price-overlay-{{ card_idx }}" data-price-for="{{ c.name }}" data-printing-id="{{ sel_printing }}" aria-hidden="true"></div>
               {% if show_new_badge and c.name in new_card_names %}<div class="card-new-badge" title="Recently Released" aria-hidden="true">New</div>{% endif %}
       </div>
               <div class="owned-badge" title="{{ 'Owned' if owned else 'Not owned' }}" aria-label="{{ 'Owned' if owned else 'Not owned' }}">{% if owned %}✔{% else %}✖{% endif %}</div>
               {% if stale_prices is defined and c.name|lower in stale_prices %}<div class="stale-price-indicator" title="Price may be outdated (>24h)">&#x23F1;</div>{% endif %}
               <div class="name">{{ c.name|safe }}{% if c.count and c.count > 1 %} ×{{ c.count }}{% endif %}</div>
     <div class="lock-box" id="lock-{{ group_idx }}-{{ loop.index0 }}" class="flex justify-center gap-1 mt-1">
-      {% from 'partials/_macros.html' import lock_button %}
+      {% from 'partials/_macros.html' import lock_button, printing_button %}
       {{ lock_button(c.name, is_locked) }}
+      {{ printing_button(c.name, card_idx, sel_printing) }}
     </div>
     {% if allow_must_haves and show_must_have_buttons %}
     <div class="must-have-controls" role="group" aria-label="Must have controls">
@@ -492,24 +495,27 @@
           {% for c in added_cards %}
           {% set owned = (owned_set is defined and c.name and (c.name|lower in owned_set)) %}
           {% set is_locked = (locks is defined and (c.name|lower in locks)) %}
+          {% set card_idx = loop.index0 %}
+          {% set sel_printing = (printings.get(c.name.lower(), '') if printings is defined else '') %}
     <div class="card-tile{% if game_changers and (c.name in game_changers) %} game-changer{% endif %}{% if is_locked %} locked{% endif %}{% if c.must_include %} must-include{% endif %}{% if c.must_exclude %} must-exclude{% endif %}"
       data-card-name="{{ c.name }}" data-role="{{ c.role or c.sub_role or '' }}" data-tags="{{ (c.tags|join(', ')) if c.tags else '' }}" data-tags-slug="{{ (c.tags_slug|join(', ')) if c.tags_slug else '' }}" data-owned="{{ '1' if owned else '0' }}"{% if c.reason %} data-reasons="{{ c.reason|e }}"{% endif %}
       data-must-include="{{ '1' if c.must_include else '0' }}" data-must-exclude="{{ '1' if c.must_exclude else '0' }}"
       data-price="{{ (price_cache or {}).get(c.name.lower(), {}).get('usd') or '' }}"
       data-stale="{% if stale_prices is defined and c.name|lower in stale_prices %}1{% else %}0{% endif %}">
   <div class="img-btn" role="button" tabindex="0" title="Tap or click to view {{ c.name }}" aria-label="View {{ c.name }} details">
-              <img class="card-thumb" src="{{ c.name|card_image('normal') }}" alt="{{ c.name }} image" width="160" data-card-name="{{ c.name }}" loading="lazy" decoding="async" data-lqip="1"
-                srcset="{{ c.name|card_image('small') }} 160w, {{ c.name|card_image('normal') }} 488w"
+              <img class="card-thumb" id="card-img-{{ card_idx }}" src="{{ c.name|card_image('normal', sel_printing) }}" alt="{{ c.name }} image" width="160" data-card-name="{{ c.name }}" loading="lazy" decoding="async" data-lqip="1"
+                srcset="{{ c.name|card_image('small', sel_printing) }} 160w, {{ c.name|card_image('normal', sel_printing) }} 488w"
                 sizes="160px" />
-            <div class="card-price-overlay" data-price-for="{{ c.name }}" aria-hidden="true"></div>
+            <div class="card-price-overlay" id="price-overlay-{{ card_idx }}" data-price-for="{{ c.name }}" data-printing-id="{{ sel_printing }}" aria-hidden="true"></div>
             {% if show_new_badge and c.name in new_card_names %}<div class="card-new-badge" title="Recently Released" aria-hidden="true">New</div>{% endif %}
             </div>
             <div class="owned-badge" title="{{ 'Owned' if owned else 'Not owned' }}" aria-label="{{ 'Owned' if owned else 'Not owned' }}">{% if owned %}✔{% else %}✖{% endif %}</div>
             {% if stale_prices is defined and c.name|lower in stale_prices %}<div class="stale-price-indicator" title="Price may be outdated (>24h)">&#x23F1;</div>{% endif %}
             <div class="name">{{ c.name|safe }}{% if c.count and c.count > 1 %} ×{{ c.count }}{% endif %}</div>
     <div class="lock-box" id="lock-{{ loop.index0 }}" class="flex justify-center gap-1 mt-1">
-      {% from 'partials/_macros.html' import lock_button %}
+      {% from 'partials/_macros.html' import lock_button, printing_button %}
       {{ lock_button(c.name, is_locked) }}
+      {{ printing_button(c.name, card_idx, sel_printing) }}
     </div>
     {% if allow_must_haves and show_must_have_buttons %}
     <div class="must-have-controls" role="group" aria-label="Must have controls">

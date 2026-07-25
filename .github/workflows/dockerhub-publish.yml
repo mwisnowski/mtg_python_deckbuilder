@@ -66,9 +66,10 @@ jobs:
       - name: Download similarity cache from branch
         run: |
           # Download cache files from similarity-cache-data branch
-          mkdir -p card_files
+          mkdir -p card_files/processed
           wget -q https://raw.githubusercontent.com/${{ github.repository }}/similarity-cache-data/card_files/similarity_cache.parquet -O card_files/similarity_cache.parquet || echo "Cache not found, will build without it"
           wget -q https://raw.githubusercontent.com/${{ github.repository }}/similarity-cache-data/card_files/similarity_cache_metadata.json -O card_files/similarity_cache_metadata.json || echo "Metadata not found"
+          wget -q https://raw.githubusercontent.com/${{ github.repository }}/similarity-cache-data/card_files/processed/card_printings.parquet -O card_files/processed/card_printings.parquet || echo "Printings index not found"
           
           if [ -f card_files/similarity_cache.parquet ]; then
             echo "✓ Downloaded similarity cache"
@@ -136,9 +137,10 @@ jobs:
       - name: Download similarity cache from branch
         run: |
           # Download cache files from similarity-cache-data branch
-          mkdir -p card_files
+          mkdir -p card_files/processed
           wget -q https://raw.githubusercontent.com/${{ github.repository }}/similarity-cache-data/card_files/similarity_cache.parquet -O card_files/similarity_cache.parquet || echo "Cache not found, will build without it"
           wget -q https://raw.githubusercontent.com/${{ github.repository }}/similarity-cache-data/card_files/similarity_cache_metadata.json -O card_files/similarity_cache_metadata.json || echo "Metadata not found"
+          wget -q https://raw.githubusercontent.com/${{ github.repository }}/similarity-cache-data/card_files/processed/card_printings.parquet -O card_files/processed/card_printings.parquet || echo "Printings index not found"
           
           if [ -f card_files/similarity_cache.parquet ]; then
             echo "✓ Downloaded similarity cache"

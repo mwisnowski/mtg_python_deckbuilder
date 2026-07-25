@@ -1407,6 +1407,7 @@ def _ensure_setup_ready(out, force: bool = False) -> None:
                         ("card_files/similarity_cache_metadata.json", "card_files/similarity_cache_metadata.json"),
                         ("card_files/prices_cache.json", "card_files/prices_cache.json"),
                         ("card_files/ck_prices_cache.json", "card_files/ck_prices_cache.json"),
+                        ("card_files/processed/card_printings.parquet", "card_files/processed/card_printings.parquet"),
                     ]
                     
                     download_success = True

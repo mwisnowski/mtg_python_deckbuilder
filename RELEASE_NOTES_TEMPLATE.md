@@ -14,6 +14,9 @@
 - `GET /api/v1/cards/{name}` now includes a `faces` array with per-face details (name, side, type, text, mana value, power/toughness, color identity) for split, adventure, transform, modal DFC, flip, and aftermath cards, letting clients show the "other side" of a multi-faced card, which the tagged card dataset otherwise omits
 - Loyalty is now tracked in the tagged card dataset and searchable via `loy:`/`loyalty:` (e.g. `loy>=4`), matching the existing power/toughness/cmc search operators
 - Fetch lands are now tagged with their mechanical shape (`Fetchland`, `Panorama Land`, `New Capenna Land`, `Landscape Land`, `Alt Fetchland`) and the specific basic/land types they can search for, laying the groundwork for color-identity-aware fetch land filtering
+- Groundwork for multi-printing card images: images can now be cached per-printing instead of just one per card name; `IMAGE_CACHE_MODE=default|full` controls whether only the best printing or every printing gets downloaded (default: same footprint as before). New `GET /api/printings/{card_name}` lists a card's known printings, and `/api/images/{size}/{card_name}` accepts an optional `printing` parameter.
+- A "Choose Printing" button on card tiles across the web build review, Finished Decks (list and thumbnail views), Card Browser, Owned Library, and the Card Details page opens a picker of that card's known printings so you can swap to a different art/set; the selection is remembered and shared across all pages (choose it in one place, it shows up in the others too), and included in permalinks. On the Owned Library it's just a visual preview and doesn't change which cards count as owned. The picker opens as a floating popup next to the button so it's never squished on a narrow card tile.
+- Per-printing pricing: the web build review's price display now reflects the specific printing you've selected, instead of always showing the cheapest printing's price
 
 ### Changed
 _No unreleased changes yet_

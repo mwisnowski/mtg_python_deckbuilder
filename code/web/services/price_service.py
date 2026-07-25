@@ -76,7 +76,16 @@ class PriceService(BaseService):
         self._ck_loaded: bool = False
 
         # scryfall_id map built during _rebuild_cache: {name.lower(): scryfall_id}
+        # (cheapest printing's id per name; not persisted to the JSON cache file,
+        # only populated after an in-process rebuild -- same limitation as today)
         self._scryfall_id_map: Dict[str, str] = {}
+
+        # Per-printing price map built during _rebuild_cache:
+        # {scryfall_id: {"usd": float, "usd_foil": float, "eur": float, "eur_foil": float}}
+        # Unlike self._cache (collapsed to the cheapest printing per name), this
+        # keeps every printing's own price so a specific printing can be priced.
+        # Same persistence limitation as _scryfall_id_map (in-memory only).
+        self._price_by_printing_id: Dict[str, Dict[str, float]] = {}
 
     # ------------------------------------------------------------------
     # Public API
@@ -87,6 +96,7 @@ class PriceService(BaseService):
         card_name: str,
         region: str = "usd",
         foil: bool = False,
+        scryfall_id: Optional[str] = None,
     ) -> Optional[float]:
         """Return the price for *card_name* or ``None`` if not found.
 
@@ -94,12 +104,22 @@ class PriceService(BaseService):
             card_name: Card name (case-insensitive).
             region: Price region - ``"usd"`` or ``"eur"``.
             foil: If ``True`` return foil price.
+            scryfall_id: Optional specific printing to price instead of the
+                cheapest-by-name default. Falls back to the cheapest-by-name
+                price if this printing has no price data (never a hard miss
+                just because one printing is unpriced).
 
         Returns:
             Price as float or ``None`` when missing / card unknown.
         """
         self._ensure_loaded()
         price_key = region + ("_foil" if foil else "")
+        if scryfall_id:
+            printing_entry = self._price_by_printing_id.get(scryfall_id)
+            if printing_entry is not None and printing_entry.get(price_key) is not None:
+                with self._lock:
+                    self._hit_count += 1
+                return printing_entry.get(price_key)
         entry = self._cache.get(card_name.lower().strip())
         self.queue_lazy_refresh(card_name)
         with self._lock:
@@ -114,6 +134,7 @@ class PriceService(BaseService):
         card_names: List[str],
         region: str = "usd",
         foil: bool = False,
+        printing_map: Optional[Dict[str, str]] = None,
     ) -> Dict[str, Optional[float]]:
         """Return a mapping of card name → price for all requested cards.
 
@@ -124,6 +145,10 @@ class PriceService(BaseService):
             card_names: List of card names to look up.
             region: Price region - ``"usd"`` or ``"eur"``.
             foil: If ``True`` return foil prices.
+            printing_map: Optional ``{name.lower(): scryfall_id}`` overrides --
+                for any name present here, price that specific printing
+                instead of the cheapest-by-name default (falling back to the
+                default if that printing has no price data).
 
         Returns:
             Dict mapping each input name to its price (or ``None``).
@@ -134,12 +159,22 @@ class PriceService(BaseService):
         hits = 0
         misses = 0
         for name in card_names:
-            entry = self._cache.get(name.lower().strip())
-            if entry is not None:
-                result[name] = entry.get(price_key)
+            key = name.lower().strip()
+            price: Optional[float] = None
+            if printing_map:
+                scryfall_id = printing_map.get(key)
+                if scryfall_id:
+                    printing_entry = self._price_by_printing_id.get(scryfall_id)
+                    if printing_entry is not None:
+                        price = printing_entry.get(price_key)
+            if price is None:
+                entry = self._cache.get(key)
+                if entry is not None:
+                    price = entry.get(price_key)
+            result[name] = price
+            if price is not None:
                 hits += 1
             else:
-                result[name] = None
                 misses += 1
         with self._lock:
             self._hit_count += hits
@@ -393,8 +428,9 @@ class PriceService(BaseService):
         import time as _t
         with self._lock:
             snapshot = dict(self._cache)
+            by_printing_snapshot = dict(self._price_by_printing_id)
             built = self._last_refresh or _t.time()
-        cache_data = {"prices": snapshot, "built_at": built}
+        cache_data = {"prices": snapshot, "built_at": built, "by_printing": by_printing_snapshot}
         tmp_path = self._cache_path + ".tmp"
         with open(tmp_path, "w", encoding="utf-8") as fh:
             json.dump(cache_data, fh, separators=(",", ":"))
@@ -438,6 +474,10 @@ class PriceService(BaseService):
             data = json.load(fh)
         self._cache = data.get("prices", {})
         self._last_refresh = data.get("built_at", 0.0)
+        # Per-printing prices (see _price_by_printing_id) are persisted alongside
+        # the by-name cache so a specific printing can still be priced after a
+        # fast-path load, not only right after a full bulk-data rebuild.
+        self._price_by_printing_id = data.get("by_printing", {})
 
     def _rebuild_cache(self) -> None:
         """Stream the Scryfall bulk data file and extract prices.
@@ -452,6 +492,7 @@ class PriceService(BaseService):
         logger.info("Building price cache from %s ...", self._bulk_path)
         new_cache: Dict[str, Dict[str, float]] = {}
         new_scryfall_id_map: Dict[str, str] = {}
+        new_price_by_printing_id: Dict[str, Dict[str, float]] = {}
         built_at = time.time()
 
         try:
@@ -475,6 +516,11 @@ class PriceService(BaseService):
                     if not entry:
                         continue
 
+                    # Record this specific printing's own price, independent of
+                    # whether it's the cheapest printing of this card name.
+                    if scryfall_id:
+                        new_price_by_printing_id[scryfall_id] = entry
+
                     # Index by both the combined name and each face name
                     names_to_index = [name]
                     if " // " in name:
@@ -497,7 +543,7 @@ class PriceService(BaseService):
 
         # Write compact cache atomically
         try:
-            cache_data = {"prices": new_cache, "built_at": built_at}
+            cache_data = {"prices": new_cache, "built_at": built_at, "by_printing": new_price_by_printing_id}
             tmp_path = self._cache_path + ".tmp"
             with open(tmp_path, "w", encoding="utf-8") as fh:
                 json.dump(cache_data, fh, separators=(",", ":"))
@@ -511,6 +557,7 @@ class PriceService(BaseService):
         with self._lock:
             self._cache = new_cache
             self._scryfall_id_map = new_scryfall_id_map
+            self._price_by_printing_id = new_price_by_printing_id
             self._last_refresh = built_at
             # Stamp all keys as fresh so get_stale_cards() reflects the rebuild.
             # _lazy_ts may not exist if start_lazy_refresh() was never called

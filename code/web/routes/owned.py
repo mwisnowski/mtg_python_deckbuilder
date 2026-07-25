@@ -4,6 +4,7 @@ from fastapi import APIRouter, Request, UploadFile, File, Query
 from fastapi.responses import HTMLResponse, Response
 from ..app import templates
 from ..services import owned_store as store
+from ..services.tasks import get_session, new_sid
 
 
 router = APIRouter(prefix="/owned")
@@ -103,6 +104,11 @@ def _build_owned_context(request: Request, notice: str | None = None, error: str
     "color_combos": combos,
     "added_at_map": added_at_map,
     }
+    # Session-scoped printing selection (cosmetic only; does not affect
+    # owned-card matching/filtering). Mirrors the build wizard's picker.
+    sid = request.cookies.get("sid") or new_sid()
+    ctx["printings"] = dict(get_session(sid).get("printings") or {})
+    ctx["_sid"] = sid
     if notice:
         ctx["notice"] = notice
     if error:
@@ -219,7 +225,14 @@ async def owned_index(
         "tough_min": tough_min,
         "tough_max": tough_max,
     })
-    return templates.TemplateResponse("owned/index.html", ctx)
+    had_sid_cookie = bool(request.cookies.get("sid"))
+    resp = templates.TemplateResponse("owned/index.html", ctx)
+    if not had_sid_cookie:
+        try:
+            resp.set_cookie("sid", ctx["_sid"], max_age=60 * 60 * 8, httponly=True, samesite="lax")
+        except Exception:
+            pass
+    return resp
 
 
 @router.post("/upload", response_class=HTMLResponse)

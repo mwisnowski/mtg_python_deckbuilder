@@ -34,7 +34,7 @@
     <script>
       window.__telemetryEndpoint = '/telemetry/events';
     </script>
-  <link rel="stylesheet" href="/static/styles.css?v=20260319-3" />
+  <link rel="stylesheet" href="/static/styles.css?v=20260724-1" />
   <link rel="stylesheet" href="/static/shared-components.css?v=20251021-1" />
   <style>
     /* Disable all transitions until page is loaded to prevent sidebar flash */
@@ -379,7 +379,7 @@
   <script src="/static/js/components.js?v=20251028-1"></script>
   <script src="/static/js/app.js?v=20251029-2"></script>
   <script src="/static/js/cardImages.js?v=20251029-1"></script>
-  <script src="/static/js/cardHover.js?v=20251028-1"></script>
+  <script src="/static/js/cardHover.js?v=20260725-1"></script>
   {% if enable_themes %}
   <script>
     // Theme selector logic moved to app.ts (initThemeSelector)
@@ -482,17 +482,20 @@
     window._priceNum = _priceNum;  // expose for cardHover.js
     var _deckPrices = {}; // accumulated across build stages: card name -> float
     var _buildToken = null;
-    function _fetchNum(name) {
-      if (_priceNum.hasOwnProperty(name)) return Promise.resolve(_priceNum[name]);
-      return fetch('/api/price/' + encodeURIComponent(name))
+    function _fetchNum(name, printingId) {
+      var key = printingId ? (name + '::' + printingId) : name;
+      if (_priceNum.hasOwnProperty(key)) return Promise.resolve(_priceNum[key]);
+      var url = '/api/price/' + encodeURIComponent(name);
+      if (printingId) url += '?printing=' + encodeURIComponent(printingId);
+      return fetch(url)
         .then(function(r){ return r.ok ? r.json() : null; })
         .then(function(d){
           var obj = {
             tcg: (d && d.found && d.price != null) ? parseFloat(d.price) : null,
             ck: (d && d.ck_price != null) ? parseFloat(d.ck_price) : null,
           };
-          _priceNum[name] = obj; return obj;
-        }).catch(function(){ var obj = {tcg:null,ck:null}; _priceNum[name] = obj; return obj; });
+          _priceNum[key] = obj; return obj;
+        }).catch(function(){ var obj = {tcg:null,ck:null}; _priceNum[key] = obj; return obj; });
     }
     function _getBuildToken() {
       var el = document.querySelector('[data-build-id]');
@@ -525,9 +528,16 @@
 
       var overlays = document.querySelectorAll('.card-price-overlay[data-price-for]');
       var inlines = document.querySelectorAll('.card-price-inline[data-price-for]');
-      var toFetch = new Set();
-      overlays.forEach(function(el){ var n = el.dataset.priceFor; if (n && !BASIC_LANDS.has(n)) toFetch.add(n); });
-      inlines.forEach(function(el){ var n = el.dataset.priceFor; if (n && !BASIC_LANDS.has(n)) toFetch.add(n); });
+      var toFetch = new Map(); // fetchKey -> {name, printingId}
+      function _queue(el){
+        var n = el.dataset.priceFor;
+        if (!n || BASIC_LANDS.has(n)) return;
+        var pid = el.dataset.printingId || '';
+        var fetchKey = pid ? (n + '::' + pid) : n;
+        toFetch.set(fetchKey, {name: n, printingId: pid});
+      }
+      overlays.forEach(_queue);
+      inlines.forEach(_queue);
 
       // Always refresh the running total chip even when there's nothing new to fetch
       updateRunningTotal();
@@ -535,15 +545,16 @@
 
       var prevTotal = Object.values(_deckPrices).reduce(function(s,p){ return s + (p||0); }, 0);
       var promises = [];
-      toFetch.forEach(function(name){ promises.push(_fetchNum(name).then(function(obj){ return {name:name,price:obj}; })); });
+      toFetch.forEach(function(entry, fetchKey){ promises.push(_fetchNum(entry.name, entry.printingId).then(function(obj){ return {fetchKey:fetchKey,name:entry.name,price:obj}; })); });
       Promise.all(promises).then(function(results){
         var map = {};
         var prevTotal2 = Object.values(_deckPrices).reduce(function(s,p){ return s + (p||0); }, 0);
-        results.forEach(function(r){ map[r.name] = r.price; if (r.price && r.price.tcg !== null) _deckPrices[r.name] = r.price.tcg; });
+        results.forEach(function(r){ map[r.fetchKey] = r.price; if (r.price && r.price.tcg !== null) _deckPrices[r.name] = r.price.tcg; });
         overlays.forEach(function(el){
           var name = el.dataset.priceFor;
           if (!name || BASIC_LANDS.has(name)) { el.style.display='none'; return; }
-          var obj = map[name];
+          var pid = el.dataset.printingId || '';
+          var obj = map[pid ? (name + '::' + pid) : name];
           var tcg = obj ? obj.tcg : null;
           var ck = obj ? obj.ck : null;
           if (tcg !== null || ck !== null) {
@@ -560,7 +571,8 @@
         inlines.forEach(function(el){
           var name = el.dataset.priceFor;
           if (!name || BASIC_LANDS.has(name)) { el.style.display='none'; return; }
-          var obj = map[name];
+          var pid = el.dataset.printingId || '';
+          var obj = map[pid ? (name + '::' + pid) : name];
           var tcg = obj ? obj.tcg : null;
           var ck = obj ? obj.ck : null;
           if (tcg !== null || ck !== null) {
@@ -585,7 +597,9 @@
             var n = el.dataset.priceFor;
             if (n && !BASIC_LANDS.has(n) && !allNames.has(n)) {
               allNames.add(n);
-              sumTotal += (map[n] ? (map[n].tcg || 0) : 0);
+              var pid = el.dataset.printingId || '';
+              var obj = map[pid ? (n + '::' + pid) : n];
+              sumTotal += (obj ? (obj.tcg || 0) : 0);
             }
           });
           if (totalCap !== null) {
@@ -601,6 +615,147 @@
     }
     document.addEventListener('DOMContentLoaded', function(){ initPriceDisplay(); });
     document.addEventListener('htmx:afterSwap', function(){ setTimeout(initPriceDisplay, 80); });
+  })();
+  </script>
+  <!-- Printing picker popup: renders the HTMX-loaded #printing-modal-root
+       panel as a centered modal (see .printing-panel CSS) with a shared
+       backdrop, instead of anchoring it near the triggering button. A single
+       shared root (rather than a per-card-tile placeholder) is used because
+       `.card-grid` sets `contain: layout paint`, which -- like `transform` --
+       establishes a new containing block for `position: fixed` descendants;
+       a placeholder nested inside the grid would end up fixed relative to
+       the grid's box instead of the viewport, causing it to render in the
+       wrong place (and jump/flicker) on scroll or narrow viewports. -->
+  <div id="printing-modal-backdrop" class="printing-modal-backdrop"></div>
+  <div id="printing-modal-root" class="printing-panel"></div>
+  <script>
+  (function(){
+    function anyPanelOpen(){
+      return !!document.querySelector('.printing-panel:not(:empty)');
+    }
+    function syncBackdrop(){
+      var open = anyPanelOpen();
+      document.body.classList.toggle('printing-modal-open', open);
+      if (!open) {
+        // The panel can close via an OOB swap (e.g. after selecting a
+        // printing) rather than a genuine pointer-leave, which never fires
+        // `pointerout` on the now-removed option -- so the cursor-follow
+        // preview would otherwise stay stuck on screen. Hide it whenever no
+        // panel is open, regardless of how it closed.
+        var preview = document.querySelector('.printing-option-preview.visible');
+        if (preview) preview.classList.remove('visible');
+      }
+    }
+    // Keep the backdrop in sync with any panel becoming populated/emptied,
+    // whether via a picker-open HTMX swap or an OOB clear from /build/printing.
+    var observer = new MutationObserver(function(){ syncBackdrop(); });
+    observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+    // Clicking the backdrop (or anywhere outside an open panel/its trigger
+    // button) closes it.
+    document.addEventListener('click', function(ev){
+      if (ev.target && ev.target.id === 'printing-modal-backdrop') {
+        document.querySelectorAll('.printing-panel:not(:empty)').forEach(function(p){ p.innerHTML = ''; });
+        return;
+      }
+      document.querySelectorAll('.printing-panel:not(:empty)').forEach(function(p){
+        if (p.contains(ev.target)) return;
+        if (ev.target.closest && ev.target.closest('.btn-printing')) return;
+        p.innerHTML = '';
+      });
+    });
+    // Close on Escape, and on resize (avoids stale/misplaced popups)
+    document.addEventListener('keydown', function(ev){
+      if (ev.key !== 'Escape') return;
+      document.querySelectorAll('.printing-panel:not(:empty)').forEach(function(p){ p.innerHTML = ''; });
+    });
+    window.addEventListener('resize', function(){
+      document.querySelectorAll('.printing-panel:not(:empty)').forEach(function(p){ p.innerHTML = ''; });
+    });
+  })();
+  </script>
+  <!-- Preserve card-tile metadata (role/tags/overlaps/count/etc.) across
+       HTMX out-of-band swaps of a card's image (e.g. after changing its
+       printing). The server-rendered OOB fragment only knows about the
+       image itself (src/alt/printing id) -- it has no way to know which
+       role/tags/overlaps a given tile was annotated with, since those are
+       computed once per full page render and vary by context (deck view,
+       build wizard, card browser, etc). Rather than threading every
+       possible data-* attribute through the picker's hx-vals and back
+       through the POST handler, copy any data-* attribute the outgoing
+       element had that the incoming fragment doesn't already define -- this
+       keeps the hover-preview panel's "detailed" view working immediately
+       after a printing change, without a full page reload. -->
+  <script>
+  (function(){
+    document.body.addEventListener('htmx:oobBeforeSwap', function(ev){
+      var oldEl = ev.detail && ev.detail.target;
+      var frag = ev.detail && ev.detail.fragment;
+      // `fragment` is a DocumentFragment wrapping the actual incoming
+      // element (not the element itself), so unwrap it first.
+      var newEl = frag && frag.nodeType === 11 ? frag.firstElementChild : frag;
+      if (!oldEl || !newEl || !oldEl.attributes || !newEl.setAttribute) return;
+      Array.prototype.forEach.call(oldEl.attributes, function(a){
+        if (a.name.indexOf('data-') === 0 && !newEl.hasAttribute(a.name)) {
+          newEl.setAttribute(a.name, a.value);
+        }
+      });
+    });
+  })();
+  </script>
+  <!-- Printing option preview: a lightweight cursor-following zoom of a
+       printing option's art (already the higher-resolution /api/images/normal
+       source, just displayed small as a thumbnail). Appended directly to
+       body so it's never affected by the picker's own fixed positioning or
+       any ancestor's CSS containment. Desktop-hover only, mirrors the
+       positioning approach used by #hover-card-panel. -->
+  <script>
+  (function(){
+    var el = null;
+    var coarseQuery = window.matchMedia ? window.matchMedia('(pointer: coarse)') : null;
+    function isCoarse(){ return !!(coarseQuery && coarseQuery.matches); }
+    function ensure(){
+      if (el) return el;
+      el = document.createElement('div');
+      el.className = 'printing-option-preview';
+      el.innerHTML = '<img alt="" />';
+      document.body.appendChild(el);
+      return el;
+    }
+    function position(x, y){
+      var node = ensure();
+      var pad = 16;
+      var vw = window.innerWidth, vh = window.innerHeight;
+      var r = node.getBoundingClientRect();
+      var left = x + pad, top = y + pad;
+      if (left + r.width + 8 > vw) left = x - r.width - pad;
+      if (top + r.height + 8 > vh) top = y - r.height - pad;
+      if (left < 8) left = 8;
+      if (top < 8) top = 8;
+      node.style.left = left + 'px';
+      node.style.top = top + 'px';
+    }
+    document.addEventListener('pointerover', function(ev){
+      if (isCoarse()) return;
+      var opt = ev.target.closest && ev.target.closest('.printing-option');
+      if (!opt) return;
+      var img = opt.querySelector('img');
+      if (!img) return;
+      var node = ensure();
+      var previewImg = node.querySelector('img');
+      if (previewImg.src !== img.src) previewImg.src = img.src;
+      node.classList.add('visible');
+      position(ev.clientX, ev.clientY);
+    });
+    document.addEventListener('pointermove', function(ev){
+      if (!el || !el.classList.contains('visible')) return;
+      if (!(ev.target.closest && ev.target.closest('.printing-option'))) return;
+      position(ev.clientX, ev.clientY);
+    });
+    document.addEventListener('pointerout', function(ev){
+      var opt = ev.target.closest && ev.target.closest('.printing-option');
+      if (!opt || !el) return;
+      el.classList.remove('visible');
+    });
   })();
   </script>
   <!-- Shared help-tip panel: position:fixed to avoid overflow clipping in any container -->

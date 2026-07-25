@@ -19,8 +19,10 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import Response
+from pydantic import BaseModel
 
 from code.services.all_cards_loader import AllCardsLoader
+from code.deck_builder import builder_utils as bu
 from code.type_definitions import User
 
 from ...utils.api_response import err, ok
@@ -84,6 +86,7 @@ def _parse_deck_cards(csv_path: Path) -> List[Dict[str, Any]]:
                     "role": col(row, "Role"),
                     "tags": tags,
                     "layout": None,
+                    "scryfall_id": col(row, "ScryfallID") or None,
                 }
             )
 
@@ -106,6 +109,17 @@ def _parse_deck_cards(csv_path: Path) -> List[Dict[str, Any]]:
     return cards
 
 
+def _set_deck_card_printing(csv_path: Path, name: str, scryfall_id: Optional[str]) -> bool:
+    """Set (or clear, when `scryfall_id` is falsy) a saved deck's per-card
+    `ScryfallID` column, baking a chosen alternate printing into the deck
+    itself -- unlike the card browser, which always shows each card's
+    default printing. Thin wrapper around the shared
+    `builder_utils.set_card_printing_csv()` helper (also used by the web
+    saved-deck view's own printing picker, so both clients stay in sync).
+    """
+    return bu.set_card_printing_csv(csv_path, name, scryfall_id)
+
+
 @router.get("", summary="List saved decks")
 async def list_decks(request: Request, user: User = Depends(get_api_user)):
     """List the caller's saved decks."""
@@ -124,6 +138,29 @@ async def get_deck_detail(filename: str, request: Request, user: User = Depends(
         {"name": p.name, "cards": cards, "card_count": sum(c["count"] for c in cards)},
         _rid(request),
     )
+
+
+class SetDeckPrintingRequest(BaseModel):
+    name: str
+    scryfall_id: Optional[str] = None
+
+
+@router.post("/{filename}/printing", summary="Set a saved deck's card printing")
+async def set_deck_card_printing(
+    filename: str, body: SetDeckPrintingRequest, request: Request, user: User = Depends(get_api_user)
+):
+    """Choose (or clear, when `scryfall_id` is omitted/null) an alternate
+    printing's artwork for a card already in a saved deck, baked directly
+    into the deck's CSV `ScryfallID` column -- unlike the card browser,
+    which always shows each card's default printing.
+    """
+    p = _resolve_deck_path(str(user["id"]), filename)
+    if p is None:
+        return err("Deck not found.", "DECK_NOT_FOUND", 404, _rid(request))
+    found = _set_deck_card_printing(p, body.name, body.scryfall_id)
+    if not found:
+        return err(f"'{body.name}' is not in this deck.", "CARD_NOT_IN_DECK", 404, _rid(request))
+    return ok({"name": body.name, "scryfall_id": (body.scryfall_id or None)}, _rid(request))
 
 
 @router.get("/{filename}/analysis", summary="Get deck mana analysis")
@@ -173,7 +210,12 @@ async def get_deck_analysis(filename: str, request: Request, user: User = Depend
 
         cards = _parse_deck_cards(p)
         names = [c["name"] for c in cards if c["name"] != commander]
-        prices = get_price_service().get_prices_batch(names)
+        printing_map = {
+            c["name"].lower(): c["scryfall_id"]
+            for c in cards
+            if c.get("scryfall_id") and c["name"] != commander
+        }
+        prices = get_price_service().get_prices_batch(names, printing_map=printing_map or None)
         found = [prices[name] * next(c["count"] for c in cards if c["name"] == name) for name in prices if prices[name] is not None]
         if found:
             total_price = round(sum(found), 2)

@@ -287,6 +287,7 @@ interface PointerEventLike {
       const rarity = (attr('data-rarity') || '').trim();
       const mana = (attr('data-mana') || '').trim();
       const role = (attr('data-role') || '').trim();
+      const printingId = (attr('data-printing-id') || '').trim();
       let reasonsRaw = attr('data-reasons') || '';
       const tagsRaw = attr('data-tags') || '';
       const metadataTagsRaw = attr('data-metadata-tags') || '';
@@ -605,7 +606,7 @@ interface PointerEventLike {
 
       function renderHoverFace(face: string): void {
         const desiredVersion = 'normal';
-        const currentKey = nm + ':' + face + ':' + desiredVersion;
+        const currentKey = nm + ':' + face + ':' + desiredVersion + ':' + printingId;
         const prevFace = imgEl.getAttribute('data-face');
         const faceChanged = prevFace && prevFace !== face;
 
@@ -619,8 +620,15 @@ interface PointerEventLike {
           }
 
           let src = '/api/images/' + desiredVersion + '/' + encodeURIComponent(faceName);
+          const params: string[] = [];
           if (isDFC && face === 'back') {
-            src += '?face=back';
+            params.push('face=back');
+          }
+          if (printingId) {
+            params.push('printing=' + encodeURIComponent(printingId));
+          }
+          if (params.length) {
+            src += '?' + params.join('&');
           }
 
           if (faceChanged) imgEl.style.opacity = '0';
@@ -740,6 +748,11 @@ interface PointerEventLike {
 
     function getCardFromEl(el: EventTarget | null): Element | null {
       if (!el || !(el instanceof Element)) return null;
+
+      // The printing picker modal is DOM-nested inside a card tile (for HTMX
+      // targeting convenience) even though it renders as a fixed, centered
+      // overlay. Never let it trigger the shared hover-preview panel.
+      if (el.closest && el.closest('.printing-panel')) return null;
 
       if (el.closest) {
         const altBtn = el.closest('.alts button[data-card-name]');

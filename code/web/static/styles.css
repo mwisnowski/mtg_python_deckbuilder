@@ -3329,6 +3329,22 @@ img.lqip.loaded {
   flex-shrink: 0;
 }
 
+/* Printing picker row on browse tiles */
+
+.card-tile-printing-row {
+  margin-top: 0.35rem;
+}
+
+.card-tile-printing-row .btn-printing {
+  font-size: 0.8rem;
+  padding: 0.35rem 0.6rem;
+}
+
+.card-detail-printing-row {
+  margin-top: 0.6rem;
+  text-align: center;
+}
+
 /* Card Preview Modal */
 
 .preview-modal {
@@ -7565,6 +7581,174 @@ footer.site-footer {
   border-radius: 6px;
   background: var(--panel, #1a1b1e);
   border: 1px solid var(--border, #2a2b2f);
+}
+
+/* Printing picker (Roadmap 32, Milestone 4) */
+
+.btn-printing[data-has-selection="1"] {
+  border-color: #34d399;
+  color: #34d399;
+}
+
+.btn-printing-compact {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  line-height: 1;
+  background: rgba(15, 17, 21, .8);
+}
+
+.printing-panel:empty {
+  display: none;
+}
+
+/* Rendered as a centered modal (shown/hidden via the shared backdrop in
+   base.html) rather than anchored to the triggering button, so it's never
+   squished/clipped by narrow card tiles or the Finished Decks stacked
+   thumbnail layout, and stays comfortably readable/tappable on mobile. */
+
+.printing-panel:not(:empty) {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 301;
+  background: var(--panel, #1a1f2e);
+  border: 1px solid var(--border, #333);
+  border-radius: 10px;
+  box-shadow: 0 16px 42px rgba(0, 0, 0, .65);
+  overflow-y: auto;
+  width: min(420px, 92vw);
+  max-height: 80vh;
+}
+
+.printing-modal-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, .6);
+  z-index: 300;
+}
+
+body.printing-modal-open .printing-modal-backdrop {
+  display: block;
+}
+
+.printing-picker-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .5rem;
+  padding: .6rem .75rem;
+  border-bottom: 1px solid var(--border, #333);
+}
+
+.printing-picker-title {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.printing-picker-close {
+  background: transparent;
+  border: none;
+  color: var(--muted, #94a3b8);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 .25rem;
+}
+
+.printing-picker-close:hover {
+  color: var(--text);
+}
+
+.printing-picker-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+  padding: .6rem .75rem .75rem;
+}
+
+.printing-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  background: transparent;
+  border: 1px solid var(--border, #333);
+  border-radius: 6px;
+  padding: 4px;
+  cursor: pointer;
+  width: 118px;
+}
+
+.printing-option:hover {
+  border-color: var(--blue-main, #3b82f6);
+}
+
+.printing-option.selected {
+  border-color: #34d399;
+  box-shadow: 0 0 0 1px #34d399 inset;
+}
+
+.printing-option img {
+  width: 110px;
+  border-radius: 4px;
+  display: block;
+}
+
+.printing-option-label {
+  font-size: 10px;
+  color: var(--muted, #94a3b8);
+  text-align: center;
+  line-height: 1.2;
+}
+
+.printing-option-price {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.printing-option-default {
+  justify-content: center;
+  min-height: 118px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.printing-panel-empty {
+  font-size: 11px;
+  color: var(--muted, #94a3b8);
+  padding: .3rem;
+}
+
+.printing-option-preview {
+  display: none;
+  position: fixed;
+  z-index: 9999;
+  pointer-events: none;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 16px 42px rgba(0, 0, 0, .65);
+  padding: 6px;
+}
+
+.printing-option-preview.visible {
+  display: block;
+}
+
+.printing-option-preview img {
+  display: block;
+  width: 300px;
+  max-width: 80vw;
+  border-radius: 6px;
 }
 
 .hover\:text-gray-700:hover {

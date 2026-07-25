@@ -8,7 +8,8 @@ Only import lightweight standard library modules here to avoid import cycles.
 """
 from __future__ import annotations
 
-from typing import Any, Dict, Iterable, List
+from typing import Any, Dict, Iterable, List, Optional
+import csv
 import re
 import ast
 import random as _rand
@@ -402,6 +403,122 @@ def normalize_theme_list(raw) -> list[str]:
 	"""Parse then lowercase + strip each tag."""
 	tags = parse_theme_tags(raw)
 	return [t.lower().strip() for t in tags if t and t.strip()]
+
+
+def set_card_printing(card_library: Dict[str, dict], name: str, scryfall_id: str | None) -> bool:
+	"""Set (or clear, when `scryfall_id` is falsy) a card's chosen alternate
+	printing directly on its `card_library` entry, so it's baked into the
+	deck itself at export time (see `export_decklist_csv`'s "ScryfallID"
+	column and `build_deck_summary`'s `scryfall_id` field) rather than living
+	only in an ephemeral session/build override -- unlike locks or must-haves,
+	a chosen printing is meant to travel with the saved deck.
+
+	Matches `name` case-insensitively against `card_library` keys (mirrors
+	the lookup pattern used by `_replace_card_sync`/`_remove_card_sync` in
+	`api_v1/builds.py`). Returns True if a matching entry was found and
+	updated, False otherwise.
+	"""
+	key = str(name).strip().lower()
+	entry_key = None
+	if name in card_library:
+		entry_key = name
+	else:
+		for k in card_library.keys():
+			if str(k).strip().lower() == key:
+				entry_key = k
+				break
+	if entry_key is None:
+		return False
+	sid = (scryfall_id or "").strip()
+	if sid:
+		card_library[entry_key]["ScryfallID"] = sid
+	else:
+		card_library[entry_key].pop("ScryfallID", None)
+	return True
+
+
+def set_card_printing_csv(csv_path: Path, name: str, scryfall_id: Optional[str]) -> bool:
+	"""Set (or clear, when `scryfall_id` is falsy) a saved deck's per-card
+	`ScryfallID` column directly in its exported CSV, in-place.
+
+	This is the on-disk counterpart to `set_card_printing()` (which mutates a
+	live `card_library` dict during a build) -- used once a deck has already
+	been exported, so a chosen printing is baked into the deck file itself
+	instead of only living in an ephemeral session. Decks exported before
+	this column existed get it appended to the header (and every row padded
+	to match) on first use. Returns True if a matching, non-summary card row
+	was found and updated, False otherwise (including if the file has no
+	rows or no `Name` column).
+	"""
+	with csv_path.open("r", encoding="utf-8", newline="") as f:
+		rows = list(csv.reader(f))
+	if not rows:
+		return False
+	header = rows[0]
+	try:
+		name_idx = header.index("Name")
+	except ValueError:
+		return False
+	if "ScryfallID" in header:
+		sid_idx = header.index("ScryfallID")
+	else:
+		sid_idx = len(header)
+		header.append("ScryfallID")
+
+	target = str(name).strip().lower()
+	found = False
+	for row in rows[1:]:
+		if not row:
+			continue
+		while len(row) <= sid_idx:
+			row.append("")
+		if row[name_idx] in ("", "Total"):
+			continue
+		if not found and str(row[name_idx]).strip().lower() == target:
+			row[sid_idx] = (scryfall_id or "").strip()
+			found = True
+
+	if not found:
+		return False
+
+	with csv_path.open("w", encoding="utf-8", newline="") as f:
+		csv.writer(f).writerows(rows)
+	return True
+
+
+def read_printing_overrides_from_csv(csv_path: Path) -> Dict[str, str]:
+	"""Return a `{name_lower: scryfall_id}` map of every non-blank `ScryfallID`
+	cell in an exported deck CSV. Used to make the CSV the authoritative
+	source for a saved deck's chosen printings when rendering, regardless of
+	whether the change was made via the web (saved-deck view) or the mobile
+	API (both of which write straight to this column) -- the sidecar
+	`.summary.json` is only a snapshot taken at export time and otherwise
+	never kept in sync with later edits.
+	"""
+	overrides: Dict[str, str] = {}
+	try:
+		with csv_path.open("r", encoding="utf-8", newline="") as f:
+			rows = list(csv.reader(f))
+	except Exception:
+		return overrides
+	if not rows:
+		return overrides
+	header = rows[0]
+	if "Name" not in header or "ScryfallID" not in header:
+		return overrides
+	name_idx = header.index("Name")
+	sid_idx = header.index("ScryfallID")
+	for row in rows[1:]:
+		if not row or len(row) <= sid_idx or len(row) <= name_idx:
+			continue
+		name = str(row[name_idx]).strip()
+		if not name or name == "Total":
+			continue
+		sid = str(row[sid_idx]).strip()
+		if sid:
+			overrides[name.lower()] = sid
+	return overrides
+	return True
 
 
 def compute_color_source_matrix(card_library: Dict[str, dict], full_df) -> Dict[str, Dict[str, int]]:

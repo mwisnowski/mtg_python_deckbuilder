@@ -23,6 +23,21 @@ Click the lock icon again to unlock. The card re-enters the pool on the next reb
 
 ---
 
+## Choose Printing
+
+Pick a specific printing (art/set) for any card, independent of locks.
+
+### How to Use
+- Click the printing icon on a card tile (available in the build review, Finished Decks, Card Browser, Owned Library, and Card Details) to open a picker of that card's known printings.
+- Selecting a printing swaps the tile's artwork and price immediately.
+
+### Behavior
+- The choice is session-scoped, like locks, and is shared across all pages: pick it once and it shows up everywhere that card appears.
+- Chosen printings round-trip through permalinks, so restoring a permalink also restores your printing choices.
+- On the Owned Library, the picker is cosmetic only and doesn't affect owned-card matching/filtering.
+
+---
+
 ## Replace
 
 Swap any card in the current deck for an alternative from the same category pool.
@@ -51,6 +66,7 @@ Permalinks encode the full build state into a shareable URL so you or anyone els
 - Bracket selection
 - Locked cards
 - Must Include / Must Exclude lists
+- Chosen printings (see [Choose Printing](#choose-printing))
 - Budget ceiling (if set)
 - Build name (if set)
 

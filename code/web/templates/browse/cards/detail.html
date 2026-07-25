@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from 'partials/_macros.html' import printing_button %}
 
 {% block title %}{{ card.name }} - Card Details{% endblock %}
 
@@ -16,8 +17,11 @@
     <div class="card-detail-grid">
 
         <!-- ── LEFT TOP: Card Image ───────────────────────────── -->
+        {% set sel_printing = (printings.get(card.name.lower(), '') if printings is defined else '') %}
+        {% set card_idx = card.name|slugify %}
         <div class="card-area-image card-image-large" style="position:relative;">
-            <img src="{{ card.name|card_image('normal') }}"
+            <img id="card-img-{{ card_idx }}"
+                 src="{{ card.name|card_image('normal', sel_printing) }}"
                  alt="{{ card.name }}"
                  loading="lazy"
                  onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
@@ -27,6 +31,10 @@
             {% if show_new_badge and card.isNew %}
             <div class="card-new-badge" title="Recently Released" aria-hidden="true">New</div>
             {% endif %}
+            <div id="price-overlay-{{ card_idx }}" class="card-price-overlay" data-price-for="{{ card.name }}" data-printing-id="{{ sel_printing }}" style="display:none" aria-hidden="true"></div>
+            <div class="card-detail-printing-row">
+              {{ printing_button(card.name, card_idx, sel_printing) }}
+            </div>
         </div>
 
         <!-- ── RIGHT TOP: Card Info ───────────────────────────── -->
@@ -151,28 +159,43 @@
 // Price loader
 (function(){
     var name = {{ card.name | tojson }};
-    fetch('/api/price/' + encodeURIComponent(name))
-        .then(function(r){ return r.ok ? r.json() : null; })
-        .then(function(d){
-            var el = document.getElementById('card-price-values');
-            if (!el) return;
-            if (!d || (d.price == null && d.ck_price == null)) {
-                el.innerHTML = '<span class="card-price-loading">No price data available.</span>';
-                return;
-            }
-            var html = '';
-            if (d.price != null) {
-                html += '<div class="card-price-row"><span class="card-price-source">TCG</span><span class="card-price-amount">$' + parseFloat(d.price).toFixed(2) + '</span></div>';
-            }
-            if (d.ck_price != null) {
-                html += '<div class="card-price-row"><span class="card-price-source">CK</span><span class="card-price-amount">$' + parseFloat(d.ck_price).toFixed(2) + '</span></div>';
-            }
-            el.innerHTML = html;
-        })
-        .catch(function(){
-            var el = document.getElementById('card-price-values');
-            if (el) el.innerHTML = '<span class="card-price-loading">Unavailable.</span>';
-        });
+    var overlayId = 'price-overlay-{{ card_idx }}';
+    function loadPrice(printingId){
+        var url = '/api/price/' + encodeURIComponent(name);
+        if (printingId) url += '?printing=' + encodeURIComponent(printingId);
+        fetch(url)
+            .then(function(r){ return r.ok ? r.json() : null; })
+            .then(function(d){
+                var el = document.getElementById('card-price-values');
+                if (!el) return;
+                if (!d || (d.price == null && d.ck_price == null)) {
+                    el.innerHTML = '<span class="card-price-loading">No price data available.</span>';
+                    return;
+                }
+                var html = '';
+                if (d.price != null) {
+                    html += '<div class="card-price-row"><span class="card-price-source">TCG</span><span class="card-price-amount">$' + parseFloat(d.price).toFixed(2) + '</span></div>';
+                }
+                if (d.ck_price != null) {
+                    html += '<div class="card-price-row"><span class="card-price-source">CK</span><span class="card-price-amount">$' + parseFloat(d.ck_price).toFixed(2) + '</span></div>';
+                }
+                el.innerHTML = html;
+            })
+            .catch(function(){
+                var el = document.getElementById('card-price-values');
+                if (el) el.innerHTML = '<span class="card-price-loading">Unavailable.</span>';
+            });
+    }
+    var overlayEl = document.getElementById(overlayId);
+    loadPrice(overlayEl ? overlayEl.dataset.printingId : '');
+    // The printing picker's OOB response updates #price-overlay-{idx}'s
+    // data-printing-id when a different printing is chosen; refresh this
+    // page's price panel to match instead of the generic overlay markup.
+    document.body.addEventListener('htmx:afterSwap', function(ev){
+        if (ev.target && ev.target.id === overlayId) {
+            loadPrice(ev.target.dataset.printingId || '');
+        }
+    });
 })();
 
 // Mana symbol renderer

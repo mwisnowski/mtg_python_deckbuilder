@@ -1,4 +1,7 @@
 {# Single card tile for grid display #}
+{% from 'partials/_macros.html' import printing_button %}
+{% set sel_printing = (printings.get(card.name.lower(), '') if printings is defined else '') %}
+{% set card_idx = card.name|slugify %}
 <div class="card-browser-tile card-tile" 
      data-card-name="{{ card.name }}" 
      data-tags="{{ card.themeTags_parsed|join(', ') if card.themeTags_parsed else '' }}"
@@ -6,10 +9,11 @@
   {# Card image (uses hover system for preview) #}
   <div class="card-browser-tile-image">
     <img 
+      id="card-img-{{ card_idx }}"
       loading="lazy" 
       decoding="async" 
       alt="{{ card.name }}" 
-      src="{{ card.name|card_image('normal') }}"
+      src="{{ card.name|card_image('normal', sel_printing) }}"
       onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
       data-card-name="{{ card.name }}"
       {% if card.layout %}data-layout="{{ card.layout }}"{% endif %}
@@ -20,7 +24,7 @@
     </div>
     
     {# Price overlay #}
-    <div class="card-price-overlay" data-price-for="{{ card.name }}" aria-hidden="true"></div>
+    <div class="card-price-overlay" id="price-overlay-{{ card_idx }}" data-price-for="{{ card.name }}" data-printing-id="{{ sel_printing }}" aria-hidden="true"></div>
 
     {# Reprint badge — lower-right; shifts up when New badge is also present #}
     {% if card.isReprint %}
@@ -79,6 +83,11 @@
       </svg>
     </a>
     {% endif %}
+
+    {# Printing picker #}
+    <div class="card-tile-printing-row" onclick="event.stopPropagation()">
+      {{ printing_button(card.name, card_idx, sel_printing) }}
+    </div>
 
     {# Theme tags (show all tags, not truncated) #}
     {% if card.themeTags_parsed and card.themeTags_parsed|length > 0 %}

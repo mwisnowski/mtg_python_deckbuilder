@@ -16,6 +16,7 @@ import pandas as pd
 from fastapi import APIRouter, Request, Query
 from fastapi.responses import HTMLResponse
 from ..app import templates
+from ..services.tasks import get_session, new_sid
 
 # Import existing services
 try:
@@ -47,6 +48,19 @@ def get_loader() -> AllCardsLoader:
     if _loader is None:
         _loader = AllCardsLoader()
     return _loader
+
+
+def _printings_context(request: Request) -> tuple[dict[str, str], str, bool]:
+    """Return (selected-printings dict, sid, had_cookie) for the printing picker.
+
+    Session-scoped and shared with the build wizard's `sess["printings"]`
+    (see `code/web/routes/build_permalinks.py`); the card browser only reads
+    it here, callers must set the `sid` cookie on the response if `had_cookie`
+    is False so a picker selection persists.
+    """
+    had_cookie = bool(request.cookies.get("sid"))
+    sid = request.cookies.get("sid") or new_sid()
+    return dict(get_session(sid).get("printings") or {}), sid, had_cookie
 
 
 def get_similarity() -> "CardSimilarity":
@@ -516,7 +530,8 @@ async def card_browser_index(
         has_next = total_cards > per_page
         last_card_name = cards_list[-1]['name'] if cards_list else ""
         
-        return templates.TemplateResponse(
+        printings, sid, had_cookie = _printings_context(request)
+        resp = templates.TemplateResponse(
             "browse/cards/index.html",
             {
                 "request": request,
@@ -546,8 +561,15 @@ async def card_browser_index(
                 "current_page": current_page,
                 "total_pages": total_pages,
                 "enable_card_details": ENABLE_CARD_DETAILS,
+                "printings": printings,
             },
         )
+        if not had_cookie:
+            try:
+                resp.set_cookie("sid", sid, max_age=60 * 60 * 8, httponly=True, samesite="lax")
+            except Exception:
+                pass
+        return resp
     
     except FileNotFoundError as e:
         logger.error(f"Card data not found: {e}")
@@ -874,7 +896,8 @@ async def card_browser_grid(
         has_next = len(filtered_df) > per_page
         last_card_name = cards_list[-1]['name'] if cards_list else ""
         
-        return templates.TemplateResponse(
+        printings, sid, had_cookie = _printings_context(request)
+        resp = templates.TemplateResponse(
             "browse/cards/_card_grid.html",
             {
                 "request": request,
@@ -896,8 +919,15 @@ async def card_browser_grid(
                 "is_new": is_new,
                 "set_code": set_code,
                 "enable_card_details": ENABLE_CARD_DETAILS,
+                "printings": printings,
             },
         )
+        if not had_cookie:
+            try:
+                resp.set_cookie("sid", sid, max_age=60 * 60 * 8, httponly=True, samesite="lax")
+            except Exception:
+                pass
+        return resp
     
     except Exception as e:
         logger.error(f"Error loading card grid: {e}", exc_info=True)
@@ -1386,7 +1416,8 @@ async def card_detail(request: Request, card_name: str, ref: str = Query("", des
         back_url  = "/owned" if _ref == "owned" else "/cards"
         back_text = "Back to Owned Library" if _ref == "owned" else "Back to Card Browser"
 
-        return templates.TemplateResponse(
+        printings, sid, had_cookie = _printings_context(request)
+        resp = templates.TemplateResponse(
             "browse/cards/detail.html",
             {
                 "request": request,
@@ -1398,8 +1429,15 @@ async def card_detail(request: Request, card_name: str, ref: str = Query("", des
                 "gatherer_url": gatherer_url,
                 "back_url": back_url,
                 "back_text": back_text,
+                "printings": printings,
             }
         )
+        if not had_cookie:
+            try:
+                resp.set_cookie("sid", sid, max_age=60 * 60 * 8, httponly=True, samesite="lax")
+            except Exception:
+                pass
+        return resp
         
     except Exception as e:
         logger.error(f"Error loading card detail for '{card_name}': {e}", exc_info=True)

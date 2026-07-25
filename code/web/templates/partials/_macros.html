@@ -26,6 +26,24 @@
   </button>
 {%- endmacro %}
 
+{% macro printing_button(name, idx, has_selection=False, compact=False, deck=None) -%}
+  {# Opens the printing picker panel for this card tile. `compact=True` renders
+     an icon-only round button for tight spaces (e.g. the Finished Decks
+     stacked thumbnail view) instead of the full "Choose Printing" label.
+     `deck`, when provided (only on the saved-deck view, for its owner),
+     identifies which on-disk deck CSV a selection should be persisted to;
+     it's forwarded into the picker panel's own hx-vals so its per-printing
+     buttons know to POST to /decks/printing instead of the build wizard's
+     session-scoped /build/printing. #}
+  <button type="button" class="btn btn-printing{% if compact %} btn-printing-compact{% endif %}"
+          title="{{ 'Change printing (using an alternate art/set)' if has_selection else 'Choose a specific printing (art/set)' }}"
+          aria-expanded="false" aria-label="{{ 'Change printing' if has_selection else 'Choose printing' }}" data-has-selection="{{ '1' if has_selection else '0' }}"
+          hx-get="/build/printing-picker" hx-target="#printing-modal-root" hx-swap="innerHTML"
+          hx-vals='{"name": "{{ name }}", "idx": "{{ idx }}"{% if deck %}, "deck": "{{ deck }}"{% endif %}}'>
+    {% if compact %}&#128444;{% else %}{{ 'Choose Printing*' if has_selection else 'Choose Printing' }}{% endif %}
+  </button>
+{%- endmacro %}
+
 {% macro color_identity(colors, is_colorless=False, aria_label='', title_text='') -%}
   <div class="color-identity" role="img"
        aria-label="{{ aria_label }}"

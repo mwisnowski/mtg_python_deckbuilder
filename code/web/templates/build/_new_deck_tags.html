@@ -1,5 +1,7 @@
-{% from 'partials/_macros.html' import color_identity %}
+{% from 'partials/_macros.html' import color_identity, printing_button, foil_toggle_button %}
 {% set pname = commander.name %}
+{% set sel_printing = (printings.get(pname.lower(), '') if printings is defined else '') %}
+{% set is_foil_commander = (foils.get(pname.lower(), False) if foils is defined else False) %}
 {% set partner_preview_payload = partner_preview if partner_preview else None %}
 {% set preview_colors = partner_preview_payload.color_identity if partner_preview_payload else [] %}
 {% if preview_colors is none %}
@@ -13,27 +15,41 @@
   {% set preview_label = 'Colorless (C)' %}
 {% endif %}
 <div id="newdeck-commander-slot" hx-swap-oob="true" style="max-width:230px;">
-  <aside class="card-preview" data-card-name="{{ pname }}" style="max-width: 230px;">
+  <aside class="card-preview foil-shine-target{% if is_foil_commander %} card-foil-shine{% endif %}" data-card-name="{{ pname }}" style="max-width: 230px; position:relative;">
     <a href="https://scryfall.com/search?q={{ pname|urlencode }}" target="_blank" rel="noopener">
-      <img src="{{ pname|card_image('normal') }}" alt="{{ pname }} card image" data-card-name="{{ pname }}" style="width:200px; height:auto; display:block; border-radius:6px;" />
+      <img id="card-img-modal-commander" src="{{ pname|card_image('normal', sel_printing) }}" alt="{{ pname }} card image" data-card-name="{{ pname }}" data-printing-id="{{ sel_printing }}" style="width:200px; height:auto; display:block; border-radius:6px;" />
     </a>
+    <div id="price-overlay-modal-commander" class="card-price-overlay" data-price-for="{{ pname }}" data-printing-id="{{ sel_printing }}" data-foil="{{ '1' if is_foil_commander else '0' }}" aria-hidden="true"></div>
+    <div class="commander-printing-btn" style="position:absolute; bottom:4px; right:4px; z-index:3;">
+      {{ printing_button(pname, 'modal-commander', sel_printing, compact=True) }}
+      {{ foil_toggle_button(pname, 'modal-commander', is_foil_commander, compact=True) }}
+    </div>
   </aside>
   <div class="muted" style="font-size:12px; margin-top:.25rem; max-width: 230px; word-wrap:break-word; overflow-wrap:break-word;">{{ pname }}</div>
   {% if partner_preview_payload %}
   {% set partner_secondary_name = partner_preview_payload.secondary_name %}
+  {% set sel_partner_printing = (printings.get(partner_secondary_name.lower(), '') if (printings is defined and partner_secondary_name) else '') %}
+  {% set is_foil_partner = (foils.get(partner_secondary_name.lower(), False) if (foils is defined and partner_secondary_name) else False) %}
   {% set partner_image_url = partner_preview_payload.secondary_image_url or partner_preview_payload.image_url %}
   {% if not partner_image_url and partner_secondary_name %}
-    {% set partner_image_url = partner_secondary_name|card_image('normal') %}
+    {% set partner_image_url = partner_secondary_name|card_image('normal', sel_partner_printing) %}
   {% endif %}
   {% set partner_href = partner_preview_payload.secondary_scryfall_url or partner_preview_payload.scryfall_url %}
   {% if not partner_href and partner_secondary_name %}
     {% set partner_href = 'https://scryfall.com/search?q=' ~ partner_secondary_name|urlencode %}
   {% endif %}
   {% if partner_image_url %}
-  <aside class="card-preview partner-card-preview" style="max-width: 230px; margin-top:.75rem;">
+  <aside class="card-preview partner-card-preview foil-shine-target{% if is_foil_partner %} card-foil-shine{% endif %}" style="max-width: 230px; margin-top:.75rem; position:relative;">
     {% if partner_href %}<a href="{{ partner_href }}" target="_blank" rel="noopener">{% endif %}
-    <img src="{{ partner_image_url }}" alt="{{ (partner_secondary_name or 'Selected card') ~ ' card image' }}" data-card-name="{{ partner_secondary_name or '' }}" style="width:200px; height:auto; display:block; border-radius:6px;" loading="lazy" decoding="async" />
+    <img id="card-img-modal-partner" src="{{ partner_image_url }}" alt="{{ (partner_secondary_name or 'Selected card') ~ ' card image' }}" data-card-name="{{ partner_secondary_name or '' }}" data-printing-id="{{ sel_partner_printing }}" style="width:200px; height:auto; display:block; border-radius:6px;" loading="lazy" decoding="async" />
     {% if partner_href %}</a>{% endif %}
+    {% if partner_secondary_name %}
+    <div id="price-overlay-modal-partner" class="card-price-overlay" data-price-for="{{ partner_secondary_name }}" data-printing-id="{{ sel_partner_printing }}" data-foil="{{ '1' if is_foil_partner else '0' }}" aria-hidden="true"></div>
+    <div class="commander-printing-btn" style="position:absolute; bottom:4px; right:4px; z-index:3;">
+      {{ printing_button(partner_secondary_name, 'modal-partner', sel_partner_printing, compact=True) }}
+      {{ foil_toggle_button(partner_secondary_name, 'modal-partner', is_foil_partner, compact=True) }}
+    </div>
+    {% endif %}
   </aside>
   {% endif %}
   {% if partner_secondary_name %}

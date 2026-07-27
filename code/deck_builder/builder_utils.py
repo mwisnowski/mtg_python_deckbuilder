@@ -518,7 +518,108 @@ def read_printing_overrides_from_csv(csv_path: Path) -> Dict[str, str]:
 		if sid:
 			overrides[name.lower()] = sid
 	return overrides
+
+
+def set_card_foil(card_library: Dict[str, dict], name: str, foil: bool) -> bool:
+	"""Set (or clear) a card's "use the foil printing" preference directly on
+	its `card_library` entry, mirroring `set_card_printing()` -- baked into
+	the deck itself at export time (see `export_decklist_csv`'s "Foil"
+	column) rather than living only in an ephemeral session/build override.
+
+	Matches `name` case-insensitively against `card_library` keys. Returns
+	True if a matching entry was found and updated, False otherwise. Absence
+	of the `Foil` key (or a falsy value) means "use the nonfoil price/art",
+	which preserves current behavior for every existing deck/test.
+	"""
+	key = str(name).strip().lower()
+	entry_key = None
+	if name in card_library:
+		entry_key = name
+	else:
+		for k in card_library.keys():
+			if str(k).strip().lower() == key:
+				entry_key = k
+				break
+	if entry_key is None:
+		return False
+	if foil:
+		card_library[entry_key]["Foil"] = True
+	else:
+		card_library[entry_key].pop("Foil", None)
 	return True
+
+
+def set_card_foil_csv(csv_path: Path, name: str, foil: bool) -> bool:
+	"""Set (or clear) a saved deck's per-card `Foil` column directly in its
+	exported CSV, in-place -- the on-disk counterpart to `set_card_foil()`.
+	Mirrors `set_card_printing_csv()`. Decks exported before this column
+	existed get it appended to the header (and every row padded to match) on
+	first use. Returns True if a matching, non-summary card row was found
+	and updated, False otherwise.
+	"""
+	with csv_path.open("r", encoding="utf-8", newline="") as f:
+		rows = list(csv.reader(f))
+	if not rows:
+		return False
+	header = rows[0]
+	try:
+		name_idx = header.index("Name")
+	except ValueError:
+		return False
+	if "Foil" in header:
+		foil_idx = header.index("Foil")
+	else:
+		foil_idx = len(header)
+		header.append("Foil")
+
+	target = str(name).strip().lower()
+	found = False
+	for row in rows[1:]:
+		if not row:
+			continue
+		while len(row) <= foil_idx:
+			row.append("")
+		if row[name_idx] in ("", "Total"):
+			continue
+		if not found and str(row[name_idx]).strip().lower() == target:
+			row[foil_idx] = "True" if foil else ""
+			found = True
+
+	if not found:
+		return False
+
+	with csv_path.open("w", encoding="utf-8", newline="") as f:
+		csv.writer(f).writerows(rows)
+	return True
+
+
+def read_foil_overrides_from_csv(csv_path: Path) -> Dict[str, bool]:
+	"""Return a `{name_lower: True}` map of every card marked foil in an
+	exported deck CSV. Mirrors `read_printing_overrides_from_csv()`; only
+	`True` entries are included (a card absent from the map is nonfoil).
+	"""
+	overrides: Dict[str, bool] = {}
+	try:
+		with csv_path.open("r", encoding="utf-8", newline="") as f:
+			rows = list(csv.reader(f))
+	except Exception:
+		return overrides
+	if not rows:
+		return overrides
+	header = rows[0]
+	if "Name" not in header or "Foil" not in header:
+		return overrides
+	name_idx = header.index("Name")
+	foil_idx = header.index("Foil")
+	for row in rows[1:]:
+		if not row or len(row) <= foil_idx or len(row) <= name_idx:
+			continue
+		name = str(row[name_idx]).strip()
+		if not name or name == "Total":
+			continue
+		if str(row[foil_idx]).strip().lower() in ("true", "1", "y", "yes"):
+			overrides[name.lower()] = True
+	return overrides
 
 
 def compute_color_source_matrix(card_library: Dict[str, dict], full_df) -> Dict[str, Dict[str, int]]:

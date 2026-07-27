@@ -22,11 +22,15 @@ from ..services.tasks import get_session, new_sid
 try:
     from code.services.all_cards_loader import AllCardsLoader
     from code.deck_builder.builder_utils import parse_theme_tags
+    from code.deck_builder.color_identity_utils import canon_color_code, color_identity_badges, color_label_from_code
     from code.settings import ENABLE_CARD_DETAILS
+    from code.web.routes.api_v1.cards import _get_card_faces
 except ImportError:
     from services.all_cards_loader import AllCardsLoader
     from deck_builder.builder_utils import parse_theme_tags
+    from deck_builder.color_identity_utils import canon_color_code, color_identity_badges, color_label_from_code
     from settings import ENABLE_CARD_DETAILS
+    from web.routes.api_v1.cards import _get_card_faces
 
 if TYPE_CHECKING:
     from code.web.services.card_similarity import CardSimilarity
@@ -50,6 +54,113 @@ def get_loader() -> AllCardsLoader:
     return _loader
 
 
+def _color_code_for_filter(raw: object) -> str:
+    """Order-independent color-identity comparison key for the `color`
+    filter param.
+
+    Tolerant of the raw data's exact stored string format (e.g. "G, U" for
+    Simic, "['W', 'U']", or a bare "W") as well as simpler codes the UI can
+    link to directly (e.g. "WUG"), so filtering doesn't depend on matching
+    a specific color ordering. The literal word "Colorless" (and NaN/empty)
+    map to "C"; `canon_color_code` can't be used directly on that word since
+    it would misread stray "C"/"R" letters out of "COLORLESS".
+    """
+    if raw is None:
+        return ""
+    text = str(raw).strip()
+    if not text or text.lower() == "colorless":
+        return "C"
+    return canon_color_code(text)
+
+
+_COLOR_BITS = {"W": 1, "U": 2, "B": 4, "R": 8, "G": 16}
+
+
+def _mask_from_code(code: str) -> int:
+    """Bitmask (WUBRG) for a canonical color code string; "C"/empty -> 0."""
+    if not code or code == "C":
+        return 0
+    return sum(_COLOR_BITS.get(ch, 0) for ch in code)
+
+
+def _ensure_color_code_column(df: "pd.DataFrame") -> None:
+    """Add cached `_color_code` (order-independent WUBRG code) and
+    `_color_mask` (WUBRG bitmask, for inclusive/subset filtering) columns
+    to the shared cards DataFrame, computed once and reused across requests
+    so the `color` filter's comparison doesn't re-parse 26k+ rows every time.
+    """
+    if "_color_code" not in df.columns:
+        df["_color_code"] = df["colorIdentity"].apply(_color_code_for_filter)
+    if "_color_mask" not in df.columns:
+        df["_color_mask"] = df["_color_code"].apply(_mask_from_code)
+
+
+def _apply_color_filter(filtered_df: "pd.DataFrame", color: str, color_mode: str) -> "pd.DataFrame":
+    """Apply the `color` filter, either as an exact color-identity match
+    (default) or an inclusive/subset match ("contains at least these
+    colors", e.g. searching "WU" also matches Bant/Esper/Jeskai/etc.).
+    Colorless always uses exact matching in either mode since "inclusive
+    of no colors" would trivially match everything.
+    """
+    target_code = _color_code_for_filter(color)
+    if color_mode == "inclusive" and target_code != "C":
+        target_mask = _mask_from_code(target_code)
+        return filtered_df[(filtered_df["_color_mask"] & target_mask) == target_mask]
+    return filtered_df[filtered_df["_color_code"] == target_code]
+
+
+_WUBRG_SORT_INDEX = {"W": 0, "U": 1, "B": 2, "R": 3, "G": 4}
+
+
+def _dropdown_color_label(code: str) -> str:
+    """Short display label for a canonical color code in the `color`
+    filter dropdown: bare letter(s) for colorless/mono, guild/shard/wedge/
+    nephilim name (without the "(CODE)" suffix) for 2+ colors.
+    """
+    if code == "C" or len(code) == 1:
+        return code
+    label = color_label_from_code(code)
+    suffix = f" ({code})"
+    if label.endswith(suffix):
+        return label[: -len(suffix)]
+    return label
+
+
+def _build_color_dropdown_groups(df: "pd.DataFrame") -> list[tuple[str, list[tuple[str, str]]]]:
+    """Build the `color` filter dropdown's grouped options directly from
+    the canonical WUBRG codes actually present in the data, so every
+    combination present shows up (previously a hardcoded list of literal
+    raw-string tuples silently dropped any combo whose stored letter order
+    didn't match, e.g. only 5 of the 10 two-color guilds ever appeared).
+    Each option's value is the same canonical WUBRG code used everywhere
+    else (badges, mana-dot links), so the current `color` filter is always
+    correctly pre-selected regardless of how it was set (dropdown, badge
+    click, or a hand-typed/bookmarked URL).
+    """
+    present = sorted(
+        {c for c in df["_color_code"].dropna().unique().tolist() if c},
+        key=lambda c: tuple(_WUBRG_SORT_INDEX.get(ch, 9) for ch in c),
+    )
+    groups: dict[str, list[tuple[str, str]]] = {
+        "Colorless": [], "Mono-Color": [], "Two-Color": [],
+        "Three-Color": [], "Four-Color": [], "Five-Color": [],
+    }
+    for code in present:
+        if code == "C":
+            groups["Colorless"].append((code, _dropdown_color_label(code)))
+        elif len(code) == 1:
+            groups["Mono-Color"].append((code, _dropdown_color_label(code)))
+        elif len(code) == 2:
+            groups["Two-Color"].append((code, _dropdown_color_label(code)))
+        elif len(code) == 3:
+            groups["Three-Color"].append((code, _dropdown_color_label(code)))
+        elif len(code) == 4:
+            groups["Four-Color"].append((code, _dropdown_color_label(code)))
+        elif code == "WUBRG":
+            groups["Five-Color"].append((code, _dropdown_color_label(code)))
+    return [(name, opts) for name, opts in groups.items() if opts]
+
+
 def _printings_context(request: Request) -> tuple[dict[str, str], str, bool]:
     """Return (selected-printings dict, sid, had_cookie) for the printing picker.
 
@@ -61,6 +172,18 @@ def _printings_context(request: Request) -> tuple[dict[str, str], str, bool]:
     had_cookie = bool(request.cookies.get("sid"))
     sid = request.cookies.get("sid") or new_sid()
     return dict(get_session(sid).get("printings") or {}), sid, had_cookie
+
+
+def _foils_context(request: Request, sid: str | None = None) -> dict[str, bool]:
+    """Return the selected-foils dict for the foil toggle button.
+
+    Session-scoped and shared with the build wizard's `sess["foils"]`
+    (see `code/web/routes/build_permalinks.py`); mirrors `_printings_context`.
+    Pass the `sid` already resolved by `_printings_context` to avoid
+    generating a second, unused session id on a cookie-less first request.
+    """
+    sid = sid or request.cookies.get("sid") or new_sid()
+    return dict(get_session(sid).get("foils") or {})
 
 
 def get_similarity() -> "CardSimilarity":
@@ -182,6 +305,7 @@ async def card_browser_index(
     search: str = Query("", description="Card name search query"),
     themes: list[str] = Query([], description="Theme tag filters (AND logic)"),
     color: str = Query("", description="Color identity filter"),
+    color_mode: str = Query("exact", description="Color filter mode: 'exact' or 'inclusive' (contains at least these colors)"),
     card_type: str = Query("", description="Card type filter"),
     rarity: str = Query("", description="Rarity filter"),
     sort: str = Query("name_asc", description="Sort order"),
@@ -203,6 +327,8 @@ async def card_browser_index(
     try:
         loader = get_loader()
         df = loader.load()
+        _ensure_color_code_column(df)
+        color = _color_code_for_filter(color) if color else ""
         
         # Apply filters
         filtered_df = df.copy()
@@ -310,9 +436,7 @@ async def card_browser_index(
                     filtered_df = filtered_df.iloc[0:0]
 
         if color:
-            filtered_df = filtered_df[
-                filtered_df['colorIdentity'] == color
-            ]
+            filtered_df = _apply_color_filter(filtered_df, color, color_mode)
         
         if card_type:
             filtered_df = filtered_df[
@@ -449,66 +573,17 @@ async def card_browser_index(
             elif not raw_color:
                 card['colorIdentity'] = []
             card['is_colorless'] = is_colorless
+            card['color_badges'] = color_identity_badges(card['colorIdentity'])
             # TODO: Add owned card checking when integrated
             card['is_owned'] = False
         
         # Get unique values for filters
-        # Build structured color identity list with proper names
-        unique_color_ids = df['colorIdentity'].dropna().unique().tolist()
-        
-        # Define color identity groups with proper names
-        color_groups = {
-            'Colorless': ['Colorless'],
-            'Mono-Color': ['W', 'U', 'B', 'R', 'G'],
-            'Two-Color': [
-                ('W, U', 'Azorius'),
-                ('U, B', 'Dimir'),
-                ('B, R', 'Rakdos'),
-                ('R, G', 'Gruul'),
-                ('G, W', 'Selesnya'),
-                ('W, B', 'Orzhov'),
-                ('U, R', 'Izzet'),
-                ('B, G', 'Golgari'),
-                ('R, W', 'Boros'),
-                ('G, U', 'Simic'),
-            ],
-            'Three-Color': [
-                ('B, G, U', 'Sultai'),
-                ('G, U, W', 'Bant'),
-                ('B, U, W', 'Esper'),
-                ('B, R, U', 'Grixis'),
-                ('B, G, R', 'Jund'),
-                ('G, R, W', 'Naya'),
-                ('B, G, W', 'Abzan'),
-                ('R, U, W', 'Jeskai'),
-                ('B, R, W', 'Mardu'),
-                ('G, R, U', 'Temur'),
-            ],
-            'Four-Color': [
-                ('B, G, R, U', 'Non-White'),
-                ('B, G, R, W', 'Non-Blue'),
-                ('B, G, U, W', 'Non-Red'),
-                ('B, R, U, W', 'Non-Green'),
-                ('G, R, U, W', 'Non-Black'),
-            ],
-            'Five-Color': ['B, G, R, U, W'],
-        }
-        
-        # Flatten and filter to only include combinations present in data
-        all_colors = []
-        for group_name, entries in color_groups.items():
-            group_colors = []
-            for entry in entries:
-                if isinstance(entry, tuple):
-                    color_id, display_name = entry
-                    if color_id in unique_color_ids:
-                        group_colors.append((color_id, display_name))
-                else:
-                    color_id = entry
-                    if color_id in unique_color_ids:
-                        group_colors.append((color_id, color_id))
-            if group_colors:
-                all_colors.append((group_name, group_colors))
+        # Build structured color identity dropdown groups (guild/shard/wedge/
+        # nephilim names) directly from the canonical WUBRG codes present in
+        # the data, keyed by the same codes used everywhere else in the UI
+        # (badges, mana-dot links) so the current filter is always correctly
+        # pre-selected.
+        all_colors = _build_color_dropdown_groups(df)
         
         all_types = sorted(
             set(
@@ -531,6 +606,7 @@ async def card_browser_index(
         last_card_name = cards_list[-1]['name'] if cards_list else ""
         
         printings, sid, had_cookie = _printings_context(request)
+        foils = _foils_context(request, sid)
         resp = templates.TemplateResponse(
             "browse/cards/index.html",
             {
@@ -543,6 +619,7 @@ async def card_browser_index(
                 "search": search,
                 "themes": themes,
                 "color": color,
+                "color_mode": color_mode,
                 "card_type": card_type,
                 "rarity": rarity,
                 "sort": sort,
@@ -562,6 +639,7 @@ async def card_browser_index(
                 "total_pages": total_pages,
                 "enable_card_details": ENABLE_CARD_DETAILS,
                 "printings": printings,
+                "foils": foils,
             },
         )
         if not had_cookie:
@@ -624,6 +702,7 @@ async def card_browser_grid(
     search: str = Query("", description="Card name search query"),
     themes: list[str] = Query([], description="Theme tag filters (AND logic)"),
     color: str = Query("", description="Color identity filter"),
+    color_mode: str = Query("exact", description="Color filter mode: 'exact' or 'inclusive' (contains at least these colors)"),
     card_type: str = Query("", description="Card type filter"),
     rarity: str = Query("", description="Rarity filter"),
     sort: str = Query("name_asc", description="Sort order"),
@@ -645,6 +724,8 @@ async def card_browser_grid(
     try:
         loader = get_loader()
         df = loader.load()
+        _ensure_color_code_column(df)
+        color = _color_code_for_filter(color) if color else ""
         
         # Apply filters
         filtered_df = df.copy()
@@ -752,9 +833,7 @@ async def card_browser_grid(
                     filtered_df = filtered_df.iloc[0:0]
         
         if color:
-            filtered_df = filtered_df[
-                filtered_df['colorIdentity'] == color
-            ]
+            filtered_df = _apply_color_filter(filtered_df, color, color_mode)
         
         if card_type:
             filtered_df = filtered_df[
@@ -891,12 +970,14 @@ async def card_browser_grid(
             elif not raw_color:
                 card['colorIdentity'] = []
             card['is_colorless'] = is_colorless
+            card['color_badges'] = color_identity_badges(card['colorIdentity'])
             card['is_owned'] = False  # TODO: Add owned card checking
         
         has_next = len(filtered_df) > per_page
         last_card_name = cards_list[-1]['name'] if cards_list else ""
         
         printings, sid, had_cookie = _printings_context(request)
+        foils = _foils_context(request, sid)
         resp = templates.TemplateResponse(
             "browse/cards/_card_grid.html",
             {
@@ -907,6 +988,7 @@ async def card_browser_grid(
                 "search": search,
                 "themes": themes,
                 "color": color,
+                "color_mode": color_mode,
                 "card_type": card_type,
                 "rarity": rarity,
                 "sort": sort,
@@ -920,6 +1002,7 @@ async def card_browser_grid(
                 "set_code": set_code,
                 "enable_card_details": ENABLE_CARD_DETAILS,
                 "printings": printings,
+                "foils": foils,
             },
         )
         if not had_cookie:
@@ -1417,11 +1500,24 @@ async def card_detail(request: Request, card_name: str, ref: str = Query("", des
         back_text = "Back to Owned Library" if _ref == "owned" else "Back to Card Browser"
 
         printings, sid, had_cookie = _printings_context(request)
+        foils = _foils_context(request, sid)
+
+        # Per-face details (type/text/mana value/power/toughness) for the
+        # "Transform" flip button on double-faced/split/flip/meld cards --
+        # the tagged dataset collapses multi-face cards to a single
+        # primary-face row, so the back face's text/stats have to be
+        # recovered from the raw MTGJSON data (see _get_card_faces()).
+        try:
+            faces = _get_card_faces(card_name)
+        except Exception:
+            faces = []
+
         resp = templates.TemplateResponse(
             "browse/cards/detail.html",
             {
                 "request": request,
                 "card": card,
+                "faces": faces,
                 "similar_cards": similar_cards,
                 "main_card_tags": main_card_tags,
                 "rulings": rulings,
@@ -1430,6 +1526,7 @@ async def card_detail(request: Request, card_name: str, ref: str = Query("", des
                 "back_url": back_url,
                 "back_text": back_text,
                 "printings": printings,
+                "foils": foils,
             }
         )
         if not had_cookie:

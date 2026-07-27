@@ -482,20 +482,27 @@
     window._priceNum = _priceNum;  // expose for cardHover.js
     var _deckPrices = {}; // accumulated across build stages: card name -> float
     var _buildToken = null;
-    function _fetchNum(name, printingId) {
-      var key = printingId ? (name + '::' + printingId) : name;
+    function _priceKey(name, printingId, foil) {
+      return name + '::' + (printingId || '') + '::' + (foil ? '1' : '0');
+    }
+    function _fetchNum(name, printingId, foil) {
+      var key = _priceKey(name, printingId, foil);
       if (_priceNum.hasOwnProperty(key)) return Promise.resolve(_priceNum[key]);
       var url = '/api/price/' + encodeURIComponent(name);
-      if (printingId) url += '?printing=' + encodeURIComponent(printingId);
+      var params = [];
+      if (printingId) params.push('printing=' + encodeURIComponent(printingId));
+      if (foil) params.push('foil=1');
+      if (params.length) url += '?' + params.join('&');
       return fetch(url)
         .then(function(r){ return r.ok ? r.json() : null; })
         .then(function(d){
           var obj = {
             tcg: (d && d.found && d.price != null) ? parseFloat(d.price) : null,
             ck: (d && d.ck_price != null) ? parseFloat(d.ck_price) : null,
+            foil: !!(d && d.foil),
           };
           _priceNum[key] = obj; return obj;
-        }).catch(function(){ var obj = {tcg:null,ck:null}; _priceNum[key] = obj; return obj; });
+        }).catch(function(){ var obj = {tcg:null,ck:null,foil:false}; _priceNum[key] = obj; return obj; });
     }
     function _getBuildToken() {
       var el = document.querySelector('[data-build-id]');
@@ -528,13 +535,28 @@
 
       var overlays = document.querySelectorAll('.card-price-overlay[data-price-for]');
       var inlines = document.querySelectorAll('.card-price-inline[data-price-for]');
-      var toFetch = new Map(); // fetchKey -> {name, printingId}
+      // Foil shimmer: mirrors each foil-toggle button's own `data-is-foil`
+      // state onto the nearest `.foil-shine-target`-marked image wrapper
+      // (opted into explicitly per-template, since a shine host must wrap
+      // ONLY the card image -- never anything else -- to avoid the effect
+      // bleeding onto sibling buttons/text) via `.card-foil-shine`. Driven
+      // by the button rather than the price overlay so this also covers
+      // spots with no price display at all (e.g. the owned library). The
+      // card detail page's image wrapper toggles this class itself (needs
+      // extra has-foil-printing gating this generic pass doesn't do), so
+      // it deliberately isn't marked `.foil-shine-target`.
+      document.querySelectorAll('.btn-foil-toggle[data-is-foil]').forEach(function(btn){
+        var shineHost = btn.closest('.foil-shine-target');
+        if (shineHost) shineHost.classList.toggle('card-foil-shine', btn.dataset.isFoil === '1');
+      });
+      var toFetch = new Map(); // fetchKey -> {name, printingId, foil}
       function _queue(el){
         var n = el.dataset.priceFor;
         if (!n || BASIC_LANDS.has(n)) return;
         var pid = el.dataset.printingId || '';
-        var fetchKey = pid ? (n + '::' + pid) : n;
-        toFetch.set(fetchKey, {name: n, printingId: pid});
+        var foil = el.dataset.foil === '1';
+        var fetchKey = _priceKey(n, pid, foil);
+        toFetch.set(fetchKey, {name: n, printingId: pid, foil: foil});
       }
       overlays.forEach(_queue);
       inlines.forEach(_queue);
@@ -545,7 +567,7 @@
 
       var prevTotal = Object.values(_deckPrices).reduce(function(s,p){ return s + (p||0); }, 0);
       var promises = [];
-      toFetch.forEach(function(entry, fetchKey){ promises.push(_fetchNum(entry.name, entry.printingId).then(function(obj){ return {fetchKey:fetchKey,name:entry.name,price:obj}; })); });
+      toFetch.forEach(function(entry, fetchKey){ promises.push(_fetchNum(entry.name, entry.printingId, entry.foil).then(function(obj){ return {fetchKey:fetchKey,name:entry.name,price:obj}; })); });
       Promise.all(promises).then(function(results){
         var map = {};
         var prevTotal2 = Object.values(_deckPrices).reduce(function(s,p){ return s + (p||0); }, 0);
@@ -554,12 +576,13 @@
           var name = el.dataset.priceFor;
           if (!name || BASIC_LANDS.has(name)) { el.style.display='none'; return; }
           var pid = el.dataset.printingId || '';
-          var obj = map[pid ? (name + '::' + pid) : name];
+          var obj = map[_priceKey(name, pid, el.dataset.foil === '1')];
           var tcg = obj ? obj.tcg : null;
           var ck = obj ? obj.ck : null;
+          var foilTag = (obj && obj.foil) ? ' <span class="price-foil-tag" title="Foil price">&#10024;</span>' : '';
           if (tcg !== null || ck !== null) {
             var parts = [];
-            if (tcg !== null) parts.push('<span class="price-src-label">TCG</span> $' + tcg.toFixed(2));
+            if (tcg !== null) parts.push('<span class="price-src-label">TCG</span> $' + tcg.toFixed(2) + foilTag);
             if (ck !== null) parts.push('<span class="price-src-label">CK</span> $' + ck.toFixed(2));
             el.innerHTML = parts.join('<br>');
           } else { el.innerHTML = ''; }
@@ -572,12 +595,13 @@
           var name = el.dataset.priceFor;
           if (!name || BASIC_LANDS.has(name)) { el.style.display='none'; return; }
           var pid = el.dataset.printingId || '';
-          var obj = map[pid ? (name + '::' + pid) : name];
+          var obj = map[_priceKey(name, pid, el.dataset.foil === '1')];
           var tcg = obj ? obj.tcg : null;
           var ck = obj ? obj.ck : null;
+          var foilTag = (obj && obj.foil) ? ' <span class="price-foil-tag" title="Foil price">&#10024;</span>' : '';
           if (tcg !== null || ck !== null) {
             var parts = [];
-            if (tcg !== null) parts.push('<span class="price-src-label">TCG</span> $' + tcg.toFixed(2));
+            if (tcg !== null) parts.push('<span class="price-src-label">TCG</span> $' + tcg.toFixed(2) + foilTag);
             if (ck !== null) parts.push('<span class="price-src-label">CK</span> $' + ck.toFixed(2));
             el.innerHTML = parts.join(' <span class="price-sep">·</span> ');
           } else { el.innerHTML = ''; }
@@ -598,7 +622,7 @@
             if (n && !BASIC_LANDS.has(n) && !allNames.has(n)) {
               allNames.add(n);
               var pid = el.dataset.printingId || '';
-              var obj = map[pid ? (n + '::' + pid) : n];
+              var obj = map[_priceKey(n, pid, el.dataset.foil === '1')];
               sumTotal += (obj ? (obj.tcg || 0) : 0);
             }
           });

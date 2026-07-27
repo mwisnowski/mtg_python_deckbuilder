@@ -117,6 +117,11 @@
           {% for code, label in color_combos %}<option value="{{ code }}" {% if filter_color == code %}selected{% endif %}>{{ label }}</option>{% endfor %}
           {% endif %}
         </select>
+        <label style="display:flex; align-items:center; gap:0.35rem; cursor:pointer; white-space:nowrap; font-size:0.85rem;" title="Exact: only that color combination. Inclusive: also matches cards with additional colors (e.g. WU also matches Bant, Esper, Jeskai).">
+          <input type="checkbox" id="filter-color-inclusive" onchange="applyFilter()"
+                 {% if color_mode == 'inclusive' %}checked{% endif %} />
+          Inclusive match
+        </label>
         {% endif %}
 
         {% if all_types %}
@@ -190,7 +195,7 @@
   </div>
 
   {# Card grid — full-page scroll, no scroll-box wrapper #}
-  {% from 'partials/_macros.html' import printing_button %}
+  {% from 'partials/_macros.html' import printing_button, foil_toggle_button %}
   <ul id="owned-grid" class="owned-card-grid">
     {% for n in names %}
     {% set tags = (tags_by_name.get(n, []) if tags_by_name else []) %}
@@ -198,28 +203,54 @@
     {% set cols = (colors_by_name.get(n, []) if colors_by_name else []) %}
     {% set added_ts = (added_at_map.get(n) if added_at_map else None) %}
     {% set sel_printing = (printings.get(n.lower(), '') if printings is defined else '') %}
+    {% set is_foil = (foils.get(n.lower(), False) if foils is defined else False) %}
     {% set card_idx = n|slugify %}
+    {% set badges = (badges_by_name.get(n) if badges_by_name else None) %}
     <li data-type="{{ tline }}" data-tags="{{ (tags or [])|join('|') }}" data-colors="{{ (cols or [])|join('') }}" data-added="{{ added_ts if added_ts else '' }}">
       <label class="owned-row" tabindex="0" data-card-name="{{ n }}" data-original-name="{{ n }}">
         <input type="checkbox" class="sel sr-only" aria-label="Select {{ n }}" />
         <div class="owned-vstack">
+          <div class="foil-shine-target{% if is_foil %} card-foil-shine{% endif %}" style="position:relative; display:inline-block; cursor:pointer;"
+               role="button" tabindex="0"
+               onclick="event.stopPropagation(); window.location.href='/cards/{{ n|urlencode }}?ref=owned';"
+               onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault(); event.stopPropagation(); window.location.href='/cards/{{ n|urlencode }}?ref=owned';}">
           <img class="card-thumb" id="card-img-{{ card_idx }}" loading="lazy" decoding="async" alt="{{ n }} image"
             src="{{ n|card_image('small', sel_printing) }}"
             data-card-name="{{ n }}" data-lqip="1"
             {% if tags %}data-tags="{{ (tags or [])|join(', ') }}"{% endif %}
             srcset="{{ n|card_image('small', sel_printing) }} 160w, {{ n|card_image('normal', sel_printing) }} 488w"
             sizes="160px" />
+          <div class="card-tile-printing-row" style="position:absolute; bottom:4px; left:4px; z-index:5;" onclick="event.stopPropagation()">
+            {{ printing_button(n, card_idx, sel_printing, compact=True) }}
+            {{ foil_toggle_button(n, card_idx, is_foil, compact=True) }}
+          </div>
+          </div>
           <span class="card-name"{% if tags %} data-tags="{{ (tags or [])|join(', ') }}"{% endif %}>{{ n }}</span>
           {% if cols and cols|length %}
           <div class="mana-group" aria-hidden="true">
-            {% for c in cols %}<span class="mana mana-{{ c }}" title="{{ c }}"></span>{% endfor %}
+            {% set dots = (badges.dots if badges and badges.dots else cols) %}
+            {% for c in dots %}<a href="/owned?filter_color={{ c }}{% if color_mode == 'inclusive' %}&color_mode=inclusive{% endif %}" class="mana-link" onclick="event.stopPropagation()" title="{{ c }}"><span class="mana mana-{{ c }}"></span></a>{% endfor %}
           </div>
           <span class="sr-only"> Colors: {{ cols|join(', ') }}</span>
           {% endif %}
-          <a href="/cards/{{ n|urlencode }}?ref=owned" class="card-details-btn" onclick="event.stopPropagation()">Card Details</a>
-          <div class="card-tile-printing-row" onclick="event.stopPropagation()">
-            {{ printing_button(n, card_idx, sel_printing) }}
+          {% if badges and (badges.primary or badges.subs) %}
+          {% set badge_inclusive = color_mode == 'inclusive' or (badges.subs and badges.subs|length > 0) %}
+          <div class="tile-color-names">
+            {% if badges.primary %}
+            <a href="/owned?filter_color={{ badges.primary.filter }}{% if badge_inclusive %}&color_mode=inclusive{% endif %}" class="tile-color-name-badge tile-color-name-primary" onclick="event.stopPropagation()">{{ badges.primary.name }}</a>
+            {% endif %}
+            {% for sub in badges.subs %}
+            <a href="/owned?filter_color={{ sub.filter }}{% if badge_inclusive %}&color_mode=inclusive{% endif %}" class="tile-color-name-badge tile-color-name-sub" onclick="event.stopPropagation()">{{ sub.name }}</a>
+            {% endfor %}
           </div>
+          {% endif %}
+          {% if tags and tags|length %}
+          <div class="card-browser-tile-tags">
+            {% for tag in tags %}
+            <a href="/owned?filter_tags={{ tag|urlencode }}" class="tag tag-clickable" onclick="event.stopPropagation()">{{ tag }}</a>
+            {% endfor %}
+          </div>
+          {% endif %}
         </div>
       </label>
     </li>
@@ -237,6 +268,7 @@ function applyFilter() {
   var sort   = (document.getElementById('filter-sort')  || {value:''}).value || '';
   var type   = (document.getElementById('filter-type')  || {value:''}).value || '';
   var color  = (document.getElementById('filter-color') || {value:''}).value || '';
+  var colorInclusive = (document.getElementById('filter-color-inclusive') || {checked:false}).checked || false;
   var cmcMin = (document.getElementById('filter-cmc-min')   || {value:''}).value || '';
   var cmcMax = (document.getElementById('filter-cmc-max')   || {value:''}).value || '';
   var pwMin  = (document.getElementById('filter-power-min') || {value:''}).value || '';
@@ -253,6 +285,7 @@ function applyFilter() {
   if (sort && sort !== 'name') params.set('sort_by', sort);
   if (type)   params.set('filter_type', type);
   if (color)  params.set('filter_color', color);
+  if (color && colorInclusive) params.set('color_mode', 'inclusive');
   if (cmcMin) params.set('cmc_min', cmcMin);
   if (cmcMax) params.set('cmc_max', cmcMax);
   if (pwMin)  params.set('power_min', pwMin);

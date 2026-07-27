@@ -1,3 +1,4 @@
+{% from 'partials/_macros.html' import printing_button, foil_toggle_button %}
 {% set prefix = partner_id_prefix if partner_id_prefix is defined else 'partner' %}
 {% set feature_available = partner_feature_available if partner_feature_available is defined else False %}
 {% set partner_capable = partner_capable if partner_capable is defined else False %}
@@ -105,25 +106,33 @@
       <div class="partner-preview" data-partner-preview="{{ prefix }}" {% if partner_preview %}data-preview-json='{{ partner_preview | tojson }}'{% else %}hidden{% endif %}>
         {% if partner_preview %}
           {% set preview_image = partner_preview.secondary_image_url or partner_preview.image_url %}
-          {% if not preview_image and partner_preview.secondary_name %}
-            {% set preview_image = partner_preview.secondary_name|card_image('normal') %}
+          {% set preview_secondary = partner_preview.secondary_name %}
+          {% set sel_preview_printing = (printings.get(preview_secondary.lower(), '') if (printings is defined and preview_secondary) else '') %}
+          {% set is_foil_preview = (foils.get(preview_secondary.lower(), False) if (foils is defined and preview_secondary) else False) %}          {% if not preview_image and preview_secondary %}
+            {% set preview_image = preview_secondary|card_image('normal', sel_preview_printing) %}
           {% endif %}
           {% set preview_href = partner_preview.secondary_scryfall_url or partner_preview.scryfall_url %}
-          {% if not preview_href and partner_preview.secondary_name %}
-            {% set preview_href = 'https://scryfall.com/search?q=' ~ partner_preview.secondary_name|urlencode %}
+          {% if not preview_href and preview_secondary %}
+            {% set preview_href = 'https://scryfall.com/search?q=' ~ preview_secondary|urlencode %}
           {% endif %}
           {% set preview_role = partner_preview.secondary_role_label or partner_preview.role_label %}
           {% set preview_primary = partner_preview.primary_name or primary_commander_display %}
-          {% set preview_secondary = partner_preview.secondary_name %}
           {% set preview_themes = partner_preview.theme_tags %}
           {% set preview_mode_label = partner_preview.partner_mode_label %}
           {% set preview_color_label = partner_preview.color_label %}
           <div class="partner-preview__layout">
             {% if preview_image %}
-              <div class="partner-preview__art">
+              <div class="partner-preview__art foil-shine-target{% if is_foil_preview %} card-foil-shine{% endif %}" style="position:relative;">
                 {% if preview_href %}<a href="{{ preview_href }}" target="_blank" rel="noopener">{% endif %}
-                <img src="{{ preview_image }}" alt="{{ (preview_secondary or 'Selected card') ~ ' card image' }}" loading="lazy" decoding="async" />
+                <img id="card-img-{{ prefix }}-partner" src="{{ preview_image }}" alt="{{ (preview_secondary or 'Selected card') ~ ' card image' }}" data-printing-id="{{ sel_preview_printing }}" loading="lazy" decoding="async" />
                 {% if preview_href %}</a>{% endif %}
+                {% if preview_secondary %}
+                <div id="price-overlay-{{ prefix }}-partner" class="card-price-overlay" data-price-for="{{ preview_secondary }}" data-printing-id="{{ sel_preview_printing }}" data-foil="{{ '1' if is_foil_preview else '0' }}" aria-hidden="true"></div>
+                <div class="commander-printing-btn" style="position:absolute; bottom:4px; right:4px; z-index:3;">
+                  {{ printing_button(preview_secondary, prefix ~ '-partner', sel_preview_printing, compact=True) }}
+                  {{ foil_toggle_button(preview_secondary, prefix ~ '-partner', is_foil_preview, compact=True) }}
+                </div>
+                {% endif %}
               </div>
             {% endif %}
             <div class="partner-preview__details">
@@ -557,16 +566,26 @@
             attrParts.push('data-tags="' + escapeHtml(tagString) + '"');
             attrParts.push('data-overlaps="' + escapeHtml(tagString) + '"');
           }
-          html += '<div class="partner-preview__art card-preview"' + (attrParts.length ? ' ' + attrParts.join(' ') : '') + '>';
+          html += '<div class="partner-preview__art card-preview" style="position:relative;"' + (attrParts.length ? ' ' + attrParts.join(' ') : '') + '>';
           if (scryfallUrl){
             html += '<a href="' + escapeHtml(scryfallUrl) + '" target="_blank" rel="noopener">';
           }
-          html += '<img src="' + escapeHtml(imageUrl) + '" alt="' + escapeHtml((secondaryName || 'Selected card') + ' card image') + '" loading="lazy" decoding="async" data-card-name="' + escapeHtml(secondaryName || '') + '"';
+          html += '<img id="card-img-' + escapeHtml(prefix) + '-partner" src="' + escapeHtml(imageUrl) + '" alt="' + escapeHtml((secondaryName || 'Selected card') + ' card image') + '" loading="lazy" decoding="async" data-card-name="' + escapeHtml(secondaryName || '') + '"';
           if (roleLabel){ html += ' data-role="' + escapeHtml(roleLabel) + '"'; }
           if (tagString){ html += ' data-tags="' + escapeHtml(tagString) + '" data-overlaps="' + escapeHtml(tagString) + '"'; }
           html += ' />';
           if (scryfallUrl){
             html += '</a>';
+          }
+          if (secondaryName){
+            var partnerIdx = prefix + '-partner';
+            html += '<div id="price-overlay-' + escapeHtml(partnerIdx) + '" class="card-price-overlay" data-price-for="' + escapeHtml(secondaryName) + '" aria-hidden="true"></div>';
+            html += '<div class="commander-printing-btn" style="position:absolute; bottom:4px; right:4px; z-index:3;">';
+            html += '<button type="button" class="btn btn-printing btn-printing-compact" title="Choose a specific printing (art/set)" ' +
+              'aria-expanded="false" aria-label="Choose printing" data-has-selection="0" ' +
+              'hx-get="/build/printing-picker" hx-target="#printing-modal-root" hx-swap="innerHTML" ' +
+              'hx-vals=\'{"name": "' + escapeHtml(secondaryName) + '", "idx": "' + escapeHtml(partnerIdx) + '"}\'>&#128444;</button>';
+            html += '</div>';
           }
           html += '</div>';
         }
@@ -588,6 +607,9 @@
         html += '</div></div>';
         previewBox.innerHTML = html;
         previewBox.hidden = false;
+        if (window.htmx && typeof window.htmx.process === 'function'){
+          window.htmx.process(previewBox);
+        }
         markSuggestionActive();
       }
 

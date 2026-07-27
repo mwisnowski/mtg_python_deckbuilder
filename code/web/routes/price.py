@@ -66,18 +66,20 @@ async def get_card_price(
 
     Returns:
         JSON with ``card_name``, ``price`` (float or null), ``region``,
-        ``foil``, ``found`` (bool).
+        ``foil`` (whether the returned ``price`` is actually a foil price --
+        may differ from the requested *foil* flag for a foil-only printing),
+        ``found`` (bool).
     """
     name = unquote(card_name).strip()
     svc = get_price_service()
-    price = svc.get_price(name, region=region, foil=foil, scryfall_id=printing or None)
+    price, actual_foil = svc.get_price_detail(name, region=region, foil=foil, scryfall_id=printing or None)
     ck_price = svc.get_ck_price(name)
     return JSONResponse({
         "card_name": name,
         "price": price,
         "ck_price": ck_price,
         "region": region,
-        "foil": foil,
+        "foil": actual_foil,
         "found": price is not None,
     })
 
@@ -88,6 +90,7 @@ async def get_card_price(
 async def get_prices_batch(
     card_names: List[str] = Body(..., embed=True, max_length=100),
     printing_map: Optional[Dict[str, str]] = Body(default=None, embed=True),
+    foil_map: Optional[Dict[str, bool]] = Body(default=None, embed=True),
     region: str = Query("usd", pattern="^(usd|eur)$"),
     foil: bool = Query(False),
 ):
@@ -100,15 +103,18 @@ async def get_prices_batch(
         printing_map: Optional ``{name.lower(): scryfall_id}`` overrides so
             a card with a chosen alternate printing is priced using that
             printing instead of the cheapest-by-name default.
+        foil_map: Optional ``{name.lower(): bool}`` per-card foil overrides
+            so a card's own foil choice is used instead of the global
+            *foil* flag below.
         region: Price region — ``usd`` or ``eur``.
-        foil: If true, return foil prices.
+        foil: If true, return foil prices (for any name not in *foil_map*).
 
     Returns:
         JSON with ``prices`` (dict name→{price, ck_price}) and ``missing``
         (list of names with no TCG price data).
     """
     svc = get_price_service()
-    tcg_prices = svc.get_prices_batch(card_names, region=region, foil=foil, printing_map=printing_map)
+    tcg_prices = svc.get_prices_batch(card_names, region=region, foil=foil, printing_map=printing_map, foil_map=foil_map)
     ck_prices = svc.get_ck_prices_batch(card_names)
     missing = [n for n, p in tcg_prices.items() if p is None]
     prices = {

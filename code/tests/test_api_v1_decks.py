@@ -186,7 +186,7 @@ def test_deck_analysis_honors_printing_map(client, auth, tmp_path, monkeypatch):
     captured: dict = {}
 
     class _StubPriceService:
-        def get_prices_batch(self, names, region="usd", foil=False, printing_map=None):
+        def get_prices_batch(self, names, region="usd", foil=False, printing_map=None, foil_map=None):
             captured["printing_map"] = printing_map
             return {n: 20.0 for n in names}
 

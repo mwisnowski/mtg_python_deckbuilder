@@ -201,15 +201,21 @@ async def get_card_printings(card_name: str):
     `ImageCache.build_printings_index()`).
 
     Args:
-        card_name: Name of the card (or a single face's name for DFCs)
+        card_name: Name of the card (or a single face's name for DFCs). The
+            printings index is keyed per-face, so a combined double-faced/
+            split/flip/meld name ("A // B") is resolved to its front face
+            ("A") before lookup -- both faces of a physical printing share
+            the same set of printings, so this works regardless of which
+            face a caller (e.g. the mobile app) is currently displaying.
 
     Returns:
         JSON with a list of printings (set, set_name, collector_number,
         released_at, scryfall_id, is_default, ...) and the default printing's
         scryfall_id.
     """
-    printings = _image_cache.get_printings(card_name)
-    default_id = _image_cache.get_default_printing_id(card_name)
+    face_name = card_name.split(" // ")[0].strip() if " // " in card_name else card_name
+    printings = _image_cache.get_printings(face_name)
+    default_id = _image_cache.get_default_printing_id(face_name)
     return JSONResponse({
         "card_name": card_name,
         "default_scryfall_id": default_id,

@@ -1,16 +1,20 @@
 {# Commander row partial fed by CommanderView entries #}
-{% from "partials/_macros.html" import color_identity %}
+{% from "partials/_macros.html" import color_identity, printing_button, foil_toggle_button %}
 {% set record = entry.record %}
 {% set display_label = record.name if '//' in record.name else record.display_name %}
 {% set placeholder_pixel = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==" %}
+{% set commander_idx = record.slug %}
+{% set sel_printing = (printings.get(record.name.lower(), '') if printings is defined else '') %}
+{% set is_foil = (foils.get(record.name.lower(), False) if foils is defined else False) %}
 <article class="commander-row" data-commander-slug="{{ record.slug }}" data-hover-simple="true">
-  <div class="commander-thumb" 
+  <div class="commander-thumb foil-shine-target{% if is_foil %} card-foil-shine{% endif %}" 
        data-card-name="{{ record.name }}"
        data-original-name="{{ record.name }}"
        {% if record.layout %}data-layout="{{ record.layout }}"{% endif %}>
-    {% set small = record.display_name|card_image('small') %}
-    {% set normal = record.display_name|card_image('normal') %}
+    {% set small = record.display_name|card_image('small', sel_printing) %}
+    {% set normal = record.display_name|card_image('normal', sel_printing) %}
     <img
+      id="card-img-{{ commander_idx }}"
       src="{{ small }}"
       srcset="{{ small }} 160w, {{ normal }} 488w"
       sizes="(max-width: 900px) 60vw, 160px"
@@ -21,12 +25,17 @@
       height="223"
       data-card-name="{{ record.name }}"
       data-original-name="{{ record.name }}"
+      data-printing-id="{{ sel_printing }}"
       {% if record.layout %}data-layout="{{ record.layout }}"{% endif %}
       data-hover-simple="true"
       class="commander-thumb-img"
     />
-    <div class="card-price-overlay" data-price-for="{{ record.name }}" aria-hidden="true"></div>
+    <div id="price-overlay-{{ commander_idx }}" class="card-price-overlay" data-price-for="{{ record.name }}" data-printing-id="{{ sel_printing }}" data-foil="{{ '1' if is_foil else '0' }}" aria-hidden="true"></div>
     {% if show_new_badge and record.name in new_card_names %}<div class="card-new-badge" title="Recently Released" aria-hidden="true">New</div>{% endif %}
+    <div class="commander-printing-btn">
+      {{ printing_button(record.name, commander_idx, sel_printing, compact=True) }}
+      {{ foil_toggle_button(record.name, commander_idx, is_foil, compact=True) }}
+    </div>
   </div>
   <div class="commander-main">
     <div class="commander-header">

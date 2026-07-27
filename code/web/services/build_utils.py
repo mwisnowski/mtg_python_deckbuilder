@@ -89,6 +89,7 @@ def step5_base_ctx(request: Request, sess: dict, *, include_name: bool = True, i
     if include_locks:
         ctx["locks"] = list(sess.get("locks", []))
         ctx["printings"] = dict(sess.get("printings") or {})
+        ctx["foils"] = dict(sess.get("foils") or {})
     try:
         ctx["summary_token"] = int(sess.get("step5_summary_token", 0))
     except Exception:
@@ -194,6 +195,7 @@ def start_ctx_from_session(sess: dict, *, set_on_session: bool = True, deck_dir:
         background_commander=background_choice,
         budget_config=sess.get("budget_config"),
         deck_visibility=sess.get("deck_visibility"),
+        printings=dict(sess.get("printings") or {}),
     )
     if set_on_session:
         sess["build_ctx"] = ctx

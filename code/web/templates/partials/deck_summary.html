@@ -1,4 +1,4 @@
-{% from 'partials/_macros.html' import printing_button %}
+{% from 'partials/_macros.html' import printing_button, foil_toggle_button %}
 <div id="deck-summary" data-summary>
 {% if budget_config and budget_config.total %}
 <script>window._budgetCfg={"total":{{ budget_config.total|float }},"card_ceiling":{{ budget_config.card_ceiling|float if budget_config.card_ceiling else 'null' }}};</script>
@@ -85,13 +85,15 @@
                 {% set owned = (owned_set is defined and c.name and (c.name|lower in owned_set)) %}
                 {% set list_idx = c.name|slugify ~ '-list' %}
                 {% set sel_printing_list = (printings.get(c.name.lower()) if printings is defined else None) or c.scryfall_id or '' %}
+                {% set is_foil_list = (foils.get(c.name.lower(), False) if foils is defined else False) or (c.is_foil or False) %}
                 <span class="count">{{ cnt }}</span>
                 <span class="times">x</span>
                 <span class="name dfc-anchor" title="{{ c.name }}" data-card-name="{{ c.name }}" data-count="{{ cnt }}" data-role="{{ c.role }}" data-tags="{{ (c.tags|map('trim')|join(', ')) if c.tags else '' }}" data-printing-id="{{ sel_printing_list }}"{% if c.metadata_tags %} data-metadata-tags="{{ (c.metadata_tags|map('trim')|join(', ')) }}"{% endif %}{% if overlaps %} data-overlaps="{{ overlaps|join(', ') }}"{% endif %}>{{ c.name }}</span>
-                <span class="card-price-inline" data-price-for="{{ c.name }}" data-printing-id="{{ sel_printing_list }}"></span>
+                <span class="card-price-inline" data-price-for="{{ c.name }}" data-printing-id="{{ sel_printing_list }}" data-foil="{{ '1' if is_foil_list else '0' }}"></span>
                 <div class="list-row-printing">
                   {{ printing_button(c.name, list_idx, sel_printing_list, compact=True, deck=(deck_edit_ctx.deck if deck_edit_ctx is defined and deck_edit_ctx else None)) }}
-                  <div id="price-overlay-{{ list_idx }}" class="card-price-overlay" data-price-for="{{ c.name }}" data-printing-id="{{ sel_printing_list }}" style="display:none" aria-hidden="true"></div>
+                  {{ foil_toggle_button(c.name, list_idx, is_foil_list, compact=True, deck=(deck_edit_ctx.deck if deck_edit_ctx is defined and deck_edit_ctx else None)) }}
+                  <div id="price-overlay-{{ list_idx }}" class="card-price-overlay" data-price-for="{{ c.name }}" data-printing-id="{{ sel_printing_list }}" data-foil="{{ '1' if is_foil_list else '0' }}" style="display:none" aria-hidden="true"></div>
                 </div>
                 <span class="flip-slot" aria-hidden="true">
                   {% if c.dfc_land %}
@@ -120,6 +122,7 @@
               {% set cnt = c.count if c.count else 1 %}
               {% set owned = (owned_set is defined and c.name and (c.name|lower in owned_set)) %}
               {% set sel_printing = (printings.get(c.name.lower()) if printings is defined else None) or c.scryfall_id or '' %}
+              {% set is_foil = (foils.get(c.name.lower(), False) if foils is defined else False) or (c.is_foil or False) %}
               {% set card_idx = c.name|slugify %}
               {% set overlaps = [] %}
               {% if synergies_norm and c.tags %}
@@ -130,15 +133,15 @@
                   {% endif %}
                 {% endfor %}
               {% endif %}
-              <div class="stack-card {% if (game_changers and (c.name in game_changers)) or ('game_changer' in (c.role or '') or 'Game Changer' in (c.role or '')) %}game-changer{% endif %}">
+              <div class="stack-card foil-shine-target {% if (game_changers and (c.name in game_changers)) or ('game_changer' in (c.role or '') or 'Game Changer' in (c.role or '')) %}game-changer{% endif %}{% if is_foil %} card-foil-shine{% endif %}">
                 <img class="card-thumb" id="card-img-{{ card_idx }}" loading="lazy" decoding="async" src="{{ c.name|card_image('normal', sel_printing) }}" alt="{{ c.name }} image" data-card-name="{{ c.name }}" data-count="{{ cnt }}" data-role="{{ c.role }}" data-tags="{{ (c.tags|map('trim')|join(', ')) if c.tags else '' }}" data-printing-id="{{ sel_printing }}"{% if overlaps %} data-overlaps="{{ overlaps|join(', ') }}"{% endif %}
                      srcset="{{ c.name|card_image('small', sel_printing) }} 160w, {{ c.name|card_image('normal', sel_printing) }} 488w"
                      sizes="(max-width: 1200px) 160px, 240px" />
-                <div class="count-badge">{{ cnt }}x</div>                <div class="card-price-overlay" id="price-overlay-{{ card_idx }}" data-price-for="{{ c.name }}" data-printing-id="{{ sel_printing }}" aria-hidden="true"></div>                {% if show_new_badge and c.isNew %}<div class="card-new-badge" title="Recently Released" aria-hidden="true">New</div>{% endif %}                <div class="owned-badge" title="{{ 'Owned' if owned else 'Not owned' }}" aria-label="{{ 'Owned' if owned else 'Not owned' }}">{% if owned %}✔{% else %}✖{% endif %}</div>
+                <div class="count-badge">{{ cnt }}x</div>                <div class="card-price-overlay" id="price-overlay-{{ card_idx }}" data-price-for="{{ c.name }}" data-printing-id="{{ sel_printing }}" data-foil="{{ '1' if is_foil else '0' }}" aria-hidden="true"></div>                {% if show_new_badge and c.isNew %}<div class="card-new-badge" title="Recently Released" aria-hidden="true">New</div>{% endif %}                <div class="owned-badge" title="{{ 'Owned' if owned else 'Not owned' }}" aria-label="{{ 'Owned' if owned else 'Not owned' }}">{% if owned %}✔{% else %}✖{% endif %}</div>
                 {% if c.dfc_land %}
                   <div class="dfc-thumb-badge {% if c.dfc_adds_extra_land %}extra{% else %}counts{% endif %}" title="{{ c.dfc_note or 'Modal double-faced land' }}">DFC{% if c.dfc_adds_extra_land %}+1{% endif %}</div>
                 {% endif %}
-                <div class="printing-btn-overlay">{{ printing_button(c.name, card_idx, sel_printing, compact=True, deck=(deck_edit_ctx.deck if deck_edit_ctx is defined and deck_edit_ctx else None)) }}</div>
+                <div class="printing-btn-overlay">{{ printing_button(c.name, card_idx, sel_printing, compact=True, deck=(deck_edit_ctx.deck if deck_edit_ctx is defined and deck_edit_ctx else None)) }}{{ foil_toggle_button(c.name, card_idx, is_foil, compact=True, deck=(deck_edit_ctx.deck if deck_edit_ctx is defined and deck_edit_ctx else None)) }}</div>
               </div>
             {% endfor %}
             </div>

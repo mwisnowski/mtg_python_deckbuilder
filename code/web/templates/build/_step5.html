@@ -1,4 +1,4 @@
-{% from 'partials/_macros.html' import color_identity %}
+{% from 'partials/_macros.html' import color_identity, printing_button, foil_toggle_button %}
 {% set combined = combined_commander if combined_commander else {} %}
 {% set display_commander_name = commander_display_name or commander %}
 {% if not display_commander_name %}
@@ -27,7 +27,9 @@
   {# Strip synergy annotation for Scryfall search #}
   {% if commander %}
   {% set commander_base = (commander.split(' - Synergy (')[0] if ' - Synergy (' in commander else commander) %}
-  <div class="commander-card" tabindex="0"
+  {% set sel_printing = (printings.get(commander_base.lower(), '') if printings is defined else '') %}
+  {% set is_foil_commander = (foils.get(commander_base.lower(), False) if foils is defined else False) %}
+  <div class="commander-card foil-shine-target{% if is_foil_commander %} card-foil-shine{% endif %}" tabindex="0"
     data-card-name="{{ commander_base }}"
     data-original-name="{{ commander }}"
     data-role="{{ commander_role_label or 'Commander' }}"
@@ -35,19 +37,24 @@
     {% if commander_tag_slugs %}data-tags-slug="{{ commander_tag_slugs|join(' ') }}"{% endif %}
     {% if commander_overlap_tags %}data-overlaps="{{ commander_overlap_tags|join(', ') }}"{% endif %}
     {% if commander_reason_text %}data-reasons="{{ commander_reason_text|e }}"{% endif %}>
-  <img src="{{ commander_base|card_image('normal') }}" alt="{{ commander }} card image"
+  <img id="card-img-commander" src="{{ commander_base|card_image('normal', sel_printing) }}" alt="{{ commander }} card image"
          width="320"
          data-card-name="{{ commander_base }}"
          data-original-name="{{ commander }}"
          data-role="{{ commander_role_label or 'Commander' }}"
+         data-printing-id="{{ sel_printing }}"
      {% if hover_tags_joined %}data-tags="{{ hover_tags_joined }}"{% endif %}
      {% if commander_tag_slugs %}data-tags-slug="{{ commander_tag_slugs|join(' ') }}"{% endif %}
      {% if commander_overlap_tags %}data-overlaps="{{ commander_overlap_tags|join(', ') }}"{% endif %}
    {% if commander_reason_text %}data-reasons="{{ commander_reason_text|e }}"{% endif %}
          loading="lazy" decoding="async" data-lqip="1"
-         srcset="{{ commander_base|card_image('small') }} 160w, {{ commander_base|card_image('normal') }} 488w"
+         srcset="{{ commander_base|card_image('small', sel_printing) }} 160w, {{ commander_base|card_image('normal', sel_printing) }} 488w"
          sizes="(max-width: 900px) 100vw, 320px" />
-  <div class="card-price-overlay" data-price-for="{{ commander_base }}" aria-hidden="true"></div>
+  <div id="price-overlay-commander" class="card-price-overlay" data-price-for="{{ commander_base }}" data-printing-id="{{ sel_printing }}" data-foil="{{ '1' if is_foil_commander else '0' }}" aria-hidden="true"></div>
+  <div class="commander-printing-btn" style="position:absolute; bottom:6px; right:6px; z-index:3;">
+    {{ printing_button(commander_base, 'commander', sel_printing, compact=True) }}
+    {{ foil_toggle_button(commander_base, 'commander', is_foil_commander, compact=True) }}
+  </div>
   {% if show_new_badge and commander_base in new_card_names %}<div class="card-new-badge" title="Recently Released" aria-hidden="true">New</div>{% endif %}
   </div>
   <div class="muted mt-1">
@@ -74,26 +81,35 @@
   {% if not partner_href and partner_name_base %}
     {% set partner_href = 'https://scryfall.com/search?q=' ~ partner_name_base|urlencode %}
   {% endif %}
-  <div class="commander-card partner-card" tabindex="0"
+  {% set sel_partner_printing = (printings.get(partner_name_base.lower(), '') if (printings is defined and partner_name_base) else '') %}
+  {% set is_foil_partner = (foils.get(partner_name_base.lower(), False) if (foils is defined and partner_name_base) else False) %}  <div class="commander-card partner-card foil-shine-target{% if is_foil_partner %} card-foil-shine{% endif %}" tabindex="0"
     data-card-name="{{ partner_name_base }}"
     data-original-name="{{ partner_secondary_name }}"
     data-role="{{ partner_role_label }}"
     {% if partner_tags_joined %}data-tags="{{ partner_tags_joined }}" data-overlaps="{{ partner_tags_joined }}"{% endif %}>
     {% if partner_href %}<a href="{{ partner_href }}" target="_blank" rel="noopener">{% endif %}
     {% if partner_name_base %}
-    <img src="{{ partner_name_base|card_image('normal') }}" alt="{{ (partner_secondary_name or 'Selected card') ~ ' card image' }}"
+    <img id="card-img-partner" src="{{ partner_name_base|card_image('normal', sel_partner_printing) }}" alt="{{ (partner_secondary_name or 'Selected card') ~ ' card image' }}"
          width="320"
          data-card-name="{{ partner_name_base }}"
          data-original-name="{{ partner_secondary_name }}"
          data-role="{{ partner_role_label }}"
+         data-printing-id="{{ sel_partner_printing }}"
          {% if partner_tags_joined %}data-tags="{{ partner_tags_joined }}" data-overlaps="{{ partner_tags_joined }}"{% endif %}
          loading="lazy" decoding="async" data-lqip="1"
-         srcset="{{ partner_name_base|card_image('small') }} 160w, {{ partner_name_base|card_image('normal') }} 488w"
+         srcset="{{ partner_name_base|card_image('small', sel_partner_printing) }} 160w, {{ partner_name_base|card_image('normal', sel_partner_printing) }} 488w"
          sizes="(max-width: 900px) 100vw, 320px" />
     {% else %}
     <img src="{{ combined.secondary_image_url or combined.image_url }}" alt="{{ (partner_secondary_name or 'Selected card') ~ ' card image' }}" loading="lazy" decoding="async" width="320" />
     {% endif %}
     {% if partner_href %}</a>{% endif %}
+    {% if partner_name_base %}
+    <div id="price-overlay-partner" class="card-price-overlay" data-price-for="{{ partner_name_base }}" data-printing-id="{{ sel_partner_printing }}" data-foil="{{ '1' if is_foil_partner else '0' }}" aria-hidden="true"></div>
+    <div class="commander-printing-btn" style="position:absolute; bottom:6px; right:6px; z-index:3;">
+      {{ printing_button(partner_name_base, 'partner', sel_partner_printing, compact=True) }}
+      {{ foil_toggle_button(partner_name_base, 'partner', is_foil_partner, compact=True) }}
+    </div>
+    {% endif %}
   </div>
   <div class="muted partner-label mt-1.5">
     {{ partner_role_label }}:
@@ -439,25 +455,29 @@
             {% set is_locked = (locks is defined and (c.name|lower in locks)) %}
             {% set card_idx = group_idx ~ '-' ~ loop.index0 %}
             {% set sel_printing = (printings.get(c.name.lower(), '') if printings is defined else '') %}
+            {% set is_foil = (foils.get(c.name.lower(), False) if foils is defined else False) %}
   <div class="card-tile{% if game_changers and (c.name in game_changers) %} game-changer{% endif %}{% if is_locked %} locked{% endif %}{% if c.must_include %} must-include{% endif %}{% if c.must_exclude %} must-exclude{% endif %}"
     data-card-name="{{ c.name }}" data-role="{{ c.role or c.sub_role or '' }}" data-tags="{{ (c.tags|join(', ')) if c.tags else '' }}" data-tags-slug="{{ (c.tags_slug|join(', ')) if c.tags_slug else '' }}" data-owned="{{ '1' if owned else '0' }}"{% if c.reason %} data-reasons="{{ c.reason|e }}"{% endif %}
     data-must-include="{{ '1' if c.must_include else '0' }}" data-must-exclude="{{ '1' if c.must_exclude else '0' }}"
     data-price="{{ (price_cache or {}).get(c.name.lower(), {}).get('usd') or '' }}"
     data-stale="{% if stale_prices is defined and c.name|lower in stale_prices %}1{% else %}0{% endif %}">
-  <div class="img-btn" role="button" tabindex="0" title="Tap or click to view {{ c.name }}" aria-label="View {{ c.name }} details">
+  <div class="img-btn foil-shine-target{% if is_foil %} card-foil-shine{% endif %}" role="button" tabindex="0" title="Tap or click to view {{ c.name }}" aria-label="View {{ c.name }} details">
                 <img class="card-thumb" id="card-img-{{ card_idx }}" src="{{ c.name|card_image('normal', sel_printing) }}" alt="{{ c.name }} image" width="160" data-card-name="{{ c.name }}" loading="lazy" decoding="async" data-lqip="1"
                   srcset="{{ c.name|card_image('small', sel_printing) }} 160w, {{ c.name|card_image('normal', sel_printing) }} 488w"
                   sizes="160px" />
-              <div class="card-price-overlay" id="price-overlay-{{ card_idx }}" data-price-for="{{ c.name }}" data-printing-id="{{ sel_printing }}" aria-hidden="true"></div>
+              <div class="card-price-overlay" id="price-overlay-{{ card_idx }}" data-price-for="{{ c.name }}" data-printing-id="{{ sel_printing }}" data-foil="{{ '1' if is_foil else '0' }}" aria-hidden="true"></div>
               {% if show_new_badge and c.name in new_card_names %}<div class="card-new-badge" title="Recently Released" aria-hidden="true">New</div>{% endif %}
+              {% from 'partials/_macros.html' import lock_button, printing_button, foil_toggle_button %}
+              <div class="card-tile-printing-row" style="position:absolute; bottom:4px; left:4px; z-index:5;" onclick="event.stopPropagation()">
+                {{ printing_button(c.name, card_idx, sel_printing, compact=True) }}
+                {{ foil_toggle_button(c.name, card_idx, is_foil, compact=True) }}
+              </div>
       </div>
               <div class="owned-badge" title="{{ 'Owned' if owned else 'Not owned' }}" aria-label="{{ 'Owned' if owned else 'Not owned' }}">{% if owned %}✔{% else %}✖{% endif %}</div>
               {% if stale_prices is defined and c.name|lower in stale_prices %}<div class="stale-price-indicator" title="Price may be outdated (>24h)">&#x23F1;</div>{% endif %}
               <div class="name">{{ c.name|safe }}{% if c.count and c.count > 1 %} ×{{ c.count }}{% endif %}</div>
     <div class="lock-box" id="lock-{{ group_idx }}-{{ loop.index0 }}" class="flex justify-center gap-1 mt-1">
-      {% from 'partials/_macros.html' import lock_button, printing_button %}
       {{ lock_button(c.name, is_locked) }}
-      {{ printing_button(c.name, card_idx, sel_printing) }}
     </div>
     {% if allow_must_haves and show_must_have_buttons %}
     <div class="must-have-controls" role="group" aria-label="Must have controls">
@@ -497,25 +517,29 @@
           {% set is_locked = (locks is defined and (c.name|lower in locks)) %}
           {% set card_idx = loop.index0 %}
           {% set sel_printing = (printings.get(c.name.lower(), '') if printings is defined else '') %}
+          {% set is_foil = (foils.get(c.name.lower(), False) if foils is defined else False) %}
     <div class="card-tile{% if game_changers and (c.name in game_changers) %} game-changer{% endif %}{% if is_locked %} locked{% endif %}{% if c.must_include %} must-include{% endif %}{% if c.must_exclude %} must-exclude{% endif %}"
       data-card-name="{{ c.name }}" data-role="{{ c.role or c.sub_role or '' }}" data-tags="{{ (c.tags|join(', ')) if c.tags else '' }}" data-tags-slug="{{ (c.tags_slug|join(', ')) if c.tags_slug else '' }}" data-owned="{{ '1' if owned else '0' }}"{% if c.reason %} data-reasons="{{ c.reason|e }}"{% endif %}
       data-must-include="{{ '1' if c.must_include else '0' }}" data-must-exclude="{{ '1' if c.must_exclude else '0' }}"
       data-price="{{ (price_cache or {}).get(c.name.lower(), {}).get('usd') or '' }}"
       data-stale="{% if stale_prices is defined and c.name|lower in stale_prices %}1{% else %}0{% endif %}">
-  <div class="img-btn" role="button" tabindex="0" title="Tap or click to view {{ c.name }}" aria-label="View {{ c.name }} details">
+  <div class="img-btn foil-shine-target{% if is_foil %} card-foil-shine{% endif %}" role="button" tabindex="0" title="Tap or click to view {{ c.name }}" aria-label="View {{ c.name }} details">
               <img class="card-thumb" id="card-img-{{ card_idx }}" src="{{ c.name|card_image('normal', sel_printing) }}" alt="{{ c.name }} image" width="160" data-card-name="{{ c.name }}" loading="lazy" decoding="async" data-lqip="1"
                 srcset="{{ c.name|card_image('small', sel_printing) }} 160w, {{ c.name|card_image('normal', sel_printing) }} 488w"
                 sizes="160px" />
-            <div class="card-price-overlay" id="price-overlay-{{ card_idx }}" data-price-for="{{ c.name }}" data-printing-id="{{ sel_printing }}" aria-hidden="true"></div>
+            <div class="card-price-overlay" id="price-overlay-{{ card_idx }}" data-price-for="{{ c.name }}" data-printing-id="{{ sel_printing }}" data-foil="{{ '1' if is_foil else '0' }}" aria-hidden="true"></div>
             {% if show_new_badge and c.name in new_card_names %}<div class="card-new-badge" title="Recently Released" aria-hidden="true">New</div>{% endif %}
+            {% from 'partials/_macros.html' import lock_button, printing_button, foil_toggle_button %}
+            <div class="card-tile-printing-row" style="position:absolute; bottom:4px; left:4px; z-index:5;" onclick="event.stopPropagation()">
+              {{ printing_button(c.name, card_idx, sel_printing, compact=True) }}
+              {{ foil_toggle_button(c.name, card_idx, is_foil, compact=True) }}
+            </div>
             </div>
             <div class="owned-badge" title="{{ 'Owned' if owned else 'Not owned' }}" aria-label="{{ 'Owned' if owned else 'Not owned' }}">{% if owned %}✔{% else %}✖{% endif %}</div>
             {% if stale_prices is defined and c.name|lower in stale_prices %}<div class="stale-price-indicator" title="Price may be outdated (>24h)">&#x23F1;</div>{% endif %}
             <div class="name">{{ c.name|safe }}{% if c.count and c.count > 1 %} ×{{ c.count }}{% endif %}</div>
     <div class="lock-box" id="lock-{{ loop.index0 }}" class="flex justify-center gap-1 mt-1">
-      {% from 'partials/_macros.html' import lock_button, printing_button %}
       {{ lock_button(c.name, is_locked) }}
-      {{ printing_button(c.name, card_idx, sel_printing) }}
     </div>
     {% if allow_must_haves and show_must_have_buttons %}
     <div class="must-have-controls" role="group" aria-label="Must have controls">

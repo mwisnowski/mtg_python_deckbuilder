@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from 'partials/_macros.html' import printing_button %}
+{% from 'partials/_macros.html' import printing_button, foil_toggle_button %}
 
 {% block title %}{{ card.name }} - Card Details{% endblock %}
 
@@ -18,22 +18,34 @@
 
         <!-- ── LEFT TOP: Card Image ───────────────────────────── -->
         {% set sel_printing = (printings.get(card.name.lower(), '') if printings is defined else '') %}
+        {% set is_foil = (foils.get(card.name.lower(), False) if foils is defined else False) %}
         {% set card_idx = card.name|slugify %}
+        {% set has_faces = faces is defined and faces and faces|length > 1 %}
+        {% set back_face = faces[1] if has_faces else None %}
         <div class="card-area-image card-image-large" style="position:relative;">
-            <img id="card-img-{{ card_idx }}"
-                 src="{{ card.name|card_image('normal', sel_printing) }}"
-                 alt="{{ card.name }}"
-                 loading="lazy"
-                 onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-            <div style="display:none; width:100%; height:500px; align-items:center; justify-content:center; background:#1a1d24; color:#9ca3af; font-size:18px; padding:2rem; text-align:center; border-radius:12px;">
-                {{ card.name }}
+            <div class="card-image-shine-wrap" style="position:relative;">
+                <img id="card-img-{{ card_idx }}"
+                     src="{{ card.name|card_image('normal', sel_printing) }}"
+                     alt="{{ card.name }}"
+                     loading="lazy"
+                     data-current-face="front"
+                     data-front-src="{{ card.name|card_image('normal', sel_printing) }}"
+                     {% if has_faces %}data-back-src="/api/images/normal/{{ back_face.name|urlencode }}?face=back{% if sel_printing %}&printing={{ sel_printing }}{% endif %}"{% endif %}
+                     onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                <div style="display:none; width:100%; height:500px; align-items:center; justify-content:center; background:#1a1d24; color:#9ca3af; font-size:18px; padding:2rem; text-align:center; border-radius:12px;">
+                    {{ card.name }}
+                </div>
+                {% if show_new_badge and card.isNew %}
+                <div class="card-new-badge" title="Recently Released" aria-hidden="true">New</div>
+                {% endif %}
+                <div id="price-overlay-{{ card_idx }}" class="card-price-overlay" data-price-for="{{ card.name }}" data-printing-id="{{ sel_printing }}" data-foil="{{ '1' if is_foil else '0' }}" style="display:none" aria-hidden="true"></div>
             </div>
-            {% if show_new_badge and card.isNew %}
-            <div class="card-new-badge" title="Recently Released" aria-hidden="true">New</div>
-            {% endif %}
-            <div id="price-overlay-{{ card_idx }}" class="card-price-overlay" data-price-for="{{ card.name }}" data-printing-id="{{ sel_printing }}" style="display:none" aria-hidden="true"></div>
             <div class="card-detail-printing-row">
               {{ printing_button(card.name, card_idx, sel_printing) }}
+              {{ foil_toggle_button(card.name, card_idx, is_foil) }}
+              {% if has_faces %}
+              <button type="button" id="dfc-transform-btn" class="ext-link-btn" onclick="dfcToggleFace()" aria-pressed="false">⥮ Transform</button>
+              {% endif %}
             </div>
         </div>
 
@@ -106,6 +118,35 @@
             <div class="card-text" style="white-space: pre-line;">{{ card.text | replace('\\n', '\n') }}</div>
             {% endif %}
 
+            {% if has_faces %}
+            {% set back_type_parts = back_face.type.split(' — ') if back_face.type else [] %}
+            <p class="cd-section-heading" style="margin-top:1rem;">Back Face: {{ back_face.name }}</p>
+            {% if back_face.manaCost %}
+            <div class="card-mana-cost">{{ back_face.manaCost }}</div>
+            {% endif %}
+            <table class="card-stats-table">
+                {% if back_type_parts|length > 1 %}
+                <tr>
+                    <th>{{ back_type_parts[0] }}</th>
+                    <td>{{ back_type_parts[1] }}</td>
+                </tr>
+                {% elif back_face.type %}
+                <tr>
+                    <th colspan="2">{{ back_face.type }}</th>
+                </tr>
+                {% endif %}
+                {% if back_face.power is not none and back_face.power|string != '' and back_face.power|string != 'nan' %}
+                <tr>
+                    <th>Power / Toughness</th>
+                    <td>{{ back_face.power }} / {{ back_face.toughness }}</td>
+                </tr>
+                {% endif %}
+            </table>
+            {% if back_face.text %}
+            <div class="card-text" style="white-space: pre-line;">{{ back_face.text | replace('\\n', '\n') }}</div>
+            {% endif %}
+            {% endif %}
+
             <!-- Theme Tags -->
             {% if card.themeTags_parsed and card.themeTags_parsed|length > 0 %}
             <p class="cd-section-heading" style="margin-top:1rem;">Themes</p>
@@ -156,44 +197,126 @@
 </div>
 
 <script>
+{% if has_faces %}
+// Double-faced card front/back image toggle ("Transform" button). Both
+// faces' text/stats are always shown below (see the Back Face section),
+// so this only needs to swap the card image itself.
+(function(){
+    window.dfcToggleFace = function(){
+        var img = document.getElementById('card-img-{{ card_idx }}');
+        if (!img) return;
+        var current = img.getAttribute('data-current-face') || 'front';
+        var next = current === 'front' ? 'back' : 'front';
+        var src = next === 'back' ? img.getAttribute('data-back-src') : img.getAttribute('data-front-src');
+        if (!src) return;
+        img.src = src;
+        img.setAttribute('data-current-face', next);
+        var btn = document.getElementById('dfc-transform-btn');
+        if (btn) {
+            btn.setAttribute('aria-pressed', next === 'back' ? 'true' : 'false');
+            btn.setAttribute('aria-label', next === 'back' ? 'Show front face' : 'Show back face');
+        }
+    };
+})();
+{% endif %}
 // Price loader
 (function(){
     var name = {{ card.name | tojson }};
     var overlayId = 'price-overlay-{{ card_idx }}';
-    function loadPrice(printingId){
-        var url = '/api/price/' + encodeURIComponent(name);
-        if (printingId) url += '?printing=' + encodeURIComponent(printingId);
-        fetch(url)
-            .then(function(r){ return r.ok ? r.json() : null; })
-            .then(function(d){
-                var el = document.getElementById('card-price-values');
-                if (!el) return;
-                if (!d || (d.price == null && d.ck_price == null)) {
-                    el.innerHTML = '<span class="card-price-loading">No price data available.</span>';
-                    return;
-                }
-                var html = '';
-                if (d.price != null) {
-                    html += '<div class="card-price-row"><span class="card-price-source">TCG</span><span class="card-price-amount">$' + parseFloat(d.price).toFixed(2) + '</span></div>';
-                }
-                if (d.ck_price != null) {
-                    html += '<div class="card-price-row"><span class="card-price-source">CK</span><span class="card-price-amount">$' + parseFloat(d.ck_price).toFixed(2) + '</span></div>';
-                }
-                el.innerHTML = html;
-            })
-            .catch(function(){
-                var el = document.getElementById('card-price-values');
-                if (el) el.innerHTML = '<span class="card-price-loading">Unavailable.</span>';
-            });
+
+    function foilBtn(){ return document.querySelector('.card-detail-printing-row .btn-foil-toggle'); }
+    function imgWrap(){ return document.querySelector('.card-image-shine-wrap'); }
+
+    // Lightweight CSS shimmer approximating a foil card's shifting sheen
+    // (Scryfall doesn't serve a visually distinct image for foil prints),
+    // shown on the card image while its foil finish is the effective one.
+    function applyShine(active){
+        var wrap = imgWrap();
+        if (wrap) wrap.classList.toggle('card-foil-shine', !!active);
+    }
+
+    // Shows/hides/disables the foil toggle based on whether the currently
+    // selected printing actually has each finish: hidden entirely if it has
+    // no foil version at all, forced-on-and-locked if it's foil-only (no
+    // nonfoil to fall back to), otherwise a normal enabled toggle.
+    function updateFoilAvailability(hasFoil, hasNonfoil, requestedFoil){
+        var btn = foilBtn();
+        if (!btn) return;
+        if (!hasFoil) {
+            btn.style.display = 'none';
+            applyShine(false);
+            return;
+        }
+        btn.style.display = '';
+        if (!hasNonfoil) {
+            btn.disabled = true;
+            btn.classList.add('active');
+            btn.setAttribute('aria-pressed', 'true');
+            btn.title = 'This printing is only available in foil.';
+            applyShine(true);
+        } else {
+            btn.disabled = false;
+            btn.title = requestedFoil ? 'Use the nonfoil price/finish' : 'Use the foil price/finish';
+            applyShine(requestedFoil);
+        }
+    }
+
+    function loadPrice(printingId, requestedFoil){
+        var base = '/api/price/' + encodeURIComponent(name);
+        var qp = printingId ? ('printing=' + encodeURIComponent(printingId)) : '';
+        var nonfoilUrl = base + (qp ? '?' + qp : '');
+        var foilUrl = base + '?' + (qp ? qp + '&' : '') + 'foil=1';
+        Promise.all([
+            fetch(nonfoilUrl).then(function(r){ return r.ok ? r.json() : null; }).catch(function(){ return null; }),
+            fetch(foilUrl).then(function(r){ return r.ok ? r.json() : null; }).catch(function(){ return null; }),
+        ]).then(function(results){
+            var dNonfoil = results[0], dFoil = results[1];
+            // The API always falls back to whichever finish the printing
+            // actually has price data for, and reports that in `foil` --
+            // so comparing the two responses' `foil` flags tells us which
+            // finish(es) genuinely exist for this printing.
+            var hasNonfoil = !!(dNonfoil && dNonfoil.price != null && dNonfoil.foil === false);
+            var hasFoil = !!(dFoil && dFoil.price != null && dFoil.foil === true);
+            var nonfoilPrice = hasNonfoil ? dNonfoil.price : null;
+            var foilPrice = hasFoil ? dFoil.price : null;
+            var ckPrice = (dNonfoil && dNonfoil.ck_price != null) ? dNonfoil.ck_price
+                : (dFoil && dFoil.ck_price != null ? dFoil.ck_price : null);
+
+            updateFoilAvailability(hasFoil, hasNonfoil, !!requestedFoil);
+
+            var el = document.getElementById('card-price-values');
+            if (!el) return;
+            if (nonfoilPrice == null && foilPrice == null && ckPrice == null) {
+                el.innerHTML = '<span class="card-price-loading">No price data available.</span>';
+                return;
+            }
+            var html = '';
+            if (nonfoilPrice != null || foilPrice != null) {
+                var tcgParts = [];
+                if (nonfoilPrice != null) tcgParts.push('$' + parseFloat(nonfoilPrice).toFixed(2));
+                if (foilPrice != null) tcgParts.push('<span class="price-foil-tag" title="Foil price">&#10024;</span> $' + parseFloat(foilPrice).toFixed(2));
+                html += '<div class="card-price-row"><span class="card-price-source">TCG</span><span class="card-price-amount">' + tcgParts.join(' <span class="price-sep">/</span> ') + '</span></div>';
+            }
+            if (ckPrice != null) {
+                html += '<div class="card-price-row"><span class="card-price-source">CK</span><span class="card-price-amount">$' + parseFloat(ckPrice).toFixed(2) + '</span></div>';
+            }
+            el.innerHTML = html;
+        })
+        .catch(function(){
+            var el = document.getElementById('card-price-values');
+            if (el) el.innerHTML = '<span class="card-price-loading">Unavailable.</span>';
+        });
     }
     var overlayEl = document.getElementById(overlayId);
-    loadPrice(overlayEl ? overlayEl.dataset.printingId : '');
+    loadPrice(overlayEl ? overlayEl.dataset.printingId : '', overlayEl && overlayEl.dataset.foil === '1');
     // The printing picker's OOB response updates #price-overlay-{idx}'s
-    // data-printing-id when a different printing is chosen; refresh this
-    // page's price panel to match instead of the generic overlay markup.
+    // data-printing-id when a different printing is chosen (and the foil
+    // toggle's OOB response updates its data-foil when toggled); refresh
+    // this page's price panel and foil UI to match instead of the generic
+    // overlay markup.
     document.body.addEventListener('htmx:afterSwap', function(ev){
         if (ev.target && ev.target.id === overlayId) {
-            loadPrice(ev.target.dataset.printingId || '');
+            loadPrice(ev.target.dataset.printingId || '', ev.target.dataset.foil === '1');
         }
     });
 })();

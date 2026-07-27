@@ -91,6 +91,72 @@ class PriceService(BaseService):
     # Public API
     # ------------------------------------------------------------------
 
+    @staticmethod
+    def _resolve_printing_price(
+        printing_entry: Dict[str, float],
+        region: str,
+        foil: bool,
+    ) -> tuple[Optional[float], Optional[bool]]:
+        """Return ``(price, actual_foil)`` for a single printing's price entry.
+
+        Prefers the requested finish (``foil``); if that finish has no price
+        data for *this specific printing* (e.g. a foil-only promo has no
+        ``usd`` price, only ``usd_foil``), falls back to the printing's
+        *other* finish rather than letting the caller fall through to a
+        completely different (cheapest-by-name) printing's price, which
+        would be misleading. Returns ``(None, None)`` if the printing has no
+        price data for either finish.
+        """
+        primary_key = region + ("_foil" if foil else "")
+        price = printing_entry.get(primary_key)
+        if price is not None:
+            return price, foil
+        alt_key = region + ("" if foil else "_foil")
+        alt_price = printing_entry.get(alt_key)
+        if alt_price is not None:
+            return alt_price, not foil
+        return None, None
+
+    def get_price_detail(
+        self,
+        card_name: str,
+        region: str = "usd",
+        foil: bool = False,
+        scryfall_id: Optional[str] = None,
+    ) -> tuple[Optional[float], bool]:
+        """Return ``(price, actual_foil)`` for *card_name*.
+
+        Same lookup rules as :meth:`get_price`, but also reports whether the
+        returned price is actually a foil price -- which can differ from the
+        requested *foil* flag when a specific printing only has data for the
+        other finish (see :meth:`_resolve_printing_price`).
+        """
+        self._ensure_loaded()
+        if scryfall_id:
+            printing_entry = self._price_by_printing_id.get(scryfall_id)
+            if printing_entry is not None:
+                price, actual_foil = self._resolve_printing_price(printing_entry, region, foil)
+                if price is not None:
+                    with self._lock:
+                        self._hit_count += 1
+                    return price, bool(actual_foil)
+        price_key = region + ("_foil" if foil else "")
+        entry = self._cache.get(card_name.lower().strip())
+        self.queue_lazy_refresh(card_name)
+        with self._lock:
+            if entry is not None:
+                self._hit_count += 1
+                if entry.get(price_key) is not None:
+                    return entry.get(price_key), foil
+                # The cached (cheapest-by-name) printing has no price for the
+                # requested finish -- e.g. every known printing of this card
+                # is foil-only. Fall back to its other finish rather than a
+                # blank price.
+                price, actual_foil = self._resolve_printing_price(entry, region, foil)
+                return price, bool(actual_foil) if price is not None else foil
+            self._miss_count += 1
+        return None, foil
+
     def get_price(
         self,
         card_name: str,
@@ -106,28 +172,14 @@ class PriceService(BaseService):
             foil: If ``True`` return foil price.
             scryfall_id: Optional specific printing to price instead of the
                 cheapest-by-name default. Falls back to the cheapest-by-name
-                price if this printing has no price data (never a hard miss
-                just because one printing is unpriced).
+                price if this printing has no price data at all (never a
+                hard miss just because one printing is unpriced).
 
         Returns:
             Price as float or ``None`` when missing / card unknown.
         """
-        self._ensure_loaded()
-        price_key = region + ("_foil" if foil else "")
-        if scryfall_id:
-            printing_entry = self._price_by_printing_id.get(scryfall_id)
-            if printing_entry is not None and printing_entry.get(price_key) is not None:
-                with self._lock:
-                    self._hit_count += 1
-                return printing_entry.get(price_key)
-        entry = self._cache.get(card_name.lower().strip())
-        self.queue_lazy_refresh(card_name)
-        with self._lock:
-            if entry is not None:
-                self._hit_count += 1
-                return entry.get(price_key)
-            self._miss_count += 1
-        return None
+        price, _actual_foil = self.get_price_detail(card_name, region=region, foil=foil, scryfall_id=scryfall_id)
+        return price
 
     def get_prices_batch(
         self,
@@ -135,6 +187,7 @@ class PriceService(BaseService):
         region: str = "usd",
         foil: bool = False,
         printing_map: Optional[Dict[str, str]] = None,
+        foil_map: Optional[Dict[str, bool]] = None,
     ) -> Dict[str, Optional[float]]:
         """Return a mapping of card name → price for all requested cards.
 
@@ -144,29 +197,39 @@ class PriceService(BaseService):
         Args:
             card_names: List of card names to look up.
             region: Price region - ``"usd"`` or ``"eur"``.
-            foil: If ``True`` return foil prices.
+            foil: If ``True`` return foil prices (the default for any name
+                not present in *foil_map*).
             printing_map: Optional ``{name.lower(): scryfall_id}`` overrides --
                 for any name present here, price that specific printing
                 instead of the cheapest-by-name default (falling back to the
                 default if that printing has no price data).
+            foil_map: Optional ``{name.lower(): bool}`` per-card foil
+                overrides -- for any name present here, use that finish
+                instead of the global *foil* flag (mirrors *printing_map*'s
+                per-name override pattern).
 
         Returns:
             Dict mapping each input name to its price (or ``None``).
         """
         self._ensure_loaded()
-        price_key = region + ("_foil" if foil else "")
         result: Dict[str, Optional[float]] = {}
         hits = 0
         misses = 0
         for name in card_names:
             key = name.lower().strip()
+            card_foil = foil_map.get(key, foil) if foil_map else foil
+            price_key = region + ("_foil" if card_foil else "")
             price: Optional[float] = None
             if printing_map:
                 scryfall_id = printing_map.get(key)
                 if scryfall_id:
                     printing_entry = self._price_by_printing_id.get(scryfall_id)
                     if printing_entry is not None:
-                        price = printing_entry.get(price_key)
+                        # Prefer this printing's OTHER finish over falling
+                        # through to a different (cheapest-by-name) printing
+                        # -- e.g. a foil-only promo has no "usd" price, only
+                        # "usd_foil".
+                        price, _actual_foil = self._resolve_printing_price(printing_entry, region, card_foil)
             if price is None:
                 entry = self._cache.get(key)
                 if entry is not None:

@@ -34,6 +34,8 @@ _No unreleased changes yet_
 - Card browser and owned library tiles now show clickable guild/shard/wedge/nephilim color-identity names (e.g. "Bant", with "Azorius"/"Selesnya"/"Simic" sub-badges) alongside the color pips; clicking a pip or name applies a color filter, clicking the card image opens its details page, and clicking a theme tag runs a theme search
 - Card browser and owned library color filters now have an "Inclusive match" toggle: exact mode (default) matches only that exact color combination, inclusive mode matches any card whose color identity contains the selected colors (e.g. searching "WU" also finds Bant, Esper, and Jeskai cards)
 - Card detail page now shows a "Transform" button for double-faced/split/flip/meld cards to flip the card image (also updating when you change the printing), with both faces' type, mana cost, power/toughness, and oracle text always shown
+- `GET /api/v1/decks/public`: browse other users' public decks and shared community builds with no authentication required, mirroring the web UI's "Other Users' Decks" and "Community Builds" sections; a caller's own public decks are excluded when a valid API key is supplied (they already see those under their own deck listing)
+- `GET /api/v1/decks/public/{owner_id}/{filename}` and `GET /api/v1/decks/public/{owner_id}/{filename}/export`: view or download (CSV/TXT/JSON) a specific deck from the `/public` listing above, also with no authentication required
 
 ### Changed
 _No changes_

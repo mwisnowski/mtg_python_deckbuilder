@@ -44,6 +44,21 @@
   </button>
 {%- endmacro %}
 
+{% macro foil_toggle_button(name, idx, is_foil=False, compact=False, deck=None) -%}
+  {# Toggles whether this card should use its foil price/finish in the deck.
+     Mirrors `printing_button()`'s signature and OOB-update pattern.
+     `deck`, when provided (only on the saved-deck view, for its owner),
+     persists the choice to that on-disk deck CSV instead of the build
+     wizard's session-scoped state. #}
+  <button type="button" class="btn btn-foil-toggle{% if compact %} btn-foil-toggle-compact{% endif %}{% if is_foil %} active{% endif %}"
+          title="{{ 'Use the nonfoil price/finish' if is_foil else 'Use the foil price/finish' }}"
+          aria-pressed="{{ 'true' if is_foil else 'false' }}" data-is-foil="{{ '1' if is_foil else '0' }}"
+          hx-post="{{ '/decks/foil' if deck else '/build/foil' }}" hx-target="this" hx-swap="outerHTML"
+          hx-vals='{"name": "{{ name }}", "idx": "{{ idx }}", "foil": "{{ '0' if is_foil else '1' }}", "compact": "{{ '1' if compact else '0' }}"{% if deck %}, "deck": "{{ deck }}"{% endif %}}'>
+    {% if compact %}&#10024;{% else %}{% if is_foil %}Foil &#10024;{% else %}Use Foil{% endif %}{% endif %}
+  </button>
+{%- endmacro %}
+
 {% macro color_identity(colors, is_colorless=False, aria_label='', title_text='') -%}
   <div class="color-identity" role="img"
        aria-label="{{ aria_label }}"

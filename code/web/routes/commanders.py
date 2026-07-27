@@ -15,6 +15,7 @@ from ..app import templates
 from ..services.commander_catalog_loader import CommanderCatalog, CommanderRecord, load_commander_catalog
 from ..services.theme_catalog_loader import load_index, slugify
 from ..services.telemetry import log_commander_page_view
+from ..services.tasks import get_session, new_sid
 
 router = APIRouter(prefix="/commanders", tags=["commanders"])
 
@@ -699,6 +700,11 @@ async def commanders_index(
         "error": error,
         "return_url": return_url,
     }
+    had_sid_cookie = bool(request.cookies.get("sid"))
+    sid = request.cookies.get("sid") or new_sid()
+    sess = get_session(sid)
+    context["printings"] = dict(sess.get("printings") or {})
+    context["foils"] = dict(sess.get("foils") or {})
     template_name = "commanders/list_fragment.html" if _is_htmx(request) else "commanders/index.html"
     try:
         log_commander_page_view(
@@ -710,7 +716,13 @@ async def commanders_index(
         )
     except Exception:
         pass
-    return templates.TemplateResponse(template_name, context)
+    resp = templates.TemplateResponse(template_name, context)
+    if not had_sid_cookie:
+        try:
+            resp.set_cookie("sid", sid, max_age=60 * 60 * 8, httponly=True, samesite="lax")
+        except Exception:
+            pass
+    return resp
 
 @router.get("", response_class=HTMLResponse)
 async def commanders_index_alias(

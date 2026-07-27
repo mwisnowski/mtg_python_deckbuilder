@@ -32,6 +32,7 @@ from ...services import api_build_store as build_store
 from ...services import orchestrator as orch
 from ...services.build_utils import owned_names as owned_names_helper
 from ...utils.api_response import err, ok
+from ...app import ENABLE_PARTNER_MECHANICS
 from ..decks import _deck_dir
 from .auth import get_api_user
 
@@ -64,6 +65,13 @@ class CreateBuildRequest(BaseModel):
     ideal_counts: Optional[Dict[str, int]] = None
     include_cards: Optional[List[str]] = None
     exclude_cards: Optional[List[str]] = None
+    # Partner/background pairing (see GET /commanders/{name}/partners and
+    # GET /commanders/backgrounds for valid `secondary_commander`/`background`
+    # values for a given primary commander). Ignored server-side unless the
+    # ENABLE_PARTNER_MECHANICS feature flag is on.
+    partner_enabled: bool = False
+    secondary_commander: Optional[str] = None
+    background: Optional[str] = None
 
 
 class ReplaceCardRequest(BaseModel):
@@ -74,6 +82,11 @@ class ReplaceCardRequest(BaseModel):
 class SetPrintingRequest(BaseModel):
     name: str
     scryfall_id: Optional[str] = None
+
+
+class SetFoilRequest(BaseModel):
+    name: str
+    foil: bool = False
 
 
 class RemoveCardRequest(BaseModel):
@@ -171,6 +184,9 @@ async def create_build(body: CreateBuildRequest, request: Request, user: User = 
             multi_copy=body.multi_copy,
             include_cards=body.include_cards,
             exclude_cards=body.exclude_cards,
+            partner_feature_enabled=ENABLE_PARTNER_MECHANICS and body.partner_enabled,
+            secondary_commander=body.secondary_commander,
+            background_commander=body.background,
         )
     except ValueError as exc:
         return err(str(exc), "INVALID_BUILD_REQUEST", 400, _rid(request))
@@ -544,6 +560,36 @@ async def set_build_card_printing(
     if not found:
         return err(f"'{body.name}' is not in the deck.", "CARD_NOT_IN_DECK", 404, _rid(request))
     return ok({"name": body.name, "scryfall_id": (body.scryfall_id or None)}, _rid(request))
+
+
+@router.post("/{build_id}/foil", summary="Set a card's foil finish (guided mode)")
+async def set_build_card_foil(
+    build_id: str, body: SetFoilRequest, request: Request, user: User = Depends(get_api_user)
+):
+    """Choose (or clear) the foil finish for a card already in a guided
+    build's deck-in-progress. Baked directly onto the card's `card_library`
+    entry (see `builder_utils.set_card_foil`), so it's written into the
+    exported deck's CSV `Foil` column and reflected in `build_deck_summary()`.
+    """
+    build = _guided_build_or_none(build_id, user["id"])
+    if build is None:
+        return err("Guided build not found.", "BUILD_NOT_FOUND", 404, _rid(request))
+    ctx = build_store.get_ctx(build_id)
+    lock = build_store.get_stage_lock(build_id)
+    if ctx is None or lock is None:
+        return err("Build session expired.", "BUILD_SESSION_EXPIRED", 410, _rid(request))
+    b = ctx.get("builder")
+    if b is None:
+        return err("Build session expired.", "BUILD_SESSION_EXPIRED", 410, _rid(request))
+
+    def _run() -> bool:
+        with lock:
+            return bu.set_card_foil(getattr(b, "card_library", {}) or {}, body.name, body.foil)
+
+    found = await asyncio.to_thread(_run)
+    if not found:
+        return err(f"'{body.name}' is not in the deck.", "CARD_NOT_IN_DECK", 404, _rid(request))
+    return ok({"name": body.name, "foil": body.foil}, _rid(request))
 
 
 def _remove_card_sync(ctx: Dict[str, Any], name: str) -> Dict[str, Any]:

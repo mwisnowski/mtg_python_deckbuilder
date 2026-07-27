@@ -47,6 +47,10 @@ def _write_bulk_data(path: str, cards: list) -> None:
 def bulk_data_file(tmp_path):
     """Minimal Scryfall bulk data with known prices."""
     cards = [
+        # Foil-only promo printing (no "usd" price, only "usd_foil") -- used
+        # to test that a specific-printing lookup falls back to this same
+        # printing's foil price instead of a different printing's price.
+        {"object": "card", "id": "foil-only-promo", "name": "Lightning Bolt", "prices": {"usd": None, "usd_foil": "9.99", "eur": None, "eur_foil": None, "tix": None}},
         {"object": "card", "name": "Lightning Bolt", "prices": {"usd": "0.50", "usd_foil": "2.00", "eur": "0.40", "eur_foil": None, "tix": None}},
         {"object": "card", "name": "Sol Ring", "prices": {"usd": "2.00", "usd_foil": "5.00", "eur": "1.80", "eur_foil": None, "tix": None}},
         {"object": "card", "name": "Mana Crypt", "prices": {"usd": "150.00", "usd_foil": "300.00", "eur": "120.00", "eur_foil": None, "tix": None}},
@@ -92,6 +96,34 @@ def test_get_price_foil(price_svc):
 def test_get_price_eur_region(price_svc):
     price = price_svc.get_price("Sol Ring", region="eur")
     assert price == pytest.approx(1.80)
+
+
+def test_get_price_foil_only_printing_falls_back_to_own_foil_price(price_svc):
+    """A specific foil-only printing has no nonfoil price -- it should use
+    its own foil price, not a different (cheapest) printing's nonfoil price."""
+    price = price_svc.get_price("Lightning Bolt", scryfall_id="foil-only-promo")
+    assert price == pytest.approx(9.99)
+
+
+def test_get_price_detail_reports_actual_foil_for_foil_only_printing(price_svc):
+    price, actual_foil = price_svc.get_price_detail("Lightning Bolt", scryfall_id="foil-only-promo")
+    assert price == pytest.approx(9.99)
+    assert actual_foil is True
+
+
+def test_get_price_detail_matches_requested_foil_when_available(price_svc):
+    price, actual_foil = price_svc.get_price_detail("Lightning Bolt", foil=True, scryfall_id="foil-only-promo")
+    assert price == pytest.approx(9.99)
+    assert actual_foil is True
+
+
+def test_get_prices_batch_printing_map_foil_only_fallback(price_svc):
+    """Batch lookup with a printing_map pointing at a foil-only printing
+    should also use that printing's own foil price."""
+    result = price_svc.get_prices_batch(
+        ["Lightning Bolt"], printing_map={"lightning bolt": "foil-only-promo"}
+    )
+    assert result["Lightning Bolt"] == pytest.approx(9.99)
 
 
 def test_get_price_unknown_card_returns_none(price_svc):

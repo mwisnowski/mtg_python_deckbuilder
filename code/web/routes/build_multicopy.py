@@ -69,6 +69,7 @@ def _rebuild_ctx_with_multicopy(sess: dict) -> None:
             combo_target_count=int(sess.get("combo_target_count", 2)),
             combo_balance=str(sess.get("combo_balance", "mix")),
             swap_mdfc_basics=bool(sess.get("swap_mdfc_basics")),
+            printings=dict(sess.get("printings") or {}),
         )
     except Exception:
         # If rebuild fails (e.g., commander not found in test), fall back to injecting

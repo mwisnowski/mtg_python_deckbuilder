@@ -591,6 +591,7 @@ class ReportingMixin:
                 'tags': list(info.get('Tags', []) or []),
                 'isNew': bool(row_lookup.get(name, None) is not None and row_lookup[name].get('isNew', False)),
                 'scryfall_id': info.get('ScryfallID') or None,
+                'is_foil': bool(info.get('Foil')),
             }
             dfc_meta = dfc_land_lookup.get(name)
             if dfc_meta:
@@ -903,7 +904,7 @@ class ReportingMixin:
 
         headers = [
             "Name","Count","Type","ManaCost","ManaValue","Colors","Power","Toughness",
-            "Role","SubRole","AddedBy","TriggerTag","Synergy","Tags","MetadataTags","Text","DFCNote","Owned","Price (TCGPlayer)","ScryfallID"
+            "Role","SubRole","AddedBy","TriggerTag","Synergy","Tags","MetadataTags","Text","DFCNote","Owned","Price (TCGPlayer)","ScryfallID","Foil"
         ]
 
         # Auto-inject price service when running in the web context
@@ -1064,7 +1065,8 @@ class ReportingMixin:
                 dfc_note,
                 owned_flag,
                 (f"{prices_map[name]:.2f}" if prices_map.get(name) is not None else ''),
-                info.get('ScryfallID') or ''
+                info.get('ScryfallID') or '',
+                'True' if info.get('Foil') else ''
             ]))
 
         # Now sort (category precedence, then alphabetical name)

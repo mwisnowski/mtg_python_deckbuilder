@@ -1108,6 +1108,60 @@ img.lqip.loaded { filter: blur(0); opacity: 1; }
 	white-space: nowrap;
 }
 
+.tag-clickable {
+	text-decoration: none;
+	cursor: pointer;
+}
+
+.tag-clickable:hover {
+	background: rgba(148, 163, 184, 0.3);
+}
+
+/* Wraps a `.mana` pip in an `<a>` so color dots stay clickable filters
+   without disturbing the existing dot styling/sizing. */
+.mana-link {
+	display: inline-flex;
+	text-decoration: none;
+	cursor: pointer;
+}
+
+/* Guild/shard/wedge/nephilim name badges shown alongside the mana pips
+   on card browser and owned library tiles; clicking applies a color filter. */
+.tile-color-names {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.25rem;
+	margin-top: 0.15rem;
+}
+
+.tile-color-name-badge {
+	font-size: 0.7rem;
+	padding: 0.1rem 0.35rem;
+	border-radius: 3px;
+	text-decoration: none;
+	white-space: nowrap;
+	cursor: pointer;
+}
+
+.tile-color-name-primary {
+	background: rgba(59, 130, 246, 0.15);
+	color: var(--primary);
+	font-weight: 500;
+}
+
+.tile-color-name-primary:hover {
+	background: rgba(59, 130, 246, 0.3);
+}
+
+.tile-color-name-sub {
+	background: rgba(148, 163, 184, 0.12);
+	color: var(--muted);
+}
+
+.tile-color-name-sub:hover {
+	background: rgba(148, 163, 184, 0.25);
+}
+
 /* Card Details button on tiles */
 .card-details-btn {
 	display: inline-flex;
@@ -1137,16 +1191,9 @@ img.lqip.loaded { filter: blur(0); opacity: 1; }
 	flex-shrink: 0;
 }
 
-/* Printing picker row on browse tiles */
-.card-tile-printing-row {
-	margin-top: 0.35rem;
-}
-
-.card-tile-printing-row .btn-printing {
-	font-size: 0.8rem;
-	padding: 0.35rem 0.6rem;
-}
-
+/* Printing picker row on browse tiles -- overlaid on the card image itself
+   (see the tile templates' inline position:absolute), not a flow row below
+   it, so both buttons stay compact icons rather than full-width labels. */
 .card-detail-printing-row {
 	margin-top: 0.6rem;
 	text-align: center;
@@ -1796,6 +1843,52 @@ img.lqip.loaded { filter: blur(0); opacity: 1; }
 	width: 100%;
 	height: auto;
 	border-radius: 12px;
+}
+
+/* Wraps only the card detail page's main <img> (not the printing/foil
+   buttons row below it), so the `.card-foil-shine::after` overlay -- which
+   fills its host's full bounds -- can't bleed onto those buttons. */
+.card-image-shine-wrap {
+	border-radius: 12px;
+}
+
+/* Opt-in marker for "this element safely wraps ONLY a card image (and its
+   overlaid badges/buttons), nothing else" -- see base.html's foil-shimmer
+   pass, which toggles `.card-foil-shine` on the nearest ancestor carrying
+   this class. Every card thumbnail/preview across the site that supports
+   the foil toggle should carry it, so the shimmer works everywhere a card
+   can be marked foil. A sensible default radius so the shine's rounded
+   corners (border-radius: inherit) look right even on hosts that don't set
+   their own; hosts that already do (e.g. `.stack-card`) are unaffected. */
+.foil-shine-target {
+	border-radius: 8px;
+}
+
+/* Diagonal rainbow overlay shown on a card image (browser detail page,
+   saved-deck view commander/card thumbnails) while its foil finish is the
+   effective one (toggled on, or forced for a foil-only printing) -- a
+   lightweight, static CSS approximation of a foil card's rainbow sheen,
+   since Scryfall doesn't serve a visually distinct image for foil prints.
+   Intentionally NOT animated: an earlier animated version visibly
+   jump-cut back to its start position at the end of every loop.
+   `border-radius: inherit` so it matches whatever host element it's
+   toggled onto (card-image-shine-wrap, commander-card, stack-card, etc.)
+   instead of a single hardcoded radius. */
+.card-foil-shine::after {
+	content: '';
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+	border-radius: inherit;
+	background: repeating-linear-gradient(115deg,
+		rgba(255, 90, 130, .12) 0px,
+		rgba(255, 200, 70, .1) 20px,
+		rgba(140, 255, 120, .1) 40px,
+		rgba(80, 210, 255, .11) 60px,
+		rgba(160, 110, 255, .12) 80px,
+		rgba(255, 100, 200, .11) 100px,
+		rgba(255, 90, 130, .12) 120px);
+	mix-blend-mode: overlay;
 }
 
 /* ============================================
@@ -4524,6 +4617,17 @@ footer.site-footer {
 }
 .card-price-overlay:empty { display: none; }
 
+/* Small sparkle tag appended to a price when it's actually a foil price
+   (either the user explicitly requested foil, or a specific foil-only
+   printing has no nonfoil price to fall back to). */
+.price-foil-tag {
+  background: linear-gradient(135deg, #f0abfc, #60a5fa, #facc15);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  font-weight: 700;
+}
+
 /* "Owned" badge on card thumbnails — top-right, green pill */
 .card-owned-badge {
   position: absolute;
@@ -4903,6 +5007,36 @@ footer.site-footer {
   background: rgba(15, 17, 21, .8);
 }
 .printing-panel:empty { display: none; }
+/* Foil toggle button (mirrors .btn-printing sizing/placement) */
+.btn-foil-toggle {
+  background: rgba(15, 17, 21, .8);
+  border: 1px solid var(--border, #333);
+  color: var(--muted, #b6b8bd);
+}
+.btn-foil-toggle:hover {
+  border-color: #facc15;
+  color: #facc15;
+}
+.btn-foil-toggle.active {
+  border-color: #facc15;
+  background: linear-gradient(135deg, rgba(240, 171, 252, .25), rgba(96, 165, 250, .25), rgba(250, 204, 21, .25));
+  color: #facc15;
+}
+.btn-foil-toggle:disabled {
+  cursor: default;
+  opacity: 0.9;
+}
+.btn-foil-toggle-compact {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  line-height: 1;
+}
 /* Rendered as a centered modal (shown/hidden via the shared backdrop in
    base.html) rather than anchored to the triggering button, so it's never
    squished/clipped by narrow card tiles or the Finished Decks stacked
@@ -4912,7 +5046,9 @@ footer.site-footer {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  z-index: 301;
+  /* Must stay above .modal (z-index: 1000) so the picker still shows in
+     front when opened from inside the New Deck modal / builder modals. */
+  z-index: 1101;
   background: var(--panel, #1a1f2e);
   border: 1px solid var(--border, #333);
   border-radius: 10px;
@@ -4926,7 +5062,7 @@ footer.site-footer {
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, .6);
-  z-index: 300;
+  z-index: 1100;
 }
 body.printing-modal-open .printing-modal-backdrop { display: block; }
 .printing-picker-header {
@@ -4969,6 +5105,20 @@ body.printing-modal-open .printing-modal-backdrop { display: block; }
 .printing-option:hover { border-color: var(--blue-main, #3b82f6); }
 .printing-option.selected { border-color: #34d399; box-shadow: 0 0 0 1px #34d399 inset; }
 .printing-option img { width: 110px; border-radius: 4px; display: block; }
+.printing-option-thumb-wrap { position: relative; display: block; }
+.printing-option-foil-badge {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  background: linear-gradient(135deg, #f0abfc, #60a5fa, #facc15);
+  color: #0f1115;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .03em;
+  padding: 1px 5px;
+  border-radius: 4px;
+  line-height: 1.3;
+}
 .printing-option-label {
   font-size: 10px;
   color: var(--muted, #94a3b8);
@@ -4979,6 +5129,14 @@ body.printing-modal-open .printing-modal-backdrop { display: block; }
   font-size: 11px;
   font-weight: 600;
   color: var(--text);
+}
+.printing-option-price-foil {
+  font-size: 10px;
+  font-weight: 600;
+  background: linear-gradient(135deg, #f0abfc, #60a5fa, #facc15);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 .printing-option-default {
   justify-content: center;

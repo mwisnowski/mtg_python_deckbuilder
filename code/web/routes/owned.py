@@ -6,6 +6,11 @@ from ..app import templates
 from ..services import owned_store as store
 from ..services.tasks import get_session, new_sid
 
+try:
+    from code.deck_builder.color_identity_utils import color_identity_badges
+except ImportError:
+    from deck_builder.color_identity_utils import color_identity_badges
+
 
 router = APIRouter(prefix="/owned")
 
@@ -31,6 +36,16 @@ def _canon_color_code(seq: list[str] | tuple[str, ...]) -> str:
     uniq.sort(key=lambda x: order[x])
     code = ''.join([c for c in uniq if c != 'C'])
     return code or ('C' if 'C' in seen else '')
+
+
+_COLOR_BITS = {'W': 1, 'U': 2, 'B': 4, 'R': 8, 'G': 16}
+
+
+def _mask_from_code(code: str) -> int:
+    """Bitmask (WUBRG) for a canonical color code string; "C"/empty -> 0."""
+    if not code or code == 'C':
+        return 0
+    return sum(_COLOR_BITS.get(ch, 0) for ch in code)
 
 
 def _color_combo_label(code: str) -> str:
@@ -91,6 +106,9 @@ def _build_owned_context(request: Request, notice: str | None = None, error: str
     all_colors = ['W','U','B','R','G','C']
     # Build color combos displayed in the filter
     combos = _build_color_combos(names_sorted, colors_by_name)
+    # Per-card guild/shard/wedge/nephilim name badges + WUBRG dots, for the
+    # same clickable color-identity badges shown on the card browser.
+    badges_by_name = {n: color_identity_badges(colors_by_name.get(n) or []) for n in names_sorted}
     ctx = {
         "request": request,
         "names": names_sorted,
@@ -102,12 +120,14 @@ def _build_owned_context(request: Request, notice: str | None = None, error: str
         "all_tags": all_tags,
         "all_colors": all_colors,
     "color_combos": combos,
+    "badges_by_name": badges_by_name,
     "added_at_map": added_at_map,
     }
     # Session-scoped printing selection (cosmetic only; does not affect
     # owned-card matching/filtering). Mirrors the build wizard's picker.
     sid = request.cookies.get("sid") or new_sid()
     ctx["printings"] = dict(get_session(sid).get("printings") or {})
+    ctx["foils"] = dict(get_session(sid).get("foils") or {})
     ctx["_sid"] = sid
     if notice:
         ctx["notice"] = notice
@@ -124,6 +144,7 @@ async def owned_index(
     filter_type: str = Query(""),
     filter_tags: list[str] = Query([]),
     filter_color: str = Query(""),
+    color_mode: str = Query("exact", description="Color filter mode: 'exact' or 'inclusive' (contains at least these colors)"),
     cmc_min: str = Query(""),
     cmc_max: str = Query(""),
     power_min: str = Query(""),
@@ -158,7 +179,14 @@ async def owned_index(
     # Color filter
     if filter_color:
         fcode = _canon_color_code(list(filter_color.upper()))
-        names = [n for n in names if _canon_color_code(colors_by_name.get(n) or []) == fcode]
+        if color_mode == "inclusive" and fcode != "C":
+            fmask = _mask_from_code(fcode)
+            names = [
+                n for n in names
+                if (_mask_from_code(_canon_color_code(colors_by_name.get(n) or [])) & fmask) == fmask
+            ]
+        else:
+            names = [n for n in names if _canon_color_code(colors_by_name.get(n) or []) == fcode]
 
     # CMC / Power / Toughness range filters
     if cmc_min or cmc_max or power_min or power_max or tough_min or tough_max:
@@ -218,6 +246,7 @@ async def owned_index(
         "filter_type": filter_type,
         "filter_tags": filter_tags,
         "filter_color": filter_color,
+        "color_mode": color_mode,
         "cmc_min": cmc_min,
         "cmc_max": cmc_max,
         "power_min": power_min,

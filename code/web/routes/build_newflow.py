@@ -252,6 +252,8 @@ async def build_new_inspect(request: Request, name: str = Query(...)) -> HTMLRes
         is_gc = bool(info["name"] in getattr(bc, 'GAME_CHANGERS', []))
     except Exception:
         is_gc = False
+    sid = request.cookies.get("sid") or new_sid()
+    sess = get_session(sid)
     ctx = {
         "request": request,
         "commander": {"name": info["name"], "exclusion": exclusion_detail},
@@ -263,6 +265,8 @@ async def build_new_inspect(request: Request, name: str = Query(...)) -> HTMLRes
         "recommended_sections": recommended_sections,  # R21: Sectioned recommendations
         "recommended_reasons": recommended_reasons,
         "gc_commander": is_gc,
+        "printings": dict(sess.get("printings") or {}),
+        "foils": dict(sess.get("foils") or {}),
         "brackets": orch.bracket_options(),
     }
     
@@ -312,7 +316,10 @@ async def build_new_inspect(request: Request, name: str = Query(...)) -> HTMLRes
             if tag not in reason_map:
                 reason_map[tag] = "Synergizes with partner pairing"
         ctx["recommended_reasons"] = reason_map
-    return templates.TemplateResponse("build/_new_deck_tags.html", ctx)
+    resp = templates.TemplateResponse("build/_new_deck_tags.html", ctx)
+    if not request.cookies.get("sid"):
+        resp.set_cookie("sid", sid, httponly=True, samesite="lax")
+    return resp
 
 
 # ==============================================================================
@@ -657,6 +664,8 @@ async def build_new_submit(
             "recommended_reasons": recommended_reasons,
             "gc_commander": is_gc,
             "brackets": orch.bracket_options(),
+            "printings": dict(sess.get("printings") or {}),
+            "foils": dict(sess.get("foils") or {}),
         }
         inspect_ctx.update(
             _partner_ui_context(

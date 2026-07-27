@@ -137,6 +137,17 @@ async def get_commander_partners(name: str, request: Request):
     return ok({"variant": variant, "options": jsonable_encoder(options)}, _rid(request))
 
 
+@router.get("/backgrounds", summary="List available Background cards")
+async def list_backgrounds(request: Request):
+    """All 'Background' enchantment cards usable with a 'Choose a Background'
+    commander (reuses build_partners.py; unlike partner suggestions, this
+    list doesn't depend on the primary commander)."""
+    from ...routes.build_partners import _build_background_options
+
+    options = _build_background_options()
+    return ok({"options": jsonable_encoder(options)}, _rid(request))
+
+
 @router.get("/{name}", summary="Get commander detail")
 async def get_commander_detail(name: str, request: Request):
     """Commander detail."""

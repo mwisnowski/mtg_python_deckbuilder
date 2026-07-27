@@ -1,13 +1,19 @@
 {# Single card tile for grid display #}
-{% from 'partials/_macros.html' import printing_button %}
+{% from 'partials/_macros.html' import printing_button, foil_toggle_button %}
 {% set sel_printing = (printings.get(card.name.lower(), '') if printings is defined else '') %}
+{% set is_foil = (foils.get(card.name.lower(), False) if foils is defined else False) %}
 {% set card_idx = card.name|slugify %}
 <div class="card-browser-tile card-tile" 
      data-card-name="{{ card.name }}" 
      data-tags="{{ card.themeTags_parsed|join(', ') if card.themeTags_parsed else '' }}"
-     {% if card.layout %}data-layout="{{ card.layout }}"{% endif %}>
+     {% if card.layout %}data-layout="{{ card.layout }}"{% endif %}
+     {% if enable_card_details %}
+     role="button" tabindex="0"
+     onclick="window.location.href='/cards/{{ card.name|urlencode }}';"
+     onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault(); window.location.href='/cards/{{ card.name|urlencode }}';}"
+     {% endif %}>
   {# Card image (uses hover system for preview) #}
-  <div class="card-browser-tile-image">
+  <div class="card-browser-tile-image foil-shine-target{% if is_foil %} card-foil-shine{% endif %}">
     <img 
       id="card-img-{{ card_idx }}"
       loading="lazy" 
@@ -24,7 +30,7 @@
     </div>
     
     {# Price overlay #}
-    <div class="card-price-overlay" id="price-overlay-{{ card_idx }}" data-price-for="{{ card.name }}" data-printing-id="{{ sel_printing }}" aria-hidden="true"></div>
+    <div class="card-price-overlay" id="price-overlay-{{ card_idx }}" data-price-for="{{ card.name }}" data-printing-id="{{ sel_printing }}" data-foil="{{ '1' if is_foil else '0' }}" aria-hidden="true"></div>
 
     {# Reprint badge — lower-right; shifts up when New badge is also present #}
     {% if card.isReprint %}
@@ -40,6 +46,15 @@
     {% if card.is_owned %}
     <div class="card-owned-badge">✓ Owned</div>
     {% endif %}
+
+    {# Printing/foil controls — overlaid on the image itself (bottom-left)
+       so the foil-shine toggle JS (which looks for the nearest
+       `.foil-shine-target` ancestor) can find this wrapper, and for visual
+       consistency with every other card surface's on-image controls. #}
+    <div class="card-tile-printing-row" style="position:absolute; bottom:4px; left:4px; z-index:5;" onclick="event.stopPropagation()">
+      {{ printing_button(card.name, card_idx, sel_printing, compact=True) }}
+      {{ foil_toggle_button(card.name, card_idx, is_foil, compact=True) }}
+    </div>
   </div>
 
   {# Card info #}
@@ -64,36 +79,42 @@
       
       {% if card.is_colorless %}
       <div class="tile-pips">
-        <span class="mana mana-C" title="Colorless"></span>
+        <a href="/cards?color=C" class="mana-link" onclick="event.stopPropagation()" title="Colorless">
+          <span class="mana mana-C"></span>
+        </a>
       </div>
       {% elif card.colorIdentity %}
       <div class="tile-pips">
-        {% set ci_list = card.colorIdentity.replace(' ', '').split(',') if card.colorIdentity is string else card.colorIdentity %}
-        {% for c in ci_list %}{% if c %}<span class="mana mana-{{ c }}" title="{{ c }}"></span>{% endif %}{% endfor %}
+        {% set ci_list = card.color_badges.dots if card.color_badges is defined and card.color_badges.dots else (card.colorIdentity.replace(' ', '').split(',') if card.colorIdentity is string else card.colorIdentity) %}
+        {% for c in ci_list %}{% if c %}<a href="/cards?color={{ c }}{% if color_mode == 'inclusive' %}&color_mode=inclusive{% endif %}" class="mana-link" onclick="event.stopPropagation()" title="{{ c }}"><span class="mana mana-{{ c }}"></span></a>{% endif %}{% endfor %}
       </div>
       {% endif %}
     </div>
 
-    {# Card Details button (only show if feature enabled) #}
-    {% if enable_card_details %}
-    <a href="/cards/{{ card.name|urlencode }}" class="card-details-btn" onclick="event.stopPropagation()">
-      Card Details
-      <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
-        <path d="M8.707 3.293a1 1 0 010 1.414L5.414 8l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" transform="rotate(180 8 8)"/>
-      </svg>
-    </a>
+    {# Color identity name(s) — guild/shard/wedge/nephilim, clickable filters.
+       Cards with sub-badges (3-color shards/wedges) default their badge
+       clicks to inclusive matching, since an exact click otherwise excludes
+       the very card being clicked from the results (e.g. "Azorius" on a
+       Bant card wouldn't show Bant cards under exact WU matching). #}
+    {% if card.color_badges is defined and (card.color_badges.primary or card.color_badges.subs) %}
+    {% set badge_inclusive = color_mode == 'inclusive' or (card.color_badges.subs and card.color_badges.subs|length > 0) %}
+    <div class="tile-color-names">
+      {% if card.color_badges.primary %}
+      <a href="/cards?color={{ card.color_badges.primary.filter }}{% if badge_inclusive %}&color_mode=inclusive{% endif %}" class="tile-color-name-badge tile-color-name-primary" onclick="event.stopPropagation()">{{ card.color_badges.primary.name }}</a>
+      {% endif %}
+      {% for sub in card.color_badges.subs %}
+      <a href="/cards?color={{ sub.filter }}{% if badge_inclusive %}&color_mode=inclusive{% endif %}" class="tile-color-name-badge tile-color-name-sub" onclick="event.stopPropagation()">{{ sub.name }}</a>
+      {% endfor %}
+    </div>
     {% endif %}
 
-    {# Printing picker #}
-    <div class="card-tile-printing-row" onclick="event.stopPropagation()">
-      {{ printing_button(card.name, card_idx, sel_printing) }}
-    </div>
+
 
     {# Theme tags (show all tags, not truncated) #}
     {% if card.themeTags_parsed and card.themeTags_parsed|length > 0 %}
     <div class="card-browser-tile-tags">
       {% for tag in card.themeTags_parsed %}
-      <span class="tag">{{ tag }}</span>
+      <a href="/cards?themes={{ tag|urlencode }}" class="tag tag-clickable" onclick="event.stopPropagation()">{{ tag }}</a>
       {% endfor %}
     </div>
     {% endif %}

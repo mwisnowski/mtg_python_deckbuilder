@@ -2588,6 +2588,7 @@ def start_build_ctx(
     background_commander: str | None = None,
     budget_config: Dict[str, Any] | None = None,
     deck_visibility: str | None = None,
+    printings: Dict[str, str] | None = None,
 ) -> Dict[str, Any]:
     logs: List[str] = []
 
@@ -2635,6 +2636,19 @@ def start_build_ctx(
             if combined_partner is not None:
                 _apply_combined_commander_to_builder(b, combined_partner)
                 _add_secondary_commander_card(b, df, combined_partner)
+    # Carry over any printing chosen before the build session existed (e.g. from
+    # the commander browser or the still-open wizard's session `printings` map)
+    # onto the commander/partner card_library entries that were just created.
+    if printings:
+        try:
+            from deck_builder import builder_utils as _bu
+
+            for card_name in list(b.card_library.keys()):
+                sid = printings.get(str(card_name).strip().lower())
+                if sid:
+                    _bu.set_card_printing(b.card_library, card_name, sid)
+        except Exception:
+            pass
     # Tags (explicit + supplemental applied upstream)
     b.selected_tags = list(tags or [])
     b.primary_tag = b.selected_tags[0] if len(b.selected_tags) > 0 else None

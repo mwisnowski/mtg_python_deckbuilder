@@ -1,6 +1,7 @@
 """Utilities for working with Magic color identity tuples and labels."""
 from __future__ import annotations
 
+from itertools import combinations
 from typing import Iterable, List
 
 __all__ = [
@@ -8,6 +9,7 @@ __all__ = [
     "format_color_label",
     "color_label_from_code",
     "normalize_colors",
+    "color_identity_badges",
 ]
 
 _WUBRG_ORDER: tuple[str, ...] = ("W", "U", "B", "R", "G")
@@ -132,3 +134,47 @@ def color_label_from_code(code: str) -> str:
 
 def format_color_label(identity: Iterable[str] | str | None) -> str:
     return color_label_from_code(canon_color_code(identity))
+
+
+def color_identity_badges(identity: Iterable[str] | str | None) -> dict:
+    """Return clickable guild/shard/wedge/N-color name(s) and WUBRG pip dots
+    for a color identity, for card browser/owned library tile badges.
+
+    Returns a dict with:
+      - "dots": WUBRG-ordered list of individual color letters present
+        (empty for colorless/no colors)
+      - "primary": {"name": str, "filter": str} for 2+ colors (guild name for
+        2, shard/wedge name for 3, nephilim name for 4, "Five-Color" for 5),
+        else None
+      - "subs": list of {"name": str, "filter": str} pairwise guild names,
+        populated only for exactly 3 colors (e.g. Bant -> Selesnya, Azorius,
+        Simic), so a shard/wedge card also exposes its component guilds
+
+    Each "filter" value is a WUBRG-canonical color code (e.g. "WUG") suitable
+    for the card browser's `color` or owned library's `filter_color` params.
+    """
+    colors = normalize_colors(identity)
+    result: dict = {"dots": colors, "primary": None, "subs": []}
+    if len(colors) < 2:
+        return result
+    code = canon_color_code(colors)
+    name: str | None = None
+    if len(colors) == 2:
+        name = _TWO_COLOR_LABELS.get(code)
+    elif len(colors) == 3:
+        name = _THREE_COLOR_LABELS.get(code)
+    elif len(colors) == 4:
+        name = _FOUR_COLOR_LABELS.get(code)
+    elif code == "WUBRG":
+        name = "Five-Color"
+    if name:
+        result["primary"] = {"name": name, "filter": code}
+    if len(colors) == 3:
+        subs = []
+        for a, b in combinations(colors, 2):
+            pair_code = canon_color_code([a, b])
+            pair_name = _TWO_COLOR_LABELS.get(pair_code)
+            if pair_name:
+                subs.append({"name": pair_name, "filter": pair_code})
+        result["subs"] = subs
+    return result

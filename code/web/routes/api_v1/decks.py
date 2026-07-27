@@ -98,6 +98,7 @@ def _parse_deck_cards(csv_path: Path) -> List[Dict[str, Any]]:
                     "tags": tags,
                     "layout": None,
                     "scryfall_id": col(row, "ScryfallID") or None,
+                    "is_foil": col(row, "Foil").strip().lower() in ("true", "1", "y", "yes"),
                 }
             )
 
@@ -129,6 +130,14 @@ def _set_deck_card_printing(csv_path: Path, name: str, scryfall_id: Optional[str
     saved-deck view's own printing picker, so both clients stay in sync).
     """
     return bu.set_card_printing_csv(csv_path, name, scryfall_id)
+
+
+def _set_deck_card_foil(csv_path: Path, name: str, foil: bool) -> bool:
+    """Set (or clear) a saved deck's per-card `Foil` column. Thin wrapper
+    around `builder_utils.set_card_foil_csv()` (also used by the web saved-
+    deck view's own foil toggle, so both clients stay in sync).
+    """
+    return bu.set_card_foil_csv(csv_path, name, foil)
 
 
 @router.get("", summary="List saved decks")
@@ -259,6 +268,27 @@ async def set_deck_card_printing(
     return ok({"name": body.name, "scryfall_id": (body.scryfall_id or None)}, _rid(request))
 
 
+class SetDeckFoilRequest(BaseModel):
+    name: str
+    foil: bool = False
+
+
+@router.post("/{filename}/foil", summary="Set a saved deck's card foil finish")
+async def set_deck_card_foil(
+    filename: str, body: SetDeckFoilRequest, request: Request, user: User = Depends(get_api_user)
+):
+    """Choose (or clear) the foil finish for a card already in a saved
+    deck, baked directly into the deck's CSV `Foil` column.
+    """
+    p = _resolve_deck_path(str(user["id"]), filename)
+    if p is None:
+        return err("Deck not found.", "DECK_NOT_FOUND", 404, _rid(request))
+    found = _set_deck_card_foil(p, body.name, body.foil)
+    if not found:
+        return err(f"'{body.name}' is not in this deck.", "CARD_NOT_IN_DECK", 404, _rid(request))
+    return ok({"name": body.name, "foil": body.foil}, _rid(request))
+
+
 @router.get("/{filename}/analysis", summary="Get deck mana analysis")
 async def get_deck_analysis(filename: str, request: Request, user: User = Depends(get_api_user)):
     """Commander, mana curve, pip distribution, mana sources, land summary
@@ -311,7 +341,12 @@ async def get_deck_analysis(filename: str, request: Request, user: User = Depend
             for c in cards
             if c.get("scryfall_id") and c["name"] != commander
         }
-        prices = get_price_service().get_prices_batch(names, printing_map=printing_map or None)
+        foil_map = {
+            c["name"].lower(): True
+            for c in cards
+            if c.get("is_foil") and c["name"] != commander
+        }
+        prices = get_price_service().get_prices_batch(names, printing_map=printing_map or None, foil_map=foil_map or None)
         found = [prices[name] * next(c["count"] for c in cards if c["name"] == name) for name in prices if prices[name] is not None]
         if found:
             total_price = round(sum(found), 2)

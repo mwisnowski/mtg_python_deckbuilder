@@ -36,17 +36,33 @@ def _render_card_img_html(name: str, idx: str, scryfall_id: str, *, oob: bool = 
     sized for the tile's on-page dimensions (which caused the low-res image
     to stick after a printing change even though it visually renders larger
     via CSS).
+
+    For double-faced/split/flip/meld cards (`name` containing " // "), also
+    re-emits the `data-front-src`/`data-back-src`/`data-current-face`
+    attributes the card detail page's Transform button relies on (see
+    `detail.html`), each pointed at the newly-selected printing -- otherwise
+    this OOB swap would wipe those attributes and leave the back face stuck
+    on the previous (default) printing's image.
     """
     display_name = name.split(" // ")[0].strip() if " // " in name else name
     q = quote(display_name)
     suffix = f"?printing={quote(scryfall_id)}" if scryfall_id else ""
     normal_url = f"/api/images/normal/{q}{suffix}"
     oob_attr = ' hx-swap-oob="true"' if oob else ""
+    dfc_attrs = ""
+    if " // " in name:
+        back_name = name.split(" // ")[1].strip()
+        back_suffix = f"&printing={quote(scryfall_id)}" if scryfall_id else ""
+        back_url = f"/api/images/normal/{quote(back_name)}?face=back{back_suffix}"
+        dfc_attrs = (
+            f' data-front-src="{_esc(normal_url)}" data-back-src="{_esc(back_url)}" '
+            f'data-current-face="front"'
+        )
     base_attrs = (
         f'class="card-thumb" id="card-img-{_esc(idx)}"{oob_attr} '
         f'alt="{_esc(name)} image" data-card-name="{_esc(name)}" '
         f'data-printing-id="{_esc(scryfall_id)}" '
-        f'loading="lazy" decoding="async" data-lqip="1"'
+        f'loading="lazy" decoding="async" data-lqip="1"{dfc_attrs}'
     )
     return f'<img {base_attrs} src="{_esc(normal_url)}" />'
 
@@ -202,16 +218,43 @@ async def build_printing_picker(
         thumb = f"/api/images/normal/{quote(face_name)}?printing={quote(sfid)}"
         is_sel = " selected" if sfid == selected else ""
         title = f"{set_name} — {label}" if set_name else label
+
+        finishes = {str(f).lower() for f in (p.get("finishes") or [])}
+        has_foil = "foil" in finishes or "etched" in finishes
+        # Older printings index entries (or unusual Scryfall data) may have
+        # an empty finishes list -- treat that as "nonfoil, unknown" rather
+        # than "foil-only" so existing behavior for those is unchanged.
+        has_nonfoil = "nonfoil" in finishes or not finishes
+        foil_only = has_foil and not has_nonfoil
+
         try:
-            price = price_svc.get_price(face_name, scryfall_id=sfid)
+            nonfoil_price = price_svc.get_price(face_name, scryfall_id=sfid) if has_nonfoil else None
         except Exception:
-            price = None
-        price_html = f'<span class="printing-option-price">${price:.2f}</span>' if price is not None else ""
+            nonfoil_price = None
+        foil_price = None
+        if has_foil:
+            try:
+                foil_price = price_svc.get_price(face_name, foil=True, scryfall_id=sfid)
+            except Exception:
+                foil_price = None
+
+        price_bits = []
+        if nonfoil_price is not None:
+            price_bits.append(f'<span class="printing-option-price">${nonfoil_price:.2f}</span>')
+        if foil_price is not None and (nonfoil_price is None or foil_price != nonfoil_price):
+            price_bits.append(
+                f'<span class="printing-option-price-foil" title="Foil price">&#10024; ${foil_price:.2f}</span>'
+            )
+        price_html = "".join(price_bits)
+        foil_badge = '<span class="printing-option-foil-badge">FOIL</span>' if foil_only else ""
         parts.append(
             f'<button type="button" class="printing-option{is_sel}" title="{_esc(title)}" '
             f'hx-post="{post_target}" hx-swap="none" '
             f'hx-vals=\'{{"name":"{_esc(name)}","scryfall_id":"{_esc(sfid)}","idx":"{_esc(idx)}"{deck_val}}}\'>'
+            f'<span class="printing-option-thumb-wrap">'
             f'<img src="{_esc(thumb)}" alt="{_esc(title)}" loading="lazy" width="110" />'
+            f"{foil_badge}"
+            f"</span>"
             f'<span class="printing-option-label">{_esc(label)}</span>'
             f"{price_html}"
             f"</button>"
@@ -260,12 +303,66 @@ async def build_printing(
         pass
 
     img_html = _render_card_img_html(name, idx, scryfall_id, oob=True)
+    is_foil = bool((sess.get("foils") or {}).get(name_l))
     price_oob = (
         f'<div id="price-overlay-{_esc(idx)}" class="card-price-overlay" hx-swap-oob="true" '
-        f'data-price-for="{_esc(name)}" data-printing-id="{_esc(scryfall_id)}" aria-hidden="true"></div>'
+        f'data-price-for="{_esc(name)}" data-printing-id="{_esc(scryfall_id)}" '
+        f'data-foil="{"1" if is_foil else "0"}" aria-hidden="true"></div>'
     )
     panel_oob = '<div id="printing-modal-root" class="printing-panel" hx-swap-oob="true"></div>'
     return HTMLResponse(img_html + price_oob + panel_oob)
+
+
+@router.post("/foil")
+async def build_foil(
+    request: Request,
+    name: str = Form(...),
+    idx: str = Form(...),
+    foil: int = Form(...),
+    compact: str = Form("0"),
+) -> HTMLResponse:
+    """Toggle whether a card should use its foil price/finish (HTMX-based).
+
+    Mirrors `/build/printing`'s persistence pattern: a session-scoped
+    `foils` map (`{name_lower: True}`, restores the toggle's state while the
+    wizard is still open) and, if a build is in progress, directly onto the
+    matching `card_library` entry via `set_card_foil()`, so the choice is
+    baked into the deck itself (CSV `Foil` column) at export time instead of
+    only living in the ephemeral session.
+
+    Returns the new toggle `<button>` (this element is the hx-target, via
+    `hx-swap="outerHTML"`) plus an OOB update for the price overlay's
+    `data-foil` attribute -- the existing `data-price-for`/`data-printing-id`
+    on that overlay are preserved so an already-chosen printing isn't lost.
+    """
+    sid = request.cookies.get("sid") or new_sid()
+    sess = get_session(sid)
+    name_l = str(name).strip().lower()
+    is_foil = bool(int(foil or 0))
+    foils = dict(sess.get("foils") or {})
+    if is_foil:
+        foils[name_l] = True
+    else:
+        foils.pop(name_l, None)
+    sess["foils"] = foils
+
+    try:
+        ctx = sess.get("build_ctx") or {}
+        builder = ctx.get("builder") if isinstance(ctx, dict) else None
+        if builder is not None:
+            bu.set_card_foil(builder.card_library, name, is_foil)
+    except Exception:
+        pass
+
+    scryfall_id = str((sess.get("printings") or {}).get(name_l, ""))
+    macros = templates.env.get_template("partials/_macros.html").module
+    btn_html = macros.foil_toggle_button(name, idx, is_foil, compact == "1")
+    price_oob = (
+        f'<div id="price-overlay-{_esc(idx)}" class="card-price-overlay" hx-swap-oob="true" '
+        f'data-price-for="{_esc(name)}" data-printing-id="{_esc(scryfall_id)}" '
+        f'data-foil="{"1" if is_foil else "0"}" aria-hidden="true"></div>'
+    )
+    return HTMLResponse(str(btn_html) + price_oob)
 
 
 @router.get("/permalink")

@@ -152,7 +152,7 @@ def _get_raw_faces_df() -> Optional[pd.DataFrame]:
         if not _RAW_CARDS_PATH.exists():
             return None
         cols = [
-            "name", "faceName", "side", "type", "text", "faceManaValue", "power", "toughness",
+            "name", "faceName", "side", "type", "text", "faceManaValue", "manaCost", "power", "toughness",
             "colorIdentity",
         ]
         try:
@@ -186,6 +186,7 @@ def _get_card_faces(name: str) -> List[Dict[str, Any]]:
                 "type": _json_safe(row.get("type")) or None,
                 "text": _json_safe(row.get("text")) or None,
                 "manaValue": _json_safe(row.get("faceManaValue")),
+                "manaCost": _json_safe(row.get("manaCost")) or None,
                 "power": _json_safe(row.get("power")) or None,
                 "toughness": _json_safe(row.get("toughness")) or None,
                 "colorIdentity": _json_safe(row.get("colorIdentity")) or None,

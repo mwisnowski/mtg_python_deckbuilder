@@ -542,9 +542,11 @@ async def decks_set_printing(
         pass
 
     img_html = _render_card_img_html(name, idx, scryfall_id, oob=True)
+    is_foil = name.strip().lower() in bu.read_foil_overrides_from_csv(p)
     price_oob = (
         f'<div id="price-overlay-{_esc(idx)}" class="card-price-overlay" hx-swap-oob="true" '
-        f'data-price-for="{_esc(name)}" data-printing-id="{_esc(scryfall_id)}" aria-hidden="true"></div>'
+        f'data-price-for="{_esc(name)}" data-printing-id="{_esc(scryfall_id)}" '
+        f'data-foil="{"1" if is_foil else "0"}" aria-hidden="true"></div>'
     )
     panel_oob = '<div id="printing-modal-root" class="printing-panel" hx-swap-oob="true"></div>'
     badge_html = ""
@@ -554,6 +556,56 @@ async def decks_set_printing(
             f'<div id="budget-badge-wrap" hx-swap-oob="true">{badge_resp.body.decode("utf-8")}</div>'
         )
     return HTMLResponse(img_html + price_oob + panel_oob + badge_html)
+
+
+@router.post("/foil", response_class=HTMLResponse)
+async def decks_set_foil(
+    request: Request,
+    deck: str = Form(...),
+    name: str = Form(...),
+    idx: str = Form(...),
+    foil: int = Form(...),
+    compact: str = Form("0"),
+) -> HTMLResponse:
+    """Persist a card's "use the foil printing" preference onto a saved
+    deck's CSV. Saved-deck counterpart to the build wizard's session-scoped
+    `/build/foil`, writing straight to the deck's `Foil` column so it
+    survives page reloads and is visible to every viewer. Only the deck's
+    own owner may call this.
+    """
+    uid = _user_id(request)
+    if uid == "guest":
+        return HTMLResponse("", status_code=404)
+    base = _deck_dir(uid)
+    p = (base / deck).resolve()
+    if not _safe_within(base, p) or not (p.exists() and p.is_file() and p.suffix.lower() == ".csv"):
+        return HTMLResponse("", status_code=404)
+
+    from html import escape as _esc
+
+    is_foil = bool(int(foil or 0))
+    bu.set_card_foil_csv(p, name, is_foil)
+    try:
+        invalidate_fragment_cache("partials/deck_summary.html", f"{p.name}:owner")
+        invalidate_fragment_cache("partials/deck_summary.html", f"{p.name}:guest")
+    except Exception:
+        pass
+
+    scryfall_id = bu.read_printing_overrides_from_csv(p).get(name.strip().lower(), "")
+    macros = templates.env.get_template("partials/_macros.html").module
+    btn_html = macros.foil_toggle_button(name, idx, is_foil, compact == "1", deck)
+    price_oob = (
+        f'<div id="price-overlay-{_esc(idx)}" class="card-price-overlay" hx-swap-oob="true" '
+        f'data-price-for="{_esc(name)}" data-printing-id="{_esc(scryfall_id)}" '
+        f'data-foil="{"1" if is_foil else "0"}" aria-hidden="true"></div>'
+    )
+    badge_html = ""
+    badge_resp = _compute_budget_badge(p)
+    if badge_resp is not None:
+        badge_html = (
+            f'<div id="budget-badge-wrap" hx-swap-oob="true">{badge_resp.body.decode("utf-8")}</div>'
+        )
+    return HTMLResponse(str(btn_html) + price_oob + badge_html)
 
 
 @router.get("/", response_class=HTMLResponse)
@@ -647,6 +699,7 @@ def _render_deck_view(
     had_sid_cookie = bool(request.cookies.get("sid"))
     sid = request.cookies.get("sid") or new_sid()
     selected_printings = dict(get_session(sid).get("printings") or {})
+    selected_foils = dict(get_session(sid).get("foils") or {})
 
     # Try to load sidecar summary JSON first
     summary = None
@@ -682,8 +735,10 @@ def _render_deck_view(
     # Overlay it onto the loaded summary so a printing changed by either
     # client is reflected here regardless of which path produced `summary`.
     csv_overrides: Dict[str, str] = {}
+    csv_foil_overrides: Dict[str, bool] = {}
     try:
         csv_overrides = bu.read_printing_overrides_from_csv(p)
+        csv_foil_overrides = bu.read_foil_overrides_from_csv(p)
         if csv_overrides and isinstance(summary, dict):
             for clist in ((summary.get('type_breakdown') or {}).get('cards') or {}).values():
                 for entry in (clist or []):
@@ -692,6 +747,8 @@ def _render_deck_view(
                     nm = str(entry.get('name') or '').strip().lower()
                     if nm in csv_overrides:
                         entry['scryfall_id'] = csv_overrides[nm]
+                    if nm in csv_foil_overrides:
+                        entry['is_foil'] = True
     except Exception:
         pass
     stem = p.stem
@@ -716,6 +773,9 @@ def _render_deck_view(
         "visibility_options": VALID_VISIBILITIES,
         "share_url": f"/decks/{owner_username}/{p.name}" if owner_username else None,
         "printings": selected_printings,
+        "foils": selected_foils,
+        "commander_scryfall_id": csv_overrides.get(commander_name.strip().lower()) if csv_overrides else None,
+        "commander_is_foil": commander_name.strip().lower() in csv_foil_overrides,
         "deck_edit_ctx": {"deck": p.name} if is_owner else None,
     }
     ctx.update(summary_ctx(summary=summary, commander=commander_name, tags=tags, meta=meta_info))
@@ -1117,7 +1177,8 @@ def _build_csv_download_response(p: Path) -> Response:
     try:
         from ..services.price_service import get_price_service
         printing_map = bu.read_printing_overrides_from_csv(p)
-        prices_map = get_price_service().get_prices_batch(card_names, printing_map=printing_map or None) or {}
+        foil_map = bu.read_foil_overrides_from_csv(p)
+        prices_map = get_price_service().get_prices_batch(card_names, printing_map=printing_map or None, foil_map=foil_map or None) or {}
     except Exception:
         pass
 

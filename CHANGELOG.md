@@ -9,6 +9,22 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 
 ## [Unreleased]
 ### Added
+_No unreleased changes yet_
+
+### Changed
+_No unreleased changes yet_
+
+### Fixed
+_No unreleased changes yet_
+
+### Removed
+_No unreleased changes yet_
+
+### Security
+_No unreleased changes yet_
+
+## [5.1.0] - 2026-07-27
+### Added
 - `POST /api/v1/decks/{filename}/foil` and `POST /api/v1/builds/{id}/foil`: set a card's foil finish on a saved deck or in-progress build, mirroring the existing printing-selection endpoints
 - `GET /api/v1/decks/{filename}` card entries now include `is_foil`
 - `POST /api/price/batch` accepts an optional `foil_map` (per-card foil overrides); deck CSV-with-prices downloads and `GET /api/v1/decks/{filename}/analysis`'s total price now price each card at its own foil finish instead of assuming nonfoil
@@ -20,17 +36,17 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 - Card detail page now shows a "Transform" button for double-faced/split/flip/meld cards to flip the card image (also updating when you change the printing), with both faces' type, mana cost, power/toughness, and oracle text always shown
 
 ### Changed
-_No unreleased changes yet_
+_No changes_
 
 ### Fixed
 - The card browser's color filter now matches color identity regardless of the raw data's letter order (previously required an exact string match, so some valid filter selections silently returned no results)
 - `GET /api/printings/{card_name}` now resolves double-faced/split/flip/meld names ("A // B") to their front face before looking up printings, instead of always returning an empty list for those names
 
 ### Removed
-_No unreleased changes yet_
+_No changes_
 
 ### Security
-_No unreleased changes yet_
+_No changes_
 
 ## [5.0.0] - 2026-07-24
 ### Added

@@ -23,6 +23,23 @@ FALLBACK_BULK_TYPES = ["unique_artwork", "all_cards"]
 RATE_LIMIT_DELAY = 0.1  # 100ms between requests (50-100ms per Scryfall guidelines)
 
 
+def resolve_download_uri(info: dict[str, Any]) -> str:
+    """Return the best download URL from a Scryfall bulk-data info dict.
+
+    Scryfall now serves bulk data as gzip-compressed JSONL via
+    ``jsonl_download_uri``; the legacy plain-JSON ``download_uri`` field has
+    been removed from the API response. Prefer the JSONL URL and fall back to
+    ``download_uri`` in case Scryfall ever restores plain JSON downloads.
+
+    Raises:
+        KeyError: If neither field is present.
+    """
+    uri = info.get("jsonl_download_uri") or info.get("download_uri")
+    if not uri:
+        raise KeyError("download_uri")
+    return uri
+
+
 class ScryfallBulkDataClient:
     """Client for fetching Scryfall bulk data."""
 
@@ -77,7 +94,8 @@ class ScryfallBulkDataClient:
             bulk_type: Type of bulk data to fetch (default: default_cards)
 
         Returns:
-            Dictionary with bulk data info including 'download_uri'
+            Dictionary with bulk data info including 'jsonl_download_uri'
+            (see resolve_download_uri())
 
         Raises:
             ValueError: If bulk_type not found
@@ -102,10 +120,17 @@ class ScryfallBulkDataClient:
         self, download_uri: str, output_path: str, progress_callback=None
     ) -> None:
         """
-        Download bulk data JSON file.
+        Download bulk data file and write it out as a JSON array at output_path.
+
+        Scryfall bulk-data files are now served as gzip-compressed JSONL
+        (URLs ending in ``.gz``); this transparently decompresses them and
+        reassembles a single JSON array so downstream code can keep reading
+        ``output_path`` with ``json.load()`` exactly as before. Plain
+        (uncompressed) JSON download URLs are still supported.
 
         Args:
             download_uri: Direct download URL from get_bulk_data_info()
+                (see resolve_download_uri())
             output_path: Local path to save the JSON file
             progress_callback: Optional callback(bytes_downloaded, total_bytes)
 
@@ -115,20 +140,23 @@ class ScryfallBulkDataClient:
         logger.info(f"Downloading bulk data from: {download_uri}")
         logger.info(f"Saving to: {output_path}")
 
+        is_gzip = download_uri.endswith(".gz")
+        tmp_path = f"{output_path}.download.gz" if is_gzip else output_path
+
         # No rate limit on bulk data downloads per Scryfall docs
         try:
             req = Request(download_uri)
             req.add_header("User-Agent", "MTG-Deckbuilder/3.0 (Image Cache)")
+
+            # Ensure output directory exists
+            os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
             with urlopen(req, timeout=60) as response:
                 total_size = int(response.headers.get("Content-Length", 0))
                 downloaded = 0
                 chunk_size = 1024 * 1024  # 1MB chunks
 
-                # Ensure output directory exists
-                os.makedirs(os.path.dirname(output_path), exist_ok=True)
-
-                with open(output_path, "wb") as f:
+                with open(tmp_path, "wb") as f:
                     while True:
                         chunk = response.read(chunk_size)
                         if not chunk:
@@ -138,14 +166,46 @@ class ScryfallBulkDataClient:
                         if progress_callback:
                             progress_callback(downloaded, total_size)
 
+            if is_gzip:
+                logger.info("Decompressing gzip JSONL bulk data …")
+                self._convert_jsonl_gz_to_json_array(tmp_path, output_path)
+                os.remove(tmp_path)
+
             logger.info(f"Downloaded {downloaded / 1024 / 1024:.1f} MB successfully")
 
         except Exception as e:
             logger.error(f"Failed to download bulk data: {e}")
-            # Clean up partial download
+            # Clean up partial download(s)
+            if is_gzip and os.path.exists(tmp_path):
+                os.remove(tmp_path)
             if os.path.exists(output_path):
                 os.remove(output_path)
             raise
+
+    @staticmethod
+    def _convert_jsonl_gz_to_json_array(gz_path: str, output_path: str) -> None:
+        """Decompress a gzip JSONL file and write it out as a single JSON array.
+
+        Reads and writes line-by-line to keep memory usage low even for the
+        larger bulk types (e.g. default_cards, all_cards); each line of a
+        Scryfall JSONL bulk file is already a valid JSON object, so lines are
+        concatenated as-is rather than reparsed/redumped.
+        """
+        import gzip
+
+        with gzip.open(gz_path, "rt", encoding="utf-8") as gz, \
+                open(output_path, "w", encoding="utf-8") as out:
+            out.write("[")
+            first = True
+            for line in gz:
+                line = line.strip()
+                if not line:
+                    continue
+                if not first:
+                    out.write(",")
+                out.write(line)
+                first = False
+            out.write("]")
 
     def get_bulk_data(
         self,
@@ -172,7 +232,7 @@ class ScryfallBulkDataClient:
         for attempt_type in types_to_try:
             try:
                 info = self.get_bulk_data_info(attempt_type)
-                download_uri = info["download_uri"]
+                download_uri = resolve_download_uri(info)
                 if attempt_type != bulk_type:
                     logger.warning(
                         f"Bulk type '{bulk_type}' unavailable; using '{attempt_type}' as fallback"

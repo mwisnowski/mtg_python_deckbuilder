@@ -244,6 +244,18 @@ ARTIFACT_TOKENS: List[str] = [
     'Junk', 'Map', 'Powerstone', 'Treasure'
 ]
 
+# Captures the descriptive noun phrase for a created creature token, e.g. from
+# "create a 1/1 white Soldier creature token" captures "1/1 white Soldier
+# creature token" (drops the leading create/put verb and quantity word).
+# Used to derive both a specific '{Type} Token' themeTag (by matching
+# CREATURE_TYPES against the captured text) and a 'Token Detail: ...'
+# metadataTag with the full descriptor for deck-building token planning.
+TOKEN_CREATURE_DETAIL_PATTERN: Final[str] = (
+    r"(?:create[s]?|put[s]?)\s+"
+    r"(?:x|a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+"
+    r"(.*?creature tokens?(?:\s+with\s+[^.,;]+)?)"
+)
+
 # =============================================================================
 # 10. MAGIC NUMBERS & THRESHOLDS
 # =============================================================================
@@ -1060,6 +1072,9 @@ KEYWORD_NORMALIZATION_MAP: Dict[str, str] = {
     'lifelink': 'Lifelink',
     'menace': 'Menace',
     'reach': 'Reach',
+
+    # MTGJSON stores this generic Role-token indicator lowercase
+    'Role token': 'Role Token',
 }
 
 # Keywords that should never appear in theme tags
@@ -1121,6 +1136,7 @@ METADATA_TAG_PREFIXES: List[str] = [
     'Bracket:',
     'Diagnostic:',
     'Internal:',
+    'Token Detail:',
 ]
 
 # Specific metadata tags (full match) - additional tags to classify as metadata

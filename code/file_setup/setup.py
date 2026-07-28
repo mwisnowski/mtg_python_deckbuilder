@@ -360,11 +360,11 @@ def initial_setup() -> None:
     # Must run before process_raw_parquet so the dynamic banned list is ready for filtering.
     bulk_path = os.path.join(raw_dir, "scryfall_bulk_data.json")
     try:
-        from code.file_setup.scryfall_bulk_data import ScryfallBulkDataClient
+        from code.file_setup.scryfall_bulk_data import ScryfallBulkDataClient, resolve_download_uri
         logger.info("Downloading fresh Scryfall bulk data …")
         client = ScryfallBulkDataClient()
         info = client.get_bulk_data_info()
-        client.download_bulk_data(info["download_uri"], bulk_path)
+        client.download_bulk_data(resolve_download_uri(info), bulk_path)
         refresh_card_lists_from_bulk(bulk_path)
     except Exception as exc:
         logger.warning(f"Could not refresh card lists from bulk data ({exc}). Using existing lists.")
@@ -664,7 +664,7 @@ def refresh_prices_parquet(output_func=None) -> None:
     # but skip the network fetch if initial_setup already downloaded it recently (< 1 h).
     import time as _time
     try:
-        from code.file_setup.scryfall_bulk_data import ScryfallBulkDataClient
+        from code.file_setup.scryfall_bulk_data import ScryfallBulkDataClient, resolve_download_uri
         from code.path_util import card_files_raw_dir
         bulk_path = os.path.join(card_files_raw_dir(), "scryfall_bulk_data.json")
         _bulk_age_h = ((_time.time() - os.path.getmtime(bulk_path)) / 3600) if os.path.exists(bulk_path) else None
@@ -672,7 +672,7 @@ def refresh_prices_parquet(output_func=None) -> None:
             _log("Downloading fresh Scryfall bulk data …")
             client = ScryfallBulkDataClient()
             info = client.get_bulk_data_info()
-            client.download_bulk_data(info["download_uri"], bulk_path)
+            client.download_bulk_data(resolve_download_uri(info), bulk_path)
             _log("Scryfall bulk data downloaded.")
         else:
             _log(f"Scryfall bulk data is fresh ({_bulk_age_h:.1f}h old) — skipping re-download.")

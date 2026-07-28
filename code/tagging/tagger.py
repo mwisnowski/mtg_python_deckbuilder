@@ -1412,12 +1412,14 @@ def create_loot_mask(df: pd.DataFrame) -> pd.Series:
     # Exclude cards that already have other loot-like effects
     has_other_loot = tag_utils.create_tag_mask(df, ['Cycling', 'Connive']) | df['text'].str.contains('blood token', case=False, na=False)
     
-    # Match draw + discard patterns
+    # Match draw + discard patterns (either ordering: draw-then-discard or
+    # discard-then-draw, e.g. Charming Scoundrel's "Discard a card, then draw a card")
     discard_patterns = [
         'discard the rest',
         'for each card drawn this way, discard',
         'if you do, discard',
-        'then discard'
+        'then discard',
+        r'discard[^.]*,?\s*then draws?'
     ]
     
     has_draw = tag_utils.create_numbered_phrase_mask(df, 'draw', 'card')
@@ -2155,18 +2157,37 @@ def tag_for_enchantment_tokens(df: pd.DataFrame, color: str) -> None:
     - Generic enchantmeny token creation
     - Predefined enchantment token types (Roles, Shards, etc)
 
+    The function applies both generic enchantment token tags and specific token type tags
+    (e.g., 'Wicked Role Token', 'Shard Token') based on the tokens created.
+
     Args:
         df: DataFrame containing card data
         color: Color identifier for logging purposes
     """
     try:
         generic_mask = create_generic_enchantment_mask(df)
-        predefined_mask = create_predefined_enchantment_mask(df)
+        predefined_mask, token_map = create_predefined_enchantment_mask(df)
         rules = [
             {'mask': generic_mask, 'tags': ['Enchantment Tokens', 'Enchantments Matter', 'Token Creation', 'Tokens Matter']},
             {'mask': predefined_mask, 'tags': ['Enchantment Tokens', 'Enchantments Matter', 'Token Creation', 'Tokens Matter']},
         ]
         tag_utils.tag_with_rules_and_logging(df, rules, 'enchantment tokens', color=color, logger=logger)
+
+        # Apply specific token type tags (special handling for predefined tokens)
+        if predefined_mask.any():
+            token_to_indices: dict[str, list[int]] = {}
+            for idx, token_type in token_map.items():
+                token_to_indices.setdefault(token_type, []).append(idx)
+
+            for token_type, indices in token_to_indices.items():
+                mask = pd.Series(False, index=df.index)
+                mask.loc[indices] = True
+                tag_utils.apply_tag_vectorized(df, mask, [f'{token_type} Token'])
+
+            # Log token type breakdown
+            logger.info('Predefined enchantment token breakdown:')
+            for token_type, indices in token_to_indices.items():
+                logger.info('  - %s: %d cards', token_type, len(indices))
 
     except Exception as e:
         logger.error('Error in tag_for_enchantment_tokens: %s', str(e))
@@ -2203,24 +2224,37 @@ def create_generic_enchantment_mask(df: pd.DataFrame) -> pd.Series:
     
     return (has_create & has_token) | named_matches
 
-def create_predefined_enchantment_mask(df: pd.DataFrame) -> pd.Series:
-    """Create a boolean mask for cards that create non-predefined enchantment tokens.
-    
+def create_predefined_enchantment_mask(df: pd.DataFrame) -> tuple[pd.Series, dict[int, str]]:
+    """Create a boolean mask for cards that create predefined enchantment tokens and track token types.
+
     Args:
         df: DataFrame to search
-    
+
     Returns:
-        Boolean Series indicating which cards create generic enchantmnet tokens
+        Tuple containing:
+            - Boolean Series indicating which cards create predefined enchantment tokens
+            - Dictionary mapping row indices to their matched token types
     """
     # Create text pattern matches
     has_create = tag_utils.create_text_mask(df, tag_constants.CREATE_ACTION_PATTERN)
+
+    # Initialize token mapping dictionary
+    token_map = {}
     token_masks = []
     for token in tag_constants.ENCHANTMENT_TOKENS:
         token_mask = tag_utils.create_text_mask(df, token.lower())
-        
+
+        # Store token type for matching rows
+        matching_indices = df[token_mask].index
+        for idx in matching_indices:
+            if idx not in token_map:  # Only store first match
+                token_map[idx] = token
+
         token_masks.append(token_mask)
-        
-    return has_create & pd.concat(token_masks, axis=1).any(axis=1)
+
+    final_mask = has_create & pd.concat(token_masks, axis=1).any(axis=1)
+
+    return final_mask, token_map
     
 ## General enchantments matter
 def tag_for_enchantments_matter(df: pd.DataFrame, color: str) -> None:
@@ -3002,6 +3036,47 @@ def create_generic_token_creation_mask(df: pd.DataFrame) -> pd.Series:
 
     return has_create & has_token
 
+def extract_creature_token_details(df: pd.DataFrame, mask: pd.Series) -> dict[int, tuple[list[str], list[str]]]:
+    """Extract specific creature type names and full descriptor text for created tokens.
+
+    Scans oracle text for `tag_constants.TOKEN_CREATURE_DETAIL_PATTERN` matches (e.g.
+    "1/1 white Soldier creature token") and matches `tag_constants.CREATURE_TYPES`
+    against each captured descriptor to identify the specific creature type(s).
+
+    Args:
+        df: DataFrame to search
+        mask: Boolean Series restricting which rows to scan (typically the
+            creature token creation mask)
+
+    Returns:
+        Dictionary mapping row index to a tuple of
+        (sorted list of matched creature types, list of raw descriptor strings)
+    """
+    details: dict[int, tuple[list[str], list[str]]] = {}
+    if not mask.any():
+        return details
+
+    for idx in df[mask].index:
+        text = df.at[idx, 'text']
+        if not isinstance(text, str):
+            continue
+
+        descriptors: list[str] = []
+        types_found: set[str] = set()
+        for match in re.finditer(tag_constants.TOKEN_CREATURE_DETAIL_PATTERN, text, re.IGNORECASE):
+            descriptor = match.group(1).strip().rstrip('.,;')
+            if not descriptor:
+                continue
+            descriptors.append(descriptor)
+            for creature_type in tag_constants.CREATURE_TYPES:
+                if re.search(rf'\b{re.escape(creature_type)}\b', descriptor, re.IGNORECASE):
+                    types_found.add(creature_type)
+
+        if descriptors:
+            details[idx] = (sorted(types_found), descriptors)
+
+    return details
+
 def tag_for_tokens(df: pd.DataFrame, color: str) -> None:
     """Tag cards that create or modify tokens using vectorized operations.
 
@@ -3045,6 +3120,32 @@ def tag_for_tokens(df: pd.DataFrame, color: str) -> None:
             {'mask': generic_mask, 'tags': ['Token Creation', 'Tokens Matter']},
         ]
         tag_utils.tag_with_rules_and_logging(df, rules, 'token-related cards', color=color, logger=logger)
+
+        # Specific creature-type token tags (e.g. 'Soldier Token') and a
+        # 'Token Detail: ...' metadataTag with the full descriptor, so the
+        # deck builder can later report exactly what tokens a deck may need.
+        token_details = extract_creature_token_details(df, creature_mask)
+        if token_details:
+            type_to_indices: dict[str, list[int]] = {}
+            for idx, (types_found, descriptors) in token_details.items():
+                for creature_type in types_found:
+                    type_to_indices.setdefault(creature_type, []).append(idx)
+
+                current_tags = list(df.at[idx, 'themeTags'])
+                for descriptor in dict.fromkeys(descriptors):  # de-dupe, preserve order
+                    detail_tag = f'Token Detail: {descriptor}'
+                    if detail_tag not in current_tags:
+                        current_tags.append(detail_tag)
+                df.at[idx, 'themeTags'] = current_tags
+
+            for creature_type, indices in type_to_indices.items():
+                type_mask = pd.Series(False, index=df.index)
+                type_mask.loc[indices] = True
+                tag_utils.apply_tag_vectorized(df, type_mask, [f'{creature_type} Token'])
+
+            logger.info('Creature token type breakdown:')
+            for creature_type, indices in type_to_indices.items():
+                logger.info('  - %s: %d cards', creature_type, len(indices))
 
     except Exception as e:
         logger.error('Error tagging token cards: %s', str(e))
@@ -3942,7 +4043,7 @@ def tag_for_cantrips(df: pd.DataFrame, color: str) -> None:
 
         # Create exclusion masks
         excluded_types = tag_utils.create_type_mask(df, 'Land|Equipment')
-        excluded_keywords = tag_utils.create_keyword_mask(df, ['Channel', 'Cycling', 'Connive', 'Learn', 'Ravenous'])
+        excluded_keywords = tag_utils.create_keyword_mask(df, ['Blitz', 'Channel', 'Cycling', 'Connive', 'Learn', 'Ravenous'])
         has_loot = df['themeTags'].apply(lambda x: 'Loot' in x)
 
         # Define name exclusions
@@ -3964,7 +4065,8 @@ def tag_for_cantrips(df: pd.DataFrame, color: str) -> None:
         excluded_names = df['name'].isin(EXCLUDED_NAMES)
 
         # Create cantrip condition masks
-        has_draw = tag_utils.create_text_mask(df, tag_constants.PATTERN_GROUPS['draw'])
+        # Only match literal "draw a card" (singular), not "one card" or multi-card draws
+        has_draw = tag_utils.create_text_mask(df, r"draw[s]? a card")
         low_cost = df['manaValue'].fillna(float('inf')) <= 2
 
         # Combine conditions

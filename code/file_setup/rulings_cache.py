@@ -46,19 +46,25 @@ def _get(url: str) -> bytes:
 
 def _fetch_rulings_bulk_url() -> str:
     """Fetch the current rulings bulk-data download URL from Scryfall."""
+    from code.file_setup.scryfall_bulk_data import resolve_download_uri
+
     data = json.loads(_get(SCRYFALL_BULK_DATA_API))
     for item in data.get("data", []):
         if item.get("type") == "rulings":
-            return item["download_uri"]
+            return resolve_download_uri(item)
     raise ValueError("Rulings bulk-data entry not found in Scryfall API response.")
 
 
 def _download_rulings_bulk(url: str, output_func=None) -> list[dict]:
-    """Download and parse the Scryfall rulings bulk JSON file."""
+    """Download and parse the Scryfall rulings bulk file (gzip JSONL or plain JSON)."""
     _log = output_func or (lambda msg: logger.info(msg))
-    _log(f"Downloading rulings bulk file from Scryfall…")
+    _log("Downloading rulings bulk file from Scryfall\u2026")
     raw = _get(url)
-    _log(f"Downloaded {len(raw) / 1_048_576:.1f} MB — parsing…")
+    _log(f"Downloaded {len(raw) / 1_048_576:.1f} MB \u2014 parsing\u2026")
+    if url.endswith(".gz"):
+        import gzip
+        text = gzip.decompress(raw).decode("utf-8")
+        return [json.loads(line) for line in text.splitlines() if line.strip()]
     return json.loads(raw)
 
 

@@ -184,7 +184,17 @@ class ScryfallBulkDataClient:
 
     @staticmethod
     def _convert_jsonl_gz_to_json_array(gz_path: str, output_path: str) -> None:
-        """Decompress a gzip JSONL file and write it out as a single JSON array.
+        """Decompress a gzip JSONL file and write it out as a JSON array with
+        one card object per line.
+
+        Several downstream consumers (price_service._rebuild_cache,
+        setup.refresh_card_lists_from_bulk, setup._compute_is_new_from_bulk)
+        stream-parse this file line-by-line rather than loading the whole
+        array into memory, matching the format of Scryfall's legacy
+        pretty-printed plain-JSON bulk files (one object per line, skipping
+        lines that are just "[" or "]"). Writing everything on a single line
+        would still be valid JSON but breaks that line-by-line parsing, so
+        the newlines here are load-bearing, not just cosmetic.
 
         Reads and writes line-by-line to keep memory usage low even for the
         larger bulk types (e.g. default_cards, all_cards); each line of a
@@ -195,17 +205,17 @@ class ScryfallBulkDataClient:
 
         with gzip.open(gz_path, "rt", encoding="utf-8") as gz, \
                 open(output_path, "w", encoding="utf-8") as out:
-            out.write("[")
+            out.write("[\n")
             first = True
             for line in gz:
                 line = line.strip()
                 if not line:
                     continue
                 if not first:
-                    out.write(",")
+                    out.write(",\n")
                 out.write(line)
                 first = False
-            out.write("]")
+            out.write("\n]")
 
     def get_bulk_data(
         self,

@@ -3634,6 +3634,13 @@ img.lqip.loaded {
   border-radius: 16px;
   font-size: 0.85rem;
   font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.card-tag:hover {
+  background: var(--accent, #38bdf8);
 }
 
 /* --- Mana Symbols -------------------------------------------------------- */

@@ -191,6 +191,12 @@
         border-radius: 4px;
         white-space: nowrap;
         transition: all 0.2s;
+        text-decoration: none;
+        cursor: pointer;
+    }
+
+    .similar-tag:hover {
+        background: rgba(148, 163, 184, 0.3);
     }
 
     .similar-tag-overlap {
@@ -199,6 +205,11 @@
         font-weight: 600;
         border: 1px solid rgba(56, 189, 248, 0.3);
         box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.2);
+    }
+
+    .similar-tag-overlap:hover {
+        background: var(--accent, #38bdf8);
+        opacity: 0.85;
     }
 
     @media (max-width: 768px) {
@@ -284,9 +295,9 @@
                     {% set main_card_tags = main_card_tags|default([]) %}
                     {% for tag in card.themeTags %}
                         {% set is_overlap = tag in main_card_tags %}
-                        <span class="similar-tag {% if is_overlap %}similar-tag-overlap{% endif %}" title="{% if is_overlap %}Matches main card{% endif %}">
+                        <a href="/cards?themes={{ tag|urlencode }}" class="similar-tag {% if is_overlap %}similar-tag-overlap{% endif %}" title="{% if is_overlap %}Matches main card{% endif %}">
                             {{ tag }}
-                        </span>
+                        </a>
                     {% endfor %}
                 </div>
                 {% endif %}

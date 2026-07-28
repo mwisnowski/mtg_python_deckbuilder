@@ -152,7 +152,7 @@
             <p class="cd-section-heading" style="margin-top:1rem;">Themes</p>
             <div class="card-tags">
                 {% for tag in card.themeTags_parsed %}
-                <span class="card-tag">{{ tag }}</span>
+                <a href="/cards?themes={{ tag|urlencode }}" class="card-tag">{{ tag }}</a>
                 {% endfor %}
             </div>
             {% endif %}

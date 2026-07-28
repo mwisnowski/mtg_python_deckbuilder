@@ -1,9 +1,9 @@
 """Generate editorial metadata suggestions for theme YAML files (Phase D helper).
 
 Features:
- - Scans color CSV files (skips monolithic cards.csv unless --include-master)
+ - Scans card_files/processed/all_cards.parquet (the M3+ tagged dataset)
  - Collects top-N (lowest EDHREC rank) cards per theme based on themeTags column
- - Optionally derives commander suggestions from commander_cards.csv (if present)
+ - Derives commander suggestions from card_files/processed/commander_cards.parquet (if present)
  - Provides dry-run output (default) or can patch YAML files that lack example_cards / example_commanders
  - Prints streaming progress so the user sees real-time status
 
@@ -20,20 +20,24 @@ Safety:
 Heuristics:
  - Deduplicate card names per theme
  - Filter out names with extremely poor rank (> 60000) by default (configurable)
- - For commander suggestions, prefer legendary creatures/planeswalkers in commander_cards.csv whose themeTags includes the theme
- - Fallback commander suggestions: take top legendary cards from color CSVs tagged with the theme
+ - For commander suggestions, prefer legendary creatures/planeswalkers in commander_cards.parquet whose themeTags includes the theme
+ - Fallback commander suggestions: take top legendary cards from all_cards.parquet tagged with the theme
  - synergy_commanders: derive from top 3 synergies of each theme (3 from top, 2 from second, 1 from third)
  - Promotion: if fewer than --min-examples example_commanders exist after normal suggestion, promote synergy_commanders (in order) into example_commanders, annotating with " - Synergy (<synergy name>)"
+
+Note: this used to scan csv_files/*_cards.csv, but those per-color CSVs were removed when the
+tagging pipeline migrated to a single parquet file (card_files/processed/all_cards.parquet). This
+script now reads that parquet dataset (and the commander_cards.parquet cache) directly.
 """
 from __future__ import annotations
 
 import argparse
-import ast
-import csv
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Tuple, Set
 import sys
+
+import pandas as pd
 
 try:  # optional dependency safety
     import yaml  # type: ignore
@@ -41,12 +45,11 @@ except Exception:
     yaml = None
 
 ROOT = Path(__file__).resolve().parents[2]
-CSV_DIR = ROOT / 'csv_files'
+CARD_FILES_DIR = ROOT / 'card_files' / 'processed'
 CATALOG_DIR = ROOT / 'config' / 'themes' / 'catalog'
 
-COLOR_CSV_GLOB = '*_cards.csv'
-MASTER_FILE = 'cards.csv'
-COMMANDER_FILE = 'commander_cards.csv'
+ALL_CARDS_PARQUET = CARD_FILES_DIR / 'all_cards.parquet'
+COMMANDER_PARQUET = CARD_FILES_DIR / 'commander_cards.parquet'
 
 
 @dataclass
@@ -56,78 +59,65 @@ class ThemeSuggestion:
     synergy_commanders: List[str]
 
 
-def _parse_theme_tags(raw: str) -> List[str]:
-    if not raw:
-        return []
-    raw = raw.strip()
-    if not raw or raw == '[]':
+def _parse_theme_tags(raw) -> List[str]:
+    """Normalize a themeTags cell (list/ndarray/None/NaN) to a list of strings."""
+    if raw is None:
         return []
     try:
-        # themeTags stored like "['Landfall', 'Ramp']" – use literal_eval safely
-        val = ast.literal_eval(raw)
-        if isinstance(val, list):
-            return [str(x) for x in val if isinstance(x, str)]
+        if isinstance(raw, float) and pd.isna(raw):
+            return []
     except Exception:
         pass
-    # Fallback naive parse
-    return [t.strip().strip("'\"") for t in raw.strip('[]').split(',') if t.strip()]
+    try:
+        return [str(t) for t in list(raw) if isinstance(t, str) and t]
+    except TypeError:
+        return []
 
 
-def scan_color_csvs(include_master: bool, max_rank: float, progress_every: int) -> Tuple[Dict[str, List[Tuple[float, str]]], Dict[str, List[Tuple[float, str]]]]:
+def _scan_parquet(path: Path, max_rank: float, progress_every: int) -> Tuple[Dict[str, List[Tuple[float, str]]], Dict[str, List[Tuple[float, str]]]]:
+    """Scan a tagged card parquet file, bucketing (rank, name) hits per themeTag.
+
+    Returns (theme_hits, legendary_hits) -- legendary_hits is the subset of theme_hits
+    rows whose `type` contains the word "Legendary" (used for commander fallbacks).
+    """
     theme_hits: Dict[str, List[Tuple[float, str]]] = {}
     legendary_hits: Dict[str, List[Tuple[float, str]]] = {}
-    files: List[Path] = []
-    for fp in sorted(CSV_DIR.glob(COLOR_CSV_GLOB)):
-        name = fp.name
-        if name == MASTER_FILE and not include_master:
+    if not path.exists():
+        print(f"[warn] parquet not found: {path}", file=sys.stderr)
+        return theme_hits, legendary_hits
+    try:
+        df = pd.read_parquet(path, columns=['name', 'themeTags', 'edhrecRank', 'type'])
+    except Exception as e:  # pragma: no cover
+        print(f"[warn] failed reading {path}: {e}", file=sys.stderr)
+        return theme_hits, legendary_hits
+    total_rows = len(df)
+    for idx, row in enumerate(df.itertuples(index=False), start=1):
+        if progress_every and idx % progress_every == 0:
+            print(f"[scan] {path.name} row {idx}/{total_rows}", file=sys.stderr, flush=True)
+        tags = _parse_theme_tags(row.themeTags)
+        if not tags:
             continue
-        if name == COMMANDER_FILE:
-            continue
-        # skip testdata
-        if 'testdata' in str(fp):
-            continue
-        files.append(fp)
-    total_files = len(files)
-    processed = 0
-    for fp in files:
-        processed += 1
         try:
-            with fp.open(encoding='utf-8', newline='') as f:
-                reader = csv.DictReader(f)
-                line_idx = 0
-                for row in reader:
-                    line_idx += 1
-                    if progress_every and line_idx % progress_every == 0:
-                        print(f"[scan] {fp.name} line {line_idx}", file=sys.stderr, flush=True)
-                    tags_raw = row.get('themeTags') or ''
-                    if not tags_raw:
-                        continue
-                    try:
-                        rank = float(row.get('edhrecRank') or 999999)
-                    except Exception:
-                        rank = 999999
-                    if rank > max_rank:
-                        continue
-                    tags = _parse_theme_tags(tags_raw)
-                    name = row.get('name') or ''
-                    if not name:
-                        continue
-                    is_legendary = False
-                    try:
-                        typ = row.get('type') or ''
-                        if isinstance(typ, str) and 'Legendary' in typ.split():
-                            is_legendary = True
-                    except Exception:
-                        pass
-                    for t in tags:
-                        if not t:
-                            continue
-                        theme_hits.setdefault(t, []).append((rank, name))
-                        if is_legendary:
-                            legendary_hits.setdefault(t, []).append((rank, name))
-        except Exception as e:  # pragma: no cover
-            print(f"[warn] failed reading {fp.name}: {e}", file=sys.stderr)
-        print(f"[scan] completed {fp.name} ({processed}/{total_files})", file=sys.stderr, flush=True)
+            rank = float(row.edhrecRank) if row.edhrecRank is not None and not pd.isna(row.edhrecRank) else 999999.0
+        except Exception:
+            rank = 999999.0
+        if rank > max_rank:
+            continue
+        name = row.name if isinstance(row.name, str) and row.name else ''
+        if not name:
+            continue
+        is_legendary = False
+        try:
+            typ = row.type if isinstance(row.type, str) else ''
+            if 'Legendary' in typ.split():
+                is_legendary = True
+        except Exception:
+            pass
+        for t in tags:
+            theme_hits.setdefault(t, []).append((rank, name))
+            if is_legendary:
+                legendary_hits.setdefault(t, []).append((rank, name))
+    print(f"[scan] completed {path.name} ({total_rows} rows)", file=sys.stderr, flush=True)
     # Trim each bucket to reasonable size (keep best ranks)
     for mapping, cap in ((theme_hits, 120), (legendary_hits, 80)):
         for t, lst in mapping.items():
@@ -137,38 +127,22 @@ def scan_color_csvs(include_master: bool, max_rank: float, progress_every: int) 
     return theme_hits, legendary_hits
 
 
+def scan_color_csvs(include_master: bool, max_rank: float, progress_every: int) -> Tuple[Dict[str, List[Tuple[float, str]]], Dict[str, List[Tuple[float, str]]]]:
+    """Scan the tagged card dataset for (rank, name) hits per themeTag.
+
+    Name kept for backward compatibility with callers; `include_master` is a no-op now
+    since there's a single parquet dataset rather than per-color + master CSVs.
+    """
+    return _scan_parquet(ALL_CARDS_PARQUET, max_rank, progress_every)
+
+
 def scan_commander_csv(max_rank: float) -> Dict[str, List[Tuple[float, str]]]:
-    path = CSV_DIR / COMMANDER_FILE
+    """Scan the commander cache parquet for (rank, name) hits per themeTag."""
+    theme_hits, _ = _scan_parquet(COMMANDER_PARQUET, max_rank, progress_every=0)
     out: Dict[str, List[Tuple[float, str]]] = {}
-    if not path.exists():
-        return out
-    try:
-        with path.open(encoding='utf-8', newline='') as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                tags_raw = row.get('themeTags') or ''
-                if not tags_raw:
-                    continue
-                tags = _parse_theme_tags(tags_raw)
-                try:
-                    rank = float(row.get('edhrecRank') or 999999)
-                except Exception:
-                    rank = 999999
-                if rank > max_rank:
-                    continue
-                name = row.get('name') or ''
-                if not name:
-                    continue
-                for t in tags:
-                    if not t:
-                        continue
-                    out.setdefault(t, []).append((rank, name))
-    except Exception as e:  # pragma: no cover
-        print(f"[warn] failed reading {COMMANDER_FILE}: {e}", file=sys.stderr)
-    for t, lst in out.items():
-        lst.sort(key=lambda x: x[0])
-        if len(lst) > 60:
-            del lst[60:]
+    for t, lst in theme_hits.items():
+        lst_sorted = sorted(lst, key=lambda x: x[0])
+        out[t] = lst_sorted[:60]
     return out
 
 
@@ -390,8 +364,8 @@ def main():  # pragma: no cover
     parser.add_argument('--top', type=int, default=8, help='Target number of example_cards suggestions')
     parser.add_argument('--top-commanders', type=int, default=5, help='Target number of example_commanders suggestions')
     parser.add_argument('--max-rank', type=float, default=60000, help='Skip cards with EDHREC rank above this threshold')
-    parser.add_argument('--include-master', action='store_true', help='Include large cards.csv in scan (slower)')
-    parser.add_argument('--progress-every', type=int, default=0, help='Emit a progress line every N rows per file')
+    parser.add_argument('--include-master', action='store_true', help='Deprecated/no-op: kept for backward compatibility with older invocations')
+    parser.add_argument('--progress-every', type=int, default=0, help='Emit a progress line every N rows')
     parser.add_argument('--apply', action='store_true', help='Write missing fields into YAML files')
     parser.add_argument('--limit-yaml', type=int, default=0, help='Limit number of YAML files modified (0 = unlimited)')
     parser.add_argument('--force', action='store_true', help='Overwrite existing example lists')
@@ -404,9 +378,9 @@ def main():  # pragma: no cover
     if args.themes:
         themes_filter = {t.strip() for t in args.themes.split(',') if t.strip()}
 
-    print('[info] scanning CSVs...', file=sys.stderr)
+    print('[info] scanning tagged card data...', file=sys.stderr)
     theme_hits, legendary_hits = scan_color_csvs(args.include_master, args.max_rank, args.progress_every)
-    print('[info] scanning commander CSV...', file=sys.stderr)
+    print('[info] scanning commander cache...', file=sys.stderr)
     commander_hits = scan_commander_csv(args.max_rank)
     print('[info] building suggestions...', file=sys.stderr)
     suggestions = build_suggestions(theme_hits, commander_hits, args.top, args.top_commanders, min_examples=args.min_examples)

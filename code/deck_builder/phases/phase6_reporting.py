@@ -915,12 +915,31 @@ class ReportingMixin:
             except Exception:
                 pass
 
-        # Batch price lookup (no-op when price_lookup not provided)
+        # Batch price lookup (no-op when price_lookup not provided).
+        # When a card has a selected printing (ScryfallID), price that
+        # specific printing instead of the cheapest-by-name default --
+        # falls back to cheapest-by-name automatically if the printing has
+        # no price data (see PriceService.get_prices_batch's printing_map).
         card_names_list = list(self.card_library.keys())
+        printing_map: Dict[str, str] = {}
+        for _name, _info in self.card_library.items():
+            _sid = _info.get('ScryfallID')
+            if _sid:
+                printing_map[_name.lower()] = _sid
         prices_map: Dict[str, Any] = {}
         if callable(price_lookup):
             try:
-                prices_map = price_lookup(card_names_list) or {}
+                if printing_map:
+                    prices_map = price_lookup(card_names_list, printing_map=printing_map) or {}
+                else:
+                    prices_map = price_lookup(card_names_list) or {}
+            except TypeError:
+                # price_lookup doesn't accept printing_map (e.g. a caller-supplied
+                # callable in tests/other contexts) -- fall back gracefully.
+                try:
+                    prices_map = price_lookup(card_names_list) or {}
+                except Exception:
+                    prices_map = {}
             except Exception:
                 prices_map = {}
 

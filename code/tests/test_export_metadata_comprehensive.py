@@ -535,16 +535,25 @@ def _suppress_cm(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_csv_price_column_present_no_lookup(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Price column exists even when no price_lookup is provided; values are blank."""
     _suppress_cm(monkeypatch)
+
+    class _EmptyPriceService:
+        def get_prices_batch(self, *_a, **_kw):
+            return {}
+
+    monkeypatch.setattr(
+        "code.web.services.price_service.get_price_service", lambda: _EmptyPriceService()
+    )
     b = _PriceBuilder()
     path = Path(b.export_decklist_csv(directory=str(tmp_path), filename="deck.csv"))
     with path.open("r", encoding="utf-8", newline="") as fh:
         reader = csv.DictReader(fh)
-        assert "Price" in (reader.fieldnames or [])
+        assert "Price (TCGPlayer)" in (reader.fieldnames or [])
         rows = list(reader)
     card_rows = [r for r in rows if r["Name"] and r["Name"] != "Total"]
-    assert all(r["Price"] == "" for r in card_rows)
+    assert all(r["Price (TCGPlayer)"] == "" for r in card_rows)
     # No summary row when no prices available
     assert not any(r["Name"] == "Total" for r in rows)
+
 
 
 def test_csv_price_column_populated_by_lookup(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -562,9 +571,9 @@ def test_csv_price_column_populated_by_lookup(tmp_path: Path, monkeypatch: pytes
         rows = list(reader)
 
     card_rows = {r["Name"]: r for r in rows if r["Name"] and r["Name"] != "Total"}
-    assert card_rows["Sol Ring"]["Price"] == "1.50"
-    assert card_rows["Counterspell"]["Price"] == "2.00"
-    assert card_rows["Tropical Island"]["Price"] == "100.00"
+    assert card_rows["Sol Ring"]["Price (TCGPlayer)"] == "1.50"
+    assert card_rows["Counterspell"]["Price (TCGPlayer)"] == "2.00"
+    assert card_rows["Tropical Island"]["Price (TCGPlayer)"] == "100.00"
 
 
 def test_csv_price_summary_row(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -582,7 +591,7 @@ def test_csv_price_summary_row(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) 
 
     total_rows = [r for r in rows if r["Name"] == "Total"]
     assert len(total_rows) == 1
-    assert total_rows[0]["Price"] == "103.50"
+    assert total_rows[0]["Price (TCGPlayer)"] == "103.50"
 
 
 def test_csv_price_blank_when_lookup_returns_none(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -599,12 +608,12 @@ def test_csv_price_blank_when_lookup_returns_none(tmp_path: Path, monkeypatch: p
         rows = list(reader)
 
     card_rows = {r["Name"]: r for r in rows if r["Name"] and r["Name"] != "Total"}
-    assert card_rows["Sol Ring"]["Price"] == "1.50"
-    assert card_rows["Counterspell"]["Price"] == ""
-    assert card_rows["Tropical Island"]["Price"] == ""
+    assert card_rows["Sol Ring"]["Price (TCGPlayer)"] == "1.50"
+    assert card_rows["Counterspell"]["Price (TCGPlayer)"] == ""
+    assert card_rows["Tropical Island"]["Price (TCGPlayer)"] == ""
     # Total reflects only priced cards
     total_rows = [r for r in rows if r["Name"] == "Total"]
-    assert total_rows[0]["Price"] == "1.50"
+    assert total_rows[0]["Price (TCGPlayer)"] == "1.50"
 
 
 if __name__ == "__main__":

@@ -659,6 +659,11 @@ class ImageCache:
         df = pd.read_parquet(self.printings_index_path)
         if resolved_mode == "default":
             df = df[df["is_default"]]
+            # is_default can have multiple tied rows per card (same score);
+            # keep exactly one per face_name, breaking ties by most recent
+            # released_at -- matches get_default_printing_id()'s tie-break.
+            df = df.sort_values("released_at", ascending=False, na_position="last")
+            df = df.drop_duplicates(subset="face_name", keep="first")
 
         if max_rows is not None:
             df = df.head(max_rows)

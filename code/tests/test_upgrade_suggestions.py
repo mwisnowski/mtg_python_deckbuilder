@@ -522,6 +522,64 @@ def test_general_role_gap_boosts_under_represented(tmp_path):
     assert names.index("Gap Filler") < names.index("Saturated Filler")
 
 
+def test_general_primary_theme_outranks_incidental_synergy_tag(tmp_path):
+    """A card matching the deck's real declared theme should outrank one that
+    only shares an incidental tag present on a single off-theme deck card
+    (e.g. a lone Blink piece in an otherwise Spellslinger deck)."""
+    rows = [
+        _gen_row("On Theme Card", theme_tags="Spellslinger", edhrec_rank=1000.0),
+        _gen_row("Blink Card", theme_tags="Blink", edhrec_rank=1000.0),
+    ]
+    parquet_path = _write_parquet(tmp_path, rows)
+    svc = UpgradeSuggestionsService(bulk_data_path=str(tmp_path / "x.json"))
+    with patch(f"{_MODULE}.get_processed_cards_path", return_value=parquet_path):
+        result = svc.get_general_suggestions(
+            deck_card_names=set(),
+            color_identity=["G"],
+            themes=["Spellslinger", "Blink"],  # aggregated tags across all deck cards
+            role_counts={},
+            deck_themes=["Spellslinger"],  # deck's actual declared build theme (primary)
+        )
+    cards = [c for bucket in result.values() for c in bucket]
+    names = [c.name for c in cards]
+    assert names.index("On Theme Card") < names.index("Blink Card")
+    on_theme = next(c for c in cards if c.name == "On Theme Card")
+    blink = next(c for c in cards if c.name == "Blink Card")
+    assert "Spellslinger" in on_theme.matched_tags
+    assert "Blink" not in blink.matched_tags  # incidental tag not surfaced as a meaningful match
+
+
+def test_general_theme_priority_ordering(tmp_path):
+    """Priority order should be: primary theme > secondary theme > generalized
+    role > tertiary theme > incidental synergy tag."""
+    rows = [
+        _gen_row("Primary Card", theme_tags="Spellslinger", edhrec_rank=1000.0),
+        _gen_row("Secondary Card", theme_tags="Aristocrats", edhrec_rank=1000.0),
+        _gen_row("Generalized Card", theme_tags="Card Draw", edhrec_rank=1000.0),
+        _gen_row("Tertiary Card", theme_tags="Blink", edhrec_rank=1000.0),
+        _gen_row("Synergy Card", theme_tags="Enter the Battlefield", edhrec_rank=1000.0),
+    ]
+    parquet_path = _write_parquet(tmp_path, rows)
+    svc = UpgradeSuggestionsService(bulk_data_path=str(tmp_path / "x.json"))
+    with patch(f"{_MODULE}.get_processed_cards_path", return_value=parquet_path):
+        result = svc.get_general_suggestions(
+            deck_card_names=set(),
+            color_identity=["G"],
+            themes=["Spellslinger", "Aristocrats", "Card Draw", "Blink", "Enter the Battlefield"],
+            role_counts={},
+            deck_themes=["Spellslinger", "Aristocrats", "Blink"],
+        )
+    cards = [c for bucket in result.values() for c in bucket]
+    names = [c.name for c in cards]
+    assert (
+        names.index("Primary Card")
+        < names.index("Secondary Card")
+        < names.index("Generalized Card")
+        < names.index("Tertiary Card")
+        < names.index("Synergy Card")
+    )
+
+
 def test_general_no_budget_single_tier(tmp_path):
     rows = [_gen_row("Card A"), _gen_row("Card B")]
     parquet_path = _write_parquet(tmp_path, rows)

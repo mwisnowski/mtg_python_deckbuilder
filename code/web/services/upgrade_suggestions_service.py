@@ -115,6 +115,11 @@ _QUALITY_BONUS = 0.3
 DEFAULT_TOP_N = 3
 _DFC_CMC_BUMP = 1.5             # effective CMC reduction for DFC deck cards in swap scoring
 
+
+def _fmt_cmc(value: float) -> str:
+    """Format a CMC value without a trailing ``.0`` for whole numbers."""
+    return str(int(value)) if value == int(value) else str(round(value, 1))
+
 # Ideal role categories: maps deck-config keys to the parquet themeTags they represent.
 # "lands", "basic_lands", and "fetch_lands" are intentionally omitted — land cards are
 # never returned as upgrade candidates.
@@ -581,7 +586,11 @@ class UpgradeSuggestionsService:
                 # No role match — CMC-only fallback weight; DFC cards score lower.
                 eff = card.cmc - dfc_adj
                 score = eff * _CMC_WEIGHT
-                reason = f"no role match; high CMC ({int(card.cmc)})" if eff >= 4 else "no role match"
+                cmc_cmp = f"{_fmt_cmc(suggestion.cmc)} vs {_fmt_cmc(card.cmc)} CMC"
+                if eff >= 4:
+                    reason = f"No shared roles; frees up a high-CMC slot ({cmc_cmp}){dfc_note}"
+                else:
+                    reason = f"No shared roles ({cmc_cmp}){dfc_note}"
 
             elif is_single_role:
                 # Single-role: reward cutting higher-CMC same-role cards.
@@ -589,16 +598,18 @@ class UpgradeSuggestionsService:
                 cmc_delta = card.cmc - suggestion.cmc - dfc_adj
                 score = _ROLE_OVERLAP_WEIGHT + max(0.0, cmc_delta) * _CMC_IMPROVEMENT_WEIGHT + _QUALITY_BONUS
                 role = next(iter(suggestion_roles))
+                cmc_cmp = f"{_fmt_cmc(suggestion.cmc)} vs {_fmt_cmc(card.cmc)} CMC"
                 if cmc_delta > 0:
                     saved = int(cmc_delta) if cmc_delta == int(cmc_delta) else round(cmc_delta, 1)
-                    reason = f"Same {role}; saves {saved} mana{dfc_note}"
+                    reason = f"Same {role} role, cheaper ({cmc_cmp}; saves {saved} mana){dfc_note}"
                 else:
-                    reason = f"Same {role}{dfc_note}"
+                    reason = f"Same {role} role ({cmc_cmp}){dfc_note}"
 
             else:
                 # Multi-role upgrade
                 full_coverage = suggestion_roles <= card_roles  # card already does everything
                 eff_cmc = card.cmc - dfc_adj  # effective CMC for threshold checks
+                cmc_cmp = f"{_fmt_cmc(suggestion.cmc)} vs {_fmt_cmc(card.cmc)} CMC"
 
                 if full_coverage and eff_cmc > suggestion.cmc:
                     # Option B: direct upgrade — same roles at lower CMC
@@ -606,26 +617,52 @@ class UpgradeSuggestionsService:
                     score = (_ROLE_OVERLAP_WEIGHT * len(suggestion_roles) * 1.5
                              + cmc_delta * _CMC_IMPROVEMENT_WEIGHT + _QUALITY_BONUS)
                     roles_str = ", ".join(sorted(suggestion_roles)[:2])
-                    reason = f"Direct upgrade: covers {roles_str} at lower CMC{dfc_note}"
+                    reason = (
+                        f"Direct upgrade: same roles ({roles_str}) at lower cost "
+                        f"({cmc_cmp}; saves {_fmt_cmc(cmc_delta)}){dfc_note}"
+                    )
 
                 elif (len(card_roles) <= len(suggestion_roles)
                       and eff_cmc >= suggestion.cmc * 0.75):
                     # Option A: card has fewer/equal roles at similar CMC;
-                    # upgrade covers those roles + more for roughly the same cost
+                    # upgrade covers those roles + more for roughly the same cost.
+                    # This is the "versatility" case: one card doing several jobs
+                    # (e.g. interaction + protection + card draw) can be worth
+                    # keeping even at a somewhat higher CMC than a one-note card.
                     score = _ROLE_OVERLAP_WEIGHT * 1.25 + eff_cmc * _CMC_WEIGHT * 0.25 + _QUALITY_BONUS
-                    role_str = ", ".join(sorted(overlap)[:2])
-                    reason = f"Upgrade covers {role_str} + adds roles{dfc_note}"
+                    role_str = ", ".join(sorted(overlap)[:2]) if overlap else ", ".join(sorted(suggestion_roles)[:2])
+                    extra_roles = sorted(suggestion_roles - card_roles)
+                    role_count_cmp = f"{len(suggestion_roles)} roles vs {len(card_roles)}"
+                    if suggestion.cmc > eff_cmc:
+                        cost_note = (
+                            f"costs {_fmt_cmc(suggestion.cmc - eff_cmc)} more mana, but the added "
+                            f"versatility can be worth it"
+                        )
+                    elif suggestion.cmc < eff_cmc:
+                        cost_note = f"also cheaper ({cmc_cmp})"
+                    else:
+                        cost_note = f"same cost ({cmc_cmp})"
+                    if extra_roles:
+                        reason = (
+                            f"Covers {role_str} plus adds {', '.join(extra_roles[:2])} "
+                            f"({role_count_cmp}); {cost_note}{dfc_note}"
+                        )
+                    else:
+                        reason = f"Upgrade covers {role_str} in one card ({role_count_cmp}); {cost_note}{dfc_note}"
 
                 else:
-                    # Partial overlap — general scoring
+                    # Partial overlap — general role-count + CMC scoring.
                     score = len(overlap) * _ROLE_OVERLAP_WEIGHT + eff_cmc * _CMC_WEIGHT + _QUALITY_BONUS
                     shared = sorted(overlap)[:2]
                     suffix = " role" if len(overlap) == 1 else " roles"
-                    reason = f"Shared {', '.join(shared)}{suffix}"
+                    extra_roles = sorted(suggestion_roles - overlap)
+                    reason = f"Shares {', '.join(shared)}{suffix}"
+                    if extra_roles:
+                        reason += f"; also brings {', '.join(extra_roles[:2])}"
                     if eff_cmc >= 4:
-                        reason += f"; high CMC ({int(card.cmc)}){dfc_note}"
-                    elif dfc_note:
-                        reason += dfc_note
+                        reason += f"; frees up a high-CMC slot ({cmc_cmp}){dfc_note}"
+                    else:
+                        reason += f" ({cmc_cmp}){dfc_note}"
 
             scored.append((score, card, reason))
 
@@ -681,18 +718,42 @@ class UpgradeSuggestionsService:
         budget_per_card: Optional[float] = None,
         today: Optional[datetime.date] = None,
         max_per_tier: int = 100,
+        deck_themes: Optional[list[str]] = None,
     ) -> dict[str, list[UpgradeCandidate]]:
         """Return general upgrade candidates scored against the current deck.
 
         Cards already in the deck and ``isNew`` cards (covered by the new-card
-        pool) are excluded.  Scoring:
+        pool) are excluded.  Scoring prioritizes relevance in five tiers,
+        highest weight first:
 
-        - ``theme_match``: 2.0 × count of deck themes that appear in the
-          card's themeTags.
-        - ``role_gap_bonus``: 1.5 × count of the card's roles that are
-          under-represented in the deck (role_counts[role] < 5).
+        1. ``primary_theme_match``: 5.0 × count — the deck's primary chosen
+           build theme (``deck_themes[0]``, e.g. ``"Spellslinger"``).
+        2. ``secondary_theme_match``: 3.0 × count — the deck's secondary
+           chosen theme (``deck_themes[1]``), if any.
+        3. ``generalized_role_match``: 2.0 × count — fixed utility roles
+           (Ramp, Removal, Board Wipes, Card Draw, Protection).
+        4. ``tertiary_theme_match``: 1.5 × count — the deck's tertiary
+           chosen theme (``deck_themes[2]``), if any. Ranked below the
+           generalized roles since a tertiary theme tends to be more of a
+           loose synergy pick than a defining strategy.
+        5. ``synergy_match``: 1.0 × count — any other tag the card shares
+           with ``themes`` (every tag seen anywhere in the current deck)
+           not already counted above — a weak signal, since a single
+           unrelated card in the deck carrying an incidental tag (e.g. a
+           lone Blink/ETB piece in an otherwise Spellslinger deck) shouldn't
+           be weighted the same as the deck's real strategy.
+
+        A tag is only counted once, at the highest tier it qualifies for
+        (e.g. a tag that's both the secondary theme and a generalized role
+        only contributes the secondary-theme weight).
+
+        Plus:
+        - ``role_gap_bonus``: 1.5 × count of the card's *generalized* roles
+          that are under-represented in the deck (role_counts[role] < 5).
+          Restricted to the fixed utility roles above so a rarely-seen niche
+          tag doesn't get treated as a "gap" the deck needs filled.
         - ``quality``: ``1.0 / log10(edhrecRank + 10)`` (lower rank = better).
-        - ``total = theme_match + role_gap_bonus + quality``
+        - ``total = primary_theme_match + secondary_theme_match + generalized_role_match + tertiary_theme_match + synergy_match + role_gap_bonus + quality``
 
         Results are bucketed by price tier when ``budget_per_card`` is set:
         - ``"Within Budget"``: price ≤ budget (first, expanded)
@@ -706,11 +767,15 @@ class UpgradeSuggestionsService:
         Args:
             deck_card_names: Names of cards currently in the deck.
             color_identity: Color codes the commander allows.
-            themes: Active theme tags for this deck.
+            themes: Every tag seen anywhere in the current deck (used only
+                for the low-weight ``synergy_match`` signal).
             role_counts: Mapping of role → card count in the current deck.
             budget_per_card: Optional per-card budget in USD.
             today: Date anchor (default: ``datetime.date.today()``).
             max_per_tier: Maximum candidates returned per tier (default 100).
+            deck_themes: The deck's actual chosen build themes in order
+                ``[primary, secondary, tertiary]`` (e.g. from the saved
+                deck's sidecar), given top priority in scoring.
 
         Returns:
             ``dict[str, list[UpgradeCandidate]]`` keyed by tier label.
@@ -770,13 +835,40 @@ class UpgradeSuggestionsService:
         if df.empty:
             return {}
 
-        deck_themes_lower = {t.lower() for t in themes if t}
-        under_rep_roles = {role.lower() for role, cnt in role_counts.items() if cnt < 5}
+        # Priority tiers, in order (highest weight first): the deck's primary
+        # theme, secondary theme, the fixed generalized utility roles,
+        # tertiary theme, then everything else the deck's cards happen to
+        # carry (weak "synergy" signal only). A tag is only counted once, at
+        # the highest tier it qualifies for.
+        ordered_themes = [t for t in (deck_themes or []) if t]
+        primary_lower = {ordered_themes[0].lower()} if len(ordered_themes) > 0 else set()
+        secondary_lower = ({ordered_themes[1].lower()} if len(ordered_themes) > 1 else set()) - primary_lower
+        generalized_lower = {t.lower() for t in _DEFAULT_IDEAL_ROLE_TAGS} - primary_lower - secondary_lower
+        tertiary_lower = (
+            ({ordered_themes[2].lower()} if len(ordered_themes) > 2 else set())
+            - primary_lower - secondary_lower - generalized_lower
+        )
+        synergy_lower = (
+            {t.lower() for t in themes if t}
+            - primary_lower - secondary_lower - generalized_lower - tertiary_lower
+        )
+        # Role-gap bonus only considers the fixed generalized roles — a niche
+        # tag that happens to be rare in the deck (e.g. a single Blink card)
+        # isn't a "gap" the deck actually needs filled.
+        ideal_roles_lower = {t.lower() for t in _DEFAULT_IDEAL_ROLE_TAGS}
+        under_rep_roles = {
+            role.lower() for role, cnt in role_counts.items()
+            if cnt < 5 and role.lower() in ideal_roles_lower
+        }
 
         def _score_row(row: pd.Series) -> float:
             card_tags_lower = {t.lower() for t in _parse_tags(row.get("themeTags", ""))}
 
-            theme_match = 2.0 * len(deck_themes_lower & card_tags_lower)
+            primary_theme_match = 5.0 * len(primary_lower & card_tags_lower)
+            secondary_theme_match = 3.0 * len(secondary_lower & card_tags_lower)
+            generalized_role_match = 2.0 * len(generalized_lower & card_tags_lower)
+            tertiary_theme_match = 1.5 * len(tertiary_lower & card_tags_lower)
+            synergy_match = 1.0 * len(synergy_lower & card_tags_lower)
             role_gap_bonus = 1.5 * len(under_rep_roles & card_tags_lower)
 
             rank = row.get("edhrecRank")
@@ -786,7 +878,10 @@ class UpgradeSuggestionsService:
                 rank_f = 30000.0
             quality = 1.0 / math.log10(rank_f + 10)
 
-            return theme_match + role_gap_bonus + quality
+            return (
+                primary_theme_match + secondary_theme_match + generalized_role_match
+                + tertiary_theme_match + synergy_match + role_gap_bonus + quality
+            )
 
         df = df.copy()
         df["_score"] = df.apply(_score_row, axis=1)
@@ -810,8 +905,13 @@ class UpgradeSuggestionsService:
             set_name = sm.get("name", set_code.upper() if set_code else "Unknown")
             released_at = sm.get("released_at", "")
 
-            all_relevant = deck_themes_lower | under_rep_roles
-            matched = [t for t in roles if t.lower() in all_relevant]
+            # Only surface high-priority tags (deck's primary/secondary/
+            # tertiary theme or a generalized role) as "matched" — weak
+            # incidental synergy tags (e.g. a lone Blink card elsewhere in
+            # the deck) contributed to the score but shouldn't be shown as
+            # the reason a card fits.
+            high_priority = primary_lower | secondary_lower | generalized_lower | tertiary_lower
+            matched = [t for t in roles if t.lower() in high_priority]
             fit_score = round(float(row.get("_score", 0.0)), 1)
             return UpgradeCandidate(
                 name=name,
@@ -824,6 +924,7 @@ class UpgradeSuggestionsService:
                 is_new_card=False,
                 fit_score=fit_score,
             )
+
 
         if budget_per_card and budget_per_card > 0:
             tiers: dict[str, list[UpgradeCandidate]] = {

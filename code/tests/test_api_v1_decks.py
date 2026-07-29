@@ -199,6 +199,43 @@ def test_deck_analysis_honors_printing_map(client, auth, tmp_path, monkeypatch):
     assert resp.json()["data"]["total_price"] == 20.0
 
 
+def test_deck_compliance_reads_sidecar(client, auth, tmp_path):
+    user, headers = auth
+    csv_path = _write_sample_deck(user["id"], tmp_path)
+    report = {
+        "bracket": "core",
+        "level": 2,
+        "overall": "PASS",
+        "categories": {
+            "game_changers": {"count": 0, "limit": 3, "flagged": [], "status": "PASS", "notes": []},
+        },
+        "messages": ["All categories within limits."],
+    }
+    sidecar = csv_path.parent / (csv_path.stem + "_compliance.json")
+    sidecar.write_text(json.dumps(report), encoding="utf-8")
+
+    resp = client.get("/api/v1/decks/Test Deck.csv/compliance", headers=headers)
+    assert resp.status_code == 200
+    data = resp.json()["data"]
+    assert data["overall"] == "PASS"
+    assert data["categories"]["game_changers"]["limit"] == 3
+
+
+def test_deck_compliance_missing_sidecar(client, auth, tmp_path):
+    user, headers = auth
+    _write_sample_deck(user["id"], tmp_path)
+    resp = client.get("/api/v1/decks/Test Deck.csv/compliance", headers=headers)
+    assert resp.status_code == 404
+    assert resp.json()["code"] == "COMPLIANCE_NOT_FOUND"
+
+
+def test_deck_compliance_deck_not_found(client, auth):
+    _, headers = auth
+    resp = client.get("/api/v1/decks/Nope.csv/compliance", headers=headers)
+    assert resp.status_code == 404
+    assert resp.json()["code"] == "DECK_NOT_FOUND"
+
+
 # ---------------------------------------------------------------------------
 # Milestone 8: upgrade suggestions
 # ---------------------------------------------------------------------------
@@ -226,6 +263,89 @@ def test_deck_upgrades_general_section(client, auth, tmp_path):
     data = resp.json()["data"]
     assert data["section"] == "general"
     assert isinstance(data["cards"], list)
+
+
+def test_deck_upgrades_swap_requires_auth(client):
+    resp = client.post(
+        "/api/v1/decks/Test Deck.csv/upgrades/swap",
+        json={"remove": "Lightning Bolt", "add": "Swords to Plowshares"},
+    )
+    assert resp.status_code == 401
+
+
+def test_deck_upgrades_swap_applies_change(client, auth, tmp_path):
+    user, headers = auth
+    csv_path = _write_sample_deck(user["id"], tmp_path)
+    resp = client.post(
+        "/api/v1/decks/Test Deck.csv/upgrades/swap",
+        headers=headers,
+        json={"remove": "Lightning Bolt", "add": "Swords to Plowshares"},
+    )
+    assert resp.status_code == 200
+    data = resp.json()["data"]
+    assert data == {"removed": "Lightning Bolt", "added": "Swords to Plowshares"}
+    contents = csv_path.read_text(encoding="utf-8")
+    assert "Swords to Plowshares" in contents
+    assert "Lightning Bolt" not in contents
+    txt_contents = csv_path.with_suffix(".txt").read_text(encoding="utf-8")
+    assert "1 Swords to Plowshares" in txt_contents
+
+
+def test_deck_upgrades_swap_card_not_in_deck(client, auth, tmp_path):
+    user, headers = auth
+    _write_sample_deck(user["id"], tmp_path)
+    resp = client.post(
+        "/api/v1/decks/Test Deck.csv/upgrades/swap",
+        headers=headers,
+        json={"remove": "Nonexistent Card", "add": "Swords to Plowshares"},
+    )
+    assert resp.status_code == 404
+    assert resp.json()["code"] == "CARD_NOT_IN_DECK"
+
+
+def test_deck_upgrades_swap_add_already_in_deck(client, auth, tmp_path):
+    user, headers = auth
+    _write_sample_deck(user["id"], tmp_path)
+    resp = client.post(
+        "/api/v1/decks/Test Deck.csv/upgrades/swap",
+        headers=headers,
+        json={"remove": "Lightning Bolt", "add": "Sol Ring"},
+    )
+    assert resp.status_code == 400
+    assert resp.json()["code"] == "CARD_ALREADY_IN_DECK"
+
+
+def test_deck_upgrades_swap_cannot_remove_commander(client, auth, tmp_path):
+    user, headers = auth
+    deck_dir = tmp_path / "deck_files" / user["id"]
+    deck_dir.mkdir(parents=True, exist_ok=True)
+    csv_path = deck_dir / "Cmdr Deck.csv"
+    csv_path.write_text(
+        "Name,Count,Type,ManaValue,Colors,Role,Tags\n"
+        "Some Commander,1,Legendary Creature - Commander,3,G,Commander,\n"
+        "Sol Ring,1,Artifact,1,Colorless,Ramp,Ramp\n"
+        "Total,2,,,,,\n",
+        encoding="utf-8",
+    )
+    (deck_dir / "Cmdr Deck.txt").write_text("1 Some Commander\n1 Sol Ring\n", encoding="utf-8")
+    resp = client.post(
+        "/api/v1/decks/Cmdr Deck.csv/upgrades/swap",
+        headers=headers,
+        json={"remove": "Some Commander", "add": "Swords to Plowshares"},
+    )
+    assert resp.status_code == 400
+    assert resp.json()["code"] == "CANNOT_REMOVE_COMMANDER"
+
+
+def test_deck_upgrades_swap_deck_not_found(client, auth):
+    _, headers = auth
+    resp = client.post(
+        "/api/v1/decks/Nope.csv/upgrades/swap",
+        headers=headers,
+        json={"remove": "Lightning Bolt", "add": "Swords to Plowshares"},
+    )
+    assert resp.status_code == 404
+    assert resp.json()["code"] == "DECK_NOT_FOUND"
 
 
 def _mark_public(tmp_path, user_id: str, deck_stem: str) -> None:

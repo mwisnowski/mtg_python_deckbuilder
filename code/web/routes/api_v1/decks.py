@@ -369,6 +369,34 @@ async def get_deck_analysis(filename: str, request: Request, user: User = Depend
     )
 
 
+@router.get("/{filename}/compliance", summary="Get bracket compliance report")
+async def get_deck_compliance(filename: str, request: Request, user: User = Depends(get_api_user)):
+    """Bracket compliance report: overall PASS/WARN/FAIL plus a per-category
+    breakdown (Game Changers, Mass Land Denial, Extra Turns, Nonland Tutors,
+    Two-Card Combos) with flagged card names.
+
+    Reads the `{name}_compliance.json` sidecar written at build time
+    (`compute_and_print_compliance` in `code/deck_builder/phases/phase6_reporting.py`,
+    via `evaluate_deck` in `code/deck_builder/brackets_compliance.py`) -- the
+    same data the HTML web UI's bracket-compliance view uses -- instead of
+    recomputing it. Decks built before this sidecar existed (or that
+    otherwise lack one) return a 404.
+    """
+    p = _resolve_deck_path(str(user["id"]), filename)
+    if p is None:
+        return err("Deck not found.", "DECK_NOT_FOUND", 404, _rid(request))
+    sidecar = p.parent / f"{p.stem}_compliance.json"
+    if not sidecar.exists():
+        return err(
+            "Compliance report not available for this deck.", "COMPLIANCE_NOT_FOUND", 404, _rid(request)
+        )
+    try:
+        payload = json.loads(sidecar.read_text(encoding="utf-8"))
+    except Exception:
+        return err("Compliance report could not be read.", "COMPLIANCE_READ_FAILED", 500, _rid(request))
+    return ok(jsonable_encoder(payload), _rid(request))
+
+
 @router.get("/{filename}/export", summary="Export a deck")
 async def export_deck(
     filename: str,
@@ -450,21 +478,22 @@ async def get_deck_upgrades(
     per_page = max(5, min(50, int(UPGRADE_PAGE_SIZE)))
     excluded_names = meta.get("excluded_names") or set()
     card_ceiling = meta.get("card_ceiling")
+    deck_themes = meta.get("deck_themes")
 
     if section == "general":
         section_ctx = upg._build_general_ctx(
             deck_cards, color_identity, themes, page, per_page,
-            excluded_names=excluded_names, card_ceiling=card_ceiling,
+            excluded_names=excluded_names, card_ceiling=card_ceiling, deck_themes=deck_themes,
         )
     elif section == "possible":
         section_ctx = upg._build_possible_ctx(
             deck_cards, color_identity, themes, page, per_page,
-            excluded_names=excluded_names, card_ceiling=card_ceiling,
+            excluded_names=excluded_names, card_ceiling=card_ceiling, deck_themes=deck_themes,
         )
     else:
         section_ctx = upg._build_new_ctx(
             deck_cards, color_identity, page, per_page,
-            deck_themes=meta.get("deck_themes"), excluded_names=excluded_names,
+            deck_themes=deck_themes, excluded_names=excluded_names,
             card_ceiling=card_ceiling,
         )
 
@@ -478,3 +507,58 @@ async def get_deck_upgrades(
         ),
         _rid(request),
     )
+
+
+class ApplyDeckUpgradeSwapRequest(BaseModel):
+    remove: str
+    add: str
+
+
+@router.post("/{filename}/upgrades/swap", summary="Apply a suggested upgrade swap")
+async def apply_deck_upgrade_swap(
+    filename: str, body: ApplyDeckUpgradeSwapRequest, request: Request, user: User = Depends(get_api_user)
+):
+    """Remove one card from a saved deck and add another in its place.
+
+    Mirrors the HTML "Suggested Upgrades" page's swap action
+    (`apply-swap` in `code/web/routes/upgrade_suggestions.py`), reusing the
+    same CSV/`.txt`/`.summary.json` update helpers and stale-compliance-
+    sidecar cleanup, but scoped to the calling API user and returning JSON
+    instead of an HTMX fragment.
+    """
+    from ...app import ENABLE_UPGRADE_SUGGESTIONS
+    from .. import upgrade_suggestions as upg
+
+    if not ENABLE_UPGRADE_SUGGESTIONS:
+        return err("Upgrade suggestions are disabled.", "FEATURE_DISABLED", 404, _rid(request))
+
+    p = _resolve_deck_path(str(user["id"]), filename)
+    if p is None:
+        return err("Deck not found.", "DECK_NOT_FOUND", 404, _rid(request))
+
+    _, _meta, deck_cards, _themes, _color_identity = upg._load_deck(filename, str(user["id"]))
+    deck_names_lower = {c.name.lower() for c in deck_cards}
+    commanders_lower = {c.name.lower() for c in deck_cards if c.is_commander}
+
+    if body.remove.lower() not in deck_names_lower:
+        return err(f"'{body.remove}' is not in this deck.", "CARD_NOT_IN_DECK", 404, _rid(request))
+    if body.remove.lower() in commanders_lower:
+        return err("Cannot remove the commander.", "CANNOT_REMOVE_COMMANDER", 400, _rid(request))
+    if body.add.lower() in deck_names_lower:
+        return err(f"'{body.add}' is already in this deck.", "CARD_ALREADY_IN_DECK", 400, _rid(request))
+
+    add_meta = upg._look_up_card_meta(body.add)
+    old_count = 1
+    for dc in deck_cards:
+        if dc.name.lower() == body.remove.lower():
+            break
+
+    status, reason = upg._apply_csv_swap(p, body.remove, body.add, add_meta)
+    if status == "error":
+        return err(reason or "Failed to apply swap.", "SWAP_FAILED", 500, _rid(request))
+
+    upg._update_txt(p.with_suffix(".txt"), body.remove, body.add)
+    upg._patch_summary_json(p.with_suffix(".summary.json"), body.remove, body.add, add_meta, old_count)
+    upg._remove_compliance(p)
+
+    return ok({"removed": body.remove, "added": body.add}, _rid(request))

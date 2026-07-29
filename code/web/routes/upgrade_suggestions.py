@@ -383,6 +383,7 @@ def _build_general_ctx(
     per_page: int,
     excluded_names: set[str] = frozenset(),
     card_ceiling: Optional[float] = None,
+    deck_themes: Optional[list[str]] = None,
 ) -> dict[str, Any]:
     svc = _get_svc()
     deck_card_names = {c.name for c in deck_cards}
@@ -393,6 +394,7 @@ def _build_general_ctx(
         themes=themes,
         role_counts=role_counts,
         max_per_tier=100,
+        deck_themes=deck_themes,
     )
     flat: list[tuple[str, UpgradeCandidate]] = []
     for tier_label, tier_cards in tiers.items():
@@ -432,6 +434,7 @@ def _build_possible_ctx(
     per_page: int,
     excluded_names: set[str] = frozenset(),
     card_ceiling: Optional[float] = None,
+    deck_themes: Optional[list[str]] = None,
 ) -> dict[str, Any]:
     """Same pool as general upgrades, but shows cards with <2 viable swap targets.
 
@@ -447,6 +450,7 @@ def _build_possible_ctx(
         themes=themes,
         role_counts=role_counts,
         max_per_tier=100,
+        deck_themes=deck_themes,
     )
     all_candidates: list[UpgradeCandidate] = [
         card
@@ -501,13 +505,14 @@ async def deck_upgrades(
     csv_path, meta, deck_cards, themes, color_identity = _load_deck(name, owner_user_id)
     excluded_names: set[str] = meta.get("excluded_names") or set()
     card_ceiling: Optional[float] = meta.get("card_ceiling")
+    deck_themes = meta.get("deck_themes")
 
     if section == "general":
-        section_ctx = _build_general_ctx(deck_cards, color_identity, themes, page, per_page, excluded_names=excluded_names, card_ceiling=card_ceiling)
+        section_ctx = _build_general_ctx(deck_cards, color_identity, themes, page, per_page, excluded_names=excluded_names, card_ceiling=card_ceiling, deck_themes=deck_themes)
     elif section == "possible":
-        section_ctx = _build_possible_ctx(deck_cards, color_identity, themes, page, per_page, excluded_names=excluded_names, card_ceiling=card_ceiling)
+        section_ctx = _build_possible_ctx(deck_cards, color_identity, themes, page, per_page, excluded_names=excluded_names, card_ceiling=card_ceiling, deck_themes=deck_themes)
     else:
-        section_ctx = _build_new_ctx(deck_cards, color_identity, page, per_page, deck_themes=meta.get("deck_themes"), excluded_names=excluded_names, card_ceiling=card_ceiling)
+        section_ctx = _build_new_ctx(deck_cards, color_identity, page, per_page, deck_themes=deck_themes, excluded_names=excluded_names, card_ceiling=card_ceiling)
         section = "new"
 
     ctx = {
@@ -546,13 +551,14 @@ async def deck_upgrades_cards(
     csv_path, meta, deck_cards, themes, color_identity = _load_deck(name, owner_user_id)
     excluded_names: set[str] = meta.get("excluded_names") or set()
     card_ceiling: Optional[float] = meta.get("card_ceiling")
+    deck_themes = meta.get("deck_themes")
 
     if section == "general":
-        section_ctx = _build_general_ctx(deck_cards, color_identity, themes, page, per_page, excluded_names=excluded_names, card_ceiling=card_ceiling)
+        section_ctx = _build_general_ctx(deck_cards, color_identity, themes, page, per_page, excluded_names=excluded_names, card_ceiling=card_ceiling, deck_themes=deck_themes)
     elif section == "possible":
-        section_ctx = _build_possible_ctx(deck_cards, color_identity, themes, page, per_page, excluded_names=excluded_names, card_ceiling=card_ceiling)
+        section_ctx = _build_possible_ctx(deck_cards, color_identity, themes, page, per_page, excluded_names=excluded_names, card_ceiling=card_ceiling, deck_themes=deck_themes)
     else:
-        section_ctx = _build_new_ctx(deck_cards, color_identity, page, per_page, deck_themes=meta.get("deck_themes"), excluded_names=excluded_names, card_ceiling=card_ceiling)
+        section_ctx = _build_new_ctx(deck_cards, color_identity, page, per_page, deck_themes=deck_themes, excluded_names=excluded_names, card_ceiling=card_ceiling)
         section = "new"
 
     ctx = {

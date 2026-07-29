@@ -23,6 +23,26 @@ _No unreleased changes yet_
 ### Security
 _No unreleased changes yet_
 
+## [5.2.0] - 2026-07-28
+### Added
+- `GET /api/v1/decks/{filename}/compliance`: bracket compliance report (overall PASS/WARN/FAIL plus per-category Game Changers/Mass Land Denial/Extra Turns/Nonland Tutors/Two-Card Combos breakdown) for a saved deck, read from the `_compliance.json` sidecar written at build time; returns 404 for decks built before this sidecar existed
+- `POST /api/v1/decks/{filename}/upgrades/swap`: apply a suggested upgrade swap to a saved deck (remove one card, add another), mirroring the web UI's "Suggested Upgrades" apply-swap action; updates the deck's CSV/`.txt` export and `.summary.json` sidecar and invalidates any stale bracket compliance sidecar
+
+### Changed
+- Upgrade suggestions: swap-candidate reasons now spell out the actual mana-value comparison (e.g. "3 vs 5 CMC") and role coverage (shared roles, extra roles added) instead of vague summaries, and explicitly call out when a card's added versatility (covering more roles in one slot) can outweigh a higher mana cost
+- Upgrade suggestions: "General" and "Possible" upgrade scoring now prioritizes the deck's primary theme first, secondary theme second, generalized utility roles (Ramp, Removal, Board Wipes, Card Draw, Protection) third, tertiary theme fourth, and other tags incidentally shared with existing deck cards last; previously an off-theme tag carried by even a single deck card (e.g. Blink/ETB on one support piece in an otherwise Spellslinger deck) could be weighted the same as the deck's real strategy, surfacing thematically irrelevant recommendations
+
+### Fixed
+- Theme catalog: `+0/+1 Counters`, `+1/+0 Counters`, and `+2/+2 Counters` were showing literal backslashes in their name/description (e.g. "\+0/\+1 Counters") due to a stray escaping bug in the curated catalog data; also removed stale duplicate, less-complete entries for two of these themes left over from an earlier catalog merge
+- Scryfall bulk data download (used by initial setup, price refresh, and rulings cache) was silently failing because Scryfall removed the plain-JSON `download_uri` field from its bulk-data API in favor of gzip-compressed JSONL; the downloader now fetches and decompresses the new format transparently
+- Theme catalog example cards/commanders were never auto-populated by the tagging pipeline's editorial suggestion step because it was still scanning the per-color CSV files removed by an earlier migration to the Parquet card data pipeline; it now reads `card_files/processed/all_cards.parquet` and `commander_cards.parquet` directly
+
+### Removed
+_No changes_
+
+### Security
+_No changes_
+
 ## [5.1.0] - 2026-07-27
 ### Added
 - `POST /api/v1/decks/{filename}/foil` and `POST /api/v1/builds/{id}/foil`: set a card's foil finish on a saved deck or in-progress build, mirroring the existing printing-selection endpoints

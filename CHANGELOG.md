@@ -15,14 +15,18 @@ _No unreleased changes yet_
 _No unreleased changes yet_
 
 ### Fixed
-- Deck CSV export's Price (TCGPlayer) column (and its Total summary row) always priced a card's cheapest-known printing, even when a specific printing had been selected for that card in the deck; it now prices the selected printing, falling back to the cheapest-by-name price when the selected printing has no price data
-- Image cache: `download_all_printings(mode="default")` could download more than one image per card when multiple printings tied for the top score, instead of the single highest-scoring printing; ties are now broken by most recent release date, matching how the default printing is already resolved elsewhere
+_No unreleased changes yet_
 
 ### Removed
 _No unreleased changes yet_
 
 ### Security
 _No unreleased changes yet_
+
+## [5.2.1] - 2026-07-29
+### Fixed
+- Deck CSV export's Price (TCGPlayer) column (and its Total summary row) always priced a card's cheapest-known printing, even when a specific printing had been selected for that card in the deck; it now prices the selected printing, falling back to the cheapest-by-name price when the selected printing has no price data
+- Image cache: `download_all_printings(mode="default")` could download more than one image per card when multiple printings tied for the top score, instead of the single highest-scoring printing; ties are now broken by most recent release date, matching how the default printing is already resolved elsewhere
 
 ## [5.2.0] - 2026-07-28
 ### Added

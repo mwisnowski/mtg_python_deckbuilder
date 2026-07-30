@@ -23,6 +23,10 @@ _No unreleased changes yet_
 ### Security
 _No unreleased changes yet_
 
+## [5.2.2] - 2026-07-30
+### Fixed
+- Updated the app's favicon artwork (`favicon.ico`, `favicon.png`, `favicon-small.png`) and refreshed the PWA manifest's icon list to reference the new sizes
+
 ## [5.2.1] - 2026-07-29
 ### Fixed
 - Deck CSV export's Price (TCGPlayer) column (and its Total summary row) always priced a card's cheapest-known printing, even when a specific printing had been selected for that card in the deck; it now prices the selected printing, falling back to the cheapest-by-name price when the selected printing has no price data

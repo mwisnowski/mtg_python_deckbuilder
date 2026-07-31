@@ -1,29 +1,31 @@
-name: Issue Reported Email Alert
+name: Issue Lifecycle Email Alert
 
 on:
   issues:
-    types: [opened]
+    types: [opened, closed, reopened]
 
 jobs:
   send-email:
     runs-on: ubuntu-latest
     steps:
       - name: Send notification email
-        uses: dawidd6/action-send-email@v4
+        uses: dawidd6/action-send-mail@v3
         with:
           server_address: smtp.protonmail.ch
-          server_port: 587
+          server_port: 465
           secure: true
           username: ${{ secrets.SMTP_USERNAME }}
           password: ${{ secrets.SMTP_PASSWORD }}
-          subject: "[GitHub Alert] New Issue #${{ github.event.issue.number }} opened in ${{ github.repository }}"
+          # Dynamic subject line showing the exact action (e.g., [GitHub Alert] closed Issue #1)
+          subject: "[GitHub Alert] ${{ github.event.action }} Issue #${{ github.event.issue.number }} in ${{ github.repository }}"
           to: ${{ secrets.NOTIFICATION_RECIPIENT }}
           from: "Wiz-Ops Repository Monitor <noreply@wiz-ops.com>"
           body: |
-            A new issue has been reported in your repository.
+            An issue event occurred in your repository.
             
+            Action: ${{ github.event.action }}
             Title: ${{ github.event.issue.title }}
-            Opened By: @${{ github.event.issue.user.login }}
+            Triggered By: @${{ github.event.sender.login }}
             
-            View the full issue and reply here:
+            View the issue here:
             ${{ github.event.issue.html_url }}

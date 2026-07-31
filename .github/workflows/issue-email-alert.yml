@@ -1,7 +1,29 @@
-server_address: smtp.protonmail.ch
-server_port: 587
-secure: true
-username: ${{ secrets.SMTP_USERNAME }}
-password: ${{ secrets.SMTP_PASSWORD }}
-to: ${{ secrets.NOTIFICATION_RECIPIENT }}
-from: "Wiz-Ops Repository Monitor <noreply@wiz-ops.com>"
+name: Issue Reported Email Alert
+
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  send-email:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send notification email
+        uses: dawidd6/action-send-email@v4
+        with:
+          server_address: smtp.protonmail.ch
+          server_port: 587
+          secure: true
+          username: ${{ secrets.SMTP_USERNAME }}
+          password: ${{ secrets.SMTP_PASSWORD }}
+          subject: "[GitHub Alert] New Issue #${{ github.event.issue.number }} opened in ${{ github.repository }}"
+          to: ${{ secrets.NOTIFICATION_RECIPIENT }}
+          from: "Wiz-Ops Repository Monitor <noreply@wiz-ops.com>"
+          body: |
+            A new issue has been reported in your repository.
+            
+            Title: ${{ github.event.issue.title }}
+            Opened By: @${{ github.event.issue.user.login }}
+            
+            View the full issue and reply here:
+            ${{ github.event.issue.html_url }}

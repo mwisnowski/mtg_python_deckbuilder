@@ -1,0 +1,7 @@
+server_address: smtp.protonmail.ch
+server_port: 587
+secure: true
+username: ${{ secrets.SMTP_USERNAME }}
+password: ${{ secrets.SMTP_PASSWORD }}
+to: ${{ secrets.NOTIFICATION_RECIPIENT }}
+from: "Wiz-Ops Repository Monitor <noreply@wiz-ops.com>"

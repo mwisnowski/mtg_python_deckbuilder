@@ -33,6 +33,9 @@ COPY requirements.txt .
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Copy pyproject.toml so entrypoint.sh can derive APP_VERSION when not overridden by --build-arg
+COPY pyproject.toml .
+
 # Copy Python application code (includes templates needed for Tailwind)
 COPY code/ ./code/
 COPY mypy.ini .

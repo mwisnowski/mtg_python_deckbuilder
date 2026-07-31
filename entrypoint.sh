@@ -92,6 +92,13 @@ if [ ! -f /app/code/web/static/styles.css ] || [ /app/code/web/static/tailwind.c
     npm run build:css 2>/dev/null || echo "Warning: CSS build failed, styles may be missing or incomplete"
 fi
 
+# Derive APP_VERSION from pyproject.toml when not explicitly set via --build-arg/env
+# (keeps docker-compose files from needing a manual version bump every release)
+if [ -z "$APP_VERSION" ] || [ "$APP_VERSION" = "dev" ]; then
+    PYPROJECT_VERSION=$(grep -m1 '^version' /app/pyproject.toml 2>/dev/null | sed -E 's/version[[:space:]]*=[[:space:]]*"([^"]+)"/\1/')
+    [ -n "$PYPROJECT_VERSION" ] && export APP_VERSION="v${PYPROJECT_VERSION}"
+fi
+
 # Select mode: default to Web UI
 MODE="${APP_MODE:-web}"
 

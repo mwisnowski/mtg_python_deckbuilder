@@ -144,6 +144,7 @@ async def send_welcome_email(to_email: str, username: str, login_url: str) -> No
         hostname=_SMTP_HOST,
         port=_SMTP_PORT,
         use_tls=_SMTP_SSL,
+        start_tls=False,  # we call starttls() explicitly below; avoid aiosmtplib's auto-negotiation
     )
     try:
         await smtp.connect()
@@ -205,7 +206,12 @@ async def send_account_created_email(to_email: str, username: str, set_password_
     msg.attach(MIMEText(plain, "plain"))
     msg.attach(MIMEText(html, "html"))
 
-    smtp = aiosmtplib.SMTP(hostname=_SMTP_HOST, port=_SMTP_PORT, use_tls=_SMTP_SSL)
+    smtp = aiosmtplib.SMTP(
+        hostname=_SMTP_HOST,
+        port=_SMTP_PORT,
+        use_tls=_SMTP_SSL,
+        start_tls=False,  # we call starttls() explicitly below; avoid aiosmtplib's auto-negotiation
+    )
     try:
         await smtp.connect()
         if _SMTP_TLS and not _SMTP_SSL:
@@ -244,6 +250,7 @@ async def send_password_reset(to_email: str, reset_url: str) -> None:
         hostname=_SMTP_HOST,
         port=_SMTP_PORT,
         use_tls=_SMTP_SSL,
+        start_tls=False,  # we call starttls() explicitly below; avoid aiosmtplib's auto-negotiation
     )
     await smtp.connect()
     try:

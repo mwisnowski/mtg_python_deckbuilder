@@ -13,6 +13,7 @@ table row, and `api_keys.user_id` has a NOT NULL foreign key to
 from __future__ import annotations
 
 import hashlib
+import logging
 import uuid
 from typing import Optional
 
@@ -45,6 +46,8 @@ from ...services.user_db import (
 )
 from ...utils.api_response import err, ok
 from .auth import _bearer_scheme, get_api_user
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -176,5 +179,5 @@ async def forgot(body: ForgotBody, request: Request):
         try:
             await send_password_reset(body.email, reset_url)
         except Exception:
-            pass
+            logger.exception("Failed to send reset email to %s", body.email)
     return ok({"submitted": True}, _rid(request))

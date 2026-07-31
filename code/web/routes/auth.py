@@ -205,7 +205,7 @@ async def forgot_post(request: Request, email: str = Form(...)):
         try:
             await send_password_reset(email, reset_url)
         except Exception:
-            logger.error("Failed to send reset email to %s", email)
+            logger.exception("Failed to send reset email to %s", email)
     # Always show "submitted" to avoid email enumeration
     return templates.TemplateResponse("auth/forgot.html", {
         "request": request,

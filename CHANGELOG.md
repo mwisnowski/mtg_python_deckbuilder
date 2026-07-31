@@ -23,6 +23,13 @@ _No unreleased changes yet_
 ### Security
 _No unreleased changes yet_
 
+## [5.2.3] - 2026-07-31
+### Changed
+- `APP_VERSION` (the version shown in the UI and `/healthz`) is now auto-derived from `pyproject.toml` at container startup instead of needing a manual bump in `docker-compose.yml`/`dockerhub-docker-compose.yml` each release; those files still accept an explicit `APP_VERSION` override if uncommented, and published DockerHub images continue to get their exact tagged version via `--build-arg`
+
+### Fixed
+- Password reset, welcome, and account-created emails (SMTP) always failed with "Connection already using TLS" when `SMTP_TLS=1`/`SMTP_SSL=0`, because the email service called `starttls()` explicitly even though `aiosmtplib` already auto-negotiates STARTTLS during `connect()`; the forgot-password route also swallowed the underlying error without logging it, making the failure impossible to diagnose. STARTTLS auto-negotiation is now disabled at the client level so the service's own explicit `starttls()` call succeeds, and the real exception is now logged with a traceback
+
 ## [5.2.2] - 2026-07-30
 ### Fixed
 - Updated the app's favicon artwork (`favicon.ico`, `favicon.png`, `favicon-small.png`) and refreshed the PWA manifest's icon list to reference the new sizes

@@ -264,10 +264,19 @@ async def get_multi_copy_options(
 @router.get("/ideal-defaults", summary="Get default ideal counts")
 async def get_ideal_defaults(request: Request, user: User = Depends(get_api_user)):
     """Server-side defaults for the `ideal_counts` field of `POST /builds`
-    (ramp, lands, basic_lands, creatures, removal, wipes, card_advantage,
-    protection). Use these to pre-fill an editable form.
+    (ramp, lands, basic_lands, creatures_min, creatures_max, on_theme_creatures,
+    creature_tolerance_pct, removal, wipes, card_advantage, protection). Use
+    these to pre-fill an editable form.
     """
-    return ok({"defaults": orch.ideal_defaults(), "labels": orch.ideal_labels()}, _rid(request))
+    # 'creatures' is a legacy read/write alias for 'creatures_max' (roadmap 33)
+    # still accepted/returned by POST/GET build endpoints; dropped here so
+    # generic clients (e.g. the mobile app, which renders one control per key)
+    # don't show a redundant slider alongside creatures_max.
+    defaults = orch.ideal_defaults()
+    labels = orch.ideal_labels()
+    defaults.pop("creatures", None)
+    labels.pop("creatures", None)
+    return ok({"defaults": defaults, "labels": labels}, _rid(request))
 
 
 @router.get("/{build_id}", summary="Get build status")

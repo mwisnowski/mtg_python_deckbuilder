@@ -9,11 +9,7 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 
 ## [Unreleased]
 ### Added
-- Ideal creature counts now support a minimum, a maximum, and an "on-theme" target (with a tolerance percentage, capped at 15%), instead of a single number, so decks can guarantee a creature floor while still weighting toward your chosen themes
-- The creature maximum is now enforced across every phase that can add a creature (ramp, removal, board wipes, card advantage, protection), not just creature selection, so decks reliably stop at the requested count instead of overshooting it
-- A "Legacy Creature Allocation" option is available in the CLI and web build wizard for anyone who prefers the original single-target behavior
-- The wizard's ideal-counts fieldset gained a "Reset to Defaults" button and a short note explaining how the min/max/on-theme/tolerance controls interact
-- Legacy-only fields (min, on-theme, tolerance) are now hidden rather than just greyed out when legacy mode is enabled
+_No unreleased changes yet_
 
 ### Changed
 _No unreleased changes yet_
@@ -26,6 +22,14 @@ _No unreleased changes yet_
 
 ### Security
 _No unreleased changes yet_
+
+## [5.3.0] - 2026-08-01
+### Added
+- Ideal creature counts now support a minimum, a maximum, and an "on-theme" target (with a tolerance percentage, capped at 15%), instead of a single number, so decks can guarantee a creature floor while still weighting toward your chosen themes
+- The creature maximum is now enforced across every phase that can add a creature (ramp, removal, board wipes, card advantage, protection), not just creature selection, so decks reliably stop at the requested count instead of overshooting it
+- A "Legacy Creature Allocation" option is available in the CLI and web build wizard for anyone who prefers the original single-target behavior
+- The wizard's ideal-counts fieldset gained a "Reset to Defaults" button and a short note explaining how the min/max/on-theme/tolerance controls interact
+- Legacy-only fields (min, on-theme, tolerance) are now hidden rather than just greyed out when legacy mode is enabled
 
 ## [5.2.3] - 2026-07-31
 ### Changed

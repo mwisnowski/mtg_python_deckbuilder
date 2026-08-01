@@ -1025,6 +1025,10 @@ def ideal_defaults() -> Dict[str, Any]:
         "basic_lands": getattr(bc, 'DEFAULT_BASIC_LAND_COUNT', 20),
         "fetch_lands": getattr(bc, 'FETCH_LAND_DEFAULT_COUNT', 3),
         "creatures": getattr(bc, 'DEFAULT_CREATURE_COUNT', 28),
+        "creatures_min": getattr(bc, 'DEFAULT_CREATURE_COUNT_MIN', 0),
+        "creatures_max": getattr(bc, 'DEFAULT_CREATURE_COUNT', 28),
+        "on_theme_creatures": getattr(bc, 'DEFAULT_ON_THEME_CREATURE_COUNT', 20),
+        "creature_tolerance_pct": int(round(getattr(bc, 'DEFAULT_CREATURE_TOLERANCE', 0.10) * 100)),
         "removal": getattr(bc, 'DEFAULT_REMOVAL_COUNT', 10),
         "wipes": getattr(bc, 'DEFAULT_WIPES_COUNT', 2),
         "card_advantage": getattr(bc, 'DEFAULT_CARD_ADVANTAGE_COUNT', 8),
@@ -1039,6 +1043,10 @@ def ideal_labels() -> Dict[str, str]:
         'basic_lands': 'Basic Lands (Min)',
         'fetch_lands': 'Fetch Lands',
         'creatures': 'Creatures',
+        'creatures_min': 'Ideal Min Creatures',
+        'creatures_max': 'Ideal Max Creatures',
+        'on_theme_creatures': 'On-Theme Creature Count',
+        'creature_tolerance_pct': 'Creature Count Tolerance (%)',
         'removal': 'Spot Removal',
         'wipes': 'Board Wipes',
         'card_advantage': 'Card Advantage',
@@ -1725,7 +1733,7 @@ def _ensure_setup_ready(out, force: bool = False) -> None:
             pass
 
 
-def run_build(commander: str, tags: List[str], bracket: int, ideals: Dict[str, int], tag_mode: str | None = None, *, use_owned_only: bool | None = None, prefer_owned: bool | None = None, owned_names: List[str] | None = None, prefer_combos: bool | None = None, combo_target_count: int | None = None, combo_balance: str | None = None, deck_dir: str = "deck_files") -> Dict[str, Any]:
+def run_build(commander: str, tags: List[str], bracket: int, ideals: Dict[str, int], tag_mode: str | None = None, *, use_owned_only: bool | None = None, prefer_owned: bool | None = None, owned_names: List[str] | None = None, prefer_combos: bool | None = None, combo_target_count: int | None = None, combo_balance: str | None = None, deck_dir: str = "deck_files", creature_builder_mode: str | None = None, creature_tolerance: float | None = None) -> Dict[str, Any]:
     """Run the deck build end-to-end with provided selections and capture logs.
 
     Returns: { ok: bool, log: str, csv_path: Optional[str], txt_path: Optional[str], error: Optional[str] }
@@ -1777,6 +1785,9 @@ def run_build(commander: str, tags: List[str], bracket: int, ideals: Dict[str, i
 
         # Ideal counts
         b.ideal_counts = {k: int(v) for k, v in (ideals or {}).items()}
+        b.creature_builder_mode = creature_builder_mode if creature_builder_mode in ('legacy', 'modern') else 'modern'
+        if creature_tolerance is not None:
+            b.ideal_counts['creature_tolerance'] = max(0.0, min(float(creature_tolerance), bc.MAX_CREATURE_TOLERANCE))
 
         # Apply tag combine mode
         try:
@@ -1981,6 +1992,11 @@ def run_build(commander: str, tags: List[str], bracket: int, ideals: Dict[str, i
                 b.add_spells_phase()
         except Exception as e:
             out(f"Spell phase failed: {e}")
+        try:
+            if hasattr(b, '_backfill_creature_floor'):
+                b._backfill_creature_floor()
+        except Exception as e:
+            out(f"Creature floor backfill failed: {e}")
         try:
             if hasattr(b, 'post_spell_land_adjust'):
                 b.post_spell_land_adjust()
@@ -2214,6 +2230,9 @@ def _make_stages_legacy(b: DeckBuilder) -> List[Dict[str, Any]]:
         except Exception:
             pass
         stages.append({"key": "spells", "label": "Spells", "runner_name": "add_spells_phase"})
+    # Creature floor backfill (modern mode only; no-op otherwise)
+    if hasattr(b, '_backfill_creature_floor'):
+        stages.append({"key": "creature_floor", "label": "Creature Floor Backfill", "runner_name": "_backfill_creature_floor"})
     # Post-adjust
     if hasattr(b, 'post_spell_land_adjust'):
         stages.append({"key": "post_adjust", "label": "Post-Spell Land Adjust", "runner_name": "post_spell_land_adjust"})
@@ -2316,6 +2335,10 @@ def _make_stages_new(b: DeckBuilder) -> List[Dict[str, Any]]:
     # 4) THEME FILL - Final spell topper
     if callable(getattr(b, 'fill_remaining_theme_spells', None)):
         stages.append({"key": "spells_fill", "label": "Theme Spell Fill", "runner_name": "fill_remaining_theme_spells"})
+    
+    # Creature floor backfill (modern mode only; no-op otherwise)
+    if hasattr(b, '_backfill_creature_floor'):
+        stages.append({"key": "creature_floor", "label": "Creature Floor Backfill", "runner_name": "_backfill_creature_floor"})
     
     # 5) LAND ADJUSTMENTS - Post-spell rebalance (same as legacy)
     if hasattr(b, 'post_spell_land_adjust'):
@@ -2589,6 +2612,8 @@ def start_build_ctx(
     budget_config: Dict[str, Any] | None = None,
     deck_visibility: str | None = None,
     printings: Dict[str, str] | None = None,
+    creature_builder_mode: str | None = None,
+    creature_tolerance: float | None = None,
 ) -> Dict[str, Any]:
     logs: List[str] = []
 
@@ -2668,6 +2693,9 @@ def start_build_ctx(
     b.bracket_limits = dict(getattr(bd, 'limits', {}))
     # Ideals
     b.ideal_counts = {k: int(v) for k, v in (ideals or {}).items()}
+    b.creature_builder_mode = creature_builder_mode if creature_builder_mode in ('legacy', 'modern') else 'modern'
+    if creature_tolerance is not None:
+        b.ideal_counts['creature_tolerance'] = max(0.0, min(float(creature_tolerance), bc.MAX_CREATURE_TOLERANCE))
     # Apply tag combine mode
     try:
         b.tag_mode = (str(tag_mode).upper() if tag_mode else b.tag_mode)

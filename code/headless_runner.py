@@ -212,6 +212,7 @@ def run(
     secondary_commander: Optional[str] = None,
     background: Optional[str] = None,
     enable_partner_mechanics: bool = False,
+    creature_builder_mode: Optional[str] = None,
 ) -> DeckBuilder:
     """Run a scripted non-interactive deck build and return the DeckBuilder instance.
 
@@ -254,13 +255,18 @@ def run(
     scripted_inputs.extend(owned_prompt_inputs)
     # Bracket (meta power / style) selection; default to 3 if not provided
     scripted_inputs.append(str(bracket_level if isinstance(bracket_level, int) and 1 <= bracket_level <= 5 else 3))
+    # Legacy creature allocation opt-in prompt (roadmap 33, Milestone 5)
+    scripted_inputs.append("y" if creature_builder_mode == "legacy" else "n")
     # Ideal count prompts (press Enter for defaults). Include fetch_lands if present.
     ideal_keys = {
         "ramp",
         "lands",
         "basic_lands",
         "fetch_lands",
+        "creatures_min",
         "creatures",
+        "on_theme_creatures",
+        "creature_tolerance_pct",
         "removal",
         "wipes",
         "card_advantage",
@@ -361,8 +367,15 @@ def run(
                 if iv is None:
                     continue
                 # Only accept known keys
-                if k in {"ramp","lands","basic_lands","creatures","removal","wipes","card_advantage","protection"}:
+                if k in {"ramp","lands","basic_lands","creatures_min","creatures","creatures_max","on_theme_creatures","removal","wipes","card_advantage","protection"}:
                     ic[k] = iv
+            # creature_tolerance is a 0-1 fraction, not an int; pass it through separately
+            tol = ideal_counts.get("creature_tolerance")
+            if tol is not None:
+                try:
+                    ic["creature_tolerance"] = float(tol)
+                except Exception:
+                    pass
             if ic:
                 builder.ideal_counts.update(ic)
         except Exception:
@@ -419,6 +432,11 @@ def run(
                         pass
         
 
+    if hasattr(builder, '_backfill_creature_floor'):
+        try:
+            builder._backfill_creature_floor()
+        except Exception:
+            pass
     builder.post_spell_land_adjust()
     _export_outputs(builder)
     return builder

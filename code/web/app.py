@@ -175,6 +175,10 @@ templates.env.globals["smtp_configured"] = _is_smtp_configured()
 templates.env.globals["WHATS_NEW_ID"] = "user-accounts-deck-visibility"
 templates.env.globals["WHATS_NEW_LABEL"] = "New: User Accounts & Deck Visibility"
 
+# Shared short description for the legacy creature allocation toggle (roadmap 33, Milestone 5)
+from code.deck_builder import builder_constants as _bc
+templates.env.globals["LEGACY_CREATURE_MODE_DESCRIPTION"] = _bc.LEGACY_CREATURE_MODE_DESCRIPTION
+
 # Add custom Jinja2 filter for card image URLs
 def card_image_url(card_name: str, size: str = "normal", printing: str = "") -> str:
     """

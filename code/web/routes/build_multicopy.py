@@ -70,6 +70,8 @@ def _rebuild_ctx_with_multicopy(sess: dict) -> None:
             combo_balance=str(sess.get("combo_balance", "mix")),
             swap_mdfc_basics=bool(sess.get("swap_mdfc_basics")),
             printings=dict(sess.get("printings") or {}),
+            creature_builder_mode=sess.get("creature_builder_mode", "modern"),
+            creature_tolerance=sess.get("creature_tolerance"),
         )
     except Exception:
         # If rebuild fails (e.g., commander not found in test), fall back to injecting

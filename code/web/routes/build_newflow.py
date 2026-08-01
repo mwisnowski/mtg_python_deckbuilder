@@ -168,10 +168,17 @@ async def build_new_modal(request: Request, reset: str = Query("")) -> HTMLRespo
             "lands": sess.get("ideals", {}).get("lands"),
             "basic_lands": sess.get("ideals", {}).get("basic_lands"),
             "creatures": sess.get("ideals", {}).get("creatures"),
+            "creatures_min": sess.get("ideals", {}).get("creatures_min"),
+            "creatures_max": sess.get("ideals", {}).get("creatures_max"),
+            "on_theme_creatures": sess.get("ideals", {}).get("on_theme_creatures"),
+            "creature_tolerance_pct": (
+                round(sess["creature_tolerance"] * 100) if sess.get("creature_tolerance") is not None else None
+            ),
             "removal": sess.get("ideals", {}).get("removal"),
             "wipes": sess.get("ideals", {}).get("wipes"),
             "card_advantage": sess.get("ideals", {}).get("card_advantage"),
             "protection": sess.get("ideals", {}).get("protection"),
+            "creature_builder_mode": sess.get("creature_builder_mode", "modern"),
         },
         "tag_slot_html": None,
     }
@@ -450,6 +457,11 @@ async def build_new_submit(
     lands: int = Form(None),
     basic_lands: int = Form(None),
     creatures: int = Form(None),
+    creatures_min: int = Form(None),
+    creatures_max: int = Form(None),
+    on_theme_creatures: int = Form(None),
+    creature_tolerance_pct: int = Form(None),
+    creature_builder_mode: str | None = Form(None),
     removal: int = Form(None),
     wipes: int = Form(None),
     card_advantage: int = Form(None),
@@ -530,6 +542,7 @@ async def build_new_submit(
             "budget_total": budget_total,
             "card_ceiling": card_ceiling,
             "pool_tolerance": pool_tolerance if pool_tolerance is not None else "15",
+            "creature_builder_mode": "legacy" if creature_builder_mode == "legacy" else "modern",
         }
 
     commander_detail = lookup_commander_detail(commander)
@@ -807,6 +820,9 @@ async def build_new_submit(
         "lands": lands,
         "basic_lands": basic_lands,
         "creatures": creatures,
+        "creatures_min": creatures_min,
+        "creatures_max": creatures_max,
+        "on_theme_creatures": on_theme_creatures,
         "removal": removal,
         "wipes": wipes,
         "card_advantage": card_advantage,
@@ -818,6 +834,12 @@ async def build_new_submit(
         except Exception:
             pass
     sess["ideals"] = ideals
+    sess["creature_builder_mode"] = "legacy" if creature_builder_mode == "legacy" else "modern"
+    if creature_tolerance_pct is not None:
+        try:
+            sess["creature_tolerance"] = max(0.0, min(float(creature_tolerance_pct) / 100.0, bc.MAX_CREATURE_TOLERANCE))
+        except Exception:
+            pass
     if ENABLE_CUSTOM_THEMES:
         try:
             theme_mgr.refresh_resolution(

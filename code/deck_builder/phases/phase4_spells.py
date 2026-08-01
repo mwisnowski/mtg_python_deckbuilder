@@ -184,9 +184,13 @@ class SpellAdditionMixin:
 
         def add_from_pool(pool, remaining_needed, added_list, phase_name):
             added_now = 0
+            skipped_cap = 0
             for _, r in pool.iterrows():
                 nm = r['name']
                 if nm.lower() in already:
+                    continue
+                if bu.is_creature_row(r) and bu.creature_room_remaining(self) <= 0:
+                    skipped_cap += 1
                     continue
                 self.add_card(
                     nm,
@@ -205,6 +209,8 @@ class SpellAdditionMixin:
                     break
             if added_now:
                 self.output_func(f"Ramp phase {phase_name}: added {added_now}/{remaining_needed} target.")
+            if skipped_cap:
+                self.output_func(f"Ramp phase {phase_name}: skipped {skipped_cap} creature-typed card(s) at the creature cap.")
             return added_now
 
         rocks_pool = work[work['type'].fillna('').str.contains('Artifact', case=False, na=False)]
@@ -311,11 +317,15 @@ class SpellAdditionMixin:
         target = to_add if existing < target else to_add
         added = 0
         added_names: List[str] = []
+        skipped_cap = 0
         for _, r in pool.iterrows():
             if added >= target:
                 break
             nm = r['name']
             if nm.lower() in already:
+                continue
+            if bu.is_creature_row(r) and bu.creature_room_remaining(self) <= 0:
+                skipped_cap += 1
                 continue
             self.add_card(
                 nm,
@@ -335,6 +345,8 @@ class SpellAdditionMixin:
             self.output_func('Removal Cards Added:')
             for nm in added_names:
                 self.output_func(f"  - {nm}")
+        if skipped_cap:
+            self.output_func(f"Removal: skipped {skipped_cap} creature-typed card(s) at the creature cap.")
 
     # ---------------------------
     # Board Wipes
@@ -388,11 +400,15 @@ class SpellAdditionMixin:
         target = to_add if existing < target else to_add
         added = 0
         added_names: List[str] = []
+        skipped_cap = 0
         for _, r in pool.iterrows():
             if added >= target:
                 break
             nm = r['name']
             if nm.lower() in already:
+                continue
+            if bu.is_creature_row(r) and bu.creature_room_remaining(self) <= 0:
+                skipped_cap += 1
                 continue
             self.add_card(
                 nm,
@@ -412,6 +428,8 @@ class SpellAdditionMixin:
             self.output_func('Board Wipes Added:')
             for nm in added_names:
                 self.output_func(f"  - {nm}")
+        if skipped_cap:
+            self.output_func(f"Board Wipes: skipped {skipped_cap} creature-typed card(s) at the creature cap.")
 
     # ---------------------------
     # Card Advantage
@@ -482,11 +500,15 @@ class SpellAdditionMixin:
                 unconditional_df = bu.prefer_owned_first(unconditional_df, owned_lower)
         added_cond = 0
         added_cond_names: List[str] = []
+        skipped_cap = 0
         for _, r in conditional_df.iterrows():
             if added_cond >= conditional_target:
                 break
             nm = r['name']
             if nm.lower() in already:
+                continue
+            if bu.is_creature_row(r) and bu.creature_room_remaining(self) <= 0:
+                skipped_cap += 1
                 continue
             self.add_card(
                 nm,
@@ -511,6 +533,9 @@ class SpellAdditionMixin:
                 nm = r['name']
                 if nm.lower() in already:
                     continue
+                if bu.is_creature_row(r) and bu.creature_room_remaining(self) <= 0:
+                    skipped_cap += 1
+                    continue
                 self.add_card(
                     nm,
                     card_type=r.get('type',''),
@@ -525,6 +550,8 @@ class SpellAdditionMixin:
                 added_uncond += 1
                 added_uncond_names.append(nm)
         self.output_func(f"Added Card Advantage This Pass: conditional {added_cond}/{conditional_target}, total {(added_cond+added_uncond)}/{total_target}{' (dataset shortfall)' if (added_cond+added_uncond) < total_target else ''}")
+        if skipped_cap:
+            self.output_func(f"Card Advantage: skipped {skipped_cap} creature-typed card(s) at the creature cap.")
         if added_cond_names or added_uncond_names:
             self.output_func('Card Advantage Cards Added:')
             for nm in added_cond_names:
@@ -702,11 +729,15 @@ class SpellAdditionMixin:
             pass
         added = 0
         added_names: List[str] = []
+        skipped_cap = 0
         for _, r in pool.iterrows():
             if added >= target:
                 break
             nm = r['name']
             if nm.lower() in already:
+                continue
+            if bu.is_creature_row(r) and bu.creature_room_remaining(self) <= 0:
+                skipped_cap += 1
                 continue
             self.add_card(
                 nm,
@@ -721,6 +752,8 @@ class SpellAdditionMixin:
             added += 1
             added_names.append(nm)
         self.output_func(f"Added Protection This Pass: {added}/{target}{' (dataset shortfall)' if added < target else ''}")
+        if skipped_cap:
+            self.output_func(f"Protection: skipped {skipped_cap} creature-typed card(s) at the creature cap.")
         if added_names:
             self.output_func('Protection Cards Added:')
             for nm in added_names:

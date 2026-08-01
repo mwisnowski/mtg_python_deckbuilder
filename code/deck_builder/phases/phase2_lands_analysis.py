@@ -201,7 +201,11 @@ class LandAnalysisMixin:
         This ensures the spell phases never consume the slots reserved for lands,
         making backfill unnecessary in the normal case.
         """
-        NON_LAND_KEYS = ['creatures', 'ramp', 'removal', 'wipes', 'card_advantage', 'protection']
+        # Ensure creatures_max exists (and mirrors the legacy 'creatures' alias) before scaling.
+        normalize = getattr(self, '_normalize_creature_ideal_keys', None)
+        if callable(normalize):
+            normalize()
+        NON_LAND_KEYS = ['creatures_max', 'ramp', 'removal', 'wipes', 'card_advantage', 'protection']
         # 99 = total deck slots minus commander
         deck_slots = getattr(bc, 'DECK_NON_COMMANDER_SLOTS', 99)
         budget = deck_slots - land_target
@@ -237,6 +241,9 @@ class LandAnalysisMixin:
                 f'  [Smart Lands] Earmarked {land_target} land slots; '
                 f'scaled non-land targets to fit {budget} remaining: {", ".join(adjustments)}'
             )
+        # Re-sync 'creatures' alias and re-clamp creatures_min/on_theme_creatures to the new max.
+        if callable(normalize):
+            normalize()
 
     # ------------------------------------------------------------------
     # Profile determination

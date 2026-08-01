@@ -470,12 +470,25 @@ LAND_REMOVAL_MAX_ATTEMPTS: Final[int] = 3
 PROTECTED_LANDS: Final[List[str]] = BASIC_LANDS + KINDRED_LAND_NAMES
 
 # Other defaults
-DEFAULT_CREATURE_COUNT: Final[int] = 25  # Default number of creatures
+DEFAULT_CREATURE_COUNT: Final[int] = 28  # Default hard cap on creatures (ideal_counts['creatures_max'])
+DEFAULT_CREATURE_COUNT_MIN: Final[int] = 0  # Default hard floor on creatures (ideal_counts['creatures_min'])
+DEFAULT_ON_THEME_CREATURE_COUNT: Final[int] = 20  # Default on-theme creature target for fresh sessions (ideal_counts['on_theme_creatures'])
+DEFAULT_CREATURE_TOLERANCE: Final[float] = 0.10  # Default +/- grace on the creature cap, mirrors BUDGET_POOL_TOLERANCE
+MAX_CREATURE_TOLERANCE: Final[float] = 0.15  # Hard ceiling on the +/- grace (ideal_counts['creature_tolerance']); 30% felt excessive
 DEFAULT_REMOVAL_COUNT: Final[int] = 10  # Default number of spot removal spells
 DEFAULT_WIPES_COUNT: Final[int] = 2  # Default number of board wipes
 
 DEFAULT_CARD_ADVANTAGE_COUNT: Final[int] = 10  # Default number of card advantage pieces
 DEFAULT_PROTECTION_COUNT: Final[int] = 8  # Default number of protective effects (hexproof, indestructible, protection, ward, etc.)
+
+# Non-commander deck slots (99 = 100-card deck minus the commander's own slot)
+DECK_NON_COMMANDER_SLOTS: Final[int] = 99
+
+# Shared short description for the legacy creature allocation toggle (CLI prompt + web UI checkbox)
+LEGACY_CREATURE_MODE_DESCRIPTION: Final[str] = (
+    "Uses the original method: one creature target, filled by theme weight, "
+    "backfilled with any on-theme creature if short. Ignores min/on-theme sliders below."
+)
 
 # Deck composition prompts
 DECK_COMPOSITION_PROMPTS: Final[Dict[str, str]] = {
@@ -483,7 +496,10 @@ DECK_COMPOSITION_PROMPTS: Final[Dict[str, str]] = {
     'lands': 'Enter desired number of total lands (default: 35):',
     'basic_lands': 'Enter minimum number of basic lands (default: 15):',
     'fetch_lands': 'Enter desired number of fetch lands (default: 3):',
-    'creatures': 'Enter desired number of creatures (default: 25):',
+    'creatures_min': 'Enter minimum number of creatures, hard floor (default: 0):',
+    'creatures': 'Enter desired maximum number of creatures (default: 28):',
+    'on_theme_creatures': 'Enter desired number of on-theme (theme-matched) creatures (default: 20):',
+    'creature_tolerance_pct': 'Enter creature count tolerance percent, +/- (default: 10):',
     'removal': 'Enter desired number of spot removal spells (default: 10):',
     'wipes': 'Enter desired number of board wipes (default: 2):',
     'card_advantage': 'Enter desired number of card advantage pieces (default: 10):',

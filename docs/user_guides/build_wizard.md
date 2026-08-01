@@ -110,13 +110,22 @@ Set target counts for key card categories using sliders or number inputs:
 - **Ramp**: 0–30 cards (default varies by commander)
 - **Lands**: 25–45 cards (default varies by commander speed)
 - **Basic Lands**: 0–40 cards (subset of total lands)
-- **Creatures**: 0–70 cards
+- **Ideal Min Creatures**: 0 – current max, default 0 (hard floor; the builder backfills on-theme creatures at the end of the build if the deck falls short)
+- **Ideal Max Creatures**: 0 – `99 - lands`, default 28 (hard cap on total creatures; a ceiling only, not a target the builder actively fills toward)
+- **On-Theme Creature Count**: 0 – max, default 20 (how many creatures should match your selected themes; the remainder can be any creature)
+- **Creature Count Tolerance**: 0–15%, default 10% (how much the on-theme target can flex when few matching creatures are available)
 - **Removal**: 0–30 cards (spot removal)
 - **Wipes**: 0–15 cards (board wipes)
 - **Card Advantage**: 0–30 cards (draw/recursion)
 - **Protection**: 0–20 cards (counterspells, indestructible effects)
 
+**Legacy Creature Allocation**: A checkbox above the sliders lets you opt into the original single-target algorithm instead: one creature target, filled by theme weight, backfilled with any on-theme creature if short. Checking it hides the Min/On-Theme/Tolerance sliders since they're ignored in this mode.
+
+**Note**: Ideal Max Creatures is only a ceiling, never an active target; if your deck comes in below it, that's expected. There's no automatic "fill remaining creature slots up to the max" step. If you want more creatures, raise On-Theme Creature Count (or Ideal Min Creatures) instead of just raising the max.
+
 **Warning**: The builder validates your totals. If ideal counts exceed 99 cards, reduce totals to avoid build issues.
+
+**Reset to Defaults**: A button below the sliders resets every count (and the Legacy Creature Allocation checkbox) back to its recommended default.
 
 **Tips**:
 - Start with default recommendations

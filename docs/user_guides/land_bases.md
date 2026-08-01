@@ -100,9 +100,9 @@ When [Budget Mode](budget_mode.md) is active and the land budget is under $50 wi
 
 ## Slot Earmarking
 
-After Smart Lands sets the land target, it proportionally scales down non-land ideal counts (creatures, ramp, removal, etc.) so they fit within the remaining 99 − `land_target` deck slots. This prevents spell phases from consuming land slots before lands get a chance to fill them.
+After Smart Lands sets the land target, it proportionally scales down non-land ideal counts (`creatures_max`, ramp, removal, etc.) so they fit within the remaining 99 − `land_target` deck slots. This prevents spell phases from consuming land slots before lands get a chance to fill them. `creatures_max` also has its own hard ceiling of `99 - land_target`, enforced independently of this proportional scaling.
 
-For example, with a 43-land target the non-land budget is 56 slots. If the combined non-land ideals sum to 63, each category is scaled down proportionally (e.g. 25 creatures → 22, 10 removal → 9, etc.).
+For example, with a 43-land target the non-land budget is 56 slots. If the combined non-land ideals sum to 63, each category is scaled down proportionally (e.g. `creatures_max` 25 → 22, 10 removal → 9, etc.).
 
 A **backfill** step at the end of all land phases adds basics from the color identity if any land phase still falls short — so the deck always reaches the configured target.
 

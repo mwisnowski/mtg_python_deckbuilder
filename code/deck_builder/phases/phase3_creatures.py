@@ -44,7 +44,10 @@ class CreatureAdditionMixin:
         if not themes_ordered or not selected_tags_lower:
             self.output_func("No themes selected; skipping creature addition.")
             return
-        desired_total = (self.ideal_counts.get('creatures') if getattr(self, 'ideal_counts', None) else None) or getattr(bc, 'DEFAULT_CREATURE_COUNT', 25)
+        if self._creature_phase_should_skip():
+            self.output_func("Creature cap (creatures_max) is 0; skipping creature addition.")
+            return
+        desired_total = self._creature_phase_target()
         weights: Dict[str, float] = dict(getattr(context, 'weights', {}))
         creature_df = df[df['type'].str.contains('Creature', case=False, na=False)].copy()
         commander_name = getattr(self, 'commander', None) or getattr(self, 'commander_name', None)
@@ -406,6 +409,24 @@ class CreatureAdditionMixin:
             pass
         return total
 
+    def _creature_phase_target(self) -> int:
+        """Phase 3 creature target: on_theme_creatures (modern mode) or creatures (legacy)."""
+        ic = getattr(self, 'ideal_counts', None) or {}
+        default = getattr(bc, 'DEFAULT_CREATURE_COUNT', 28)
+        if getattr(self, 'creature_builder_mode', 'modern') == 'legacy':
+            return int(ic.get('creatures', default))
+        return int(ic.get('on_theme_creatures', ic.get('creatures', default)))
+
+    def _creature_phase_should_skip(self) -> bool:
+        """True when the hard creature cap (creatures_max) is 0, per roadmap 33."""
+        ic = getattr(self, 'ideal_counts', None) or {}
+        default = getattr(bc, 'DEFAULT_CREATURE_COUNT', 28)
+        cap = ic.get('creatures_max', ic.get('creatures', default))
+        try:
+            return int(cap) <= 0
+        except Exception:
+            return False
+
     def _prepare_creature_pool(self):
         df = getattr(self, '_combined_cards_df', None)
         if df is None or df.empty or 'type' not in df.columns:
@@ -505,7 +526,9 @@ class CreatureAdditionMixin:
         if getattr(self, 'tertiary_tag', None):
             themes_ordered.append(('tertiary', self.tertiary_tag))
         weights = self._theme_weights(themes_ordered)
-        desired_total = (self.ideal_counts.get('creatures') if getattr(self, 'ideal_counts', None) else None) or getattr(bc, 'DEFAULT_CREATURE_COUNT', 25)
+        if self._creature_phase_should_skip():
+            return
+        desired_total = self._creature_phase_target()
         current_added = self._creature_count_in_library()
         remaining = max(0, desired_total - current_added)
         if remaining <= 0:
@@ -564,7 +587,9 @@ class CreatureAdditionMixin:
         self.output_func(f"Added {added} creatures for {role} theme '{tag}' (target {target}).")
 
     def _add_creatures_fill(self):
-        desired_total = (self.ideal_counts.get('creatures') if getattr(self, 'ideal_counts', None) else None) or getattr(bc, 'DEFAULT_CREATURE_COUNT', 25)
+        if self._creature_phase_should_skip():
+            return
+        desired_total = self._creature_phase_target()
         current_added = self._creature_count_in_library()
         need = max(0, desired_total - current_added)
         if need <= 0:
@@ -621,7 +646,9 @@ class CreatureAdditionMixin:
         tags = [t for t in [getattr(self, 'primary_tag', None), getattr(self, 'secondary_tag', None), getattr(self, 'tertiary_tag', None)] if t]
         if combine_mode != 'AND' or len(tags) < 2:
             return
-        desired_total = (self.ideal_counts.get('creatures') if getattr(self, 'ideal_counts', None) else None) or getattr(bc, 'DEFAULT_CREATURE_COUNT', 25)
+        if self._creature_phase_should_skip():
+            return
+        desired_total = self._creature_phase_target()
         current_added = self._creature_count_in_library()
         remaining_capacity = max(0, desired_total - current_added)
         if remaining_capacity <= 0:

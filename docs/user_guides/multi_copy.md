@@ -91,7 +91,7 @@ The auto-suggest only triggers when your commander's theme tags match the archet
 Yes, but you need that many copies of the card in your owned card library. The builder will include the configured count regardless of owned status for Must Include cards — they bypass the owned filter.
 
 **Will the multi-copy card count toward my ideal creature or spell count?**
-Yes. Multi-copy creature archetypes (e.g., Relentless Rats) count toward the creature ideal, and non-creature archetypes (e.g., Dragon's Approach) count toward the spell ideal. Adjust your ideal counts in Step 6 accordingly.
+Yes. Multi-copy creature archetypes (e.g., Relentless Rats) count toward the creature max cap (`creatures_max`) and the cross-phase cap enforcement that keeps later phases from exceeding it, and non-creature archetypes (e.g., Dragon's Approach) count toward the spell ideal. Adjust your ideal counts in Step 6 accordingly.
 
 ---
 

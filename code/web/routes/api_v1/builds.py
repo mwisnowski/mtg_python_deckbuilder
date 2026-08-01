@@ -63,6 +63,16 @@ class CreateBuildRequest(BaseModel):
     # creatures, removal, wipes, card_advantage, protection). Missing keys
     # fall back to the server defaults (see GET /builds/ideal-defaults).
     ideal_counts: Optional[Dict[str, int]] = None
+    # Optional, additive creature-allocation fields (roadmap 33). `creatures`
+    # (via ideal_counts, above) remains the authoritative max and is still
+    # accepted/returned unchanged for existing clients. These fields let a
+    # client opt into the newer min/on-theme/tolerance controls, or opt back
+    # into the original single-target algorithm via creature_builder_mode.
+    creatures_min: Optional[int] = None
+    creatures_max: Optional[int] = None
+    on_theme_creatures: Optional[int] = None
+    creature_tolerance: Optional[float] = None
+    creature_builder_mode: Optional[str] = None
     include_cards: Optional[List[str]] = None
     exclude_cards: Optional[List[str]] = None
     # Partner/background pairing (see GET /commanders/{name}/partners and
@@ -168,6 +178,10 @@ async def create_build(body: CreateBuildRequest, request: Request, user: User = 
     ideals = orch.ideal_defaults()
     if body.ideal_counts:
         ideals.update({k: int(v) for k, v in body.ideal_counts.items()})
+    for key in ("creatures_min", "creatures_max", "on_theme_creatures"):
+        val = getattr(body, key)
+        if val is not None:
+            ideals[key] = int(val)
 
     try:
         ctx = await asyncio.to_thread(
@@ -187,6 +201,8 @@ async def create_build(body: CreateBuildRequest, request: Request, user: User = 
             partner_feature_enabled=ENABLE_PARTNER_MECHANICS and body.partner_enabled,
             secondary_commander=body.secondary_commander,
             background_commander=body.background,
+            creature_builder_mode=body.creature_builder_mode,
+            creature_tolerance=body.creature_tolerance,
         )
     except ValueError as exc:
         return err(str(exc), "INVALID_BUILD_REQUEST", 400, _rid(request))

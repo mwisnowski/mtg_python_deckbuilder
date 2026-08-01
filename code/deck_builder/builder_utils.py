@@ -1740,3 +1740,34 @@ def enforce_land_cap(builder, step_label: str = ""):
 	if removed:
 		builder.output_func(f"Trimmed {removed} basic land(s). New land count: {current_land}/{land_target}. Basic total now {count_basic_lands(builder.card_library)} (floor {floor_basics}).")
 
+
+def is_creature_row(row) -> bool:
+	"""True if a card pool row's type line indicates a Creature (case-insensitive)."""
+	try:
+		return 'creature' in str(row.get('type', '') or '').lower()
+	except Exception:
+		return False
+
+
+def creature_cap_with_tolerance(builder) -> int:
+	"""Effective creature cap: creatures_max plus its +/- tolerance grace, floored (roadmap 33)."""
+	ic = getattr(builder, 'ideal_counts', None) or {}
+	cap = ic.get('creatures_max', ic.get('creatures'))
+	if cap is None:
+		return 10 ** 9  # no cap configured; treat as unlimited
+	tolerance = float(ic.get('creature_tolerance', 0.0) or 0.0)
+	return int(math.floor(int(cap) * (1.0 + tolerance)))
+
+
+def creature_room_remaining(builder) -> int:
+	"""How many more creature-typed cards can be added before hitting the tolerant cap.
+
+	Legacy mode has no cross-phase cap enforcement (roadmap 33); returns unlimited room.
+	"""
+	if getattr(builder, 'creature_builder_mode', 'modern') != 'modern':
+		return 10 ** 9
+	cap = creature_cap_with_tolerance(builder)
+	count_fn = getattr(builder, '_creature_count_in_library', None)
+	current = count_fn() if callable(count_fn) else 0
+	return max(0, cap - current)
+

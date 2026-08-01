@@ -207,6 +207,7 @@ class DeckBuilder(
                 self.add_creatures_phase()
             if hasattr(self, 'add_spells_phase'):
                 self.add_spells_phase()
+            self._backfill_creature_floor()
             if hasattr(self, 'post_spell_land_adjust'):
                 self.post_spell_land_adjust()
             # Modular reporting phase
@@ -610,6 +611,65 @@ class DeckBuilder(
                 else:
                     break  # No removable non-land found; stop backfilling
         self.output_func(f"  Land Count Now : {self._current_land_count()} / {land_target} ({added} added)")
+
+    def _backfill_creature_floor(self) -> None:
+        """Add on-theme creatures to reach ideal_counts['creatures_min'] if the build fell short.
+
+        Modern mode only (roadmap 33); no-op in legacy mode or when creatures_min is 0/unset.
+        """
+        if getattr(self, 'creature_builder_mode', 'modern') != 'modern':
+            return
+        ic = getattr(self, 'ideal_counts', None) or {}
+        floor = int(ic.get('creatures_min', 0) or 0)
+        if floor <= 0:
+            return
+        count_fn = getattr(self, '_creature_count_in_library', None)
+        current = count_fn() if callable(count_fn) else 0
+        shortfall = floor - current
+        if shortfall <= 0:
+            return
+        prepare_fn = getattr(self, '_prepare_creature_pool', None)
+        pool = prepare_fn() if callable(prepare_fn) else None
+        existing_names = set(self.card_library.keys())
+        if pool is not None and not pool.empty:
+            pool = pool[~pool['name'].isin(existing_names)]
+        if pool is None or pool.empty:
+            self.output_func(f"\nCreature Floor Backfill: need {shortfall} more creature(s) to reach the minimum of {floor}, but no candidates remain.")
+            return
+        sort_cols: List[str] = []
+        asc: List[bool] = []
+        if '_multiMatch' in pool.columns:
+            # Prefer on-theme creatures first, falling back to off-theme if not enough remain.
+            sort_cols.append('_multiMatch')
+            asc.append(False)
+        if 'edhrecRank' in pool.columns:
+            sort_cols.append('edhrecRank')
+            asc.append(True)
+        if 'manaValue' in pool.columns:
+            sort_cols.append('manaValue')
+            asc.append(True)
+        if sort_cols:
+            pool = pool.sort_values(by=sort_cols, ascending=asc, na_position='last')
+        self.output_func(f"\nCreature Floor Backfill: {shortfall} slot(s) below the minimum of {floor}; adding on-theme creatures.")
+        added = 0
+        for _, row in pool.iterrows():
+            if added >= shortfall:
+                break
+            nm = row['name']
+            self.add_card(
+                nm,
+                card_type=row.get('type', 'Creature'),
+                mana_cost=row.get('manaCost', ''),
+                mana_value=row.get('manaValue', row.get('cmc', '')),
+                creature_types=row.get('creatureTypes', []) if isinstance(row.get('creatureTypes', []), list) else [],
+                tags=bu.ensure_theme_tags_list(row.get('themeTags')),
+                role='creature',
+                sub_role='floor_backfill',
+                added_by='creature_floor_backfill'
+            )
+            added += 1
+        new_total = count_fn() if callable(count_fn) else current + added
+        self.output_func(f"  Creature Count Now : {new_total} / {floor} minimum ({added} added)")
 
     def _generate_recommendations(self, base_stem: str, limit: int):
         """Silently build a full (non-owned-filtered) deck with same choices and export top recommendations.
@@ -2219,13 +2279,17 @@ class DeckBuilder(
     # Deck Building Step 2: Ideal Composition Counts
     # ===========================
     ideal_counts: Dict[str, int] = field(default_factory=dict)
+    # 'modern' (default) uses creatures_min/creatures_max/on_theme_creatures; 'legacy' uses
+    # the old single 'creatures' target with no on-theme split (see roadmap 33).
+    creature_builder_mode: str = 'modern'
 
     def run_deck_build_step2(self) -> Dict[str, int]:
         """Determine ideal counts for general card categories (bracket‑agnostic baseline).
 
         Prompts the user (Enter to keep default). Stores results in ideal_counts and returns it.
         Categories:
-          ramp, lands, basic_lands, creatures, removal, wipes, card_advantage, protection
+          ramp, lands, basic_lands, creatures_min, creatures (max), on_theme_creatures,
+          creature_tolerance, removal, wipes, card_advantage, protection
         """
         # Initialize defaults from constants if not already present
         defaults = {
@@ -2233,7 +2297,10 @@ class DeckBuilder(
             'lands': bc.DEFAULT_LAND_COUNT,
             'basic_lands': bc.DEFAULT_BASIC_LAND_COUNT,
             'fetch_lands': getattr(bc, 'FETCH_LAND_DEFAULT_COUNT', 3),
+            'creatures_min': bc.DEFAULT_CREATURE_COUNT_MIN,
             'creatures': bc.DEFAULT_CREATURE_COUNT,
+            'on_theme_creatures': self.ideal_counts.get('on_theme_creatures', bc.DEFAULT_ON_THEME_CREATURE_COUNT),
+            'creature_tolerance_pct': int(round(self.ideal_counts.get('creature_tolerance', bc.DEFAULT_CREATURE_TOLERANCE) * 100)),
             'removal': bc.DEFAULT_REMOVAL_COUNT,
             'wipes': bc.DEFAULT_WIPES_COUNT,
             'card_advantage': bc.DEFAULT_CARD_ADVANTAGE_COUNT,
@@ -2245,16 +2312,36 @@ class DeckBuilder(
             if k not in self.ideal_counts:
                 self.ideal_counts[k] = v
 
+        # Creature allocation mode opt-in (roadmap 33, Milestone 5)
+        self.output_func("\nCreature Allocation Mode:")
+        self.output_func(f"  Legacy Creature Allocation: {bc.LEGACY_CREATURE_MODE_DESCRIPTION}")
+        legacy_raw = self.input_func("Use legacy creature allocation? [y/N]: ").strip().lower()
+        self.creature_builder_mode = 'legacy' if legacy_raw in ('y', 'yes') else 'modern'
+        modern_only_keys = {'creatures_min', 'on_theme_creatures', 'creature_tolerance_pct'}
+
         self.output_func("\nSet Ideal Deck Composition Counts (press Enter to accept default/current):")
         for key, prompt in bc.DECK_COMPOSITION_PROMPTS.items():
             if key not in defaults:  # skip price prompts & others for this step
                 continue
+            if self.creature_builder_mode == 'legacy' and key in modern_only_keys:
+                continue
             current_default = self.ideal_counts[key]
-            value = self._prompt_int_with_default(f"{prompt} ", current_default, minimum=0, maximum=200)
+            if key == 'on_theme_creatures':
+                # Never suggest more on-theme creatures than the max just chosen
+                current_default = min(current_default, self.ideal_counts.get('creatures', current_default))
+            max_bound = int(bc.MAX_CREATURE_TOLERANCE * 100) if key == 'creature_tolerance_pct' else 200
+            value = self._prompt_int_with_default(f"{prompt} ", current_default, minimum=0, maximum=max_bound)
             self.ideal_counts[key] = value
+
+        # Convert the tolerance percent scratch value into a stored 0-1 fraction, then
+        # sync the legacy 'creatures' alias with the new min/max/on-theme keys.
+        if 'creature_tolerance_pct' in self.ideal_counts:
+            self.ideal_counts['creature_tolerance'] = self.ideal_counts.pop('creature_tolerance_pct') / 100.0
+        self._normalize_creature_ideal_keys()
 
         # Smart land analysis — runs after defaults are seeded so env overrides still win
         self.run_land_analysis()
+        self._clamp_creatures_max_to_land_budget()
 
         # Basic validation adjustments
         # Ensure basic_lands <= lands
@@ -2264,6 +2351,39 @@ class DeckBuilder(
 
         self._print_ideal_counts_summary()
         return self.ideal_counts
+
+    def _normalize_creature_ideal_keys(self) -> None:
+        """Keep 'creatures' (legacy alias) and creatures_max/min/on_theme/tolerance in sync.
+
+        'creatures_max' is authoritative going forward; if present it wins and 'creatures'
+        mirrors it, otherwise 'creatures' backfills 'creatures_max' for older callers/configs.
+        """
+        ic = self.ideal_counts
+        if 'creatures_max' in ic:
+            ic['creatures'] = ic['creatures_max']
+        elif 'creatures' in ic:
+            ic['creatures_max'] = ic['creatures']
+        else:
+            ic['creatures'] = ic['creatures_max'] = bc.DEFAULT_CREATURE_COUNT
+        ic.setdefault('creatures_min', bc.DEFAULT_CREATURE_COUNT_MIN)
+        ic.setdefault('on_theme_creatures', ic['creatures_max'])
+        ic.setdefault('creature_tolerance', bc.DEFAULT_CREATURE_TOLERANCE)
+        # Clamp dependent values to the resolved max
+        ic['creatures_min'] = max(0, min(int(ic['creatures_min']), int(ic['creatures_max'])))
+        ic['on_theme_creatures'] = max(0, min(int(ic['on_theme_creatures']), int(ic['creatures_max'])))
+        ic['creature_tolerance'] = max(0.0, min(float(ic['creature_tolerance']), bc.MAX_CREATURE_TOLERANCE))
+
+    def _clamp_creatures_max_to_land_budget(self) -> None:
+        """Cap creatures_max so it can never exceed the non-commander budget minus lands."""
+        ic = self.ideal_counts
+        if 'creatures_max' not in ic and 'creatures' not in ic:
+            return
+        self._normalize_creature_ideal_keys()
+        lands = int(ic.get('lands', bc.DEFAULT_LAND_COUNT))
+        ceiling = max(0, bc.DECK_NON_COMMANDER_SLOTS - lands)
+        if int(ic['creatures_max']) > ceiling:
+            ic['creatures_max'] = ceiling
+            self._normalize_creature_ideal_keys()
 
     # Helper to prompt integer values with default
     def _prompt_int_with_default(self, prompt: str, default: int, minimum: int = 0, maximum: int = 999) -> int:
@@ -2284,14 +2404,19 @@ class DeckBuilder(
             ('lands', 'Total Lands'),
             ('basic_lands', 'Minimum Basic Lands'),
             ('fetch_lands', 'Fetch Lands'),
-            ('creatures', 'Creatures'),
+            ('creatures_min', 'Creatures (Min)'),
+            ('creatures', 'Creatures (Max)'),
+            ('on_theme_creatures', 'On-Theme Creatures'),
             ('removal', 'Spot Removal'),
             ('wipes', 'Board Wipes'),
             ('card_advantage', 'Card Advantage'),
             ('protection', 'Protection')
         ]
         width = max(len(label) for _, label in order)
+        modern_only_keys = {'creatures_min', 'on_theme_creatures'}
         for key, label in order:
+            if self.creature_builder_mode == 'legacy' and key in modern_only_keys:
+                continue
             if key in self.ideal_counts:
                 self.output_func(f"  {label.ljust(width)} : {self.ideal_counts[key]}")
 
@@ -2307,14 +2432,19 @@ class DeckBuilder(
             ('lands', 'Total Lands'),
             ('basic_lands', 'Basic Lands (Min)'),
             ('fetch_lands', 'Fetch Lands'),
-            ('creatures', 'Creatures'),
+            ('creatures_min', 'Creatures (Min)'),
+            ('creatures', 'Creatures (Max)'),
+            ('on_theme_creatures', 'On-Theme Creatures'),
             ('removal', 'Spot Removal'),
             ('wipes', 'Board Wipes'),
             ('card_advantage', 'Card Advantage'),
             ('protection', 'Protection')
         ]
         width = max(len(label) for _, label in order)
+        modern_only_keys = {'creatures_min', 'on_theme_creatures'}
         for key, label in order:
+            if self.creature_builder_mode == 'legacy' and key in modern_only_keys:
+                continue
             if key in self.ideal_counts:
                 self.output_func(f"  {label.ljust(width)} : {self.ideal_counts[key]}")
 

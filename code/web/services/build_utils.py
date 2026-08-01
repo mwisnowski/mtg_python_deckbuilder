@@ -196,6 +196,8 @@ def start_ctx_from_session(sess: dict, *, set_on_session: bool = True, deck_dir:
         budget_config=sess.get("budget_config"),
         deck_visibility=sess.get("deck_visibility"),
         printings=dict(sess.get("printings") or {}),
+        creature_builder_mode=sess.get("creature_builder_mode", "modern"),
+        creature_tolerance=sess.get("creature_tolerance"),
     )
     if set_on_session:
         sess["build_ctx"] = ctx

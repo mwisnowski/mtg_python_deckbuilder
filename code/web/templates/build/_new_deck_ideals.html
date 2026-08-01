@@ -4,21 +4,41 @@
     Sliders start at recommended defaults. Adjust as needed for your deck strategy.
     <span id="ideals-validation-warning" style="color:#f59e0b; display:none; margin-left:0.5rem;"></span>
   </div>
+  <div class="muted" style="font-size:12px; margin-bottom:0.75rem;">
+    <strong>How creature counts work:</strong> Min is a hard floor (backfilled if short); On-Theme is the actual target the builder fills toward; Max is a ceiling only, it caps creatures but is never actively pursued; Tolerance lets the on-theme target flex down when few matching creatures are available.
+  </div>
+  <div style="margin-bottom:1rem;">
+    <label for="creature_builder_mode" class="form-checkbox-label">
+      <input
+        type="checkbox"
+        name="creature_builder_mode"
+        id="creature_builder_mode"
+        value="legacy"
+        {% if form and form.creature_builder_mode == 'legacy' %}checked{% endif %}
+      />
+      <strong>Use Legacy Creature Allocation</strong>
+    </label>
+    <div class="muted" style="font-size:12px; margin-left:1.75rem; margin-top:0.25rem;">{{ LEGACY_CREATURE_MODE_DESCRIPTION }}</div>
+  </div>
   <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:1rem;">
     {% set use_sliders = ideals_ui_mode == 'slider' %}
     {% set ideals_data = [
       ('ramp', labels.ramp, defaults.ramp, 0, 30),
       ('lands', labels.lands, defaults.lands, 25, 45),
       ('basic_lands', labels.basic_lands, defaults.basic_lands, 0, 40),
-      ('creatures', labels.creatures, defaults.creatures, 0, 70),
+      ('creatures_min', labels.creatures_min, defaults.creatures_min, 0, defaults.creatures_max),
+      ('creatures_max', labels.creatures_max, defaults.creatures_max, 0, 99 - defaults.lands),
+      ('on_theme_creatures', labels.on_theme_creatures, defaults.on_theme_creatures, 0, defaults.creatures_max),
+      ('creature_tolerance_pct', labels.creature_tolerance_pct, defaults.creature_tolerance_pct, 0, 15),
       ('removal', labels.removal, defaults.removal, 0, 30),
       ('wipes', labels.wipes, defaults.wipes, 0, 15),
       ('card_advantage', labels.card_advantage, defaults.card_advantage, 0, 30),
       ('protection', labels.protection, defaults.protection, 0, 20)
     ] %}
+    {% set legacy_disabled_fields = ['creatures_min', 'on_theme_creatures', 'creature_tolerance_pct'] %}
     
     {% for field_name, field_label, default_val, min_val, max_val in ideals_data %}
-      <div>
+      <div id="ideal_field_{{ field_name }}" {% if field_name in legacy_disabled_fields and form and form.creature_builder_mode == 'legacy' %}style="display:none;"{% endif %}>
         <label style="display:block; margin-bottom:0.25rem;">
           <span>{{ field_label }}</span>
           {% if use_sliders %}
@@ -31,6 +51,8 @@
                 value="{{ form[field_name] if form and form[field_name] is not none else default_val }}" 
                 class="ideals-slider"
                 data-field="{{ field_name }}"
+                data-default="{{ default_val }}"
+                {% if field_name in legacy_disabled_fields and form and form.creature_builder_mode == 'legacy' %}disabled{% endif %}
                 style="flex:1; cursor:pointer;"
               />
               <output 
@@ -49,12 +71,17 @@
               max="100" 
               value="{{ form[field_name] if form and form[field_name] is not none else '' }}" 
               placeholder="{{ default_val }} (Default)"
+              data-default="{{ default_val }}"
+              {% if field_name in legacy_disabled_fields and form and form.creature_builder_mode == 'legacy' %}disabled{% endif %}
               style="width:100%; margin-top:0.25rem;"
             />
           {% endif %}
         </label>
       </div>
     {% endfor %}
+  </div>
+  <div style="margin-top:0.75rem;">
+    <button type="button" id="ideals-reset-btn" class="btn" style="font-size:13px;">Reset to Defaults</button>
   </div>
   
   <script>
@@ -70,7 +97,7 @@
       };
       
       const lands = getValue('lands');
-      const creatures = getValue('creatures');
+      const creatures = getValue('creatures_max');
       const ramp = getValue('ramp');
       const removal = getValue('removal');
       const wipes = getValue('wipes');
@@ -95,6 +122,63 @@
         warning.style.display = 'none';
       }
     }
+
+    // Cascade: creatures_max's ceiling tracks (99 - lands); on_theme_creatures'
+    // ceiling in turn tracks creatures_max. Clamp current values down as needed.
+    function updateCreatureBounds() {
+      const landsInput = document.querySelector('[name="lands"]');
+      const maxInput = document.querySelector('[name="creatures_max"]');
+      const onThemeInput = document.querySelector('[name="on_theme_creatures"]');
+      if (!landsInput || !maxInput) return;
+
+      const setValue = (input, value) => {
+        input.value = value;
+        const output = document.getElementById(input.getAttribute('name') + '_value');
+        if (output) output.textContent = value;
+      };
+
+      // Read values BEFORE mutating `max` attributes: browsers silently clamp a
+      // range input's value when its max is lowered, which would otherwise hide
+      // the change from the paired <output> display.
+      const lands = parseInt(landsInput.value) || 0;
+      const maxCeiling = Math.max(0, 99 - lands);
+      const prevMaxVal = parseInt(maxInput.value) || 0;
+      maxInput.max = maxCeiling;
+      const clampedMaxVal = Math.min(prevMaxVal, maxCeiling);
+      setValue(maxInput, clampedMaxVal);
+
+      if (onThemeInput) {
+        const prevOnThemeVal = parseInt(onThemeInput.value) || 0;
+        onThemeInput.max = clampedMaxVal;
+        setValue(onThemeInput, Math.min(prevOnThemeVal, clampedMaxVal));
+      }
+    }
+
+    // Legacy mode ignores min/on-theme/tolerance; hide them entirely when checked.
+    function updateLegacyDisabled() {
+      const legacyCheckbox = document.querySelector('[name="creature_builder_mode"]');
+      const disable = !!(legacyCheckbox && legacyCheckbox.checked);
+      ['creatures_min', 'on_theme_creatures', 'creature_tolerance_pct'].forEach(fieldName => {
+        const input = document.querySelector('[name="' + fieldName + '"]');
+        if (input) input.disabled = disable;
+        const field = document.getElementById('ideal_field_' + fieldName);
+        if (field) field.style.display = disable ? 'none' : '';
+      });
+    }
+
+    // Reset every ideal-count field (and the legacy checkbox) back to its default.
+    function resetIdealsToDefaults() {
+      const legacyCheckbox = document.querySelector('[name="creature_builder_mode"]');
+      if (legacyCheckbox) legacyCheckbox.checked = false;
+      document.querySelectorAll('[data-default]').forEach(input => {
+        input.value = input.dataset.default;
+        const output = document.getElementById(input.getAttribute('name') + '_value');
+        if (output) output.textContent = input.dataset.default;
+      });
+      updateCreatureBounds();
+      updateLegacyDisabled();
+      validateIdealCounts();
+    }
     
     // Attach validation to all ideal inputs
     {% if use_sliders %}
@@ -105,6 +189,9 @@
       // Update display on input
       slider.addEventListener('input', function() {
         output.textContent = this.value;
+        if (fieldName === 'lands' || fieldName === 'creatures_max') {
+          updateCreatureBounds();
+        }
         validateIdealCounts();
       });
       
@@ -112,13 +199,30 @@
       output.textContent = slider.value;
     });
     {% else %}
-    document.querySelectorAll('[name="ramp"], [name="lands"], [name="basic_lands"], [name="creatures"], [name="removal"], [name="wipes"], [name="card_advantage"], [name="protection"]').forEach(input => {
-      input.addEventListener('input', validateIdealCounts);
+    document.querySelectorAll('[name="ramp"], [name="lands"], [name="basic_lands"], [name="creatures_min"], [name="creatures_max"], [name="on_theme_creatures"], [name="creature_tolerance_pct"], [name="removal"], [name="wipes"], [name="card_advantage"], [name="protection"]').forEach(input => {
+      input.addEventListener('input', function() {
+        if (input.name === 'lands' || input.name === 'creatures_max') {
+          updateCreatureBounds();
+        }
+        validateIdealCounts();
+      });
       input.addEventListener('change', validateIdealCounts);
     });
     {% endif %}
+
+    const legacyModeCheckbox = document.querySelector('[name="creature_builder_mode"]');
+    if (legacyModeCheckbox) {
+      legacyModeCheckbox.addEventListener('change', updateLegacyDisabled);
+    }
+
+    const idealsResetBtn = document.getElementById('ideals-reset-btn');
+    if (idealsResetBtn) {
+      idealsResetBtn.addEventListener('click', resetIdealsToDefaults);
+    }
     
-    // Run initial validation
+    // Run initial computations
+    updateCreatureBounds();
+    updateLegacyDisabled();
     validateIdealCounts();
   </script>
 </fieldset>

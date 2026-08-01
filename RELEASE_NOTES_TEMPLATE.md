@@ -8,7 +8,7 @@ _No unreleased changes yet_
 _No unreleased changes yet_
 
 ### Fixed
-- Fixed a redundant "Creatures" slider showing up alongside the new min/max controls in the mobile app's ideal-counts screen
+_No unreleased changes yet_
 
 ### Removed
 _No unreleased changes yet_

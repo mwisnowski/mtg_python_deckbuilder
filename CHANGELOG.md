@@ -15,13 +15,17 @@ _No unreleased changes yet_
 _No unreleased changes yet_
 
 ### Fixed
-- The public API's `GET /api/v1/builds/ideal-defaults` endpoint (used by the mobile app's generic ideal-counts UI) listed the legacy `creatures` alias alongside `creatures_max`, showing a redundant, confusing second "Creatures" slider; `creatures` is now dropped from that endpoint's response (still accepted/returned as before on the build create/read endpoints themselves)
+_No unreleased changes yet_
 
 ### Removed
 _No unreleased changes yet_
 
 ### Security
 _No unreleased changes yet_
+
+## [5.3.1] - 2026-08-01
+### Fixed
+- The public API's `GET /api/v1/builds/ideal-defaults` endpoint (used by the mobile app's generic ideal-counts UI) listed the legacy `creatures` alias alongside `creatures_max`, showing a redundant, confusing second "Creatures" slider; `creatures` is now dropped from that endpoint's response (still accepted/returned as before on the build create/read endpoints themselves)
 
 ## [5.3.0] - 2026-08-01
 ### Added

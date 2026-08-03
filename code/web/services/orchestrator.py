@@ -2886,11 +2886,6 @@ def run_stage(ctx: Dict[str, Any], rerun: bool = False, show_skipped: bool = Fal
                 import os as _os
                 base, _ext = _os.path.splitext(_os.path.basename(ctx.get("csv_path") or f"deck_{b.timestamp}.csv"))
                 ctx["txt_path"] = b.export_decklist_text(directory=deck_dir, filename=base + '.txt')
-                # Export the run configuration JSON for manual builds
-                try:
-                    b.export_run_config_json(directory='config', filename=base + '.json')
-                except Exception:
-                    pass
                 # Compute bracket compliance and save JSON alongside exports
                 try:
                     if hasattr(b, 'compute_and_print_compliance'):
@@ -3778,11 +3773,6 @@ def run_stage(ctx: Dict[str, Any], rerun: bool = False, show_skipped: bool = Fal
             import os as _os
             base, _ext = _os.path.splitext(_os.path.basename(ctx.get("csv_path") or f"deck_{b.timestamp}.csv"))
             ctx["txt_path"] = b.export_decklist_text(directory=deck_dir, filename=base + '.txt')
-            # Export the run configuration JSON for manual builds
-            try:
-                b.export_run_config_json(directory='config', filename=base + '.json')
-            except Exception:
-                pass
             # Compute bracket compliance and save JSON alongside exports
             try:
                 if hasattr(b, 'compute_and_print_compliance'):

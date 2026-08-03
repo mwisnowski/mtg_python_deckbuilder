@@ -8,7 +8,6 @@ from __future__ import annotations
 # Standard library imports
 import sys
 from pathlib import Path
-import json
 from typing import NoReturn
 
 # Ensure local package resolution in frozen builds
@@ -120,109 +119,18 @@ def run_menu() -> NoReturn:
         sys.exit(0)
 
     # Menu-driven selection
-    def _run_headless_with_config(selected_config: str | None) -> None:
-        """Run headless runner, optionally forcing a specific config path for this invocation."""
+    def _run_headless() -> None:
+        """Run headless runner with current CLI/env-configured defaults."""
         try:
             from headless_runner import _main as headless_main
-            # Temporarily override DECK_CONFIG for this run if provided
-            prev_cfg = os.environ.get('DECK_CONFIG')
-            try:
-                if selected_config:
-                    os.environ['DECK_CONFIG'] = selected_config
-                headless_main()
-            finally:
-                if selected_config is not None:
-                    if prev_cfg is not None:
-                        os.environ['DECK_CONFIG'] = prev_cfg
-                    else:
-                        os.environ.pop('DECK_CONFIG', None)
+            headless_main()
         except Exception as e:
             logger.error(f"Headless run failed: {e}")
-
-    def _headless_submenu() -> None:
-        """Submenu to choose a JSON config and run the headless builder.
-
-        Behavior:
-        - If DECK_CONFIG points to a file, run it immediately.
-        - Else, search for *.json in (DECK_CONFIG as dir) or /app/config or ./config.
-          - If one file is found, run it immediately.
-          - If multiple files, list them for selection.
-          - If none, fall back to running headless using env/CLI/defaults.
-        """
-        cfg_target = os.getenv('DECK_CONFIG')
-        # Case 1: DECK_CONFIG is an explicit file
-        if cfg_target and os.path.isfile(cfg_target):
-            print(f"\nRunning headless with config: {cfg_target}")
-            _run_headless_with_config(cfg_target)
-            return
-
-        # Determine directory to scan for JSON configs
-        if cfg_target and os.path.isdir(cfg_target):
-            cfg_dir = cfg_target
-        elif os.path.isdir('/app/config'):
-            cfg_dir = '/app/config'
-        else:
-            cfg_dir = 'config'
-
-        try:
-            p = Path(cfg_dir)
-            files = sorted([str(fp) for fp in p.glob('*.json')]) if p.exists() else []
-        except Exception:
-            files = []
-
-        # No configs found: run headless with current env/CLI/defaults
-        if not files:
-            print("\nNo JSON configs found in '" + cfg_dir + "'. Running headless with env/CLI/defaults...")
-            _run_headless_with_config(None)
-            return
-
-        # Single config: run automatically
-        if len(files) == 1:
-            print(f"\nFound one JSON config: {files[0]}\nRunning it now...")
-            _run_headless_with_config(files[0])
-            return
-
-        # Multiple configs: list and select
-        def _config_label(p: str) -> str:
-            try:
-                with open(p, 'r', encoding='utf-8') as fh:
-                    data = json.load(fh)
-                cmd = str(data.get('commander') or '').strip() or 'Unknown Commander'
-                themes = [t for t in [data.get('primary_tag'), data.get('secondary_tag'), data.get('tertiary_tag')] if isinstance(t, str) and t.strip()]
-                name = os.path.basename(p).lower()
-                if name == 'deck.json':
-                    return 'Default'
-                return f"{cmd} - {', '.join(themes)}" if themes else cmd
-            except Exception:
-                return p
-
-        print("\nAvailable JSON configs:")
-        labels = [_config_label(f) for f in files]
-        for idx, label in enumerate(labels, start=1):
-            print(f"  {idx}) {label}")
-        print("  0) Back to main menu")
-        while True:
-            try:
-                sel = input("Select a config to run [0]: ").strip() or '0'
-            except KeyboardInterrupt:
-                print("")
-                sel = '0'
-            if sel == '0':
-                return
-            try:
-                i = int(sel)
-                if 1 <= i <= len(files):
-                    _run_headless_with_config(files[i - 1])
-                    return
-            except ValueError:
-                pass
-            print("Invalid selection. Try again.")
 
     while True:
         print("\n==== MTG Deckbuilder ====")
         print("1) Interactive deck build")
-        print("2) Headless (env/JSON-configured) run")
-        print("   - Will auto-run a single config if found, or let you choose from many")
+        print("2) Headless (env/CLI-configured) run")
         print("q) Quit")
         try:
             choice = input("Select an option [1]: ").strip().lower() or '1'
@@ -234,7 +142,7 @@ def run_menu() -> NoReturn:
             _interactive_loop()
             # loop returns to main menu
         elif choice in ('2', 'h', 'headless', 'noninteractive'):
-            _headless_submenu()
+            _run_headless()
             # after one headless run, return to menu
         elif choice in ('q', 'quit', 'exit'):
             logger.info("Exiting application")

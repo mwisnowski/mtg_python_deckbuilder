@@ -90,7 +90,6 @@ from .commanders import router as commanders_router  # noqa: E402
 from .themes import router as themes_router  # noqa: E402
 from .owned import router as owned_router  # noqa: E402
 from .prices import router as prices_router  # noqa: E402
-from .configs import router as configs_router  # noqa: E402
 from .users import router as users_router  # noqa: E402
 
 api_v1_app.include_router(keys_router)
@@ -101,5 +100,4 @@ api_v1_app.include_router(commanders_router)
 api_v1_app.include_router(themes_router)
 api_v1_app.include_router(owned_router)
 api_v1_app.include_router(prices_router)
-api_v1_app.include_router(configs_router)
 api_v1_app.include_router(users_router)

@@ -2463,7 +2463,6 @@ from .routes import build_newflow as build_newflow_routes  # noqa: E402
 from .routes import build_alternatives as build_alternatives_routes  # noqa: E402
 from .routes import build_compliance as build_compliance_routes  # noqa: E402
 from .routes import build_permalinks as build_permalinks_routes  # noqa: E402
-from .routes import configs as config_routes  # noqa: E402
 from .routes import decks as decks_routes  # noqa: E402
 from .routes.decks import _deck_dir as _decks_deck_dir, _user_id as _decks_user_id  # noqa: E402
 from .routes import upgrade_suggestions as upgrade_suggestions_routes  # noqa: E402
@@ -2494,7 +2493,6 @@ app.include_router(build_newflow_routes.router, prefix="/build")
 app.include_router(build_alternatives_routes.router)
 app.include_router(build_compliance_routes.router)
 app.include_router(build_permalinks_routes.router)
-app.include_router(config_routes.router)
 app.include_router(decks_routes.router)
 app.include_router(upgrade_suggestions_routes.router)
 app.include_router(setup_routes.router)

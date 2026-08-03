@@ -69,15 +69,10 @@ High copy counts of powerful archetypes can affect bracket compliance:
 
 ## Headless / CLI
 
-Set the multi-copy card and count in your JSON config via the `must_include` list. The count picker is a UI affordance — in headless mode, add the card name the desired number of times:
+Set the multi-copy card and count via the `--include-cards` CLI flag. The count picker is a UI affordance — in headless mode, add the card name the desired number of times:
 
-```json
-{
-  "must_include": [
-    "Relentless Rats", "Relentless Rats", "Relentless Rats",
-    "Relentless Rats", "Relentless Rats"
-  ]
-}
+```powershell
+python code/headless_runner.py --commander "..." --include-cards "Relentless Rats,Relentless Rats,Relentless Rats,Relentless Rats,Relentless Rats"
 ```
 
 ---

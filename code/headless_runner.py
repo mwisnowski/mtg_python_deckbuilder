@@ -441,9 +441,6 @@ def run(
     _export_outputs(builder)
     return builder
 
-def _should_export_json_headless() -> bool:
-    return os.getenv('HEADLESS_EXPORT_JSON', '').strip().lower() in {'1','true','yes','on'}
-
 def _print_include_exclude_summary(builder: DeckBuilder) -> None:
     """Print include/exclude summary to console (M4: Extended summary printing)."""
     if not hasattr(builder, 'include_exclude_diagnostics') or not builder.include_exclude_diagnostics:
@@ -604,20 +601,6 @@ def _export_outputs(builder: DeckBuilder) -> None:
                             pass
     except Exception:
         pass
-    if _should_export_json_headless() and hasattr(builder, "export_run_config_json") and csv_path:
-        try:
-            base = os.path.splitext(os.path.basename(csv_path))[0]
-            dest = os.getenv("DECK_CONFIG")
-            if dest and dest.lower().endswith(".json"):
-                out_dir, out_name = os.path.dirname(dest) or ".", os.path.basename(dest)
-                os.makedirs(out_dir, exist_ok=True)
-                builder.export_run_config_json(directory=out_dir, filename=out_name)
-            else:
-                out_dir = (dest if dest and os.path.isdir(dest) else "config")
-                os.makedirs(out_dir, exist_ok=True)
-                builder.export_run_config_json(directory=out_dir, filename=base + ".json")
-        except Exception:
-            pass
 
 def _parse_bool(val: Optional[str | bool | int]) -> Optional[bool]:
     if val is None:
@@ -668,19 +651,6 @@ def _parse_opt_int(val: Optional[str | int]) -> Optional[int]:
     if s in {"", "none", "null", "nan"}:
         return None
     return int(s)
-
-
-def _load_json_config(path: Optional[str]) -> Dict[str, Any]:
-    if not path:
-        return {}
-    try:
-        with open(path, "r", encoding="utf-8") as f:
-            data = json.load(f)
-            if not isinstance(data, dict):
-                raise ValueError("JSON config must be an object")
-            return data
-    except FileNotFoundError:
-        raise
 
 
 def _load_constraints_spec(spec: Any) -> Dict[str, Any]:
@@ -1253,8 +1223,6 @@ def _run_random_mode(config: RandomRunConfig) -> int:
 
 def _build_arg_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description="Headless deck builder runner")
-    p.add_argument("--config", metavar="PATH", default=os.getenv("DECK_CONFIG"), 
-                   help="Path to JSON config file (string)")
     p.add_argument("--commander", metavar="NAME", default=None,
                    help="Commander name to search for (string)")
     p.add_argument("--secondary-commander", metavar="NAME", default=None,
@@ -1541,23 +1509,9 @@ def _main() -> int:
     _ensure_data_ready()
     parser = _build_arg_parser()
     args = parser.parse_args()
-    # Optional config discovery (no prompts)
-    cfg_path = args.config
+    # JSON-config-file input was removed (Roadmap 34); this stays empty so the
+    # existing CLI > ENV > JSON > default resolver below still works unchanged.
     json_cfg: Dict[str, Any] = {}
-    if cfg_path and os.path.isfile(cfg_path):
-        json_cfg = _load_json_config(cfg_path)
-    else:
-        # No explicit file; if exactly one config exists in a known dir, use it
-        for candidate_dir in [cfg_path] if cfg_path and os.path.isdir(cfg_path) else ["/app/config", "config"]:
-            try:
-                files = [f for f in (os.listdir(candidate_dir) if os.path.isdir(candidate_dir) else []) if f.lower().endswith(".json")]
-            except Exception:
-                files = []
-            if len(files) == 1:
-                chosen = os.path.join(candidate_dir, files[0])
-                json_cfg = _load_json_config(chosen)
-                os.environ["DECK_CONFIG"] = chosen
-                break
 
     random_config, random_section = _resolve_random_config(args, json_cfg)
     if _should_run_random_mode(args, json_cfg, random_section):

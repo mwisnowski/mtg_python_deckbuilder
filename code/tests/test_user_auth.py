@@ -486,7 +486,6 @@ def test_deck_dir_scoped_by_user(tmp_path, monkeypatch):
     """Authenticated users get deck_files/{user_id}/ not deck_files/."""
     import code.web.routes.decks as decks_mod
     monkeypatch.chdir(tmp_path)
-    monkeypatch.delenv("DECK_CONFIG", raising=False)
 
     result = decks_mod._deck_dir("abc-123")
     assert result == (tmp_path / "deck_files" / "abc-123").resolve()
@@ -496,20 +495,9 @@ def test_deck_dir_guest(tmp_path, monkeypatch):
     """Guest users get deck_files/guest/."""
     import code.web.routes.decks as decks_mod
     monkeypatch.chdir(tmp_path)
-    monkeypatch.delenv("DECK_CONFIG", raising=False)
 
     result = decks_mod._deck_dir("guest")
     assert result == (tmp_path / "deck_files" / "guest").resolve()
-
-
-def test_config_dir_scoped_by_user(tmp_path, monkeypatch):
-    """Authenticated users get config/{user_id}/."""
-    import code.web.routes.configs as configs_mod
-    monkeypatch.chdir(tmp_path)
-    monkeypatch.delenv("DECK_CONFIG", raising=False)
-
-    result = configs_mod._config_dir("user-xyz")
-    assert result == (tmp_path / "config" / "user-xyz").resolve()
 
 
 def test_owned_store_user_isolation(tmp_path, monkeypatch):

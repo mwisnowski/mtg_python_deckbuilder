@@ -44,46 +44,23 @@ If the **commander itself** is on the Game Changers list, it is surfaced separat
 
 ---
 
-## Enforcement Mode
+## Enforcement
 
-Set `enforcement_mode` in your JSON config to control how the builder handles bracket violations:
+Compliance checking is always report-only: violations are flagged as WARN/FAIL, but no card is blocked from being added during selection.
 
-| Mode | Behavior |
-|------|----------|
-| `validate` | Build freely, then report violations. No cards are blocked. _(default)_ |
-| `prefer` | During selection, avoid adding disallowed categories; cap Game Changers for Bracket 3. |
-| `strict` | Block additions that would violate the bracket. Build fails with a clear message if unavoidable. |
+To actually remove or swap out flagged cards after a build, use one of:
 
-```json
-{
-  "bracket": "core",
-  "enforcement_mode": "prefer"
-}
-```
+| Trigger | Behavior |
+|---------|----------|
+| **Apply Bracket Enforcement** button (Step 5 compliance panel) | Swaps FAIL-category cards for on-theme alternatives, respecting any locked cards, then re-exports the deck. |
+| `WEB_AUTO_ENFORCE=1` | Runs the same enforcement/swap pass automatically right after each web build completes. |
 
-### Enforcement Examples (Bracket 3 — Upgraded)
-
-| Scenario | `validate` | `prefer` | `strict` |
-|----------|------------|----------|---------|
-| 1–3 Game Changers in pool | Proceeds; each flagged in report | Proceeds; included within 3-card cap | Proceeds; included within 3-card cap |
-| 4+ Game Changers in pool | All flagged FAIL in report | Caps selection at 3; extras skipped | Build fails listing the violating cards |
-| Mass land denial card | Flagged WARN/FAIL in report | Avoided if alternatives exist in pool | Build fails if card cannot be excluded |
-| Must Include card violates bracket | Flagged in report; card stays | Flagged in report; card stays | Flagged in report; card stays (Must Include always wins) |
-
----
-
-## Rule Zero Notes
-
-The `rule_zero_notes` field in the JSON config lets you document table agreements that override standard bracket rules:
-
-```json
-{
-  "bracket": "upgraded",
-  "rule_zero_notes": "Mass land denial allowed by table agreement. Two-card combos capped at 1."
-}
-```
-
-Rule zero notes appear in the compliance report header and are exported to the compliance JSON.
+| Scenario | Report-only (default) | After Apply/`WEB_AUTO_ENFORCE` |
+|----------|------------------------|--------------------------------|
+| 1–3 Game Changers in pool (Bracket 3) | Each flagged in report | Kept (within the 3-card cap) |
+| 4+ Game Changers in pool (Bracket 3) | All flagged FAIL in report | Extras swapped for alternatives; capped at 3 |
+| Mass land denial card | Flagged WARN/FAIL in report | Swapped for an alternative if one exists in the pool |
+| Must Include card violates bracket | Flagged in report; card stays | Card stays (Must Include always wins; never swapped) |
 
 ---
 
@@ -109,23 +86,13 @@ The Game Changers list and companion lists are static JSON files in `config/card
 
 ---
 
-## JSON Config Keys
-
-| Key | Values | Purpose |
-|-----|--------|---------|
-| `bracket` | `exhibition` \| `core` \| `upgraded` \| `optimized` \| `cedh` | Bracket selection. Defaults to `core` if unset. |
-| `enforcement_mode` | `validate` \| `prefer` \| `strict` | How violations are handled during building. |
-| `rule_zero_notes` | string | Optional table agreement notes included in the compliance report. |
-
----
-
 ## FAQ
 
 **My deck passed Bracket 2 but the table says it feels more like Bracket 3 — why?**
 The compliance check runs against the official card lists (Game Changers, extra turns, tutors, combos). Cards not on those lists are not flagged even if they're powerful in context. Use the compliance report as a starting point, then discuss with your table.
 
-**I set `enforcement_mode: strict` but my Must Include card still violates the bracket.**
-Must Include cards always bypass enforcement filtering — they are inserted directly before pool selection runs. The compliance report will still flag the violation. Adjust the Must Include list or the bracket to resolve it.
+**I applied bracket enforcement but my Must Include card still violates the bracket.**
+Must Include cards always bypass enforcement swaps — they are inserted directly and never removed. The compliance report will still flag the violation. Adjust the Must Include list or the bracket to resolve it.
 
 **Why does the compliance check flag a two-card combo I didn't intend?**
 Combo detection runs against a known list of two-card infinite combinations. If your synergies happen to match a known combo pattern, they'll be flagged. The report is informational — no cards are removed automatically.

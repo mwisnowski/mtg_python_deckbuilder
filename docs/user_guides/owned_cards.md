@@ -67,16 +67,14 @@ WEB_VIRTUALIZE=1
 
 ## Headless / CLI
 
-In headless mode, set the owned card mode via JSON config:
+In headless mode, set the owned card mode via environment variables:
 
-```json
-{
-  "owned_only": true,
-  "prefer_owned": false
-}
+```powershell
+$env:HEADLESS_USE_OWNED_ONLY = "true"
+python code/headless_runner.py --commander "..."
 ```
 
-Use `"prefer_owned": true` for soft weighting, `"owned_only": true` for hard filtering. The two are mutually exclusive; `owned_only` takes precedence if both are set.
+Omit `HEADLESS_USE_OWNED_ONLY` (or set it to `false`) to build without owned-only filtering.
 
 ---
 

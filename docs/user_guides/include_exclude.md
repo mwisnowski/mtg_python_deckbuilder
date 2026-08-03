@@ -34,14 +34,11 @@ When enabled, each card row in Step 5 gains a Must Include (+) and Must Exclude 
 2. In Step 5, click **+** on a card to add it to Must Include, or **−** to add it to Must Exclude.
 3. Use the quick-add input at the top to add cards by name without scrolling.
 
-### Via JSON Config
-Supply lists in your deck config file:
+### Via CLI Flags
+Pass lists as comma-separated CLI flags:
 
-```json
-{
-  "must_include": ["Sol Ring", "Arcane Signet"],
-  "must_exclude": ["Thassa's Oracle"]
-}
+```powershell
+python code/headless_runner.py --commander "..." --include-cards "Sol Ring,Arcane Signet" --exclude-cards "Thassa's Oracle"
 ```
 
 Both keys accept an array of card names. Names are matched case-insensitively.
@@ -81,13 +78,10 @@ For the full list of supported archetypes, count caps, and detailed guidance see
 
 ## Headless / CLI
 
-Set include and exclude lists in the JSON config. Environment variable overrides are not supported for per-card lists; use the config file.
+Set include and exclude lists via CLI flags. Environment variable overrides are not supported for per-card lists.
 
-```json
-{
-  "must_include": ["Swiftfoot Boots"],
-  "must_exclude": ["Demonic Tutor"]
-}
+```powershell
+python code/headless_runner.py --commander "..." --include-cards "Swiftfoot Boots" --exclude-cards "Demonic Tutor"
 ```
 
 ---

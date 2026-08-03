@@ -284,28 +284,6 @@ class DeckBuilder(
                                 self._generate_recommendations(base_stem=base, limit=rec_limit)
                         except Exception:
                             pass
-                        # Also export a matching JSON config for replay (interactive builds only)
-                        if not getattr(self, 'headless', False):
-                            try:
-                                import os as _os
-                                cfg_path_env = _os.getenv('DECK_CONFIG')
-                                cfg_dir = None
-                                if cfg_path_env:
-                                    cfg_dir = _os.path.dirname(cfg_path_env) or '.'
-                                elif _os.path.isdir('/app/config'):
-                                    cfg_dir = '/app/config'
-                                else:
-                                    cfg_dir = 'config'
-                                if cfg_dir:
-                                    _os.makedirs(cfg_dir, exist_ok=True)
-                                    self.export_run_config_json(directory=cfg_dir, filename=base + '.json')
-                                if cfg_path_env:
-                                    cfg_dir2 = _os.path.dirname(cfg_path_env) or '.'
-                                    cfg_name2 = _os.path.basename(cfg_path_env)
-                                    _os.makedirs(cfg_dir2, exist_ok=True)
-                                    self.export_run_config_json(directory=cfg_dir2, filename=cfg_name2)
-                            except Exception:
-                                pass
                     except Exception:
                         logger.warning("Plaintext export failed (non-fatal)")
                 else:

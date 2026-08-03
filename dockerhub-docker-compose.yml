@@ -58,7 +58,6 @@ services:
       # Theme Catalog Settings
       THEME_MIN_CARDS: "5"          # Minimum cards required for a theme to be kept in system (default: 5)
       
-      # HEADLESS_EXPORT_JSON: "1"           # 1=export resolved run config JSON
       ENABLE_PARTNER_MECHANICS: "1"        # 1=unlock partner/background commander inputs
       ENABLE_PARTNER_SUGGESTIONS: "1"      # 1=enable partner suggestion API/UI (requires dataset)
       # PARTNER_SUGGESTIONS_DATASET: "/app/config/analytics/partner_synergy.json"  # Optional override path for dataset inside container
@@ -174,13 +173,12 @@ services:
 
       # ------------------------------------------------------------------
       # Deck Export / Directory Overrides (headless & web browsing paths)
-      # DECK_EXPORTS / DECK_CONFIG: override mount points inside container
+      # DECK_EXPORTS: override mount points inside container
       # OWNED_CARDS_DIR / CARD_LIBRARY_DIR: inventory upload path (alias preserved)
       # ------------------------------------------------------------------
 
       # Paths (optional overrides)
       # DECK_EXPORTS: "/app/deck_files"     # Where the deck browser looks for exports
-      # DECK_CONFIG: "/app/config"          # Where the config browser looks for *.json
       # OWNED_CARDS_DIR: "/app/owned_cards" # Preferred path for owned inventory uploads
       # CARD_LIBRARY_DIR: "/app/owned_cards" # Back-compat alias for OWNED_CARDS_DIR
       # CSV base directory override (useful for testing with frozen snapshots)

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import sys
-from pathlib import Path
 
 import importlib
 
@@ -85,26 +84,28 @@ def _extract_json_payload(stdout: str) -> dict[str, object]:
     return json.loads(snippet)
 
 
-def test_json_config_secondary_commander_parsing(
+def test_cli_secondary_commander_parsing(
     monkeypatch: pytest.MonkeyPatch,
-    tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    cfg_dir = tmp_path / "cfg"
-    cfg_dir.mkdir()
-    config_path = cfg_dir / "deck.json"
-    config_payload = {
-        "commander": "Halana, Kessig Ranger",
-        "secondary_commander": "Alena, Kessig Trapper",
-        "enable_partner_mechanics": True,
-    }
-    config_path.write_text(json.dumps(config_payload), encoding="utf-8")
-
     monkeypatch.setattr(hr, "_ensure_data_ready", lambda: None)
     monkeypatch.delenv("DECK_SECONDARY_COMMANDER", raising=False)
     monkeypatch.delenv("ENABLE_PARTNER_MECHANICS", raising=False)
     monkeypatch.delenv("DECK_BACKGROUND", raising=False)
-    monkeypatch.setattr(sys, "argv", ["headless_runner.py", "--config", str(config_path), "--dry-run"])
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "headless_runner.py",
+            "--commander",
+            "Halana, Kessig Ranger",
+            "--secondary-commander",
+            "Alena, Kessig Trapper",
+            "--enable-partner-mechanics",
+            "true",
+            "--dry-run",
+        ],
+    )
 
     exit_code = hr._main()
     assert exit_code == 0
@@ -116,26 +117,28 @@ def test_json_config_secondary_commander_parsing(
     assert payload["enable_partner_mechanics"] is True
 
 
-def test_json_config_background_parsing(
+def test_cli_background_parsing(
     monkeypatch: pytest.MonkeyPatch,
-    tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    cfg_dir = tmp_path / "cfg"
-    cfg_dir.mkdir(exist_ok=True)
-    config_path = cfg_dir / "deck.json"
-    config_payload = {
-        "commander": "Lae'zel, Vlaakith's Champion",
-        "background": "Scion of Halaster",
-        "enable_partner_mechanics": True,
-    }
-    config_path.write_text(json.dumps(config_payload), encoding="utf-8")
-
     monkeypatch.setattr(hr, "_ensure_data_ready", lambda: None)
     monkeypatch.delenv("DECK_SECONDARY_COMMANDER", raising=False)
     monkeypatch.delenv("ENABLE_PARTNER_MECHANICS", raising=False)
     monkeypatch.delenv("DECK_BACKGROUND", raising=False)
-    monkeypatch.setattr(sys, "argv", ["headless_runner.py", "--config", str(config_path), "--dry-run"])
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "headless_runner.py",
+            "--commander",
+            "Lae'zel, Vlaakith's Champion",
+            "--background",
+            "Scion of Halaster",
+            "--enable-partner-mechanics",
+            "true",
+            "--dry-run",
+        ],
+    )
 
     exit_code = hr._main()
     assert exit_code == 0

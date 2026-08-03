@@ -179,14 +179,6 @@ class TestWebUISmoke:
         if modal_box:
             # Modal should fit within mobile viewport with some margin
             assert modal_box['width'] <= 375 - 20  # Allow 10px margin on each side
-            
-    async def test_configs_page_loads(self, page: Page):
-        """Test that the configs page loads"""
-        await page.goto(f"{TestConfig.BASE_URL}/configs")
-        await page.wait_for_load_state('networkidle')
-        
-        # Check for config page elements
-        assert await page.is_visible("text=Build from JSON") or await page.is_visible("text=Configuration")
 
 class TestWebUIFull:
     """More comprehensive tests (optional, slower)"""

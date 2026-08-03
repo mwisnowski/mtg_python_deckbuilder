@@ -52,47 +52,25 @@ Theme tags from both commanders are merged. This means a partner pair may unlock
 
 ## Headless / CLI
 
-Supply partner settings in the JSON config or as CLI flags:
+Supply partner settings as CLI flags:
 
-```json
-{
-  "commander": "Halana, Kessig Ranger",
-  "secondary_commander": "Alena, Kessig Trapper",
-  "enable_partner_mechanics": true
-}
+```powershell
+python code/headless_runner.py --commander "Halana, Kessig Ranger" --secondary-commander "Alena, Kessig Trapper" --enable-partner-mechanics true
 ```
 
-CLI flags:
-```
---secondary-commander "Alena, Kessig Trapper" --enable-partner-mechanics true
-```
-
-For Background pairings, use `background` instead of `secondary_commander`:
-```json
-{
-  "commander": "Raised by Giants",
-  "background": "Acolyte of Bahamut",
-  "enable_partner_mechanics": true
-}
+For Background pairings, use `--background` instead of `--secondary-commander`:
+```powershell
+python code/headless_runner.py --commander "Raised by Giants" --background "Acolyte of Bahamut" --enable-partner-mechanics true
 ```
 
-`secondary_commander` and `background` are mutually exclusive. `background` takes precedence if both are set.
+`--secondary-commander` and `--background` are mutually exclusive. `--background` takes precedence if both are set.
 
 ### Dry Run
 Add `--dry-run` to the CLI command to echo the resolved pairing (names, color identity, partner mode) without running a full build:
 
 ```powershell
-python code/main.py --dry-run --secondary-commander "Alena, Kessig Trapper" --enable-partner-mechanics true
+python code/headless_runner.py --dry-run --secondary-commander "Alena, Kessig Trapper" --enable-partner-mechanics true
 ```
-
----
-
-## Headless JSON Export
-
-Exported configs (`HEADLESS_EXPORT_JSON=1`) include the resolved partner fields:
-- `secondary_commander` or `background`
-- `combined_color_identity`
-- `partner_mode` (partner | partner_with | doctor | background)
 
 ---
 

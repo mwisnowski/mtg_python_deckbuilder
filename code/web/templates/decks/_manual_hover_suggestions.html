@@ -1,0 +1,18 @@
+{% if not suggestions %}
+<div class="muted text-sm" style="padding:.25rem 0;">No alternatives found.</div>
+{% else %}
+<div class="hover-suggestions-list" style="border-top:1px solid var(--border-color, #333); margin-top:.25rem; padding-top:.25rem;">
+  {% for s in suggestions %}
+  <div style="display:flex; justify-content:space-between; align-items:center; gap:.5rem; padding:.15rem 0;">
+    <span class="text-sm">
+      {{ s.name }}
+      <span class="muted">(CMC {{ s.cmc|int }}{% if s.price %}, ${{ '%.2f'|format(s.price) }}{% endif %})</span>
+    </span>
+    <button type="button" class="btn btn-sm"
+            hx-post="/decks/manual/{{ session_id }}/add"
+            hx-vals='{"name": "{{ s.name }}"}'
+            hx-target="#manual-deck-panel" hx-swap="outerHTML">+ Add</button>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}

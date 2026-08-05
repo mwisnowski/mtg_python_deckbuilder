@@ -2,6 +2,10 @@
 {% from 'partials/_macros.html' import printing_button, foil_toggle_button %}
 {% block banner_subtitle %}Finished Decks{% endblock %}
 {% block content %}
+{% set _notice = request.query_params.get('notice') %}
+{% if _notice %}
+<div class="text-sm" style="color:#f59e0b; margin-bottom:.5rem;">{{ _notice }}</div>
+{% endif %}
 <h2>Finished Deck</h2>
 {% if display_name %}
   <div><strong>{{ display_name }}</strong></div>
@@ -84,6 +88,12 @@
 
       {% if enable_upgrade_suggestions %}
       <a href="/decks/upgrades?name={{ name|urlencode }}&owner={{ owner_user_id|urlencode }}" class="btn" role="button" title="View potential card upgrades">Potential Upgrades</a>
+      {% endif %}
+      {% if is_owner and enable_manual_builder and csv_path %}
+      <form method="post" action="/decks/manual/edit-existing" style="display:inline; margin:0;">
+        <input type="hidden" name="name" value="{{ name }}" />
+        <button type="submit" class="btn" title="Edit this deck's cards">Edit Deck</button>
+      </form>
       {% endif %}
       <form method="get" action="/decks" style="display:inline; margin:0;">
         <button type="submit">Back to Finished Decks</button>

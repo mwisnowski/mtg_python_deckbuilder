@@ -1004,7 +1004,82 @@ BOARD_WIPE_EXCLUSION_PATTERNS: List[str] = [
     'from your library',
     'into your hand',
     'target player\'s library',
-    'that player\'s library'
+    'that player\'s library',
+    # "each turn" is a frequency idiom (e.g. "the first spell you cast from
+    # exile each turn"), not a mass-effect target - excludes false positives
+    # like Wild-Magic Sorcerer from mass_exile/mass_destruction matching.
+    'destroy each turn',
+    'destroys each turn',
+    'exile each turn',
+    'exiles each turn',
+    'sacrifice each turn',
+    'sacrifices each turn',
+    'return each turn',
+    'returns each turn',
+    # Card name coincidence: "Exile All Hallow's Eve with two scream counters"
+    # matches the bare 'exile all' mass-exile pattern because the card is
+    # literally named "All Hallow's Eve", not because it exiles everything.
+    "exile all hallow's eve"
+]
+
+# Patterns that indicate a mass-exile effect genuinely targets the battlefield
+# (not just graveyards) - used to keep modal/mixed cards like Farewell and
+# Shadows' Verdict tagged as Board Wipes even though they also exile graveyards.
+BOARD_WIPE_EXILE_TARGET_PATTERNS: List[str] = [
+    'exile all creatures',
+    'exile each creature',
+    'exile all permanents',
+    'exile each permanent',
+    'exile all nonland permanents',
+    'exile each nonland permanent',
+    'exile all nontoken permanents',
+    'exile all artifacts',
+    'exile each artifact',
+    'exile all enchantments',
+    'exile each enchantment',
+    'exile all planeswalkers',
+    'exile each planeswalker'
+]
+
+# "Return all/each ... card(s)" always refers to cards changing zones (from
+# exile via imprint, or from a graveyard), never permanents currently on the
+# battlefield (those are just "creatures"/"permanents", never "cards") - e.g.
+# Mimic Vat ("return each other card exiled with this artifact") and
+# Underworld Cerberus ("returns all creature cards from their graveyard").
+BOARD_WIPE_BOUNCE_CARDS_PATTERN: str = r"returns?\s+(all|each)(\s+[a-z'-]+){0,3}\s+cards?\b"
+
+# Patterns confirming a mass-bounce effect genuinely targets the battlefield
+# even when "return ... cards" also appears elsewhere (e.g. Soulquake bounces
+# creatures on the battlefield AND returns graveyard cards to hand). Uses a
+# negative lookahead so "return each creature card" (Cold Storage, Endless
+# Sands, Pyrrhic Revival) and "return all artifact and enchantment cards"
+# (Open the Vaults) aren't mistaken for a genuine "return each creature".
+BOARD_WIPE_BOUNCE_TARGET_PATTERNS: List[str] = [
+    r"returns?\s+(all|each)\s+creatures?\b(?!\s*(and\s+[a-z'-]+\s+)?cards?\b)",
+    r"returns?\s+(all|each)\s+permanents?\b(?!\s*(and\s+[a-z'-]+\s+)?cards?\b)",
+    r"returns?\s+(all|each)\s+nonland permanents?\b(?!\s*(and\s+[a-z'-]+\s+)?cards?\b)",
+    r"returns?\s+(all|each)\s+artifacts?\b(?!\s*(and\s+[a-z'-]+\s+)?cards?\b)",
+    r"returns?\s+(all|each)\s+lands?\b(?!\s*(and\s+[a-z'-]+\s+)?cards?\b)",
+    r"returns?\s+(all|each)\s+tokens?\b(?!\s*(and\s+[a-z'-]+\s+)?cards?\b)"
+]
+
+# Constants for graveyard hate effects (denying/removing cards from graveyards).
+# Uses a clause-bounded window so "exile" and "graveyard" must appear near each
+# other, catching phrasings like "exile target player's graveyard" and
+# "if a card would be put into a graveyard from anywhere, exile it instead".
+GRAVEYARD_HATE_TEXT_PATTERNS: List[str] = [
+    r'exile[^.]{0,200}graveyards?\b',
+    r'graveyards?[^.]{0,200}exile'
+]
+
+# Excludes self-graveyard-as-a-resource mechanics (Delve, Escape, Embalm,
+# Eternalize, and similar cost/activation syntax) which exile from "your"
+# own graveyard as a cost, not as disruption of an opponent's graveyard.
+GRAVEYARD_HATE_EXCLUSION_PATTERNS: List[str] = [
+    # "your graveyard" is self-reanimation/resource use (not hate) - covers
+    # Delve, Escape, Embalm, Eternalize, and effects like Fabrication Foundry
+    # that pair an unrelated exile cost with reanimating from your own graveyard.
+    'your graveyard'
 ]
 
 # Constants for topdeck manipulation

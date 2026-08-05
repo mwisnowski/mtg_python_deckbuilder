@@ -1370,9 +1370,13 @@ def purge_old_temp_sessions() -> None:
 
 # Staple roles that are always valuable regardless of deck themes.
 # Any card covering one of these tags gets a bonus to prevent it being cut.
+# "Interaction" is intentionally excluded from Removal - it's a broad catch-all
+# tag also applied to board wipes and protection-granting cards (e.g. Swiftfoot
+# Boots, Teferi's Protection), which aren't actually removal. "Counterspells"
+# IS included - countering a spell is functionally removal.
 _STAPLE_ROLE_GROUPS: dict[str, frozenset[str]] = {
     "Ramp":         frozenset({"Ramp", "Mana Dork", "Mana Rock"}),
-    "Removal":      frozenset({"Removal", "Spot Removal", "Interaction"}),
+    "Removal":      frozenset({"Removal", "Spot Removal", "Counterspells"}),
     "Board Wipe":   frozenset({"Board Wipes"}),
     "Card Draw":    frozenset({"Card Draw", "Unconditional Draw", "Card Advantage"}),
     "Protection":   frozenset({"Protective Effects"}),
@@ -1382,7 +1386,7 @@ _STAPLE_ROLE_BONUS = 2.5   # per matched staple role group
 # Role order for fill suggestions section 1 — (analysis_key, display_label, tag_set_lower)
 _ROLE_ORDER: list[tuple[str, str, set[str]]] = [
     ("ramp",           "Ramp",        {"ramp", "mana rock", "mana dork"}),
-    ("removal",        "Removal",     {"removal", "spot removal"}),
+    ("removal",        "Removal",     {"removal", "spot removal", "counterspells"}),
     ("wipes",          "Board Wipes", {"board wipes"}),
     ("card_advantage", "Card Draw",   {"card draw", "card advantage", "unconditional draw"}),
     ("protection",     "Protection",  {"protective effects"}),

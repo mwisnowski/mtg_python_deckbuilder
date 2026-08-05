@@ -107,6 +107,15 @@ Start here for interactive deck creation.
 - `WEB_IDEALS_UI=slider` (default) shows interactive range sliders for ideal counts with live validation. Use `input` for traditional text boxes.
 - See [`docs/user_guides/build_wizard.md`](docs/user_guides/build_wizard.md) for the full 8-step wizard walkthrough.
 
+### Manual Deck Builder
+Skip the automated pipeline and build a deck yourself.
+- Pick a commander (and optional themes/bracket/budget), then browse the full color-identity-legal card pool: filter by role, sort by relevance/mana value/name/price, or search by name.
+- Add and remove cards one at a time; a live role-health bar tracks Ramp/Removal/Draw/Lands/Threats against target counts (green/yellow/red).
+- Hovering a pool card surfaces a few alternative "Other Good Options" in the same role and a similar mana value.
+- Save the finished deck (eligible for Suggested Upgrades and Import Analysis like any other deck) or export CSV/TXT without saving.
+- Controlled by `ENABLE_MANUAL_BUILDER` (default: enabled).
+- See [`docs/user_guides/manual_builder.md`](docs/user_guides/manual_builder.md) for the full guide.
+
 ### Initial Setup
 Refresh data and caches when formats shift.
 - **First run**: Auto-downloads pre-tagged card database from GitHub (instant setup)
@@ -248,7 +257,7 @@ Browse all user guides without leaving the browser.
 ### Public API
 A full JSON REST API mirroring the web UI's core features, for scripting and third-party clients.
 - Base path `/api/v1`; every response is a JSON envelope (`{"ok": true, "data": ...}` or `{"ok": false, "error": ..., "code": ...}`).
-- Covers deck building, deck management, card/commander/theme browsing, owned-card lists, price checks, upgrade suggestions, and account auth (register/login/logout), all authenticated with per-account API keys (`Authorization: Bearer <key>`).
+- Covers deck building (auto, guided, and manual modes), deck management, card/commander/theme browsing, owned-card lists, price checks, upgrade suggestions, and account auth (register/login/logout), all authenticated with per-account API keys (`Authorization: Bearer <key>`).
 - Interactive docs at `/api/v1/docs` (Swagger UI) and `/api/v1/redoc`; toggle both with `API_DOCS_ENABLED`.
 - CORS is open to any origin by default so browser-based clients (e.g. the mobile companion app's web dev build) work with no setup; restrict with `CORS_ALLOWED_ORIGINS` (comma-separated allow-list) or disable entirely with `CORS_ALLOWED_ORIGINS=none`.
 
@@ -580,6 +589,7 @@ Licensed under the [MIT License](LICENSE). Card data and imagery are provided by
 
 ### User guides (also accessible in-app at `/help`)
 - [Build Wizard](docs/user_guides/build_wizard.md) – 8-step wizard flow, theme picker, combo preferences, and ideal count sliders.
+- [Manual Deck Builder](docs/user_guides/manual_builder.md) – build a deck yourself by browsing the pool, adding/removing cards, and tracking role health.
 - [Batch Build & Compare](docs/user_guides/batch_build_compare.md) – parallel builds, overlap statistics, and Synergy Builder.
 - [Quick Build & Skip Controls](docs/user_guides/quick_build_skip_controls.md) – auto-advance stages and stage order.
 - [Bracket Compliance](docs/user_guides/bracket_compliance.md) – enforcement modes, card lists, and rule-zero notes.

@@ -427,7 +427,7 @@ async def build_alternatives(
             def _is_wipe(tags: list[str]) -> bool:
                 return any(("board wipe" in t) or ("mass removal" in t) for t in tags)
             def _is_removal(tags: list[str]) -> bool:
-                return any(("removal" in t) or ("spot removal" in t) for t in tags)
+                return any(("removal" in t) or ("spot removal" in t) or ("counterspells" in t) for t in tags)
             def _is_draw(tags: list[str]) -> bool:
                 return any(("draw" in t) or ("card advantage" in t) for t in tags)
             def _matches_selected(tags: list[str]) -> bool:

@@ -250,6 +250,63 @@ interface SkeletonManager {
     hideSkeletons(target);
   });
 
+  // Manual Deck Builder: adding/removing a card resizes the pool category it
+  // belongs to (the card leaves/re-enters the pool), which shifts everything
+  // near/below it, making the viewport appear to "jump" even though scroll
+  // position never moved. A category header alone isn't a reliable anchor
+  // (its own top doesn't move when only its *contents* shrink, so a user
+  // scrolled into the middle of that same category sees no correction).
+  // Anchor instead to whatever card tile/category header is actually under
+  // a point near the top of the viewport, then correct scroll by however far
+  // that same element moved once the swap settles.
+  (function(){
+    let anchor: { selector: string; top: number } | null = null;
+
+    function cssEscape(s: string): string {
+      const w = window as any;
+      return w.CSS && w.CSS.escape ? w.CSS.escape(s) : s.replace(/["\\]/g, '\\$&');
+    }
+    function nameFromHxVals(elt: HTMLElement | null): string | null {
+      const raw = elt && elt.getAttribute && elt.getAttribute('hx-vals');
+      if (!raw) return null;
+      try { return JSON.parse(raw).name || null; } catch (_e) { return null; }
+    }
+    function pickAnchor(skipName: string | null): { selector: string; top: number } | null {
+      const x = Math.floor(window.innerWidth / 2);
+      const probes = [96, 160, 240, 320];
+      for (let i = 0; i < probes.length; i++){
+        let el = document.elementFromPoint(x, probes[i]) as HTMLElement | null;
+        while (el && el !== document.body){
+          const name = el.getAttribute && el.getAttribute('data-card-name');
+          if (name && el.classList && el.classList.contains('card-browser-tile') && name !== skipName){
+            return { selector: '.card-browser-tile[data-card-name="' + cssEscape(name) + '"]', top: el.getBoundingClientRect().top };
+          }
+          if (el.tagName === 'DETAILS' && el.classList && el.classList.contains('pool-category') && el.id){
+            return { selector: '#' + el.id, top: el.getBoundingClientRect().top };
+          }
+          el = el.parentElement;
+        }
+      }
+      return null;
+    }
+
+    document.addEventListener('htmx:beforeRequest', function(e){
+      const detail = e.detail as any;
+      const target = detail && detail.target;
+      if (!target || target.id !== 'manual-deck-panel') return;
+      anchor = pickAnchor(nameFromHxVals(detail.elt as HTMLElement));
+    });
+    document.addEventListener('htmx:afterSettle', function(){
+      if (!anchor) return;
+      const el = document.querySelector<HTMLElement>(anchor.selector);
+      if (el){
+        const delta = el.getBoundingClientRect().top - anchor.top;
+        if (Math.abs(delta) > 0.5) window.scrollBy(0, delta);
+      }
+      anchor = null;
+    });
+  })();
+
   // Commander catalog image lazy loader
   (function(){
     let PLACEHOLDER_PIXEL = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';

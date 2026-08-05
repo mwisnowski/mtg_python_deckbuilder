@@ -50,15 +50,16 @@
         <button type="button" id="btn-export-visible-csv" class="btn" disabled>Export visible CSV</button>
       </div>
 
-      {# Search row — exact card browser layout #}
+      {# Search row #}
       <div class="filter-row">
         <label for="search-input">Search</label>
-        <div class="autocomplete-container" style="position:relative; flex:1; max-width:300px;">
+        <div class="autocomplete-container" style="position:relative; flex:1; max-width:420px;">
           <input
             type="text"
             id="search-input"
             value="{{ search }}"
-            placeholder="Search card names..."
+            placeholder="Search by name or using Scryfall-style flags"
+            title="Plain words match the card name. Also supports Scryfall-style flags: t:/type: (e.g. t:creature), c:/color:, id:/identity:, tag:/theme:, pow:/tou:/mv: (e.g. pow>=4). Each accepts :, =, >, <, >=, <=, != and may be negated with a leading -, e.g. -t:land."
             autocomplete="off"
             role="combobox"
             aria-autocomplete="list"
@@ -72,6 +73,9 @@
         <button type="button" class="btn" onclick="document.getElementById('search-input').value=''; applyFilter();" style="padding:.3rem .75rem;">Clear</button>
         {% endif %}
         <button type="button" class="btn" onclick="applyFilter()">Search</button>
+      </div>
+      <div class="filter-row">
+        <span class="muted text-sm">Supports <a href="https://scryfall.com/docs/syntax" target="_blank" rel="noopener">Scryfall-style</a> flags, e.g. <code>t:creature</code>, <code>c:rg</code>, <code>mv&gt;=4</code></span>
       </div>
 
       {# Themes multi-select row — exact card browser layout #}
@@ -105,33 +109,8 @@
         </div>
       </div>
 
-      {# Filter controls row — exact card browser layout #}
+      {# Filter controls row #}
       <div class="filter-row">
-        {% if all_colors %}
-        <label for="filter-color">Color</label>
-        <select id="filter-color" onchange="applyFilter()">
-          <option value="">All Colors</option>
-          {% for c in all_colors %}<option value="{{ c }}" {% if filter_color == c %}selected{% endif %}>{{ c }}</option>{% endfor %}
-          {% if color_combos and color_combos|length %}
-          <option value="" disabled>──────────</option>
-          {% for code, label in color_combos %}<option value="{{ code }}" {% if filter_color == code %}selected{% endif %}>{{ label }}</option>{% endfor %}
-          {% endif %}
-        </select>
-        <label style="display:flex; align-items:center; gap:0.35rem; cursor:pointer; white-space:nowrap; font-size:0.85rem;" title="Exact: only that color combination. Inclusive: also matches cards with additional colors (e.g. WU also matches Bant, Esper, Jeskai).">
-          <input type="checkbox" id="filter-color-inclusive" onchange="applyFilter()"
-                 {% if color_mode == 'inclusive' %}checked{% endif %} />
-          Inclusive match
-        </label>
-        {% endif %}
-
-        {% if all_types %}
-        <label for="filter-type">Type</label>
-        <select id="filter-type" onchange="applyFilter()">
-          <option value="">All Types</option>
-          {% for t in all_types %}<option value="{{ t }}" {% if filter_type == t %}selected{% endif %}>{{ t }}</option>{% endfor %}
-        </select>
-        {% endif %}
-
         <label for="filter-sort">Sort By</label>
         <select id="filter-sort" onchange="applyFilter()">
           <option value="name" {% if not sort_by or sort_by == 'name' %}selected{% endif %}>Name (A–Z)</option>
@@ -143,40 +122,6 @@
 
         <button type="button" class="btn" onclick="applyFilter()">Apply Filters</button>
         <button type="button" class="btn" onclick="window.location.href='/owned'" style="background-color: #666;">Clear Filters</button>
-      </div>
-
-      {# CMC + Power + Toughness range row #}
-      <div class="filter-row" style="margin-top: 0.5rem;">
-        <label for="filter-cmc-min">CMC Range</label>
-        <div style="display:flex; align-items:center; gap:0.5rem; flex:1; max-width:300px;">
-          <input type="number" id="filter-cmc-min" min="0" max="16"
-            value="{{ cmc_min if cmc_min is not none and cmc_min != '' else '' }}"
-            placeholder="Min" style="width:70px;" onchange="applyFilter()" />
-          <span>–</span>
-          <input type="number" id="filter-cmc-max" min="0" max="16"
-            value="{{ cmc_max if cmc_max is not none and cmc_max != '' else '' }}"
-            placeholder="Max" style="width:70px;" onchange="applyFilter()" />
-        </div>
-        <label for="filter-power-min">Power</label>
-        <div style="display:flex; align-items:center; gap:0.5rem; flex:1; max-width:250px;">
-          <input type="number" id="filter-power-min" min="0" max="99"
-            value="{{ power_min if power_min is not none and power_min != '' else '' }}"
-            placeholder="Min" style="width:70px;" onchange="applyFilter()" />
-          <span>–</span>
-          <input type="number" id="filter-power-max" min="0" max="99"
-            value="{{ power_max if power_max is not none and power_max != '' else '' }}"
-            placeholder="Max" style="width:70px;" onchange="applyFilter()" />
-        </div>
-        <label for="filter-tough-min">Toughness</label>
-        <div style="display:flex; align-items:center; gap:0.5rem; flex:1; max-width:250px;">
-          <input type="number" id="filter-tough-min" min="0" max="99"
-            value="{{ tough_min if tough_min is not none and tough_min != '' else '' }}"
-            placeholder="Min" style="width:70px;" onchange="applyFilter()" />
-          <span>–</span>
-          <input type="number" id="filter-tough-max" min="0" max="99"
-            value="{{ tough_max if tough_max is not none and tough_max != '' else '' }}"
-            placeholder="Max" style="width:70px;" onchange="applyFilter()" />
-        </div>
       </div>
     </div>
     </div>{# end .filter-collapsible #}
@@ -229,18 +174,17 @@
           {% if cols and cols|length %}
           <div class="mana-group" aria-hidden="true">
             {% set dots = (badges.dots if badges and badges.dots else cols) %}
-            {% for c in dots %}<a href="/owned?filter_color={{ c }}{% if color_mode == 'inclusive' %}&color_mode=inclusive{% endif %}" class="mana-link" onclick="event.stopPropagation()" title="{{ c }}"><span class="mana mana-{{ c }}"></span></a>{% endfor %}
+            {% for c in dots %}<a href="/owned?search={{ ('id=' ~ c)|urlencode }}" class="mana-link" onclick="event.stopPropagation()" title="{{ c }}"><span class="mana mana-{{ c }}"></span></a>{% endfor %}
           </div>
           <span class="sr-only"> Colors: {{ cols|join(', ') }}</span>
           {% endif %}
           {% if badges and (badges.primary or badges.subs) %}
-          {% set badge_inclusive = color_mode == 'inclusive' or (badges.subs and badges.subs|length > 0) %}
           <div class="tile-color-names">
             {% if badges.primary %}
-            <a href="/owned?filter_color={{ badges.primary.filter }}{% if badge_inclusive %}&color_mode=inclusive{% endif %}" class="tile-color-name-badge tile-color-name-primary" onclick="event.stopPropagation()">{{ badges.primary.name }}</a>
+            <a href="/owned?search={{ ('id=' ~ badges.primary.filter)|urlencode }}" class="tile-color-name-badge tile-color-name-primary" onclick="event.stopPropagation()">{{ badges.primary.name }}</a>
             {% endif %}
             {% for sub in badges.subs %}
-            <a href="/owned?filter_color={{ sub.filter }}{% if badge_inclusive %}&color_mode=inclusive{% endif %}" class="tile-color-name-badge tile-color-name-sub" onclick="event.stopPropagation()">{{ sub.name }}</a>
+            <a href="/owned?search={{ ('id=' ~ sub.filter)|urlencode }}" class="tile-color-name-badge tile-color-name-sub" onclick="event.stopPropagation()">{{ sub.name }}</a>
             {% endfor %}
           </div>
           {% endif %}
@@ -262,19 +206,10 @@
 </section>
 
   <script>
-// Build URL and redirect — same method as card browser
+// Build URL and redirect -- same method as card browser
 function applyFilter() {
   var search = (document.getElementById('search-input') || {value:''}).value || '';
   var sort   = (document.getElementById('filter-sort')  || {value:''}).value || '';
-  var type   = (document.getElementById('filter-type')  || {value:''}).value || '';
-  var color  = (document.getElementById('filter-color') || {value:''}).value || '';
-  var colorInclusive = (document.getElementById('filter-color-inclusive') || {checked:false}).checked || false;
-  var cmcMin = (document.getElementById('filter-cmc-min')   || {value:''}).value || '';
-  var cmcMax = (document.getElementById('filter-cmc-max')   || {value:''}).value || '';
-  var pwMin  = (document.getElementById('filter-power-min') || {value:''}).value || '';
-  var pwMax  = (document.getElementById('filter-power-max') || {value:''}).value || '';
-  var thMin  = (document.getElementById('filter-tough-min') || {value:''}).value || '';
-  var thMax  = (document.getElementById('filter-tough-max') || {value:''}).value || '';
 
   // Collect theme chips
   var themeChips = document.querySelectorAll('#selected-themes .theme-chip');
@@ -283,15 +218,6 @@ function applyFilter() {
   var params = new URLSearchParams();
   if (search) params.set('search', search);
   if (sort && sort !== 'name') params.set('sort_by', sort);
-  if (type)   params.set('filter_type', type);
-  if (color)  params.set('filter_color', color);
-  if (color && colorInclusive) params.set('color_mode', 'inclusive');
-  if (cmcMin) params.set('cmc_min', cmcMin);
-  if (cmcMax) params.set('cmc_max', cmcMax);
-  if (pwMin)  params.set('power_min', pwMin);
-  if (pwMax)  params.set('power_max', pwMax);
-  if (thMin)  params.set('tough_min', thMin);
-  if (thMax)  params.set('tough_max', thMax);
   themes.forEach(function(t){ params.append('filter_tags', t); });
 
   var qs = params.toString();
@@ -551,10 +477,6 @@ document.addEventListener('keydown', function(e) {
     var n = 0;
     var si = document.getElementById('search-input');
     if (si && si.value) n++;
-    var fc = document.getElementById('filter-color');
-    if (fc && fc.value) n++;
-    var ft = document.getElementById('filter-type');
-    if (ft && ft.value) n++;
     n += document.querySelectorAll('#selected-themes .theme-chip').length;
     el.textContent = n > 0 ? ' (' + n + ' active)' : '';
   }

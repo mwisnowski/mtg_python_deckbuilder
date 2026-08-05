@@ -1,0 +1,48 @@
+<div id="manual-deck-panel" class="manual-deck-panel">
+  <h3 style="margin-top:0;">Current Deck
+    <span class="muted text-sm">({{ total_with_commander }}/{{ deck_size_target }} Cards)</span>
+  </h3>
+  <button type="button" class="btn btn-sm"
+          hx-post="/decks/manual/{{ session_id }}/land-package"
+          hx-target="#manual-deck-panel" hx-swap="outerHTML"
+          title="Add basic lands (split by color) plus staple utility lands like Command Tower and Reliquary Tower">
+    + Add Land Package
+  </button>
+  {% if warning %}
+  <div class="text-sm" style="color:#f59e0b; margin-bottom:.5rem;">{{ warning }}</div>
+  {% endif %}
+  {% if not groups %}
+  <p class="muted">No cards added yet. Use "+ Add" on cards in the pool to the left.</p>
+  {% endif %}
+  {% for group in groups %}
+  <div style="margin-bottom:.75rem;">
+    <div class="muted text-sm" style="text-transform:uppercase; letter-spacing:.05em;">{{ group.role }} ({{ group.cards|sum(attribute='count') }})</div>
+    {% for c in group.cards %}
+    <div class="text-sm" data-card-name="{{ c.name }}" style="display:flex; justify-content:space-between; align-items:center; padding:.15rem 0; gap:.5rem;">
+      <span>{{ c.name }}{% if c.roles %} <span class="muted">({{ c.roles|join(', ') }})</span>{% endif %}{% if c.count > 1 %} &times;{{ c.count }}{% endif %}</span>
+      {% if c.is_multi_copy %}
+      <div style="display:flex; align-items:center; gap:.25rem;">
+        <input type="number" min="0" value="{{ c.count }}" style="width:3.5rem;"
+               hx-post="/decks/manual/{{ session_id }}/set-count"
+               hx-trigger="change"
+               hx-vals='{"name": "{{ c.name }}"}'
+               hx-include="this"
+               name="count"
+               hx-target="#manual-deck-panel" hx-swap="outerHTML"
+               aria-label="Copies of {{ c.name }}" />
+        <button type="button" class="btn btn-sm"
+                hx-post="/decks/manual/{{ session_id }}/remove"
+                hx-vals='{"name": "{{ c.name }}"}'
+                hx-target="#manual-deck-panel" hx-swap="outerHTML">Remove</button>
+      </div>
+      {% else %}
+      <button type="button" class="btn btn-sm"
+              hx-post="/decks/manual/{{ session_id }}/remove"
+              hx-vals='{"name": "{{ c.name }}"}'
+              hx-target="#manual-deck-panel" hx-swap="outerHTML">Remove</button>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% endfor %}
+</div>

@@ -14,6 +14,8 @@ services:
       # (Enable/disable visibility of sections; most default to off in code)
       # ------------------------------------------------------------------
 
+      # TEMPLATE_AUTO_RELOAD: "1"    # 1=stat every template file per render to pick up edits without a rebuild (slow on Docker Desktop bind mounts, dev-only); default 0
+
       # UI features/flags
       SHOW_LOGS: "1"                # 1=enable /logs page; 0=hide
       SHOW_SETUP: "1"               # 1=show Setup/Tagging card; 0=hide (still runs if WEB_AUTO_SETUP=1)
@@ -45,6 +47,7 @@ services:
       SIMILARITY_CACHE_PATH: "card_files/similarity_cache.parquet"  # Path to Parquet cache file
       ENABLE_BATCH_BUILD: "1"       # 1=enable Build X and Compare feature; 0=hide build count slider
       ENABLE_UPGRADE_SUGGESTIONS: "1"  # 1=enable Potential Upgrades page on saved decks; 0=hide
+      ENABLE_MANUAL_BUILDER: "1"    # 1=enable Manual Deck Builder (browse pool, add/remove cards yourself); 0=hide
       SHOW_NEW_BADGE: "1"           # 1=show "New" badge on recently released cards site-wide; 0=hide badge only
       UPGRADE_WINDOW_MONTHS: "6"    # Rolling-months window for New Cards pool (default: 6)
       UPGRADE_PAGE_SIZE: "16"       # Cards per page on Potential Upgrades (default: 16, range 5-50)

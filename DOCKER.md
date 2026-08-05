@@ -301,6 +301,7 @@ See `.env.example` for the full catalog. Common knobs:
 | `SIMILARITY_CACHE_ENABLED` | `1` | Use pre-computed similarity cache for fast card detail pages. |
 | `ENABLE_BATCH_BUILD` | `1` | Enable Build X and Compare feature (build multiple decks in parallel and compare results). |
 | `ENABLE_UPGRADE_SUGGESTIONS` | `1` | Enable the Potential Upgrades page on saved decks. Set to `0` to hide the feature entirely. |
+| `ENABLE_MANUAL_BUILDER` | `1` | Enable the Manual Deck Builder ("Build Manually"): browse the legal card pool and add/remove cards yourself instead of running the auto-builder. Set to `0` to hide the feature entirely. |
 | `SHOW_NEW_BADGE` | `1` | Show the "New" badge on recently released cards across the site. Set to `0` to suppress the badge without disabling upgrade suggestions. |
 | `UPGRADE_WINDOW_MONTHS` | `6` | Rolling-months window used to identify New Cards (cards released within the last N months). |
 | `UPGRADE_PAGE_SIZE` | `16` | Cards shown per page on the Potential Upgrades page (valid range: 5–50). |
@@ -335,6 +336,7 @@ See `.env.example` for the full catalog. Common knobs:
 | `WEB_AUTO_ENFORCE` | `0` | Re-export decks after auto-applying compliance fixes. |
 | `WEB_THEME_PICKER_DIAGNOSTICS` | `1` | Enable theme diagnostics endpoints. |
 | `THEME_MIN_CARDS` | `5` | Minimum card count threshold for themes. Themes with fewer cards are stripped from YAML catalogs, JSON picker files, and parquet metadata during setup/tagging. Set to 1 to keep all themes. |
+| `TEMPLATE_AUTO_RELOAD` | `0` | Dev-only: re-stat every Jinja2 template file on every render so template edits appear without a rebuild. Adds noticeable latency on Docker Desktop bind mounts (hundreds of stat calls per manual-builder response); leave off unless actively editing templates. |
 
 ### Paths and data overrides
 

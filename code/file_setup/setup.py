@@ -32,7 +32,7 @@ from .setup_constants import (
     FILTER_CONFIG,
     SORT_CONFIG,
 )
-from .setup_utils import _load_banned_cards
+from .setup_utils import _load_banned_cards, _load_commander_illegal_cards
 import logging_util
 from path_util import card_files_raw_dir, get_processed_cards_path
 import settings
@@ -248,11 +248,28 @@ def process_raw_parquet(raw_path: str, output_path: str) -> pd.DataFrame:
     df = df[mask]
     logger.debug(f"Removed banned cards: {before - len(df)} filtered out")
     
+    # Step 4b: Remove cards never tournament-legal in Commander (Scryfall
+    # legalities.commander == "not_legal" on every printing), e.g. promo-only
+    # cards like Aswan Jaguar - distinct from the hardcoded set-code/type
+    # exclusions above, which can't keep up with every one-off promo set.
+    illegal_set = {c.casefold() for c in _load_commander_illegal_cards()}
+    if illegal_set:
+        logger.info("Removing cards not tournament-legal in Commander")
+        name_lc = df['name'].astype(str).str.casefold()
+        face_lc = df['faceName'].astype(str).str.casefold() if 'faceName' in df.columns else name_lc
+        mask = ~(name_lc.isin(illegal_set) | face_lc.isin(illegal_set))
+        before = len(df)
+        df = df[mask]
+        logger.debug(f"Removed Commander-illegal cards: {before - len(df)} filtered out")
+    
     # Step 5: Remove special card types
+    # case=False: some silver-bordered/joke cards (e.g. Un-set "sAnS mERcY",
+    # type "pLAnE — sECreT LaIR") use scrambled capitalization in their type
+    # line, which a case-sensitive substring match would miss entirely.
     logger.info("Removing special card types")
     for card_type in CARD_TYPES_TO_EXCLUDE:
         before = len(df)
-        df = df[~df['type'].str.contains(card_type, na=False)]
+        df = df[~df['type'].str.contains(card_type, case=False, na=False)]
         if len(df) < before:
             logger.debug(f"Removed type {card_type}: {before - len(df)} cards")
     
@@ -504,7 +521,11 @@ def _compute_is_new_from_bulk(bulk_path: str, window_months: int, today) -> "fro
                 ra = card.get("released_at", "")
                 reprint = card.get("reprint", True)
                 sc = card.get("set", "")
-                if not name or not ra or reprint:
+                set_type = card.get("set_type", "")
+                # Art Series ("memorabilia") and Alchemy ("alchemy") products
+                # aren't paper Commander-legal printings; exclude them so
+                # they can't get indexed as a new card at all.
+                if not name or not ra or reprint or set_type in ("memorabilia", "alchemy"):
                     continue
                 try:
                     card_date = datetime.date.fromisoformat(ra)
@@ -518,11 +539,15 @@ def _compute_is_new_from_bulk(bulk_path: str, window_months: int, today) -> "fro
                 # cards just because a newer batch in the same set code hit the window.
                 in_set_window = (sc in window_set_codes and card_date == expansion_sets.get(sc))
                 if in_set_window or card_date >= rolling_cutoff:
-                    lower = name.lower()
-                    new_names.add(lower)
-                    if " // " in name:  # also index each DFC face
-                        for face in name.split(" // "):
-                            new_names.add(face.strip().lower())
+                    # Index only the full (combined, for DFCs) name - our own
+                    # processed data's "name" column always stores the same
+                    # combined "Front // Back" string Scryfall uses, so this
+                    # already matches real new DFCs without splitting. Indexing
+                    # individual faces caused false positives: an unrelated,
+                    # decades-old card can share an exact name with one face
+                    # of a brand-new DFC (e.g. a new card's back face named
+                    # "Brainstorm" falsely flagged the classic instant).
+                    new_names.add(name.lower())
     except Exception:
         pass
 
@@ -535,9 +560,13 @@ _new_card_names_cache: "tuple[float, frozenset] | None" = None
 def refresh_card_lists_from_bulk(bulk_path: str, output_func=None) -> None:
     """Scan the local Scryfall bulk data and update card list JSON files.
 
-    Writes (or overwrites) two files:
+    Writes (or overwrites) three files:
     - ``config/card_lists/game_changers.json`` — cards where ``game_changer == True``
     - ``config/card_lists/banned_cards.json``  — cards where ``legalities.commander == "banned"``
+    - ``config/card_lists/commander_illegal_cards.json`` — cards where every
+      printing is ``legalities.commander == "not_legal"`` (promo/novelty
+      cards like Aswan Jaguar that were never made tournament-legal, as
+      opposed to a real card that's since been banned)
 
     This keeps both lists in sync with Scryfall without manual maintenance.
     Called automatically during ``refresh_prices_parquet()`` which already downloads
@@ -558,6 +587,9 @@ def refresh_card_lists_from_bulk(bulk_path: str, output_func=None) -> None:
     _log("Refreshing card lists from Scryfall bulk data …")
     game_changers: set[str] = set()
     banned: set[str] = set()
+    legal_names: set[str] = set()
+    not_legal_names: set[str] = set()
+    today_iso = _dt.date.today().isoformat()
 
     try:
         with open(bulk_path, "r", encoding="utf-8") as fh:
@@ -580,12 +612,29 @@ def refresh_card_lists_from_bulk(bulk_path: str, output_func=None) -> None:
 
                 # Commander banned list
                 legalities = card.get("legalities") or {}
-                if legalities.get("commander") == "banned":
+                commander_legality = legalities.get("commander")
+                if commander_legality == "banned":
                     banned.add(name)
+                elif commander_legality == "legal":
+                    legal_names.add(name)
+                elif commander_legality == "not_legal":
+                    # Scryfall marks not-yet-released prerelease/spoiler
+                    # printings "not_legal" on every format, even for
+                    # ordinary reprints of already-legal cards - ignore
+                    # those rather than treating them as permanently illegal.
+                    released_at = card.get("released_at") or ""
+                    if released_at and released_at > today_iso:
+                        continue
+                    not_legal_names.add(name)
 
     except Exception as exc:
         _log(f"Warning: Error scanning bulk data for card lists ({exc}). Skipping.")
         return
+
+    # A card is truly Commander-illegal only if NONE of its printings are
+    # legal (e.g. Aswan Jaguar) - a real card that also has a silver-bordered
+    # /promo printing marked not_legal should stay in the pool.
+    commander_illegal = not_legal_names - legal_names
 
     now_iso = _dt.datetime.utcnow().strftime("%Y-%m-%d")
 
@@ -617,6 +666,20 @@ def refresh_card_lists_from_bulk(bulk_path: str, output_func=None) -> None:
         _log(f"Updated banned_cards.json — {len(banned)} cards.")
     except Exception as exc:
         _log(f"Warning: Could not write banned_cards.json ({exc}).")
+
+    # Write commander_illegal_cards.json
+    illegal_path = Path("config/card_lists/commander_illegal_cards.json")
+    try:
+        illegal_data = {
+            "cards": sorted(commander_illegal),
+            "list_version": f"scryfall-{now_iso}",
+            "generated_at": now_iso,
+            "source": "scryfall bulk data (legalities.commander == not_legal on every printing)",
+        }
+        illegal_path.write_text(json.dumps(illegal_data, indent=2, ensure_ascii=False), encoding="utf-8")
+        _log(f"Updated commander_illegal_cards.json — {len(commander_illegal)} cards.")
+    except Exception as exc:
+        _log(f"Warning: Could not write commander_illegal_cards.json ({exc}).")
 
 
 def get_new_card_names() -> "frozenset[str]":
@@ -735,7 +798,10 @@ def refresh_prices_parquet(output_func=None) -> None:
         _today = _dt.date.today()
         _window_months = int(os.environ.get("UPGRADE_WINDOW_MONTHS", "6"))
         _is_new = _compute_is_new_from_bulk(bulk_path, _window_months, _today)
-        df["isNew"] = df[name_col].fillna("").str.lower().isin(_is_new)
+        # Match on the full combined "name" (not faceName): _is_new only
+        # contains full card names, and matching per-face would falsely flag
+        # unrelated old cards that share a name with one face of a new DFC.
+        df["isNew"] = df["name"].fillna("").str.lower().isin(_is_new)
         df["isNewUpdated"] = _today.isoformat()
         _log(f"Added isNew column — {int(df['isNew'].sum()):,} new cards in window.")
     except Exception as _exc:

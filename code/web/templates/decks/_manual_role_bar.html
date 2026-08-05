@@ -1,0 +1,13 @@
+<div id="manual-role-bar" class="role-health-bar"{% if oob %} hx-swap-oob="true"{% endif %}>
+  {% for pill in pills %}
+  <span class="role-pill role-pill-{{ pill.status }}"
+        title="{{ pill.label }}: {{ pill.actual }} of {{ pill.target }} target">{{ pill.label }} {{ pill.actual }}/{{ pill.target }}</span>
+  {% endfor %}
+</div>
+{% if warnings %}
+<div id="manual-role-warnings" class="muted text-sm" style="margin-top:.35rem;"{% if oob %} hx-swap-oob="true"{% endif %}>
+  {% for w in warnings %}<div>{{ w }}</div>{% endfor %}
+</div>
+{% else %}
+<div id="manual-role-warnings"{% if oob %} hx-swap-oob="true"{% endif %}></div>
+{% endif %}

@@ -795,7 +795,10 @@ interface PointerEventLike {
       }
 
       // List view spans (deck summary list mode, finished deck list, etc.)
-      if (el.hasAttribute && el.hasAttribute('data-card-name')) return el;
+      // Use closest() so hovering a child (card name text, remove button)
+      // still resolves to the row carrying data-card-name.
+      const listRow = el.closest && el.closest('[data-card-name]');
+      if (listRow) return listRow;
 
       return null;
     }

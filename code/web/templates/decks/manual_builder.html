@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% block banner_subtitle %}Manual Deck Builder{% endblock %}
+{% block content %}
+<script>window._budgetCfg={"total":{{ (budget_total or 0)|float }},"card_ceiling":{{ budget_per_card|float if budget_per_card else 'null' }}};</script>
+<h2>Manual Deck Builder</h2>
+<div class="muted">Commander: <strong>{{ commander }}</strong>
+  {% if themes and themes|length %} • Themes: {{ themes|join(', ') }}{% endif %}
+  {% if color_identity and color_identity|length %} • Color Identity: {{ color_identity|join('') }}{% endif %}
+</div>
+<div class="muted">Bracket: {{ bracket }}
+  {% if budget_total %} • Budget: ${{ '%.2f'|format(budget_total) }}{% endif %}
+</div>
+{% if edit_source_name %}
+<div class="muted text-sm" style="margin-top:.25rem;">Editing <strong>{{ edit_source_name }}</strong> (saving will overwrite this deck).</div>
+{% endif %}
+
+{% include "decks/_manual_bracket_bar.html" %}
+
+<div style="display:flex; gap:1.5rem; margin-top:1rem; flex-wrap:wrap;">
+  <nav class="pool-toc-sidebar pool-category-toc">
+    {% for key in category_order %}
+      {% set cat = categories.get(key) %}
+      {% if cat %}
+      <a href="#category-{{ key }}">{{ cat.label }} <span class="muted text-sm">({{ cat.total }})</span></a>
+      {% endif %}
+    {% endfor %}
+  </nav>
+  <div style="flex:2; min-width:320px;">
+    <div class="pool-pinned-header">
+      {% include "decks/_manual_role_bar.html" %}
+    </div>
+
+    <form
+      hx-get="/decks/manual/{{ session_id }}/search"
+      hx-target="#manual-search-results"
+      hx-swap="outerHTML"
+      hx-trigger="submit, keyup changed delay:400ms from:input[name='q']"
+      style="margin-bottom:.5rem;">
+      <input type="text" name="q" placeholder="Search by name or using Scryfall-style flags"
+        title="Plain words match the card name. Also supports Scryfall-style flags: t:/type: (e.g. t:creature), o:/oracle: (rules text), c:/color:, id:/identity:, m:/mana: (e.g. m:2WW), mv:/cmc:, pow:/tou:/loy: (e.g. pow>=4). Each accepts :, =, >, <, >=, <=, != and may be negated with a leading -, e.g. -t:land."
+        style="width:100%; max-width:420px;" />
+      <span class="muted text-sm" style="margin-left:.5rem;">Supports <a href="https://scryfall.com/docs/syntax" target="_blank" rel="noopener">Scryfall-style</a> flags, e.g. <code>t:creature</code>, <code>c:rg</code>, <code>mv&gt;=4</code></span>
+    </form>
+    <div id="manual-search-results" style="margin-bottom:1rem;"></div>
+
+    {% for key in category_order %}
+      {% set cat = categories.get(key) %}
+      {% if cat %}
+      {% set category = cat.category %}
+      {% set label = cat.label %}
+      {% set cards = cat.cards %}
+      {% set page = cat.page %}
+      {% set total_pages = cat.total_pages %}
+      {% set total = cat.total %}
+      {% set search = cat.search %}
+      {% set capped = cat.capped %}
+      {% include "decks/_manual_pool_category.html" %}
+      {% endif %}
+    {% endfor %}
+  </div>
+  <div style="flex:1; min-width:260px;">
+    <div class="manual-deck-sticky">
+      <div class="manual-commander-row">
+        <div class="manual-commander-card">
+          <img class="card-thumb" loading="lazy" decoding="async" alt="{{ commander }}"
+               src="{{ commander|card_image('normal', '') }}"
+               data-card-name="{{ commander }}" />
+        </div>
+        {% include "decks/_manual_mana_overview.html" %}
+      </div>
+      {% include "decks/_manual_deck_panel.html" %}
+      <form method="post" action="/decks/manual/{{ session_id }}/save" style="margin-top:1rem; display:flex; gap:.5rem; flex-wrap:wrap;">
+        <button type="submit" class="btn">{% if edit_source_name %}Save Changes{% else %}Save Deck{% endif %}</button>
+      </form>
+      <div style="display:flex; gap:.5rem; margin-top:.5rem; flex-wrap:wrap;">
+        <form method="post" action="/decks/manual/{{ session_id }}/export/csv">
+          <button type="submit" class="btn btn-sm">Export CSV</button>
+        </form>
+        <form method="post" action="/decks/manual/{{ session_id }}/export/txt">
+          <button type="submit" class="btn btn-sm">Export TXT</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  function openTarget(){
+    var hash = window.location.hash;
+    if (!hash) return;
+    var el = document.querySelector(hash);
+    if (el && el.tagName === 'DETAILS') {
+      el.open = true;
+      el.scrollIntoView({behavior: 'smooth', block: 'start'});
+    }
+  }
+  document.addEventListener('DOMContentLoaded', openTarget);
+  window.addEventListener('hashchange', openTarget);
+})();
+(function(){
+  // Keeps a jumped-to category's heading from landing underneath the sticky
+  // pinned header (role bar), whose height varies with the number of
+  // warning lines shown.
+  function updateScrollOffset(){
+    var banner = document.querySelector('.top-banner');
+    var pinned = document.querySelector('.pool-pinned-header');
+    var bannerH = banner ? banner.getBoundingClientRect().height : 52;
+    var pinnedH = pinned ? pinned.getBoundingClientRect().height : 0;
+    document.documentElement.style.setProperty('--pool-scroll-offset', (bannerH + pinnedH + 16) + 'px');
+    // Sticky panels (TOC, pinned header, deck panel) sit flush against the
+    // banner's actual measured height so scrolled cards can't peek through
+    // a gap caused by a mismatched CSS offset variable.
+    document.documentElement.style.setProperty('--pool-sticky-top', bannerH + 'px');
+  }
+  updateScrollOffset();
+  window.addEventListener('resize', updateScrollOffset);
+  var pinnedEl = document.querySelector('.pool-pinned-header');
+  if (pinnedEl && window.ResizeObserver) {
+    new ResizeObserver(updateScrollOffset).observe(pinnedEl);
+  }
+})();
+</script>
+{% endblock %}
+
+

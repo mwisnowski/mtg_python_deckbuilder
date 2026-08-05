@@ -79,6 +79,27 @@ def _load_banned_cards() -> List[str]:
     return list(BANNED_CARDS)
 
 
+def _load_commander_illegal_cards() -> List[str]:
+    """Return cards that are never tournament-legal in Commander (Scryfall
+    ``legalities.commander == "not_legal"`` on every printing), e.g.
+    promo-only cards like Aswan Jaguar.
+
+    Distinct from ``_load_banned_cards()`` (cards banned FROM an otherwise
+    legal card pool). Read from ``config/card_lists/commander_illegal_cards.json``
+    (written by ``refresh_card_lists_from_bulk``); returns an empty list if
+    that file doesn't exist yet, since there's no static fallback constant
+    for this dynamic, Scryfall-only list.
+    """
+    json_path = Path("config/card_lists/commander_illegal_cards.json")
+    if json_path.exists():
+        try:
+            data = json.loads(json_path.read_text(encoding="utf-8"))
+            return [str(c).strip() for c in data.get("cards", []) if str(c).strip()]
+        except Exception:
+            pass
+    return []
+
+
 def _is_primary_side(value: object) -> bool:
     """Return True when the provided side marker corresponds to a primary face."""
     try:

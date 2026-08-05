@@ -1,0 +1,34 @@
+{% if oob %}
+<div id="category-body-{{ category }}" hx-swap-oob="true">
+{% endif %}
+  {% if not cards %}
+  <div class="panel">No cards match this category{% if search %} for "{{ search }}"{% endif %}.</div>
+  {% else %}
+  <div class="card-browser-grid">
+    {% for card in cards %}
+      {% set card_idx = loop.index0 %}
+      {% include "decks/_manual_pool_card.html" %}
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% if not capped and total_pages > 1 %}
+  <div style="display:flex; gap:.5rem; align-items:center; margin-top:1rem; flex-wrap:wrap;">
+    {% if page > 1 %}
+    <a class="btn btn-sm" role="button"
+       hx-get="/decks/manual/{{ session_id }}/pool/{{ category }}?search={{ search|urlencode }}&page={{ page - 1 }}"
+       hx-target="#category-body-{{ category }}" hx-swap="innerHTML">&laquo; Prev</a>
+    {% endif %}
+    <span class="muted text-sm">Page {{ page }} of {{ total_pages }} ({{ total }} cards)</span>
+    {% if page < total_pages %}
+    <a class="btn btn-sm" role="button"
+       hx-get="/decks/manual/{{ session_id }}/pool/{{ category }}?search={{ search|urlencode }}&page={{ page + 1 }}"
+       hx-target="#category-body-{{ category }}" hx-swap="innerHTML">Next &raquo;</a>
+    {% endif %}
+  </div>
+  {% elif capped and total %}
+  <div class="muted text-sm" style="margin-top:.5rem;">Showing top {{ total }} (capped).</div>
+  {% endif %}
+{% if oob %}
+</div>
+{% endif %}

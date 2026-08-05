@@ -1,0 +1,14 @@
+{% for key in category_order %}
+  {% set cat = categories.get(key) %}
+  {% if cat %}
+  {% set oob = true %}
+  {% set category = cat.category %}
+  {% set cards = cat.cards %}
+  {% set page = cat.page %}
+  {% set total_pages = cat.total_pages %}
+  {% set total = cat.total %}
+  {% set search = cat.search %}
+  {% set capped = cat.capped %}
+  {% include "decks/_manual_pool_category_body.html" %}
+  {% endif %}
+{% endfor %}

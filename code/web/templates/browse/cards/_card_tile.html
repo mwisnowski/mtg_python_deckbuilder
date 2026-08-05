@@ -79,31 +79,27 @@
       
       {% if card.is_colorless %}
       <div class="tile-pips">
-        <a href="/cards?color=C" class="mana-link" onclick="event.stopPropagation()" title="Colorless">
+        <a href="/cards?search={{ 'id:colorless'|urlencode }}" class="mana-link" onclick="event.stopPropagation()" title="Colorless">
           <span class="mana mana-C"></span>
         </a>
       </div>
       {% elif card.colorIdentity %}
       <div class="tile-pips">
         {% set ci_list = card.color_badges.dots if card.color_badges is defined and card.color_badges.dots else (card.colorIdentity.replace(' ', '').split(',') if card.colorIdentity is string else card.colorIdentity) %}
-        {% for c in ci_list %}{% if c %}<a href="/cards?color={{ c }}{% if color_mode == 'inclusive' %}&color_mode=inclusive{% endif %}" class="mana-link" onclick="event.stopPropagation()" title="{{ c }}"><span class="mana mana-{{ c }}"></span></a>{% endif %}{% endfor %}
+        {% for c in ci_list %}{% if c %}<a href="/cards?search={{ ('id=' ~ c)|urlencode }}" class="mana-link" onclick="event.stopPropagation()" title="{{ c }}"><span class="mana mana-{{ c }}"></span></a>{% endif %}{% endfor %}
       </div>
       {% endif %}
     </div>
 
-    {# Color identity name(s) — guild/shard/wedge/nephilim, clickable filters.
-       Cards with sub-badges (3-color shards/wedges) default their badge
-       clicks to inclusive matching, since an exact click otherwise excludes
-       the very card being clicked from the results (e.g. "Azorius" on a
-       Bant card wouldn't show Bant cards under exact WU matching). #}
+    {# Color identity name(s) -- guild/shard/wedge/nephilim, clickable filters
+       via the search box's id: flag (exact color-identity match). #}
     {% if card.color_badges is defined and (card.color_badges.primary or card.color_badges.subs) %}
-    {% set badge_inclusive = color_mode == 'inclusive' or (card.color_badges.subs and card.color_badges.subs|length > 0) %}
     <div class="tile-color-names">
       {% if card.color_badges.primary %}
-      <a href="/cards?color={{ card.color_badges.primary.filter }}{% if badge_inclusive %}&color_mode=inclusive{% endif %}" class="tile-color-name-badge tile-color-name-primary" onclick="event.stopPropagation()">{{ card.color_badges.primary.name }}</a>
+      <a href="/cards?search={{ ('id=' ~ card.color_badges.primary.filter)|urlencode }}" class="tile-color-name-badge tile-color-name-primary" onclick="event.stopPropagation()">{{ card.color_badges.primary.name }}</a>
       {% endif %}
       {% for sub in card.color_badges.subs %}
-      <a href="/cards?color={{ sub.filter }}{% if badge_inclusive %}&color_mode=inclusive{% endif %}" class="tile-color-name-badge tile-color-name-sub" onclick="event.stopPropagation()">{{ sub.name }}</a>
+      <a href="/cards?search={{ ('id=' ~ sub.filter)|urlencode }}" class="tile-color-name-badge tile-color-name-sub" onclick="event.stopPropagation()">{{ sub.name }}</a>
       {% endfor %}
     </div>
     {% endif %}

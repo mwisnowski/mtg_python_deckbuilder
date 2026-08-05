@@ -8,8 +8,22 @@ from ..services.tasks import get_session, new_sid
 
 try:
     from code.deck_builder.color_identity_utils import color_identity_badges
+    from code.web.services.card_search import (
+        _color_matches,
+        _compare_numeric,
+        filter_names_fuzzy,
+        has_structured_flags,
+        parse_search_query,
+    )
 except ImportError:
     from deck_builder.color_identity_utils import color_identity_badges
+    from web.services.card_search import (
+        _color_matches,
+        _compare_numeric,
+        filter_names_fuzzy,
+        has_structured_flags,
+        parse_search_query,
+    )
 
 
 router = APIRouter(prefix="/owned")
@@ -23,74 +37,82 @@ def _user_id(request: Request) -> str:
     return "guest"
 
 
-def _canon_color_code(seq: list[str] | tuple[str, ...]) -> str:
-    """Canonicalize a color identity sequence to a stable code (WUBRG order, no 'C' unless only color)."""
-    order = {'W':0,'U':1,'B':2,'R':3,'G':4,'C':5}
-    uniq: list[str] = []
-    seen: set[str] = set()
-    for c in (seq or []):
-        uc = (c or '').upper()
-        if uc in order and uc not in seen:
-            seen.add(uc)
-            uniq.append(uc)
-    uniq.sort(key=lambda x: order[x])
-    code = ''.join([c for c in uniq if c != 'C'])
-    return code or ('C' if 'C' in seen else '')
-
-
-_COLOR_BITS = {'W': 1, 'U': 2, 'B': 4, 'R': 8, 'G': 16}
-
-
-def _mask_from_code(code: str) -> int:
-    """Bitmask (WUBRG) for a canonical color code string; "C"/empty -> 0."""
-    if not code or code == 'C':
-        return 0
-    return sum(_COLOR_BITS.get(ch, 0) for ch in code)
-
-
-def _color_combo_label(code: str) -> str:
-    """Return friendly label for a 2/3/4-color combo code; empty if unknown.
-
-    Uses standard names: Guilds, Shards/Wedges, and Nephilim-style for 4-color.
+def _apply_owned_search(
+    names: list[str],
+    search: str,
+    tags_by_name: dict[str, list[str]],
+    type_by_name: dict[str, str],
+    colors_by_name: dict[str, list[str]],
+    stats_map: dict[str, dict[str, object]],
+) -> list[str]:
+    """Filter owned `names` by the search box: plain text keeps the existing
+    substring name match, but a query containing Scryfall-style flags
+    (t:/c:/id:/tag:/pow:/tou:/mv:/cmc:) is filtered structurally using the
+    same parser as the card browser and manual deck builder. Flags with no
+    owned-library equivalent (o:/oracle, r:/rarity, m:/mana, loy:, is:new,
+    set:) have no owned card data to check and are ignored rather than
+    excluding every card.
     """
-    two_map = {
-        'WU':'Azorius','UB':'Dimir','BR':'Rakdos','RG':'Gruul','WG':'Selesnya',
-        'WB':'Orzhov','UR':'Izzet','BG':'Golgari','WR':'Boros','UG':'Simic',
-    }
-    three_map = {
-        'WUB':'Esper','UBR':'Grixis','BRG':'Jund','WRG':'Naya','WUG':'Bant',
-        'WBR':'Mardu','WUR':'Jeskai','UBG':'Sultai','URG':'Temur','WBG':'Abzan',
-    }
-    four_map = {
-        'WUBR': 'Yore-Tiller',   # no G
-        'WUBG': 'Witch-Maw',     # no R
-        'WURG': 'Ink-Treader',   # no B
-        'WBRG': 'Dune-Brood',    # no U
-        'UBRG': 'Glint-Eye',     # no W
-    }
-    if len(code) == 2:
-        return two_map.get(code, '')
-    if len(code) == 3:
-        return three_map.get(code, '')
-    if len(code) == 4:
-        return four_map.get(code, '')
-    return ''
+    if not search:
+        return names
 
+    parsed = parse_search_query(search)
+    if not has_structured_flags(parsed):
+        return filter_names_fuzzy(names, [search.strip()], [])
 
-def _build_color_combos(names_sorted: list[str], colors_by_name: dict[str, list[str]]) -> list[tuple[str, str]]:
-    """Compute present color combos and return [(code, display)], ordered by length then code."""
-    combo_set: set[str] = set()
-    for n in names_sorted:
-        cols = (colors_by_name.get(n) or [])
-        code = _canon_color_code(cols)
-        if len(code) >= 2:
-            combo_set.add(code)
-    combos: list[tuple[str, str]] = []
-    for code in sorted(combo_set, key=lambda s: (len(s), s)):
-        label = _color_combo_label(code)
-        display = f"{label} ({code})" if label else code
-        combos.append((code, display))
-    return combos
+    allowed_by_name = set(filter_names_fuzzy(names, parsed.name_include, parsed.name_exclude))
+
+    def _matches(name: str) -> bool:
+        if (parsed.name_include or parsed.name_exclude) and name not in allowed_by_name:
+            return False
+
+        type_lower = (type_by_name.get(name) or "").lower()
+        if parsed.type_include and not all(term.lower() in type_lower for term in parsed.type_include):
+            return False
+        if parsed.type_exclude and any(term.lower() in type_lower for term in parsed.type_exclude):
+            return False
+
+        card_letters = {c.upper() for c in (colors_by_name.get(name) or [])}
+        if parsed.color_clauses and not all(_color_matches(card_letters, c) for c in parsed.color_clauses):
+            return False
+        if parsed.identity_clauses and not all(_color_matches(card_letters, c) for c in parsed.identity_clauses):
+            return False
+
+        if parsed.tags:
+            card_tags = {t.lower() for t in (tags_by_name.get(name) or [])}
+            if not all(tag in card_tags for tag in parsed.tags):
+                return False
+
+        stats = stats_map.get(name) or {}
+        for clauses, key in (
+            (parsed.power_clauses, "power"),
+            (parsed.toughness_clauses, "toughness"),
+            (parsed.cmc_clauses, "manaValue"),
+        ):
+            if not clauses:
+                continue
+            try:
+                actual = float(stats.get(key)) if stats.get(key) is not None else None
+            except (ValueError, TypeError):
+                actual = None
+            if actual is None:
+                return False
+            for clause in clauses:
+                other = stats.get(clause.compare_to) if clause.compare_to else clause.value
+                try:
+                    other = float(other) if other is not None else None
+                except (ValueError, TypeError):
+                    other = None
+                if other is None:
+                    return False
+                matched = bool(_compare_numeric(actual, clause.op, other))
+                if clause.negate:
+                    matched = not matched
+                if not matched:
+                    return False
+        return True
+
+    return [n for n in names if _matches(n)]
 
 
 def _build_owned_context(request: Request, notice: str | None = None, error: str | None = None) -> dict:
@@ -100,12 +122,7 @@ def _build_owned_context(request: Request, notice: str | None = None, error: str
     added_at_map = store.get_added_at_map(uid)
     # Default sort by name (case-insensitive)
     names_sorted = sorted(names, key=lambda s: s.lower())
-    # Build filter option sets
-    all_types = sorted({type_by_name.get(n) for n in names_sorted if type_by_name.get(n)}, key=lambda s: s.lower())
     all_tags = sorted({t for n in names_sorted for t in (tags_by_name.get(n) or [])}, key=lambda s: s.lower())
-    all_colors = ['W','U','B','R','G','C']
-    # Build color combos displayed in the filter
-    combos = _build_color_combos(names_sorted, colors_by_name)
     # Per-card guild/shard/wedge/nephilim name badges + WUBRG dots, for the
     # same clickable color-identity badges shown on the card browser.
     badges_by_name = {n: color_identity_badges(colors_by_name.get(n) or []) for n in names_sorted}
@@ -116,10 +133,7 @@ def _build_owned_context(request: Request, notice: str | None = None, error: str
         "tags_by_name": tags_by_name,
         "type_by_name": type_by_name,
         "colors_by_name": colors_by_name,
-        "all_types": all_types,
         "all_tags": all_tags,
-        "all_colors": all_colors,
-    "color_combos": combos,
     "badges_by_name": badges_by_name,
     "added_at_map": added_at_map,
     }
@@ -139,18 +153,9 @@ def _build_owned_context(request: Request, notice: str | None = None, error: str
 @router.get("/", response_class=HTMLResponse)
 async def owned_index(
     request: Request,
-    search: str = Query(""),
+    search: str = Query("", description="Card name search, or Scryfall-style flags (t:/c:/id:/tag:/pow:/tou:/mv:)"),
     sort_by: str = Query("name"),
-    filter_type: str = Query(""),
     filter_tags: list[str] = Query([]),
-    filter_color: str = Query(""),
-    color_mode: str = Query("exact", description="Color filter mode: 'exact' or 'inclusive' (contains at least these colors)"),
-    cmc_min: str = Query(""),
-    cmc_max: str = Query(""),
-    power_min: str = Query(""),
-    power_max: str = Query(""),
-    tough_min: str = Query(""),
-    tough_max: str = Query(""),
 ) -> HTMLResponse:
     ctx = _build_owned_context(request)
 
@@ -161,70 +166,15 @@ async def owned_index(
     added_at_map: dict = ctx.get("added_at_map") or {}
     total_count: int = ctx["count"]
 
-    # Search filter
+    # Search box: plain name substring, or Scryfall-style flags
     if search:
-        sq = search.strip().lower()
-        names = [n for n in names if sq in n.lower()]
-
-    # Type filter
-    if filter_type:
-        ft = filter_type.lower()
-        names = [n for n in names if ft in (type_by_name.get(n) or "").lower()]
+        stats_map = store.get_stats_map(_user_id(request))
+        names = _apply_owned_search(names, search, tags_by_name, type_by_name, colors_by_name, stats_map)
 
     # Tag filter (AND logic: card must have ALL selected themes)
     for ftag in filter_tags:
         ftag_lower = ftag.lower()
         names = [n for n in names if any(t.lower() == ftag_lower for t in (tags_by_name.get(n) or []))]
-
-    # Color filter
-    if filter_color:
-        fcode = _canon_color_code(list(filter_color.upper()))
-        if color_mode == "inclusive" and fcode != "C":
-            fmask = _mask_from_code(fcode)
-            names = [
-                n for n in names
-                if (_mask_from_code(_canon_color_code(colors_by_name.get(n) or [])) & fmask) == fmask
-            ]
-        else:
-            names = [n for n in names if _canon_color_code(colors_by_name.get(n) or []) == fcode]
-
-    # CMC / Power / Toughness range filters
-    if cmc_min or cmc_max or power_min or power_max or tough_min or tough_max:
-        stats_map = store.get_stats_map(_user_id(request))
-
-        def _to_float(s: str) -> float | None:
-            try:
-                return float(s) if s else None
-            except (ValueError, TypeError):
-                return None
-
-        cmc_lo = _to_float(cmc_min)
-        cmc_hi = _to_float(cmc_max)
-        pw_lo  = _to_float(power_min)
-        pw_hi  = _to_float(power_max)
-        th_lo  = _to_float(tough_min)
-        th_hi  = _to_float(tough_max)
-
-        def _in_range(val: object, lo: float | None, hi: float | None) -> bool:
-            if lo is None and hi is None:
-                return True
-            try:
-                v = float(val)  # type: ignore[arg-type]
-            except (ValueError, TypeError):
-                return False
-            return (lo is None or v >= lo) and (hi is None or v <= hi)
-
-        filtered: list[str] = []
-        for n in names:
-            s = stats_map.get(n) or {}
-            if not _in_range(s.get("manaValue"), cmc_lo, cmc_hi):
-                continue
-            if not _in_range(s.get("power"), pw_lo, pw_hi):
-                continue
-            if not _in_range(s.get("toughness"), th_lo, th_hi):
-                continue
-            filtered.append(n)
-        names = filtered
 
     # Sort
     if sort_by == "type":
@@ -243,16 +193,7 @@ async def owned_index(
         "filtered_count": len(names),
         "search": search,
         "sort_by": sort_by,
-        "filter_type": filter_type,
         "filter_tags": filter_tags,
-        "filter_color": filter_color,
-        "color_mode": color_mode,
-        "cmc_min": cmc_min,
-        "cmc_max": cmc_max,
-        "power_min": power_min,
-        "power_max": power_max,
-        "tough_min": tough_min,
-        "tough_max": tough_max,
     })
     had_sid_cookie = bool(request.cookies.get("sid"))
     resp = templates.TemplateResponse("owned/index.html", ctx)

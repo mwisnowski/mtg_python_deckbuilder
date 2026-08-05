@@ -1108,6 +1108,58 @@ img.lqip.loaded { filter: blur(0); opacity: 1; }
 	white-space: nowrap;
 }
 
+.pool-toc-sidebar {
+	flex: 0 0 180px;
+	position: sticky;
+	top: var(--pool-sticky-top, 54px);
+	max-height: calc(100vh - var(--pool-sticky-top, 54px) - 1rem);
+	overflow-y: auto;
+	display: flex;
+	flex-direction: column;
+	gap: 0.35rem;
+}
+
+.pool-category-toc {
+	display: flex;
+	flex-direction: column;
+	gap: 0.35rem;
+	background: var(--panel);
+	border: 1px solid var(--border);
+	border-radius: 10px;
+	padding: 0.5rem 0.75rem;
+}
+
+.pool-category-toc a {
+	font-size: 0.8rem;
+	padding: 0.25rem 0.6rem;
+	border-radius: 6px;
+	background: rgba(148, 163, 184, 0.12);
+	color: var(--text);
+	text-decoration: none;
+	white-space: nowrap;
+}
+
+.pool-category-toc a:hover {
+	background: rgba(148, 163, 184, 0.22);
+}
+
+.pool-category {
+	border: 1px solid var(--border);
+	border-radius: 6px;
+	margin-bottom: 0.75rem;
+	padding: 0.5rem 0.75rem;
+}
+
+.pool-category > summary {
+	cursor: pointer;
+	font-weight: 600;
+	padding: 0.25rem 0;
+}
+
+.pool-category-body {
+	margin-top: 0.5rem;
+}
+
 .tag-clickable {
 	text-decoration: none;
 	cursor: pointer;
@@ -4713,6 +4765,88 @@ footer.site-footer {
   background: rgba(245, 197, 24, .12);
   box-shadow: 0 0 0 1px #f5c518;
   border-radius: 4px;
+}
+
+/* Manual Deck Builder (Roadmap 25) */
+/* --pool-sticky-top is set by JS (manual_builder.html) to the top banner's
+   actual measured height, so these sticky panels sit flush against it with
+   no uncovered gap - a CSS-only offset (--banner-offset) under/over-shoots
+   the real height and left a thin band scrolling cards could peek through. */
+.pool-pinned-header {
+  position: sticky;
+  top: var(--pool-sticky-top, 54px);
+  z-index: 20;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 1rem;
+  backdrop-filter: blur(8px);
+}
+.manual-deck-sticky {
+  position: sticky;
+  top: var(--pool-sticky-top, 54px);
+  max-height: calc(100vh - var(--pool-sticky-top, 54px) - 1rem);
+  overflow-y: auto;
+}
+/* Keeps a jumped-to category's heading from landing underneath the sticky
+   pinned header; --pool-scroll-offset is computed at runtime from the
+   pinned header's actual (variable) height (see manual_builder.html). */
+.pool-category {
+  scroll-margin-top: var(--pool-scroll-offset, 360px);
+}
+.manual-commander-card {
+  max-width: 220px;
+  margin: 0 0 0.75rem;
+  flex-shrink: 0;
+}
+.manual-commander-card img {
+  width: 100%;
+  border-radius: 10px;
+  display: block;
+}
+.manual-commander-row {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+.manual-commander-row .mana-overview-side {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.role-health-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .4rem;
+  padding: .5rem 0;
+}
+.role-pill {
+  font-size: 12px;
+  font-weight: 600;
+  padding: .2rem .55rem;
+  border-radius: 999px;
+  white-space: nowrap;
+  color: #0b0d12;
+}
+.role-pill-green { background: #4ade80; }
+.role-pill-yellow { background: #facc15; }
+.role-pill-red { background: #f87171; }
+.not-in-pool-badge {
+  background: rgba(148, 163, 184, .2);
+  color: var(--muted, #94a3b8);
+}
+.bracket-tag {
+  background: rgba(250, 204, 21, .18);
+  color: #facc15;
+  border: 1px solid rgba(250, 204, 21, .4);
+}
+.manual-deck-panel {
+  border: 1px solid var(--border-color, #333);
+  border-radius: 6px;
+  padding: .75rem;
 }
 
 /* Budget price summary bar in deck summary */

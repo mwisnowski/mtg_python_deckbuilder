@@ -57,7 +57,12 @@ LEGENDARY_OPTIONS: List[str] = [
 
 NON_LEGAL_SETS: List[str] = [
     'PHTR', 'PH17', 'PH18', 'PH19', 'PH20', 'PH21',
-    'UGL', 'UND', 'UNH', 'UST', 'PCEL'
+    'UGL', 'UND', 'UNH', 'UST', 'PCEL',
+    # Hero's Path sets: bundled Hero/Plane/Scheme components, not real cards
+    'THP1', 'THP2', 'THP3',
+    # Secret Lair Summer Superdrop / joke printings (e.g. "sAnS mERcY", a
+    # Plane card with scrambled-case type line)
+    'PSSC',
 ]
 
 CARD_TYPES_TO_EXCLUDE: List[str] = [
@@ -68,7 +73,7 @@ CARD_TYPES_TO_EXCLUDE: List[str] = [
     'Phenomenon',
     'Stickers',
     'Attraction',
-    'Contraption'
+    'Contraption',
 ]
 
 # Columns to keep when processing CSV files

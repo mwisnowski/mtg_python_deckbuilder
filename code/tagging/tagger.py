@@ -6456,6 +6456,11 @@ def tag_for_interaction(df: pd.DataFrame, color: str) -> None:
         print('\n==========\n')
 
         sub_start = pd.Timestamp.now()
+        tag_for_graveyard_hate(df, color)
+        logger.info(f'Completed graveyard hate tagging in {(pd.Timestamp.now() - sub_start).total_seconds():.2f}s')
+        print('\n==========\n')
+
+        sub_start = pd.Timestamp.now()
         tag_for_combat_tricks(df, color)
         logger.info(f'Completed combat trick tagging in {(pd.Timestamp.now() - sub_start).total_seconds():.2f}s')
         print('\n==========\n')
@@ -6589,10 +6594,32 @@ def tag_for_board_wipes(df: pd.DataFrame, color: str) -> None:
 
         # Create specific cards mask
         specific_mask = tag_utils.create_name_mask(df, tag_constants.BOARD_WIPE_SPECIFIC_CARDS)
+
+        # "Return all/each ... cards" moves cards between zones (imprint/exile
+        # return, graveyard reanimation) rather than bouncing permanents off
+        # the battlefield - not a board wipe unless a genuine battlefield-wide
+        # bounce is also present (e.g. Soulquake bounces creatures AND returns
+        # graveyard cards). See Mimic Vat, Underworld Cerberus.
+        bounce_cards_mask = tag_utils.create_text_mask(df, tag_constants.BOARD_WIPE_BOUNCE_CARDS_PATTERN)
+        bounce_target_mask = tag_utils.create_text_mask(df, tag_constants.BOARD_WIPE_BOUNCE_TARGET_PATTERNS)
+        bounce_only_cards_mask = bounce_cards_mask & ~bounce_target_mask
+        bounce_mask = bounce_mask & ~bounce_only_cards_mask
+
+        # Cards that only match via graveyard hate (e.g. "exile all graveyards")
+        # aren't board wipes unless they also have a genuine battlefield-wide
+        # effect elsewhere (e.g. Farewell, Shadows' Verdict) - see Kaya, Geist
+        # Hunter, which only exiles graveyards and creates a token.
+        graveyard_hate_mask = tag_utils.create_graveyard_hate_mask(df)
+        exile_target_mask = tag_utils.create_text_mask(df, tag_constants.BOARD_WIPE_EXILE_TARGET_PATTERNS)
+        graveyard_only_mask = graveyard_hate_mask & ~(
+            destroy_mask | bounce_mask | sacrifice_mask | damage_mask |
+            specific_mask | exile_target_mask
+        )
+
         final_mask = (
             destroy_mask | exile_mask | bounce_mask | 
             sacrifice_mask | damage_mask | specific_mask
-        ) & ~exclusion_mask
+        ) & ~exclusion_mask & ~graveyard_only_mask
 
         # Apply tags via utility
         tag_utils.tag_with_logging(
@@ -6605,6 +6632,43 @@ def tag_for_board_wipes(df: pd.DataFrame, color: str) -> None:
         raise
 
     logger.info(f'Completed board wipe tagging for {color}_cards.csv')
+
+## Graveyard Hate
+def tag_for_graveyard_hate(df: pd.DataFrame, color: str) -> None:
+    """Tag cards that deny opponents the use of their graveyard.
+
+    Identifies cards that exile cards from a graveyard (targeted, mass, or
+    replacement-effect based), excluding self-graveyard-as-a-resource
+    mechanics like Delve, Escape, Embalm, and Eternalize.
+
+    Args:
+        df: DataFrame containing card data
+        color: Color identifier for logging purposes
+
+    Raises:
+        ValueError: If required DataFrame columns are missing
+        TypeError: If inputs are not of correct type
+    """
+    try:
+        if not isinstance(df, pd.DataFrame):
+            raise TypeError("df must be a pandas DataFrame")
+        if not isinstance(color, str):
+            raise TypeError("color must be a string")
+        required_cols = {'text', 'themeTags', 'name'}
+        tag_utils.validate_dataframe_columns(df, required_cols)
+
+        final_mask = tag_utils.create_graveyard_hate_mask(df)
+
+        tag_utils.tag_with_logging(
+            df, final_mask, ['Graveyard Hate'],
+            'graveyard hate effects', color=color, logger=logger
+        )
+
+    except Exception as e:
+        logger.error(f'Error in tag_for_graveyard_hate: {str(e)}')
+        raise
+
+    logger.info(f'Completed graveyard hate tagging for {color}_cards.csv')
 
 ## Combat Tricks
 def create_combat_tricks_text_mask(df: pd.DataFrame) -> pd.Series:
@@ -6860,8 +6924,13 @@ def _apply_protection_scope_tags(df: pd.DataFrame) -> int:
         name = str(row.get('name', ''))
         keywords = str(row.get('keywords', ''))
         
-        # Check if card has ANY protection effects
-        if not has_any_protection(text) and not any(k in keywords.lower() for k in ['hexproof', 'shroud', 'indestructible', 'ward', 'protection', 'phasing']):
+        # Check if card has ANY protection effects (word-boundaried so "ward"
+        # doesn't false-positive on "toward"/"warden"/etc.)
+        if not has_any_protection(text) and not (
+            rgx.HEXPROOF.search(keywords.lower()) or rgx.SHROUD.search(keywords.lower())
+            or rgx.INDESTRUCTIBLE.search(keywords.lower()) or rgx.WARD.search(keywords.lower())
+            or 'protection' in keywords.lower() or 'phasing' in keywords.lower()
+        ):
             continue
         
         scope_tags = get_protection_scope_tags(text, name, keywords)
@@ -6890,9 +6959,11 @@ def _get_all_protection_mask(df: pd.DataFrame) -> pd.Series:
     text_series = tag_utils._ensure_norm_series(df, 'text', '__text_s')
     keywords_series = tag_utils._ensure_norm_series(df, 'keywords', '__keywords_s')
     
+    # Word-boundaried so "ward" doesn't false-positive on "toward", "warden", etc.
+    protection_pattern = r'\b(hexproof|shroud|indestructible|ward|phasing)\b|protection from|\bprotection\b'
     all_protection_mask = (
-        text_series.str.contains('hexproof|shroud|indestructible|ward|protection from|protection|phasing', case=False, regex=True, na=False) |
-        keywords_series.str.contains('hexproof|shroud|indestructible|ward|protection|phasing', case=False, regex=True, na=False)
+        text_series.str.contains(protection_pattern, case=False, regex=True, na=False) |
+        keywords_series.str.contains(protection_pattern, case=False, regex=True, na=False)
     )
     return all_protection_mask
 
@@ -6916,14 +6987,15 @@ def _apply_specific_protection_ability_tags(df: pd.DataFrame, all_protection_mas
         text_lower = text.lower()
         keywords_lower = keywords.lower()
         
-        # Check for each protection ability
-        if 'hexproof' in text_lower or 'hexproof' in keywords_lower:
+        # Check for each protection ability. Word-boundaried so "ward" doesn't
+        # false-positive on "toward"/"warden"/etc. (and similarly for the rest).
+        if rgx.HEXPROOF.search(text_lower) or rgx.HEXPROOF.search(keywords_lower):
             ability_tags.add('Hexproof')
-        if 'indestructible' in text_lower or 'indestructible' in keywords_lower:
+        if rgx.INDESTRUCTIBLE.search(text_lower) or rgx.INDESTRUCTIBLE.search(keywords_lower):
             ability_tags.add('Indestructible')
-        if 'shroud' in text_lower or 'shroud' in keywords_lower:
+        if rgx.SHROUD.search(text_lower) or rgx.SHROUD.search(keywords_lower):
             ability_tags.add('Shroud')
-        if 'ward' in text_lower or 'ward' in keywords_lower:
+        if rgx.WARD.search(text_lower) or rgx.WARD.search(keywords_lower):
             ability_tags.add('Ward')
         
         # Distinguish types of protection

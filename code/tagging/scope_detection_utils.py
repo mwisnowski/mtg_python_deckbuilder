@@ -20,6 +20,17 @@ from code.logging_util import get_logger
 logger = get_logger(__name__)
 
 
+def _has_word(word: str, text: str) -> bool:
+    """Word-boundaried containment check for an ability keyword.
+
+    Plain substring checks (`"ward" in text`) false-positive on words like
+    "toward"/"warden"/"awkward"; this anchors the match to whole words.
+    """
+    if not word or not text:
+        return False
+    return re.search(r'\b' + re.escape(word) + r'\b', text, re.IGNORECASE) is not None
+
+
 @dataclass
 class ScopePatterns:
     """
@@ -78,8 +89,8 @@ def detect_scope(
     ability_lower = ability_keyword.lower()
     card_name_lower = card_name.lower() if card_name else ''
     
-    # Check if ability is mentioned in text
-    if ability_lower not in text_lower:
+    # Check if ability is mentioned in text (word-boundaried; see `_has_word`)
+    if not _has_word(ability_lower, text_lower):
         return set() if allow_multiple else None
     
     # Priority 0: Check if this is a static keyword ability
@@ -186,8 +197,8 @@ def detect_multi_scope(
         # For static keywords, we usually don't have multiple scopes
         # But continue checking in case there are additional effects
     
-    # Check if ability is mentioned
-    if ability_lower not in text_lower:
+    # Check if ability is mentioned (word-boundaried; see `_has_word`)
+    if not _has_word(ability_lower, text_lower):
         return scopes
     
     # Check opponent patterns
@@ -247,9 +258,12 @@ def _check_self_reference(
         if pattern.search(text_lower):
             return True
     
-    # Check for card name reference (if provided)
+    # Check for card name reference (if provided). Oracle text self-references
+    # a legendary permanent by its short name only (e.g. "Mondrak", not
+    # "Mondrak, Glory Dominus"), so match on the part before any comma.
     if card_name_lower:
-        card_name_escaped = re.escape(card_name_lower)
+        short_name = card_name_lower.split(',')[0].strip()
+        card_name_escaped = re.escape(short_name)
         card_name_pattern = re.compile(rf'\b{card_name_escaped}\b', re.IGNORECASE)
         
         if card_name_pattern.search(text_lower):
@@ -257,6 +271,9 @@ def _check_self_reference(
             self_context_patterns = [
                 re.compile(rf'\b{card_name_escaped}\s+(?:has|gains?)\s+{ability_lower}', re.IGNORECASE),
                 re.compile(rf'\b{card_name_escaped}\s+is\s+{ability_lower}', re.IGNORECASE),
+                # "Put an indestructible counter on <name>" - a self-granted
+                # counter, not a board-wide grant.
+                re.compile(rf'{ability_lower}\s+counter\s+on\s+{card_name_escaped}\b', re.IGNORECASE),
             ]
             
             for pattern in self_context_patterns:
@@ -349,7 +366,7 @@ def check_static_keyword(
     # Check keywords field first (most reliable)
     if keywords:
         keywords_lower = keywords.lower()
-        if ability_lower in keywords_lower:
+        if _has_word(ability_lower, keywords_lower):
             return True
     
     # Fallback: Check if ability appears in simple comma-separated keyword list
@@ -358,13 +375,14 @@ def check_static_keyword(
     if text:
         text_lower = text.lower()
         
-        # Check if ability appears in text but WITHOUT grant verbs
-        if ability_lower in text_lower:
+        # Check if ability appears in text (word-boundaried) but WITHOUT grant verbs
+        match = re.search(r'\b' + re.escape(ability_lower) + r'\b', text_lower)
+        if match:
             # Look for grant verbs that would indicate this is NOT a static keyword
             grant_verbs = ['have', 'has', 'gain', 'gains', 'get', 'gets', 'grant', 'grants', 'give', 'gives']
             
             # Find the position of the ability in text
-            ability_pos = text_lower.find(ability_lower)
+            ability_pos = match.start()
             
             # Check the 50 characters before the ability for grant verbs
             # This catches patterns like "creatures gain protection" or "has hexproof"

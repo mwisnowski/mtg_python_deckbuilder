@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from functools import lru_cache
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 import json
@@ -26,7 +27,12 @@ POLICY_FILES: Dict[str, str] = {
 }
 
 
+@lru_cache(maxsize=8)
 def _load_json_cards(path: str | Path) -> Tuple[List[str], Optional[str]]:
+    """Cached: re-read on every manual-builder add/remove request via
+    evaluate_deck/banned_category_names/capped_category_names, and these
+    policy files only change on app restart.
+    """
     p = Path(path)
     if not p.exists():
         return [], None
@@ -39,6 +45,7 @@ def _load_json_cards(path: str | Path) -> Tuple[List[str], Optional[str]]:
         return [], None
 
 
+@lru_cache(maxsize=8)
 def _load_brackets_yaml(path: str | Path = "config/brackets.yml") -> Dict[str, dict]:
     p = Path(path)
     if not p.exists():
@@ -70,6 +77,48 @@ def _find_bracket_def(bracket_key: str) -> Tuple[str, int, Dict[str, Optional[in
     # Default to Core
     core = next(b for b in BRACKET_DEFINITIONS if b.level == 2)
     return core.name, core.level, dict(core.limits)
+
+
+def bracket_limits(bracket: str) -> Dict[str, Optional[int]]:
+    """Public wrapper around `_find_bracket_def`: category -> limit for a
+    bracket key/level/name (``None`` = unlimited, ``0`` = fully banned).
+    """
+    _, _, limits = _find_bracket_def(bracket)
+    return limits
+
+
+def _category_card_names(key: str) -> set[str]:
+    names_list, _ver = _load_json_cards(POLICY_FILES.get(key, ""))
+    if key == "game_changers" and not names_list:
+        try:
+            from deck_builder import builder_constants as _bc
+
+            names_list = list(getattr(_bc, "GAME_CHANGERS", []) or [])
+        except Exception:
+            names_list = []
+    return {_canonicalize(n) for n in names_list}
+
+
+def banned_category_names(bracket: str) -> Dict[str, set]:
+    """Category -> canonicalized card names fully banned (limit == 0) at this
+    bracket. Used to hard-filter the manual deck builder's pool/search so
+    users can't browse or add cards that are illegal for their bracket.
+    """
+    limits = bracket_limits(bracket)
+    return {key: _category_card_names(key) for key in POLICY_FILES if limits.get(key) == 0}
+
+
+def capped_category_names(bracket: str) -> Dict[str, set]:
+    """Category -> canonicalized card names allowed up to a positive cap
+    (not banned outright) at this bracket, e.g. up to 3 Game Changers at
+    Bracket 3. Used for informational pool badges (never filters the pool).
+    """
+    limits = bracket_limits(bracket)
+    return {
+        key: _category_card_names(key)
+        for key in POLICY_FILES
+        if isinstance(limits.get(key), int) and limits.get(key) > 0
+    }
 
 
 def _collect_tag_counts(card_library: Dict[str, Dict]) -> Tuple[Dict[str, int], Dict[str, List[str]]]:

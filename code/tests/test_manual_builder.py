@@ -101,6 +101,37 @@ def test_pool_filtered_to_color_identity_and_budget_visible(monkeypatch):
     assert "Expensive Rock" in names
 
 
+def test_pool_excludes_off_color_fetch_lands(monkeypatch):
+    """Fetch lands have no colorIdentity pips, so the plain color-identity
+    subset check alone always lets them through. A W/G deck shouldn't see
+    Polluted Delta (Island/Swamp) even though it's technically colorless.
+    """
+    manual_builder_service = importlib.import_module("code.web.services.manual_builder_service")
+
+    df = pd.DataFrame([
+        {"name": "Polluted Delta", "colorIdentity": "", "type": "Land", "manaValue": 0.0,
+         "themeTags": [], "metadataTags": ["Island Fetch", "Swamp Fetch"], "edhrecRank": 10.0, "isNew": False},
+        {"name": "Windswept Heath", "colorIdentity": "", "type": "Land", "manaValue": 0.0,
+         "themeTags": [], "metadataTags": ["Plains Fetch", "Forest Fetch"], "edhrecRank": 20.0, "isNew": False},
+        {"name": "Evolving Wilds", "colorIdentity": "", "type": "Land", "manaValue": 0.0,
+         "themeTags": [], "metadataTags": ["Any Basic Fetch"], "edhrecRank": 30.0, "isNew": False},
+    ])
+
+    class _FakeLoader:
+        def load(self):
+            return df
+
+    monkeypatch.setattr(manual_builder_service, "AllCardsLoader", _FakeLoader)
+
+    sess = {"color_identity": ["W", "G"], "commander": "Some Commander"}
+    pool = manual_builder_service.get_card_pool(sess)
+    names = set(pool["name"].astype(str))
+
+    assert "Polluted Delta" not in names  # fetches Island/Swamp, neither in W/G
+    assert "Windswept Heath" in names     # fetches Plains/Forest, matches W/G
+    assert "Evolving Wilds" in names      # universal fetch, always allowed
+
+
 def test_pool_dedupes_double_faced_card_rows(monkeypatch):
     """A DFC/split card is stored as one row per face sharing the same
     `name`; the pool should show it once, with themeTags merged from both
@@ -173,6 +204,45 @@ def test_remove_card_updates_session(monkeypatch):
     result = manual_builder_service.remove_card_from_deck(sess, "Rampant Growth")
     assert result["status"] == "removed"
     assert sess["deck_cards"] == []
+
+
+def test_resolve_color_identity_parses_comma_separated_string(monkeypatch):
+    """colorIdentity in commander_cards.csv is stored like \"G, W\" (comma +
+    space separated); resolving it must split on comma, not iterate chars.
+    """
+    manual_builder_service = importlib.import_module("code.web.services.manual_builder_service")
+
+    df = pd.DataFrame([{"name": "Some Commander", "colorIdentity": "G, W"}])
+
+    class _FakeBuilder:
+        def __init__(self, *a, **k):
+            pass
+
+        def load_commander_data(self):
+            return df
+
+    monkeypatch.setattr(manual_builder_service, "DeckBuilder", _FakeBuilder)
+
+    result = manual_builder_service.resolve_color_identity("Some Commander")
+    assert result == ["G", "W"]
+
+
+def test_save_manual_deck_writes_full_type_breakdown(monkeypatch, tmp_path):
+    manual_builder_service = importlib.import_module("code.web.services.manual_builder_service")
+    sess = _manual_sess(monkeypatch, manual_builder_service, _sample_deck_df())
+    sess["deck_cards"] = ["Rampant Growth", "Lightning Bolt", "Forest"]
+
+    manual_builder_service.save_manual_deck(sess, str(tmp_path))
+
+    import json
+    summary_path = next(tmp_path.glob("*.summary.json"))
+    payload = json.loads(summary_path.read_text(encoding="utf-8"))
+    tb = payload["summary"]["type_breakdown"]
+    assert tb["counts"]["Sorcery"] == 1
+    assert tb["counts"]["Instant"] == 1
+    assert tb["counts"]["Land"] == 1
+    assert "Rampant Growth" in {c["name"] for c in tb["cards"]["Sorcery"]}
+    assert payload["summary"]["mana_curve"]["1"] == 1  # Lightning Bolt (mv 1)
 
 
 def test_duplicate_blocked(monkeypatch):

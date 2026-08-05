@@ -17,7 +17,13 @@ import pandas as pd
 
 from deck_builder.builder import DeckBuilder
 from deck_builder import builder_constants as bc
-from deck_builder.builder_utils import basic_land_names, compute_color_source_matrix, compute_pip_density, parse_theme_tags
+from deck_builder.builder_utils import (
+    basic_land_names,
+    compute_color_source_matrix,
+    compute_pip_density,
+    fetch_land_allowed_for_colors,
+    parse_theme_tags,
+)
 from deck_builder.brackets_compliance import (
     banned_category_names,
     capped_category_names,
@@ -176,8 +182,15 @@ def resolve_color_identity(
     row = df[df["name"].astype(str) == commander]
     if row.empty:
         return []
-    color_str = row.iloc[0].get("colorIdentity", "") or ""
-    return list(color_str)
+    raw_ci = row.iloc[0].get("colorIdentity", "") or ""
+    if isinstance(raw_ci, (list, tuple, set)):
+        return [str(c).strip().upper() for c in raw_ci if str(c).strip()]
+    raw_ci = str(raw_ci)
+    if raw_ci.strip().lower() == "colorless":
+        return []
+    if "," in raw_ci:
+        return [c.strip().strip("'[] ").upper() for c in raw_ci.split(",") if c.strip().strip("'[] ")]
+    return [c.upper() for c in raw_ci if c.isalpha()]
 
 
 def manual_session_state(sess: Dict[str, Any]) -> Dict[str, Any]:
@@ -450,6 +463,17 @@ def get_card_pool(sess: Dict[str, Any]) -> pd.DataFrame:
     if commander:
         pool = pool[pool["name"].astype(str) != str(commander)]
     pool = _merge_multi_face_pool_rows(pool)
+
+    # Fetch lands are colorless (no colorIdentity pips), so the plain
+    # color-identity subset check above always lets them through even when
+    # they only search for basic land types outside the deck's identity
+    # (e.g. Polluted Delta -> Island/Swamp in a W/G deck). Filter those out.
+    if "metadataTags" in pool.columns:
+        identity_list = sorted(identity)
+        fetch_mask = pool["metadataTags"].apply(
+            lambda tags: fetch_land_allowed_for_colors(tags, identity_list)
+        )
+        pool = pool[fetch_mask]
 
     banned = banned_category_names(bracket)
     banned_names: set = set()
@@ -1443,6 +1467,62 @@ def build_deck_txt_text(sess: Dict[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _build_deck_summary(sess: Dict[str, Any]) -> Dict[str, Any]:
+    """Build the full `.summary.json` `summary` block (type_breakdown +
+    mana_curve + colors) from the in-memory session. Matches the schema
+    `decks.py`'s CSV-fallback (`_read_csv_summary`) produces, so the
+    finished-deck browser/view page renders manual decks the same as any
+    other saved deck instead of showing an empty list.
+    """
+    rows = _build_deck_rows(sess)
+    type_counts: Dict[str, int] = {}
+    type_cards: Dict[str, List[Dict[str, Any]]] = {}
+    curve_bins = ["0", "1", "2", "3", "4", "5", "6+"]
+    curve_counts: Dict[str, int] = {b: 0 for b in curve_bins}
+    curve_cards: Dict[str, List[Dict[str, Any]]] = {b: [] for b in curve_bins}
+
+    def _mv_bucket(mv: Any) -> str:
+        try:
+            v = float(mv)
+        except Exception:
+            v = 0.0
+        return "6+" if v >= 6 else str(int(v))
+
+    for r in rows:
+        if r["is_commander"]:
+            continue
+        cat = _deck_type_category(r["type"])
+        type_counts[cat] = type_counts.get(cat, 0) + r["count"]
+        type_cards.setdefault(cat, []).append({
+            "name": r["name"], "count": r["count"], "tags": r["tags"],
+        })
+        if "land" not in r["type"].lower():
+            bucket = _mv_bucket(r["cmc"])
+            curve_counts[bucket] += r["count"]
+            curve_cards[bucket].append({"name": r["name"], "count": r["count"]})
+
+    type_order = [t for t in _DECK_TYPE_ORDER if t in type_counts]
+    return {
+        "type_breakdown": {
+            "counts": type_counts,
+            "order": type_order,
+            "cards": type_cards,
+            "total": sum(type_counts.values()),
+        },
+        "pip_distribution": {
+            "counts": {c: 0 for c in ("W", "U", "B", "R", "G")},
+            "weights": {c: 0 for c in ("W", "U", "B", "R", "G")},
+        },
+        "mana_generation": {"W": 0, "U": 0, "B": 0, "R": 0, "G": 0, "total_sources": 0},
+        "mana_curve": {
+            **curve_counts,
+            "total_spells": sum(curve_counts.values()),
+            "cards": curve_cards,
+        },
+        "colors": list(sess.get("color_identity") or []),
+    }
+
+
 def save_manual_deck(sess: Dict[str, Any], deck_dir: str) -> tuple:
     """Write the manual deck's CSV + TXT + `.summary.json` + `_compliance.json`
     sidecars. Mirrors `deck_import_service.save_imported_deck`'s file-writing
@@ -1529,8 +1609,9 @@ def save_manual_deck(sess: Dict[str, Any], deck_dir: str) -> tuple:
         if edit_source:
             meta["last_edited"] = _date.today().isoformat()
         card_count = sum(deck_card_counts(sess).values()) + (1 if commander_name else 0)
+        summary = {"card_count": card_count, **_build_deck_summary(sess)}
         with open(summary_path, "w", encoding="utf-8") as fh:
-            json.dump({"meta": meta, "summary": {"card_count": card_count}}, fh, ensure_ascii=False, indent=2)
+            json.dump({"meta": meta, "summary": summary}, fh, ensure_ascii=False, indent=2)
     except Exception as exc:
         try:
             os.remove(csv_path)

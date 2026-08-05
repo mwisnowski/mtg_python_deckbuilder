@@ -15,7 +15,8 @@ _No unreleased changes yet_
 _No unreleased changes yet_
 
 ### Fixed
-_No unreleased changes yet_
+- Manual Deck Builder: fetch lands that only search for basic land types outside your commander's colors (e.g. Polluted Delta in a white/green deck) no longer show up in the card pool.
+- Manual Deck Builder: saved decks now show their full card list when viewed in the deck browser instead of appearing empty; a two-color commander's color identity was also being parsed incorrectly in some cases, which could affect pool filtering.
 
 ### Removed
 _No unreleased changes yet_

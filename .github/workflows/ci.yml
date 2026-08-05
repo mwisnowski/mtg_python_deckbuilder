@@ -33,7 +33,7 @@ jobs:
 
       - name: Headless smoke test (dry-run)
         run: |
-          python -m code.headless_runner --config config/deck.json --dry-run
+          python -m code.headless_runner --commander "Aang, Airbending Master" --dry-run
 
       - name: Tests
         run: |

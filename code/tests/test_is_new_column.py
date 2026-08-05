@@ -38,7 +38,9 @@ CARDS = [
     {"name": "Reprint Card", "set": "TMT", "set_type": "expansion", "released_at": "2026-03-07", "reprint": True},
     # Future spoiler — released_at > today
     {"name": "Future Card", "set": "SOS", "set_type": "expansion", "released_at": "2026-04-24", "reprint": False},
-    # DFC: combined name AND each face should be indexed
+    # DFC: only the full combined name should be indexed, not each face
+    # (indexing individual faces caused false positives against unrelated
+    # old cards sharing a name with one face of a new DFC).
     {"name": "DFC New // Back Face", "set": "TMT", "set_type": "expansion", "released_at": "2026-03-07", "reprint": False},
     # Promo card within rolling 6-month window (non-expansion set_type)
     {"name": "Rolling Window Card", "set": "PROMO", "set_type": "promo", "released_at": "2025-11-01", "reprint": False},
@@ -79,11 +81,12 @@ def test_old_card_outside_window_excluded(bulk_path):
     assert "old expansion card" not in result
 
 
-def test_dfc_faces_indexed(bulk_path):
+def test_dfc_combined_name_indexed_not_faces(bulk_path):
     from code.file_setup.setup import _compute_is_new_from_bulk
     result = _compute_is_new_from_bulk(bulk_path, 6, TODAY)
-    assert "dfc new" in result
-    assert "back face" in result
+    assert "dfc new // back face" in result
+    assert "dfc new" not in result
+    assert "back face" not in result
 
 
 def test_rolling_window_non_expansion_included(bulk_path):

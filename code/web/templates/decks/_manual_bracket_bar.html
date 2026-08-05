@@ -1,0 +1,13 @@
+<div id="manual-bracket-bar" class="role-health-bar"{% if oob %} hx-swap-oob="true"{% endif %}>
+  {% for pill in bracket_pills %}
+  <span class="role-pill role-pill-{{ pill.status }}"
+        title="{{ pill.label }}: {{ pill.count }}{% if pill.limit is not none %} of {{ pill.limit }} max{% endif %}">{{ pill.label }} {{ pill.count }}{% if pill.limit is not none %}/{{ pill.limit }}{% endif %}</span>
+  {% endfor %}
+</div>
+{% if bracket_notes %}
+<div id="manual-bracket-notes" class="muted text-sm" style="margin-top:.35rem;"{% if oob %} hx-swap-oob="true"{% endif %}>
+  {% for note in bracket_notes %}<div>{{ note }}</div>{% endfor %}
+</div>
+{% else %}
+<div id="manual-bracket-notes"{% if oob %} hx-swap-oob="true"{% endif %}></div>
+{% endif %}

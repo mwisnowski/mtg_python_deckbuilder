@@ -123,9 +123,14 @@ def _fmt_cmc(value: float) -> str:
 # Ideal role categories: maps deck-config keys to the parquet themeTags they represent.
 # "lands", "basic_lands", and "fetch_lands" are intentionally omitted — land cards are
 # never returned as upgrade candidates.
+# NOTE: "Interaction" is intentionally excluded from "removal" — it's a broad
+# catch-all tag also applied to board wipes, combat tricks, and
+# protection-granting cards (e.g. Swiftfoot Boots, Teferi's Protection), so
+# including it here mis-buckets those non-removal cards as Removal.
+# "Counterspells" IS included — countering a spell is functionally removal.
 _IDEAL_KEY_TO_TAGS: dict[str, frozenset[str]] = {
     "ramp":           frozenset({"Ramp", "Mana Dork", "Mana Rock"}),
-    "removal":        frozenset({"Removal", "Spot Removal", "Interaction"}),
+    "removal":        frozenset({"Removal", "Spot Removal", "Counterspells"}),
     "wipes":          frozenset({"Board Wipes"}),
     "card_advantage": frozenset({"Card Draw", "Unconditional Draw", "Card Advantage"}),
     "protection":     frozenset({"Protective Effects"}),

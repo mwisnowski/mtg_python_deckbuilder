@@ -453,6 +453,10 @@ def create_damage_pattern(number: Union[int, str]) -> str:
 def create_mass_damage_mask(df: pd.DataFrame) -> pd.Series[bool]:
     """Create a boolean mask for cards with mass damage effects.
 
+    Only counts damage aimed at creatures/permanents (potential to wipe the
+    board) - "to each opponent"/"to each player" alone is direct player damage
+    (Burn), not a board wipe, even at scale (e.g. Boltwave, Coruscation Mage).
+
     Args:
         df: DataFrame to search
 
@@ -464,14 +468,29 @@ def create_mass_damage_mask(df: pd.DataFrame) -> pd.Series[bool]:
     target_patterns = [
         'to each creature',
         'to all creatures',
-        'to each player',
-        'to each opponent',
         'to everything'
     ]
     damage_mask = create_text_mask(df, number_patterns)
     target_mask = create_text_mask(df, target_patterns)
     
     return damage_mask & target_mask
+
+def create_graveyard_hate_mask(df: pd.DataFrame) -> pd.Series[bool]:
+    """Create a boolean mask for cards with graveyard hate effects.
+
+    Matches cards that exile cards from a graveyard (denying opponents use of
+    it), excluding self-graveyard-as-a-resource mechanics like Delve, Escape,
+    Embalm, and Eternalize which exile from "your" own graveyard as a cost.
+
+    Args:
+        df: DataFrame to search
+
+    Returns:
+        Boolean Series indicating which cards have graveyard hate effects
+    """
+    text_mask = create_text_mask(df, tag_constants.GRAVEYARD_HATE_TEXT_PATTERNS)
+    exclusion_mask = create_text_mask(df, tag_constants.GRAVEYARD_HATE_EXCLUSION_PATTERNS)
+    return text_mask & ~exclusion_mask
 
 
 # ==============================================================================

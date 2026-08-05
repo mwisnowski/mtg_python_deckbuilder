@@ -17,6 +17,7 @@ that lives in a separate subsystem (`random_util.py`) used only by the
 from __future__ import annotations
 
 import asyncio
+import os
 import uuid
 from typing import Any, Dict, List, Optional
 
@@ -29,6 +30,7 @@ from code.type_definitions import User
 
 from ...services import api_alternatives
 from ...services import api_build_store as build_store
+from ...services import manual_builder_service
 from ...services import orchestrator as orch
 from ...services.build_utils import owned_names as owned_names_helper
 from ...utils.api_response import err, ok
@@ -53,7 +55,9 @@ class CreateBuildRequest(BaseModel):
     prefer_owned: bool = False
     # "auto" runs every stage immediately in the background (default, unchanged
     # behavior). "guided" stops after each stage so a client can review/swap
-    # cards via POST /{build_id}/advance before continuing.
+    # cards via POST /{build_id}/advance before continuing. "manual" (roadmap_25
+    # Milestone 8) skips the auto-build pipeline entirely and opens an empty,
+    # fully interactive session driven by GET/POST /{build_id}/manual/*.
     mode: str = "auto"
     # Multi-copy "package" selection, e.g. {"id": "hare_apparent", "name": "Hare
     # Apparent", "count": 25}. See GET /builds/multi-copy-options for viable
@@ -101,6 +105,15 @@ class SetFoilRequest(BaseModel):
 
 class RemoveCardRequest(BaseModel):
     name: str
+
+
+class ManualAddRemoveRequest(BaseModel):
+    name: str
+
+
+class ManualSetCountRequest(BaseModel):
+    name: str
+    count: int
 
 
 def _default_bracket() -> int:
@@ -167,13 +180,46 @@ async def create_build(body: CreateBuildRequest, request: Request, user: User = 
     commander = body.commander.strip()
     if not commander:
         return err("commander is required.", "INVALID_COMMANDER", 400, _rid(request))
-    if body.mode not in ("auto", "guided"):
-        return err("mode must be 'auto' or 'guided'.", "INVALID_MODE", 400, _rid(request))
+    if body.mode not in ("auto", "guided", "manual"):
+        return err("mode must be 'auto', 'guided', or 'manual'.", "INVALID_MODE", 400, _rid(request))
     bracket = body.bracket if body.bracket is not None else _default_bracket()
 
-    owned_names_list = owned_names_helper() if (body.owned_only or body.prefer_owned) else None
-
     deck_dir = str(_deck_dir(str(user["id"])))
+
+    if body.mode == "manual":
+        try:
+            color_identity = await asyncio.to_thread(
+                _start_manual_session_sync,
+                commander,
+                body.secondary_commander,
+                body.background,
+                ENABLE_PARTNER_MECHANICS and body.partner_enabled,
+            )
+        except ValueError as exc:
+            return err(str(exc), "INVALID_BUILD_REQUEST", 400, _rid(request))
+        sess: Dict[str, Any] = {
+            "mode": "manual",
+            "commander": commander,
+            "tags": list(body.themes or []),
+            "color_identity": color_identity,
+            "bracket": bracket,
+            "budget_config": body.budget or {},
+            "deck_cards": [],
+            "deck_dir": deck_dir,
+            "secondary_commander": body.secondary_commander,
+            "background": body.background,
+            "partner_enabled": bool(body.partner_enabled),
+        }
+        build_id = build_store.create_build(user["id"], body.model_dump())
+        build_store.set_ctx(build_id, sess)
+        build_store.update_progress(build_id, status="ready", stage_idx=0, stage_total=0)
+        return ok(
+            {"build_id": build_id, "status": "ready", "mode": "manual"},
+            _rid(request),
+            status_code=201,
+        )
+
+    owned_names_list = owned_names_helper() if (body.owned_only or body.prefer_owned) else None
 
     ideals = orch.ideal_defaults()
     if body.ideal_counts:
@@ -223,6 +269,29 @@ async def create_build(body: CreateBuildRequest, request: Request, user: User = 
 
     asyncio.create_task(asyncio.to_thread(_run_build_sync, build_id, ctx))
     return ok({"build_id": build_id, "status": "queued"}, _rid(request), status_code=202)
+
+
+def _start_manual_session_sync(
+    commander: str,
+    secondary_commander: Optional[str],
+    background: Optional[str],
+    partner_enabled: bool,
+) -> List[str]:
+    """Validate `commander` exists and resolve its color identity for a fresh
+    manual-mode session, mirroring `_detect_multi_copy_options_sync`'s
+    lightweight (no full build pipeline) commander lookup.
+    """
+    tmp = DeckBuilder(output_func=lambda *_: None, input_func=lambda *_: "", headless=True)
+    df = tmp.load_commander_data()
+    row = df[df["name"].astype(str) == commander]
+    if row.empty:
+        raise ValueError(f"Commander not found: {commander}")
+    return manual_builder_service.resolve_color_identity(
+        commander,
+        secondary_commander=secondary_commander,
+        background=background,
+        partner_enabled=partner_enabled,
+    )
 
 
 def _detect_multi_copy_options_sync(commander: str, themes: List[str]) -> List[Dict[str, Any]]:
@@ -307,6 +376,15 @@ def _guided_build_or_none(build_id: str, user_id: str) -> Optional[Dict[str, Any
     if not build or build.get("user_id") != user_id:
         return None
     if (build.get("config") or {}).get("mode") != "guided":
+        return None
+    return build
+
+
+def _manual_build_or_none(build_id: str, user_id: str) -> Optional[Dict[str, Any]]:
+    build = build_store.get_build(build_id)
+    if not build or build.get("user_id") != user_id:
+        return None
+    if (build.get("config") or {}).get("mode") != "manual":
         return None
     return build
 
@@ -778,6 +856,260 @@ async def undo_remove_build_card(build_id: str, request: Request, user: User = D
     except Exception as exc:  # noqa: BLE001
         return err(str(exc), "UNDO_FAILED", 500, _rid(request))
 
+    return ok(result, _rid(request))
+
+
+def _manual_deck_state(sess: Dict[str, Any]) -> Dict[str, Any]:
+    """Bundle deck-in-progress + role/compliance status + mana overview so a
+    client doesn't need a second request just to refresh the deck panel
+    after a mutation.
+    """
+    return {
+        "deck": manual_builder_service.deck_panel_data(sess),
+        "role_bar": manual_builder_service.role_bar_data(sess),
+        "compliance": manual_builder_service.manual_compliance_report(sess),
+        **manual_builder_service.mana_overview_data(sess),
+    }
+
+
+@router.get("/{build_id}/pool", summary="Browse a manual build's card pool")
+async def get_manual_pool(
+    build_id: str,
+    request: Request,
+    category: Optional[str] = None,
+    search: str = "",
+    page: int = 1,
+    per_page: int = 20,
+    user: User = Depends(get_api_user),
+):
+    """Categorized card pool for a manual-mode build (mirrors the web manual
+    builder's pool grid). Omit `category` to get page 1 of every category
+    keyed by category id (see `category_keys` in the response); pass
+    `category` to page/search within just that one.
+    """
+    build = _manual_build_or_none(build_id, user["id"])
+    if build is None:
+        return err("Manual build not found.", "BUILD_NOT_FOUND", 404, _rid(request))
+    sess = build_store.get_ctx(build_id)
+    if sess is None:
+        return err("Build session expired.", "BUILD_SESSION_EXPIRED", 410, _rid(request))
+
+    def _run():
+        if category:
+            return manual_builder_service.query_category(sess, category, search=search, page=page, per_page=per_page)
+        return manual_builder_service.categorize_pool(sess, search=search)
+
+    try:
+        result = await asyncio.to_thread(_run)
+    except ValueError as exc:
+        return err(str(exc), "INVALID_CATEGORY", 400, _rid(request))
+
+    if category:
+        return ok(result, _rid(request))
+    return ok({"categories": result, "category_keys": manual_builder_service.CATEGORY_KEYS}, _rid(request))
+
+
+@router.get("/{build_id}/manual/deck", summary="Fetch a manual build's current deck panel/role bar/mana overview")
+async def get_manual_deck(build_id: str, request: Request, user: User = Depends(get_api_user)):
+    """Read-only refresh of the deck-in-progress -- useful for an initial
+    screen load (before any add/remove/save mutation has returned this same
+    bundle) or to re-sync after reopening the build.
+    """
+    build = _manual_build_or_none(build_id, user["id"])
+    if build is None:
+        return err("Manual build not found.", "BUILD_NOT_FOUND", 404, _rid(request))
+    sess = build_store.get_ctx(build_id)
+    if sess is None:
+        return err("Build session expired.", "BUILD_SESSION_EXPIRED", 410, _rid(request))
+
+    try:
+        result = await asyncio.to_thread(_manual_deck_state, sess)
+    except Exception as exc:  # noqa: BLE001
+        return err(str(exc), "DECK_STATE_FAILED", 500, _rid(request))
+    return ok(result, _rid(request))
+
+
+@router.post("/{build_id}/manual/add", summary="Add a card to a manual build's deck-in-progress")
+async def add_manual_card(
+    build_id: str, body: ManualAddRemoveRequest, request: Request, user: User = Depends(get_api_user)
+):
+    build = _manual_build_or_none(build_id, user["id"])
+    if build is None:
+        return err("Manual build not found.", "BUILD_NOT_FOUND", 404, _rid(request))
+    sess = build_store.get_ctx(build_id)
+    if sess is None:
+        return err("Build session expired.", "BUILD_SESSION_EXPIRED", 410, _rid(request))
+
+    def _run():
+        result = manual_builder_service.add_card_to_deck(sess, body.name)
+        result.update(_manual_deck_state(sess))
+        return result
+
+    try:
+        result = await asyncio.to_thread(_run)
+    except Exception as exc:  # noqa: BLE001
+        return err(str(exc), "ADD_FAILED", 500, _rid(request))
+
+    if result.get("status") == "not_found":
+        return err(f"Card not found: {body.name}", "CARD_NOT_FOUND", 404, _rid(request))
+    return ok(result, _rid(request))
+
+
+@router.post("/{build_id}/manual/remove", summary="Remove a card from a manual build's deck-in-progress")
+async def remove_manual_card(
+    build_id: str, body: ManualAddRemoveRequest, request: Request, user: User = Depends(get_api_user)
+):
+    build = _manual_build_or_none(build_id, user["id"])
+    if build is None:
+        return err("Manual build not found.", "BUILD_NOT_FOUND", 404, _rid(request))
+    sess = build_store.get_ctx(build_id)
+    if sess is None:
+        return err("Build session expired.", "BUILD_SESSION_EXPIRED", 410, _rid(request))
+
+    def _run():
+        result = manual_builder_service.remove_card_from_deck(sess, body.name)
+        result.update(_manual_deck_state(sess))
+        return result
+
+    try:
+        result = await asyncio.to_thread(_run)
+    except Exception as exc:  # noqa: BLE001
+        return err(str(exc), "REMOVE_FAILED", 500, _rid(request))
+
+    if result.get("status") == "not_found":
+        return err(f"Card not in deck: {body.name}", "CARD_NOT_IN_DECK", 404, _rid(request))
+    return ok(result, _rid(request))
+
+
+@router.post("/{build_id}/manual/set-count", summary="Set the exact copy count of an unlimited-copy card")
+async def set_manual_card_count(
+    build_id: str, body: ManualSetCountRequest, request: Request, user: User = Depends(get_api_user)
+):
+    """For basic lands and other unlimited-copy cards (e.g. Relentless Rats);
+    non-unlimited-copy cards are clamped to 0 or 1 (singleton rule).
+    """
+    build = _manual_build_or_none(build_id, user["id"])
+    if build is None:
+        return err("Manual build not found.", "BUILD_NOT_FOUND", 404, _rid(request))
+    sess = build_store.get_ctx(build_id)
+    if sess is None:
+        return err("Build session expired.", "BUILD_SESSION_EXPIRED", 410, _rid(request))
+
+    def _run():
+        result = manual_builder_service.set_card_count(sess, body.name, body.count)
+        result.update(_manual_deck_state(sess))
+        return result
+
+    try:
+        result = await asyncio.to_thread(_run)
+    except Exception as exc:  # noqa: BLE001
+        return err(str(exc), "SET_COUNT_FAILED", 500, _rid(request))
+
+    if result.get("status") == "not_found":
+        return err(f"Card not found: {body.name}", "CARD_NOT_FOUND", 404, _rid(request))
+    return ok(result, _rid(request))
+
+
+@router.post("/{build_id}/manual/land-package", summary="Add a starting land base to a manual build")
+async def add_manual_land_package(build_id: str, request: Request, user: User = Depends(get_api_user)):
+    """Adds basics (split by color, per the ideal basic-land count) plus
+    generic staple lands (Command Tower, Reliquary Tower, etc.). Not
+    idempotent -- calling it twice adds a second land package.
+    """
+    build = _manual_build_or_none(build_id, user["id"])
+    if build is None:
+        return err("Manual build not found.", "BUILD_NOT_FOUND", 404, _rid(request))
+    sess = build_store.get_ctx(build_id)
+    if sess is None:
+        return err("Build session expired.", "BUILD_SESSION_EXPIRED", 410, _rid(request))
+
+    def _run():
+        result = manual_builder_service.add_land_package(sess)
+        result.update(_manual_deck_state(sess))
+        return result
+
+    try:
+        result = await asyncio.to_thread(_run)
+    except Exception as exc:  # noqa: BLE001
+        return err(str(exc), "LAND_PACKAGE_FAILED", 500, _rid(request))
+    return ok(result, _rid(request))
+
+
+@router.get("/{build_id}/manual/search", summary="Search a manual build's legal card pool")
+async def search_manual_pool(
+    build_id: str,
+    request: Request,
+    q: str = "",
+    page: int = 1,
+    per_page: int = 20,
+    user: User = Depends(get_api_user),
+):
+    build = _manual_build_or_none(build_id, user["id"])
+    if build is None:
+        return err("Manual build not found.", "BUILD_NOT_FOUND", 404, _rid(request))
+    sess = build_store.get_ctx(build_id)
+    if sess is None:
+        return err("Build session expired.", "BUILD_SESSION_EXPIRED", 410, _rid(request))
+
+    result = await asyncio.to_thread(manual_builder_service.search_off_pool, sess, q, page, per_page)
+    return ok(result, _rid(request))
+
+
+@router.get("/{build_id}/manual/suggestions", summary="Suggest alternatives for a card in a manual build")
+async def get_manual_suggestions(
+    build_id: str,
+    request: Request,
+    card: str,
+    limit: int = 5,
+    user: User = Depends(get_api_user),
+):
+    """Uses `manual_builder_service.hover_suggestions` -- the same "Other Good
+    Options" scoring (same role, CMC within +/-2, not already in the deck)
+    the web manual builder's hover panel uses. A manual-mode session has no
+    live `DeckBuilder` instance, so `api_alternatives.suggest_alternatives`
+    (used by guided mode's `/alternatives`) doesn't apply here.
+    """
+    build = _manual_build_or_none(build_id, user["id"])
+    if build is None:
+        return err("Manual build not found.", "BUILD_NOT_FOUND", 404, _rid(request))
+    sess = build_store.get_ctx(build_id)
+    if sess is None:
+        return err("Build session expired.", "BUILD_SESSION_EXPIRED", 410, _rid(request))
+
+    items = await asyncio.to_thread(manual_builder_service.hover_suggestions, sess, card, limit)
+    return ok({"items": items}, _rid(request))
+
+
+@router.post("/{build_id}/manual/save", summary="Finalize and save a manual build's deck")
+async def save_manual_build(build_id: str, request: Request, user: User = Depends(get_api_user)):
+    """Write the deck's CSV/TXT/summary/compliance sidecars, same as the web
+    manual builder's Save. The deck then shows up in `GET /api/v1/decks`
+    like any other build, since decks are listed by scanning the user's
+    deck directory rather than through the build store.
+    """
+    build = _manual_build_or_none(build_id, user["id"])
+    if build is None:
+        return err("Manual build not found.", "BUILD_NOT_FOUND", 404, _rid(request))
+    sess = build_store.get_ctx(build_id)
+    if sess is None:
+        return err("Build session expired.", "BUILD_SESSION_EXPIRED", 410, _rid(request))
+
+    deck_dir = sess.get("deck_dir") or str(_deck_dir(str(user["id"])))
+
+    try:
+        csv_name, txt_name, summary_name = await asyncio.to_thread(
+            manual_builder_service.save_manual_deck, sess, deck_dir
+        )
+    except RuntimeError as exc:
+        return err(str(exc), "SAVE_FAILED", 500, _rid(request))
+
+    result = {
+        "csv_path": os.path.join(deck_dir, csv_name),
+        "txt_path": os.path.join(deck_dir, txt_name),
+        "summary": {"csv": csv_name, "txt": txt_name, "summary": summary_name},
+        "compliance": manual_builder_service.manual_compliance_report(sess),
+    }
+    build_store.mark_done(build_id, result)
     return ok(result, _rid(request))
 
 

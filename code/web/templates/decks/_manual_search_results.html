@@ -1,0 +1,28 @@
+<div id="manual-search-results">
+  {% if not query %}
+  <div class="muted text-sm">Search for a card by name to add it even if it's outside the default pool sort.</div>
+  {% elif not cards %}
+  <div class="panel">No matches for "{{ query }}".</div>
+  {% else %}
+  <div class="card-browser-grid">
+    {% for card in cards %}
+      {% include "decks/_manual_pool_card.html" %}
+    {% endfor %}
+  </div>
+  {% if total_pages > 1 %}
+  <div style="display:flex; gap:.5rem; align-items:center; margin-top:1rem; flex-wrap:wrap;">
+    {% if page > 1 %}
+    <a class="btn btn-sm" role="button"
+       hx-get="/decks/manual/{{ session_id }}/search?q={{ query|urlencode }}&page={{ page - 1 }}"
+       hx-target="#manual-search-results" hx-swap="outerHTML">&laquo; Prev</a>
+    {% endif %}
+    <span class="muted text-sm">Page {{ page }} of {{ total_pages }} ({{ total }} cards)</span>
+    {% if page < total_pages %}
+    <a class="btn btn-sm" role="button"
+       hx-get="/decks/manual/{{ session_id }}/search?q={{ query|urlencode }}&page={{ page + 1 }}"
+       hx-target="#manual-search-results" hx-swap="outerHTML">Next &raquo;</a>
+    {% endif %}
+  </div>
+  {% endif %}
+  {% endif %}
+</div>

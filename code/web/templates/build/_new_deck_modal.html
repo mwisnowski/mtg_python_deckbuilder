@@ -280,6 +280,7 @@
       <div class="modal-footer">
         <button type="button" class="btn" onclick="this.closest('.modal').remove()">Cancel</button>
         <div class="modal-footer-left">
+          <button type="submit" name="mode" value="manual" class="btn" id="build-manual-btn" title="Choose every card yourself, with guided suggestions">Build Manually</button>
           <button type="submit" name="quick_build" value="1" class="btn-continue" id="quick-build-btn" title="Build entire deck automatically without approval steps">Quick Build</button>
           <span class="help-tip" style="margin-left:6px;"><button type="button" class="help-tip-btn" data-tip="Builds the complete deck in one step without step-by-step approval prompts." data-tip-href="/help/quick_build_skip_controls#quick-build" aria-label="Quick Build help"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true" width="11" height="11"><circle cx="8" cy="8" r="6.5"/><line x1="8" y1="7" x2="8" y2="10.5" stroke-linecap="round"/><circle cx="8" cy="4.5" r="0.75" fill="currentColor" stroke="none"/></svg></button></span>
           <button type="submit" class="btn-continue" id="create-btn">Build Deck</button>
@@ -383,22 +384,29 @@
   function updateButtonState(count) {
     var quickBuildBtn = document.getElementById('quick-build-btn');
     var createBtn = document.getElementById('create-btn');
-    
+    var buildManualBtn = document.getElementById('build-manual-btn');
+
     count = parseInt(count);
-    
+
     if (count > 1) {
-      // Multi-build: force Quick Build, hide Create button
+      // Multi-build: force Quick Build, hide Create/Build Manually buttons
       if (createBtn) {
         createBtn.style.display = 'none';
+      }
+      if (buildManualBtn) {
+        buildManualBtn.style.display = 'none';
       }
       if (quickBuildBtn) {
         quickBuildBtn.textContent = 'Build ' + count + ' Decks';
         quickBuildBtn.title = 'Build ' + count + ' decks automatically and compare results';
       }
     } else {
-      // Single build: show both buttons normally
+      // Single build: show all buttons normally
       if (createBtn) {
         createBtn.style.display = '';
+      }
+      if (buildManualBtn) {
+        buildManualBtn.style.display = '';
       }
       if (quickBuildBtn) {
         quickBuildBtn.textContent = 'Quick Build';

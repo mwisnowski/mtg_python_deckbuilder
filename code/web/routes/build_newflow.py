@@ -29,6 +29,7 @@ from ..services.build_utils import (
 from ..app import templates
 from deck_builder import builder_constants as bc
 from ..services import orchestrator as orch
+from ..services import manual_builder_service
 from ..services.orchestrator import is_setup_ready as _is_setup_ready, is_setup_stale as _is_setup_stale
 from ..services.tasks import get_session, new_sid
 from deck_builder.builder import DeckBuilder
@@ -92,14 +93,22 @@ _ARCHETYPE_JS_MAP: dict[str, dict] = {
 # ==============================================================================
 
 @router.get("/new", response_class=HTMLResponse)
-async def build_new_modal(request: Request, reset: str = Query("")) -> HTMLResponse:
-    """Return the New Deck modal content (for an overlay)."""
+async def build_new_modal(request: Request, reset: str = Query(""), mode: str = Query("auto")) -> HTMLResponse:
+    """Return the New Deck modal content (for an overlay).
+
+    `mode="manual"` (roadmap_25) just pre-selects the "Build Manually" affordance;
+    the actual mode is read from the submitted form field on /build/new POST.
+    """
     sid = request.cookies.get("sid") or new_sid()
     sess = get_session(sid)
 
     # Full session reset when requested (e.g. from "New Build" on summary page)
     if reset == "1":
         sess.clear()
+
+    # Clear a stale manual-mode flag from a previous build so the skip-controls
+    # / build_ctx logic below doesn't think a manual session is in progress
+    sess.pop("mode", None)
 
     # Clear build context to allow skip controls to work
     # (Otherwise toggle endpoint thinks build is in progress)
@@ -152,6 +161,7 @@ async def build_new_modal(request: Request, reset: str = Query("")) -> HTMLRespo
         "ideals_ui_mode": WEB_IDEALS_UI,  # 'input' or 'slider'
         "multi_copy_archetypes_js": _ARCHETYPE_JS_MAP,
         "is_guest": _is_guest_request(request),
+        "preset_mode": mode,
         "form": {
             "commander": sess.get("commander", ""),  # Pre-fill for quick-build
             "deck_visibility": sess.get("deck_visibility") or _user_default_visibility(request),
@@ -493,6 +503,9 @@ async def build_new_submit(
     build_count: int = Form(1),
     # Quick Build flag
     quick_build: str | None = Form(None),
+    # "manual" (roadmap_25) skips the auto-build pipeline entirely and redirects
+    # to the manual deck builder view instead. Absent/anything else -> auto.
+    mode: str | None = Form(None),
 ) -> HTMLResponse:
     """Handle New Deck modal submit and immediately start the build (skip separate review page)."""
     sid = request.cookies.get("sid") or new_sid()
@@ -1072,6 +1085,34 @@ async def build_new_submit(
     except Exception:
         # If readiness check fails, continue and let downstream handling surface errors
         pass
+
+    # "Build Manually" (roadmap_25): skip the auto-build pipeline entirely and
+    # send the user to the manual deck builder view instead.
+    if (mode or "").strip() == "manual":
+        sess["mode"] = "manual"
+        # Starting a fresh manual build must not inherit deck/pool state, or
+        # an edit-target file, left over from a previous unfinished build or
+        # "Edit Deck" session sharing the same cookie/session.
+        sess["deck_cards"] = []
+        sess.pop("_pool_df", None)
+        sess.pop("edit_source_path", None)
+        sess.pop("edit_source_name", None)
+        sess["deck_dir"] = _user_deck_dir(request)
+        try:
+            sess["color_identity"] = manual_builder_service.resolve_color_identity(
+                sess.get("commander", ""),
+                secondary_commander=sess.get("secondary_commander"),
+                background=sess.get("background"),
+                partner_enabled=bool(sess.get("partner_enabled")),
+            )
+        except Exception:
+            sess["color_identity"] = []
+        resp = HTMLResponse(status_code=200)
+        resp.headers["HX-Redirect"] = f"/decks/manual/{sid}"
+        resp.set_cookie("sid", sid, httponly=True, samesite="lax")
+        return resp
+    sess["mode"] = "auto"
+
     # Immediately initialize a build context and run the first stage, like hitting Build Deck on review
     if "replace_mode" not in sess:
         sess["replace_mode"] = True

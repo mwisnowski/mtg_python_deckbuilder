@@ -26,7 +26,7 @@ def _is_wipe(tags: List[str]) -> bool:
 
 
 def _is_removal(tags: List[str]) -> bool:
-    return any(("removal" in t) or ("spot removal" in t) for t in tags)
+    return any(("removal" in t) or ("spot removal" in t) or ("counterspells" in t) for t in tags)
 
 
 def _is_draw(tags: List[str]) -> bool:

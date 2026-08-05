@@ -154,6 +154,14 @@ if _STATIC_DIR.exists():
 
 # Jinja templates
 templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
+# auto_reload stats every included template file on every render (checking
+# mtime) to support editing templates without a container restart; on a
+# Windows Docker Desktop bind mount those stat() calls are slow enough that
+# a single manual-builder response (which nests ~300 template includes across
+# 14 pool categories) can add the better part of a second. Off by default;
+# set TEMPLATE_AUTO_RELOAD=1 while actively iterating on templates.
+templates.env.auto_reload = os.environ.get("TEMPLATE_AUTO_RELOAD", "0") == "1"
+
 
 # Expose price cache timestamp as a Jinja2 global callable (evaluated per-render)
 def _price_cache_built_at() -> "str | None":
@@ -286,6 +294,7 @@ USER_THEME_LIMIT = _as_int(os.getenv("USER_THEME_LIMIT"), 8)
 ENABLE_PREFETCH = _as_bool(os.getenv("WEB_PREFETCH"), False)
 SHOW_NEW_BADGE = _as_bool(os.getenv("SHOW_NEW_BADGE"), True)
 ENABLE_UPGRADE_SUGGESTIONS = _as_bool(os.getenv("ENABLE_UPGRADE_SUGGESTIONS"), True)
+ENABLE_MANUAL_BUILDER = _as_bool(os.getenv("ENABLE_MANUAL_BUILDER"), True)
 
 
 class _NewCardNamesProxy:
@@ -433,6 +442,7 @@ templates.env.globals.update({
     "enable_custom_themes": ENABLE_CUSTOM_THEMES,
     "enable_partner_mechanics": ENABLE_PARTNER_MECHANICS,
     "allow_must_haves": ALLOW_MUST_HAVES,
+    "enable_manual_builder": ENABLE_MANUAL_BUILDER,
     "show_must_have_buttons": SHOW_MUST_HAVE_BUTTONS,
     "show_theme_quality_badges": SHOW_THEME_QUALITY_BADGES,
     "show_theme_pool_badges": SHOW_THEME_POOL_BADGES,
@@ -2463,6 +2473,7 @@ from .routes import build_newflow as build_newflow_routes  # noqa: E402
 from .routes import build_alternatives as build_alternatives_routes  # noqa: E402
 from .routes import build_compliance as build_compliance_routes  # noqa: E402
 from .routes import build_permalinks as build_permalinks_routes  # noqa: E402
+from .routes import manual_builder as manual_builder_routes  # noqa: E402
 from .routes import decks as decks_routes  # noqa: E402
 from .routes.decks import _deck_dir as _decks_deck_dir, _user_id as _decks_user_id  # noqa: E402
 from .routes import upgrade_suggestions as upgrade_suggestions_routes  # noqa: E402
@@ -2493,6 +2504,7 @@ app.include_router(build_newflow_routes.router, prefix="/build")
 app.include_router(build_alternatives_routes.router)
 app.include_router(build_compliance_routes.router)
 app.include_router(build_permalinks_routes.router)
+app.include_router(manual_builder_routes.router)
 app.include_router(decks_routes.router)
 app.include_router(upgrade_suggestions_routes.router)
 app.include_router(setup_routes.router)

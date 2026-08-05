@@ -50,6 +50,10 @@ def _get_protection_scope_patterns(ability: str) -> scope_utils.ScopePatterns:
         re.compile(r'this\s+(?:creature|permanent|artifact|enchantment)\s+(?:has|gains?)\s+' + ability_lower, re.IGNORECASE),
         # Starts with ability (likely self)
         re.compile(r'^(?:has|gains?)\s+' + ability_lower, re.IGNORECASE),
+        # A just-created token's own inherent ability (e.g. "Create ... token.
+        # It has indestructible") - describes that one object, not a grant to
+        # the wider board.
+        re.compile(r'\b(?:it|that token|which)\s+(?:has|have)\s+(?:[^.]*\s+and\s+)?' + ability_lower, re.IGNORECASE),
     ]
     
     # Your permanents patterns
@@ -166,4 +170,4 @@ def has_any_protection(text: str) -> bool:
         return False
     
     text_lower = text.lower()
-    return any(ability.lower() in text_lower for ability in PROTECTION_ABILITIES)
+    return any(scope_utils._has_word(ability.lower(), text_lower) for ability in PROTECTION_ABILITIES)

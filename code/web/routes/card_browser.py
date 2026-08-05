@@ -22,15 +22,29 @@ from ..services.tasks import get_session, new_sid
 try:
     from code.services.all_cards_loader import AllCardsLoader
     from code.deck_builder.builder_utils import parse_theme_tags
-    from code.deck_builder.color_identity_utils import canon_color_code, color_identity_badges, color_label_from_code
+    from code.deck_builder.color_identity_utils import color_identity_badges
     from code.settings import ENABLE_CARD_DETAILS
     from code.web.routes.api_v1.cards import _get_card_faces
+    from code.web.services.card_search import (
+        apply_extra_clauses,
+        apply_name_clauses,
+        apply_parsed_search,
+        has_structured_flags,
+        parse_search_query,
+    )
 except ImportError:
     from services.all_cards_loader import AllCardsLoader
     from deck_builder.builder_utils import parse_theme_tags
-    from deck_builder.color_identity_utils import canon_color_code, color_identity_badges, color_label_from_code
+    from deck_builder.color_identity_utils import color_identity_badges
     from settings import ENABLE_CARD_DETAILS
     from web.routes.api_v1.cards import _get_card_faces
+    from web.services.card_search import (
+        apply_extra_clauses,
+        apply_name_clauses,
+        apply_parsed_search,
+        has_structured_flags,
+        parse_search_query,
+    )
 
 if TYPE_CHECKING:
     from code.web.services.card_similarity import CardSimilarity
@@ -52,113 +66,6 @@ def get_loader() -> AllCardsLoader:
     if _loader is None:
         _loader = AllCardsLoader()
     return _loader
-
-
-def _color_code_for_filter(raw: object) -> str:
-    """Order-independent color-identity comparison key for the `color`
-    filter param.
-
-    Tolerant of the raw data's exact stored string format (e.g. "G, U" for
-    Simic, "['W', 'U']", or a bare "W") as well as simpler codes the UI can
-    link to directly (e.g. "WUG"), so filtering doesn't depend on matching
-    a specific color ordering. The literal word "Colorless" (and NaN/empty)
-    map to "C"; `canon_color_code` can't be used directly on that word since
-    it would misread stray "C"/"R" letters out of "COLORLESS".
-    """
-    if raw is None:
-        return ""
-    text = str(raw).strip()
-    if not text or text.lower() == "colorless":
-        return "C"
-    return canon_color_code(text)
-
-
-_COLOR_BITS = {"W": 1, "U": 2, "B": 4, "R": 8, "G": 16}
-
-
-def _mask_from_code(code: str) -> int:
-    """Bitmask (WUBRG) for a canonical color code string; "C"/empty -> 0."""
-    if not code or code == "C":
-        return 0
-    return sum(_COLOR_BITS.get(ch, 0) for ch in code)
-
-
-def _ensure_color_code_column(df: "pd.DataFrame") -> None:
-    """Add cached `_color_code` (order-independent WUBRG code) and
-    `_color_mask` (WUBRG bitmask, for inclusive/subset filtering) columns
-    to the shared cards DataFrame, computed once and reused across requests
-    so the `color` filter's comparison doesn't re-parse 26k+ rows every time.
-    """
-    if "_color_code" not in df.columns:
-        df["_color_code"] = df["colorIdentity"].apply(_color_code_for_filter)
-    if "_color_mask" not in df.columns:
-        df["_color_mask"] = df["_color_code"].apply(_mask_from_code)
-
-
-def _apply_color_filter(filtered_df: "pd.DataFrame", color: str, color_mode: str) -> "pd.DataFrame":
-    """Apply the `color` filter, either as an exact color-identity match
-    (default) or an inclusive/subset match ("contains at least these
-    colors", e.g. searching "WU" also matches Bant/Esper/Jeskai/etc.).
-    Colorless always uses exact matching in either mode since "inclusive
-    of no colors" would trivially match everything.
-    """
-    target_code = _color_code_for_filter(color)
-    if color_mode == "inclusive" and target_code != "C":
-        target_mask = _mask_from_code(target_code)
-        return filtered_df[(filtered_df["_color_mask"] & target_mask) == target_mask]
-    return filtered_df[filtered_df["_color_code"] == target_code]
-
-
-_WUBRG_SORT_INDEX = {"W": 0, "U": 1, "B": 2, "R": 3, "G": 4}
-
-
-def _dropdown_color_label(code: str) -> str:
-    """Short display label for a canonical color code in the `color`
-    filter dropdown: bare letter(s) for colorless/mono, guild/shard/wedge/
-    nephilim name (without the "(CODE)" suffix) for 2+ colors.
-    """
-    if code == "C" or len(code) == 1:
-        return code
-    label = color_label_from_code(code)
-    suffix = f" ({code})"
-    if label.endswith(suffix):
-        return label[: -len(suffix)]
-    return label
-
-
-def _build_color_dropdown_groups(df: "pd.DataFrame") -> list[tuple[str, list[tuple[str, str]]]]:
-    """Build the `color` filter dropdown's grouped options directly from
-    the canonical WUBRG codes actually present in the data, so every
-    combination present shows up (previously a hardcoded list of literal
-    raw-string tuples silently dropped any combo whose stored letter order
-    didn't match, e.g. only 5 of the 10 two-color guilds ever appeared).
-    Each option's value is the same canonical WUBRG code used everywhere
-    else (badges, mana-dot links), so the current `color` filter is always
-    correctly pre-selected regardless of how it was set (dropdown, badge
-    click, or a hand-typed/bookmarked URL).
-    """
-    present = sorted(
-        {c for c in df["_color_code"].dropna().unique().tolist() if c},
-        key=lambda c: tuple(_WUBRG_SORT_INDEX.get(ch, 9) for ch in c),
-    )
-    groups: dict[str, list[tuple[str, str]]] = {
-        "Colorless": [], "Mono-Color": [], "Two-Color": [],
-        "Three-Color": [], "Four-Color": [], "Five-Color": [],
-    }
-    for code in present:
-        if code == "C":
-            groups["Colorless"].append((code, _dropdown_color_label(code)))
-        elif len(code) == 1:
-            groups["Mono-Color"].append((code, _dropdown_color_label(code)))
-        elif len(code) == 2:
-            groups["Two-Color"].append((code, _dropdown_color_label(code)))
-        elif len(code) == 3:
-            groups["Three-Color"].append((code, _dropdown_color_label(code)))
-        elif len(code) == 4:
-            groups["Four-Color"].append((code, _dropdown_color_label(code)))
-        elif code == "WUBRG":
-            groups["Five-Color"].append((code, _dropdown_color_label(code)))
-    return [(name, opts) for name, opts in groups.items() if opts]
 
 
 def _printings_context(request: Request) -> tuple[dict[str, str], str, bool]:
@@ -299,24 +206,82 @@ def get_theme_index() -> dict[str, set[int]]:
     return _theme_index
 
 
+def _apply_search_query(filtered_df: "pd.DataFrame", search: str) -> "pd.DataFrame":
+    """Apply the search box. A query containing any Scryfall-style flags
+    (t:/o:/c:/id:/m:/mv:/pow:/tou:/loy:/r:/tag:/is:new/set:) is filtered
+    structurally via card_search.py; a plain name-only query keeps this
+    browser's existing typo-tolerant fuzzy matching (exact match first,
+    then same-word-count fuzzy, then substring/fuzzy), which is more
+    forgiving than a strict substring search for the "just typing a card
+    name" common case.
+    """
+    if not search:
+        return filtered_df
+
+    parsed = parse_search_query(search)
+    if has_structured_flags(parsed):
+        filtered_df = apply_parsed_search(filtered_df, parsed)
+        filtered_df = apply_extra_clauses(filtered_df, parsed)
+        return filtered_df
+
+    query_lower = search.lower().strip()
+    query_words = set(query_lower.split())
+
+    exact_matches = []
+    word_count_matches = []
+    fuzzy_candidates = []
+    fuzzy_indices = []
+
+    for idx, card_name in enumerate(filtered_df['name']):
+        card_lower = card_name.lower()
+        # For double-faced cards, get the front face name
+        front_name = card_lower.split(' // ')[0].strip() if ' // ' in card_lower else card_lower
+
+        # Exact match (full name or front face)
+        if card_lower == query_lower or front_name == query_lower:
+            exact_matches.append(idx)
+        # Word count match (same number of words + high similarity)
+        elif len(query_lower.split()) == len(front_name.split()) and (
+            query_lower in card_lower or any(word in card_lower for word in query_words)
+        ):
+            word_count_matches.append((idx, card_name))
+        # Fuzzy candidate
+        elif query_lower in card_lower or any(word in card_lower for word in query_words):
+            fuzzy_candidates.append(card_name)
+            fuzzy_indices.append(idx)
+
+    final_matches = []
+    if exact_matches:
+        final_matches = exact_matches
+    else:
+        if word_count_matches:
+            scored_wc = [(idx, _fuzzy_card_name_score(search, name), name)
+                         for idx, name in word_count_matches]
+            scored_wc.sort(key=lambda x: -x[1])
+            final_matches.extend([idx for idx, score, name in scored_wc if score >= 0.3])
+        if fuzzy_candidates:
+            scored_fuzzy = [(fuzzy_indices[i], _fuzzy_card_name_score(search, name), name)
+                             for i, name in enumerate(fuzzy_candidates)]
+            scored_fuzzy.sort(key=lambda x: -x[1])
+            final_matches.extend([idx for idx, score, name in scored_fuzzy if score >= 0.3])
+
+    if final_matches:
+        seen = set()
+        unique_matches = []
+        for idx in final_matches:
+            if idx not in seen:
+                seen.add(idx)
+                unique_matches.append(idx)
+        return filtered_df.iloc[unique_matches]
+    return filtered_df.iloc[0:0]
+
+
 @router.get("/", response_class=HTMLResponse)
 async def card_browser_index(
     request: Request,
-    search: str = Query("", description="Card name search query"),
+    search: str = Query("", description="Card name search, or Scryfall-style flags (t:/o:/c:/id:/m:/mv:/pow:/tou:/loy:/r:/tag:/is:new/set:)"),
     themes: list[str] = Query([], description="Theme tag filters (AND logic)"),
-    color: str = Query("", description="Color identity filter"),
-    color_mode: str = Query("exact", description="Color filter mode: 'exact' or 'inclusive' (contains at least these colors)"),
-    card_type: str = Query("", description="Card type filter"),
-    rarity: str = Query("", description="Rarity filter"),
     sort: str = Query("name_asc", description="Sort order"),
-    cmc_min: int = Query(None, description="Minimum CMC filter", ge=0, le=16),
-    cmc_max: int = Query(None, description="Maximum CMC filter", ge=0, le=16),
-    power_min: int = Query(None, description="Minimum power filter", ge=0, le=99),
-    power_max: int = Query(None, description="Maximum power filter", ge=0, le=99),
-    tough_min: int = Query(None, description="Minimum toughness filter", ge=0, le=99),
-    tough_max: int = Query(None, description="Maximum toughness filter", ge=0, le=99),
-    is_new: bool = Query(False, description="Filter to recently released cards only"),
-    set_code: str = Query("", description="Filter by set code (e.g. ALA)", max_length=6),
 ):
     """
     Main card browser page.
@@ -327,75 +292,11 @@ async def card_browser_index(
     try:
         loader = get_loader()
         df = loader.load()
-        _ensure_color_code_column(df)
-        color = _color_code_for_filter(color) if color else ""
         
         # Apply filters
         filtered_df = df.copy()
         
-        if search:
-            # Prioritize exact matches first, then word-count matches, then fuzzy
-            query_lower = search.lower().strip()
-            query_words = set(query_lower.split())
-            
-            # 1. Check for exact match (case-insensitive)
-            # For double-faced cards, check both full name and name before " //"
-            exact_matches = []
-            word_count_matches = []
-            fuzzy_candidates = []
-            fuzzy_indices = []
-            
-            for idx, card_name in enumerate(filtered_df['name']):
-                card_lower = card_name.lower()
-                # For double-faced cards, get the front face name
-                front_name = card_lower.split(' // ')[0].strip() if ' // ' in card_lower else card_lower
-                
-                # Exact match (full name or front face)
-                if card_lower == query_lower or front_name == query_lower:
-                    exact_matches.append(idx)
-                # Word count match (same number of words + high similarity)
-                elif len(query_lower.split()) == len(front_name.split()) and (
-                    query_lower in card_lower or any(word in card_lower for word in query_words)
-                ):
-                    word_count_matches.append((idx, card_name))
-                # Fuzzy candidate
-                elif query_lower in card_lower or any(word in card_lower for word in query_words):
-                    fuzzy_candidates.append(card_name)
-                    fuzzy_indices.append(idx)
-            
-            # Build final match list
-            final_matches = []
-            
-            # If we have exact matches, ONLY return those (don't add fuzzy results)
-            if exact_matches:
-                final_matches = exact_matches
-            else:
-                # 2. Add word-count matches with fuzzy scoring
-                if word_count_matches:
-                    scored_wc = [(idx, _fuzzy_card_name_score(search, name), name) 
-                                 for idx, name in word_count_matches]
-                    scored_wc.sort(key=lambda x: -x[1])  # Sort by score desc
-                    final_matches.extend([idx for idx, score, name in scored_wc if score >= 0.3])
-                
-                # 3. Add fuzzy matches
-                if fuzzy_candidates:
-                    scored_fuzzy = [(fuzzy_indices[i], _fuzzy_card_name_score(search, name), name)
-                                   for i, name in enumerate(fuzzy_candidates)]
-                    scored_fuzzy.sort(key=lambda x: -x[1])  # Sort by score desc
-                    final_matches.extend([idx for idx, score, name in scored_fuzzy if score >= 0.3])
-            
-            # Apply matches
-            if final_matches:
-                # Remove duplicates while preserving order
-                seen = set()
-                unique_matches = []
-                for idx in final_matches:
-                    if idx not in seen:
-                        seen.add(idx)
-                        unique_matches.append(idx)
-                filtered_df = filtered_df.iloc[unique_matches]
-            else:
-                filtered_df = filtered_df.iloc[0:0]
+        filtered_df = _apply_search_query(filtered_df, search)
         
         # Multi-select theme filtering (AND logic: card must have ALL selected themes)
         if themes:
@@ -435,68 +336,6 @@ async def card_browser_index(
                 else:
                     filtered_df = filtered_df.iloc[0:0]
 
-        if color:
-            filtered_df = _apply_color_filter(filtered_df, color, color_mode)
-        
-        if card_type:
-            filtered_df = filtered_df[
-                filtered_df['type'].str.contains(card_type, case=False, na=False)
-            ]
-        
-        if rarity and 'rarity' in filtered_df.columns:
-            filtered_df = filtered_df[
-                filtered_df['rarity'].str.lower() == rarity.lower()
-            ]
-        
-        # CMC range filter
-        if cmc_min is not None and 'manaValue' in filtered_df.columns:
-            filtered_df = filtered_df[
-                filtered_df['manaValue'] >= cmc_min
-            ]
-        
-        if cmc_max is not None and 'manaValue' in filtered_df.columns:
-            filtered_df = filtered_df[
-                filtered_df['manaValue'] <= cmc_max
-            ]
-        
-        # Power range filter (only applies to cards with power values)
-        if power_min is not None and 'power' in filtered_df.columns:
-            # Filter: either no power (NaN) OR power >= min
-            filtered_df = filtered_df[
-                filtered_df['power'].isna() | (filtered_df['power'] >= str(power_min))
-            ]
-        
-        if power_max is not None and 'power' in filtered_df.columns:
-            # Filter: either no power (NaN) OR power <= max
-            filtered_df = filtered_df[
-                filtered_df['power'].isna() | (filtered_df['power'] <= str(power_max))
-            ]
-        
-        # Toughness range filter (only applies to cards with toughness values)
-        if tough_min is not None and 'toughness' in filtered_df.columns:
-            filtered_df = filtered_df[
-                filtered_df['toughness'].isna() | (filtered_df['toughness'] >= str(tough_min))
-            ]
-        
-        if tough_max is not None and 'toughness' in filtered_df.columns:
-            filtered_df = filtered_df[
-                filtered_df['toughness'].isna() | (filtered_df['toughness'] <= str(tough_max))
-            ]
-        
-        # isNew filter
-        if is_new and 'isNew' in filtered_df.columns:
-            filtered_df = filtered_df[filtered_df['isNew'] == True]  # noqa: E712
-        
-        # Set code filter (sanitize to alphanumeric only to prevent regex injection)
-        if set_code:
-            safe_set_code = re.sub(r'[^A-Z0-9]', '', set_code.upper())[:6]
-            if safe_set_code and 'printings' in filtered_df.columns:
-                filtered_df = filtered_df[
-                    filtered_df['printings'].str.contains(
-                        r'\b' + safe_set_code + r'\b', na=False, regex=True
-                    )
-                ]
-        
         # Apply sorting
         if sort == "name_desc":
             # Name Z-A
@@ -577,24 +416,6 @@ async def card_browser_index(
             # TODO: Add owned card checking when integrated
             card['is_owned'] = False
         
-        # Get unique values for filters
-        # Build structured color identity dropdown groups (guild/shard/wedge/
-        # nephilim names) directly from the canonical WUBRG codes present in
-        # the data, keyed by the same codes used everywhere else in the UI
-        # (badges, mana-dot links) so the current filter is always correctly
-        # pre-selected.
-        all_colors = _build_color_dropdown_groups(df)
-        
-        all_types = sorted(
-            set(
-                df['type'].dropna().str.extract(r'([A-Za-z]+)', expand=False).dropna().unique().tolist()
-            )
-        )[:20]  # Limit to top 20 types
-        
-        all_rarities = []
-        if 'rarity' in df.columns:
-            all_rarities = sorted(df['rarity'].dropna().unique().tolist())
-        
         # Calculate pagination info
         per_page = 20
         total_filtered = len(filtered_df)
@@ -618,22 +439,7 @@ async def card_browser_index(
                 "last_card": last_card_name,
                 "search": search,
                 "themes": themes,
-                "color": color,
-                "color_mode": color_mode,
-                "card_type": card_type,
-                "rarity": rarity,
                 "sort": sort,
-                "cmc_min": cmc_min,
-                "cmc_max": cmc_max,
-                "power_min": power_min,
-                "power_max": power_max,
-                "tough_min": tough_min,
-                "tough_max": tough_max,
-                "is_new": is_new,
-                "set_code": set_code,
-                "all_colors": all_colors,
-                "all_types": all_types,
-                "all_rarities": all_rarities,
                 "per_page": per_page,
                 "current_page": current_page,
                 "total_pages": total_pages,
@@ -660,12 +466,6 @@ async def card_browser_index(
                 "has_next": False,
                 "last_card": "",
                 "search": "",
-                "color": "",
-                "card_type": "",
-                "rarity": "",
-                "all_colors": [],
-                "all_types": [],
-                "all_rarities": [],
                 "per_page": 20,
                 "error": "Card data not available. Please run setup to generate all_cards.parquet.",
                 "enable_card_details": ENABLE_CARD_DETAILS,
@@ -682,12 +482,6 @@ async def card_browser_index(
                 "has_next": False,
                 "last_card": "",
                 "search": "",
-                "color": "",
-                "card_type": "",
-                "rarity": "",
-                "all_colors": [],
-                "all_types": [],
-                "all_rarities": [],
                 "per_page": 20,
                 "error": f"Error loading cards: {str(e)}",
                 "enable_card_details": ENABLE_CARD_DETAILS,
@@ -699,21 +493,9 @@ async def card_browser_index(
 async def card_browser_grid(
     request: Request,
     cursor: str = Query("", description="Last card name from previous page"),
-    search: str = Query("", description="Card name search query"),
+    search: str = Query("", description="Card name search, or Scryfall-style flags (t:/o:/c:/id:/m:/mv:/pow:/tou:/loy:/r:/tag:/is:new/set:)"),
     themes: list[str] = Query([], description="Theme tag filters (AND logic)"),
-    color: str = Query("", description="Color identity filter"),
-    color_mode: str = Query("exact", description="Color filter mode: 'exact' or 'inclusive' (contains at least these colors)"),
-    card_type: str = Query("", description="Card type filter"),
-    rarity: str = Query("", description="Rarity filter"),
     sort: str = Query("name_asc", description="Sort order"),
-    cmc_min: int = Query(None, description="Minimum CMC filter", ge=0, le=16),
-    cmc_max: int = Query(None, description="Maximum CMC filter", ge=0, le=16),
-    power_min: int = Query(None, description="Minimum power filter", ge=0, le=99),
-    power_max: int = Query(None, description="Maximum power filter", ge=0, le=99),
-    tough_min: int = Query(None, description="Minimum toughness filter", ge=0, le=99),
-    tough_max: int = Query(None, description="Maximum toughness filter", ge=0, le=99),
-    is_new: bool = Query(False, description="Filter to recently released cards only"),
-    set_code: str = Query("", description="Filter by set code (e.g. ALA)", max_length=6),
 ):
     """
     HTMX endpoint for paginated card grid.
@@ -724,75 +506,11 @@ async def card_browser_grid(
     try:
         loader = get_loader()
         df = loader.load()
-        _ensure_color_code_column(df)
-        color = _color_code_for_filter(color) if color else ""
         
         # Apply filters
         filtered_df = df.copy()
         
-        if search:
-            # Prioritize exact matches first, then word-count matches, then fuzzy
-            query_lower = search.lower().strip()
-            query_words = set(query_lower.split())
-            
-            # 1. Check for exact match (case-insensitive)
-            # For double-faced cards, check both full name and name before " //"
-            exact_matches = []
-            word_count_matches = []
-            fuzzy_candidates = []
-            fuzzy_indices = []
-            
-            for idx, card_name in enumerate(filtered_df['name']):
-                card_lower = card_name.lower()
-                # For double-faced cards, get the front face name
-                front_name = card_lower.split(' // ')[0].strip() if ' // ' in card_lower else card_lower
-                
-                # Exact match (full name or front face)
-                if card_lower == query_lower or front_name == query_lower:
-                    exact_matches.append(idx)
-                # Word count match (same number of words + high similarity)
-                elif len(query_lower.split()) == len(front_name.split()) and (
-                    query_lower in card_lower or any(word in card_lower for word in query_words)
-                ):
-                    word_count_matches.append((idx, card_name))
-                # Fuzzy candidate
-                elif query_lower in card_lower or any(word in card_lower for word in query_words):
-                    fuzzy_candidates.append(card_name)
-                    fuzzy_indices.append(idx)
-            
-            # Build final match list
-            final_matches = []
-            
-            # If we have exact matches, ONLY return those (don't add fuzzy results)
-            if exact_matches:
-                final_matches = exact_matches
-            else:
-                # 2. Add word-count matches with fuzzy scoring
-                if word_count_matches:
-                    scored_wc = [(idx, _fuzzy_card_name_score(search, name), name) 
-                                 for idx, name in word_count_matches]
-                    scored_wc.sort(key=lambda x: -x[1])  # Sort by score desc
-                    final_matches.extend([idx for idx, score, name in scored_wc if score >= 0.3])
-                
-                # 3. Add fuzzy matches
-                if fuzzy_candidates:
-                    scored_fuzzy = [(fuzzy_indices[i], _fuzzy_card_name_score(search, name), name)
-                                   for i, name in enumerate(fuzzy_candidates)]
-                    scored_fuzzy.sort(key=lambda x: -x[1])  # Sort by score desc
-                    final_matches.extend([idx for idx, score, name in scored_fuzzy if score >= 0.3])
-            
-            # Apply matches
-            if final_matches:
-                # Remove duplicates while preserving order
-                seen = set()
-                unique_matches = []
-                for idx in final_matches:
-                    if idx not in seen:
-                        seen.add(idx)
-                        unique_matches.append(idx)
-                filtered_df = filtered_df.iloc[unique_matches]
-            else:
-                filtered_df = filtered_df.iloc[0:0]
+        filtered_df = _apply_search_query(filtered_df, search)
         
         # Multi-select theme filtering (AND logic: card must have ALL selected themes)
         if themes:
@@ -831,66 +549,6 @@ async def card_browser_grid(
                     filtered_df = filtered_df.loc[list(valid_indices)]
                 else:
                     filtered_df = filtered_df.iloc[0:0]
-        
-        if color:
-            filtered_df = _apply_color_filter(filtered_df, color, color_mode)
-        
-        if card_type:
-            filtered_df = filtered_df[
-                filtered_df['type'].str.contains(card_type, case=False, na=False)
-            ]
-        
-        if rarity and 'rarity' in filtered_df.columns:
-            filtered_df = filtered_df[
-                filtered_df['rarity'].str.lower() == rarity.lower()
-            ]
-        
-        # CMC range filter (grid endpoint)
-        if cmc_min is not None and 'manaValue' in filtered_df.columns:
-            filtered_df = filtered_df[
-                filtered_df['manaValue'] >= cmc_min
-            ]
-        
-        if cmc_max is not None and 'manaValue' in filtered_df.columns:
-            filtered_df = filtered_df[
-                filtered_df['manaValue'] <= cmc_max
-            ]
-        
-        # Power range filter (grid endpoint)
-        if power_min is not None and 'power' in filtered_df.columns:
-            filtered_df = filtered_df[
-                filtered_df['power'].isna() | (filtered_df['power'] >= str(power_min))
-            ]
-        
-        if power_max is not None and 'power' in filtered_df.columns:
-            filtered_df = filtered_df[
-                filtered_df['power'].isna() | (filtered_df['power'] <= str(power_max))
-            ]
-        
-        # Toughness range filter (grid endpoint)
-        if tough_min is not None and 'toughness' in filtered_df.columns:
-            filtered_df = filtered_df[
-                filtered_df['toughness'].isna() | (filtered_df['toughness'] >= str(tough_min))
-            ]
-        
-        if tough_max is not None and 'toughness' in filtered_df.columns:
-            filtered_df = filtered_df[
-                filtered_df['toughness'].isna() | (filtered_df['toughness'] <= str(tough_max))
-            ]
-        
-        # isNew filter
-        if is_new and 'isNew' in filtered_df.columns:
-            filtered_df = filtered_df[filtered_df['isNew'] == True]  # noqa: E712
-        
-        # Set code filter (sanitize to alphanumeric only to prevent regex injection)
-        if set_code:
-            safe_set_code = re.sub(r'[^A-Z0-9]', '', set_code.upper())[:6]
-            if safe_set_code and 'printings' in filtered_df.columns:
-                filtered_df = filtered_df[
-                    filtered_df['printings'].str.contains(
-                        r'\b' + safe_set_code + r'\b', na=False, regex=True
-                    )
-                ]
         
         # Apply sorting (same logic as main endpoint)
         if sort == "name_desc":
@@ -987,19 +645,7 @@ async def card_browser_grid(
                 "last_card": last_card_name,
                 "search": search,
                 "themes": themes,
-                "color": color,
-                "color_mode": color_mode,
-                "card_type": card_type,
-                "rarity": rarity,
                 "sort": sort,
-                "cmc_min": cmc_min,
-                "cmc_max": cmc_max,
-                "power_min": power_min,
-                "power_max": power_max,
-                "tough_min": tough_min,
-                "tough_max": tough_max,
-                "is_new": is_new,
-                "set_code": set_code,
                 "enable_card_details": ENABLE_CARD_DETAILS,
                 "printings": printings,
                 "foils": foils,
@@ -1068,9 +714,11 @@ async def card_browser_search(
         
         loader = get_loader()
         df = loader.load()
-        
-        # Search by card name (case-insensitive)
-        matches = df[df['name'].str.contains(q, case=False, na=False)]
+
+        # Fuzzy-tolerant name match (falls back to typo/punctuation-tolerant
+        # matching when the strict substring search yields nothing), same
+        # as the main card grid and manual deck builder search.
+        matches = apply_name_clauses(df, [q], [])
         matches = matches.sort_values('name').head(10)
         
         card_names = matches['name'].tolist()

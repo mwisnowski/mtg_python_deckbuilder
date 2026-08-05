@@ -9,6 +9,22 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 
 ## [Unreleased]
 ### Added
+_No unreleased changes yet_
+
+### Changed
+_No unreleased changes yet_
+
+### Fixed
+_No unreleased changes yet_
+
+### Removed
+_No unreleased changes yet_
+
+### Security
+_No unreleased changes yet_
+
+## [5.5.0] - 2026-08-04
+### Added
 - Manual Deck Builder: a new "Build Manually" option (sidebar, home page, and the New Deck modal) lets you pick a commander and then browse the full legal card pool yourself, filtering/sorting by role and mana value, searching by name, and adding/removing cards one at a time. A live role-health bar tracks Ramp/Removal/Draw/Lands/Threats against target counts, hovering a pool card surfaces a few alternative options in the same role, and the finished deck can be saved (eligible for Suggested Upgrades and Import Analysis, same as any other deck) or exported as CSV/TXT without saving. Toggle with `ENABLE_MANUAL_BUILDER` (default on).
 - Manual Deck Builder: the pool now respects your bracket's compliance limits. Cards fully banned at your bracket (e.g. Game Changers at Bracket 1/2) are excluded from the pool and search entirely; cards allowed up to a positive cap are badged in the pool instead of hidden. A second live pill row tracks Game Changers, Extra Turns, Mass Land Denial, Nonland Tutors, and Two-Card Combos, warning about known combo pairs already present in the deck rather than filtering cards out of the pool.
 - Manual Deck Builder: an **Edit Deck** button on any deck you own reopens it in the Manual Deck Builder with its commander, cards, bracket, and settings pre-loaded; saving changes overwrites the original deck file in place instead of creating a new one.
@@ -48,12 +64,6 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 - Card tagging: fixed several false-positive `Board Wipes` tags caused by overly broad text matching, including cards that only deal damage to each player (not the board), a "once per turn" exile idiom (e.g. Wild-Magic Sorcerer), cards that only exile graveyards without affecting the battlefield (now covered by the new `Graveyard Hate` tag instead), and cards that "return" previously-imprinted or graveyard cards rather than bouncing the battlefield (e.g. Mimic Vat, Cold Storage, Underworld Cerberus).
 - Card database: Scryfall's Art Series and Alchemy products encode some card names as a self-referential "Card // Card" pair with a recent release date, which caused a handful of long-established cards (e.g. Command Tower, Fabled Passage, Jeska's Will) to be incorrectly badged "New" in the pool; these products are now excluded from new-card detection.
 - Card database: cards never made tournament-legal in Commander (silver-bordered/joke sets, oversized promos, memorabilia products, etc., e.g. Aswan Jaguar) could still show up in the pool's "Other" category; these are now filtered out using Scryfall's per-card legality data, refreshed automatically alongside the existing banned/Game Changers lists. Cards that are only "not_legal" because they belong to a set that hasn't been released yet (e.g. a prerelease reprint of an already-legal card) are correctly left in the pool.
-
-### Removed
-_No unreleased changes yet_
-
-### Security
-_No unreleased changes yet_
 
 ## [5.4.0] - 2026-08-02
 ### Removed

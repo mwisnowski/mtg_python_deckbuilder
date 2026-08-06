@@ -83,8 +83,8 @@ def _require_manual_session(request: Request, session_id: str):
 @router.get("/{session_id}", response_class=HTMLResponse)
 async def manual_builder_view(request: Request, session_id: str) -> HTMLResponse:
     """Manual builder page for a session started via mode=manual: role
-    health bar, categorized pool (page 1 of every category), and current
-    deck panel.
+    health bar, categorized pool (every category, capped, no pagination),
+    and current deck panel.
     """
     sid, guard = _require_manual_session(request, session_id)
     if sid is None:
@@ -122,16 +122,15 @@ async def manual_builder_pool_category(
     session_id: str,
     category: str,
     search: str = Query(""),
-    page: int = Query(1, ge=1),
 ) -> HTMLResponse:
-    """HTMX fragment: one Milestone 11 category's paginated card grid."""
+    """HTMX fragment: one Milestone 11 category's full (capped) card grid."""
     sid, guard = _require_manual_session(request, session_id)
     if sid is None:
         return guard
     sess = guard
     q = search or sess.get("_pool_search", "")
     try:
-        cat = manual_builder_service.query_category(sess, category, search=q, page=page)
+        cat = manual_builder_service.query_category(sess, category, search=q)
     except ValueError:
         return HTMLResponse("Unknown category", status_code=404)
     ctx = {

@@ -538,12 +538,32 @@ def test_query_category_caps_at_50_cards(monkeypatch):
     ]
     sess = _manual_sess(monkeypatch, manual_builder_service, pd.DataFrame(rows))
 
-    result = manual_builder_service.query_category(sess, "creatures", per_page=20)
+    result = manual_builder_service.query_category(sess, "creatures")
 
     assert result["total"] == 50
-    assert result["total_pages"] == 3
-    last_page = manual_builder_service.query_category(sess, "creatures", page=3, per_page=20)
-    assert len(last_page["cards"]) == 10
+    assert len(result["cards"]) == 50
+    assert result["capped"] is True
+
+
+def test_query_category_cap_does_not_replenish_when_card_added(monkeypatch):
+    """Adding a capped card to the deck should shrink the visible set, not
+    pull in the 51st-ranked card to backfill the cap."""
+    manual_builder_service = importlib.import_module("code.web.services.manual_builder_service")
+    monkeypatch.setattr(manual_builder_service, "_commander_tags_and_power", lambda name: ([], 0))
+    rows = [
+        {"name": f"Creature {i}", "colorIdentity": "G", "type": "Creature - Bear", "manaValue": 2.0,
+         "themeTags": [], "edhrecRank": float(i), "isNew": False}
+        for i in range(60)
+    ]
+    sess = _manual_sess(monkeypatch, manual_builder_service, pd.DataFrame(rows))
+    sess["deck_cards"] = ["Creature 0"]  # already in the top 50
+
+    result = manual_builder_service.query_category(sess, "creatures")
+
+    names = {c["name"] for c in result["cards"]}
+    assert result["total"] == 49
+    assert "Creature 0" not in names
+    assert "Creature 50" not in names  # never backfilled from beyond the original cap
 
 
 def test_tag_badges_highlight_deck_theme_and_role_separately(monkeypatch):

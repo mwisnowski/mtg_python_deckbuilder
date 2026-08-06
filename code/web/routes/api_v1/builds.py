@@ -878,14 +878,14 @@ async def get_manual_pool(
     request: Request,
     category: Optional[str] = None,
     search: str = "",
-    page: int = 1,
-    per_page: int = 20,
     user: User = Depends(get_api_user),
 ):
     """Categorized card pool for a manual-mode build (mirrors the web manual
-    builder's pool grid). Omit `category` to get page 1 of every category
-    keyed by category id (see `category_keys` in the response); pass
-    `category` to page/search within just that one.
+    builder's pool grid). Omit `category` to get every category keyed by
+    category id (see `category_keys` in the response); pass `category` to
+    search within just that one. Each category shows every matching card at
+    once (capped at a curated top-N when unsearched, uncapped when
+    searching) - there is no pagination.
     """
     build = _manual_build_or_none(build_id, user["id"])
     if build is None:
@@ -896,7 +896,7 @@ async def get_manual_pool(
 
     def _run():
         if category:
-            return manual_builder_service.query_category(sess, category, search=search, page=page, per_page=per_page)
+            return manual_builder_service.query_category(sess, category, search=search)
         return manual_builder_service.categorize_pool(sess, search=search)
 
     try:

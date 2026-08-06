@@ -1145,12 +1145,17 @@ def is_setup_stale() -> bool:
         return False
 
 
-def _ensure_setup_ready(out, force: bool = False) -> None:
+def _ensure_setup_ready(out, force: bool = False, force_theme_refresh: bool = False) -> None:
     """Ensure card data exists and tagging has completed; bootstrap if needed.
 
     M4: Updated to check for all_cards.parquet instead of cards.csv.
     Mirrors the CLI behavior used in build_deck_full: if the Parquet file is
     missing, too old, or the tagging flag is absent, run initial setup and tagging.
+
+    force_theme_refresh: when True, unconditionally regenerate the theme catalog
+    (JSON + YAML + theme_catalog.csv) bypassing the staleness heuristic below.
+    Intended for explicit user-initiated refreshes (e.g. the Setup page's
+    "Refresh Themes Only" button), which should always do real work.
     """
     # Track whether a theme catalog export actually executed during this invocation
     theme_export_performed = False
@@ -1619,6 +1624,10 @@ def _ensure_setup_ready(out, force: bool = False) -> None:
     # ensure theme artifacts exist and are fresh relative to the tagging flag. This runs outside the
     # main try so that a failure here never blocks normal builds.
     try:  # noqa: E722 - defensive broad except acceptable for non-critical refresh
+        # Explicit caller request: skip the staleness heuristic entirely and always refresh.
+        if force_theme_refresh:
+            _refresh_theme_catalog(out, force=True, fast_path=False)
+            return
         # Only attempt if we did NOT just perform a refresh (refresh_needed False) and auto-setup enabled
         # We detect refresh_needed by checking presence of the status flag percent=100 and phase done.
         status_path = os.path.join('csv_files', '.setup_status.json')

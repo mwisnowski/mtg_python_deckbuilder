@@ -12,10 +12,14 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 _No unreleased changes yet_
 
 ### Changed
-_No unreleased changes yet_
+- Manual Deck Builder: pool category sections now start collapsed (expand to browse), and each category shows every curated card at once instead of paginating.
 
 ### Fixed
-_No unreleased changes yet_
+- Manual Deck Builder: a pool category's curated card cap no longer quietly refills as cards are added to the deck - the capped set is now fixed, only shrinking as cards are added and growing back if removed.
+- Tagging: cards that return or cast cards from a graveyard (e.g. Eternal Witness, Bala Ged Recovery, Mizzix's Mastery, or cards with Flashback/Unearth/Eternalize) are no longer mistagged as `Removal`; they now correctly get a new `Graveyard Recursion` tag instead.
+- Tagging: cards that return a creature from your graveyard to the battlefield (e.g. Alesha, Who Laughs at Fate) were missing the `Reanimate` tag in some phrasings; they're now tagged correctly.
+- Card browser: the theme search/filter now reliably picks up newly added or renamed themes (e.g. `Graveyard Hate`, `Graveyard Recursion`) after retagging; the underlying theme catalog used by that search was a separate file that didn't always get refreshed automatically.
+- Setup page: the "Refresh Themes Only" button now always regenerates the theme catalog when clicked, instead of sometimes silently no-oping right after a manual retag.
 
 ### Removed
 _No unreleased changes yet_

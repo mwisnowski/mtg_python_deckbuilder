@@ -4486,6 +4486,8 @@ def tag_for_themes(df: pd.DataFrame, color: str) -> None:
     print('\n==========\n')
     tag_for_reanimate(df, color)
     print('\n==========\n')
+    tag_for_graveyard_recursion(df, color)
+    print('\n==========\n')
     tag_for_stax(df, color)
     print('\n==========\n')
     tag_for_theft(df, color)
@@ -5876,6 +5878,7 @@ def create_reanimator_text_mask(df: pd.DataFrame) -> pd.Series:
         'descended',
         'discard your hand',
         'from a graveyard',
+        'from your graveyard',
         'in a graveyard',
         'into a graveyard', 
         'leave a graveyard',
@@ -5949,7 +5952,63 @@ def tag_for_reanimate(df: pd.DataFrame, color: str) -> None:
         logger.error(f'Error in tag_for_reanimate: {str(e)}')
         raise
 
-## Stax
+def create_graveyard_recursion_text_mask(df: pd.DataFrame) -> pd.Series:
+    """Create a boolean mask for cards that return/cast cards from a graveyard.
+
+    Args:
+        df: DataFrame to search
+
+    Returns:
+        Boolean Series indicating which cards have graveyard recursion text
+    """
+    return tag_utils.create_text_mask(df, tag_constants.GRAVEYARD_RECURSION_TEXT_PATTERNS)
+
+def create_graveyard_recursion_keyword_mask(df: pd.DataFrame) -> pd.Series:
+    """Create a boolean mask for cards with graveyard-recursion keywords
+    (Flashback, Unearth, Eternalize, etc).
+
+    Args:
+        df: DataFrame to search
+
+    Returns:
+        Boolean Series indicating which cards have graveyard recursion keywords
+    """
+    return tag_utils.create_keyword_mask(df, tag_constants.GRAVEYARD_RECURSION_KEYWORDS)
+
+def tag_for_graveyard_recursion(df: pd.DataFrame, color: str) -> None:
+    """Tag cards that beneficially return or cast cards from a graveyard.
+
+    Distinct from 'Reanimate' (creatures put onto the battlefield from a
+    graveyard): this covers returning cards to hand (Eternal Witness, Bala
+    Ged Recovery), casting/copying from the graveyard (Mizzix's Mastery), and
+    graveyard-cast keywords (Flashback, Unearth, Eternalize, Escape, Retrace,
+    Aftermath, Disturb, Embalm, Jump-start, Scavenge). A card can carry both
+    tags when it does both.
+
+    Args:
+        df: DataFrame containing card data
+        color: Color identifier for logging purposes
+
+    Raises:
+        ValueError: If required DataFrame columns are missing
+    """
+    try:
+        required_cols = {'text', 'themeTags', 'keywords'}
+        tag_utils.validate_dataframe_columns(df, required_cols)
+        text_mask = create_graveyard_recursion_text_mask(df)
+        keyword_mask = create_graveyard_recursion_keyword_mask(df)
+        final_mask = text_mask | keyword_mask
+
+        tag_utils.tag_with_logging(
+            df, final_mask, ['Graveyard Recursion'],
+            'graveyard recursion effects', color=color, logger=logger
+        )
+
+    except Exception as e:
+        logger.error(f'Error in tag_for_graveyard_recursion: {str(e)}')
+        raise
+
+
 def create_stax_text_mask(df: pd.DataFrame) -> pd.Series:
     """Create a boolean mask for cards with stax-related text patterns.
 

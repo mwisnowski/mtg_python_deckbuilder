@@ -626,6 +626,7 @@ def _build_card_dict(row: Any) -> Dict[str, Any]:
         "theme_matches": list(row.get("_theme_matches") or []),
         "tag_badges": _tag_badges(row),
         "reasons": _card_reasons(row),
+        "oracle_text": row.get("text") or "",
     }
 
 
@@ -733,29 +734,30 @@ def query_category(
     sess: Dict[str, Any],
     category: str,
     search: str = "",
-    page: int = 1,
-    per_page: int = _CATEGORY_PAGE_SIZE,
-    _excluded_pool: Optional[pd.DataFrame] = None,
+    _full_pool: Optional[pd.DataFrame] = None,
 ) -> Dict[str, Any]:
-    """Filter/sort/paginate one Milestone 11 pool category.
+    """Filter/sort one Milestone 11 pool category, showing every matching
+    card at once (no pagination).
 
     "new"/"on_brand"/"related_synergy" are cross-cutting highlight sections
     (any card type); the rest are mutually-exclusive type buckets assigned
-    by `_type_category`. "on_brand" is a hard-capped top-N showcase (no
-    further pagination) - every other category paginates normally.
+    by `_type_category`. Every category except "on_brand" is capped at
+    `_CATEGORY_MAX_CARDS`; "on_brand" is capped at `_ON_BRAND_CAP`.
 
-    `_excluded_pool` lets `categorize_pool` compute the (already-computed-
-    columns, already-exclude-in-deck-filtered) pool once and reuse it across
-    all category keys, instead of redoing that scan 14x per request.
+    The cap is chosen from the full pool BEFORE excluding cards already in
+    the deck, so it's a fixed curated top-N that only ever shrinks as cards
+    are added (they disappear from the list) and grows back if removed -
+    it never "replenishes" by pulling in a new card ranked just past the
+    cap once a higher-ranked one is added to the deck.
+
+    `_full_pool` lets `categorize_pool` compute the (already-computed-
+    columns) pool once and reuse it across all category keys, instead of
+    redoing that scan 14x per request.
     """
     if category not in CATEGORY_LABELS:
         raise ValueError(f"Unknown pool category: {category}")
 
-    if _excluded_pool is not None:
-        filtered = _excluded_pool
-    else:
-        pool = _ensure_computed_columns(get_card_pool(sess))
-        filtered = _exclude_in_deck(sess, pool)
+    filtered = _full_pool if _full_pool is not None else _ensure_computed_columns(get_card_pool(sess))
 
     if category == "new":
         filtered = filtered[filtered["isNew"].fillna(False).astype(bool)]
@@ -813,33 +815,21 @@ def query_category(
 
     # A search should surface every matching legal card, not just the
     # curated top N shown when idly browsing - only cap when unsearched.
-    capped = category == "on_brand" and not search
+    # Capping happens BEFORE excluding in-deck cards (see docstring) so the
+    # cap doesn't silently refill itself as cards move into the deck.
+    capped = not search
     if capped:
-        filtered = filtered.iloc[:_ON_BRAND_CAP]
-        total = len(filtered)
-        total_pages = 1
-        page = 1
-        page_df = filtered
-    else:
-        if not search:
-            # Cap to a max recommendation pool (these are curated suggestions,
-            # not an exhaustive list) before paginating.
-            filtered = filtered.iloc[:_CATEGORY_MAX_CARDS]
-        total = len(filtered)
-        per_page = max(1, per_page)
-        total_pages = max(1, (total + per_page - 1) // per_page)
-        page = max(1, min(page, total_pages))
-        start = (page - 1) * per_page
-        page_df = filtered.iloc[start:start + per_page]
+        cap = _ON_BRAND_CAP if category == "on_brand" else _CATEGORY_MAX_CARDS
+        filtered = filtered.iloc[:cap]
 
-    cards: List[Dict[str, Any]] = [_build_card_dict(row) for _, row in page_df.iterrows()]
+    filtered = _exclude_in_deck(sess, filtered)
+    total = len(filtered)
+    cards: List[Dict[str, Any]] = [_build_card_dict(row) for _, row in filtered.iterrows()]
 
     return {
         "category": category,
         "label": CATEGORY_LABELS[category],
         "cards": cards,
-        "page": page,
-        "total_pages": total_pages,
         "total": total,
         "search": search,
         "capped": capped,
@@ -847,19 +837,17 @@ def query_category(
 
 
 def categorize_pool(sess: Dict[str, Any], search: str = "") -> Dict[str, Dict[str, Any]]:
-    """Page-1 data for every Milestone 11 category, keyed by category id.
+    """Full (unpaginated, capped) data for every Milestone 11 category,
+    keyed by category id.
 
     The "other" catch-all is only included if it actually has matching
     cards (safety net for a future card type the precedence rules in
     `_type_category` don't cover).
     """
     pool = _ensure_computed_columns(get_card_pool(sess))
-    excluded_pool = _exclude_in_deck(sess, pool)
     result: Dict[str, Dict[str, Any]] = {}
     for key in CATEGORY_KEYS:
-        cat = query_category(
-            sess, key, search=search, page=1, per_page=_CATEGORY_PAGE_SIZE, _excluded_pool=excluded_pool
-        )
+        cat = query_category(sess, key, search=search, _full_pool=pool)
         if key == "other" and not cat["cards"]:
             continue
         result[key] = cat

@@ -805,9 +805,40 @@ REMOVAL_EXCLUSION_PATTERNS: List[str] = [
     # Bounce self to hand
     r'return target.*you control.*to.*hand',
     r'returns target.*you control.*to.*hand',
+    # Returning/exiling a card FROM a graveyard TO a hand (or casting it from
+    # there) is graveyard recursion/card advantage, not board-state removal -
+    # see Eternal Witness, Bala Ged Recovery, Mizzix's Mastery.
+    r'graveyard.*to (your |their |that player\'s |a player\'s )?hand',
+    r'from (your |a |their )?graveyard.*(may cast|without paying)',
 ]
 
 REMOVAL_KEYWORDS: List[str] = []
+
+# Constants for graveyard recursion functionality (returning/casting your own
+# cards from a graveyard - not to be confused with 'Reanimate', which is
+# specifically about putting creatures onto the battlefield from a graveyard).
+GRAVEYARD_RECURSION_TEXT_PATTERNS: List[str] = [
+    r'return target.*card.*from (your |a |their |that player\'s )?graveyard.*to.*hand',
+    r'returns target.*card.*from (your |a |their |that player\'s )?graveyard.*to.*hand',
+    r'return this card from your graveyard to your hand',
+    r'exile target.*card.*from (your |a |their )?graveyard.*(may cast|without paying)',
+    r'exiles target.*card.*from (your |a |their )?graveyard.*(may cast|without paying)',
+    r'cast.*from your graveyard',
+]
+
+GRAVEYARD_RECURSION_KEYWORDS: List[str] = [
+    'Flashback',
+    'Unearth',
+    'Eternalize',
+    'Escape',
+    'Retrace',
+    'Aftermath',
+    'Disturb',
+    'Embalm',
+    'Jump-start',
+    'Scavenge',
+]
+
 
 # Constants for counterspell functionality
 COUNTERSPELL_TEXT_PATTERNS: List[str] = [

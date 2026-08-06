@@ -272,7 +272,7 @@ async def theme_refresh(background: BackgroundTasks):
     try:
         def _runner():
             try:
-                _ensure_setup_ready(lambda _m: None, force=False)
+                _ensure_setup_ready(lambda _m: None, force=False, force_theme_refresh=True)
             except Exception:
                 pass
             try:

@@ -12,6 +12,19 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 _No unreleased changes yet_
 
 ### Changed
+_No unreleased changes yet_
+
+### Fixed
+_No unreleased changes yet_
+
+### Removed
+_No unreleased changes yet_
+
+### Security
+_No unreleased changes yet_
+
+## [5.6.0] - 2026-08-06
+### Changed
 - Manual Deck Builder: pool category sections now start collapsed (expand to browse), and each category shows every curated card at once instead of paginating.
 
 ### Fixed
@@ -20,12 +33,6 @@ _No unreleased changes yet_
 - Tagging: cards that return a creature from your graveyard to the battlefield (e.g. Alesha, Who Laughs at Fate) were missing the `Reanimate` tag in some phrasings; they're now tagged correctly.
 - Card browser: the theme search/filter now reliably picks up newly added or renamed themes (e.g. `Graveyard Hate`, `Graveyard Recursion`) after retagging; the underlying theme catalog used by that search was a separate file that didn't always get refreshed automatically.
 - Setup page: the "Refresh Themes Only" button now always regenerates the theme catalog when clicked, instead of sometimes silently no-oping right after a manual retag.
-
-### Removed
-_No unreleased changes yet_
-
-### Security
-_No unreleased changes yet_
 
 ## [5.5.1] - 2026-08-05
 ### Fixed

@@ -9,6 +9,22 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 
 ## [Unreleased]
 ### Added
+_No unreleased changes yet_
+
+### Changed
+_No unreleased changes yet_
+
+### Fixed
+_No unreleased changes yet_
+
+### Removed
+_No unreleased changes yet_
+
+### Security
+_No unreleased changes yet_
+
+## [5.7.0] - 2026-08-06
+### Added
 - Manual Deck Builder: pressing Shift+Enter in the card search box instantly adds the best-guess match (an exact name match if one exists, otherwise the top result), which is now also shown beneath the search results ("Shift+Enter adds: <card>").
 - Card Browser: typing a `tag:`/`-tag:`/`theme:`/`-theme:` flag in the search box now suggests matching full tag names (e.g. typing `tag:Graveyard` suggests "Graveyard Hate", "Graveyard Matters", "Graveyard Recursion"); picking one fills in just that flag's value instead of replacing the whole search.
 - Public API: new `GET /api/v1/themes/autocomplete` endpoint for fuzzy tag/theme name suggestions by name only (not synergies/description); powers the same tag-value suggestion feature in the mobile app's card browser.
@@ -26,9 +42,6 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 
 ### Removed
 - Card Browser and Owned Library: removed the separate "Themes (up to 5)" filter bar; theme/tag filtering is already available via `tag:`/`-tag:`/`theme:`/`-theme:` flags in the main search box.
-
-### Security
-_No unreleased changes yet_
 
 ## [5.6.0] - 2026-08-06
 ### Changed

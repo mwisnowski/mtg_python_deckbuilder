@@ -78,9 +78,11 @@ def _apply_owned_search(
         if parsed.identity_clauses and not all(_color_matches(card_letters, c) for c in parsed.identity_clauses):
             return False
 
-        if parsed.tags:
+        if parsed.tags or parsed.tags_exclude:
             card_tags = {t.lower() for t in (tags_by_name.get(name) or [])}
-            if not all(tag in card_tags for tag in parsed.tags):
+            if parsed.tags and not all(tag in card_tags for tag in parsed.tags):
+                return False
+            if parsed.tags_exclude and any(tag in card_tags for tag in parsed.tags_exclude):
                 return False
 
         stats = stats_map.get(name) or {}

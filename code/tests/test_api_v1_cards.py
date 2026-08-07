@@ -84,6 +84,22 @@ def test_list_cards_by_tags_and_logic(client):
     assert names == {"Lightning Bolt", "Fire // Ice"}
 
 
+def test_list_cards_by_negative_tag_flag(client):
+    # `-tag:` should exclude cards with that tag, not silently be treated
+    # as another required (AND) positive tag.
+    resp = client.get("/api/v1/cards", params={"q": 'tag:Removal -tag:Burn'})
+    data = resp.json()["data"]
+    names = {c["name"] for c in data["cards"]}
+    assert names == set()  # every "Removal" card here also has "Burn"
+
+    resp = client.get("/api/v1/cards", params={"q": "-tag:Burn"})
+    data = resp.json()["data"]
+    names = {c["name"] for c in data["cards"]}
+    assert "Lightning Bolt" not in names
+    assert "Fire // Ice" not in names
+    assert "Sol Ring" in names
+
+
 def test_list_cards_cmc_range(client):
     resp = client.get("/api/v1/cards", params={"min_cmc": 2, "max_cmc": 2})
     data = resp.json()["data"]

@@ -4,8 +4,16 @@
   {% elif not cards %}
   <div class="panel">No matches for "{{ query }}".</div>
   {% else %}
+  {% if best_match %}
+  <div class="muted text-xs" style="margin-bottom:.5rem;">
+    <kbd>Shift</kbd>+<kbd>Enter</kbd> adds <strong>{{ best_match.name }}</strong>
+  </div>
+  {% endif %}
   <div class="card-browser-grid">
     {% for card in cards %}
+      {% set category = 'search' %}
+      {% set card_idx = loop.index0 %}
+      {% set is_best_match = best_match and card.name == best_match.name %}
       {% include "decks/_manual_pool_card.html" %}
     {% endfor %}
   </div>

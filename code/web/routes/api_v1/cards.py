@@ -320,15 +320,19 @@ async def list_cards(
 
     # Theme tags -- combine the explicit `tags` param with any `tag=` flags
     # parsed out of `q`; AND logic (a card must have all requested tags).
+    # `-tag:`/`-theme:` flags parsed out of `q` exclude cards with any of
+    # those tags (OR logic: excluded if it has at least one).
     requested_tags = {t.strip().lower() for t in tags.split(",") if t.strip()}
     if parsed.tags:
         requested_tags |= parsed.tags
-    if requested_tags and "themeTags" in df.columns:
+    if (requested_tags or parsed.tags_exclude) and "themeTags" in df.columns:
         # themeTags may be stored as a string, list, or numpy array depending on
         # source (raw CSV vs. Parquet) -- parse_theme_tags() normalizes all of them.
         card_tag_sets = df["themeTags"].apply(lambda v: {t.lower() for t in parse_theme_tags(v)})
-        mask = card_tag_sets.apply(lambda card_tags: all(tag in card_tags for tag in requested_tags))
-        df = df[mask]
+        if requested_tags:
+            df = df[card_tag_sets.loc[df.index].apply(lambda card_tags: all(tag in card_tags for tag in requested_tags))]
+        if parsed.tags_exclude:
+            df = df[card_tag_sets.loc[df.index].apply(lambda card_tags: not any(tag in card_tags for tag in parsed.tags_exclude))]
 
 
     if min_cmc is not None and "manaValue" in df.columns:

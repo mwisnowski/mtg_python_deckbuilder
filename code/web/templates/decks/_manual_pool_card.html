@@ -5,7 +5,7 @@
 {% set reasons_str = (card.reasons|join('; ')) if card.reasons else '' %}
 {% set deck_theme_tags = (card.tag_badges|selectattr('kind', 'equalto', 'deck_theme')|map(attribute='name')|list) if card.tag_badges else [] %}
 {% set all_tag_names = (card.tag_badges|map(attribute='name')|list) if card.tag_badges else [] %}
-<div class="card-browser-tile card-tile" data-card-name="{{ card.name }}" data-role="{{ card.role }}">
+<div class="card-browser-tile card-tile" data-card-name="{{ card.name }}" data-role="{{ card.role }}"{% if is_best_match is defined and is_best_match %} data-search-best-match="1"{% endif %}>
   <div class="card-browser-tile-image">
     <img
       id="pool-img-{{ tile_id }}"
@@ -60,7 +60,14 @@
       <button type="button" class="btn btn-sm"
               hx-post="/decks/manual/{{ session_id }}/add"
               hx-vals='{"name": "{{ card.name }}"}'
-              hx-target="#manual-deck-panel" hx-swap="outerHTML">+ Add</button>
+              hx-target="#manual-deck-panel" hx-swap="outerHTML"
+              {% if category == 'search' %}
+              {# The add response only OOB-refreshes the deck panel/pool
+                 categories, not this search list, so without this the
+                 just-added card lingers here until the user re-searches. #}
+              hx-on::after-request="if(event.detail.successful){ this.closest('.card-browser-tile').remove(); }"
+              {% endif %}
+              >+ Add</button>
     </div>
   </div>
 </div>

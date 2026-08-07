@@ -31,15 +31,16 @@
     </div>
 
     <form
+      id="manual-search-form"
       hx-get="/decks/manual/{{ session_id }}/search"
       hx-target="#manual-search-results"
       hx-swap="outerHTML"
-      hx-trigger="submit, keyup changed delay:400ms from:input[name='q']"
+      hx-trigger="submit, keyup changed delay:300ms from:input[name='q']"
       style="margin-bottom:.5rem;">
       <input type="text" name="q" placeholder="Search by name or using Scryfall-style flags"
-        title="Plain words match the card name. Also supports Scryfall-style flags: t:/type: (e.g. t:creature), o:/oracle: (rules text), c:/color:, id:/identity:, m:/mana: (e.g. m:2WW), mv:/cmc:, pow:/tou:/loy: (e.g. pow>=4). Each accepts :, =, >, <, >=, <=, != and may be negated with a leading -, e.g. -t:land."
+        title="Plain words match the card name. Also supports Scryfall-style flags: t:/type: (e.g. t:creature), o:/oracle: (rules text), c:/color:, id:/identity:, m:/mana: (e.g. m:2WW), mv:/cmc:, pow:/tou:/loy: (e.g. pow>=4). Each accepts :, =, >, <, >=, <=, != and may be negated with a leading -, e.g. -t:land. Tip: Shift+Enter instantly adds the best-match result."
         style="width:100%; max-width:420px;" />
-      <span class="muted text-sm" style="margin-left:.5rem;">Supports <a href="https://scryfall.com/docs/syntax" target="_blank" rel="noopener">Scryfall-style</a> flags, e.g. <code>t:creature</code>, <code>c:rg</code>, <code>mv&gt;=4</code></span>
+      <span class="muted text-sm" style="margin-left:.5rem;">Supports <a href="https://scryfall.com/docs/syntax" target="_blank" rel="noopener">Scryfall-style</a> flags, e.g. <code>tag:"Graveyard Hate"</code>, <code>c:rg</code>, <code>mv&gt;=4</code></span>
     </form>
     <div id="manual-search-results" style="margin-bottom:1rem;"></div>
 
@@ -118,6 +119,75 @@
   if (pinnedEl && window.ResizeObserver) {
     new ResizeObserver(updateScrollOffset).observe(pinnedEl);
   }
+})();
+(function(){
+  // Adding/removing cards re-renders every category body via hx-swap-oob,
+  // which can shrink a category you've already scrolled into (e.g. a full
+  // row disappearing). Without compensation the browser just reflows in
+  // place, silently pulling the next category up into view - it looks like
+  // an unwanted "jump" even though nothing navigated. Record each swapped
+  // category body's height/viewport-top just before its OOB swap, then once
+  // the whole response has settled, offset scroll by the height delta for
+  // any category whose top had already scrolled past (top < 0) so the
+  // content the user was actually looking at stays put.
+  var pending = {};
+  document.body.addEventListener('htmx:oobBeforeSwap', function(evt){
+    var oldEl = evt.detail && evt.detail.target;
+    if (oldEl && oldEl.id && oldEl.id.indexOf('category-body-') === 0) {
+      var rect = oldEl.getBoundingClientRect();
+      pending[oldEl.id] = {top: rect.top, height: rect.height};
+    }
+  });
+  document.body.addEventListener('htmx:afterSettle', function(){
+    var ids = Object.keys(pending);
+    if (!ids.length) return;
+    var totalDelta = 0;
+    ids.forEach(function(id){
+      var before = pending[id];
+      delete pending[id];
+      var el = document.getElementById(id);
+      if (!el || before.top >= 0) return;
+      totalDelta += el.getBoundingClientRect().height - before.height;
+    });
+    if (totalDelta) {
+      window.scrollBy(0, totalDelta);
+    }
+  });
+})();
+
+(function(){
+  // Shift+Enter in the search box quick-adds the "Shift+Enter adds ..."
+  // candidate shown beneath the results (an exact name match if there is
+  // one, otherwise the top/most-relevant result). Forces a fresh, non-
+  // debounced search first so a still-pending keyup debounce can't cause
+  // a stale result to get added instead of what's currently typed.
+  var form = document.getElementById('manual-search-form');
+  var input = form && form.querySelector('input[name="q"]');
+  var results = document.getElementById('manual-search-results');
+  if (!form || !input || !results) return;
+
+  input.addEventListener('keydown', function(evt){
+    if (evt.key !== 'Enter' || !evt.shiftKey) return;
+    evt.preventDefault();
+    if (!input.value.trim()) return;
+
+    function onSettle(evt2){
+      var target = evt2.target && evt2.target.id === 'manual-search-results'
+        ? evt2.target
+        : (evt2.target && evt2.target.closest && evt2.target.closest('#manual-search-results'));
+      if (!target) return;
+      document.body.removeEventListener('htmx:afterSettle', onSettle);
+      var best = target.querySelector('[data-search-best-match="1"] button.btn-sm');
+      if (best) best.click();
+    }
+    document.body.addEventListener('htmx:afterSettle', onSettle);
+
+    if (window.htmx) {
+      window.htmx.trigger(form, 'submit');
+    } else {
+      form.requestSubmit ? form.requestSubmit() : form.submit();
+    }
+  });
 })();
 </script>
 {% endblock %}

@@ -20,6 +20,9 @@ from ...services.theme_catalog_loader import (
 )
 from ...services.theme_preview import get_theme_preview
 from ...utils.api_response import err, ok
+# Reuses the web card browser's theme catalog cache + fuzzy name scorer
+# instead of duplicating them, so tag: autocomplete stays consistent everywhere.
+from ..card_browser import _fuzzy_theme_match_score, get_theme_catalog
 
 router = APIRouter(prefix="/themes", tags=["themes"])
 
@@ -65,6 +68,28 @@ async def list_themes(
         },
         _rid(request),
     )
+
+
+@router.get("/autocomplete", summary="Fuzzy tag/theme name suggestions")
+async def theme_autocomplete(
+    request: Request,
+    q: str = Query(..., min_length=2, description="Partial theme/tag name"),
+    limit: int = Query(8, ge=1, le=20),
+):
+    """Fuzzy-match theme names by name only (not synergies/description), for
+    filling in a tag:/theme: search flag's value. Mirrors the web card
+    browser's `/cards/theme-autocomplete` HTML endpoint, minus the HTML."""
+    try:
+        all_themes = get_theme_catalog()
+    except Exception:
+        return err("Theme catalog unavailable.", "CATALOG_UNAVAILABLE", 503, _rid(request))
+
+    scored = [(_fuzzy_theme_match_score(q, theme), theme) for theme in all_themes]
+    scored = [(score, theme) for score, theme in scored if score >= 0.5]
+    scored.sort(key=lambda item: (-item[0], item[1].lower()))
+    names = [theme for _, theme in scored[:limit]]
+
+    return ok({"themes": names}, _rid(request))
 
 
 @router.get("/{theme:path}", summary="Get theme detail and preview")

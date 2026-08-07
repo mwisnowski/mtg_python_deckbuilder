@@ -137,6 +137,7 @@ class ParsedSearch:
     mana_cost_clauses: List[ManaCostClause] = field(default_factory=list)
     rarity: Optional[Set[str]] = None
     tags: Optional[Set[str]] = None
+    tags_exclude: Optional[Set[str]] = None
     is_new: Optional[bool] = None
     set_include: Set[str] = field(default_factory=set)
     set_exclude: Set[str] = field(default_factory=set)
@@ -439,7 +440,10 @@ def _apply_search_flag(parsed: ParsedSearch, canonical: str, op: str, value: str
     elif canonical == "tag":
         tags = {v.strip().lower() for v in value.split(",") if v.strip()}
         if tags:
-            parsed.tags = (parsed.tags or set()) | tags
+            if negate:
+                parsed.tags_exclude = (parsed.tags_exclude or set()) | tags
+            else:
+                parsed.tags = (parsed.tags or set()) | tags
     elif canonical == "is" and value.lower() == "new":
         parsed.is_new = False if negate else True
     elif canonical == "set":
@@ -502,9 +506,12 @@ def apply_extra_clauses(df: "pd.DataFrame", parsed: ParsedSearch) -> "pd.DataFra
     query params instead and don't want the `q` flags double-applied."""
     if parsed.rarity and "rarity" in df.columns:
         df = df[df["rarity"].astype(str).str.lower().isin(parsed.rarity)]
-    if parsed.tags and "themeTags" in df.columns:
+    if (parsed.tags or parsed.tags_exclude) and "themeTags" in df.columns:
         card_tag_sets = df["themeTags"].apply(lambda v: {t.lower() for t in parse_theme_tags(v)})
-        df = df[card_tag_sets.apply(lambda card_tags: all(tag in card_tags for tag in parsed.tags))]
+        if parsed.tags:
+            df = df[card_tag_sets.loc[df.index].apply(lambda card_tags: all(tag in card_tags for tag in parsed.tags))]
+        if parsed.tags_exclude:
+            df = df[card_tag_sets.loc[df.index].apply(lambda card_tags: not any(tag in card_tags for tag in parsed.tags_exclude))]
     if parsed.is_new is not None and "isNew" in df.columns:
         df = df[df["isNew"] == parsed.is_new]
     if parsed.set_include and "printings" in df.columns:
@@ -528,6 +535,6 @@ def has_structured_flags(parsed: ParsedSearch) -> bool:
         or parsed.power_clauses or parsed.toughness_clauses
         or parsed.loyalty_clauses or parsed.cmc_clauses
         or parsed.mana_cost_clauses
-        or parsed.rarity or parsed.tags or parsed.is_new is not None
+        or parsed.rarity or parsed.tags or parsed.tags_exclude or parsed.is_new is not None
         or parsed.set_include or parsed.set_exclude
     )

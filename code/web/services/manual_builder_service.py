@@ -876,6 +876,23 @@ def search_off_pool(
     return result
 
 
+def best_search_match(query: str, cards: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    """The single card a Shift+Enter quick-add should add for `query`: an
+    exact (case-insensitive) name match if one is present in `cards`,
+    otherwise the top (most relevant/popular) result. `cards` should be
+    page 1 of `search_off_pool`'s results - a later page's top card isn't
+    the best guess for the query as a whole.
+    """
+    if not cards:
+        return None
+    q_norm = query.strip().lower()
+    if q_norm:
+        for card in cards:
+            if str(card.get("name") or "").strip().lower() == q_norm:
+                return card
+    return cards[0]
+
+
 # ---------------------------------------------------------------------------
 # Milestone 3: add / remove / deck panel
 # ---------------------------------------------------------------------------
@@ -1112,21 +1129,20 @@ def deck_panel_data(sess: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def mana_overview_data(sess: Dict[str, Any]) -> Dict[str, Any]:
-    """Pip distribution, mana sources, and mana curve for the in-progress
-    deck, for the sidebar mana-overview panel next to the commander image.
-    Reuses the same builder_utils helpers as the finished-deck summary
-    (`DeckBuilder.build_deck_summary`), fed from a synthetic card_library
-    built out of the session's deck_cards rather than a full DeckBuilder.
+def _mana_card_library(sess: Dict[str, Any]) -> tuple[Dict[str, Dict[str, Any]], Dict[str, Optional[pd.Series]]]:
+    """Card-library dict (name -> {Card Type, Mana Cost, Count}) for the
+    deck's cards plus the commander, and the raw row lookups behind it.
+    Shared by `mana_overview_data` (live in-progress sidebar) and
+    `_build_deck_summary` (saved `.summary.json`) so both compute pips/
+    sources the same way instead of drifting apart.
     """
     counts = deck_card_counts(sess)
-    color_identity = [c for c in ["W", "U", "B", "R", "G"] if c in (sess.get("color_identity") or [])]
-    card_library: Dict[str, Dict[str, Any]] = {}
     commander_name = sess.get("commander")
     lookup_names = list(counts.keys())
     if commander_name and commander_name not in counts:
         lookup_names.append(commander_name)
     rows = _lookup_card_rows(sess, lookup_names)
+    card_library: Dict[str, Dict[str, Any]] = {}
     for name, count in counts.items():
         row = rows.get(name)
         card_library[name] = {
@@ -1144,6 +1160,85 @@ def mana_overview_data(sess: Dict[str, Any]) -> Dict[str, Any]:
             "Mana Cost": str(commander_row.get("manaCost") or "") if commander_row is not None else "",
             "Count": 1,
         }
+    return card_library, rows
+
+
+def _mana_pip_and_source_summary(sess: Dict[str, Any]) -> Dict[str, Any]:
+    """`pip_distribution`/`mana_generation` in the same shape
+    `DeckBuilder.build_deck_summary()` produces (counts/weights/cards dicts,
+    raw source counts rather than percentages) for the saved deck's
+    `.summary.json` - which `decks/view.html`'s Mana Overview panel reads
+    via `partials/deck_summary.html`. Unlike `mana_overview_data` (percentage-
+    based, list-shaped, for the live in-progress sidebar), this matches the
+    finished-deck schema so manually-built decks render the same as
+    auto-built ones after saving.
+    """
+    color_identity = [c for c in ("W", "U", "B", "R", "G") if c in (sess.get("color_identity") or [])]
+    card_library, _rows = _mana_card_library(sess)
+
+    pip_density = compute_pip_density(card_library, color_identity)
+    pip_counts: Dict[str, float] = {}
+    for c in ("W", "U", "B", "R", "G"):
+        d = pip_density[c]
+        pip_counts[c] = float(d["single"] + d["double"] * 2 + d["triple"] * 3 + d["phyrexian"])
+    pip_cards: Dict[str, List[Dict[str, Any]]] = {c: [] for c in ("W", "U", "B", "R", "G")}
+    for name, entry in card_library.items():
+        if "land" in str(entry.get("Card Type") or "").lower():
+            continue
+        mana_cost = entry.get("Mana Cost") or ""
+        if not isinstance(mana_cost, str):
+            continue
+        colors_for_card: set = set()
+        for match in re.findall(r"\{([^}]+)\}", mana_cost):
+            sym = match.upper()
+            if len(sym) == 1 and sym in pip_cards:
+                colors_for_card.add(sym)
+            elif "/" in sym:
+                for p in sym.split("/"):
+                    if p in pip_cards:
+                        colors_for_card.add(p)
+            elif sym.endswith("P") and len(sym) == 2 and sym[0] in pip_cards:
+                colors_for_card.add(sym[0])
+        if colors_for_card:
+            cnt = int(entry.get("Count", 1))
+            for c in colors_for_card:
+                pip_cards[c].append({"name": name, "count": cnt})
+    total_pips = sum(pip_counts.values())
+    if total_pips <= 0 and color_identity:
+        share = 1 / len(color_identity)
+        for c in color_identity:
+            pip_counts[c] = share
+        total_pips = 1.0
+    pip_weights = {c: (pip_counts[c] / total_pips if total_pips else 0.0) for c in pip_counts}
+
+    full_df = _get_loader().load()
+    scoped_df = full_df[full_df["name"].astype(str).isin(card_library.keys())]
+    matrix = compute_color_source_matrix(card_library, scoped_df)
+    source_counts: Dict[str, int] = {c: 0 for c in ("W", "U", "B", "R", "G", "C")}
+    source_cards: Dict[str, List[Dict[str, Any]]] = {c: [] for c in ("W", "U", "B", "R", "G", "C")}
+    for name, flags in matrix.items():
+        copies = int(card_library.get(name, {}).get("Count", 1))
+        for c in source_counts:
+            if int(flags.get(c, 0)):
+                source_counts[c] += copies
+                source_cards[c].append({"name": name, "count": copies})
+    total_sources = sum(source_counts.values())
+
+    return {
+        "pip_distribution": {"counts": pip_counts, "weights": pip_weights, "cards": pip_cards},
+        "mana_generation": {**source_counts, "total_sources": total_sources, "cards": source_cards},
+    }
+
+
+def mana_overview_data(sess: Dict[str, Any]) -> Dict[str, Any]:
+    """Pip distribution, mana sources, and mana curve for the in-progress
+    deck, for the sidebar mana-overview panel next to the commander image.
+    Reuses the same builder_utils helpers as the finished-deck summary
+    (`DeckBuilder.build_deck_summary`), fed from a synthetic card_library
+    built out of the session's deck_cards rather than a full DeckBuilder.
+    """
+    color_identity = [c for c in ["W", "U", "B", "R", "G"] if c in (sess.get("color_identity") or [])]
+    card_library, rows = _mana_card_library(sess)
 
     pip_density = compute_pip_density(card_library, color_identity)
     pip_counts: Dict[str, float] = {}
@@ -1457,10 +1552,11 @@ def build_deck_txt_text(sess: Dict[str, Any]) -> str:
 
 def _build_deck_summary(sess: Dict[str, Any]) -> Dict[str, Any]:
     """Build the full `.summary.json` `summary` block (type_breakdown +
-    mana_curve + colors) from the in-memory session. Matches the schema
-    `decks.py`'s CSV-fallback (`_read_csv_summary`) produces, so the
-    finished-deck browser/view page renders manual decks the same as any
-    other saved deck instead of showing an empty list.
+    pip_distribution + mana_generation + mana_curve + colors) from the
+    in-memory session, matching `DeckBuilder.build_deck_summary()`'s schema
+    so the finished-deck view page (`decks/view.html` /
+    `partials/deck_summary.html`) renders manual decks - including a real
+    Mana Overview panel - the same as any auto-built deck.
     """
     rows = _build_deck_rows(sess)
     type_counts: Dict[str, int] = {}
@@ -1490,6 +1586,7 @@ def _build_deck_summary(sess: Dict[str, Any]) -> Dict[str, Any]:
             curve_cards[bucket].append({"name": r["name"], "count": r["count"]})
 
     type_order = [t for t in _DECK_TYPE_ORDER if t in type_counts]
+    mana_summary = _mana_pip_and_source_summary(sess)
     return {
         "type_breakdown": {
             "counts": type_counts,
@@ -1497,11 +1594,8 @@ def _build_deck_summary(sess: Dict[str, Any]) -> Dict[str, Any]:
             "cards": type_cards,
             "total": sum(type_counts.values()),
         },
-        "pip_distribution": {
-            "counts": {c: 0 for c in ("W", "U", "B", "R", "G")},
-            "weights": {c: 0 for c in ("W", "U", "B", "R", "G")},
-        },
-        "mana_generation": {"W": 0, "U": 0, "B": 0, "R": 0, "G": 0, "total_sources": 0},
+        "pip_distribution": mana_summary["pip_distribution"],
+        "mana_generation": mana_summary["mana_generation"],
         "mana_curve": {
             **curve_counts,
             "total_spells": sum(curve_counts.values()),

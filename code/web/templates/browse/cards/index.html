@@ -142,47 +142,13 @@
           <button type="submit" class="btn">Search</button>
         </div>
         <div class="filter-row">
-          <span class="muted text-sm">Supports <a href="https://scryfall.com/docs/syntax" target="_blank" rel="noopener">Scryfall-style</a> flags, e.g. <code>t:creature</code>, <code>c:rg</code>, <code>mv&gt;=4</code>, <code>set:ala</code>, <code>is:new</code></span>
+          <span class="muted text-sm">Supports <a href="https://scryfall.com/docs/syntax" target="_blank" rel="noopener">Scryfall-style</a> flags, e.g. <code>tag:"Graveyard Hate"</code>, <code>c:rg</code>, <code>mv&gt;=4</code>, <code>set:ala</code>, <code>is:new</code></span>
         </div>
       </form>
     </div>
 
     {# Filter controls #}
     <div class="filter-section" style="margin-top: 1rem;">
-      <div class="filter-row">
-        {# Multi-select theme filter #}
-        <label for="filter-theme-input">Themes (up to 5)</label>
-        <div style="flex: 1; max-width: 500px;">
-          {# Selected themes as chips #}
-          <div id="selected-themes" style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.5rem; min-height: 2rem;">
-            {% if themes %}
-              {% for t in themes %}
-              <span class="theme-chip" data-theme="{{ t }}">
-                {{ t }}
-                <button type="button" onclick="removeTheme('{{ t }}')" style="margin-left:0.5rem; background:none; border:none; color:inherit; cursor:pointer; padding:0; font-weight:bold;">&times;</button>
-              </span>
-              {% endfor %}
-            {% endif %}
-          </div>
-          
-          {# Autocomplete input #}
-          <div class="autocomplete-container" style="position:relative;">
-            <input 
-              type="text" 
-              id="filter-theme-input"
-              placeholder="Add theme..." 
-              autocomplete="off"
-              role="combobox"
-              aria-autocomplete="list"
-              aria-controls="theme-autocomplete-dropdown"
-              aria-expanded="false"
-              style="width: 100%;"
-            />
-            <div id="theme-autocomplete-dropdown" class="autocomplete-dropdown" role="listbox" aria-label="Theme suggestions"></div>
-          </div>
-        </div>
-      </div>
-      
       <div class="filter-row">
         {# Sort dropdown #}
         <label for="filter-sort">Sort By</label>
@@ -235,7 +201,7 @@
     <button 
       type="button"
       class="btn"
-      hx-get="/cards/grid?cursor={{ last_card|urlencode }}{% if search %}&search={{ search|urlencode }}{% endif %}{% for theme in themes %}&themes={{ theme|urlencode }}{% endfor %}{% if sort and sort != 'name_asc' %}&sort={{ sort|urlencode }}{% endif %}"
+      hx-get="/cards/grid?cursor={{ last_card|urlencode }}{% if search %}&search={{ search|urlencode }}{% endif %}{% if sort and sort != 'name_asc' %}&sort={{ sort|urlencode }}{% endif %}"
       hx-target="#card-grid"
       hx-swap="beforeend"
       hx-indicator="#load-indicator">
@@ -251,23 +217,18 @@
   <div class="no-results">
     <div class="no-results-title">No cards found</div>
     <div class="no-results-message">
-      {% if search or themes %}
+      {% if search %}
         No cards match your current filters.
-        {% if search %}Try a different search term{% endif %}{% if search and themes %} or {% endif %}{% if themes %}adjust your themes{% endif %}.
+        Try a different search term.
       {% else %}
         Unable to load cards. Please try refreshing the page.
       {% endif %}
     </div>
     
-    {% if search or themes %}
+    {% if search %}
     <div class="no-results-filters">
       <strong style="color: var(--text); margin-right: 0.5rem;">Active filters:</strong>
-      {% if search %}
       <span class="no-results-filter-tag">Search: "{{ search }}"</span>
-      {% endif %}
-      {% for t in themes %}
-      <span class="no-results-filter-tag">Theme: {{ t }}</span>
-      {% endfor %}
     </div>
     <p><a href="/cards" class="btn">Clear All Filters</a></p>
     {% endif %}
@@ -329,14 +290,8 @@ function applyFilter() {
   const search = document.getElementById('search-input')?.value || '';
   const sort = document.getElementById('filter-sort')?.value || '';
   
-  // Collect selected themes
-  const themeChips = document.querySelectorAll('#selected-themes .theme-chip');
-  const themes = Array.from(themeChips).map(chip => chip.dataset.theme);
-  
   const params = new URLSearchParams();
   if (search) params.set('search', search);
-  // Add themes as multiple params (themes=t1&themes=t2&themes=t3)
-  themes.forEach(theme => params.append('themes', theme));
   if (sort && sort !== 'name_asc') params.set('sort', sort); // Only include if not default
   
   window.location.href = `/cards?${params.toString()}`;
@@ -353,9 +308,78 @@ function applyFilter() {
   let selectedIndex = -1;
   let debounceTimer = null;
   let lastEscapeTime = 0;
-  
+  // When the caret is inside a tag:/-tag:/theme:/-theme: flag's value,
+  // suggestions recommend a full tag value to fill in that flag (not
+  // replace the whole search box) -- tracks the flag's value span so a
+  // selection can be spliced into just that one token.
+  let tagToken = null;
+  let TAG_TOKEN_RE = null;
+  try {
+    TAG_TOKEN_RE = new RegExp('(-)?\\b(tag|theme):(?:"([^"]*)"?|(\\S*))', 'dgi');
+  } catch (e) {
+    TAG_TOKEN_RE = null; // `d` (hasIndices) flag unsupported -- degrade to name-only autocomplete
+  }
+
+  // Finds the tag:/theme: flag (if any) whose value the caret is currently
+  // positioned in, e.g. `tag:Recursion tag:"Grave|yard"` (caret at `|`)
+  // returns {valueStart, valueEnd, partial: 'Grave'}.
+  const detectTagToken = (value, caret) => {
+    if (!TAG_TOKEN_RE) return null;
+    TAG_TOKEN_RE.lastIndex = 0;
+    let m;
+    while ((m = TAG_TOKEN_RE.exec(value)) !== null) {
+      const idx = m.indices;
+      if (!idx) return null;
+      const [start, end] = idx[0];
+      if (caret < start || caret > end) continue;
+      const quoted = m[3] !== undefined;
+      const span = quoted ? idx[3] : idx[4];
+      if (!span) continue;
+      const [valueStart, valueEnd] = span;
+      if (caret < valueStart) continue; // caret is still in "tag:" itself
+      return { valueStart, valueEnd, partial: value.slice(valueStart, Math.min(caret, valueEnd)) };
+    }
+    return null;
+  };
+
+  // Splices a chosen tag name into the active tag: flag's value (quoted),
+  // leaving the rest of the search box untouched. Returns false (no-op)
+  // if the caret isn't currently inside a tag:/theme: flag.
+  const applyTagSuggestion = (value) => {
+    if (!tagToken) return false;
+    const full = searchInput.value;
+    const quotedValue = `"${value}"`;
+    searchInput.value = full.slice(0, tagToken.valueStart) + quotedValue + full.slice(tagToken.valueEnd);
+    const caret = tagToken.valueStart + quotedValue.length;
+    searchInput.setSelectionRange(caret, caret);
+    tagToken = null;
+    searchInput.focus();
+    return true;
+  };
+
   // Fetch autocomplete suggestions
   const fetchSuggestions = () => {
+    const caret = searchInput.selectionStart ?? searchInput.value.length;
+    tagToken = detectTagToken(searchInput.value, caret);
+
+    if (tagToken) {
+      const partial = tagToken.partial.trim();
+      if (partial.length < 2) {
+        autocompleteDropdown.innerHTML = '';
+        return;
+      }
+      // Reuse the theme catalog autocomplete for tag:/theme: flag values.
+      fetch(`/cards/theme-autocomplete?q=${encodeURIComponent(partial)}&limit=8`)
+        .then(response => response.text())
+        .then(html => {
+          autocompleteDropdown.innerHTML = html;
+        })
+        .catch(() => {
+          autocompleteDropdown.innerHTML = '';
+        });
+      return;
+    }
+
     const query = searchInput.value.trim();
     if (query.length < 2) {
       autocompleteDropdown.innerHTML = '';
@@ -402,6 +426,11 @@ function applyFilter() {
     const items = getItems();
     const item = items[selectedIndex];
     if (item && item.dataset.value) {
+      if (applyTagSuggestion(item.dataset.value)) {
+        autocompleteDropdown.innerHTML = '';
+        selectedIndex = -1;
+        return;
+      }
       searchInput.value = item.dataset.value;
       autocompleteDropdown.innerHTML = '';
       selectedIndex = -1;
@@ -425,6 +454,11 @@ function applyFilter() {
     const item = e.target.closest('.autocomplete-item');
     if (item && item.dataset.value && autocompleteDropdown.contains(item)) {
       e.preventDefault();
+      if (applyTagSuggestion(item.dataset.value)) {
+        autocompleteDropdown.innerHTML = '';
+        selectedIndex = -1;
+        return;
+      }
       searchInput.value = item.dataset.value;
       autocompleteDropdown.innerHTML = '';
       selectedIndex = -1;
@@ -489,240 +523,6 @@ function applyFilter() {
   
   // Mouse hover to highlight items
   autocompleteDropdown.addEventListener('mouseover', (e) => {
-    const item = e.target.closest('.autocomplete-item');
-    if (item) {
-      const items = getItems();
-      const index = items.indexOf(item);
-      if (index >= 0) {
-        selectItem(index);
-      }
-    }
-  });
-})();
-
-// Multi-select theme filter
-(function() {
-  const themeInput = document.getElementById('filter-theme-input');
-  const themeDropdown = document.getElementById('theme-autocomplete-dropdown');
-  const selectedThemesContainer = document.getElementById('selected-themes');
-  
-  if (!themeInput || !themeDropdown) return;
-  
-  let selectedIndex = -1;
-  let debounceTimer = null;
-  let selectedThemes = new Set();
-  let lastEscapeTime = 0;
-  
-  // Initialize with existing themes from URL
-  const existingChips = selectedThemesContainer.querySelectorAll('.theme-chip');
-  existingChips.forEach(chip => {
-    selectedThemes.add(chip.dataset.theme);
-  });
-  
-  // Update input state based on theme count
-  const updateThemeInputState = () => {
-    if (selectedThemes.size >= 5) {
-      themeInput.disabled = true;
-      themeInput.placeholder = 'Maximum 5 themes selected';
-      themeInput.classList.add('disabled');
-    } else {
-      themeInput.disabled = false;
-      themeInput.placeholder = 'Add theme...';
-      themeInput.classList.remove('disabled');
-    }
-  };
-  
-  // Initialize the input state
-  updateThemeInputState();
-  
-  // Fetch theme suggestions
-  const fetchThemeSuggestions = () => {
-    const query = themeInput.value.trim();
-    if (query.length < 2) {
-      themeDropdown.innerHTML = '';
-      return;
-    }
-    
-    fetch(`/cards/theme-autocomplete?q=${encodeURIComponent(query)}`)
-      .then(response => response.text())
-      .then(html => {
-        themeDropdown.innerHTML = html;
-      })
-      .catch(err => {
-        console.error('Theme autocomplete error:', err);
-        themeDropdown.innerHTML = '';
-      });
-  };
-  
-  // Add theme chip
-  window.addTheme = function(theme) {
-    if (selectedThemes.size >= 5) {
-      return; // Input should already be disabled, but double-check
-    }
-    if (selectedThemes.has(theme)) {
-      return; // Already selected
-    }
-    
-    selectedThemes.add(theme);
-    
-    const chip = document.createElement('span');
-    chip.className = 'theme-chip';
-    chip.dataset.theme = theme;
-    chip.innerHTML = `${theme} <button type="button" onclick="removeTheme('${theme.replace(/'/g, "\\'")}')" style="margin-left:0.5rem; background:none; border:none; color:inherit; cursor:pointer; padding:0; font-weight:bold;">&times;</button>`;
-    
-    selectedThemesContainer.appendChild(chip);
-    themeInput.value = '';
-    themeDropdown.innerHTML = '';
-    selectedIndex = -1;
-    
-    updateThemeInputState();
-    
-    // Auto-focus the input on desktop (not mobile) for quick multi-selection
-    // Focus immediately since we're NOT reloading the page anymore
-    if (selectedThemes.size < 5 && window.innerWidth >= 768) {
-      // Small delay to ensure DOM updates are complete
-      requestAnimationFrame(() => {
-        themeInput.focus();
-      });
-    }
-    
-    // Don't auto-apply filter - let user add multiple themes then click Apply
-    // This allows the auto-focus to work and provides better UX
-    // applyFilter();
-  };
-  
-  // Remove theme chip
-  window.removeTheme = function(theme) {
-    selectedThemes.delete(theme);
-    const chip = selectedThemesContainer.querySelector(`.theme-chip[data-theme="${theme}"]`);
-    if (chip) {
-      chip.remove();
-    }
-    updateThemeInputState();
-    // Don't auto-apply filter - let user manage themes then click Apply
-    // applyFilter();
-  };
-  
-  // Debounced input handler
-  themeInput.addEventListener('input', () => {
-    clearTimeout(debounceTimer);
-    debounceTimer = setTimeout(fetchThemeSuggestions, 150);
-  });
-  
-  // Helper functions
-  const getItems = () => Array.from(themeDropdown.querySelectorAll('.autocomplete-item'));
-  
-  const selectItem = (index) => {
-    const items = getItems();
-    items.forEach((item, i) => {
-      if (i === index) {
-        item.classList.add('selected');
-        item.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-      } else {
-        item.classList.remove('selected');
-      }
-    });
-    selectedIndex = index;
-  };
-  
-  const applySelectedItem = () => {
-    const items = getItems();
-    const item = items[selectedIndex];
-    if (item && item.dataset.value) {
-      addTheme(item.dataset.value);
-    }
-  };
-  
-  // Reset selection when dropdown changes
-  const observer = new MutationObserver(() => {
-    selectedIndex = -1;
-    getItems().forEach(item => item.classList.remove('selected'));
-    const hasContent = themeDropdown.children.length > 0;
-    themeInput.setAttribute('aria-expanded', hasContent ? 'true' : 'false');
-  });
-  observer.observe(themeDropdown, { childList: true });
-  
-  // Click handler
-  document.body.addEventListener('click', (e) => {
-    const item = e.target.closest('.autocomplete-item');
-    if (item && item.dataset.value && themeDropdown.contains(item)) {
-      e.preventDefault();
-      addTheme(item.dataset.value);
-    }
-  });
-  
-  // Close dropdown when clicking outside
-  document.addEventListener('click', (e) => {
-    if (!e.target.closest('#filter-theme-input') && !e.target.closest('#theme-autocomplete-dropdown')) {
-      themeDropdown.innerHTML = '';
-      selectedIndex = -1;
-    }
-  });
-  
-  // Keyboard navigation
-  themeInput.addEventListener('keydown', (e) => {
-    const items = getItems();
-    const hasItems = items.length > 0;
-    
-    if (e.key === 'Escape') {
-      const now = Date.now();
-      const timeSinceLastEscape = now - lastEscapeTime;
-      
-      if (hasItems) {
-        // Close dropdown if open
-        themeDropdown.innerHTML = '';
-        selectedIndex = -1;
-        lastEscapeTime = now;
-        e.preventDefault();
-      } else if (timeSinceLastEscape < 500) {
-        // Double-tap Escape within 500ms - clear all filters
-        console.log('Double Escape detected - clearing filters');
-        e.preventDefault();
-        window.location.href = '/cards';
-      } else {
-        // First escape with no dropdown
-        lastEscapeTime = now;
-        e.preventDefault();
-      }
-    } else if (e.key === 'ArrowDown' && hasItems) {
-      e.preventDefault();
-      const newIndex = selectedIndex < items.length - 1 ? selectedIndex + 1 : 0;
-      selectItem(newIndex);
-    } else if (e.key === 'ArrowUp' && hasItems) {
-      e.preventDefault();
-      const newIndex = selectedIndex > 0 ? selectedIndex - 1 : items.length - 1;
-      selectItem(newIndex);
-    } else if (e.key === 'Enter') {
-      e.preventDefault();
-      if (e.shiftKey) {
-        // Shift+Enter: Add current theme if any, then apply all filters
-        if (hasItems) {
-          // Add the first match before applying
-          if (selectedIndex >= 0) {
-            applySelectedItem();
-          } else {
-            selectItem(0);
-            applySelectedItem();
-          }
-          // Small delay to ensure theme is added before applying filters
-          setTimeout(() => applyFilter(), 50);
-        } else {
-          // No autocomplete, just apply filters
-          applyFilter();
-        }
-      } else if (selectedIndex >= 0 && hasItems) {
-        // Apply the explicitly selected item
-        applySelectedItem();
-      } else if (hasItems) {
-        // No item selected, but there are items - select the first one
-        selectItem(0);
-        applySelectedItem();
-      }
-    }
-  });
-  
-  // Mouse hover
-  themeDropdown.addEventListener('mouseover', (e) => {
     const item = e.target.closest('.autocomplete-item');
     if (item) {
       const items = getItems();
@@ -806,13 +606,6 @@ window.addEventListener('load', function() {
   if (loadMoreContainer) {
     scrollObserver.observe(loadMoreContainer);
   }
-  
-  // Initialize theme chips from URL params
-  {% if themes %}
-  {% for theme in themes %}
-  addTheme('{{ theme|replace("'", "\\'") }}');
-  {% endfor %}
-  {% endif %}
 });
 </script>
 <script>
@@ -826,7 +619,6 @@ window.addEventListener('load', function() {
     var n = 0;
     var si = document.getElementById('search-input');
     if (si && si.value) n++;
-    n += document.querySelectorAll('#selected-themes .theme-chip').length;
     el.textContent = n > 0 ? ' (' + n + ' active)' : '';
   }
   window.toggleFilterPanel = function() {

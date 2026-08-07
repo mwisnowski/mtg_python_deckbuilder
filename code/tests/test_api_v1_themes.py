@@ -73,3 +73,22 @@ def test_theme_detail_with_slash_in_name(client):
     resp = client.get("/api/v1/themes/+1/+1 Counters")
     assert resp.status_code == 200
     assert resp.json()["data"]["theme"] == "+1/+1 Counters"
+
+
+def test_theme_autocomplete_matches_name_not_synergies(client):
+    """Unlike the main list endpoint (which also matches synergies/description),
+    autocomplete fuzzy-matches the theme's own name, so a query like 'grave'
+    should surface actual Graveyard-named themes near the top (allowing a few
+    fuzzy near-misses, same as the web card browser's autocomplete)."""
+    resp = client.get("/api/v1/themes/autocomplete", params={"q": "grave"})
+    assert resp.status_code == 200
+    names = resp.json()["data"]["themes"]
+    assert names, "expected at least one graveyard-named theme suggestion"
+    assert any("grave" in n.lower() for n in names)
+    assert "grave" in names[0].lower()
+
+
+def test_theme_autocomplete_respects_limit(client):
+    resp = client.get("/api/v1/themes/autocomplete", params={"q": "token", "limit": 3})
+    assert resp.status_code == 200
+    assert len(resp.json()["data"]["themes"]) <= 3

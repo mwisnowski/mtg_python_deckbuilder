@@ -160,7 +160,15 @@ async def manual_builder_search(
     # so search results paginate the same as the rest of the pool.
     per_page = manual_builder_service._CATEGORY_PAGE_SIZE
     result = manual_builder_service.search_off_pool(sess, q, page=page, per_page=per_page)
-    ctx = {"request": request, "session_id": sid, "query": q, **result}
+    ctx = {
+        "request": request,
+        "session_id": sid,
+        "query": q,
+        "printings": sess.get("_manual_printings") or {},
+        "foils": sess.get("_manual_foils") or {},
+        "best_match": manual_builder_service.best_search_match(q, result["cards"]) if page == 1 else None,
+        **result,
+    }
     return templates.TemplateResponse("decks/_manual_search_results.html", ctx)
 
 

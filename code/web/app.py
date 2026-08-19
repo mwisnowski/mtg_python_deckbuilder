@@ -180,8 +180,8 @@ templates.env.globals["smtp_configured"] = _is_smtp_configured()
 # "What's New" promo (top-bar badge + homepage banner). Bump this id whenever a
 # new feature should be advertised — changing it makes the promo reappear even
 # for users who dismissed the previous one (see base.html / home.html).
-templates.env.globals["WHATS_NEW_ID"] = "user-accounts-deck-visibility"
-templates.env.globals["WHATS_NEW_LABEL"] = "New: User Accounts & Deck Visibility"
+templates.env.globals["WHATS_NEW_ID"] = "rulebreaker-commanders"
+templates.env.globals["WHATS_NEW_LABEL"] = "New: Rulebreaker Commanders"
 
 # Shared short description for the legacy creature allocation toggle (roadmap 33, Milestone 5)
 from code.deck_builder import builder_constants as _bc

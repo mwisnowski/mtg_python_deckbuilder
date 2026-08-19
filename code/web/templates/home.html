@@ -6,12 +6,10 @@
   <div id="whats-new-banner" data-whats-new-id="{{ WHATS_NEW_ID }}" style="display:none; margin-bottom:1.25rem; padding:.75rem 1rem; border-radius:8px; background:var(--info-bg,#1e3a5f); color:var(--info-text,#93c5fd); border:1px solid var(--info-border,#3b82f6); font-size:.9rem; display:flex; align-items:center; justify-content:space-between; gap:1rem; flex-wrap:wrap;">
     <div>
       <strong>{{ WHATS_NEW_LABEL }}</strong>
-      <span style="margin-left:.4rem;">Create an account to save your builds under your own login, then choose whether each deck is Private, Unlisted (shareable by link), or Public.</span>
+      <span style="margin-left:.4rem;">8 new commanders (like Tolabow, Loch Rascal and Whtz, the Bibliophile) bend the deckbuilding rules for color identity and/or deck size. Pick one in Build a New Deck to see the options.</span>
     </div>
     <div style="display:flex; gap:.5rem; align-items:center; flex-shrink:0;">
-      {% if not request.state.current_user or request.state.current_user.is_guest %}
-      <a href="/auth/register" class="btn btn-sm">Sign Up</a>
-      {% endif %}
+      <a href="/help/rulebreaker_commanders" class="btn btn-sm">Learn More</a>
       <button type="button" id="whats-new-dismiss" class="btn btn-sm" style="background:transparent;" title="Dismiss" aria-label="Dismiss">&times;</button>
     </div>
   </div>

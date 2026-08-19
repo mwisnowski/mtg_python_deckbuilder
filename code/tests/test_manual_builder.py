@@ -292,6 +292,107 @@ def test_role_bar_counts_correct(monkeypatch):
     assert removal_pill["actual"] == 1
 
 
+def test_mana_overview_includes_rulebreaker_extra_color(monkeypatch):
+    """Tolabow's extra-color Instants/Sorceries (and their mana sources)
+    were previously zeroed out of pips/sources because they're outside the
+    commander's base color_identity."""
+    manual_builder_service = importlib.import_module("code.web.services.manual_builder_service")
+
+    df = pd.DataFrame([
+        {"name": "Some Commander", "colorIdentity": "U", "type": "Legendary Creature - Otter",
+         "manaCost": "{1}{U}", "manaValue": 2.0, "themeTags": [], "edhrecRank": 1.0, "isNew": False},
+        {"name": "Lightning Bolt", "colorIdentity": "R", "type": "Instant",
+         "manaCost": "{R}", "manaValue": 1.0, "themeTags": ["Removal"], "edhrecRank": 100.0, "isNew": False},
+        {"name": "Mountain", "colorIdentity": "", "type": "Basic Land - Mountain",
+         "manaCost": "", "manaValue": 0.0, "themeTags": [], "edhrecRank": 1.0, "isNew": False},
+    ])
+
+    class _FakeLoader:
+        def load(self):
+            return df
+
+    monkeypatch.setattr(manual_builder_service, "AllCardsLoader", _FakeLoader)
+    sess = {
+        "color_identity": ["U"],
+        "commander": "Some Commander",
+        "rulebreaker_extra_color": "R",
+        "deck_cards": ["Lightning Bolt", "Mountain"],
+    }
+
+    data = manual_builder_service.mana_overview_data(sess)["mana_overview"]
+    red_pip = next((p for p in data["pips"] if p["color"] == "R"), None)
+    red_source = next((s for s in data["sources"] if s["color"] == "R"), None)
+    assert red_pip is not None and red_pip["count"] > 0
+    assert red_source is not None and red_source["count"] > 0
+
+
+def test_mana_overview_includes_type_based_rulebreaker_any_color(monkeypatch):
+    """Seluma (Angels can be any color), Grizzlegom, Maular, etc. don't pin a
+    single known extra color like Tolabow does -- the actual off-identity
+    color has to be detected from the cards actually in the deck."""
+    manual_builder_service = importlib.import_module("code.web.services.manual_builder_service")
+
+    df = pd.DataFrame([
+        {"name": "Seluma, Light of Aysen", "colorIdentity": "W", "type": "Legendary Creature - Angel Warrior",
+         "manaCost": "{2}{W}{W}", "manaValue": 4.0, "themeTags": [], "edhrecRank": 1.0, "isNew": False},
+        {"name": "Off-Color Angel", "colorIdentity": "B", "type": "Creature - Angel",
+         "manaCost": "{2}{B}{B}", "manaValue": 4.0, "themeTags": [], "edhrecRank": 100.0, "isNew": False},
+        {"name": "Swamp", "colorIdentity": "", "type": "Basic Land - Swamp",
+         "manaCost": "", "manaValue": 0.0, "themeTags": [], "edhrecRank": 1.0, "isNew": False},
+    ])
+
+    class _FakeLoader:
+        def load(self):
+            return df
+
+    monkeypatch.setattr(manual_builder_service, "AllCardsLoader", _FakeLoader)
+    sess = {
+        "color_identity": ["W"],
+        "commander": "Seluma, Light of Aysen",
+        "deck_cards": ["Off-Color Angel", "Swamp"],
+    }
+
+    data = manual_builder_service.mana_overview_data(sess)["mana_overview"]
+    black_pip = next((p for p in data["pips"] if p["color"] == "B"), None)
+    black_source = next((s for s in data["sources"] if s["color"] == "B"), None)
+    assert black_pip is not None and black_pip["count"] > 0
+    assert black_source is not None and black_source["count"] > 0
+
+
+def test_mana_overview_sources_show_basic_lands_without_matching_spell(monkeypatch):
+    """Seluma/Grizzlegom's 'any basic land' exception lets a deck run all 5
+    basics even with zero off-identity spells -- Sources should reflect
+    those actual lands, not just colors that happen to have spell pips."""
+    manual_builder_service = importlib.import_module("code.web.services.manual_builder_service")
+
+    df = pd.DataFrame([
+        {"name": "Seluma, Light of Aysen", "colorIdentity": "W", "type": "Legendary Creature - Angel Warrior",
+         "manaCost": "{2}{W}{W}", "manaValue": 4.0, "themeTags": [], "edhrecRank": 1.0, "isNew": False},
+        {"name": "Forest", "colorIdentity": "", "type": "Basic Land - Forest",
+         "manaCost": "", "manaValue": 0.0, "themeTags": [], "edhrecRank": 1.0, "isNew": False},
+        {"name": "Island", "colorIdentity": "", "type": "Basic Land - Island",
+         "manaCost": "", "manaValue": 0.0, "themeTags": [], "edhrecRank": 1.0, "isNew": False},
+    ])
+
+    class _FakeLoader:
+        def load(self):
+            return df
+
+    monkeypatch.setattr(manual_builder_service, "AllCardsLoader", _FakeLoader)
+    sess = {
+        "color_identity": ["W"],
+        "commander": "Seluma, Light of Aysen",
+        "deck_cards": ["Forest", "Island"],
+    }
+
+    data = manual_builder_service.mana_overview_data(sess)["mana_overview"]
+    green_source = next((s for s in data["sources"] if s["color"] == "G"), None)
+    blue_source = next((s for s in data["sources"] if s["color"] == "U"), None)
+    assert green_source is not None and green_source["count"] > 0
+    assert blue_source is not None and blue_source["count"] > 0
+
+
+
 def test_deck_panel_groups_by_type_and_shows_role_labels(monkeypatch):
     """Deck panel groups mirror the finished-deck summary's type order
     (Instant before Sorcery before Land), and each card is tagged with its

@@ -10,6 +10,9 @@
 <div class="muted">Bracket: {{ bracket }}
   {% if budget_total %} • Budget: ${{ '%.2f'|format(budget_total) }}{% endif %}
 </div>
+{% if rulebreaker %}
+<div class="muted">Rulebreaker: {{ rulebreaker.name }}{% if rulebreaker_extra_color %} (Extra color: {{ rulebreaker_extra_color }}){% endif %}</div>
+{% endif %}
 {% if edit_source_name %}
 <div class="muted text-sm" style="margin-top:.25rem;">Editing <strong>{{ edit_source_name }}</strong> (saving will overwrite this deck).</div>
 {% endif %}

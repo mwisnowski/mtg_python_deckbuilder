@@ -10,7 +10,7 @@ __all__ = [
     'SETUP_COLORS', 'COLOR_ABRV', 'COLUMN_ORDER', 'TAGGED_COLUMN_ORDER',
     'BANNED_CARDS', 'MTGJSON_API_URL', 'LEGENDARY_OPTIONS', 'NON_LEGAL_SETS',
     'CARD_TYPES_TO_EXCLUDE', 'CSV_PROCESSING_COLUMNS', 'SORT_CONFIG',
-    'FILTER_CONFIG'
+    'FILTER_CONFIG', 'RULEBREAKER_CARD_NAMES'
 ]
 
 # Banned cards consolidated here (remains specific to setup concerns)
@@ -74,6 +74,21 @@ CARD_TYPES_TO_EXCLUDE: List[str] = [
     'Stickers',
     'Attraction',
     'Contraption',
+]
+
+# Rulebreaker commander mechanic (Roadmap 35): Mystery Booster Commander Edition
+# playtest cards that Scryfall marks legalities.commander == "not_legal" on every
+# printing (so they'd otherwise be dropped by the commander-illegal-cards filter),
+# but which this deckbuilder intentionally supports as a special commander mechanic.
+RULEBREAKER_CARD_NAMES: List[str] = [
+    'Grizzlegom, Hurloon Hero',
+    'Maular, the Next Evolution',
+    'Seluma, Light of Aysen',
+    'The Everforger',
+    'The Unluckiest Planeswalker',
+    'Tolabow, Loch Rascal',
+    'Valko Indorian',
+    'Whtz, the Bibliophile',
 ]
 
 # Columns to keep when processing CSV files

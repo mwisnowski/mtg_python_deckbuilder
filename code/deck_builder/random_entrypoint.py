@@ -438,6 +438,17 @@ def _load_commanders_df() -> pd.DataFrame:
     
     # Filter to commanders using boolean flag
     commanders_df = bc.get_commanders(df)
+
+    # Roadmap 35 (Rulebreaker Commanders): exclude any archetype flagged
+    # 'random_mode_excluded' (currently just Tolabow, Loch Rascal) from
+    # surprise/random commander pools; its optional extra-color choice has
+    # no one to answer it during a fully automated pick.
+    excluded_names = {
+        meta['name'] for meta in bc.RULEBREAKER_ARCHETYPES.values() if meta.get('random_mode_excluded')
+    }
+    if excluded_names and 'name' in commanders_df.columns:
+        commanders_df = commanders_df[~commanders_df['name'].isin(excluded_names)]
+
     return _ensure_theme_tag_cache(commanders_df)
 
 

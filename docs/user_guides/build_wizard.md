@@ -259,6 +259,7 @@ Key settings for the build wizard:
 
 - [Theme Browser](theme_browser.md) — explore and evaluate available themes before building
 - [Partner Mechanics](partner_mechanics.md) — two-commander builds and color identity rules
+- [Rulebreaker Commanders](rulebreaker_commanders.md) — commanders that relax one specific deckbuilding rule
 - [Bracket Compliance](bracket_compliance.md) — power level tiers and enforcement modes
 - [Budget Mode](budget_mode.md) — filter the card pool by per-card price ceiling
 - [Multi-Copy Package](multi_copy.md) — build with many copies of a single archetype card

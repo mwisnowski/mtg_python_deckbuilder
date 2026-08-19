@@ -117,6 +117,131 @@ def test_create_build_uses_per_user_deck_dir(client, auth_headers, monkeypatch):
     assert seen_kwargs["deck_dir"] != "deck_files"
 
 
+def test_create_build_passes_rulebreaker_fields(client, auth_headers, monkeypatch):
+    """Roadmap 35, Milestone 7: rulebreaker_extra_color/rulebreaker_target_deck_size
+    reach orch.start_build_ctx unchanged (uppercased/trimmed for the color)."""
+    import code.web.routes.api_v1.builds as builds_route
+
+    seen_kwargs: dict = {}
+
+    def _capturing_start_build_ctx(**kwargs):
+        seen_kwargs.update(kwargs)
+        return {"stages": [0], "idx": 0}
+
+    monkeypatch.setattr(builds_route.orch, "start_build_ctx", _capturing_start_build_ctx)
+    monkeypatch.setattr(builds_route.orch, "ideal_defaults", lambda: {})
+    monkeypatch.setattr(builds_route.orch, "bracket_options", lambda: [{"level": 1}])
+
+    resp = client.post(
+        "/api/v1/builds",
+        json={
+            "commander": "Tolabow, Loch Rascal",
+            "rulebreaker_extra_color": "b",
+            "rulebreaker_target_deck_size": 150,
+        },
+        headers=auth_headers,
+    )
+    assert resp.status_code == 202
+    assert seen_kwargs["rulebreaker_extra_color"] == "B"
+    assert seen_kwargs["rulebreaker_target_deck_size"] == 150
+
+
+def test_create_build_rejects_invalid_rulebreaker_color(client, auth_headers, monkeypatch):
+    _fake_orchestrator(monkeypatch)
+    resp = client.post(
+        "/api/v1/builds",
+        json={"commander": "Tolabow, Loch Rascal", "rulebreaker_extra_color": "Z"},
+        headers=auth_headers,
+    )
+    assert resp.status_code == 400
+    assert resp.json()["code"] == "INVALID_RULEBREAKER_COLOR"
+
+
+def test_create_build_rejects_undersized_rulebreaker_deck_size(client, auth_headers, monkeypatch):
+    _fake_orchestrator(monkeypatch)
+    resp = client.post(
+        "/api/v1/builds",
+        json={"commander": "Whtz, the Bibliophile", "rulebreaker_target_deck_size": 50},
+        headers=auth_headers,
+    )
+    assert resp.status_code == 400
+    assert resp.json()["code"] == "INVALID_RULEBREAKER_DECK_SIZE"
+
+
+def test_create_build_manual_mode_stores_rulebreaker_fields(client, auth_headers, monkeypatch):
+    """Regression: the API's manual-mode session previously omitted
+    rulebreaker_extra_color/rulebreaker_target_deck_size entirely, so
+    manual_builder_service.py's already-correct handling of those fields
+    (Tolabow's extra color pool, Whtz's deck-size target/role-bar) never
+    saw them for API/mobile-originated manual builds."""
+    import code.web.routes.api_v1.builds as builds_route
+    from code.web.services import api_build_store as build_store
+
+    monkeypatch.setattr(
+        builds_route, "_start_manual_session_sync", lambda *a, **k: ["W", "U"]
+    )
+
+    resp = client.post(
+        "/api/v1/builds",
+        json={
+            "commander": "Whtz, the Bibliophile",
+            "mode": "manual",
+            "rulebreaker_extra_color": "b",
+            "rulebreaker_target_deck_size": 150,
+        },
+        headers=auth_headers,
+    )
+    assert resp.status_code == 201
+    build_id = resp.json()["data"]["build_id"]
+    ctx = build_store.get_ctx(build_id)
+    assert ctx["rulebreaker_extra_color"] == "B"
+    assert ctx["rulebreaker_target_deck_size"] == 150
+
+
+def test_create_build_scales_ideal_counts_for_deck_size(client, auth_headers, monkeypatch):
+    """Regression: auto/guided-mode ideal_counts must be scaled server-side
+    for a >100-card rulebreaker_target_deck_size, since the mobile app (unlike
+    the web UI's client-side JS) submits unscaled defaults/overrides."""
+    import code.web.routes.api_v1.builds as builds_route
+
+    seen_kwargs: dict = {}
+
+    def _capturing_start_build_ctx(**kwargs):
+        seen_kwargs.update(kwargs)
+        return {"stages": [0], "idx": 0}
+
+    monkeypatch.setattr(builds_route.orch, "start_build_ctx", _capturing_start_build_ctx)
+    monkeypatch.setattr(builds_route.orch, "ideal_defaults", lambda: {"lands": 35, "removal": 10})
+    monkeypatch.setattr(builds_route.orch, "bracket_options", lambda: [{"level": 1}])
+
+    resp = client.post(
+        "/api/v1/builds",
+        json={"commander": "Whtz, the Bibliophile", "rulebreaker_target_deck_size": 200},
+        headers=auth_headers,
+    )
+    assert resp.status_code == 202
+    assert seen_kwargs["ideals"]["lands"] > 35
+    assert seen_kwargs["ideals"]["removal"] > 10
+
+
+def test_ideal_defaults_scales_with_query_param(client, auth_headers, monkeypatch):
+    """Regression: GET /ideal-defaults previously always returned flat
+    100-card defaults with no way to preview scaled values for a mobile
+    client that has no client-side scaling JS."""
+    import code.web.routes.api_v1.builds as builds_route
+
+    monkeypatch.setattr(builds_route.orch, "ideal_defaults", lambda: {"lands": 35})
+    monkeypatch.setattr(builds_route.orch, "ideal_labels", lambda: {"lands": "Lands"})
+
+    resp = client.get(
+        "/api/v1/builds/ideal-defaults",
+        params={"rulebreaker_target_deck_size": 200},
+        headers=auth_headers,
+    )
+    assert resp.status_code == 200
+    assert resp.json()["data"]["defaults"]["lands"] > 35
+
+
 def _fake_guided_orchestrator(monkeypatch, *, stage_count: int = 2):
     """Like _fake_orchestrator, but run_stage never batches -- each call advances
     exactly one stage and returns added_cards, matching guided-mode semantics."""

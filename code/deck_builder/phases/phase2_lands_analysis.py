@@ -198,9 +198,22 @@ class LandAnalysisMixin:
     def _earmark_land_slots(self, land_target: int) -> None:
         """Scale non-land ideal_counts down so they fit within 99 - land_target slots.
 
+        Rulebreaker Commanders (Roadmap 35): this budget is calibrated to the
+        100-card baseline (99 non-commander slots) and runs BEFORE Whtz's
+        deck-size scale-up, so for an oversized target it would pre-shrink
+        small categories (e.g. wipes/protection) using the 100-card budget;
+        the later scale-up would then compound on the shrunken value instead
+        of the true default. Skip entirely when a larger size is targeted -
+        `scale_ideal_counts_for_deck_size` handles proportional sizing there.
+
         This ensures the spell phases never consume the slots reserved for lands,
         making backfill unnecessary in the normal case.
         """
+        try:
+            if bu.effective_deck_size(self) > 100:
+                return
+        except Exception:
+            pass
         # Ensure creatures_max exists (and mirrors the legacy 'creatures' alias) before scaling.
         normalize = getattr(self, '_normalize_creature_ideal_keys', None)
         if callable(normalize):

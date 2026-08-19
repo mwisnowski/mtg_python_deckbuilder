@@ -5381,7 +5381,6 @@
     "Tom van de Logt Bio (2001)",
     "Tom van de Logt Decklist (2000)",
     "Tom van de Logt Decklist (2001)",
-    "Tom, Bert, and William",
     "Tomakul Honor Guard // Tomakul Honor Guard",
     "Tomakul Phoenix",
     "Tomb of Annihilation",
@@ -6010,7 +6009,7 @@
     "Éomer of the Riddermark // Éomer of the Riddermark",
     "Éowyn, Fearless Knight // Éowyn, Fearless Knight"
   ],
-  "list_version": "scryfall-2026-08-04",
-  "generated_at": "2026-08-04",
+  "list_version": "scryfall-2026-08-10",
+  "generated_at": "2026-08-10",
   "source": "scryfall bulk data (legalities.commander == not_legal on every printing)"
 }

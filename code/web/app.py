@@ -2448,6 +2448,25 @@ async def setup_status():
                         data["log_tail"] = "".join(tail_lines).strip()
             except Exception:
                 pass
+            # Roadmap 35 Milestone 9: surface any unregistered Rulebreaker
+            # candidates found by the last tagging run (local-only alert path).
+            try:
+                candidates_path = Path("logs/rulebreaker_candidates.json")
+                if candidates_path.exists():
+                    with candidates_path.open("r", encoding="utf-8") as cf:
+                        candidates = _json.load(cf)
+                    if candidates:
+                        from tagging.rulebreaker_report import build_candidate_issue_body, lookup_existing_issue
+                        rendered = []
+                        for c in candidates:
+                            rendered.append({
+                                **c,
+                                "issue_body": build_candidate_issue_body(c),
+                                "existing_issue_url": lookup_existing_issue(c.get("name", "")),
+                            })
+                        data["rulebreaker_candidates"] = rendered
+            except Exception:
+                pass
             return JSONResponse(data)
         return JSONResponse({"running": False, "phase": "idle"})
     except Exception:

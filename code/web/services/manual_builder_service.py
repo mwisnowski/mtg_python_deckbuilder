@@ -23,6 +23,7 @@ from deck_builder.builder_utils import (
     compute_pip_density,
     fetch_land_allowed_for_colors,
     parse_theme_tags,
+    rulebreaker_pip_identity,
 )
 from deck_builder.brackets_compliance import (
     banned_category_names,
@@ -193,9 +194,68 @@ def resolve_color_identity(
     return [c.upper() for c in raw_ci if c.isalpha()]
 
 
+def _active_rulebreakers(sess: Dict[str, Any]) -> List[dict]:
+    """Return active Rulebreaker archetype entries (`bc.RULEBREAKER_ARCHETYPES`)
+    for the session's commander(s), by exact case-insensitive name match.
+
+    Lightweight, name-only counterpart to
+    `deck_builder.builder_utils.detect_active_rulebreakers` (which needs a
+    full `DeckBuilder` instance) - the manual builder session only ever has
+    plain commander name strings, not a builder object.
+    """
+    names: List[str] = []
+    commander = sess.get("commander")
+    if commander:
+        names.append(str(commander))
+    if sess.get("partner_enabled"):
+        secondary = sess.get("secondary_commander")
+        if secondary:
+            names.append(str(secondary))
+    name_lookup = {meta.get("name", "").casefold(): meta for meta in bc.RULEBREAKER_ARCHETYPES.values()}
+    out: List[dict] = []
+    seen_ids: set = set()
+    for name in names:
+        meta = name_lookup.get(name.strip().casefold())
+        if meta and meta.get("id") not in seen_ids:
+            out.append(dict(meta))
+            seen_ids.add(meta.get("id"))
+    return out
+
+
+_BASIC_LANDS_SCOPE_RANK = {"any_land": 2, "any": 1, "strict": 0}
+
+
+def _resolve_basic_lands_scope(active_rulebreakers: List[dict]) -> str:
+    """Return the least-restrictive `basic_lands_scope` among active Rulebreakers
+    (mirrors `builder_utils.resolve_basic_lands_scope`, without needing a builder)."""
+    best = "strict"
+    for meta in active_rulebreakers:
+        scope = meta.get("basic_lands_scope", "strict")
+        if _BASIC_LANDS_SCOPE_RANK.get(scope, 0) > _BASIC_LANDS_SCOPE_RANK.get(best, 0):
+            best = scope
+    return best
+
+
+def _effective_deck_size(sess: Dict[str, Any], active_rulebreakers: List[dict]) -> int:
+    """Total deck size target (including the commander), mirroring
+    `builder_utils.effective_deck_size`: 100 unless a `no_max_deck_size`
+    Rulebreaker (Whtz) is active and a valid `rulebreaker_target_deck_size`
+    (>=100) has been set in the session, in which case that target is used."""
+    default = bc.DECK_NON_COMMANDER_SLOTS + 1
+    if not any(meta.get("no_max_deck_size") for meta in active_rulebreakers):
+        return default
+    target = sess.get("rulebreaker_target_deck_size")
+    try:
+        target = int(target) if target is not None else default
+    except (TypeError, ValueError):
+        target = default
+    return target if target >= default else default
+
+
 def manual_session_state(sess: Dict[str, Any]) -> Dict[str, Any]:
     """Extract the manual-build session contract fields (roadmap_25 Key Contracts)."""
     budget_config = sess.get("budget_config") or {}
+    active_rulebreakers = _active_rulebreakers(sess)
     return {
         "mode": sess.get("mode"),
         "commander": sess.get("commander"),
@@ -206,6 +266,9 @@ def manual_session_state(sess: Dict[str, Any]) -> Dict[str, Any]:
         "bracket": sess.get("bracket"),
         "deck_cards": list(sess.get("deck_cards") or []),
         "edit_source_name": sess.get("edit_source_name"),
+        "rulebreaker": active_rulebreakers[0] if active_rulebreakers else None,
+        "rulebreaker_extra_color": sess.get("rulebreaker_extra_color"),
+        "rulebreaker_target_deck_size": sess.get("rulebreaker_target_deck_size") or 100,
     }
 
 
@@ -458,7 +521,20 @@ def get_card_pool(sess: Dict[str, Any]) -> pd.DataFrame:
     bracket = str(sess.get("bracket") or 2)
 
     df = _get_loader().load()
-    mask = df["colorIdentity"].apply(lambda c: _color_identity_subset(c, identity))
+    active_rulebreakers = _active_rulebreakers(sess)
+    if active_rulebreakers:
+        from deck_builder.rulebreaker_rules import card_pool_exception
+
+        extra_color = (sess.get("rulebreaker_extra_color") or None)
+
+        def _identity_ok(row: Any) -> bool:
+            if _color_identity_subset(row.get("colorIdentity"), identity):
+                return True
+            return card_pool_exception(row, active_rulebreakers, extra_color)
+
+        mask = df.apply(_identity_ok, axis=1)
+    else:
+        mask = df["colorIdentity"].apply(lambda c: _color_identity_subset(c, identity))
     pool = df[mask].copy()
     if commander:
         pool = pool[pool["name"].astype(str) != str(commander)]
@@ -1056,7 +1132,24 @@ def add_land_package(sess: Dict[str, Any]) -> Dict[str, Any]:
 
     ideals = sess.get("ideals") or {}
     basic_target = max(0, int(ideals.get("basic_lands") or bc.DEFAULT_BASIC_LAND_COUNT))
-    identity = [c for c in ["W", "U", "B", "R", "G"] if c in (sess.get("color_identity") or [])]
+    active_rulebreakers = _active_rulebreakers(sess)
+    extra_color_rule = next(
+        (m for m in active_rulebreakers if m.get("rule_type") == "instant_sorcery_extra_color"), None
+    )
+    if extra_color_rule is not None:
+        # Tolabow's exception only grants ONE extra color for instants/sorceries,
+        # so a full 5-color basic split is impractical even though its
+        # basic_lands_scope technically allows any basic land. Restrict the
+        # default package to the commander's own color(s) plus that one
+        # chosen extra color (or just the commander's colors if none chosen).
+        extra_color = (sess.get("rulebreaker_extra_color") or "").strip().upper()
+        identity = [c for c in ["W", "U", "B", "R", "G"] if c in (sess.get("color_identity") or [])]
+        if extra_color and extra_color not in identity:
+            identity.append(extra_color)
+    elif _resolve_basic_lands_scope(active_rulebreakers) in ("any", "any_land"):
+        identity = ["W", "U", "B", "R", "G"]
+    else:
+        identity = [c for c in ["W", "U", "B", "R", "G"] if c in (sess.get("color_identity") or [])]
     if not identity:
         identity = ["C"]
     base_count, remainder = divmod(basic_target, len(identity))
@@ -1119,8 +1212,9 @@ def deck_panel_data(sess: Dict[str, Any]) -> Dict[str, Any]:
         {"role": _DECK_TYPE_LABELS[t], "cards": groups[t]} for t in _DECK_TYPE_ORDER if groups.get(t)
     ]
     total_cards = sum(counts.values())
-    # +1 for the commander's own slot (never part of deck_cards itself).
-    deck_size_target = bc.DECK_NON_COMMANDER_SLOTS + 1
+    # +1 for the commander's own slot (never part of deck_cards itself);
+    # relaxed to rulebreaker_target_deck_size when Whtz's no_max_deck_size is active.
+    deck_size_target = _effective_deck_size(sess, _active_rulebreakers(sess))
     return {
         "groups": ordered_groups,
         "total_cards": total_cards,
@@ -1175,8 +1269,16 @@ def _mana_pip_and_source_summary(sess: Dict[str, Any]) -> Dict[str, Any]:
     """
     color_identity = [c for c in ("W", "U", "B", "R", "G") if c in (sess.get("color_identity") or [])]
     card_library, _rows = _mana_card_library(sess)
+    # Rulebreaker Commanders: Tolabow's off-color Instants/Sorceries (a fixed
+    # rulebreaker_extra_color) and type-based exceptions like Seluma's Angels
+    # or Grizzlegom's basics (any color) both need to be included here, or
+    # their pips/sources get zeroed out as "outside identity" despite being legal.
+    extra_color = sess.get("rulebreaker_extra_color")
+    pip_identity = rulebreaker_pip_identity(
+        card_library, color_identity, _active_rulebreakers(sess), extra_color
+    )
 
-    pip_density = compute_pip_density(card_library, color_identity)
+    pip_density = compute_pip_density(card_library, pip_identity)
     pip_counts: Dict[str, float] = {}
     for c in ("W", "U", "B", "R", "G"):
         d = pip_density[c]
@@ -1204,16 +1306,16 @@ def _mana_pip_and_source_summary(sess: Dict[str, Any]) -> Dict[str, Any]:
             for c in colors_for_card:
                 pip_cards[c].append({"name": name, "count": cnt})
     total_pips = sum(pip_counts.values())
-    if total_pips <= 0 and color_identity:
-        share = 1 / len(color_identity)
-        for c in color_identity:
+    if total_pips <= 0 and pip_identity:
+        share = 1 / len(pip_identity)
+        for c in pip_identity:
             pip_counts[c] = share
         total_pips = 1.0
     pip_weights = {c: (pip_counts[c] / total_pips if total_pips else 0.0) for c in pip_counts}
 
     full_df = _get_loader().load()
     scoped_df = full_df[full_df["name"].astype(str).isin(card_library.keys())]
-    matrix = compute_color_source_matrix(card_library, scoped_df)
+    matrix = compute_color_source_matrix(card_library, scoped_df, color_identity)
     source_counts: Dict[str, int] = {c: 0 for c in ("W", "U", "B", "R", "G", "C")}
     source_cards: Dict[str, List[Dict[str, Any]]] = {c: [] for c in ("W", "U", "B", "R", "G", "C")}
     for name, flags in matrix.items():
@@ -1239,35 +1341,48 @@ def mana_overview_data(sess: Dict[str, Any]) -> Dict[str, Any]:
     """
     color_identity = [c for c in ["W", "U", "B", "R", "G"] if c in (sess.get("color_identity") or [])]
     card_library, rows = _mana_card_library(sess)
+    # Rulebreaker Commanders: Tolabow's off-color Instants/Sorceries (a fixed
+    # rulebreaker_extra_color) and type-based exceptions like Seluma's Angels
+    # or Grizzlegom's basics (any color) both need to be included here, or
+    # their pips/sources get zeroed out as "outside identity" despite being legal.
+    extra_color = sess.get("rulebreaker_extra_color")
+    pip_identity = rulebreaker_pip_identity(
+        card_library, color_identity, _active_rulebreakers(sess), extra_color
+    )
 
-    pip_density = compute_pip_density(card_library, color_identity)
+    pip_density = compute_pip_density(card_library, pip_identity)
     pip_counts: Dict[str, float] = {}
     for c in ("W", "U", "B", "R", "G"):
         d = pip_density[c]
         pip_counts[c] = float(d["single"] + d["double"] * 2 + d["triple"] * 3 + d["phyrexian"])
     total_pips = sum(pip_counts.values())
-    if total_pips <= 0 and color_identity:
-        share = 100.0 / len(color_identity)
-        pips = [{"color": c, "count": 0, "pct": int(share) if c in color_identity else 0} for c in color_identity]
+    if total_pips <= 0 and pip_identity:
+        share = 100.0 / len(pip_identity)
+        pips = [{"color": c, "count": 0, "pct": int(share)} for c in pip_identity]
     else:
         pips = [
             {"color": c, "count": pip_counts.get(c, 0.0), "pct": int(round(pip_counts.get(c, 0.0) * 100 / total_pips))}
-            for c in color_identity
-        ] if total_pips else [{"color": c, "count": 0, "pct": 0} for c in color_identity]
+            for c in pip_identity
+        ] if total_pips else [{"color": c, "count": 0, "pct": 0} for c in pip_identity]
 
     full_df = _get_loader().load()
     # compute_color_source_matrix() does a full-table iterrows() to build its
     # name lookup -- scope it to just this deck's cards (a handful of rows)
     # instead of all ~32k cards, since this runs on every add/remove.
     scoped_df = full_df[full_df["name"].astype(str).isin(card_library.keys())]
-    matrix = compute_color_source_matrix(card_library, scoped_df)
+    matrix = compute_color_source_matrix(card_library, scoped_df, color_identity)
     source_counts = {c: 0 for c in ("W", "U", "B", "R", "G", "C")}
     for name, flags in matrix.items():
         copies = card_library.get(name, {}).get("Count", 1)
         for c in source_counts:
             if int(flags.get(c, 0)):
                 source_counts[c] += copies
-    source_colors = list(color_identity)
+    # Sources aren't limited to pip_identity: a Rulebreaker with an "any
+    # basic land" exception (Seluma, Grizzlegom, etc.) can have actual mana
+    # sources for a color with zero spell pips (e.g. lands added ahead of
+    # the matching off-color spells), so show any color that's actually
+    # producing mana, not just the ones with pips so far.
+    source_colors = [c for c in ("W", "U", "B", "R", "G") if c in pip_identity or source_counts.get(c, 0) > 0]
     if source_counts.get("C", 0) > 0:
         source_colors.append("C")
     max_source = max((source_counts.get(c, 0) for c in source_colors), default=0)
@@ -1373,13 +1488,28 @@ ROLE_BAR_LABELS: Dict[str, str] = {
     "Land": "Lands",
 }
 
+# Maps a role bar row to the matching key in sess["ideals"], which (via the
+# live deck-size-aware sliders in _new_deck_ideals.html) holds the real target
+# counts for the chosen deck size, not just the 100-card baseline defaults.
+ROLE_BAR_IDEAL_KEYS: Dict[str, str] = {
+    "Ramp": "ramp",
+    "Removal": "removal",
+    "Card Draw": "card_advantage",
+    "Protection": "protection",
+    "Board Wipe": "wipes",
+    "Land": "lands",
+}
+
 
 def _role_bar_status(role: str, actual: int, target: int) -> str:
     if role == "Land":
-        # Roadmap 25 M5: lands use fixed thresholds independent of the target.
-        if actual < 33:
+        # Roadmap 25 M5 baseline: red below 33, yellow up to 35, at a 35-land
+        # target. Scaled proportionally so oversized (Whtz) decks aren't stuck
+        # comparing against a fixed 100-card-baseline threshold.
+        red_ceiling = round(target * (33 / 35)) if target else 33
+        if actual < red_ceiling:
             return "red"
-        if actual <= 35:
+        if actual <= target:
             return "yellow"
         return "green"
     if actual >= target:
@@ -1391,6 +1521,7 @@ def _role_bar_status(role: str, actual: int, target: int) -> str:
 
 def role_bar_data(sess: Dict[str, Any]) -> Dict[str, Any]:
     """Live role counts vs. targets for the role health bar."""
+    ideals = sess.get("ideals") or {}
     counts = deck_card_counts(sess)
     rows = _lookup_card_rows(sess, list(counts.keys()))
     role_totals: Dict[str, int] = {r: 0 for r in ROLE_BAR_TARGETS}
@@ -1402,7 +1533,12 @@ def role_bar_data(sess: Dict[str, Any]) -> Dict[str, Any]:
 
     pills: List[Dict[str, Any]] = []
     warnings: List[str] = []
-    for role, target in ROLE_BAR_TARGETS.items():
+    for role, default_target in ROLE_BAR_TARGETS.items():
+        ideal_key = ROLE_BAR_IDEAL_KEYS.get(role)
+        try:
+            target = int(ideals[ideal_key]) if ideal_key and ideal_key in ideals else default_target
+        except (TypeError, ValueError):
+            target = default_target
         actual = role_totals[role]
         status = _role_bar_status(role, actual, target)
         label = ROLE_BAR_LABELS[role]
@@ -1512,6 +1648,22 @@ def _build_deck_rows(sess: Dict[str, Any]) -> List[Dict[str, Any]]:
     return rows
 
 
+def _rulebreaker_header_suffix(sess: Dict[str, Any]) -> List[str]:
+    """Extra "Rulebreaker: ..." export header lines, matching
+    `DeckBuilder`'s auto-build CSV/TXT export (`phase6_reporting.py`)."""
+    active_rulebreakers = _active_rulebreakers(sess)
+    if not active_rulebreakers:
+        return []
+    out = [f"Rulebreaker: {', '.join(m.get('name', '') for m in active_rulebreakers)}"]
+    extra_color = sess.get("rulebreaker_extra_color")
+    if extra_color:
+        out.append(f"Rulebreaker Extra Color: {extra_color}")
+    target_size = sess.get("rulebreaker_target_deck_size")
+    if target_size and int(target_size) > 100:
+        out.append(f"Rulebreaker Deck Size: {target_size}")
+    return out
+
+
 def build_deck_csv_text(sess: Dict[str, Any]) -> str:
     """Render the current session deck as CSV text (built-deck schema)."""
     import io
@@ -1521,7 +1673,7 @@ def build_deck_csv_text(sess: Dict[str, Any]) -> str:
     commander = sess.get("commander") or ""
     buf = io.StringIO()
     writer = _csv.writer(buf)
-    writer.writerow(_CSV_HEADERS + [f"Commanders: {commander}"])
+    writer.writerow(_CSV_HEADERS + [f"Commanders: {commander}"] + _rulebreaker_header_suffix(sess))
     for r in rows:
         if r["is_commander"]:
             role = "commander"
@@ -1544,7 +1696,7 @@ def build_deck_txt_text(sess: Dict[str, Any]) -> str:
     """Render the current session deck as plain text (one line per card)."""
     rows = _build_deck_rows(sess)
     commander = sess.get("commander") or ""
-    lines = [f"# Commanders: {commander}", ""]
+    lines = [f"# Commanders: {commander}"] + [f"# {s}" for s in _rulebreaker_header_suffix(sess)] + [""]
     for r in rows:
         lines.append(f"{r['count']} {r['name']}")
     return "\n".join(lines) + "\n"

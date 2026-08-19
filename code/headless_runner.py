@@ -213,6 +213,8 @@ def run(
     background: Optional[str] = None,
     enable_partner_mechanics: bool = False,
     creature_builder_mode: Optional[str] = None,
+    rulebreaker_extra_color: Optional[str] = None,
+    rulebreaker_target_deck_size: Optional[int] = None,
 ) -> DeckBuilder:
     """Run a scripted non-interactive deck build and return the DeckBuilder instance.
 
@@ -255,7 +257,7 @@ def run(
     scripted_inputs.extend(owned_prompt_inputs)
     # Bracket (meta power / style) selection; default to 3 if not provided
     scripted_inputs.append(str(bracket_level if isinstance(bracket_level, int) and 1 <= bracket_level <= 5 else 3))
-    # Legacy creature allocation opt-in prompt (roadmap 33, Milestone 5)
+    # Legacy creature allocation opt-in prompt
     scripted_inputs.append("y" if creature_builder_mode == "legacy" else "n")
     # Ideal count prompts (press Enter for defaults). Include fetch_lands if present.
     ideal_keys = {
@@ -323,6 +325,16 @@ def run(
         builder.enforcement_mode = enforcement_mode
         builder.allow_illegal = allow_illegal
         builder.fuzzy_matching = fuzzy_matching
+    except Exception:
+        pass
+
+    # Rulebreaker Commanders: apply before color
+    # identity/deck-size logic runs.
+    try:
+        extra_color_clean = (rulebreaker_extra_color or "").strip().upper() or None
+        builder.rulebreaker_extra_color = extra_color_clean
+        if rulebreaker_target_deck_size is not None:
+            builder.rulebreaker_target_deck_size = max(100, int(rulebreaker_target_deck_size))
     except Exception:
         pass
 
@@ -1509,7 +1521,7 @@ def _main() -> int:
     _ensure_data_ready()
     parser = _build_arg_parser()
     args = parser.parse_args()
-    # JSON-config-file input was removed (Roadmap 34); this stays empty so the
+    # JSON-config-file input was removed; this stays empty so the
     # existing CLI > ENV > JSON > default resolver below still works unchanged.
     json_cfg: Dict[str, Any] = {}
 
@@ -1755,6 +1767,19 @@ def _main() -> int:
         json_cfg,
         "enable_partner_mechanics",
     )
+    resolved_rulebreaker_extra_color = _resolve_string_option(
+        getattr(args, "rulebreaker_extra_color", None),
+        "RULEBREAKER_EXTRA_COLOR",
+        json_cfg,
+        "rulebreaker_extra_color",
+    )
+    resolved_rulebreaker_target_deck_size = _resolve_value(
+        getattr(args, "rulebreaker_target_deck_size", None),
+        "RULEBREAKER_TARGET_DECK_SIZE",
+        json_cfg,
+        "rulebreaker_target_deck_size",
+        None,
+    )
 
     resolved = {
         "command_name": _resolve_value(args.commander, "DECK_COMMANDER", json_cfg, "commander", defaults["command_name"]),
@@ -1787,6 +1812,8 @@ def _main() -> int:
         "secondary_commander": resolved_secondary_commander,
         "background": resolved_background,
         "enable_partner_mechanics": bool(resolved_partner_flag) if resolved_partner_flag is not None else False,
+        "rulebreaker_extra_color": resolved_rulebreaker_extra_color,
+        "rulebreaker_target_deck_size": resolved_rulebreaker_target_deck_size,
     }
 
     if args.dry_run:

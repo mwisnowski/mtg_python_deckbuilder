@@ -31,6 +31,7 @@ from .setup_constants import (
     NON_LEGAL_SETS,
     FILTER_CONFIG,
     SORT_CONFIG,
+    RULEBREAKER_CARD_NAMES,
 )
 from .setup_utils import _load_banned_cards, _load_commander_illegal_cards
 import logging_util
@@ -252,7 +253,10 @@ def process_raw_parquet(raw_path: str, output_path: str) -> pd.DataFrame:
     # legalities.commander == "not_legal" on every printing), e.g. promo-only
     # cards like Aswan Jaguar - distinct from the hardcoded set-code/type
     # exclusions above, which can't keep up with every one-off promo set.
-    illegal_set = {c.casefold() for c in _load_commander_illegal_cards()}
+    # Rulebreaker commander mechanic cards (Roadmap 35) are intentionally kept
+    # despite being not_legal in Scryfall's data.
+    rulebreaker_exempt = {n.casefold() for n in RULEBREAKER_CARD_NAMES}
+    illegal_set = {c.casefold() for c in _load_commander_illegal_cards()} - rulebreaker_exempt
     if illegal_set:
         logger.info("Removing cards not tournament-legal in Commander")
         name_lc = df['name'].astype(str).str.casefold()
@@ -346,6 +350,55 @@ def process_raw_parquet(raw_path: str, output_path: str) -> pd.DataFrame:
     return df
 
 
+# Prebuilt printings index published by .github/workflows/build-similarity-cache.yml
+_PRINTINGS_INDEX_GITHUB_URL = (
+    "https://raw.githubusercontent.com/mwisnowski/mtg_python_deckbuilder/"
+    "similarity-cache-data/card_files/processed/card_printings.parquet"
+)
+
+
+def ensure_printings_index(bulk_data_path: str | None = None) -> None:
+    """Make sure `card_files/processed/card_printings.parquet` exists.
+
+    Used by the "Choose Printing" picker regardless of whether image
+    caching is enabled. The file lives under `card_files/` which is
+    gitignored, so it doesn't survive a fresh clone/disk wipe and has no
+    other auto-regeneration hook -- try downloading the prebuilt copy
+    published to GitHub first (fast), falling back to building it locally
+    from Scryfall bulk data (slower, but works offline once bulk data is
+    downloaded).
+
+    No-ops if the index already exists.
+    """
+    from code.file_setup.image_cache import ImageCache
+
+    cache = ImageCache()
+    if cache.printings_index_path.exists():
+        return
+
+    logger.info("Printings index missing; attempting to fetch prebuilt copy from GitHub...")
+    try:
+        resp = requests.get(_PRINTINGS_INDEX_GITHUB_URL, timeout=30)
+        resp.raise_for_status()
+        cache.printings_index_path.parent.mkdir(parents=True, exist_ok=True)
+        cache.printings_index_path.write_bytes(resp.content)
+        logger.info(f"Downloaded printings index from GitHub -> {cache.printings_index_path}")
+        return
+    except Exception as exc:
+        logger.warning(f"Could not fetch prebuilt printings index from GitHub ({exc}); building locally instead.")
+
+    bulk_path = bulk_data_path or str(cache.bulk_data_path)
+    if not os.path.exists(bulk_path):
+        logger.warning("No Scryfall bulk data available; skipping local printings index build.")
+        return
+
+    try:
+        count = cache.build_printings_index()
+        logger.info(f"Built printings index locally: {count} rows")
+    except Exception as exc:
+        logger.warning(f"Failed to build printings index locally: {exc}")
+
+
 def initial_setup() -> None:
     """Download and process MTGJSON Parquet data.
     
@@ -385,6 +438,14 @@ def initial_setup() -> None:
         refresh_card_lists_from_bulk(bulk_path)
     except Exception as exc:
         logger.warning(f"Could not refresh card lists from bulk data ({exc}). Using existing lists.")
+
+    # Step 1c: Ensure the printings index exists (used by the "Choose Printing"
+    # picker regardless of CACHE_CARD_IMAGES; card_files/ is gitignored so this
+    # can silently go missing without an explicit regeneration step).
+    try:
+        ensure_printings_index(bulk_data_path=bulk_path)
+    except Exception as exc:
+        logger.warning(f"Could not ensure printings index ({exc}). Continuing anyway.")
 
     # Step 2: Process raw → processed
     processed_path = get_processed_cards_path()

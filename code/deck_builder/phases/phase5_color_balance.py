@@ -24,7 +24,9 @@ class ColorBalanceMixin:
         """
         if self._color_source_matrix_cache is not None and not self._color_source_cache_dirty:
             return self._color_source_matrix_cache
-        matrix = bu.compute_color_source_matrix(self.card_library, getattr(self, '_full_cards_df', None))
+        matrix = bu.compute_color_source_matrix(
+            self.card_library, getattr(self, '_full_cards_df', None), getattr(self, 'color_identity', None)
+        )
         self._color_source_matrix_cache = matrix
         self._color_source_cache_dirty = False
         return matrix
@@ -160,7 +162,14 @@ class ColorBalanceMixin:
 
         # Always consider basic-land rebalance when requested
         # M5: Skip rebalance for colorless commanders (they should have only Wastes)
-        if rebalance_basics and self.color_identity:  # Only rebalance if commander has colors
+        # Rulebreaker Commanders (Roadmap 35): Grizzlegom's 'any_land' relaxation
+        # only widens which LANDS are legal, not which spell colors are legal, so
+        # its deck's spells have zero pip demand outside R/G. Rebalancing basics
+        # toward pip demand would zero out the other 3 colors added by
+        # add_basic_lands()' even split, collapsing to just Mountain/Forest -
+        # skip the pip-driven rebalance entirely so that even split is preserved.
+        skip_rebalance = bu.resolve_basic_lands_scope(self) == 'any_land'
+        if rebalance_basics and self.color_identity and not skip_rebalance:  # Only rebalance if commander has colors
             try:
                 basic_map = getattr(bc, 'COLOR_TO_BASIC_LAND', {})
                 basics_present = {nm: entry for nm, entry in self.card_library.items() if nm in basic_map.values()}

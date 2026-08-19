@@ -66,6 +66,10 @@ class BuildRequest(BaseModel):
     random_commander: bool = Field(default=False, description="Randomize commander")
     random_themes: bool = Field(default=False, description="Randomize themes")
     random_seed: Optional[int] = Field(default=None, ge=0, description="Random seed")
+
+    # Rulebreaker commanders (Roadmap 35)
+    rulebreaker_extra_color: Optional[str] = Field(default=None, min_length=1, max_length=1, description="Tolabow's chosen extra color (single WUBRG letter)")
+    rulebreaker_target_deck_size: Optional[int] = Field(default=None, ge=100, description="Whtz's chosen deck size (>=100, no upper bound)")
     
     @field_validator("commander")
     @classmethod
@@ -93,6 +97,17 @@ class BuildRequest(BaseModel):
         
         return unique
     
+    @field_validator("rulebreaker_extra_color")
+    @classmethod
+    def validate_rulebreaker_extra_color(cls, v: Optional[str]) -> Optional[str]:
+        """Ensure the extra color is a single valid WUBRG letter."""
+        if v is None:
+            return v
+        v = v.strip().upper()
+        if v not in {"W", "U", "B", "R", "G"}:
+            raise ValueError("rulebreaker_extra_color must be one of W, U, B, R, G")
+        return v
+
     @model_validator(mode="after")
     def validate_partner_consistency(self) -> "BuildRequest":
         """Validate partner configuration consistency."""

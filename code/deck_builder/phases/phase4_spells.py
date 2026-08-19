@@ -763,12 +763,13 @@ class SpellAdditionMixin:
     # Theme Spell Filler to 100
     # ---------------------------
     def fill_remaining_theme_spells(self):
-        """Fill remaining deck slots with theme spells to reach 100 cards.
+        """Fill remaining deck slots with theme spells to reach the deck-size target.
         Uses primary, secondary, and tertiary tags to select spells matching deck themes.
         Applies weighted selection and fallback to general utility spells if needed.
         """
+        from .. import builder_utils as bu
         total_cards = sum(entry.get('Count', 1) for entry in self.card_library.values())
-        remaining = 100 - total_cards
+        remaining = bu.effective_deck_size(self) - total_cards
         if remaining <= 0:
             return
         df = getattr(self, '_combined_cards_df', None)

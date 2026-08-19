@@ -622,7 +622,11 @@ def read_foil_overrides_from_csv(csv_path: Path) -> Dict[str, bool]:
 	return overrides
 
 
-def compute_color_source_matrix(card_library: Dict[str, dict], full_df) -> Dict[str, Dict[str, int]]:
+def compute_color_source_matrix(
+	card_library: Dict[str, dict],
+	full_df,
+	color_identity: Optional[Iterable[str]] = None,
+) -> Dict[str, Dict[str, int]]:
 	"""Build a matrix mapping card name -> {color: 0/1} indicating if that card
 	can (reliably) produce each color of mana on the battlefield.
 
@@ -630,6 +634,10 @@ def compute_color_source_matrix(card_library: Dict[str, dict], full_df) -> Dict[
 	  - Includes lands and non-lands (artifacts/creatures/enchantments/planeswalkers) that produce mana.
 	  - Excludes instants/sorceries (rituals) by design; this is a "source" count, not ramp burst.
 	  - Any-color effects set W/U/B/R/G (not C). Colorless '{C}' is tracked separately.
+	  - "Add one mana of any color in your commander's color identity" (Command Tower,
+	    Arcane Signet, etc.) is restricted to ``color_identity`` rather than all 5 colors:
+	    a Rulebreaker's expanded basic-land pool (e.g. Grizzlegom's off-color basics) doesn't
+	    change what these cards can actually tap for.
 	  - For lands, we also infer from basic land types in the type line. For non-lands, we rely on text.
 	  - Fallback name mapping applies only to exact basic lands (incl. Snow-Covered) and Wastes.
 
@@ -639,7 +647,11 @@ def compute_color_source_matrix(card_library: Dict[str, dict], full_df) -> Dict[
 		Current deck card entries (expects 'Card Type' and 'Count').
 	full_df : pandas.DataFrame | None
 		Full card dataset used for type/text lookups. May be None/empty.
+	color_identity : Iterable[str] | None
+		Commander's true printed color identity, used to cap "any color in your
+		commander's color identity" effects. Defaults to all 5 colors if omitted.
 	"""
+	identity_colors = [c for c in COLOR_LETTERS if c in (color_identity or COLOR_LETTERS)] or list(COLOR_LETTERS)
 	matrix: Dict[str, Dict[str, int]] = {}
 	lookup = {}
 	if full_df is not None and not getattr(full_df, 'empty', True) and 'name' in full_df.columns:
@@ -727,7 +739,19 @@ def compute_color_source_matrix(card_library: Dict[str, dict], full_df) -> Dict[
 			if 'forest' in tline:
 				colors['G'] = 1
 		# Text-based inference for both lands and non-lands
+		# Match the specific "any color in your commander('s/s') color identity"
+		# phrase (Command Tower, Arcane Signet) rather than loosely checking for
+		# 'add'/'commander'/'color identity' anywhere in the text -- War Room has
+		# an unrelated draw ability that mentions "commanders' color identity"
+		# alongside its separate "Add {C}" mana ability, which would otherwise
+		# false-positive as an any-color source.
 		if (
+			'any color in your commander' in tf or
+			'any colour in your commander' in tf
+		):
+			for k in identity_colors:
+				colors[k] = 1
+		elif (
 			'add one mana of any color' in tf or
 			'add one mana of any colour' in tf or
 			('add' in tf and ('mana of any color' in tf or 'mana of any one color' in tf or 'any color of mana' in tf))
@@ -885,6 +909,50 @@ def compute_pip_density(card_library: Dict[str, dict], color_identity: Iterable[
 		if c not in pip_colors_identity:
 			result[c] = {'single': 0, 'double': 0, 'triple': 0, 'phyrexian': 0}
 	return result
+
+
+def rulebreaker_pip_identity(
+	card_library: Dict[str, dict],
+	color_identity: Iterable[str],
+	active_rulebreakers: Optional[List[dict]] = None,
+	extra_color: Optional[str] = None,
+) -> List[str]:
+	"""Expand ``color_identity`` for pip/mana-source *display* purposes when a
+	Rulebreaker Commander is active, so legally-included off-identity cards
+	aren't zeroed out of the Pips/Sources charts by ``compute_pip_density``.
+
+	Tolabow pins a single known ``rulebreaker_extra_color``, but the
+	type-based exceptions (Seluma's Angels, Grizzlegom's basics, Maular's
+	7+ MV creatures, etc.) allow *any* color for matching cards, so there's
+	no single color to add ahead of time -- instead, scan the actual cards
+	in ``card_library`` for off-identity mana symbols. Only does this scan
+	when a Rulebreaker is active; otherwise returns the identity unchanged.
+	"""
+	base = [c for c in COLOR_LETTERS if c in (color_identity or [])]
+	identity = set(base)
+	if extra_color:
+		extra_color = extra_color.strip().upper()
+		if extra_color in COLOR_LETTERS:
+			identity.add(extra_color)
+	if not active_rulebreakers:
+		return [c for c in COLOR_LETTERS if c in identity]
+	for entry in card_library.values():
+		if 'land' in str(entry.get('Card Type', '')).lower():
+			continue
+		mana_cost = entry.get('Mana Cost') or entry.get('mana_cost') or ''
+		if not isinstance(mana_cost, str):
+			continue
+		for match in re.findall(r'\{([^}]+)\}', mana_cost):
+			sym = match.upper()
+			if len(sym) == 1 and sym in COLOR_LETTERS:
+				identity.add(sym)
+			elif '/' in sym:
+				for p in sym.split('/'):
+					if p in COLOR_LETTERS:
+						identity.add(p)
+			elif sym.endswith('P') and len(sym) == 2 and sym[0] in COLOR_LETTERS:
+				identity.add(sym[0])
+	return [c for c in COLOR_LETTERS if c in identity]
 
 
 def analyze_curve(commander_mana_value: float, color_count: int) -> Dict[str, Any]:
@@ -1529,6 +1597,148 @@ def detect_viable_multi_copy_archetypes(builder) -> list[dict]:
 	return kept
 
 
+def detect_active_rulebreakers(builder) -> list[dict]:
+	"""Return the RULEBREAKER_ARCHETYPES entries active for this builder's commander(s).
+
+	Checks the primary commander name (and, if present, a partner/background
+	secondary commander name) against RULEBREAKER_ARCHETYPES by exact,
+	case-insensitive name match. Returns 0, 1, or (rarely) 2 entries \u2014 2 only
+	if both halves of a partner pair happen to be Rulebreaker commanders.
+
+	Note: full combined-commander wiring (running after the color identity
+	union is finalized, scanning the secondary commander via
+	combined_commander.py) is completed in Milestone 3; this function is
+	written to accept either shape so that wiring is additive.
+
+	Never raises; returns [] on missing/malformed data.
+	"""
+	try:
+		from . import builder_constants as bc
+	except Exception:
+		return []
+
+	names: list[str] = []
+	try:
+		primary = getattr(builder, 'commander_name', None)
+		if primary:
+			names.append(str(primary))
+	except Exception:
+		pass
+	# Best-effort secondary/partner commander lookup; several shapes are
+	# tolerated since full wiring lands in Milestone 3.
+	for attr in ('secondary_commander_name', 'secondary_commander'):
+		try:
+			secondary = getattr(builder, attr, None)
+			if secondary:
+				names.append(str(secondary))
+				break
+		except Exception:
+			continue
+	try:
+		combined = getattr(builder, 'combined_commander', None)
+		secondary_name = getattr(combined, 'secondary_name', None) if combined is not None else None
+		if secondary_name:
+			names.append(str(secondary_name))
+	except Exception:
+		pass
+
+	archetypes = getattr(bc, 'RULEBREAKER_ARCHETYPES', {}) or {}
+	name_lookup = {meta.get('name', '').casefold(): meta for meta in archetypes.values()}
+
+	out: list[dict] = []
+	seen_ids: set[str] = set()
+	for name in names:
+		meta = name_lookup.get(name.strip().casefold())
+		if meta and meta.get('id') not in seen_ids:
+			out.append(dict(meta))
+			seen_ids.add(meta.get('id'))
+	return out
+
+
+_BASIC_LANDS_SCOPE_RANK = {'any_land': 2, 'any': 1, 'strict': 0}
+
+
+def resolve_basic_lands_scope(builder) -> str:
+	"""Return the least-restrictive basic_lands_scope among active Rulebreakers.
+
+	'any_land' beats 'any' beats 'strict' (Contract §3). Returns 'strict' (no
+	relaxation) when no Rulebreaker is active. Never raises.
+	"""
+	active = getattr(builder, 'active_rulebreakers', None) or []
+	best = 'strict'
+	for meta in active:
+		scope = meta.get('basic_lands_scope', 'strict')
+		if _BASIC_LANDS_SCOPE_RANK.get(scope, 0) > _BASIC_LANDS_SCOPE_RANK.get(best, 0):
+			best = scope
+	return best
+
+
+def rulebreaker_no_max_deck_size(builder) -> bool:
+	"""Return True if any active Rulebreaker lifts the 100-card maximum (Whtz)."""
+	active = getattr(builder, 'active_rulebreakers', None) or []
+	return any(meta.get('no_max_deck_size') for meta in active)
+
+
+def effective_deck_size(builder) -> int:
+	"""Return the deck-size target the builder should aim for/clamp to.
+
+	100 unless a no_max_deck_size Rulebreaker (Whtz) is active *and* a valid
+	rulebreaker_target_deck_size (>=100) has been set, in which case that
+	target is used. Never raises; always returns at least 100.
+	"""
+	if not rulebreaker_no_max_deck_size(builder):
+		return 100
+	target = getattr(builder, 'rulebreaker_target_deck_size', None)
+	try:
+		target = int(target) if target is not None else 100
+	except (TypeError, ValueError):
+		target = 100
+	return target if target >= 100 else 100
+
+
+_SCALABLE_IDEAL_COUNT_KEYS = (
+	'lands', 'basic_lands', 'creatures_max', 'creatures_min', 'creatures',
+	'on_theme_creatures', 'ramp', 'removal', 'wipes', 'card_advantage', 'protection',
+)
+
+
+def scale_ideal_counts_for_deck_size(ideal_counts: dict, target_size: int) -> dict:
+	"""Scale 100-card-baseline ideal_counts up for a larger rulebreaker_target_deck_size.
+
+	Applies a smooth logarithmic land-percentage premium:
+	    ratio = target_size / 100
+	    premium = 1 + DECK_SIZE_LAND_PREMIUM_K * ln(ratio)
+	    effective_pct = min(base_pct * premium, DECK_SIZE_LAND_PREMIUM_CAP)
+	    scaled_count = round(effective_pct * target_size)
+	No-op (returns ideal_counts unchanged) when target_size <= 100. Each scaled
+	value is floored at its original unscaled default so target_size == 100 is
+	always a regression-safe no-op. Never raises.
+	"""
+	if not ideal_counts or not target_size or target_size <= 100:
+		return ideal_counts
+	try:
+		k = float(getattr(bc, 'DECK_SIZE_LAND_PREMIUM_K', 0.12))
+		cap = float(getattr(bc, 'DECK_SIZE_LAND_PREMIUM_CAP', 0.48))
+		ratio = target_size / 100.0
+		premium = 1.0 + k * math.log(ratio)
+		scaled = dict(ideal_counts)
+		for key in _SCALABLE_IDEAL_COUNT_KEYS:
+			base = ideal_counts.get(key)
+			if base is None:
+				continue
+			try:
+				base = float(base)
+			except (TypeError, ValueError):
+				continue
+			base_pct = base / 100.0
+			effective_pct = min(base_pct * premium, cap)
+			scaled_count = int(round(effective_pct * target_size))
+			scaled[key] = max(int(round(base)), scaled_count)
+		return scaled
+	except Exception:
+		return ideal_counts
+
+
 def prefer_owned_first(df, owned_names_lower: set[str], name_col: str = 'name'):
 	"""Stable-reorder DataFrame to put owned names first while preserving prior sort.
 
@@ -1750,7 +1960,7 @@ def is_creature_row(row) -> bool:
 
 
 def creature_cap_with_tolerance(builder) -> int:
-	"""Effective creature cap: creatures_max plus its +/- tolerance grace, floored (roadmap 33)."""
+	"""Effective creature cap: creatures_max plus its +/- tolerance grace, floored."""
 	ic = getattr(builder, 'ideal_counts', None) or {}
 	cap = ic.get('creatures_max', ic.get('creatures'))
 	if cap is None:
@@ -1762,7 +1972,7 @@ def creature_cap_with_tolerance(builder) -> int:
 def creature_room_remaining(builder) -> int:
 	"""How many more creature-typed cards can be added before hitting the tolerant cap.
 
-	Legacy mode has no cross-phase cap enforcement (roadmap 33); returns unlimited room.
+	Legacy mode has no cross-phase cap enforcement; returns unlimited room.
 	"""
 	if getattr(builder, 'creature_builder_mode', 'modern') != 'modern':
 		return 10 ** 9

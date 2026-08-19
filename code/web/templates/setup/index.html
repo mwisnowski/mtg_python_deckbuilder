@@ -70,6 +70,11 @@
     </div>
   </details>
 
+  <div id="rulebreaker-candidates" style="margin-top:.75rem; display:none; padding:1rem; border:1px solid #f59e0b; background:rgba(245,158,11,.08); border-radius:8px;">
+    <div style="font-weight:600; color:#f59e0b;">Possible new Rulebreaker card(s) detected</div>
+    <div id="rulebreaker-candidates-list" class="muted" style="margin-top:.5rem; font-size:.9rem;"></div>
+  </div>
+
   <details style="margin-top:1rem;">
     <summary>Download Pre-tagged Database from GitHub (Optional)</summary>
     <div style="margin-top:.5rem; padding:1rem; border:1px solid var(--border); background:var(--panel); border-radius:8px;">
@@ -271,6 +276,39 @@
   colorEl.style.display = 'none';
   if (logWrap) logWrap.style.display = 'none';
     }
+    updateRulebreakerCandidates(data);
+  }
+  function escapeHtml(s){
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  function updateRulebreakerCandidates(data){
+    var wrap = document.getElementById('rulebreaker-candidates');
+    var list = document.getElementById('rulebreaker-candidates-list');
+    if (!wrap || !list) return;
+    var candidates = (data && data.rulebreaker_candidates) || [];
+    if (!candidates.length) {
+      wrap.style.display = 'none';
+      list.innerHTML = '';
+      return;
+    }
+    wrap.style.display = '';
+    list.innerHTML = candidates.map(function(c){
+      var name = escapeHtml(c.name || 'Unknown card');
+      var issueLine = c.existing_issue_url
+        ? '<div>An issue may already be open: <a href="' + escapeHtml(c.existing_issue_url) + '" target="_blank" rel="noopener">' + escapeHtml(c.existing_issue_url) + '</a></div>'
+        : '';
+      var newIssueUrl = 'https://github.com/mwisnowski/mtg_python_deckbuilder/issues/new?template=rulebreaker-card-report.md&title=' + encodeURIComponent('Rulebreaker: ' + (c.name || ''));
+      return (
+        '<div style="margin-bottom:1rem; padding-bottom:1rem; border-bottom:1px solid var(--border);">' +
+        '<div><strong>' + name + '</strong> isn\'t in the deckbuilder\'s rule registry yet.</div>' +
+        issueLine +
+        '<textarea readonly rows="6" style="width:100%; margin-top:.5rem; font-family:monospace; font-size:.8rem; background:var(--bg); border:1px solid var(--border); border-radius:6px; padding:.5rem;">' + escapeHtml(c.issue_body || '') + '</textarea>' +
+        '<div style="margin-top:.5rem;"><a href="' + newIssueUrl + '" target="_blank" rel="noopener">Open new issue on GitHub</a></div>' +
+        '</div>'
+      );
+    }).join('');
   }
   function poll(){
     fetch('/status/setup', { cache: 'no-store' })

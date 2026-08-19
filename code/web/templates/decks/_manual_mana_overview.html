@@ -2,13 +2,14 @@
   <div class="mana-panel" style="padding:.4rem .5rem;">
     <div class="muted mana-panel-heading text-xs">Pips</div>
     {% if mana_overview.pips %}
-    <div class="chart-bars" style="height:50px; gap:4px; flex-wrap:wrap;">
+    <div class="chart-bars" style="height:auto; gap:4px; flex-wrap:wrap;">
       {% for p in mana_overview.pips %}
       <div class="chart-column">
         <div style="height:42px; display:flex; align-items:flex-end;">
           <div style="width:9px; min-height:2px; height:{{ p.pct }}%; background:#3b82f6; border-radius:2px 2px 0 0;"
                title="{{ p.color }}: {{ '%.1f'|format(p.count) }} pips ({{ p.pct }}%)"></div>
         </div>
+        <div class="muted text-xs">{{ p.count|round(1) if (p.count % 1) else p.count|int }}</div>
         <div class="muted text-xs">{{ p.color }}</div>
       </div>
       {% endfor %}
@@ -21,13 +22,14 @@
   <div class="mana-panel" style="padding:.4rem .5rem;">
     <div class="muted mana-panel-heading text-xs">Sources</div>
     {% if mana_overview.sources %}
-    <div class="chart-bars" style="height:50px; gap:4px; flex-wrap:wrap;">
+    <div class="chart-bars" style="height:auto; gap:4px; flex-wrap:wrap;">
       {% for s in mana_overview.sources %}
       <div class="chart-column">
         <div style="height:42px; display:flex; align-items:flex-end;">
           <div style="width:9px; min-height:2px; height:{{ s.pct }}%; background:#10b981; border-radius:2px 2px 0 0;"
                title="{{ s.color }}: {{ s.count }} sources"></div>
         </div>
+        <div class="muted text-xs">{{ s.count|int }}</div>
         <div class="muted text-xs">{{ s.color }}</div>
       </div>
       {% endfor %}
@@ -41,7 +43,7 @@
   <div class="mana-panel" style="padding:.4rem .5rem;">
     <div class="muted mana-panel-heading text-xs">Curve</div>
     {% if mana_overview.curve %}
-    <div class="chart-bars" style="height:50px; gap:3px; flex-wrap:wrap;">
+    <div class="chart-bars" style="height:auto; gap:3px; flex-wrap:wrap;">
       {% for c in mana_overview.curve %}
       <div class="chart-column">
         <div style="height:42px; display:flex; align-items:flex-end;">

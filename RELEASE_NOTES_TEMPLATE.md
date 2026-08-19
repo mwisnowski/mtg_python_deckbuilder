@@ -16,6 +16,10 @@ _No unreleased changes yet_
 ### Security
 _No unreleased changes yet_
 
+## [5.8.1]
+### Changed
+- Homepage: the "What's New" banner now advertises Rulebreaker Commanders instead of the older User Accounts & Deck Visibility promo.
+
 ## [5.8.0]
 ### Added
 - Rulebreaker Commanders: added support for 8 commanders whose oracle text bends normal deckbuilding rules:

@@ -2,6 +2,22 @@
 
 ## [Unreleased]
 ### Added
+_No unreleased changes yet_
+
+### Changed
+_No unreleased changes yet_
+
+### Fixed
+_No unreleased changes yet_
+
+### Removed
+_No unreleased changes yet_
+
+### Security
+_No unreleased changes yet_
+
+## [5.8.0]
+### Added
 - Rulebreaker Commanders: added support for 8 commanders whose oracle text bends normal deckbuilding rules:
   - Grizzlegom, Hurloon Hero: any basic land type, regardless of color identity, split evenly across all five basics.
   - Maular, the Next Evolution: creatures with mana value 7 or greater can be any color.
@@ -22,8 +38,8 @@
 - Fixed an issue where card images could fall back to loading from Scryfall instead of your local cache after a fresh install.
 
 ### Removed
-_No unreleased changes yet_
+_No changes_
 
 ### Security
-_No unreleased changes yet_
+_No changes_
 

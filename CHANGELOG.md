@@ -9,6 +9,22 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 
 ## [Unreleased]
 ### Added
+_No unreleased changes yet_
+
+### Changed
+_No unreleased changes yet_
+
+### Fixed
+_No unreleased changes yet_
+
+### Removed
+_No unreleased changes yet_
+
+### Security
+_No unreleased changes yet_
+
+## [5.8.0] - 2026-08-19
+### Added
 - Rulebreaker Commanders: added support for 8 commanders whose oracle text bends normal deckbuilding rules, each relaxing the color-identity and/or deck-size rules for a specific card type or condition:
   - Grizzlegom, Hurloon Hero: any basic land type, regardless of color identity, split evenly across all five basics.
   - Maular, the Next Evolution: creatures with mana value 7 or greater can be any color.
@@ -29,10 +45,10 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 - Setup: the card printing image picker's metadata index could silently go missing on a fresh install or after a disk cleanup, causing every card image to fall back to a live Scryfall request instead of using already-downloaded local images. Setup now automatically restores it (downloading a prebuilt copy, or rebuilding it locally if that's unavailable).
 
 ### Removed
-_No unreleased changes yet_
+_No changes_
 
 ### Security
-_No unreleased changes yet_
+_No changes_
 
 ## [5.7.0] - 2026-08-06
 ### Added

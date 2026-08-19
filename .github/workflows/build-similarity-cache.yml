@@ -1,5 +1,9 @@
 name: Build Similarity Cache
 
+permissions:
+  contents: write
+  issues: write
+
 # Manual trigger + weekly schedule + callable from other workflows
 on:
   workflow_dispatch:
@@ -103,6 +107,61 @@ jobs:
             echo "ERROR: Tagging completion flag not found"
             exit 1
           fi
+      
+      # File an issue for any unregistered Rulebreaker
+      # candidate found during tagging. Best-effort only; never fails the job.
+      - name: File issues for unrecognized Rulebreaker candidates
+        if: steps.check_cache.outputs.needs_build == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set +e
+          rm -rf _rb_candidates && mkdir -p _rb_candidates
+          python -c "
+          import json
+          from pathlib import Path
+
+          path = Path('logs/rulebreaker_candidates.json')
+          if not path.exists():
+              print('No rulebreaker_candidates.json found, skipping.')
+              raise SystemExit(0)
+
+          candidates = json.loads(path.read_text(encoding='utf-8'))
+          if not candidates:
+              print('No unrecognized Rulebreaker candidates found.')
+              raise SystemExit(0)
+
+          from code.tagging.rulebreaker_report import build_candidate_issue_body
+
+          out_dir = Path('_rb_candidates')
+          manifest_lines = []
+          for i, c in enumerate(candidates):
+              name = c.get('name', '')
+              title = f'Rulebreaker: {name}'
+              body = build_candidate_issue_body(c)
+              (out_dir / f'{i}.md').write_text(body, encoding='utf-8')
+              manifest_lines.append(f'{i}\t{title}')
+              print(f'::notice::Candidate found: {name}')
+          (out_dir / 'manifest.tsv').write_text('\n'.join(manifest_lines), encoding='utf-8')
+          "
+
+          # One issue per candidate, deduped against existing open/closed issues
+          # by exact title search (kept in shell so gh auth/search stays simple
+          # and any single failure here is non-fatal to the overall job).
+          if [ -f _rb_candidates/manifest.tsv ]; then
+            while IFS=$'\t' read -r idx title; do
+              [ -z "$title" ] && continue
+              existing=$(gh issue list --search "\"$title\" in:title" --state all --json number --jq '.[0].number' 2>/dev/null)
+              if [ -n "$existing" ]; then
+                echo "Issue already exists for '$title' (#$existing), skipping."
+                continue
+              fi
+              gh issue create --title "$title" --body-file "_rb_candidates/${idx}.md" --label enhancement,rulebreaker \
+                || echo "WARNING: failed to create issue for '$title' (non-fatal)"
+            done < _rb_candidates/manifest.tsv
+          fi
+          rm -rf _rb_candidates
+          set -e
       
       - name: Refresh price data and write to parquet
         if: steps.check_cache.outputs.needs_build == 'true'

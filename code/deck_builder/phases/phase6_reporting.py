@@ -186,15 +186,18 @@ class ReportingMixin:
 
         # Enforce
         report = enforce_bracket_compliance(self, mode=mode)
-        # If enforcement removed cards without enough replacements, top up to 100 using theme filler
+        # If enforcement removed cards without enough replacements, top up to the
+        # deck-size target using theme filler
         try:
+            from .. import builder_utils as bu
+            target_size = bu.effective_deck_size(self)
             total_cards = 0
             for _n, _e in getattr(self, 'card_library', {}).items():
                 try:
                     total_cards += int(_e.get('Count', 1))
                 except Exception:
                     total_cards += 1
-            if int(total_cards) < 100 and hasattr(self, 'fill_remaining_theme_spells'):
+            if int(total_cards) < target_size and hasattr(self, 'fill_remaining_theme_spells'):
                 before = int(total_cards)
                 try:
                     self.fill_remaining_theme_spells()
@@ -211,7 +214,7 @@ class ReportingMixin:
                 except Exception:
                     total_cards = before
                 try:
-                    self.output_func(f"Topped up deck to {total_cards}/100 after enforcement.")
+                    self.output_func(f"Topped up deck to {total_cards}/{target_size} after enforcement.")
                 except Exception:
                     pass
         except Exception:
@@ -527,7 +530,9 @@ class ReportingMixin:
         try:
             from deck_builder import builder_utils as _builder_utils
             builder_utils_module = _builder_utils
-            color_matrix = builder_utils_module.compute_color_source_matrix(self.card_library, full_df)
+            color_matrix = builder_utils_module.compute_color_source_matrix(
+                self.card_library, full_df, getattr(self, 'color_identity', None)
+            )
         except Exception:
             color_matrix = {}
         dfc_land_lookup: Dict[str, Dict[str, Any]] = {}
@@ -611,7 +616,18 @@ class ReportingMixin:
         # pip_cards map (color → card list for UI cross-highlighting) is built here
         # since it is specific to the reporting layer and not needed elsewhere.
         from .. import builder_utils as _bu
-        pip_density = _bu.compute_pip_density(self.card_library, getattr(self, 'color_identity', []) or [])
+        # Rulebreaker Commanders: Tolabow's off-color Instants/Sorceries (a
+        # fixed rulebreaker_extra_color) and type-based exceptions like
+        # Seluma's Angels or Grizzlegom's basics (any color) both need to be
+        # included here, or their pips get zeroed out as "outside identity"
+        # despite being legally in the deck.
+        _pip_identity = _bu.rulebreaker_pip_identity(
+            self.card_library,
+            getattr(self, 'color_identity', []) or [],
+            getattr(self, 'active_rulebreakers', None) or [],
+            getattr(self, 'rulebreaker_extra_color', None),
+        )
+        pip_density = _bu.compute_pip_density(self.card_library, _pip_identity)
         # Flatten density buckets into a single float per color (single + double*2 + triple*3 + phyrexian)
         # so that pip_counts stays numerically compatible with pip_weights downstream.
         pip_counts: Dict[str, float] = {}
@@ -646,7 +662,7 @@ class ReportingMixin:
                 for c in colors_for_card:
                     pip_cards[c].append({'name': name, 'count': cnt})
         if total_pips <= 0:
-            colors = [c for c in ('W', 'U', 'B', 'R', 'G') if c in (getattr(self, 'color_identity', []) or [])]
+            colors = _pip_identity
             if colors:
                 share = 1 / len(colors)
                 for c in colors:
@@ -882,7 +898,9 @@ class ReportingMixin:
         builder_utils_module = None
         try:
             from deck_builder import builder_utils as builder_utils_module  # type: ignore
-            color_matrix = builder_utils_module.compute_color_source_matrix(self.card_library, full_df)
+            color_matrix = builder_utils_module.compute_color_source_matrix(
+                self.card_library, full_df, getattr(self, 'color_identity', None)
+            )
         except Exception:
             color_matrix = {}
         dfc_land_lookup: Dict[str, Dict[str, Any]] = {}
@@ -945,6 +963,19 @@ class ReportingMixin:
         commander_names = commander_meta.get('commander_names') or []
         if commander_names:
             header_suffix.append(f"Commanders: {', '.join(commander_names)}")
+        try:
+            active_rulebreakers = getattr(self, 'active_rulebreakers', None) or []
+            if active_rulebreakers:
+                rb_names = ', '.join(meta.get('name', '') for meta in active_rulebreakers)
+                header_suffix.append(f"Rulebreaker: {rb_names}")
+                extra_color = getattr(self, 'rulebreaker_extra_color', None)
+                if extra_color:
+                    header_suffix.append(f"Rulebreaker Extra Color: {extra_color}")
+                target_size = getattr(self, 'rulebreaker_target_deck_size', None)
+                if target_size and int(target_size) > 100:
+                    header_suffix.append(f"Rulebreaker Deck Size: {target_size}")
+        except Exception:
+            pass
         header_row = headers + header_suffix
         suffix_padding = [''] * len(header_suffix)
 
@@ -1205,7 +1236,9 @@ class ReportingMixin:
 
         try:
             from deck_builder import builder_utils as _builder_utils
-            color_matrix = _builder_utils.compute_color_source_matrix(self.card_library, full_df)
+            color_matrix = _builder_utils.compute_color_source_matrix(
+                self.card_library, full_df, getattr(self, 'color_identity', None)
+            )
         except Exception:
             color_matrix = {}
         dfc_land_lookup: Dict[str, str] = {}
@@ -1243,6 +1276,19 @@ class ReportingMixin:
         color_identity = commander_meta.get('color_identity') or []
         if color_identity:
             header_lines.append(f"# Colors: {', '.join(color_identity)}")
+        try:
+            active_rulebreakers = getattr(self, 'active_rulebreakers', None) or []
+            if active_rulebreakers:
+                rb_names = ', '.join(meta.get('name', '') for meta in active_rulebreakers)
+                header_lines.append(f"# Rulebreaker: {rb_names}")
+                extra_color = getattr(self, 'rulebreaker_extra_color', None)
+                if extra_color:
+                    header_lines.append(f"# Rulebreaker Extra Color: {extra_color}")
+                target_size = getattr(self, 'rulebreaker_target_deck_size', None)
+                if target_size and int(target_size) > 100:
+                    header_lines.append(f"# Rulebreaker Deck Size: {target_size}")
+        except Exception:
+            pass
 
         with open(path, 'w', encoding='utf-8') as f:
             if header_lines:

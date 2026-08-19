@@ -1063,7 +1063,10 @@ def tag_for_keywords(df: pd.DataFrame, color: str) -> None:
         if has_keywords.any():
             # Vectorized split and merge into themeTags
             keywords_df = df.loc[has_keywords, ['themeTags', 'keywords']].copy()
-            exclusion_keywords = {'partner'}
+            # 'rulebreaker' also excluded: it's the ability word printed on the
+            # 8 Rulebreaker commander cards, not a usable deckbuilding theme
+            # (see tag_constants.KEYWORD_EXCLUSION_SET for the normalized path).
+            exclusion_keywords = {'partner', 'rulebreaker'}
 
             def _merge_keywords(row: pd.Series) -> list[str]:
                 base_tags = list(row['themeTags']) if hasattr(row.get('themeTags'), '__len__') and not isinstance(row.get('themeTags'), str) else []
@@ -4482,6 +4485,8 @@ def tag_for_themes(df: pd.DataFrame, color: str) -> None:
     print('\n==========\n')
     tag_for_multiple_copies(df, color)
     print('\n==========\n')
+    tag_for_rulebreakers(df, color)
+    print('\n==========\n')
     tag_for_planeswalkers(df, color)
     print('\n==========\n')
     tag_for_reanimate(df, color)
@@ -5779,6 +5784,96 @@ def tag_for_multiple_copies(df: pd.DataFrame, color: str) -> None:
     except Exception as e:
         logger.error(f'Error in tag_for_multiple_copies: {str(e)}')
         raise
+
+## Rulebreaker Commanders (Roadmap 35)
+def tag_for_rulebreakers(df: pd.DataFrame, color: str) -> None:
+    """Tag the fixed set of Rulebreaker commander cards with a per-card marker tag.
+
+    Applies `Rulebreaker: {card_name}` to each of the RULEBREAKER_CARD_NAMES
+    exact matches. This tag is a lookup/marker aid (UI badges, docs); it does
+    not itself encode the rules exception (see RULEBREAKER_ARCHETYPES in
+    code/deck_builder/builder_constants.py).
+
+    Args:
+        df: DataFrame containing card data
+        color: Color identifier for logging purposes
+
+    Raises:
+        ValueError: If required DataFrame columns are missing
+        TypeError: If inputs are not of correct type
+    """
+    try:
+        if not isinstance(df, pd.DataFrame):
+            raise TypeError("df must be a pandas DataFrame")
+        if not isinstance(color, str):
+            raise TypeError("color must be a string")
+        required_cols = {'name', 'themeTags'}
+        tag_utils.validate_dataframe_columns(df, required_cols)
+        names = tag_constants.RULEBREAKER_CARD_NAMES
+        rulebreaker_mask = tag_utils.create_name_mask(df, names, regex=False)
+        if rulebreaker_mask.any():
+            matching_cards = df[rulebreaker_mask]['name'].unique()
+            rules = [
+                {'mask': (df['name'] == card_name), 'tags': [f'Rulebreaker: {card_name}']}
+                for card_name in matching_cards
+            ]
+            tag_utils.apply_rules(df, rules=rules)
+            logger.info(f'Tagged {rulebreaker_mask.sum()} cards with Rulebreaker marker tags')
+
+    except Exception as e:
+        logger.error(f'Error in tag_for_rulebreakers: {str(e)}')
+        raise
+
+
+def detect_unrecognized_rulebreakers(df: pd.DataFrame) -> list[dict]:
+    """Flag Commander-legal cards with Rulebreaker-shaped oracle text that
+    aren't yet in the RULEBREAKER_CARD_NAMES registry (Roadmap 35, Milestone 9).
+
+    Purely local/offline: no network calls. Intended to be called with a
+    Commander-legal card DataFrame (e.g. commander_cards.parquet) near the end
+    of run_tagging().
+
+    Returns a list of candidate dicts: {'name', 'text_snippet', 'matched_signal'}.
+    """
+    candidates: list[dict] = []
+    if df is None or df.empty or 'name' not in df.columns or 'text' not in df.columns:
+        return candidates
+
+    known_names = {n.casefold() for n in tag_constants.RULEBREAKER_CARD_NAMES}
+    ability_word = tag_constants.RULEBREAKER_ABILITY_WORD
+    signals = tag_constants.RULEBREAKER_TEXT_SIGNALS
+    seen: set[str] = set()
+
+    for _, row in df.iterrows():
+        name = str(row.get('name') or '').strip()
+        if not name or name.casefold() in known_names or name.casefold() in seen:
+            continue
+        text = str(row.get('text') or '')
+        if not text:
+            continue
+        matched: str | None = None
+        if ability_word in text:
+            matched = ability_word
+        else:
+            lowered = text.lower()
+            for sig in signals:
+                if sig.lower() in lowered:
+                    matched = sig
+                    break
+        if matched is None:
+            continue
+        seen.add(name.casefold())
+        snippet = text if len(text) <= 240 else text[:237] + '...'
+        candidates.append({'name': name, 'text_snippet': snippet, 'matched_signal': matched})
+
+    for c in candidates:
+        logger.warning(
+            f"Unrecognized Rulebreaker candidate detected: {c['name']} "
+            f"(matched: {c['matched_signal']}). See logs/rulebreaker_candidates.json "
+            "for a ready-to-paste issue body."
+        )
+    return candidates
+
 
 ## Planeswalkers
 def create_planeswalker_text_mask(df: pd.DataFrame) -> pd.Series:
@@ -7357,7 +7452,24 @@ def run_tagging(parallel: bool = False, max_workers: int | None = None):
         logger.info(f"✓ Wrote tagging completion flag to {flag_path}")
     except Exception as e:
         logger.warning(f"Failed to write tagging completion flag: {e}")
-    
+
+    # Roadmap 35 Milestone 9: detect unregistered Rulebreaker-shaped cards.
+    # Local-only, no network calls; overwrites (not appends) each run so a
+    # since-registered candidate naturally stops being flagged.
+    try:
+        from code.path_util import get_processed_cards_path
+        commander_path = os.path.join(os.path.dirname(get_processed_cards_path()), 'commander_cards.parquet')
+        if os.path.exists(commander_path):
+            commander_df = _data_loader.read_cards(commander_path, format="parquet")
+            candidates = detect_unrecognized_rulebreakers(commander_df)
+            os.makedirs("logs", exist_ok=True)
+            with open(os.path.join("logs", "rulebreaker_candidates.json"), "w", encoding="utf-8") as f:
+                json.dump(candidates, f, indent=2)
+            if candidates:
+                logger.warning(f"Found {len(candidates)} unrecognized Rulebreaker candidate(s); see logs/rulebreaker_candidates.json")
+    except Exception as e:
+        logger.warning(f"Rulebreaker candidate detection failed (non-fatal): {e}")
+
     # R21: Theme stripping after tagging (if THEME_MIN_CARDS > 1)
     try:
         from settings import THEME_MIN_CARDS

@@ -290,11 +290,12 @@ async def manual_builder_save(request: Request, session_id: str) -> RedirectResp
         return templates.TemplateResponse("decks/_manual_deck_update.html", ctx, status_code=500)
 
     card_count = sum(manual_builder_service.deck_card_counts(sess).values()) + (1 if sess.get("commander") else 0)
+    deck_size_target = manual_builder_service.deck_panel_data(sess)["deck_size_target"]
     url = f"/decks/view?name={csv_name}"
-    if card_count != 100:
+    if card_count != deck_size_target:
         from urllib.parse import quote
 
-        url += f"&notice={quote(f'Deck has {card_count} cards (expected 100).')}"
+        url += f"&notice={quote(f'Deck has {card_count} cards (expected {deck_size_target}).')}"
     return RedirectResponse(url=url, status_code=303)
 
 

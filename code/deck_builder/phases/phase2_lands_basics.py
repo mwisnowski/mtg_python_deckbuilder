@@ -90,6 +90,13 @@ class LandBasicsMixin:
         target_basics = basic_min
 
         colors = [c for c in getattr(self, 'color_identity', []) if c in ['W', 'U', 'B', 'R', 'G']]
+        # Rulebreaker Commanders (Roadmap 35): 'any'/'any_land' basic_lands_scope
+        # (Maular, Seluma, Everforger, Unluckiest Planeswalker, Tolabow, Valko,
+        # Grizzlegom) allows all 5 basics regardless of color identity, including
+        # for The Everforger's own colorless identity.
+        from .. import builder_utils as bu
+        if bu.resolve_basic_lands_scope(self) in ('any', 'any_land'):
+            colors = ['W', 'U', 'B', 'R', 'G']
         if not colors:  # colorless special case -> Wastes only
             colors = []
 
@@ -119,10 +126,13 @@ class LandBasicsMixin:
         # Add to library
         for land_name, count in allocation.items():
             for _ in range(count):
-                # Role metadata: basics (or snow basics)
+                # Role metadata: basics (or snow basics). Leave card_type blank
+                # so add_card() enriches it from the card data (e.g. "Basic
+                # Land - Mountain") instead of falling back to a bare "Land" -
+                # matters for off-identity basics (Rulebreaker scope) that
+                # haven't been added by any earlier phase yet.
                 self.add_card(
                     land_name,
-                    card_type='Land',
                     role='basic',
                     sub_role='snow-basic' if use_snow else 'basic',
                     added_by='lands_step1',

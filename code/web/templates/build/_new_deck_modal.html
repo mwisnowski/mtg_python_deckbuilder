@@ -63,7 +63,7 @@
             <select name="bracket">
               {% for b in brackets %}
                 {% if not gc_commander or b.level >= 3 %}
-                <option value="{{ b.level }}" {% if (form and form.bracket and form.bracket == b.level) or (not form and b.level == 3) %}selected{% endif %}>Bracket {{ b.level }}: {{ b.name }}</option>
+                <option value="{{ b.level }}" {% if (form.bracket if (form and form.bracket) else 4) == b.level %}selected{% endif %}>Bracket {{ b.level }}: {{ b.name }}</option>
                 {% endif %}
               {% endfor %}
             </select>

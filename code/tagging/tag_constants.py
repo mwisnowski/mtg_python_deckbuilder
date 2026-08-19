@@ -1187,6 +1187,11 @@ KEYWORD_NORMALIZATION_MAP: Dict[str, str] = {
 # Already excluded during keyword tagging, but documented here
 KEYWORD_EXCLUSION_SET: set[str] = {
     'partner',  # Already excluded in tag_for_keywords
+    # Rulebreaker commander mechanic: each of the 8 cards has a
+    # unique, unrelated rule exception and no shared color identity, so it
+    # isn't a usable deckbuilding theme; the per-card metadata marker
+    # (Rulebreaker: {name}) from tag_for_rulebreakers is used instead.
+    'rulebreaker',
 }
 
 # Keyword allowlist - keywords that should survive singleton pruning
@@ -1243,7 +1248,32 @@ METADATA_TAG_PREFIXES: List[str] = [
     'Diagnostic:',
     'Internal:',
     'Token Detail:',
+    'Rulebreaker:',
 ]
+
+# Rulebreaker commander mechanic (Roadmap 35): exact printed names of the
+# commander cards that grant a named rules exception. Name-exact-match only
+# (not regex-derived) since the population is fixed and finite. Sourced from
+# file_setup.setup_constants (single source of truth; also used there to
+# exempt these cards from the commander-illegal-cards legality filter).
+from file_setup.setup_constants import RULEBREAKER_CARD_NAMES  # noqa: E402
+
+# Roadmap 35 Milestone 9: signals used to flag Commander-legal cards that look
+# like they may carry the Rulebreaker mechanic but aren't yet in
+# RULEBREAKER_CARD_NAMES above (e.g. a not-yet-registered card from a future
+# spoiler/print run). The italicized ability word "Rulebreaker" is the
+# primary, high-confidence signal since all 8 known cards print it verbatim.
+# The text-signal phrases are a lower-confidence fallback for a later set that
+# reuses the rules-exception concept without the same ability word.
+RULEBREAKER_ABILITY_WORD: Final[str] = 'Rulebreaker'
+
+RULEBREAKER_TEXT_SIGNALS: Final[list[str]] = [
+    'regardless of color identity',
+    "as though it were in your commander's color identity",
+    'there is no maximum deck size',
+    "choose a color that isn't in your commander's color identity",
+]
+
 
 # Specific metadata tags (full match) - additional tags to classify as metadata
 # These are typically diagnostic, bracket-related, or internal annotations

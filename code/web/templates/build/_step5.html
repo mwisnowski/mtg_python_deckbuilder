@@ -184,13 +184,16 @@
   <span class="ml-auto"><a href="/owned" target="_blank" rel="noopener" class="btn">Manage Owned Library</a></span>
       </div>
       <p>Bracket: {{ bracket }}</p>
+      {% if rulebreaker %}
+      <p>Rulebreaker: {{ rulebreaker.name }}{% if rulebreaker_extra_color %} (Extra color: {{ rulebreaker_extra_color }}){% endif %}</p>
+      {% endif %}
 
     <div class="flex items-center gap-2 flex-wrap my-1 mb-2">
         {% if i and n %}
           <span class="chip"><span class="dot"></span> Stage {{ i }}/{{ n }}</span>
         {% endif %}
   {% set deck_count = (total_cards if total_cards is not none else 0) %}
-  <span class="chip"><span class="dot dot-green"></span> Deck {{ deck_count }}/100</span>
+  <span class="chip"><span class="dot dot-green"></span> Deck {{ deck_count }}/{{ rulebreaker_target_deck_size or 100 }}</span>
   {% if added_total is not none %}
   <span class="chip"><span class="dot dot-blue"></span> Added {{ added_total }}</span>
   {% endif %}

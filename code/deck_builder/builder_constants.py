@@ -187,7 +187,7 @@ DEFAULT_RAMP_COUNT: Final[int] = 8  # Default number of ramp pieces
 DEFAULT_LAND_COUNT: Final[int] = 35  # Default total land count
 DEFAULT_BASIC_LAND_COUNT: Final[int] = 15  # Default minimum basic lands
 
-# Smart land analysis thresholds (Roadmap 14)
+# Smart land analysis thresholds
 CURVE_FAST_THRESHOLD: Final[float] = 3.0   # Commander CMC below this → fast deck
 CURVE_SLOW_THRESHOLD: Final[float] = 4.0   # Commander CMC above this → slow deck
 LAND_COUNT_FAST: Final[int] = 33            # Land target for fast decks
@@ -841,6 +841,123 @@ MULTI_COPY_ARCHETYPES: Final[dict[str, dict[str, Any]]] = {
 EXCLUSIVE_GROUPS: Final[dict[str, list[str]]] = {
     'rats': ['relentless_rats', 'rat_colony']
 }
+
+# ==============================================================================
+# Rulebreaker Commanders
+# ==============================================================================
+# Small, hand-authored registry of named commander-tied rules exceptions,
+# structurally parallel to MULTI_COPY_ARCHETYPES above. Keyed by a stable
+# lowercase id; 'name' is the exact printed card name used for detection
+# (see detect_active_rulebreakers() in builder_utils.py).
+#
+# rule_type values (see code/deck_builder/rulebreaker_rules.py for predicates):
+#   - 'any_land': any land card is legal regardless of color identity.
+#   - 'type_any_color': cards matching params['types'] are legal in any color
+#     identity (matched against the card's type line).
+#   - 'type_cmc_any_color': like type_any_color, plus a mana-value floor
+#     (params['mv_min']).
+#   - 'instant_sorcery_extra_color': Instant/Sorcery cards may include one
+#     additional user-chosen color beyond the commander's own identity.
+#   - 'no_max_deck_size': the deck's normal 100-card maximum is lifted (a
+#     100-card minimum still applies).
+#
+# basic_lands_scope values: 'any_land' (any land, superset), 'any' (all 5
+# basics + Snow variants, regardless of identity), 'strict' (no relaxation).
+RULEBREAKER_ARCHETYPES: Final[dict[str, dict[str, Any]]] = {
+    'grizzlegom_hurloon_hero': {
+        'id': 'grizzlegom_hurloon_hero',
+        'name': 'Grizzlegom, Hurloon Hero',
+        'color_identity': ['R', 'G'],
+        'rule_type': 'any_land',
+        'params': {},
+        'basic_lands_scope': 'any_land',
+        'no_max_deck_size': False,
+        'requires_user_input': False,
+    },
+    'maular_next_evolution': {
+        'id': 'maular_next_evolution',
+        'name': 'Maular, the Next Evolution',
+        'color_identity': ['G'],
+        'rule_type': 'type_cmc_any_color',
+        'params': {'types': ['Creature'], 'mv_min': 7},
+        'basic_lands_scope': 'any',
+        'no_max_deck_size': False,
+        'requires_user_input': False,
+    },
+    'seluma_light_of_aysen': {
+        'id': 'seluma_light_of_aysen',
+        'name': 'Seluma, Light of Aysen',
+        'color_identity': ['W'],
+        'rule_type': 'type_any_color',
+        'params': {'types': ['Angel']},
+        'basic_lands_scope': 'any',
+        'no_max_deck_size': False,
+        'requires_user_input': False,
+    },
+    'the_everforger': {
+        'id': 'the_everforger',
+        'name': 'The Everforger',
+        'color_identity': [],
+        'rule_type': 'type_any_color',
+        'params': {'types': ['Artifact Creature', 'Equipment']},
+        'basic_lands_scope': 'any',
+        'no_max_deck_size': False,
+        'requires_user_input': False,
+    },
+    'the_unluckiest_planeswalker': {
+        'id': 'the_unluckiest_planeswalker',
+        'name': 'The Unluckiest Planeswalker',
+        'color_identity': ['R'],
+        'rule_type': 'type_any_color',
+        'params': {'types': ['Aura']},
+        'basic_lands_scope': 'any',
+        'no_max_deck_size': False,
+        'requires_user_input': False,
+    },
+    'tolabow_loch_rascal': {
+        'id': 'tolabow_loch_rascal',
+        'name': 'Tolabow, Loch Rascal',
+        'color_identity': ['U'],
+        'rule_type': 'instant_sorcery_extra_color',
+        'params': {'types': ['Instant', 'Sorcery'], 'extra_color_count': 1},
+        'basic_lands_scope': 'any',   # unconditional "any basic land cards", confirmed by real oracle text
+        'no_max_deck_size': False,
+        'requires_user_input': False,   # extra color is optional ("can include one color of your choice")
+        'random_mode_excluded': True,   # opted out of surprise/random commander pools; no one to pick the (optional) extra color during an automated pick
+    },
+    'valko_indorian': {
+        'id': 'valko_indorian',
+        'name': 'Valko Indorian',
+        'color_identity': ['B'],
+        'rule_type': 'type_any_color',
+        'params': {'types': ['Phyrexian']},   # matched against type line subtype
+        'basic_lands_scope': 'any',
+        'no_max_deck_size': False,
+        'requires_user_input': False,
+    },
+    'whtz_the_bibliophile': {
+        'id': 'whtz_the_bibliophile',
+        'name': 'Whtz, the Bibliophile',
+        'color_identity': ['U', 'W'],
+        'rule_type': 'no_max_deck_size',
+        'params': {},
+        'basic_lands_scope': 'strict',   # normal color identity rules, no relaxation
+        'no_max_deck_size': True,
+        'requires_user_input': False,
+    },
+}
+
+# Lookup of Rulebreaker archetypes keyed by exact card name (case-insensitive
+# lookups should casefold before checking this dict).
+RULEBREAKER_NAMES: Final[dict[str, str]] = {
+    meta['name']: aid for aid, meta in RULEBREAKER_ARCHETYPES.items()
+}
+
+# Milestone 4: deck-size scaling premium (Whtz, the Bibliophile). A smooth
+# logarithmic land-percentage premium applied once rulebreaker_target_deck_size
+# exceeds the 100-card baseline; see builder_utils.scale_ideal_counts_for_deck_size.
+DECK_SIZE_LAND_PREMIUM_K: Final[float] = 0.12
+DECK_SIZE_LAND_PREMIUM_CAP: Final[float] = 0.48
 
 # Popular and iconic cards for fuzzy matching prioritization
 POPULAR_CARDS: Final[set[str]] = {

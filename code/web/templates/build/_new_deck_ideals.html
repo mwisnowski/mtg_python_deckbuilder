@@ -2,6 +2,7 @@
   <legend>Ideal Counts</legend>
   <div class="muted" style="font-size:12px; margin-bottom:0.75rem;">
     Sliders start at recommended defaults. Adjust as needed for your deck strategy.
+    For Rulebreaker commanders with no deck-size maximum (e.g., Whtz), these defaults update automatically to match your chosen deck size, and stay adjustable after that.
     <span id="ideals-validation-warning" style="color:#f59e0b; display:none; margin-left:0.5rem;"></span>
   </div>
   <div class="muted" style="font-size:12px; margin-bottom:0.75rem;">
@@ -52,6 +53,9 @@
                 class="ideals-slider"
                 data-field="{{ field_name }}"
                 data-default="{{ default_val }}"
+                data-base-default="{{ default_val }}"
+                data-base-min="{{ min_val }}"
+                data-base-max="{{ max_val }}"
                 {% if field_name in legacy_disabled_fields and form and form.creature_builder_mode == 'legacy' %}disabled{% endif %}
                 style="flex:1; cursor:pointer;"
               />
@@ -72,6 +76,8 @@
               value="{{ form[field_name] if form and form[field_name] is not none else '' }}" 
               placeholder="{{ default_val }} (Default)"
               data-default="{{ default_val }}"
+              data-base-default="{{ default_val }}"
+              data-field="{{ field_name }}"
               {% if field_name in legacy_disabled_fields and form and form.creature_builder_mode == 'legacy' %}disabled{% endif %}
               style="width:100%; margin-top:0.25rem;"
             />
@@ -85,6 +91,76 @@
   </div>
   
   <script>
+    // Rulebreaker (Whtz) deck-size-aware ideal scaling: mirrors
+    // builder_utils.scale_ideal_counts_for_deck_size() so sliders can show
+    // real target numbers live, without a hidden backend re-scale at build time.
+    const DECK_SIZE_LAND_PREMIUM_K = 0.12;
+    const DECK_SIZE_LAND_PREMIUM_CAP = 0.48;
+    const IDEALS_SCALABLE_FIELDS = ['lands', 'basic_lands', 'creatures_max', 'creatures_min', 'on_theme_creatures', 'ramp', 'removal', 'wipes', 'card_advantage', 'protection'];
+    let currentTargetDeckSize = 100;
+
+    function scaledIdealDefault(baseDefault, targetSize) {
+      if (!targetSize || targetSize <= 100 || isNaN(baseDefault)) return baseDefault;
+      const ratio = targetSize / 100;
+      const premium = 1 + DECK_SIZE_LAND_PREMIUM_K * Math.log(ratio);
+      const effectivePct = Math.min((baseDefault / 100) * premium, DECK_SIZE_LAND_PREMIUM_CAP);
+      return Math.max(Math.round(baseDefault), Math.round(effectivePct * targetSize));
+    }
+
+    function scaledIdealBound(baseBound, targetSize) {
+      if (!targetSize || targetSize <= 100 || isNaN(baseBound)) return baseBound;
+      return Math.round(baseBound * (targetSize / 100));
+    }
+
+    // Always read the deck-size field directly rather than trusting the cached
+    // currentTargetDeckSize variable, so capacity checks can never go stale
+    // regardless of event ordering or how the field was last updated.
+    function getCurrentTargetDeckSize() {
+      const dsInput = document.querySelector('[name="rulebreaker_target_deck_size"]');
+      if (dsInput) {
+        const v = parseInt(dsInput.value, 10);
+        if (v && v > 0) return v;
+      }
+      return currentTargetDeckSize;
+    }
+
+    // Recompute every scalable slider/number-input's recommended default (and,
+    // for sliders, its min/max) for the given target deck size. Fields the user
+    // has already touched keep their current value; untouched fields update live.
+    function updateIdealsForDeckSize(targetSize) {
+      currentTargetDeckSize = targetSize && targetSize > 0 ? targetSize : 100;
+      document.querySelectorAll('[data-base-default]').forEach(input => {
+        const fieldName = input.dataset.field || input.getAttribute('name');
+        if (!IDEALS_SCALABLE_FIELDS.includes(fieldName)) return;
+        const baseDefault = parseFloat(input.dataset.baseDefault);
+        const newDefault = scaledIdealDefault(baseDefault, currentTargetDeckSize);
+        input.dataset.default = newDefault;
+
+        if (input.type === 'range') {
+          const baseMin = parseFloat(input.dataset.baseMin);
+          const baseMax = parseFloat(input.dataset.baseMax);
+          if (!isNaN(baseMin)) input.min = scaledIdealBound(baseMin, currentTargetDeckSize);
+          if (!isNaN(baseMax)) input.max = Math.max(scaledIdealBound(baseMax, currentTargetDeckSize), newDefault);
+        }
+
+        if (input.dataset.touched !== '1') {
+          input.value = newDefault;
+          const output = document.getElementById(fieldName + '_value');
+          if (output) output.textContent = newDefault;
+        }
+      });
+      updateCreatureBounds();
+      validateIdealCounts();
+    }
+
+    // Live-update as the Whtz deck-size field changes (delegated: that field
+    // may not exist yet, or may be swapped in later via the commander/tags HTMX fragment).
+    document.addEventListener('input', function(ev) {
+      if (ev.target && ev.target.name === 'rulebreaker_target_deck_size') {
+        updateIdealsForDeckSize(parseInt(ev.target.value, 10) || 100);
+      }
+    });
+
     // Validate ideal counts to prevent over-allocation
     function validateIdealCounts() {
       const warning = document.getElementById('ideals-validation-warning');
@@ -109,16 +185,19 @@
       const spells = ramp + removal + wipes + cardAdvantage + protection;
       const estimatedTotal = lands + creatures + Math.ceil(spells / 2);
       
-      // Check if estimated total exceeds deck size (99 for EDH)
-      if (estimatedTotal > 99) {
-        warning.textContent = '⚠ Estimated total ~' + estimatedTotal + ' cards (max 99). Reduce counts to avoid build issues.';
+      // Check if estimated total exceeds the non-commander card capacity (99 at
+      // the 100-card baseline; scales with the live deck-size field for Whtz).
+      const capacity = getCurrentTargetDeckSize() - 1;
+      if (estimatedTotal > capacity) {
+        warning.textContent = '⚠ Estimated total ~' + estimatedTotal + ' cards (max ' + capacity + '). Reduce counts to avoid build issues.';
         warning.style.display = 'inline';
         warning.style.color = '#ef4444'; // Red for hard conflict
-      } else if (estimatedTotal > 90) {
+      } else if (estimatedTotal > capacity * 0.9) {
         warning.textContent = '⚠ Estimated total ~' + estimatedTotal + ' cards. Deck may be tight on slots.';
         warning.style.display = 'inline';
         warning.style.color = '#f59e0b'; // Orange for warning
       } else {
+        warning.textContent = '';
         warning.style.display = 'none';
       }
     }
@@ -141,7 +220,7 @@
       // range input's value when its max is lowered, which would otherwise hide
       // the change from the paired <output> display.
       const lands = parseInt(landsInput.value) || 0;
-      const maxCeiling = Math.max(0, 99 - lands);
+      const maxCeiling = Math.max(0, (getCurrentTargetDeckSize() - 1) - lands);
       const prevMaxVal = parseInt(maxInput.value) || 0;
       maxInput.max = maxCeiling;
       const clampedMaxVal = Math.min(prevMaxVal, maxCeiling);
@@ -171,6 +250,7 @@
       const legacyCheckbox = document.querySelector('[name="creature_builder_mode"]');
       if (legacyCheckbox) legacyCheckbox.checked = false;
       document.querySelectorAll('[data-default]').forEach(input => {
+        delete input.dataset.touched;
         input.value = input.dataset.default;
         const output = document.getElementById(input.getAttribute('name') + '_value');
         if (output) output.textContent = input.dataset.default;
@@ -188,6 +268,7 @@
       
       // Update display on input
       slider.addEventListener('input', function() {
+        this.dataset.touched = '1';
         output.textContent = this.value;
         if (fieldName === 'lands' || fieldName === 'creatures_max') {
           updateCreatureBounds();
@@ -201,6 +282,7 @@
     {% else %}
     document.querySelectorAll('[name="ramp"], [name="lands"], [name="basic_lands"], [name="creatures_min"], [name="creatures_max"], [name="on_theme_creatures"], [name="creature_tolerance_pct"], [name="removal"], [name="wipes"], [name="card_advantage"], [name="protection"]').forEach(input => {
       input.addEventListener('input', function() {
+        this.dataset.touched = '1';
         if (input.name === 'lands' || input.name === 'creatures_max') {
           updateCreatureBounds();
         }
@@ -220,7 +302,26 @@
       idealsResetBtn.addEventListener('click', resetIdealsToDefaults);
     }
     
-    // Run initial computations
+    // Run initial computations. If a Whtz deck size >100 is already present
+    // (e.g. re-rendering after a validation error), widen bounds to match it
+    // without overwriting any already-submitted slider values.
+    (function initDeckSizeAwareIdeals() {
+      const dsInput = document.querySelector('[name="rulebreaker_target_deck_size"]');
+      const initialSize = dsInput ? (parseInt(dsInput.value, 10) || 100) : 100;
+      currentTargetDeckSize = initialSize;
+      if (initialSize > 100) {
+        document.querySelectorAll('[data-base-default]').forEach(input => {
+          const baseDefault = parseFloat(input.dataset.baseDefault);
+          input.dataset.default = scaledIdealDefault(baseDefault, initialSize);
+          if (input.type === 'range') {
+            const baseMin = parseFloat(input.dataset.baseMin);
+            const baseMax = parseFloat(input.dataset.baseMax);
+            if (!isNaN(baseMin)) input.min = scaledIdealBound(baseMin, initialSize);
+            if (!isNaN(baseMax)) input.max = scaledIdealBound(baseMax, initialSize);
+          }
+        });
+      }
+    })();
     updateCreatureBounds();
     updateLegacyDisabled();
     validateIdealCounts();

@@ -57,6 +57,8 @@ def step5_base_ctx(request: Request, sess: dict, *, include_name: bool = True, i
     """
     include_cards = list(sess.get("include_cards", []) or [])
     exclude_cards = list(sess.get("exclude_cards", []) or [])
+    rulebreaker_id = bc.RULEBREAKER_NAMES.get(sess.get("commander") or "")
+    rulebreaker_meta = bc.RULEBREAKER_ARCHETYPES.get(rulebreaker_id) if rulebreaker_id else None
     ctx: Dict[str, Any] = {
         "request": request,
         "commander": sess.get("commander"),
@@ -72,6 +74,9 @@ def step5_base_ctx(request: Request, sess: dict, *, include_name: bool = True, i
         "partner_warnings": list(sess.get("partner_warnings", []) or []),
         "combined_commander": sess.get("combined_commander"),
         "partner_auto_note": sess.get("partner_auto_note"),
+        "rulebreaker": rulebreaker_meta,
+        "rulebreaker_extra_color": sess.get("rulebreaker_extra_color"),
+        "rulebreaker_target_deck_size": sess.get("rulebreaker_target_deck_size") or 100,
         "owned_set": owned_set(),
         "game_changers": bc.GAME_CHANGERS,
         "replace_mode": bool(sess.get("replace_mode", True)),
@@ -156,7 +161,10 @@ def start_ctx_from_session(sess: dict, *, set_on_session: bool = True, deck_dir:
     multi-copy selection, and combo preferences from the session and starts a build context.
     """
     opts = orch.bracket_options()
-    default_bracket = (opts[0]["level"] if opts else 1)
+    levels = {int(o["level"]) for o in opts} if opts else set()
+    # Match the web "Build a New Deck" default (bracket 4/Optimized), not
+    # opts[0] (bracket 1/Exhibition, 0 Game Changers allowed).
+    default_bracket = 4 if 4 in levels else (opts[0]["level"] if opts else 1)
     bracket_val = sess.get("bracket")
     try:
         safe_bracket = int(bracket_val) if bracket_val is not None else int(default_bracket)
@@ -198,6 +206,8 @@ def start_ctx_from_session(sess: dict, *, set_on_session: bool = True, deck_dir:
         printings=dict(sess.get("printings") or {}),
         creature_builder_mode=sess.get("creature_builder_mode", "modern"),
         creature_tolerance=sess.get("creature_tolerance"),
+        rulebreaker_extra_color=sess.get("rulebreaker_extra_color"),
+        rulebreaker_target_deck_size=sess.get("rulebreaker_target_deck_size"),
     )
     if set_on_session:
         sess["build_ctx"] = ctx

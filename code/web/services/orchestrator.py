@@ -2623,6 +2623,8 @@ def start_build_ctx(
     printings: Dict[str, str] | None = None,
     creature_builder_mode: str | None = None,
     creature_tolerance: float | None = None,
+    rulebreaker_extra_color: str | None = None,
+    rulebreaker_target_deck_size: int | None = None,
 ) -> Dict[str, Any]:
     logs: List[str] = []
 
@@ -2737,6 +2739,15 @@ def start_build_ctx(
     except Exception:
         pass
 
+    # Rulebreaker Commanders (Roadmap 35, Milestone 5): apply before color
+    # identity/card-pool logic runs.
+    try:
+        b.rulebreaker_extra_color = (str(rulebreaker_extra_color).strip().upper() or None) if rulebreaker_extra_color else None
+        if rulebreaker_target_deck_size is not None:
+            b.rulebreaker_target_deck_size = max(100, int(rulebreaker_target_deck_size))
+    except Exception:
+        pass
+
     # Data load
     b.determine_color_identity()
     b.setup_dataframes()
@@ -2806,6 +2817,13 @@ def start_build_ctx(
         b.run_land_analysis()
     except Exception:
         pass
+    # Rulebreaker Commanders (Roadmap 35, Milestone 4): ideal counts are now
+    # scaled live in the web UI (see _new_deck_ideals.html) before submission,
+    # so `ideals` already reflects Whtz's chosen deck size here. No backend
+    # re-scale is applied for web builds (that would double-scale on top of
+    # the client-computed values); the CLI/headless path in
+    # builder.py::run_deck_build_step2() still applies
+    # scale_ideal_counts_for_deck_size() since it has no client UI to pre-scale from.
     stages = _make_stages(b)
     ctx = {
         "builder": b,
@@ -3513,7 +3531,9 @@ def run_stage(ctx: Dict[str, Any], rerun: bool = False, show_skipped: bool = Fal
         except Exception:
             total_cards = None
         try:
-            overflow = max(0, int(total_cards) - 100)
+            from deck_builder import builder_utils as _bu
+            deck_size_target = _bu.effective_deck_size(b)
+            overflow = max(0, int(total_cards) - deck_size_target)
             if overflow > 0 and added_cards:
                 # Trim from added cards without reducing below pre-stage counts; skip locked names
                 remaining = overflow
@@ -3553,7 +3573,7 @@ def run_stage(ctx: Dict[str, Any], rerun: bool = False, show_skipped: bool = Fal
                 added_cards = [x for x in added_cards if int(x.get('count', 0) or 0) > 0]
                 if clamped_overflow > 0:
                     try:
-                        logs.append(f"Clamped {clamped_overflow} card(s) from this stage to remain at 100.")
+                        logs.append(f"Clamped {clamped_overflow} card(s) from this stage to remain at {deck_size_target}.")
                     except Exception:
                         pass
         except Exception:

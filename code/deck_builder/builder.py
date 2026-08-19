@@ -277,9 +277,11 @@ class DeckBuilder(
                             pass
                         # If owned-only build is incomplete, generate recommendations
                         try:
+                            from deck_builder import builder_utils as bu
+                            target_size = bu.effective_deck_size(self)
                             total_cards = sum(int(v.get('Count', 1)) for v in self.card_library.values())
-                            if self.use_owned_only and total_cards < 100:
-                                missing = 100 - total_cards
+                            if self.use_owned_only and total_cards < target_size:
+                                missing = target_size - total_cards
                                 rec_limit = int(math.ceil(1.5 * float(missing)))
                                 self._generate_recommendations(base_stem=base, limit=rec_limit)
                         except Exception:
@@ -296,9 +298,11 @@ class DeckBuilder(
             # If owned-only and deck not complete, print a note
             try:
                 if self.use_owned_only:
+                    from deck_builder import builder_utils as bu
+                    target_size = bu.effective_deck_size(self)
                     total_cards = sum(int(v.get('Count', 1)) for v in self.card_library.values())
-                    if total_cards < 100:
-                        self.output_func(f"Note: deck is incomplete ({total_cards}/100). Not enough owned cards to fill the deck.")
+                    if total_cards < target_size:
+                        self.output_func(f"Note: deck is incomplete ({total_cards}/{target_size}). Not enough owned cards to fill the deck.")
             except Exception:
                 pass
             end_ts = datetime.datetime.now()
@@ -446,6 +450,11 @@ class DeckBuilder(
     # Diagnostics storage for include/exclude processing
     include_exclude_diagnostics: Optional[Dict[str, Any]] = None
 
+    # Rulebreaker commanders (Roadmap 35)
+    active_rulebreakers: List[Dict[str, Any]] = field(default_factory=list)
+    rulebreaker_extra_color: Optional[str] = None  # Tolabow's chosen extra color (WUBRG letter)
+    rulebreaker_target_deck_size: Optional[int] = None  # Whtz's chosen deck size (>=100)
+
     # Supplemental user themes (M4: Config & Headless Support)
     user_theme_requested: List[str] = field(default_factory=list)
     user_theme_resolved: List[str] = field(default_factory=list)
@@ -563,14 +572,16 @@ class DeckBuilder(
 
         self.output_func(f"\nLand Backfill: {shortfall} slot(s) below target; adding basics to reach {land_target}.")
         added = 0
+        from deck_builder import builder_utils as bu
+        target_deck_size = bu.effective_deck_size(self)
         for i in range(shortfall):
             basic = usable_basics[i % len(usable_basics)]
             total_cards = sum(int(e.get('Count', 1)) for e in self.card_library.values())
-            if total_cards < 100:
+            if total_cards < target_deck_size:
                 self.add_card(basic, card_type='Land', role='basic', sub_role='basic', added_by='lands_backfill')
                 added += 1
             else:
-                # Deck is at the 100-card limit.  Swap: remove the lowest-priority non-land card
+                # Deck is at the deck-size limit.  Swap: remove the lowest-priority non-land card
                 # (the last-inserted unlocked non-land in the library) then add the basic.
                 removed_name: Optional[str] = None
                 for name in reversed(list(self.card_library.keys())):
@@ -1268,6 +1279,14 @@ class DeckBuilder(
                 self.commander_dict["Colors"] = list(self.color_identity)
             except Exception:
                 pass
+
+        # Rulebreaker Commanders (Roadmap 35): detect after color identity (incl. any
+        # partner/background union) is finalized, per Contract §3.
+        try:
+            from deck_builder import builder_utils as bu
+            self.active_rulebreakers = bu.detect_active_rulebreakers(self)
+        except Exception:
+            self.active_rulebreakers = []
         return full, load_files
 
     def setup_dataframes(self) -> pd.DataFrame:
@@ -1309,9 +1328,37 @@ class DeckBuilder(
                     return True
                 # Card is legal if its colors are a subset of commander colors
                 return card_colors.issubset(self.color_identity)
-            
+
+            # Rulebreaker Commanders (Roadmap 35): OR-branch, non-basic-land card pool
+            # exception. Only pay the row-wise cost when a Rulebreaker is active.
+            active_rulebreakers = getattr(self, 'active_rulebreakers', None) or []
+
             if 'colorIdentity' in all_cards_df.columns:
-                mask = all_cards_df['colorIdentity'].apply(card_matches_identity)
+                if active_rulebreakers:
+                    from deck_builder.rulebreaker_rules import card_pool_exception
+
+                    extra_color = getattr(self, 'rulebreaker_extra_color', None)
+                    # Rulebreaker Commanders (Roadmap 35): when basic_lands_scope
+                    # is 'any'/'any_land', all 5 basics (+ Wastes/snow variants)
+                    # must stay in the identity-filtered pool too, not just be
+                    # addable later - otherwise add_card()'s type/mana enrichment
+                    # lookup can't find off-identity basics and they end up with
+                    # blank/incorrect Card Type metadata (e.g. missing "Basic
+                    # Land - Mountain" for a blue commander's off-color basic).
+                    basic_names: set = set()
+                    if bu.resolve_basic_lands_scope(self) in ('any', 'any_land'):
+                        basic_names = bu.basic_land_names()
+
+                    def card_matches_identity_row(row):
+                        if card_matches_identity(row.get('colorIdentity')):
+                            return True
+                        if basic_names and row.get('name') in basic_names:
+                            return True
+                        return card_pool_exception(row, active_rulebreakers, extra_color)
+
+                    mask = all_cards_df.apply(card_matches_identity_row, axis=1)
+                else:
+                    mask = all_cards_df['colorIdentity'].apply(card_matches_identity)
                 combined = all_cards_df[mask].copy()
                 logger.info(f"M4 COLOR_FILTER: Filtered {len(all_cards_df)} cards to {len(combined)} cards for identity {sorted(self.color_identity)}")
             else:
@@ -2320,6 +2367,16 @@ class DeckBuilder(
         # Smart land analysis — runs after defaults are seeded so env overrides still win
         self.run_land_analysis()
         self._clamp_creatures_max_to_land_budget()
+
+        # Rulebreaker Commanders (Roadmap 35, Milestone 4): scale ideal counts up
+        # when Whtz's chosen deck size exceeds the 100-card baseline.
+        try:
+            from deck_builder import builder_utils as bu
+            target_size = bu.effective_deck_size(self)
+            if target_size > 100:
+                self.ideal_counts = bu.scale_ideal_counts_for_deck_size(self.ideal_counts, target_size)
+        except Exception:
+            pass
 
         # Basic validation adjustments
         # Ensure basic_lands <= lands

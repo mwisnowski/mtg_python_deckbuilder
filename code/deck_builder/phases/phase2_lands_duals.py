@@ -34,6 +34,11 @@ class LandDualsMixin:
         if len(colors) < 2:
             self.output_func("Dual Lands: Not multi-color; skipping step 5.")
             return
+        # Rulebreaker Commanders (Roadmap 35): Grizzlegom's any_land scope allows
+        # off-color nonbasic lands too, so any 2-color pair is eligible, not just
+        # the commander's own identity.
+        from .. import builder_utils as bu
+        any_land_active = bu.resolve_basic_lands_scope(self) == 'any_land'
         land_target = (getattr(self, 'ideal_counts', {}) or {}).get('lands', getattr(bc, 'DEFAULT_LAND_COUNT', 35))
         df = getattr(self, '_combined_cards_df', None)
         pool: List[str] = []
@@ -66,7 +71,7 @@ class LandDualsMixin:
                                 mapped_colors.add('G')
                         if len(mapped_colors) != 2:
                             continue
-                        if not mapped_colors.issubset(set(colors)):
+                        if not any_land_active and not mapped_colors.issubset(set(colors)):
                             continue
                         pool.append(name)
                         type_to_card[name] = tline

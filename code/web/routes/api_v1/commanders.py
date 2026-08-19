@@ -12,6 +12,7 @@ from typing import Any, Dict
 from fastapi import APIRouter, Query, Request
 from fastapi.encoders import jsonable_encoder
 
+from code.deck_builder import builder_constants as bc
 from ...services.commander_catalog_loader import (
     CommanderRecord,
     find_commander_record,
@@ -44,6 +45,18 @@ def _serialize_commander(record: CommanderRecord, *, full: bool = False) -> Dict
         "is_background": record.is_background,
     }
     if full:
+        # Rulebreaker Commanders (Roadmap 35, Milestone 7): expose archetype
+        # metadata so mobile can show the same optional color picker / deck
+        # size field the web UI shows, without hardcoding card names client-side.
+        rulebreaker_id = bc.RULEBREAKER_NAMES.get(record.display_name)
+        rulebreaker = bc.RULEBREAKER_ARCHETYPES.get(rulebreaker_id) if rulebreaker_id else None
+        data.update(
+            {
+                "is_rulebreaker": rulebreaker is not None,
+                "rulebreaker_rule_type": rulebreaker.get("rule_type") if rulebreaker else None,
+                "rulebreaker_no_max_deck_size": bool(rulebreaker.get("no_max_deck_size")) if rulebreaker else False,
+            }
+        )
         data.update(
             {
                 "oracle_text": record.oracle_text,

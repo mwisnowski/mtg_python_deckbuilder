@@ -42,7 +42,10 @@ def _rebuild_ctx_with_multicopy(sess: dict) -> None:
             return
         # Build fresh ctx with the same options, threading multi_copy explicitly
         opts = orch.bracket_options()
-        default_bracket = (opts[0]["level"] if opts else 1)
+        levels = {int(o["level"]) for o in opts} if opts else set()
+        # Match the web "Build a New Deck" default (bracket 4/Optimized), not
+        # opts[0] (bracket 1/Exhibition, 0 Game Changers allowed).
+        default_bracket = 4 if 4 in levels else (opts[0]["level"] if opts else 1)
         bracket_val = sess.get("bracket")
         try:
             safe_bracket = int(bracket_val) if bracket_val is not None else default_bracket

@@ -9,13 +9,24 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 
 ## [Unreleased]
 ### Added
-_No unreleased changes yet_
+- Rulebreaker Commanders: added support for 8 commanders whose oracle text bends normal deckbuilding rules, each relaxing the color-identity and/or deck-size rules for a specific card type or condition:
+  - Grizzlegom, Hurloon Hero: any basic land type, regardless of color identity, split evenly across all five basics.
+  - Maular, the Next Evolution: creatures with mana value 7 or greater can be any color.
+  - Seluma, Light of Aysen: Angels can be any color.
+  - The Everforger: Artifact Creatures and Equipment can be any color.
+  - The Unluckiest Planeswalker: Auras can be any color.
+  - Tolabow, Loch Rascal: Instants and Sorceries can be your color identity plus one additional color of your choice.
+  - Valko Indorian: cards with the Phyrexian subtype can be any color.
+  - Whtz, the Bibliophile: no maximum deck size (a 100-card minimum still applies); the Ideal Counts sliders in "Build a New Deck" scale their recommended defaults live as you change the deck size, and stay fully adjustable afterward instead of being silently re-scaled behind the scenes at build time.
+- Manual Deck Builder: the role health bar (Lands/Ramp/Removal/etc.) now shows targets based on the deck's actual chosen ideal counts instead of the fixed 100-card defaults, so a larger Whtz deck shows an accurate land target instead of a stale "X/35".
+- Public API: commander detail (`GET /api/v1/commanders/{name}`) now reports Rulebreaker Commander metadata, and `POST /api/v1/builds` accepts the matching optional `rulebreaker_extra_color`/`rulebreaker_target_deck_size` fields; the mobile app's build wizard now shows the same optional color picker and target-deck-size field the web UI does when a Rulebreaker commander is selected.
+- Setup/Tagging: a local, offline check now flags any Commander-legal card that looks like it may carry the Rulebreaker mechanic but isn't yet in the registry (e.g. a newly spoiled/printed card), surfacing a review banner with a ready-to-copy issue body on the Setup/Tagging page; the weekly/manual "Build Similarity Cache" GitHub Actions workflow additionally auto-files (and dedupes) an issue for any candidate it finds.
 
 ### Changed
-_No unreleased changes yet_
+- Build a New Deck: the default power bracket is now Bracket 4 (Optimized) instead of Bracket 3 (Upgraded).
 
 ### Fixed
-_No unreleased changes yet_
+- Setup: the card printing image picker's metadata index could silently go missing on a fresh install or after a disk cleanup, causing every card image to fall back to a live Scryfall request instead of using already-downloaded local images. Setup now automatically restores it (downloading a prebuilt copy, or rebuilding it locally if that's unavailable).
 
 ### Removed
 _No unreleased changes yet_

@@ -20,8 +20,13 @@ from code.type_definitions import User
 from ...services.auth import check_and_record_rate_limit
 from ...services.user_db import verify_api_key
 
-# 60 req/min per API key, per the roadmap's Rate Limiting contract.
-_RATE_LIMIT_MAX = 60
+# Per-API-key rate limit. Deliberately generous: a single active build's
+# status polling alone (mobile app polls GET /builds/{id} every 2s = 30
+# req/min) needs to coexist with everything else a session does (guided-mode
+# advance/alternatives/replace calls, browsing commanders/cards, multiple
+# builds). 60/min left almost no headroom and caused builds to appear to
+# silently stall once a session's cumulative requests crossed that budget.
+_RATE_LIMIT_MAX = 240
 _RATE_LIMIT_WINDOW_S = 60
 
 # auto_error=False so we control the error shape (our {ok:false,...} envelope

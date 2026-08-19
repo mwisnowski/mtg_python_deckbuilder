@@ -271,6 +271,8 @@ async def build_new_inspect(request: Request, name: str = Query(...)) -> HTMLRes
         is_gc = False
     sid = request.cookies.get("sid") or new_sid()
     sess = get_session(sid)
+    rulebreaker_id = bc.RULEBREAKER_NAMES.get(info["name"])
+    active_rulebreaker = bc.RULEBREAKER_ARCHETYPES.get(rulebreaker_id) if rulebreaker_id else None
     ctx = {
         "request": request,
         "commander": {"name": info["name"], "exclusion": exclusion_detail},
@@ -285,6 +287,9 @@ async def build_new_inspect(request: Request, name: str = Query(...)) -> HTMLRes
         "printings": dict(sess.get("printings") or {}),
         "foils": dict(sess.get("foils") or {}),
         "brackets": orch.bracket_options(),
+        "active_rulebreaker": active_rulebreaker,
+        "rulebreaker_extra_color": sess.get("rulebreaker_extra_color"),
+        "rulebreaker_target_deck_size": sess.get("rulebreaker_target_deck_size"),
     }
     
     ctx.update(
@@ -503,6 +508,9 @@ async def build_new_submit(
     build_count: int = Form(1),
     # Quick Build flag
     quick_build: str | None = Form(None),
+    # Rulebreaker Commanders (Roadmap 35)
+    rulebreaker_extra_color: str | None = Form(None),
+    rulebreaker_target_deck_size: int | None = Form(None),
     # "manual" (roadmap_25) skips the auto-build pipeline entirely and redirects
     # to the manual deck builder view instead. Absent/anything else -> auto.
     mode: str | None = Form(None),
@@ -556,6 +564,8 @@ async def build_new_submit(
             "card_ceiling": card_ceiling,
             "pool_tolerance": pool_tolerance if pool_tolerance is not None else "15",
             "creature_builder_mode": "legacy" if creature_builder_mode == "legacy" else "modern",
+            "rulebreaker_extra_color": (rulebreaker_extra_color or "").strip().upper(),
+            "rulebreaker_target_deck_size": rulebreaker_target_deck_size,
         }
 
     commander_detail = lookup_commander_detail(commander)
@@ -639,6 +649,8 @@ async def build_new_submit(
             bracket = 3
     # Save to session
     sess["commander"] = primary_commander_name
+    sess["rulebreaker_extra_color"] = (rulebreaker_extra_color or "").strip().upper() or None
+    sess["rulebreaker_target_deck_size"] = max(100, int(rulebreaker_target_deck_size)) if rulebreaker_target_deck_size else None
     (
         partner_error,
         combined_payload,
@@ -819,13 +831,13 @@ async def build_new_submit(
     sess["tags"] = tags
     sess["tag_mode"] = (tag_mode or "AND").upper()
     try:
-        # Default to bracket 3 (Upgraded) when not provided
-        sess["bracket"] = int(bracket) if (bracket is not None) else 3
+        # Default to bracket 4 (Optimized) when not provided
+        sess["bracket"] = int(bracket) if (bracket is not None) else 4
     except Exception:
         try:
             sess["bracket"] = int(bracket)
         except Exception:
-            sess["bracket"] = 3
+            sess["bracket"] = 4
     # Ideals: use provided values if any, else defaults
     ideals = orch.ideal_defaults()
     overrides = {k: v for k, v in {
@@ -1143,7 +1155,7 @@ async def build_new_submit(
             "commander": sess.get("commander"),
             "tags": sess.get("tags", []),
             "tag_mode": sess.get("tag_mode", "AND"),
-            "bracket": sess.get("bracket", 3),
+            "bracket": sess.get("bracket", 4),
             "ideals": sess.get("ideals", {}),
             "prefer_combos": sess.get("prefer_combos", False),
             "combo_target_count": sess.get("combo_target_count"),

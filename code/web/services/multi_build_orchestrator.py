@@ -134,7 +134,7 @@ class MultiBuildOrchestrator:
             "commander": config.get("commander"),
             "tags": config.get("tags", []),
             "tag_mode": config.get("tag_mode", "AND"),
-            "bracket": config.get("bracket", 3),
+            "bracket": config.get("bracket", 4),
             "ideals": config.get("ideals", {}),
             "prefer_combos": config.get("prefer_combos", False),
             "combo_target_count": config.get("combo_target_count"),

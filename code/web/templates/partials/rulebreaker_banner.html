@@ -1,0 +1,36 @@
+{% set rb = active_rulebreaker if active_rulebreaker is defined else None %}
+{% if rb %}
+<fieldset style="margin-top:.75rem;">
+  <legend>Rulebreaker Commander <span class="help-tip"><button type="button" class="help-tip-btn" data-tip="This commander breaks a normal deckbuilding rule (color identity, deck size, etc.)." data-tip-href="/help/rulebreaker_commanders" aria-label="Rulebreaker Commanders help"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true" width="11" height="11"><circle cx="8" cy="8" r="6.5"/><line x1="8" y1="7" x2="8" y2="10.5" stroke-linecap="round"/><circle cx="8" cy="4.5" r="0.75" fill="currentColor" stroke="none"/></svg></button></span></legend>
+  <div class="muted" style="font-size:12px; margin-bottom:.5rem;">
+    <strong>{{ rb.name }}</strong> breaks the normal rules for this deck.
+  </div>
+
+  {% if rb.rule_type == 'instant_sorcery_extra_color' %}
+    <label style="display:block; margin-bottom:.5rem;">
+      <span>Extra color for instants/sorceries</span>
+      <select name="rulebreaker_extra_color" id="modal_rulebreaker_extra_color">
+        <option value="">None (stay in color identity)</option>
+        {% for c, label in [('W','White'), ('U','Blue'), ('B','Black'), ('R','Red'), ('G','Green')] %}
+          {% if c not in rb.color_identity %}
+          <option value="{{ c }}" {% if rulebreaker_extra_color == c %}selected{% endif %}>{{ label }}</option>
+          {% endif %}
+        {% endfor %}
+      </select>
+    </label>
+    <div class="muted" style="font-size:12px;">Choose one extra color this commander may cast instants/sorceries from.</div>
+  {% endif %}
+
+  {% if rb.no_max_deck_size %}
+    <label style="display:block; margin-top:.5rem;">
+      <span>Deck size (100+)</span>
+      <input type="number" name="rulebreaker_target_deck_size" id="modal_rulebreaker_target_deck_size"
+             min="100" step="1" value="{{ rulebreaker_target_deck_size or 100 }}" style="width:6rem;" />
+    </label>
+    <div class="muted" style="font-size:12px;">This commander removes the 100-card maximum. Leave at 100 for a normal-size deck.</div>
+  {% endif %}
+</fieldset>
+{% else %}
+<input type="hidden" name="rulebreaker_extra_color" value="" />
+<input type="hidden" name="rulebreaker_target_deck_size" value="100" />
+{% endif %}

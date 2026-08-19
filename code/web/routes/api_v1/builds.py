@@ -86,6 +86,11 @@ class CreateBuildRequest(BaseModel):
     partner_enabled: bool = False
     secondary_commander: Optional[str] = None
     background: Optional[str] = None
+    # Rulebreaker Commanders (Roadmap 35, Milestone 7): optional inputs for
+    # the two mechanics that need them (Tolabow's extra color, Whtz's target
+    # deck size). Ignored server-side for any other commander.
+    rulebreaker_extra_color: Optional[str] = None
+    rulebreaker_target_deck_size: Optional[int] = None
 
 
 class ReplaceCardRequest(BaseModel):
@@ -117,8 +122,13 @@ class ManualSetCountRequest(BaseModel):
 
 
 def _default_bracket() -> int:
+    # Match the web UI's "Build a New Deck" default (bracket 4/Optimized).
+    # NOT opts[0]["level"] -- that's bracket 1 (Exhibition, 0 Game Changers
+    # allowed), which gates/stalls almost any build via compliance FAIL the
+    # moment the deck-building algorithm adds a single Game Changer card.
     opts = orch.bracket_options()
-    return int(opts[0]["level"]) if opts else 1
+    levels = {int(o["level"]) for o in opts} if opts else set()
+    return 4 if 4 in levels else (int(opts[0]["level"]) if opts else 1)
 
 
 def _status_payload(build: Dict[str, Any]) -> Dict[str, Any]:
@@ -182,6 +192,11 @@ async def create_build(body: CreateBuildRequest, request: Request, user: User = 
         return err("commander is required.", "INVALID_COMMANDER", 400, _rid(request))
     if body.mode not in ("auto", "guided", "manual"):
         return err("mode must be 'auto', 'guided', or 'manual'.", "INVALID_MODE", 400, _rid(request))
+    rulebreaker_extra_color = (body.rulebreaker_extra_color or "").strip().upper() or None
+    if rulebreaker_extra_color is not None and rulebreaker_extra_color not in {"W", "U", "B", "R", "G"}:
+        return err("rulebreaker_extra_color must be one of W, U, B, R, G.", "INVALID_RULEBREAKER_COLOR", 400, _rid(request))
+    if body.rulebreaker_target_deck_size is not None and body.rulebreaker_target_deck_size < 100:
+        return err("rulebreaker_target_deck_size must be at least 100.", "INVALID_RULEBREAKER_DECK_SIZE", 400, _rid(request))
     bracket = body.bracket if body.bracket is not None else _default_bracket()
 
     deck_dir = str(_deck_dir(str(user["id"])))
@@ -209,6 +224,8 @@ async def create_build(body: CreateBuildRequest, request: Request, user: User = 
             "secondary_commander": body.secondary_commander,
             "background": body.background,
             "partner_enabled": bool(body.partner_enabled),
+            "rulebreaker_extra_color": rulebreaker_extra_color,
+            "rulebreaker_target_deck_size": body.rulebreaker_target_deck_size,
         }
         build_id = build_store.create_build(user["id"], body.model_dump())
         build_store.set_ctx(build_id, sess)
@@ -222,6 +239,11 @@ async def create_build(body: CreateBuildRequest, request: Request, user: User = 
     owned_names_list = owned_names_helper() if (body.owned_only or body.prefer_owned) else None
 
     ideals = orch.ideal_defaults()
+    # Whtz (no_max_deck_size): the web UI pre-scales ideal_counts client-side
+    # before submitting, but the mobile app / API clients don't -- scale the
+    # defaults here so an oversized deck isn't stuck with 100-card targets.
+    if body.rulebreaker_target_deck_size and body.rulebreaker_target_deck_size > 100:
+        ideals = bu.scale_ideal_counts_for_deck_size(ideals, body.rulebreaker_target_deck_size)
     if body.ideal_counts:
         ideals.update({k: int(v) for k, v in body.ideal_counts.items()})
     for key in ("creatures_min", "creatures_max", "on_theme_creatures"):
@@ -249,6 +271,8 @@ async def create_build(body: CreateBuildRequest, request: Request, user: User = 
             background_commander=body.background,
             creature_builder_mode=body.creature_builder_mode,
             creature_tolerance=body.creature_tolerance,
+            rulebreaker_extra_color=rulebreaker_extra_color,
+            rulebreaker_target_deck_size=body.rulebreaker_target_deck_size,
         )
     except ValueError as exc:
         return err(str(exc), "INVALID_BUILD_REQUEST", 400, _rid(request))
@@ -331,11 +355,20 @@ async def get_multi_copy_options(
 
 
 @router.get("/ideal-defaults", summary="Get default ideal counts")
-async def get_ideal_defaults(request: Request, user: User = Depends(get_api_user)):
+async def get_ideal_defaults(
+    request: Request,
+    rulebreaker_target_deck_size: Optional[int] = None,
+    user: User = Depends(get_api_user),
+):
     """Server-side defaults for the `ideal_counts` field of `POST /builds`
     (ramp, lands, basic_lands, creatures_min, creatures_max, on_theme_creatures,
     creature_tolerance_pct, removal, wipes, card_advantage, protection). Use
     these to pre-fill an editable form.
+
+    Pass `rulebreaker_target_deck_size` (Whtz, >100) to get defaults scaled
+    for that deck size instead of the flat 100-card baseline (mirrors the
+    web UI's client-side scaling, for clients like the mobile app that don't
+    reimplement that formula themselves).
     """
     # 'creatures' is a legacy read/write alias for 'creatures_max' (roadmap 33)
     # still accepted/returned by POST/GET build endpoints; dropped here so
@@ -345,6 +378,8 @@ async def get_ideal_defaults(request: Request, user: User = Depends(get_api_user
     labels = orch.ideal_labels()
     defaults.pop("creatures", None)
     labels.pop("creatures", None)
+    if rulebreaker_target_deck_size and rulebreaker_target_deck_size > 100:
+        defaults = bu.scale_ideal_counts_for_deck_size(defaults, rulebreaker_target_deck_size)
     return ok({"defaults": defaults, "labels": labels}, _rid(request))
 
 
@@ -868,6 +903,10 @@ def _manual_deck_state(sess: Dict[str, Any]) -> Dict[str, Any]:
         "deck": manual_builder_service.deck_panel_data(sess),
         "role_bar": manual_builder_service.role_bar_data(sess),
         "compliance": manual_builder_service.manual_compliance_report(sess),
+        # Tolabow's chosen extra color, if any, so a generic client (mobile)
+        # can display it -- the web template reads this straight off the
+        # session instead, via manual_session_state().
+        "rulebreaker_extra_color": sess.get("rulebreaker_extra_color"),
         **manual_builder_service.mana_overview_data(sess),
     }
 

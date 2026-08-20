@@ -209,6 +209,14 @@ NON_CREATURE_TYPES: List[str] = [
 
 OUTLAW_TYPES: List[str] = ['Assassin', 'Mercenary', 'Pirate', 'Rogue', 'Warlock']
 
+# Community-recognized type-family groupings (unofficial, no reminder text on cards,
+# but broadly accepted and referenced by payoff cards). Mirrors OUTLAW_TYPES pattern.
+PARTY_TYPES: List[str] = ['Cleric', 'Rogue', 'Warrior', 'Wizard']
+SEA_MONSTER_TYPES: List[str] = ['Kraken', 'Leviathan', 'Octopus', 'Serpent']
+FIEND_TYPES: List[str] = ['Demon', 'Devil', 'Imp', 'Tiefling']
+UNDEAD_TYPES: List[str] = ['Zombie', 'Skeleton']
+NATURE_TYPES: List[str] = ['Plant', 'Treefolk', 'Fungus', 'Saproling']
+
 # =============================================================================
 # 8. PROTECTION & ABILITY KEYWORDS
 # =============================================================================
@@ -1277,15 +1285,13 @@ RULEBREAKER_TEXT_SIGNALS: Final[list[str]] = [
 
 # Specific metadata tags (full match) - additional tags to classify as metadata
 # These are typically diagnostic, bracket-related, or internal annotations
+# Note (Roadmap 37 M3 audit): 'Bracket: Game Changer'/'Bracket: Staple'/
+# 'Bracket: Format Warping'/'Applied: Cost Reduction' were removed here since
+# they're already unreachable dead entries -- the 'Bracket:'/'Applied:'
+# prefixes above match them first, so the exact-match allowlist never actually
+# fires for them (and the real bracket policy tags use a 'Bracket:CamelCase'
+# format, e.g. 'Bracket:GameChanger', not these spaced-out names).
 METADATA_TAG_ALLOWLIST: set[str] = {
-    # Bracket annotations
-    'Bracket: Game Changer',
-    'Bracket: Staple',
-    'Bracket: Format Warping',
-    
-    # Cost reduction diagnostics (from Applied: namespace)
-    'Applied: Cost Reduction',
-    
     # Colorless commander filtering (M1)
     'Useless in Colorless',
     

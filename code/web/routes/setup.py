@@ -248,6 +248,44 @@ async def refresh_rulings():
     return JSONResponse({"ok": True, "message": "Rulings cache build started in background."}, status_code=202)
 
 
+@router.get("/art-tags-status")
+async def art_tags_status():
+    """Return basic info about the artTags column on all_cards.parquet."""
+    from code.file_setup.art_tags_cache import PARQUET_PATH
+    import datetime
+
+    if not PARQUET_PATH.exists():
+        return JSONResponse({"exists": False})
+
+    try:
+        import pandas as pd
+        stat = PARQUET_PATH.stat()
+        built_at = datetime.datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%d %H:%M")
+        df = pd.read_parquet(PARQUET_PATH, columns=["artTags"])
+        tagged_count = int((df["artTags"].apply(len) > 0).sum())
+        return JSONResponse({"exists": True, "tagged_count": tagged_count, "built_at": built_at})
+    except Exception as e:
+        return JSONResponse({"exists": False, "error": str(e)})
+
+
+@router.post("/refresh-art-tags")
+async def refresh_art_tags():
+    """Start a background thread to rebuild the artTags column from Scryfall."""
+    def _runner():
+        try:
+            print("[ART TAGS THREAD] Starting art tags cache build...")
+            from code.file_setup.art_tags_cache import build_art_tags_cache
+            build_art_tags_cache(output_func=print)
+            print("[ART TAGS THREAD] Art tags cache build complete.")
+        except Exception as e:
+            import traceback
+            print(f"[ART TAGS THREAD] Failed: {e}\n{traceback.format_exc()}")
+
+    t = threading.Thread(target=_runner, daemon=True)
+    t.start()
+    return JSONResponse({"ok": True, "message": "Art tags cache build started in background."}, status_code=202)
+
+
 @router.get("/", response_class=HTMLResponse)
 async def setup_index(request: Request) -> HTMLResponse:
     if not _require_admin(request):

@@ -156,6 +156,32 @@
                 {% endfor %}
             </div>
             {% endif %}
+
+            {# Art Tags #}
+            {% if card.artTags_parsed and card.artTags_parsed|length > 0 %}
+            <details style="margin-top:1rem;">
+                <summary class="cd-section-heading" style="display:inline-block; cursor:pointer;">Art Tags</summary>
+                <p class="muted text-sm" style="margin:.25rem 0 .5rem;">Describes this illustration, not the card's gameplay function (via Scryfall's community tagging project).</p>
+                <div class="card-tags">
+                    {% for tag in card.artTags_parsed %}
+                    <a href="/cards?search={{ ('art:\"' ~ tag ~ '\"')|urlencode }}" class="card-tag">{{ tag|title }}</a>
+                    {% endfor %}
+                </div>
+            </details>
+            {% endif %}
+
+            {# Metadata Tags #}
+            {% if card.metadataTags_parsed and card.metadataTags_parsed|length > 0 %}
+            <details style="margin-top:1rem;">
+                <summary class="cd-section-heading" style="display:inline-block; cursor:pointer;">Metadata Tags (internal)</summary>
+                <p class="muted text-sm" style="margin:.25rem 0 .5rem;">Internal tags used by the deck builder's logic, not player-facing themes. Spot something odd? It helps to report it.</p>
+                <div class="card-tags">
+                    {% for tag in card.metadataTags_parsed %}
+                    <a href="/cards?search={{ ('metadata:\"' ~ tag ~ '\"')|urlencode }}" class="card-tag">{{ tag }}</a>
+                    {% endfor %}
+                </div>
+            </details>
+            {% endif %}
         </div>
 
         <!-- ── LEFT BOTTOM: Price ─────────────────────────────── -->

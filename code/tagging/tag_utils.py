@@ -279,6 +279,25 @@ def find_types_in_text(text: str, name: str, creature_types: List[str]) -> List[
                 
     return list(set(found_types))
 
+def add_type_family(types: List[str], family_types: List[str], family_name: str) -> List[str]:
+    """Add a synthetic type-family type if card has any of the family's member types.
+
+    Generic version of the Outlaw/Party pattern: any card with one of the group's
+    member creature types also gets `family_name` added, so it picks up a
+    `{family_name} Kindred` themeTag via kindred_tagging().
+
+    Args:
+        types: List of current types
+        family_types: List of member types that qualify for the family
+        family_name: Synthetic type to add (e.g. 'Outlaw', 'Party', 'Fiend')
+
+    Returns:
+        Updated list of types
+    """
+    if any(t in family_types for t in types) and family_name not in types:
+        return types + [family_name]
+    return types
+
 def add_outlaw_type(types: List[str], outlaw_types: List[str]) -> List[str]:
     """Add Outlaw type if card has an outlaw-related type.
 
@@ -289,9 +308,7 @@ def add_outlaw_type(types: List[str], outlaw_types: List[str]) -> List[str]:
     Returns:
         Updated list of types
     """
-    if any(t in outlaw_types for t in types) and 'Outlaw' not in types:
-        return types + ['Outlaw']
-    return types
+    return add_type_family(types, outlaw_types, 'Outlaw')
 
 def create_tag_mask(df: pd.DataFrame, tag_patterns: Union[str, List[str]], column: str = 'themeTags') -> pd.Series[bool]:
     """Create a boolean mask for rows where tags match specified patterns.

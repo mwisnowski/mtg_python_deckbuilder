@@ -74,11 +74,30 @@ def _parse_theme_tags(raw) -> List[str]:
         return []
 
 
+def _is_commander_eligible(type_line: str, oracle_text: str) -> bool:
+    """Real commander-eligibility check, mirroring `is_valid_commander()` in
+    code/file_setup/setup.py: Legendary Creature, Background, or explicit
+    "can be your commander" text. Used for the commander-example fallback so a
+    Legendary Artifact/Enchantment/Planeswalker/Land isn't wrongly suggested.
+    """
+    typ = type_line if isinstance(type_line, str) else ''
+    txt = oracle_text.lower() if isinstance(oracle_text, str) else ''
+    if 'Legendary' in typ.split() and 'Creature' in typ:
+        return True
+    if 'Background' in typ:
+        return True
+    if 'can be your commander' in txt:
+        return True
+    return False
+
+
 def _scan_parquet(path: Path, max_rank: float, progress_every: int) -> Tuple[Dict[str, List[Tuple[float, str]]], Dict[str, List[Tuple[float, str]]]]:
     """Scan a tagged card parquet file, bucketing (rank, name) hits per themeTag.
 
     Returns (theme_hits, legendary_hits) -- legendary_hits is the subset of theme_hits
-    rows whose `type` contains the word "Legendary" (used for commander fallbacks).
+    rows that satisfy commander-eligibility rules (used for commander fallbacks): a
+    Legendary Creature, a Background, or text containing "can be your commander"
+    (mirrors `is_valid_commander()` in code/file_setup/setup.py).
     """
     theme_hits: Dict[str, List[Tuple[float, str]]] = {}
     legendary_hits: Dict[str, List[Tuple[float, str]]] = {}
@@ -86,10 +105,13 @@ def _scan_parquet(path: Path, max_rank: float, progress_every: int) -> Tuple[Dic
         print(f"[warn] parquet not found: {path}", file=sys.stderr)
         return theme_hits, legendary_hits
     try:
-        df = pd.read_parquet(path, columns=['name', 'themeTags', 'edhrecRank', 'type'])
-    except Exception as e:  # pragma: no cover
-        print(f"[warn] failed reading {path}: {e}", file=sys.stderr)
-        return theme_hits, legendary_hits
+        df = pd.read_parquet(path, columns=['name', 'themeTags', 'edhrecRank', 'type', 'text'])
+    except Exception:
+        try:
+            df = pd.read_parquet(path, columns=['name', 'themeTags', 'edhrecRank', 'type'])
+        except Exception as e:  # pragma: no cover
+            print(f"[warn] failed reading {path}: {e}", file=sys.stderr)
+            return theme_hits, legendary_hits
     total_rows = len(df)
     for idx, row in enumerate(df.itertuples(index=False), start=1):
         if progress_every and idx % progress_every == 0:
@@ -109,8 +131,8 @@ def _scan_parquet(path: Path, max_rank: float, progress_every: int) -> Tuple[Dic
         is_legendary = False
         try:
             typ = row.type if isinstance(row.type, str) else ''
-            if 'Legendary' in typ.split():
-                is_legendary = True
+            txt = getattr(row, 'text', '') or ''
+            is_legendary = _is_commander_eligible(typ, txt)
         except Exception:
             pass
         for t in tags:

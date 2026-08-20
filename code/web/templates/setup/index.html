@@ -183,6 +183,18 @@
     {{ button('Refresh Rulings Cache', variant='primary', onclick='refreshRulingsCache()', attrs='id="btn-refresh-rulings"') }}
     <span class="muted" style="align-self:center; font-size:.85rem;">Downloads Scryfall rulings bulk file (~25 MB, one request). Live fallback handles misses automatically.</span>
   </div>
+
+  <details style="margin-top:1.25rem;">
+    <summary>Art Tags Cache</summary>
+    <div style="margin-top:.5rem; padding:1rem; border:1px solid var(--border); background:var(--panel); border-radius:8px;">
+      <div class="muted">Status:</div>
+      <div style="margin-top:.25rem;" id="art-tags-cache-status">Checking…</div>
+    </div>
+  </details>
+  <div style="margin-top:.75rem; display:flex; gap:.5rem; flex-wrap:wrap;">
+    {{ button('Refresh Art Tags Cache', variant='primary', onclick='refreshArtTagsCache()', attrs='id="btn-refresh-art-tags"') }}
+    <span class="muted" style="align-self:center; font-size:.85rem;">Downloads Scryfall's community art-illustration tags (~12 MB, one request) and writes them into card data.</span>
+  </div>
 </section>
 <script>
 (function(){
@@ -760,6 +772,46 @@
   };
 
   pollRulingsStatus();
+
+  // Art tags cache status
+  function pollArtTagsStatus(){
+    fetch('/setup/art-tags-status', { cache: 'no-store' })
+      .then(function(r){ return r.json(); })
+      .then(function(data){
+        var el = document.getElementById('art-tags-cache-status');
+        if (!el) return;
+        if (data.exists) {
+          el.textContent = 'Cache found — ' + data.tagged_count.toLocaleString() + ' cards with art tags • Last built: ' + data.built_at;
+          el.style.color = '';
+        } else {
+          el.textContent = 'No cache yet. Click "Refresh Art Tags Cache" to build it.';
+          el.style.color = '#94a3b8';
+        }
+      })
+      .catch(function(){
+        var el = document.getElementById('art-tags-cache-status');
+        if (el) el.textContent = 'Unable to check status.';
+      });
+  }
+
+  window.refreshArtTagsCache = function(){
+    var btn = document.getElementById('btn-refresh-art-tags');
+    if (!confirm('Download Scryfall art tags bulk file (~12 MB) and write it into card data? This runs in the background and takes 1-2 minutes.')) return;
+    if (btn) { btn.disabled = true; btn.textContent = 'Building… (check container logs)'; }
+    fetch('/setup/refresh-art-tags', { method: 'POST' })
+      .then(function(r){ return r.json(); })
+      .then(function(data){
+        if (data.ok) {
+          if (btn) btn.textContent = 'Running in background — check logs for progress.';
+          setTimeout(function(){ if (btn) { btn.disabled = false; btn.textContent = 'Refresh Art Tags Cache'; } pollArtTagsStatus(); }, 10000);
+        } else {
+          if (btn) { btn.disabled = false; btn.textContent = 'Start failed — see logs'; setTimeout(function(){ btn.textContent = 'Refresh Art Tags Cache'; }, 3000); }
+        }
+      })
+      .catch(function(){ if (btn) { btn.disabled = false; btn.textContent = 'Refresh Art Tags Cache'; } });
+  };
+
+  pollArtTagsStatus();
 
   setInterval(poll, 3000);
   poll();

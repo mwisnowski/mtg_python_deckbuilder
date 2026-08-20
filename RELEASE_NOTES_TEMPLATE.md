@@ -2,13 +2,19 @@
 
 ## [Unreleased]
 ### Added
-_No unreleased changes yet_
+- Tagging: new `code/scripts/apply_oracle_tag_adoptions.py` applies human-reviewed Scryfall Oracle Tag consolidation/adoption decisions to `all_cards.parquet`, adding 64 new theme/metadata tags (e.g. Spot Removal, Sacrifice Outlet, Pathway Lands, Group Hug, several Tutor/Theft/Removal/Sacrifice Outlet metadata tags) and merging ~1,800 additional overlap-based tag consolidations across the card pool.
+- Tagging: new creature type-family groupings, mirroring the existing Outlaw mechanic: `Party` (Cleric/Rogue/Warrior/Wizard), `Sea Monster` (Kraken/Leviathan/Octopus/Serpent), `Fiend` (Demon/Devil/Imp/Tiefling), `Undead` (Zombie/Skeleton), and `Nature` (Plant/Treefolk/Fungus/Saproling). Cards with a member type now also get the synthetic family type, which surfaces as a `{Family} Kindred` theme tag.
+- Data: added optional support for Scryfall's community art-illustration tags, buildable from the Setup page.
+- Web: cards can now be searched by their art/illustration tags, and a collapsed "Art Tags" section appears on card detail pages when available.
+- Web: search terms with dashes (e.g. `rabbit-battery`) now work the same as quoting a space-separated equivalent, everywhere search is used.
+- Web: card detail pages show a collapsed "Metadata Tags (internal)" section for the deck builder's own internal/diagnostic tags, now searchable with a new `metadata:`/`mtag:`/`metatag:` flag.
 
 ### Changed
-_No unreleased changes yet_
+- Web: search autocomplete (`GET /cards` theme suggestions) now reads `config/themes/theme_list.json` instead of `theme_catalog.csv`, since the JSON file is regenerated automatically by every tagging run while the CSV needs a separate manual script; new/renamed themes now show up in autocomplete without an extra step.
 
 ### Fixed
-_No unreleased changes yet_
+- Web: fixed a theme catalog path-resolution bug where the search autocomplete's local-dev path calculation could resolve to a small committed test fixture directory instead of the real theme catalog.
+- Tagging: fixed a bug where suggested example commanders for some themes could include cards that aren't actually legal commanders.
 
 ### Removed
 _No unreleased changes yet_

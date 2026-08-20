@@ -117,27 +117,31 @@ def get_similarity() -> "CardSimilarity":
 
 def get_theme_catalog() -> list[str]:
     """
-    Get cached list of all theme names from theme_catalog.csv.
+    Get cached list of all theme names from theme_list.json.
     
-    Reads from the catalog CSV which includes all themes from all_cards.parquet
-    (not just commander themes). Much faster than parsing themes from 26k+ cards.
-    Used for autocomplete suggestions.
+    theme_list.json is regenerated automatically by every tagging run (unlike
+    the supplemental theme_catalog.csv, which needs a separate manual script),
+    so it's the more reliably up-to-date source for autocomplete. Only theme
+    names are needed here, not the CSV's per-theme counts.
     
     Returns ~900+ themes (as of latest generation).
     """
     global _theme_catalog
     if _theme_catalog is None:
-        import csv
+        import json
         from pathlib import Path
         import os
         
         print("Loading theme catalog...", flush=True)
         
-        # Try multiple possible paths (local dev vs Docker)
+        # Try multiple possible paths (local dev vs Docker).
+        # NOTE: parents[3] from code/web/routes/card_browser.py is the repo root
+        # (code/web/routes -> code/web -> code -> root); code/config/themes/ is a
+        # small committed CI fixture (editorial_governance tests), not the real catalog.
         possible_paths = [
-            Path(__file__).parent.parent.parent / "config" / "themes" / "theme_catalog.csv",  # Local dev
-            Path("/app/config/themes/theme_catalog.csv"),  # Docker
-            Path(os.environ.get("CONFIG_DIR", "/app/config")) / "themes" / "theme_catalog.csv",  # Env var
+            Path(__file__).resolve().parents[3] / "config" / "themes" / "theme_list.json",  # Local dev
+            Path("/app/config/themes/theme_list.json"),  # Docker
+            Path(os.environ.get("CONFIG_DIR", "/app/config")) / "themes" / "theme_list.json",  # Env var
         ]
         
         themes = []
@@ -148,17 +152,13 @@ def get_theme_catalog() -> list[str]:
             if catalog_path.exists():
                 try:
                     with open(catalog_path, 'r', encoding='utf-8') as f:
-                        # Skip comment lines starting with #
-                        lines = [line for line in f if not line.strip().startswith('#')]
+                        payload = json.load(f)
                     
-                    # Parse CSV from non-comment lines
-                    from io import StringIO
-                    csv_content = StringIO(''.join(lines))
-                    reader = csv.DictReader(csv_content)
-                    
-                    for row in reader:
-                        if 'theme' in row and row['theme']:
-                            themes.append(row['theme'].lstrip('\\'))
+                    themes = [
+                        entry["theme"]
+                        for entry in payload.get("themes", [])
+                        if entry.get("theme")
+                    ]
                     
                     _theme_catalog = themes
                     print(f"Loaded {len(themes)} themes from catalog: {catalog_path}", flush=True)
@@ -279,7 +279,7 @@ def _apply_search_query(filtered_df: "pd.DataFrame", search: str) -> "pd.DataFra
 @router.get("/", response_class=HTMLResponse)
 async def card_browser_index(
     request: Request,
-    search: str = Query("", description="Card name search, or Scryfall-style flags (t:/o:/c:/id:/m:/mv:/pow:/tou:/loy:/r:/tag:/is:new/set:)"),
+    search: str = Query("", description="Card name search, or Scryfall-style flags (t:/o:/c:/id:/m:/mv:/pow:/tou:/loy:/r:/tag:/art:/is:new/set:)"),
     themes: list[str] = Query([], description="Theme tag filters (AND logic)"),
     sort: str = Query("name_asc", description="Sort order"),
 ):
@@ -493,7 +493,7 @@ async def card_browser_index(
 async def card_browser_grid(
     request: Request,
     cursor: str = Query("", description="Last card name from previous page"),
-    search: str = Query("", description="Card name search, or Scryfall-style flags (t:/o:/c:/id:/m:/mv:/pow:/tou:/loy:/r:/tag:/is:new/set:)"),
+    search: str = Query("", description="Card name search, or Scryfall-style flags (t:/o:/c:/id:/m:/mv:/pow:/tou:/loy:/r:/tag:/art:/is:new/set:)"),
     themes: list[str] = Query([], description="Theme tag filters (AND logic)"),
     sort: str = Query("name_asc", description="Sort order"),
 ):
@@ -1093,6 +1093,8 @@ async def card_detail(request: Request, card_name: str, ref: str = Query("", des
         
         # Parse theme tags using helper function
         card['themeTags_parsed'] = parse_theme_tags(card.get('themeTags', ''))
+        card['artTags_parsed'] = parse_theme_tags(card.get('artTags', ''))
+        card['metadataTags_parsed'] = parse_theme_tags(card.get('metadataTags', ''))
         
         # Calculate similar cards using cached singleton
         similarity = get_similarity()

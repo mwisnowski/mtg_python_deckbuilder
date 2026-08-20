@@ -1,0 +1,13 @@
+# Oracle Tag Adoption classification overrides (Roadmap 37 Milestone 1).
+#
+# Optional map used only to correct classify_tag()'s automatic theme-vs-metadata
+# guess for a brand-new tag name introduced via a consolidate_to entry in
+# logs/roadmaps/artifacts/oracle_tag_comparison.json. Not consulted for
+# possible_metadata_tags entries (those always become metadataTags directly).
+#
+# Starts empty. Add an entry only when apply_oracle_tag_adoptions.py's dry-run
+# summary flags a newly created tag with the wrong classification.
+#
+# Format:
+#   Tag Name: theme
+#   Another Tag: metadata

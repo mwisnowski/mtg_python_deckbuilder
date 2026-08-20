@@ -861,6 +861,25 @@ def kindred_tagging(df: pd.DataFrame, color: str) -> None:
         outlaw_time = pd.Timestamp.now()
         logger.info(f'Outlaw type processing completed in {(outlaw_time - creature_time).total_seconds():.2f}s')
 
+        # Community-recognized type-family groupings (Party, Sea Monster, Fiend, Undead, Nature)
+        logger.info(f'Setting type-family creature type tags on {color}_cards.csv')
+        type_families = [
+            ('Party', tag_constants.PARTY_TYPES),
+            ('Sea Monster', tag_constants.SEA_MONSTER_TYPES),
+            ('Fiend', tag_constants.FIEND_TYPES),
+            ('Undead', tag_constants.UNDEAD_TYPES),
+            ('Nature', tag_constants.NATURE_TYPES),
+        ]
+        for family_name, family_types in type_families:
+            df['creatureTypes'] = df.apply(
+                lambda row: tag_utils.add_type_family(row['creatureTypes'], family_types, family_name)
+                if isinstance(row['creatureTypes'], list) else row['creatureTypes'],
+                axis=1
+            )
+
+        type_family_time = pd.Timestamp.now()
+        logger.info(f'Type-family processing completed in {(type_family_time - outlaw_time).total_seconds():.2f}s')
+
         # Find creature types in text
         logger.info('Checking for creature types in card text')
         # Check for creature types in text (i.e. how 'Voja, Jaws of the Conclave' cares about Elves)
@@ -883,7 +902,7 @@ def kindred_tagging(df: pd.DataFrame, color: str) -> None:
             )
 
         text_time = pd.Timestamp.now()
-        logger.info(f'Text-based type detection completed in {(text_time - outlaw_time).total_seconds():.2f}s')
+        logger.info(f'Text-based type detection completed in {(text_time - type_family_time).total_seconds():.2f}s')
 
         # Skip intermediate disk writes; final save happens at end of tag_by_color
         total_time = pd.Timestamp.now() - start_time

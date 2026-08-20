@@ -9,6 +9,22 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 
 ## [Unreleased]
 ### Added
+_No unreleased changes yet_
+
+### Changed
+_No unreleased changes yet_
+
+### Fixed
+_No unreleased changes yet_
+
+### Removed
+_No unreleased changes yet_
+
+### Security
+_No unreleased changes yet_
+
+## [5.9.0] - 2026-08-20
+### Added
 - Tagging: new `code/scripts/apply_oracle_tag_adoptions.py` applies human-reviewed Scryfall Oracle Tag consolidation/adoption decisions to `all_cards.parquet`, adding 64 new theme/metadata tags (e.g. Spot Removal, Sacrifice Outlet, Pathway Lands, Group Hug, several Tutor/Theft/Removal/Sacrifice Outlet metadata tags) and merging ~1,800 additional overlap-based tag consolidations across the card pool.
 - Tagging: new creature type-family groupings, mirroring the existing Outlaw mechanic: `Party` (Cleric/Rogue/Warrior/Wizard), `Sea Monster` (Kraken/Leviathan/Octopus/Serpent), `Fiend` (Demon/Devil/Imp/Tiefling), `Undead` (Zombie/Skeleton), and `Nature` (Plant/Treefolk/Fungus/Saproling). Cards with a member type now also get the synthetic family type, which surfaces as a `{Family} Kindred` theme tag.
 - Data: new optional `artTags` column sourced from Scryfall's community art-illustration tag project, mapped by illustration rather than card function (so different printings of the same card can have different art tags). Buildable on demand from the Setup page ("Art Tags Cache") or via the similarity-cache CI workflow; not required for core deckbuilding.

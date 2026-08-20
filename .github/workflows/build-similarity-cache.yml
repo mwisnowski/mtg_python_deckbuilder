@@ -291,6 +291,11 @@ jobs:
             echo "✓ Rulings cache built"
           fi
       
+      - name: Build art tags cache from Scryfall bulk data
+        if: steps.check_cache.outputs.needs_build == 'true'
+        run: |
+          python -c "from code.file_setup.art_tags_cache import build_art_tags_cache; build_art_tags_cache(output_func=print)" || echo "WARNING: Art tags cache build failed (non-fatal, artTags column will be missing/empty)"
+      
       - name: Build printings index (Choose Printing feature)
         if: steps.check_cache.outputs.needs_build == 'true'
         run: |

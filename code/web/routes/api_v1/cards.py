@@ -39,6 +39,7 @@ from ...services.card_search import (
     apply_name_clauses as _apply_name_clauses,
     apply_numeric_clauses as _apply_numeric_clauses,
     apply_text_clauses as _apply_text_clauses,
+    normalize_word_sep as _normalize_word_sep,
     parse_color_cell as _parse_color_cell,
     parse_search_query as _parse_search_query,
 )
@@ -97,6 +98,8 @@ async def _scryfall_card_fallback(name: str) -> Optional[Dict[str, Any]]:
         "colorIdentity": ",".join(data.get("color_identity") or []),
         "rarity": data.get("rarity"),
         "themeTags": [],
+        "artTags": [],
+        "metadataTags": [],
         "edhrecRank": data.get("edhrec_rank"),
         "scryfallID": data.get("id"),
         "text": data.get("oracle_text") or primary_face.get("oracle_text"),
@@ -226,6 +229,8 @@ def _serialize_card(row, *, full: bool = False) -> Dict[str, Any]:
         "colorIdentity": card.get("colorIdentity"),
         "rarity": card.get("rarity"),
         "themeTags": parse_theme_tags(card.get("themeTags")),
+        "artTags": parse_theme_tags(card.get("artTags")),
+        "metadataTags": parse_theme_tags(card.get("metadataTags")),
         "edhrecRank": card.get("edhrecRank"),
         "scryfallID": card.get("scryfallID"),
     }
@@ -257,7 +262,10 @@ async def list_cards(
             "https://scryfall.com/docs/syntax): c:/color:, id:/identity:, "
             "t:/type:, o:/oracle:, m:/mana:, mv:/cmc:/manavalue:, pow:/power:, "
             "tou:/toughness: -- each accepts :, =, >, <, >=, <=, or != and may be "
-            "negated with a leading -. Note: bare `id:br` matches anything playable "
+            "negated with a leading -. Also supports tag:/theme: (theme tags), "
+            "art:/atag:/arttag: (Scryfall community illustration tags), and "
+            "metadata:/mtag:/metatag: (internal deck-builder tags). Note: bare "
+            "`id:br` matches anything playable "
             "with a black/red identity (subset, incl. colorless), while `id=br` "
             "matches only exact black/red; bare `color:br` matches cards including "
             "at least black and red (superset), while `color=br` is exact-only. "
@@ -322,18 +330,35 @@ async def list_cards(
     # parsed out of `q`; AND logic (a card must have all requested tags).
     # `-tag:`/`-theme:` flags parsed out of `q` exclude cards with any of
     # those tags (OR logic: excluded if it has at least one).
-    requested_tags = {t.strip().lower() for t in tags.split(",") if t.strip()}
+    requested_tags = {_normalize_word_sep(t) for t in tags.split(",") if t.strip()}
     if parsed.tags:
         requested_tags |= parsed.tags
     if (requested_tags or parsed.tags_exclude) and "themeTags" in df.columns:
         # themeTags may be stored as a string, list, or numpy array depending on
         # source (raw CSV vs. Parquet) -- parse_theme_tags() normalizes all of them.
-        card_tag_sets = df["themeTags"].apply(lambda v: {t.lower() for t in parse_theme_tags(v)})
+        card_tag_sets = df["themeTags"].apply(lambda v: {_normalize_word_sep(t) for t in parse_theme_tags(v)})
         if requested_tags:
             df = df[card_tag_sets.loc[df.index].apply(lambda card_tags: all(tag in card_tags for tag in requested_tags))]
         if parsed.tags_exclude:
             df = df[card_tag_sets.loc[df.index].apply(lambda card_tags: not any(tag in card_tags for tag in parsed.tags_exclude))]
 
+    # Art tags (art:/atag:/arttag: flags in q) -- illustration tags, not exposed
+    # as an explicit query param since they're a niche/advanced search only.
+    if (parsed.art_tags or parsed.art_tags_exclude) and "artTags" in df.columns:
+        art_tag_sets = df["artTags"].apply(lambda v: {_normalize_word_sep(t) for t in parse_theme_tags(v)})
+        if parsed.art_tags:
+            df = df[art_tag_sets.loc[df.index].apply(lambda card_tags: all(tag in card_tags for tag in parsed.art_tags))]
+        if parsed.art_tags_exclude:
+            df = df[art_tag_sets.loc[df.index].apply(lambda card_tags: not any(tag in card_tags for tag in parsed.art_tags_exclude))]
+
+    # Metadata tags (metadata:/mtag:/metatag: flags in q) -- internal deck-builder
+    # tags, not exposed as an explicit query param (niche/advanced search only).
+    if (parsed.metadata_tags or parsed.metadata_tags_exclude) and "metadataTags" in df.columns:
+        metadata_tag_sets = df["metadataTags"].apply(lambda v: {_normalize_word_sep(t) for t in parse_theme_tags(v)})
+        if parsed.metadata_tags:
+            df = df[metadata_tag_sets.loc[df.index].apply(lambda card_tags: all(tag in card_tags for tag in parsed.metadata_tags))]
+        if parsed.metadata_tags_exclude:
+            df = df[metadata_tag_sets.loc[df.index].apply(lambda card_tags: not any(tag in card_tags for tag in parsed.metadata_tags_exclude))]
 
     if min_cmc is not None and "manaValue" in df.columns:
         df = df[df["manaValue"] >= min_cmc]

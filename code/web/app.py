@@ -79,10 +79,10 @@ async def _lifespan(app: FastAPI):  # pragma: no cover - simple infra glue
         maybe_build_index()
     except Exception:
         pass
-    # Warm card browser theme catalog (fast CSV read) and theme index (slower card parsing)
+    # Warm card browser theme catalog (fast JSON read) and theme index (slower card parsing)
     try:
         from .routes.card_browser import get_theme_catalog, get_theme_index
-        get_theme_catalog()  # Fast: just reads CSV
+        get_theme_catalog()  # Fast: just reads theme_list.json
         get_theme_index()    # Slower: parses cards for theme-to-card mapping
     except Exception:
         pass

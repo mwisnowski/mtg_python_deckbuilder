@@ -48,6 +48,26 @@ def parse_color_cell(raw: Any) -> set:
     return {c.strip().upper() for c in raw.split(",") if c.strip()}
 
 
+def _hyphen_flex_pattern(term: str) -> str:
+    """Build a regex from a substring search term that treats `-` and
+    whitespace as interchangeable, so e.g. `t:legendary-creature` also
+    matches "Legendary Creature" without needing quotes. Cards whose real
+    name/type/text already contains a literal hyphen (e.g. Krark-Clan Ogre)
+    still match normally, since a hyphen in the term also matches a hyphen
+    in the target text."""
+    parts = [re.escape(p) for p in re.split(r"[-\s]+", term.strip()) if p]
+    return r"[-\s]+".join(parts) if parts else re.escape(term)
+
+
+def normalize_word_sep(value: str) -> str:
+    """Collapse `-`/whitespace runs to a single space and lowercase, so
+    exact-match tag values (theme/art tags) can be typed with hyphens
+    instead of quoted spaces, e.g. `tag:spot-removal` == `tag:"Spot Removal"`.
+    Used on both the parsed search value and the card's own tag strings, so
+    it's symmetric regardless of which one uses a hyphen vs. a space."""
+    return re.sub(r"[-\s]+", " ", value.strip()).lower()
+
+
 _FLAG_TOKEN_RE = re.compile(r"^(-)?([A-Za-z]+)(:|>=|<=|!=|>|<|=)(.+)$")
 
 _KEY_ALIASES: Dict[str, str] = {
@@ -63,6 +83,8 @@ _KEY_ALIASES: Dict[str, str] = {
     "manavalue": "cmc", "mv": "cmc", "cmc": "cmc",
     "rarity": "rarity", "r": "rarity",
     "tag": "tag", "theme": "tag",
+    "art": "arttag", "atag": "arttag", "arttag": "arttag",
+    "metadata": "metadatatag", "mtag": "metadatatag", "metatag": "metadatatag",
     "is": "is",
     "set": "set", "s": "set", "e": "set", "edition": "set",
 }
@@ -138,6 +160,10 @@ class ParsedSearch:
     rarity: Optional[Set[str]] = None
     tags: Optional[Set[str]] = None
     tags_exclude: Optional[Set[str]] = None
+    art_tags: Optional[Set[str]] = None
+    art_tags_exclude: Optional[Set[str]] = None
+    metadata_tags: Optional[Set[str]] = None
+    metadata_tags_exclude: Optional[Set[str]] = None
     is_new: Optional[bool] = None
     set_include: Set[str] = field(default_factory=set)
     set_exclude: Set[str] = field(default_factory=set)
@@ -322,9 +348,9 @@ def apply_text_clauses(df: "pd.DataFrame", column: str, include: List[str], excl
     if column not in df.columns:
         return df
     for term in include:
-        df = df[df[column].str.contains(term, case=False, na=False, regex=False)]
+        df = df[df[column].str.contains(_hyphen_flex_pattern(term), case=False, na=False, regex=True)]
     for term in exclude:
-        df = df[~df[column].str.contains(term, case=False, na=False, regex=False)]
+        df = df[~df[column].str.contains(_hyphen_flex_pattern(term), case=False, na=False, regex=True)]
     return df
 
 
@@ -351,9 +377,9 @@ def apply_name_clauses(df: "pd.DataFrame", include: List[str], exclude: List[str
         return df
     strict = df
     for term in include:
-        strict = strict[strict["name"].str.contains(term, case=False, na=False, regex=False)]
+        strict = strict[strict["name"].str.contains(_hyphen_flex_pattern(term), case=False, na=False, regex=True)]
     for term in exclude:
-        strict = strict[~strict["name"].str.contains(term, case=False, na=False, regex=False)]
+        strict = strict[~strict["name"].str.contains(_hyphen_flex_pattern(term), case=False, na=False, regex=True)]
     if not include or not strict.empty:
         return strict
 
@@ -364,7 +390,7 @@ def apply_name_clauses(df: "pd.DataFrame", include: List[str], exclude: List[str
     scores = df["name"].astype(str).apply(lambda n: SequenceMatcher(None, query, _normalize_fuzzy_name(n)).ratio())
     fuzzy = df[scores >= _FUZZY_NAME_THRESHOLD]
     for term in exclude:
-        fuzzy = fuzzy[~fuzzy["name"].str.contains(term, case=False, na=False, regex=False)]
+        fuzzy = fuzzy[~fuzzy["name"].str.contains(_hyphen_flex_pattern(term), case=False, na=False, regex=True)]
     return fuzzy
 
 
@@ -374,9 +400,11 @@ def filter_names_fuzzy(names: List[str], include: List[str], exclude: List[str])
     Same strict-substring-then-fuzzy-fallback behavior."""
     def _strict(pool: List[str]) -> List[str]:
         for term in include:
-            pool = [n for n in pool if term.lower() in n.lower()]
+            regex = re.compile(_hyphen_flex_pattern(term), re.IGNORECASE)
+            pool = [n for n in pool if regex.search(n)]
         for term in exclude:
-            pool = [n for n in pool if term.lower() not in n.lower()]
+            regex = re.compile(_hyphen_flex_pattern(term), re.IGNORECASE)
+            pool = [n for n in pool if not regex.search(n)]
         return pool
 
     strict = _strict(names)
@@ -389,7 +417,8 @@ def filter_names_fuzzy(names: List[str], include: List[str], exclude: List[str])
 
     fuzzy = [n for n in names if SequenceMatcher(None, query, _normalize_fuzzy_name(n)).ratio() >= _FUZZY_NAME_THRESHOLD]
     for term in exclude:
-        fuzzy = [n for n in fuzzy if term.lower() not in n.lower()]
+        regex = re.compile(_hyphen_flex_pattern(term), re.IGNORECASE)
+        fuzzy = [n for n in fuzzy if not regex.search(n)]
     return fuzzy
 
 
@@ -438,12 +467,26 @@ def _apply_search_flag(parsed: ParsedSearch, canonical: str, op: str, value: str
         if rarities:
             parsed.rarity = (parsed.rarity or set()) | rarities
     elif canonical == "tag":
-        tags = {v.strip().lower() for v in value.split(",") if v.strip()}
+        tags = {normalize_word_sep(v) for v in value.split(",") if v.strip()}
         if tags:
             if negate:
                 parsed.tags_exclude = (parsed.tags_exclude or set()) | tags
             else:
                 parsed.tags = (parsed.tags or set()) | tags
+    elif canonical == "arttag":
+        art_tags = {normalize_word_sep(v) for v in value.split(",") if v.strip()}
+        if art_tags:
+            if negate:
+                parsed.art_tags_exclude = (parsed.art_tags_exclude or set()) | art_tags
+            else:
+                parsed.art_tags = (parsed.art_tags or set()) | art_tags
+    elif canonical == "metadatatag":
+        metadata_tags = {normalize_word_sep(v) for v in value.split(",") if v.strip()}
+        if metadata_tags:
+            if negate:
+                parsed.metadata_tags_exclude = (parsed.metadata_tags_exclude or set()) | metadata_tags
+            else:
+                parsed.metadata_tags = (parsed.metadata_tags or set()) | metadata_tags
     elif canonical == "is" and value.lower() == "new":
         parsed.is_new = False if negate else True
     elif canonical == "set":
@@ -507,11 +550,23 @@ def apply_extra_clauses(df: "pd.DataFrame", parsed: ParsedSearch) -> "pd.DataFra
     if parsed.rarity and "rarity" in df.columns:
         df = df[df["rarity"].astype(str).str.lower().isin(parsed.rarity)]
     if (parsed.tags or parsed.tags_exclude) and "themeTags" in df.columns:
-        card_tag_sets = df["themeTags"].apply(lambda v: {t.lower() for t in parse_theme_tags(v)})
+        card_tag_sets = df["themeTags"].apply(lambda v: {normalize_word_sep(t) for t in parse_theme_tags(v)})
         if parsed.tags:
             df = df[card_tag_sets.loc[df.index].apply(lambda card_tags: all(tag in card_tags for tag in parsed.tags))]
         if parsed.tags_exclude:
             df = df[card_tag_sets.loc[df.index].apply(lambda card_tags: not any(tag in card_tags for tag in parsed.tags_exclude))]
+    if (parsed.art_tags or parsed.art_tags_exclude) and "artTags" in df.columns:
+        art_tag_sets = df["artTags"].apply(lambda v: {normalize_word_sep(t) for t in parse_theme_tags(v)})
+        if parsed.art_tags:
+            df = df[art_tag_sets.loc[df.index].apply(lambda card_tags: all(tag in card_tags for tag in parsed.art_tags))]
+        if parsed.art_tags_exclude:
+            df = df[art_tag_sets.loc[df.index].apply(lambda card_tags: not any(tag in card_tags for tag in parsed.art_tags_exclude))]
+    if (parsed.metadata_tags or parsed.metadata_tags_exclude) and "metadataTags" in df.columns:
+        metadata_tag_sets = df["metadataTags"].apply(lambda v: {normalize_word_sep(t) for t in parse_theme_tags(v)})
+        if parsed.metadata_tags:
+            df = df[metadata_tag_sets.loc[df.index].apply(lambda card_tags: all(tag in card_tags for tag in parsed.metadata_tags))]
+        if parsed.metadata_tags_exclude:
+            df = df[metadata_tag_sets.loc[df.index].apply(lambda card_tags: not any(tag in card_tags for tag in parsed.metadata_tags_exclude))]
     if parsed.is_new is not None and "isNew" in df.columns:
         df = df[df["isNew"] == parsed.is_new]
     if parsed.set_include and "printings" in df.columns:
@@ -535,6 +590,8 @@ def has_structured_flags(parsed: ParsedSearch) -> bool:
         or parsed.power_clauses or parsed.toughness_clauses
         or parsed.loyalty_clauses or parsed.cmc_clauses
         or parsed.mana_cost_clauses
-        or parsed.rarity or parsed.tags or parsed.tags_exclude or parsed.is_new is not None
+        or parsed.rarity or parsed.tags or parsed.tags_exclude
+        or parsed.art_tags or parsed.art_tags_exclude
+        or parsed.metadata_tags or parsed.metadata_tags_exclude or parsed.is_new is not None
         or parsed.set_include or parsed.set_exclude
     )

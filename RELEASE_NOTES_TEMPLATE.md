@@ -8,14 +8,18 @@ _No unreleased changes yet_
 _No unreleased changes yet_
 
 ### Fixed
-- Tagging: transform/modal-DFC cards (e.g. Delver of Secrets // Insectile Aberration) weren't getting art tags; both faces are now checked.
-- Web: fixed the `name:"..."` search flag ignoring quoted phrases and dashes and returning overly broad results.
+_No unreleased changes yet_
 
 ### Removed
 _No unreleased changes yet_
 
 ### Security
 _No unreleased changes yet_
+
+## [5.9.1]
+### Fixed
+- Tagging: transform/modal-DFC cards (e.g. Delver of Secrets // Insectile Aberration) weren't getting art tags; both faces are now checked.
+- Web: fixed the `name:"..."` search flag ignoring quoted phrases and dashes and returning overly broad results.
 
 ## [5.9.0]
 ### Added

@@ -12,8 +12,11 @@ Strategy:
 2. Download the Art Tags bulk JSONL (one Tag object per line, each with a
    list of "taggings" -> [{"illustration_id": ..., "weight": ...}, ...])
 3. Build illustration_id -> [tag labels] from it
-4. Build scryfallID -> illustration_id from card_files/raw/scryfall_bulk_data.json
-5. For each card in all_cards.parquet, write scryfallID -> tags into artTags
+4. Build scryfallID -> [illustration_id, ...] from card_files/raw/scryfall_bulk_data.json
+   (usually one id, but transform/modal_dfc/reversible_card layouts store
+   illustration_id per face instead of on the card object, so both faces'
+   ids are collected and their tags merged)
+5. For each card in all_cards.parquet, write scryfallID -> merged tags into artTags
 
 Optional, standalone step -- not part of the default full pipeline (mirrors
 code/file_setup/rulings_cache.py's rollout pattern), since it requires a
@@ -49,9 +52,15 @@ def _get(url: str) -> bytes:
         return r.read()
 
 
-def build_illustration_id_map() -> dict[str, str]:
+def build_illustration_id_map() -> dict[str, list[str]]:
     """
-    Return scryfallID -> illustration_id using the local scryfall_bulk_data.json.
+    Return scryfallID -> [illustration_id, ...] using the local scryfall_bulk_data.json.
+
+    Single-faced cards (and split/adventure/flip layouts, which share one
+    piece of art across both halves) carry `illustration_id` at the top
+    level. Transform/modal_dfc/reversible_card layouts have no top-level
+    illustration_id at all -- each face has its own under `card_faces`, so
+    those must be collected separately or the card gets no art tags.
     Falls back to empty dict if the file is missing.
     """
     if not LOCAL_BULK_DATA_PATH.exists():
@@ -59,11 +68,22 @@ def build_illustration_id_map() -> dict[str, str]:
         return {}
     with open(LOCAL_BULK_DATA_PATH, encoding="utf-8") as f:
         cards = json.load(f)
-    return {
-        card["id"]: card["illustration_id"]
-        for card in cards
-        if "id" in card and card.get("illustration_id")
-    }
+    result: dict[str, list[str]] = {}
+    for card in cards:
+        cid = card.get("id")
+        if not cid:
+            continue
+        illustration_ids: list[str] = []
+        top_level = card.get("illustration_id")
+        if top_level:
+            illustration_ids.append(top_level)
+        for face in card.get("card_faces") or []:
+            face_id = face.get("illustration_id")
+            if face_id and face_id not in illustration_ids:
+                illustration_ids.append(face_id)
+        if illustration_ids:
+            result[cid] = illustration_ids
+    return result
 
 
 def fetch_art_tags_bulk(output_func=None) -> list[dict]:
@@ -153,10 +173,14 @@ def build_art_tags_cache(output_func=None) -> None:
     _log(f"Indexed art tags for {len(illustration_tags):,} illustrations.")
 
     def _lookup(sid) -> list[str]:
-        illustration_id = scryfall_to_illustration.get(sid) if sid else None
-        if not illustration_id:
+        illustration_ids = scryfall_to_illustration.get(sid) if sid else None
+        if not illustration_ids:
             return []
-        return illustration_tags.get(illustration_id, [])
+        merged: dict[str, str] = {}
+        for illustration_id in illustration_ids:
+            for label in illustration_tags.get(illustration_id, []):
+                merged.setdefault(label.lower(), label)
+        return sorted(merged.values())
 
     df["artTags"] = df["scryfallID"].apply(_lookup)
 

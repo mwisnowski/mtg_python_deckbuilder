@@ -25,7 +25,31 @@ def test_build_illustration_id_map(tmp_path, monkeypatch):
     monkeypatch.setattr(art_tags_cache, "LOCAL_BULK_DATA_PATH", path)
 
     result = art_tags_cache.build_illustration_id_map()
-    assert result == {"sid-1": "illus-1", "sid-2": "illus-2"}
+    assert result == {"sid-1": ["illus-1"], "sid-2": ["illus-2"]}
+
+
+def test_build_illustration_id_map_multi_faced_card(tmp_path, monkeypatch):
+    bulk = [
+        # transform/modal_dfc: no top-level illustration_id, one per face
+        {"id": "sid-dfc", "card_faces": [
+            {"name": "Front", "illustration_id": "illus-front"},
+            {"name": "Back", "illustration_id": "illus-back"},
+        ]},
+        # split/adventure/flip: single shared top-level illustration_id
+        {"id": "sid-split", "illustration_id": "illus-shared", "card_faces": [
+            {"name": "Front", "illustration_id": "illus-shared"},
+            {"name": "Back"},
+        ]},
+    ]
+    path = tmp_path / "scryfall_bulk_data.json"
+    path.write_text(json.dumps(bulk), encoding="utf-8")
+    monkeypatch.setattr(art_tags_cache, "LOCAL_BULK_DATA_PATH", path)
+
+    result = art_tags_cache.build_illustration_id_map()
+    assert result == {
+        "sid-dfc": ["illus-front", "illus-back"],
+        "sid-split": ["illus-shared"],
+    }
 
 
 def test_build_illustration_id_map_missing_file(tmp_path, monkeypatch):
@@ -54,8 +78,8 @@ def test_build_art_tags_index_dedupes_and_sorts():
 def test_build_art_tags_cache_writes_column(tmp_path, monkeypatch):
     parquet_path = tmp_path / "all_cards.parquet"
     df = pd.DataFrame({
-        "name": ["Card A", "Card B", "Card C"],
-        "scryfallID": ["sid-1", "sid-2", None],
+        "name": ["Card A", "Card B", "Card C", "Card D // Card D Back"],
+        "scryfallID": ["sid-1", "sid-2", None, "sid-dfc"],
     })
     df.to_parquet(parquet_path, index=False)
 
@@ -63,6 +87,10 @@ def test_build_art_tags_cache_writes_column(tmp_path, monkeypatch):
     bulk_path.write_text(json.dumps([
         {"id": "sid-1", "illustration_id": "illus-1"},
         {"id": "sid-2", "illustration_id": "illus-2"},
+        {"id": "sid-dfc", "card_faces": [
+            {"name": "Card D", "illustration_id": "illus-front"},
+            {"name": "Card D Back", "illustration_id": "illus-back"},
+        ]},
     ]), encoding="utf-8")
 
     monkeypatch.setattr(art_tags_cache, "PARQUET_PATH", parquet_path)
@@ -72,6 +100,8 @@ def test_build_art_tags_cache_writes_column(tmp_path, monkeypatch):
         "fetch_art_tags_bulk",
         lambda output_func=None: [
             {"label": "blue glow", "taggings": [{"illustration_id": "illus-1", "weight": "strong"}]},
+            {"label": "axe", "taggings": [{"illustration_id": "illus-front", "weight": "strong"}]},
+            {"label": "snow", "taggings": [{"illustration_id": "illus-back", "weight": "strong"}]},
         ],
     )
 
@@ -81,3 +111,4 @@ def test_build_art_tags_cache_writes_column(tmp_path, monkeypatch):
     assert list(result.loc[result["name"] == "Card A", "artTags"].iloc[0]) == ["blue glow"]
     assert list(result.loc[result["name"] == "Card B", "artTags"].iloc[0]) == []
     assert list(result.loc[result["name"] == "Card C", "artTags"].iloc[0]) == []
+    assert list(result.loc[result["name"] == "Card D // Card D Back", "artTags"].iloc[0]) == ["axe", "snow"]

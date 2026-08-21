@@ -25,6 +25,7 @@ match (or exclude, with `-`) the card name.
 """
 from __future__ import annotations
 
+import os
 import re
 import shlex
 from collections import Counter
@@ -35,6 +36,7 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 import pandas as pd
 
 from code.deck_builder.builder_utils import parse_theme_tags
+from code.path_util import card_files_processed_dir
 
 
 def parse_color_cell(raw: Any) -> set:
@@ -87,6 +89,7 @@ _KEY_ALIASES: Dict[str, str] = {
     "metadata": "metadatatag", "mtag": "metadatatag", "metatag": "metadatatag",
     "is": "is",
     "set": "set", "s": "set", "e": "set", "edition": "set",
+    "cn": "collector_number", "number": "collector_number",
 }
 
 _COLOR_LETTERS = set("WUBRG")
@@ -143,6 +146,18 @@ class ManaCostClause:
 
 
 @dataclass
+class CollectorNumberClause:
+    """A `cn:`/`number:` clause. `:`/`=`/`!=` compare the raw (leading-zero-
+    normalized) string, so suffixed numbers like `123a`/`123*` still work;
+    `>`/`<`/`>=`/`<=` require a numeric prefix (non-numeric values are
+    excluded from the comparison, not errored -- same convention as
+    power/toughness `*`)."""
+    op: str
+    value: str
+    negate: bool = False
+
+
+@dataclass
 class ParsedSearch:
     name_include: List[str] = field(default_factory=list)
     name_exclude: List[str] = field(default_factory=list)
@@ -168,6 +183,8 @@ class ParsedSearch:
     is_new: Optional[bool] = None
     set_include: Set[str] = field(default_factory=set)
     set_exclude: Set[str] = field(default_factory=set)
+    collector_number_clauses: List[CollectorNumberClause] = field(default_factory=list)
+    notices: List[str] = field(default_factory=list)
 
 
 def _parse_color_value(value: str) -> Tuple[Set[str], Optional[int], Optional[str]]:
@@ -423,6 +440,197 @@ def filter_names_fuzzy(names: List[str], include: List[str], exclude: List[str])
     return fuzzy
 
 
+_SET_NAME_MAP: Optional[Dict[str, str]] = None  # normalized set name -> uppercase code
+_SET_CODES: Optional[Set[str]] = None  # every known uppercase code
+_SET_RELEASE_BY_CODE: Optional[Dict[str, str]] = None  # code -> most recent released_at string
+
+
+def _load_set_index() -> Tuple[Dict[str, str], Set[str], Dict[str, str]]:
+    """Lazily build (and cache for the process lifetime) a set-name/code index
+    from `card_files/processed/card_printings.parquet`'s `set`/`set_name`/
+    `released_at` columns, so `set:` can resolve full set names in addition
+    to codes without a new Scryfall bulk-data fetch. Returns empty
+    structures (never raises) if the printings index hasn't been built yet."""
+    global _SET_NAME_MAP, _SET_CODES, _SET_RELEASE_BY_CODE
+    if _SET_NAME_MAP is not None and _SET_CODES is not None and _SET_RELEASE_BY_CODE is not None:
+        return _SET_NAME_MAP, _SET_CODES, _SET_RELEASE_BY_CODE
+
+    name_map: Dict[str, str] = {}
+    codes: Set[str] = set()
+    release_by_code: Dict[str, str] = {}
+    try:
+        path = os.path.join(card_files_processed_dir(), "card_printings.parquet")
+        df = pd.read_parquet(path, columns=["set", "set_name", "released_at"])
+        grouped = df.dropna(subset=["set"]).groupby("set").agg({"set_name": "first", "released_at": "max"})
+        for code, row in grouped.iterrows():
+            code_upper = str(code).strip().upper()
+            if not code_upper:
+                continue
+            codes.add(code_upper)
+            release_by_code[code_upper] = str(row["released_at"] or "")
+            set_name = row["set_name"]
+            if set_name:
+                name_map[normalize_word_sep(str(set_name))] = code_upper
+    except Exception:
+        name_map, codes, release_by_code = {}, set(), {}
+
+    _SET_NAME_MAP, _SET_CODES, _SET_RELEASE_BY_CODE = name_map, codes, release_by_code
+    return name_map, codes, release_by_code
+
+
+def _resolve_set_value(value: str) -> Tuple[str, Optional[str]]:
+    """Resolve a `set:` flag's raw value into a set code, accepting either a
+    real set code (e.g. `khm`) or a full set name (e.g. `kaldheim`), using
+    `card_files/processed/card_printings.parquet` as the name/code index.
+
+    Returns `(code, notice)`: `code` is always populated (falls back to the
+    raw alnum-stripped-uppercase value if nothing resolves, so an unknown or
+    unindexed code still behaves exactly as before); `notice` is a human-
+    readable "Did you mean" message when a name substring matched more than
+    one set, else `None`.
+    """
+    raw_code = re.sub(r"[^A-Za-z0-9]", "", value).upper()
+    name_map, codes, release_by_code = _load_set_index()
+
+    if raw_code and raw_code in codes:
+        return raw_code, None
+
+    normalized = normalize_word_sep(value)
+    if normalized in name_map:
+        return name_map[normalized], None
+
+    candidates = sorted({(name, code) for name, code in name_map.items() if normalized and normalized in name})
+    if candidates:
+        # Stable-sort least-significant-key-first: most recent release wins
+        # ties, then shortest (closest-to-exact) name wins overall.
+        candidates.sort(key=lambda pair: release_by_code.get(pair[1], ""), reverse=True)
+        candidates.sort(key=lambda pair: len(pair[0]))
+        chosen_name, chosen_code = candidates[0]
+        if len(candidates) > 1:
+            alternates = ", ".join(f"{n.title()} ({c})" for n, c in candidates[1:6])
+            notice = (
+                f"'{value}' matched multiple sets -- using '{chosen_name.title()}' ({chosen_code}). "
+                f"Also matched: {alternates}. Use set:CODE to be specific."
+            )
+            return chosen_code, notice
+        return chosen_code, None
+
+    return raw_code, None
+
+
+_PRINTINGS_INDEX_DF: Optional["pd.DataFrame"] = None
+_PRINTINGS_INDEX_LOADED: bool = False
+
+
+def _load_printings_index_df() -> Optional["pd.DataFrame"]:
+    """Lazily load (and cache for the process lifetime)
+    `card_files/processed/card_printings.parquet`'s per-printing rows, used
+    to resolve `cn:`/`number:` clauses (collector number is per-printing,
+    not on the collapsed `all_cards.parquet` row). Returns `None` (never
+    raises) if the printings index hasn't been built yet."""
+    global _PRINTINGS_INDEX_DF, _PRINTINGS_INDEX_LOADED
+    if _PRINTINGS_INDEX_LOADED:
+        return _PRINTINGS_INDEX_DF
+    try:
+        path = os.path.join(card_files_processed_dir(), "card_printings.parquet")
+        _PRINTINGS_INDEX_DF = pd.read_parquet(
+            path, columns=["face_name", "set", "collector_number", "scryfall_id", "score", "released_at"]
+        )
+    except Exception:
+        _PRINTINGS_INDEX_DF = None
+    _PRINTINGS_INDEX_LOADED = True
+    return _PRINTINGS_INDEX_DF
+
+
+def _collector_number_numeric_prefix(value: str) -> Optional[float]:
+    m = re.match(r"^0*(\d+)", str(value).strip())
+    return float(m.group(1)) if m else None
+
+
+def _collector_number_normalized(value: str) -> str:
+    """Strip leading zeros while keeping any suffix, e.g. `007` -> `7`,
+    `007a` -> `7a`, so formatting differences between sets don't break an
+    exact-equality match."""
+    s = str(value).strip()
+    m = re.match(r"^0*(\d+)(.*)$", s)
+    return (m.group(1) + m.group(2)) if m else s
+
+
+def _collector_number_match_mask(subset: "pd.DataFrame", clauses: List[CollectorNumberClause]) -> "pd.Series":
+    """Boolean mask over a `card_printings.parquet` slice (`subset`) marking
+    rows satisfying every clause in `clauses` (ANDed)."""
+    actual_raw = subset["collector_number"].astype(str)
+    actual_norm = actual_raw.apply(_collector_number_normalized)
+    actual_num = actual_raw.apply(_collector_number_numeric_prefix)
+
+    mask = pd.Series(True, index=subset.index)
+    for clause in clauses:
+        if clause.op in (":", "=", "!="):
+            target = _collector_number_normalized(clause.value)
+            matched = (actual_norm != target) if clause.op == "!=" else (actual_norm == target)
+        else:
+            expected = _collector_number_numeric_prefix(clause.value)
+            matched = pd.Series(False, index=subset.index)
+            if expected is not None:
+                valid = actual_num.notna()
+                matched.loc[valid] = _compare_numeric(actual_num[valid], clause.op, expected)
+        if clause.negate:
+            matched = ~matched
+        mask &= matched
+    return mask
+
+
+def resolve_collector_number_printings(parsed: ParsedSearch) -> Dict[str, str]:
+    """For a query combining `set:` with `cn:`/`number:`, resolve each
+    matching card to one specific printing's `scryfall_id` -- an exact-
+    equality clause naturally narrows to a single printing; a range clause
+    (`cn>50`) narrows to the best-scored printing among the matched range
+    (highest `score`, tie-broken by most recent `released_at`, mirroring
+    `ImageCache.get_default_printing_id()`'s convention). Returns
+    `{card-name-lower: scryfall_id}`, empty if `cn:`/`number:` wasn't used,
+    has no `set:` to pair with, or the printings index is unavailable."""
+    if not parsed.collector_number_clauses or not parsed.set_include:
+        return {}
+    printings = _load_printings_index_df()
+    if printings is None or printings.empty:
+        return {}
+    subset = printings[printings["set"].astype(str).str.upper().isin(parsed.set_include)]
+    if subset.empty:
+        return {}
+    matched = subset.loc[_collector_number_match_mask(subset, parsed.collector_number_clauses)]
+    if matched.empty:
+        return {}
+    matched = matched.sort_values(["score", "released_at"], ascending=[False, False], na_position="last")
+    overlay: Dict[str, str] = {}
+    for _, row in matched.iterrows():
+        overlay.setdefault(str(row["face_name"]).lower(), str(row["scryfall_id"]))
+    return overlay
+
+
+def get_set_collector_number_sort_map(set_code: str) -> Dict[str, float]:
+    """Maps each card name (lowercase) with a printing in `set_code` to that
+    printing's collector number (numeric prefix), for ordering a single-set
+    search by collector number instead of alphabetically. When a card has
+    more than one printing in the set, uses the best-scored one (same
+    tie-break as `ImageCache.get_printing_id_for_set()`). Returns `{}` if
+    the printings index is unavailable."""
+    printings = _load_printings_index_df()
+    if printings is None or printings.empty:
+        return {}
+    subset = printings[printings["set"].astype(str).str.upper() == set_code]
+    if subset.empty:
+        return {}
+    subset = subset.sort_values(["score", "released_at"], ascending=[False, False], na_position="last")
+    sort_map: Dict[str, float] = {}
+    for _, row in subset.iterrows():
+        key = str(row["face_name"]).lower()
+        if key in sort_map:
+            continue
+        num = _collector_number_numeric_prefix(row["collector_number"])
+        sort_map[key] = num if num is not None else float("inf")
+    return sort_map
+
+
 def _apply_search_flag(parsed: ParsedSearch, canonical: str, op: str, value: str, *, negate: bool) -> None:
     if not value:
         return
@@ -492,9 +700,13 @@ def _apply_search_flag(parsed: ParsedSearch, canonical: str, op: str, value: str
     elif canonical == "is" and value.lower() == "new":
         parsed.is_new = False if negate else True
     elif canonical == "set":
-        code = re.sub(r"[^A-Za-z0-9]", "", value).upper()
+        code, notice = _resolve_set_value(value)
         if code:
             (parsed.set_exclude if negate else parsed.set_include).add(code)
+        if notice:
+            parsed.notices.append(notice)
+    elif canonical == "collector_number":
+        parsed.collector_number_clauses.append(CollectorNumberClause(op=op, value=value, negate=negate))
 
 
 def parse_search_query(q: str) -> ParsedSearch:
@@ -577,6 +789,20 @@ def apply_extra_clauses(df: "pd.DataFrame", parsed: ParsedSearch) -> "pd.DataFra
     if parsed.set_exclude and "printings" in df.columns:
         for code in parsed.set_exclude:
             df = df[~df["printings"].astype(str).str.contains(rf"\b{re.escape(code)}\b", na=False, regex=True)]
+    if parsed.collector_number_clauses:
+        if not parsed.set_include:
+            parsed.notices.append("cn:/number: requires a set: filter and was ignored.")
+        else:
+            printings = _load_printings_index_df()
+            if printings is not None and not printings.empty:
+                subset = printings[printings["set"].astype(str).str.upper().isin(parsed.set_include)]
+                if subset.empty:
+                    df = df.iloc[0:0]
+                else:
+                    matched_names = set(
+                        subset.loc[_collector_number_match_mask(subset, parsed.collector_number_clauses), "face_name"].astype(str)
+                    )
+                    df = df[df["name"].astype(str).isin(matched_names)]
     return df
 
 
@@ -598,5 +824,6 @@ def has_structured_flags(parsed: ParsedSearch) -> bool:
         or parsed.art_tags or parsed.art_tags_exclude
         or parsed.metadata_tags or parsed.metadata_tags_exclude or parsed.is_new is not None
         or parsed.set_include or parsed.set_exclude
+        or parsed.collector_number_clauses
         or parsed.explicit_name_flag
     )

@@ -3239,6 +3239,10 @@ img.lqip.loaded {
 
 .card-browser-tile-image {
   position: relative;
+  /* Contains the on-image overlays' z-index (printing/foil row, badges) so
+	   they can't leak past page-level sticky elements (e.g. the search bar,
+	   which shares z-index:5) once a tile scrolls underneath them. */
+  z-index: 0;
   width: 100%;
   aspect-ratio: 488/680;
   overflow: hidden;
@@ -7231,6 +7235,37 @@ footer.site-footer {
   white-space: nowrap;
 }
 
+/* Set + collector number badge (M5) — lower-right, stacks above the
+   New/Reprint badges (see --stacked-1/--stacked-2) when also present. */
+
+.card-set-badge {
+  position: absolute;
+  bottom: 6px;
+  right: 6px;
+  background: rgba(0, 0, 0, .72);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 10px;
+  pointer-events: none;
+  z-index: 4;
+  white-space: nowrap;
+  letter-spacing: .02em;
+}
+
+/* One badge (New or Reprint) already occupies the corner below it */
+
+.card-set-badge--stacked-1 {
+  bottom: 30px;
+}
+
+/* Both New and Reprint occupy the corner below it */
+
+.card-set-badge--stacked-2 {
+  bottom: 54px;
+}
+
 /* "New" badge on card thumbnails — lower-right, teal pill */
 
 .card-new-badge {
@@ -7250,7 +7285,7 @@ footer.site-footer {
   letter-spacing: .03em;
 }
 
-/* When stacked above a New badge, shifts up by badge height (20px) + 4px gap */
+/* Lower-right; stacks above the New badge (--stacked) when both present */
 
 .card-reprint-badge {
   position: absolute;

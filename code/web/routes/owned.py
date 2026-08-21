@@ -267,25 +267,6 @@ async def owned_remove(request: Request) -> HTMLResponse:
 # Bulk user-tag endpoints removed by request.
 
 
-@router.get("/search-autocomplete", response_class=HTMLResponse)
-async def owned_search_autocomplete(
-    request: Request,
-    q: str = Query(..., min_length=2),
-    limit: int = Query(10, ge=1, le=20),
-) -> HTMLResponse:
-    """Return card name suggestions from the owned library for the search autocomplete."""
-    names, _, _, _ = store.get_enriched(_user_id(request))
-    ql = q.strip().lower()
-    matches = [n for n in names if ql in n.lower()][:limit]
-    if not matches:
-        return HTMLResponse(content='<div class="autocomplete-empty">No matches in owned library</div>')
-    html = "\n".join(
-        f'<div class="autocomplete-item" data-value="{n}" role="option">{n}</div>'
-        for n in matches
-    )
-    return HTMLResponse(content=html)
-
-
 """
 Note: Per request, all user tag add/remove endpoints have been removed.
 """

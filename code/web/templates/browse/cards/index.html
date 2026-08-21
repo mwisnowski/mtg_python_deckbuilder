@@ -134,7 +134,7 @@
               aria-expanded="false"
               style="width: 100%;"
             />
-            <div id="search-autocomplete-dropdown" class="autocomplete-dropdown" role="listbox" aria-label="Card name suggestions"></div>
+            <div id="search-autocomplete-dropdown" class="autocomplete-dropdown" role="listbox" aria-label="Theme tag suggestions"></div>
           </div>
           {% if search %}
           <button type="button" onclick="document.getElementById('search-input').value=''; document.getElementById('card-search-form').submit();" class="btn" style="padding:.3rem .75rem;">Clear</button>
@@ -317,7 +317,7 @@ function applyFilter() {
   try {
     TAG_TOKEN_RE = new RegExp('(-)?\\b(tag|theme):(?:"([^"]*)"?|(\\S*))', 'dgi');
   } catch (e) {
-    TAG_TOKEN_RE = null; // `d` (hasIndices) flag unsupported -- degrade to name-only autocomplete
+    TAG_TOKEN_RE = null; // `d` (hasIndices) flag unsupported -- autocomplete stays disabled
   }
 
   // Finds the tag:/theme: flag (if any) whose value the caret is currently
@@ -362,38 +362,27 @@ function applyFilter() {
     const caret = searchInput.selectionStart ?? searchInput.value.length;
     tagToken = detectTagToken(searchInput.value, caret);
 
-    if (tagToken) {
-      const partial = tagToken.partial.trim();
-      if (partial.length < 2) {
-        autocompleteDropdown.innerHTML = '';
-        return;
-      }
-      // Reuse the theme catalog autocomplete for tag:/theme: flag values.
-      fetch(`/cards/theme-autocomplete?q=${encodeURIComponent(partial)}&limit=8`)
-        .then(response => response.text())
-        .then(html => {
-          autocompleteDropdown.innerHTML = html;
-        })
-        .catch(() => {
-          autocompleteDropdown.innerHTML = '';
-        });
-      return;
-    }
-
-    const query = searchInput.value.trim();
-    if (query.length < 2) {
+    if (!tagToken) {
+      // Scryfall-style flags (t:, o:, c:, set:, cn:, etc.) make up most of
+      // this search box's real usage, and a whole-query card-name fuzzy
+      // match against them just produces constant "No matching cards" noise
+      // -- so autocomplete is scoped to tag:/theme: flag values only.
       autocompleteDropdown.innerHTML = '';
       return;
     }
-    
-    // Call the autocomplete endpoint
-    fetch(`/cards/search-autocomplete?q=${encodeURIComponent(query)}`)
+
+    const partial = tagToken.partial.trim();
+    if (partial.length < 2) {
+      autocompleteDropdown.innerHTML = '';
+      return;
+    }
+    // Reuse the theme catalog autocomplete for tag:/theme: flag values.
+    fetch(`/cards/theme-autocomplete?q=${encodeURIComponent(partial)}&limit=8`)
       .then(response => response.text())
       .then(html => {
         autocompleteDropdown.innerHTML = html;
       })
-      .catch(err => {
-        console.error('Autocomplete error:', err);
+      .catch(() => {
         autocompleteDropdown.innerHTML = '';
       });
   };

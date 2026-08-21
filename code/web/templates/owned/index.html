@@ -67,7 +67,7 @@
             aria-expanded="false"
             style="width:100%;"
           />
-          <div id="search-autocomplete-dropdown" class="autocomplete-dropdown" role="listbox" aria-label="Card name suggestions"></div>
+          <div id="search-autocomplete-dropdown" class="autocomplete-dropdown" role="listbox" aria-label="Theme tag suggestions"></div>
         </div>
         {% if search %}
         <button type="button" class="btn" onclick="document.getElementById('search-input').value=''; applyFilter();" style="padding:.3rem .75rem;">Clear</button>
@@ -197,7 +197,10 @@ document.addEventListener('keydown', function(e) {
   }
 });
 
-// Search name autocomplete
+// Tag/theme flag-value autocomplete (Scryfall-style flags make up most of
+// this search box's real usage, and a whole-query card-name fuzzy match
+// against them just produces constant "No matches" noise -- so autocomplete
+// is scoped to tag:/theme: flag values only, mirroring the card browser).
 (function() {
   var searchInput = document.getElementById('search-input');
   var dropdown    = document.getElementById('search-autocomplete-dropdown');
@@ -206,11 +209,52 @@ document.addEventListener('keydown', function(e) {
   var selectedIndex = -1;
   var debounceTimer = null;
   var lastEscapeTime = 0;
+  var tagToken = null;
+  var TAG_TOKEN_RE = null;
+  try {
+    TAG_TOKEN_RE = new RegExp('(-)?\\b(tag|theme):(?:"([^"]*)"?|(\\S*))', 'dgi');
+  } catch (e) {
+    TAG_TOKEN_RE = null; // `d` (hasIndices) flag unsupported -- autocomplete stays disabled
+  }
+
+  var detectTagToken = function(value, caret) {
+    if (!TAG_TOKEN_RE) return null;
+    TAG_TOKEN_RE.lastIndex = 0;
+    var m;
+    while ((m = TAG_TOKEN_RE.exec(value)) !== null) {
+      var idx = m.indices;
+      if (!idx) return null;
+      var start = idx[0][0], end = idx[0][1];
+      if (caret < start || caret > end) continue;
+      var quoted = m[3] !== undefined;
+      var span = quoted ? idx[3] : idx[4];
+      if (!span) continue;
+      var valueStart = span[0], valueEnd = span[1];
+      if (caret < valueStart) continue;
+      return { valueStart: valueStart, valueEnd: valueEnd, partial: value.slice(valueStart, Math.min(caret, valueEnd)) };
+    }
+    return null;
+  };
+
+  var applyTagSuggestion = function(value) {
+    if (!tagToken) return false;
+    var full = searchInput.value;
+    var quotedValue = '"' + value + '"';
+    searchInput.value = full.slice(0, tagToken.valueStart) + quotedValue + full.slice(tagToken.valueEnd);
+    var caret = tagToken.valueStart + quotedValue.length;
+    searchInput.setSelectionRange(caret, caret);
+    tagToken = null;
+    searchInput.focus();
+    return true;
+  };
 
   var fetchSuggestions = function() {
-    var q = searchInput.value.trim();
-    if (q.length < 2) { dropdown.innerHTML = ''; return; }
-    fetch('/owned/search-autocomplete?q=' + encodeURIComponent(q))
+    var caret = searchInput.selectionStart != null ? searchInput.selectionStart : searchInput.value.length;
+    tagToken = detectTagToken(searchInput.value, caret);
+    if (!tagToken) { dropdown.innerHTML = ''; return; }
+    var partial = tagToken.partial.trim();
+    if (partial.length < 2) { dropdown.innerHTML = ''; return; }
+    fetch('/cards/theme-autocomplete?q=' + encodeURIComponent(partial) + '&limit=8')
       .then(function(r){ return r.text(); })
       .then(function(html){ dropdown.innerHTML = html; })
       .catch(function(){ dropdown.innerHTML = ''; });
@@ -229,7 +273,7 @@ document.addEventListener('keydown', function(e) {
   var applyItem = function() {
     var items = getItems();
     var item = items[selectedIndex];
-    if (item && item.dataset.value) { searchInput.value = item.dataset.value; dropdown.innerHTML = ''; selectedIndex = -1; applyFilter(); }
+    if (item && item.dataset.value && applyTagSuggestion(item.dataset.value)) { dropdown.innerHTML = ''; selectedIndex = -1; }
   };
 
   new MutationObserver(function() {
@@ -240,7 +284,7 @@ document.addEventListener('keydown', function(e) {
 
   document.body.addEventListener('click', function(e) {
     var item = e.target.closest('.autocomplete-item');
-    if (item && item.dataset.value && dropdown.contains(item)) { e.preventDefault(); searchInput.value = item.dataset.value; dropdown.innerHTML = ''; applyFilter(); }
+    if (item && item.dataset.value && dropdown.contains(item)) { e.preventDefault(); applyTagSuggestion(item.dataset.value); dropdown.innerHTML = ''; }
   });
   document.addEventListener('click', function(e) { if (!e.target.closest('.autocomplete-container')) { dropdown.innerHTML = ''; selectedIndex = -1; } });
 

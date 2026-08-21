@@ -569,6 +569,57 @@ class ImageCache:
         matches = matches.sort_values("released_at", ascending=False, na_position="last")
         return str(matches.iloc[0]["scryfall_id"])
 
+    def get_printing_id_for_set(self, card_name: str, set_code: str) -> Optional[str]:
+        """Return the Scryfall ID of the card's printing within `set_code`.
+
+        Mirrors `get_default_printing_id()`'s tie-break (highest `score`,
+        then most recent `released_at`) but scoped to a single set, so a
+        `set:` search can show that set's own art instead of the card's
+        globally-best printing. Returns `None` if the card has no printing
+        in that set (or the printings index hasn't been built).
+        """
+        df = self._load_printings_df()
+        if df is None:
+            return None
+        matches = df[
+            (df["face_name"].str.lower() == card_name.lower())
+            & (df["set"].str.upper() == set_code.upper())
+        ]
+        if matches.empty:
+            return None
+        matches = matches.sort_values(["score", "released_at"], ascending=[False, False], na_position="last")
+        return str(matches.iloc[0]["scryfall_id"])
+
+    def get_printing_meta(
+        self, card_name: str, *, scryfall_id: Optional[str] = None, set_code: Optional[str] = None
+    ) -> Optional[dict[str, str]]:
+        """Return `{"set", "set_name", "collector_number"}` for one printing.
+
+        Used by the set+collector-number tile/detail badge: looks up the
+        exact printing by `scryfall_id` if given (so the badge matches
+        whatever art is actually displayed); otherwise falls back to the
+        same best-in-set match `get_printing_id_for_set()` uses (highest
+        `score`, then most recent `released_at`). Returns `None` if nothing
+        matches (or the printings index hasn't been built).
+        """
+        df = self._load_printings_df()
+        if df is None:
+            return None
+        matches = df[df["face_name"].str.lower() == card_name.lower()]
+        if scryfall_id:
+            matches = matches[matches["scryfall_id"] == scryfall_id]
+        elif set_code:
+            matches = matches[matches["set"].str.upper() == set_code.upper()]
+            matches = matches.sort_values(["score", "released_at"], ascending=[False, False], na_position="last")
+        if matches.empty:
+            return None
+        row = matches.iloc[0]
+        return {
+            "set": str(row["set"]).upper(),
+            "set_name": str(row["set_name"]),
+            "collector_number": str(row["collector_number"]),
+        }
+
     def get_printing_image_path(
         self, card_name: str, scryfall_id: str, size: str = "normal"
     ) -> Path:

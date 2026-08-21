@@ -9,13 +9,21 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 
 ## [Unreleased]
 ### Added
-_No unreleased changes yet_
+- Web: new `set:`/`-set:` search flag (matches set name or 3-5 letter code, e.g. `set:"Modern Horizons 3 Commander"` or `set:msc`) works in the card browser, owned library, manual deck builder search, and the public REST API. Also `cn:`/`number:` for narrowing to a specific collector number or range within a set (e.g. `set:msc cn:212` or `set:msc cn>210`); using `cn:`/`number:` without `set:` surfaces a notice instead of silently doing nothing.
+- Web: when a search is scoped by `set:` and/or `cn:`/`number:` and matches a specific printing, the card browser and card detail page display that exact printing's image instead of the card's globally-scored default.
+- Public API: card search responses now include a `resolvedPrintingId` field when a `set:`/`cn:`/`number:` flag pins a result to a specific printing, so clients can display that exact printing's artwork instead of the card's default.
+- Web: when a search is scoped to exactly one `set:`, card tiles and the card detail page show a small "Set Name #123" badge for the currently displayed printing.
+- Public API: card search responses now include a `setBadge` field (`set`/`setName`/`collectorNumber`) when scoped to exactly one `set:`, so mobile clients can show the same badge.
+- Web and Public API: card search results scoped to exactly one `set:` now default to collector-number order instead of alphabetical (mobile app inherits this automatically since it uses the API's default sort).
+- Web: card detail pages now show a collapsible "Printings" section listing every set a card has been printed in; clicking a set chip runs a `set:` search for that printing.
 
 ### Changed
-_No unreleased changes yet_
+- Web: card browser and owned library search autocomplete now only suggests values for `tag:`/`theme:` flags. The old whole-query card-name autocomplete was removed since it fuzzy-matched the entire Scryfall-style query (including flags like `t:creature` or `set:msc cn:212`) against card names, producing constant "No matching cards" noise.
 
 ### Fixed
-_No unreleased changes yet_
+- Web: the printing/foil toggle buttons on the card detail page could visually bleed over the top of the sticky search bar; the tile image container was missing a CSS stacking context, so its child `z-index` values competed with the search bar's instead of staying contained locally.
+- Web: searching with plain text and no flags (e.g. just a card name) threw an error and cleared the search box; the result sort unconditionally read a `set_include` field that stays `None` for flag-less queries.
+- Web: plain-text card name search was punctuation-sensitive for exact matches (e.g. `Alania Divergent Storm` without the comma wouldn't exact-match `Alania, Divergent Storm`) and fell back to an overly broad word-by-word fuzzy match instead; exact matching now ignores punctuation.
 
 ### Removed
 _No unreleased changes yet_

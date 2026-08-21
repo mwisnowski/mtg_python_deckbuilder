@@ -2,6 +2,7 @@
 {% from 'partials/_macros.html' import printing_button, foil_toggle_button %}
 {% set sel_printing = (printings.get(card.name.lower(), '') if printings is defined else '') %}
 {% set is_foil = (foils.get(card.name.lower(), False) if foils is defined else False) %}
+{% set set_badge = (set_badges.get(card.name.lower()) if set_badges is defined else None) %}
 {% set card_idx = card.name|slugify %}
 <div class="card-browser-tile card-tile" 
      data-card-name="{{ card.name }}" 
@@ -32,14 +33,18 @@
     {# Price overlay #}
     <div class="card-price-overlay" id="price-overlay-{{ card_idx }}" data-price-for="{{ card.name }}" data-printing-id="{{ sel_printing }}" data-foil="{{ '1' if is_foil else '0' }}" aria-hidden="true"></div>
 
-    {# Reprint badge — lower-right; shifts up when New badge is also present #}
-    {% if card.isReprint %}
-    <div class="card-reprint-badge{% if show_new_badge and card.isNew %} card-reprint-badge--stacked{% endif %}" title="Reprinted Card" aria-hidden="true">Reprint</div>
-    {% endif %}
-
-    {# New card badge — lower-right #}
+    {# New/Reprint/set+cn badges stack in the lower-right, bottom to top #}
+    {% set ns = namespace(below=0) %}
     {% if show_new_badge and card.isNew %}
     <div class="card-new-badge" title="Recently Released" aria-hidden="true">New</div>
+    {% set ns.below = ns.below + 1 %}
+    {% endif %}
+    {% if card.isReprint %}
+    <div class="card-reprint-badge{% if ns.below == 1 %} card-reprint-badge--stacked{% endif %}" title="Reprinted Card" aria-hidden="true">Reprint</div>
+    {% set ns.below = ns.below + 1 %}
+    {% endif %}
+    {% if set_badge %}
+    <div class="card-set-badge{% if ns.below == 1 %} card-set-badge--stacked-1{% elif ns.below == 2 %} card-set-badge--stacked-2{% endif %}" title="{{ set_badge.set_name }}">{{ set_badge.set }} #{{ set_badge.collector_number }}</div>
     {% endif %}
 
     {# Owned indicator #}

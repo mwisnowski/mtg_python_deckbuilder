@@ -2,13 +2,18 @@
 
 ## [Unreleased]
 ### Added
-_No unreleased changes yet_
+- Web: cards can now be searched by set (`set:`, e.g. `set:"Modern Horizons 3 Commander"` or `set:msc`) and, within a set, by collector number or range (`cn:`/`number:`, e.g. `set:msc cn:212`). Searches scoped to a specific printing this way now show that printing's exact image instead of the card's usual default, in the web UI and public API alike.
+- Web: searching by a single set now shows a small "Set Name #123" badge on card tiles and the card detail page; this badge is also available in the mobile app now.
+- Web and mobile: searching by a single set now sorts results by collector number by default instead of alphabetically.
+- Web: card detail pages now show a collapsible "Printings" section listing every set a card has been printed in, with clickable chips to search that set.
 
 ### Changed
-_No unreleased changes yet_
+- Web: search autocomplete on the card browser and owned library now only suggests theme tag values, instead of trying (and often failing) to match your whole search against a card name.
 
 ### Fixed
-_No unreleased changes yet_
+- Web: fixed the printing/foil toggle buttons on the card detail page visually overlapping the search bar.
+- Web: fixed a plain-text search (no flags) throwing an error and clearing the search box.
+- Web: fixed plain-text card name search being overly sensitive to punctuation, sometimes returning a broad list of loosely related cards instead of the exact match.
 
 ### Removed
 _No unreleased changes yet_

@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING
 
 import pandas as pd
 from fastapi import APIRouter, Request, Query
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from ..app import templates
 from ..services.tasks import get_session, new_sid
 
@@ -25,12 +25,15 @@ try:
     from code.deck_builder.color_identity_utils import color_identity_badges
     from code.settings import ENABLE_CARD_DETAILS
     from code.web.routes.api_v1.cards import _get_card_faces
+    from code.web.routes.api import _image_cache
     from code.web.services.card_search import (
         apply_extra_clauses,
         apply_name_clauses,
         apply_parsed_search,
         has_structured_flags,
         parse_search_query,
+        resolve_collector_number_printings,
+        get_set_collector_number_sort_map,
     )
 except ImportError:
     from services.all_cards_loader import AllCardsLoader
@@ -38,16 +41,20 @@ except ImportError:
     from deck_builder.color_identity_utils import color_identity_badges
     from settings import ENABLE_CARD_DETAILS
     from web.routes.api_v1.cards import _get_card_faces
+    from web.routes.api import _image_cache
     from web.services.card_search import (
         apply_extra_clauses,
         apply_name_clauses,
         apply_parsed_search,
         has_structured_flags,
         parse_search_query,
+        resolve_collector_number_printings,
+        get_set_collector_number_sort_map,
     )
 
 if TYPE_CHECKING:
     from code.web.services.card_similarity import CardSimilarity
+    from code.web.services.card_search import ParsedSearch
 
 logger = logging.getLogger(__name__)
 
@@ -91,6 +98,148 @@ def _foils_context(request: Request, sid: str | None = None) -> dict[str, bool]:
     """
     sid = sid or request.cookies.get("sid") or new_sid()
     return dict(get_session(sid).get("foils") or {})
+
+
+def _set_scoped_printings(
+    cards_list: list[dict],
+    parsed: "ParsedSearch | None",
+    base_printings: dict[str, str],
+) -> dict[str, str]:
+    """Build a set-scoped printing overlay for the current search's results.
+
+    For each card not already present in `base_printings` (a manual "Choose
+    Printing" pick always wins), tries each code in `parsed.set_include` in
+    sorted order, using the first set that has a match. Cards with a match
+    in more than one searched set get a `parsed.notices` entry noting
+    alternates are available. Returns `{}` unchanged if there's no `set:`
+    filter to scope to.
+    """
+    overlay: dict[str, str] = {}
+    if not parsed or not parsed.set_include:
+        return overlay
+
+    set_codes = sorted(parsed.set_include)
+    alt_available: list[str] = []
+    for card in cards_list:
+        name = card.get("name")
+        if not name:
+            continue
+        key = name.lower()
+        if key in base_printings:
+            continue
+        matched_sets = []
+        for code in set_codes:
+            scryfall_id = _image_cache.get_printing_id_for_set(name, code)
+            if scryfall_id:
+                matched_sets.append((code, scryfall_id))
+        if matched_sets:
+            overlay[key] = matched_sets[0][1]
+            if len(matched_sets) > 1:
+                alt_available.append(name)
+
+    if alt_available:
+        shown = ", ".join(alt_available[:5])
+        parsed.notices.append(
+            f"Showing the searched set's printing for: {shown}. "
+            "Alternate printings are also available in the other searched sets."
+        )
+    return overlay
+
+
+def _apply_set_scoped_printings(
+    sid: str,
+    cards_list: list[dict],
+    parsed: "ParsedSearch | None",
+    printings: dict[str, str],
+) -> dict[str, str]:
+    """Merge a set-scoped printing overlay into `printings` for template rendering.
+
+    Reads/writes `sess["search_set_printings"]` (kept separate from the
+    manual picker's `sess["printings"]`, see `_printings_context`): a fresh
+    `set:` query (different codes than last time) replaces the stored
+    overlay outright; the same `set:` query across HTMX pagination
+    accumulates entries instead of losing earlier pages' overrides. Manual
+    "Choose Printing" picks in `printings` always take precedence.
+    """
+    session = get_session(sid)
+    stored = session.get("search_set_printings") or {}
+    set_codes = sorted(parsed.set_include) if parsed and parsed.set_include else []
+
+    if not set_codes:
+        if stored:
+            session["search_set_printings"] = {}
+        return printings
+
+    if stored.get("codes") != set_codes:
+        stored = {"codes": set_codes, "entries": {}}
+    new_overlay = _set_scoped_printings(cards_list, parsed, printings)
+    stored["entries"].update(new_overlay)
+    session["search_set_printings"] = stored
+    return {**stored["entries"], **printings}
+
+
+def _apply_collector_number_printings(
+    sid: str,
+    parsed: "ParsedSearch | None",
+    printings: dict[str, str],
+) -> dict[str, str]:
+    """Merge a `cn:`/`number:`-pinned printing overlay into `printings`.
+
+    Unlike `_set_scoped_printings()`, this resolves against the *entire*
+    printings index (not just the current page's `cards_list`), so it needs
+    no pagination-accumulation logic -- it's simply recomputed and fully
+    replaces `sess["search_cn_printings"]` on every request (cleared to `{}`
+    once `cn:`/`number:` is dropped from the query, so a stale pin can't
+    outlive the search that produced it). Wins over the plain set-scoped
+    overlay but still loses to a manual "Choose Printing" pick.
+    """
+    session = get_session(sid)
+    overlay = resolve_collector_number_printings(parsed) if parsed else {}
+    session["search_cn_printings"] = overlay
+    return {**printings, **overlay} if overlay else printings
+
+
+def _set_number_badges(
+    cards_list: list[dict],
+    parsed: "ParsedSearch | None",
+    printings: dict[str, str],
+) -> dict[str, dict]:
+    """Build a `{name.lower(): {set, set_name, collector_number}}` badge overlay.
+
+    Only populated when exactly one `set:` code is active (Milestone 5
+    scope) -- a badge can't unambiguously describe more than one searched
+    set. Looks up the printing actually being displayed (the resolved
+    `printings` overlay entry, which already reflects cn:/manual-pick
+    precedence) so the badge always matches the shown art; falls back to
+    the set's own best-scored printing if nothing's been resolved yet.
+    """
+    if not parsed or len(parsed.set_include) != 1:
+        return {}
+    set_code = next(iter(parsed.set_include))
+    badges: dict[str, dict] = {}
+    for card in cards_list:
+        name = card.get("name")
+        if not name:
+            continue
+        key = name.lower()
+        meta = _image_cache.get_printing_meta(name, scryfall_id=printings.get(key), set_code=set_code)
+        if meta:
+            badges[key] = meta
+    return badges
+
+
+def _card_printed_sets(card_name: str) -> list[dict]:
+    """One chip per unique set a card has been printed in, newest first."""
+    printings = _image_cache.get_printings(card_name)
+    if not printings:
+        return []
+    by_code: dict[str, dict] = {}
+    for p in printings:
+        code = str(p.get("set") or "").upper()
+        if not code or code in by_code:
+            continue
+        by_code[code] = {"code": code, "name": str(p.get("set_name") or code), "released_at": str(p.get("released_at") or "")}
+    return sorted(by_code.values(), key=lambda s: s["released_at"], reverse=True)
 
 
 def get_similarity() -> "CardSimilarity":
@@ -206,7 +355,7 @@ def get_theme_index() -> dict[str, set[int]]:
     return _theme_index
 
 
-def _apply_search_query(filtered_df: "pd.DataFrame", search: str) -> "pd.DataFrame":
+def _apply_search_query(filtered_df: "pd.DataFrame", search: str) -> tuple["pd.DataFrame", "ParsedSearch | None"]:
     """Apply the search box. A query containing any Scryfall-style flags
     (t:/o:/c:/id:/m:/mv:/pow:/tou:/loy:/r:/tag:/is:new/set:) is filtered
     structurally via card_search.py; a plain name-only query keeps this
@@ -214,18 +363,24 @@ def _apply_search_query(filtered_df: "pd.DataFrame", search: str) -> "pd.DataFra
     then same-word-count fuzzy, then substring/fuzzy), which is more
     forgiving than a strict substring search for the "just typing a card
     name" common case.
+
+    Returns `(filtered_df, parsed)` -- `parsed` is the `ParsedSearch` used
+    for structured queries (so callers can read `set_include` for the
+    set-scoped printing overlay), or `None` for a plain name search / no
+    search at all.
     """
     if not search:
-        return filtered_df
+        return filtered_df, None
 
     parsed = parse_search_query(search)
     if has_structured_flags(parsed):
         filtered_df = apply_parsed_search(filtered_df, parsed)
         filtered_df = apply_extra_clauses(filtered_df, parsed)
-        return filtered_df
+        return filtered_df, parsed
 
     query_lower = search.lower().strip()
     query_words = set(query_lower.split())
+    query_norm = _normalize_search_text(search)
 
     exact_matches = []
     word_count_matches = []
@@ -237,8 +392,16 @@ def _apply_search_query(filtered_df: "pd.DataFrame", search: str) -> "pd.DataFra
         # For double-faced cards, get the front face name
         front_name = card_lower.split(' // ')[0].strip() if ' // ' in card_lower else card_lower
 
-        # Exact match (full name or front face)
-        if card_lower == query_lower or front_name == query_lower:
+        # Exact match (full name or front face) -- punctuation-insensitive
+        # (commas/apostrophes) so "Alania Divergent Storm" matches "Alania,
+        # Divergent Storm" the same way typing the comma would, instead of
+        # falling through to the much noisier fuzzy/any-word branch below.
+        if (
+            card_lower == query_lower
+            or front_name == query_lower
+            or _normalize_search_text(card_name) == query_norm
+            or _normalize_search_text(front_name) == query_norm
+        ):
             exact_matches.append(idx)
         # Word count match (same number of words + high similarity)
         elif len(query_lower.split()) == len(front_name.split()) and (
@@ -272,8 +435,8 @@ def _apply_search_query(filtered_df: "pd.DataFrame", search: str) -> "pd.DataFra
             if idx not in seen:
                 seen.add(idx)
                 unique_matches.append(idx)
-        return filtered_df.iloc[unique_matches]
-    return filtered_df.iloc[0:0]
+        return filtered_df.iloc[unique_matches], None
+    return filtered_df.iloc[0:0], None
 
 
 @router.get("/", response_class=HTMLResponse)
@@ -296,7 +459,7 @@ async def card_browser_index(
         # Apply filters
         filtered_df = df.copy()
         
-        filtered_df = _apply_search_query(filtered_df, search)
+        filtered_df, parsed = _apply_search_query(filtered_df, search)
         
         # Multi-select theme filtering (AND logic: card must have ALL selected themes)
         if themes:
@@ -337,7 +500,16 @@ async def card_browser_index(
                     filtered_df = filtered_df.iloc[0:0]
 
         # Apply sorting
-        if sort == "name_desc":
+        set_cn_sort_map: dict = {}
+        if sort == "name_asc" and parsed and len(parsed.set_include) == 1:
+            (only_set_code,) = parsed.set_include
+            set_cn_sort_map = get_set_collector_number_sort_map(only_set_code)
+        if set_cn_sort_map:
+            # Single-set search: default to collector-number order instead of alphabetical.
+            filtered_df['_cn_sort'] = filtered_df['name'].str.lower().map(set_cn_sort_map).fillna(float('inf'))
+            filtered_df = filtered_df.sort_values(['_cn_sort', 'name'], ascending=[True, True])
+            filtered_df = filtered_df.drop('_cn_sort', axis=1)
+        elif sort == "name_desc":
             # Name Z-A
             filtered_df['_sort_key'] = filtered_df['name'].str.replace('"', '', regex=False).str.replace("'", '', regex=False)
             filtered_df['_sort_key'] = filtered_df['_sort_key'].apply(
@@ -427,6 +599,26 @@ async def card_browser_index(
         last_card_name = cards_list[-1]['name'] if cards_list else ""
         
         printings, sid, had_cookie = _printings_context(request)
+        manual_printings = printings
+        printings = _apply_set_scoped_printings(sid, cards_list, parsed, printings)
+        printings = _apply_collector_number_printings(sid, parsed, printings)
+        printings = {**printings, **manual_printings}
+        set_badges = _set_number_badges(cards_list, parsed, printings)
+
+        # A search that narrows to exactly one card skips the results grid
+        # entirely and jumps straight to that card's detail page -- any
+        # set:-scoped printing is already carried over via the session
+        # overlay above, which card_detail() also reads.
+        if search and total_filtered == 1 and cards_list:
+            from urllib.parse import quote
+            resp = RedirectResponse(url=f"/cards/{quote(cards_list[0]['name'])}", status_code=302)
+            if not had_cookie:
+                try:
+                    resp.set_cookie("sid", sid, max_age=60 * 60 * 8, httponly=True, samesite="lax")
+                except Exception:
+                    pass
+            return resp
+
         foils = _foils_context(request, sid)
         resp = templates.TemplateResponse(
             "browse/cards/index.html",
@@ -446,6 +638,7 @@ async def card_browser_index(
                 "enable_card_details": ENABLE_CARD_DETAILS,
                 "printings": printings,
                 "foils": foils,
+                "set_badges": set_badges,
             },
         )
         if not had_cookie:
@@ -510,7 +703,7 @@ async def card_browser_grid(
         # Apply filters
         filtered_df = df.copy()
         
-        filtered_df = _apply_search_query(filtered_df, search)
+        filtered_df, parsed = _apply_search_query(filtered_df, search)
         
         # Multi-select theme filtering (AND logic: card must have ALL selected themes)
         if themes:
@@ -551,7 +744,15 @@ async def card_browser_grid(
                     filtered_df = filtered_df.iloc[0:0]
         
         # Apply sorting (same logic as main endpoint)
-        if sort == "name_desc":
+        set_cn_sort_map: dict = {}
+        if sort == "name_asc" and parsed and len(parsed.set_include) == 1:
+            (only_set_code,) = parsed.set_include
+            set_cn_sort_map = get_set_collector_number_sort_map(only_set_code)
+        if set_cn_sort_map:
+            filtered_df['_cn_sort'] = filtered_df['name'].str.lower().map(set_cn_sort_map).fillna(float('inf'))
+            filtered_df = filtered_df.sort_values(['_cn_sort', 'name'], ascending=[True, True])
+            filtered_df = filtered_df.drop('_cn_sort', axis=1)
+        elif sort == "name_desc":
             filtered_df['_sort_key'] = filtered_df['name'].str.replace('"', '', regex=False).str.replace("'", '', regex=False)
             filtered_df['_sort_key'] = filtered_df['_sort_key'].apply(
                 lambda x: x.replace('_', ' ') if x.startswith('_') else x
@@ -635,6 +836,11 @@ async def card_browser_grid(
         last_card_name = cards_list[-1]['name'] if cards_list else ""
         
         printings, sid, had_cookie = _printings_context(request)
+        manual_printings = printings
+        printings = _apply_set_scoped_printings(sid, cards_list, parsed, printings)
+        printings = _apply_collector_number_printings(sid, parsed, printings)
+        printings = {**printings, **manual_printings}
+        set_badges = _set_number_badges(cards_list, parsed, printings)
         foils = _foils_context(request, sid)
         resp = templates.TemplateResponse(
             "browse/cards/_card_grid.html",
@@ -649,6 +855,7 @@ async def card_browser_grid(
                 "enable_card_details": ENABLE_CARD_DETAILS,
                 "printings": printings,
                 "foils": foils,
+                "set_badges": set_badges,
             },
         )
         if not had_cookie:
@@ -817,103 +1024,6 @@ def _fuzzy_card_name_score(query: str, card_name: str) -> float:
     base_result = max(base_score, best_partial, token_avg, substring_bonus)
     return min(1.0, base_result + word_count_bonus)  # Cap at 1.0
 
-
-
-@router.get("/search-autocomplete", response_class=HTMLResponse)
-async def card_search_autocomplete(
-    request: Request,
-    q: str = Query(..., min_length=2, description="Card name search query"),
-    limit: int = Query(10, ge=1, le=50),
-) -> HTMLResponse:
-    """
-    HTMX endpoint for card name autocomplete with fuzzy matching.
-    
-    Similar to commanders theme autocomplete, returns HTML suggestions
-    with keyboard navigation support.
-    """
-    try:
-        loader = get_loader()
-        df = loader.load()
-        
-        # Quick filter: prioritize exact match, then word count match, then fuzzy
-        query_lower = q.lower()
-        query_words = set(query_lower.split())
-        query_word_count = len(query_lower.split())
-        
-        # Fast categorization
-        exact_matches = []
-        word_count_candidates = []
-        fuzzy_candidates = []
-        
-        for card_name in df['name'].unique():
-            card_lower = card_name.lower()
-            
-            # Exact match
-            if card_lower == query_lower:
-                exact_matches.append(card_name)
-            # Same word count with substring/word overlap
-            elif len(card_lower.split()) == query_word_count and (
-                query_lower in card_lower or any(word in card_lower for word in query_words)
-            ):
-                word_count_candidates.append(card_name)
-            # Fuzzy candidate
-            elif query_lower in card_lower or any(word in card_lower for word in query_words):
-                fuzzy_candidates.append(card_name)
-        
-        # Build final scored list
-        scored_cards: list[tuple[float, str, int]] = []  # (score, name, priority)
-        
-        # 1. Exact matches (priority 0 = highest)
-        for card_name in exact_matches[:limit]:  # Take top N exact matches
-            scored_cards.append((1.0, card_name, 0))
-        
-        # 2. Word count matches (priority 1)
-        if len(scored_cards) < limit and word_count_candidates:
-            # Limit word count candidates before fuzzy scoring
-            if len(word_count_candidates) > 200:
-                word_count_candidates.sort(key=lambda n: (not n.lower().startswith(query_lower), len(n), n.lower()))
-                word_count_candidates = word_count_candidates[:200]
-            
-            for card_name in word_count_candidates:
-                score = _fuzzy_card_name_score(q, card_name)
-                if score >= 0.3:
-                    scored_cards.append((score, card_name, 1))
-        
-        # 3. Fuzzy matches (priority 2)
-        if len(scored_cards) < limit and fuzzy_candidates:
-            # Limit fuzzy candidates before scoring
-            if len(fuzzy_candidates) > 200:
-                fuzzy_candidates.sort(key=lambda n: (not n.lower().startswith(query_lower), len(n), n.lower()))
-                fuzzy_candidates = fuzzy_candidates[:200]
-            
-            for card_name in fuzzy_candidates:
-                score = _fuzzy_card_name_score(q, card_name)
-                if score >= 0.3:
-                    scored_cards.append((score, card_name, 2))
-        
-        # Sort by priority first, then score desc, then name asc
-        scored_cards.sort(key=lambda x: (x[2], -x[0], x[1].lower()))
-        
-        # Take top matches
-        top_matches = scored_cards[:limit]
-        
-        # Generate HTML suggestions with ARIA attributes
-        html_parts = []
-        for score, card_name, priority in top_matches:
-            # Escape HTML special characters
-            safe_name = card_name.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;')
-            html_parts.append(
-                f'<div class="autocomplete-item" data-value="{safe_name}" role="option">'
-                f'{safe_name}</div>'
-            )
-        
-        html = "\n".join(html_parts) if html_parts else '<div class="autocomplete-empty">No matching cards</div>'
-        
-        return HTMLResponse(content=html)
-        
-    except Exception as e:
-        logger.error(f"Error in card autocomplete: {e}", exc_info=True)
-        return HTMLResponse(content=f'<div class="autocomplete-error">Error: {str(e)}</div>')
 
 
 @router.get("/theme-autocomplete", response_class=HTMLResponse)
@@ -1150,7 +1260,24 @@ async def card_detail(request: Request, card_name: str, ref: str = Query("", des
         back_text = "Back to Owned Library" if _ref == "owned" else "Back to Card Browser"
 
         printings, sid, had_cookie = _printings_context(request)
+        # Carry over a `set:`/`cn:` search's printing overlay (see
+        # _apply_set_scoped_printings / _apply_collector_number_printings) so
+        # following a search result into its detail page still shows that
+        # search's art; manual picks still win.
+        session = get_session(sid)
+        set_overlay = session.get("search_set_printings", {}).get("entries", {})
+        cn_overlay = session.get("search_cn_printings", {})
+        printings = {**set_overlay, **cn_overlay, **printings}
         foils = _foils_context(request, sid)
+
+        # M5 set+cn badge: only when the last search was scoped to exactly
+        # one set: (see _set_number_badges' docstring for why).
+        set_codes = session.get("search_set_printings", {}).get("codes") or []
+        set_badge = None
+        if len(set_codes) == 1:
+            set_badge = _image_cache.get_printing_meta(
+                card_name, scryfall_id=printings.get(card_name.lower()), set_code=set_codes[0]
+            )
 
         # Per-face details (type/text/mana value/power/toughness) for the
         # "Transform" flip button on double-faced/split/flip/meld cards --
@@ -1161,6 +1288,8 @@ async def card_detail(request: Request, card_name: str, ref: str = Query("", des
             faces = _get_card_faces(card_name)
         except Exception:
             faces = []
+
+        card_printed_sets = _card_printed_sets(card_name)
 
         resp = templates.TemplateResponse(
             "browse/cards/detail.html",
@@ -1177,6 +1306,8 @@ async def card_detail(request: Request, card_name: str, ref: str = Query("", des
                 "back_text": back_text,
                 "printings": printings,
                 "foils": foils,
+                "set_badge": set_badge,
+                "card_printed_sets": card_printed_sets,
             }
         )
         if not had_cookie:

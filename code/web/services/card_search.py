@@ -146,6 +146,7 @@ class ManaCostClause:
 class ParsedSearch:
     name_include: List[str] = field(default_factory=list)
     name_exclude: List[str] = field(default_factory=list)
+    explicit_name_flag: bool = False
     type_include: List[str] = field(default_factory=list)
     type_exclude: List[str] = field(default_factory=list)
     oracle_include: List[str] = field(default_factory=list)
@@ -427,6 +428,7 @@ def _apply_search_flag(parsed: ParsedSearch, canonical: str, op: str, value: str
         return
     if canonical == "name":
         (parsed.name_exclude if negate else parsed.name_include).append(value)
+        parsed.explicit_name_flag = True
     elif canonical == "type":
         (parsed.type_exclude if negate else parsed.type_include).append(value)
     elif canonical == "oracle":
@@ -582,7 +584,9 @@ def has_structured_flags(parsed: ParsedSearch) -> bool:
     """True if `parsed` contains anything beyond bare name words -- callers
     that have their own fuzzy/typo-tolerant name-only search (e.g. the card
     browser) can use this to decide whether to fall back to structured
-    flag-based filtering instead."""
+    flag-based filtering instead. An explicit `name:`/`n:` flag also counts
+    as structured (so quoted phrases and hyphen-for-space both work), even
+    though it only populates `name_include`/`name_exclude` like bare words."""
     return bool(
         parsed.type_include or parsed.type_exclude
         or parsed.oracle_include or parsed.oracle_exclude
@@ -594,4 +598,5 @@ def has_structured_flags(parsed: ParsedSearch) -> bool:
         or parsed.art_tags or parsed.art_tags_exclude
         or parsed.metadata_tags or parsed.metadata_tags_exclude or parsed.is_new is not None
         or parsed.set_include or parsed.set_exclude
+        or parsed.explicit_name_flag
     )

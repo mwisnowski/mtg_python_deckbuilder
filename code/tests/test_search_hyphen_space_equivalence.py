@@ -12,6 +12,7 @@ from code.web.services.card_search import (
     apply_name_clauses,
     apply_text_clauses,
     filter_names_fuzzy,
+    has_structured_flags,
     parse_search_query,
 )
 
@@ -20,6 +21,21 @@ def test_name_search_with_dash_matches_spaced_name():
     df = pd.DataFrame({"name": ["Rabbit Battery", "Other Card"]})
     result = apply_name_clauses(df, ["rabbit-battery"], [])
     assert list(result["name"]) == ["Rabbit Battery"]
+
+
+def test_explicit_name_flag_is_structured():
+    # Regression: an explicit name:/n: flag must be routed through the
+    # structured (phrase/hyphen-aware) path, not the card browser's legacy
+    # literal-string fuzzy fallback, or quotes/dashes get ignored.
+    parsed = parse_search_query('name:"keeper of secrets"')
+    assert has_structured_flags(parsed)
+    parsed_dash = parse_search_query("name:keeper-of-secrets")
+    assert has_structured_flags(parsed_dash)
+
+
+def test_bare_word_name_search_is_not_structured():
+    parsed = parse_search_query("keeper of secrets")
+    assert not has_structured_flags(parsed)
 
 
 def test_name_search_with_literal_hyphen_still_matches():

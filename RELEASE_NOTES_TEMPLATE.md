@@ -8,7 +8,8 @@ _No unreleased changes yet_
 _No unreleased changes yet_
 
 ### Fixed
-_No unreleased changes yet_
+- Tagging: transform/modal-DFC cards (e.g. Delver of Secrets // Insectile Aberration) weren't getting art tags; both faces are now checked.
+- Web: fixed the `name:"..."` search flag ignoring quoted phrases and dashes and returning overly broad results.
 
 ### Removed
 _No unreleased changes yet_

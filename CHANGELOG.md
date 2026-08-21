@@ -15,7 +15,8 @@ _No unreleased changes yet_
 _No unreleased changes yet_
 
 ### Fixed
-_No unreleased changes yet_
+- Tagging: `art_tags_cache.py` wasn't assigning art tags to transform/modal-DFC/reversible-card layouts (e.g. Delver of Secrets // Insectile Aberration), since Scryfall stores those cards' `illustration_id` per face instead of on the card itself; both faces' illustration ids are now collected and their tags merged. Split/adventure/flip cards (e.g. Fire // Ice) were unaffected, since they already share a single top-level illustration id.
+- Web: the card browser and owned library's search box treated an explicit `name:"..."` flag the same as plain typed words, so quoted phrases and dash-for-space (`name:keeper-of-secrets`) were ignored and fell back to an overly broad legacy fuzzy match; `name:`/`n:` now goes through the same phrase/hyphen-aware matching as the other search flags.
 
 ### Removed
 _No unreleased changes yet_

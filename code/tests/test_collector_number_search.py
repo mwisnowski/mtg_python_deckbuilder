@@ -125,3 +125,47 @@ def test_get_set_collector_number_sort_map_unknown_set(printings_index):
 
     assert get_set_collector_number_sort_map("ZZZ") == {}
 
+
+def test_scoped_sort_map_respects_active_cn_clause(tmp_path, monkeypatch):
+    """A `set:msc cn>210` query must sort by each card's best-scored printing
+    *within the matched range*, not its overall best-scored printing in the
+    set (which may fall outside that range)."""
+    df = pd.DataFrame(
+        [
+            {"face_name": "Sol Ring", "set": "MSC", "collector_number": "100", "scryfall_id": "sol-100", "score": 99, "released_at": "2024-06-01"},
+            {"face_name": "Sol Ring", "set": "MSC", "collector_number": "211", "scryfall_id": "sol-211", "score": 10, "released_at": "2024-06-01"},
+            {"face_name": "Sol Ring", "set": "MSC", "collector_number": "212", "scryfall_id": "sol-212", "score": 20, "released_at": "2024-06-01"},
+        ]
+    )
+    path = tmp_path / "card_printings.parquet"
+    df.to_parquet(path, engine="pyarrow")
+    monkeypatch.setattr(card_search, "card_files_processed_dir", lambda: str(tmp_path))
+
+    from code.web.services.card_search import get_set_scoped_collector_number_sort_map
+
+    parsed = parse_search_query("set:msc cn>210")
+    sort_map = get_set_scoped_collector_number_sort_map(parsed.set_include, parsed.collector_number_clauses)
+    assert sort_map["sol ring"] == (212, "MSC")
+
+
+def test_scoped_sort_map_multi_set_tiebreaks_by_set_code(tmp_path, monkeypatch):
+    """Cross-set queries (e.g. `set:msc set:msh cn:50`) sort by collector
+    number first, then by set code alphabetically as a tiebreaker."""
+    df = pd.DataFrame(
+        [
+            {"face_name": "Sol Ring", "set": "MSH", "collector_number": "50", "scryfall_id": "sol-msh-50", "score": 10, "released_at": "2024-06-01"},
+            {"face_name": "Lightning Bolt", "set": "MSC", "collector_number": "50", "scryfall_id": "bolt-msc-50", "score": 10, "released_at": "2024-06-01"},
+        ]
+    )
+    path = tmp_path / "card_printings.parquet"
+    df.to_parquet(path, engine="pyarrow")
+    monkeypatch.setattr(card_search, "card_files_processed_dir", lambda: str(tmp_path))
+
+    from code.web.services.card_search import get_set_scoped_collector_number_sort_map
+
+    sort_map = get_set_scoped_collector_number_sort_map(["MSC", "MSH"], None)
+    assert sort_map["sol ring"] == (50, "MSH")
+    assert sort_map["lightning bolt"] == (50, "MSC")
+    ordered = sorted(sort_map.items(), key=lambda kv: (kv[1][0], kv[1][1]))
+    assert [name for name, _ in ordered] == ["lightning bolt", "sol ring"]
+

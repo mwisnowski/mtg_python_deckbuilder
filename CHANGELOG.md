@@ -23,6 +23,10 @@ _No unreleased changes yet_
 ### Security
 _No unreleased changes yet_
 
+## [5.10.1] - 2026-08-21
+### Fixed
+- Web and Public API: `set:` searches combined with a `cn:`/`number:` clause (e.g. `set:msc cn>200`) fell back to alphabetical order instead of sorting by collector number; any `set:`-scoped search now sorts by collector number regardless of additional qualifiers, and results spanning multiple sets (e.g. `cn>50 cn<100` with no `set:`) sort by collector number first, then by set code.
+
 ## [5.10.0] - 2026-08-21
 ### Added
 - Web: new `set:`/`-set:` search flag (matches set name or 3-5 letter code, e.g. `set:"Modern Horizons 3 Commander"` or `set:msc`) works in the card browser, owned library, manual deck builder search, and the public REST API. Also `cn:`/`number:` for narrowing to a specific collector number or range within a set (e.g. `set:msc cn:212` or `set:msc cn>210`); using `cn:`/`number:` without `set:` surfaces a notice instead of silently doing nothing.

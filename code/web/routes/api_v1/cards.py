@@ -20,7 +20,7 @@ import re
 import time
 import uuid
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import httpx
 import pandas as pd
@@ -45,7 +45,7 @@ from ...services.card_search import (
     parse_color_cell as _parse_color_cell,
     parse_search_query as _parse_search_query,
     resolve_collector_number_printings as _resolve_collector_number_printings,
-    get_set_collector_number_sort_map as _get_set_collector_number_sort_map,
+    get_set_scoped_collector_number_sort_map as _get_set_scoped_collector_number_sort_map,
     _collector_number_match_mask,
     _load_printings_index_df,
 )
@@ -422,15 +422,16 @@ async def list_cards(
 
     # Default sort: Name A-Z, matching the HTML card browser's default sort
     # (card_browser.py's "name_asc"), so results aren't left in arbitrary
-    # data-file order. A single set: filter instead defaults to collector
-    # number order (mirrors card_browser.py's default-sort override).
-    set_cn_sort_map: Dict[str, float] = {}
-    if len(parsed.set_include) == 1:
-        (only_set_code,) = parsed.set_include
-        set_cn_sort_map = _get_set_collector_number_sort_map(only_set_code)
+    # data-file order. Any set: filter instead defaults to collector number
+    # order (then set code, for multi-set queries), mirroring card_browser.py's
+    # default-sort override.
+    set_cn_sort_map: Dict[str, Tuple[float, str]] = {}
+    if parsed.set_include:
+        set_cn_sort_map = _get_set_scoped_collector_number_sort_map(parsed.set_include, parsed.collector_number_clauses)
     if set_cn_sort_map and len(df):
-        df = df.assign(_cn_sort=df["name"].str.lower().map(set_cn_sort_map).fillna(float("inf")))
-        df = df.sort_values(["_cn_sort", "name"], ascending=[True, True]).drop(columns="_cn_sort")
+        sort_keys = df["name"].str.lower().map(lambda n: set_cn_sort_map.get(n, (float("inf"), "")))
+        df = df.assign(_cn_sort=sort_keys.map(lambda t: t[0]), _set_sort=sort_keys.map(lambda t: t[1]))
+        df = df.sort_values(["_cn_sort", "_set_sort", "name"], ascending=[True, True, True]).drop(columns=["_cn_sort", "_set_sort"])
     elif "name" in df.columns and len(df):
         sort_key = df["name"].str.replace('"', "", regex=False).str.replace("'", "", regex=False)
         sort_key = sort_key.apply(lambda x: x.replace("_", " ") if isinstance(x, str) and x.startswith("_") else x)

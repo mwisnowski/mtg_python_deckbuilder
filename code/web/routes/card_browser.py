@@ -33,7 +33,7 @@ try:
         has_structured_flags,
         parse_search_query,
         resolve_collector_number_printings,
-        get_set_collector_number_sort_map,
+        get_set_scoped_collector_number_sort_map,
     )
 except ImportError:
     from services.all_cards_loader import AllCardsLoader
@@ -49,7 +49,7 @@ except ImportError:
         has_structured_flags,
         parse_search_query,
         resolve_collector_number_printings,
-        get_set_collector_number_sort_map,
+        get_set_scoped_collector_number_sort_map,
     )
 
 if TYPE_CHECKING:
@@ -501,14 +501,16 @@ async def card_browser_index(
 
         # Apply sorting
         set_cn_sort_map: dict = {}
-        if sort == "name_asc" and parsed and len(parsed.set_include) == 1:
-            (only_set_code,) = parsed.set_include
-            set_cn_sort_map = get_set_collector_number_sort_map(only_set_code)
+        if sort == "name_asc" and parsed and parsed.set_include:
+            set_cn_sort_map = get_set_scoped_collector_number_sort_map(parsed.set_include, parsed.collector_number_clauses)
         if set_cn_sort_map:
-            # Single-set search: default to collector-number order instead of alphabetical.
-            filtered_df['_cn_sort'] = filtered_df['name'].str.lower().map(set_cn_sort_map).fillna(float('inf'))
-            filtered_df = filtered_df.sort_values(['_cn_sort', 'name'], ascending=[True, True])
-            filtered_df = filtered_df.drop('_cn_sort', axis=1)
+            # Any set:-scoped search: default to collector-number order (then
+            # set code, for multi-set queries) instead of alphabetical.
+            sort_keys = filtered_df['name'].str.lower().map(lambda n: set_cn_sort_map.get(n, (float('inf'), '')))
+            filtered_df['_cn_sort'] = sort_keys.map(lambda t: t[0])
+            filtered_df['_set_sort'] = sort_keys.map(lambda t: t[1])
+            filtered_df = filtered_df.sort_values(['_cn_sort', '_set_sort', 'name'], ascending=[True, True, True])
+            filtered_df = filtered_df.drop(['_cn_sort', '_set_sort'], axis=1)
         elif sort == "name_desc":
             # Name Z-A
             filtered_df['_sort_key'] = filtered_df['name'].str.replace('"', '', regex=False).str.replace("'", '', regex=False)
@@ -745,13 +747,14 @@ async def card_browser_grid(
         
         # Apply sorting (same logic as main endpoint)
         set_cn_sort_map: dict = {}
-        if sort == "name_asc" and parsed and len(parsed.set_include) == 1:
-            (only_set_code,) = parsed.set_include
-            set_cn_sort_map = get_set_collector_number_sort_map(only_set_code)
+        if sort == "name_asc" and parsed and parsed.set_include:
+            set_cn_sort_map = get_set_scoped_collector_number_sort_map(parsed.set_include, parsed.collector_number_clauses)
         if set_cn_sort_map:
-            filtered_df['_cn_sort'] = filtered_df['name'].str.lower().map(set_cn_sort_map).fillna(float('inf'))
-            filtered_df = filtered_df.sort_values(['_cn_sort', 'name'], ascending=[True, True])
-            filtered_df = filtered_df.drop('_cn_sort', axis=1)
+            sort_keys = filtered_df['name'].str.lower().map(lambda n: set_cn_sort_map.get(n, (float('inf'), '')))
+            filtered_df['_cn_sort'] = sort_keys.map(lambda t: t[0])
+            filtered_df['_set_sort'] = sort_keys.map(lambda t: t[1])
+            filtered_df = filtered_df.sort_values(['_cn_sort', '_set_sort', 'name'], ascending=[True, True, True])
+            filtered_df = filtered_df.drop(['_cn_sort', '_set_sort'], axis=1)
         elif sort == "name_desc":
             filtered_df['_sort_key'] = filtered_df['name'].str.replace('"', '', regex=False).str.replace("'", '', regex=False)
             filtered_df['_sort_key'] = filtered_df['_sort_key'].apply(

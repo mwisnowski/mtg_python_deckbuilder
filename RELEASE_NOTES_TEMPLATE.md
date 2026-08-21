@@ -16,6 +16,10 @@ _No unreleased changes yet_
 ### Security
 _No unreleased changes yet_
 
+## [5.10.1]
+### Fixed
+- Web: fixed set-scoped searches with an additional collector-number filter (e.g. `set:msc cn>200`) sorting alphabetically instead of by collector number.
+
 ## [5.10.0]
 ### Added
 - Web: cards can now be searched by set (`set:`, e.g. `set:"Modern Horizons 3 Commander"` or `set:msc`) and, within a set, by collector number or range (`cn:`/`number:`, e.g. `set:msc cn:212`). Searches scoped to a specific printing this way now show that printing's exact image instead of the card's usual default, in the web UI and public API alike.

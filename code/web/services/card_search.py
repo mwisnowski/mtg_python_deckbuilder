@@ -631,6 +631,45 @@ def get_set_collector_number_sort_map(set_code: str) -> Dict[str, float]:
     return sort_map
 
 
+def get_set_scoped_collector_number_sort_map(
+    set_codes: "Set[str] | List[str]",
+    collector_number_clauses: Optional[List["CollectorNumberClause"]] = None,
+) -> Dict[str, Tuple[float, str]]:
+    """Like `get_set_collector_number_sort_map()`, but for one or more sets
+    at once and aware of any `cn:`/`number:` clauses already applied to the
+    query. Maps each card name (lowercase) to `(numeric collector number,
+    set code)` so results can be ordered by collector number first, then by
+    set code alphabetically (a tiebreaker for multi-set queries, e.g. `set:msc
+    set:msh cn>50`). When `collector_number_clauses` is given, only
+    printings satisfying those clauses are considered, so the sort reflects
+    the actual matching printing (e.g. `set:msc cn>200` sorts by each card's
+    printing in the 200+ range, not its overall best-scored printing in the
+    set, which may fall outside that range). Returns `{}` if the printings
+    index is unavailable or no printing matches any of `set_codes`."""
+    codes = {str(c).upper() for c in set_codes}
+    if not codes:
+        return {}
+    printings = _load_printings_index_df()
+    if printings is None or printings.empty:
+        return {}
+    subset = printings[printings["set"].astype(str).str.upper().isin(codes)]
+    if subset.empty:
+        return {}
+    if collector_number_clauses:
+        matched = subset.loc[_collector_number_match_mask(subset, collector_number_clauses)]
+        if not matched.empty:
+            subset = matched
+    subset = subset.sort_values(["score", "released_at"], ascending=[False, False], na_position="last")
+    sort_map: Dict[str, Tuple[float, str]] = {}
+    for _, row in subset.iterrows():
+        key = str(row["face_name"]).lower()
+        if key in sort_map:
+            continue
+        num = _collector_number_numeric_prefix(row["collector_number"])
+        sort_map[key] = (num if num is not None else float("inf"), str(row["set"]).upper())
+    return sort_map
+
+
 def _apply_search_flag(parsed: ParsedSearch, canonical: str, op: str, value: str, *, negate: bool) -> None:
     if not value:
         return

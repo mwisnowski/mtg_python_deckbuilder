@@ -77,6 +77,102 @@ def test_list_cards_by_colors(client):
     assert names == {"Counterspell"}
 
 
+def test_list_cards_by_set_code(client):
+    # api_v1/cards.py doesn't call the shared apply_extra_clauses(), so the
+    # set: filter needs its own mirrored block (Roadmap 38, M1).
+    resp = client.get("/api/v1/cards", params={"q": "set:LEA"})
+    data = resp.json()["data"]
+    names = {c["name"] for c in data["cards"]}
+    assert names == {"Sol Ring", "Lightning Bolt", "Counterspell"}
+
+
+def test_list_cards_by_negative_set_code(client):
+    resp = client.get("/api/v1/cards", params={"q": "-set:LEA"})
+    data = resp.json()["data"]
+    names = {c["name"] for c in data["cards"]}
+    assert "Sol Ring" not in names
+    assert "Fire // Ice" in names
+
+
+def test_list_cards_response_includes_notices_key(client):
+    resp = client.get("/api/v1/cards", params={"q": "set:LEA"})
+    data = resp.json()["data"]
+    assert "notices" in data
+    assert data["notices"] == []
+
+
+def test_list_cards_by_collector_number(client, tmp_path, monkeypatch):
+    # api_v1/cards.py doesn't call the shared apply_extra_clauses(), so
+    # cn:/number: needs its own mirrored block too (Roadmap 38, M3).
+    import code.web.services.card_search as card_search
+
+    printings_df = pd.DataFrame(
+        [
+            {"face_name": "Sol Ring", "set": "LEA", "collector_number": "211", "scryfall_id": "sol-211", "score": 5, "released_at": "2024-01-01"},
+            {"face_name": "Sol Ring", "set": "LEA", "collector_number": "212", "scryfall_id": "sol-212", "score": 20, "released_at": "2024-01-01"},
+        ]
+    )
+    printings_df.to_parquet(tmp_path / "card_printings.parquet", engine="pyarrow")
+    monkeypatch.setattr(card_search, "card_files_processed_dir", lambda: str(tmp_path))
+    card_search._PRINTINGS_INDEX_DF = None
+    card_search._PRINTINGS_INDEX_LOADED = False
+
+    resp = client.get("/api/v1/cards", params={"q": "set:LEA cn:212"})
+    data = resp.json()["data"]
+    names = {c["name"] for c in data["cards"]}
+    assert names == {"Sol Ring"}
+
+    resp = client.get("/api/v1/cards", params={"q": "cn:212"})
+    data = resp.json()["data"]
+    assert data["total_count"] == 6  # no set: -- no-op, unfiltered
+    assert any("requires a set:" in n for n in data["notices"])
+
+    card_search._PRINTINGS_INDEX_DF = None
+    card_search._PRINTINGS_INDEX_LOADED = False
+
+
+def test_list_cards_includes_resolved_printing_id_for_set_scoped_search(client):
+    # Mobile/web parity: a set: search resolves each card to its printing in
+    # that set (mirrors card_browser.py's _set_scoped_printings()), surfaced
+    # via a resolvedPrintingId field so the mobile app can request that
+    # printing's artwork instead of the card's global default.
+    import code.web.routes.api_v1.cards as cards_route
+
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(cards_route._image_cache, "get_printing_id_for_set", lambda name, code: f"{name}-{code}".lower())
+        resp = client.get("/api/v1/cards", params={"q": "set:LEA"})
+    data = resp.json()["data"]
+    sol_ring = next(c for c in data["cards"] if c["name"] == "Sol Ring")
+    assert sol_ring["resolvedPrintingId"] == "sol ring-lea"
+
+    resp = client.get("/api/v1/cards", params={"q": ""})
+    data = resp.json()["data"]
+    assert all(c["resolvedPrintingId"] is None for c in data["cards"])
+
+
+def test_list_cards_includes_set_badge_for_single_set_search(client):
+    # Roadmap 38 M5 API parity: a single set: search also surfaces a
+    # setBadge (set/setName/collectorNumber) per card, mirroring the web
+    # UI's card tile/detail badge, so the mobile app can render the same info.
+    import code.web.routes.api_v1.cards as cards_route
+
+    def _fake_get_printing_meta(name, *, scryfall_id=None, set_code=None):
+        assert set_code == "LEA"
+        return {"set": "LEA", "set_name": "Limited Edition Alpha", "collector_number": "1"}
+
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(cards_route._image_cache, "get_printing_meta", _fake_get_printing_meta)
+        resp = client.get("/api/v1/cards", params={"q": "set:LEA"})
+    data = resp.json()["data"]
+    sol_ring = next(c for c in data["cards"] if c["name"] == "Sol Ring")
+    assert sol_ring["setBadge"] == {"set": "LEA", "setName": "Limited Edition Alpha", "collectorNumber": "1"}
+
+    # No set: filter, or more than one -- ambiguous/not scoped, no badge.
+    resp = client.get("/api/v1/cards", params={"q": ""})
+    data = resp.json()["data"]
+    assert all(c["setBadge"] is None for c in data["cards"])
+
+
 def test_list_cards_by_tags_and_logic(client):
     resp = client.get("/api/v1/cards", params={"tags": "Removal,Burn"})
     data = resp.json()["data"]

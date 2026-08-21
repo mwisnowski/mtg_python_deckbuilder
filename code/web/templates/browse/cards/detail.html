@@ -38,6 +38,9 @@
                 {% if show_new_badge and card.isNew %}
                 <div class="card-new-badge" title="Recently Released" aria-hidden="true">New</div>
                 {% endif %}
+                {% if set_badge is defined and set_badge %}
+                <div class="card-set-badge{% if show_new_badge and card.isNew %} card-set-badge--stacked-1{% endif %}">{{ set_badge.set_name }} #{{ set_badge.collector_number }}</div>
+                {% endif %}
                 <div id="price-overlay-{{ card_idx }}" class="card-price-overlay" data-price-for="{{ card.name }}" data-printing-id="{{ sel_printing }}" data-foil="{{ '1' if is_foil else '0' }}" style="display:none" aria-hidden="true"></div>
             </div>
             <div class="card-detail-printing-row">
@@ -145,6 +148,18 @@
             {% if back_face.text %}
             <div class="card-text" style="white-space: pre-line;">{{ back_face.text | replace('\\n', '\n') }}</div>
             {% endif %}
+            {% endif %}
+
+            {# Printed-in sets #}
+            {% if card_printed_sets and card_printed_sets|length > 0 %}
+            <details style="margin-top:1rem;">
+                <summary class="cd-section-heading" style="display:inline-block; cursor:pointer;">Printings ({{ card_printed_sets|length }})</summary>
+                <div class="card-tags">
+                    {% for s in card_printed_sets %}
+                    <a href="/cards?search={{ ('set:' ~ s.code)|urlencode }}" class="card-tag" title="{{ s.code }}">{{ s.name }}</a>
+                    {% endfor %}
+                </div>
+            </details>
             {% endif %}
 
             <!-- Theme Tags -->

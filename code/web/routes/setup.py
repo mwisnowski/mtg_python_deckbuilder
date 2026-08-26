@@ -147,6 +147,9 @@ async def download_github():
             ("card_files/prices_cache.json", "card_files/prices_cache.json"),
             ("card_files/ck_prices_cache.json", "card_files/ck_prices_cache.json"),
             ("card_files/processed/rulings_cache.json", "card_files/processed/rulings_cache.json"),
+            ("card_files/processed/card_printings.parquet", "card_files/processed/card_printings.parquet"),
+            ("card_files/processed/tokens.parquet", "card_files/processed/tokens.parquet"),
+            ("card_files/processed/token_printings.parquet", "card_files/processed/token_printings.parquet"),
         ]
         
         downloaded = []

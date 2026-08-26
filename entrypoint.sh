@@ -44,6 +44,26 @@ seed_defaults() {
         fi
     fi
 
+    # Copy/download token/emblem catalog + printings index
+    if [ ! -f /app/card_files/processed/tokens.parquet ]; then
+        if [ -f /.defaults/card_files/processed/tokens.parquet ]; then
+            echo "Copying pre-built token/emblem catalog from image..."
+            cp /.defaults/card_files/processed/tokens.parquet /app/card_files/processed/ 2>/dev/null || true
+        else
+            echo "Downloading token/emblem catalog from GitHub..."
+            wget -q https://raw.githubusercontent.com/mwisnowski/mtg_python_deckbuilder/similarity-cache-data/card_files/processed/tokens.parquet -O /app/card_files/processed/tokens.parquet 2>/dev/null || echo "Warning: Could not download token/emblem catalog (will be generated during setup)"
+        fi
+    fi
+    if [ ! -f /app/card_files/processed/token_printings.parquet ]; then
+        if [ -f /.defaults/card_files/processed/token_printings.parquet ]; then
+            echo "Copying pre-built token/emblem printings index from image..."
+            cp /.defaults/card_files/processed/token_printings.parquet /app/card_files/processed/ 2>/dev/null || true
+        else
+            echo "Downloading token/emblem printings index from GitHub..."
+            wget -q https://raw.githubusercontent.com/mwisnowski/mtg_python_deckbuilder/similarity-cache-data/card_files/processed/token_printings.parquet -O /app/card_files/processed/token_printings.parquet 2>/dev/null || echo "Warning: Could not download token/emblem printings index (Choose Printing feature will show no token alternates)"
+        fi
+    fi
+
     # Copy from baked-in defaults if targets are missing
     if [ -d "/.defaults/config" ]; then
         # deck.json

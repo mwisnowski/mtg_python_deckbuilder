@@ -91,6 +91,35 @@ jobs:
         run: |
           python -c "from code.file_setup.setup import initial_setup; initial_setup()"
       
+      - name: Build token/emblem catalog
+        if: steps.check_cache.outputs.needs_build == 'true'
+        run: |
+          # Must run before tagging so tag_for_tokens() can consult the catalog's
+          # relatedCards reverse index (see roadmap_39, Milestone 1/2).
+          python -c "
+          import os
+          from code.file_setup.setup import download_parquet_from_mtgjson, MTGJSON_TOKENS_PARQUET_URL
+          from code.file_setup.token_setup import build_tokens_parquet, tag_token_catalog_own_fields
+          from code.file_setup.data_loader import DataLoader
+          from code.path_util import card_files_raw_dir, card_files_processed_dir
+
+          raw_tokens_path = os.path.join(card_files_raw_dir(), 'tokens.parquet')
+          if not os.path.exists(raw_tokens_path):
+              print('Downloading MTGJSON tokens.parquet...')
+              download_parquet_from_mtgjson(raw_tokens_path, url=MTGJSON_TOKENS_PARQUET_URL, desc='Downloading tokens.parquet')
+
+          tokens_path = os.path.join(card_files_processed_dir(), 'tokens.parquet')
+          tokens_df = build_tokens_parquet(raw_path=raw_tokens_path, output_path=tokens_path)
+          tokens_df = tag_token_catalog_own_fields(tokens_df)
+          DataLoader().write_cards(tokens_df, tokens_path)
+          print(f'Token/emblem catalog built: {len(tokens_df)} rows')
+          "
+          if [ ! -f "card_files/processed/tokens.parquet" ]; then
+            echo "WARNING: Token/emblem catalog not created (non-fatal, tokens will be unavailable)"
+          else
+            echo "✓ Token/emblem catalog built"
+          fi
+      
       - name: Run tagging (serial for CI reliability)
         if: steps.check_cache.outputs.needs_build == 'true'
         run: |
@@ -107,6 +136,30 @@ jobs:
             echo "ERROR: Tagging completion flag not found"
             exit 1
           fi
+      
+      - name: Apply emblem backreferences
+        if: steps.check_cache.outputs.needs_build == 'true'
+        run: |
+          # Writes 'Emblem: {creator}' metadataTags + 'Emblem' themeTag onto each
+          # emblem's creator card(s); must run after tagging (freshly-tagged save).
+          python -c "
+          import os
+          import pandas as pd
+          from code.file_setup.token_setup import apply_emblem_backreferences
+          from code.file_setup.data_loader import DataLoader
+          from code.path_util import card_files_processed_dir, get_processed_cards_path
+
+          processed_path = get_processed_cards_path()
+          tokens_path = os.path.join(card_files_processed_dir(), 'tokens.parquet')
+          if os.path.exists(processed_path) and os.path.exists(tokens_path):
+              all_cards_df = pd.read_parquet(processed_path)
+              tokens_df = pd.read_parquet(tokens_path)
+              all_cards_df = apply_emblem_backreferences(all_cards_df, tokens_df)
+              DataLoader().write_cards(all_cards_df, processed_path)
+              print('Emblem backreferences applied')
+          else:
+              print('Skipping emblem backreferences (all_cards.parquet or tokens.parquet missing)')
+          " || echo "WARNING: Emblem backreference step failed (non-fatal)"
       
       # File an issue for any unregistered Rulebreaker
       # candidate found during tagging. Best-effort only; never fails the job.
@@ -306,6 +359,24 @@ jobs:
             echo "✓ Printings index built"
           fi
       
+      - name: Build token/emblem printings index (Choose Printing feature)
+        if: steps.check_cache.outputs.needs_build == 'true'
+        run: |
+          python -c "
+          import os
+          from code.file_setup.image_cache import ImageCache
+          from code.file_setup.data_loader import DataLoader
+          from code.path_util import card_files_processed_dir
+
+          tokens_path = os.path.join(card_files_processed_dir(), 'tokens.parquet')
+          if os.path.exists(tokens_path):
+              tokens_df = DataLoader().read_cards(tokens_path)
+              count = ImageCache().build_token_printings_index(tokens_df)
+              print(f'Token/emblem printings index built: {count} rows')
+          else:
+              print('Skipping token printings index (tokens.parquet missing)')
+          " || echo "WARNING: Token/emblem printings index not created (non-fatal)"
+      
       - name: Verify cache was created
         if: steps.check_cache.outputs.needs_build == 'true'
         run: |
@@ -330,6 +401,14 @@ jobs:
           # Printings index is non-fatal (on-demand per-image fetch fallback available)
           if [ ! -f "card_files/processed/card_printings.parquet" ]; then
             echo "WARNING: Printings index not created (Choose Printing feature will show no alternates)"
+          fi
+          
+          # Token/emblem catalog + printings index are non-fatal (feature is additive)
+          if [ ! -f "card_files/processed/tokens.parquet" ]; then
+            echo "WARNING: Token/emblem catalog not created (tokens/emblems will be unavailable)"
+          fi
+          if [ ! -f "card_files/processed/token_printings.parquet" ]; then
+            echo "WARNING: Token/emblem printings index not created (token Choose Printing feature will show no alternates)"
           fi
           
           echo "✓ All cache files created successfully"
@@ -378,6 +457,8 @@ jobs:
           - `card_files/prices_cache.json.ts` - Per-card price timestamps (if present)
           - `card_files/processed/rulings_cache.json` - Official card rulings from Scryfall bulk data
           - `card_files/processed/card_printings.parquet` - Per-printing metadata index (set, collector number, art) for the Choose Printing feature
+          - `card_files/processed/tokens.parquet` - Token/emblem catalog (canonical identities + creator card references)
+          - `card_files/processed/token_printings.parquet` - Per-printing metadata index for token/emblem artwork (Choose Printing feature)
           EOF
           
           # Start with clean index
@@ -394,6 +475,8 @@ jobs:
           git add -f card_files/prices_cache.json.ts 2>/dev/null || true
           git add -f card_files/processed/rulings_cache.json 2>/dev/null || true
           git add -f card_files/processed/card_printings.parquet 2>/dev/null || true
+          git add -f card_files/processed/tokens.parquet 2>/dev/null || true
+          git add -f card_files/processed/token_printings.parquet 2>/dev/null || true
           git add -f README-cache.md
           
           # Create a new commit

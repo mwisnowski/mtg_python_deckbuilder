@@ -1421,6 +1421,8 @@ def _ensure_setup_ready(out, force: bool = False, force_theme_refresh: bool = Fa
                         ("card_files/prices_cache.json", "card_files/prices_cache.json"),
                         ("card_files/ck_prices_cache.json", "card_files/ck_prices_cache.json"),
                         ("card_files/processed/card_printings.parquet", "card_files/processed/card_printings.parquet"),
+                        ("card_files/processed/tokens.parquet", "card_files/processed/tokens.parquet"),
+                        ("card_files/processed/token_printings.parquet", "card_files/processed/token_printings.parquet"),
                     ]
                     
                     download_success = True

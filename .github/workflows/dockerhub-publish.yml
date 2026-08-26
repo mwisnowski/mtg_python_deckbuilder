@@ -70,6 +70,8 @@ jobs:
           wget -q https://raw.githubusercontent.com/${{ github.repository }}/similarity-cache-data/card_files/similarity_cache.parquet -O card_files/similarity_cache.parquet || echo "Cache not found, will build without it"
           wget -q https://raw.githubusercontent.com/${{ github.repository }}/similarity-cache-data/card_files/similarity_cache_metadata.json -O card_files/similarity_cache_metadata.json || echo "Metadata not found"
           wget -q https://raw.githubusercontent.com/${{ github.repository }}/similarity-cache-data/card_files/processed/card_printings.parquet -O card_files/processed/card_printings.parquet || echo "Printings index not found"
+          wget -q https://raw.githubusercontent.com/${{ github.repository }}/similarity-cache-data/card_files/processed/tokens.parquet -O card_files/processed/tokens.parquet || echo "Token/emblem catalog not found"
+          wget -q https://raw.githubusercontent.com/${{ github.repository }}/similarity-cache-data/card_files/processed/token_printings.parquet -O card_files/processed/token_printings.parquet || echo "Token/emblem printings index not found"
           
           if [ -f card_files/similarity_cache.parquet ]; then
             echo "✓ Downloaded similarity cache"
@@ -141,6 +143,8 @@ jobs:
           wget -q https://raw.githubusercontent.com/${{ github.repository }}/similarity-cache-data/card_files/similarity_cache.parquet -O card_files/similarity_cache.parquet || echo "Cache not found, will build without it"
           wget -q https://raw.githubusercontent.com/${{ github.repository }}/similarity-cache-data/card_files/similarity_cache_metadata.json -O card_files/similarity_cache_metadata.json || echo "Metadata not found"
           wget -q https://raw.githubusercontent.com/${{ github.repository }}/similarity-cache-data/card_files/processed/card_printings.parquet -O card_files/processed/card_printings.parquet || echo "Printings index not found"
+          wget -q https://raw.githubusercontent.com/${{ github.repository }}/similarity-cache-data/card_files/processed/tokens.parquet -O card_files/processed/tokens.parquet || echo "Token/emblem catalog not found"
+          wget -q https://raw.githubusercontent.com/${{ github.repository }}/similarity-cache-data/card_files/processed/token_printings.parquet -O card_files/processed/token_printings.parquet || echo "Token/emblem printings index not found"
           
           if [ -f card_files/similarity_cache.parquet ]; then
             echo "✓ Downloaded similarity cache"

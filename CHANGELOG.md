@@ -15,7 +15,7 @@ _No unreleased changes yet_
 _No unreleased changes yet_
 
 ### Fixed
-_No unreleased changes yet_
+- The CI job that builds the pre-computed card cache (`build-similarity-cache.yml`) now also builds the token/emblem catalog (`tokens.parquet`) and its printings index (`token_printings.parquet`), and both files are included in every pre-built data download path: Docker Hub images, container startup seeding (`entrypoint.sh`), and the web UI's "Download from GitHub" setup button (both the manual button and the automatic first-run fallback). Previously the CI workflow skipped the token catalog build entirely, so tokens/emblems added in 5.11.0 never populated for anyone relying on those pre-built downloads instead of a full local rebuild.
 
 ### Removed
 _No unreleased changes yet_

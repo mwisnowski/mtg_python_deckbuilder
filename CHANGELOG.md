@@ -23,6 +23,10 @@ _No unreleased changes yet_
 ### Security
 _No unreleased changes yet_
 
+## [5.11.3] - 2026-08-26
+### Fixed
+- Web: if the app process was killed mid-run (e.g. an out-of-memory crash) while setup, tagging, or a theme catalog refresh was in progress, the home page's "Themes: (refreshing)" badge and the Setup page's "Refresh Themes Only" button could get stuck permanently, since the saved status file's `running` flag was never cleared and nothing checked whether the job was actually still alive. The app now clears any leftover `running` state on startup, so the UI recovers automatically after a restart instead of requiring a manual file edit.
+
 ## [5.11.2] - 2026-08-26
 ### Fixed
 - Web: the "Download from GitHub" setup button (and the automatic first-run download it shares logic with) could hang indefinitely and freeze the entire web app if a single file's connection stalled partway through, since the download ran as blocking network I/O directly on the app's request-handling loop and its timeout could be reset by any partial progress. Downloads now run off the main loop and are capped at 120 seconds per file, so a stalled connection fails that file instead of freezing the app.

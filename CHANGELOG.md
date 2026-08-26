@@ -23,6 +23,10 @@ _No unreleased changes yet_
 ### Security
 _No unreleased changes yet_
 
+## [5.11.2] - 2026-08-26
+### Fixed
+- Web: the "Download from GitHub" setup button (and the automatic first-run download it shares logic with) could hang indefinitely and freeze the entire web app if a single file's connection stalled partway through, since the download ran as blocking network I/O directly on the app's request-handling loop and its timeout could be reset by any partial progress. Downloads now run off the main loop and are capped at 120 seconds per file, so a stalled connection fails that file instead of freezing the app.
+
 ## [5.11.1] - 2026-08-26
 ### Fixed
 - The CI job that builds the pre-computed card cache (`build-similarity-cache.yml`) now also builds the token/emblem catalog (`tokens.parquet`) and its printings index (`token_printings.parquet`), and both files are included in every pre-built data download path: Docker Hub images, container startup seeding (`entrypoint.sh`), and the web UI's "Download from GitHub" setup button (both the manual button and the automatic first-run fallback). Previously the CI workflow skipped the token catalog build entirely, so tokens/emblems added in 5.11.0 never populated for anyone relying on those pre-built downloads instead of a full local rebuild.

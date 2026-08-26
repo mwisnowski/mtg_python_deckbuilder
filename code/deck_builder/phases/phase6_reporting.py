@@ -788,6 +788,29 @@ class ReportingMixin:
             'colors': list(getattr(self, 'color_identity', []) or []),
             'include_exclude_summary': include_exclude_summary,
         }
+        # Roadmap 39, Milestone 5: tokens/emblems this deck will create --
+        # purely informational, never affects legality/count/price/bracket.
+        try:
+            from deck_builder.tokens import detect_tokens_created
+            detected_tokens = detect_tokens_created(self.card_library.keys())
+            summary_payload['tokens_created'] = [
+                {
+                    'token': {
+                        'name': entry.token.name,
+                        'type': entry.token.type,
+                        'power': entry.token.power,
+                        'toughness': entry.token.toughness,
+                        'is_emblem': entry.token.is_emblem,
+                        'colors': entry.token.colors,
+                        'key': entry.token.identity_key(),
+                        'text_hash': entry.token.text_hash(),
+                    },
+                    'created_by': list(entry.created_by),
+                }
+                for entry in detected_tokens
+            ]
+        except Exception:  # pragma: no cover - purely additive, never block a build
+            summary_payload['tokens_created'] = []
         # M3 (Roadmap 14): attach smart-land diagnostics when available
         land_report_data = getattr(self, '_land_report_data', None)
         if land_report_data:
@@ -1138,6 +1161,33 @@ class ReportingMixin:
                 else:
                     w.writerow(summary_row)
 
+            # Roadmap 39, Milestone 5: append a clearly-separate, non-counted
+            # "Tokens Created" section. Every row's Name is prefixed with '#'
+            # (the existing comment convention) so it's ignored by both the
+            # CSV-summary-reconstruction fallback (decks.py's
+            # _read_csv_summary) and the plaintext re-import parser.
+            try:
+                from deck_builder.tokens import detect_tokens_created
+                detected_tokens = detect_tokens_created(self.card_library.keys())
+            except Exception:
+                detected_tokens = []
+            if detected_tokens:
+                blank_row = [''] * len(headers)
+                w.writerow(blank_row + suffix_padding if suffix_padding else blank_row)
+                marker_row = list(blank_row)
+                marker_row[0] = '# Tokens & Emblems Created (informational only, not part of deck count)'
+                w.writerow(marker_row + suffix_padding if suffix_padding else marker_row)
+                for entry in detected_tokens:
+                    token = entry.token
+                    label = f"# {token.name}"
+                    if not token.is_emblem and token.power and token.toughness:
+                        label += f" ({token.power}/{token.toughness})"
+                    token_row = list(blank_row)
+                    token_row[0] = label
+                    token_row[2] = 'Emblem' if token.is_emblem else 'Token'
+                    token_row[15] = f"created by: {', '.join(entry.created_by)}"
+                    w.writerow(token_row + suffix_padding if suffix_padding else token_row)
+
         self.output_func(f"Deck exported to {fname}")
         # Auto-generate matching plaintext list (best-effort; ignore failures)
         return fname
@@ -1298,6 +1348,24 @@ class ReportingMixin:
                 if dfc_note:
                     line += f" [MDFC: {dfc_note}]"
                 f.write(line + "\n")
+
+            # Roadmap 39, Milestone 5: append a clearly-separate, non-counted
+            # "Tokens Created" section. Lines are '#'-prefixed comments (or have
+            # no leading count), so the re-import parser (DeckListParser.parse)
+            # skips them without treating them as real deck cards.
+            try:
+                from deck_builder.tokens import detect_tokens_created
+                detected_tokens = detect_tokens_created(self.card_library.keys())
+            except Exception:
+                detected_tokens = []
+            if detected_tokens:
+                f.write("\n# Tokens & Emblems Created (informational only, not part of deck count)\n")
+                for entry in detected_tokens:
+                    token = entry.token
+                    label = token.name
+                    if not token.is_emblem and token.power and token.toughness:
+                        label += f" ({token.power}/{token.toughness})"
+                    f.write(f"# {label} - created by: {', '.join(entry.created_by)}\n")
         if not suppress_output:
             self.output_func(f"Plaintext deck list exported to {path}")
         return path

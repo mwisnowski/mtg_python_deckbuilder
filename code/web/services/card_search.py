@@ -36,6 +36,7 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 import pandas as pd
 
 from code.deck_builder.builder_utils import parse_theme_tags
+from code.deck_builder.tokens import load_tokens_browser_df
 from code.path_util import card_files_processed_dir
 
 
@@ -843,6 +844,36 @@ def apply_extra_clauses(df: "pd.DataFrame", parsed: ParsedSearch) -> "pd.DataFra
                     )
                     df = df[df["name"].astype(str).isin(matched_names)]
     return df
+
+
+def wants_tokens(parsed: ParsedSearch) -> bool:
+    """True if a structured `type:`/`t:` query explicitly asks for tokens
+    or emblems (e.g. `type:token`, `t:emblem`). Tokens are otherwise never
+    included in search results -- see `merge_tokens_for_search`."""
+    return any(
+        "token" in term.lower() or "emblem" in term.lower()
+        for term in parsed.type_include
+    )
+
+
+def merge_tokens_for_search(df: "pd.DataFrame") -> "pd.DataFrame":
+    """Concat the normalized tokens/emblems catalog (`load_tokens_browser_df`)
+    onto `df` so a `type:token`/`type:emblem` search can surface them. Only
+    call when `wants_tokens()` is true; the subsequent `type:` substring
+    filter naturally excludes real cards (whose `type` never contains
+    "token"/"emblem"), so no separate real-card exclusion is needed here.
+    """
+    token_df = load_tokens_browser_df()
+    if token_df.empty:
+        return df
+    columns = list(dict.fromkeys(list(df.columns) + list(token_df.columns)))
+    merged = pd.concat(
+        [df.reindex(columns=columns), token_df.reindex(columns=columns)],
+        ignore_index=True,
+    )
+    merged["is_token"] = merged["is_token"].fillna(False).astype(bool)
+    merged["is_emblem"] = merged["is_emblem"].fillna(False).astype(bool)
+    return merged
 
 
 def has_structured_flags(parsed: ParsedSearch) -> bool:

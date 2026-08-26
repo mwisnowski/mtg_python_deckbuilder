@@ -89,6 +89,32 @@ def test_deck_detail(client, auth, tmp_path):
     assert names == {"Sol Ring", "Lightning Bolt"}
 
 
+def test_deck_detail_excludes_tokens_and_emblems_section(client, auth, tmp_path):
+    """The roadmap_39 '# Tokens & Emblems Created' CSV section is
+    informational-only and must never appear in the API's card list (it
+    previously leaked into the mobile app's deck view under "Other")."""
+    user, headers = auth
+    deck_dir = tmp_path / "deck_files" / user["id"]
+    deck_dir.mkdir(parents=True, exist_ok=True)
+    csv_path = deck_dir / "Token Deck.csv"
+    csv_path.write_text(
+        "Name,Count,Type,ManaValue,Colors,Role,Tags\n"
+        "Sol Ring,1,Artifact,1,Colorless,Ramp,Ramp\n"
+        "# Tokens & Emblems Created,,,,,,\n"
+        "# Treasure,1,Token,,,,,\n"
+        "Total,1,,,,,\n",
+        encoding="utf-8",
+    )
+    (deck_dir / "Token Deck.txt").write_text("1 Sol Ring\n", encoding="utf-8")
+
+    resp = client.get("/api/v1/decks/Token Deck.csv", headers=headers)
+    assert resp.status_code == 200
+    data = resp.json()["data"]
+    names = {c["name"] for c in data["cards"]}
+    assert names == {"Sol Ring"}
+    assert data["card_count"] == 1
+
+
 def test_deck_detail_not_found(client, auth):
     _, headers = auth
     resp = client.get("/api/v1/decks/Nope.csv", headers=headers)
@@ -197,6 +223,61 @@ def test_deck_analysis_honors_printing_map(client, auth, tmp_path, monkeypatch):
     assert resp.status_code == 200
     assert captured["printing_map"] == {"sol ring": "abc123"}
     assert resp.json()["data"]["total_price"] == 20.0
+
+
+def test_deck_analysis_token_printing_override_applies(client, auth, tmp_path):
+    """Persisting a token/emblem printing via POST /token-printing (the
+    mobile app's "Change Printing" action) must show up in the very next
+    GET /analysis response, keyed by the token's stable `key` -- this is
+    what makes the choice actually stick instead of being forgotten."""
+    user, headers = auth
+    csv_path = _write_sample_deck(user["id"], tmp_path)
+    sidecar = csv_path.parent / (csv_path.stem + ".summary.json")
+    sidecar.write_text(
+        json.dumps(
+            {
+                "summary": {
+                    "tokens_created": [
+                        {
+                            "token": {
+                                "name": "Treasure",
+                                "type": "Token Artifact — Treasure",
+                                "power": None,
+                                "toughness": None,
+                                "is_emblem": False,
+                                "colors": "",
+                                "key": "treasure|token artifact — treasure|||treasurehash",
+                                "text_hash": "treasurehash",
+                                "text": "Sacrifice this artifact: Add one mana of any color.",
+                            },
+                            "created_by": ["Sol Ring"],
+                        }
+                    ]
+                },
+                "meta": {"commander": "Test Deck"},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    resp = client.get("/api/v1/decks/Test Deck.csv/analysis", headers=headers)
+    assert resp.status_code == 200
+    tokens = resp.json()["data"]["tokens_created"]
+    assert tokens[0]["token"].get("scryfall_id") is None
+
+    key = tokens[0]["token"]["key"]
+    resp = client.post(
+        "/api/v1/decks/Test Deck.csv/token-printing",
+        headers=headers,
+        json={"key": key, "scryfall_id": "abc123"},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["data"] == {"key": key, "scryfall_id": "abc123"}
+
+    resp = client.get("/api/v1/decks/Test Deck.csv/analysis", headers=headers)
+    assert resp.status_code == 200
+    tokens = resp.json()["data"]["tokens_created"]
+    assert tokens[0]["token"]["scryfall_id"] == "abc123"
 
 
 def test_deck_compliance_reads_sidecar(client, auth, tmp_path):

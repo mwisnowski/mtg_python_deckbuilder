@@ -479,6 +479,11 @@ Most defaults are defined in `docker-compose.yml` and documented in `.env.exampl
 | `UPGRADE_PAGE_SIZE` | `16` | Number of upgrade suggestions shown per page. |
 | `UPGRADE_WINDOW_MONTHS` | `6` | Months of release history considered for the New Cards tab. |
 
+### Card Browser
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `CARD_BROWSER_PAGE_SIZE` | `50` | Cards shown per page on the Card Browser (`/cards`). Set to `0` or leave empty to revert to the legacy infinite-scroll "Load More" experience instead of paginated browsing. |
+
 ### Public API
 | Variable | Default | Purpose |
 | --- | --- | --- |

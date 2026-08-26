@@ -107,6 +107,26 @@
       </div>
     </div>
   </details>
+
+  <details style="margin-top:1rem;">
+    <summary>Download Token/Emblem Images (Optional)</summary>
+    <div style="margin-top:.5rem; padding:1rem; border:1px solid var(--border); background:var(--panel); border-radius:8px;">
+      <p class="muted" style="margin:0 0 .75rem 0; font-size:.9rem;">
+        Download token and emblem images from Scryfall CDN, stored separately from card images
+        so a deck's "Tokens Created" section can load them instantly.
+      </p>
+      <div id="token-image-cache-status" style="margin-bottom:.75rem;">
+        <div class="muted">Status:</div>
+        <div id="token-image-status-line" style="margin-top:.25rem;">Checking…</div>
+        <div class="muted" id="token-image-stats-line" style="margin-top:.25rem; display:none;"></div>
+      </div>
+      {{ button('Download Token/Emblem Images', variant='priamry', onclick='downloadTokenImages()', attrs='id="btn-download-token-images"') }}
+      <div id="token-image-download-status" class="muted" style="margin-top:.5rem; display:none;"></div>
+      <div id="token-image-progress-bar" style="margin-top:.5rem; width:100%; height:10px; background:var(--bg); border:1px solid var(--border); border-radius:6px; overflow:hidden; display:none;">
+        <div id="token-image-progress-bar-inner" style="height:100%; width:0%; background:#3b82f6;"></div>
+      </div>
+    </div>
+  </details>
   {% endif %}
 
   <div style="margin-top:1rem; display:flex; gap:.5rem; flex-wrap:wrap;">
@@ -526,7 +546,140 @@
         if (btn) btn.disabled = false;
       });
   };
-  
+
+  // Token/emblem image download functions (mirror the card image functions above,
+  // but a separate cache -- see roadmap_39, Milestone 3).
+  function pollTokenImageStatus(){
+    fetch('/api/images/tokens/status', { cache: 'no-store' })
+      .then(function(r){ return r.json(); })
+      .then(function(data){
+        var statusLine = document.getElementById('token-image-status-line');
+        var statsLine = document.getElementById('token-image-stats-line');
+        var downloadStatus = document.getElementById('token-image-download-status');
+        var progressBar = document.getElementById('token-image-progress-bar');
+        var progressBarInner = document.getElementById('token-image-progress-bar-inner');
+
+        if (!statusLine) return;
+
+        if (data.running) {
+          var message = data.message || 'Downloading...';
+          var percentage = data.percentage || 0;
+
+          statusLine.textContent = 'Download in progress';
+          statusLine.style.color = '#3b82f6';
+
+          if (downloadStatus) {
+            downloadStatus.style.display = '';
+            downloadStatus.textContent = message + ' (' + percentage + '%)';
+          }
+
+          if (progressBar && progressBarInner) {
+            progressBar.style.display = '';
+            progressBarInner.style.width = percentage + '%';
+          }
+        } else if (data.stats) {
+          var stats = data.stats;
+          if (stats.enabled === false) {
+            statusLine.textContent = 'Image caching disabled';
+            statusLine.style.color = '#94a3b8';
+            if (statsLine) statsLine.style.display = 'none';
+          } else {
+            var tokenCount = Math.max(
+              (stats.small && stats.small.count) || 0,
+              (stats.normal && stats.normal.count) || 0
+            );
+            var totalSizeMB = ((stats.small && stats.small.size_mb) || 0) + ((stats.normal && stats.normal.size_mb) || 0);
+
+            if (tokenCount > 0) {
+              statusLine.textContent = 'Cache exists';
+              statusLine.style.color = '#34d399';
+              if (statsLine) {
+                statsLine.style.display = '';
+                statsLine.textContent = tokenCount.toLocaleString() + ' token/emblem printings cached • ' + totalSizeMB.toFixed(1) + ' MB';
+              }
+            } else {
+              statusLine.textContent = 'No token/emblem images cached';
+              statusLine.style.color = '#94a3b8';
+              if (statsLine) statsLine.style.display = 'none';
+            }
+          }
+          if (downloadStatus) downloadStatus.style.display = 'none';
+          if (progressBar) progressBar.style.display = 'none';
+        } else if (data.phase === 'error' || data.message) {
+          statusLine.textContent = 'Last download failed';
+          statusLine.style.color = '#f87171';
+          if (statsLine) {
+            statsLine.style.display = '';
+            statsLine.textContent = data.message || 'Unknown error';
+          }
+          if (downloadStatus) downloadStatus.style.display = 'none';
+          if (progressBar) progressBar.style.display = 'none';
+        } else {
+          statusLine.textContent = 'No token/emblem images cached';
+          statusLine.style.color = '#94a3b8';
+          if (statsLine) statsLine.style.display = 'none';
+          if (downloadStatus) downloadStatus.style.display = 'none';
+          if (progressBar) progressBar.style.display = 'none';
+        }
+      })
+      .catch(function(){
+        var statusLine = document.getElementById('token-image-status-line');
+        if (statusLine) {
+          statusLine.textContent = 'Status unavailable';
+          statusLine.style.color = '#94a3b8';
+        }
+      });
+  }
+
+  window.downloadTokenImages = function(){
+    var btn = document.getElementById('btn-download-token-images');
+    var statusEl = document.getElementById('token-image-download-status');
+
+    if (!confirm('Download token/emblem images from Scryfall? This is much smaller than the full card image cache.')) {
+      return;
+    }
+
+    if (btn) btn.disabled = true;
+    if (statusEl) {
+      statusEl.style.display = '';
+      statusEl.textContent = 'Starting download...';
+    }
+
+    fetch('/api/images/download-tokens', { method: 'POST' })
+      .then(function(r){
+        if (!r.ok) {
+          return r.json().then(function(data){
+            throw new Error(data.message || 'Download failed');
+          });
+        }
+        return r.json();
+      })
+      .then(function(data){
+        if (statusEl) {
+          statusEl.style.color = '#34d399';
+          statusEl.textContent = '✓ ' + (data.message || 'Download started');
+        }
+
+        var pollCount = 0;
+        var tokenPoll = setInterval(function(){
+          pollTokenImageStatus();
+          pollCount++;
+          if (pollCount > 3600) clearInterval(tokenPoll);
+        }, 2000);
+
+        setTimeout(function(){
+          if (btn) btn.disabled = false;
+        }, 3000);
+      })
+      .catch(function(err){
+        if (statusEl) {
+          statusEl.style.color = '#f87171';
+          statusEl.textContent = '✗ ' + (err.message || 'Download failed');
+        }
+        if (btn) btn.disabled = false;
+      });
+  };
+
   function rapidPoll(times, delay){
     var i = 0;
     function tick(){
@@ -732,6 +885,8 @@
   // Initialize image status polling
   pollImageStatus();
   setInterval(pollImageStatus, 10000); // Poll every 10s
+  pollTokenImageStatus();
+  setInterval(pollTokenImageStatus, 10000); // Poll every 10s
 
   // Rulings cache status
   function pollRulingsStatus(){

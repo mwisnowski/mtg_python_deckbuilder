@@ -322,6 +322,12 @@ def _read_csv_summary(csv_path: Path) -> Tuple[dict, Dict[str, int], Dict[str, i
                     name = row[name_idx]
                 except Exception:
                     continue
+                # Skip the trailing "Total" summary row and the roadmap_39
+                # Milestone 5 "Tokens & Emblems Created" section (both use
+                # the existing '#'-comment convention so they're never
+                # mistaken for real deck cards).
+                if not name or name == 'Total' or name.startswith('#'):
+                    continue
                 try:
                     cnt = int(float(row[count_idx])) if row[count_idx] else 1
                 except Exception:
@@ -445,17 +451,55 @@ def _read_deck_counts(csv_path: Path) -> Dict[str, int]:
                     name = row[name_idx]
                 except Exception:
                     continue
+                name = str(name).strip()
+                if not name or name == 'Total' or name.startswith('#'):
+                    continue
                 try:
                     cnt = int(float(row[count_idx])) if row[count_idx] else 1
                 except Exception:
                     cnt = 1
-                name = str(name).strip()
-                if not name:
-                    continue
                 counts[name] = counts.get(name, 0) + cnt
     except Exception:
         pass
     return counts
+
+
+def _read_token_printing_overrides(p: Path) -> Dict[str, str]:
+    """Read the `token_printing_overrides` map (identity key -> scryfall_id)
+    from a deck's `.summary.json` sidecar. Missing/invalid -> {}."""
+    sidecar = p.with_suffix(".summary.json")
+    if not sidecar.exists():
+        return {}
+    try:
+        payload = json.loads(sidecar.read_text(encoding="utf-8"))
+        overrides = payload.get("token_printing_overrides") if isinstance(payload, dict) else None
+        return {str(k): str(v) for k, v in overrides.items()} if isinstance(overrides, dict) else {}
+    except Exception:
+        return {}
+
+
+def _write_token_printing_override(p: Path, key: str, scryfall_id: str) -> None:
+    """Persist (or clear) a single token/emblem printing selection into the deck's
+    `.summary.json` sidecar, alongside the `summary`/`meta` keys already stored
+    there. No-op if the deck has no sidecar yet (nothing to overlay onto)."""
+    sidecar = p.with_suffix(".summary.json")
+    if not sidecar.exists():
+        return
+    try:
+        payload = json.loads(sidecar.read_text(encoding="utf-8"))
+        if not isinstance(payload, dict):
+            return
+    except Exception:
+        return
+    overrides = payload.get("token_printing_overrides")
+    if not isinstance(overrides, dict):
+        overrides = {}
+    if scryfall_id:
+        overrides[str(key)] = str(scryfall_id)
+    else:
+        overrides.pop(str(key), None)
+    payload["token_printing_overrides"] = overrides
+    sidecar.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 def _compute_budget_badge(p: Path) -> Optional[HTMLResponse]:
@@ -556,6 +600,54 @@ async def decks_set_printing(
             f'<div id="budget-badge-wrap" hx-swap-oob="true">{badge_resp.body.decode("utf-8")}</div>'
         )
     return HTMLResponse(img_html + price_oob + panel_oob + badge_html)
+
+
+@router.post("/token-printing", response_class=HTMLResponse)
+async def decks_set_token_printing(
+    request: Request,
+    deck: str = Form(...),
+    name: str = Form(...),
+    key: str = Form(...),
+    scryfall_id: str = Form(""),
+    idx: str = Form(...),
+    type_line: str = Form(""),
+    power: str = Form(""),
+    toughness: str = Form(""),
+    colors: str = Form(""),
+    text_hash: str = Form(""),
+) -> HTMLResponse:
+    """Persist a chosen alternate printing for a token/emblem tile on a saved deck.
+
+    This is the token counterpart to `/decks/printing`. Since a token isn't a
+    `card_library`/CSV entry, the choice is instead written into the deck's
+    `.summary.json` sidecar under `token_printing_overrides`, keyed by the
+    token's stable identity (`key`, see `TokenRef.identity_key()`) rather
+    than a card name/CSV row.
+    """
+    uid = _user_id(request)
+    if uid == "guest":
+        return HTMLResponse("", status_code=404)
+    base = _deck_dir(uid)
+    p = (base / deck).resolve()
+    if not _safe_within(base, p) or not (p.exists() and p.is_file() and p.suffix.lower() == ".csv"):
+        return HTMLResponse("", status_code=404)
+
+    from .build_permalinks import _render_token_img_html
+
+    scryfall_id = (scryfall_id or "").strip()
+    _write_token_printing_override(p, key, scryfall_id)
+    try:
+        invalidate_fragment_cache("partials/deck_summary.html", f"{p.name}:owner")
+        invalidate_fragment_cache("partials/deck_summary.html", f"{p.name}:guest")
+    except Exception:
+        pass
+
+    img_html = _render_token_img_html(
+        name, idx, scryfall_id, type_line=type_line, power=power, toughness=toughness, colors=colors,
+        text_hash=text_hash, oob=True,
+    )
+    panel_oob = '<div id="printing-modal-root" class="printing-panel" hx-swap-oob="true"></div>'
+    return HTMLResponse(img_html + panel_oob)
 
 
 @router.post("/foil", response_class=HTMLResponse)
@@ -700,6 +792,7 @@ def _render_deck_view(
     sid = request.cookies.get("sid") or new_sid()
     selected_printings = dict(get_session(sid).get("printings") or {})
     selected_foils = dict(get_session(sid).get("foils") or {})
+    selected_token_printings = dict(get_session(sid).get("token_printings") or {})
 
     # Try to load sidecar summary JSON first
     summary = None
@@ -751,6 +844,21 @@ def _render_deck_view(
                         entry['is_foil'] = True
     except Exception:
         pass
+    # Overlay any persisted token/emblem printing (art) selections the same
+    # way -- keyed by the token's stable identity, not a card name, since
+    # tokens aren't part of the deck's own card list/CSV.
+    try:
+        token_overrides = _read_token_printing_overrides(p)
+        if token_overrides and isinstance(summary, dict):
+            for entry in (summary.get('tokens_created') or []):
+                if not isinstance(entry, dict):
+                    continue
+                tok = entry.get('token') or {}
+                key = tok.get('key') if isinstance(tok, dict) else None
+                if key and key in token_overrides:
+                    tok['scryfall_id'] = token_overrides[key]
+    except Exception:
+        pass
     stem = p.stem
     txt_path = p.with_suffix('.txt')
     # If missing still, infer from filename stem
@@ -774,6 +882,7 @@ def _render_deck_view(
         "share_url": f"/decks/{owner_username}/{p.name}" if owner_username else None,
         "printings": selected_printings,
         "foils": selected_foils,
+        "token_printings": selected_token_printings,
         "commander_scryfall_id": csv_overrides.get(commander_name.strip().lower()) if csv_overrides else None,
         "commander_is_foil": commander_name.strip().lower() in csv_foil_overrides,
         "deck_edit_ctx": {"deck": p.name} if is_owner else None,
@@ -1170,7 +1279,7 @@ def _build_csv_download_response(p: Path) -> Response:
     name_idx = headers.index("Name") if "Name" in headers else 0
     card_names = [
         row[name_idx] for row in data_rows
-        if row and len(row) > name_idx and row[name_idx] and row[name_idx] != "Total"
+        if row and len(row) > name_idx and row[name_idx] and row[name_idx] != "Total" and not row[name_idx].startswith("#")
     ]
 
     prices_map: Dict[str, Any] = {}

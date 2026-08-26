@@ -231,6 +231,48 @@
 
     </div>{# end .card-detail-grid #}
 
+    {% if tokens_generated %}
+    <div class="tokens-generated-section">
+        <details class="analytics-accordion">
+            <summary class="combo-summary">
+                <span>Tokens Generated</span>
+                <span class="muted text-xs font-normal ml-2">({{ tokens_generated|length }})</span>
+            </summary>
+            <div class="analytics-content mt-3">
+                <div class="tokens-generated-grid">
+                    {% from 'partials/_macros.html' import token_printing_button %}
+                    {% for tok in tokens_generated %}
+                    {% set sel_printing = (token_printings.get(tok.key, '') if token_printings is defined and tok.key else '') %}
+                    {% set tok_idx = (tok.key|slugify) if tok.key else (tok.name|slugify) %}
+                    {% set img_qs = [] %}
+                    {% if tok.power and tok.toughness %}{% set _ = img_qs.append('power=' + tok.power|urlencode) %}{% set _ = img_qs.append('toughness=' + tok.toughness|urlencode) %}{% endif %}
+                    {% if tok.type %}{% set _ = img_qs.append('type_line=' + tok.type|urlencode) %}{% endif %}
+                    {% if tok.colors %}{% set _ = img_qs.append('colors=' + tok.colors|urlencode) %}{% endif %}
+                    {% if tok.text_hash %}{% set _ = img_qs.append('text_hash=' + tok.text_hash|urlencode) %}{% endif %}
+                    {% if sel_printing %}{% set _ = img_qs.append('printing=' + sel_printing|urlencode) %}{% endif %}
+                    {% set img_qs_str = ('?' + img_qs|join('&')) if img_qs else '' %}
+                    <div class="token-generated-tile"
+                         title="{{ tok.name }}{% if not tok.is_emblem and tok.power and tok.toughness %} ({{ tok.power }}/{{ tok.toughness }}){% elif tok.is_emblem %} (Emblem){% endif %}">
+                        <div class="token-generated-img-wrap">
+                            <img class="token-generated-thumb" id="token-img-{{ tok_idx }}" loading="lazy" decoding="async"
+                                 src="/api/images/token/small/{{ tok.name.split(' // ')[0]|urlencode }}{{ img_qs_str }}"
+                                 alt="{{ tok.name }}"
+                                 data-printing-id="{{ sel_printing }}"
+                                 onerror="this.style.display='none'">
+                            <div class="token-browser-printing-btn" onclick="event.stopPropagation()">
+                                {{ token_printing_button(tok, tok_idx, has_selection=sel_printing, size='small') }}
+                            </div>
+                        </div>
+                        <div class="token-generated-name">{{ tok.name }}</div>
+                        {% if tok.type %}<div class="token-generated-type">{{ tok.type }}</div>{% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </details>
+    </div>
+    {% endif %}
+
     <!-- Similar Cards Section -->
     <div class="similar-section">
         {% include "browse/cards/_similar_cards.html" %}

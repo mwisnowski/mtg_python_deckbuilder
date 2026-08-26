@@ -46,6 +46,25 @@
   </button>
 {%- endmacro %}
 
+{% macro token_printing_button(tok, idx, has_selection=False, deck=None, size='small') -%}
+  {# Opens the printing picker panel for a token/emblem tile. Mirrors
+     `printing_button()`, but keyed by the token's stable identity (`tok.key`,
+     see `TokenRef.identity_key()`) instead of a card name/card_library index,
+     since tokens aren't part of the deck's own card list. `deck`, when
+     provided (only on the saved-deck view, for its owner), persists the
+     choice into that deck's `.summary.json` sidecar instead of the session.
+     `size` controls the resolution the OOB-swapped `<img>` uses after a pick
+     ('small' for the compact deck-summary/detail-page tiles, 'normal' for
+     the larger card browser grid tiles). #}
+  <button type="button" class="btn btn-printing btn-printing-compact"
+          title="{{ 'Change printing (using an alternate art/set)' if has_selection else 'Choose a specific printing (art/set)' }}"
+          aria-expanded="false" aria-label="{{ 'Change printing' if has_selection else 'Choose printing' }}" data-has-selection="{{ '1' if has_selection else '0' }}"
+          hx-get="/build/token-printing-picker" hx-target="#printing-modal-root" hx-swap="innerHTML"
+          hx-vals='{"name": "{{ tok.name }}", "key": "{{ tok.key }}", "idx": "{{ idx }}", "type_line": "{{ tok.type }}", "power": "{{ tok.power or '' }}", "toughness": "{{ tok.toughness or '' }}", "colors": "{{ tok.colors or '' }}", "text_hash": "{{ tok.text_hash or '' }}", "size": "{{ size }}"{% if deck %}, "deck": "{{ deck }}"{% endif %}}'>
+    &#128444;
+  </button>
+{%- endmacro %}
+
 {% macro foil_toggle_button(name, idx, is_foil=False, compact=False, deck=None, manual=None) -%}
   {# Toggles whether this card should use its foil price/finish in the deck.
      Mirrors `printing_button()`'s signature and OOB-update pattern.

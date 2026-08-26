@@ -1254,8 +1254,10 @@ METADATA_TAG_PREFIXES: List[str] = [
     'Applied:',
     'Bracket:',
     'Diagnostic:',
+    'Emblem:',
     'Internal:',
     'Token Detail:',
+    'Token Copy:',
     'Rulebreaker:',
 ]
 

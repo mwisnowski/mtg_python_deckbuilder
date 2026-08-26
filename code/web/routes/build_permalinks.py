@@ -67,6 +67,58 @@ def _render_card_img_html(name: str, idx: str, scryfall_id: str, *, oob: bool = 
     return f'<img {base_attrs} src="{_esc(normal_url)}" />'
 
 
+def _render_token_img_html(
+    name: str,
+    idx: str,
+    scryfall_id: str,
+    *,
+    type_line: str = "",
+    power: str = "",
+    toughness: str = "",
+    colors: str = "",
+    text_hash: str = "",
+    size: str = "small",
+    oob: bool = False,
+) -> str:
+    """Build the `<img class="token-thumb">` markup for a token/emblem tile.
+
+    Mirrors `_render_card_img_html()`'s OOB-update pattern, but keyed by a
+    token identity (name + type + power/toughness + colors + ability-text
+    fingerprint) instead of a real card, and threads the same identity query
+    params both the displayed (`src`, sized via `size` -- 'small' for the
+    compact deck-summary/detail-page tiles, 'normal' for the larger card
+    browser grid tiles) and normal (`data-zoom-src`, used by the tokens
+    panel's hover-zoom) resolutions need to resolve to the right token image.
+    """
+    display_name = name.split(" // ")[0].strip() if " // " in name else name
+    q = quote(display_name)
+    qs_parts = []
+    if power:
+        qs_parts.append(f"power={quote(power)}")
+    if toughness:
+        qs_parts.append(f"toughness={quote(toughness)}")
+    if type_line:
+        qs_parts.append(f"type_line={quote(type_line)}")
+    if colors:
+        qs_parts.append(f"colors={quote(colors)}")
+    if text_hash:
+        qs_parts.append(f"text_hash={quote(text_hash)}")
+    base_qs = "&".join(qs_parts)
+    printing_qs = f"printing={quote(scryfall_id)}" if scryfall_id else ""
+    full_qs = "&".join(part for part in (base_qs, printing_qs) if part)
+    qs = f"?{full_qs}" if full_qs else ""
+    display_size = size if size in ("small", "normal", "art_crop") else "small"
+    display_url = f"/api/images/token/{display_size}/{q}{qs}"
+    normal_url = f"/api/images/token/normal/{q}{qs}"
+    oob_attr = ' hx-swap-oob="true"' if oob else ""
+    return (
+        f'<img class="token-thumb" id="token-img-{_esc(idx)}"{oob_attr} '
+        f'data-zoom-src="{_esc(normal_url)}" data-printing-id="{_esc(scryfall_id)}" '
+        f'loading="lazy" decoding="async" alt="{_esc(display_name)}" '
+        f'src="{_esc(display_url)}" onerror="this.style.display=\'none\'" />'
+    )
+
+
 def _merge_hx_trigger(response: Any, payload: dict[str, Any]) -> None:
     if not payload or response is None:
         return
@@ -311,6 +363,141 @@ async def build_printing(
     )
     panel_oob = '<div id="printing-modal-root" class="printing-panel" hx-swap-oob="true"></div>'
     return HTMLResponse(img_html + price_oob + panel_oob)
+
+
+@router.get("/token-printing-picker")
+async def build_token_printing_picker(
+    request: Request,
+    name: str = Query(...),
+    key: str = Query(...),
+    idx: str = Query(...),
+    type_line: str = Query(""),
+    power: str = Query(""),
+    toughness: str = Query(""),
+    colors: str = Query(""),
+    text_hash: str = Query(""),
+    size: str = Query("small"),
+    deck: str = Query(None),
+) -> HTMLResponse:
+    """Render the printing-selection grid for a single token/emblem tile.
+
+    Mirrors `/build/printing-picker` for real cards, but keyed by the
+    token's stable identity (`key`, see `TokenRef.identity_key()`) instead
+    of a `card_library` index, since tokens aren't part of the deck's own
+    card list. When `deck` is supplied (the saved-deck view, for its owner)
+    the "currently selected" printing and each option's POST target come
+    from/go to that deck's `.summary.json` sidecar instead of the session,
+    so the choice is persisted.
+    """
+    sid = request.cookies.get("sid") or new_sid()
+    sess = get_session(sid)
+
+    deck_p = None
+    if deck:
+        from .decks import _deck_dir, _safe_within, _user_id, _read_token_printing_overrides
+        uid = _user_id(request)
+        base = _deck_dir(uid)
+        candidate = (base / deck).resolve()
+        if uid != "guest" and _safe_within(base, candidate) and candidate.exists() and candidate.is_file():
+            deck_p = candidate
+
+    if deck_p is not None:
+        selected = _read_token_printing_overrides(deck_p).get(key, "")
+    else:
+        selected = str((sess.get("token_printings") or {}).get(key, ""))
+
+    face_name = name.split(" // ")[0].strip() if " // " in name else name
+    printings = _image_cache.get_token_printings(
+        face_name, power or None, toughness or None, type_line or None, colors or None, text_hash or None,
+    )
+    if not printings:
+        return HTMLResponse('<div class="printing-panel-empty">No alternate printings found for this token.</div>')
+
+    try:
+        printings = sorted(printings, key=lambda p: str(p.get("released_at") or ""), reverse=True)
+    except Exception:
+        pass
+
+    post_target = "/decks/token-printing" if deck_p is not None else "/build/token-printing"
+    deck_val = f',"deck":"{_esc(deck)}"' if deck_p is not None else ""
+    common_vals = (
+        f'"name":"{_esc(name)}","key":"{_esc(key)}","idx":"{_esc(idx)}",'
+        f'"type_line":"{_esc(type_line)}","power":"{_esc(power)}","toughness":"{_esc(toughness)}",'
+        f'"colors":"{_esc(colors)}","text_hash":"{_esc(text_hash)}","size":"{_esc(size)}"{deck_val}'
+    )
+
+    parts = [
+        '<div class="printing-picker-header">'
+        '<span class="printing-picker-title">Choose a printing</span>'
+        '<button type="button" class="printing-picker-close" title="Close" '
+        'onclick="this.closest(\'.printing-panel\').innerHTML=\'\';">&times;</button>'
+        "</div>",
+        f'<div class="printing-picker-grid">'
+        f'<button type="button" class="printing-option printing-option-default{" selected" if not selected else ""}" '
+        f'title="Use the default printing" hx-post="{post_target}" hx-swap="none" '
+        f'hx-vals=\'{{"scryfall_id":"",{common_vals}}}\'>Default</button>'
+    ]
+    for p in printings:
+        sfid = str(p.get("scryfall_id") or "")
+        if not sfid:
+            continue
+        set_code = str(p.get("set") or "").upper()
+        set_name = str(p.get("set_name") or "")
+        collector_number = str(p.get("collector_number") or "")
+        label = f"{set_code} #{collector_number}".strip()
+        thumb = f"/api/images/token/normal/{quote(face_name)}?printing={quote(sfid)}"
+        is_sel = " selected" if sfid == selected else ""
+        title = f"{set_name} — {label}" if set_name else label
+        parts.append(
+            f'<button type="button" class="printing-option{is_sel}" title="{_esc(title)}" '
+            f'hx-post="{post_target}" hx-swap="none" '
+            f'hx-vals=\'{{"scryfall_id":"{_esc(sfid)}",{common_vals}}}\'>'
+            f'<span class="printing-option-thumb-wrap">'
+            f'<img src="{_esc(thumb)}" alt="{_esc(title)}" loading="lazy" width="110" />'
+            f"</span>"
+            f'<span class="printing-option-label">{_esc(label)}</span>'
+            f"</button>"
+        )
+    parts.append("</div>")
+    return HTMLResponse("".join(parts))
+
+
+@router.post("/token-printing")
+async def build_token_printing(
+    request: Request,
+    name: str = Form(...),
+    key: str = Form(...),
+    scryfall_id: str = Form(""),
+    idx: str = Form(...),
+    type_line: str = Form(""),
+    power: str = Form(""),
+    toughness: str = Form(""),
+    colors: str = Form(""),
+    text_hash: str = Form(""),
+    size: str = Form("small"),
+) -> HTMLResponse:
+    """Set (or clear) the selected printing for a token/emblem tile (session-scoped).
+
+    Mirrors `/build/printing`, but keyed by the token's stable identity
+    (`key`) instead of a card_library index/name, since tokens aren't part
+    of the deck's own card list and have no CSV row to persist onto.
+    """
+    sid = request.cookies.get("sid") or new_sid()
+    sess = get_session(sid)
+    scryfall_id = (scryfall_id or "").strip()
+    token_printings = dict(sess.get("token_printings") or {})
+    if scryfall_id:
+        token_printings[key] = scryfall_id
+    else:
+        token_printings.pop(key, None)
+    sess["token_printings"] = token_printings
+
+    img_html = _render_token_img_html(
+        name, idx, scryfall_id, type_line=type_line, power=power, toughness=toughness, colors=colors,
+        text_hash=text_hash, size=size, oob=True,
+    )
+    panel_oob = '<div id="printing-modal-root" class="printing-panel" hx-swap-oob="true"></div>'
+    return HTMLResponse(img_html + panel_oob)
 
 
 @router.post("/foil")

@@ -288,6 +288,12 @@ interface PointerEventLike {
       const mana = (attr('data-mana') || '').trim();
       const role = (attr('data-role') || '').trim();
       const printingId = (attr('data-printing-id') || '').trim();
+      const isToken = attr('data-is-token') === '1';
+      const tokenPower = (attr('data-token-power') || '').trim();
+      const tokenToughness = (attr('data-token-toughness') || '').trim();
+      const tokenType = (attr('data-token-type') || '').trim();
+      const tokenColors = (attr('data-token-colors') || '').trim();
+      const tokenTextHash = (attr('data-token-text-hash') || '').trim();
       let reasonsRaw = attr('data-reasons') || '';
       const tagsRaw = attr('data-tags') || '';
       const metadataTagsRaw = attr('data-metadata-tags') || '';
@@ -606,7 +612,7 @@ interface PointerEventLike {
 
       function renderHoverFace(face: string): void {
         const desiredVersion = 'normal';
-        const currentKey = nm + ':' + face + ':' + desiredVersion + ':' + printingId;
+        const currentKey = nm + ':' + face + ':' + desiredVersion + ':' + printingId + ':' + tokenTextHash;
         const prevFace = imgEl.getAttribute('data-face');
         const faceChanged = prevFace && prevFace !== face;
 
@@ -619,13 +625,27 @@ interface PointerEventLike {
             faceName = (face === 'back') ? faces[1].trim() : faces[0].trim();
           }
 
-          let src = '/api/images/' + desiredVersion + '/' + encodeURIComponent(faceName);
           const params: string[] = [];
-          if (isDFC && face === 'back') {
-            params.push('face=back');
-          }
-          if (printingId) {
-            params.push('printing=' + encodeURIComponent(printingId));
+          let src: string;
+          if (isToken) {
+            // Tokens/emblems are served from a separate identity-aware endpoint
+            // (name alone isn't unique -- same name/type/pt can have multiple
+            // distinct ability texts, and some tokens share a name with a real
+            // card, e.g. Squad/Embalm/Offspring copy tokens).
+            src = '/api/images/token/' + desiredVersion + '/' + encodeURIComponent(faceName.split('//')[0].trim());
+            if (tokenPower) params.push('power=' + encodeURIComponent(tokenPower));
+            if (tokenToughness) params.push('toughness=' + encodeURIComponent(tokenToughness));
+            if (tokenType) params.push('type_line=' + encodeURIComponent(tokenType));
+            if (tokenColors) params.push('colors=' + encodeURIComponent(tokenColors));
+            if (tokenTextHash) params.push('text_hash=' + encodeURIComponent(tokenTextHash));
+          } else {
+            src = '/api/images/' + desiredVersion + '/' + encodeURIComponent(faceName);
+            if (isDFC && face === 'back') {
+              params.push('face=back');
+            }
+            if (printingId) {
+              params.push('printing=' + encodeURIComponent(printingId));
+            }
           }
           if (params.length) {
             src += '?' + params.join('&');
@@ -648,7 +668,9 @@ interface PointerEventLike {
           imgEl.addEventListener('error', () => {
             const cur = imgEl.getAttribute('src') || '';
             // Fallback from normal to small if image fails to load
-            if (cur.indexOf('/api/images/normal/') > -1) {
+            if (cur.indexOf('/api/images/token/normal/') > -1) {
+              imgEl.src = cur.replace('/api/images/token/normal/', '/api/images/token/small/');
+            } else if (cur.indexOf('/api/images/normal/') > -1) {
               imgEl.src = cur.replace('/api/images/normal/', '/api/images/small/');
             }
           });

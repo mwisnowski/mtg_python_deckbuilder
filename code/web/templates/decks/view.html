@@ -216,7 +216,7 @@
           </div>
         </div>
       {% endif %}
-  {{ render_cached('partials/deck_summary.html', name ~ (':owner' if is_owner else ':guest'), request=request, summary=summary, game_changers=game_changers, owned_set=owned_set, combos=combos, synergies=synergies, versions=versions, deck_edit_ctx=deck_edit_ctx, printings=printings) | safe }}
+  {{ render_cached('partials/deck_summary.html', name ~ (':owner' if is_owner else ':guest'), request=request, summary=summary, game_changers=game_changers, owned_set=owned_set, combos=combos, synergies=synergies, versions=versions, deck_edit_ctx=deck_edit_ctx, printings=printings, tokens_created=tokens_created) | safe }}
   {# M8: Price charts accordion — placed in main area, only available on the saved deck view #}
   {% if (price_category_chart and price_category_chart.total > 0) or price_histogram_chart %}
   <section class="summary-section-lg">

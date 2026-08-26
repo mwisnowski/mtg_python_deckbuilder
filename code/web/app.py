@@ -55,6 +55,14 @@ async def _lifespan(app: FastAPI):  # pragma: no cover - simple infra glue
         init_audit_db()
     except Exception:
         logger.exception("user_db: startup init failed — auth will not work")
+    # Clear a leftover running=true setup/theme-refresh status from a previous
+    # process that never got to finish (e.g. OOM-killed), so the UI doesn't get
+    # stuck showing "refreshing" forever with no way to retry.
+    try:
+        from .services.orchestrator import reset_stale_running_status
+        reset_stale_running_status()
+    except Exception:
+        pass
     # Prewarm theme filter cache (guarded internally by env flag)
     try:
         prewarm_common_filters()

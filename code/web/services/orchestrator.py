@@ -1062,6 +1062,33 @@ def _is_truthy_env(name: str, default: str = '1') -> bool:
         return default in {"1", "true", "yes", "on"}
 
 
+def reset_stale_running_status() -> None:
+    """Clear a leftover running=true status from before an unexpected restart.
+
+    Setup/tagging/theme-refresh only ever run as in-process background threads,
+    so a `running: true` status found at process startup cannot belong to a
+    live job; it means the previous process died mid-run (e.g. OOM-killed) and
+    left the UI (home page badge, Setup page's "Refresh" buttons) permanently
+    showing "refreshing" with no way to retry. Call once during app startup.
+    """
+    try:
+        status_path = os.path.join('csv_files', '.setup_status.json')
+        if not os.path.exists(status_path):
+            return
+        with open(status_path, 'r', encoding='utf-8') as f:
+            st = json.load(f) or {}
+        if not st.get('running'):
+            return
+        st['running'] = False
+        st['phase'] = 'interrupted'
+        st['message'] = 'Previous setup/tagging run did not finish (app restarted); click Refresh to retry.'
+        st['updated'] = _dt.now().isoformat(timespec='seconds')
+        with open(status_path, 'w', encoding='utf-8') as f:
+            json.dump(st, f)
+    except Exception:
+        pass
+
+
 def is_setup_ready() -> bool:
     """Fast readiness check: required files present and tagging completed.
 

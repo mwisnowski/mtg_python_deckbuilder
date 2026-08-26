@@ -126,58 +126,83 @@ async def setup_start_get(request: Request):
     return JSONResponse({"ok": True, "started": True, "force": bool(force)}, status_code=202)
 
 
+def _download_github_files() -> tuple[list[str], list[str]]:
+    """Blocking worker that fetches all pre-built cache files from GitHub.
+
+    Runs off the event loop (see download_github()) and enforces a hard
+    wall-clock deadline per file: urllib's socket timeout only applies to
+    individual recv() calls, so a connection that trickles data in slowly
+    (e.g. throttled by the CDN) can keep resetting it and hang indefinitely
+    otherwise.
+    """
+    import urllib.request
+    import urllib.error
+    import time
+    from pathlib import Path
+
+    base_url = "https://raw.githubusercontent.com/mwisnowski/mtg_python_deckbuilder/similarity-cache-data"
+    per_file_deadline_secs = 120
+
+    files_to_download = [
+        ("card_files/processed/all_cards.parquet", "card_files/processed/all_cards.parquet"),
+        ("card_files/processed/commander_cards.parquet", "card_files/processed/commander_cards.parquet"),
+        ("card_files/processed/.tagging_complete.json", "card_files/processed/.tagging_complete.json"),
+        ("card_files/similarity_cache.parquet", "card_files/similarity_cache.parquet"),
+        ("card_files/similarity_cache_metadata.json", "card_files/similarity_cache_metadata.json"),
+        ("card_files/prices_cache.json", "card_files/prices_cache.json"),
+        ("card_files/ck_prices_cache.json", "card_files/ck_prices_cache.json"),
+        ("card_files/processed/rulings_cache.json", "card_files/processed/rulings_cache.json"),
+        ("card_files/processed/card_printings.parquet", "card_files/processed/card_printings.parquet"),
+        ("card_files/processed/tokens.parquet", "card_files/processed/tokens.parquet"),
+        ("card_files/processed/token_printings.parquet", "card_files/processed/token_printings.parquet"),
+    ]
+
+    downloaded: list[str] = []
+    failed: list[str] = []
+
+    for remote_path, local_path in files_to_download:
+        url = f"{base_url}/{remote_path}"
+        dest = Path(local_path)
+        dest.parent.mkdir(parents=True, exist_ok=True)
+
+        try:
+            print(f"[DOWNLOAD] Fetching {url}...")
+            deadline = time.monotonic() + per_file_deadline_secs
+            with urllib.request.urlopen(url, timeout=30) as response:
+                with dest.open('wb') as out_file:
+                    while True:
+                        if time.monotonic() > deadline:
+                            raise TimeoutError(f"download exceeded {per_file_deadline_secs}s")
+                        chunk = response.read(256 * 1024)
+                        if not chunk:
+                            break
+                        out_file.write(chunk)
+            downloaded.append(local_path)
+            print(f"[DOWNLOAD] Saved to {local_path}")
+        except urllib.error.HTTPError as e:
+            if e.code == 404:
+                print(f"[DOWNLOAD] File not found (404): {remote_path}")
+                failed.append(f"{remote_path} (not yet available)")
+            else:
+                print(f"[DOWNLOAD] HTTP error {e.code}: {remote_path}")
+                failed.append(f"{remote_path} (HTTP {e.code})")
+        except Exception as e:
+            print(f"[DOWNLOAD] Failed to download {remote_path}: {e}")
+            failed.append(f"{remote_path} ({str(e)[:50]})")
+
+    return downloaded, failed
+
+
 @router.post("/download-github")
 async def download_github():
     """Download pre-tagged database from GitHub similarity-cache-data branch."""
-    import urllib.request
-    import urllib.error
-    import shutil
-    from pathlib import Path
-    
+    import asyncio
+
     try:
-        # GitHub raw URLs for the similarity-cache-data branch
-        base_url = "https://raw.githubusercontent.com/mwisnowski/mtg_python_deckbuilder/similarity-cache-data"
-        
-        files_to_download = [
-            ("card_files/processed/all_cards.parquet", "card_files/processed/all_cards.parquet"),
-            ("card_files/processed/commander_cards.parquet", "card_files/processed/commander_cards.parquet"),
-            ("card_files/processed/.tagging_complete.json", "card_files/processed/.tagging_complete.json"),
-            ("card_files/similarity_cache.parquet", "card_files/similarity_cache.parquet"),
-            ("card_files/similarity_cache_metadata.json", "card_files/similarity_cache_metadata.json"),
-            ("card_files/prices_cache.json", "card_files/prices_cache.json"),
-            ("card_files/ck_prices_cache.json", "card_files/ck_prices_cache.json"),
-            ("card_files/processed/rulings_cache.json", "card_files/processed/rulings_cache.json"),
-            ("card_files/processed/card_printings.parquet", "card_files/processed/card_printings.parquet"),
-            ("card_files/processed/tokens.parquet", "card_files/processed/tokens.parquet"),
-            ("card_files/processed/token_printings.parquet", "card_files/processed/token_printings.parquet"),
-        ]
-        
-        downloaded = []
-        failed = []
-        
-        for remote_path, local_path in files_to_download:
-            url = f"{base_url}/{remote_path}"
-            dest = Path(local_path)
-            dest.parent.mkdir(parents=True, exist_ok=True)
-            
-            try:
-                print(f"[DOWNLOAD] Fetching {url}...")
-                with urllib.request.urlopen(url, timeout=60) as response:
-                    with dest.open('wb') as out_file:
-                        shutil.copyfileobj(response, out_file)
-                downloaded.append(local_path)
-                print(f"[DOWNLOAD] Saved to {local_path}")
-            except urllib.error.HTTPError as e:
-                if e.code == 404:
-                    print(f"[DOWNLOAD] File not found (404): {remote_path}")
-                    failed.append(f"{remote_path} (not yet available)")
-                else:
-                    print(f"[DOWNLOAD] HTTP error {e.code}: {remote_path}")
-                    failed.append(f"{remote_path} (HTTP {e.code})")
-            except Exception as e:
-                print(f"[DOWNLOAD] Failed to download {remote_path}: {e}")
-                failed.append(f"{remote_path} ({str(e)[:50]})")
-        
+        # Offload to a worker thread: this does blocking network I/O and would
+        # otherwise freeze the whole app (single event loop) for its duration.
+        downloaded, failed = await asyncio.to_thread(_download_github_files)
+
         if downloaded:
             msg = f"Downloaded {len(downloaded)} file(s) from GitHub"
             if failed:

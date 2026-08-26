@@ -1430,7 +1430,19 @@ def _ensure_setup_ready(out, force: bool = False, force_theme_refresh: bool = Fa
                         try:
                             remote_url = f"{base_url}/{remote_path}"
                             os.makedirs(os.path.dirname(local_path), exist_ok=True)
-                            urllib.request.urlretrieve(remote_url, local_path)
+                            # Hard wall-clock deadline per file: a stalled/trickling
+                            # connection can otherwise hang indefinitely since urlretrieve
+                            # has no timeout and socket timeouts reset on any partial read.
+                            deadline = time.monotonic() + 120
+                            with urllib.request.urlopen(remote_url, timeout=30) as response:
+                                with open(local_path, "wb") as out_file:
+                                    while True:
+                                        if time.monotonic() > deadline:
+                                            raise TimeoutError("download exceeded 120s")
+                                        chunk = response.read(256 * 1024)
+                                        if not chunk:
+                                            break
+                                        out_file.write(chunk)
                             out(f"[SETUP] Downloaded: {local_path}")
                         except urllib.error.HTTPError as e:
                             if e.code == 404:

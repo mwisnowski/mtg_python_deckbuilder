@@ -227,6 +227,54 @@ def test_list_cards_loyalty_excludes_non_numeric(client):
     assert names == {"Chandra, Torch of Defiance"}
 
 
+def test_list_cards_type_token_surfaces_token_catalog(client, monkeypatch):
+    """`type:token` must merge in the separate tokens/emblems catalog (it's
+    otherwise excluded from all_cards.parquet search entirely), matching the
+    HTML card browser's `type:token` behavior."""
+    import code.web.services.card_search as card_search
+
+    token_df = pd.DataFrame(
+        [
+            {
+                "name": "Goblin",
+                "type": "Token Creature — Goblin",
+                "colorIdentity": "R",
+                "colors": "R",
+                "manaValue": 0.0,
+                "rarity": "",
+                "themeTags": [],
+                "edhrecRank": None,
+                "scryfallID": "",
+                "text": "",
+                "power": "1",
+                "toughness": "1",
+                "loyalty": None,
+                "printings": "",
+                "layout": "token",
+                "isNew": False,
+                "is_token": True,
+                "is_emblem": False,
+                "text_hash": "abc123",
+            }
+        ]
+    )
+    monkeypatch.setattr(card_search, "load_tokens_browser_df", lambda: token_df)
+
+    resp = client.get("/api/v1/cards", params={"q": "type:token"})
+    assert resp.status_code == 200
+    data = resp.json()["data"]
+    names = {c["name"] for c in data["cards"]}
+    assert names == {"Goblin"}
+    assert "Sol Ring" not in names
+    goblin = next(c for c in data["cards"] if c["name"] == "Goblin")
+    assert goblin["isToken"] is True
+    assert goblin["isEmblem"] is False
+    assert goblin["power"] == "1"
+    assert goblin["toughness"] == "1"
+    assert goblin["colors"] == "R"
+    assert goblin["textHash"] == "abc123"
+
+
 def test_card_detail_found(client):
     resp = client.get("/api/v1/cards/Sol Ring")
     assert resp.status_code == 200

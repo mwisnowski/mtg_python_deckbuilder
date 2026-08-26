@@ -21,6 +21,7 @@ from .combo_tag_applier import apply_combo_tags
 from .multi_face_merger import merge_multi_face_rows
 import logging_util
 from file_setup.data_loader import DataLoader
+from path_util import card_files_processed_dir
 from settings import COLORS, MULTIPLE_COPY_CARDS
 logger = logging_util.logging.getLogger(__name__)
 logger.setLevel(logging_util.LOG_LEVEL)
@@ -1758,6 +1759,14 @@ def tag_for_artifact_tokens(df: pd.DataFrame, color: str) -> None:
             for idx, token_type in token_map.items():
                 token_to_indices.setdefault(token_type, []).append(idx)
 
+                # 'Token Detail: {type} Token' metadataTag (Roadmap 39, Milestone 2),
+                # shared with the token's own catalog row via format_token_detail_tag().
+                detail_tag = tag_utils.format_token_detail_tag(is_creature=False, token_type=token_type)
+                current_tags = list(df.at[idx, 'themeTags'])
+                if detail_tag not in current_tags:
+                    current_tags.append(detail_tag)
+                df.at[idx, 'themeTags'] = current_tags
+
             for token_type, indices in token_to_indices.items():
                 mask = pd.Series(False, index=df.index)
                 mask.loc[indices] = True
@@ -2200,6 +2209,14 @@ def tag_for_enchantment_tokens(df: pd.DataFrame, color: str) -> None:
             token_to_indices: dict[str, list[int]] = {}
             for idx, token_type in token_map.items():
                 token_to_indices.setdefault(token_type, []).append(idx)
+
+                # 'Token Detail: {type} Token' metadataTag (Roadmap 39, Milestone 2),
+                # shared with the token's own catalog row via format_token_detail_tag().
+                detail_tag = tag_utils.format_token_detail_tag(is_creature=False, token_type=token_type)
+                current_tags = list(df.at[idx, 'themeTags'])
+                if detail_tag not in current_tags:
+                    current_tags.append(detail_tag)
+                df.at[idx, 'themeTags'] = current_tags
 
             for token_type, indices in token_to_indices.items():
                 mask = pd.Series(False, index=df.index)
@@ -3099,6 +3116,125 @@ def extract_creature_token_details(df: pd.DataFrame, mask: pd.Series) -> dict[in
 
     return details
 
+
+# --- Token catalog reverse index (Roadmap 39, Milestone 2) -----------------------------------
+# Lazily built, process-lifetime cache mapping a creator card's casefolded name to the
+# token/emblem row(s) it creates, so tag_for_tokens() can use the token's own clean
+# catalog data instead of regex-scanning the creator's oracle text. Mirrors the lazy
+# module-global cache pattern used by web/services/card_search.py's _load_set_index().
+_TOKEN_CREATOR_INDEX: dict[str, list[dict[str, Any]]] | None = None
+
+
+def _to_list(value: Any) -> list:
+    """Normalize a parquet list-column value (list/tuple/ndarray/None) to a plain list."""
+    if value is None:
+        return []
+    if isinstance(value, (list, tuple, set)):
+        return list(value)
+    if hasattr(value, 'tolist'):
+        return list(value.tolist())
+    return []
+
+
+def _token_subtypes_from_type(type_str: Any) -> list[str]:
+    """Extract creature subtype words from a token 'type' string (e.g. 'Token Creature
+    — Human Soldier' -> ['Human', 'Soldier'])."""
+    text = str(type_str or '')
+    if '\u2014' not in text:
+        return []
+    return text.split('\u2014')[-1].strip().split()
+
+
+def _token_type_label(type_str: Any) -> str:
+    """Extract a non-creature token's type label from its 'type' string (e.g. 'Token
+    Artifact — Treasure' -> 'Treasure')."""
+    text = str(type_str or '')
+    if '\u2014' in text:
+        return text.split('\u2014')[-1].strip()
+    return text.replace('Token', '').strip()
+
+
+def _token_row_to_entries(row: Any) -> list[dict[str, Any]]:
+    """Expand one tokens.parquet row into lookup entries for _load_token_creator_index().
+
+    Dual-faced tokens produce one entry per face (formatted/tagged independently, per
+    Roadmap 39 M2 edge case 5); single-faced tokens produce one entry. Emblems produce a
+    single lightweight entry (handled by apply_emblem_backreferences() instead of
+    format_token_detail_tag(), so no formatter-related fields are needed).
+    """
+    if row.get('isEmblem'):
+        return [{'name': row.get('name'), 'is_emblem': True}]
+
+    faces = []
+    face_a_type = row.get('face_a_type')
+    face_b_type = row.get('face_b_type')
+    if face_a_type or face_b_type:
+        faces = [
+            (row.get('faceName_a') or row.get('name'), face_a_type, row.get('face_a_text'),
+             row.get('face_a_power'), row.get('face_a_toughness'), row.get('face_a_keywords')),
+            (row.get('faceName_b'), face_b_type, row.get('face_b_text'),
+             row.get('face_b_power'), row.get('face_b_toughness'), row.get('face_b_keywords')),
+        ]
+    else:
+        faces = [(row.get('name'), row.get('type'), row.get('text'),
+                   row.get('power'), row.get('toughness'), row.get('keywords'))]
+
+    entries: list[dict[str, Any]] = []
+    for name, type_str, text, power, toughness, keywords in faces:
+        if not type_str:
+            continue
+        is_creature = 'creature' in str(type_str).lower()
+        entries.append({
+            'name': name,
+            'is_emblem': False,
+            'is_creature': is_creature,
+            'power': power,
+            'toughness': toughness,
+            'colors': _to_list(row.get('colors')),
+            'creature_type': _token_subtypes_from_type(type_str) if is_creature else None,
+            'token_type': None if is_creature else _token_type_label(type_str),
+            'keywords': _to_list(keywords),
+            'text': text,
+        })
+    return entries
+
+
+def _load_token_creator_index() -> dict[str, list[dict[str, Any]]]:
+    """Lazily build (and cache for the process lifetime) a reverse index mapping a
+    creator card's casefolded name to the token/emblem row(s) it creates, sourced from
+    `card_files/processed/tokens.parquet`'s `relatedCards` column (Roadmap 39, Milestones
+    1-2).
+
+    Returns `{}` gracefully (never raises) if the catalog hasn't been built yet, e.g. a
+    dev environment that hasn't run the updated pipeline -- callers fall back to the
+    existing regex-based detection unchanged in that case.
+    """
+    global _TOKEN_CREATOR_INDEX
+    if _TOKEN_CREATOR_INDEX is not None:
+        return _TOKEN_CREATOR_INDEX
+
+    index: dict[str, list[dict[str, Any]]] = {}
+    try:
+        path = os.path.join(card_files_processed_dir(), 'tokens.parquet')
+        tokens_df = pd.read_parquet(path)
+        for _, row in tokens_df.iterrows():
+            related = _to_list(row.get('relatedCards'))
+            if not related:
+                continue
+            entries = _token_row_to_entries(row)
+            if not entries:
+                continue
+            for creator in related:
+                key = str(creator or '').strip().casefold()
+                if not key:
+                    continue
+                index.setdefault(key, []).extend(entries)
+    except Exception:
+        index = {}
+
+    _TOKEN_CREATOR_INDEX = index
+    return index
+
 def tag_for_tokens(df: pd.DataFrame, color: str) -> None:
     """Tag cards that create or modify tokens using vectorized operations.
 
@@ -3144,11 +3280,43 @@ def tag_for_tokens(df: pd.DataFrame, color: str) -> None:
         tag_utils.tag_with_rules_and_logging(df, rules, 'token-related cards', color=color, logger=logger)
 
         # Specific creature-type token tags (e.g. 'Soldier Token') and a
-        # 'Token Detail: ...' metadataTag with the full descriptor, so the
-        # deck builder can later report exactly what tokens a deck may need.
-        token_details = extract_creature_token_details(df, creature_mask)
+        # 'Token Detail: ...' metadataTag, so the deck builder can later report
+        # exactly what tokens a deck may need. Prefer the token catalog's reverse
+        # index (clean, per-token data) over regex-scanning the creator's oracle
+        # text; the regex remains a fallback for cards not yet in the catalog
+        # (Roadmap 39, Milestone 2).
+        creator_index = _load_token_creator_index()
+        type_to_indices: dict[str, list[int]] = {}
+        indexed_mask = pd.Series(False, index=df.index)
+
+        if creator_index and creature_mask.any():
+            for idx in df[creature_mask].index:
+                key = str(df.at[idx, 'name'] or '').strip().casefold()
+                matches = [m for m in creator_index.get(key, []) if m.get('is_creature')]
+                if not matches:
+                    continue
+                indexed_mask.at[idx] = True
+
+                current_tags = list(df.at[idx, 'themeTags'])
+                for token in matches:
+                    detail_tag = tag_utils.format_token_detail_tag(
+                        is_creature=True,
+                        power=token.get('power'), toughness=token.get('toughness'),
+                        colors=token.get('colors'), creature_type=token.get('creature_type'),
+                        keywords=token.get('keywords'), text=token.get('text'),
+                    )
+                    if detail_tag not in current_tags:
+                        current_tags.append(detail_tag)
+                    for subtype in token.get('creature_type') or []:
+                        type_to_indices.setdefault(subtype, []).append(idx)
+                df.at[idx, 'themeTags'] = current_tags
+
+        # Fallback: regex-based descriptor extraction for cards not found in the
+        # token catalog's reverse index (e.g. brand-new spoilers, or a dev
+        # environment that hasn't built tokens.parquet yet).
+        fallback_mask = creature_mask & ~indexed_mask
+        token_details = extract_creature_token_details(df, fallback_mask)
         if token_details:
-            type_to_indices: dict[str, list[int]] = {}
             for idx, (types_found, descriptors) in token_details.items():
                 for creature_type in types_found:
                     type_to_indices.setdefault(creature_type, []).append(idx)
@@ -3160,6 +3328,7 @@ def tag_for_tokens(df: pd.DataFrame, color: str) -> None:
                         current_tags.append(detail_tag)
                 df.at[idx, 'themeTags'] = current_tags
 
+        if type_to_indices:
             for creature_type, indices in type_to_indices.items():
                 type_mask = pd.Series(False, index=df.index)
                 type_mask.loc[indices] = True
@@ -3171,6 +3340,36 @@ def tag_for_tokens(df: pd.DataFrame, color: str) -> None:
 
     except Exception as e:
         logger.error('Error tagging token cards: %s', str(e))
+        raise
+
+# Keyword abilities that create a token copy of the card itself (roadmap_39,
+# Milestone 4). These have no fixed token identity to look up in tokens.parquet
+# (the copy mimics whatever creature it is), so they're tagged directly on the
+# creator card instead of routed through the token catalog.
+_SELF_TOKEN_COPY_KEYWORDS = ('Offspring', 'Embalm', 'Eternalize')
+
+
+def tag_for_self_token_copies(df: pd.DataFrame, color: str) -> None:
+    """Tag cards that create a token copy of themselves (Offspring/Embalm/Eternalize).
+
+    Adds a 'Token Copy: {Ability}' metadataTag per matched keyword so the
+    real-card image/printing pipeline's Scryfall token-copy entries (which
+    share the real card's name) can be understood as intentional, tagged
+    behavior rather than silently-excluded noise (see image_cache.py's
+    _is_token_scryfall_entry exclusion).
+    """
+    try:
+        required = {'keywords', 'themeTags'}
+        tag_utils.validate_dataframe_columns(df, required)
+        rules = [
+            {'mask': tag_utils.create_keyword_mask(df, keyword, regex=False), 'tags': [f'Token Copy: {keyword}']}
+            for keyword in _SELF_TOKEN_COPY_KEYWORDS
+        ]
+        tag_utils.tag_with_rules_and_logging(
+            df, rules, 'self-token-copy cards', color=color, logger=logger
+        )
+    except Exception as e:
+        logger.error('Error tagging self-token-copy cards: %s', str(e))
         raise
 
 ### Freerunning (cost reduction variant)
@@ -4521,6 +4720,8 @@ def tag_for_themes(df: pd.DataFrame, color: str) -> None:
     tag_for_topdeck(df, color)
     print('\n==========\n')
     tag_for_x_spells(df, color)
+    print('\n==========\n')
+    tag_for_self_token_copies(df, color)
     print('\n==========\n')
     
     duration = (pd.Timestamp.now() - start_time).total_seconds()

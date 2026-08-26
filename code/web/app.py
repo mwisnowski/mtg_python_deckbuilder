@@ -326,6 +326,8 @@ class _NewCardNamesProxy:
         return True  # always truthy so {% if new_card_names %} works
 UPGRADE_WINDOW_MONTHS = _as_int(os.getenv("UPGRADE_WINDOW_MONTHS"), 6)
 UPGRADE_PAGE_SIZE = _as_int(os.getenv("UPGRADE_PAGE_SIZE"), 16)
+# Card browser page size; 0 or unset falls back to the legacy infinite-scroll UX.
+CARD_BROWSER_PAGE_SIZE = _as_int(os.getenv("CARD_BROWSER_PAGE_SIZE"), 50)
 
 _THEME_MODE_ENV = (os.getenv("THEME_MATCH_MODE") or "").strip().lower()
 DEFAULT_THEME_MATCH_MODE = "strict" if _THEME_MODE_ENV in {"strict", "s"} else "permissive"

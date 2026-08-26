@@ -34,7 +34,9 @@ from ..decks import (
     _list_decks,
     _list_guest_decks,
     _read_csv_summary,
+    _read_token_printing_overrides,
     _safe_within,
+    _write_token_printing_override,
     get_deck_visibility,
     list_public_decks,
 )
@@ -80,7 +82,12 @@ def _parse_deck_cards(csv_path: Path) -> List[Dict[str, Any]]:
             if not row:
                 continue
             name = col(row, "Name")
-            if not name or name == "Total":
+            # Skip the trailing "Total" summary row and the roadmap_39
+            # "Tokens & Emblems Created" informational section (marker row
+            # plus each token/emblem line), which use the existing '#'-comment
+            # convention so they're never mistaken for real deck cards --
+            # mirrors `_read_csv_summary()`'s same skip in web/routes/decks.py.
+            if not name or name == "Total" or name.startswith("#"):
                 continue
             tags = [t.strip() for t in col(row, "Tags").split(";") if t.strip()]
             try:
@@ -138,6 +145,26 @@ def _set_deck_card_foil(csv_path: Path, name: str, foil: bool) -> bool:
     deck view's own foil toggle, so both clients stay in sync).
     """
     return bu.set_card_foil_csv(csv_path, name, foil)
+
+
+def _apply_token_printing_overrides(csv_path: Path, tokens_created: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Overlay any persisted `token_printing_overrides` (see
+    `_write_token_printing_override`) onto `tokens_created` entries from the
+    deck's summary, keyed by each token's stable `key` (`TokenRef.
+    identity_key()`), so `GET /{filename}/analysis` reflects a mobile
+    client's own printing choice, not just the web UI's.
+    """
+    overrides = _read_token_printing_overrides(csv_path)
+    if not overrides:
+        return tokens_created
+    result = []
+    for entry in tokens_created:
+        token = dict(entry.get("token") or {})
+        key = token.get("key")
+        if key and key in overrides:
+            token["scryfall_id"] = overrides[key]
+        result.append({**entry, "token": token})
+    return result
 
 
 @router.get("", summary="List saved decks")
@@ -289,10 +316,33 @@ async def set_deck_card_foil(
     return ok({"name": body.name, "foil": body.foil}, _rid(request))
 
 
+class SetDeckTokenPrintingRequest(BaseModel):
+    key: str
+    scryfall_id: Optional[str] = None
+
+
+@router.post("/{filename}/token-printing", summary="Set a saved deck's token/emblem printing")
+async def set_deck_token_printing(
+    filename: str, body: SetDeckTokenPrintingRequest, request: Request, user: User = Depends(get_api_user)
+):
+    """Choose (or clear, when `scryfall_id` is omitted/null) an alternate
+    printing for a token/emblem this deck creates. Unlike a card's printing,
+    a token isn't a CSV row -- the choice is written into the deck's
+    `.summary.json` sidecar under `token_printing_overrides`, keyed by
+    `key` (each `tokens_created` entry's `token.key`, from `TokenRef.
+    identity_key()`). Mirrors the web UI's `/decks/token-printing` route.
+    """
+    p = _resolve_deck_path(str(user["id"]), filename)
+    if p is None:
+        return err("Deck not found.", "DECK_NOT_FOUND", 404, _rid(request))
+    _write_token_printing_override(p, body.key, body.scryfall_id or "")
+    return ok({"key": body.key, "scryfall_id": (body.scryfall_id or None)}, _rid(request))
+
+
 @router.get("/{filename}/analysis", summary="Get deck mana analysis")
 async def get_deck_analysis(filename: str, request: Request, user: User = Depends(get_api_user)):
     """Commander, mana curve, pip distribution, mana sources, land summary
-    (including MDFC lands), and total price.
+    (including MDFC lands), tokens/emblems the deck creates, and total price.
 
     Reads the same `.summary.json` sidecar the HTML deck-view page uses
     (`_render_deck_view` in `code/web/routes/decks.py`) so this data matches
@@ -362,6 +412,7 @@ async def get_deck_analysis(filename: str, request: Request, user: User = Depend
                 "pip_distribution": (summary or {}).get("pip_distribution", {}),
                 "mana_generation": (summary or {}).get("mana_generation", {}),
                 "land_summary": (summary or {}).get("land_summary", {}),
+                "tokens_created": _apply_token_printing_overrides(p, (summary or {}).get("tokens_created", [])),
                 "total_price": total_price,
             }
         ),

@@ -1,0 +1,33 @@
+{# Infinite-scroll "Load More" batch: appended into #card-grid (hx-swap="beforeend"),
+   plus an OOB swap of #load-more-container with the next batch's button (or empty
+   once has_next is false). Only used when CARD_BROWSER_PAGE_SIZE is unset/0. #}
+{% for card in cards %}
+{% if card.is_token %}
+{% include "browse/cards/_token_tile.html" %}
+{% else %}
+{% include "browse/cards/_card_tile.html" %}
+{% endif %}
+{% endfor %}
+
+{% set qs_parts = [] %}
+{% if search %}{% set _ = qs_parts.append('search=' + search|urlencode) %}{% endif %}
+{% for theme in themes %}{% set _ = qs_parts.append('themes=' + theme|urlencode) %}{% endfor %}
+{% if sort and sort != 'name_asc' %}{% set _ = qs_parts.append('sort=' + sort|urlencode) %}{% endif %}
+{% set qs_str = qs_parts|join('&') %}
+
+<div id="load-more-container" hx-swap-oob="true" class="card-browser-pagination">
+{% if has_next %}
+  <button
+    type="button"
+    class="btn"
+    hx-get="/cards/grid?page={{ next_page }}{% if qs_str %}&{{ qs_str }}{% endif %}"
+    hx-target="#card-grid"
+    hx-swap="beforeend"
+    hx-indicator="#load-indicator">
+    Load More
+  </button>
+  <span id="load-indicator" class="htmx-indicator muted card-browser-loading">
+    Loading...
+  </span>
+{% endif %}
+</div>

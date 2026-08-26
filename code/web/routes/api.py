@@ -89,6 +89,51 @@ async def _resolve_scryfall_image_url(
     return image_uris.get(size) or image_uris.get("normal")
 
 
+async def _resolve_scryfall_token_image_url(name: str, size: str) -> Optional[str]:
+    """Resolve a token image via Scryfall's search API, restricted to tokens.
+
+    Token face names frequently collide with unrelated real cards (e.g. the
+    "Start Your Engines!" token vs. the real Aetherdrift sorcery), so the
+    plain `/cards/named` fuzzy lookup used by `_resolve_scryfall_image_url()`
+    is unsafe here -- it can resolve to the wrong (non-token) card. This
+    restricts the search to `is:token` results.
+    """
+    query = f'!"{name}" is:token'
+    await _scryfall_rate_limit()
+    try:
+        async with httpx.AsyncClient(
+            headers={"User-Agent": _SCRYFALL_USER_AGENT, "Accept": "application/json"},
+            timeout=10.0,
+        ) as client:
+            resp = await client.get(
+                "https://api.scryfall.com/cards/search",
+                params={"q": query, "unique": "prints", "order": "released"},
+            )
+            if resp.status_code == 404:
+                return None
+            resp.raise_for_status()
+            data = resp.json()
+    except httpx.HTTPError as e:
+        logger.warning(f"Scryfall token image search failed for '{name}': {e}")
+        return None
+    except Exception as e:
+        logger.warning(f"Unexpected error resolving Scryfall token image for '{name}': {e}")
+        return None
+
+    results = data.get("data") or []
+    if not results:
+        return None
+    card = results[0]
+    image_uris = card.get("image_uris")
+    if not image_uris:
+        faces = card.get("card_faces") or []
+        if faces:
+            image_uris = faces[0].get("image_uris")
+    if not image_uris:
+        return None
+    return image_uris.get(size) or image_uris.get("normal")
+
+
 @router.get("/images/status")
 async def get_download_status():
     """
@@ -104,7 +149,9 @@ async def get_download_status():
     
     if not status_file.exists():
         # No active download - return cache stats plus last download result if available
-        stats = _image_cache.cache_statistics()
+        # cache_statistics() scans every per-card image folder and can take tens of
+        # seconds; run it off the event loop so it doesn't stall every other request.
+        stats = await asyncio.to_thread(_image_cache.cache_statistics)
         last_download = None
         if last_result_file.exists():
             try:
@@ -133,7 +180,7 @@ async def get_download_status():
                 status_file.unlink()
             except Exception:
                 pass
-            cache_stats = _image_cache.cache_statistics()
+            cache_stats = await asyncio.to_thread(_image_cache.cache_statistics)
             return JSONResponse({
                 "running": False,
                 "last_download": status,
@@ -218,6 +265,287 @@ async def get_card_printings(card_name: str):
     default_id = _image_cache.get_default_printing_id(face_name)
     return JSONResponse({
         "card_name": card_name,
+        "default_scryfall_id": default_id,
+        "printings": printings,
+    })
+
+
+@router.get("/images/tokens/status")
+async def get_token_download_status():
+    """Get current token/emblem image download status (mirrors /images/status)."""
+    import json
+
+    status_file = Path("card_files/images/tokens/.download_status.json")
+    last_result_file = Path("card_files/images/tokens/.last_download_result.json")
+
+    if not status_file.exists():
+        stats = await asyncio.to_thread(_image_cache.token_cache_statistics)
+        last_download = None
+        if last_result_file.exists():
+            try:
+                with last_result_file.open('r', encoding='utf-8') as f:
+                    last_download = json.load(f)
+            except Exception:
+                pass
+        return JSONResponse({
+            "running": False,
+            "last_download": last_download,
+            "stats": stats
+        })
+
+    try:
+        with status_file.open('r', encoding='utf-8') as f:
+            status = json.load(f)
+
+        if not status.get("running", False):
+            try:
+                with last_result_file.open('w', encoding='utf-8') as f:
+                    json.dump(status, f)
+            except Exception:
+                pass
+            try:
+                status_file.unlink()
+            except Exception:
+                pass
+            cache_stats = await asyncio.to_thread(_image_cache.token_cache_statistics)
+            return JSONResponse({
+                "running": False,
+                "last_download": status,
+                "stats": cache_stats
+            })
+
+        return JSONResponse(status)
+    except Exception as e:
+        logger.warning(f"Could not read token status file: {e}")
+        return JSONResponse({
+            "running": False,
+            "error": str(e)
+        })
+
+
+@router.post("/images/download-tokens")
+async def download_token_images():
+    """
+    Start downloading token/emblem images in background (separate from real
+    card images -- see roadmap_39, Milestone 3).
+
+    Returns:
+        JSON response with status
+    """
+    if not _image_cache.is_enabled():
+        return JSONResponse({
+            "ok": False,
+            "message": "Image caching is disabled. Set CACHE_CARD_IMAGES=1 to enable."
+        }, status_code=400)
+
+    tokens_path = Path("card_files/processed/tokens.parquet")
+    if not tokens_path.exists():
+        return JSONResponse({
+            "ok": False,
+            "message": "Token/emblem catalog not found. Run the full setup pipeline first."
+        }, status_code=400)
+
+    try:
+        status_dir = Path("card_files/images/tokens")
+        status_dir.mkdir(parents=True, exist_ok=True)
+        status_file = status_dir / ".download_status.json"
+
+        import json
+        with status_file.open('w', encoding='utf-8') as f:
+            json.dump({
+                "running": True,
+                "phase": "bulk_data",
+                "message": "Downloading Scryfall bulk data...",
+                "current": 0,
+                "total": 0,
+                "percentage": 0
+            }, f)
+    except Exception as e:
+        logger.warning(f"Could not write initial token status: {e}")
+
+    def _download_task():
+        import json
+        import pandas as pd
+        status_file = Path("card_files/images/tokens/.download_status.json")
+
+        try:
+            logger.info("[TOKEN IMAGE DOWNLOAD] Starting bulk data download...")
+
+            def bulk_progress(downloaded: int, total: int):
+                try:
+                    percentage = int(downloaded / total * 100) if total > 0 else 0
+                    with status_file.open('w', encoding='utf-8') as f:
+                        json.dump({
+                            "running": True,
+                            "phase": "bulk_data",
+                            "message": f"Downloading bulk data: {percentage}%",
+                            "current": downloaded,
+                            "total": total,
+                            "percentage": percentage
+                        }, f)
+                except Exception as e:
+                    logger.warning(f"Could not update token bulk progress: {e}")
+
+            if not _image_cache.bulk_data_path.exists():
+                _image_cache.download_bulk_data(progress_callback=bulk_progress)
+
+            logger.info("[TOKEN IMAGE DOWNLOAD] Building token printings index...")
+            with status_file.open('w', encoding='utf-8') as f:
+                json.dump({
+                    "running": True,
+                    "phase": "index",
+                    "message": "Building token/emblem printings index...",
+                    "current": 0,
+                    "total": 0,
+                    "percentage": 0
+                }, f)
+
+            tokens_df = pd.read_parquet(tokens_path)
+            _image_cache.build_token_printings_index(tokens_df)
+
+            logger.info("[TOKEN IMAGE DOWNLOAD] Starting image downloads...")
+
+            def image_progress(current: int, total: int, face_name: str):
+                try:
+                    percentage = int(current / total * 100) if total > 0 else 0
+                    with status_file.open('w', encoding='utf-8') as f:
+                        json.dump({
+                            "running": True,
+                            "phase": "images",
+                            "message": f"Downloading images: {face_name}",
+                            "current": current,
+                            "total": total,
+                            "percentage": percentage
+                        }, f)
+                    if current % 200 == 0:
+                        logger.info(f"[TOKEN IMAGE DOWNLOAD] Progress: {current}/{total} ({percentage}%)")
+                except Exception as e:
+                    logger.warning(f"Could not update token image progress: {e}")
+
+            stats = _image_cache.download_all_token_printings(progress_callback=image_progress)
+
+            with status_file.open('w', encoding='utf-8') as f:
+                json.dump({
+                    "running": False,
+                    "phase": "complete",
+                    "message": f"Download complete: {stats.get('downloaded', 0)} new images",
+                    "stats": stats,
+                    "percentage": 100
+                }, f)
+
+            logger.info(f"[TOKEN IMAGE DOWNLOAD] Complete: {stats}")
+
+        except Exception as e:
+            logger.error(f"[TOKEN IMAGE DOWNLOAD] Failed: {e}", exc_info=True)
+            try:
+                with status_file.open('w', encoding='utf-8') as f:
+                    json.dump({
+                        "running": False,
+                        "phase": "error",
+                        "message": f"Download failed: {str(e)}",
+                        "percentage": 0
+                    }, f)
+            except Exception:
+                pass
+
+    thread = threading.Thread(target=_download_task, daemon=True)
+    thread.start()
+
+    return JSONResponse({
+        "ok": True,
+        "message": "Token/emblem image download started in background"
+    }, status_code=202)
+
+
+# NOTE: The two routes above (/images/tokens/status, /images/download-tokens) must be
+# registered before the generic /images/{size}/{card_name} route below, otherwise
+# FastAPI matches "tokens" as {size} and "status"/"download-tokens" as {card_name}.
+@router.get("/images/token/{size}/{token_name}")
+async def get_token_image(
+    size: str,
+    token_name: str,
+    power: Optional[str] = Query(default=None),
+    toughness: Optional[str] = Query(default=None),
+    type_line: Optional[str] = Query(default=None),
+    colors: Optional[str] = Query(default=None),
+    text_hash: Optional[str] = Query(
+        default=None,
+        description="Fingerprint of the identity's ability text (see TokenRef.text_hash()), disambiguates same name/type/pt/colors variants",
+    ),
+    printing: Optional[str] = Query(
+        default=None,
+        description="Scryfall ID of a specific printing to show, instead of the identity's default printing",
+    ),
+):
+    """Serve a cached token/emblem image (roadmap_39, Milestone 5).
+
+    Token identity is name + type + power/toughness + colors + ability text
+    (multiple distinct tokens can share a name, type, and even power/toughness
+    -- e.g. a plain white 1/1 Soldier vs. a red/white 1/1 Soldier, or a
+    vanilla 1/1 Fish vs. one that "can't be blocked") -- see
+    `ImageCache.get_default_token_printing_id()`. Falls back to an on-demand
+    single-image download if the token/emblem printings index has a row but
+    the image hasn't been downloaded to disk yet, then to a live Scryfall
+    token search if the token isn't in the index at all (e.g. image cache
+    disabled, or the token image download step hasn't been run).
+    """
+    if size not in ("small", "normal", "art_crop"):
+        size = "normal"
+
+    if _image_cache.is_enabled() and size != "art_crop":
+        target_id = printing or _image_cache.get_default_token_printing_id(token_name, power, toughness, type_line, colors, text_hash)
+        if target_id:
+            image_path = _image_cache.get_token_printing_image_path(token_name, target_id, size)
+            if not image_path.exists():
+                matches = [
+                    row for row in _image_cache.get_token_printings(token_name, power, toughness, type_line, colors, text_hash)
+                    if str(row.get("scryfall_id")) == target_id
+                ]
+                if matches:
+                    image_url = matches[0].get(f"image_url_{size}") or matches[0].get("image_url_normal")
+                    if image_url:
+                        _image_cache._download_image(image_url, image_path)
+            if image_path.exists():
+                return FileResponse(
+                    image_path,
+                    media_type="image/jpeg",
+                    headers={"Cache-Control": "public, max-age=31536000"},
+                )
+
+    # No cached/downloadable token image -- best-effort live Scryfall token search
+    # (restricted to is:token results to avoid colliding with unrelated real cards
+    # that share the same name, e.g. "Start Your Engines!").
+    image_url = await _resolve_scryfall_token_image_url(token_name, size)
+    if image_url:
+        return RedirectResponse(image_url)
+    query = quote_plus(f'!"{token_name}" is:token')
+    return RedirectResponse(f"https://api.scryfall.com/cards/search?q={query}&format=image&version={size}")
+
+
+@router.get("/token-printings/{token_name}")
+async def get_token_printings(
+    token_name: str,
+    power: Optional[str] = Query(default=None),
+    toughness: Optional[str] = Query(default=None),
+    type_line: Optional[str] = Query(default=None),
+    colors: Optional[str] = Query(default=None),
+    text_hash: Optional[str] = Query(
+        default=None,
+        description="Fingerprint of the identity's ability text (see TokenRef.text_hash()), disambiguates same name/type/pt/colors variants",
+    ),
+):
+    """List known paper printings for a token/emblem identity, mirroring
+    `/printings/{card_name}` for real cards but keyed by the token's full
+    identity (name + type + power/toughness + colors + ability text) since
+    multiple distinct tokens can share just a name -- see
+    `ImageCache.get_default_token_printing_id()`. Returns an empty list if
+    the token printings index has no entry for this identity.
+    """
+    face_name = token_name.split(" // ")[0].strip() if " // " in token_name else token_name
+    printings = _image_cache.get_token_printings(face_name, power, toughness, type_line, colors, text_hash)
+    default_id = _image_cache.get_default_token_printing_id(face_name, power, toughness, type_line, colors, text_hash)
+    return JSONResponse({
+        "card_name": token_name,
         "default_scryfall_id": default_id,
         "printings": printings,
     })
@@ -402,8 +730,25 @@ async def download_images():
                     logger.warning(f"Could not update bulk progress: {e}")
             
             _image_cache.download_bulk_data(progress_callback=bulk_progress)
-            
-            # Download images
+
+            # Refresh the printings index so newly released sets/printings
+            # are picked up (cheap relative to the image downloads below).
+            logger.info("[IMAGE DOWNLOAD] Building printings index...")
+            with status_file.open('w', encoding='utf-8') as f:
+                json.dump({
+                    "running": True,
+                    "phase": "index",
+                    "message": "Building printings index...",
+                    "current": 0,
+                    "total": 0,
+                    "percentage": 0
+                }, f)
+            _image_cache.build_printings_index()
+
+            # Download images into the per-card/per-printing layout. This
+            # matches get_card_image()'s lookup order, so already-cached
+            # printings are correctly skipped instead of being re-downloaded
+            # into the legacy flat layout that lookup no longer prefers.
             logger.info("[IMAGE DOWNLOAD] Starting image downloads...")
             
             def image_progress(current: int, total: int, card_name: str):
@@ -427,7 +772,7 @@ async def download_images():
                 except Exception as e:
                     logger.warning(f"Could not update image progress: {e}")
             
-            stats = _image_cache.download_images(progress_callback=image_progress)
+            stats = _image_cache.download_all_printings(progress_callback=image_progress)
             
             # Write completion status
             with status_file.open('w', encoding='utf-8') as f:

@@ -95,6 +95,7 @@ def step5_base_ctx(request: Request, sess: dict, *, include_name: bool = True, i
         ctx["locks"] = list(sess.get("locks", []))
         ctx["printings"] = dict(sess.get("printings") or {})
         ctx["foils"] = dict(sess.get("foils") or {})
+        ctx["token_printings"] = dict(sess.get("token_printings") or {})
     try:
         ctx["summary_token"] = int(sess.get("step5_summary_token", 0))
     except Exception:

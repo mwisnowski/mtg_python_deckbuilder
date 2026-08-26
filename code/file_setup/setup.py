@@ -35,29 +35,32 @@ from .setup_constants import (
 )
 from .setup_utils import _load_banned_cards, _load_commander_illegal_cards
 import logging_util
-from path_util import card_files_raw_dir, get_processed_cards_path
+from path_util import card_files_processed_dir, card_files_raw_dir, get_processed_cards_path
 import settings
 
 logger = logging_util.get_logger(__name__)
 
-# MTGJSON Parquet API URL
+# MTGJSON Parquet API URLs
 MTGJSON_PARQUET_URL = "https://mtgjson.com/api/v5/parquet/cards.parquet"
+MTGJSON_TOKENS_PARQUET_URL = "https://mtgjson.com/api/v5/parquet/tokens.parquet"
 
 
-def download_parquet_from_mtgjson(output_path: str) -> None:
-    """Download MTGJSON cards.parquet file.
+def download_parquet_from_mtgjson(output_path: str, url: str = MTGJSON_PARQUET_URL, desc: str = "Downloading cards.parquet") -> None:
+    """Download an MTGJSON Parquet file (cards.parquet or tokens.parquet).
     
     Args:
         output_path: Where to save the downloaded Parquet file
+        url: MTGJSON Parquet API URL to download from
+        desc: Progress bar label
         
     Raises:
         requests.RequestException: If download fails
         IOError: If file cannot be written
     """
-    logger.info(f"Downloading MTGJSON Parquet from {MTGJSON_PARQUET_URL}")
+    logger.info(f"Downloading MTGJSON Parquet from {url}")
     
     try:
-        response = requests.get(MTGJSON_PARQUET_URL, stream=True, timeout=60)
+        response = requests.get(url, stream=True, timeout=60)
         response.raise_for_status()
         
         # Get file size for progress bar
@@ -71,7 +74,7 @@ def download_parquet_from_mtgjson(output_path: str) -> None:
             total=total_size,
             unit='B',
             unit_scale=True,
-            desc='Downloading cards.parquet'
+            desc=desc
         ) as pbar:
             for chunk in response.iter_content(chunk_size=8192):
                 f.write(chunk)
@@ -889,11 +892,15 @@ def run_full_pipeline(output_func=None, parallel: bool = True) -> None:
     """Run the complete local setup pipeline in the correct order.
 
     Steps (must run in this sequence):
-    1. initial_setup()        — download MTGJSON parquet + process
-    2. run_tagging()          — tag all cards (must precede prices)
-    3. refresh_prices_parquet() — write price / isNew columns into parquet
-    4. build_cache()          — pre-compute similarity cache
-    5. refresh_rulings_cache() — download Scryfall bulk rulings (~25 MB)
+    1. initial_setup()               — download MTGJSON parquet + process
+    2. build_tokens_parquet()        — download raw tokens.parquet (if missing) + build the
+                                        token/emblem catalog (must precede tagging)
+       + tag_token_catalog_own_fields() — tag the catalog's own themeTags/metadataTags
+    3. run_tagging()                 — tag all cards (must precede prices)
+    4. apply_emblem_backreferences() — write 'Emblem: {creator}' tags onto creator cards
+    5. refresh_prices_parquet()      — write price / isNew columns into parquet
+    6. build_cache()                 — pre-compute similarity cache
+    7. refresh_rulings_cache()       — download Scryfall bulk rulings (~25 MB)
 
     Use this instead of calling each step individually.  The web orchestrator
     runs the steps separately for fine-grained progress reporting; all other
@@ -910,29 +917,67 @@ def run_full_pipeline(output_func=None, parallel: bool = True) -> None:
     _log("=" * 70)
 
     # Step 1: download + process raw parquet
-    _log("[1/4] Running initial setup (download + process)...")
+    _log("[1/7] Running initial setup (download + process)...")
     initial_setup()
     _log("✓ Initial setup complete")
 
-    # Step 2: tag all cards (must come before prices)
-    _log(f"[2/4] Running tagging (parallel={parallel})...")
+    # Step 2: build the token/emblem catalog (must precede tagging, so tag_for_tokens()
+    # can consult its relatedCards reverse index -- see roadmap_39, Milestone 1/2) and
+    # tag the catalog's own rows using their own clean fields.
+    _log("[2/7] Building token/emblem catalog...")
+    try:
+        from code.file_setup.token_setup import build_tokens_parquet, tag_token_catalog_own_fields
+        raw_tokens_path = os.path.join(card_files_raw_dir(), "tokens.parquet")
+        if not os.path.exists(raw_tokens_path):
+            _log("Downloading MTGJSON tokens.parquet...")
+            download_parquet_from_mtgjson(
+                raw_tokens_path, url=MTGJSON_TOKENS_PARQUET_URL, desc="Downloading tokens.parquet"
+            )
+        tokens_path = os.path.join(card_files_processed_dir(), "tokens.parquet")
+        tokens_df = build_tokens_parquet(raw_path=raw_tokens_path, output_path=tokens_path)
+        tokens_df = tag_token_catalog_own_fields(tokens_df)
+        DataLoader().write_cards(tokens_df, tokens_path)
+        _log("✓ Token/emblem catalog built")
+    except Exception as e:
+        _log(f"Warning: Token/emblem catalog build failed (non-fatal): {e}")
+
+    # Step 3: tag all cards (must come before prices)
+    _log(f"[3/7] Running tagging (parallel={parallel})...")
     from code.tagging.tagger import run_tagging
     run_tagging(parallel=parallel)
     _log("✓ Tagging complete")
 
-    # Step 3: refresh prices + isNew (must come after tagging)
-    _log("[3/4] Refreshing prices and isNew window...")
+    # Step 4: write 'Emblem: {creator}' metadataTags + 'Emblem' themeTag onto each
+    # emblem's creator card(s) in all_cards.parquet (must come after tagging).
+    _log("[4/7] Applying emblem backreferences...")
+    try:
+        from code.file_setup.token_setup import apply_emblem_backreferences
+        processed_path = get_processed_cards_path()
+        tokens_path = os.path.join(card_files_processed_dir(), "tokens.parquet")
+        if os.path.exists(processed_path) and os.path.exists(tokens_path):
+            all_cards_df = pd.read_parquet(processed_path)
+            tokens_df = pd.read_parquet(tokens_path)
+            all_cards_df = apply_emblem_backreferences(all_cards_df, tokens_df)
+            DataLoader().write_cards(all_cards_df, processed_path)
+            _log("✓ Emblem backreferences applied")
+        else:
+            _log("Skipping emblem backreferences (all_cards.parquet or tokens.parquet missing)")
+    except Exception as e:
+        _log(f"Warning: Emblem backreference step failed (non-fatal): {e}")
+
+    # Step 5: refresh prices + isNew (must come after tagging)
+    _log("[5/7] Refreshing prices and isNew window...")
     refresh_prices_parquet(output_func=output_func)
     _log("✓ Prices and isNew refreshed")
 
-    # Step 4: build similarity cache
-    _log(f"[4/5] Building similarity cache (parallel={parallel})...")
+    # Step 6: build similarity cache
+    _log(f"[6/7] Building similarity cache (parallel={parallel})...")
     from code.scripts.build_similarity_cache_parquet import build_cache
     build_cache(parallel=parallel, checkpoint_interval=1000, force=True)
     _log("✓ Similarity cache built")
 
-    # Step 5: build rulings cache (downloads ~25 MB Scryfall bulk file once)
-    _log("[5/5] Building rulings cache from Scryfall bulk data...")
+    # Step 7: build rulings cache (downloads ~25 MB Scryfall bulk file once)
+    _log("[7/7] Building rulings cache from Scryfall bulk data...")
     try:
         refresh_rulings_cache(output_func=output_func)
         _log("✓ Rulings cache built")
@@ -1017,6 +1062,60 @@ def backfill_all_printings(output_func=None, mode: str | None = None) -> None:
     stats = cache.download_all_printings(mode=resolved_mode, progress_callback=progress)
     _log(
         f"Backfill complete: downloaded={stats['downloaded']} "
+        f"skipped={stats['skipped']} failed={stats['failed']}"
+    )
+
+
+def backfill_token_printings(output_func=None, mode: str | None = None) -> None:
+    """Build/refresh the token/emblem image cache (separate from real cards).
+
+    Builds `card_files/processed/token_printings.parquet` from the latest
+    Scryfall bulk data and the Milestone-1 token/emblem catalog, then
+    downloads images into `card_files/images/tokens/{Token Name}/{size}/
+    {scryfall_id}.jpg` -- fully separate from the real-card cache, never
+    touching `card_printings.parquet` or `card_files/images/{Card Name}/`.
+
+    This is an optional, explicitly-invoked step -- it is NOT part of
+    run_full_pipeline() or initial_setup() (see roadmap_39, Milestone 3).
+
+    Args:
+        output_func: Optional callable(str) for progress messages.
+        mode: 'default' (one printing per token face) or 'full' (every paper
+            printing). Defaults to the IMAGE_CACHE_MODE env var.
+    """
+    _log = output_func or (lambda msg: logger.info(msg))
+    from code.file_setup.image_cache import ImageCache, get_cache_mode
+
+    cache = ImageCache()
+    if not cache.is_enabled():
+        _log("Card image caching is disabled (CACHE_CARD_IMAGES=0); nothing to do.")
+        return
+
+    resolved_mode = mode or get_cache_mode()
+    _log(f"Backfilling token/emblem printings (mode={resolved_mode})...")
+
+    if not cache.bulk_data_path.exists():
+        _log("Downloading Scryfall bulk data...")
+        cache.download_bulk_data()
+
+    tokens_path = os.path.join(card_files_processed_dir(), "tokens.parquet")
+    if not os.path.exists(tokens_path):
+        _log("Token/emblem catalog not found; build it first (run_full_pipeline() step 2).")
+        return
+    tokens_df = DataLoader().read_cards(tokens_path)
+
+    _log("Building token/emblem printings index (this reads the full bulk data file)...")
+    count = cache.build_token_printings_index(tokens_df)
+    _log(f"Token/emblem printings index built: {count} rows")
+
+    def progress(current, total, face_name):
+        if current % 200 == 0:
+            pct = (current / total) * 100 if total else 0
+            _log(f"  Progress: {current}/{total} ({pct:.1f}%) - {face_name}")
+
+    stats = cache.download_all_token_printings(mode=resolved_mode, progress_callback=progress)
+    _log(
+        f"Token/emblem backfill complete: downloaded={stats['downloaded']} "
         f"skipped={stats['skipped']} failed={stats['failed']}"
     )
 

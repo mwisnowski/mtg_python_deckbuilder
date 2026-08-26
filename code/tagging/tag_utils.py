@@ -658,6 +658,72 @@ def classify_tag(tag: str) -> str:
     return "theme"
 
 
+# ==============================================================================
+# Token Detail Tag Formatting (Roadmap 39, Milestone 2)
+# ==============================================================================
+
+_TOKEN_DETAIL_COLOR_WORDS: dict[str, str] = {
+    'W': 'White', 'U': 'Blue', 'B': 'Black', 'R': 'Red', 'G': 'Green',
+}
+
+
+def format_token_detail_tag(
+    *,
+    is_creature: bool,
+    power: Any = None,
+    toughness: Any = None,
+    colors: Union[List[str], None] = None,
+    creature_type: Union[str, List[str], None] = None,
+    token_type: Union[str, None] = None,
+    keywords: Union[List[str], None] = None,
+    text: Union[str, None] = None,
+) -> str:
+    """Format the simplified 'Token Detail: ...' tag shared by a token's own
+    catalog row (`token_setup.py`) and the creator card that makes it
+    (`tagger.py`'s `tag_for_tokens()`/artifact/enchantment predefined-token
+    tagging), so both always carry the identical string.
+
+    Creature tokens: "Token Detail: {power}/{toughness} {colors} {creature_type}
+    - {trailer}", where colors are Title Case color word(s) joined with " and "
+    for multicolor tokens, and trailer is the token's own keywords
+    (comma-joined) if present, else its own oracle text, else omitted
+    entirely (vanilla token with neither).
+
+    Non-creature tokens (Treasure, Food, Role tokens, etc.): always the plain
+    form "Token Detail: {token_type} Token", with no P/T/color breakdown.
+    Emblems are out of scope for this formatter (they use "Emblem: {creator}"
+    instead).
+    """
+    if isinstance(creature_type, (list, tuple)) or hasattr(creature_type, 'tolist'):
+        creature_type = ' '.join(part for part in list(creature_type) if part)
+
+    if not is_creature:
+        type_label = (token_type or creature_type or '').strip()
+        return f"Token Detail: {type_label} Token"
+
+    color_list = list(colors) if colors is not None and hasattr(colors, '__iter__') and not isinstance(colors, str) else []
+    color_words = [
+        _TOKEN_DETAIL_COLOR_WORDS.get(c.strip().upper(), c.strip().capitalize())
+        for c in color_list if c and str(c).strip()
+    ]
+    color_phrase = ' and '.join(color_words)
+
+    pt = f"{power}/{toughness}" if power is not None and toughness is not None else None
+    header = ' '.join(part for part in (pt, color_phrase, creature_type) if part)
+
+    keyword_list = list(keywords) if keywords is not None and hasattr(keywords, '__iter__') and not isinstance(keywords, str) else []
+    if keyword_list:
+        trailer = ', '.join(k for k in keyword_list if k)
+    elif text:
+        trailer = str(text).strip()
+    else:
+        trailer = ''
+
+    if trailer:
+        return f"Token Detail: {header} - {trailer}"
+    return f"Token Detail: {header}"
+
+
 # --- Text Processing Helpers (M0.6) ---------------------------------------------------------
 def strip_reminder_text(text: str) -> str:
     """Remove reminder text (content in parentheses) from card text.

@@ -41,11 +41,13 @@ from ...services.card_search import (
     apply_name_clauses as _apply_name_clauses,
     apply_numeric_clauses as _apply_numeric_clauses,
     apply_text_clauses as _apply_text_clauses,
+    merge_tokens_for_search as _merge_tokens_for_search,
     normalize_word_sep as _normalize_word_sep,
     parse_color_cell as _parse_color_cell,
     parse_search_query as _parse_search_query,
     resolve_collector_number_printings as _resolve_collector_number_printings,
     get_set_scoped_collector_number_sort_map as _get_set_scoped_collector_number_sort_map,
+    wants_tokens as _wants_tokens,
     _collector_number_match_mask,
     _load_printings_index_df,
 )
@@ -234,6 +236,7 @@ def _serialize_card(
     set_badge: Optional[Dict[str, str]] = None,
 ) -> Dict[str, Any]:
     card = row.to_dict()
+    is_token = bool(card.get("is_token"))
     data: Dict[str, Any] = {
         "name": card.get("name"),
         "type": card.get("type"),
@@ -255,7 +258,29 @@ def _serialize_card(
         # the web UI's card tile/detail "Set Name #123" badge, see
         # card_browser.py's _set_number_badges()).
         "setBadge": set_badge,
+        # True for rows from the separate tokens/emblems catalog (only ever
+        # present when a `type:token`/`type:emblem` search opted them in --
+        # see `merge_tokens_for_search()`). Tokens have no `scryfallID`/real
+        # printings, so clients must fetch their image via
+        # `/api/images/token/{size}/{name}` and printings via
+        # `/api/token-printings/{name}`, both keyed by the identity fields
+        # below (name alone is ambiguous -- e.g. a copy-token can share its
+        # name with an unrelated real card).
+        "isToken": is_token,
+        "isEmblem": bool(card.get("is_emblem")),
     }
+    if is_token:
+        data.update(
+            {
+                "power": card.get("power"),
+                "toughness": card.get("toughness"),
+                # Comma-separated ("R, G") -> concatenated ("RG"), matching
+                # `TokenRef.identity_key()`'s format expected by the token
+                # image/printings endpoints (see _token_tile.html).
+                "colors": str(card.get("colors") or "").replace(", ", ""),
+                "textHash": card.get("text_hash"),
+            }
+        )
     if full:
         data.update(
             {
@@ -309,6 +334,13 @@ async def list_cards(
     df = _get_loader().load()
 
     parsed = _parse_search_query(q) if q else ParsedSearch()
+
+    # Tokens/emblems live in a separate catalog and are otherwise excluded
+    # from card search entirely; opt them in only for an explicit
+    # `type:token`/`type:emblem` query, mirroring the HTML card browser
+    # (card_browser.py's `wants_tokens`/`merge_tokens_for_search`).
+    if _wants_tokens(parsed):
+        df = _merge_tokens_for_search(df)
 
     df = _apply_name_clauses(df, parsed.name_include, parsed.name_exclude)
     df = _apply_text_clauses(df, "type", parsed.type_include, parsed.type_exclude)

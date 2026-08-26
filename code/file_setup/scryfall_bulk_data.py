@@ -141,7 +141,14 @@ class ScryfallBulkDataClient:
         logger.info(f"Saving to: {output_path}")
 
         is_gzip = download_uri.endswith(".gz")
-        tmp_path = f"{output_path}.download.gz" if is_gzip else output_path
+        raw_tmp_path = f"{output_path}.download.gz" if is_gzip else f"{output_path}.download"
+        # Final JSON array is always assembled in a separate temp file first,
+        # then atomically renamed into place -- this guarantees any other
+        # thread/process reading `output_path` concurrently (e.g. the token
+        # image download building its printings index) always sees either the
+        # complete previous file or the complete new one, never a partially
+        # written one.
+        final_tmp_path = f"{output_path}.tmp"
 
         # No rate limit on bulk data downloads per Scryfall docs
         try:
@@ -156,7 +163,7 @@ class ScryfallBulkDataClient:
                 downloaded = 0
                 chunk_size = 1024 * 1024  # 1MB chunks
 
-                with open(tmp_path, "wb") as f:
+                with open(raw_tmp_path, "wb") as f:
                     while True:
                         chunk = response.read(chunk_size)
                         if not chunk:
@@ -168,18 +175,24 @@ class ScryfallBulkDataClient:
 
             if is_gzip:
                 logger.info("Decompressing gzip JSONL bulk data …")
-                self._convert_jsonl_gz_to_json_array(tmp_path, output_path)
-                os.remove(tmp_path)
+                self._convert_jsonl_gz_to_json_array(raw_tmp_path, final_tmp_path)
+                os.remove(raw_tmp_path)
+            else:
+                os.replace(raw_tmp_path, final_tmp_path)
+
+            # Atomically publish the fully-written file so concurrent readers
+            # never observe a partial write.
+            os.replace(final_tmp_path, output_path)
 
             logger.info(f"Downloaded {downloaded / 1024 / 1024:.1f} MB successfully")
 
         except Exception as e:
             logger.error(f"Failed to download bulk data: {e}")
-            # Clean up partial download(s)
-            if is_gzip and os.path.exists(tmp_path):
-                os.remove(tmp_path)
-            if os.path.exists(output_path):
-                os.remove(output_path)
+            # Clean up partial download(s); output_path itself is never
+            # touched until the final atomic rename, so it's left as-is.
+            for path in (raw_tmp_path, final_tmp_path):
+                if os.path.exists(path):
+                    os.remove(path)
             raise
 
     @staticmethod

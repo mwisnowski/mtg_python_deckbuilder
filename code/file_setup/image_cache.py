@@ -47,6 +47,7 @@ from typing import Any, Generator, Optional
 from urllib.request import Request, urlopen
 
 from code.file_setup.scryfall_bulk_data import ScryfallBulkDataClient
+from code.file_setup.token_setup import _normalize_str, _token_text_fingerprint
 from code.path_util import card_files_processed_dir
 
 logger = logging.getLogger(__name__)
@@ -63,6 +64,85 @@ VALID_CACHE_MODES = ("default", "full")
 
 # Card name sanitization (filesystem-safe)
 INVALID_CHARS = r'[<>:"/\\|?*]'
+
+# Scryfall layouts that are token/emblem entries, not real cards (roadmap_39,
+# Milestone 3). 'flip' is only a token when its type_line says so -- real flip
+# cards never have "Token" in their type line.
+_TOKEN_LAYOUTS = ("token", "double_faced_token", "emblem")
+
+
+def _is_token_scryfall_entry(card: dict[str, Any]) -> bool:
+    """True if a Scryfall bulk-data entry is a token/emblem, not a real card."""
+    layout = card.get("layout")
+    if layout in _TOKEN_LAYOUTS:
+        return True
+    return layout == "flip" and "Token" in (card.get("type_line") or "")
+
+
+def _token_identity_key(
+    name: Any, type_: Any, power: Any, toughness: Any, colors: Any = "", text: Any = "",
+) -> tuple[str, str, str, str, str, str]:
+    """Normalized (name, type, power, toughness, colors, text_hash) bridge key shared by the catalog and Scryfall sides."""
+    def _pt(value: Any) -> str:
+        if value is None or (isinstance(value, float) and value != value):  # NaN check without pandas
+            return ""
+        return str(value)
+
+    def _colors(value: Any) -> str:
+        if value is None:
+            return ""
+        try:
+            items = [str(c).strip().upper() for c in list(value) if str(c or "").strip()]
+        except TypeError:
+            return str(value).strip().upper()
+        return "".join(sorted(items))
+
+    return (
+        _normalize_str(name).lower(), _normalize_str(type_).lower(), _pt(power), _pt(toughness), _colors(colors),
+        _token_text_fingerprint(text),
+    )
+
+
+def _build_token_identity_index(tokens_df) -> dict[tuple[str, str, str, str, str, str], tuple[str, str, str, str, str, str, str]]:
+    """Map a normalized identity key to (catalog name, face name, type, power, toughness, colors, text).
+
+    Both faces of a dual-faced token are indexed independently (each has its own
+    Scryfall image), mirroring how real DFCs are already handled in
+    `card_printings.parquet`. Many tokens share a display name but are
+    genuinely different identities (e.g. "Elemental" has 9+ distinct
+    power/toughness combos, several "Soldier" 1/1s with different types, a
+    white 1/1 Soldier vs. a red/white 1/1 Soldier that share both type and
+    stats, or a vanilla 1/1 Fish vs. one that "can't be blocked" sharing
+    everything but ability text) -- type/power/toughness/colors/text are
+    carried through so downstream code can tell them apart instead of
+    collapsing by name alone.
+    """
+    import pandas as pd
+
+    index: dict[tuple[str, str, str, str, str, str], tuple[str, str, str, str, str, str, str]] = {}
+    for row in tokens_df.itertuples(index=False):
+        # NaN check, not truthiness: missing faceName_a can read back as
+        # `float("nan")` instead of `None` depending on the pandas/pyarrow
+        # version's string-dtype null handling, and `bool(float("nan"))` is
+        # True, which would misroute every single-faced row into the
+        # dual-faced branch below.
+        face_a = getattr(row, "faceName_a", None)
+        colors = getattr(row, "colors", None)
+        if pd.notna(face_a) and face_a:
+            face_a_text = getattr(row, "face_a_text", "") or ""
+            face_b_text = getattr(row, "face_b_text", "") or ""
+            index[_token_identity_key(row.faceName_a, row.face_a_type, row.face_a_power, row.face_a_toughness, colors, face_a_text)] = (
+                row.name, row.faceName_a, row.face_a_type, row.face_a_power, row.face_a_toughness, colors, face_a_text,
+            )
+            index[_token_identity_key(row.faceName_b, row.face_b_type, row.face_b_power, row.face_b_toughness, colors, face_b_text)] = (
+                row.name, row.faceName_b, row.face_b_type, row.face_b_power, row.face_b_toughness, colors, face_b_text,
+            )
+        else:
+            text = getattr(row, "text", "") or ""
+            index[_token_identity_key(row.name, row.type, row.power, row.toughness, colors, text)] = (
+                row.name, row.name, row.type, row.power, row.toughness, colors, text,
+            )
+    return index
 
 
 def get_cache_mode() -> str:
@@ -130,6 +210,12 @@ class ImageCache:
         # Printings metadata index (new per-card/per-printing layout).
         self.printings_index_path = Path(card_files_processed_dir()) / "card_printings.parquet"
         self._printings_df = None  # lazily loaded pandas DataFrame
+
+        # Token/emblem printings index + image tree -- kept fully separate from
+        # the real-card cache above (roadmap_39, Milestone 3).
+        self.token_base_dir = self.base_dir / "tokens"
+        self.token_printings_index_path = Path(card_files_processed_dir()) / "token_printings.parquet"
+        self._token_printings_df = None  # lazily loaded pandas DataFrame
 
         # In-memory index of available images (avoids repeated filesystem checks)
         # Key: (size, sanitized_filename), Value: True if exists
@@ -361,6 +447,13 @@ class ImageCache:
                 except json.JSONDecodeError:
                     continue
 
+                # Token-copy entries (Offspring/Embalm/Eternalize, etc.) can
+                # share a real card's name (roadmap_39, Milestone 4) -- exclude
+                # before the name-membership check so they never win the
+                # best-printing slot for that real card.
+                if _is_token_scryfall_entry(card):
+                    continue
+
                 card_name: str = card.get("name", "")
                 if not card_name:
                     continue
@@ -436,6 +529,13 @@ class ImageCache:
 
                 if card.get("digital"):
                     continue  # paper printings only
+
+                # Token-copy entries (Offspring/Embalm/Eternalize, etc.) can
+                # share a real card's name (roadmap_39, Milestone 4) -- exclude
+                # before the name-membership check so they never leak into
+                # card_printings.parquet as a fake printing of the real card.
+                if _is_token_scryfall_entry(card):
+                    continue
 
                 card_name: str = card.get("name", "")
                 if not card_name:
@@ -741,10 +841,363 @@ class ImageCache:
             if progress_callback:
                 progress_callback(i + 1, len(df), row.face_name)
 
+        # Regenerate the summary now (in this same background download thread)
+        # rather than merely invalidating it -- otherwise the next /api/images/status
+        # poll pays the full ~30s directory-scan cost itself.
         self.invalidate_summary_cache()
         self.invalidate_index()
+        self.cache_statistics()
 
         logger.info(f"Printing-aware image download complete: {stats}")
+        return stats
+
+    def _stream_token_printings(self, tokens_df) -> Generator[dict[str, Any], None, None]:
+        """
+        Stream metadata for every paper printing of every token/emblem identity
+        in `tokens_df`, bridging Scryfall bulk-data entries to Milestone-1 token
+        identities by normalized (name, type, power, toughness) -- MTGJSON's
+        token catalog has no Scryfall ID column to join on directly (see
+        roadmap_39, Milestone 3).
+
+        Raises:
+            FileNotFoundError: If bulk data file doesn't exist.
+        """
+        if not self.bulk_data_path.exists():
+            raise FileNotFoundError(
+                f"Bulk data file not found: {self.bulk_data_path}. "
+                "Run download_bulk_data() first."
+            )
+
+        identity_index = _build_token_identity_index(tokens_df)
+        if not identity_index:
+            return
+
+        with open(self.bulk_data_path, "r", encoding="utf-8") as fh:
+            for raw_line in fh:
+                line = raw_line.strip().rstrip(",")
+                if not line or line in ("[", "]"):
+                    continue
+                try:
+                    card = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+
+                if card.get("digital"):
+                    continue  # paper printings only
+                if not _is_token_scryfall_entry(card):
+                    continue
+
+                faces: list[dict[str, Any]] = []
+                if card.get("card_faces"):
+                    for face in card["card_faces"]:
+                        # Some flip-role tokens (e.g. "Monster // Virtuous") only
+                        # carry a single shared image at the top level, not per
+                        # face -- fall back to it so both faces still bridge.
+                        image_uris = face.get("image_uris") or card.get("image_uris")
+                        if not image_uris:
+                            continue
+                        faces.append({
+                            "face_name": face.get("name", ""),
+                            "type_line": face.get("type_line", ""),
+                            "power": face.get("power"),
+                            "toughness": face.get("toughness"),
+                            "colors": face.get("colors") if face.get("colors") is not None else card.get("colors"),
+                            "text": face.get("oracle_text", ""),
+                            "image_uris": image_uris,
+                        })
+                elif card.get("image_uris"):
+                    faces.append({
+                        "face_name": card.get("name", ""),
+                        "type_line": card.get("type_line", ""),
+                        "power": card.get("power"),
+                        "toughness": card.get("toughness"),
+                        "colors": card.get("colors"),
+                        "text": card.get("oracle_text", ""),
+                        "image_uris": card["image_uris"],
+                    })
+                if not faces:
+                    continue
+
+                score = self._score_printing(card)
+                scryfall_id = card.get("id", "")
+                for face in faces:
+                    key = _token_identity_key(
+                        face["face_name"], face["type_line"], face["power"], face["toughness"], face["colors"], face["text"],
+                    )
+                    match = identity_index.get(key)
+                    if match is None:
+                        continue
+                    catalog_name, face_name, type_line, power, toughness, colors, text = match
+                    image_uris = face["image_uris"]
+                    yield {
+                        "name": catalog_name,
+                        "face_name": face_name,
+                        # Catalog's own type/power/toughness/colors, not Scryfall's
+                        # -- this is the disambiguator between same-named token
+                        # variants (e.g. "Elemental" 1/1 vs 2/2, several "Soldier"
+                        # 1/1s with different types, or a white vs. red/white
+                        # 1/1 Soldier), so it must be stable across every
+                        # printing of the same identity.
+                        "type": type_line,
+                        "power": power,
+                        "toughness": toughness,
+                        "colors": "".join(sorted(str(c).strip().upper() for c in list(colors) if str(c or "").strip())) if colors is not None else "",
+                        "text_hash": _token_text_fingerprint(text),
+                        "scryfall_id": scryfall_id,
+                        "set": card.get("set", ""),
+                        "set_name": card.get("set_name", ""),
+                        "collector_number": card.get("collector_number", ""),
+                        "released_at": card.get("released_at", ""),
+                        "finishes": list(card.get("finishes") or []),
+                        "score": score,
+                        "image_url_small": image_uris.get("small", ""),
+                        "image_url_normal": image_uris.get("normal", ""),
+                    }
+
+    def build_token_printings_index(self, tokens_df, output_path: Optional[str] = None) -> int:
+        """
+        Build the token/emblem printings metadata index (`token_printings.parquet`),
+        bridging Milestone-1 catalog identities to Scryfall printings by name/type/
+        power/toughness. Written to a separate parquet file, never merged into
+        `card_printings.parquet` (see roadmap_39, Milestone 3).
+
+        Args:
+            tokens_df: The Milestone-1 token/emblem catalog DataFrame.
+            output_path: Where to write the parquet file. Defaults to
+                `self.token_printings_index_path`.
+
+        Returns:
+            Number of printing rows written.
+
+        Raises:
+            FileNotFoundError: If bulk data file doesn't exist.
+        """
+        import pandas as pd
+
+        dest = Path(output_path) if output_path else self.token_printings_index_path
+        dest.parent.mkdir(parents=True, exist_ok=True)
+
+        columns = [
+            "name", "face_name", "type", "power", "toughness", "colors", "text_hash", "scryfall_id", "set", "set_name",
+            "collector_number", "released_at", "finishes", "score",
+            "image_url_small", "image_url_normal", "is_default",
+        ]
+
+        rows = list(self._stream_token_printings(tokens_df))
+        if not rows:
+            logger.warning("No token/emblem printings matched while building token printings index")
+            pd.DataFrame(columns=columns).to_parquet(dest, index=False)
+            return 0
+
+        df = pd.DataFrame(rows)
+        # Default printing is scoped per (face_name, type, power, toughness,
+        # colors, text_hash), not face_name alone -- same-named tokens with
+        # different stats (e.g. "Elemental" 1/1 vs 2/2), different types
+        # (e.g. several "Soldier" 1/1s), different colors (e.g. white vs.
+        # red/white 1/1 Soldier), or different ability text (e.g. a vanilla
+        # 1/1 Fish vs. one that "can't be blocked") are different identities
+        # and must each get their own default printing, not compete against
+        # each other.
+        # dropna=False: non-creature tokens/emblems have no power/toughness
+        # (NaN), and groupby drops NaN-keyed groups by default, which would
+        # otherwise leave `is_default` unset (None) for all of them.
+        df["is_default"] = df.groupby(["face_name", "type", "power", "toughness", "colors", "text_hash"], dropna=False)["score"].transform(lambda s: s == s.max())
+
+        df.to_parquet(dest, index=False)
+        self._token_printings_df = None  # invalidate in-memory cache
+        logger.info(f"Wrote {len(df)} token/emblem printing rows to {dest}")
+        return len(df)
+
+    def _load_token_printings_df(self):
+        """Lazily load and cache the token printings index DataFrame, or None if absent."""
+        if self._token_printings_df is not None:
+            return self._token_printings_df
+        if not self.token_printings_index_path.exists():
+            return None
+        import pandas as pd
+
+        self._token_printings_df = pd.read_parquet(self.token_printings_index_path)
+        return self._token_printings_df
+
+    @staticmethod
+    def _filter_token_stats(
+        matches, power: Optional[str], toughness: Optional[str], type_line: Optional[str] = None,
+        colors: Optional[str] = None, text_hash: Optional[str] = None,
+    ):
+        """Narrow a token-printings frame to a specific type/power/toughness/colors/text variant.
+
+        Same-named tokens with different stats (e.g. "Elemental" 1/1 vs 2/2),
+        different types (e.g. several "Soldier" 1/1s), different colors
+        (e.g. white vs. red/white 1/1 Soldier), or different ability text
+        (e.g. a vanilla 1/1 Fish vs. one that "can't be blocked") are
+        different identities; omitting these matches every variant sharing
+        the name instead of a single identity.
+        """
+        if power is not None:
+            matches = matches[matches["power"].astype(str) == str(power)]
+        if toughness is not None:
+            matches = matches[matches["toughness"].astype(str) == str(toughness)]
+        if type_line is not None and "type" in matches.columns:
+            matches = matches[matches["type"].astype(str).str.lower() == str(type_line).lower()]
+        if colors is not None and "colors" in matches.columns:
+            normalized = "".join(sorted(colors.strip().upper()))
+            matches = matches[matches["colors"].astype(str).apply(lambda v: "".join(sorted(v.strip().upper()))) == normalized]
+        if text_hash is not None and "text_hash" in matches.columns:
+            matches = matches[matches["text_hash"].astype(str) == str(text_hash)]
+        return matches
+
+    def get_token_printings(
+        self, token_face_name: str, power: Optional[str] = None, toughness: Optional[str] = None,
+        type_line: Optional[str] = None, colors: Optional[str] = None, text_hash: Optional[str] = None,
+    ) -> list[dict[str, Any]]:
+        """Return metadata for every known paper printing of a token/emblem identity."""
+        df = self._load_token_printings_df()
+        if df is None:
+            return []
+        matches = df[df["face_name"].str.lower() == token_face_name.lower()]
+        matches = self._filter_token_stats(matches, power, toughness, type_line, colors, text_hash)
+        if matches.empty:
+            return []
+        return json.loads(matches.to_json(orient="records"))
+
+    def get_default_token_printing_id(
+        self, token_face_name: str, power: Optional[str] = None, toughness: Optional[str] = None,
+        type_line: Optional[str] = None, colors: Optional[str] = None, text_hash: Optional[str] = None,
+    ) -> Optional[str]:
+        """Return the Scryfall ID of the default printing for a token/emblem identity.
+
+        Mirrors `get_default_printing_id()`'s tie-break (highest score, then most
+        recent `released_at`).
+        """
+        df = self._load_token_printings_df()
+        if df is None:
+            return None
+        matches = df[(df["face_name"].str.lower() == token_face_name.lower()) & (df["is_default"])]
+        matches = self._filter_token_stats(matches, power, toughness, type_line, colors, text_hash)
+        if matches.empty:
+            return None
+        matches = matches.sort_values("released_at", ascending=False, na_position="last")
+        return str(matches.iloc[0]["scryfall_id"])
+
+    def get_token_printing_id_for_set(
+        self, token_face_name: str, set_code: str, power: Optional[str] = None, toughness: Optional[str] = None,
+        type_line: Optional[str] = None, colors: Optional[str] = None, text_hash: Optional[str] = None,
+    ) -> Optional[str]:
+        """Return the Scryfall ID of the token/emblem identity's printing within `set_code`.
+
+        Mirrors `get_printing_id_for_set()`'s tie-break for real cards.
+        """
+        df = self._load_token_printings_df()
+        if df is None:
+            return None
+        matches = df[
+            (df["face_name"].str.lower() == token_face_name.lower())
+            & (df["set"].str.upper() == set_code.upper())
+        ]
+        matches = self._filter_token_stats(matches, power, toughness, type_line, colors, text_hash)
+        if matches.empty:
+            return None
+        matches = matches.sort_values(["score", "released_at"], ascending=[False, False], na_position="last")
+        return str(matches.iloc[0]["scryfall_id"])
+
+    def get_token_printing_image_path(self, token_face_name: str, scryfall_id: str, size: str = "normal") -> Path:
+        """Build the on-disk path for a specific token/emblem printing's cached image."""
+        return self.token_base_dir / sanitize_filename(token_face_name) / size / f"{scryfall_id}.jpg"
+
+    def download_all_token_printings(
+        self,
+        mode: Optional[str] = None,
+        sizes: Optional[list[str]] = None,
+        progress_callback=None,
+        max_rows: Optional[int] = None,
+    ) -> dict[str, int]:
+        """
+        Download token/emblem images into the separate
+        `card_files/images/tokens/{Token Name}/{size}/{scryfall_id}.jpg` tree,
+        using the index built by `build_token_printings_index()`. Mirrors
+        `download_all_printings()` but never touches the real-card image cache.
+
+        Args:
+            mode: 'default' (only the highest-scoring printing per face) or
+                'full' (every paper printing). Defaults to IMAGE_CACHE_MODE
+                env var (see `get_cache_mode()`).
+            sizes: Image sizes to download (default: ['small', 'normal']).
+            progress_callback: Optional callback(current, total, face_name).
+            max_rows: Maximum printing rows to download (for testing).
+
+        Returns:
+            Dictionary with download statistics.
+
+        Raises:
+            FileNotFoundError: If the token printings index hasn't been built yet.
+            ValueError: If `mode` is not a recognized value.
+        """
+        if not self.is_enabled():
+            logger.info("Image caching disabled (CACHE_CARD_IMAGES=0)")
+            return {"skipped": 0}
+
+        if not self.token_printings_index_path.exists():
+            raise FileNotFoundError(
+                f"Token printings index not found: {self.token_printings_index_path}. "
+                "Run build_token_printings_index() first."
+            )
+
+        resolved_mode = (mode or get_cache_mode()).strip().lower()
+        if resolved_mode not in VALID_CACHE_MODES:
+            raise ValueError(f"Invalid mode '{resolved_mode}'; expected one of {VALID_CACHE_MODES}")
+
+        if sizes is None:
+            sizes = IMAGE_SIZES
+
+        import pandas as pd
+
+        df = pd.read_parquet(self.token_printings_index_path)
+        if resolved_mode == "default":
+            df = df[df["is_default"]]
+            df = df.sort_values("released_at", ascending=False, na_position="last")
+            # Dedup by the full (face_name, power, toughness) identity, not
+            # face_name alone -- same-named tokens with different stats (e.g.
+            # "Elemental" 1/1 vs 2/2) are different identities and must each
+            # keep their own default printing.
+            df = df.drop_duplicates(subset=["face_name", "power", "toughness"], keep="first")
+
+        if max_rows is not None:
+            df = df.head(max_rows)
+
+        stats = {"total": len(df), "downloaded": 0, "skipped": 0, "failed": 0}
+
+        for i, row in enumerate(df.itertuples(index=False)):
+            token_folder = self.token_base_dir / sanitize_filename(row.face_name)
+            for size in sizes:
+                image_url = row.image_url_small if size == "small" else row.image_url_normal
+                if not image_url:
+                    continue
+
+                output_path = token_folder / size / f"{row.scryfall_id}.jpg"
+                if output_path.exists():
+                    stats["skipped"] += 1
+                    continue
+
+                if self._download_image(image_url, output_path):
+                    stats["downloaded"] += 1
+                else:
+                    stats["failed"] += 1
+
+            if progress_callback:
+                progress_callback(i + 1, len(df), row.face_name)
+
+        # Regenerate the token summary now (in this same background download
+        # thread) rather than just invalidating it, so the next status poll
+        # doesn't pay the directory-scan cost itself.
+        token_summary_file = self.token_base_dir / "summary.json"
+        if token_summary_file.exists():
+            try:
+                token_summary_file.unlink()
+            except Exception as e:
+                logger.warning(f"Could not delete token cache summary: {e}")
+        self.token_cache_statistics()
+
+        logger.info(f"Token/emblem printing-aware image download complete: {stats}")
         return stats
 
     def download_bulk_data(self, progress_callback=None) -> None:
@@ -845,9 +1298,11 @@ class ImageCache:
             if progress_callback:
                 progress_callback(card_index, total_cards, face_name)
 
-        # Invalidate cached summary and in-memory index so new images are found immediately
+        # Invalidate cached summary and in-memory index so new images are found immediately,
+        # then regenerate the summary now rather than deferring the scan to the next status poll.
         self.invalidate_summary_cache()
         self.invalidate_index()
+        self.cache_statistics()
 
         logger.info(f"Image download complete: {stats}")
         return stats
@@ -904,24 +1359,40 @@ class ImageCache:
             except Exception as e:
                 logger.warning(f"Could not read cache summary: {e}")
         
-        # Regenerate summary (fast - just count files and estimate size)
+        # Regenerate summary (counts files across both cache layouts). This
+        # walks every per-card folder once for all sizes together, rather
+        # than once per size, since Docker Desktop bind-mount filesystem
+        # calls on Windows are slow enough that a second full tree walk is
+        # noticeable at ~30k+ card folders.
+        counts = {size: 0 for size in IMAGE_SIZES}
+
+        # Legacy flat layout: card_files/images/{size}/*.jpg
         for size in IMAGE_SIZES:
-            size_dir = self.base_dir / size
-            if size_dir.exists():
-                # Fast count: count .jpg files without statting each one
-                count = sum(1 for _ in size_dir.glob("*.jpg"))
-                
-                # Estimate total size based on typical averages to avoid stat() calls
-                # Small images: ~40 KB avg, Normal images: ~100 KB avg
-                avg_size_kb = 40 if size == "small" else 100
-                estimated_size_mb = (count * avg_size_kb) / 1024
-                
-                stats[size] = {
-                    "count": count,
-                    "size_mb": round(estimated_size_mb, 1),
-                }
-            else:
-                stats[size] = {"count": 0, "size_mb": 0.0}
+            flat_dir = self.base_dir / size
+            if flat_dir.exists():
+                counts[size] += sum(1 for _ in flat_dir.glob("*.jpg"))
+
+        # Per-card/per-printing layout: card_files/images/{Card Name}/{size}/*.jpg
+        if self.base_dir.exists():
+            for card_dir in self.base_dir.iterdir():
+                if not card_dir.is_dir() or card_dir.name in IMAGE_SIZES:
+                    continue
+                for size in IMAGE_SIZES:
+                    size_dir = card_dir / size
+                    if size_dir.exists():
+                        counts[size] += sum(1 for _ in size_dir.glob("*.jpg"))
+
+        for size in IMAGE_SIZES:
+            count = counts[size]
+            # Estimate total size based on typical averages to avoid stat() calls
+            # Small images: ~40 KB avg, Normal images: ~100 KB avg
+            avg_size_kb = 40 if size == "small" else 100
+            estimated_size_mb = (count * avg_size_kb) / 1024
+
+            stats[size] = {
+                "count": count,
+                "size_mb": round(estimated_size_mb, 1),
+            }
         
         # Save summary for next time
         try:
@@ -932,7 +1403,74 @@ class ImageCache:
             logger.warning(f"Could not write cache summary: {e}")
 
         return stats
-    
+
+    def token_cache_statistics(self) -> dict[str, Any]:
+        """
+        Get statistics about cached token/emblem images, mirroring
+        `cache_statistics()` but scanning `token_base_dir`'s per-token-name
+        subfolders (`{Token Name}/{size}/*.jpg`) instead of the real-card
+        flat `{size}/*.jpg` layout.
+
+        Returns:
+            Dictionary with cache stats (count, size, etc.)
+        """
+        stats = {"enabled": self.is_enabled()}
+
+        if not self.is_enabled():
+            return stats
+
+        summary_file = self.token_base_dir / "summary.json"
+
+        try:
+            refresh_days = int(os.getenv('WEB_AUTO_REFRESH_DAYS', '7'))
+        except Exception:
+            refresh_days = 7
+
+        if refresh_days <= 0:
+            refresh_seconds = float('inf')
+        else:
+            refresh_seconds = refresh_days * 24 * 60 * 60
+
+        use_cached = False
+        if summary_file.exists():
+            try:
+                file_age = time.time() - summary_file.stat().st_mtime
+                if file_age < refresh_seconds:
+                    use_cached = True
+            except Exception:
+                pass
+
+        if use_cached:
+            try:
+                with summary_file.open('r', encoding='utf-8') as f:
+                    cached_stats = json.load(f)
+                    stats.update(cached_stats)
+                    return stats
+            except Exception as e:
+                logger.warning(f"Could not read token cache summary: {e}")
+
+        for size in IMAGE_SIZES:
+            count = 0
+            if self.token_base_dir.exists():
+                for token_dir in self.token_base_dir.iterdir():
+                    if not token_dir.is_dir():
+                        continue
+                    size_dir = token_dir / size
+                    if size_dir.exists():
+                        count += sum(1 for _ in size_dir.glob("*.jpg"))
+            avg_size_kb = 40 if size == "small" else 100
+            estimated_size_mb = (count * avg_size_kb) / 1024
+            stats[size] = {"count": count, "size_mb": round(estimated_size_mb, 1)}
+
+        try:
+            self.token_base_dir.mkdir(parents=True, exist_ok=True)
+            with summary_file.open('w', encoding='utf-8') as f:
+                json.dump({k: v for k, v in stats.items() if k != "enabled"}, f)
+        except Exception as e:
+            logger.warning(f"Could not write token cache summary: {e}")
+
+        return stats
+
     def invalidate_index(self) -> None:
         """Reset the in-memory image index so it is rebuilt on the next access."""
         self._image_index.clear()

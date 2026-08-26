@@ -305,6 +305,7 @@ See `.env.example` for the full catalog. Common knobs:
 | `SHOW_NEW_BADGE` | `1` | Show the "New" badge on recently released cards across the site. Set to `0` to suppress the badge without disabling upgrade suggestions. |
 | `UPGRADE_WINDOW_MONTHS` | `6` | Rolling-months window used to identify New Cards (cards released within the last N months). |
 | `UPGRADE_PAGE_SIZE` | `16` | Cards shown per page on the Potential Upgrades page (valid range: 5–50). |
+| `CARD_BROWSER_PAGE_SIZE` | `50` | Cards shown per page on the Card Browser (`/cards`). Set to `0` or leave empty to revert to the legacy infinite-scroll "Load More" experience instead of paginated browsing. |
 | `API_DOCS_ENABLED` | `1` | Serve interactive Swagger UI at `/api/v1/docs` and Redoc at `/api/v1/redoc` for the public REST API. Set to `0` to disable both in production. |
 | `CORS_ALLOWED_ORIGINS` | `*` | CORS policy for the public REST API. Defaults to allowing any origin (`*`) so browser-based clients, including the Flutter web dev build of the mobile companion app, work with no configuration; the API is Bearer-token authenticated, so this doesn't expose the cookie-based web UI session. Set a comma-separated allow-list to restrict to specific origins, or `none` to disable CORS entirely. |
 

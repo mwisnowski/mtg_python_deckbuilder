@@ -160,6 +160,7 @@ def summary_ctx(
             seen.add(key)
             synergy_tags.append(label)
     versions = det.get("versions", {} if include_versions else None)
+    tokens_created = (summary or {}).get("tokens_created") or []
     return {
     "owned_set": _owned_set_helper(),
         "game_changers": bc.GAME_CHANGERS,
@@ -169,4 +170,5 @@ def summary_ctx(
         "versions": versions,
         "commander": commander,
         "tags": tags or [],
+        "tokens_created": tokens_created,
     }

@@ -1,22 +1,99 @@
-{# HTMX-loadable card grid for pagination #}
-{% for card in cards %}
-{% include "browse/cards/_card_tile.html" %}
-{% endfor %}
+{# Card-browser results: info bar, grid, pagination controls, and empty
+   state. Shared by index.html's initial render; real (non-infinite-scroll)
+   pagination via plain links keeps only one page's worth of images (per_page,
+   set in card_browser.py) in the DOM at a time. #}
+{% set qs_parts = [] %}
+{% if search %}{% set _ = qs_parts.append('search=' + search|urlencode) %}{% endif %}
+{% for theme in themes %}{% set _ = qs_parts.append('themes=' + theme|urlencode) %}{% endfor %}
+{% if sort and sort != 'name_asc' %}{% set _ = qs_parts.append('sort=' + sort|urlencode) %}{% endif %}
+{% set qs_str = qs_parts|join('&') %}
 
-{# Pagination button (uses out-of-band swap to replace itself) #}
-<div id="load-more-container" hx-swap-oob="true" style="grid-column: 1 / -1; text-align:center; margin-top:1rem;">
+<div id="card-browser-info" class="card-browser-info">
+  <span id="results-count" class="results-count">
+    {% if cards and cards|length %}
+    {% if infinite_scroll %}
+    Showing {{ cards|length }} of {{ filtered_count }} cards
+    {% else %}
+    Showing {{ (current_page - 1) * per_page + 1 }}-{{ (current_page - 1) * per_page + cards|length }} of {{ filtered_count }} cards
+    {% endif %}
+    {% else %}
+    Showing 0 of {{ filtered_count }} cards
+    {% endif %}
+    {% if search %} matching "{{ search }}"{% endif %}
+  </span>
+</div>
+
+{% if cards and cards|length %}
+<div id="card-grid-container" class="card-browser-grid">
+  <div id="card-grid" style="display:contents;">
+    {% for card in cards %}
+    {% if card.is_token %}
+    {% include "browse/cards/_token_tile.html" %}
+    {% else %}
+    {% include "browse/cards/_card_tile.html" %}
+    {% endif %}
+    {% endfor %}
+  </div>
+</div>
+
+{% if infinite_scroll %}
+<div id="load-more-container" class="card-browser-pagination">
 {% if has_next %}
-  <button 
+  <button
     type="button"
     class="btn"
-    hx-get="/cards/grid?cursor={{ last_card|urlencode }}{% if search %}&search={{ search|urlencode }}{% endif %}{% for theme in themes %}&themes={{ theme|urlencode }}{% endfor %}{% if sort and sort != 'name_asc' %}&sort={{ sort|urlencode }}{% endif %}"
+    hx-get="/cards/grid?page={{ current_page + 1 }}{% if qs_str %}&{{ qs_str }}{% endif %}"
     hx-target="#card-grid"
     hx-swap="beforeend"
     hx-indicator="#load-indicator">
     Load More
   </button>
-  <span id="load-indicator" class="htmx-indicator muted" style="margin-left:.5rem;">
+  <span id="load-indicator" class="htmx-indicator muted card-browser-loading">
     Loading...
   </span>
 {% endif %}
 </div>
+{% elif total_pages and total_pages > 1 %}
+<div class="card-browser-pagination">
+  {% if current_page > 1 %}
+  <a class="btn" href="/cards?page={{ current_page - 1 }}{% if qs_str %}&{{ qs_str }}{% endif %}">&laquo; Previous</a>
+  {% else %}
+  <span class="btn" aria-disabled="true" style="opacity:.5; pointer-events:none;">&laquo; Previous</span>
+  {% endif %}
+  <span class="page-info">Page {{ current_page }} of {{ total_pages }}</span>
+  {% if current_page < total_pages %}
+  <a class="btn" href="/cards?page={{ current_page + 1 }}{% if qs_str %}&{{ qs_str }}{% endif %}">Next &raquo;</a>
+  {% else %}
+  <span class="btn" aria-disabled="true" style="opacity:.5; pointer-events:none;">Next &raquo;</span>
+  {% endif %}
+  <form class="card-browser-page-jump" method="get" action="/cards">
+    <label for="page-jump-input">Go to page</label>
+    <input type="number" id="page-jump-input" name="page" min="1" max="{{ total_pages }}" value="{{ current_page }}" style="width:4.5rem;" />
+    {% if search %}<input type="hidden" name="search" value="{{ search }}" />{% endif %}
+    {% for theme in themes %}<input type="hidden" name="themes" value="{{ theme }}" />{% endfor %}
+    {% if sort and sort != 'name_asc' %}<input type="hidden" name="sort" value="{{ sort }}" />{% endif %}
+    <button type="submit" class="btn">Go</button>
+  </form>
+</div>
+{% endif %}
+{% else %}
+<div class="no-results">
+  <div class="no-results-title">No cards found</div>
+  <div class="no-results-message">
+    {% if search %}
+      No cards match your current filters.
+      Try a different search term.
+    {% else %}
+      Unable to load cards. Please try refreshing the page.
+    {% endif %}
+  </div>
+
+  {% if search %}
+  <div class="no-results-filters">
+    <strong style="color: var(--text); margin-right: 0.5rem;">Active filters:</strong>
+    <span class="no-results-filter-tag">Search: "{{ search }}"</span>
+  </div>
+  <p><a href="/cards" class="btn">Clear All Filters</a></p>
+  {% endif %}
+</div>
+{% endif %}

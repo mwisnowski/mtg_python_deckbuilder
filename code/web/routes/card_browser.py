@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING
 import pandas as pd
 from fastapi import APIRouter, Request, Query
 from fastapi.responses import HTMLResponse, RedirectResponse
-from ..app import templates
+from ..app import templates, CARD_BROWSER_PAGE_SIZE
 from ..services.tasks import get_session, new_sid
 
 # Import existing services
@@ -23,6 +23,10 @@ try:
     from code.services.all_cards_loader import AllCardsLoader
     from code.deck_builder.builder_utils import parse_theme_tags
     from code.deck_builder.color_identity_utils import color_identity_badges
+    from code.deck_builder.tokens import (
+        _load_token_reverse_index,
+        token_ref_to_dict,
+    )
     from code.settings import ENABLE_CARD_DETAILS
     from code.web.routes.api_v1.cards import _get_card_faces
     from code.web.routes.api import _image_cache
@@ -31,14 +35,20 @@ try:
         apply_name_clauses,
         apply_parsed_search,
         has_structured_flags,
+        merge_tokens_for_search,
         parse_search_query,
         resolve_collector_number_printings,
         get_set_scoped_collector_number_sort_map,
+        wants_tokens,
     )
 except ImportError:
     from services.all_cards_loader import AllCardsLoader
     from deck_builder.builder_utils import parse_theme_tags
     from deck_builder.color_identity_utils import color_identity_badges
+    from deck_builder.tokens import (
+        _load_token_reverse_index,
+        token_ref_to_dict,
+    )
     from settings import ENABLE_CARD_DETAILS
     from web.routes.api_v1.cards import _get_card_faces
     from web.routes.api import _image_cache
@@ -47,9 +57,11 @@ except ImportError:
         apply_name_clauses,
         apply_parsed_search,
         has_structured_flags,
+        merge_tokens_for_search,
         parse_search_query,
         resolve_collector_number_printings,
         get_set_scoped_collector_number_sort_map,
+        wants_tokens,
     )
 
 if TYPE_CHECKING:
@@ -75,6 +87,166 @@ def get_loader() -> AllCardsLoader:
     return _loader
 
 
+def _paginate_df(filtered_df: "pd.DataFrame", page: int, per_page: int) -> tuple["pd.DataFrame", int, int, int]:
+    """Slice a filtered/sorted DataFrame to one page/batch of offset-based
+    pagination. Used both for real pagination (one page per request) and for
+    each incremental batch fetched in infinite-scroll mode (CARD_BROWSER_PAGE_SIZE
+    unset/0).
+
+    Returns (page_df, total_filtered, total_pages, current_page); `page` is
+    clamped into [1, total_pages] so an out-of-range page number (e.g. after
+    a search narrows the result set) doesn't silently render an empty page.
+    """
+    total_filtered = len(filtered_df)
+    total_pages = max(1, (total_filtered + per_page - 1) // per_page)
+    current_page = min(max(page, 1), total_pages)
+    start = (current_page - 1) * per_page
+    return filtered_df.iloc[start:start + per_page], total_filtered, total_pages, current_page
+
+
+def _apply_theme_filter(filtered_df: "pd.DataFrame", themes: list[str]) -> "pd.DataFrame":
+    """Multi-select theme filtering (AND logic: card must have ALL selected themes)."""
+    if not themes:
+        return filtered_df
+    theme_index = get_theme_index()
+
+    # For each theme, get matching card indices
+    all_theme_matches = []
+    for theme in themes:
+        theme_lower = theme.lower().strip()
+
+        # Try exact match first (instant lookup)
+        if theme_lower in theme_index:
+            # Direct index lookup - O(1) instead of O(n)
+            matching_indices = theme_index[theme_lower]
+            all_theme_matches.append(matching_indices)
+        else:
+            # Fuzzy match: check all themes in index for similarity
+            matching_indices = set()
+            for indexed_theme, card_indices in theme_index.items():
+                if _fuzzy_theme_match_score(theme, indexed_theme) >= 0.5:
+                    matching_indices.update(card_indices)
+            all_theme_matches.append(matching_indices)
+
+    # Apply AND logic: card must be in ALL theme match sets
+    if not all_theme_matches:
+        return filtered_df
+    # Start with first theme's matches
+    intersection = all_theme_matches[0]
+    # Intersect with all other theme matches
+    for theme_matches in all_theme_matches[1:]:
+        intersection = intersection & theme_matches
+
+    # Intersect with current filtered_df indices
+    current_indices = set(filtered_df.index)
+    valid_indices = intersection & current_indices
+    if valid_indices:
+        return filtered_df.loc[list(valid_indices)]
+    return filtered_df.iloc[0:0]
+
+
+def _apply_sort(filtered_df: "pd.DataFrame", sort: str, parsed: "ParsedSearch | None") -> "pd.DataFrame":
+    """Apply the card browser's sort order to an already-filtered DataFrame."""
+    set_cn_sort_map: dict = {}
+    if sort == "name_asc" and parsed and parsed.set_include:
+        set_cn_sort_map = get_set_scoped_collector_number_sort_map(parsed.set_include, parsed.collector_number_clauses)
+    if set_cn_sort_map:
+        # Any set:-scoped search: default to collector-number order (then
+        # set code, for multi-set queries) instead of alphabetical.
+        sort_keys = filtered_df['name'].str.lower().map(lambda n: set_cn_sort_map.get(n, (float('inf'), '')))
+        filtered_df['_cn_sort'] = sort_keys.map(lambda t: t[0])
+        filtered_df['_set_sort'] = sort_keys.map(lambda t: t[1])
+        filtered_df = filtered_df.sort_values(['_cn_sort', '_set_sort', 'name'], ascending=[True, True, True])
+        filtered_df = filtered_df.drop(['_cn_sort', '_set_sort'], axis=1)
+    elif sort == "name_desc":
+        # Name Z-A
+        filtered_df['_sort_key'] = filtered_df['name'].str.replace('"', '', regex=False).str.replace("'", '', regex=False)
+        filtered_df['_sort_key'] = filtered_df['_sort_key'].apply(
+            lambda x: x.replace('_', ' ') if x.startswith('_') else x
+        )
+        filtered_df = filtered_df.sort_values('_sort_key', key=lambda col: col.str.lower(), ascending=False)
+        filtered_df = filtered_df.drop('_sort_key', axis=1)
+    elif sort == "cmc_asc":
+        # CMC Low-High, then name
+        filtered_df = filtered_df.sort_values(['manaValue', 'name'], ascending=[True, True])
+    elif sort == "cmc_desc":
+        # CMC High-Low, then name
+        filtered_df = filtered_df.sort_values(['manaValue', 'name'], ascending=[False, True])
+    elif sort == "power_desc":
+        # Power High-Low (creatures first, then non-creatures)
+        # Convert power to numeric, NaN becomes -1 for sorting
+        filtered_df['_power_sort'] = pd.to_numeric(filtered_df['power'], errors='coerce').fillna(-1)
+        filtered_df = filtered_df.sort_values(['_power_sort', 'name'], ascending=[False, True])
+        filtered_df = filtered_df.drop('_power_sort', axis=1)
+    elif sort == "edhrec_asc":
+        # EDHREC rank (low number = popular)
+        if 'edhrecRank' in filtered_df.columns:
+            # NaN goes to end (high value)
+            filtered_df['_edhrec_sort'] = filtered_df['edhrecRank'].fillna(999999)
+            filtered_df = filtered_df.sort_values(['_edhrec_sort', 'name'], ascending=[True, True])
+            filtered_df = filtered_df.drop('_edhrec_sort', axis=1)
+        else:
+            # Fallback to name sort
+            filtered_df = filtered_df.sort_values('name')
+    else:
+        # Default: Name A-Z (name_asc)
+        filtered_df['_sort_key'] = filtered_df['name'].str.replace('"', '', regex=False).str.replace("'", '', regex=False)
+        filtered_df['_sort_key'] = filtered_df['_sort_key'].apply(
+            lambda x: x.replace('_', ' ') if x.startswith('_') else x
+        )
+        filtered_df = filtered_df.sort_values('_sort_key', key=lambda col: col.str.lower())
+        filtered_df = filtered_df.drop('_sort_key', axis=1)
+    return filtered_df
+
+
+def _filter_and_sort_cards(
+    df: "pd.DataFrame", search: str, themes: list[str], sort: str
+) -> tuple["pd.DataFrame", "ParsedSearch | None"]:
+    """Shared search/theme-filter/sort pipeline used by both the main page
+    render and the `/cards/grid` incremental-batch endpoint (infinite-scroll
+    mode), so the two never drift out of sync."""
+    filtered_df, parsed = _apply_search_query(df.copy(), search)
+    filtered_df = _apply_theme_filter(filtered_df, themes)
+    filtered_df = _apply_sort(filtered_df, sort, parsed)
+    return filtered_df, parsed
+
+
+def _build_cards_list(cards_page: "pd.DataFrame") -> list[dict]:
+    """Convert a page/batch of the filtered DataFrame into the list of dicts
+    consumed by the card tile templates (parsed theme tags + color identity)."""
+    cards_list = cards_page.to_dict('records')
+    for card in cards_list:
+        card['themeTags_parsed'] = parse_theme_tags(card.get('themeTags', ''))
+        # Parse colorIdentity which can be:
+        # - "Colorless" -> [] (but mark as colorless)
+        # - "W" -> ['W']
+        # - "B, R, U" -> ['B', 'R', 'U']
+        # - "['W', 'U']" -> ['W', 'U']
+        # - empty/None -> []
+        raw_color = card.get('colorIdentity', '')
+        is_colorless = False
+        if raw_color and isinstance(raw_color, str):
+            if raw_color.lower() == 'colorless':
+                card['colorIdentity'] = []
+                is_colorless = True
+            elif raw_color.startswith('['):
+                # Parse list-like strings e.g. "['W', 'U']"
+                card['colorIdentity'] = parse_theme_tags(raw_color)
+            elif ', ' in raw_color:
+                # Parse comma-separated e.g. "B, R, U"
+                card['colorIdentity'] = [c.strip() for c in raw_color.split(',')]
+            else:
+                # Single color e.g. "W"
+                card['colorIdentity'] = [raw_color.strip()]
+        elif not raw_color:
+            card['colorIdentity'] = []
+        card['is_colorless'] = is_colorless
+        card['color_badges'] = color_identity_badges(card['colorIdentity'])
+        # TODO: Add owned card checking when integrated
+        card['is_owned'] = False
+    return cards_list
+
+
 def _printings_context(request: Request) -> tuple[dict[str, str], str, bool]:
     """Return (selected-printings dict, sid, had_cookie) for the printing picker.
 
@@ -98,6 +270,18 @@ def _foils_context(request: Request, sid: str | None = None) -> dict[str, bool]:
     """
     sid = sid or request.cookies.get("sid") or new_sid()
     return dict(get_session(sid).get("foils") or {})
+
+
+def _token_printings_context(request: Request, sid: str | None = None) -> dict[str, str]:
+    """Return the selected-printings dict for token/emblem tiles.
+
+    Session-scoped (`sess["token_printings"]`, keyed by `TokenRef.identity_key()`),
+    shared with the build wizard's deck-summary "Tokens & Emblems Created"
+    panel (see `code/web/routes/build_permalinks.py`'s `/build/token-printing`
+    routes) -- the card browser only reads it here. Mirrors `_foils_context`.
+    """
+    sid = sid or request.cookies.get("sid") or new_sid()
+    return dict(get_session(sid).get("token_printings") or {})
 
 
 def _set_scoped_printings(
@@ -374,6 +558,8 @@ def _apply_search_query(filtered_df: "pd.DataFrame", search: str) -> tuple["pd.D
 
     parsed = parse_search_query(search)
     if has_structured_flags(parsed):
+        if wants_tokens(parsed):
+            filtered_df = merge_tokens_for_search(filtered_df)
         filtered_df = apply_parsed_search(filtered_df, parsed)
         filtered_df = apply_extra_clauses(filtered_df, parsed)
         return filtered_df, parsed
@@ -445,161 +631,29 @@ async def card_browser_index(
     search: str = Query("", description="Card name search, or Scryfall-style flags (t:/o:/c:/id:/m:/mv:/pow:/tou:/loy:/r:/tag:/art:/is:new/set:)"),
     themes: list[str] = Query([], description="Theme tag filters (AND logic)"),
     sort: str = Query("name_asc", description="Sort order"),
+    page: int = Query(1, ge=1, description="Page number (ignored in infinite-scroll mode)"),
 ):
     """
     Main card browser page.
-    
-    Displays initial grid of cards with filters and search bar.
-    Uses HTMX for dynamic updates (pagination, filtering, search).
+
+    Displays cards with filters and search bar, either as a fixed-size page
+    (CARD_BROWSER_PAGE_SIZE > 0) or the legacy infinite-scroll "Load More"
+    experience (CARD_BROWSER_PAGE_SIZE unset/0).
     """
+    infinite_scroll = CARD_BROWSER_PAGE_SIZE <= 0
+    per_page = CARD_BROWSER_PAGE_SIZE if not infinite_scroll else 50
     try:
         loader = get_loader()
         df = loader.load()
-        
-        # Apply filters
-        filtered_df = df.copy()
-        
-        filtered_df, parsed = _apply_search_query(filtered_df, search)
-        
-        # Multi-select theme filtering (AND logic: card must have ALL selected themes)
-        if themes:
-            theme_index = get_theme_index()
-            
-            # For each theme, get matching card indices
-            all_theme_matches = []
-            for theme in themes:
-                theme_lower = theme.lower().strip()
-                
-                # Try exact match first (instant lookup)
-                if theme_lower in theme_index:
-                    # Direct index lookup - O(1) instead of O(n)
-                    matching_indices = theme_index[theme_lower]
-                    all_theme_matches.append(matching_indices)
-                else:
-                    # Fuzzy match: check all themes in index for similarity
-                    matching_indices = set()
-                    for indexed_theme, card_indices in theme_index.items():
-                        if _fuzzy_theme_match_score(theme, indexed_theme) >= 0.5:
-                            matching_indices.update(card_indices)
-                    all_theme_matches.append(matching_indices)
-            
-            # Apply AND logic: card must be in ALL theme match sets
-            if all_theme_matches:
-                # Start with first theme's matches
-                intersection = all_theme_matches[0]
-                # Intersect with all other theme matches
-                for theme_matches in all_theme_matches[1:]:
-                    intersection = intersection & theme_matches
-                
-                # Intersect with current filtered_df indices
-                current_indices = set(filtered_df.index)
-                valid_indices = intersection & current_indices
-                if valid_indices:
-                    filtered_df = filtered_df.loc[list(valid_indices)]
-                else:
-                    filtered_df = filtered_df.iloc[0:0]
 
-        # Apply sorting
-        set_cn_sort_map: dict = {}
-        if sort == "name_asc" and parsed and parsed.set_include:
-            set_cn_sort_map = get_set_scoped_collector_number_sort_map(parsed.set_include, parsed.collector_number_clauses)
-        if set_cn_sort_map:
-            # Any set:-scoped search: default to collector-number order (then
-            # set code, for multi-set queries) instead of alphabetical.
-            sort_keys = filtered_df['name'].str.lower().map(lambda n: set_cn_sort_map.get(n, (float('inf'), '')))
-            filtered_df['_cn_sort'] = sort_keys.map(lambda t: t[0])
-            filtered_df['_set_sort'] = sort_keys.map(lambda t: t[1])
-            filtered_df = filtered_df.sort_values(['_cn_sort', '_set_sort', 'name'], ascending=[True, True, True])
-            filtered_df = filtered_df.drop(['_cn_sort', '_set_sort'], axis=1)
-        elif sort == "name_desc":
-            # Name Z-A
-            filtered_df['_sort_key'] = filtered_df['name'].str.replace('"', '', regex=False).str.replace("'", '', regex=False)
-            filtered_df['_sort_key'] = filtered_df['_sort_key'].apply(
-                lambda x: x.replace('_', ' ') if x.startswith('_') else x
-            )
-            filtered_df = filtered_df.sort_values('_sort_key', key=lambda col: col.str.lower(), ascending=False)
-            filtered_df = filtered_df.drop('_sort_key', axis=1)
-        elif sort == "cmc_asc":
-            # CMC Low-High, then name
-            filtered_df = filtered_df.sort_values(['manaValue', 'name'], ascending=[True, True])
-        elif sort == "cmc_desc":
-            # CMC High-Low, then name
-            filtered_df = filtered_df.sort_values(['manaValue', 'name'], ascending=[False, True])
-        elif sort == "power_desc":
-            # Power High-Low (creatures first, then non-creatures)
-            # Convert power to numeric, NaN becomes -1 for sorting
-            filtered_df['_power_sort'] = pd.to_numeric(filtered_df['power'], errors='coerce').fillna(-1)
-            filtered_df = filtered_df.sort_values(['_power_sort', 'name'], ascending=[False, True])
-            filtered_df = filtered_df.drop('_power_sort', axis=1)
-        elif sort == "edhrec_asc":
-            # EDHREC rank (low number = popular)
-            if 'edhrecRank' in filtered_df.columns:
-                # NaN goes to end (high value)
-                filtered_df['_edhrec_sort'] = filtered_df['edhrecRank'].fillna(999999)
-                filtered_df = filtered_df.sort_values(['_edhrec_sort', 'name'], ascending=[True, True])
-                filtered_df = filtered_df.drop('_edhrec_sort', axis=1)
-            else:
-                # Fallback to name sort
-                filtered_df = filtered_df.sort_values('name')
-        else:
-            # Default: Name A-Z (name_asc)
-            filtered_df['_sort_key'] = filtered_df['name'].str.replace('"', '', regex=False).str.replace("'", '', regex=False)
-            filtered_df['_sort_key'] = filtered_df['_sort_key'].apply(
-                lambda x: x.replace('_', ' ') if x.startswith('_') else x
-            )
-            filtered_df = filtered_df.sort_values('_sort_key', key=lambda col: col.str.lower())
-            filtered_df = filtered_df.drop('_sort_key', axis=1)
-        
-        total_cards = len(filtered_df)
-        
-        # Get first page (20 cards)
-        per_page = 20
-        cards_page = filtered_df.head(per_page)
-        
-        # Convert to list of dicts
-        cards_list = cards_page.to_dict('records')
-        
-        # Parse theme tags and color identity for each card
-        for card in cards_list:
-            card['themeTags_parsed'] = parse_theme_tags(card.get('themeTags', ''))
-            # Parse colorIdentity which can be:
-            # - "Colorless" -> [] (but mark as colorless)
-            # - "W" -> ['W']
-            # - "B, R, U" -> ['B', 'R', 'U']
-            # - "['W', 'U']" -> ['W', 'U']
-            # - empty/None -> []
-            raw_color = card.get('colorIdentity', '')
-            is_colorless = False
-            if raw_color and isinstance(raw_color, str):
-                if raw_color.lower() == 'colorless':
-                    card['colorIdentity'] = []
-                    is_colorless = True
-                elif raw_color.startswith('['):
-                    # Parse list-like strings e.g. "['W', 'U']"
-                    card['colorIdentity'] = parse_theme_tags(raw_color)
-                elif ', ' in raw_color:
-                    # Parse comma-separated e.g. "B, R, U"
-                    card['colorIdentity'] = [c.strip() for c in raw_color.split(',')]
-                else:
-                    # Single color e.g. "W"
-                    card['colorIdentity'] = [raw_color.strip()]
-            elif not raw_color:
-                card['colorIdentity'] = []
-            card['is_colorless'] = is_colorless
-            card['color_badges'] = color_identity_badges(card['colorIdentity'])
-            # TODO: Add owned card checking when integrated
-            card['is_owned'] = False
-        
-        # Calculate pagination info
-        per_page = 20
-        total_filtered = len(filtered_df)
-        total_pages = (total_filtered + per_page - 1) // per_page  # Ceiling division
-        current_page = 1  # Always page 1 on initial load (cursor-based makes exact page tricky)
-        
-        # Determine if there's a next page
-        has_next = total_cards > per_page
-        last_card_name = cards_list[-1]['name'] if cards_list else ""
-        
+        filtered_df, parsed = _filter_and_sort_cards(df, search, themes, sort)
+
+        # Infinite-scroll mode always starts fresh from batch 1; only real
+        # pagination mode honors a deep-linked ?page=N.
+        page_request = 1 if infinite_scroll else page
+        cards_page, total_filtered, total_pages, current_page = _paginate_df(filtered_df, page_request, per_page)
+        cards_list = _build_cards_list(cards_page)
+
         printings, sid, had_cookie = _printings_context(request)
         manual_printings = printings
         printings = _apply_set_scoped_printings(sid, cards_list, parsed, printings)
@@ -611,7 +665,7 @@ async def card_browser_index(
         # entirely and jumps straight to that card's detail page -- any
         # set:-scoped printing is already carried over via the session
         # overlay above, which card_detail() also reads.
-        if search and total_filtered == 1 and cards_list:
+        if search and total_filtered == 1 and cards_list and not cards_list[0].get('is_token'):
             from urllib.parse import quote
             resp = RedirectResponse(url=f"/cards/{quote(cards_list[0]['name'])}", status_code=302)
             if not had_cookie:
@@ -622,6 +676,7 @@ async def card_browser_index(
             return resp
 
         foils = _foils_context(request, sid)
+        token_printings = _token_printings_context(request, sid)
         resp = templates.TemplateResponse(
             "browse/cards/index.html",
             {
@@ -629,17 +684,18 @@ async def card_browser_index(
                 "cards": cards_list,
                 "total_cards": len(df),  # Original unfiltered count
                 "filtered_count": total_filtered,  # After filters applied
-                "has_next": has_next,
-                "last_card": last_card_name,
                 "search": search,
                 "themes": themes,
                 "sort": sort,
                 "per_page": per_page,
                 "current_page": current_page,
                 "total_pages": total_pages,
+                "infinite_scroll": infinite_scroll,
+                "has_next": current_page < total_pages,
                 "enable_card_details": ENABLE_CARD_DETAILS,
                 "printings": printings,
                 "foils": foils,
+                "token_printings": token_printings,
                 "set_badges": set_badges,
             },
         )
@@ -658,10 +714,13 @@ async def card_browser_index(
                 "request": request,
                 "cards": [],
                 "total_cards": 0,
-                "has_next": False,
-                "last_card": "",
+                "filtered_count": 0,
                 "search": "",
-                "per_page": 20,
+                "per_page": per_page,
+                "current_page": 1,
+                "total_pages": 1,
+                "infinite_scroll": infinite_scroll,
+                "has_next": False,
                 "error": "Card data not available. Please run setup to generate all_cards.parquet.",
                 "enable_card_details": ENABLE_CARD_DETAILS,
             },
@@ -674,10 +733,13 @@ async def card_browser_index(
                 "request": request,
                 "cards": [],
                 "total_cards": 0,
-                "has_next": False,
-                "last_card": "",
+                "filtered_count": 0,
                 "search": "",
-                "per_page": 20,
+                "per_page": per_page,
+                "current_page": 1,
+                "total_pages": 1,
+                "infinite_scroll": infinite_scroll,
+                "has_next": False,
                 "error": f"Error loading cards: {str(e)}",
                 "enable_card_details": ENABLE_CARD_DETAILS,
             },
@@ -687,157 +749,25 @@ async def card_browser_index(
 @router.get("/grid", response_class=HTMLResponse)
 async def card_browser_grid(
     request: Request,
-    cursor: str = Query("", description="Last card name from previous page"),
-    search: str = Query("", description="Card name search, or Scryfall-style flags (t:/o:/c:/id:/m:/mv:/pow:/tou:/loy:/r:/tag:/art:/is:new/set:)"),
+    page: int = Query(2, ge=2, description="Next batch to fetch (infinite-scroll mode only)"),
+    search: str = Query("", description="Card name search, or Scryfall-style flags"),
     themes: list[str] = Query([], description="Theme tag filters (AND logic)"),
     sort: str = Query("name_asc", description="Sort order"),
 ):
-    """
-    HTMX endpoint for paginated card grid.
-    
-    Returns only the grid partial HTML for seamless pagination.
-    Uses cursor-based pagination (last_card_name) for performance.
-    """
+    """HTMX endpoint for infinite-scroll mode's "Load More" button: fetches
+    one additional batch (offset-based, same page size as the initial load)
+    and appends it to the grid, replacing the Load More button via OOB swap.
+    Only reachable when CARD_BROWSER_PAGE_SIZE is unset/0 -- in real
+    pagination mode the template never renders a Load More button."""
     try:
         loader = get_loader()
         df = loader.load()
-        
-        # Apply filters
-        filtered_df = df.copy()
-        
-        filtered_df, parsed = _apply_search_query(filtered_df, search)
-        
-        # Multi-select theme filtering (AND logic: card must have ALL selected themes)
-        if themes:
-            theme_index = get_theme_index()
-            
-            # For each theme, get matching card indices
-            all_theme_matches = []
-            for theme in themes:
-                theme_lower = theme.lower().strip()
-                
-                # Try exact match first (instant lookup)
-                if theme_lower in theme_index:
-                    # Direct index lookup - O(1) instead of O(n)
-                    matching_indices = theme_index[theme_lower]
-                    all_theme_matches.append(matching_indices)
-                else:
-                    # Fuzzy match: check all themes in index for similarity
-                    matching_indices = set()
-                    for indexed_theme, card_indices in theme_index.items():
-                        if _fuzzy_theme_match_score(theme, indexed_theme) >= 0.5:
-                            matching_indices.update(card_indices)
-                    all_theme_matches.append(matching_indices)
-            
-            # Apply AND logic: card must be in ALL theme match sets
-            if all_theme_matches:
-                # Start with first theme's matches
-                intersection = all_theme_matches[0]
-                # Intersect with all other theme matches
-                for theme_matches in all_theme_matches[1:]:
-                    intersection = intersection & theme_matches
-                
-                # Intersect with current filtered_df indices
-                current_indices = set(filtered_df.index)
-                valid_indices = intersection & current_indices
-                if valid_indices:
-                    filtered_df = filtered_df.loc[list(valid_indices)]
-                else:
-                    filtered_df = filtered_df.iloc[0:0]
-        
-        # Apply sorting (same logic as main endpoint)
-        set_cn_sort_map: dict = {}
-        if sort == "name_asc" and parsed and parsed.set_include:
-            set_cn_sort_map = get_set_scoped_collector_number_sort_map(parsed.set_include, parsed.collector_number_clauses)
-        if set_cn_sort_map:
-            sort_keys = filtered_df['name'].str.lower().map(lambda n: set_cn_sort_map.get(n, (float('inf'), '')))
-            filtered_df['_cn_sort'] = sort_keys.map(lambda t: t[0])
-            filtered_df['_set_sort'] = sort_keys.map(lambda t: t[1])
-            filtered_df = filtered_df.sort_values(['_cn_sort', '_set_sort', 'name'], ascending=[True, True, True])
-            filtered_df = filtered_df.drop(['_cn_sort', '_set_sort'], axis=1)
-        elif sort == "name_desc":
-            filtered_df['_sort_key'] = filtered_df['name'].str.replace('"', '', regex=False).str.replace("'", '', regex=False)
-            filtered_df['_sort_key'] = filtered_df['_sort_key'].apply(
-                lambda x: x.replace('_', ' ') if x.startswith('_') else x
-            )
-            filtered_df = filtered_df.sort_values('_sort_key', key=lambda col: col.str.lower(), ascending=False)
-            filtered_df = filtered_df.drop('_sort_key', axis=1)
-        elif sort == "cmc_asc":
-            filtered_df = filtered_df.sort_values(['manaValue', 'name'], ascending=[True, True])
-        elif sort == "cmc_desc":
-            filtered_df = filtered_df.sort_values(['manaValue', 'name'], ascending=[False, True])
-        elif sort == "power_desc":
-            filtered_df['_power_sort'] = pd.to_numeric(filtered_df['power'], errors='coerce').fillna(-1)
-            filtered_df = filtered_df.sort_values(['_power_sort', 'name'], ascending=[False, True])
-            filtered_df = filtered_df.drop('_power_sort', axis=1)
-        elif sort == "edhrec_asc":
-            if 'edhrecRank' in filtered_df.columns:
-                filtered_df['_edhrec_sort'] = filtered_df['edhrecRank'].fillna(999999)
-                filtered_df = filtered_df.sort_values(['_edhrec_sort', 'name'], ascending=[True, True])
-                filtered_df = filtered_df.drop('_edhrec_sort', axis=1)
-            else:
-                filtered_df = filtered_df.sort_values('name')
-        else:
-            # Default: Name A-Z
-            filtered_df['_sort_key'] = filtered_df['name'].str.replace('"', '', regex=False).str.replace("'", '', regex=False)
-            filtered_df['_sort_key'] = filtered_df['_sort_key'].apply(
-                lambda x: x.replace('_', ' ') if x.startswith('_') else x
-            )
-            filtered_df = filtered_df.sort_values('_sort_key', key=lambda col: col.str.lower())
-            filtered_df = filtered_df.drop('_sort_key', axis=1)
-        
-        # Cursor-based pagination
-        # Cursor is the card name - skip all cards until we find it, then take next batch
-        if cursor:
-            try:
-                # Find the position of the cursor card in the sorted dataframe
-                cursor_position = filtered_df[filtered_df['name'] == cursor].index
-                if len(cursor_position) > 0:
-                    # Get the iloc position (row number, not index label)
-                    cursor_iloc = filtered_df.index.get_loc(cursor_position[0])
-                    # Skip past the cursor card (take everything after it)
-                    filtered_df = filtered_df.iloc[cursor_iloc + 1:]
-            except (KeyError, IndexError):
-                # Cursor card not found - might have been filtered out, just proceed
-                pass
-        
-        per_page = 20
-        cards_page = filtered_df.head(per_page)
-        cards_list = cards_page.to_dict('records')
-        
-        # Parse theme tags and color identity
-        for card in cards_list:
-            card['themeTags_parsed'] = parse_theme_tags(card.get('themeTags', ''))
-            # Parse colorIdentity which can be:
-            # - "Colorless" -> [] (but mark as colorless)
-            # - "W" -> ['W']
-            # - "B, R, U" -> ['B', 'R', 'U']
-            # - "['W', 'U']" -> ['W', 'U']
-            # - empty/None -> []
-            raw_color = card.get('colorIdentity', '')
-            is_colorless = False
-            if raw_color and isinstance(raw_color, str):
-                if raw_color.lower() == 'colorless':
-                    card['colorIdentity'] = []
-                    is_colorless = True
-                elif raw_color.startswith('['):
-                    # Parse list-like strings e.g. "['W', 'U']"
-                    card['colorIdentity'] = parse_theme_tags(raw_color)
-                elif ', ' in raw_color:
-                    # Parse comma-separated e.g. "B, R, U"
-                    card['colorIdentity'] = [c.strip() for c in raw_color.split(',')]
-                else:
-                    # Single color e.g. "W"
-                    card['colorIdentity'] = [raw_color.strip()]
-            elif not raw_color:
-                card['colorIdentity'] = []
-            card['is_colorless'] = is_colorless
-            card['color_badges'] = color_identity_badges(card['colorIdentity'])
-            card['is_owned'] = False  # TODO: Add owned card checking
-        
-        has_next = len(filtered_df) > per_page
-        last_card_name = cards_list[-1]['name'] if cards_list else ""
-        
+
+        filtered_df, parsed = _filter_and_sort_cards(df, search, themes, sort)
+        per_page = CARD_BROWSER_PAGE_SIZE if CARD_BROWSER_PAGE_SIZE > 0 else 50
+        cards_page, total_filtered, total_pages, current_page = _paginate_df(filtered_df, page, per_page)
+        cards_list = _build_cards_list(cards_page)
+
         printings, sid, had_cookie = _printings_context(request)
         manual_printings = printings
         printings = _apply_set_scoped_printings(sid, cards_list, parsed, printings)
@@ -845,19 +775,21 @@ async def card_browser_grid(
         printings = {**printings, **manual_printings}
         set_badges = _set_number_badges(cards_list, parsed, printings)
         foils = _foils_context(request, sid)
+        token_printings = _token_printings_context(request, sid)
         resp = templates.TemplateResponse(
-            "browse/cards/_card_grid.html",
+            "browse/cards/_card_grid_append.html",
             {
                 "request": request,
                 "cards": cards_list,
-                "has_next": has_next,
-                "last_card": last_card_name,
                 "search": search,
                 "themes": themes,
                 "sort": sort,
+                "next_page": current_page + 1,
+                "has_next": current_page < total_pages,
                 "enable_card_details": ENABLE_CARD_DETAILS,
                 "printings": printings,
                 "foils": foils,
+                "token_printings": token_printings,
                 "set_badges": set_badges,
             },
         )
@@ -867,9 +799,8 @@ async def card_browser_grid(
             except Exception:
                 pass
         return resp
-    
     except Exception as e:
-        logger.error(f"Error loading card grid: {e}", exc_info=True)
+        logger.error(f"Error loading card grid batch: {e}", exc_info=True)
         return HTMLResponse(
             f'<div class="error">Error loading cards: {str(e)}</div>',
             status_code=500,
@@ -1272,6 +1203,7 @@ async def card_detail(request: Request, card_name: str, ref: str = Query("", des
         cn_overlay = session.get("search_cn_printings", {})
         printings = {**set_overlay, **cn_overlay, **printings}
         foils = _foils_context(request, sid)
+        token_printings = _token_printings_context(request, sid)
 
         # M5 set+cn badge: only when the last search was scoped to exactly
         # one set: (see _set_number_badges' docstring for why).
@@ -1294,6 +1226,15 @@ async def card_detail(request: Request, card_name: str, ref: str = Query("", des
 
         card_printed_sets = _card_printed_sets(card_name)
 
+        # "Tokens Generated" panel (route tokens into the card browser,
+        # part 2): look up any tokens/emblems this card creates via the
+        # same reverse index used for the deck-summary "Tokens & Emblems
+        # Created" section, keyed by creator name.
+        tokens_generated = [
+            token_ref_to_dict(tok)
+            for tok in _load_token_reverse_index().get(card_name.strip().casefold(), [])
+        ]
+
         resp = templates.TemplateResponse(
             "browse/cards/detail.html",
             {
@@ -1309,8 +1250,10 @@ async def card_detail(request: Request, card_name: str, ref: str = Query("", des
                 "back_text": back_text,
                 "printings": printings,
                 "foils": foils,
+                "token_printings": token_printings,
                 "set_badge": set_badge,
                 "card_printed_sets": card_printed_sets,
+                "tokens_generated": tokens_generated,
             }
         )
         if not had_cookie:

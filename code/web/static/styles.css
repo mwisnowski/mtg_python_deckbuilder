@@ -3207,7 +3207,11 @@ img.lqip.loaded {
 .card-browser-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(240px, 240px));
-  gap: 0.5rem;
+  /* Narrower horizontal gap than vertical so tiles pack more tightly side
+	   to side, closer to the token grid's denser look. */
+  -moz-column-gap: 0.25rem;
+       column-gap: 0.25rem;
+  row-gap: 0.5rem;
   padding: 0.5rem;
   background: var(--panel);
   border: 1px solid var(--border);
@@ -3229,6 +3233,17 @@ img.lqip.loaded {
   overflow: hidden;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
   cursor: pointer;
+}
+
+/* _card_tile.html also carries the unrelated deck-builder `.card-tile` class
+   (kept only so the shared hover-preview JS, which looks for `.card-tile`,
+   still finds it) -- override its fixed `width:170px`/padding so real cards
+   fill their grid column just like token tiles do. */
+
+.card-browser-tile.card-tile {
+  width: 100%;
+  padding: 0;
+  text-align: left;
 }
 
 .card-browser-tile:hover {
@@ -3306,6 +3321,104 @@ img.lqip.loaded {
   border-radius: 3px;
   white-space: nowrap;
 }
+
+/* --- Tokens & Emblems in the card browser (roadmap_39) ------------------- */
+
+/* Grid tiles: only shown for an explicit type:token/type:emblem search. */
+
+.token-browser-tile {
+  cursor: default;
+}
+
+.token-browser-tile:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+.token-browser-badge {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  background: rgba(15, 17, 21, 0.85);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.1rem 0.4rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.token-browser-printing-btn {
+  position: absolute;
+  bottom: 4px;
+  left: 4px;
+  z-index: 5;
+}
+
+.token-browser-tile-text {
+  font-size: 0.78rem;
+  color: var(--muted);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* "Tokens Generated" accordion on a creator card's detail page. */
+
+.tokens-generated-section {
+  margin-top: 1.5rem;
+}
+
+.tokens-generated-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.token-generated-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 110px;
+}
+
+.token-generated-thumb {
+  width: 100%;
+  height: auto;
+  border-radius: 6px;
+  display: block;
+}
+
+.token-generated-img-wrap {
+  position: relative;
+  width: 100%;
+}
+
+.token-generated-name {
+  font-size: 11px;
+  text-align: center;
+  color: var(--text);
+  margin-top: 0.25rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 100%;
+}
+
+.token-generated-type {
+  font-size: 10px;
+  text-align: center;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 100%;
+}
+
+/* --- End Tokens & Emblems in the card browser ---------------------------- */
 
 .pool-toc-sidebar {
   flex: 0 0 180px;
@@ -3531,6 +3644,23 @@ img.lqip.loaded {
   padding: 0 1rem;
 }
 
+.card-browser-page-jump {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.card-browser-page-jump input[type="number"] {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  padding: 0.3rem 0.5rem;
+  text-align: center;
+}
+
 /* No results message */
 
 .no-results {
@@ -3594,7 +3724,9 @@ img.lqip.loaded {
 @media (max-width: 768px) {
   .card-browser-grid {
     grid-template-columns: repeat(auto-fill, minmax(180px, 180px));
-    gap: 0.5rem;
+    -moz-column-gap: 0.25rem;
+         column-gap: 0.25rem;
+    row-gap: 0.5rem;
     padding: 0.5rem;
   }
 
@@ -3623,7 +3755,9 @@ img.lqip.loaded {
 @media (max-width: 600px) {
   .card-browser-grid {
     grid-template-columns: repeat(auto-fill, minmax(160px, 160px));
-    gap: 0.5rem;
+    -moz-column-gap: 0.25rem;
+         column-gap: 0.25rem;
+    row-gap: 0.5rem;
   }
 }
 
@@ -3632,7 +3766,9 @@ img.lqip.loaded {
 @media (max-width: 480px) {
   .card-browser-grid {
     grid-template-columns: repeat(2, 1fr);
-    gap: 0.375rem;
+    -moz-column-gap: 0.25rem;
+         column-gap: 0.25rem;
+    row-gap: 0.375rem;
   }
 
   .card-browser-tile-name {

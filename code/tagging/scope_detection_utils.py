@@ -145,8 +145,13 @@ def detect_scope(
     # Priority 4: Blanket (no ownership qualifier)
     for pattern in patterns.blanket:
         if pattern.search(text_lower):
-            # Double-check no ownership was missed
-            if not rgx.YOU_CONTROL.search(text_lower) and 'opponent' not in text_lower:
+            # Double-check no ownership was missed. "target player controls" is a
+            # single chosen player's permanents, not a global/every-player effect.
+            if (
+                not rgx.YOU_CONTROL.search(text_lower)
+                and 'opponent' not in text_lower
+                and 'target player controls' not in text_lower
+            ):
                 if allow_multiple:
                     scopes.add("Blanket")
                     break
@@ -163,6 +168,7 @@ def detect_multi_scope(
     patterns: ScopePatterns,
     check_grant_verbs: bool = False,
     keywords: Optional[str] = None,
+    word_boundary: bool = True,
 ) -> Set[str]:
     """
     Detect multiple scopes for cards with multiple effects.
@@ -178,6 +184,9 @@ def detect_multi_scope(
         patterns: ScopePatterns object
         check_grant_verbs: If True, checks for grant verbs before assuming "Self"
         keywords: Optional keywords field for static keyword detection
+        word_boundary: If True (default), requires `ability_keyword` to appear as
+            a whole word (`\\bword\\b`). Set to False for stem keywords that are
+            never whole words on their own (e.g. "phas" to match "phase"/"phasing").
         
     Returns:
         Set of scope strings
@@ -197,8 +206,9 @@ def detect_multi_scope(
         # For static keywords, we usually don't have multiple scopes
         # But continue checking in case there are additional effects
     
-    # Check if ability is mentioned (word-boundaried; see `_has_word`)
-    if not _has_word(ability_lower, text_lower):
+    # Check if ability is mentioned (word-boundaried unless word_boundary=False; see `_has_word`)
+    ability_present = _has_word(ability_lower, text_lower) if word_boundary else (ability_lower in text_lower)
+    if not ability_present:
         return scopes
     
     # Check opponent patterns
@@ -222,7 +232,13 @@ def detect_multi_scope(
     
     # Check blanket (no ownership)
     has_blanket = any(pattern.search(text_lower) for pattern in patterns.blanket)
-    no_ownership = not rgx.YOU_CONTROL.search(text_lower) and 'opponent' not in text_lower
+    # "target player controls" is a single chosen player's permanents, not a
+    # global/every-player effect, even though it doesn't say "you control"/"opponent".
+    no_ownership = (
+        not rgx.YOU_CONTROL.search(text_lower)
+        and 'opponent' not in text_lower
+        and 'target player controls' not in text_lower
+    )
     
     if has_blanket and no_ownership:
         scopes.add("Blanket")
@@ -274,6 +290,9 @@ def _check_self_reference(
                 # "Put an indestructible counter on <name>" - a self-granted
                 # counter, not a board-wide grant.
                 re.compile(rf'{ability_lower}\s+counter\s+on\s+{card_name_escaped}\b', re.IGNORECASE),
+                # Named self-reference verb phrase, e.g. "Vision phases out"
+                # (ability_lower is a stem like "phas" here, matching "phases"/"phasing").
+                re.compile(rf'\b{card_name_escaped}\s+{ability_lower}\w*\s+out\b', re.IGNORECASE),
             ]
             
             for pattern in self_context_patterns:

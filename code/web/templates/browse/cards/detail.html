@@ -5,13 +5,35 @@
 
 {% block content %}
 <div class="card-detail-container">
-    <!-- Back Button -->
-    <a href="{{ back_url | default('/cards') }}" class="back-button">
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
-            <path d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z"/>
-        </svg>
-        {{ back_text | default('Back to Card Browser') }}
-    </a>
+    <!-- Back Button + Quick Search -->
+    <div class="card-detail-top-bar">
+        <a href="{{ back_url | default('/cards') }}" class="back-button">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z"/>
+            </svg>
+            {{ back_text | default('Back to Card Browser') }}
+        </a>
+        <form method="get" action="{{ back_url | default('/cards') }}" id="detail-search-form" class="filter-row card-detail-search-form">
+            <label for="detail-search-input" class="sr-only">Search cards</label>
+            <div class="autocomplete-container" style="position:relative; flex:1; max-width:420px;">
+                <input
+                    type="text"
+                    name="search"
+                    id="detail-search-input"
+                    placeholder="Search by name or using Scryfall-style flags"
+                    title="Plain words match the card name. Also supports Scryfall-style flags: t:/type: (e.g. t:creature), o:/oracle: (rules text), c:/color:, id:/identity:, m:/mana: (e.g. m:2WW), mv:/cmc:, pow:/tou:/loy: (e.g. pow>=4), r:/rarity:, tag:/theme:, art:/atag: (illustration tags), is:new, set:/e: (e.g. set:ala). Each accepts :, =, >, <, >=, <=, != and may be negated with a leading -, e.g. -t:land."
+                    autocomplete="off"
+                    role="combobox"
+                    aria-autocomplete="list"
+                    aria-controls="detail-search-autocomplete-dropdown"
+                    aria-expanded="false"
+                    style="width:100%;"
+                />
+                <div id="detail-search-autocomplete-dropdown" class="autocomplete-dropdown" role="listbox" aria-label="Theme tag suggestions"></div>
+            </div>
+            <button type="submit" class="btn">Search</button>
+        </form>
+    </div>
 
     <!-- 2-column grid: [image | info] / [price | rulings] -->
     <div class="card-detail-grid">
@@ -487,5 +509,105 @@ function toggleRulings(btn) {
     }
 }
 document.querySelectorAll('.ruling-hidden').forEach(function(el){ el.style.display = 'none'; });
+
+// Tag/theme flag-value autocomplete for the quick search bar (mirrors the
+// card browser/owned library's search box, scoped to tag:/theme: flags only).
+(function() {
+    var searchInput = document.getElementById('detail-search-input');
+    var dropdown    = document.getElementById('detail-search-autocomplete-dropdown');
+    var form        = document.getElementById('detail-search-form') || (searchInput && searchInput.closest('form'));
+    if (!searchInput || !dropdown || !form) return;
+
+    var selectedIndex = -1;
+    var debounceTimer = null;
+    var tagToken = null;
+    var TAG_TOKEN_RE = null;
+    try {
+        TAG_TOKEN_RE = new RegExp('(-)?\\b(tag|theme):(?:"([^"]*)"?|(\\S*))', 'dgi');
+    } catch (e) {
+        TAG_TOKEN_RE = null; // `d` (hasIndices) flag unsupported -- autocomplete stays disabled
+    }
+
+    var detectTagToken = function(value, caret) {
+        if (!TAG_TOKEN_RE) return null;
+        TAG_TOKEN_RE.lastIndex = 0;
+        var m;
+        while ((m = TAG_TOKEN_RE.exec(value)) !== null) {
+            var idx = m.indices;
+            if (!idx) return null;
+            var start = idx[0][0], end = idx[0][1];
+            if (caret < start || caret > end) continue;
+            var quoted = m[3] !== undefined;
+            var span = quoted ? idx[3] : idx[4];
+            if (!span) continue;
+            var valueStart = span[0], valueEnd = span[1];
+            if (caret < valueStart) continue;
+            return { valueStart: valueStart, valueEnd: valueEnd, partial: value.slice(valueStart, Math.min(caret, valueEnd)) };
+        }
+        return null;
+    };
+
+    var applyTagSuggestion = function(value) {
+        if (!tagToken) return false;
+        var full = searchInput.value;
+        var quotedValue = '"' + value + '"';
+        searchInput.value = full.slice(0, tagToken.valueStart) + quotedValue + full.slice(tagToken.valueEnd);
+        var caret = tagToken.valueStart + quotedValue.length;
+        searchInput.setSelectionRange(caret, caret);
+        tagToken = null;
+        searchInput.focus();
+        return true;
+    };
+
+    var fetchSuggestions = function() {
+        var caret = searchInput.selectionStart != null ? searchInput.selectionStart : searchInput.value.length;
+        tagToken = detectTagToken(searchInput.value, caret);
+        if (!tagToken) { dropdown.innerHTML = ''; return; }
+        var partial = tagToken.partial.trim();
+        if (partial.length < 2) { dropdown.innerHTML = ''; return; }
+        fetch('/cards/theme-autocomplete?q=' + encodeURIComponent(partial) + '&limit=8')
+            .then(function(r){ return r.text(); })
+            .then(function(html){ dropdown.innerHTML = html; })
+            .catch(function(){ dropdown.innerHTML = ''; });
+    };
+
+    searchInput.addEventListener('input', function() {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(fetchSuggestions, 150);
+    });
+
+    var getItems = function() { return Array.from(dropdown.querySelectorAll('.autocomplete-item')); };
+    var selectItem = function(i) {
+        getItems().forEach(function(item, idx) { item.classList.toggle('selected', idx === i); });
+        selectedIndex = i;
+    };
+    var applyItem = function() {
+        var items = getItems();
+        var item = items[selectedIndex];
+        if (item && item.dataset.value && applyTagSuggestion(item.dataset.value)) { dropdown.innerHTML = ''; selectedIndex = -1; }
+    };
+
+    new MutationObserver(function() {
+        selectedIndex = -1;
+        getItems().forEach(function(i){ i.classList.remove('selected'); });
+        searchInput.setAttribute('aria-expanded', dropdown.children.length > 0 ? 'true' : 'false');
+    }).observe(dropdown, { childList: true });
+
+    document.body.addEventListener('click', function(e) {
+        var item = e.target.closest('.autocomplete-item');
+        if (item && item.dataset.value && dropdown.contains(item)) { e.preventDefault(); applyTagSuggestion(item.dataset.value); dropdown.innerHTML = ''; }
+    });
+    document.addEventListener('click', function(e) { if (!e.target.closest('.autocomplete-container')) { dropdown.innerHTML = ''; selectedIndex = -1; } });
+
+    searchInput.addEventListener('keydown', function(e) {
+        var items = getItems();
+        if (e.key === 'Escape') {
+            if (items.length) { dropdown.innerHTML = ''; selectedIndex = -1; e.preventDefault(); }
+        } else if (e.key === 'ArrowDown' && items.length) { e.preventDefault(); selectItem(selectedIndex < items.length - 1 ? selectedIndex + 1 : 0); }
+        else if (e.key === 'ArrowUp' && items.length) { e.preventDefault(); selectItem(selectedIndex > 0 ? selectedIndex - 1 : items.length - 1); }
+        else if (e.key === 'Enter' && selectedIndex >= 0 && items.length) { e.preventDefault(); applyItem(); }
+    });
+    dropdown.addEventListener('mouseover', function(e) { var item = e.target.closest('.autocomplete-item'); if (item) { var idx = getItems().indexOf(item); if (idx >= 0) selectItem(idx); } });
+})();
 </script>
 {% endblock %}

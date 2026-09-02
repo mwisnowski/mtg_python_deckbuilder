@@ -23,6 +23,20 @@ from code.logging_util import get_logger
 
 logger = get_logger(__name__)
 
+# Word-boundaried so "phase in" doesn't false-positive inside unrelated text
+# like "...beginning phase includes..." (Sphinx of the Second Sun).
+_PHASING_RE = re.compile(
+    r'\bphase\s+out\b|\bphases\s+out\b|\bphasing\b|\bphase\s+in\b|\bphases\s+in\b',
+    re.IGNORECASE,
+)
+
+# Anti-phasing text ("target permanent can't phase out") describes preventing
+# phasing, not causing it - strip it out before scope detection so it doesn't
+# masquerade as removal/protection (e.g. Spatial Binding).
+_NEGATED_PHASING_RE = re.compile(
+    r"(?:can't|cannot|can\s+not)\s+phase\s+(?:in|out)", re.IGNORECASE
+)
+
 
 # Phasing scope pattern definitions
 def _get_phasing_scope_patterns() -> scope_utils.ScopePatterns:
@@ -36,6 +50,8 @@ def _get_phasing_scope_patterns() -> scope_utils.ScopePatterns:
     targeting_patterns = [
         re.compile(r'target\s+(?:\w+\s+)*(?:creature|permanent|artifact|enchantment|nonland\s+permanent)s?(?:[^.]*)?phases?\s+out', re.IGNORECASE),
         re.compile(r'target\s+player\s+controls[^.]*phases?\s+out', re.IGNORECASE),
+        # Sentence-boundary continuation (Slip Out the Back: "target creature. It phases out.")
+        re.compile(r'target\s+(?:\w+\s+)*(?:creature|permanent|artifact|enchantment|nonland\s+permanent)s?\.\s*it\s+phases?\s+out', re.IGNORECASE),
     ]
     
     # Self-reference patterns
@@ -48,6 +64,10 @@ def _get_phasing_scope_patterns() -> scope_utils.ScopePatterns:
         re.compile(r'(?:then|,)\s+(?:it|this\s+creature)\s+phases?\s+out', re.IGNORECASE),
         # At end of turn/combat self-phasing
         re.compile(r'(?:at\s+(?:the\s+)?end\s+of|after).*(?:it|this\s+creature)\s+phases?\s+out', re.IGNORECASE),
+        # Pronoun self-reference (Kaito Shizuki: "he phases out")
+        re.compile(r'\b(?:he|she)\s+phases?\s+out\b', re.IGNORECASE),
+        # Mutual self+other phasing (Dream Fighter: "this creature and that creature phase out")
+        re.compile(r'this\s+creature\s+and\s+that\s+creature\s+phase\s+out', re.IGNORECASE),
     ]
     
     # Opponent patterns
@@ -56,6 +76,15 @@ def _get_phasing_scope_patterns() -> scope_utils.ScopePatterns:
         # Unqualified targets (can target opponents' stuff if no "you control" restriction)
         re.compile(r'(?:up\s+to\s+)?(?:one\s+|x\s+|that\s+many\s+)?(?:other\s+)?(?:another\s+)?target\s+(?:\w+\s+)*(?:creature|permanent|artifact|enchantment|nonland\s+permanent)s?(?:[^.]*)?phases?\s+out', re.IGNORECASE),
         re.compile(r'target\s+(?:\w+\s+)*(?:creature|permanent|artifact|enchantment|land|nonland\s+permanent)(?:,|\s+and)?\s+(?:then|and)?\s+it\s+phases?\s+out', re.IGNORECASE),
+        # "target opponent controls" wording (Teferi, Timeless Voyager), distinct from "an opponent controls"
+        re.compile(r'target\s+opponent\s+controls\s+phases?\s+out', re.IGNORECASE),
+        # Sentence-boundary continuation, unqualified target (Slip Out the Back: "target creature. It phases out.")
+        re.compile(r'target\s+(?:\w+\s+)*(?:creature|permanent|artifact|enchantment|nonland\s+permanent)s?\.\s*it\s+phases?\s+out', re.IGNORECASE),
+        # "target player controls" (Galadriel's Dismissal) - caster picks any player at
+        # cast time (including themselves), so this is an ambiguous single-player
+        # wipe, not a global one. The dual-scope fallback below adds "Your Permanents"
+        # too since this isn't restricted to "you control" or "opponent".
+        re.compile(r'(?:each|target)\s+(?:creature|permanent)\s+target\s+player\s+controls\s+phases?\s+out', re.IGNORECASE),
     ]
     
     # Your permanents patterns
@@ -76,8 +105,14 @@ def _get_phasing_scope_patterns() -> scope_utils.ScopePatterns:
         re.compile(r'enchanted\s+(?:creature|permanent)\s+(?:gets\s+[^.]*\s+and\s+)?phases?\s+out', re.IGNORECASE),
         re.compile(r'enchanted\s+(?:creature|permanent)\s+(?:has|gains?)\s+phasing', re.IGNORECASE),
         re.compile(r'(?:equipped|enchanted)\s+(?:creature|permanent)[^.]*,?\s+(?:then\s+)?that\s+(?:creature|permanent)\s+phases?\s+out', re.IGNORECASE),
-        # Target controlled by specific player
-        re.compile(r'(?:each|target)\s+(?:creature|permanent)\s+target\s+player\s+controls\s+phases?\s+out', re.IGNORECASE),
+        # Sentence-boundary pronoun continuation (The Moment: "creature you control. It phases out")
+        re.compile(r'creature\s+you\s+control.*it\s+phases?\s+out', re.IGNORECASE),
+        # Bare pronoun "them" continuation (Change of Plans: "you control connive. You may have any number of them phase out")
+        re.compile(r'you\s+control.*\bthem\s+phases?\s+out', re.IGNORECASE),
+        # Missing noun class: lands (Taniwha: "all lands you control phase out")
+        re.compile(r'all\s+lands\s+you\s+control\s+phase\s+out', re.IGNORECASE),
+        # Missing noun class: planeswalkers (Vronos, Masked Inquisitor: "target planeswalkers you control phase out")
+        re.compile(r'planeswalkers?\s+you\s+control\s+phases?\s+out', re.IGNORECASE),
     ]
     
     # Blanket patterns
@@ -89,6 +124,8 @@ def _get_phasing_scope_patterns() -> scope_utils.ScopePatterns:
         re.compile(r'(?:lands?|creatures?|permanents?|artifacts?|enchantments?)\s+of\s+the\s+chosen\s+type\s+(?:have|has)\s+phasing', re.IGNORECASE),
         # Pronoun reference to "all creatures"
         re.compile(r'all\s+(?:nontoken\s+)?(?:creatures?|permanents?)[^.]*,?\s+(?:then\s+)?(?:those|the)\s+(?:creatures?|permanents?)\s+phase\s+out', re.IGNORECASE),
+        # Compound type list (The City on the Edge of Forever: "All artifacts and creatures phase out")
+        re.compile(r'all\s+(?:\w+\s+and\s+)?(?:creatures?|permanents?|artifacts?|enchantments?|lands?)\s+phase\s+out', re.IGNORECASE),
     ]
     
     return scope_utils.ScopePatterns(
@@ -153,15 +190,49 @@ def get_phasing_scope_tags(text: str, card_name: str, keywords: str = '') -> Set
     # Build phasing patterns and detect scopes
     patterns = _get_phasing_scope_patterns()
     
+    # Strip negated phasing text ("can't phase out") so anti-phasing tech
+    # doesn't get misread as a phasing effect itself.
+    scope_text = _NEGATED_PHASING_RE.sub('', text)
+    if 'phas' not in scope_text.lower():
+        return tags
+    
     # Detect all scopes (phasing can have multiple)
+    # word_boundary=False: 'phas' is a stem (never a whole word on its own), so
+    # the default \bphas\b word-boundary check would never match real phasing
+    # text ("phase"/"phases"/"phasing"). Safe here because the substring check
+    # above already gates on 'phas' being present at all.
     scopes = scope_utils.detect_multi_scope(
-        text=text,
+        text=scope_text,
         card_name=card_name,
         ability_keyword='phas',  # Use 'phas' to catch both 'phase' and 'phasing'
         patterns=patterns,
-        check_grant_verbs=False  # Phasing doesn't need grant verb checking
+        check_grant_verbs=False,  # Phasing doesn't need grant verb checking
+        word_boundary=False,
     )
     
+    # Cards explicitly restricted to "you control" shouldn't also get an
+    # Opponent Permanents tag from the unqualified targeting catch-all pattern
+    # (e.g. Clever Concealment, Guardian of Faith, Haystack).
+    if 'you control' in text_lower and 'Your Permanents' in scopes:
+        scopes.discard('Opponent Permanents')
+
+    # Truly unqualified targets ("target creature phases out") aren't
+    # restricted to your board or an opponent's, so they can hit either
+    # depending on how the caster targets - add the missing "Your Permanents"
+    # side for the dual Protection+Removal treatment (e.g. Brokers Confluence,
+    # March of Swirling Mist, Slip Out the Back). Equipment/Aura "grant
+    # phasing" effects (Cloak of Invisibility, Robe of Stars, Vanishing) are
+    # excluded since those only ever benefit the enchanted/equipped permanent,
+    # so they're intentionally left "Your Permanents"-only.
+    is_restricted = (
+        'you control' in text_lower
+        or 'opponent' in text_lower
+        or "don't control" in text_lower
+        or "doesn't control" in text_lower
+    )
+    if not is_restricted and 'Opponent Permanents' in scopes:
+        scopes.add('Your Permanents')
+
     # Format scope tags with "Phasing" ability name
     for scope in scopes:
         if scope == "Targeted":
@@ -186,18 +257,7 @@ def has_phasing(text: str) -> bool:
     if not text:
         return False
     
-    text_lower = text.lower()
-    
-    # Check for phasing keywords
-    phasing_keywords = [
-        'phase out',
-        'phases out',
-        'phasing',
-        'phase in',
-        'phases in',
-    ]
-    
-    return any(keyword in text_lower for keyword in phasing_keywords)
+    return bool(_PHASING_RE.search(text))
 
 
 def is_removal_phasing(tags: Set[str]) -> bool:

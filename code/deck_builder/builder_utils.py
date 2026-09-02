@@ -1291,6 +1291,118 @@ def get_metadata_tags_map(df) -> dict:
 		return {}
 
 
+# Roadmap 40, Milestone 5: metadataTags that should widen a specific-flavor theme's
+# candidate pool ('[X] Tokens' / '[X] Counters' / '{X} Kindred'), keyed by the
+# matching slug shape. Generic payoff cards (doublers, additive modifiers, tribal
+# anthems/tutors) don't mention the specific type/tribe in their text, so they never
+# match the normal `_normTags` slug filter without this assist.
+THEME_METADATA_ASSIST_TAGS: dict[str, set[str]] = {
+	'tokens': {'Token Multiplier', 'Token Modifier: Additive'},
+	'counters': {'Counter Multiplier'},
+	'kindred': {'Kindred Support'},
+}
+
+# Changeling cards are every creature type per the actual game rules, so they belong
+# in any '{X} Kindred' pool even though their own creatureTypes/themeTags only ever
+# list their literal printed type -- checked against `themeTags` (not `metadataTags`)
+# since `Changeling` is a player-facing tag, not internal plumbing.
+THEME_THEMETAG_ASSIST_TAGS: dict[str, set[str]] = {
+	'kindred': {'Changeling'},
+}
+
+
+def expand_theme_subset_with_metadata(subset, pool_df, slug: str, metadata_col: str = 'metadataTags', theme_col: str = 'themeTags'):
+	"""Widen a per-theme candidate `subset` with generic metadataTag-carrying cards
+	from `pool_df` (Roadmap 40, Milestone 5), plus Changeling cards for Kindred themes.
+
+	If `slug` ends with " tokens"/" counters" or contains "kindred", unions in rows
+	from `pool_df` whose `metadata_col` cell contains the matching entry from
+	`THEME_METADATA_ASSIST_TAGS`, or (Kindred only) whose `theme_col` cell contains
+	an entry from `THEME_THEMETAG_ASSIST_TAGS`, and that aren't already present in
+	`subset`. Returns `subset` unchanged for any other theme shape, or if `pool_df`
+	is missing/empty (graceful no-op).
+	"""
+	slug_l = str(slug or '').strip().lower()
+	theme_assist_tags: set[str] = set()
+	if slug_l.endswith(' tokens'):
+		assist_tags = THEME_METADATA_ASSIST_TAGS['tokens']
+	elif slug_l.endswith(' counters'):
+		assist_tags = THEME_METADATA_ASSIST_TAGS['counters']
+	elif 'kindred' in slug_l:
+		assist_tags = THEME_METADATA_ASSIST_TAGS['kindred']
+		theme_assist_tags = THEME_THEMETAG_ASSIST_TAGS['kindred']
+	else:
+		return subset
+
+	if pool_df is None or getattr(pool_df, 'empty', True):
+		return subset
+
+	def _has_tag(cell, tags) -> bool:
+		if not isinstance(cell, (list, tuple, set)):
+			return False
+		return any(t in tags for t in cell)
+
+	metadata_mask = None
+	if metadata_col in pool_df.columns:
+		metadata_mask = pool_df[metadata_col].apply(lambda c: _has_tag(c, assist_tags))
+	theme_mask = None
+	if theme_assist_tags and theme_col in pool_df.columns:
+		theme_mask = pool_df[theme_col].apply(lambda c: _has_tag(c, theme_assist_tags))
+
+	if metadata_mask is None and theme_mask is None:
+		return subset
+	if metadata_mask is None:
+		combined_mask = theme_mask
+	elif theme_mask is None:
+		combined_mask = metadata_mask
+	else:
+		combined_mask = metadata_mask | theme_mask
+
+	if not combined_mask.any():
+		return subset
+
+	extra = pool_df[combined_mask]
+	if subset is not None and not getattr(subset, 'empty', True) and 'name' in subset.columns:
+		extra = extra[~extra['name'].isin(set(subset['name']))]
+	if extra.empty:
+		return subset
+	if subset is None or getattr(subset, 'empty', True):
+		return extra.copy()
+	return pd.concat([subset, extra])
+
+
+def is_theme_assist_card(slug: str, metadata_tags=None, theme_tags=None) -> bool:
+	"""Per-row predicate: does a card qualify as a generic 'assist' card for
+	theme `slug` via metadataTags/themeTags, even though its own themeTags don't
+	literally include that theme (Kindred Support / Changeling for Kindred
+	themes, Token Multiplier/etc. for Token/Counter themes)?
+
+	Mirrors `expand_theme_subset_with_metadata()`'s widening rules, but as a
+	single-row check for match-highlighting/ranking use cases (staged creature
+	addition, manual builder card browser) instead of widening a candidate
+	DataFrame.
+	"""
+	slug_l = str(slug or '').strip().lower()
+	assist_tags: set[str] = set()
+	theme_assist_tags: set[str] = set()
+	if slug_l.endswith(' tokens'):
+		assist_tags = THEME_METADATA_ASSIST_TAGS['tokens']
+	elif slug_l.endswith(' counters'):
+		assist_tags = THEME_METADATA_ASSIST_TAGS['counters']
+	elif 'kindred' in slug_l:
+		assist_tags = THEME_METADATA_ASSIST_TAGS['kindred']
+		theme_assist_tags = THEME_THEMETAG_ASSIST_TAGS['kindred']
+	else:
+		return False
+	meta = metadata_tags if isinstance(metadata_tags, (list, tuple, set)) else []
+	theme = theme_tags if isinstance(theme_tags, (list, tuple, set)) else []
+	if assist_tags and any(t in assist_tags for t in meta):
+		return True
+	if theme_assist_tags and any(t in theme_assist_tags for t in theme):
+		return True
+	return False
+
+
 def fetch_land_allowed_for_colors(metadata_tags, color_identity: list[str]) -> bool:
 	"""Return True if a fetch land's metadata tags are compatible with color_identity.
 
@@ -1955,6 +2067,15 @@ def is_creature_row(row) -> bool:
 	"""True if a card pool row's type line indicates a Creature (case-insensitive)."""
 	try:
 		return 'creature' in str(row.get('type', '') or '').lower()
+	except Exception:
+		return False
+
+
+def is_equipment_or_aura_row(row) -> bool:
+	"""True if a card pool row's type line indicates Equipment or Aura (case-insensitive)."""
+	try:
+		type_line = str(row.get('type', '') or '').lower()
+		return 'equipment' in type_line or 'aura' in type_line
 	except Exception:
 		return False
 

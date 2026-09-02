@@ -398,6 +398,27 @@ VOLTRON_COMMANDER_CARDS: List[str] = [
     'Wyleth, Soul of Steel'
 ]
 
+# Roadmap 40, Milestone 4: cards matched by the generic "choose a creature type"/
+# "are every creature type" pattern that should NOT get the 'Kindred Support'
+# metadataTag, split into two groups:
+KINDRED_SUPPORT_EXCLUSIONS: List[str] = [
+    # Hoser/hate cards: debuff or destroy creatures OF the chosen type, typically
+    # cast against an opponent's tribal deck rather than supporting your own.
+    'An-Zerrin Ruins',
+    'Engineered Plague',
+    'Outbreak',
+    'Plague Engineer',
+    'Tsabo\'s Decree',
+    # Ambiguous type-shifting utility: change a target/all creature's type on the
+    # fly (dual-use, reactive) rather than being a kindred anthem/tutor/protection
+    # effect; not consistently a support card for the caster's own tribe.
+    'Imagecrafter',
+    'Mistform Mutant',
+    'Mistform Wakecaster',
+    'Standardize',
+    'Unnatural Selection',
+]
+
 VOLTRON_PATTERNS: List[str] = [
     'attach',
     'aura you control',
@@ -448,7 +469,9 @@ LANDFALL_PATTERNS: Dict[str, List[str]] = {
     'keyword': ['landfall'],
     'triggers': [
         'whenever a land enters the battlefield under your control',
-        'when a land enters the battlefield under your control'
+        'when a land enters the battlefield under your control',
+        'whenever a land you control enters',
+        'when a land you control enters'
     ]
 }
 
@@ -569,7 +592,6 @@ ARISTOCRAT_TEXT_PATTERNS: List[str] = [
     'dies, sacrifice',
     'dies, you',
     'has blitz',
-    'have blitz',
     'permanents were sacrificed',
     'sacrifice a creature',
     'sacrifice another',
@@ -578,13 +600,10 @@ ARISTOCRAT_TEXT_PATTERNS: List[str] = [
     'sacrifice a permanent',
     'sacrifice another nontoken',
     'sacrifice another permanent',
-    'sacrifice another token',
     'sacrifices a creature',
     'sacrifices another',
     'sacrifices another creature',
-    'sacrifices another nontoken',
     'sacrifices another permanent',
-    'sacrifices another token',
     'sacrifices a nontoken',
     'sacrifices a permanent',
     'sacrifices a token',
@@ -688,13 +707,15 @@ STAX_EXCLUSION_PATTERNS: List[str] = [
 ]
 
 # Pillowfort: deterrent / taxation effects that discourage attacks without fully locking opponents
+# Real oracle text uses plural, article-less "planeswalkers you control" (e.g.
+# Norn's Annex, Sphere of Safety), not "a planeswalker you control".
 PILLOWFORT_TEXT_PATTERNS: List[str] = [
     'attacks you or a planeswalker you control',
     'attacks you or a planeswalker you',
     'can\'t attack you unless',
-    'can\'t attack you or a planeswalker you control',
+    'can\'t attack you or planeswalkers you control',
     'attack you unless',
-    'attack you or a planeswalker you control unless',
+    'attack you or planeswalkers you control unless',
     'creatures can\'t attack you',
     'each opponent who attacked you',
     'if a creature would deal combat damage to you',
@@ -755,13 +776,14 @@ CONTROL_SPECIFIC_CARDS: List[str] = [
 ]
 
 # Midrange archetype (value-centric permanent-based incremental advantage)
+# ETB patterns are templating-agnostic ("enters" with "the battlefield" optional)
+# to match both the pre-2020 and current Oracle text templating for ETB triggers.
 MIDRANGE_TEXT_PATTERNS: List[str] = [
-    'enters the battlefield, you may draw',
-    'enters the battlefield, create',
-    'enters the battlefield, investigate',
+    r'enters(?: the battlefield)?,?\s*you may draw',
+    r'enters(?: the battlefield)?,?\s*create',
+    r'enters(?: the battlefield)?,?\s*investigate',
     'dies, draw a card',
     'when .* dies, return',
-    'whenever .* enters the battlefield under your control, you gain',
     'proliferate',
     'put a \+1/\+1 counter on each'
 ]
@@ -790,14 +812,17 @@ TOOLBOX_SPECIFIC_CARDS: List[str] = [
 ]
 
 # Constants for removal functionality
+# Note: MTG oracle text is always imperative ("destroy target creature"),
+# never 3rd-person descriptive ("destroys target creature") - the dropped
+# 'destroys target'/'exiles target'/'returns target...to...hand' entries were
+# dead code. 'sacrifices target' was also dead (real templating is "target
+# player sacrifices a creature", reversed word order) and has been corrected
+# below rather than dropped, since it was a real under-tagging gap (~107 cards).
 REMOVAL_TEXT_PATTERNS: List[str] = [
     'destroy target',
-    'destroys target',
     'exile target',
-    'exiles target',
-    'sacrifices target',
+    r'target (player|opponent).*sacrifices?',
     'return target.*to.*hand',
-    'returns target.*to.*hand'
 ]
 
 REMOVAL_SPECIFIC_CARDS: List[str] = ['from.*graveyard.*hand']
@@ -806,13 +831,10 @@ REMOVAL_EXCLUSION_PATTERNS: List[str] = [
     # Ignore self-targeting effects so they aren't tagged as spot removal
     # Exile self
     r'exile target.*you control',
-    r'exiles target.*you control',
     # Destroy self
     r'destroy target.*you control',
-    r'destroys target.*you control',
     # Bounce self to hand
     r'return target.*you control.*to.*hand',
-    r'returns target.*you control.*to.*hand',
     # Returning/exiling a card FROM a graveyard TO a hand (or casting it from
     # there) is graveyard recursion/card advantage, not board-state removal -
     # see Eternal Witness, Bala Ged Recovery, Mizzix's Mastery.
@@ -827,10 +849,8 @@ REMOVAL_KEYWORDS: List[str] = []
 # specifically about putting creatures onto the battlefield from a graveyard).
 GRAVEYARD_RECURSION_TEXT_PATTERNS: List[str] = [
     r'return target.*card.*from (your |a |their |that player\'s )?graveyard.*to.*hand',
-    r'returns target.*card.*from (your |a |their |that player\'s )?graveyard.*to.*hand',
     r'return this card from your graveyard to your hand',
     r'exile target.*card.*from (your |a |their )?graveyard.*(may cast|without paying)',
-    r'exiles target.*card.*from (your |a |their )?graveyard.*(may cast|without paying)',
     r'cast.*from your graveyard',
 ]
 
@@ -847,6 +867,140 @@ GRAVEYARD_RECURSION_KEYWORDS: List[str] = [
     'Scavenge',
 ]
 
+# Cards that put a creature/permanent card from a graveyard onto the
+# battlefield (true reanimation). Distinct from GRAVEYARD_RECURSION_* above
+# (returning/casting from a graveyard without putting it onto the
+# battlefield) and from generic graveyard-interaction text (mill, surveil,
+# discard, Zombie tribal, etc.) which don't bring anything back out.
+REANIMATE_TEXT_PATTERNS: List[str] = [
+    # "return/put ... card ... from/of a graveyard ... to/onto the battlefield"
+    # (Reanimate, Zombify, Persist, Exhume, Corpse Dance, Animate Dead's target-based cousins)
+    r'(return|put|puts)\b[^.]*\bcard\b[^.]*graveyard[^.]*(to|onto) the battlefield',
+    # Aura-style reanimation (Animate Dead, Necromancy, Dance of the Dead)
+    r'enchant creature card in a graveyard',
+    r'(return|put|puts) enchanted creature( card)? (to|onto|on) the battlefield',
+]
+
+# Functional "power 4 or greater" check, the condition behind the Ferocious
+# ability word - matched even on cards that don't print the literal
+# ability word (the design pattern has been reused unworded since Khans of
+# Tarkir), mirroring Scryfall's broader functional 'ferocious' Oracle Tag.
+FEROCIOUS_TEXT_PATTERNS: List[str] = [
+    r'power 4 or greater',
+]
+
+# Modal ("choose one/two/three/four/five") spell structure, beyond just
+# Spree cards, mirroring Scryfall's broader 'modal' Oracle Tag.
+MODAL_TEXT_PATTERNS: List[str] = [
+    r'choose (one|two|three|four|five)\b',
+]
+
+# "Opponent loses life, you gain that much life" drain effects (Gray
+# Merchant of Asphodel, Sanguine Bond, etc.) - distinct from the Lifelink
+# keyword and from plain Lifegain.
+LIFEDRAIN_TEXT_PATTERNS: List[str] = [
+    r'loses?.*life.*gain life equal to the life lost',
+    r'loses?.*life.*gain that much life',
+    r'whenever you gain life.*loses that much life',
+    r'whenever.*loses life.*you gain that much life',
+    # Literal same-number drain wording (Blood Artist, Zulaport Cutthroat,
+    # Siege Rhino, etc.) - "loses N life and you gain N life" in either order.
+    r'loses (?P<lifedrain_n1>\d+) life and[^.]*gains? (?P=lifedrain_n1) life',
+    r'gains? (?P<lifedrain_n2>\d+) life and[^.]*loses (?P=lifedrain_n2) life',
+]
+
+# Functional equivalents for ability words/keywords that Scryfall's Oracle
+# Tags recognize even when a card doesn't print the literal keyword (e.g.
+# unworded reprints, or an equivalent ability word from a later set).
+MORBID_TEXT_PATTERNS: List[str] = [
+    r'creatures?( that)? died this turn',
+    r'from the battlefield this turn',
+]
+
+HEROIC_TEXT_PATTERNS: List[str] = [
+    r'whenever you cast (a|an)[^.]*spell that targets (this creature|[^.]*you control)',
+    r'becomes the target of an instant or sorcery spell',
+]
+
+# Embalm/Eternalize (token-copy graveyard recursion) and self-tutor recursion
+RENEW_KEYWORDS: List[str] = ['Embalm', 'Eternalize']
+RENEW_TEXT_PATTERNS: List[str] = [
+    r'search your library for a card named',
+]
+
+JUMP_TEXT_PATTERNS: List[str] = [
+    r'gains? flying until end of turn',
+]
+
+UNDERGROWTH_TEXT_PATTERNS: List[str] = [
+    r'(number|count) of creature cards in',
+    r'creature cards in (your|their|all|each) graveyards?',
+]
+
+STRIVE_TEXT_PATTERNS: List[str] = [
+    r'costs? \{1\} more to cast for each target',
+    r'\bx target\b',
+]
+
+EXHAUST_TEXT_PATTERNS: List[str] = [
+    r'activate only once (each|per) turn',
+    r'power-up —',
+]
+
+# Imprint: a permanent gaining the exiled card's abilities/being recastable
+# as a copy - distinct from Impulse Draw (exile own top card, may play it).
+IMPRINT_TEXT_PATTERNS: List[str] = [
+    r'(all )?activated abilities of (the |that )?exiled card',
+    r'copy the exiled card',
+]
+
+LIVING_WEAPON_TEXT_PATTERNS: List[str] = [
+    r'create[^.]*creature token[^.]*then attach (this|it)',
+]
+
+ENRAGE_TEXT_PATTERNS: List[str] = [
+    r'whenever[^.]*\bis dealt (combat |noncombat )?damage\b',
+]
+
+PARADOX_TEXT_PATTERNS: List[str] = [
+    r'from anywhere other than your hand',
+]
+
+HELLBENT_TEXT_PATTERNS: List[str] = [
+    r'(you|an opponent|that player) (has|have) no cards in (your |their )?hand',
+]
+
+INFUSION_TEXT_PATTERNS: List[str] = [
+    r'if you gained life this turn',
+]
+
+INGEST_TEXT_PATTERNS: List[str] = [
+    r'exiles? the top card of (that player\'?s|target player\'?s|their|its) library',
+]
+
+SUPPORT_TEXT_PATTERNS: List[str] = [
+    r'\+1/\+1 counter on each of up to \w+ (other )?target creatures?',
+]
+
+# Tag name -> patterns for tag_for_keyword_functional_equivalents(). Renew
+# and Imprint are handled separately (keyword mask / AND-combined masks).
+KEYWORD_EQUIVALENT_TAG_PATTERNS: Dict[str, List[str]] = {
+    'Morbid': MORBID_TEXT_PATTERNS,
+    'Heroic': HEROIC_TEXT_PATTERNS,
+    'Jump': JUMP_TEXT_PATTERNS,
+    'Undergrowth': UNDERGROWTH_TEXT_PATTERNS,
+    'Strive': STRIVE_TEXT_PATTERNS,
+    'Exhaust': EXHAUST_TEXT_PATTERNS,
+    'Imprint': IMPRINT_TEXT_PATTERNS,
+    'Living Weapon': LIVING_WEAPON_TEXT_PATTERNS,
+    'Enrage': ENRAGE_TEXT_PATTERNS,
+    'Paradox': PARADOX_TEXT_PATTERNS,
+    'Hellbent': HELLBENT_TEXT_PATTERNS,
+    'Infusion': INFUSION_TEXT_PATTERNS,
+    'Ingest': INGEST_TEXT_PATTERNS,
+    'Support': SUPPORT_TEXT_PATTERNS,
+}
+
 
 # Constants for counterspell functionality
 COUNTERSPELL_TEXT_PATTERNS: List[str] = [
@@ -854,13 +1008,9 @@ COUNTERSPELL_TEXT_PATTERNS: List[str] = [
     'counter target',
     'counter that spell',
     'counter all',
-    'counter each',
-    'counter the next',
     'counters a spell',
-    'counters target',
     'return target spell',
     'exile target spell',
-    'counter unless',
     'unless its controller pays'
 ]
 
@@ -882,7 +1032,6 @@ COUNTERSPELL_EXCLUSION_PATTERNS: List[str] = [
     'counter from',
     'remove a counter',
     'move a counter',
-    'distribute counter',
     'proliferate'
 ]
 
@@ -1048,13 +1197,9 @@ BOARD_WIPE_EXCLUSION_PATTERNS: List[str] = [
     # exile each turn"), not a mass-effect target - excludes false positives
     # like Wild-Magic Sorcerer from mass_exile/mass_destruction matching.
     'destroy each turn',
-    'destroys each turn',
     'exile each turn',
-    'exiles each turn',
     'sacrifice each turn',
-    'sacrifices each turn',
     'return each turn',
-    'returns each turn',
     # Card name coincidence: "Exile All Hallow's Eve with two scream counters"
     # matches the bare 'exile all' mass-exile pattern because the card is
     # literally named "All Hallow's Eve", not because it exiles everything.
@@ -1073,11 +1218,8 @@ BOARD_WIPE_EXILE_TARGET_PATTERNS: List[str] = [
     'exile each nonland permanent',
     'exile all nontoken permanents',
     'exile all artifacts',
-    'exile each artifact',
     'exile all enchantments',
-    'exile each enchantment',
-    'exile all planeswalkers',
-    'exile each planeswalker'
+    'exile all planeswalkers'
 ]
 
 # "Return all/each ... card(s)" always refers to cards changing zones (from
@@ -1098,8 +1240,7 @@ BOARD_WIPE_BOUNCE_TARGET_PATTERNS: List[str] = [
     r"returns?\s+(all|each)\s+permanents?\b(?!\s*(and\s+[a-z'-]+\s+)?cards?\b)",
     r"returns?\s+(all|each)\s+nonland permanents?\b(?!\s*(and\s+[a-z'-]+\s+)?cards?\b)",
     r"returns?\s+(all|each)\s+artifacts?\b(?!\s*(and\s+[a-z'-]+\s+)?cards?\b)",
-    r"returns?\s+(all|each)\s+lands?\b(?!\s*(and\s+[a-z'-]+\s+)?cards?\b)",
-    r"returns?\s+(all|each)\s+tokens?\b(?!\s*(and\s+[a-z'-]+\s+)?cards?\b)"
+    r"returns?\s+(all|each)\s+lands?\b(?!\s*(and\s+[a-z'-]+\s+)?cards?\b)"
 ]
 
 # Constants for graveyard hate effects (denying/removing cards from graveyards).
@@ -1296,7 +1437,15 @@ RULEBREAKER_TEXT_SIGNALS: Final[list[str]] = [
 METADATA_TAG_ALLOWLIST: set[str] = {
     # Colorless commander filtering (M1)
     'Useless in Colorless',
-    
+
+    # Token/Counter/Kindred generic-payoff metadata (Roadmap 40)
+    # Surfaced by the deck builder for any matching '[X] Tokens'/'[X] Counters'/
+    # '{X} Kindred' theme selection, alongside the theme's own tagged cards.
+    'Token Multiplier',
+    'Token Modifier: Additive',
+    'Counter Multiplier',
+    'Kindred Support',
+
     # Kindred-specific protection metadata (from M2)
     # Format: "{CreatureType}s Gain Protection"
     # These are auto-generated for kindred-specific protection grants

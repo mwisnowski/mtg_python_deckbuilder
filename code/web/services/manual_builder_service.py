@@ -22,6 +22,7 @@ from deck_builder.builder_utils import (
     compute_color_source_matrix,
     compute_pip_density,
     fetch_land_allowed_for_colors,
+    is_theme_assist_card,
     parse_theme_tags,
     rulebreaker_pip_identity,
 )
@@ -421,6 +422,31 @@ def _card_role_labels(
     return labels
 
 
+def _theme_matches_for_row(
+    tags: List[str],
+    metadata_tags: Optional[List[str]],
+    selected_lower: set,
+    selected_lower_to_orig: Dict[str, str],
+) -> List[str]:
+    """Which of the deck's selected themes a card matches, for pool ranking/
+    categorization ("On-Brand", Creatures sort order, etc.).
+
+    Starts with a literal themeTags intersection, then also credits any
+    theme a card qualifies for via `is_theme_assist_card()` (e.g. a
+    Changeling creature counts toward any selected "{X} Kindred" theme even
+    though its own themeTags only ever list its literal printed type) -
+    without mutating the card's own tags.
+    """
+    matches = [t for t in tags if t.lower() in selected_lower]
+    matched_lower = {t.lower() for t in matches}
+    for slug_lower in selected_lower:
+        if slug_lower in matched_lower:
+            continue
+        if is_theme_assist_card(slug_lower, metadata_tags, tags):
+            matches.append(selected_lower_to_orig.get(slug_lower, slug_lower))
+    return matches
+
+
 def _land_is_utility(tags: List[str]) -> bool:
     """True if a Land card has a themeTag beyond baseline mana-fixing/ramp
     (e.g. Cycling, Sac Outlet) - splits Utility Lands from plain Lands.
@@ -577,11 +603,14 @@ def get_card_pool(sess: Dict[str, Any]) -> pd.DataFrame:
         lambda n: name_to_capped_tags.get(n, [])
     )
 
-    selected_themes = {t.lower() for t in (sess.get("tags") or [])}
+    selected_themes_raw = list(sess.get("tags") or [])
+    selected_themes = {t.lower() for t in selected_themes_raw}
+    selected_lower_to_orig = {t.lower(): t for t in selected_themes_raw}
     if selected_themes:
-        pool["_theme_matches"] = pool["_tags"].apply(
-            lambda tags: [t for t in tags if t.lower() in selected_themes]
-        )
+        pool["_theme_matches"] = [
+            _theme_matches_for_row(tags, meta, selected_themes, selected_lower_to_orig)
+            for tags, meta in zip(pool["_tags"], pool["_metadata_tags"])
+        ]
     else:
         pool["_theme_matches"] = [[] for _ in range(len(pool))]
 
@@ -1009,14 +1038,16 @@ def _lookup_card_rows(sess: Dict[str, Any], names: List[str]) -> Dict[str, Optio
         if mask.any():
             sub = df[mask]
             sub_lower = lower_col[mask]
-            selected_themes = {t.lower() for t in (sess.get("tags") or [])}
+            selected_themes_raw = list(sess.get("tags") or [])
+            selected_themes = {t.lower() for t in selected_themes_raw}
+            selected_lower_to_orig = {t.lower(): t for t in selected_themes_raw}
             for needle, idx in sub_lower.groupby(sub_lower).groups.items():
                 row = sub.loc[idx[0]].copy()
                 tags = parse_theme_tags(row.get("themeTags"))
                 row["_tags"] = tags
                 metadata_tags = parse_theme_tags(row.get("metadataTags"))
                 row["_metadata_tags"] = metadata_tags
-                theme_matches = [t for t in tags if t.lower() in selected_themes]
+                theme_matches = _theme_matches_for_row(tags, metadata_tags, selected_themes, selected_lower_to_orig)
                 row["_theme_matches"] = theme_matches
                 row["_role"] = _card_role(row.get("type"), tags, bool(theme_matches), metadata_tags)
                 for orig in needle_to_names[needle]:

@@ -470,9 +470,15 @@ def _tag_foundational_categories(df: pd.DataFrame, color: str) -> None:
     print('\n====================\n')
     add_creatures_to_tags(df, color)
     print('\n====================\n')
+    tag_for_kindred_support(df, color)
+    print('\n====================\n')
     tag_for_card_types(df, color)
     print('\n====================\n')
     tag_for_keywords(df, color)
+    print('\n====================\n')
+    tag_for_ferocious_condition(df, color)
+    print('\n====================\n')
+    tag_for_keyword_functional_equivalents(df, color)
     print('\n====================\n')
     tag_for_partner_effects(df, color)
     print('\n====================\n')
@@ -535,6 +541,8 @@ def _tag_strategic_themes(df: pd.DataFrame, color: str) -> None:
     tag_for_spellslinger(df, color)
     print('\n====================\n')
     tag_for_spree(df, color)
+    print('\n====================\n')
+    tag_for_modal_spells(df, color)
     print('\n====================\n')
     tag_for_ramp(df, color)
     print('\n====================\n')
@@ -850,7 +858,7 @@ def kindred_tagging(df: pd.DataFrame, color: str) -> None:
         creature_time = pd.Timestamp.now()
         logger.info(f'Creature type detection completed in {(creature_time - start_time).total_seconds():.2f}s')
         print('\n==========\n')
-        
+
         logger.info(f'Setting Outlaw creature type tags on {color}_cards.csv')
         outlaws = tag_constants.OUTLAW_TYPES
         df['creatureTypes'] = df.apply(
@@ -1048,6 +1056,44 @@ def add_creatures_to_tags(df: pd.DataFrame, color: str) -> None:
 
     logger.info(f'Creature types added to theme tags in {color}_cards.csv')
 
+def create_kindred_support_mask(df: pd.DataFrame) -> pd.Series:
+    """Create a boolean mask for cards that generically support whichever creature
+    type is chosen/declared, regardless of the deck's actual tribe (Roadmap 40,
+    Milestone 4). Excludes hoser/hate cards and ambiguous type-shifting utility
+    cards via tag_constants.KINDRED_SUPPORT_EXCLUSIONS.
+
+    Args:
+        df: DataFrame to search
+
+    Returns:
+        Boolean Series indicating which cards are generic kindred support
+    """
+    text_patterns = [
+        r'choose a creature type',
+        r'are every creature type',
+    ]
+    has_text = tag_utils.create_text_mask(df, text_patterns)
+    name_exclusions = tag_utils.create_name_mask(df, tag_constants.KINDRED_SUPPORT_EXCLUSIONS)
+
+    return has_text & ~name_exclusions
+
+def tag_for_kindred_support(df: pd.DataFrame, color: str) -> None:
+    """Tag cards with the generic 'Kindred Support' metadataTag (Roadmap 40,
+    Milestone 4), surfaced by the deck builder for any '{X} Kindred' theme.
+
+    Args:
+        df: DataFrame containing card data
+        color: Color identifier for logging purposes
+    """
+    try:
+        mask = create_kindred_support_mask(df)
+        tag_utils.tag_with_logging(
+            df, mask, ['Kindred Support'], 'Kindred support cards', color=color, logger=logger
+        )
+    except Exception as e:
+        logger.error(f'Error tagging kindred support effects: {str(e)}')
+        raise
+
 ## Add keywords to theme tags
 def tag_for_keywords(df: pd.DataFrame, color: str) -> None:
     """Tag cards based on their keywords using vectorized operations.
@@ -1125,6 +1171,69 @@ def tag_for_keywords(df: pd.DataFrame, color: str) -> None:
 
     except Exception as e:
         logger.error('Error tagging keywords: %s', str(e))
+        raise
+
+def create_ferocious_condition_mask(df: pd.DataFrame) -> pd.Series:
+    """Create a boolean mask for cards with a functional "power 4 or
+    greater" ferocious-style condition, even when the card doesn't print
+    the literal Ferocious ability word (e.g. Kiora, Behemoth Beckoner;
+    Garruk's Uprising). Mirrors Scryfall's broader functional 'ferocious'
+    Oracle Tag.
+
+    Args:
+        df: DataFrame to search
+
+    Returns:
+        Boolean Series indicating which cards have the ferocious condition
+    """
+    return tag_utils.create_text_mask(df, tag_constants.FEROCIOUS_TEXT_PATTERNS)
+
+def tag_for_ferocious_condition(df: pd.DataFrame, color: str) -> None:
+    """Tag cards whose ability functionally checks for a creature with
+    power 4 or greater, in addition to cards printing the literal Ferocious
+    ability word (already handled above via MTGJSON's keywords column).
+
+    Args:
+        df: DataFrame containing card data
+        color: Color identifier for logging purposes
+    """
+    try:
+        mask = create_ferocious_condition_mask(df)
+        tag_utils.tag_with_logging(
+            df, mask, ['Ferocious'], 'ferocious-condition cards', color=color, logger=logger
+        )
+    except Exception as e:
+        logger.error(f'Error in tag_for_ferocious_condition: {str(e)}')
+        raise
+
+def tag_for_keyword_functional_equivalents(df: pd.DataFrame, color: str) -> None:
+    """Tag cards whose text functionally matches an ability word/keyword
+    (Morbid, Heroic, Renew, Jump, Undergrowth, Strive, Exhaust, Imprint,
+    Living Weapon, Enrage, Paradox, Hellbent, Infusion, Ingest, Support)
+    even when the card doesn't print the literal keyword. Mirrors Scryfall's
+    broader functional Oracle Tags for these mechanics.
+
+    Args:
+        df: DataFrame containing card data
+        color: Color identifier for logging purposes
+    """
+    try:
+        for tag_name, patterns in tag_constants.KEYWORD_EQUIVALENT_TAG_PATTERNS.items():
+            mask = tag_utils.create_text_mask(df, patterns)
+            tag_utils.tag_with_logging(
+                df, mask, [tag_name], f'{tag_name} functional-equivalent cards', color=color, logger=logger
+            )
+
+        # Renew: Embalm/Eternalize keyword cards plus self-tutor recursion text
+        renew_mask = (
+            tag_utils.create_keyword_mask(df, tag_constants.RENEW_KEYWORDS)
+            | tag_utils.create_text_mask(df, tag_constants.RENEW_TEXT_PATTERNS)
+        )
+        tag_utils.tag_with_logging(
+            df, renew_mask, ['Renew'], 'Renew functional-equivalent cards', color=color, logger=logger
+        )
+    except Exception as e:
+        logger.error(f'Error in tag_for_keyword_functional_equivalents: {str(e)}')
         raise
 
 ## Sort any set tags
@@ -3038,6 +3147,61 @@ def create_token_modifier_mask(df: pd.DataFrame) -> pd.Series:
 
     return has_modifier & has_effect & ~name_exclusions
 
+def create_token_additive_mask(df: pd.DataFrame) -> pd.Series:
+    """Create a boolean mask for cards that add an extra/bonus token to any token
+    creation event, on top of (never instead of) whatever was already being created
+    (Roadmap 40, Milestone 2).
+
+    This is a distinct concept from create_token_modifier_mask()'s count-doublers and
+    from cards that fully replace the created token with a specific different type
+    (e.g. Divine Visitation -> Angel); those "changed type" cards need no new tag
+    since they already surface via their own specific creature/token-type tags.
+
+    Args:
+        df: DataFrame to search
+
+    Returns:
+        Boolean Series indicating which cards are generic additive token modifiers
+    """
+    additive_patterns = [
+        r'instead create one of each',
+        r'instead create a .{0,20}token and a .{0,20}token\b',
+        r'those tokens plus',
+    ]
+    has_additive = tag_utils.create_text_mask(df, additive_patterns)
+
+    # Conditional/one-off self-ability scaling triggers aren't standing replacement
+    # effects over all token creation, so they're excluded (e.g. Mr. House only adds
+    # a Treasure to its own die-roll trigger, on a high roll).
+    excluded_cards = ['mr. house, president and ceo']
+    name_exclusions = tag_utils.create_name_mask(df, excluded_cards)
+
+    return has_additive & ~name_exclusions
+
+def create_token_count_multiplier_mask(df: pd.DataFrame) -> pd.Series:
+    """Create a boolean mask for cards that double (or otherwise multiply) the
+    NUMBER of tokens created, while preserving what those tokens actually are
+    (Roadmap 40, Milestone 1).
+
+    This is intentionally narrower than create_token_modifier_mask(): that mask's
+    broad 'one or more ... instead/plus' phrasing also matches cards that change
+    a token's type (e.g. Divine Visitation -> Angel) or add a bonus token of a
+    different kind (e.g. Academy Manufactor); those cards only help decks built
+    around their specific type, so they're excluded here and don't get the
+    generic Token Multiplier metadataTag.
+
+    Args:
+        df: DataFrame to search
+
+    Returns:
+        Boolean Series indicating which cards are true count-doubling token effects
+    """
+    modifier_mask = create_token_modifier_mask(df)
+    multiplier_patterns = [r'twice', r'three times', r'double the number']
+    has_multiplier_word = tag_utils.create_text_mask(df, multiplier_patterns)
+
+    return modifier_mask & has_multiplier_word
+
 def create_tokens_matter_mask(df: pd.DataFrame) -> pd.Series:
     """Create a boolean mask for cards that care about tokens.
 
@@ -3259,6 +3423,8 @@ def tag_for_tokens(df: pd.DataFrame, color: str) -> None:
         # Build masks
         creature_mask = create_creature_token_mask(df)
         modifier_mask = create_token_modifier_mask(df)
+        count_multiplier_mask = create_token_count_multiplier_mask(df)
+        additive_mask = create_token_additive_mask(df)
         matters_mask = create_tokens_matter_mask(df)
         generic_mask = create_generic_token_creation_mask(df)
 
@@ -3273,6 +3439,8 @@ def tag_for_tokens(df: pd.DataFrame, color: str) -> None:
         rules = [
             {'mask': creature_mask, 'tags': ['Creature Tokens', 'Token Creation', 'Tokens Matter']},
             {'mask': modifier_mask, 'tags': ['Token Modification', 'Token Creation', 'Tokens Matter']},
+            {'mask': count_multiplier_mask, 'tags': ['Token Multiplier']},
+            {'mask': additive_mask, 'tags': ['Token Modifier: Additive']},
             {'mask': matters_mask, 'tags': ['Tokens Matter']},
             {'mask': spawn_scion_mask, 'tags': ['Aristocrats', 'Ramp']},
             {'mask': generic_mask, 'tags': ['Token Creation', 'Tokens Matter']},
@@ -3428,6 +3596,36 @@ def tag_for_spree(df: pd.DataFrame, color: str) -> None:
         logger.error('Error tagging Spree: %s', str(e))
         raise
 
+def create_modal_text_mask(df: pd.DataFrame) -> pd.Series:
+    """Create a boolean mask for cards with modal ("choose one/two/three/
+    four/five") spell structure, beyond just Spree cards. Mirrors
+    Scryfall's broader 'modal' Oracle Tag.
+
+    Args:
+        df: DataFrame to search
+
+    Returns:
+        Boolean Series indicating which cards have modal spell structure
+    """
+    return tag_utils.create_text_mask(df, tag_constants.MODAL_TEXT_PATTERNS)
+
+def tag_for_modal_spells(df: pd.DataFrame, color: str) -> None:
+    """Tag cards with modal ("choose one/two/three/four/five") structure as
+    'Modal', in addition to Spree cards (already tagged by tag_for_spree).
+
+    Args:
+        df: DataFrame containing card data
+        color: Color identifier for logging purposes
+    """
+    try:
+        mask = create_modal_text_mask(df)
+        tag_utils.tag_with_logging(
+            df, mask, ['Modal'], 'modal spells', color=color, logger=logger
+        )
+    except Exception as e:
+        logger.error(f'Error in tag_for_modal_spells: {str(e)}')
+        raise
+
 def tag_for_explore_and_map(df: pd.DataFrame, color: str) -> None:
     """Tag Explore and Map token interactions.
 
@@ -3554,6 +3752,10 @@ def tag_for_life_matters(df: pd.DataFrame, color: str) -> None:
         logger.info('Completed lifelink tagging')
         print('\n==========\n')
 
+        tag_for_lifedrain(df, color)
+        logger.info('Completed lifedrain tagging')
+        print('\n==========\n')
+
         tag_for_life_loss(df, color)
         logger.info('Completed life loss tagging')
         print('\n==========\n')
@@ -3628,6 +3830,38 @@ def tag_for_lifelink(df: pd.DataFrame, color: str) -> None:
         )
     except Exception as e:
         logger.error(f'Error tagging lifelink effects: {str(e)}')
+        raise
+
+def create_lifedrain_text_mask(df: pd.DataFrame) -> pd.Series:
+    """Create a boolean mask for "opponent loses life, you gain that much
+    life" drain effects (Gray Merchant of Asphodel, Sanguine Bond, Shard of
+    the Nightbringer, etc).
+
+    Args:
+        df: DataFrame to search
+
+    Returns:
+        Boolean Series indicating which cards have lifedrain text patterns
+    """
+    return tag_utils.create_text_mask(df, tag_constants.LIFEDRAIN_TEXT_PATTERNS)
+
+def tag_for_lifedrain(df: pd.DataFrame, color: str) -> None:
+    """Tag cards with 'opponent loses life, you gain that much life' drain
+    effects as 'Lifedrain', distinct from the Lifelink keyword and plain
+    Lifegain.
+
+    Args:
+        df: DataFrame containing card data
+        color: Color identifier for logging purposes
+    """
+    try:
+        mask = create_lifedrain_text_mask(df)
+        tag_utils.tag_with_logging(
+            df, mask, ['Lifedrain', 'Lifegain', 'Life Matters'],
+            'Lifedrain cards', color=color, logger=logger
+        )
+    except Exception as e:
+        logger.error(f'Error tagging lifedrain effects: {str(e)}')
         raise
 
 def tag_for_life_loss(df: pd.DataFrame, color: str) -> None:
@@ -3743,6 +3977,10 @@ def tag_for_counters(df: pd.DataFrame, color: str) -> None:
 
         tag_for_special_counters(df, color)
         logger.info('Completed special counter tagging')
+        print('\n==========\n')
+
+        tag_for_counter_multipliers(df, color)
+        logger.info('Completed counter multiplier tagging')
         print('\n==========\n')
         duration = pd.Timestamp.now() - start_time
         logger.info(f'Completed all counter-related tagging in {duration.total_seconds():.2f}s')
@@ -3863,6 +4101,48 @@ def tag_for_special_counters(df: pd.DataFrame, color: str) -> None:
         )
     except Exception as e:
         logger.error(f'Error tagging special counter effects: {str(e)}')
+        raise
+
+def create_counter_multiplier_mask(df: pd.DataFrame) -> pd.Series:
+    """Create a boolean mask for cards that generically increase the number of
+    counters placed by any effect (Roadmap 40, Milestone 3).
+
+    Two independent shapes are combined: replacement-effect phrasing ("if one or
+    more counters would be put ... instead"/"that many plus one") and static/
+    activated "double the number of counters" phrasing.
+
+    Args:
+        df: DataFrame to search
+
+    Returns:
+        Boolean Series indicating which cards are generic counter multipliers
+    """
+    replacement_patterns = [
+        r'one or more counters would be put.{0,80}(instead|that many plus one)',
+        r'one or more \+1/\+1 counters would be put.{0,80}(instead|that many plus one)',
+    ]
+    double_pattern = r'double the number of (each kind of )?counter'
+
+    has_replacement = tag_utils.create_text_mask(df, replacement_patterns)
+    has_double = tag_utils.create_text_mask(df, double_pattern)
+
+    return has_replacement | has_double
+
+def tag_for_counter_multipliers(df: pd.DataFrame, color: str) -> None:
+    """Tag cards with the generic 'Counter Multiplier' metadataTag (Roadmap 40,
+    Milestone 3), surfaced by the deck builder for any '[X] Counters' theme.
+
+    Args:
+        df: DataFrame containing card data
+        color: Color identifier for logging purposes
+    """
+    try:
+        mask = create_counter_multiplier_mask(df)
+        tag_utils.tag_with_logging(
+            df, mask, ['Counter Multiplier'], 'Counter multiplier cards', color=color, logger=logger
+        )
+    except Exception as e:
+        logger.error(f'Error tagging counter multiplier effects: {str(e)}')
         raise
 
 ### Voltron
@@ -6181,7 +6461,8 @@ def tag_for_planeswalkers(df: pd.DataFrame, color: str) -> None:
 
 ## Reanimator
 def create_reanimator_text_mask(df: pd.DataFrame) -> pd.Series:
-    """Create a boolean mask for cards with reanimator-related text patterns.
+    """Create a boolean mask for cards that put a creature/permanent card
+    from a graveyard onto the battlefield (true reanimation).
 
     Args:
         df: DataFrame to search
@@ -6189,58 +6470,18 @@ def create_reanimator_text_mask(df: pd.DataFrame) -> pd.Series:
     Returns:
         Boolean Series indicating which cards have reanimator text patterns
     """
-    text_patterns = [
-        'descended',
-        'discard your hand',
-        'from a graveyard',
-        'from your graveyard',
-        'in a graveyard',
-        'into a graveyard', 
-        'leave a graveyard',
-        'in your graveyard',
-        'into your graveyard',
-        'leave your graveyard'
-    ]
-    return tag_utils.create_text_mask(df, text_patterns)
-
-def create_reanimator_keyword_mask(df: pd.DataFrame) -> pd.Series:
-    """Create a boolean mask for cards with reanimator-related keywords.
-
-    Args:
-        df: DataFrame to search
-
-    Returns:
-        Boolean Series indicating which cards have reanimator keywords
-    """
-    keyword_patterns = [
-        'Blitz',
-        'Connive', 
-        'Descend',
-        'Escape',
-        'Flashback',
-        'Mill'
-    ]
-    return tag_utils.create_keyword_mask(df, keyword_patterns)
-
-def create_reanimator_type_mask(df: pd.DataFrame) -> pd.Series:
-    """Create a boolean mask for cards with reanimator-related creature types.
-
-    Args:
-        df: DataFrame to search
-
-    Returns:
-        Boolean Series indicating which cards have reanimator creature types
-    """
-    return df['creatureTypes'].apply(lambda x: 'Zombie' in x if isinstance(x, list) else False)
+    return tag_utils.create_text_mask(df, tag_constants.REANIMATE_TEXT_PATTERNS)
 
 def tag_for_reanimate(df: pd.DataFrame, color: str) -> None:
-    """Tag cards that care about graveyard recursion using vectorized operations.
+    """Tag cards that put a creature or permanent card from a graveyard onto
+    the battlefield (true reanimation effects).
 
-    This function identifies and tags cards with reanimator effects including:
-    - Cards that interact with graveyards
-    - Cards with reanimator-related keywords (Blitz, Connive, etc)
-    - Cards that loot or mill
-    - Zombie tribal synergies
+    Distinct from 'Graveyard Recursion' (returning/casting cards from a
+    graveyard without putting them onto the battlefield - see
+    tag_for_graveyard_recursion) and from generic graveyard-interaction
+    cards (mill, surveil, discard, Zombie tribal, etc.), which merely put
+    cards into or reference a graveyard without bringing anything back out
+    of it.
 
     Args:
         df: DataFrame containing card data
@@ -6250,12 +6491,9 @@ def tag_for_reanimate(df: pd.DataFrame, color: str) -> None:
         ValueError: If required DataFrame columns are missing
     """
     try:
-        required_cols = {'text', 'themeTags', 'keywords', 'creatureTypes'}
+        required_cols = {'text', 'themeTags'}
         tag_utils.validate_dataframe_columns(df, required_cols)
-        text_mask = create_reanimator_text_mask(df)
-        keyword_mask = create_reanimator_keyword_mask(df)
-        type_mask = create_reanimator_type_mask(df)
-        final_mask = text_mask | keyword_mask | type_mask
+        final_mask = create_reanimator_text_mask(df)
 
         # Apply tags via utility
         tag_utils.tag_with_logging(
@@ -7519,9 +7757,11 @@ def tag_for_phasing(df: pd.DataFrame, color: str) -> None:
             }
         ])
         
-        # Add phasing scope metadata tags and removal tags
+        # Add phasing scope metadata tags, protection/board wipe/removal tags
         scope_count = 0
         removal_count = 0
+        protection_count = 0
+        board_wipe_count = 0
         for idx, row in df[phasing_mask].iterrows():
             text = str(row.get('text', ''))
             name = str(row.get('name', ''))
@@ -7546,6 +7786,16 @@ def tag_for_phasing(df: pd.DataFrame, color: str) -> None:
                     updated_tags.append('Removal')
                     removal_count += 1
                 
+                # Phasing your own/self permanents out is a protective effect
+                if scope_tags & {"Your Permanents: Phasing", "Self: Phasing"}:
+                    updated_tags.append('Protective Effects')
+                    protection_count += 1
+                
+                # Phasing everything out (no ownership qualifier) is a board wipe
+                if "Blanket: Phasing" in scope_tags:
+                    updated_tags.append('Board Wipes')
+                    board_wipe_count += 1
+                
                 df.at[idx, 'themeTags'] = updated_tags
                 scope_count += 1
         
@@ -7553,6 +7803,10 @@ def tag_for_phasing(df: pd.DataFrame, color: str) -> None:
             logger.info(f'Applied phasing scope tags to {scope_count} cards (will be moved to metadata by partition)')
         if removal_count > 0:
             logger.info(f'Applied Removal tag to {removal_count} cards with opponent-targeting phasing')
+        if protection_count > 0:
+            logger.info(f'Applied Protective Effects tag to {protection_count} cards with self/your-permanents phasing')
+        if board_wipe_count > 0:
+            logger.info(f'Applied Board Wipes tag to {board_wipe_count} cards with blanket phasing')
 
         # Log results
         logger.info(f'Tagged {phasing_mask.sum()} cards with phasing effects')

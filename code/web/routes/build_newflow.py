@@ -25,6 +25,7 @@ from ..app import (
 from ..services.build_utils import (
     step5_ctx_from_result,
     start_ctx_from_session,
+    apply_deck_view_redirect,
 )
 from ..app import templates
 from deck_builder import builder_constants as bc
@@ -1280,6 +1281,7 @@ async def build_new_submit(
         ctx = step5_ctx_from_result(request, sess, res, status_text=status, show_skipped=False)
         resp = templates.TemplateResponse("build/_step5.html", ctx)
         resp.set_cookie("sid", sid, httponly=True, samesite="lax")
+        apply_deck_view_redirect(resp, ctx)
         return resp
 
 
@@ -1468,6 +1470,7 @@ def quick_build_progress(request: Request):
             # Tell HTMX to target #wizard and swap innerHTML (keeps #wizard in DOM for subsequent interactions)
             response.headers["HX-Retarget"] = "#wizard"
             response.headers["HX-Reswap"] = "innerHTML"
+            apply_deck_view_redirect(response, ctx)
             return response
         # Fallback if no result yet
         return HTMLResponse('Build complete. Please refresh.')

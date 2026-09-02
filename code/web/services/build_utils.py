@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from typing import Any, Dict, Iterable, Optional
 from fastapi import Request
 from ..services import owned_store
@@ -490,6 +491,7 @@ def step5_ctx_from_result(
         "n": res.get("total"),
         "csv_path": res.get("csv_path") if done else None,
         "txt_path": res.get("txt_path") if done else None,
+        "deck_view_name": os.path.basename(res["csv_path"]) if done and res.get("csv_path") else None,
         "summary": res.get("summary") if done else None,
         "compliance": res.get("compliance") if done else None,
         "show_skipped": bool(show_skipped),
@@ -581,6 +583,20 @@ def step5_ctx_from_result(
         ctx.setdefault("price_histogram_chart", None)
 
     return ctx
+
+
+def apply_deck_view_redirect(resp: Any, ctx: Dict[str, Any]) -> None:
+    """Tell htmx to navigate to the finished deck's summary page once a build completes.
+
+    htmx follows the HX-Redirect response header with a full page navigation
+    (ignoring the response body), so the browser lands on the same page a
+    user would reach from Finished Decks instead of staying on the builder.
+    """
+    status = ctx.get("status")
+    deck_view_name = ctx.get("deck_view_name")
+    if deck_view_name and status and str(status).startswith("Build complete"):
+        from urllib.parse import quote
+        resp.headers["HX-Redirect"] = f"/decks/view?name={quote(str(deck_view_name))}&section=mine"
 
 
 def _apply_budget_review_ctx(sess: dict, res: dict, ctx: dict) -> None:

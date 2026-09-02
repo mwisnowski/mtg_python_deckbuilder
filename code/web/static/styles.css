@@ -949,16 +949,8 @@ video {
   border-radius: 0.5rem;
 }
 
-.rounded-md {
-  border-radius: 0.375rem;
-}
-
 .border {
   border-width: 1px;
-}
-
-.border-0 {
-  border-width: 0px;
 }
 
 .border-\[var\(--border\)\] {
@@ -973,11 +965,6 @@ video {
 .bg-gray-50 {
   --tw-bg-opacity: 1;
   background-color: rgb(249 250 251 / var(--tw-bg-opacity, 1));
-}
-
-.bg-gray-700 {
-  --tw-bg-opacity: 1;
-  background-color: rgb(55 65 81 / var(--tw-bg-opacity, 1));
 }
 
 .p-0 {
@@ -1010,11 +997,6 @@ video {
 .py-0\.5 {
   padding-top: 0.125rem;
   padding-bottom: 0.125rem;
-}
-
-.py-1 {
-  padding-top: 0.25rem;
-  padding-bottom: 0.25rem;
 }
 
 .py-3 {
@@ -1087,11 +1069,6 @@ video {
 
 .text-\[var\(--text\)\] {
   color: var(--text);
-}
-
-.text-gray-200 {
-  --tw-text-opacity: 1;
-  color: rgb(229 231 235 / var(--tw-text-opacity, 1));
 }
 
 .text-gray-500 {
@@ -3174,6 +3151,60 @@ img.lqip.loaded {
   max-width: 100%;
 }
 
+/* Tag/theme flag-value autocomplete dropdown (search bars: card browser,
+   owned library, card detail quick search) */
+
+.autocomplete-container {
+  position: relative;
+}
+
+.autocomplete-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-top: none;
+  border-radius: 0 0 6px 6px;
+  max-height: 300px;
+  overflow-y: auto;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+  color: var(--text);
+}
+
+.autocomplete-dropdown:empty {
+  display: none;
+}
+
+.autocomplete-item {
+  padding: .75rem;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border);
+  transition: background 0.15s;
+}
+
+.autocomplete-item:last-child {
+  border-bottom: none;
+}
+
+.autocomplete-item:hover, .autocomplete-item.selected {
+  background: var(--bg);
+}
+
+.autocomplete-item.selected {
+  border-left: 3px solid var(--ring);
+  padding-left: calc(.75rem - 3px);
+}
+
+.autocomplete-empty {
+  padding: .75rem;
+  text-align: center;
+  color: var(--muted);
+  font-size: .85rem;
+}
+
 .card-search-wrapper input[type="search"] {
   width: 100%;
   padding: 0.5rem 0.75rem;
@@ -4332,6 +4363,24 @@ img.lqip.loaded {
 }
 
 /* --- End Card Detail Page Layout ----------------------------------------- */
+
+.card-detail-top-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.card-detail-top-bar .back-button {
+  margin-bottom: 0;
+  flex-shrink: 0;
+}
+
+.card-detail-search-form {
+  flex: 1;
+  min-width: 240px;
+}
 
 .back-button {
   display: inline-flex;

@@ -1,3 +1,16 @@
+<script>
+// Remove any existing modal to prevent duplicates. Runs before any other
+// script in this fragment (e.g. the ideals sliders' script), so those
+// scripts don't bind to stale duplicate elements sharing the same ids.
+(function() {
+  var allModals = document.querySelectorAll('#new-deck-modal');
+  if (allModals.length > 1) {
+    for (var i = 0; i < allModals.length - 1; i++) {
+      allModals[i].remove();
+    }
+  }
+})();
+</script>
 <div class="modal modal-overlay" id="new-deck-modal" role="dialog" aria-modal="true" aria-labelledby="newDeckTitle">
   <div class="modal-backdrop"></div>
   <div class="modal-content">
@@ -1685,19 +1698,7 @@
 }
 </style>
 
-<script>
-// Remove any existing modal to prevent duplicates
-(function() {
-  // Find all modals with the same ID
-  var allModals = document.querySelectorAll('#new-deck-modal');
-  // If there's more than one, remove all but the last (newest) one
-  if (allModals.length > 1) {
-    for (var i = 0; i < allModals.length - 1; i++) {
-      allModals[i].remove();
-    }
-  }
-})();
-</script>
+
 
 <script>
 // Multi-copy archetype popups — include-confirm and exclude-conflict

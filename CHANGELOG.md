@@ -9,6 +9,22 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 
 ## [Unreleased]
 ### Added
+_No unreleased changes yet_
+
+### Changed
+_No unreleased changes yet_
+
+### Fixed
+_No unreleased changes yet_
+
+### Removed
+_No unreleased changes yet_
+
+### Security
+_No unreleased changes yet_
+
+## [5.12.0] - 2026-09-02
+### Added
 - Tagging: cards that generically double token counts (e.g. Doubling Season, Anointed Procession) are now tagged `Token Multiplier`, so they surface for any "[X] Tokens" Deck Builder theme, even if they weren't tagged for that specific token type.
 - Tagging: cards that add a bonus token on top of what's created, generically (e.g. Academy Manufactor, Chatterfang) are now tagged `Token Modifier: Additive`, so they also surface for any "[X] Tokens" Deck Builder theme.
 - Tagging: cards that generically double counter counts (e.g. Gilder Bairn) are now tagged `Counter Multiplier`, so they surface for any "[X] Counters" Deck Builder theme.
@@ -29,12 +45,6 @@ This format follows Keep a Changelog principles and aims for Semantic Versioning
 - Deck Builder: removed the old step1-4 wizard routes and templates (commander search, theme/partner selection, ideal counts, owned-card review), which were leftover dead code from before the current modal-based "Build a New Deck" flow and were only reachable through the broken "Back"/"Edit in Review" links. Also removed the equally broken "Edit in Review" link on the build results page for the same reason.
 - Deck Builder: reopening the "Build a New Deck" modal via the "New build" button mid-session (without a full page reload) caused the Ideal Counts sliders' number displays to silently stop updating when dragged (they'd keep showing their default value, e.g. Ideal Max Creatures stuck at 28, even after moving the slider). The modal's Ideal Counts script re-runs every time the modal is opened, but its top-level variable declarations were only safe to run once per page load; the second run threw a silent `already been declared` error that aborted the whole script before it could wire up the sliders. The script is now self-contained so it can safely re-run on every modal open.
 - Tagging: the `Lifedrain` tag only recognized "opponent loses life, you gain life equal to/that much life" relative-reference wording, so the large number of classic drain cards phrased with a literal repeated number instead (e.g. Blood Artist, Zulaport Cutthroat, Cruel Celebrant, Siege Rhino, Retreat to Hagra: "each opponent loses 1 life and you gain 1 life") were never tagged at all, undercounting Lifedrain/Aristocrats theme pools. Added patterns for both "loses N... gains N" and "gains N... loses N" phrasing orders; a full pipeline re-tag was run to apply the corrected tags (252 cards now tagged `Lifedrain`, up from 45).
-
-### Removed
-_No unreleased changes yet_
-
-### Security
-_No unreleased changes yet_
 
 ## [5.11.3] - 2026-08-26
 ### Fixed

@@ -91,6 +91,14 @@
   </div>
   
   <script>
+  (function() {
+    // Wrapped in an IIFE because this fragment (and its inline script) can be
+    // re-inserted into the live DOM multiple times per page load (e.g. the
+    // "New build" button re-fetches and re-runs this same script). Top-level
+    // const/let declarations share the page's global lexical scope across
+    // separate <script> executions, so without this wrapper the second
+    // execution throws "Identifier '...' has already been declared", which
+    // aborts the whole script and silently breaks every ideal-count slider.
     // Rulebreaker (Whtz) deck-size-aware ideal scaling: mirrors
     // builder_utils.scale_ideal_counts_for_deck_size() so sliders can show
     // real target numbers live, without a hidden backend re-scale at build time.
@@ -325,5 +333,6 @@
     updateCreatureBounds();
     updateLegacyDisabled();
     validateIdealCounts();
+  })();
   </script>
 </fieldset>

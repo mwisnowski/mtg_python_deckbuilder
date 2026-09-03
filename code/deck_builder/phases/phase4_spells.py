@@ -601,8 +601,11 @@ class SpellAdditionMixin:
                 theme_tags = row.get('_ltags', [])
                 meta_tags = row.get('_meta_tags', [])
                 
-                # First check if it has general protection tag
-                has_protection = any('protection' in t for t in theme_tags)
+                # First check if it has general protection tag. Cards are also
+                # marked with the literal 'Protective Effects' tag (hexproof/
+                # ward/shroud/indestructible/phasing grants), which doesn't
+                # contain the substring "protection".
+                has_protection = any('protection' in t or t == 'protective effects' for t in theme_tags)
                 if not has_protection:
                     return False
                 
@@ -630,11 +633,17 @@ class SpellAdditionMixin:
                 # ALWAYS exclude type-specific grants (too narrow for general protection)
                 if meta_tags:
                     # Has metadata - use it for filtering
-                    # Exclude if type-specific OR self/opponent
-                    if has_type_specific or has_excluded_scope:
+                    if has_type_specific:
                         return False
-                    # Otherwise include if board-relevant
-                    return has_board_scope
+                    # Board-relevant scope wins even if the card also has a
+                    # Self/Opponent scope from another mode (e.g. dual
+                    # Protection+Removal phasing cards like Brokers Confluence,
+                    # Galadriel's Dismissal), since it still protects your board.
+                    if has_board_scope:
+                        return True
+                    if has_excluded_scope:
+                        return False
+                    return False
                 else:
                     # No metadata - legacy card, include by default
                     return True
@@ -642,13 +651,13 @@ class SpellAdditionMixin:
             pool = df[df.apply(is_board_relevant_protection, axis=1)]
             
             # Log scope filtering stats
-            original_count = len(df[df['_ltags'].apply(lambda tags: any('protection' in t for t in tags))])
+            original_count = len(df[df['_ltags'].apply(lambda tags: any('protection' in t or t == 'protective effects' for t in tags))])
             filtered_count = len(pool)
             if original_count > filtered_count:
                 self.output_func(f"Protection scope filter: {filtered_count}/{original_count} cards (excluded {original_count - filtered_count} self-only/opponent cards)")
         else:
             # Legacy behavior: include all cards with 'protection' tag
-            pool = df[df['_ltags'].apply(lambda tags: any('protection' in t for t in tags))]
+            pool = df[df['_ltags'].apply(lambda tags: any('protection' in t or t == 'protective effects' for t in tags))]
         
         pool = pool[~pool['type'].fillna('').str.contains('Land', case=False, na=False)]
         commander_name = getattr(self, 'commander', None)
@@ -672,7 +681,7 @@ class SpellAdditionMixin:
         existing = 0
         for name, entry in self.card_library.items():
             tags = [str(t).lower() for t in entry.get('Tags', [])]
-            if any('protection' in t for t in tags):
+            if any('protection' in t or t == 'protective effects' for t in tags):
                 existing += 1
         to_add, _bonus = bu.compute_adjusted_target(
             'Protection',
@@ -730,6 +739,12 @@ class SpellAdditionMixin:
         added = 0
         added_names: List[str] = []
         skipped_cap = 0
+        equip_aura_added = 0
+        skipped_equip_aura_cap = 0
+        equip_aura_cap = (
+            self.rng.randint(bc.PROTECTION_EQUIPMENT_AURA_CAP_MIN, bc.PROTECTION_EQUIPMENT_AURA_CAP_MAX)
+            if getattr(self, 'rng', None) else bc.PROTECTION_EQUIPMENT_AURA_CAP_MAX
+        )
         for _, r in pool.iterrows():
             if added >= target:
                 break
@@ -738,6 +753,10 @@ class SpellAdditionMixin:
                 continue
             if bu.is_creature_row(r) and bu.creature_room_remaining(self) <= 0:
                 skipped_cap += 1
+                continue
+            is_equip_aura = bu.is_equipment_or_aura_row(r)
+            if is_equip_aura and equip_aura_added >= equip_aura_cap:
+                skipped_equip_aura_cap += 1
                 continue
             self.add_card(
                 nm,
@@ -751,9 +770,13 @@ class SpellAdditionMixin:
             already.add(nm.lower())
             added += 1
             added_names.append(nm)
+            if is_equip_aura:
+                equip_aura_added += 1
         self.output_func(f"Added Protection This Pass: {added}/{target}{' (dataset shortfall)' if added < target else ''}")
         if skipped_cap:
             self.output_func(f"Protection: skipped {skipped_cap} creature-typed card(s) at the creature cap.")
+        if skipped_equip_aura_cap:
+            self.output_func(f"Protection: skipped {skipped_equip_aura_cap} equipment/aura card(s) beyond the {equip_aura_cap}-piece cap.")
         if added_names:
             self.output_func('Protection Cards Added:')
             for nm in added_names:
@@ -825,6 +848,7 @@ class SpellAdditionMixin:
             if combine_mode == 'AND' and len(selected_tags_lower) > 1:
                 if (spells_df['_multiMatch'] >= 2).any():
                     subset = subset[subset['_multiMatch'] >= 2]
+            subset = bu.expand_theme_subset_with_metadata(subset, spells_df, slug)
             if subset.empty:
                 continue
             sort_cols: List[str] = []

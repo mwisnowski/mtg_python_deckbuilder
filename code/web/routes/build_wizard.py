@@ -13,16 +13,17 @@ Extracted from build.py as part of Phase 3 modularization (Roadmap 9 M1).
 from __future__ import annotations
 
 from fastapi import APIRouter, Request, Form, Query
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse
 from typing import Any
 
-from ..app import templates, ENABLE_PARTNER_MECHANICS, THEME_POOL_SECTIONS
+from ..app import templates
 from ..services.build_utils import (
     step5_base_ctx,
     step5_ctx_from_result,
     step5_error_ctx,
     step5_empty_ctx,
     start_ctx_from_session,
+    apply_deck_view_redirect,
     owned_set as owned_set_helper,
     builder_present_names,
     builder_display_map,
@@ -30,10 +31,7 @@ from ..services.build_utils import (
 )
 from ..services import orchestrator as orch
 from ..services.tasks import get_session, new_sid
-from ..services.theme_catalog_loader import load_index, slugify
-from deck_builder import builder_constants as bc
 from ..services.combo_utils import detect_all as _detect_all
-from .build_partners import _partner_ui_context, _resolve_partner_selection
 from .build_multicopy import _rebuild_ctx_with_multicopy
 
 router = APIRouter()
@@ -92,71 +90,6 @@ def _step5_summary_placeholder_html(token: int, *, message: str | None = None) -
     )
 
 
-def _prepare_step2_theme_data(tags: list[str], recommended: list[str]) -> tuple[list[str], list[str], dict[str, int]]:
-    """
-    Load pool size data and sort themes for Step 2 display (R21).
-    
-    Returns:
-        Tuple of (sorted_tags, sorted_recommended, pool_size_dict)
-    """
-    import logging
-    logger = logging.getLogger(__name__)
-    
-    # Load theme pool size data (R21 M1)
-    try:
-        theme_index = load_index()
-        pool_size_by_slug = theme_index.pool_size_by_slug
-    except Exception as e:
-        logger.warning(f"Failed to load theme index for pool sizes: {e}")
-        pool_size_by_slug = {}
-    
-    # Sort themes by pool size (descending), then alphabetically (R21 M1)
-    def sort_by_pool_size(theme_list: list[str]) -> list[str]:
-        """Sort themes by pool size (desc), then alphabetically."""
-        return sorted(
-            theme_list,
-            key=lambda t: (-pool_size_by_slug.get(slugify(t), 0), t.lower())
-        )
-    
-    tags_sorted = sort_by_pool_size(tags)
-    recommended_sorted = sort_by_pool_size(recommended)
-    
-    return tags_sorted, recommended_sorted, pool_size_by_slug
-
-
-def _section_themes_by_pool_size(themes: list[str], pool_size: dict[str, int]) -> list[dict[str, Any]]:
-    """
-    Group themes into sections by pool size (R21 enhancement).
-    
-    Thresholds:
-    - Vast: 1000+
-    - Large: 500-999
-    - Moderate: 200-499
-    - Small: 50-199
-    - Tiny: <50
-    
-    Returns:
-        List of section dicts with 'label' and 'themes' keys
-    """
-    sections = [
-        {"label": "Vast", "min": 1000, "max": 9999999, "themes": []},
-        {"label": "Large", "min": 500, "max": 999, "themes": []},
-        {"label": "Moderate", "min": 200, "max": 499, "themes": []},
-        {"label": "Small", "min": 50, "max": 199, "themes": []},
-        {"label": "Tiny", "min": 0, "max": 49, "themes": []},
-    ]
-    
-    for theme in themes:
-        theme_pool = pool_size.get(slugify(theme), 0)
-        for section in sections:
-            if section["min"] <= theme_pool <= section["max"]:
-                section["themes"].append(theme)
-                break
-    
-    # Remove empty sections
-    return [s for s in sections if s["themes"]]
-
-
 def _current_builder_summary(sess: dict) -> Any | None:
     """Get current builder's deck summary."""
     try:
@@ -188,192 +121,6 @@ def _get_current_deck_names(sess: dict) -> list[str]:
         return []
 
 
-# ============================================================================
-# Step 1: Commander Selection
-# ============================================================================
-
-@router.get("/step1", response_class=HTMLResponse)
-async def build_step1(request: Request) -> HTMLResponse:
-    return RedirectResponse("/build", status_code=302)
-
-
-@router.post("/step1", response_class=HTMLResponse)
-async def build_step1_search(request: Request) -> HTMLResponse:
-    return RedirectResponse("/build", status_code=302)
-    candidates = []
-    if query:
-        candidates = orch.commander_candidates(query, limit=10)
-        # Optional auto-select at a stricter threshold
-        if auto_enabled and candidates and len(candidates[0]) >= 2 and int(candidates[0][1]) >= 98:
-            top_name = candidates[0][0]
-            res = orch.commander_select(top_name)
-            if res.get("ok"):
-                sid = request.cookies.get("sid") or new_sid()
-                sess = get_session(sid)
-                sess["last_step"] = 2
-                commander_name = res.get("name")
-                gc_flag = commander_name in getattr(bc, 'GAME_CHANGERS', [])
-                
-                tags_raw = orch.tags_for_commander(commander_name)
-                recommended_raw = orch.recommended_tags_for_commander(commander_name)
-                tags_sorted, recommended_sorted, pool_size = _prepare_step2_theme_data(tags_raw, recommended_raw)
-                
-                # R21: Section themes by pool size if enabled
-                tag_sections = []
-                recommended_sections = []
-                if THEME_POOL_SECTIONS:
-                    tag_sections = _section_themes_by_pool_size(tags_sorted, pool_size)
-                    recommended_sections = _section_themes_by_pool_size(recommended_sorted, pool_size)
-                
-                context = {
-                    "request": request,
-                    "commander": res,
-                    "tags": tags_sorted,
-                    "recommended": recommended_sorted,
-                    "recommended_reasons": orch.recommended_tag_reasons_for_commander(commander_name),
-                    "brackets": orch.bracket_options(),
-                    "gc_commander": gc_flag,
-                    "selected_bracket": (3 if gc_flag else None),
-                    "clear_persisted": True,
-                    "pool_size": pool_size,
-                    "use_sections": THEME_POOL_SECTIONS,
-                    "tag_sections": tag_sections,
-                    "recommended_sections": recommended_sections,
-                }
-                context.update(
-                    _partner_ui_context(
-                        commander_name,
-                        partner_enabled=False,
-                        secondary_selection=None,
-                        background_selection=None,
-                        combined_preview=None,
-                        warnings=None,
-                        partner_error=None,
-                        auto_note=None,
-                    )
-                )
-                resp = templates.TemplateResponse("build/_step2.html", context)
-                resp.set_cookie("sid", sid, httponly=True, samesite="lax")
-                return resp
-    sid = request.cookies.get("sid") or new_sid()
-    sess = get_session(sid)
-    sess["last_step"] = 1
-    resp = templates.TemplateResponse(
-        "build/_step1.html",
-        {
-            "request": request,
-            "query": query,
-            "candidates": candidates,
-            "auto": auto_enabled,
-            "active": active,
-            "count": len(candidates) if candidates else 0,
-        },
-    )
-    resp.set_cookie("sid", sid, httponly=True, samesite="lax")
-    return resp
-
-
-@router.post("/step1/inspect", response_class=HTMLResponse)
-async def build_step1_inspect(request: Request) -> HTMLResponse:
-    return RedirectResponse("/build", status_code=302)
-    info = orch.commander_inspect(name)
-    resp = templates.TemplateResponse(
-        "build/_step1.html",
-        {"request": request, "inspect": info, "selected": name, "tags": orch.tags_for_commander(name)},
-    )
-    resp.set_cookie("sid", sid, httponly=True, samesite="lax")
-    return resp
-
-
-@router.post("/step1/confirm", response_class=HTMLResponse)
-async def build_step1_confirm(request: Request) -> HTMLResponse:
-    return RedirectResponse("/build", status_code=302)
-    if not res.get("ok"):
-        sid = request.cookies.get("sid") or new_sid()
-        sess = get_session(sid)
-        sess["last_step"] = 1
-        resp = templates.TemplateResponse("build/_step1.html", {"request": request, "error": res.get("error"), "selected": name})
-        resp.set_cookie("sid", sid, httponly=True, samesite="lax")
-        return resp
-    # Proceed to step2 placeholder and reset any prior build/session selections
-    sid = request.cookies.get("sid") or new_sid()
-    sess = get_session(sid)
-    # Reset sticky selections from previous runs
-    for k in [
-        "tags",
-        "ideals",
-        "bracket",
-        "build_ctx",
-        "last_step",
-        "tag_mode",
-        "mc_seen_keys",
-        "multi_copy",
-        "partner_enabled",
-        "secondary_commander",
-        "background",
-        "partner_mode",
-        "partner_warnings",
-        "combined_commander",
-        "partner_auto_note",
-    ]:
-        try:
-            if k in sess:
-                del sess[k]
-        except Exception:
-            pass
-    sess["last_step"] = 2
-    # Determine if commander is a Game Changer to drive bracket UI hiding
-    is_gc = False
-    try:
-        is_gc = bool(res.get("name") in getattr(bc, 'GAME_CHANGERS', []))
-    except Exception:
-        is_gc = False
-    
-    tags_raw = orch.tags_for_commander(res["name"])
-    recommended_raw = orch.recommended_tags_for_commander(res["name"])
-    tags_sorted, recommended_sorted, pool_size = _prepare_step2_theme_data(tags_raw, recommended_raw)
-    
-    # R21: Section themes by pool size if enabled
-    tag_sections = []
-    recommended_sections = []
-    if THEME_POOL_SECTIONS:
-        tag_sections = _section_themes_by_pool_size(tags_sorted, pool_size)
-        recommended_sections = _section_themes_by_pool_size(recommended_sorted, pool_size)
-    
-    context = {
-        "request": request,
-        "commander": res,
-        "tags": tags_sorted,
-        "recommended": recommended_sorted,
-        "recommended_reasons": orch.recommended_tag_reasons_for_commander(res["name"]),
-        "brackets": orch.bracket_options(),
-        "gc_commander": is_gc,
-        "selected_bracket": (3 if is_gc else None),
-        # Signal that this navigation came from a fresh commander confirmation,
-        # so the Step 2 UI should clear any localStorage theme persistence.
-        "clear_persisted": True,
-        "pool_size": pool_size,
-        "use_sections": THEME_POOL_SECTIONS,
-        "tag_sections": tag_sections,
-        "recommended_sections": recommended_sections,
-    }
-    context.update(
-        _partner_ui_context(
-            res["name"],
-            partner_enabled=False,
-            secondary_selection=None,
-            background_selection=None,
-            combined_preview=None,
-            warnings=None,
-            partner_error=None,
-            auto_note=None,
-        )
-    )
-    resp = templates.TemplateResponse("build/_step2.html", context)
-    resp.set_cookie("sid", sid, httponly=True, samesite="lax")
-    return resp
-
-
 @router.post("/reset-all", response_class=HTMLResponse)
 async def build_reset_all(request: Request) -> HTMLResponse:
     sid = request.cookies.get("sid") or new_sid()
@@ -381,560 +128,6 @@ async def build_reset_all(request: Request) -> HTMLResponse:
     sess.clear()
     resp = HTMLResponse("", status_code=200)
     resp.headers["HX-Redirect"] = "/build"
-    resp.set_cookie("sid", sid, httponly=True, samesite="lax")
-    return resp
-
-
-# ============================================================================
-# Step 2: Theme and Partner Selection
-# ============================================================================
-
-@router.get("/step2", response_class=HTMLResponse)
-async def build_step2_get(request: Request) -> HTMLResponse:
-    return RedirectResponse("/build", status_code=302)
-    if not commander:
-        # Fallback to step1 if no commander in session
-        resp = templates.TemplateResponse("build/_step1.html", {"request": request, "candidates": []})
-        resp.set_cookie("sid", sid, httponly=True, samesite="lax")
-        return resp
-    tags = orch.tags_for_commander(commander)
-    selected = sess.get("tags", [])
-    # Determine if the selected commander is considered a Game Changer (affects bracket choices)
-    is_gc = False
-    try:
-        is_gc = bool(commander in getattr(bc, 'GAME_CHANGERS', []))
-    except Exception:
-        is_gc = False
-    # Selected bracket: if GC commander and bracket < 3 or missing, default to 3
-    sel_br = sess.get("bracket")
-    try:
-        sel_br = int(sel_br) if sel_br is not None else None
-    except Exception:
-        sel_br = None
-    if is_gc and (sel_br is None or int(sel_br) < 3):
-        sel_br = 3
-    partner_enabled = bool(sess.get("partner_enabled") and ENABLE_PARTNER_MECHANICS)
-    
-    import logging
-    logger = logging.getLogger(__name__)
-    logger.info(f"Step2 GET: commander={commander}, partner_enabled={partner_enabled}, secondary={sess.get('secondary_commander')}")
-    
-    # Load theme pool size data and sort themes (R21 M1)
-    tags_raw = orch.tags_for_commander(commander)
-    recommended_raw = orch.recommended_tags_for_commander(commander)
-    tags_sorted, recommended_sorted, pool_size = _prepare_step2_theme_data(tags_raw, recommended_raw)
-    
-    # R21 Enhancement: Section themes by pool size if enabled
-    tag_sections = []
-    recommended_sections = []
-    if THEME_POOL_SECTIONS:
-        tag_sections = _section_themes_by_pool_size(tags_sorted, pool_size)
-        recommended_sections = _section_themes_by_pool_size(recommended_sorted, pool_size)
-    
-    context = {
-        "request": request,
-        "commander": {"name": commander},
-        "tags": tags_sorted,
-        "recommended": recommended_sorted,
-        "recommended_reasons": orch.recommended_tag_reasons_for_commander(commander),
-        "brackets": orch.bracket_options(),
-        "primary_tag": selected[0] if len(selected) > 0 else "",
-        "secondary_tag": selected[1] if len(selected) > 1 else "",
-        "tertiary_tag": selected[2] if len(selected) > 2 else "",
-        "selected_bracket": sel_br,
-        "tag_mode": sess.get("tag_mode", "AND"),
-        "gc_commander": is_gc,
-        # If there are no server-side tags for this commander, let the client clear any persisted ones
-        # to avoid themes sticking between fresh runs.
-        "clear_persisted": False if selected else True,
-        "pool_size": pool_size,  # R21 M1: Pass pool size data to template
-        "use_sections": THEME_POOL_SECTIONS,  # R21: Flag for template
-        "tag_sections": tag_sections,  # R21: Sectioned themes
-        "recommended_sections": recommended_sections,  # R21: Sectioned recommendations
-    }
-    context.update(
-        _partner_ui_context(
-            commander,
-            partner_enabled=partner_enabled,
-            secondary_selection=sess.get("secondary_commander") if partner_enabled else None,
-            background_selection=sess.get("background") if partner_enabled else None,
-            combined_preview=sess.get("combined_commander") if partner_enabled else None,
-            warnings=sess.get("partner_warnings") if partner_enabled else None,
-            partner_error=None,
-            auto_note=sess.get("partner_auto_note") if partner_enabled else None,
-            auto_assigned=sess.get("partner_auto_assigned") if partner_enabled else None,
-            auto_prefill_allowed=not bool(sess.get("partner_auto_opt_out")) if partner_enabled else True,
-        )
-    )
-    partner_tags = context.pop("partner_theme_tags", None)
-    if partner_tags:
-        import logging
-        logger = logging.getLogger(__name__)
-        # Re-sort partner tags by pool size using helper (R21 M1)
-        partner_tags_sorted, _, _ = _prepare_step2_theme_data(partner_tags, [])
-        context["tags"] = partner_tags_sorted
-        # Deduplicate recommended tags: remove any that are already in partner_tags
-        partner_tags_lower = {str(tag).strip().casefold() for tag in partner_tags}
-        original_recommended = context.get("recommended", [])
-        deduplicated_recommended = [
-            tag for tag in original_recommended
-            if str(tag).strip().casefold() not in partner_tags_lower
-        ]
-        # Re-sort deduplicated recommended tags using helper (R21 M1)
-        dedup_sorted, _, _ = _prepare_step2_theme_data(deduplicated_recommended, [])
-        logger.info(
-            f"Step2: partner_tags={len(partner_tags)}, "
-            f"original_recommended={len(original_recommended)}, "
-            f"deduplicated_recommended={len(deduplicated_recommended)}"
-        )
-        context["recommended"] = dedup_sorted
-    resp = templates.TemplateResponse("build/_step2.html", context)
-    resp.set_cookie("sid", sid, httponly=True, samesite="lax")
-    return resp
-
-
-@router.post("/step2", response_class=HTMLResponse)
-async def build_step2_submit(request: Request) -> HTMLResponse:
-    return RedirectResponse("/build", status_code=302)
-
-    partner_feature_enabled = ENABLE_PARTNER_MECHANICS
-    partner_flag = False
-    if partner_feature_enabled:
-        raw_partner_enabled = (partner_enabled or "").strip().lower()
-        partner_flag = raw_partner_enabled in {"1", "true", "on", "yes"}
-    auto_opt_out_flag = (partner_auto_opt_out or "").strip().lower() in {"1", "true", "on", "yes"}
-
-    # Validate primary tag selection if tags are available
-    available_tags = orch.tags_for_commander(commander)
-    if available_tags and not (primary_tag and primary_tag.strip()):
-        # Compute GC flag to hide disallowed brackets on error
-        is_gc = False
-        try:
-            is_gc = bool(commander in getattr(bc, 'GAME_CHANGERS', []))
-        except Exception:
-            is_gc = False
-        try:
-            sel_br = int(bracket) if bracket is not None else None
-        except Exception:
-            sel_br = None
-        if is_gc and (sel_br is None or sel_br < 3):
-            sel_br = 3
-        
-        recommended_raw = orch.recommended_tags_for_commander(commander)
-        available_tags_sorted, recommended_sorted, pool_size = _prepare_step2_theme_data(available_tags, recommended_raw)
-        
-        # R21: Section themes by pool size if enabled
-        tag_sections = []
-        recommended_sections = []
-        if THEME_POOL_SECTIONS:
-            tag_sections = _section_themes_by_pool_size(available_tags_sorted, pool_size)
-            recommended_sections = _section_themes_by_pool_size(recommended_sorted, pool_size)
-        
-        context = {
-            "request": request,
-            "commander": {"name": commander},
-            "tags": available_tags_sorted,
-            "recommended": recommended_sorted,
-            "recommended_reasons": orch.recommended_tag_reasons_for_commander(commander),
-            "brackets": orch.bracket_options(),
-            "error": "Please choose a primary theme.",
-            "primary_tag": primary_tag or "",
-            "secondary_tag": secondary_tag or "",
-            "tertiary_tag": tertiary_tag or "",
-            "selected_bracket": sel_br,
-            "tag_mode": (tag_mode or "AND"),
-            "gc_commander": is_gc,
-            "pool_size": pool_size,
-            "use_sections": THEME_POOL_SECTIONS,
-            "tag_sections": tag_sections,
-            "recommended_sections": recommended_sections,
-        }
-        context.update(
-            _partner_ui_context(
-                commander,
-                partner_enabled=partner_flag,
-                secondary_selection=secondary_commander if partner_flag else None,
-                background_selection=background if partner_flag else None,
-                combined_preview=None,
-                warnings=[],
-                partner_error=None,
-                auto_note=None,
-                auto_assigned=None,
-                auto_prefill_allowed=not auto_opt_out_flag,
-            )
-        )
-        partner_tags = context.pop("partner_theme_tags", None)
-        if partner_tags:
-            partner_tags_sorted, _, _ = _prepare_step2_theme_data(partner_tags, [])
-            context["tags"] = partner_tags_sorted
-        resp = templates.TemplateResponse("build/_step2.html", context)
-        resp.set_cookie("sid", sid, httponly=True, samesite="lax")
-        return resp
-
-    # Enforce bracket restrictions for Game Changer commanders (silently coerce to 3 if needed)
-    try:
-        is_gc = bool(commander in getattr(bc, 'GAME_CHANGERS', []))
-    except Exception:
-        is_gc = False
-    if is_gc:
-        try:
-            if int(bracket) < 3:
-                bracket = 3  # coerce silently
-        except Exception:
-            bracket = 3
-
-    (
-        partner_error,
-        combined_payload,
-        partner_warnings,
-        partner_auto_note,
-        resolved_secondary,
-        resolved_background,
-        partner_mode,
-        partner_auto_assigned_flag,
-    ) = _resolve_partner_selection(
-        commander,
-        feature_enabled=partner_feature_enabled,
-        partner_enabled=partner_flag,
-        secondary_candidate=secondary_commander,
-        background_candidate=background,
-        auto_opt_out=auto_opt_out_flag,
-        selection_source=partner_selection_source,
-    )
-
-    if partner_error:
-        try:
-            sel_br = int(bracket)
-        except Exception:
-            sel_br = None
-        
-        recommended_raw = orch.recommended_tags_for_commander(commander)
-        available_tags_sorted, recommended_sorted, pool_size = _prepare_step2_theme_data(available_tags, recommended_raw)
-        
-        # R21: Section themes by pool size if enabled
-        tag_sections = []
-        recommended_sections = []
-        if THEME_POOL_SECTIONS:
-            tag_sections = _section_themes_by_pool_size(available_tags_sorted, pool_size)
-            recommended_sections = _section_themes_by_pool_size(recommended_sorted, pool_size)
-        
-        context: dict[str, Any] = {
-            "request": request,
-            "commander": {"name": commander},
-            "tags": available_tags_sorted,
-            "recommended": recommended_sorted,
-            "recommended_reasons": orch.recommended_tag_reasons_for_commander(commander),
-            "brackets": orch.bracket_options(),
-            "primary_tag": primary_tag or "",
-            "secondary_tag": secondary_tag or "",
-            "tertiary_tag": tertiary_tag or "",
-            "selected_bracket": sel_br,
-            "tag_mode": (tag_mode or "AND"),
-            "gc_commander": is_gc,
-            "error": None,
-            "pool_size": pool_size,
-            "use_sections": THEME_POOL_SECTIONS,
-            "tag_sections": tag_sections,
-            "recommended_sections": recommended_sections,
-        }
-        context.update(
-            _partner_ui_context(
-                commander,
-                partner_enabled=partner_flag,
-                secondary_selection=resolved_secondary or secondary_commander,
-                background_selection=resolved_background or background,
-                combined_preview=combined_payload,
-                warnings=partner_warnings,
-                partner_error=partner_error,
-                auto_note=partner_auto_note,
-                auto_assigned=partner_auto_assigned_flag,
-                auto_prefill_allowed=not auto_opt_out_flag,
-            )
-        )
-        partner_tags = context.pop("partner_theme_tags", None)
-        if partner_tags:
-            partner_tags_sorted, _, _ = _prepare_step2_theme_data(partner_tags, [])
-            context["tags"] = partner_tags_sorted
-        resp = templates.TemplateResponse("build/_step2.html", context)
-        resp.set_cookie("sid", sid, httponly=True, samesite="lax")
-        return resp
-
-    # Save selection to session (basic MVP; real build will use this later)
-    sess["commander"] = commander
-    sess["tags"] = [t for t in [primary_tag, secondary_tag, tertiary_tag] if t]
-    sess["tag_mode"] = (tag_mode or "AND").upper()
-    sess["bracket"] = int(bracket)
-
-    if partner_flag and combined_payload:
-        sess["partner_enabled"] = True
-        if resolved_secondary:
-            sess["secondary_commander"] = resolved_secondary
-        else:
-            sess.pop("secondary_commander", None)
-        if resolved_background:
-            sess["background"] = resolved_background
-        else:
-            sess.pop("background", None)
-        if partner_mode:
-            sess["partner_mode"] = partner_mode
-        else:
-            sess.pop("partner_mode", None)
-        sess["combined_commander"] = combined_payload
-        sess["partner_warnings"] = partner_warnings
-        if partner_auto_note:
-            sess["partner_auto_note"] = partner_auto_note
-        else:
-            sess.pop("partner_auto_note", None)
-        sess["partner_auto_assigned"] = bool(partner_auto_assigned_flag)
-        sess["partner_auto_opt_out"] = bool(auto_opt_out_flag)
-    else:
-        sess["partner_enabled"] = False
-        for key in [
-            "secondary_commander",
-            "background",
-            "partner_mode",
-            "partner_warnings",
-            "combined_commander",
-            "partner_auto_note",
-        ]:
-            try:
-                sess.pop(key)
-            except KeyError:
-                pass
-        for key in ["partner_auto_assigned", "partner_auto_opt_out"]:
-            try:
-                sess.pop(key)
-            except KeyError:
-                pass
-
-    # Clear multi-copy seen/selection to re-evaluate on Step 3
-    try:
-        if "mc_seen_keys" in sess:
-            del sess["mc_seen_keys"]
-        if "multi_copy" in sess:
-            del sess["multi_copy"]
-        if "mc_applied_key" in sess:
-            del sess["mc_applied_key"]
-    except Exception:
-        pass
-    # Proceed to Step 3 placeholder for now
-    sess["last_step"] = 3
-    resp = templates.TemplateResponse(
-        "build/_step3.html",
-        {
-            "request": request,
-            "commander": commander,
-            "tags": sess["tags"],
-            "bracket": sess["bracket"],
-            "defaults": orch.ideal_defaults(),
-            "labels": orch.ideal_labels(),
-            "values": orch.ideal_defaults(),
-        },
-    )
-    resp.set_cookie("sid", sid, httponly=True, samesite="lax")
-    return resp
-
-
-# ============================================================================
-# Step 3: Ideal Card Counts
-# ============================================================================
-
-@router.get("/step3", response_class=HTMLResponse)
-async def build_step3_get(request: Request) -> HTMLResponse:
-    return RedirectResponse("/build", status_code=302)
-    values = sess.get("ideals") or defaults
-    
-    # Check if any skip flags are enabled to show skeleton automation page
-    skip_flags = {
-        "skip_lands": "land selection",
-        "skip_to_misc": "land selection",
-        "skip_basics": "basic lands",
-        "skip_staples": "staple lands",
-        "skip_kindred": "kindred lands",
-        "skip_fetches": "fetch lands",
-        "skip_duals": "dual lands",
-        "skip_triomes": "triome lands",
-        "skip_all_creatures": "creature selection",
-        "skip_creature_primary": "primary creatures",
-        "skip_creature_secondary": "secondary creatures",
-        "skip_creature_fill": "creature fills",
-        "skip_all_spells": "spell selection",
-        "skip_ramp": "ramp spells",
-        "skip_removal": "removal spells",
-        "skip_wipes": "board wipes",
-        "skip_card_advantage": "card advantage spells",
-        "skip_protection": "protection spells",
-        "skip_spell_fill": "spell fills",
-    }
-    
-    active_skips = [desc for key, desc in skip_flags.items() if sess.get(key, False)]
-    
-    if active_skips:
-        # Show skeleton automation page with auto-submit
-        automation_parts = []
-        if any("land" in s for s in active_skips):
-            automation_parts.append("lands")
-        if any("creature" in s for s in active_skips):
-            automation_parts.append("creatures")
-        if any("spell" in s for s in active_skips):
-            automation_parts.append("spells")
-        
-        automation_message = f"Applying default values for {', '.join(automation_parts)}..."
-        
-        resp = templates.TemplateResponse(
-            "build/_step3_skeleton.html",
-            {
-                "request": request,
-                "defaults": defaults,
-                "commander": sess.get("commander"),
-                "automation_message": automation_message,
-            },
-        )
-        resp.set_cookie("sid", sid, httponly=True, samesite="lax")
-        return resp
-    
-    # No skips enabled, show normal form
-    resp = templates.TemplateResponse(
-        "build/_step3.html",
-        {
-            "request": request,
-            "defaults": defaults,
-            "labels": orch.ideal_labels(),
-            "values": values,
-            "commander": sess.get("commander"),
-            "tags": sess.get("tags", []),
-            "bracket": sess.get("bracket"),
-        },
-    )
-    resp.set_cookie("sid", sid, httponly=True, samesite="lax")
-    return resp
-
-
-@router.post("/step3", response_class=HTMLResponse)
-async def build_step3_submit(request: Request) -> HTMLResponse:
-    return RedirectResponse("/build", status_code=302)
-    submitted = {
-        "ramp": ramp,
-        "lands": lands,
-        "basic_lands": basic_lands,
-        "creatures": creatures,
-        "removal": removal,
-        "wipes": wipes,
-        "card_advantage": card_advantage,
-        "protection": protection,
-    }
-
-    errors: list[str] = []
-    for k, v in submitted.items():
-        try:
-            iv = int(v)
-        except Exception:
-            errors.append(f"{labels.get(k, k)} must be a number.")
-            continue
-        if iv < 0:
-            errors.append(f"{labels.get(k, k)} cannot be negative.")
-        submitted[k] = iv
-    # Cross-field validation: basic lands should not exceed total lands
-    if isinstance(submitted.get("basic_lands"), int) and isinstance(submitted.get("lands"), int):
-        if submitted["basic_lands"] > submitted["lands"]:
-            errors.append("Basic Lands cannot exceed Total Lands.")
-
-    if errors:
-        sid = request.cookies.get("sid") or new_sid()
-        sess = get_session(sid)
-        sess["last_step"] = 3
-        resp = templates.TemplateResponse(
-            "build/_step3.html",
-            {
-                "request": request,
-                "defaults": orch.ideal_defaults(),
-                "labels": labels,
-                "values": submitted,
-                "error": " ".join(errors),
-                "commander": sess.get("commander"),
-                "tags": sess.get("tags", []),
-                "bracket": sess.get("bracket"),
-            },
-        )
-        resp.set_cookie("sid", sid, httponly=True, samesite="lax")
-        return resp
-
-    # Save to session
-    sid = request.cookies.get("sid") or new_sid()
-    sess = get_session(sid)
-    sess["ideals"] = submitted
-    # Any change to ideals should clear the applied marker, we may want to re-stage
-    try:
-        if "mc_applied_key" in sess:
-            del sess["mc_applied_key"]
-    except Exception:
-        pass
-
-    # Proceed to review (Step 4)
-    sess["last_step"] = 4
-    resp = templates.TemplateResponse(
-        "build/_step4.html",
-        {
-            "request": request,
-            "labels": labels,
-            "values": submitted,
-            "commander": sess.get("commander"),
-            "owned_only": bool(sess.get("use_owned_only")),
-            "prefer_owned": bool(sess.get("prefer_owned")),
-            "swap_mdfc_basics": bool(sess.get("swap_mdfc_basics")),
-        },
-    )
-    resp.set_cookie("sid", sid, httponly=True, samesite="lax")
-    return resp
-
-
-# ============================================================================
-# Step 4: Review and Owned Cards
-# ============================================================================
-
-@router.get("/step4", response_class=HTMLResponse)
-async def build_step4_get(request: Request) -> HTMLResponse:
-    return RedirectResponse("/build", status_code=302)
-    values = sess.get("ideals") or orch.ideal_defaults()
-    commander = sess.get("commander")
-    return templates.TemplateResponse(
-        "build/_step4.html",
-        {
-            "request": request,
-            "labels": labels,
-            "values": values,
-            "commander": commander,
-            "owned_only": bool(sess.get("use_owned_only")),
-            "prefer_owned": bool(sess.get("prefer_owned")),
-            "swap_mdfc_basics": bool(sess.get("swap_mdfc_basics")),
-        },
-    )
-
-
-@router.post("/toggle-owned-review", response_class=HTMLResponse)
-async def build_toggle_owned_review(request: Request) -> HTMLResponse:
-    return RedirectResponse("/build", status_code=302)
-    pref_val = True if (prefer_owned and str(prefer_owned).strip() in ("1","true","on","yes")) else False
-    swap_val = True if (swap_mdfc_basics and str(swap_mdfc_basics).strip() in ("1","true","on","yes")) else False
-    sess["use_owned_only"] = only_val
-    sess["prefer_owned"] = pref_val
-    sess["swap_mdfc_basics"] = swap_val
-    # Do not touch build_ctx here; user hasn't started the build yet from review
-    labels = orch.ideal_labels()
-    values = sess.get("ideals") or orch.ideal_defaults()
-    commander = sess.get("commander")
-    resp = templates.TemplateResponse(
-        "build/_step4.html",
-        {
-            "request": request,
-            "labels": labels,
-            "values": values,
-            "commander": commander,
-            "owned_only": bool(sess.get("use_owned_only")),
-            "prefer_owned": bool(sess.get("prefer_owned")),
-            "swap_mdfc_basics": bool(sess.get("swap_mdfc_basics")),
-        },
-    )
     resp.set_cookie("sid", sid, httponly=True, samesite="lax")
     return resp
 
@@ -959,11 +152,6 @@ async def build_step5_get(request: Request) -> HTMLResponse:
     return resp
 
 
-@router.get("/step5/start", response_class=HTMLResponse)
-async def build_step5_start_get(request: Request) -> HTMLResponse:
-    return RedirectResponse("/build", status_code=302)
-
-
 @router.post("/step5/start", response_class=HTMLResponse)
 async def build_step5_start(request: Request) -> HTMLResponse:
     """(Re)start the build from step 4 review page."""
@@ -971,11 +159,10 @@ async def build_step5_start(request: Request) -> HTMLResponse:
     sess = get_session(sid)
     commander = sess.get("commander")
     if not commander:
-        resp = templates.TemplateResponse(
-            "build/_step1.html",
-            {"request": request, "candidates": [], "error": "Please select a commander first."},
-        )
+        err_ctx = step5_error_ctx(request, sess, "Please select a commander first.", include_name=False)
+        resp = templates.TemplateResponse("build/_step5.html", err_ctx)
         resp.set_cookie("sid", sid, httponly=True, samesite="lax")
+        _merge_hx_trigger(resp, {"step5:refresh": {"token": err_ctx.get("summary_token", 0)}})
         return resp
     try:
         import time as _time
@@ -1003,6 +190,7 @@ async def build_step5_start(request: Request) -> HTMLResponse:
         resp = templates.TemplateResponse("build/_step5.html", ctx)
         resp.set_cookie("sid", sid, httponly=True, samesite="lax")
         _merge_hx_trigger(resp, {"step5:refresh": {"token": ctx.get("summary_token", 0)}})
+        apply_deck_view_redirect(resp, ctx)
         return resp
     except Exception as e:
         err_ctx = step5_error_ctx(request, sess, f"Failed to start build: {e}", include_name=False)
@@ -1020,10 +208,12 @@ async def build_step5_continue(request: Request) -> HTMLResponse:
     sess = get_session(sid)
     if "replace_mode" not in sess:
         sess["replace_mode"] = True
-    # Validate commander; redirect to step1 if missing
+    # Validate commander; render an inline error if missing
     if not sess.get("commander"):
-        resp = templates.TemplateResponse("build/_step1.html", {"request": request, "candidates": [], "error": "Please select a commander first."})
+        err_ctx = step5_error_ctx(request, sess, "Please select a commander first.", include_name=False)
+        resp = templates.TemplateResponse("build/_step5.html", err_ctx)
         resp.set_cookie("sid", sid, httponly=True, samesite="lax")
+        _merge_hx_trigger(resp, {"step5:refresh": {"token": err_ctx.get("summary_token", 0)}})
         return resp
     # Ensure build context exists; if not, start it first
     if not sess.get("build_ctx"):
@@ -1103,6 +293,7 @@ async def build_step5_continue(request: Request) -> HTMLResponse:
     resp = templates.TemplateResponse("build/_step5.html", ctx2)
     resp.set_cookie("sid", sid, httponly=True, samesite="lax")
     _merge_hx_trigger(resp, {"step5:refresh": {"token": ctx2.get("summary_token", 0)}})
+    apply_deck_view_redirect(resp, ctx2)
     return resp
 
 
@@ -1114,8 +305,10 @@ async def build_step5_rerun(request: Request) -> HTMLResponse:
     if "replace_mode" not in sess:
         sess["replace_mode"] = True
     if not sess.get("commander"):
-        resp = templates.TemplateResponse("build/_step1.html", {"request": request, "candidates": [], "error": "Please select a commander first."})
+        err_ctx = step5_error_ctx(request, sess, "Please select a commander first.", include_name=False)
+        resp = templates.TemplateResponse("build/_step5.html", err_ctx)
         resp.set_cookie("sid", sid, httponly=True, samesite="lax")
+        _merge_hx_trigger(resp, {"step5:refresh": {"token": err_ctx.get("summary_token", 0)}})
         return resp
     # Rerun requires an existing context; if missing, create it and run first stage as rerun
     if not sess.get("build_ctx"):
@@ -1175,6 +368,7 @@ async def build_step5_rerun(request: Request) -> HTMLResponse:
     resp = templates.TemplateResponse("build/_step5.html", ctx3)
     resp.set_cookie("sid", sid, httponly=True, samesite="lax")
     _merge_hx_trigger(resp, {"step5:refresh": {"token": ctx3.get("summary_token", 0)}})
+    apply_deck_view_redirect(resp, ctx3)
     return resp
 
 

@@ -156,6 +156,7 @@ class CreatureAdditionMixin:
             if combine_mode == 'AND' and len(selected_tags_lower) > 1:
                 if (creature_df['_multiMatch'] >= 2).any():
                     subset = subset[subset['_multiMatch'] >= 2]
+            subset = bu.expand_theme_subset_with_metadata(subset, creature_df, slug)
             if subset.empty:
                 self.output_func(f"Theme '{tag}' produced no creature candidates.")
                 continue
@@ -446,7 +447,17 @@ class CreatureAdditionMixin:
         for t in [getattr(self, 'primary_tag', None), getattr(self, 'secondary_tag', None), getattr(self, 'tertiary_tag', None)]:
             if t:
                 selected_tags_lower.append(t.lower())
-        creature_df['_multiMatch'] = creature_df['_normTags'].apply(lambda lst: sum(1 for t in selected_tags_lower if t in lst))
+
+        def _multi_match_count(row):
+            norm = row['_normTags']
+            cnt = 0
+            for t in selected_tags_lower:
+                if t in norm:
+                    cnt += 1
+                elif bu.is_theme_assist_card(t, row.get('metadataTags'), row.get('themeTags')):
+                    cnt += 1
+            return cnt
+        creature_df['_multiMatch'] = creature_df.apply(_multi_match_count, axis=1)
         return creature_df
 
     def _apply_bracket_pre_filters(self, df):
@@ -547,6 +558,7 @@ class CreatureAdditionMixin:
             return
         tnorm = str(tag).lower()
         subset = creature_df[creature_df['_normTags'].apply(lambda lst, tn=tnorm: (tn in lst) or any(tn in x for x in lst))]
+        subset = bu.expand_theme_subset_with_metadata(subset, creature_df, tnorm)
         if subset.empty:
             self.output_func(f"Theme '{tag}' produced no creature candidates.")
             return

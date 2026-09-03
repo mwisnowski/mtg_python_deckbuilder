@@ -39,7 +39,7 @@ def _candidate_pool_for_role(builder, role: str) -> List[Tuple[str, dict]]:
     work["_ltags"] = work.get("themeTags", []).apply(_norm_tags)
     # Role to tag predicates
     def _is_protection(tags: List[str]) -> bool:
-        return any("protection" in t for t in tags)
+        return any("protection" in t or t == "protective effects" for t in tags)
 
     def _is_draw(tags: List[str]) -> bool:
         return any(("draw" in t) or ("card advantage" in t) for t in tags)

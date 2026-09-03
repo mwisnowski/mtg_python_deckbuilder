@@ -177,7 +177,6 @@
       <div class="my-1.5 text-muted flex gap-2 items-center flex-wrap">
         <span>Owned-only: <strong>{{ 'On' if owned_only else 'Off' }}</strong></span>
           <div class="flex items-center gap-4 flex-wrap">
-            <button type="button" hx-get="/build/step4" hx-target="#wizard" hx-swap="innerHTML" class="bg-gray-700 text-gray-200 border-0 rounded-md px-2 py-1 cursor-pointer text-xs" title="Change owned settings in Review">Edit in Review</button>
             <div>Prefer-owned: <strong>{{ 'On' if prefer_owned else 'Off' }}</strong></div>
             <div>MDFC swap: <strong>{{ 'On' if swap_mdfc_basics else 'Off' }}</strong></div>
           </div>
@@ -364,7 +363,6 @@
           <button type="submit" class="btn-continue" data-action="continue">Restart Build</button>
         </form>
         <button type="button" class="btn" hx-get="/build/new?reset=1" hx-target="body" hx-swap="beforeend" title="Start a brand new build (clears selections)">New build</button>
-  <button type="button" class="btn-back" data-action="back" hx-get="/build/step4" hx-target="#wizard" hx-swap="innerHTML">Back</button>
       </div>
   {% else %}
   <!-- Sticky build controls on mobile -->
@@ -403,7 +401,6 @@
                  onchange="const val=this.checked?'1':'0'; for(const f of this.closest('section').querySelectorAll('form')){ const h=f.querySelector('input[name=show_skipped]'); if(h) h.value=val; }" />
           Show skipped stages
         </label>
-  <button type="button" class="btn-back" data-action="back" hx-get="/build/step4" hx-target="#wizard" hx-swap="innerHTML">Back</button>
       </div>
   {% endif %}
 

@@ -480,6 +480,11 @@ DEFAULT_WIPES_COUNT: Final[int] = 2  # Default number of board wipes
 
 DEFAULT_CARD_ADVANTAGE_COUNT: Final[int] = 10  # Default number of card advantage pieces
 DEFAULT_PROTECTION_COUNT: Final[int] = 8  # Default number of protective effects (hexproof, indestructible, protection, ward, etc.)
+# Equipment/Auras are popular on EDHREC but many can't protect a creature the turn they're played
+# (need to be cast, then equipped/enchanted separately). Cap how many count toward the Protection
+# target so a build isn't dominated by them; decks wanting more should lean into an Equipment/Auras theme instead.
+PROTECTION_EQUIPMENT_AURA_CAP_MIN: Final[int] = 2
+PROTECTION_EQUIPMENT_AURA_CAP_MAX: Final[int] = 3
 
 # Non-commander deck slots (99 = 100-card deck minus the commander's own slot)
 DECK_NON_COMMANDER_SLOTS: Final[int] = 99

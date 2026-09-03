@@ -156,7 +156,6 @@ interface SkeletonManager {
   const keymap: Record<string, () => void> = {
     ' ': function(){ const el = document.querySelector('[data-action="continue"], .btn-continue') as HTMLElement; if (el) el.click(); },
     'r': function(){ const el = document.querySelector('[data-action="rerun"], .btn-rerun') as HTMLElement; if (el) el.click(); },
-    'b': function(){ const el = document.querySelector('[data-action="back"], .btn-back') as HTMLElement; if (el) el.click(); },
     'l': function(){ const el = document.querySelector('[data-action="toggle-logs"], .btn-logs') as HTMLElement; if (el) el.click(); },
   };
   document.addEventListener('keydown', function(e){

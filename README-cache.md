@@ -1,0 +1,17 @@
+# Similarity Cache Data
+This branch contains pre-built similarity cache files for the MTG Deckbuilder.
+Updated automatically by GitHub Actions.
+
+## Files
+- `card_files/similarity_cache.parquet` - Pre-computed card similarity cache
+- `card_files/similarity_cache_metadata.json` - Cache metadata
+- `card_files/processed/all_cards.parquet` - Tagged card database (with prices)
+- `card_files/processed/commander_cards.parquet` - Commander-only cache (fast lookups)
+- `card_files/processed/.tagging_complete.json` - Tagging status
+- `card_files/prices_cache.json` - Scryfall price cache
+- `card_files/ck_prices_cache.json` - Card Kingdom price cache
+- `card_files/prices_cache.json.ts` - Per-card price timestamps (if present)
+- `card_files/processed/rulings_cache.json` - Official card rulings from Scryfall bulk data
+- `card_files/processed/card_printings.parquet` - Per-printing metadata index (set, collector number, art) for the Choose Printing feature
+- `card_files/processed/tokens.parquet` - Token/emblem catalog (canonical identities + creator card references)
+- `card_files/processed/token_printings.parquet` - Per-printing metadata index for token/emblem artwork (Choose Printing feature)
